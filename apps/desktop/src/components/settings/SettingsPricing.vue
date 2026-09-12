@@ -3,11 +3,16 @@ import type { ModelPriceEntry } from "@tracepilot/types";
 import { ActionButton, FormInput, SearchInput, SectionPanel } from "@tracepilot/ui";
 import { computed, reactive, ref } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
+import {
+  parseWholesaleRate,
+  type WholesaleRateField as RateField,
+} from "@/stores/preferences/pricingValidation";
 
 const preferences = usePreferencesStore();
 
 const newModelName = ref("");
-const newRates = reactive<Record<RateField, number>>({
+type RateDraft = string | number;
+const newRates = reactive<Record<RateField, RateDraft>>({
   inputPerM: 0,
   cachedInputPerM: 0,
   cacheWritePerM: 0,
@@ -15,28 +20,29 @@ const newRates = reactive<Record<RateField, number>>({
 });
 const modelSearch = ref("");
 
-type RateField = "inputPerM" | "cachedInputPerM" | "cacheWritePerM" | "outputPerM";
+const rateDrafts = reactive(new Map<ModelPriceEntry, Partial<Record<RateField, RateDraft>>>());
+const hasInvalidNewRate = computed(() =>
+  RATE_COLUMNS.some(({ field }) => parseWholesaleRate(newRates[field]) === null),
+);
+const canAddRate = computed(() => Boolean(newModelName.value.trim()) && !hasInvalidNewRate.value);
 
 const RATE_COLUMNS: readonly {
   field: RateField;
   label: string;
   description: string;
-  step: string;
 }[] = [
-  { field: "inputPerM", label: "Input", description: "Input", step: "0.01" },
+  { field: "inputPerM", label: "Input", description: "Input" },
   {
     field: "cachedInputPerM",
     label: "Cached read",
     description: "Cached input",
-    step: "0.001",
   },
   {
     field: "cacheWritePerM",
     label: "Cache write",
     description: "Cache write",
-    step: "0.001",
   },
-  { field: "outputPerM", label: "Output", description: "Output", step: "0.01" },
+  { field: "outputPerM", label: "Output", description: "Output" },
 ];
 
 const FAMILY_DEFINITIONS = [
@@ -110,20 +116,43 @@ const visibleRateCount = computed(() =>
 
 function addModelPrice() {
   const model = newModelName.value.trim();
-  if (!model) return;
-  preferences.addWholesalePrice({
-    model,
-    ...newRates,
-    premiumRequests: 1,
-    status: "user-override",
-    sourceLabel: "Local settings override",
-  });
+  if (!canAddRate.value) return;
+  const rates = Object.fromEntries(
+    RATE_COLUMNS.map(({ field }) => [field, parseWholesaleRate(newRates[field])]),
+  ) as Record<RateField, number>;
+  if (
+    !preferences.addWholesalePrice({
+      model,
+      ...rates,
+      premiumRequests: 1,
+      status: "user-override",
+      sourceLabel: "Local settings override",
+    })
+  )
+    return;
   newModelName.value = "";
   for (const column of RATE_COLUMNS) newRates[column.field] = 0;
 }
 
-function updateRate(index: number, field: RateField, value: unknown) {
-  preferences.modelWholesalePrices[index][field] = Number(value);
+function rateValue(price: ModelPriceEntry, field: RateField): RateDraft {
+  return rateDrafts.get(price)?.[field] ?? price[field] ?? 0;
+}
+
+function draftRate(price: ModelPriceEntry, field: RateField, value: unknown) {
+  const drafts = rateDrafts.get(price) ?? {};
+  drafts[field] = typeof value === "string" || typeof value === "number" ? value : "";
+  rateDrafts.set(price, drafts);
+}
+
+function discardRate(price: ModelPriceEntry, field: RateField) {
+  const drafts = rateDrafts.get(price);
+  if (drafts) delete drafts[field];
+}
+
+function commitRate(price: ModelPriceEntry, field: RateField) {
+  const value = parseWholesaleRate(rateValue(price, field));
+  if (value !== null && preferences.updateWholesaleRate(price, field, value))
+    discardRate(price, field);
 }
 </script>
 
@@ -161,6 +190,7 @@ function updateRate(index: number, field: RateField, value: unknown) {
 
       <p class="pricing-description pricing-description--panel">
         USD per 1 million tokens. Expand a model family to review or edit its rates.
+        Edits save on leaving a field or pressing Enter. Escape restores the saved rate.
       </p>
 
       <div class="pricing-toolbar">
@@ -213,13 +243,22 @@ function updateRate(index: number, field: RateField, value: unknown) {
                   <td v-for="column in RATE_COLUMNS" :key="column.field" class="text-center">
                     <FormInput
                       type="number"
-                      :model-value="price[column.field] ?? 0"
-                      @update:model-value="updateRate(index, column.field, $event)"
-                      :step="column.step"
+                      :model-value="rateValue(price, column.field)"
+                      @update:model-value="draftRate(price, column.field, $event)"
+                      @blur="commitRate(price, column.field)"
+                      @keydown.enter.prevent="commitRate(price, column.field)"
+                      @keydown.esc.prevent="discardRate(price, column.field)"
+                      step="any"
                       min="0"
                       class="pricing-input"
                       :aria-label="`${price.model} ${column.description.toLowerCase()} price per 1M tokens`"
+                      :aria-invalid="parseWholesaleRate(rateValue(price, column.field)) === null"
+                      :aria-describedby="parseWholesaleRate(rateValue(price, column.field)) === null ? `pricing-error-${index}-${column.field}` : undefined"
                     />
+                    <span v-if="parseWholesaleRate(rateValue(price, column.field)) === null"
+                      :id="`pricing-error-${index}-${column.field}`" class="rate-validation" role="alert">
+                      Enter a number of 0 or greater. This rate is not saved.
+                    </span>
                   </td>
                   <td class="pricing-meta-cell" :title="sourceTooltip(price.model)">
                     <span class="pricing-source-label">{{ sourceLabel(price.model) }}</span>
@@ -259,23 +298,36 @@ function updateRate(index: number, field: RateField, value: unknown) {
             <span>{{ column.label }}</span>
             <FormInput
               :model-value="newRates[column.field]"
-              @update:model-value="newRates[column.field] = Number($event)"
+              @update:model-value="newRates[column.field] = $event ?? ''"
               type="number"
-              :step="column.step"
+              step="any"
               min="0"
               class="pricing-input"
+              :aria-invalid="parseWholesaleRate(newRates[column.field]) === null"
+              :aria-describedby="hasInvalidNewRate ? 'pricing-new-rate-error' : undefined"
             />
           </label>
-          <ActionButton size="sm" :disabled="!newModelName.trim()" @click="addModelPrice">
+          <ActionButton size="sm" :disabled="!canAddRate" @click="addModelPrice">
             Add rate
           </ActionButton>
         </div>
+        <p v-if="hasInvalidNewRate" id="pricing-new-rate-error" class="rate-validation" role="alert">
+          Enter a number of 0 or greater in every rate field.
+        </p>
       </details>
     </SectionPanel>
   </div>
 </template>
 
 <style scoped>
+.rate-validation {
+  display: block;
+  color: var(--danger-fg);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
 .pricing-description {
   margin-bottom: 10px;
   color: var(--text-tertiary);

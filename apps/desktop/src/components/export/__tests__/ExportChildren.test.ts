@@ -262,6 +262,32 @@ describe("ExportSectionsPanel", () => {
 });
 
 describe("ExportPreviewPanel", () => {
+  it("keeps the effective Raw selection visible after switching from rendered Markdown", async () => {
+    const wrapper = mount(ExportPreviewPanel, {
+      props: {
+        format: "markdown",
+        preview: null,
+        loading: false,
+        error: null,
+        hasSelectedSession: true,
+      },
+    });
+    const [raw, rendered] = wrapper.findAll(".view-toggle-btn");
+    await rendered.trigger("click");
+    expect(rendered.classes()).toContain("active");
+    for (const format of ["json", "zip"] as const) {
+      await wrapper.setProps({ format });
+      expect(raw.classes()).toContain("active");
+      expect(raw.attributes("aria-pressed")).toBe("true");
+      expect(rendered.classes()).not.toContain("active");
+      expect(rendered.attributes("disabled")).toBeDefined();
+    }
+    expect(wrapper.find(".emptystate").attributes("description")).toContain(
+      "Preview is unavailable",
+    );
+    wrapper.unmount();
+  });
+
   it("shows the empty state when no session is selected", () => {
     const wrapper = mount(ExportPreviewPanel, {
       props: {

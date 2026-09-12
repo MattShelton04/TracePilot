@@ -52,15 +52,17 @@ function copyToClipboard() {
           <div class="view-toggle">
             <button
               class="view-toggle-btn"
-              :class="{ active: previewView === 'raw' }"
+              :class="{ active: previewView === 'raw' || !canRenderPreview }"
+              :aria-pressed="previewView === 'raw' || !canRenderPreview"
               @click="previewView = 'raw'"
             >
               Raw
             </button>
             <button
               class="view-toggle-btn"
-              :class="{ active: previewView === 'rendered', disabled: !canRenderPreview }"
+              :class="{ active: previewView === 'rendered' && canRenderPreview, disabled: !canRenderPreview }"
               :disabled="!canRenderPreview"
+              :aria-pressed="previewView === 'rendered' && canRenderPreview"
               :title="canRenderPreview ? 'Rendered preview' : 'Rendered view is only available for Markdown'"
               @click="canRenderPreview && (previewView = 'rendered')"
             >
@@ -77,7 +79,10 @@ function copyToClipboard() {
             <template #icon>📤</template>
           </EmptyState>
         </div>
-        <div v-else-if="loading" class="preview-loading">
+        <div v-else-if="format === 'zip'" class="preview-empty">
+          <EmptyState description="Raw Zip includes the original session files. Preview is unavailable for this format." size="sm" />
+        </div>
+        <div v-else-if="loading" class="preview-loading" role="status">
           <span class="spinner" /> Generating preview…
         </div>
         <div v-else-if="error" class="preview-error">

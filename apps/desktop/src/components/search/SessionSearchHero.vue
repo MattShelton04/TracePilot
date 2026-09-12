@@ -4,6 +4,7 @@ import { ref } from "vue";
 defineProps<{
   query: string;
   filtersOpen: boolean;
+  filtersId?: string;
   activeFilterCount: number;
   sortBy: string;
   isBrowseMode: boolean;
@@ -17,7 +18,11 @@ const emit = defineEmits<{
 }>();
 
 const inputRef = ref<HTMLInputElement | null>(null);
-defineExpose({ inputRef });
+const filterToggleRef = ref<HTMLButtonElement | null>(null);
+function focusFilterToggle() {
+  filterToggleRef.value?.focus();
+}
+defineExpose({ inputRef, focusFilterToggle });
 </script>
 
 <template>
@@ -55,9 +60,12 @@ defineExpose({ inputRef });
 
     <div class="search-controls">
       <button
+        ref="filterToggleRef"
         class="filter-toggle-btn"
         :class="{ active: filtersOpen }"
         aria-label="Toggle filters"
+        :aria-expanded="filtersOpen"
+        :aria-controls="filtersId"
         @click="emit('update:filtersOpen', !filtersOpen)"
       >
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">

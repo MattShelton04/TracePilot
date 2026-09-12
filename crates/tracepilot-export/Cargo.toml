@@ -7,7 +7,7 @@ edition.workspace = true
 [dependencies]
 tracepilot-core = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
 serde_norway = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }

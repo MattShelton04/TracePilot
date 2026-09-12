@@ -49,6 +49,8 @@ export { matchesCombo, useKeydown, useShortcut } from "./useKeyboard";
 export { useLiveDuration } from "./useLiveDuration";
 export type { UseLocalStorageOptions } from "./useLocalStorage";
 export { useLocalStorage } from "./useLocalStorage";
+export type { UseOverlayFocusOptions } from "./useOverlayFocus";
+export { useOverlayFocus } from "./useOverlayFocus";
 export type { UsePersistedRefOptions } from "./usePersistedRef";
 export { usePersistedRef } from "./usePersistedRef";
 export type {

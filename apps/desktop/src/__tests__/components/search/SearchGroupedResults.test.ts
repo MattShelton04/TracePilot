@@ -1,6 +1,6 @@
 import type { ContentTypeStyle } from "@tracepilot/ui";
-import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { mount, type VueWrapper } from "@vue/test-utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import SearchGroupedResults from "../../../components/search/SearchGroupedResults.vue";
 import type { SessionGroup } from "../../../stores/search";
 
@@ -57,8 +57,15 @@ const MOCK_GROUP: SessionGroup = {
   ],
 };
 
+const wrappers: VueWrapper[] = [];
+afterEach(() => {
+  for (const wrapper of wrappers.splice(0)) wrapper.unmount();
+  document.body.replaceChildren();
+});
+
 function mountResults(props: Record<string, unknown> = {}) {
-  return mount(SearchGroupedResults, {
+  const wrapper = mount(SearchGroupedResults, {
+    attachTo: document.body,
     props: {
       groupedResults: [MOCK_GROUP],
       collapsedGroups: new Set<string>(),
@@ -78,6 +85,8 @@ function mountResults(props: Record<string, unknown> = {}) {
       stubs: { "router-link": { template: "<a><slot /></a>" } },
     },
   });
+  wrappers.push(wrapper);
+  return wrapper;
 }
 
 describe("SearchGroupedResults", () => {
@@ -116,14 +125,32 @@ describe("SearchGroupedResults", () => {
     const wrapper = mountResults({
       collapsedGroups: new Set(["sess-abc"]),
     });
-    expect(wrapper.find(".session-group-results").exists()).toBe(false);
+    expect(wrapper.get(".session-group-results").isVisible()).toBe(false);
+    expect(wrapper.findAll(".session-group-result")).toHaveLength(0);
     expect(wrapper.find(".session-group-chevron").classes()).toContain("collapsed");
   });
 
-  it("emits toggle-group-collapse on header click", async () => {
+  it("exposes a native collapse button associated with the current result region", async () => {
     const wrapper = mountResults();
-    await wrapper.find(".session-group-header").trigger("click");
+    const toggle = wrapper.get<HTMLButtonElement>(".session-group-toggle");
+    expect(toggle.element.tagName).toBe("BUTTON");
+    expect(toggle.element.type).toBe("button");
+    expect(toggle.element.tabIndex).toBe(0);
+    expect(toggle.attributes("aria-expanded")).toBe("true");
+    expect(toggle.attributes("aria-controls")).toBe(
+      wrapper.get(".session-group-results").attributes("id"),
+    );
+    expect(toggle.attributes("aria-label")).toBe("Collapse matches for OAuth Implementation");
+    expect(toggle.findAll("button, a, input")).toHaveLength(0);
+    await toggle.trigger("click");
     expect(wrapper.emitted("toggle-group-collapse")).toEqual([["sess-abc"]]);
+    await wrapper.setProps({ collapsedGroups: new Set(["sess-abc"]) });
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+    expect(toggle.attributes("aria-label")).toBe("Expand matches for OAuth Implementation");
+    expect(wrapper.get(".session-group-results").isVisible()).toBe(false);
+    await wrapper.setProps({ collapsedGroups: new Set<string>() });
+    expect(wrapper.get(".session-group-results").isVisible()).toBe(true);
+    expect(wrapper.findAll(".session-group-result")).toHaveLength(2);
   });
 
   it("emits toggle-expand on result click", async () => {
@@ -136,6 +163,27 @@ describe("SearchGroupedResults", () => {
     const wrapper = mountResults();
     await wrapper.find(".session-group-filter-btn").trigger("click");
     expect(wrapper.emitted("filter-by-session")).toEqual([["sess-abc", "OAuth Implementation"]]);
+    expect(wrapper.emitted("toggle-group-collapse")).toBeUndefined();
+  });
+
+  it("keeps session navigation separate from collapse", async () => {
+    const wrapper = mountResults();
+    const link = wrapper.get(".session-group-goto-btn");
+    expect(link.attributes("to")).toBe("/session/sess-abc/conversation");
+    await link.trigger("click");
+    expect(wrapper.emitted("toggle-group-collapse")).toBeUndefined();
+    expect(wrapper.emitted("filter-by-session")).toBeUndefined();
+  });
+
+  it("uses distinct controlled regions for different groups", () => {
+    const group = { ...MOCK_GROUP, sessionId: "second-session" };
+    const first = mountResults({ groupedResults: [MOCK_GROUP, group] });
+    const controls = first
+      .findAll(".session-group-toggle")
+      .map((toggle) => toggle.attributes("aria-controls"));
+    expect(controls).toHaveLength(2);
+    expect(controls.every(Boolean)).toBe(true);
+    expect(new Set(controls).size).toBe(2);
   });
 
   it("shows expanded details for expanded results", () => {

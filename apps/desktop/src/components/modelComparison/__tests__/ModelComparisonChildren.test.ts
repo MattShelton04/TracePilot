@@ -120,13 +120,13 @@ describe("ModelLeaderboard", () => {
     expect(wrapper.find(".cost-toggle").exists()).toBe(false);
   });
 
-  it("invokes toggleSort when sort header clicked", async () => {
+  it("invokes toggleSort when its header button is activated", async () => {
     const ctx = makeCtxStub({
       modelRows: [makeRow()],
       displayRows: [makeRow()],
     });
     const wrapper = mount(hostFor(ModelLeaderboard, ctx));
-    await wrapper.findAll(".sort-header")[0]!.trigger("click");
+    await wrapper.get('button[aria-label="Sort by Model"]').trigger("click");
     expect(ctx.toggleSort).toHaveBeenCalledWith("model");
   });
 

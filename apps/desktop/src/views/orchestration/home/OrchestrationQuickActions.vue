@@ -30,7 +30,7 @@ const allQuickActions: QuickAction[] = [
   {
     icon: LayoutDashboard,
     title: "Open Mission Control",
-    desc: "Real-time session dashboard",
+    desc: "Real-time session dashboard — coming soon",
     to: null,
     disabled: true,
   },
@@ -71,23 +71,22 @@ function navigateAction(action: QuickAction) {
       <span>Quick Actions</span>
     </div>
     <div class="actions-grid" data-testid="orchestration-actions">
-      <div
+      <button
         v-for="action in quickActions"
         :key="action.title"
         class="action-card"
         :class="{ disabled: action.disabled }"
         :data-testid="`action-${action.title.toLowerCase().replace(/\s+/g, '-')}`"
-        tabindex="0"
-        role="button"
+        type="button"
+        :disabled="action.disabled"
         @click="navigateAction(action)"
-        @keydown.enter="navigateAction(action)"
       >
         <div class="action-emoji-wrap">
           <component :is="action.icon" :size="22" :stroke-width="1.5" aria-hidden="true" />
         </div>
         <div class="action-title">{{ action.title }}</div>
         <div class="action-desc">{{ action.desc }}</div>
-      </div>
+      </button>
     </div>
   </div>
 </template>
@@ -121,6 +120,8 @@ function navigateAction(action: QuickAction) {
 }
 
 .action-card {
+  font: inherit;
+  text-align: left;
   padding: 20px;
   border-radius: var(--radius-lg);
   background: var(--canvas-subtle);

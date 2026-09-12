@@ -67,6 +67,11 @@ describe("SdkDiagnosticsPanel", () => {
     });
     expect(wrapper.text()).toContain("Advanced");
     expect(wrapper.text()).not.toContain("Run Diagnostics");
+    const toggle = wrapper.get<HTMLButtonElement>(".sdk-advanced-toggle");
+    expect(toggle.element.tagName).toBe("BUTTON");
+    expect(toggle.attributes("type")).toBe("button");
+    expect(toggle.element.tabIndex).toBe(0);
+    expect(toggle.attributes("aria-expanded")).toBe("false");
   });
 
   it("expands to show the run / log-level controls when toggled", async () => {
@@ -82,5 +87,16 @@ describe("SdkDiagnosticsPanel", () => {
     expect(wrapper.text()).toContain("SDK log level");
     expect(wrapper.text()).toContain("Run Diagnostics");
     expect(wrapper.text()).toContain("Raw State");
+    const toggle = wrapper.get(".sdk-advanced-toggle");
+    expect(toggle.attributes("aria-expanded")).toBe("true");
+    expect(wrapper.get(`[id="${toggle.attributes("aria-controls")}"]`).isVisible()).toBe(true);
+    const select = wrapper.get<HTMLSelectElement>("select");
+    expect(select.element.labels?.[0]?.textContent).toBe("SDK log level");
+    expect(wrapper.get(`[id="${select.attributes("aria-describedby")}"]`).text()).toContain(
+      "Verbosity",
+    );
+    await toggle.trigger("click");
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+    expect(wrapper.find("select").exists()).toBe(false);
   });
 });

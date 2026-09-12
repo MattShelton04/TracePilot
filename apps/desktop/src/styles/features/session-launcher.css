@@ -226,8 +226,8 @@
 
 /* ── Form elements ───────────────────────────────────────────────── */
 .session-launcher-feature .form-grid-2col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 14px;
 }
 
@@ -237,6 +237,11 @@
 
 .session-launcher-feature .form-group:last-child {
   margin-bottom: 0;
+}
+
+.session-launcher-feature .form-grid-2col > .form-group {
+  flex: 1 1 calc((100% - 14px) / 2);
+  min-width: min(100%, 220px);
 }
 
 .session-launcher-feature .form-label {
@@ -330,6 +335,11 @@
   background: var(--accent-muted, color-mix(in srgb, var(--accent-emphasis) 15%, transparent));
   color: var(--accent-fg);
   font-weight: 600;
+}
+
+.session-launcher-feature .btn-group-item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 /* ── Advanced Options ────────────────────────────────────────────── */
@@ -937,11 +947,13 @@
 
 .session-launcher-feature .repo-input-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .session-launcher-feature .repo-input-row .form-input {
-  flex: 1;
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
 .session-launcher-feature .repo-browse-btn {

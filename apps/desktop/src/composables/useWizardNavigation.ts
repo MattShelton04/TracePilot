@@ -1,9 +1,10 @@
-import { computed, nextTick, type Ref, ref } from "vue";
+import { computed, nextTick, onScopeDispose, type Ref, ref } from "vue";
 
 export interface WizardNavigationOptions {
   totalSteps: number;
   prefersReducedMotion: Ref<boolean>;
   slidesViewport: Ref<HTMLElement | null>;
+  canNavigate?: (step: number) => boolean;
 }
 
 /**
@@ -13,11 +14,20 @@ export interface WizardNavigationOptions {
 export function useWizardNavigation(options: WizardNavigationOptions) {
   const currentStep = ref(0);
   const transitioning = ref(false);
+  let transitionTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const canNext = computed(
-    () => currentStep.value < options.totalSteps - 1 && !transitioning.value,
-  );
-  const canPrev = computed(() => currentStep.value > 0 && !transitioning.value);
+  function canGoTo(step: number) {
+    return (
+      Number.isInteger(step) &&
+      step >= 0 &&
+      step < options.totalSteps &&
+      !transitioning.value &&
+      (options.canNavigate?.(step) ?? true)
+    );
+  }
+
+  const canNext = computed(() => canGoTo(currentStep.value + 1));
+  const canPrev = computed(() => canGoTo(currentStep.value - 1));
 
   const progress = computed(() =>
     options.totalSteps <= 1 ? 1 : currentStep.value / (options.totalSteps - 1),
@@ -26,10 +36,10 @@ export function useWizardNavigation(options: WizardNavigationOptions) {
   const transitionDuration = computed(() => (options.prefersReducedMotion.value ? "0ms" : "400ms"));
 
   function goTo(step: number) {
-    if (step < 0 || step >= options.totalSteps || transitioning.value) return;
+    if (!canGoTo(step) || step === currentStep.value) return;
     transitioning.value = true;
     currentStep.value = step;
-    setTimeout(
+    transitionTimer = setTimeout(
       () => {
         transitioning.value = false;
         // Move focus to the new slide's first heading for keyboard accessibility
@@ -44,6 +54,8 @@ export function useWizardNavigation(options: WizardNavigationOptions) {
       options.prefersReducedMotion.value ? 0 : 420,
     );
   }
+
+  onScopeDispose(() => clearTimeout(transitionTimer));
 
   function next() {
     if (currentStep.value < options.totalSteps - 1) {
@@ -78,6 +90,7 @@ export function useWizardNavigation(options: WizardNavigationOptions) {
     canPrev,
     progress,
     transitionDuration,
+    canGoTo,
     goTo,
     next,
     prev,

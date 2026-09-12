@@ -8,8 +8,8 @@
  */
 
 import { inject } from "vue";
+import { SESSION_DETAIL_KEY } from "@/composables/session/contextKey";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
-import { SESSION_DETAIL_KEY } from "@/composables/useSessionDetail";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 
 export function useSessionDetailContext(): SessionDetailContext {

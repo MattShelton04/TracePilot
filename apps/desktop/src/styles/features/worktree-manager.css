@@ -3,17 +3,18 @@
 /* ─── Layout Shell ────────────────────────────────────────────── */
 .wt-manager {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: clamp(220px, 24%, 280px) minmax(0, 1fr);
   gap: 0;
   height: 100%;
   min-height: 0;
+  min-width: 0;
   background: var(--canvas-default);
   font-family: var(--font-family);
   color: var(--text-primary);
 }
 
 /* ─── Left Panel ──────────────────────────────────────────────── */
-.left-panel {
+.wt-manager .left-panel {
   display: flex;
   flex-direction: column;
   background: var(--canvas-inset);
@@ -49,16 +50,31 @@
   padding: 4px 0;
 }
 
-.tree-item {
+.wt-manager .tree-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+  gap: 4px;
+  padding: 2px 8px;
   font-size: 0.8125rem;
   color: var(--text-secondary);
   cursor: pointer;
   position: relative;
   transition: background var(--transition-fast);
+}
+
+.wt-manager .tree-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 5px 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .tree-item:hover {
@@ -107,10 +123,11 @@
   color: var(--text-secondary);
   border-radius: 9px;
   padding: 0 6px;
+  flex-shrink: 0;
 }
 
 .tree-fav-btn {
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 20px;
@@ -156,7 +173,8 @@
     background var(--transition-fast);
 }
 
-.tree-item:hover .tree-remove-btn {
+.tree-item:hover .tree-remove-btn,
+.tree-item:focus-within .tree-remove-btn {
   opacity: 1;
 }
 
@@ -210,10 +228,11 @@
 }
 
 /* ─── Right Panel ─────────────────────────────────────────────── */
-.right-panel {
+.wt-manager .right-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -248,7 +267,7 @@
 }
 
 /* ─── Toolbar ─────────────────────────────────────────────────── */
-.toolbar {
+.wt-manager .toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -265,7 +284,7 @@
   flex-shrink: 0;
 }
 
-.search-wrapper {
+.wt-manager .search-wrapper {
   position: relative;
   max-width: 220px;
 }
@@ -300,12 +319,13 @@
   color: var(--text-placeholder);
 }
 
-.toolbar-summary {
+.wt-manager .toolbar-summary {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-wrap: wrap;
   margin-left: auto;
-  flex-shrink: 0;
+  min-width: 0;
 }
 
 .summary-item {
@@ -370,11 +390,11 @@
 }
 
 /* ─── Column Headers ──────────────────────────────────────────── */
-.col-headers {
-  display: grid;
-  grid-template-columns: 32px 1.4fr 120px 110px 100px 80px 140px;
-  gap: 0;
-  padding: 8px 18px;
+.wt-manager .col-headers th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  padding: 8px;
   font-size: 0.6875rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -382,24 +402,81 @@
   color: var(--text-tertiary);
   background: var(--canvas-inset);
   border-bottom: 1px solid var(--border-subtle);
-  flex-shrink: 0;
+  text-align: left;
 }
 
-.col-header-sortable {
+.wt-manager .col-header-sortable {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
   cursor: pointer;
   user-select: none;
   transition: color var(--transition-fast);
 }
 
-.col-header-sortable:hover {
+.wt-manager .col-header-sortable:hover {
   color: var(--text-primary);
 }
 
 /* ─── Worktree List ───────────────────────────────────────────── */
-.wt-list {
+.wt-manager .wt-list {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   min-height: 0;
+  min-width: 0;
+  overscroll-behavior-x: contain;
+}
+
+.wt-manager .wt-table {
+  width: 100%;
+  min-width: 928px;
+  table-layout: fixed;
+  border-spacing: 0;
+}
+
+.wt-manager .wt-col-icon {
+  width: 56px;
+}
+.wt-manager .wt-col-session {
+  width: 112px;
+}
+.wt-manager .wt-col-disk {
+  width: 100px;
+}
+.wt-manager .wt-col-status {
+  width: 112px;
+}
+.wt-manager .wt-col-created {
+  width: 112px;
+}
+.wt-manager .wt-col-actions {
+  width: 180px;
+}
+
+.wt-manager .wt-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.wt-manager .wt-row-select {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wt-manager .wt-list button:focus-visible,
+.wt-manager .tree-select:focus-visible {
+  outline-offset: -2px;
 }
 
 .empty-rows {
@@ -413,12 +490,6 @@
 }
 
 .wt-row {
-  display: grid;
-  grid-template-columns: 32px 1.4fr 120px 110px 100px 80px 140px;
-  gap: 0;
-  align-items: center;
-  padding: 10px 18px;
-  border-bottom: 1px solid var(--border-subtle);
   cursor: pointer;
   transition: background var(--transition-fast);
   position: relative;
@@ -491,6 +562,7 @@
 }
 
 .wt-row-path {
+  max-width: 100%;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   font-family: "SF Mono", "Fira Code", "Consolas", monospace;
@@ -504,14 +576,17 @@
   font-size: 0.75rem;
 }
 
-.session-link {
+.wt-manager .session-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--accent-fg);
   cursor: pointer;
   font-family: "SF Mono", "Fira Code", "Consolas", monospace;
   font-size: 0.6875rem;
 }
 
-.session-link:hover {
+.wt-manager .session-link:hover {
   text-decoration: underline;
 }
 
@@ -964,6 +1039,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
 }
 
 .form-group--inline {

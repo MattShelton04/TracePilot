@@ -15,6 +15,7 @@ import {
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import FileContextMenu from "@/components/session/FileContextMenu.vue";
 import { useExplorerContentSearch } from "@/composables/useExplorerContentSearch";
+import { useExplorerPaneResize } from "@/composables/useExplorerPaneResize";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
 import { STORAGE_KEYS } from "@/config/storageKeys";
@@ -97,40 +98,16 @@ async function onContentSearchMatch(match: SessionFileSearchMatch) {
 }
 
 // ── Drag-to-resize ──────────────────────────────────────────────────────────
-const treeWidth = ref(240);
-const isDragging = ref(false);
-
-let activeDragCleanup: (() => void) | null = null;
-
-function startDrag(e: MouseEvent) {
-  isDragging.value = true;
-  const startX = e.clientX;
-  const startWidth = treeWidth.value;
-
-  function onMove(e: MouseEvent) {
-    treeWidth.value = Math.max(160, Math.min(500, startWidth + (e.clientX - startX)));
-  }
-
-  function onUp() {
-    isDragging.value = false;
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
-    activeDragCleanup = null;
-  }
-
-  activeDragCleanup = () => {
-    isDragging.value = false;
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
-  };
-
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onUp);
-}
-
-onBeforeUnmount(() => {
-  activeDragCleanup?.();
-});
+const explorerRoot = ref<HTMLElement | null>(null);
+const {
+  treeWidth,
+  maxTreeWidth,
+  minTreeWidth,
+  isDragging,
+  startDrag,
+  onResizeKeydown,
+  resetTreeWidth,
+} = useExplorerPaneResize(explorerRoot);
 
 // ── Auto-refresh ────────────────────────────────────────────────────────────
 // Silent refresh: the composable defaults `reload()` to silent=true so the
@@ -219,8 +196,6 @@ const viewerChanged = computed(() => sessionFiles.contentChangedAt !== null);
 onBeforeUnmount(() => {
   if (newPathTimer) clearTimeout(newPathTimer);
   if (viewerPulseTimer) clearTimeout(viewerPulseTimer);
-  document.removeEventListener("click", hideContextMenu);
-  document.removeEventListener("contextmenu", hideContextMenu);
   if (refreshFeedbackTimer) clearTimeout(refreshFeedbackTimer);
 });
 
@@ -245,53 +220,45 @@ const selectedAbsolutePath = computed(() => {
 
 function onContextMenuEntry(event: MouseEvent, entry: FileEntry) {
   event.stopPropagation();
+  const target = event.currentTarget as HTMLElement | null;
+  target?.focus({ preventScroll: true });
+  const bounds = target?.getBoundingClientRect();
   contextMenuEntry.value = entry;
-  contextMenuPos.value = { x: event.clientX, y: event.clientY };
+  contextMenuPos.value =
+    event.clientX || event.clientY
+      ? { x: event.clientX, y: event.clientY }
+      : { x: bounds?.left ?? 8, y: bounds?.bottom ?? 8 };
 }
 
 function hideContextMenu() {
   contextMenuEntry.value = null;
 }
 
-watch(contextMenuEntry, (newVal) => {
-  if (newVal) {
-    document.addEventListener("click", hideContextMenu);
-    document.addEventListener("contextmenu", hideContextMenu);
-  } else {
-    document.removeEventListener("click", hideContextMenu);
-    document.removeEventListener("contextmenu", hideContextMenu);
-  }
-});
-
 async function onCopyPath() {
-  if (!contextMenuEntry.value) return;
-  const path = getAbsoluteFilePath(contextMenuEntry.value.path);
+  const entry = contextMenuEntry.value;
+  if (!entry) return;
+  const path = getAbsoluteFilePath(entry.path);
+  hideContextMenu();
   const success = await copyToClipboard(path);
   if (success) {
     toastSuccess(
-      contextMenuEntry.value.isDirectory
-        ? "Copied folder path to clipboard"
-        : "Copied file path to clipboard",
+      entry.isDirectory ? "Copied folder path to clipboard" : "Copied file path to clipboard",
     );
   } else {
     toastError("Failed to copy path");
   }
-  hideContextMenu();
 }
 
 async function onCopyContents() {
-  if (!contextMenuEntry.value || contextMenuEntry.value.isDirectory) return;
-  if (
-    contextMenuEntry.value.fileType === "binary" ||
-    contextMenuEntry.value.fileType === "image" ||
-    contextMenuEntry.value.fileType === "sqlite"
-  ) {
-    hideContextMenu();
+  const entry = contextMenuEntry.value;
+  const sessionId = store.sessionId;
+  hideContextMenu();
+  if (!entry || entry.isDirectory || !sessionId) return;
+  if (entry.fileType === "binary" || entry.fileType === "image" || entry.fileType === "sqlite") {
     return;
   }
   try {
-    if (!store.sessionId) return;
-    const content = await sessionReadFile(store.sessionId, contextMenuEntry.value.path);
+    const content = await sessionReadFile(sessionId, entry.path);
     const success = await copyToClipboard(content);
     if (success) {
       toastSuccess("Copied file contents to clipboard");
@@ -301,7 +268,6 @@ async function onCopyContents() {
   } catch (err) {
     toastError(err instanceof Error ? err.message : String(err));
   }
-  hideContextMenu();
 }
 
 const viewerLoading = computed(() => {
@@ -323,31 +289,33 @@ const selectedContextCanCopyContents = computed(
 );
 
 async function onOpenContainingFolder() {
-  if (!contextMenuEntry.value || contextMenuEntry.value.isDirectory) return;
+  const entry = contextMenuEntry.value;
+  if (!entry || entry.isDirectory) return;
+  const fullPath = getAbsoluteFilePath(entry.path);
+  hideContextMenu();
   try {
-    const fullPath = getAbsoluteFilePath(contextMenuEntry.value.path);
     const parentFolder = pathDirname(fullPath);
     await openInExplorer(parentFolder);
   } catch (err) {
     toastError(err instanceof Error ? err.message : String(err));
   }
-  hideContextMenu();
 }
 
 async function onOpenFolder() {
-  if (!contextMenuEntry.value || !contextMenuEntry.value.isDirectory) return;
+  const entry = contextMenuEntry.value;
+  if (!entry || !entry.isDirectory) return;
+  const fullPath = getAbsoluteFilePath(entry.path);
+  hideContextMenu();
   try {
-    const fullPath = getAbsoluteFilePath(contextMenuEntry.value.path);
     await openInExplorer(fullPath);
   } catch (err) {
     toastError(err instanceof Error ? err.message : String(err));
   }
-  hideContextMenu();
 }
 </script>
 
 <template>
-  <div class="explorer-tab" :class="{ 'explorer-tab--dragging': isDragging }">
+  <div ref="explorerRoot" class="explorer-tab" :class="{ 'explorer-tab--dragging': isDragging }">
     <div class="explorer-tab__tree" :style="{ width: `${treeWidth}px` }">
       <FileBrowserTree
         :entries="filteredFiles"
@@ -488,7 +456,16 @@ async function onOpenFolder() {
       class="explorer-tab__divider"
       role="separator"
       aria-label="Resize panes"
+      aria-orientation="vertical"
+      :aria-valuemin="minTreeWidth"
+      :aria-valuemax="maxTreeWidth"
+      :aria-valuenow="treeWidth"
+      :aria-valuetext="`File list ${treeWidth} pixels wide`"
+      tabindex="0"
+      title="Resize file list. Arrow keys adjust width; Home and End select minimum and maximum."
       @mousedown.prevent="startDrag"
+      @keydown="onResizeKeydown"
+      @dblclick="resetTreeWidth"
     />
 
     <div class="explorer-tab__viewer" :class="{ 'explorer-tab__viewer--changed': viewerChanged }">
@@ -812,9 +789,16 @@ async function onOpenFolder() {
 }
 
 .explorer-tab__divider:hover,
+.explorer-tab__divider:focus-visible,
 .explorer-tab--dragging .explorer-tab__divider {
   background: var(--accent-fg);
   opacity: 0.6;
+}
+
+.explorer-tab__divider:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
+  opacity: 1;
 }
 
 .explorer-tab__viewer {

@@ -1,12 +1,50 @@
 <script setup lang="ts">
+import { useOverlayFocus } from "@tracepilot/ui";
+import { nextTick, onMounted, ref } from "vue";
 import { useTodoDependencyGraphContext } from "@/composables/useTodoDependencyGraph";
 import { STATUS_ICON } from "./constants";
 
 const ctx = useTodoDependencyGraphContext();
+const panelRef = ref<HTMLElement | null>(null);
+
+function closeDetail() {
+  ctx.closeDetail();
+  nextTick(() => {
+    const viewport = ctx.viewportRef.value;
+    if (viewport && viewport.getClientRects().length > 0) {
+      viewport.scrollIntoView({ block: "nearest" });
+    }
+  });
+}
+
+useOverlayFocus({
+  active: () => ctx.selectedTodo.value !== null,
+  panel: panelRef,
+  modal: false,
+  onEscape: closeDetail,
+});
+
+onMounted(() => {
+  nextTick(() => {
+    const panel = panelRef.value;
+    // The details follow the graph in normal page flow and may be below the
+    // viewport. Reveal only this visible panel, without moving hidden tabs.
+    if (panel && panel.getClientRects().length > 0) {
+      panel.scrollIntoView({ block: "nearest" });
+    }
+  });
+});
 </script>
 
 <template>
-  <div v-if="ctx.selectedTodo.value" class="detail-panel">
+  <div
+    v-if="ctx.selectedTodo.value"
+    ref="panelRef"
+    class="detail-panel"
+    role="region"
+    :aria-label="`Todo details: ${ctx.selectedTodo.value.title}`"
+    tabindex="-1"
+  >
     <div class="detail-panel-header">
       <div class="detail-panel-title">
         <span
@@ -18,7 +56,7 @@ const ctx = useTodoDependencyGraphContext();
           {{ ctx.selectedTodo.value.status.replace("_", " ") }}
         </span>
       </div>
-      <button class="close-detail" @click="ctx.closeDetail" aria-label="Close detail panel">✕</button>
+      <button class="close-detail" @click="closeDetail" aria-label="Close detail panel">✕</button>
     </div>
     <div class="detail-panel-body">
       <div class="detail-section">

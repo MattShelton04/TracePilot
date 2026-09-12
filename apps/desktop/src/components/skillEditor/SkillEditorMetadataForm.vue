@@ -15,8 +15,9 @@ const ctx = useSkillEditorContext();
       </div>
       <div class="frontmatter-body">
         <div class="field-group">
-          <label class="field-label">Name</label>
+          <label for="skill-editor-name" class="field-label">Name</label>
           <input
+            id="skill-editor-name"
             type="text"
             class="field-input field-input--mono"
             :value="ctx.previewFrontmatter.name"
@@ -26,8 +27,9 @@ const ctx = useSkillEditorContext();
           />
         </div>
         <div class="field-group">
-          <label class="field-label">Description</label>
+          <label for="skill-editor-description" class="field-label">Description</label>
           <textarea
+            id="skill-editor-description"
             class="field-textarea"
             rows="2"
             :value="ctx.previewFrontmatter.description"
@@ -48,8 +50,9 @@ const ctx = useSkillEditorContext();
           </summary>
           <div class="frontmatter-advanced__body">
             <div class="field-group">
-              <label class="field-label">Argument hint</label>
+              <label for="skill-editor-argument-hint" class="field-label">Argument hint</label>
               <input
+                id="skill-editor-argument-hint"
                 type="text"
                 class="field-input field-input--mono"
                 :value="ctx.previewFrontmatter['argument-hint'] ?? ''"
@@ -60,8 +63,9 @@ const ctx = useSkillEditorContext();
               <div class="field-footer">Shown beside the skill when it expects arguments.</div>
             </div>
             <div class="field-group">
-              <label class="field-label">Allowed tools</label>
+              <label for="skill-editor-allowed-tools" class="field-label">Allowed tools</label>
               <input
+                id="skill-editor-allowed-tools"
                 type="text"
                 class="field-input field-input--mono"
                 :value="Array.isArray(ctx.previewFrontmatter['allowed-tools']) ? ctx.previewFrontmatter['allowed-tools'].join(', ') : (ctx.previewFrontmatter['allowed-tools'] ?? '')"

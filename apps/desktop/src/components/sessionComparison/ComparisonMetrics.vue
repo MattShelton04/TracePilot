@@ -11,14 +11,17 @@ const comp = useSessionComparisonContext();
     <div class="norm-toggle">
       <button
         :class="['toggle-btn', { active: comp.normMode === 'raw' }]"
+        :aria-pressed="comp.normMode === 'raw'"
         @click="comp.normMode = 'raw'"
       >Raw</button>
       <button
         :class="['toggle-btn', { active: comp.normMode === 'per-turn' }]"
+        :aria-pressed="comp.normMode === 'per-turn'"
         @click="comp.normMode = 'per-turn'"
       >Per Turn</button>
       <button
         :class="['toggle-btn', { active: comp.normMode === 'per-minute' }]"
+        :aria-pressed="comp.normMode === 'per-minute'"
         @click="comp.normMode = 'per-minute'"
       >Per Minute</button>
     </div>

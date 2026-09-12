@@ -85,4 +85,13 @@ describe("SdkServersPanel", () => {
     expect(wrapper.text()).toContain("127.0.0.1:7001");
     expect(wrapper.text()).toContain("PID 100");
   });
+
+  it("associates the visible CLI URL label and hint with the actual input", () => {
+    const wrapper = mount(SdkServersPanel, { props: { health: makeHealth() } });
+    const input = wrapper.get<HTMLInputElement>("input");
+    expect(input.element.labels?.[0]?.textContent).toBe("CLI URL");
+    expect(wrapper.get(`[id="${input.attributes("aria-describedby")}"]`).text()).toContain(
+      "127.0.0.1:3333",
+    );
+  });
 });

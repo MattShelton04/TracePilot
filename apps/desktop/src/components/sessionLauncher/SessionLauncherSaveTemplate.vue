@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Save } from "lucide-vue-next";
+import { useId } from "vue";
 import { useSessionLauncherContext } from "@/composables/useSessionLauncher";
 
 const { showTemplateForm, templateForm, handleSaveTemplate } = useSessionLauncherContext();
+const fieldId = `launcher-template-${useId()}`;
 </script>
 
 <template>
@@ -18,22 +20,22 @@ const { showTemplateForm, templateForm, handleSaveTemplate } = useSessionLaunche
       <div v-if="showTemplateForm" class="section-panel tpl-save-form">
         <div class="form-grid-2col">
           <div class="form-group">
-            <label class="form-label">Template Name <span class="required">*</span></label>
-            <input v-model="templateForm.name" type="text" class="form-input" placeholder="My Template" />
+            <label :for="`${fieldId}-name`" class="form-label">Template Name <span class="required">*</span></label>
+            <input :id="`${fieldId}-name`" v-model="templateForm.name" type="text" class="form-input" placeholder="My Template" required />
           </div>
           <div class="form-group">
-            <label class="form-label">Category</label>
-            <input v-model="templateForm.category" type="text" class="form-input" placeholder="e.g. frontend" />
+            <label :for="`${fieldId}-category`" class="form-label">Category</label>
+            <input :id="`${fieldId}-category`" v-model="templateForm.category" type="text" class="form-input" placeholder="e.g. frontend" />
           </div>
         </div>
         <div class="form-grid-2col">
           <div class="form-group">
-            <label class="form-label">Description</label>
-            <input v-model="templateForm.description" type="text" class="form-input" placeholder="Quick description of this template" />
+            <label :for="`${fieldId}-description`" class="form-label">Description</label>
+            <input :id="`${fieldId}-description`" v-model="templateForm.description" type="text" class="form-input" placeholder="Quick description of this template" />
           </div>
           <div class="form-group">
-            <label class="form-label">Icon</label>
-            <input v-model="templateForm.icon" type="text" class="form-input tpl-icon-input" placeholder="Optional emoji" maxlength="14" />
+            <label :for="`${fieldId}-icon`" class="form-label">Icon</label>
+            <input :id="`${fieldId}-icon`" v-model="templateForm.icon" type="text" class="form-input tpl-icon-input" placeholder="Optional emoji" maxlength="14" />
             <span class="form-hint">Emoji shown on the template card</span>
           </div>
         </div>

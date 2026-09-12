@@ -13,6 +13,13 @@ Session dir(s) ──▶ builder ──▶ SessionArchive ──▶ filters ─�
 `SessionArchive` is the canonical intermediate representation consumed by
 every renderer.
 
+The v1.0 JSON content hash covers the sessions array in its original field order,
+using serde_json's two-space pretty layout. Import normalizes insignificant JSON
+whitespace but preserves strings and numeric spelling when verifying that payload.
+It never derives the hash from deserialized HashMaps, whose iteration order can
+change. Existing exports keep the same hash format; altered payloads still fail
+verification.
+
 ## Public API
 
 Re-exported from `src/lib.rs`:

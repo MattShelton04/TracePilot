@@ -24,6 +24,7 @@ const { visibleRows, fileCount, collapsedFolders, toggleFolder, formatSize } = u
 const showNewFileInput = ref(false);
 const newFileName = ref("");
 const newFileInputEl = ref<HTMLInputElement | null>(null);
+const newFileButton = ref<HTMLButtonElement | null>(null);
 
 function openNewFileInput() {
   if (props.readonly) return;
@@ -35,19 +36,29 @@ function openNewFileInput() {
 function submitNewFile() {
   const name = newFileName.value.trim();
   if (name) emit("newFile", name);
-  showNewFileInput.value = false;
-  newFileName.value = "";
+  cancelNewFile(true);
 }
 
-function cancelNewFile() {
+function cancelNewFile(restoreFocus = false) {
   showNewFileInput.value = false;
   newFileName.value = "";
+  if (restoreFocus) nextTick(() => newFileButton.value?.focus());
 }
 
 function onNewFileBlur() {
-  setTimeout(() => {
-    if (showNewFileInput.value) cancelNewFile();
-  }, 150);
+  cancelNewFile();
+}
+
+function onNewFileKeydown(event: KeyboardEvent) {
+  if (event.isComposing || event.keyCode === 229) return;
+  if (event.key === "Enter") {
+    event.preventDefault();
+    submitNewFile();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    cancelNewFile(true);
+  }
 }
 
 function depthStyle(depth: number): Record<string, string> {
@@ -67,7 +78,7 @@ function depthStyle(depth: number): Record<string, string> {
         <span v-if="fileCount > 0" class="assets-tree__count">{{ fileCount }}</span>
       </h4>
       <div v-if="!readonly" class="assets-tree__actions">
-        <button class="assets-tree__btn assets-tree__btn--ghost" @click="openNewFileInput">
+        <button ref="newFileButton" type="button" class="assets-tree__btn assets-tree__btn--ghost" @click="openNewFileInput">
           + New File
         </button>
         <button class="assets-tree__btn assets-tree__btn--primary" @click="emit('addAsset')">
@@ -84,9 +95,9 @@ function depthStyle(depth: number): Record<string, string> {
         v-model="newFileName"
         class="assets-tree__new-file-input"
         type="text"
+        aria-label="New asset file name"
         placeholder="filename.md"
-        @keyup.enter="submitNewFile"
-        @keyup.escape="cancelNewFile"
+        @keydown="onNewFileKeydown"
         @blur="onNewFileBlur"
       />
     </div>
@@ -107,14 +118,16 @@ function depthStyle(depth: number): Record<string, string> {
             <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/>
             <path d="M9 2v4h4"/>
           </svg>
-          <span class="assets-tree__name assets-tree__name--clickable" @click="emit('viewAsset', row.entry)">
+          <button type="button" class="assets-tree__name" :aria-label="`Open asset ${row.entry.path}`" :title="row.entry.path" @click="emit('viewAsset', row.entry)">
             {{ row.entry.name }}
-          </span>
+          </button>
           <span class="assets-tree__size">{{ formatSize(row.entry.sizeBytes) }}</span>
           <button
             v-if="!readonly"
             class="assets-tree__remove"
-            title="Remove asset"
+            type="button"
+            :aria-label="`Remove asset ${row.entry.path}`"
+            :title="`Remove asset ${row.entry.path}`"
             @click="emit('removeAsset', row.entry.path)"
           >
             ✕
@@ -327,20 +340,23 @@ function depthStyle(depth: number): Record<string, string> {
 
 .assets-tree__name {
   flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  text-align: left;
   font-size: 0.8125rem;
   color: var(--text-primary);
   font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.assets-tree__name--clickable {
   cursor: pointer;
   transition: color var(--transition-fast);
 }
 
-.assets-tree__name--clickable:hover {
+.assets-tree__name:hover {
   color: var(--accent-fg);
   text-decoration: underline;
 }
@@ -365,8 +381,14 @@ function depthStyle(depth: number): Record<string, string> {
   flex-shrink: 0;
 }
 
-.assets-tree__item:hover .assets-tree__remove {
+.assets-tree__item:hover .assets-tree__remove,
+.assets-tree__item:focus-within .assets-tree__remove {
   opacity: 1;
+}
+
+.assets-tree button:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
 }
 
 .assets-tree__remove:hover {

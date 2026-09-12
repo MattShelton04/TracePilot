@@ -5,14 +5,14 @@ import {
   computed,
   type InjectionKey,
   inject,
-  nextTick,
   onMounted,
   onUnmounted,
   reactive,
   ref,
   watch,
 } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { useSkillMarkdownToolbar } from "@/composables/skillEditor/markdownToolbar";
 import { browseForFile } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -26,14 +26,7 @@ import {
   replaceSkillBody,
 } from "@/utils/skillFrontmatter";
 
-/**
- * State + actions for `SkillEditorView`.
- *
- * Extracted from `views/skills/SkillEditorView.vue` in Wave 36. Behaviour is
- * preserved byte-for-byte; the shell provides a single instance of this
- * composable which the children consume via `provide`/`inject`
- * (`SkillEditorKey` + `useSkillEditorContext`).
- */
+/** Shared state and actions provided by SkillEditorView to its children. */
 
 export function useSkillEditor() {
   const route = useRoute();
@@ -58,10 +51,20 @@ export function useSkillEditor() {
   const previewBody = ref("");
 
   // ─── Resize handle ────────────────────────────────────────
-  const { leftWidth, dragging, containerRef, onMouseDown } = useResizeHandle({
+  const {
+    leftWidth,
+    minLeftWidth,
+    maxLeftWidth,
+    dragging,
+    containerRef,
+    onMouseDown,
+    onKeyDown: onResizeKeyDown,
+  } = useResizeHandle({
     minPct: 25,
     maxPct: 75,
     initial: 50,
+    minPanePx: 300,
+    splitterPx: 5,
   });
 
   // ─── Computed ─────────────────────────────────────────────
@@ -94,13 +97,40 @@ export function useSkillEditor() {
   });
 
   const lastSavedDisplay = computed(() => {
-    if (!lastSaved.value) return "Not saved yet";
+    if (editorDirty.value) return "Unsaved changes";
+    if (!lastSaved.value) return "Saved";
     const diff = Math.floor((Date.now() - lastSaved.value.getTime()) / 1000);
     if (diff < 10) return "Just saved";
     if (diff < 60) return `Saved ${diff}s ago`;
     const mins = Math.floor(diff / 60);
     return `Saved ${mins} min ago`;
   });
+
+  // Guard all navigation paths, including the sidebar and history, rather than
+  // protecting only the editor's Back button. Share a pending decision so rapid
+  // navigation cannot replace an already-open confirmation.
+  let pendingNavigation: Promise<boolean> | null = null;
+  function confirmNavigation(): boolean | Promise<boolean> {
+    if (!editorDirty.value || isReadOnly.value) return true;
+    if (!pendingNavigation) {
+      pendingNavigation = showConfirm({
+        title: "Unsaved Skill Changes",
+        message: "Leave this skill and discard your unsaved changes?",
+        variant: "warning",
+        confirmLabel: "Discard and Leave",
+        cancelLabel: "Keep Editing",
+      })
+        .then(({ confirmed }) => confirmed)
+        .finally(() => {
+          pendingNavigation = null;
+        });
+    }
+    return pendingNavigation;
+  }
+  onBeforeRouteLeave(confirmNavigation);
+  onBeforeRouteUpdate((to, from) =>
+    to.params.name === from.params.name ? true : confirmNavigation(),
+  );
 
   // ─── Lifecycle ────────────────────────────────────────────
   onMounted(async () => {
@@ -230,6 +260,7 @@ export function useSkillEditor() {
     const ok = await store.deleteSkill(skillDir.value);
     deleting.value = false;
     if (ok) {
+      editorDirty.value = false;
       pushRoute(router, ROUTE_NAMES.skillsManager);
     }
   }
@@ -294,9 +325,10 @@ export function useSkillEditor() {
     const normalized = href.replace(/^\.\//, "");
 
     // Find matching asset in the loaded assets list
-    const matchingAsset = assets.value.find(
-      (a) => a.path === normalized || a.path.endsWith(`/${normalized}`) || a.name === normalized,
-    );
+    const matchingAsset = assets.value.find((asset) => {
+      const path = asset.path.replace(/\\/g, "/");
+      return path === normalized || path.endsWith(`/${normalized}`) || asset.name === normalized;
+    });
 
     if (matchingAsset) {
       await handleViewAsset(matchingAsset);
@@ -343,49 +375,10 @@ export function useSkillEditor() {
   }
 
   // ─── Markdown toolbar ─────────────────────────────────────
-  function insertMarkdown(prefix: string, suffix = "") {
-    if (isReadOnly.value) return;
-    const el = editorRef.value;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const scrollPos = el.scrollTop;
-    const text = el.value;
-    const selected = text.substring(start, end);
-    const inner = selected || "text";
-    const replacement = prefix + inner + suffix;
-    previewBody.value = text.substring(0, start) + replacement + text.substring(end);
-    markRawContent(replaceSkillBody(rawContent.value, previewBody.value));
-    nextTick(() => {
-      el.focus();
-      const selStart = start + prefix.length;
-      const selEnd = selStart + inner.length;
-      el.setSelectionRange(selStart, selEnd);
-      el.scrollTop = scrollPos;
+  const { insertBold, insertItalic, insertH1, insertH2, insertBulletList, insertCode, insertLink } =
+    useSkillMarkdownToolbar(editorRef, isReadOnly, (body) => {
+      markRawContent(replaceSkillBody(rawContent.value, body));
     });
-  }
-
-  function insertBold() {
-    insertMarkdown("**", "**");
-  }
-  function insertItalic() {
-    insertMarkdown("*", "*");
-  }
-  function insertH1() {
-    insertMarkdown("\n# ");
-  }
-  function insertH2() {
-    insertMarkdown("\n## ");
-  }
-  function insertBulletList() {
-    insertMarkdown("\n- ");
-  }
-  function insertCode() {
-    insertMarkdown("`", "`");
-  }
-  function insertLink() {
-    insertMarkdown("[", "](url)");
-  }
 
   // ─── Utilities ────────────────────────────────────────────
   function formatSize(bytes: number): string {
@@ -403,9 +396,7 @@ export function useSkillEditor() {
   }
 
   return reactive({
-    // store passthrough
     store,
-    // state
     saving,
     deleting,
     rawContent,
@@ -419,12 +410,13 @@ export function useSkillEditor() {
     viewingContent,
     previewFrontmatter,
     previewBody,
-    // resize
     leftWidth,
+    minLeftWidth,
+    maxLeftWidth,
     dragging,
     containerRef,
     onMouseDown,
-    // computed
+    onResizeKeyDown,
     skillDir,
     editorLineNumbers,
     totalLineCount,
@@ -436,7 +428,6 @@ export function useSkillEditor() {
     lastSavedDisplay,
     backLabel,
     isReadOnly,
-    // actions
     loadSkill,
     handleSave,
     handleDelete,

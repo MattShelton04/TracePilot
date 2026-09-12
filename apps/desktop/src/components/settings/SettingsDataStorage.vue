@@ -25,7 +25,7 @@ import {
   useConfirmDialog,
   useToast,
 } from "@tracepilot/ui";
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { STORAGE_KEYS } from "@/config/storageKeys";
@@ -55,7 +55,6 @@ const pathSettingsDirty = computed(
     copilotHome.value !== savedCopilotHome.value ||
     tracepilotHome.value !== savedTracePilotHome.value,
 );
-const pathChangesBlocked = computed(() => isIndexing.value || searchRebuilding.value);
 const databaseSize = ref("—");
 const indexedSessionCount = ref(0);
 const pathsSaving = ref(false);
@@ -67,10 +66,23 @@ const searchRebuildResult = ref<string | null>(null);
 const captureStorageCount = ref(0);
 const captureStorageSize = ref("—");
 const deletingCaptures = ref(false);
+const browsingPath = ref(false);
+const confirmingOperation = ref(false);
 
 // ── Indexing progress ────────────────────────────────────────
 const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const isIndexing = ref(false);
+const dataOperationBusy = computed(
+  () =>
+    isIndexing.value ||
+    pathsSaving.value ||
+    browsingPath.value ||
+    clearing.value ||
+    searchRebuilding.value ||
+    deletingCaptures.value ||
+    resetting.value ||
+    confirmingOperation.value,
+);
 
 const { setup: setupIndexingEvents } = useIndexingEvents({
   onStarted: () => {
@@ -125,14 +137,41 @@ onMounted(async () => {
   }
 });
 
+async function confirmDataOperation(options: Parameters<typeof confirm>[0]) {
+  // Disabling the trigger can blur it before the modal's watcher captures focus.
+  const returnTo = document.activeElement;
+  confirmingOperation.value = true;
+  let confirmed = false;
+  try {
+    ({ confirmed } = await confirm(options));
+    return confirmed;
+  } finally {
+    confirmingOperation.value = false;
+    if (!confirmed) {
+      await nextTick();
+      if (
+        returnTo instanceof HTMLElement &&
+        returnTo.isConnected &&
+        !returnTo.matches(":disabled") &&
+        !returnTo.closest("[hidden], [inert]") &&
+        document.activeElement === document.body &&
+        !document.querySelector('[aria-modal="true"]')
+      ) {
+        returnTo.focus({ preventScroll: true });
+      }
+    }
+  }
+}
+
 async function deleteAllCaptures() {
-  const { confirmed } = await confirm({
+  if (dataOperationBusy.value || captureStorageCount.value === 0) return;
+  const confirmed = await confirmDataOperation({
     title: "Delete all captured request snapshots?",
     message: `This permanently removes ${captureStorageCount.value} saved plaintext snapshot${captureStorageCount.value === 1 ? "" : "s"} (${captureStorageSize.value}). Session history is not affected.`,
     variant: "danger",
     confirmLabel: "Delete all snapshots",
   });
-  if (!confirmed) return;
+  if (!confirmed || dataOperationBusy.value) return;
   deletingCaptures.value = true;
   try {
     const deleted = await contextCaptureDeleteAll();
@@ -147,42 +186,45 @@ async function deleteAllCaptures() {
 }
 
 async function browseCopilotHome() {
-  if (pathChangesBlocked.value) {
-    toast.error("Path changes cannot be applied while indexing is in progress.");
-    return;
-  }
-  const selected = await browseForDirectory({
-    title: "Select Copilot home directory",
-    defaultPath: copilotHome.value,
-  });
-  if (selected) {
-    copilotHome.value = selected;
+  if (dataOperationBusy.value) return;
+  browsingPath.value = true;
+  try {
+    const selected = await browseForDirectory({
+      title: "Select Copilot home directory",
+      defaultPath: copilotHome.value,
+    });
+    if (selected) copilotHome.value = selected;
+  } finally {
+    browsingPath.value = false;
   }
 }
 
 async function browseTracePilotHome() {
-  if (pathChangesBlocked.value) {
-    toast.error("Path changes cannot be applied while indexing is in progress.");
-    return;
-  }
-  const selected = await browseForDirectory({
-    title: "Select TracePilot data directory",
-    defaultPath: tracepilotHome.value,
-  });
-  if (selected) {
-    tracepilotHome.value = selected;
+  if (dataOperationBusy.value) return;
+  browsingPath.value = true;
+  try {
+    const selected = await browseForDirectory({
+      title: "Select TracePilot data directory",
+      defaultPath: tracepilotHome.value,
+    });
+    if (selected) tracepilotHome.value = selected;
+  } finally {
+    browsingPath.value = false;
   }
 }
 
 async function persistPaths(options: { revalidateSessionDir: boolean }) {
-  if (pathChangesBlocked.value) {
-    toast.error("Path changes cannot be applied while indexing is in progress.");
-    return;
-  }
+  if (dataOperationBusy.value || !pathSettingsDirty.value) return;
+  const paths = {
+    copilotHome: copilotHome.value,
+    tracepilotHome: tracepilotHome.value,
+    sessionStateDir: sessionsDirectory.value,
+    indexDbPath: databasePath.value,
+  };
   pathsSaving.value = true;
   try {
-    if (options.revalidateSessionDir || copilotHome.value !== savedCopilotHome.value) {
-      const result = await validateSessionDir(sessionsDirectory.value);
+    if (options.revalidateSessionDir || paths.copilotHome !== savedCopilotHome.value) {
+      const result = await validateSessionDir(paths.sessionStateDir);
       if (!result.valid) {
         toast.error(result.error ?? "Derived Copilot sessions directory is not valid.");
         return;
@@ -190,14 +232,11 @@ async function persistPaths(options: { revalidateSessionDir: boolean }) {
     }
 
     const config = await getConfig();
-    config.paths.copilotHome = copilotHome.value;
-    config.paths.tracepilotHome = tracepilotHome.value;
-    config.paths.sessionStateDir = sessionsDirectory.value;
-    config.paths.indexDbPath = deriveIndexDbPath(tracepilotHome.value);
+    Object.assign(config.paths, paths);
     await saveConfig(config);
-    savedCopilotHome.value = copilotHome.value;
-    savedTracePilotHome.value = tracepilotHome.value;
-    savedSessionsDirectory.value = sessionsDirectory.value;
+    savedCopilotHome.value = paths.copilotHome;
+    savedTracePilotHome.value = paths.tracepilotHome;
+    savedSessionsDirectory.value = paths.sessionStateDir;
     toast.success("Path settings saved");
   } catch (e) {
     logWarn("[SettingsDataStorage] Failed to persist paths:", e);
@@ -208,6 +247,7 @@ async function persistPaths(options: { revalidateSessionDir: boolean }) {
 }
 
 async function clearCache() {
+  if (dataOperationBusy.value) return;
   clearing.value = true;
   reindexResult.value = null;
   try {
@@ -227,11 +267,12 @@ async function clearCache() {
 }
 
 async function rebuildSearchIndex() {
+  if (dataOperationBusy.value) return;
   searchRebuilding.value = true;
   searchRebuildResult.value = null;
   try {
-    const [indexed, total] = await rebuildSearchIndexApi();
-    searchRebuildResult.value = `Indexed ${indexed} of ${total} sessions`;
+    const [indexed, skipped] = await rebuildSearchIndexApi();
+    searchRebuildResult.value = `Indexed ${indexed} session${indexed === 1 ? "" : "s"}${skipped > 0 ? `; ${skipped} already up to date` : ""}`;
     toast.success("Search index rebuilt successfully");
   } catch (e) {
     if (isAlreadyIndexingError(e)) {
@@ -245,14 +286,15 @@ async function rebuildSearchIndex() {
 }
 
 async function handleFactoryReset() {
-  const { confirmed } = await confirm({
+  if (dataOperationBusy.value) return;
+  const confirmed = await confirmDataOperation({
     title: "Factory Reset",
     message:
       "This will permanently erase all data and restore default settings. This action cannot be undone.",
     variant: "danger",
     confirmLabel: "Yes, Reset Everything",
   });
-  if (!confirmed) return;
+  if (!confirmed || dataOperationBusy.value) return;
 
   resetting.value = true;
   try {
@@ -280,14 +322,14 @@ defineExpose({ databaseSize, indexedSessionCount });
     <SectionPanel>
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Copilot home</div>
+          <label class="setting-label" for="settings-copilot-home">Copilot home</label>
           <div class="setting-description">
             Directory containing Copilot settings, MCP config, versions, and global skills.
           </div>
         </div>
         <div class="setting-control-group">
-          <FormInput v-model="copilotHome" class="input-medium-mono" />
-          <ActionButton size="sm" :disabled="pathChangesBlocked" @click="browseCopilotHome">
+          <FormInput id="settings-copilot-home" v-model="copilotHome" :disabled="dataOperationBusy" class="input-medium-mono" />
+          <ActionButton size="sm" aria-label="Browse for Copilot home" :disabled="dataOperationBusy" @click="browseCopilotHome">
             Browse…
           </ActionButton>
         </div>
@@ -295,14 +337,14 @@ defineExpose({ databaseSize, indexedSessionCount });
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">TracePilot data directory</div>
+          <label class="setting-label" for="settings-tracepilot-home">TracePilot data directory</label>
           <div class="setting-description">
             App-owned directory for the index database, task data, presets, and backups.
           </div>
         </div>
         <div class="setting-control-group">
-          <FormInput v-model="tracepilotHome" class="input-medium-mono" />
-          <ActionButton size="sm" :disabled="pathChangesBlocked" @click="browseTracePilotHome">
+          <FormInput id="settings-tracepilot-home" v-model="tracepilotHome" :disabled="dataOperationBusy" class="input-medium-mono" />
+          <ActionButton size="sm" aria-label="Browse for TracePilot data directory" :disabled="dataOperationBusy" @click="browseTracePilotHome">
             Browse…
           </ActionButton>
         </div>
@@ -327,7 +369,7 @@ defineExpose({ databaseSize, indexedSessionCount });
         <div class="setting-actions">
           <ActionButton
             size="sm"
-            :disabled="!pathSettingsDirty || pathsSaving || pathChangesBlocked"
+            :disabled="!pathSettingsDirty || dataOperationBusy"
             @click="persistPaths({ revalidateSessionDir: true })"
           >
             {{ pathsSaving ? 'Saving…' : 'Apply path changes' }}
@@ -352,7 +394,7 @@ defineExpose({ databaseSize, indexedSessionCount });
             {{ captureStorageCount }} saved plaintext snapshot{{ captureStorageCount === 1 ? '' : 's' }} using {{ captureStorageSize }}. Exact request bodies may contain sensitive session and repository content.
           </div>
         </div>
-        <ActionButton size="sm" class="btn-danger" :disabled="captureStorageCount === 0 || deletingCaptures" @click="deleteAllCaptures">
+        <ActionButton size="sm" class="btn-danger" :disabled="captureStorageCount === 0 || dataOperationBusy" @click="deleteAllCaptures">
           {{ deletingCaptures ? 'Deleting…' : 'Delete all snapshots…' }}
         </ActionButton>
       </div>
@@ -377,7 +419,7 @@ defineExpose({ databaseSize, indexedSessionCount });
           </div>
         </div>
         <div class="setting-actions">
-          <ActionButton size="sm" class="btn-danger" :disabled="clearing || isIndexing" @click="clearCache">
+          <ActionButton size="sm" class="btn-danger" :disabled="dataOperationBusy" @click="clearCache">
             {{ clearing ? 'Rebuilding…' : 'Rebuild' }}
           </ActionButton>
           <span v-if="reindexResult" class="setting-result">{{ reindexResult }}</span>
@@ -392,7 +434,7 @@ defineExpose({ databaseSize, indexedSessionCount });
           </div>
         </div>
         <div class="setting-actions">
-          <ActionButton size="sm" class="btn-danger" :disabled="searchRebuilding || isIndexing" @click="rebuildSearchIndex">
+          <ActionButton size="sm" class="btn-danger" :disabled="dataOperationBusy" @click="rebuildSearchIndex">
             {{ searchRebuilding ? 'Rebuilding…' : 'Rebuild' }}
           </ActionButton>
           <span v-if="searchRebuildResult" class="setting-result">{{ searchRebuildResult }}</span>
@@ -411,7 +453,7 @@ defineExpose({ databaseSize, indexedSessionCount });
           <ActionButton
             size="sm"
             class="btn-danger"
-            :disabled="resetting"
+            :disabled="dataOperationBusy"
             @click="handleFactoryReset"
           >
             {{ resetting ? 'Resetting…' : 'Reset Everything…' }}

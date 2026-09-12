@@ -129,6 +129,8 @@ function makeCtx(overrides: Partial<UseConfigInjectorReturn> = {}): UseConfigInj
     newBackupLabel: ref(""),
     backupableFiles: computed(() => []),
     handleCreateBackup: vi.fn(),
+    restoringBackupId: ref(null),
+    handleRestoreBackup: vi.fn(),
     batchBackingUp: ref(false),
     handleBackupAllAgents: vi.fn(),
     backupIconName: () => "bot",
@@ -177,6 +179,30 @@ describe("ConfigInjectorAgentsTab", () => {
     await buttons[0]!.trigger("click");
     expect(ctx.setAllAgentsToModel).toHaveBeenCalled();
   });
+
+  it("names individual models and retains the native expansion button while toggling tools", async () => {
+    const agent = makeAgent({ tools: ["read", "grep", "glob", "list", "view", "six", "seven"] });
+    const ctx = makeCtx();
+    ctx.store.agents = [agent];
+    ctx.visibleTools = (value) =>
+      ctx.expandedTools[value.filePath] ? value.tools : value.tools.slice(0, 5);
+    ctx.hiddenToolCount = () => 2;
+    const wrapper = mount(wrap(ConfigInjectorAgentsTab, ctx), { attachTo: document.body });
+    expect(wrapper.get(".model-select").attributes("aria-label")).toBe("Model for explore");
+    const toggle = wrapper.get<HTMLButtonElement>(".tool-chip--more");
+    expect(toggle.element.tagName).toBe("BUTTON");
+    expect(toggle.element.tabIndex).toBe(0);
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+    toggle.element.focus();
+    await toggle.trigger("click");
+    expect(toggle.attributes("aria-expanded")).toBe("true");
+    expect(wrapper.get(`[id="${toggle.attributes("aria-controls")}"]`).text()).toContain("seven");
+    expect(document.activeElement).toBe(toggle.element);
+    await toggle.trigger("click");
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(toggle.element);
+    wrapper.unmount();
+  });
 });
 
 describe("ConfigInjectorGlobalTab", () => {
@@ -187,6 +213,33 @@ describe("ConfigInjectorGlobalTab", () => {
     expect(wrapper.findAll(".toggle-btn")).toHaveLength(3);
     expect(wrapper.findAll(".switch-track")).toHaveLength(2);
   });
+
+  it("associates global fields and descriptions and announces selection and folder actions", async () => {
+    const ctx = makeCtx({ editTrustedFolders: ref(["/audit/project"]) });
+    const wrapper = mount(wrap(ConfigInjectorGlobalTab, ctx));
+    expect(wrapper.get<HTMLSelectElement>("select").element.labels?.[0]?.textContent).toBe(
+      "Default Model",
+    );
+    const switches = wrapper.findAll<HTMLButtonElement>(".switch-track");
+    expect(switches.map((control) => control.element.labels?.[0]?.textContent)).toEqual([
+      "Show Reasoning",
+      "Render Markdown",
+    ]);
+    for (const control of switches) {
+      expect(wrapper.get(`[id="${control.attributes("aria-describedby")}"]`).text()).toContain(
+        "Copilot CLI",
+      );
+    }
+    expect(wrapper.get('.toggle-btn[aria-pressed="true"]').text()).toBe("Medium");
+    await wrapper.findAll(".toggle-btn")[2].trigger("click");
+    expect(wrapper.get('.toggle-btn[aria-pressed="true"]').text()).toBe("High");
+    expect(
+      wrapper.get<HTMLInputElement>(".folder-add input").element.labels?.[0]?.textContent,
+    ).toBe("Trusted Folders");
+    expect(wrapper.get(".folder-item button").attributes("aria-label")).toBe(
+      "Remove trusted folder /audit/project",
+    );
+  });
 });
 
 describe("ConfigInjectorVersionsTab", () => {
@@ -196,6 +249,9 @@ describe("ConfigInjectorVersionsTab", () => {
     expect(wrapper.findAll(".version-card")).toHaveLength(2);
     expect(wrapper.find(".migration-panel").exists()).toBe(true);
     expect(wrapper.text()).toContain("v1.0.0");
+    const selects = wrapper.findAll<HTMLSelectElement>("select");
+    expect(selects[0].element.labels?.[0]?.textContent).toContain("From");
+    expect(selects[1].element.labels?.[0]?.textContent).toContain("To");
   });
 });
 
@@ -205,6 +261,12 @@ describe("ConfigInjectorBackupsTab", () => {
     const wrapper = mount(wrap(ConfigInjectorBackupsTab, ctx));
     expect(wrapper.find(".backup-create").exists()).toBe(true);
     expect(wrapper.text()).toContain("No Backups Yet");
+    expect(wrapper.get<HTMLSelectElement>("select").element.labels?.[0]?.textContent).toBe(
+      "File to back up",
+    );
+    expect(wrapper.get<HTMLInputElement>("input").element.labels?.[0]?.textContent).toBe(
+      "Label (optional)",
+    );
   });
 
   it("renders backup list items when backups exist", () => {
@@ -221,5 +283,12 @@ describe("ConfigInjectorBackupsTab", () => {
     ];
     const wrapper = mount(wrap(ConfigInjectorBackupsTab, ctx));
     expect(wrapper.findAll(".backup-item-wrapper")).toHaveLength(1);
+    expect(
+      wrapper.findAll(".backup-actions button").map((button) => button.attributes("aria-label")),
+    ).toEqual([
+      "Preview backup Test Backup",
+      "Restore backup Test Backup",
+      "Delete backup Test Backup",
+    ]);
   });
 });

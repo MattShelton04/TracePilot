@@ -107,6 +107,7 @@
 
 .mcp-detail-view .panel-right {
   flex: 1.3;
+  min-width: 0;
   overflow-y: auto;
   padding: 24px 28px;
   display: flex;
@@ -688,7 +689,7 @@
 /* ─── Health Grid ─── */
 .mcp-detail-view .health-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 100px), 1fr));
   gap: 10px;
 }
 

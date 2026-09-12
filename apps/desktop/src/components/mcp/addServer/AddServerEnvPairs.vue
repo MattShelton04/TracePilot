@@ -11,7 +11,7 @@ defineEmits<{
 
 <template>
   <div class="form-group">
-    <label class="form-label">Environment Variables <span class="form-label-optional">(optional)</span></label>
+    <span class="form-label">Environment Variables <span class="form-label-optional">(optional)</span></span>
     <div class="env-rows">
       <div v-for="(pair, idx) in form.envPairs" :key="idx" class="env-row-modal">
         <input
@@ -19,17 +19,25 @@ defineEmits<{
           type="text"
           class="form-input-modal env-key-input"
           placeholder="KEY"
+          :aria-label="`Environment variable ${idx + 1} name`"
         />
         <input
           v-model="pair.value"
           type="text"
           class="form-input-modal"
           placeholder="Value"
+          :aria-label="`Environment variable ${idx + 1} value`"
         />
-        <button class="env-remove-btn" type="button" title="Remove" @click="$emit('removePair', idx)">✕</button>
+        <button
+          class="env-remove-btn"
+          type="button"
+          title="Remove variable"
+          :aria-label="`Remove environment variable ${idx + 1}`"
+          @click="$emit('removePair', idx)"
+        ><span aria-hidden="true">✕</span></button>
       </div>
     </div>
-    <button class="env-add-btn" type="button" title="Add variable" @click="$emit('addPair')">
+    <button class="env-add-btn" type="button" title="Add variable" aria-label="Add environment variable" @click="$emit('addPair')">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   </div>

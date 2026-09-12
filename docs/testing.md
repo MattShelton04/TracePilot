@@ -11,10 +11,13 @@ tooling, scripts, and CI status for each.
 | Unit / integration (JS/TS) | Vitest | `apps/**`, `packages/**` (`*.spec.ts`, `*.test.ts`) | ✅ `pnpm test` |
 | Unit / integration (Rust) | `cargo test` | `crates/**` | ✅ `cargo test` |
 | Component visual regression | Playwright CT | `packages/ui/src/__vrt__/*.vrt.spec.ts` | ❌ on-demand only |
+| Desktop frontend visual comparison | Chromium + synthetic backend fixtures | `scripts/visual/`, `visual-*.yml` workflows | ✅ relevant PRs and main pushes |
 | Desktop end-to-end (real Tauri app) | Playwright agent CLI + optional CDP diagnostics | `scripts/automation/`, `scripts/e2e/` | ❌ on-demand only |
 
-The JS/TS and Rust unit suites are the primary regression gate. VRT and E2E
-are opt-in and are not wired into CI today. VRT needs a Chromium download;
+The JS/TS and Rust unit suites are the primary regression gate. Component VRT
+and native E2E are opt-in. [Desktop frontend visual comparisons](visual-regression.md)
+run in CI with synthetic backend data and report PR base/head changes; they do
+not verify Rust or native behavior. VRT needs a Chromium download;
 desktop automation attaches to the installed WebView2 runtime and needs a live
 Tauri build, with no separate browser download.
 

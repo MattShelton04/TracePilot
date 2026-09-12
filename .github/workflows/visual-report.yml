@@ -1,0 +1,50 @@
+name: Desktop Visual Report
+
+on:
+  workflow_run:
+    workflows: [Desktop Visual Capture]
+    types: [completed]
+
+# This workflow comes from the default branch. Never check out the PR here,
+# install its dependencies, restore its caches, or execute artifact contents.
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+  pages: write
+
+concurrency:
+  group: visual-gallery-publish
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  report:
+    if: github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Verify trusted reporting helpers
+        run: |
+          node --test scripts/visual/*.test.mjs
+          python3 scripts/visual/extract_test.py
+      - name: Publish sanitized gallery and comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/visual/publish.mjs
+      - name: Retain standalone gallery if Pages is unavailable
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-gallery-${{ github.event.workflow_run.id }}
+          path: .tracepilot/visual-report/
+          if-no-files-found: warn
+          retention-days: 30

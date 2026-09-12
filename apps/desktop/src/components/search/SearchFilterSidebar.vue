@@ -1,12 +1,26 @@
 <script setup lang="ts">
 import type { SearchContentType } from "@tracepilot/types";
 import { ALL_CONTENT_TYPES, CONTENT_TYPE_CONFIG } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref, useId, watch } from "vue";
 import { useSearchStore } from "@/stores/search";
 import { useSessionsStore } from "@/stores/sessions";
 
-defineProps<{ collapsed: boolean }>();
-const emit = defineEmits<{ clearFilters: [] }>();
+const props = defineProps<{ collapsed: boolean }>();
+const emit = defineEmits<{ clearFilters: []; restoreFocus: [] }>();
+const sidebarRef = ref<HTMLElement | null>(null);
+const hintId = useId();
+const repositoryId = useId();
+const toolId = useId();
+
+watch(
+  () => props.collapsed,
+  (collapsed) => {
+    // Move focus before inert/aria-hidden are applied to the collapsing panel.
+    if (collapsed && sidebarRef.value?.contains(document.activeElement)) {
+      emit("restoreFocus");
+    }
+  },
+);
 
 const store = useSearchStore();
 const sessionsStore = useSessionsStore();
@@ -106,7 +120,14 @@ function setDatePreset(preset: string) {
 </script>
 
 <template>
-  <aside class="filter-sidebar" :class="{ collapsed }">
+  <aside
+    ref="sidebarRef"
+    class="filter-sidebar"
+    :class="{ collapsed }"
+    :inert="collapsed || undefined"
+    :aria-hidden="collapsed"
+    aria-label="Search filters"
+  >
     <!-- Content Types -->
     <div>
       <div class="filter-group-title">
@@ -116,10 +137,13 @@ function setDatePreset(preset: string) {
         </button>
       </div>
       <div class="filter-group">
-        <div
+        <button
           v-for="ct in visibleContentTypes"
           :key="ct"
+          type="button"
           class="filter-checkbox-row"
+          :aria-label="`${contentTypeConfig[ct].label}: ${getContentTypeState(ct)}`"
+          :aria-describedby="hintId"
           @click="cycleContentType(ct)"
         >
           <span
@@ -145,15 +169,16 @@ function setDatePreset(preset: string) {
             {{ contentTypeConfig[ct].label }}
           </span>
           <span v-if="getFacetCount(ct)" class="filter-facet-count">{{ getFacetCount(ct) }}</span>
-        </div>
+        </button>
       </div>
-      <div class="tri-state-hint">Click to cycle: off → include → exclude</div>
+      <div :id="hintId" class="tri-state-hint">Click or press Enter or Space to cycle: off → include → exclude</div>
     </div>
 
     <!-- Repository -->
     <div>
-      <div class="filter-group-title">Repository</div>
+      <label :for="repositoryId" class="filter-group-title">Repository</label>
       <select
+        :id="repositoryId"
         class="filter-select-full"
         :value="store.repository ?? ''"
         @change="store.repository = ($event.target as HTMLSelectElement).value || null"
@@ -171,8 +196,9 @@ function setDatePreset(preset: string) {
 
     <!-- Tool Name -->
     <div v-if="store.availableToolNames.length > 0">
-      <div class="filter-group-title">Tool</div>
+      <label :for="toolId" class="filter-group-title">Tool</label>
       <select
+        :id="toolId"
         class="filter-select-full"
         :value="store.toolName ?? ''"
         @change="store.toolName = ($event.target as HTMLSelectElement).value || null"
@@ -203,6 +229,7 @@ function setDatePreset(preset: string) {
           :key="preset.key"
           class="date-preset-btn"
           :class="{ active: activeDatePreset === preset.key }"
+          :aria-pressed="activeDatePreset === preset.key"
           @click="setDatePreset(preset.key)"
         >
           {{ preset.label }}
@@ -278,9 +305,20 @@ function setDatePreset(preset: string) {
   align-items: center;
   gap: 8px;
   padding: 5px 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   user-select: none;
   transition: color var(--transition-fast);
+}
+.filter-checkbox-row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 .filter-checkbox-row:hover { color: var(--text-primary); }
 .filter-color-dot {

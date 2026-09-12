@@ -1,10 +1,46 @@
 <script setup lang="ts">
 import { DEFAULT_CONTENT_MAX_WIDTH, DEFAULT_UI_SCALE } from "@tracepilot/types";
 import { BtnGroup, FormSwitch, SectionPanel } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
+import { MAX_CONTENT_MAX_WIDTH, MIN_CONTENT_MAX_WIDTH } from "@/stores/preferences/ui";
 
 const preferences = usePreferencesStore();
+const widthDraft = ref(String(preferences.contentMaxWidth));
+const widthError = ref("");
+watch(
+  () => preferences.contentMaxWidth,
+  (width) => {
+    widthDraft.value = String(width);
+    widthError.value = "";
+  },
+);
+
+function setContentWidth(width: number) {
+  preferences.contentMaxWidth = width;
+  cancelWidth();
+}
+
+function cancelWidth() {
+  widthDraft.value = String(preferences.contentMaxWidth);
+  widthError.value = "";
+}
+
+function commitWidth() {
+  const width = Number(widthDraft.value);
+  if (
+    !widthDraft.value.trim() ||
+    !Number.isInteger(width) ||
+    width < MIN_CONTENT_MAX_WIDTH ||
+    width > MAX_CONTENT_MAX_WIDTH
+  ) {
+    widthDraft.value = String(preferences.contentMaxWidth);
+    widthError.value =
+      "Enter a whole-number width of at least 400 pixels. Previous width restored.";
+    return;
+  }
+  setContentWidth(width);
+}
 
 // ── Content width ──────────────────────────────────────────────
 const presetOptions = [
@@ -17,7 +53,7 @@ const presetOptions = [
 const selectedPreset = computed({
   get: () => String(preferences.contentMaxWidth),
   set: (val: string) => {
-    preferences.contentMaxWidth = Number(val);
+    setContentWidth(Number(val));
   },
 });
 
@@ -30,12 +66,13 @@ const contentWidthLabel = computed(() => {
 
 function adjustWidth(delta: number) {
   const current = preferences.contentMaxWidth === 0 ? 2000 : preferences.contentMaxWidth;
-  const next = Math.max(400, current + delta);
-  preferences.contentMaxWidth = next;
+  setContentWidth(
+    Math.max(MIN_CONTENT_MAX_WIDTH, Math.min(MAX_CONTENT_MAX_WIDTH, current + delta)),
+  );
 }
 
 function resetContentWidth() {
-  preferences.contentMaxWidth = DEFAULT_CONTENT_MAX_WIDTH;
+  setContentWidth(DEFAULT_CONTENT_MAX_WIDTH);
 }
 
 // ── UI scale ───────────────────────────────────────────────────
@@ -64,7 +101,7 @@ function resetScale() {
       <!-- Content Width -->
       <div class="setting-row setting-row-stacked">
         <div class="setting-info setting-info-stacked">
-          <div class="setting-label">Content width</div>
+          <label class="setting-label" for="settings-content-width">Content width</label>
           <div class="setting-description">
             Maximum width of page content. Presets cover standard displays; fine-tune for ultrawide or 4K.
           </div>
@@ -84,17 +121,25 @@ function resetScale() {
                 class="btn btn-sm btn-outline stepper-btn" 
                 @click="adjustWidth(-200)"
                 title="Decrease by 200px"
+                aria-label="Decrease content width by 200 pixels"
               >
                 −
               </button>
               
               <div class="stepper-input-wrapper">
                 <input
+                  id="settings-content-width"
                   type="number"
-                  v-model.number="preferences.contentMaxWidth"
+                  :value="widthDraft"
+                  @input="widthDraft = ($event.target as HTMLInputElement).value"
+                  @blur="commitWidth"
+                  @keydown.enter.prevent="commitWidth"
+                  @keydown.esc.prevent="cancelWidth"
                   class="stepper-input"
-                  min="400"
-                  step="200"
+                  :min="MIN_CONTENT_MAX_WIDTH"
+                  :max="MAX_CONTENT_MAX_WIDTH"
+                  step="1"
+                  :aria-describedby="widthError ? 'settings-content-width-error' : undefined"
                 />
                 <span class="stepper-unit">px</span>
               </div>
@@ -103,6 +148,7 @@ function resetScale() {
                 class="btn btn-sm btn-outline stepper-btn" 
                 @click="adjustWidth(200)"
                 title="Increase by 200px"
+                aria-label="Increase content width by 200 pixels"
               >
                 +
               </button>
@@ -112,11 +158,15 @@ function resetScale() {
               v-if="preferences.contentMaxWidth !== DEFAULT_CONTENT_MAX_WIDTH"
               class="btn btn-sm btn-ghost reset-btn"
               title="Reset to default"
+              aria-label="Reset content width to default"
               @click="resetContentWidth"
             >
               ↺
             </button>
           </div>
+          <p v-if="widthError" id="settings-content-width-error" class="width-validation" role="alert">
+            {{ widthError }}
+          </p>
         </div>
       </div>
 
@@ -132,6 +182,7 @@ function resetScale() {
           <button 
             class="scale-step-btn" 
             title="Decrease scale"
+            aria-label="Decrease UI scale"
             @click="adjustScale(-5)"
           >
             A<span class="scale-indicator-small">−</span>
@@ -151,6 +202,7 @@ function resetScale() {
           <button 
             class="scale-step-btn" 
             title="Increase scale"
+            aria-label="Increase UI scale"
             @click="adjustScale(5)"
           >
             A<span class="scale-indicator-large">+</span>
@@ -162,6 +214,7 @@ function resetScale() {
             v-if="preferences.uiScale !== DEFAULT_UI_SCALE"
             class="btn btn-sm btn-ghost"
             title="Reset to 100%"
+            aria-label="Reset UI scale to 100%"
             @click="resetScale"
           >
             ↺
@@ -188,6 +241,12 @@ function resetScale() {
 </template>
 
 <style scoped>
+.width-validation {
+  margin: 0;
+  color: var(--danger-fg);
+  font-size: 0.75rem;
+}
+
 .setting-preview-hint {
   font-size: 0.625rem;
   color: var(--text-placeholder);

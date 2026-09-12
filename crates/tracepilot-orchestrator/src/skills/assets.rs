@@ -2,6 +2,7 @@
 
 use crate::skills::error::SkillsError;
 use crate::skills::types::SkillAsset;
+use std::io::Write;
 use std::path::Path;
 
 /// List all assets (non-SKILL.md files) in a skill directory.
@@ -121,8 +122,8 @@ fn safe_asset_path(skill_dir: &Path, asset_name: &str) -> Result<std::path::Path
     Ok(asset_path)
 }
 
-/// Add a file asset to a skill directory.
-pub fn add_asset(skill_dir: &Path, asset_name: &str, content: &[u8]) -> Result<(), SkillsError> {
+/// Resolve a new asset's destination, checking parents before creating directories.
+fn new_asset_path(skill_dir: &Path, asset_name: &str) -> Result<std::path::PathBuf, SkillsError> {
     if !skill_dir.exists() {
         return Err(SkillsError::NotFound(
             skill_dir.to_string_lossy().to_string(),
@@ -130,46 +131,85 @@ pub fn add_asset(skill_dir: &Path, asset_name: &str, content: &[u8]) -> Result<(
     }
 
     validate_asset_name(asset_name)?;
-
     let asset_path = skill_dir.join(asset_name);
-    tracepilot_core::utils::fs::ensure_parent_dir(&asset_path)?;
-
-    // Verify canonical path stays within skill_dir (prevents symlink escape)
     let canonical_dir = skill_dir.canonicalize()?;
-    let canonical_asset = asset_path.canonicalize().or_else(|_| {
-        // File doesn't exist yet — check the parent is contained
-        if let Some(parent) = asset_path.parent() {
-            let canonical_parent = parent.canonicalize()?;
-            if !canonical_parent.starts_with(&canonical_dir) {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::PermissionDenied,
-                    "Asset path escapes skill directory",
-                ));
-            }
-            Ok(asset_path.clone())
-        } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid asset path",
-            ))
-        }
-    })?;
-
-    if canonical_asset != asset_path {
-        // File already exists — verify canonical containment
-        if !canonical_asset.starts_with(&canonical_dir) {
-            return Err(SkillsError::Asset(
-                "Asset path escapes skill directory".into(),
-            ));
-        }
+    let parent = asset_path
+        .parent()
+        .ok_or_else(|| SkillsError::Asset("Invalid asset path".into()))?;
+    let existing_parent = parent
+        .ancestors()
+        .find(|ancestor| ancestor.exists())
+        .ok_or_else(|| SkillsError::Asset("Cannot resolve asset parent".into()))?;
+    if !existing_parent.canonicalize()?.starts_with(&canonical_dir) {
+        return Err(SkillsError::Asset(
+            "Asset path escapes skill directory".into(),
+        ));
     }
 
-    std::fs::write(&asset_path, content)?;
+    tracepilot_core::utils::fs::ensure_parent_dir(&asset_path)?;
+    let canonical_parent = parent.canonicalize()?;
+    if !canonical_parent.starts_with(&canonical_dir) {
+        return Err(SkillsError::Asset(
+            "Asset path escapes skill directory".into(),
+        ));
+    }
+    let name = asset_path
+        .file_name()
+        .ok_or_else(|| SkillsError::Asset("Invalid asset path".into()))?;
+    Ok(canonical_parent.join(name))
+}
 
+fn duplicate_asset(asset_name: &str) -> SkillsError {
+    SkillsError::Asset(format!(
+        "Asset '{asset_name}' already exists. Choose a different name."
+    ))
+}
+
+/// Publish a complete asset without overwriting an existing destination.
+fn write_asset_file(
+    skill_dir: &Path,
+    asset_name: &str,
+    permissions: Option<&std::fs::Permissions>,
+    write_contents: impl FnOnce(&mut std::fs::File) -> std::io::Result<()>,
+) -> Result<(), SkillsError> {
+    let destination = new_asset_path(skill_dir, asset_name)?;
+    if destination.symlink_metadata().is_ok() {
+        return Err(duplicate_asset(asset_name));
+    }
+    let mut staged = tempfile::Builder::new()
+        .prefix(".tracepilot-asset-")
+        .tempfile_in(destination.parent().expect("validated asset parent"))?;
+    write_contents(staged.as_file_mut())?;
+    staged.as_file_mut().flush()?;
+    if let Some(permissions) = permissions {
+        staged.as_file().set_permissions(permissions.clone())?;
+    }
+    // The exclusive publish also handles another request winning after the
+    // preflight check. On any failure, the owned temporary file is removed.
+    let _persisted = staged.persist_noclobber(&destination).map_err(|error| {
+        if error.error.kind() == std::io::ErrorKind::AlreadyExists {
+            duplicate_asset(asset_name)
+        } else {
+            SkillsError::io_ctx(format!("Cannot create asset '{asset_name}'"), error.error)
+        }
+    })?;
+    // tempfile clears Windows file attributes while publishing; restore the
+    // copied source's read-only flag using the still-owned file handle.
+    #[cfg(windows)]
+    if let Some(permissions) = permissions {
+        _persisted.set_permissions(permissions.clone())?;
+    }
     Ok(())
 }
 
-/// Copy a file from a source path into a skill directory as an asset.
+/// Add a new file asset without replacing an existing asset.
+pub fn add_asset(skill_dir: &Path, asset_name: &str, content: &[u8]) -> Result<(), SkillsError> {
+    write_asset_file(skill_dir, asset_name, None, |destination| {
+        destination.write_all(content)
+    })
+}
+
+/// Copy a file into a new asset without replacing an existing destination.
 pub fn copy_asset_from(
     skill_dir: &Path,
     asset_name: &str,
@@ -187,24 +227,17 @@ pub fn copy_asset_from(
         )));
     }
 
-    validate_asset_name(asset_name)?;
-
-    let asset_path = skill_dir.join(asset_name);
-    tracepilot_core::utils::fs::ensure_parent_dir(&asset_path)?;
-
-    // Verify canonical path stays within skill_dir
-    let canonical_dir = skill_dir.canonicalize()?;
-    if let Some(parent) = asset_path.parent() {
-        let canonical_parent = parent.canonicalize()?;
-        if !canonical_parent.starts_with(&canonical_dir) {
-            return Err(SkillsError::Asset(
-                "Asset path escapes skill directory".into(),
-            ));
-        }
+    let mut source = std::fs::File::open(source_path)?;
+    let metadata = source.metadata()?;
+    if !metadata.is_file() {
+        return Err(SkillsError::Asset("Source path must be a file".into()));
     }
-
-    std::fs::copy(source_path, &asset_path)?;
-    Ok(())
+    write_asset_file(
+        skill_dir,
+        asset_name,
+        Some(&metadata.permissions()),
+        |destination| std::io::copy(&mut source, destination).map(|_| ()),
+    )
 }
 
 /// Remove an asset from a skill directory.
@@ -239,173 +272,4 @@ pub fn read_asset(skill_dir: &Path, asset_name: &str) -> Result<String, SkillsEr
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    fn setup_skill_with_assets(dir: &TempDir) -> std::path::PathBuf {
-        let skill_dir = dir.path().join("my-skill");
-        std::fs::create_dir_all(&skill_dir).unwrap();
-        std::fs::write(
-            skill_dir.join("SKILL.md"),
-            "---\nname: my-skill\ndescription: test\n---\n",
-        )
-        .unwrap();
-        std::fs::write(skill_dir.join("helper.py"), "# python helper").unwrap();
-        std::fs::write(skill_dir.join("config.json"), "{}").unwrap();
-        skill_dir
-    }
-
-    #[test]
-    fn list_assets_excludes_skill_md() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        let assets = list_assets(&skill_dir).unwrap();
-        assert_eq!(assets.len(), 2);
-        let names: Vec<_> = assets.iter().map(|a| a.name.as_str()).collect();
-        assert!(names.contains(&"helper.py"));
-        assert!(names.contains(&"config.json"));
-        assert!(!names.contains(&"SKILL.md"));
-    }
-
-    #[test]
-    fn list_assets_nonexistent_dir_errors() {
-        let result = list_assets(Path::new("/nonexistent/path"));
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn add_asset_creates_file() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        add_asset(&skill_dir, "new-file.txt", b"hello").unwrap();
-        assert!(skill_dir.join("new-file.txt").exists());
-    }
-
-    #[test]
-    fn add_asset_rejects_skill_md_overwrite() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        let result = add_asset(&skill_dir, "SKILL.md", b"overwrite");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn add_asset_rejects_path_traversal() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        assert!(add_asset(&skill_dir, "../escape.txt", b"evil").is_err());
-        assert!(add_asset(&skill_dir, "/absolute.txt", b"evil").is_err());
-    }
-
-    #[test]
-    fn remove_asset_deletes_file() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        remove_asset(&skill_dir, "helper.py").unwrap();
-        assert!(!skill_dir.join("helper.py").exists());
-    }
-
-    #[test]
-    fn remove_asset_rejects_skill_md() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        let result = remove_asset(&skill_dir, "SKILL.md");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn remove_nonexistent_asset_errors() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        let result = remove_asset(&skill_dir, "ghost.txt");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn read_asset_returns_content() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        let content = read_asset(&skill_dir, "helper.py").unwrap();
-        assert_eq!(content, "# python helper");
-    }
-
-    #[test]
-    fn read_nonexistent_asset_errors() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        let result = read_asset(&skill_dir, "missing.txt");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn remove_asset_rejects_path_traversal() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        assert!(remove_asset(&skill_dir, "../escape.txt").is_err());
-        assert!(remove_asset(&skill_dir, "/absolute.txt").is_err());
-        assert!(remove_asset(&skill_dir, "..\\escape.txt").is_err());
-    }
-
-    #[test]
-    fn read_asset_rejects_path_traversal() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-
-        assert!(read_asset(&skill_dir, "../escape.txt").is_err());
-        assert!(read_asset(&skill_dir, "/absolute.txt").is_err());
-        assert!(read_asset(&skill_dir, "..\\escape.txt").is_err());
-    }
-
-    #[test]
-    fn validate_asset_name_rejects_empty() {
-        assert!(validate_asset_name("").is_err());
-    }
-
-    #[test]
-    fn validate_asset_name_rejects_skill_md() {
-        assert!(validate_asset_name("SKILL.md").is_err());
-    }
-
-    #[test]
-    fn read_asset_nested_path_works() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-        let sub_dir = skill_dir.join("scripts");
-        std::fs::create_dir_all(&sub_dir).unwrap();
-        std::fs::write(sub_dir.join("run.ps1"), "echo hello").unwrap();
-
-        let content = read_asset(&skill_dir, "scripts/run.ps1").unwrap();
-        assert_eq!(content, "echo hello");
-    }
-
-    #[test]
-    fn validate_asset_name_allows_nested_paths() {
-        assert!(validate_asset_name("subdir/file.txt").is_ok());
-        assert!(validate_asset_name("deep/nested/file.md").is_ok());
-    }
-
-    #[test]
-    fn list_assets_includes_subdirectories() {
-        let dir = TempDir::new().unwrap();
-        let skill_dir = setup_skill_with_assets(&dir);
-        let sub_dir = skill_dir.join("sub");
-        std::fs::create_dir_all(&sub_dir).unwrap();
-        std::fs::write(sub_dir.join("nested.txt"), "nested").unwrap();
-
-        let assets = list_assets(&skill_dir).unwrap();
-        let dirs: Vec<_> = assets.iter().filter(|a| a.is_directory).collect();
-        assert_eq!(dirs.len(), 1);
-        assert_eq!(dirs[0].name, "sub");
-    }
-}
+mod tests;

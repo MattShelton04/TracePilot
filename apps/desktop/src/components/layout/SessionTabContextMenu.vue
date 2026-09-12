@@ -1,14 +1,8 @@
 <script setup lang="ts">
-/**
- * SessionTabContextMenu — right-click action menu for a session tab.
- *
- * Teleported to <body>. Visibility and anchor position are owned by the
- * parent strip; this component only emits action events. The backdrop sits
- * underneath the menu and dismisses on click; the parent dismisses on
- * outside-click of the strip and after each action.
- */
+import { ref } from "vue";
+import { useContextMenu } from "@/composables/useContextMenu";
 
-defineProps<{
+const props = defineProps<{
   visible: boolean;
   position: { x: number; y: number };
 }>();
@@ -20,21 +14,35 @@ const emit = defineEmits<{
   popOut: [];
   dismiss: [];
 }>();
+
+const menuRef = ref<HTMLElement | null>(null);
+const { placement, onKeydown } = useContextMenu({
+  active: () => props.visible,
+  panel: menuRef,
+  position: () => props.position,
+  dismiss: () => emit("dismiss"),
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="visible"
+      ref="menuRef"
       class="tab-context-menu"
-      :style="{ left: `${position.x}px`, top: `${position.y}px` }"
+      role="menu"
+      aria-label="Session tab actions"
+      tabindex="-1"
+      :style="{ left: `${placement.x}px`, top: `${placement.y}px` }"
       @click.stop
+      @contextmenu.prevent.stop
+      @keydown="onKeydown"
     >
-      <button class="ctx-item" @click="emit('close')">Close</button>
-      <button class="ctx-item" @click="emit('closeOthers')">Close Others</button>
-      <button class="ctx-item" @click="emit('closeAll')">Close All</button>
-      <div class="ctx-separator" />
-      <button class="ctx-item" @click="emit('popOut')">Pop Out to Window</button>
+      <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('close')">Close</button>
+      <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('closeOthers')">Close Others</button>
+      <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('closeAll')">Close All</button>
+      <div class="ctx-separator" role="separator" />
+      <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('popOut')">Pop Out to Window</button>
     </div>
     <div v-if="visible" class="tab-context-backdrop" @click="emit('dismiss')" />
   </Teleport>
@@ -44,13 +52,16 @@ const emit = defineEmits<{
 .tab-context-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 999;
+  z-index: var(--z-overlay);
 }
 
 .tab-context-menu {
   position: fixed;
-  z-index: 1000;
-  min-width: 160px;
+  z-index: calc(var(--z-overlay) + 1);
+  min-width: min(160px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   background: var(--canvas-overlay);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -72,6 +83,12 @@ const emit = defineEmits<{
 }
 
 .ctx-item:hover {
+  background: var(--canvas-subtle);
+}
+
+.ctx-item:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
   background: var(--canvas-subtle);
 }
 

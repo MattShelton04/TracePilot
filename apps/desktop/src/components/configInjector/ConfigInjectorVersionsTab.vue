@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { EmptyState } from "@tracepilot/ui";
 import { Lock } from "lucide-vue-next";
+import { useId } from "vue";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
 
 const { store, migrationFrom, migrationTo, handleLoadDiffs, handleMigrateAgent } =
   useConfigInjectorContext();
+const formId = useId();
 </script>
 
 <template>
@@ -42,8 +44,8 @@ const { store, migrationFrom, migrationTo, handleLoadDiffs, handleMigrateAgent }
       </p>
       <div class="migration-controls">
         <div class="form-group">
-          <label class="form-label migration-label--from">From (v{{ migrationFrom || '?' }})</label>
-          <select v-model="migrationFrom" class="form-input">
+          <label :for="`${formId}-from`" class="form-label migration-label--from">From (v{{ migrationFrom || '?' }})</label>
+          <select :id="`${formId}-from`" v-model="migrationFrom" class="form-input">
             <option value="">— source —</option>
             <option v-for="v in store.versions" :key="v.version" :value="v.version">
               v{{ v.version }}
@@ -52,8 +54,8 @@ const { store, migrationFrom, migrationTo, handleLoadDiffs, handleMigrateAgent }
         </div>
         <span class="migration-arrow">→</span>
         <div class="form-group">
-          <label class="form-label migration-label--to">To (v{{ migrationTo || '?' }})</label>
-          <select v-model="migrationTo" class="form-input">
+          <label :for="`${formId}-to`" class="form-label migration-label--to">To (v{{ migrationTo || '?' }})</label>
+          <select :id="`${formId}-to`" v-model="migrationTo" class="form-input">
             <option value="">— target —</option>
             <option v-for="v in store.versions" :key="v.version" :value="v.version">
               v{{ v.version }}
@@ -74,7 +76,7 @@ const { store, migrationFrom, migrationTo, handleLoadDiffs, handleMigrateAgent }
           <div class="diff-card-header">
             <span class="diff-agent-name">{{ diff.agentName ?? diff.fileName }}</span>
             <span v-if="diff.hasConflicts" class="badge badge--danger">Conflicts</span>
-            <button class="btn btn-primary btn-sm" @click="handleMigrateAgent(diff.fileName)">
+            <button type="button" class="btn btn-primary btn-sm" :aria-label="`Migrate ${diff.agentName ?? diff.fileName} from ${migrationFrom} to ${migrationTo}`" @click="handleMigrateAgent(diff.fileName)">
               Migrate
             </button>
           </div>

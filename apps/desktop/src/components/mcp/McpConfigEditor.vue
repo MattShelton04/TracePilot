@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { McpServerConfig, McpTransport } from "@tracepilot/types";
-import { computed, reactive, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
+import { canEditMcpArguments, parseMcpArguments } from "./mcpArguments";
 
 const props = defineProps<{
   config: McpServerConfig;
@@ -43,10 +44,13 @@ const showUrl = computed(
   () =>
     form.transport === "sse" || form.transport === "http" || form.transport === "streamable-http",
 );
+const originalArgs = ref<string[] | undefined>();
+const argumentsReadOnly = computed(() => !canEditMcpArguments(originalArgs.value ?? []));
 
 function syncFromProps() {
   form.command = props.config.command ?? "";
-  form.args = (props.config.args ?? []).join(", ");
+  originalArgs.value = props.config.args ? [...props.config.args] : undefined;
+  form.args = (originalArgs.value ?? []).join("\n");
   form.url = props.config.url ?? "";
   form.transport = props.config.type ?? "stdio";
   form.description = props.config.description ?? "";
@@ -105,12 +109,12 @@ function emitUpdate() {
 
   const config: McpServerConfig = {
     command: form.command || undefined,
-    args: form.args
-      ? form.args
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : undefined,
+    args:
+      argumentsReadOnly.value || form.args === (originalArgs.value ?? []).join("\n")
+        ? originalArgs.value?.slice()
+        : form.args
+          ? parseMcpArguments(form.args)
+          : undefined,
     env: Object.keys(env).length > 0 ? env : undefined,
     url: form.url || undefined,
     type: form.transport as McpTransport,
@@ -169,15 +173,21 @@ function emitUpdate() {
 
     <!-- Args -->
     <div class="form-group">
-      <label class="form-label" for="mcp-args">Arguments <span class="form-hint">(comma-separated)</span></label>
-      <input
+      <label class="form-label" for="mcp-args">Arguments <span class="form-hint">(one per line)</span></label>
+      <textarea
         id="mcp-args"
         v-model="form.args"
-        type="text"
-        class="form-input"
-        placeholder="e.g., -y, @modelcontextprotocol/server-filesystem, /path"
+        class="form-input form-textarea"
+        placeholder="One argument per line"
+        rows="3"
+        :readonly="argumentsReadOnly"
+        :aria-describedby="argumentsReadOnly ? 'mcp-args-help' : undefined"
         @input="emitUpdate"
       />
+      <span v-if="argumentsReadOnly" id="mcp-args-help" class="form-hint">
+        These arguments include whitespace or empty values that this line editor cannot preserve.
+        Edit them in the JSON configuration. Other fields can still be saved here.
+      </span>
     </div>
 
     <!-- URL (SSE/Streamable) -->
@@ -197,7 +207,7 @@ function emitUpdate() {
     <div v-if="showUrl" class="form-group">
       <div class="form-label-row">
         <label class="form-label">HTTP Headers</label>
-        <button class="btn-text" type="button" @click="addHeaderPair">+ Add</button>
+        <button class="btn-text" type="button" aria-label="Add HTTP header" @click="addHeaderPair">+ Add</button>
       </div>
       <div v-if="form.headerPairs.length > 0" class="env-table">
         <div v-for="(pair, idx) in form.headerPairs" :key="idx" class="env-row">
@@ -206,6 +216,7 @@ function emitUpdate() {
             type="text"
             class="form-input env-key"
             placeholder="Header-Name"
+            :aria-label="`HTTP header ${idx + 1} name`"
             @input="emitUpdate"
           />
           <input
@@ -213,12 +224,14 @@ function emitUpdate() {
             type="text"
             class="form-input env-value"
             placeholder="value"
+            :aria-label="`HTTP header ${idx + 1} value`"
             @input="emitUpdate"
           />
           <button
             class="env-remove"
             type="button"
             title="Remove"
+            :aria-label="`Remove HTTP header ${idx + 1}`"
             @click="removeHeaderPair(idx)"
           >
             ×
@@ -244,7 +257,7 @@ function emitUpdate() {
     <div class="form-group">
       <div class="form-label-row">
         <label class="form-label">Environment Variables</label>
-        <button class="btn-text" type="button" @click="addEnvPair">+ Add</button>
+        <button class="btn-text" type="button" aria-label="Add environment variable" @click="addEnvPair">+ Add</button>
       </div>
       <div class="env-table">
         <div v-for="(pair, idx) in form.envPairs" :key="idx" class="env-row">
@@ -253,6 +266,7 @@ function emitUpdate() {
             type="text"
             class="form-input env-key"
             placeholder="KEY"
+            :aria-label="`Environment variable ${idx + 1} name`"
             @input="emitUpdate"
           />
           <input
@@ -260,12 +274,14 @@ function emitUpdate() {
             type="text"
             class="form-input env-value"
             placeholder="value"
+            :aria-label="`Environment variable ${idx + 1} value`"
             @input="emitUpdate"
           />
           <button
             class="env-remove"
             type="button"
             title="Remove"
+            :aria-label="`Remove environment variable ${idx + 1}`"
             @click="removeEnvPair(idx)"
           >
             ×
@@ -330,6 +346,8 @@ function emitUpdate() {
 }
 
 .form-hint {
+  font-size: 0.75rem;
+  line-height: 1.5;
   font-weight: 400;
   text-transform: none;
   letter-spacing: normal;

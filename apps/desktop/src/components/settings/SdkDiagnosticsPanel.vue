@@ -9,7 +9,7 @@
  */
 import { ActionButton } from "@tracepilot/ui";
 import { Clipboard } from "lucide-vue-next";
-import { ref } from "vue";
+import { ref, useId } from "vue";
 import type { UseSdkConnectionHealth } from "@/composables/useSdkConnectionHealth";
 import type { UseSdkDiagnostics } from "@/composables/useSdkDiagnostics";
 import { useSdkStore } from "@/stores/sdk";
@@ -21,6 +21,8 @@ const props = defineProps<{
 
 const sdk = useSdkStore();
 const showAdvanced = ref(false);
+const advancedId = useId();
+const logLevelId = useId();
 
 function runProbe(): void {
   void props.diagnostics.runDiagnostics({
@@ -37,21 +39,28 @@ function runProbe(): void {
     diagnostics probe output (not chrome). They categorise log lines by status.
   -->
   <div class="sdk-divider" />
-  <div class="sdk-advanced-toggle" @click="showAdvanced = !showAdvanced">
-    <span class="sdk-toggle-arrow" :class="{ 'sdk-toggle-arrow--open': showAdvanced }">▸</span>
+  <button
+    type="button"
+    class="sdk-advanced-toggle"
+    :aria-expanded="showAdvanced"
+    :aria-controls="advancedId"
+    @click="showAdvanced = !showAdvanced"
+  >
+    <span aria-hidden="true" class="sdk-toggle-arrow" :class="{ 'sdk-toggle-arrow--open': showAdvanced }">▸</span>
     <span>Advanced</span>
-  </div>
+  </button>
 
+  <div :id="advancedId" v-show="showAdvanced">
   <template v-if="showAdvanced">
     <!-- Log level -->
     <div class="setting-row">
       <div class="setting-info">
-        <div class="setting-label">SDK log level</div>
-        <div class="setting-description">
+        <label :for="logLevelId" class="setting-label">SDK log level</label>
+        <div :id="`${logLevelId}-hint`" class="setting-description">
           Verbosity for bridge diagnostic messages
         </div>
       </div>
-      <select v-model="health.logLevel.value" class="sdk-select" :disabled="sdk.isConnected">
+      <select :id="logLevelId" v-model="health.logLevel.value" :aria-describedby="`${logLevelId}-hint`" class="sdk-select" :disabled="sdk.isConnected">
         <option value="error">Error</option>
         <option value="warn">Warn</option>
         <option value="info">Info</option>
@@ -140,6 +149,7 @@ function runProbe(): void {
       </div>
     </div>
   </template>
+  </div>
 </template>
 
 <style scoped>
@@ -169,6 +179,12 @@ function runProbe(): void {
 .btn-ghost:hover { opacity: 1; }
 
 .sdk-advanced-toggle {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
   cursor: pointer;
   user-select: none;
   display: flex;
@@ -183,6 +199,10 @@ function runProbe(): void {
 }
 .sdk-advanced-toggle:hover {
   color: var(--text-primary);
+}
+.sdk-advanced-toggle:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
 }
 .sdk-toggle-arrow {
   display: inline-block;

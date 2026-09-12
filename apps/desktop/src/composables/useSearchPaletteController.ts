@@ -6,10 +6,12 @@
 
 import type { SearchResult } from "@tracepilot/types";
 import { computed, nextTick, type Ref, ref, watch } from "vue";
-import type { Router } from "vue-router";
+import type { RouteRecordNormalized, Router } from "vue-router";
 import { useSearchPaletteSearch } from "@/composables/useSearchPaletteSearch";
-import { ROUTE_NAMES, type RouteName } from "@/config/routes";
+import { isRouteName, ROUTE_NAMES, type RouteName } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import type { SidebarSection } from "@/router/types";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 
 export interface NavAction {
@@ -29,30 +31,16 @@ export type ComboItem =
   | { kind: "recent"; data: RecentEntry }
   | { kind: "result"; data: SearchResult };
 
-const NAV_ACTIONS: NavAction[] = [
-  {
-    id: "nav:sessions",
-    label: "Go to Sessions",
-    hint: "View all sessions",
-    route: ROUTE_NAMES.sessions,
-  },
-  {
-    id: "nav:search",
-    label: "Go to Search",
-    hint: "Full search results",
-    route: ROUTE_NAMES.search,
-  },
-  {
-    id: "nav:analytics",
-    label: "Go to Analytics",
-    hint: "Trends & dashboards",
-    route: ROUTE_NAMES.analytics,
-  },
-  { id: "nav:tools", label: "Go to Tools", hint: "Tool inventory", route: ROUTE_NAMES.tools },
-  { id: "nav:replay", label: "Go to Replay", hint: "Session replay", route: ROUTE_NAMES.replay },
-  { id: "nav:export", label: "Go to Export", hint: "Export sessions", route: ROUTE_NAMES.export },
-  { id: "nav:settings", label: "Go to Settings", hint: "Preferences", route: ROUTE_NAMES.settings },
-];
+const NAV_SECTION_ORDER: Record<SidebarSection, number> = {
+  primary: 0,
+  advanced: 1,
+  orchestration: 2,
+  configuration: 3,
+};
+
+function sectionOrder(route: RouteRecordNormalized): number {
+  return route.meta.sidebar ? NAV_SECTION_ORDER[route.meta.sidebar.section] : 4;
+}
 
 /** Substring + token-prefix scorer. 0 = no match; higher = stronger match. */
 function score(haystack: string, needle: string): number {
@@ -69,6 +57,7 @@ function score(haystack: string, needle: string): number {
 
 export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInputElement | null>) {
   const sessionsStore = useSessionsStore();
+  const prefsStore = usePreferencesStore();
   const search = useSearchPaletteSearch();
   const isOpen = ref(false);
   const selectedIndex = ref(0);
@@ -78,8 +67,33 @@ export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInp
     selectedIndex.value = 0;
   });
 
+  // Share the sidebar's route metadata and the router guard's feature gates.
+  // Settings lives in the sidebar footer, so it has no meta.sidebar entry.
+  const navActions = computed<NavAction[]>(() =>
+    router
+      .getRoutes()
+      .filter(
+        (route): route is RouteRecordNormalized & { name: RouteName } =>
+          isRouteName(route.name) &&
+          (!!route.meta.sidebar || route.name === ROUTE_NAMES.settings) &&
+          (!route.meta.featureFlag || prefsStore.isFeatureEnabled(route.meta.featureFlag)),
+      )
+      .sort(
+        (a, b) =>
+          sectionOrder(a) - sectionOrder(b) ||
+          (a.meta.sidebar?.order ?? 0) - (b.meta.sidebar?.order ?? 0),
+      )
+      .map((route) => ({
+        id: `nav:${route.name}`,
+        label: `Go to ${route.meta.sidebar?.label ?? route.meta.title ?? route.name}`,
+        hint: route.meta.title ?? "",
+        route: route.name,
+      })),
+  );
+
   const navMatches = computed<NavAction[]>(() =>
-    NAV_ACTIONS.map((a) => ({ a, s: score(`${a.label} ${a.hint}`, search.query.value) }))
+    navActions.value
+      .map((a) => ({ a, s: score(`${a.label} ${a.hint}`, search.query.value) }))
       .filter((x) => x.s > 0)
       .sort((a, b) => b.s - a.s)
       .map((x) => x.a),
@@ -104,6 +118,10 @@ export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInp
   const navOffset = computed(() => 0);
   const recentOffset = computed(() => navMatches.value.length);
   const resultsOffset = computed(() => navMatches.value.length + recentEntries.value.length);
+
+  watch(allItems, (items) => {
+    selectedIndex.value = Math.min(selectedIndex.value, Math.max(0, items.length - 1));
+  });
 
   function open() {
     previouslyFocused = document.activeElement as HTMLElement | null;

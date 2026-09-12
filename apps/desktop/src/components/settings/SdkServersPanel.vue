@@ -8,6 +8,7 @@
  */
 import { ActionButton, FormInput } from "@tracepilot/ui";
 import { Rocket, Search } from "lucide-vue-next";
+import { useId } from "vue";
 import type { UseSdkConnectionHealth } from "@/composables/useSdkConnectionHealth";
 import { useSdkStore } from "@/stores/sdk";
 
@@ -16,6 +17,7 @@ defineProps<{
 }>();
 
 const sdk = useSdkStore();
+const cliUrlId = useId();
 
 async function handleDetect(): Promise<void> {
   await sdk.detectUiServer();
@@ -95,14 +97,16 @@ async function handleStopServer(pid: number): Promise<void> {
   <!-- Manual CLI URL -->
   <div class="setting-row">
     <div class="setting-info">
-      <div class="setting-label">CLI URL</div>
-      <div class="setting-description">
+      <label :for="cliUrlId" class="setting-label">CLI URL</label>
+      <div :id="`${cliUrlId}-hint`" class="setting-description">
         Detected automatically, or enter manually (e.g. <code>127.0.0.1:3333</code>)
       </div>
     </div>
     <div class="sdk-url-row">
       <FormInput
+        :id="cliUrlId"
         v-model="health.cliUrl.value"
+        :aria-describedby="`${cliUrlId}-hint`"
         type="text"
         placeholder="127.0.0.1:port"
         class="input-medium"

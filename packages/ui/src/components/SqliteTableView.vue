@@ -13,7 +13,7 @@
  *    "Copy" action.
  */
 import type { SessionDbTable } from "@tracepilot/types";
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, useId, watch } from "vue";
 import { useClipboard } from "../composables/useClipboard";
 import ModalDialog from "./ModalDialog.vue";
 
@@ -36,6 +36,8 @@ const viewMode = defineModel<SqliteViewMode>("viewMode", { default: "data" });
 // intentionally out of scope — in-memory is sufficient for the session.
 const DEFAULT_WIDTH = 180;
 const MIN_WIDTH = 48;
+const MAX_WIDTH = 4096;
+const viewId = useId();
 const columnWidths = ref<Record<string, number[]>>({});
 
 const widths = computed(() => {
@@ -60,22 +62,42 @@ watch(
 let dragIndex = -1;
 let dragStartX = 0;
 let dragStartWidth = 0;
+let previousCursor = "";
+let previousUserSelect = "";
+
+function setColumnWidth(idx: number, width: number) {
+  const next = [...widths.value];
+  next[idx] = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width));
+  columnWidths.value = { ...columnWidths.value, [props.table.name]: next };
+}
+
+function onResizeKeydown(idx: number, event: KeyboardEvent) {
+  if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+  const current = widths.value[idx] ?? DEFAULT_WIDTH;
+  const step = event.shiftKey ? 64 : 16;
+  const next = {
+    ArrowLeft: current - step,
+    ArrowRight: current + step,
+    Home: MIN_WIDTH,
+    End: MAX_WIDTH,
+    Enter: DEFAULT_WIDTH,
+  }[event.key];
+  if (next === undefined) return;
+  event.preventDefault();
+  event.stopPropagation();
+  setColumnWidth(idx, next);
+}
 
 function onResizeStart(idx: number, e: MouseEvent) {
+  if (e.button !== 0) return;
   e.preventDefault();
   e.stopPropagation();
+  onResizeEnd();
   dragIndex = idx;
   dragStartX = e.clientX;
-  const name = props.table.name;
-  const current = columnWidths.value[name] ?? props.table.columns.map(() => DEFAULT_WIDTH);
-  dragStartWidth = current[idx] ?? DEFAULT_WIDTH;
-  // Mutate via a fresh array so Vue picks up the change.
-  if (!columnWidths.value[name] || columnWidths.value[name].length !== props.table.columns.length) {
-    columnWidths.value = {
-      ...columnWidths.value,
-      [name]: props.table.columns.map(() => DEFAULT_WIDTH),
-    };
-  }
+  dragStartWidth = widths.value[idx] ?? DEFAULT_WIDTH;
+  previousCursor = document.body.style.cursor;
+  previousUserSelect = document.body.style.userSelect;
   document.addEventListener("mousemove", onResizeMove);
   document.addEventListener("mouseup", onResizeEnd);
   document.body.style.cursor = "col-resize";
@@ -84,33 +106,86 @@ function onResizeStart(idx: number, e: MouseEvent) {
 
 function onResizeMove(e: MouseEvent) {
   if (dragIndex < 0) return;
-  const delta = e.clientX - dragStartX;
-  const next = Math.max(MIN_WIDTH, dragStartWidth + delta);
-  const name = props.table.name;
-  const arr = [...(columnWidths.value[name] ?? [])];
-  arr[dragIndex] = next;
-  columnWidths.value = { ...columnWidths.value, [name]: arr };
+  setColumnWidth(dragIndex, dragStartWidth + e.clientX - dragStartX);
 }
 
 function onResizeEnd() {
+  if (dragIndex < 0) return;
   dragIndex = -1;
   document.removeEventListener("mousemove", onResizeMove);
   document.removeEventListener("mouseup", onResizeEnd);
-  document.body.style.cursor = "";
-  document.body.style.userSelect = "";
+  document.body.style.cursor = previousCursor;
+  document.body.style.userSelect = previousUserSelect;
+}
+
+watch(() => [props.table.name, viewMode.value, props.table.columns.length], onResizeEnd);
+onBeforeUnmount(onResizeEnd);
+
+// One data-cell tab stop; the native table remains available to reading commands.
+const dataWrap = ref<HTMLElement | null>(null);
+const activeCell = ref({ row: 0, column: 0 });
+watch(
+  () => [props.table.name, props.table.rows.length, props.table.columns.length],
+  () => {
+    activeCell.value = {
+      row: Math.min(activeCell.value.row, Math.max(0, props.table.rows.length - 1)),
+      column: Math.min(activeCell.value.column, Math.max(0, props.table.columns.length - 1)),
+    };
+  },
+);
+
+function onCellKeydown(row: number, column: number, event: KeyboardEvent) {
+  if (event.isComposing || event.altKey) return;
+  const wholeTable = event.ctrlKey || event.metaKey;
+  if (wholeTable && event.key !== "Home" && event.key !== "End") return;
+  let nextRow = row;
+  let nextColumn = column;
+  switch (event.key) {
+    case "ArrowLeft":
+      nextColumn--;
+      break;
+    case "ArrowRight":
+      nextColumn++;
+      break;
+    case "ArrowUp":
+      nextRow--;
+      break;
+    case "ArrowDown":
+      nextRow++;
+      break;
+    case "Home":
+      nextColumn = 0;
+      if (wholeTable) nextRow = 0;
+      break;
+    case "End":
+      nextColumn = props.table.columns.length - 1;
+      if (wholeTable) nextRow = props.table.rows.length - 1;
+      break;
+    default:
+      return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  nextRow = Math.max(0, Math.min(props.table.rows.length - 1, nextRow));
+  nextColumn = Math.max(0, Math.min(props.table.columns.length - 1, nextColumn));
+  dataWrap.value
+    ?.querySelector<HTMLButtonElement>(`[data-row="${nextRow}"][data-column="${nextColumn}"]`)
+    ?.focus();
 }
 
 // ── Cell expand modal ────────────────────────────────────────────────
 const expandedCell = ref<{ column: string; value: string | number | null } | null>(null);
 const { copy: copyCell, copied: cellCopied } = useClipboard();
 
-function openCell(columnIdx: number, value: string | number | null) {
+function openCell(columnIdx: number, value: string | number | null, event: MouseEvent) {
+  (event.currentTarget as HTMLButtonElement).focus({ preventScroll: true });
   expandedCell.value = { column: props.table.columns[columnIdx] ?? "", value };
 }
 
 function closeCell() {
   expandedCell.value = null;
 }
+watch(() => props.table.name, closeCell);
 
 const expandedValueText = computed(() => {
   const v = expandedCell.value?.value;
@@ -139,9 +214,19 @@ watch(
 
 <template>
   <div class="stv">
+    <span :id="`${viewId}-cell-help`" class="stv__sr-only">
+      Arrow keys move between cells. Home and End move to the first and last column.
+      Ctrl or Cmd with Home and End moves to the first and last cell in the table.
+      Enter or Space opens the full value. Tab leaves the cells.
+    </span>
+    <span :id="`${viewId}-resize-help`" class="stv__sr-only">
+      Left and Right arrows resize by 16 pixels, or 64 with Shift.
+      Home sets the minimum width of 48 pixels; End sets the maximum of 4096 pixels.
+      Enter resets to 180 pixels.
+    </span>
     <!-- Data view -->
-    <div v-if="viewMode === 'data'" class="stv__data-wrap">
-      <table class="stv__table" :style="{ width: `max(${totalWidth}px, 100%)` }">
+    <div v-if="viewMode === 'data'" ref="dataWrap" class="stv__data-wrap">
+      <table :id="`${viewId}-table`" class="stv__table" :style="{ width: `max(${totalWidth}px, 100%)` }">
         <colgroup>
           <col v-for="(_col, idx) in table.columns" :key="idx" :style="{ width: `${widths[idx]}px` }" />
         </colgroup>
@@ -152,9 +237,17 @@ watch(
               <span
                 class="stv__th-handle"
                 role="separator"
+                tabindex="0"
                 aria-orientation="vertical"
                 :aria-label="`Resize column ${col}`"
+                :aria-controls="`${viewId}-table`"
+                :aria-describedby="`${viewId}-resize-help`"
+                :aria-valuemin="MIN_WIDTH"
+                :aria-valuemax="MAX_WIDTH"
+                :aria-valuenow="widths[idx]"
+                :aria-valuetext="`${widths[idx]} pixels`"
                 @mousedown="onResizeStart(idx, $event)"
+                @keydown="onResizeKeydown(idx, $event)"
               />
             </th>
           </tr>
@@ -175,11 +268,24 @@ watch(
               v-for="(cell, cIdx) in row"
               :key="cIdx"
               class="stv__td"
-              :title="cell === null ? 'NULL' : String(cell)"
-              @click="openCell(cIdx, cell)"
             >
-              <span v-if="cell === null" class="stv__null">NULL</span>
-              <span v-else>{{ cell }}</span>
+              <button
+                type="button"
+                class="stv__cell-button"
+                :data-row="rIdx"
+                :data-column="cIdx"
+                :tabindex="activeCell.row === rIdx && activeCell.column === cIdx ? 0 : -1"
+                :aria-label="`View ${table.columns[cIdx]}, row ${rIdx + 1}`"
+                :aria-describedby="`${viewId}-value-${rIdx}-${cIdx} ${viewId}-cell-help`"
+                :title="cell === null ? 'NULL' : String(cell)"
+                @focus="activeCell = { row: rIdx, column: cIdx }"
+                @keydown="onCellKeydown(rIdx, cIdx, $event)"
+                @click="openCell(cIdx, cell, $event)"
+              >
+                <span :id="`${viewId}-value-${rIdx}-${cIdx}`" :class="{ 'stv__null': cell === null, 'stv__sr-only': cell === '' }">
+                  {{ cell === null ? 'NULL' : cell === '' ? 'Empty string' : cell }}
+                </span>
+              </button>
             </td>
           </tr>
         </tbody>
@@ -386,11 +492,45 @@ watch(
 }
 
 .stv__data-wrap .stv__td {
+  padding: 0;
+}
+
+.stv__cell-button {
+  display: block;
+  width: 100%;
+  min-height: 24px;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.stv__data-wrap .stv__td:hover {
+.stv__cell-button:hover {
   background: var(--accent-muted, var(--neutral-muted));
+}
+
+.stv__cell-button:focus-visible,
+.stv__th-handle:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
+}
+
+.stv__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .stv__null {

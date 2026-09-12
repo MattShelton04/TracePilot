@@ -118,9 +118,29 @@
 }
 
 .model-comparison-feature .sort-header {
-  cursor: pointer;
+  padding: 0;
   user-select: none;
   white-space: nowrap;
+}
+
+.model-comparison-feature .matrix-sort-button {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.model-comparison-feature .matrix-sort-button:focus-visible,
+.model-comparison-feature .toggle-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 .model-comparison-feature .matrix-table th:not(:first-child) {

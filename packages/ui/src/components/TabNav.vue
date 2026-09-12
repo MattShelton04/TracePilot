@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 export interface TabNavItem {
@@ -49,17 +49,65 @@ const activeTab = computed(() => (isLocalMode.value ? props.modelValue! : (route
 
 // Track which tab has tabindex="0" — follows keyboard focus, resets on route change
 const focusedIndex = ref(0);
+const navRef = ref<HTMLElement | null>(null);
+const tabRefs = ref<HTMLButtonElement[]>([]);
+
+function revealTab(index: number) {
+  const nav = navRef.value;
+  const tab = tabRefs.value[index];
+  if (!nav || !tab || nav.clientWidth === 0) return;
+
+  // Scroll this strip only. scrollIntoView/default focus scrolling can also
+  // move the session page and lose the user's place in the current content.
+  const left = tab.offsetLeft;
+  const right = left + tab.offsetWidth;
+  if (left < nav.scrollLeft || tab.offsetWidth > nav.clientWidth) {
+    nav.scrollLeft = left;
+  } else if (right > nav.scrollLeft + nav.clientWidth) {
+    nav.scrollLeft = right - nav.clientWidth;
+  }
+}
+
+function revealCurrentTab() {
+  const focused = tabRefs.value.findIndex((tab) => tab === document.activeElement);
+  revealTab(
+    focused >= 0 ? focused : props.tabs.findIndex((tab) => tab.routeName === activeTab.value),
+  );
+}
 
 watch(
   activeTab,
-  (name) => {
+  async (name) => {
     const idx = props.tabs.findIndex((t) => t.routeName === name);
     if (idx >= 0) focusedIndex.value = idx;
+    await nextTick();
+    revealTab(idx);
   },
   { immediate: true },
 );
 
-const tabRefs = ref<HTMLButtonElement[]>([]);
+watch(
+  () => props.tabs,
+  async () => {
+    await nextTick();
+    revealCurrentTab();
+  },
+  { deep: true },
+);
+
+let resizeObserver: ResizeObserver | undefined;
+onMounted(() => {
+  if (navRef.value && typeof ResizeObserver !== "undefined") {
+    resizeObserver = new ResizeObserver(revealCurrentTab);
+    resizeObserver.observe(navRef.value);
+  }
+});
+onBeforeUnmount(() => resizeObserver?.disconnect());
+
+function handleFocus(index: number) {
+  focusedIndex.value = index;
+  revealTab(index);
+}
 
 function navigate(routeName: string) {
   if (isLocalMode.value) {
@@ -94,12 +142,14 @@ function handleKeydown(e: KeyboardEvent, index: number) {
   }
   if (target >= 0) {
     focusedIndex.value = target;
-    tabRefs.value[target]?.focus();
+    tabRefs.value[target]?.focus({ preventScroll: true });
+    revealTab(target);
   }
 }
 </script>
 <template>
   <nav
+    ref="navRef"
     class="tab-nav"
     :class="{ 'tab-nav--pill': variant === 'pill' }"
     role="tablist"
@@ -119,6 +169,7 @@ function handleKeydown(e: KeyboardEvent, index: number) {
       :class="{ active: activeTab === tab.routeName, 'tab-nav-item--pill': variant === 'pill' }"
       :style="staggered ? { '--stagger': `${index * 50}ms` } : undefined"
       @click="navigate(tab.routeName)"
+      @focus="handleFocus(index)"
       @keydown="handleKeydown($event, index)"
     >
       <span v-if="tab.icon" class="tab-nav-icon" aria-hidden="true">{{ tab.icon }}</span>
@@ -129,6 +180,29 @@ function handleKeydown(e: KeyboardEvent, index: number) {
 </template>
 
 <style scoped>
+.tab-nav {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  /* Keep the app's shared themed scrollbar; a non-auto scrollbar-width
+     overrides its ::-webkit-scrollbar treatment in the desktop webview. */
+}
+
+.tab-nav-item {
+  flex-shrink: 0;
+}
+
+/* Keep both indicators inside the scrollport, including its end tabs. */
+.tab-nav-item:focus-visible {
+  outline-offset: -2px;
+}
+.tab-nav-item.active::after {
+  bottom: 0;
+}
+
 /* ── Pill variant ─────────────────────────────────────────── */
 .tab-nav--pill {
   border-bottom: none;

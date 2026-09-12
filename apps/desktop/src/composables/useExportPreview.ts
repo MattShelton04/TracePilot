@@ -39,6 +39,8 @@ export function useExportPreview(
   }
 
   async function fetchPreview() {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = null;
     const sid = sessionId.value;
     if (!sid) {
       clearPreviewState();
@@ -83,17 +85,19 @@ export function useExportPreview(
 
   function scheduleFetch() {
     if (debounceTimer) clearTimeout(debounceTimer);
-    if (!sessionId.value) {
-      clearPreviewState();
-      return;
-    }
+    debounceTimer = null;
+    // Invalidate at input change, not after the debounce: an older IPC request
+    // may finish while the next preview is still waiting to start.
+    clearPreviewState();
+    if (!sessionId.value || format.value === "zip") return;
+    loading.value = true;
     debounceTimer = setTimeout(fetchPreview, DEBOUNCE_MS);
   }
 
   const watchSources: Array<Ref | ComputedRef> = [sessionId, format, sections];
   if (contentDetail) watchSources.push(contentDetail);
   if (redaction) watchSources.push(redaction);
-  watch(watchSources, scheduleFetch, { deep: true });
+  watch(watchSources, scheduleFetch, { deep: true, flush: "sync" });
 
   onUnmounted(() => {
     if (debounceTimer) clearTimeout(debounceTimer);

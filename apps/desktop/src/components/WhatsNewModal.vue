@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ReleaseManifestEntry } from "@tracepilot/types";
-import { MarkdownContent } from "@tracepilot/ui";
-import { computed } from "vue";
+import { MarkdownContent, useOverlayFocus } from "@tracepilot/ui";
+import { computed, ref } from "vue";
 
 const props = defineProps<{
   previousVersion: string;
@@ -15,6 +15,9 @@ const emit = defineEmits<{
   close: [];
   "open-external": [url: string];
 }>();
+
+const panelRef = ref<HTMLElement | null>(null);
+useOverlayFocus({ active: true, panel: panelRef, onEscape: () => emit("close") });
 
 /** Compare two semver strings numerically. Returns -1, 0, or 1. */
 function compareSemver(a: string, b: string): number {
@@ -45,7 +48,7 @@ const hasRemoteReleaseNotes = computed(() => Boolean(props.releaseNotes?.trim())
 <template>
   <Teleport to="body">
     <div class="modal-overlay" @click.self="emit('close')">
-      <div class="modal-content" role="dialog" aria-labelledby="whats-new-title">
+      <div ref="panelRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="whats-new-title" tabindex="-1">
         <div class="modal-header">
           <h2 id="whats-new-title">🎉 What's New in v{{ currentVersion }}</h2>
           <button class="modal-close" aria-label="Close what's new" @click="emit('close')">

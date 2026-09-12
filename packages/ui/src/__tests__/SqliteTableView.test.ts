@@ -82,7 +82,7 @@ describe("SqliteTableView", () => {
     // Second row, second cell contains the long title.
     const longCell = cells.find((c) => c.text().startsWith("Write docs"));
     expect(longCell).toBeTruthy();
-    await longCell!.trigger("click");
+    await longCell!.get("button").trigger("click");
 
     // Modal is teleported to body — query the document directly.
     const modalValue = document.querySelector(".stv__cell-value");

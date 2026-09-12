@@ -34,6 +34,10 @@ const pageSubtitle = computed(() => {
   return `Code changes and file modifications across ${allPrefix}sessions${repoSuffix}`;
 });
 
+function formatModificationCount(count: number): string {
+  return `${formatNumberFull(count)} modification${count === 1 ? "" : "s"}`;
+}
+
 // ── File Type Bar Chart ──────────────────────────────────────
 const maxFileTypeCount = computed(() => {
   if (!data.value) return 1;
@@ -98,7 +102,7 @@ const timelineChart = computed(() => {
 
           <!-- Stats Row -->
           <div class="grid-4 mb-4">
-            <StatCard :value="formatNumberFull(data.filesModified)" label="Files Modified" />
+            <StatCard :value="formatNumberFull(data.filesModified)" label="Unique File Paths" />
             <StatCard
               :value="`+${formatNumberFull(data.linesAdded)}`"
               label="Lines Added"
@@ -114,18 +118,22 @@ const timelineChart = computed(() => {
               :trend-direction="data.netChange > 0 ? 'up' : data.netChange < 0 ? 'down' : 'neutral'"
             />
           </div>
+          <p class="code-count-note">
+            Matching paths across sessions{{ store.selectedRepo ? '' : ' and repositories' }} count as one unique path.
+            Modification totals count a file again in each session that reports it.
+          </p>
 
           <!-- Two-Column Layout -->
           <div class="grid-2 mb-4">
             <!-- File Type Breakdown (bar chart) -->
             <div class="section-panel">
-              <div class="section-panel-header">File Type Breakdown</div>
+              <div class="section-panel-header">File Modifications by Type</div>
               <div class="section-panel-body tooltip-area" @mouseleave="dismissTooltip">
                 <div
                   v-for="ft in data.fileTypeBreakdown"
                   :key="ft.extension"
-                  class="token-bar"
-                  @mouseenter="onBarMouseEnter($event, `${ft.extension} — ${ft.count} file${ft.count !== 1 ? 's' : ''}`, 'file-types')"
+                  class="token-bar file-type-row"
+                  @mouseenter="onBarMouseEnter($event, `${ft.extension} — ${formatModificationCount(ft.count)}`, 'file-types')"
                 >
                   <span class="token-bar-label font-mono">{{ ft.extension }}</span>
                   <div class="token-bar-track">
@@ -134,7 +142,7 @@ const timelineChart = computed(() => {
                       :style="{ width: (ft.count / maxFileTypeCount * 100) + '%' }"
                     />
                   </div>
-                  <span class="token-bar-value">{{ ft.count }} files</span>
+                  <span class="token-bar-value">{{ formatModificationCount(ft.count) }}</span>
                 </div>
                 <ChartTooltip :tooltip="tooltip" chart-id="file-types" />
               </div>
@@ -142,7 +150,7 @@ const timelineChart = computed(() => {
 
             <!-- Most Modified Files -->
             <div class="section-panel">
-              <div class="section-panel-header">Most Modified Files</div>
+              <div class="section-panel-header">Most Modified File Paths</div>
               <div class="section-panel-body tooltip-area" @mouseleave="dismissTooltip">
                 <div
                   v-for="file in data.mostModifiedFiles"
@@ -241,6 +249,23 @@ const timelineChart = computed(() => {
 </template>
 
 <style scoped>
+.code-count-note {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.file-type-row .token-bar-label {
+  width: 4rem;
+}
+
+.file-type-row .token-bar-value {
+  width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .lines-added-value,
 :deep(.lines-added-value) {
   background: linear-gradient(135deg, var(--chart-success), var(--chart-success-light));

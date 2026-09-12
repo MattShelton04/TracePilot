@@ -8,7 +8,7 @@ import {
   StatCard,
   truncateText,
 } from "@tracepilot/ui";
-import { computed, ref } from "vue";
+import { computed, ref, useId } from "vue";
 import { TOOLS_COLLAPSE_LIMIT, useConfigInjectorContext } from "@/composables/useConfigInjector";
 import { agentMeta } from "./agentMeta";
 
@@ -27,6 +27,7 @@ const {
 } = ctx;
 
 const ALL_MODELS = getAllModelIds();
+const instanceId = useId();
 const PREMIUM_MODELS = getModelsByTier("premium").map((m) => m.id);
 const STANDARD_MODELS = getModelsByTier("standard").map((m) => m.id);
 const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
@@ -84,7 +85,7 @@ const premiumAgentCount = computed(
     <!-- Agent Grid -->
     <div class="agent-grid">
       <div
-        v-for="agent in store.agents"
+        v-for="(agent, agentIndex) in store.agents"
         :key="agent.filePath"
         class="agent-card"
         :style="{ '--agent-accent': `var(${agentMeta(agent.name).colorVar})` }"
@@ -109,32 +110,32 @@ const premiumAgentCount = computed(
         </p>
 
         <div v-if="agent.tools?.length" class="agent-tools">
+          <span :id="`${instanceId}-tools-${agentIndex}`" class="agent-tools-list">
           <span
             v-for="tool in visibleTools(agent)"
             :key="tool"
             class="tool-chip"
             :title="tool.length > 50 ? tool : undefined"
           >{{ truncateText(tool, 50) }}</span>
-          <span
-            v-if="hiddenToolCount(agent) > 0 && !expandedTools[agent.filePath]"
-            class="tool-chip tool-chip--more"
-            @click="expandedTools[agent.filePath] = true"
-          >
-            +{{ hiddenToolCount(agent) }} more
           </span>
-          <span
-            v-if="expandedTools[agent.filePath] && agent.tools.length > TOOLS_COLLAPSE_LIMIT"
+          <button
+            v-if="agent.tools.length > TOOLS_COLLAPSE_LIMIT"
+            type="button"
             class="tool-chip tool-chip--more"
-            @click="expandedTools[agent.filePath] = false"
+            :aria-expanded="!!expandedTools[agent.filePath]"
+            :aria-controls="`${instanceId}-tools-${agentIndex}`"
+            :aria-label="`${expandedTools[agent.filePath] ? 'Show fewer' : 'Show all'} tools for ${agent.name}`"
+            @click="expandedTools[agent.filePath] = !expandedTools[agent.filePath]"
           >
-            Show less
-          </span>
+            {{ expandedTools[agent.filePath] ? 'Show less' : `+${hiddenToolCount(agent)} more` }}
+          </button>
         </div>
 
         <div class="agent-model-section">
           <select
             v-model="agentModels[agent.filePath]"
             class="form-input model-select"
+            :aria-label="`Model for ${agent.name}`"
             @change="onAgentModelSelect(agent)"
           >
             <optgroup label="Premium">

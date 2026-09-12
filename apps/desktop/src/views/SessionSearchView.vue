@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatNumberFull } from "@tracepilot/types";
 import { Banner, formatBytes } from "@tracepilot/ui";
-import { computed, ref } from "vue";
+import { computed, ref, useId } from "vue";
 import {
   SearchActiveFilters,
   SearchBrowsePresets,
@@ -18,6 +18,7 @@ import { useSessionSearch } from "@/composables/useSessionSearch";
 import "@/styles/features/session-search.css";
 
 const heroRef = ref<InstanceType<typeof SessionSearchHero> | null>(null);
+const filtersId = useId();
 const searchInputRef = computed<HTMLInputElement | null>(() => heroRef.value?.inputRef ?? null);
 
 const {
@@ -58,6 +59,7 @@ const {
       ref="heroRef"
       :query="store.query"
       :filters-open="filtersOpen"
+      :filters-id="filtersId"
       :active-filter-count="activeFilterCount"
       :sort-by="store.sortBy"
       :is-browse-mode="store.isBrowseMode"
@@ -93,9 +95,11 @@ const {
     <div class="search-page-layout">
 
       <SearchFilterSidebar
+        :id="filtersId"
         :collapsed="!filtersOpen"
         v-model:active-date-preset="activeDatePreset"
         @clear-filters="handleClearFilters"
+        @restore-focus="heroRef?.focusFilterToggle()"
       />
 
       <div class="search-main">

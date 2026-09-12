@@ -25,10 +25,11 @@
 import { getSessionDetail, getSessionEvents, getSessionTurns } from "@tracepilot/client";
 import type { EventsResponse, SessionDetail } from "@tracepilot/types";
 import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
-import type { InjectionKey, UnwrapNestedRefs } from "vue";
+import type { UnwrapNestedRefs } from "vue";
 import { inject, reactive, ref, shallowRef } from "vue";
 import { logDebug, logError, logWarn } from "@/utils/logger";
 import { createSessionCache } from "./session/cache";
+import { SESSION_DETAIL_KEY } from "./session/contextKey";
 import {
   buildCachedSessionSnapshot,
   buildPrefetchedCachedSession,
@@ -354,8 +355,7 @@ export type SessionDetailInstance = ReturnType<typeof createSessionDetailInstanc
  */
 export type SessionDetailContext = UnwrapNestedRefs<SessionDetailInstance>;
 
-/** Vue injection key for per-tab session detail instances (reactive-wrapped). */
-export const SESSION_DETAIL_KEY: InjectionKey<SessionDetailContext> = Symbol("sessionDetail");
+export { SESSION_DETAIL_KEY } from "./session/contextKey";
 
 /**
  * Wrap a raw composable instance in reactive() for provide/inject.

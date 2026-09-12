@@ -27,6 +27,11 @@ import {
   resolvePricingEntry,
 } from "@tracepilot/types";
 import { computed, ref } from "vue";
+import {
+  hasValidWholesaleRates,
+  isValidWholesaleRate,
+  type WholesaleRateField,
+} from "./pricingValidation";
 
 // Re-export for backwards compat — consumers that imported ModelWholesalePrice
 // now use the shared ModelPriceEntry type from @tracepilot/types.
@@ -207,8 +212,16 @@ export function createPricingSlice() {
   }
 
   function addWholesalePrice(price: ModelPriceEntry) {
+    if (!hasValidWholesaleRates(price)) return false;
     removedModels.value = removedModels.value.filter((model) => model !== price.model);
     modelWholesalePrices.value.push(price);
+    return true;
+  }
+
+  function updateWholesaleRate(price: ModelPriceEntry, field: WholesaleRateField, value: unknown) {
+    if (!modelWholesalePrices.value.includes(price) || !isValidWholesaleRate(value)) return false;
+    price[field] = value;
+    return true;
   }
 
   function removeWholesalePrice(model: string) {
@@ -261,6 +274,7 @@ export function createPricingSlice() {
     getObservedAiuCost,
     getPricingMetadata,
     addWholesalePrice,
+    updateWholesaleRate,
     removeWholesalePrice,
     resetWholesalePrices,
     isRichRenderingEnabled,

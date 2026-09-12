@@ -12,16 +12,18 @@ const importFlow = useImportFlow();
   <div class="import-container">
     <!-- Step 1: File Selection -->
     <div v-if="importFlow.step.value === 'select'">
-      <div
+      <button
+        type="button"
         class="drop-zone"
+        aria-label="Choose a .tpx.json file"
         @click="importFlow.browseFile"
       >
-        <div class="drop-zone-icon">📂</div>
-        <div class="drop-zone-text">
-          Drop a <strong>.tpx.json</strong> file here, or click to browse
-        </div>
-        <div class="drop-zone-hint">Supports TracePilot export files v1.0+</div>
-      </div>
+        <span class="drop-zone-icon" aria-hidden="true">📂</span>
+        <span class="drop-zone-text">
+          Choose a <strong>.tpx.json</strong> file
+        </span>
+        <span class="drop-zone-hint">Supports TracePilot export files v1.0+</span>
+      </button>
       <div v-if="importFlow.error.value" class="import-error">
         ⚠️ {{ importFlow.error.value }}
       </div>

@@ -14,7 +14,7 @@ import {
   useAutoRefresh,
 } from "@tracepilot/ui";
 import { Search } from "lucide-vue-next";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
@@ -114,6 +114,60 @@ watch(
 
 const pageRef = ref<HTMLElement | null>(null);
 let driftTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function focusSearch() {
+  void nextTick(() => {
+    pageRef.value?.querySelector<HTMLInputElement>('[data-testid="session-search"] input')?.focus();
+  });
+}
+
+function clearFilters() {
+  store.searchQuery = "";
+  store.filterRepo = null;
+  store.filterBranch = null;
+  focusSearch();
+}
+
+function showEmptySessions() {
+  prefs.hideEmptySessions = false;
+  focusSearch();
+}
+
+const hasSessionFilters = computed(
+  () => !!store.searchQuery || !!store.filterRepo || !!store.filterBranch,
+);
+
+const emptyState = computed(() => {
+  if (store.sessions.length === 0) {
+    return {
+      title: "No sessions yet",
+      description:
+        "Start a Copilot session to see it here. If you already have sessions, check the session directory in Settings.",
+      primaryAction: {
+        label: "Open Settings",
+        onClick: () => {
+          void pushRoute(router, ROUTE_NAMES.settings);
+        },
+      },
+    };
+  }
+  if (prefs.hideEmptySessions && store.visibleSessionCount === 0) {
+    return {
+      title: "Empty sessions are hidden",
+      description:
+        "Your sessions have no conversation turns and are hidden by the Hide empty sessions setting.",
+      primaryAction: { label: "Show empty sessions", onClick: showEmptySessions },
+      secondaryAction: hasSessionFilters.value
+        ? { label: "Clear filters", onClick: clearFilters }
+        : undefined,
+    };
+  }
+  return {
+    title: "No matching sessions",
+    description: "Try a different search or clear your filters to see available sessions.",
+    primaryAction: { label: "Clear filters", onClick: clearFilters },
+  };
+});
 
 watch(
   () => store.searchQuery,
@@ -230,9 +284,8 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
 
       <!-- Empty state -->
       <EmptyState
-        v-else-if="!store.loading"
-        title="No sessions found"
-        description="Try adjusting your search or filters."
+        v-else-if="!store.error"
+        v-bind="emptyState"
       >
         <template #icon><Search :size="36" aria-hidden="true" /></template>
       </EmptyState>
@@ -246,6 +299,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
 /* --- Enhanced Toolbar --- */
 .enhanced-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -269,20 +323,26 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
 }
 
 .toolbar-search {
-  flex: 1;
+  flex: 1 1 240px;
+  min-width: min(100%, 240px);
   max-width: 320px;
 }
 
 .toolbar-filters {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  max-width: 100%;
 }
 
 .toolbar-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
+  margin-inline-start: auto;
+  max-width: 100%;
 }
 
 .session-count-label {
@@ -290,25 +350,6 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
   font-weight: 500;
   color: var(--text-tertiary);
   white-space: nowrap;
-}
-
-@media (max-width: 900px) {
-  .enhanced-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 12px;
-    gap: 12px;
-  }
-  .toolbar-search, .toolbar-filters, .toolbar-actions {
-    max-width: none;
-    width: 100%;
-  }
-  .toolbar-filters {
-    flex-wrap: wrap;
-  }
-  .toolbar-actions {
-    justify-content: space-between;
-  }
 }
 
 /* --- Loading States --- */

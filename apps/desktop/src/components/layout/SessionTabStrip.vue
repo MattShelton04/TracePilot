@@ -39,6 +39,7 @@ const emit = defineEmits<{
 const tabStore = useSessionTabsStore();
 
 const stripRef = ref<HTMLElement | null>(null);
+const homeRef = ref<HTMLButtonElement | null>(null);
 const tabRefs = ref<(HTMLElement | null)[]>([]);
 const focusedIndex = ref(0);
 const contextMenuTab = ref<string | null>(null);
@@ -48,18 +49,22 @@ const tabs = computed(() => tabStore.tabs);
 const activeTabId = computed(() => tabStore.activeTabId);
 
 // Trim tabRefs to match current tab count (prevents stale DOM refs on close)
-watch(tabs, () => {
-  tabRefs.value.length = tabs.value.length;
-});
+watch(
+  () => tabs.value.length,
+  () => {
+    tabRefs.value.length = tabs.value.length;
+  },
+);
 
 /** Home pill is "active" only when no tab is selected AND we're on a session route */
 const isHomeActive = computed(() => activeTabId.value === null && (props.isSessionRoute ?? true));
 
 watch(
-  activeTabId,
-  (id) => {
+  () => [activeTabId.value, ...tabs.value.map((tab) => tab.sessionId)],
+  ([id]) => {
     const idx = tabs.value.findIndex((t) => t.sessionId === id);
-    if (idx >= 0) focusedIndex.value = idx;
+    focusedIndex.value =
+      idx >= 0 ? idx : Math.min(focusedIndex.value, Math.max(0, tabs.value.length - 1));
   },
   { immediate: true },
 );
@@ -68,8 +73,21 @@ function activate(sessionId: string) {
   tabStore.activateTab(sessionId);
 }
 
-function close(sessionId: string) {
+function focusRemainingTab() {
+  nextTick(() => {
+    const index = tabs.value.findIndex((tab) => tab.sessionId === activeTabId.value);
+    const target = index >= 0 ? tabRefs.value[index] : homeRef.value;
+    (target ?? document.querySelector<HTMLElement>('[data-nav-id="sessions"]'))?.focus({
+      preventScroll: true,
+    });
+  });
+}
+
+function close(sessionId: string, restoreFocus = false) {
+  const index = tabs.value.findIndex((tab) => tab.sessionId === sessionId);
+  const hadFocus = tabRefs.value[index]?.contains(document.activeElement);
   tabStore.closeTab(sessionId);
+  if (restoreFocus || hadFocus) focusRemainingTab();
 }
 
 function goHome() {
@@ -84,8 +102,22 @@ function handleMiddleMouseDown(event: MouseEvent, sessionId: string) {
 }
 
 function handleKeydown(e: KeyboardEvent, index: number) {
+  if (
+    e.defaultPrevented ||
+    e.isComposing ||
+    e.ctrlKey ||
+    e.altKey ||
+    e.metaKey ||
+    e.target !== e.currentTarget
+  )
+    return;
   let target = -1;
   switch (e.key) {
+    case "Enter":
+    case " ":
+      e.preventDefault();
+      activate(tabs.value[index].sessionId);
+      return;
     case "ArrowRight":
       e.preventDefault();
       target = (index + 1) % tabs.value.length;
@@ -121,7 +153,7 @@ function popOutSession(sessionId: string) {
   openSessionWindow(sessionId, tab?.label)
     .then(() => {
       tabStore.registerPopup(sessionId);
-      tabStore.closeTab(sessionId);
+      close(sessionId);
     })
     .catch((e) => logError("[tab-strip] Failed to pop out via drag:", e));
 }
@@ -151,8 +183,14 @@ function assignTabRef(inst: unknown, index: number) {
 // ── Context menu ─────────────────────────────────────────────────────
 function showContextMenu(event: MouseEvent, sessionId: string) {
   event.preventDefault();
+  const tab = tabRefs.value[tabs.value.findIndex((item) => item.sessionId === sessionId)];
+  tab?.focus({ preventScroll: true });
+  const bounds = tab?.getBoundingClientRect();
   contextMenuTab.value = sessionId;
-  contextMenuPos.value = { x: event.clientX, y: event.clientY };
+  contextMenuPos.value =
+    event.clientX || event.clientY
+      ? { x: event.clientX, y: event.clientY }
+      : { x: bounds?.left ?? 8, y: bounds?.bottom ?? 8 };
 }
 
 function hideContextMenu() {
@@ -160,30 +198,33 @@ function hideContextMenu() {
 }
 
 function contextClose() {
-  if (contextMenuTab.value) tabStore.closeTab(contextMenuTab.value);
+  const id = contextMenuTab.value;
   hideContextMenu();
+  if (id) close(id, true);
 }
 function contextCloseOthers() {
   if (contextMenuTab.value) tabStore.closeOtherTabs(contextMenuTab.value);
   hideContextMenu();
+  focusRemainingTab();
 }
 function contextCloseAll() {
   tabStore.closeAllTabs();
   hideContextMenu();
+  focusRemainingTab();
 }
 
 async function contextPopOut() {
   if (!contextMenuTab.value) return;
   const sessionId = contextMenuTab.value;
+  hideContextMenu();
   try {
     const tab = tabs.value.find((t) => t.sessionId === sessionId);
     await openSessionWindow(sessionId, tab?.label);
     tabStore.registerPopup(sessionId);
-    tabStore.closeTab(sessionId);
+    close(sessionId);
   } catch (e) {
     logError("[tab-strip] Failed to pop out session:", e);
   }
-  hideContextMenu();
 }
 </script>
 
@@ -192,28 +233,28 @@ async function contextPopOut() {
     v-if="tabs.length > 0"
     ref="stripRef"
     class="session-tab-strip"
-    role="tablist"
-    aria-label="Open sessions"
     @click.self="hideContextMenu"
   >
     <!-- Home pill — always visible, returns to session list. Icon-only per
          design-system §1.3 (CC-5: avoid label collision with sidebar
          "Sessions" item; the strip shows open work, not navigation). -->
-    <div
+    <button
+      ref="homeRef"
+      type="button"
       class="session-tab home-tab"
       :class="{ active: isHomeActive }"
-      role="tab"
-      :aria-selected="activeTabId === null"
+      :aria-current="isHomeActive ? 'page' : undefined"
       aria-label="All sessions"
       title="All sessions"
       @click="goHome"
     >
       <Home :size="16" :stroke-width="1.5" aria-hidden="true" />
-    </div>
+    </button>
 
     <div class="tab-separator" />
 
     <!-- Session tabs -->
+    <div class="session-tabs" role="tablist" aria-label="Open sessions">
     <SessionTab
       v-for="(tab, index) in tabs"
       :key="tab.sessionId"
@@ -241,6 +282,7 @@ async function contextPopOut() {
       v-if="insertionIndex !== null && insertionIndex >= tabs.length"
       class="insertion-indicator insertion-indicator--end"
     />
+    </div>
 
     <SessionTabContextMenu
       :visible="contextMenuTab !== null"
@@ -273,6 +315,17 @@ async function contextPopOut() {
   margin: 6px 4px;
   background: var(--border-muted);
   flex-shrink: 0;
+}
+
+.session-tabs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.home-tab:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
 }
 
 .session-tab {

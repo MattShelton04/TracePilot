@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 
 const props = defineProps<{
   options: string[];
+  inputId?: string;
   placeholder?: string;
   modelValue: string;
   disabled?: boolean;
@@ -188,6 +189,7 @@ watch(filteredOptions, () => {
   <div ref="containerRef" class="searchable-select" :class="{ 'is-open': isOpen, 'is-disabled': disabled }">
     <div class="select-trigger-wrapper">
       <input
+        :id="inputId"
         ref="inputRef"
         v-model="searchQuery"
         type="text"

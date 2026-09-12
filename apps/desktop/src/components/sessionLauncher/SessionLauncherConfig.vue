@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { SearchableSelect } from "@tracepilot/ui";
+import { useId } from "vue";
 import { useSessionLauncherContext } from "@/composables/useSessionLauncher";
+
+const fieldId = `launcher-config-${useId()}`;
 
 const {
   store,
@@ -29,7 +32,7 @@ const {
       <div class="form-grid-2col">
         <div class="form-group">
           <div class="form-label-row">
-            <label class="form-label form-label--inline">Repository <span class="required">*</span></label>
+            <label :for="`${fieldId}-repository`" class="form-label form-label--inline">Repository <span class="required">*</span></label>
             <button
               v-if="repoPath"
               type="button"
@@ -44,6 +47,7 @@ const {
             <select
               v-if="worktreeStore.registeredRepos.length || prefsStore.recentRepoPaths.length"
               class="form-input form-select repo-recent"
+              aria-label="Registered or recent repository"
               :value="repoPath"
               @change="selectRecentRepo"
             >
@@ -57,6 +61,7 @@ const {
             </select>
             <div class="repo-input-row">
               <input
+                :id="`${fieldId}-repository`"
                 v-model="repoPath"
                 type="text"
                 class="form-input"
@@ -70,7 +75,7 @@ const {
         </div>
         <div class="form-group">
           <div class="form-label-row">
-            <label class="form-label form-label--inline">Branch</label>
+            <label :for="`${fieldId}-branch`" class="form-label form-label--inline">Branch</label>
             <button
               v-if="defaultBranch && branch !== defaultBranch"
               type="button"
@@ -82,6 +87,7 @@ const {
           </div>
           <div class="branch-select-wrap">
             <SearchableSelect
+              :input-id="`${fieldId}-branch`"
               v-model="branch"
               :options="worktreeStore.branches"
               allowCustom
@@ -93,8 +99,8 @@ const {
           <span class="form-hint">{{ createWorktree ? 'New branch to create with the worktree' : 'Optional — checks out or creates this branch before starting' }}</span>
         </div>
         <div class="form-group">
-          <label class="form-label">Model</label>
-          <select v-model="selectedModel" class="form-input form-select" @change="clearTemplateSelection">
+          <label :for="`${fieldId}-model`" class="form-label">Model</label>
+          <select :id="`${fieldId}-model`" v-model="selectedModel" class="form-input form-select" @change="clearTemplateSelection">
             <option value="">— Default —</option>
             <optgroup
               v-for="(group, tier) in store.modelsByTier"
@@ -106,13 +112,15 @@ const {
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Reasoning Effort</label>
-          <div class="btn-group">
+          <span :id="`${fieldId}-reasoning`" class="form-label">Reasoning Effort</span>
+          <div class="btn-group" role="group" :aria-labelledby="`${fieldId}-reasoning`">
             <button
               v-for="level in (['low', 'medium', 'high'] as const)"
               :key="level"
+              type="button"
               class="btn-group-item"
               :class="{ active: reasoningEffort === level }"
+              :aria-pressed="reasoningEffort === level"
               @click="reasoningEffort = level; clearTemplateSelection()"
             >{{ tierLabel(level) }}</button>
           </div>
@@ -125,6 +133,8 @@ const {
 <style scoped>
 .form-label-row {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   justify-content: space-between;
   align-items: flex-end;
 }

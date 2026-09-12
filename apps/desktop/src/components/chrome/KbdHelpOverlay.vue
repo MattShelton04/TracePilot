@@ -93,7 +93,8 @@ function tokenize(combo: string): string[] {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: min(520px, 90vw);
+  width: 100%;
+  min-width: 0;
   max-height: 60vh;
   overflow-y: auto;
 }
@@ -109,7 +110,7 @@ function tokenize(combo: string): string[] {
 
 .kbd-help-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   padding: 6px 0;

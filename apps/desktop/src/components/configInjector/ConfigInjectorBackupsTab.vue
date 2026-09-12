@@ -7,6 +7,7 @@ import {
   resolveLucideIcon,
   shortenPath,
 } from "@tracepilot/ui";
+import { useId } from "vue";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
 
 const {
@@ -15,6 +16,8 @@ const {
   newBackupLabel,
   backupableFiles,
   handleCreateBackup,
+  restoringBackupId,
+  handleRestoreBackup,
   batchBackingUp,
   handleBackupAllAgents,
   backupIconName,
@@ -26,6 +29,7 @@ const {
   backupDiffData,
   toggleBackupPreview,
 } = useConfigInjectorContext();
+const formId = useId();
 
 function backupIcon(path: string): unknown {
   return resolveLucideIcon(backupIconName(path), LUCIDE_ICON_COMPONENTS["file-text"]);
@@ -40,21 +44,29 @@ function backupIcon(path: string): unknown {
       <p class="backup-guidance">
         Select a config file to back up. This creates a timestamped copy you can restore later.
         Backups are stored in <code>~/.copilot/tracepilot/backups/</code>.
+        Unsaved Global Config edits are kept when restoring a backup.
       </p>
       <div class="backup-form">
-        <select v-model="newBackupPath" class="form-input">
-          <option value="">— Select file to back up —</option>
-          <option v-for="file in backupableFiles" :key="file.path" :value="file.path">
-            {{ file.label }}
-          </option>
-        </select>
-        <input v-model="newBackupLabel" class="form-input" placeholder="Label (optional)" />
+        <div class="backup-field">
+          <label :for="`${formId}-file`" class="form-label">File to back up</label>
+          <select :id="`${formId}-file`" v-model="newBackupPath" class="form-input">
+            <option value="">— Select file to back up —</option>
+            <option v-for="file in backupableFiles" :key="file.path" :value="file.path">
+              {{ file.label }}
+            </option>
+          </select>
+        </div>
+        <div class="backup-field">
+          <label :for="`${formId}-label`" class="form-label">Label (optional)</label>
+          <input :id="`${formId}-label`" v-model="newBackupLabel" class="form-input" placeholder="Label (optional)" />
+        </div>
         <button
+          type="button"
           class="btn btn-primary"
           :disabled="!newBackupPath.trim() || store.saving"
           @click="handleCreateBackup"
         >
-          {{ store.saving ? 'Creating…' : 'Create Backup' }}
+          {{ store.saving && !restoringBackupId ? 'Creating…' : 'Create Backup' }}
         </button>
       </div>
       <div v-if="store.agents.length" class="backup-batch">
@@ -85,30 +97,37 @@ function backupIcon(path: string): unknown {
           </div>
           <div class="backup-actions">
             <button
+              type="button"
               class="btn btn-sm"
-              :disabled="!backup.sourcePath || backupDiffLoading"
+              :aria-label="`${previewingBackupId === backup.id ? 'Close preview for' : 'Preview'} backup ${formatBackupLabel(backup)}`"
+              :disabled="!backup.sourcePath || backupDiffLoading || !!restoringBackupId"
               :title="backup.sourcePath ? 'Preview changes before restoring' : 'Source path unknown'"
               @click="toggleBackupPreview(backup)"
             >
               {{ previewingBackupId === backup.id ? 'Close' : 'Preview' }}
             </button>
             <button
+              type="button"
               class="btn btn-sm"
-              :disabled="!backup.sourcePath"
+              :aria-label="`Restore backup ${formatBackupLabel(backup)}`"
+              :disabled="!backup.sourcePath || store.saving || store.loading"
               :title="backup.sourcePath ? 'Restore to ' + backup.sourcePath : 'Source path unknown — cannot restore'"
-              @click="store.restoreBackup(backup.backupPath, backup.sourcePath)"
+              @click="handleRestoreBackup(backup)"
             >
-              <component :is="LUCIDE_ICON_COMPONENTS['rotate-ccw']" :size="13" :stroke-width="1.5" />
-              Restore
+              <component :is="LUCIDE_ICON_COMPONENTS['rotate-ccw']" :size="13" :stroke-width="1.5" aria-hidden="true" />
+              {{ restoringBackupId === backup.id ? 'Restoring…' : 'Restore' }}
             </button>
             <button
+              type="button"
               class="btn btn-sm"
+              :aria-label="`${confirmingDeleteBackupId === backup.id ? 'Confirm delete' : 'Delete'} backup ${formatBackupLabel(backup)}`"
               :class="confirmingDeleteBackupId === backup.id ? 'btn-danger' : 'btn-danger-subtle'"
+              :disabled="store.saving"
               :title="confirmingDeleteBackupId === backup.id ? 'Click again to confirm deletion' : 'Delete this backup'"
               @click="toggleDeleteBackup(backup)"
             >
               <template v-if="confirmingDeleteBackupId === backup.id">Confirm?</template>
-              <component v-else :is="LUCIDE_ICON_COMPONENTS['trash-2']" :size="13" :stroke-width="1.5" />
+              <component v-else :is="LUCIDE_ICON_COMPONENTS['trash-2']" :size="13" :stroke-width="1.5" aria-hidden="true" />
             </button>
           </div>
         </div>

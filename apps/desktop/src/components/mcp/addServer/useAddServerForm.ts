@@ -1,5 +1,6 @@
 import type { McpServerConfig, McpTransport } from "@tracepilot/types";
 import { computed, reactive, ref } from "vue";
+import { parseMcpArguments } from "../mcpArguments";
 
 export interface AddServerEnvPair {
   key: string;
@@ -14,8 +15,6 @@ export interface AddServerForm {
   transport: McpTransport;
   description: string;
   tags: string;
-  scope: "global" | "project";
-  workingDir: string;
   envPairs: AddServerEnvPair[];
 }
 
@@ -32,7 +31,6 @@ export const transportOptions: { value: McpTransport; label: string; tooltip: st
 export function useAddServerForm(emit: (name: string, config: McpServerConfig) => void) {
   const submitting = ref(false);
   const validationError = ref("");
-  const showAdvanced = ref(false);
 
   const form = reactive<AddServerForm>({
     name: "",
@@ -42,8 +40,6 @@ export function useAddServerForm(emit: (name: string, config: McpServerConfig) =
     transport: "stdio" as McpTransport,
     description: "",
     tags: "",
-    scope: "global",
-    workingDir: "",
     envPairs: [{ key: "", value: "" }],
   });
 
@@ -53,10 +49,7 @@ export function useAddServerForm(emit: (name: string, config: McpServerConfig) =
 
     if (form.transport === "stdio") {
       entry.command = form.command || "npx";
-      const args = form.args
-        .split(/[\n,]/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const args = parseMcpArguments(form.args);
       if (args.length > 0) entry.args = args;
     } else {
       entry.type = form.transport;
@@ -123,12 +116,7 @@ export function useAddServerForm(emit: (name: string, config: McpServerConfig) =
 
     const config: McpServerConfig = {
       command: form.command || undefined,
-      args: form.args
-        ? form.args
-            .split(/[\n,]/)
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : undefined,
+      args: form.args ? parseMcpArguments(form.args) : undefined,
       env: Object.keys(env).length > 0 ? env : undefined,
       url: form.url || undefined,
       type: form.transport,
@@ -150,7 +138,6 @@ export function useAddServerForm(emit: (name: string, config: McpServerConfig) =
     form,
     submitting,
     validationError,
-    showAdvanced,
     jsonPreview,
     addEnvPair,
     removeEnvPair,

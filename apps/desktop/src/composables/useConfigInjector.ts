@@ -122,18 +122,52 @@ export function useConfigInjector() {
   const editRenderMarkdown = ref(true);
   const editTrustedFolders = ref<string[]>([]);
   const newFolder = ref("");
+  const globalEditFields = {
+    model: editModel,
+    reasoningEffort: editReasoningEffort,
+    showReasoning: editShowReasoning,
+    renderMarkdown: editRenderMarkdown,
+    trustedFolders: editTrustedFolders,
+  };
+  const currentGlobalFields = computed(() => {
+    const config = store.copilotConfig;
+    const raw = config?.raw ?? {};
+    return {
+      model: config?.model ?? "",
+      reasoningEffort: config?.reasoningEffort ?? "",
+      // Prefer typed fields; retain the same defaults for older raw payloads.
+      showReasoning: config?.showReasoning ?? Boolean(raw.showReasoning),
+      renderMarkdown: config?.renderMarkdown ?? raw.renderMarkdown !== false,
+      trustedFolders: config?.trustedFolders ?? [],
+    };
+  });
 
   function syncGlobalFields() {
     if (store.copilotConfig) {
-      editModel.value = store.copilotConfig.model ?? "";
-      editReasoningEffort.value = store.copilotConfig.reasoningEffort ?? "";
-      editTrustedFolders.value = [...(store.copilotConfig.trustedFolders ?? [])];
-      // Prefer typed fields; fall back to `raw` for older backend versions.
-      const raw = store.copilotConfig.raw ?? {};
-      editShowReasoning.value = store.copilotConfig.showReasoning ?? Boolean(raw.showReasoning);
-      editRenderMarkdown.value = store.copilotConfig.renderMarkdown ?? raw.renderMarkdown !== false;
+      const current = currentGlobalFields.value;
+      editModel.value = current.model;
+      editReasoningEffort.value = current.reasoningEffort;
+      editShowReasoning.value = current.showReasoning;
+      editRenderMarkdown.value = current.renderMarkdown;
+      editTrustedFolders.value = [...current.trustedFolders];
     }
   }
+
+  watch(
+    currentGlobalFields,
+    (current, previous) => {
+      if (!store.restoring || !store.copilotConfig) return;
+      // Every mounted editor follows restored values, including a view opened
+      // while Restore was pending. Preserve fields edited since the old snapshot.
+      for (const [name, field] of Object.entries(globalEditFields)) {
+        const key = name as keyof typeof globalEditFields;
+        if (JSON.stringify(field.value) !== JSON.stringify(previous[key])) continue;
+        const next = current[key];
+        field.value = Array.isArray(next) ? [...next] : next;
+      }
+    },
+    { flush: "sync" },
+  );
 
   function addFolder() {
     const folder = newFolder.value.trim();
@@ -148,14 +182,12 @@ export function useConfigInjector() {
   }
   const configDiffLines = computed<BackupDiffData>(() => {
     if (!store.copilotConfig) return { left: [], right: [] };
-    const current = {
-      model: store.copilotConfig.model ?? "",
-      reasoningEffort: store.copilotConfig.reasoningEffort ?? "",
-      trustedFolders: store.copilotConfig.trustedFolders ?? [],
-    };
+    const current = currentGlobalFields.value;
     const modified = {
       model: editModel.value,
       reasoningEffort: editReasoningEffort.value,
+      showReasoning: editShowReasoning.value,
+      renderMarkdown: editRenderMarkdown.value,
       trustedFolders: editTrustedFolders.value,
     };
     const curLines = JSON.stringify(current, null, 2).split("\n");
@@ -210,6 +242,26 @@ export function useConfigInjector() {
   // ── Backups ───────────────────────────────────────────────────────────────
   const newBackupPath = ref("");
   const newBackupLabel = ref("");
+  const restoringBackupId = ref<string | null>(null);
+
+  async function handleRestoreBackup(backup: {
+    id: string;
+    backupPath: string;
+    sourcePath: string;
+  }) {
+    if (restoringBackupId.value || store.saving || store.loading || !backup.sourcePath)
+      return false;
+    restoringBackupId.value = backup.id;
+    try {
+      const restored = await store.restoreBackup(backup.backupPath, backup.sourcePath);
+      if (!restored) return false;
+      previewingBackupId.value = null;
+      backupDiffData.value = null;
+      return true;
+    } finally {
+      restoringBackupId.value = null;
+    }
+  }
 
   const backupableFiles = computed(() => {
     const files: { label: string; path: string }[] = [];
@@ -387,6 +439,8 @@ export function useConfigInjector() {
     newBackupLabel,
     backupableFiles,
     handleCreateBackup,
+    restoringBackupId,
+    handleRestoreBackup,
     batchBackingUp,
     handleBackupAllAgents,
     backupIconName,

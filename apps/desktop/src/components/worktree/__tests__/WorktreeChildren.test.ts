@@ -3,6 +3,7 @@ import type { WorktreeDetails, WorktreeInfo } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { useWorktreesStore } from "@/stores/worktrees";
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
@@ -72,6 +73,36 @@ describe("WorktreeRepoSidebar", () => {
     expect(wrapper.emitted("add-repo")).toBeTruthy();
     expect(wrapper.emitted("discover-repos")).toBeTruthy();
   });
+
+  it("separates repository selection from named favourite and remove buttons", async () => {
+    const store = useWorktreesStore();
+    store.registeredRepos = [
+      {
+        path: "/repo",
+        name: "Project with a long name",
+        favourite: false,
+        addedAt: "2026-01-01T00:00:00Z",
+        source: "manual",
+      },
+    ];
+    const favourite = vi.spyOn(store, "toggleFavourite").mockResolvedValue(undefined);
+    const wrapper = mount(WorktreeRepoSidebar, {
+      props: { selectedRepoPath: null, loaded: true, worktreeCountByRepo: new Map([["/repo", 2]]) },
+    });
+    const selectors = wrapper.findAll("button.tree-select");
+    expect(selectors).toHaveLength(2);
+    expect(selectors[0].attributes("aria-pressed")).toBe("true");
+    await selectors[1].trigger("click");
+    expect(wrapper.emitted("select-repo")).toEqual([["/repo"]]);
+    await wrapper.setProps({ selectedRepoPath: "/repo" });
+    expect(selectors[1].attributes("aria-pressed")).toBe("true");
+    await wrapper.get('[aria-label="Add Project with a long name to favourites"]').trigger("click");
+    expect(favourite).toHaveBeenCalledWith("/repo");
+    await wrapper.get('[aria-label="Remove repository Project with a long name"]').trigger("click");
+    expect(wrapper.emitted("remove-repo")).toEqual([["/repo"]]);
+    expect(wrapper.emitted("select-repo")).toHaveLength(1);
+    expect(wrapper.find("button button").exists()).toBe(false);
+  });
 });
 
 describe("WorktreeToolbar", () => {
@@ -109,6 +140,43 @@ describe("WorktreeToolbar", () => {
 });
 
 describe("WorktreeList", () => {
+  it("uses real sortable column buttons and exposes the current ordering", async () => {
+    const store = useWorktreesStore();
+    const wrapper = mount(WorktreeList, {
+      props: { filteredWorktrees: [makeWt()], selectedWorktreePath: null, searchQuery: "" },
+    });
+    const headings = wrapper.findAll("th");
+    expect(headings[1].attributes("aria-sort")).toBe("ascending");
+    await headings[1].get("button").trigger("click");
+    expect(store.sortDirection).toBe("desc");
+    expect(headings[1].attributes("aria-sort")).toBe("descending");
+    await headings[3].get("button").trigger("click");
+    expect(store.sortBy).toBe("diskUsageBytes");
+    expect(headings[1].attributes("aria-sort")).toBe("none");
+    expect(headings[3].attributes("aria-sort")).toBe("ascending");
+    expect(wrapper.get("table").findAll("tbody tr td")).toHaveLength(headings.length);
+    expect(wrapper.get(".wt-list").find("thead").exists()).toBe(true);
+  });
+
+  it("offers a detail button while keeping session and row actions independent", async () => {
+    const wt = makeWt({ linkedSessionId: "session-123" });
+    const wrapper = mount(WorktreeList, {
+      props: { filteredWorktrees: [wt], selectedWorktreePath: null, searchQuery: "" },
+    });
+    const details = wrapper.get('button[aria-label="Details for feature/a"]');
+    expect(details.attributes("aria-expanded")).toBe("false");
+    await details.trigger("click");
+    expect(wrapper.emitted("select")).toEqual([[wt]]);
+    await wrapper.setProps({ selectedWorktreePath: wt.path });
+    expect(details.attributes("aria-expanded")).toBe("true");
+    await wrapper.get('button[aria-label="Open session session-123"]').trigger("click");
+    await wrapper.get('button[aria-label="Open Folder"]').trigger("click");
+    expect(wrapper.emitted("navigate-session")).toEqual([["session-123"]]);
+    expect(wrapper.emitted("open-explorer")).toEqual([[wt.path]]);
+    expect(wrapper.emitted("select")).toHaveLength(1);
+    expect(wrapper.find("button button").exists()).toBe(false);
+  });
+
   it("renders rows and emits select on row click", async () => {
     const wt = makeWt();
     const wrapper = mount(WorktreeList, {

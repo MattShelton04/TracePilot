@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { McpServerConfig } from "@tracepilot/types";
-import AddServerAdvanced from "./addServer/AddServerAdvanced.vue";
+import { useOverlayFocus } from "@tracepilot/ui";
+import { ref } from "vue";
 import AddServerBasicFields from "./addServer/AddServerBasicFields.vue";
 import AddServerEnvPairs from "./addServer/AddServerEnvPairs.vue";
 import AddServerJsonPreview from "./addServer/AddServerJsonPreview.vue";
+import AddServerMetadata from "./addServer/AddServerMetadata.vue";
 import { useAddServerForm } from "./addServer/useAddServerForm";
 
 const emit = defineEmits<{
@@ -11,22 +13,22 @@ const emit = defineEmits<{
   submit: [name: string, config: McpServerConfig];
 }>();
 
-const {
-  form,
-  submitting,
-  validationError,
-  showAdvanced,
-  jsonPreview,
-  addEnvPair,
-  removeEnvPair,
-  handleSubmit,
-} = useAddServerForm((name, config) => emit("submit", name, config));
+const { form, submitting, validationError, jsonPreview, addEnvPair, removeEnvPair, handleSubmit } =
+  useAddServerForm((name, config) => emit("submit", name, config));
+
+const dialogPanel = ref<HTMLElement | null>(null);
+useOverlayFocus({
+  active: true,
+  panel: dialogPanel,
+  initialFocus: () => dialogPanel.value?.querySelector("input") ?? null,
+  onEscape: () => emit("close"),
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div class="modal-overlay" @click.self="emit('close')">
-      <div class="add-modal" role="dialog" aria-labelledby="add-server-title">
+      <div ref="dialogPanel" class="add-modal" role="dialog" aria-modal="true" aria-labelledby="add-server-title" tabindex="-1">
         <div class="modal-header-wrap">
           <div class="modal-title-row">
             <div class="modal-title">
@@ -55,13 +57,9 @@ const {
                   @remove-pair="removeEnvPair"
                 />
 
-                <AddServerAdvanced
-                  :form="form"
-                  :show-advanced="showAdvanced"
-                  @update:show-advanced="showAdvanced = $event"
-                />
+                <AddServerMetadata :form="form" />
 
-                <p v-if="validationError" class="validation-error">{{ validationError }}</p>
+                <p v-if="validationError" class="validation-error" role="alert">{{ validationError }}</p>
               </form>
             </div>
 

@@ -188,23 +188,9 @@
 .export-feature .session-search-input:focus {
   border-color: var(--accent-emphasis);
 }
-.export-feature .session-search-selected {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 8px 12px;
-  font-size: 0.8125rem;
-  color: var(--text-primary);
-  background: var(--canvas-default);
-  pointer-events: auto;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-.export-feature .session-search-input:focus + .session-search-selected {
-  display: none;
+.export-feature .session-search-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 .export-feature .session-dropdown {
   position: absolute;
@@ -228,8 +214,13 @@
   transition: background var(--transition-fast);
 }
 .export-feature .session-dropdown-item:hover,
+.export-feature .session-dropdown-item.active,
 .export-feature .session-dropdown-item.selected {
   background: var(--accent-subtle);
+}
+.export-feature .session-dropdown-item.active {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 .export-feature .session-dropdown-item.selected {
   border-left: 2px solid var(--accent-emphasis);
@@ -471,8 +462,12 @@
   margin: 0 auto;
 }
 
-/* ── Drop Zone ─────────────────────────────────────────────── */
+/* ── Import File Chooser ───────────────────────────────────── */
 .export-feature .drop-zone {
+  display: block;
+  width: 100%;
+  font: inherit;
+  color: inherit;
   border: 2px dashed var(--border-default);
   border-radius: var(--radius-md);
   padding: 48px 24px;
@@ -485,17 +480,24 @@
   border-color: var(--accent-emphasis);
   background: var(--accent-subtle);
 }
+.export-feature .drop-zone:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
 .export-feature .drop-zone-icon {
+  display: block;
   font-size: 36px;
   margin-bottom: 12px;
   opacity: 0.5;
 }
 .export-feature .drop-zone-text {
+  display: block;
   font-size: 0.875rem;
   color: var(--text-secondary);
   margin-bottom: 4px;
 }
 .export-feature .drop-zone-hint {
+  display: block;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
 }

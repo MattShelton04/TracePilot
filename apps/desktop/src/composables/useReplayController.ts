@@ -9,6 +9,40 @@ import type { ReplayStep } from "@tracepilot/types";
 import { formatClockTime } from "@tracepilot/ui";
 import { computed, onUnmounted, type Ref, ref, watch } from "vue";
 
+const replayShortcutKeys = new Set([" ", "ArrowRight", "ArrowLeft", "Home", "End", "[", "]"]);
+const keyboardControlSelector = [
+  "button",
+  "a[href]",
+  "input",
+  "textarea",
+  "select",
+  "summary",
+  '[contenteditable]:not([contenteditable="false"])',
+  '[role="button"]',
+  '[role="slider"]',
+  '[role="tab"]',
+  '[role="checkbox"]',
+  '[role="radio"]',
+  '[role="switch"]',
+  '[role="combobox"]',
+  '[role="listbox"]',
+  '[role="tree"]',
+  '[role="menu"]',
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+].join(",");
+
+function hasOpenModal(): boolean {
+  return [...document.querySelectorAll('[aria-modal="true"], dialog[open]')].some((panel) => {
+    if (panel.closest('[hidden], [inert], [aria-hidden="true"]')) return false;
+    for (let element: Element | null = panel; element; element = element.parentElement) {
+      const style = getComputedStyle(element);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+    }
+    return true;
+  });
+}
+
 export interface ReplayControllerOptions {
   /** Use actual step durations (scaled by speed) instead of fixed interval. Default: false. */
   proportionalTiming?: boolean;
@@ -143,9 +177,21 @@ export function useReplayController(
   // ── Keyboard shortcuts ──
 
   function handleKeydown(e: KeyboardEvent) {
-    // Don't intercept when user is typing in an input/textarea
-    const tag = (e.target as HTMLElement)?.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (
+      !replayShortcutKeys.has(e.key) ||
+      e.defaultPrevented ||
+      e.isComposing ||
+      e.ctrlKey ||
+      e.metaKey ||
+      e.altKey ||
+      e.shiftKey ||
+      (e.key === " " && e.repeat)
+    )
+      return;
+    // Controls own their keys, including native Space activation on buttons.
+    // Modal content also retains its keys while the replay remains mounted.
+    const target = e.target instanceof Element ? e.target : null;
+    if (target?.closest(keyboardControlSelector) || hasOpenModal()) return;
 
     switch (e.key) {
       case " ":

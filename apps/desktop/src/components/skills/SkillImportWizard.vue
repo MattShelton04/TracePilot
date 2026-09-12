@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { SkillBatchImportResult } from "@tracepilot/types";
-import { useShortcut } from "@tracepilot/ui";
+import { useOverlayFocus } from "@tracepilot/ui";
 import { AlertTriangle, CheckCircle2 } from "lucide-vue-next";
-import { provide } from "vue";
+import { provide, ref } from "vue";
 import SkillImportStep1Local from "@/components/skills/import-wizard/SkillImportStep1Local.vue";
 import SkillImportStep2GitHub from "@/components/skills/import-wizard/SkillImportStep2GitHub.vue";
 import SkillImportStep3File from "@/components/skills/import-wizard/SkillImportStep3File.vue";
@@ -21,18 +21,19 @@ const wizard = useSkillImportWizard({
 
 provide(SkillImportWizardKey, wizard);
 
-useShortcut("Escape", () => emit("close"));
+const panelRef = ref<HTMLElement | null>(null);
+useOverlayFocus({ active: true, panel: panelRef, onEscape: () => emit("close") });
 </script>
 
 <template>
   <div class="skill-import-wizard-root wizard-overlay" @click.self="emit('close')">
-    <div class="wizard">
+    <div ref="panelRef" class="wizard" role="dialog" aria-modal="true" aria-label="Import Skills" tabindex="-1">
       <div class="wizard__header">
         <div>
           <h3 class="wizard__title">Import Skills</h3>
           <p class="wizard__subtitle">Bring skills from local repos, GitHub, or files into your library</p>
         </div>
-        <button class="wizard__close" @click="emit('close')">✕</button>
+        <button class="wizard__close" aria-label="Close import skills" @click="emit('close')">✕</button>
       </div>
 
       <!-- Result View -->
