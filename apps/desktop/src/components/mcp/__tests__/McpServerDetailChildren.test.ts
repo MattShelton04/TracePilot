@@ -1,8 +1,14 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import type { McpHealthResult, McpServerConfig, McpServerDetail, McpTool } from "@tracepilot/types";
+import {
+  formatDuration,
+  type McpHealthResult,
+  type McpServerConfig,
+  type McpServerDetail,
+  type McpTool,
+} from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, provide, reactive, ref } from "vue";
+import { computed, defineComponent, h, provide, reactive, ref } from "vue";
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
@@ -87,7 +93,7 @@ function makeCtx(overrides: Partial<UseMcpServerDetailReturn> = {}): UseMcpServe
     statusText: ref("Connected"),
     statusColor: ref("success"),
     statusDotClass: ref("dot-connected"),
-    latencyDisplay: ref<number | null>(42),
+    latencyDisplay: ref<string | null>(formatDuration(42)),
     lastCheckedDisplay: ref("Apr 10, 2026"),
     transportLabel: ref("stdio"),
     iconLetter: ref("G"),
@@ -217,9 +223,21 @@ describe("McpServerDetailHealth", () => {
     const stats = wrapper.findAll(".health-stat");
     expect(stats).toHaveLength(4);
     expect(stats[0].text()).toContain("Connected");
-    expect(stats[1].text()).toContain("42");
+    expect(stats[1].get(".health-stat-value").text()).toBe("42ms");
     expect(stats[2].text()).toContain("1");
     expect(stats[3].text()).toContain("~1.2k");
+  });
+
+  it.each([0, 3, 1500, 65000])("renders the formatted latency %i with exactly one unit", (ms) => {
+    const ctx = makeCtx({ latencyDisplay: computed(() => formatDuration(ms)) });
+    const wrapper = mount(wrap(McpServerDetailHealth, ctx));
+    expect(wrapper.findAll(".health-stat-value")[1].text()).toBe(formatDuration(ms));
+  });
+
+  it("shows a dash before response timing is available", () => {
+    const ctx = makeCtx({ latencyDisplay: computed(() => null) });
+    const wrapper = mount(wrap(McpServerDetailHealth, ctx));
+    expect(wrapper.findAll(".health-stat-value")[1].text()).toBe("—");
   });
 
   it("renders the error panel when health has an errorMessage", () => {

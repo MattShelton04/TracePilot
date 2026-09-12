@@ -320,70 +320,11 @@
   color: var(--danger-fg);
 }
 
-.advanced-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 0;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  border: none;
-  background: none;
-  transition: color var(--transition-fast);
-}
-
-.advanced-toggle:hover {
-  color: var(--text-secondary);
-}
-
-.advanced-toggle svg {
-  width: 12px;
-  height: 12px;
-  transition: transform var(--transition-fast);
-}
-
-.advanced-toggle.open svg {
-  transform: rotate(90deg);
-}
-
-.advanced-content {
-  padding-top: 4px;
-}
-
-.scope-toggle {
-  display: inline-flex;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.scope-option-btn {
-  padding: 6px 16px;
+.config-location-note {
+  margin: 8px 0 0;
   font-size: 0.75rem;
-  font-weight: 500;
-  font-family: inherit;
-  background: var(--canvas-default);
+  line-height: 1.5;
   color: var(--text-tertiary);
-  border: none;
-  border-right: 1px solid var(--border-default);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.scope-option-btn:last-child {
-  border-right: none;
-}
-
-.scope-option-btn:hover {
-  color: var(--text-primary);
-}
-
-.scope-option-btn.active {
-  background: var(--accent-muted);
-  color: var(--accent-fg);
-  font-weight: 600;
 }
 
 .validation-error {

@@ -22,7 +22,7 @@ const { server, statusColor, statusText, latencyDisplay, tokensFormatted } =
         <div class="health-stat-label">Response</div>
         <div class="health-stat-value mono">
           <template v-if="latencyDisplay != null">
-            <span class="success-text">{{ latencyDisplay }}</span><span class="unit">ms</span>
+            <span class="success-text">{{ latencyDisplay }}</span>
           </template>
           <template v-else>—</template>
         </div>
