@@ -6,7 +6,9 @@ import {
   formatNumber,
   SectionPanel,
   TokenBar,
+  Tooltip,
 } from "@tracepilot/ui";
+import { Info } from "lucide-vue-next";
 import { computed } from "vue";
 import type { MetricsModelEntry } from "@/composables/useMetricsTabData";
 
@@ -14,94 +16,50 @@ const props = defineProps<{
   modelEntries: MetricsModelEntry[];
   totalTokens: number;
   hasReasoningData: boolean;
+  hideDistribution?: boolean;
 }>();
-
-const modelColumns = computed(() => {
-  const cols = [
-    { key: "name", label: "Model", align: "left" as const },
-    { key: "requests", label: "Requests", align: "right" as const },
-    { key: "aiCredits", label: "AI Credits", align: "right" as const },
-    { key: "aiCreditSource", label: "Source", align: "left" as const },
-    { key: "inputTokens", label: "Input Tokens", align: "right" as const },
-    { key: "outputTokens", label: "Output Tokens", align: "right" as const },
-  ];
-  if (props.hasReasoningData) {
-    cols.push({
-      key: "reasoningTokens",
-      label: "Reasoning",
-      align: "right" as const,
-      class: "hidden lg:table-cell",
-    } as (typeof cols)[number]);
-  }
-  cols.push(
-    {
-      key: "cacheReadTokens",
-      label: "Cache Read",
-      align: "right" as const,
-      class: "hidden lg:table-cell",
-    } as (typeof cols)[number],
-    {
-      key: "cacheWriteTokens",
-      label: "Cache Write",
-      align: "right" as const,
-      class: "hidden lg:table-cell",
-    } as (typeof cols)[number],
-    { key: "totalTokens", label: "Total", align: "right" as const },
-  );
-  return cols;
-});
+const tokenColumns = computed(() => [
+  { key: "input", label: "Input total", align: "right" as const },
+  { key: "cacheRead", label: "Cache read", align: "right" as const },
+  { key: "notCached", label: "Not cached", align: "right" as const },
+  { key: "output", label: "Output", align: "right" as const },
+  ...(props.hasReasoningData
+    ? [{ key: "reasoning", label: "Of which reasoning", align: "right" as const }]
+    : []),
+  { key: "total", label: "Total", align: "right" as const },
+]);
+const columns = computed(() => [
+  { key: "name", label: "Model" },
+  { key: "requests", label: "Requests", align: "right" as const },
+  { key: "aiCredits", label: "AI Credits", align: "right" as const },
+  { key: "aiCreditSource", label: "Source" },
+  ...tokenColumns.value,
+]);
+const rows = computed(() => props.modelEntries.map((entry) => ({ ...entry, ...entry.tokens })));
 </script>
 
 <template>
-  <SectionPanel v-if="modelEntries.length > 0" title="Token Distribution" class="mb-6">
+  <SectionPanel v-if="!hideDistribution && modelEntries.length > 0 && modelEntries.every(m => m.tokens.total != null)" title="Token Distribution" class="mb-6">
     <div class="space-y-3">
-      <TokenBar
-        v-for="model in modelEntries"
-        :key="model.name"
-        :label="model.name"
-        :value="formatNumber(model.totalTokens)"
-        :percentage="totalTokens > 0 ? (model.totalTokens / totalTokens) * 100 : 0"
-        color="var(--accent-emphasis)"
-      />
+      <TokenBar v-for="model in modelEntries" :key="model.name" :label="model.name"
+        :value="model.tokens.total != null ? formatNumber(model.tokens.total) : '—'"
+        :percentage="totalTokens > 0 ? (model.totalTokens / totalTokens) * 100 : 0" color="var(--accent-emphasis)" />
     </div>
   </SectionPanel>
-
-  <DataTable v-if="modelEntries.length > 0" :columns="modelColumns" :rows="modelEntries" class="mb-6">
-    <template #cell-name="{ value }">
-      <Badge variant="done">{{ value }}</Badge>
-    </template>
-    <template #cell-requests="{ value }">
-      <span class="text-[var(--text-primary)]">{{ value }}</span>
-    </template>
-    <template #cell-aiCredits="{ value }">
-      <span :class="value != null ? 'text-[var(--accent-fg)]' : 'text-[var(--text-placeholder)]'">
-        {{ formatAiCredits(value as number | null) }}
-      </span>
-    </template>
-    <template #cell-aiCreditSource="{ value }">
-      <Badge :variant="value === 'observed' ? 'success' : 'neutral'">
-        {{ value === 'observed' ? 'Observed' : value === 'unavailable' ? 'Unavailable' : 'Estimated' }}
-      </Badge>
-    </template>
-    <template #cell-inputTokens="{ value }">
-      <span class="text-[var(--text-secondary)]">{{ formatNumber(value as number) }}</span>
-    </template>
-    <template #cell-outputTokens="{ value }">
-      <span class="text-[var(--text-secondary)]">{{ formatNumber(value as number) }}</span>
-    </template>
-    <template v-if="hasReasoningData" #cell-reasoningTokens="{ value }">
-      <span :class="value != null ? 'text-[var(--text-secondary)]' : 'text-[var(--text-placeholder)]'">
-        {{ value != null ? formatNumber(value as number) : 'N/A' }}
-      </span>
-    </template>
-    <template #cell-cacheReadTokens="{ value }">
-      <span class="text-[var(--text-tertiary)]">{{ formatNumber(value as number) }}</span>
-    </template>
-    <template #cell-cacheWriteTokens="{ value }">
-      <span class="text-[var(--text-tertiary)]">{{ formatNumber(value as number) }}</span>
-    </template>
-    <template #cell-totalTokens="{ value }">
-      <span class="font-semibold text-[var(--text-primary)]">{{ formatNumber(value as number) }}</span>
-    </template>
-  </DataTable>
+  <SectionPanel v-if="modelEntries.length" title="Model Usage">
+    <template #actions><Tooltip text="Cache read and Not cached partition input tokens. Reasoning is included in output. Total is input + output. A dash means unavailable."><button type="button" aria-label="About token accounting" class="text-[var(--text-tertiary)]"><Info :size="14" /></button></Tooltip></template>
+    <DataTable :columns="columns" :rows="rows" class="mb-3" style="overflow-x: auto;">
+      <template #cell-name="{ value }"><Badge variant="done">{{ value }}</Badge></template>
+      <template #cell-requests="{ value }">{{ value == null ? '—' : formatNumber(value as number) }}</template>
+      <template #cell-aiCredits="{ value }">{{ formatAiCredits(value as number | null) }}</template>
+      <template #cell-aiCreditSource="{ value }">
+        <Badge :variant="value === 'observed' ? 'success' : 'neutral'">
+          {{ value === 'observed' ? 'Observed' : value === 'unavailable' ? 'Unavailable' : 'Estimated' }}
+        </Badge>
+      </template>
+      <template v-for="column in tokenColumns" :key="column.key" #[`cell-${column.key}`]="{ value }">
+        {{ value != null ? formatNumber(value as number) : '—' }}
+      </template>
+    </DataTable>
+  </SectionPanel>
 </template>

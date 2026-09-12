@@ -1,6 +1,6 @@
-// ── analytics.js ───────────────────────────────────────────────────
-
+// ── agentUsage.js ──────────────────────────────────────────────────
 export type { AgentUsageEntry, AgentUsageSnapshot } from "./agentUsage.js";
+// ── analytics.js ───────────────────────────────────────────────────
 export type {
   AnalyticsData,
   ApiDurationStats,

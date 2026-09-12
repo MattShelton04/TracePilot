@@ -7,15 +7,21 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added
+
+- **Usage by agent** — Session Metrics now shows recorded shutdown credits, tokens, requests and API time for the main agent and workers, with nested branch totals, ranking, model/cache details and links to agent activity. Missing and older usage stays unavailable; snapshot times and unattributed credits make coverage explicit.
+
 ### Changed
 
 - **Copilot CLI 1.0.83 compatibility** — Aligned persisted event schemas from the recovered 1.0.71 baseline through 1.0.83 while retaining older session formats. Version comparisons now detect nested schema changes and can use archived package directories.
+- **Cache metrics** — Restore a prominent cache-read percentage and show input served from cache versus input not served from cache, including zero-hit sessions. Session, model and agent displays preserve unavailable values and avoid counting cache/reasoning details twice.
 
 ### Fixed
 
 - **Background agent status** — Track delayed starts, runtime agent IDs, queued follow-ups, idle workers and cancellation; refresh status in older turns as new activity arrives.
 - **Subagent conversation attribution** — Keep child activity in its launching turn, preserve main-agent boundaries and models, and prevent child prompts from inflating main-agent context estimates.
 - **Search navigation for agent sessions** — Use the same turn ownership as conversation reconstruction and rebuild affected search/analytics records automatically.
+- **Mixed-version usage totals** — Preserve additive legacy segments after cumulative shutdown snapshots when sessions move between older and newer CLI versions.
 
 ## [0.8.1] - 2026-08-02
 

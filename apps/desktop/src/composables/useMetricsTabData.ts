@@ -6,13 +6,18 @@ import {
 } from "@tracepilot/types";
 import { type ComputedRef, computed } from "vue";
 import type { usePreferencesStore } from "@/stores/preferences";
+import {
+  combinedTokenBreakdown,
+  type MetricsTokenBreakdown,
+  modelTokenBreakdown,
+} from "@/utils/metricsTokenBreakdown";
 
 type PreferencesStore = ReturnType<typeof usePreferencesStore>;
 
 export interface MetricsModelEntry {
   [key: string]: unknown;
   name: string;
-  requests: number;
+  requests: number | null;
   aiCredits: number | null;
   aiCreditUsd: number | null;
   aiCreditSource: AiCreditSource;
@@ -24,11 +29,13 @@ export interface MetricsModelEntry {
   reasoningTokens: number | null;
   totalTokens: number;
   legacyPremiumRequests: number;
+  tokens: MetricsTokenBreakdown;
 }
 
 export function useMetricsTabData(
   metrics: ComputedRef<ShutdownMetrics | null | undefined>,
   prefs: PreferencesStore,
+  observedOnly = false,
 ) {
   const modelEntries = computed<MetricsModelEntry[]>(() => {
     if (!metrics.value?.modelMetrics) return [];
@@ -57,12 +64,12 @@ export function useMetricsTabData(
         );
         const aiCreditUsage = resolveAiCreditUsage(
           data.totalNanoAiu,
-          hasTokenUsage ? usageBased : null,
-          hasTokenUsage ? wholesale : null,
+          hasTokenUsage && !observedOnly ? usageBased : null,
+          hasTokenUsage && !observedOnly ? wholesale : null,
         );
         return {
           name,
-          requests: data.requests?.count ?? 0,
+          requests: data.requests?.count ?? null,
           aiCredits: aiCreditUsage.credits,
           aiCreditUsd: aiCreditUsage.usdEquivalent,
           aiCreditSource: aiCreditUsage.source,
@@ -74,9 +81,12 @@ export function useMetricsTabData(
           reasoningTokens,
           totalTokens: inputTokens + outputTokens,
           legacyPremiumRequests: premiumRequests,
+          tokens: modelTokenBreakdown(data),
         };
       })
-      .sort((a, b) => b.totalTokens - a.totalTokens);
+      .sort(
+        (a, b) => b.totalTokens - a.totalTokens || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
+      );
   });
 
   const totalInputTokens = computed(() =>
@@ -89,7 +99,9 @@ export function useMetricsTabData(
   const totalCacheReadTokens = computed(() =>
     modelEntries.value.reduce((sum, m) => sum + m.cacheReadTokens, 0),
   );
-  const totalRequests = computed(() => modelEntries.value.reduce((sum, m) => sum + m.requests, 0));
+  const totalRequests = computed(() =>
+    modelEntries.value.reduce((sum, m) => sum + (m.requests ?? 0), 0),
+  );
 
   const hasReasoningData = computed(() =>
     modelEntries.value.some((m) => m.reasoningTokens != null),
@@ -141,8 +153,8 @@ export function useMetricsTabData(
     );
     return resolveAiCreditUsage(
       metrics.value?.totalNanoAiu,
-      hasTokenUsage ? usageEstimate : null,
-      hasTokenUsage ? directEstimate : null,
+      hasTokenUsage && !observedOnly ? usageEstimate : null,
+      hasTokenUsage && !observedOnly ? directEstimate : null,
     );
   });
 
@@ -151,6 +163,9 @@ export function useMetricsTabData(
   );
 
   return {
+    tokenBreakdown: computed(() =>
+      combinedTokenBreakdown(Object.values(metrics.value?.modelMetrics ?? {})),
+    ),
     modelEntries,
     totalInputTokens,
     totalOutputTokens,

@@ -3,10 +3,11 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
-/// v8: reconstruct main turns independently of UUID-owned subagent loops and
-/// track delayed launches / multi-turn agent state. Re-read unchanged sessions
-/// so stored turn counts and derived analytics receive these parser corrections.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 8;
+/// v9: retain legacy segments following cumulative shutdowns (downgrade / upgrade)
+/// and recognize cumulative agent-ledger snapshots without a file-size marker.
+/// Re-read unchanged logs so Models and Analytics receive corrected accounting.
+/// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 9;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

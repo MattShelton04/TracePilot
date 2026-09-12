@@ -14,7 +14,7 @@ defineProps<{
   copilotCost: number;
   totalWholesaleCost: number;
   aiCreditUsage: AiCreditUsage;
-  totalTokens: number;
+  totalTokens: number | null;
 }>();
 
 function sourceLabel(source: AiCreditUsage["source"]): string {
@@ -29,12 +29,12 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
   <div class="grid-4 mb-6">
     <StatCard
       :value="formatAiCredits(aiCreditUsage.credits)"
-      :label="aiCreditUsage.source === 'observed' ? 'AI Credits' : 'AI Credits (estimate)'"
+      :label="aiCreditUsage.source === 'observed' || aiCreditUsage.source === 'unavailable' ? 'AI Credits' : 'AI Credits (estimate)'"
       color="accent"
       :tooltip="sourceLabel(aiCreditUsage.source)"
     />
     <StatCard :value="aiCreditUsage.usdEquivalent != null ? formatCost(aiCreditUsage.usdEquivalent) : '—'" label="AIC USD equivalent" :tooltip="sourceLabel(aiCreditUsage.source)" />
-    <StatCard :value="formatNumber(totalTokens)" label="Total Tokens" :gradient="true" />
+    <StatCard :value="totalTokens == null ? '—' : formatNumber(totalTokens)" label="Total Tokens" :gradient="true" tooltip="Input + output, including cache and reasoning tokens" />
     <StatCard :value="formatDuration(metrics.totalApiDurationMs)" label="API Duration" color="done" />
   </div>
 
@@ -47,6 +47,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
 
   <p class="cost-legend mb-6">
     {{ sourceLabel(aiCreditUsage.source) }}
+    <span v-if="metrics.metricsTimestamp" title="Usage through this shutdown; later activity is not included"> · Shutdown {{ new Date(metrics.metricsTimestamp).toLocaleString() }}</span>
   </p>
 </template>
 
