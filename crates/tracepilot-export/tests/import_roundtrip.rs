@@ -123,6 +123,84 @@ fn import_preview_shows_session_info() {
 }
 
 #[test]
+fn round_trip_verifies_hash_with_custom_table_rows() {
+    let (source, _) = full_session_temp_dir();
+    let source_db = rusqlite::Connection::open(source.path().join("session.db")).unwrap();
+    source_db
+        .execute_batch(
+            "CREATE TABLE audit_metrics (name TEXT, count INTEGER, ratio REAL, note TEXT);
+             INSERT INTO audit_metrics VALUES ('keyboard', 4, 2.0, 'Unicode: 日本語');
+             INSERT INTO audit_metrics VALUES ('overflow', 8, 0.125, 'quote: \" and slash: \\  two spaces');",
+        )
+        .unwrap();
+    // Several independent HashMaps make accidental matching iteration order
+    // vanishingly unlikely under the old deserialize-then-hash implementation.
+    for index in 0..32 {
+        source_db
+            .execute(
+                "INSERT INTO audit_metrics VALUES (?1, ?2, 2.0, 'synthetic')",
+                rusqlite::params![format!("audit-{index}"), index],
+            )
+            .unwrap();
+    }
+    drop(source_db);
+
+    let files = export_session(source.path(), &ExportOptions::all(ExportFormat::Json)).unwrap();
+    let export_target = tempfile::tempdir().unwrap();
+    let archive_path = export_target.path().join("audit.tpx.json");
+    fs::write(&archive_path, &files[0].content).unwrap();
+
+    let preview = preview_import(&archive_path, None).expect("fresh export should pass its hash");
+    assert!(preview.can_import);
+    let parsed = tracepilot_export::import::parser::parse_archive(&archive_path).unwrap();
+    let table = parsed.sessions[0]
+        .custom_tables
+        .as_ref()
+        .unwrap()
+        .iter()
+        .find(|table| table.name == "audit_metrics")
+        .unwrap();
+    assert_eq!(table.rows.len(), 34);
+    let row = table
+        .rows
+        .iter()
+        .find(|row| row["name"] == "keyboard")
+        .unwrap();
+    assert_eq!(row["note"], "Unicode: 日本語");
+    assert_eq!(row["ratio"], 2.0);
+
+    let import_target = tempfile::tempdir().unwrap();
+    let result = import_sessions(
+        &archive_path,
+        import_target.path(),
+        &ImportOptions::default(),
+    )
+    .expect("fresh export should import without hash failures");
+    assert_eq!(result.imported.len(), 1);
+    assert!(result.imported[0].path.join("events.jsonl").exists());
+    assert!(result.imported[0].path.join("workspace.yaml").exists());
+
+    // CRLF and compact whitespace must not change the sessions hash. Preserve
+    // object order and numeric spelling from the original exported document.
+    let text = String::from_utf8(files[0].content.clone()).unwrap();
+    for reformatted in [
+        text.replace('\n', "\r\n"),
+        text.lines().map(str::trim).collect::<String>(),
+    ] {
+        fs::write(&archive_path, reformatted).unwrap();
+        assert!(preview_import(&archive_path, None).unwrap().can_import);
+    }
+
+    fs::write(
+        &archive_path,
+        text.replace("Unicode: 日本語", "changed payload"),
+    )
+    .unwrap();
+    let error = preview_import(&archive_path, None).unwrap_err().to_string();
+    assert!(error.contains("content hash mismatch"), "{error}");
+}
+
+#[test]
 fn import_conflict_skip() {
     let (source, _) = full_session_temp_dir();
     let target = tempfile::tempdir().unwrap();

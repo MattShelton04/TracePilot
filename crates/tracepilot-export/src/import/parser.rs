@@ -93,29 +93,29 @@ pub fn parse_archive_str(json: &str) -> Result<SessionArchive> {
 
     // Verify content hash if present
     if let Some(expected_hash) = &archive.header.content_hash {
-        verify_content_hash(&archive.sessions, expected_hash)?;
+        // Retain the original object order and number spelling. Deserializing
+        // custom-table rows or metric maps creates newly seeded HashMaps;
+        // hashing their serialization can reject an intact export at random.
+        #[derive(serde::Deserialize)]
+        struct OriginalPayload<'a> {
+            #[serde(borrow)]
+            sessions: &'a serde_json::value::RawValue,
+        }
+        let payload: OriginalPayload<'_> =
+            serde_json::from_str(json).map_err(|e| ExportError::Validation {
+                message: format!("invalid JSON structure: {e}"),
+            })?;
+        verify_content_hash(payload.sessions.get(), expected_hash)?;
     }
 
     Ok(archive)
 }
 
-/// Re-serialize sessions and compare hash to detect tampering.
-fn verify_content_hash(
-    sessions: &[crate::document::PortableSession],
-    expected: &str,
-) -> Result<()> {
-    use sha2::{Digest, Sha256};
+/// Verify the original sessions payload using the existing v1.0 wire format.
+fn verify_content_hash(sessions_json: &str, expected: &str) -> Result<()> {
+    let actual = hash_serialized_sessions(sessions_json);
 
-    let sessions_json =
-        serde_json::to_vec_pretty(sessions).map_err(|e| ExportError::Validation {
-            message: format!("failed to re-serialize sessions for hash verification: {e}"),
-        })?;
-
-    let mut hasher = Sha256::new();
-    hasher.update(&sessions_json);
-    let actual = format!("{:x}", hasher.finalize());
-
-    if actual != *expected {
+    if actual != expected {
         return Err(ExportError::Validation {
             message: format!(
                 "content hash mismatch: expected {}, computed {}. Archive may be corrupted or tampered with.",
@@ -127,10 +127,108 @@ fn verify_content_hash(
     Ok(())
 }
 
+/// Hash valid JSON in serde_json's standalone, two-space pretty layout.
+///
+/// The renderer hashes that layout before nesting it in the complete archive.
+/// Normalize only insignificant whitespace, preserving key order, escaped
+/// strings, and numeric spelling (e.g. `2.0`). This accepts existing archives
+/// without changing their hash scheme or trusting freshly randomized maps.
+/// The input has already passed typed JSON parsing and its depth limit.
+fn hash_serialized_sessions(json: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let bytes = json.as_bytes();
+    let mut hasher = Sha256::new();
+    let mut depth = 0;
+    let mut previous = 0;
+    let mut index = 0;
+
+    let new_line = |hasher: &mut Sha256, depth: usize| {
+        hasher.update(b"\n");
+        for _ in 0..depth {
+            hasher.update(b"  ");
+        }
+    };
+
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if byte.is_ascii_whitespace() {
+            index += 1;
+            continue;
+        }
+        match byte {
+            b'"' => {
+                let start = index;
+                index += 1;
+                while index < bytes.len() {
+                    match bytes[index] {
+                        b'\\' => index += 2,
+                        b'"' => break,
+                        _ => index += 1,
+                    }
+                }
+                hasher.update(&bytes[start..=index]);
+            }
+            b'[' | b'{' => {
+                hasher.update([byte]);
+                depth += 1;
+                let next = bytes[index + 1..].iter().find(|b| !b.is_ascii_whitespace());
+                if !matches!(next, Some(b']' | b'}')) {
+                    new_line(&mut hasher, depth);
+                }
+            }
+            b']' | b'}' => {
+                depth -= 1;
+                if !matches!(previous, b'[' | b'{') {
+                    new_line(&mut hasher, depth);
+                }
+                hasher.update([byte]);
+            }
+            b',' => {
+                hasher.update(b",");
+                new_line(&mut hasher, depth);
+            }
+            b':' => hasher.update(b": "),
+            _ => hasher.update([byte]),
+        }
+        previous = byte;
+        index += 1;
+    }
+
+    format!("{:x}", hasher.finalize())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_helpers::{minimal_session, test_archive};
+
+    #[test]
+    fn payload_hash_matches_renderer_for_nested_and_escaped_json() {
+        use sha2::{Digest, Sha256};
+
+        // Compare against the actual renderer's serialization contract rather
+        // than another implementation of the whitespace normalizer.
+        let cases = [
+            serde_json::json!([]),
+            serde_json::json!([
+                {}, [], null, true, false, 2.0, -0.0, 0.125, 1.2e30,
+                {"array": [[], {}, ["nested"]], "text": "  日本語\n\t\"quoted\"\\  end "},
+                "punctuation: [{, : }]"
+            ]),
+        ];
+        for value in cases {
+            let pretty = serde_json::to_string_pretty(&value).unwrap();
+            let compact = serde_json::to_string(&value).unwrap();
+            let expected = format!("{:x}", Sha256::digest(pretty.as_bytes()));
+            assert_eq!(hash_serialized_sessions(&pretty), expected);
+            assert_eq!(hash_serialized_sessions(&compact), expected);
+            assert_eq!(
+                hash_serialized_sessions(&pretty.replace('\n', "\r\n\t")),
+                expected
+            );
+        }
+    }
 
     #[test]
     fn parse_valid_json() {
