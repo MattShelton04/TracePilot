@@ -26,13 +26,16 @@ const newSkillPanelRef = ref<HTMLElement | null>(null);
 useOverlayFocus({
   active: showNewSkillModal,
   panel: newSkillPanelRef,
-  onEscape: () => { showNewSkillModal.value = false; },
+  onEscape: () => {
+    showNewSkillModal.value = false;
+  },
 });
 
 // New skill form
 const newSkillName = ref("");
 const newSkillDesc = ref("");
 const creating = ref(false);
+const createError = ref<string | null>(null);
 
 const CONTEXT_WINDOW = 128_000;
 
@@ -57,6 +60,7 @@ function formatTokensWithCommas(n: number): string {
 
 async function handleCreateSkill() {
   if (creating.value || !newSkillName.value.trim()) return;
+  createError.value = null;
   creating.value = true;
   const dir = await store.createSkill(newSkillName.value.trim(), newSkillDesc.value.trim(), "");
   creating.value = false;
@@ -65,7 +69,16 @@ async function handleCreateSkill() {
     newSkillName.value = "";
     newSkillDesc.value = "";
     pushRoute(router, ROUTE_NAMES.skillEditor, { params: { name: dir } });
+  } else {
+    createError.value = store.error ?? "Could not create the skill. Try again.";
+    store.clearError();
   }
+}
+
+function openNewSkill() {
+  store.clearError();
+  createError.value = null;
+  showNewSkillModal.value = true;
 }
 
 function handleImported(_result: SkillBatchImportResult) {
@@ -98,7 +111,7 @@ async function handleToggleEnabled(_dir: string, enabled: boolean, name: string)
             </svg>
             Import
           </button>
-          <button class="btn btn--primary" @click="store.clearError(); showNewSkillModal = true">
+          <button class="btn btn--primary" @click="openNewSkill">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14">
               <line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" />
             </svg>
@@ -236,7 +249,7 @@ async function handleToggleEnabled(_dir: string, enabled: boolean, name: string)
             {{ store.searchQuery ? "Try a different search term" : "Create your first skill or import one to get started" }}
           </p>
           <div class="empty-state__actions">
-            <button class="btn btn--primary" @click="store.clearError(); showNewSkillModal = true">Create Skill</button>
+            <button class="btn btn--primary" @click="openNewSkill">Create Skill</button>
             <button class="btn btn--secondary" @click="store.clearError(); showImportWizard = true">Import</button>
           </div>
         </div>
@@ -256,8 +269,10 @@ async function handleToggleEnabled(_dir: string, enabled: boolean, name: string)
             </button>
           </div>
           <div class="modal__body">
-            <label class="modal__label">Name</label>
+            <p v-if="createError" class="modal__validation-hint" role="alert">{{ createError }}</p>
+            <label for="new-skill-name" class="modal__label">Name</label>
             <input
+              id="new-skill-name"
               v-model="newSkillName"
               class="modal__input"
               type="text"
@@ -265,8 +280,9 @@ async function handleToggleEnabled(_dir: string, enabled: boolean, name: string)
               @keydown.enter="handleCreateSkill"
             />
             <p v-if="newSkillName.length > 0 && !newSkillName.trim()" class="modal__validation-hint">Name cannot be blank</p>
-            <label class="modal__label">Description <span class="modal__optional">(optional)</span></label>
+            <label for="new-skill-description" class="modal__label">Description <span class="modal__optional">(optional)</span></label>
             <textarea
+              id="new-skill-description"
               v-model="newSkillDesc"
               class="modal__textarea"
               rows="3"

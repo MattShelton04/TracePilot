@@ -1,7 +1,7 @@
 import type { GitHubSkillPreview, LocalSkillPreview } from "@tracepilot/types";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { defineComponent, h, provide, reactive } from "vue";
+import { defineComponent, h, provide, reactive, ref } from "vue";
 import {
   type SkillImportWizardContext,
   SkillImportWizardKey,
@@ -185,18 +185,68 @@ describe("SkillImportStep3File", () => {
 });
 
 describe("SkillImportWizard shell", () => {
-  it("emits close when Escape key is pressed (keyboard-nav)", async () => {
-    const wrapper = mount(SkillImportWizard, { attachTo: document.body });
-    const event = new KeyboardEvent("keydown", { key: "Escape" });
-    window.dispatchEvent(event);
-    await wrapper.vm.$nextTick();
-    expect(wrapper.emitted("close")).toBeTruthy();
-    wrapper.unmount();
+  it("closes on Escape from the focused dialog and restores the opener", async () => {
+    const closed = vi.fn();
+    const Host = defineComponent({
+      setup() {
+        const open = ref(false);
+        return () =>
+          h("div", [
+            h(
+              "button",
+              {
+                onClick: () => {
+                  open.value = true;
+                },
+              },
+              "Import skills",
+            ),
+            open.value
+              ? h(SkillImportWizard, {
+                  onClose: () => {
+                    closed();
+                    open.value = false;
+                  },
+                })
+              : null,
+          ]);
+      },
+    });
+    const wrapper = mount(Host, { attachTo: document.body });
+    try {
+      const opener = wrapper.get<HTMLButtonElement>("button");
+      opener.element.focus();
+      await opener.trigger("click");
+      await flushPromises();
+      const dialog = wrapper.get('[role="dialog"]');
+      expect(document.activeElement).toBe(dialog.get('[aria-label="Close import skills"]').element);
+
+      const event = new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      });
+      document.activeElement?.dispatchEvent(event);
+      await flushPromises();
+      expect(event.defaultPrevented).toBe(true);
+      expect(closed).toHaveBeenCalledTimes(1);
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+      expect(document.activeElement).toBe(opener.element);
+
+      opener.element.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      expect(closed).toHaveBeenCalledTimes(1);
+    } finally {
+      wrapper.unmount();
+    }
   });
 
   it("emits close when cancel button is clicked", async () => {
     const wrapper = mount(SkillImportWizard);
-    await wrapper.find(".wizard__btn--secondary").trigger("click");
-    expect(wrapper.emitted("close")).toBeTruthy();
+    try {
+      await wrapper.find(".wizard__btn--secondary").trigger("click");
+      expect(wrapper.emitted("close")).toBeTruthy();
+    } finally {
+      wrapper.unmount();
+    }
   });
 });

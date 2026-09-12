@@ -19,7 +19,7 @@ provide(SkillEditorKey, ctx);
       <SkillEditorTopBar />
 
       <!-- Error -->
-      <div v-if="ctx.store.error" class="error-bar">{{ ctx.store.error }}</div>
+      <div v-if="ctx.store.error" role="alert" class="error-bar">{{ ctx.store.error }}</div>
 
       <!-- Loading -->
       <div v-if="!ctx.store.selectedSkill && !ctx.store.error" class="state-message">

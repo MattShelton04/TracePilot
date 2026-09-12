@@ -26,14 +26,7 @@ import {
   replaceSkillBody,
 } from "@/utils/skillFrontmatter";
 
-/**
- * State + actions for `SkillEditorView`.
- *
- * Extracted from `views/skills/SkillEditorView.vue` in Wave 36. Behaviour is
- * preserved byte-for-byte; the shell provides a single instance of this
- * composable which the children consume via `provide`/`inject`
- * (`SkillEditorKey` + `useSkillEditorContext`).
- */
+/** Shared state and actions provided by SkillEditorView to its children. */
 
 export function useSkillEditor() {
   const route = useRoute();
@@ -116,7 +109,11 @@ export function useSkillEditor() {
         variant: "warning",
         confirmLabel: "Discard and Leave",
         cancelLabel: "Keep Editing",
-      }).then(({ confirmed }) => confirmed).finally(() => { pendingNavigation = null; });
+      })
+        .then(({ confirmed }) => confirmed)
+        .finally(() => {
+          pendingNavigation = null;
+        });
     }
     return pendingNavigation;
   }
@@ -428,9 +425,7 @@ export function useSkillEditor() {
   }
 
   return reactive({
-    // store passthrough
     store,
-    // state
     saving,
     deleting,
     rawContent,
@@ -444,12 +439,10 @@ export function useSkillEditor() {
     viewingContent,
     previewFrontmatter,
     previewBody,
-    // resize
     leftWidth,
     dragging,
     containerRef,
     onMouseDown,
-    // computed
     skillDir,
     editorLineNumbers,
     totalLineCount,
@@ -461,7 +454,6 @@ export function useSkillEditor() {
     lastSavedDisplay,
     backLabel,
     isReadOnly,
-    // actions
     loadSkill,
     handleSave,
     handleDelete,
