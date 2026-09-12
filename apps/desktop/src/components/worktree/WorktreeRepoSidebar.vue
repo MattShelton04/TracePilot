@@ -52,10 +52,11 @@ const staleDiskUsage = computed(() =>
         <div
           class="tree-item"
           :class="{ 'tree-item--active': selectedRepoPath === null }"
-          @click="emit('select-repo', null)"
         >
-          <span class="tree-item-label">All Worktrees</span>
-          <span class="tree-count-badge">{{ store.worktreeCount }}</span>
+          <button type="button" class="tree-select" :aria-pressed="selectedRepoPath === null" @click="emit('select-repo', null)">
+            <span class="tree-item-label">All Worktrees</span>
+            <span class="tree-count-badge">{{ store.worktreeCount }}</span>
+          </button>
         </div>
 
         <!-- Each registered repo -->
@@ -64,33 +65,45 @@ const staleDiskUsage = computed(() =>
           :key="repo.path"
           class="tree-item"
           :class="{ 'tree-item--active': selectedRepoPath === repo.path }"
-          @click="emit('select-repo', repo.path)"
         >
           <button
+            type="button"
             class="tree-fav-btn"
             :class="{ 'tree-fav-btn--active': repo.favourite }"
             :title="repo.favourite ? 'Remove from favourites' : 'Add to favourites'"
+            :aria-label="`${repo.favourite ? 'Remove' : 'Add'} ${repo.name} ${repo.favourite ? 'from' : 'to'} favourites`"
+            :aria-pressed="!!repo.favourite"
             :disabled="store.togglingFavourites.has(repo.path)"
-            @click.stop="store.toggleFavourite(repo.path)"
+            @click="store.toggleFavourite(repo.path)"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" :fill="repo.favourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" :fill="repo.favourite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </button>
-          <svg class="tree-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="6" y1="3" x2="6" y2="15" />
-            <circle cx="18" cy="6" r="3" />
-            <circle cx="6" cy="18" r="3" />
-            <path d="M18 9a9 9 0 0 1-9 9" />
-          </svg>
-          <span class="tree-item-label" :title="repo.path">{{ repo.name }}</span>
-          <span class="tree-count-badge">{{ worktreeCountByRepo.get(repo.path) ?? 0 }}</span>
           <button
+            type="button"
+            class="tree-select"
+            :title="repo.path"
+            :aria-pressed="selectedRepoPath === repo.path"
+            @click="emit('select-repo', repo.path)"
+          >
+            <svg aria-hidden="true" class="tree-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="3" x2="6" y2="15" />
+              <circle cx="18" cy="6" r="3" />
+              <circle cx="6" cy="18" r="3" />
+              <path d="M18 9a9 9 0 0 1-9 9" />
+            </svg>
+            <span class="tree-item-label" :title="repo.path">{{ repo.name }}</span>
+            <span class="tree-count-badge">{{ worktreeCountByRepo.get(repo.path) ?? 0 }}</span>
+          </button>
+          <button
+            type="button"
             class="tree-remove-btn"
             title="Remove repository"
-            @click.stop="emit('remove-repo', repo.path)"
+            :aria-label="`Remove repository ${repo.name}`"
+            @click="emit('remove-repo', repo.path)"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
       </template>

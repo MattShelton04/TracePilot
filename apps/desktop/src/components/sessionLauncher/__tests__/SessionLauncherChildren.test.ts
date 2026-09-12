@@ -182,6 +182,21 @@ describe("SessionLauncherTemplates", () => {
 });
 
 describe("SessionLauncherConfig", () => {
+  it("associates repository, branch and model labels with their controls", () => {
+    const ctx = makeCtx();
+    ctx.prefsStore.recentRepoPaths.push("C:/audit/demo");
+    const wrapper = mount(wrap(SessionLauncherConfig, ctx));
+    const labels = wrapper.findAll<HTMLLabelElement>("label");
+    for (const text of ["Repository", "Branch", "Model"]) {
+      const label = labels.find((item) => item.text().includes(text));
+      expect(label?.element.htmlFor).toBeTruthy();
+      expect(wrapper.find(`[id="${label?.element.htmlFor}"]`).exists()).toBe(true);
+    }
+    expect(wrapper.get(".repo-recent").attributes("aria-label")).toBe(
+      "Registered or recent repository",
+    );
+  });
+
   it("renders repo, branch, model and reasoning controls", () => {
     const ctx = makeCtx();
     const wrapper = mount(wrap(SessionLauncherConfig, ctx));
@@ -194,8 +209,18 @@ describe("SessionLauncherConfig", () => {
     const ctx = makeCtx();
     const wrapper = mount(wrap(SessionLauncherConfig, ctx));
     const buttons = wrapper.findAll(".btn-group-item");
+    expect(buttons.map((button) => button.attributes("aria-pressed"))).toEqual([
+      "false",
+      "true",
+      "false",
+    ]);
     await buttons[2].trigger("click"); // high
     expect(ctx.reasoningEffort.value).toBe("high");
+    expect(buttons.map((button) => button.attributes("aria-pressed"))).toEqual([
+      "false",
+      "false",
+      "true",
+    ]);
     expect(ctx.clearTemplateSelection).toHaveBeenCalled();
   });
 });
@@ -205,12 +230,40 @@ describe("SessionLauncherPrompt", () => {
     const ctx = makeCtx();
     const wrapper = mount(wrap(SessionLauncherPrompt, ctx));
     const ta = wrapper.find("textarea");
+    expect(wrapper.get("label").attributes("for")).toBe(ta.attributes("id"));
+    expect(ta.attributes("id")).toBeTruthy();
     await ta.setValue("Do the thing");
     expect(ctx.prompt.value).toBe("Do the thing");
   });
 });
 
 describe("SessionLauncherAdvanced", () => {
+  it("names advanced switches and fields, and announces the panel expanded state", async () => {
+    const ctx = makeCtx();
+    ctx.createWorktree.value = true;
+    ctx.envVars.push({ key: "AUDIT_MODE", value: "true" });
+    const wrapper = mount(wrap(SessionLauncherAdvanced, ctx));
+    const trigger = wrapper.get(".advanced-trigger");
+    expect(trigger.attributes("aria-expanded")).toBe("false");
+    await trigger.trigger("click");
+    expect(trigger.attributes("aria-expanded")).toBe("true");
+    expect(trigger.attributes("aria-controls")).toBe(wrapper.get(".adv-panel").attributes("id"));
+    expect(
+      wrapper.findAll('[role="switch"]').map((control) => control.attributes("aria-label")),
+    ).toEqual([
+      "Auto-approve",
+      "Create Worktree",
+      "Copilot SDK Headless",
+      "Launch with --ui-server",
+    ]);
+    for (const label of wrapper.findAll<HTMLLabelElement>("label")) {
+      expect(label.element.htmlFor).toBeTruthy();
+      expect(wrapper.find(`[id="${label.element.htmlFor}"]`).exists()).toBe(true);
+    }
+    expect(wrapper.get(".env-key").attributes("aria-label")).toBe("Environment variable 1 name");
+    expect(wrapper.get(".env-val").attributes("aria-label")).toBe("Environment variable 1 value");
+  });
+
   it("toggles the advanced panel open when trigger is clicked", async () => {
     const ctx = makeCtx();
     const wrapper = mount(wrap(SessionLauncherAdvanced, ctx));
@@ -275,6 +328,18 @@ describe("SessionLauncherAdvanced", () => {
 });
 
 describe("SessionLauncherSaveTemplate", () => {
+  it("connects the visible template labels to their fields", () => {
+    const ctx = makeCtx();
+    ctx.showTemplateForm.value = true;
+    const wrapper = mount(wrap(SessionLauncherSaveTemplate, ctx));
+    const labels = wrapper.findAll<HTMLLabelElement>(".form-label");
+    expect(labels).toHaveLength(4);
+    for (const label of labels) {
+      expect(label.element.htmlFor).toBeTruthy();
+      expect(wrapper.find(`[id="${label.element.htmlFor}"]`).exists()).toBe(true);
+    }
+  });
+
   it("renders the save-as-template toggle", () => {
     const ctx = makeCtx();
     const wrapper = mount(wrap(SessionLauncherSaveTemplate, ctx));

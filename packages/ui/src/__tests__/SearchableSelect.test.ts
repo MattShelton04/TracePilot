@@ -32,6 +32,17 @@ describe("SearchableSelect", () => {
     expect((input.element as HTMLInputElement).value).toBe("main");
   });
 
+  it("connects an external label to the actual input when inputId is provided", () => {
+    const label = document.createElement("label");
+    label.htmlFor = "branch-picker";
+    label.textContent = "Branch";
+    document.body.append(label);
+    wrapper = mountComponent({ inputId: "branch-picker" });
+    const input = wrapper.get<HTMLInputElement>("input");
+    expect(input.element.id).toBe("branch-picker");
+    expect(input.element.labels?.[0]).toBe(label);
+  });
+
   it("resets to modelValue if allowCustom is false and input is blurred", async () => {
     wrapper = mountComponent({ allowCustom: false });
     const input = wrapper.find("input");

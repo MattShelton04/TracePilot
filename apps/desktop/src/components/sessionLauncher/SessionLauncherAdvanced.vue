@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Banner, SearchableSelect } from "@tracepilot/ui";
 import { ChevronRight, FolderOpen } from "lucide-vue-next";
+import { useId } from "vue";
 import { useSessionLauncherContext } from "@/composables/useSessionLauncher";
 
 const {
@@ -22,6 +23,7 @@ const {
 } = useSessionLauncherContext();
 
 const sdkDisabledHint = "Enable Copilot SDK Bridge in Settings → Additional Features";
+const fieldId = `launcher-advanced-${useId()}`;
 
 function toggleHeadless() {
   if (!sdkFeatureEnabled.value) return;
@@ -38,14 +40,14 @@ function toggleUiServer() {
 
 <template>
   <section class="section-block">
-    <button class="advanced-trigger" @click="showAdvanced = !showAdvanced">
+    <button type="button" class="advanced-trigger" :aria-expanded="showAdvanced" :aria-controls="fieldId" @click="showAdvanced = !showAdvanced">
       <span class="advanced-arrow" :class="{ open: showAdvanced }" aria-hidden="true">
         <ChevronRight :size="14" :stroke-width="1.5" />
       </span>
       Advanced Options
     </button>
     <Transition name="slide">
-      <div v-if="showAdvanced" class="section-panel adv-panel">
+      <div v-if="showAdvanced" :id="fieldId" class="section-panel adv-panel">
         <div class="toggle-row">
           <div class="toggle-info">
             <span class="toggle-label">Auto-approve</span>
@@ -55,6 +57,7 @@ function toggleUiServer() {
             class="toggle-switch"
             :class="{ on: autoApprove }"
             role="switch"
+            aria-label="Auto-approve"
             :aria-checked="autoApprove"
             @click="autoApprove = !autoApprove"
           >
@@ -70,6 +73,7 @@ function toggleUiServer() {
             class="toggle-switch"
             :class="{ on: createWorktree }"
             role="switch"
+            aria-label="Create Worktree"
             :aria-checked="createWorktree"
             @click="createWorktree = !createWorktree; clearTemplateSelection()"
           >
@@ -79,8 +83,9 @@ function toggleUiServer() {
         <Transition name="slide">
           <div v-if="createWorktree" class="worktree-options">
             <div class="form-group" style="margin: 8px 0 0 0">
-              <label class="form-label">Base Branch</label>
+              <label :for="`${fieldId}-base-branch`" class="form-label">Base Branch</label>
               <SearchableSelect
+                :input-id="`${fieldId}-base-branch`"
                 v-model="baseBranch"
                 :options="worktreeStore.branches"
                 placeholder="Leave blank to use current HEAD"
@@ -107,6 +112,7 @@ function toggleUiServer() {
             class="toggle-switch"
             :class="{ on: headless }"
             role="switch"
+            aria-label="Copilot SDK Headless"
             :aria-checked="headless"
             :disabled="!sdkFeatureEnabled"
             :title="!sdkFeatureEnabled ? sdkDisabledHint : undefined"
@@ -125,6 +131,7 @@ function toggleUiServer() {
             class="toggle-switch"
             :class="{ on: uiServer && !headless }"
             role="switch"
+            aria-label="Launch with --ui-server"
             :aria-checked="uiServer && !headless"
             :disabled="headless || !sdkFeatureEnabled"
             :title="!sdkFeatureEnabled ? sdkDisabledHint : undefined"
@@ -135,8 +142,9 @@ function toggleUiServer() {
         </div>
 
         <div class="form-group" style="margin-top: 14px">
-          <label class="form-label">Custom Instructions Path</label>
+          <label :for="`${fieldId}-instructions`" class="form-label">Custom Instructions Path</label>
           <input
+            :id="`${fieldId}-instructions`"
             v-model="customInstructions"
             type="text"
             class="form-input form-mono"
@@ -145,11 +153,11 @@ function toggleUiServer() {
         </div>
 
         <div class="form-group" style="margin-top: 14px">
-          <label class="form-label">Environment Variables</label>
+          <span class="form-label">Environment Variables</span>
           <div v-for="(ev, idx) in envVars" :key="idx" class="env-row">
-            <input v-model="ev.key" type="text" class="form-input form-mono env-key" placeholder="KEY" />
-            <input v-model="ev.value" type="text" class="form-input form-mono env-val" placeholder="value" />
-            <button class="env-remove" @click="removeEnvVar(idx)" title="Remove variable">✕</button>
+            <input v-model="ev.key" type="text" class="form-input form-mono env-key" placeholder="KEY" :aria-label="`Environment variable ${idx + 1} name`" />
+            <input v-model="ev.value" type="text" class="form-input form-mono env-val" placeholder="value" :aria-label="`Environment variable ${idx + 1} value`" />
+            <button class="env-remove" @click="removeEnvVar(idx)" title="Remove variable" :aria-label="`Remove environment variable ${idx + 1}`">✕</button>
           </div>
           <button class="btn-add-var" @click="addEnvVar">+ Add Variable</button>
         </div>
