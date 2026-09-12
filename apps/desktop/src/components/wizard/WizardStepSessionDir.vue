@@ -39,6 +39,7 @@ const emit = defineEmits<{
           :value="copilotHome"
           type="text"
           class="path-input"
+          aria-label="Copilot home directory"
           :placeholder="COPILOT_HOME_PLACEHOLDER"
           spellcheck="false"
           @input="emit('update:copilotHome', ($event.target as HTMLInputElement).value)"
@@ -58,7 +59,7 @@ const emit = defineEmits<{
         Sessions: <span>{{ sessionDir || defaultSessionDir }}</span>
       </div>
 
-      <div class="validation-area">
+      <div class="validation-area" role="status" aria-live="polite">
         <div v-if="validating" class="validation-msg validating">
           <span class="spinner" />
           Checking directory…

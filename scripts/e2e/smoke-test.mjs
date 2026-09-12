@@ -69,6 +69,7 @@ function warn(name, details) {
 
 async function checkDesktopSizes(page) {
   const original = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+  const originalRoute = await page.evaluate(() => location.hash.slice(1) || "/");
   const wasCollapsed = await page
     .getByRole("button", { name: "Expand sidebar", exact: true })
     .isVisible();
@@ -131,13 +132,56 @@ async function checkDesktopSizes(page) {
           `Desktop navigation: ${label}, ${state}`,
           `${width}x${height}; Settings reachable, brand/footer visible, no horizontal overflow`,
         );
+
+        await navigateTo(page, "/");
+        await page.getByTestId("session-toolbar").waitFor();
+        await page.waitForFunction(
+          () => {
+            const toolbar = document.querySelector('[data-testid="session-toolbar"]');
+            const search = toolbar?.querySelector('[data-testid="session-search"] input');
+            if (!toolbar || !search) return false;
+            const bounds = toolbar.getBoundingClientRect();
+            const controls = [
+              ...toolbar.querySelectorAll("input, select, button, .session-count-label"),
+            ];
+            return (
+              search.getBoundingClientRect().width >= 200 &&
+              bounds.left >= 0 &&
+              bounds.right <= innerWidth &&
+              toolbar.scrollWidth <= toolbar.clientWidth + 1 &&
+              controls.every((control) => {
+                const rect = control.getBoundingClientRect();
+                return (
+                  rect.width > 0 &&
+                  rect.left >= bounds.left &&
+                  rect.right <= bounds.right + 1 &&
+                  rect.top >= bounds.top &&
+                  rect.bottom <= bounds.bottom + 1
+                );
+              })
+            );
+          },
+          undefined,
+          { timeout: 5000 },
+        );
+        await page.getByRole("button", { name: "Refresh data", exact: true }).focus();
+        await page.waitForFunction(
+          () => document.activeElement === document.querySelector('[aria-label="Refresh data"]'),
+        );
+        await page.screenshot({ path: resolve(screenshotDir, `sessions-${label}-${state}.png`) });
+        pass(
+          `Session toolbar: ${label}, ${state}`,
+          `${width}x${height}; readable search, all controls contained, Refresh keyboard-focusable`,
+        );
+        await navigateTo(page, originalRoute);
       }
     }
   } catch (error) {
-    fail("Desktop navigation at supported sizes", error.message);
+    fail("Desktop navigation and session toolbar at supported sizes", error.message);
   } finally {
     await page.setViewportSize(original);
     await setCollapsed(wasCollapsed);
+    await navigateTo(page, originalRoute);
   }
 }
 

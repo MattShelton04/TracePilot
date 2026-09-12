@@ -43,6 +43,7 @@ function onPathInput(e: Event) {
             :value="tracepilotHome"
             type="text"
             class="path-input"
+            aria-label="TracePilot data directory"
             :placeholder="TRACEPILOT_HOME_PLACEHOLDER"
             spellcheck="false"
             @input="onPathInput"

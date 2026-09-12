@@ -16,7 +16,7 @@ import {
   TRACEPILOT_INDEX_DB_PLACEHOLDER,
 } from "@tracepilot/types";
 import { toErrorMessage, useKeydown } from "@tracepilot/ui";
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import WizardStepDatabase from "@/components/wizard/WizardStepDatabase.vue";
 import WizardStepFeatures from "@/components/wizard/WizardStepFeatures.vue";
 import WizardStepReady from "@/components/wizard/WizardStepReady.vue";
@@ -66,6 +66,20 @@ const dbPath = computed(() => deriveIndexDbPath(tracepilotHome.value) || FALLBAC
 const validating = ref(false);
 const validationResult = ref<ValidateSessionDirResult | null>(null);
 const validationError = ref("");
+let validationRequestId = 0;
+
+// A result belongs to the path that was checked. Invalidate it immediately on
+// edit, before blur can start another check or an older request can complete.
+watch(
+  copilotHome,
+  () => {
+    validationRequestId += 1;
+    validating.value = false;
+    validationResult.value = null;
+    validationError.value = "";
+  },
+  { flush: "sync" },
+);
 
 // ── Saving state ───────────────────────────────────────────────
 const saving = ref(false);
@@ -80,20 +94,26 @@ const sessionCount = computed(() => validationResult.value?.sessionCount ?? 0);
 
 // ── Validation ─────────────────────────────────────────────────
 async function validateDir() {
-  if (!sessionDir.value.trim()) return;
-  validating.value = true;
+  const requestId = ++validationRequestId;
   validationResult.value = null;
   validationError.value = "";
+  if (!copilotHome.value.trim()) {
+    validating.value = false;
+    validationError.value = "Enter a Copilot home directory.";
+    return;
+  }
+  validating.value = true;
   try {
     const result = await validateSessionDir(sessionDir.value.trim());
+    if (requestId !== validationRequestId) return;
     validationResult.value = result;
     if (!result.valid && result.error) {
       validationError.value = result.error;
     }
   } catch (e) {
-    validationError.value = toErrorMessage(e);
+    if (requestId === validationRequestId) validationError.value = toErrorMessage(e);
   } finally {
-    validating.value = false;
+    if (requestId === validationRequestId) validating.value = false;
   }
 }
 
@@ -125,8 +145,6 @@ async function skipSetup() {
 // ── Reset to defaults ──────────────────────────────────────────
 function resetSessionDir() {
   copilotHome.value = defaultCopilotHome.value;
-  validationResult.value = null;
-  validationError.value = "";
   validateDir();
 }
 
@@ -204,11 +222,25 @@ onMounted(async () => {
         class="slides-track"
         :style="{ transform: `translateX(-${currentStep * 100}%)`, transitionDuration }"
       >
-        <WizardStepWelcome :app-version="appVersion" @next="next" />
+        <!-- Keep slides in the track for animation, but only expose the active
+             slide to keyboard navigation and assistive technology. -->
+        <WizardStepWelcome
+          :inert="currentStep !== 0 ? '' : undefined"
+          :aria-hidden="currentStep !== 0"
+          :app-version="appVersion"
+          @next="next"
+        />
 
-        <WizardStepFeatures :active="currentStep === 1" @next="next" />
+        <WizardStepFeatures
+          :inert="currentStep !== 1 ? '' : undefined"
+          :aria-hidden="currentStep !== 1"
+          :active="currentStep === 1"
+          @next="next"
+        />
 
         <WizardStepSessionDir
+          :inert="currentStep !== 2 ? '' : undefined"
+          :aria-hidden="currentStep !== 2"
           :copilot-home="copilotHome"
           :session-dir="sessionDir"
           :default-copilot-home="defaultCopilotHome"
@@ -225,6 +257,8 @@ onMounted(async () => {
         />
 
         <WizardStepDatabase
+          :inert="currentStep !== 3 ? '' : undefined"
+          :aria-hidden="currentStep !== 3"
           :tracepilot-home="tracepilotHome"
           :db-path="dbPath"
           :default-tracepilot-home="defaultTracePilotHome"
@@ -235,6 +269,8 @@ onMounted(async () => {
         />
 
         <WizardStepReady
+          :inert="currentStep !== 4 ? '' : undefined"
+          :aria-hidden="currentStep !== 4"
           :active="currentStep === 4"
           :session-dir="sessionDir"
           :db-path="dbPath"
