@@ -90,4 +90,5 @@ function statusClass(s: SubagentStatus): string {
 .sap-status.completed { color: var(--success-fg); background: var(--success-subtle); }
 .sap-status.failed { color: var(--danger-fg); background: var(--danger-subtle); }
 .sap-status.in-progress { color: var(--warning-fg); background: var(--warning-subtle); }
+.sap-status.idle, .sap-status.cancelled { color: var(--text-secondary); background: var(--neutral-subtle); }
 </style>

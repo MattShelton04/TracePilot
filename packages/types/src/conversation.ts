@@ -112,6 +112,12 @@ export interface TurnToolCall {
   isComplete: boolean;
   /** Whether this tool call represents a subagent invocation. */
   isSubagent?: boolean;
+  /** Runtime agent UUID, distinct from the launching toolCallId. */
+  agentId?: string;
+  /** Observed runtime state from read_agent/write_agent telemetry. */
+  agentStatus?: string;
+  /** Explicit cancellation reported by the subagent lifecycle. */
+  cancelled?: boolean;
   /** Human-readable display name of the subagent (e.g. "Explore Agent"). */
   agentDisplayName?: string;
   /** Description of what the subagent does. */

@@ -2,8 +2,9 @@ use super::super::SearchContentRow;
 use super::super::tool_extraction::{extract_tool_result, flatten_json_value};
 use super::builder::SearchContentRowBuilder;
 use super::limits::*;
-use super::state::ExtractionState;
+use std::collections::HashMap;
 use tracepilot_core::parsing::events::{TypedEvent, TypedEventData};
+use tracepilot_core::turns::TurnReconstructor;
 use tracepilot_core::utils::truncate_utf8;
 
 /// Extract searchable content rows from a session's typed events.
@@ -18,54 +19,40 @@ pub fn extract_search_content(
 ) -> Vec<SearchContentRow> {
     let session_id = session_id.as_str();
     let mut rows = Vec::with_capacity(events.len() / 2);
-    let mut state = ExtractionState::new();
+    let mut turns = TurnReconstructor::with_agent_ownership(events);
+    let mut tool_names = HashMap::new();
+    let mut pending_rows: Vec<SearchContentRow> = Vec::new();
 
     for (event_index, event) in events.iter().enumerate() {
         let ts_unix = event.raw.timestamp.map(|t| t.timestamp());
         let idx = event_index as i64;
+        turns.process(event, event_index);
+        let turn = turns.content_turn_index(event).map(|index| index as i64);
+        if let Some(active) = turns.active_turn_index() {
+            for mut row in pending_rows.drain(..) {
+                row.turn_number = Some(active as i64);
+                rows.push(row);
+            }
+        }
 
         match &event.typed_data {
-            // TurnStart opens a turn if none is open (mirrors ensure_current_turn).
-            // After a TurnEnd closes a turn, the next TurnStart begins a new one.
-            TypedEventData::TurnStart(_) if state.ensure_turn() => {
-                state.flush_pending(&mut rows);
-            }
-
             TypedEventData::UserMessage(d) => {
-                // UserMessage always opens a new turn (mirrors reconstructor:
-                // finalize_current_turn + new_turn).
-                state.current_turn += 1;
-                state.turn_is_open = true;
-                state.flush_pending(&mut rows);
                 if let Some(ref content) = d.content
                     && !content.is_empty()
                 {
-                    let row = SearchContentRowBuilder::new(
-                        session_id,
-                        Some(state.current_turn),
-                        idx,
-                        ts_unix,
-                    )
-                    .with_content("user_message", content.clone());
+                    let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                        .with_content("user_message", content.clone());
                     rows.push(row);
                 }
             }
 
             TypedEventData::AssistantMessage(d) => {
-                if state.ensure_turn() {
-                    state.flush_pending(&mut rows);
-                }
                 if let Some(ref content) = d.content
                     && !content.is_empty()
                 {
                     let truncated = truncate_utf8(content, MAX_ASSISTANT_MESSAGE_BYTES);
-                    let row = SearchContentRowBuilder::new(
-                        session_id,
-                        Some(state.current_turn),
-                        idx,
-                        ts_unix,
-                    )
-                    .with_content("assistant_message", truncated.to_string());
+                    let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                        .with_content("assistant_message", truncated.to_string());
                     rows.push(row);
                 }
                 // Also index reasoning text if present
@@ -73,47 +60,29 @@ pub fn extract_search_content(
                     && !reasoning.is_empty()
                 {
                     let truncated = truncate_utf8(reasoning, MAX_REASONING_BYTES);
-                    let row = SearchContentRowBuilder::new(
-                        session_id,
-                        Some(state.current_turn),
-                        idx,
-                        ts_unix,
-                    )
-                    .with_content("reasoning", truncated.to_string());
+                    let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                        .with_content("reasoning", truncated.to_string());
                     rows.push(row);
                 }
             }
 
             TypedEventData::AssistantReasoning(d) => {
-                if state.ensure_turn() {
-                    state.flush_pending(&mut rows);
-                }
                 if let Some(ref content) = d.content
                     && !content.is_empty()
                 {
                     let truncated = truncate_utf8(content, MAX_REASONING_BYTES);
-                    let row = SearchContentRowBuilder::new(
-                        session_id,
-                        Some(state.current_turn),
-                        idx,
-                        ts_unix,
-                    )
-                    .with_content("reasoning", truncated.to_string());
+                    let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                        .with_content("reasoning", truncated.to_string());
                     rows.push(row);
                 }
             }
 
             TypedEventData::ToolExecutionStart(d) => {
-                if state.ensure_turn() {
-                    state.flush_pending(&mut rows);
-                }
                 let name = d.tool_name.clone().unwrap_or_else(|| "unknown".to_string());
 
                 // Remember tool name and turn for completion events
                 if let Some(ref id) = d.tool_call_id {
-                    state
-                        .tool_info
-                        .insert(id.clone(), (name.clone(), state.current_turn));
+                    tool_names.insert(id.clone(), name.clone());
                 }
 
                 // Skip tools that add negligible search value
@@ -127,29 +96,19 @@ pub fn extract_search_content(
                     let args_text = flatten_json_value(args);
                     if !args_text.is_empty() {
                         let truncated = truncate_utf8(&args_text, MAX_TOOL_CALL_BYTES);
-                        let row = SearchContentRowBuilder::new(
-                            session_id,
-                            Some(state.current_turn),
-                            idx,
-                            ts_unix,
-                        )
-                        .with_tool_content(
-                            "tool_call",
-                            Some(name),
-                            truncated.to_string(),
-                        );
+                        let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                            .with_tool_content("tool_call", Some(name), truncated.to_string());
                         rows.push(row);
                     }
                 }
             }
 
             TypedEventData::ToolExecutionComplete(d) => {
-                let info = d
+                let tool_name = d
                     .tool_call_id
                     .as_ref()
-                    .and_then(|id| state.tool_info.get(id));
-                let tool_name = info.map(|(name, _)| name.clone());
-                let completion_turn = info.map(|(_, t)| *t).unwrap_or(state.current_turn);
+                    .and_then(|id| tool_names.get(id))
+                    .cloned();
                 let name_lower = tool_name.as_deref().unwrap_or("").to_lowercase();
 
                 // Skip tools that add negligible search value
@@ -162,11 +121,6 @@ pub fn extract_search_content(
                     let error_text = flatten_json_value(error);
                     if !error_text.is_empty() {
                         let truncated = truncate_utf8(&error_text, MAX_TOOL_ERROR_BYTES);
-                        let turn = if completion_turn >= 0 {
-                            Some(completion_turn)
-                        } else {
-                            None
-                        };
                         let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
                             .with_tool_content(
                                 "tool_error",
@@ -191,11 +145,6 @@ pub fn extract_search_content(
                     let content = extract_tool_result(&name_lower, result);
                     if !content.is_empty() {
                         let truncated = truncate_utf8(&content, MAX_TOOL_RESULT_BYTES);
-                        let turn = if completion_turn >= 0 {
-                            Some(completion_turn)
-                        } else {
-                            None
-                        };
                         let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
                             .with_tool_content(
                                 "tool_result",
@@ -218,17 +167,12 @@ pub fn extract_search_content(
                 let content = parts.join(": ");
                 if !content.is_empty() {
                     let truncated = truncate_utf8(&content, MAX_ERROR_BYTES);
-                    let turn = if state.turn_is_open && state.current_turn >= 0 {
-                        Some(state.current_turn)
-                    } else {
-                        None
-                    };
                     let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
                         .with_content("error", truncated.to_string());
-                    if state.turn_is_open {
+                    if turn.is_some() {
                         rows.push(row);
                     } else {
-                        state.pending_session_rows.push(row);
+                        pending_rows.push(row);
                     }
                 }
             }
@@ -238,20 +182,15 @@ pub fn extract_search_content(
                     && !summary.is_empty()
                 {
                     let truncated = truncate_utf8(summary, MAX_COMPACTION_BYTES);
-                    let turn = if state.turn_is_open && state.current_turn >= 0 {
-                        Some(state.current_turn)
-                    } else {
-                        None
-                    };
                     let metadata = d
                         .checkpoint_number
                         .map(|n| serde_json::json!({"checkpoint": n}).to_string());
                     let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
                         .with_metadata("compaction_summary", truncated.to_string(), metadata);
-                    if state.turn_is_open {
+                    if turn.is_some() {
                         rows.push(row);
                     } else {
-                        state.pending_session_rows.push(row);
+                        pending_rows.push(row);
                     }
                 }
             }
@@ -261,29 +200,21 @@ pub fn extract_search_content(
                     && !content.is_empty()
                 {
                     let truncated = truncate_utf8(content, MAX_SYSTEM_MESSAGE_BYTES);
-                    let turn = if state.turn_is_open && state.current_turn >= 0 {
-                        Some(state.current_turn)
-                    } else {
-                        None
-                    };
                     let metadata = d
                         .role
                         .as_ref()
                         .map(|r| serde_json::json!({"role": r}).to_string());
                     let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
                         .with_metadata("system_message", truncated.to_string(), metadata);
-                    if state.turn_is_open {
+                    if turn.is_some() {
                         rows.push(row);
                     } else {
-                        state.pending_session_rows.push(row);
+                        pending_rows.push(row);
                     }
                 }
             }
 
             TypedEventData::SubagentStarted(d) => {
-                if state.ensure_turn() {
-                    state.flush_pending(&mut rows);
-                }
                 let mut parts = Vec::new();
                 if let Some(ref name) = d.agent_name {
                     parts.push(name.clone());
@@ -293,20 +224,10 @@ pub fn extract_search_content(
                 }
                 let content = parts.join(" — ");
                 if !content.is_empty() {
-                    let row = SearchContentRowBuilder::new(
-                        session_id,
-                        Some(state.current_turn),
-                        idx,
-                        ts_unix,
-                    )
-                    .with_content("subagent", content);
+                    let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                        .with_content("subagent", content);
                     rows.push(row);
                 }
-            }
-
-            // TurnEnd/Abort close the current turn (mirrors reconstructor's finalize_current_turn)
-            TypedEventData::TurnEnd(_) | TypedEventData::Abort(_) => {
-                state.turn_is_open = false;
             }
 
             // All other event types are not indexed for FTS
@@ -315,6 +236,6 @@ pub fn extract_search_content(
     }
 
     // Any session rows still pending (no subsequent turn opened) keep turn_number: None
-    state.finish(&mut rows);
+    rows.append(&mut pending_rows);
     rows
 }

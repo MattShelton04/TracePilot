@@ -11,7 +11,10 @@ use crate::models::conversation::ConversationTurn;
 ///
 /// Uses a fixed-point loop since model inference can propagate through
 /// multiple nesting levels (subagent → child subagent → tool call).
-pub(crate) fn infer_subagent_models(turns: &mut [ConversationTurn]) {
+pub(crate) fn infer_subagent_models(
+    turns: &mut [ConversationTurn],
+    authoritative: &HashSet<String>,
+) {
     // Cap iterations to prevent infinite loops from cyclic parent_tool_call_id data.
     // Valid DAGs converge in at most depth iterations; we use total tool calls as a safe bound.
     let max_iterations = turns
@@ -50,6 +53,7 @@ pub(crate) fn infer_subagent_models(turns: &mut [ConversationTurn]) {
             for tc in turn.tool_calls.iter_mut() {
                 if tc.is_subagent
                     && let Some(ref id) = tc.tool_call_id
+                    && !authoritative.contains(id)
                     && let Some(model) = child_models.get(id)
                     && tc.model.as_deref() != Some(model.as_str())
                 {
@@ -109,7 +113,10 @@ pub(crate) fn finalize_subagent_completion(turns: &mut [ConversationTurn]) {
 /// This function runs after all events are processed (when subagent flags are final)
 /// and corrects any polluted turn models. It also forward-fills `None` models from
 /// the nearest preceding turn with a known model.
-pub(crate) fn correct_turn_models(turns: &mut [ConversationTurn]) {
+pub(crate) fn correct_turn_models(
+    turns: &mut [ConversationTurn],
+    explicit: &HashMap<usize, String>,
+) {
     // Build session-wide set of subagent tool call IDs.
     let subagent_ids: HashSet<String> = turns
         .iter()
@@ -132,6 +139,10 @@ pub(crate) fn correct_turn_models(turns: &mut [ConversationTurn]) {
 
     // Pass 1: correct or clear polluted models.
     for turn in turns.iter_mut() {
+        if let Some(model) = explicit.get(&turn.turn_index) {
+            turn.model = Some(model.clone());
+            continue;
+        }
         // Find the model from direct main-agent tool calls: tool calls that are
         // neither subagents themselves, nor children of a subagent.
         let main_agent_model = turn
@@ -196,23 +207,19 @@ pub(crate) fn correct_turn_models(turns: &mut [ConversationTurn]) {
 /// For each `AttributedMessage` with a `parent_tool_call_id`, looks up the matching
 /// subagent tool call in the same turn and copies its `agent_display_name`.
 pub(crate) fn resolve_agent_display_names(turns: &mut [ConversationTurn]) {
+    // Background output can occur after the launching turn.
+    let agent_names: HashMap<String, String> = turns
+        .iter()
+        .flat_map(|turn| turn.tool_calls.iter())
+        .filter(|tc| tc.is_subagent)
+        .filter_map(|tc| {
+            let id = tc.tool_call_id.as_ref()?;
+            let name = tc.agent_display_name.as_ref()?;
+            Some((id.clone(), name.clone()))
+        })
+        .collect();
+
     for turn in turns.iter_mut() {
-        // Build lookup: tool_call_id → agent_display_name
-        let agent_names: HashMap<String, String> = turn
-            .tool_calls
-            .iter()
-            .filter(|tc| tc.is_subagent)
-            .filter_map(|tc| {
-                let id = tc.tool_call_id.as_ref()?;
-                let name = tc.agent_display_name.as_ref()?;
-                Some((id.clone(), name.clone()))
-            })
-            .collect();
-
-        if agent_names.is_empty() {
-            continue;
-        }
-
         for msg in turn
             .assistant_messages
             .iter_mut()

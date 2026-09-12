@@ -22,3 +22,10 @@ The 1.0.75 and 1.0.83 schemas came from the locally installed official Windows x
 packages. The schema compatibility test checks typed deserialization and recursive
 field preservation, including nested objects. Historical conversation tests cover
 reconstruction and older field names separately.
+
+`v1_0_83_agents.jsonl` is a synthetic conversation covering delayed child logs,
+distinct agent UUIDs, nested ownership and cancellation. `v1_0_83_multiturn.jsonl`
+preserves the event ordering and structured telemetry of a controlled 1.0.83 probe
+using only GPT-5.6 Luna: launch a background agent, wait, send it a follow-up, wait
+again. IDs, messages and timestamps were replaced; machine paths and system prompts
+were omitted. That probe emitted one `subagent.completed` event for two requests.

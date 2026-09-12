@@ -79,6 +79,9 @@ export async function reconstructTurns(events: AsyncIterable<RawEvent>): Promise
     if (!type) continue;
     const data = evt.data as RawEvent | undefined;
     const timestamp = evt.timestamp as string | undefined;
+    // Child agents have independent user messages and turn boundaries. This
+    // compact CLI view shows the main conversation and its delegation tools.
+    if (typeof evt.agentId === "string" || typeof data?.parentToolCallId === "string") continue;
 
     if (type === "user.message") {
       const content = data?.content as string | undefined;
@@ -102,6 +105,7 @@ export async function reconstructTurns(events: AsyncIterable<RawEvent>): Promise
 
     if (type === "assistant.message") {
       const turn = ensureCurrentTurn(data, timestamp);
+      if (typeof data?.model === "string") turn.model = data.model;
       const content = data?.content as string | undefined;
       if (content && content.length > 0 && !turn.assistantSnippet) {
         turn.assistantSnippet = formatSnippet(content, 120) || undefined;

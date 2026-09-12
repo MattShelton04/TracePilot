@@ -48,7 +48,13 @@ export function useSubagentCompletions(
     const map = new Map<string, string>();
     for (const [toolCallId, sa] of subagentMap.value) {
       const args = getToolArgs(sa.toolCall);
-      const identifiers = [args.name, args.agent_id, args.agent_name, sa.toolCall.toolCallId];
+      const identifiers = [
+        args.name,
+        args.agent_id,
+        args.agent_name,
+        sa.toolCall.toolCallId,
+        sa.toolCall.agentId,
+      ];
       for (const identifier of identifiers) {
         if (typeof identifier === "string" && identifier.trim().length > 0) {
           map.set(identifier, toolCallId);
@@ -92,7 +98,7 @@ export function useSubagentCompletions(
     if (sa) {
       const agentType = inferAgentTypeFromToolCall(sa.toolCall);
       const label = agentType.charAt(0).toUpperCase() + agentType.slice(1);
-      return `${label} agent ${sa.toolCall.success === false ? "failed" : "completed"}`;
+      return `${label} agent ${sa.toolCall.cancelled ? "cancelled" : sa.toolCall.success === false ? "failed" : sa.toolCall.agentStatus === "idle" ? "idle" : "completed"}`;
     }
     return "Agent completed";
   }

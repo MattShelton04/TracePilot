@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { reconstructTurns } from "../turnReconstruction.js";
 
@@ -6,6 +7,20 @@ async function* toAsync<T>(items: T[]): AsyncIterable<T> {
 }
 
 describe("reconstructTurns", () => {
+  it("keeps modern child turns out of the main CLI conversation", async () => {
+    const fixture = new URL(
+      "../../../../../crates/tracepilot-core/tests/fixtures/versions/v1_0_83_multiturn.jsonl",
+      import.meta.url,
+    );
+    const events = readFileSync(fixture, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const turns = await reconstructTurns(toAsync(events));
+    expect(turns).toHaveLength(5);
+    expect(turns.map((turn) => turn.turnId)).toEqual(["0", "1", "2", "3", "4"]);
+    expect(turns.every((turn) => turn.model === "gpt-5.6-luna")).toBe(true);
+  });
   it("returns an empty array when no events are provided", async () => {
     const turns = await reconstructTurns(toAsync<Record<string, unknown>>([]));
     expect(turns).toEqual([]);

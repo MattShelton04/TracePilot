@@ -4,6 +4,7 @@
 //! cross-module behavior of `extract_search_content`.
 
 mod helpers;
+mod modern_agents;
 mod session_errors;
 mod truncation;
 mod turn_numbers;

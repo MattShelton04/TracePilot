@@ -3,10 +3,10 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
-/// v7: persist observed nano-AI-unit totals at session, model, and segment
-/// granularity. Existing sessions must be re-read because migration-added
-/// columns cannot be safely backfilled from legacy aggregate columns.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 7;
+/// v8: reconstruct main turns independently of UUID-owned subagent loops and
+/// track delayed launches / multi-turn agent state. Re-read unchanged sessions
+/// so stored turn counts and derived analytics receive these parser corrections.
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 8;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

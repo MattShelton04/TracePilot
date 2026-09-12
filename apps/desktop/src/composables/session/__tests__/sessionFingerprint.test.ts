@@ -5,7 +5,7 @@ import {
   hashText,
   isSameEventsFingerprint,
   messageFingerprint,
-  type toolCallFingerprint,
+  toolCallFingerprint,
   turnFingerprint,
 } from "@/composables/session/sessionFingerprint";
 
@@ -72,6 +72,18 @@ describe("events fingerprint", () => {
 });
 
 describe("messageFingerprint / toolCallFingerprint / turnFingerprint", () => {
+  it("detects delayed identity, status and metrics on completed workers", () => {
+    const base = tc({ isSubagent: true });
+    for (const update of [
+      { agentId: "uuid" },
+      { agentStatus: "idle" },
+      { cancelled: true },
+      { totalTokens: 42 },
+      { totalToolCalls: 3 },
+    ]) {
+      expect(toolCallFingerprint({ ...base, ...update })).not.toBe(toolCallFingerprint(base));
+    }
+  });
   it("is stable for equal inputs and changes when fields differ", () => {
     const a = turnFingerprint(mkTurn({ userMessage: "hi" }));
     const b = turnFingerprint(mkTurn({ userMessage: "hi" }));

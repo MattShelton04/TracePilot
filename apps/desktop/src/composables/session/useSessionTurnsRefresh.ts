@@ -65,6 +65,9 @@ export function useSessionTurnsRefresh(opts: UseSessionTurnsRefreshOptions) {
     const candidateIndexes = new Set<number>([
       Math.max(0, overlapLength - 1),
       ...deepCompareTurnIndexes,
+      // A delayed lifecycle event can identify a previously ordinary tool as
+      // a subagent in an older turn (including specialized/internal agent tools).
+      ...computeDeepCompareIndexes(incoming),
     ]);
     for (const idx of candidateIndexes) {
       if (idx < 0 || idx >= overlapLength) continue;

@@ -35,7 +35,7 @@
 //! ## Assumptions
 //!
 //! - Events are ordered chronologically (as written to `events.jsonl`)
-//! - `parentId` links are used for subagent nesting, not for turn ordering
+//! - Envelope `parentId` links event order; `agentId` and payload parent IDs identify ownership
 //! - A session may end mid-turn (no `TurnEnd`); the final turn is still emitted
 //!
 //! ## Module Structure
@@ -77,7 +77,9 @@ pub struct TurnStats {
 /// This is the public entry point — it delegates to [`TurnReconstructor`].
 #[tracing::instrument(skip_all, fields(event_count = events.len()))]
 pub fn reconstruct_turns(events: &[TypedEvent]) -> Vec<ConversationTurn> {
-    let mut reconstructor = TurnReconstructor::new();
+    // Files may contain flushed child logs after their parent activity. Index
+    // available ownership before replay; process() also learns it incrementally.
+    let mut reconstructor = TurnReconstructor::with_agent_ownership(events);
     for (idx, event) in events.iter().enumerate() {
         reconstructor.process(event, idx);
     }

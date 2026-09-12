@@ -7,7 +7,6 @@
 mod builder;
 mod extractor;
 mod limits;
-mod state;
 
 #[cfg(test)]
 mod tests;

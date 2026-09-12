@@ -16,7 +16,9 @@ use super::postprocess::{
     resolve_agent_display_names,
 };
 
+mod agent_control;
 mod messages;
+mod ownership;
 mod session_events;
 mod state;
 mod tool_exec;
@@ -46,6 +48,14 @@ pub struct TurnReconstructor {
     /// Maps raw tool execution event ids to their tool_call_id so follow-up
     /// events (for example `skill.invoked`) can attach to the originating row.
     pub(crate) tool_event_to_call_id: HashMap<String, String>,
+    /// Agent instance UUID → launching tool-call ID (older logs used the same ID).
+    pub(crate) agent_owners: HashMap<String, String>,
+    /// Launches whose actual lifecycle has started, as opposed to pending task tools.
+    pub(crate) started_subagents: std::collections::HashSet<String>,
+    /// After write_agent, initial-invocation terminal events cannot settle the queue.
+    pub(crate) followup_agents: std::collections::HashSet<String>,
+    pub(crate) authoritative_subagent_models: std::collections::HashSet<String>,
+    pub(crate) explicit_turn_models: HashMap<usize, String>,
     /// Tracks the most recent session-level model, so new turns inherit it.
     pub(crate) session_model: Option<String>,
     /// Session events buffered while no turn is active.
@@ -86,6 +96,11 @@ impl TurnReconstructor {
             tool_call_intentions: HashMap::new(),
             tool_call_index: HashMap::new(),
             tool_event_to_call_id: HashMap::new(),
+            agent_owners: HashMap::new(),
+            started_subagents: std::collections::HashSet::new(),
+            followup_agents: std::collections::HashSet::new(),
+            authoritative_subagent_models: std::collections::HashSet::new(),
+            explicit_turn_models: HashMap::new(),
             session_model: None,
             pending_session_events: Vec::new(),
             pending_system_messages: Vec::new(),
@@ -96,6 +111,24 @@ impl TurnReconstructor {
 
     /// Process a single event, advancing the state machine.
     pub fn process(&mut self, event: &TypedEvent, event_index: usize) {
+        self.register_agent_owner(event);
+        // A subagent has its own conversation loop. Its boundaries and system
+        // prompt must never close, replace or seed the main conversation turn.
+        if event.raw.agent_id.is_some()
+            && matches!(
+                event.typed_data,
+                TypedEventData::UserMessage(_)
+                    | TypedEventData::TurnStart(_)
+                    | TypedEventData::TurnEnd(_)
+                    | TypedEventData::SystemMessage(_)
+                    | TypedEventData::ModelChange(_)
+                    | TypedEventData::Abort(_)
+                    | TypedEventData::CompactionStart(_)
+                    | TypedEventData::CompactionComplete(_)
+            )
+        {
+            return;
+        }
         match (&event.event_type, &event.typed_data) {
             (SessionEventType::UserMessage, TypedEventData::UserMessage(data)) => {
                 self.handle_user_message(event, event_index, data);
@@ -118,17 +151,47 @@ impl TurnReconstructor {
             (SessionEventType::SubagentStarted, TypedEventData::SubagentStarted(data)) => {
                 self.handle_subagent_started(event, event_index, data);
             }
+            (SessionEventType::SubagentConfigured, TypedEventData::SubagentConfigured(data)) => {
+                let owner = self.event_owner(event);
+                if let Some(tc) = self.find_tool_call_mut(owner.as_deref())
+                    && !tc.is_complete
+                    && data.model.is_some()
+                {
+                    tc.model = data.model.clone();
+                    if let Some(owner) = owner {
+                        self.authoritative_subagent_models.insert(owner);
+                    }
+                }
+            }
             (SessionEventType::SubagentCompleted, TypedEventData::SubagentCompleted(data)) => {
+                if data
+                    .tool_call_id
+                    .as_ref()
+                    .is_some_and(|id| self.followup_agents.contains(id))
+                    && data.cancelled != Some(true)
+                {
+                    return;
+                }
                 self.handle_subagent_terminal(
                     data.tool_call_id.as_deref(),
                     event.raw.timestamp,
-                    true,
-                    None,
+                    data.cancelled != Some(true),
+                    if data.cancelled == Some(true) {
+                        Some("Cancelled")
+                    } else {
+                        None
+                    },
                     data.model.as_deref(),
                     data.duration_ms,
                     data.total_tokens,
                     data.total_tool_calls,
                 );
+                if let Some(tc) = self.find_tool_call_mut(data.tool_call_id.as_deref()) {
+                    tc.cancelled = data.cancelled;
+                    if data.cancelled == Some(true) {
+                        tc.agent_status = Some("cancelled".into());
+                    }
+                }
             }
             (SessionEventType::SubagentFailed, TypedEventData::SubagentFailed(data)) => {
                 self.handle_subagent_terminal(
@@ -230,9 +293,9 @@ impl TurnReconstructor {
             }
         }
 
-        infer_subagent_models(&mut self.turns);
+        infer_subagent_models(&mut self.turns, &self.authoritative_subagent_models);
         finalize_subagent_completion(&mut self.turns);
-        correct_turn_models(&mut self.turns);
+        correct_turn_models(&mut self.turns, &self.explicit_turn_models);
         resolve_agent_display_names(&mut self.turns);
         self.turns
     }

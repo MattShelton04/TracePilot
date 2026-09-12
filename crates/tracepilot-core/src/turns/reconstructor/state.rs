@@ -214,6 +214,17 @@ impl TurnReconstructor {
         total_tokens: Option<u64>,
         total_tool_calls: Option<u64>,
     ) {
+        // In 1.0.83 these terminal events describe only the initial invocation.
+        // A queued follow-up must be settled by read_agent's current queue status.
+        // Failure or cancellation tears down the worker even if messages remain.
+        if success && tool_call_id.is_some_and(|id| self.followup_agents.contains(id)) {
+            return;
+        }
+        if model.is_some()
+            && let Some(id) = tool_call_id
+        {
+            self.authoritative_subagent_models.insert(id.to_string());
+        }
         if let Some(tool_call) = self.find_tool_call_mut(tool_call_id) {
             // Mark as subagent — handles the case where SubagentCompleted arrives
             // before SubagentStarted (so enrich_subagent can detect this later).
@@ -225,6 +236,7 @@ impl TurnReconstructor {
                     .or_else(|| duration_ms(tool_call.started_at, tool_call.completed_at));
             }
             tool_call.success = Some(success);
+            tool_call.agent_status = Some(if success { "completed" } else { "failed" }.into());
             if let Some(err) = error {
                 tool_call.error = Some(err.to_string());
             }
@@ -314,6 +326,11 @@ pub(crate) fn enrich_subagent(existing: &mut TurnToolCall, data: &SubagentStarte
         existing.is_complete = false;
         existing.completed_at = None;
         existing.duration_ms = None;
+        existing.success = None;
+        existing.error = None;
+        if data.model.is_some() {
+            existing.model = data.model.clone();
+        }
     }
     existing.agent_display_name = data.agent_display_name.clone();
     existing.agent_description = data.agent_description.clone();

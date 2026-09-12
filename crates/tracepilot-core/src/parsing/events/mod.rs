@@ -9,7 +9,7 @@
 //! ```
 //!
 //! Each line is a JSON object with at minimum: `{ type, data, id, timestamp }`.
-//! Events form a tree via `parentId` and are linked by `interactionId`, `toolCallId`, `turnId`.
+//! Envelope `parentId` links event order. `agentId` and payload parent IDs identify ownership.
 //!
 //! Unknown event types and deserialization failures are tracked in
 //! [`ParseDiagnostics`](crate::parsing::diagnostics::ParseDiagnostics) rather than being
@@ -26,6 +26,7 @@ mod raw;
 #[cfg(test)]
 mod tests;
 mod typed;
+mod types;
 
 pub use aggregate::{extract_combined_shutdown_data, extract_session_start};
 pub use raw::{RawEvent, events_to_jsonl};
