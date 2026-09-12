@@ -6,6 +6,20 @@ import { FIXTURE_DETAIL, mocks, setupSessionDetailStoreTest } from "./setup";
 
 setupSessionDetailStoreTest();
 
+// Keep the real state loaders and async helpers, but skip the UI barrel's
+// unrelated Vue components. Reloading that graph made this identity regression
+// depend on component transform time when the full suite ran concurrently.
+vi.mock("@tracepilot/ui", async () => {
+  const { toErrorMessage } = await import("@tracepilot/types");
+  const { useAsyncGuard } = await vi.importActual<
+    Pick<typeof import("@tracepilot/ui"), "useAsyncGuard">
+  >("../../../../../../packages/ui/src/composables/useAsyncGuard");
+  const { runAction, runMutation } = await vi.importActual<
+    Pick<typeof import("@tracepilot/ui"), "runAction" | "runMutation">
+  >("../../../../../../packages/ui/src/composables/useStoreHelpers");
+  return { toErrorMessage, useAsyncGuard, runAction, runMutation };
+});
+
 const wrappers: VueWrapper[] = [];
 afterEach(() => {
   for (const wrapper of wrappers.splice(0)) wrapper.unmount();
