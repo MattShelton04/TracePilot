@@ -50,6 +50,9 @@ function onClose(event: MouseEvent) {
   <div
     ref="rootEl"
     role="tab"
+    :aria-label="tab.label"
+    aria-haspopup="menu"
+    aria-keyshortcuts="Delete Shift+F10"
     :aria-selected="active"
     :tabindex="focused ? 0 : -1"
     class="session-tab"
@@ -74,6 +77,7 @@ function onClose(event: MouseEvent) {
     <span v-if="tab.isActive" class="tab-live-dot" title="Session is active" />
     <span class="tab-label" :title="tab.label">{{ tab.label }}</span>
     <button
+      type="button"
       class="tab-close"
       tabindex="-1"
       :aria-label="`Close ${tab.label}`"
@@ -116,6 +120,12 @@ function onClose(event: MouseEvent) {
   color: var(--text-primary);
   border-color: var(--border-default);
   font-weight: 600;
+}
+
+.session-tab:focus-visible,
+.tab-close:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
 }
 
 /* Active tab covers the strip bottom border */
@@ -189,6 +199,7 @@ function onClose(event: MouseEvent) {
 }
 
 .session-tab:hover .tab-close,
+.session-tab:focus-within .tab-close,
 .session-tab.active .tab-close {
   opacity: 1;
 }
