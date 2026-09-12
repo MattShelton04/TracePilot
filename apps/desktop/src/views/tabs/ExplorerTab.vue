@@ -196,8 +196,6 @@ const viewerChanged = computed(() => sessionFiles.contentChangedAt !== null);
 onBeforeUnmount(() => {
   if (newPathTimer) clearTimeout(newPathTimer);
   if (viewerPulseTimer) clearTimeout(viewerPulseTimer);
-  document.removeEventListener("click", hideContextMenu);
-  document.removeEventListener("contextmenu", hideContextMenu);
   if (refreshFeedbackTimer) clearTimeout(refreshFeedbackTimer);
 });
 
@@ -222,53 +220,45 @@ const selectedAbsolutePath = computed(() => {
 
 function onContextMenuEntry(event: MouseEvent, entry: FileEntry) {
   event.stopPropagation();
+  const target = event.currentTarget as HTMLElement | null;
+  target?.focus({ preventScroll: true });
+  const bounds = target?.getBoundingClientRect();
   contextMenuEntry.value = entry;
-  contextMenuPos.value = { x: event.clientX, y: event.clientY };
+  contextMenuPos.value =
+    event.clientX || event.clientY
+      ? { x: event.clientX, y: event.clientY }
+      : { x: bounds?.left ?? 8, y: bounds?.bottom ?? 8 };
 }
 
 function hideContextMenu() {
   contextMenuEntry.value = null;
 }
 
-watch(contextMenuEntry, (newVal) => {
-  if (newVal) {
-    document.addEventListener("click", hideContextMenu);
-    document.addEventListener("contextmenu", hideContextMenu);
-  } else {
-    document.removeEventListener("click", hideContextMenu);
-    document.removeEventListener("contextmenu", hideContextMenu);
-  }
-});
-
 async function onCopyPath() {
-  if (!contextMenuEntry.value) return;
-  const path = getAbsoluteFilePath(contextMenuEntry.value.path);
+  const entry = contextMenuEntry.value;
+  if (!entry) return;
+  const path = getAbsoluteFilePath(entry.path);
+  hideContextMenu();
   const success = await copyToClipboard(path);
   if (success) {
     toastSuccess(
-      contextMenuEntry.value.isDirectory
-        ? "Copied folder path to clipboard"
-        : "Copied file path to clipboard",
+      entry.isDirectory ? "Copied folder path to clipboard" : "Copied file path to clipboard",
     );
   } else {
     toastError("Failed to copy path");
   }
-  hideContextMenu();
 }
 
 async function onCopyContents() {
-  if (!contextMenuEntry.value || contextMenuEntry.value.isDirectory) return;
-  if (
-    contextMenuEntry.value.fileType === "binary" ||
-    contextMenuEntry.value.fileType === "image" ||
-    contextMenuEntry.value.fileType === "sqlite"
-  ) {
-    hideContextMenu();
+  const entry = contextMenuEntry.value;
+  const sessionId = store.sessionId;
+  hideContextMenu();
+  if (!entry || entry.isDirectory || !sessionId) return;
+  if (entry.fileType === "binary" || entry.fileType === "image" || entry.fileType === "sqlite") {
     return;
   }
   try {
-    if (!store.sessionId) return;
-    const content = await sessionReadFile(store.sessionId, contextMenuEntry.value.path);
+    const content = await sessionReadFile(sessionId, entry.path);
     const success = await copyToClipboard(content);
     if (success) {
       toastSuccess("Copied file contents to clipboard");
@@ -278,7 +268,6 @@ async function onCopyContents() {
   } catch (err) {
     toastError(err instanceof Error ? err.message : String(err));
   }
-  hideContextMenu();
 }
 
 const viewerLoading = computed(() => {
@@ -300,26 +289,28 @@ const selectedContextCanCopyContents = computed(
 );
 
 async function onOpenContainingFolder() {
-  if (!contextMenuEntry.value || contextMenuEntry.value.isDirectory) return;
+  const entry = contextMenuEntry.value;
+  if (!entry || entry.isDirectory) return;
+  const fullPath = getAbsoluteFilePath(entry.path);
+  hideContextMenu();
   try {
-    const fullPath = getAbsoluteFilePath(contextMenuEntry.value.path);
     const parentFolder = pathDirname(fullPath);
     await openInExplorer(parentFolder);
   } catch (err) {
     toastError(err instanceof Error ? err.message : String(err));
   }
-  hideContextMenu();
 }
 
 async function onOpenFolder() {
-  if (!contextMenuEntry.value || !contextMenuEntry.value.isDirectory) return;
+  const entry = contextMenuEntry.value;
+  if (!entry || !entry.isDirectory) return;
+  const fullPath = getAbsoluteFilePath(entry.path);
+  hideContextMenu();
   try {
-    const fullPath = getAbsoluteFilePath(contextMenuEntry.value.path);
     await openInExplorer(fullPath);
   } catch (err) {
     toastError(err instanceof Error ? err.message : String(err));
   }
-  hideContextMenu();
 }
 </script>
 

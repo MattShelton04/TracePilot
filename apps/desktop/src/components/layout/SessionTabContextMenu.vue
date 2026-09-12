@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useOverlayFocus } from "@tracepilot/ui";
-import { nextTick, ref, watch } from "vue";
+import { ref } from "vue";
+import { useContextMenu } from "@/composables/useContextMenu";
 
 const props = defineProps<{
   visible: boolean;
@@ -16,77 +16,12 @@ const emit = defineEmits<{
 }>();
 
 const menuRef = ref<HTMLElement | null>(null);
-const placement = ref({ x: 0, y: 0 });
-
-useOverlayFocus({
+const { placement, onKeydown } = useContextMenu({
   active: () => props.visible,
   panel: menuRef,
-  initialFocus: () => menuRef.value?.querySelector<HTMLButtonElement>("button") ?? null,
-  onEscape: () => emit("dismiss"),
+  position: () => props.position,
+  dismiss: () => emit("dismiss"),
 });
-
-function updatePosition() {
-  if (!props.visible || !menuRef.value) return;
-  const { width, height } = menuRef.value.getBoundingClientRect();
-  placement.value = {
-    x: Math.min(Math.max(8, props.position.x), Math.max(8, window.innerWidth - width - 8)),
-    y: Math.min(Math.max(8, props.position.y), Math.max(8, window.innerHeight - height - 8)),
-  };
-}
-
-watch(
-  () => [props.visible, props.position.x, props.position.y],
-  (_, __, onCleanup) => {
-    if (!props.visible) return;
-    let active = true;
-    nextTick(() => {
-      if (active) updatePosition();
-    });
-    window.addEventListener("resize", updatePosition);
-    onCleanup(() => {
-      active = false;
-      window.removeEventListener("resize", updatePosition);
-    });
-  },
-  { immediate: true },
-);
-
-function onKeydown(event: KeyboardEvent) {
-  if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey)
-    return;
-  if (event.key === "Tab") {
-    event.preventDefault();
-    event.stopPropagation();
-    emit("dismiss");
-    return;
-  }
-  const items = [
-    ...(menuRef.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ??
-      []),
-  ];
-  if (!items.length) return;
-  const current = items.indexOf(document.activeElement as HTMLButtonElement);
-  let index: number;
-  switch (event.key) {
-    case "ArrowDown":
-      index = (current + 1) % items.length;
-      break;
-    case "ArrowUp":
-      index = (current - 1 + items.length) % items.length;
-      break;
-    case "Home":
-      index = 0;
-      break;
-    case "End":
-      index = items.length - 1;
-      break;
-    default:
-      return;
-  }
-  event.preventDefault();
-  event.stopPropagation();
-  items[index]?.focus({ preventScroll: true });
-}
 </script>
 
 <template>

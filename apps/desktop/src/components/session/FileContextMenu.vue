@@ -6,7 +6,10 @@
  * parent component; this component only emits action events.
  */
 
-withDefaults(
+import { ref } from "vue";
+import { useContextMenu } from "@/composables/useContextMenu";
+
+const props = withDefaults(
   defineProps<{
     visible: boolean;
     position: { x: number; y: number };
@@ -23,38 +26,66 @@ const emit = defineEmits<{
   openFolder: [];
   dismiss: [];
 }>();
+
+const menuRef = ref<HTMLElement | null>(null);
+const { placement, onKeydown } = useContextMenu({
+  active: () => props.visible && props.entry !== null,
+  panel: menuRef,
+  position: () => props.position,
+  dismiss: () => emit("dismiss"),
+});
 </script>
 
 <template>
   <Teleport to="body">
     <div
       v-if="visible && entry"
+      ref="menuRef"
       class="file-context-menu"
-      :style="{ left: `${position.x}px`, top: `${position.y}px` }"
+      role="menu"
+      :aria-label="entry.isDirectory ? 'Folder actions' : 'File actions'"
+      tabindex="-1"
+      :style="{ left: `${placement.x}px`, top: `${placement.y}px` }"
       @click.stop
       @contextmenu.prevent.stop
+      @keydown="onKeydown"
     >
       <template v-if="entry.isDirectory">
-        <button class="ctx-item" @click="emit('copyPath')">Copy Folder Path</button>
-        <button class="ctx-item" @click="emit('openFolder')">Open Folder</button>
+        <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('copyPath')">Copy Folder Path</button>
+        <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('openFolder')">Open Folder</button>
       </template>
       <template v-else>
-        <button class="ctx-item" @click="emit('copyPath')">Copy File Path</button>
-        <button v-if="canCopyContents" class="ctx-item" @click="emit('copyContents')">
+        <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('copyPath')">Copy File Path</button>
+        <button v-if="canCopyContents" type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('copyContents')">
           Copy File Contents
         </button>
-        <div class="ctx-separator" />
-        <button class="ctx-item" @click="emit('openContainingFolder')">Open Containing Folder</button>
+        <div class="ctx-separator" role="separator" />
+        <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('openContainingFolder')">Open Containing Folder</button>
       </template>
     </div>
+    <div
+      v-if="visible && entry"
+      class="file-context-backdrop"
+      @click="emit('dismiss')"
+      @contextmenu.prevent="emit('dismiss')"
+    />
   </Teleport>
 </template>
 
 <style scoped>
+.file-context-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+}
+
 .file-context-menu {
   position: fixed;
-  z-index: 1000;
-  min-width: 160px;
+  z-index: calc(var(--z-overlay) + 1);
+  min-width: min(160px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   background: var(--canvas-overlay);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -76,6 +107,12 @@ const emit = defineEmits<{
 }
 
 .ctx-item:hover {
+  background: var(--canvas-subtle);
+}
+
+.ctx-item:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
   background: var(--canvas-subtle);
 }
 
