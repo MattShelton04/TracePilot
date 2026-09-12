@@ -142,7 +142,8 @@ test("reports changed captures, missing bases, failures and escaped artifact dia
     await writeFile(join(head, "tools.png"), png());
     await writeFile(join(head, "future-route.png"), png());
     const report = await buildReport({ baseDir: base, headDir: head, output });
-    assert.equal(report.rows.find((x) => x.id === "sessions").change, "changed");
+    assert.equal(report.rows.find((x) => x.id === "sessions").change, "subtle");
+    assert.equal(report.summary.subtle, 1);
     const comparison = report.rows.find((x) => x.id === "sessions").analyses;
     assert.equal(comparison[0].changed, 1);
     assert.deepEqual(comparison[0].regions, [{ x: 0, y: 0, width: 1, height: 1, pixels: 1 }]);

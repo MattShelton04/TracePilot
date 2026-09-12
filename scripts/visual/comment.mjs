@@ -15,7 +15,7 @@ export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRu
   const runUrl = `https://github.com/${repo}/actions/runs/${run.id}`;
   const gallery = safeHttpUrl(galleryUrl);
   const attempt = run.run_attempt ?? 1;
-  let body = `${commentMarker}\n<!-- tracepilot-visual-report:run=${run.id};attempt=${attempt};sha=${run.head_sha} -->\n### Desktop visual comparison\n\nCommit [${run.head_sha.slice(0, 8)}](https://github.com/${repo}/commit/${run.head_sha}) · [capture run ${run.id}, attempt ${attempt}](${runUrl}/attempts/${attempt})\n\nActual frontend at **1440×960**, dark, 100% scale, with deterministic **synthetic backend fixtures**. Rust/native verification is separate.\n\n**${summary.changed} views changed**, ${summary.unchanged} identical, ${summary.baseUnavailable} base unavailable, ${summary.incomplete} incomplete. Pixel changes require review; the gallery measures changed pixels and highlights their locations.\n\n`;
+  let body = `${commentMarker}\n<!-- tracepilot-visual-report:run=${run.id};attempt=${attempt};sha=${run.head_sha} -->\n### Desktop visual comparison\n\nCommit [${run.head_sha.slice(0, 8)}](https://github.com/${repo}/commit/${run.head_sha}) · [capture run ${run.id}, attempt ${attempt}](${runUrl}/attempts/${attempt})\n\nActual frontend at **1440×960**, dark, 100% scale, with deterministic **synthetic backend fixtures**. Rust/native verification is separate.\n\n**${summary.changed} review changes**, ${summary.unchanged} identical, ${summary.subtle ?? 0} subtle, ${summary.baseUnavailable} base unavailable, ${summary.incomplete} incomplete. Pixel changes require review; the gallery measures changed pixels and highlights their locations.\n\n`;
   if (!gallery)
     return `${body}[Capture artifacts](${runUrl}) · [Standalone gallery artifact](https://github.com/${repo}/actions/runs/${publisherRunId})\n\nPages publication is unavailable. Download visual-gallery and open index.html; precomputed pixel comparisons also work offline.\n`;
   const history = new URL("../../index.html", gallery).href;
@@ -34,12 +34,26 @@ export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRu
     body += `**${changed.length - embedded} additional changed views** are available in the [full gallery](${galleryLink}).\n\n`;
     for (const row of changed.slice(embedded)) {
       const link = `- [${row.id}](${galleryLink}#view=${row.id}&mode=difference)\n`;
-      if (Buffer.byteLength(body + link, "utf8") > 60_000) break;
+      if (Buffer.byteLength(body + link, "utf8") > 59_000) break;
       body += link;
     }
   }
+  const subtle = rows.filter((row) => row.change === "subtle");
+  if (subtle.length) {
+    body += `**${subtle.length} ${subtle.length === 1 ? "view has" : "views have"} subtle pixel differences** (at most 128 pixels per view, each channel differing by at most 8/255). These are not identical or automatically dismissed as harmless. Inspect their exact differences:\n\n`;
+    for (const row of subtle) {
+      const link = `- [${row.id}](${galleryLink}#view=${row.id}&mode=difference)\n`;
+      if (Buffer.byteLength(body + link, "utf8") > 59_500) {
+        body += `Additional subtle views are available in the [full gallery](${galleryLink}).\n`;
+        break;
+      }
+      body += link;
+    }
+    body += "\n";
+  }
   if (!changed.length)
-    body += "No paired pixel changes detected. Review any capture limitations in the gallery.\n";
+    body +=
+      "No larger or higher-contrast pixel changes detected. Review any capture limitations in the gallery.\n";
   return body;
 }
 

@@ -96,6 +96,17 @@ test("regions stay tight around sparse pixels while preserving thin borders and 
   assert.equal(result.heat.filter((_, i) => i % 4 === 3 && result.heat[i] > 0).length, 402);
 });
 
+test("subtle triage preserves exact differences and never includes high-contrast or extended changes", () => {
+  const category = (exact, above8) =>
+    TracePilotPixels.classifyPixels({ 0: { changed: exact }, 8: { changed: above8 } });
+  assert.equal(category(0, 0), "unchanged");
+  assert.equal(category(1, 0), "subtle");
+  assert.equal(category(128, 0), "subtle");
+  assert.equal(category(1, 1), "changed");
+  assert.equal(category(128, 1), "changed");
+  assert.equal(category(129, 0), "changed");
+});
+
 test("report data cannot terminate scripts and executable assets use a hash CSP", async () => {
   const malicious = '</script><img src=x onerror="alert(1)">&\u2028';
   assert.equal(scriptJson({ malicious }).includes("</script>"), false);

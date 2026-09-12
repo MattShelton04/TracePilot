@@ -47,6 +47,18 @@ test("large comments remain bounded, escape artifact HTML and explain omitted sc
   );
 });
 
+test("subtle differences are reported separately, never called identical or silently omitted", () => {
+  const body = buildComment({
+    ...args,
+    summary: { ...summary, changed: 0, subtle: 1 },
+    rows: [{ id: "sessions", change: "subtle" }],
+  });
+  assert.match(body, /1 view has subtle pixel differences/);
+  assert.match(body, /at most 128 pixels/);
+  assert.match(body, /view=sessions&mode=difference/);
+  assert.equal(body.includes("No paired pixel changes"), false);
+});
+
 test("sticky comment scans all pages, updates one canonical bot comment and only removes owned duplicates", async () => {
   const first = [
     own(12),

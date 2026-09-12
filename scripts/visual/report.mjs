@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { escapeHtml, renderGallery } from "./gallery-template.mjs";
 import { cases } from "./manifest.mjs";
-import { compare, describeBounds, thresholds } from "./pixels.mjs";
+import { classifyPixels, compare, describeBounds, thresholds } from "./pixels.mjs";
 import { decodePng, encodeHeat } from "./png.mjs";
 
 export { validatePng } from "./png.mjs";
@@ -118,15 +118,14 @@ export async function buildReport({
         ? "incomplete"
         : !row.baseHash || row.base?.status !== "captured"
           ? "base unavailable"
-          : row.analyses[0].changed === 0
-            ? "unchanged"
-            : "changed";
+          : classifyPixels(row.analyses);
     rows.push(row);
   }
   const count = (status) => rows.filter((row) => row.change === status).length;
   const summary = {
     changed: count("changed"),
     unchanged: count("unchanged"),
+    subtle: count("subtle"),
     incomplete: count("incomplete"),
     baseUnavailable: count("base unavailable"),
     total: rows.length,

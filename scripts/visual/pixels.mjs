@@ -1,5 +1,11 @@
 // Runs on decoded PNGs in the trusted reporter, never on browser canvas readbacks.
 export const thresholds = [0, 8, 16, 32];
+// A triage category, never an assertion that pixels match or a regression is
+// harmless. Keep the exact heatmap/count even for sparse low-contrast changes.
+export function classifyPixels(analyses) {
+  if (analyses[0].changed === 0) return "unchanged";
+  return analyses[0].changed <= 128 && analyses[8].changed === 0 ? "subtle" : "changed";
+}
 export async function compare(before, after, width, height, options = {}) {
   if (
     width !== 1440 ||

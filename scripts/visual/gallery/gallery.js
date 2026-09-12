@@ -7,7 +7,10 @@
     byId = new Map(rows.map((row) => [row.id, row]));
   const params = new URLSearchParams(location.hash.slice(1));
   let selected =
-    byId.get(params.get("view")) ?? rows.find((row) => row.change === "changed") ?? rows[0];
+    byId.get(params.get("view")) ??
+    rows.find((row) => row.change === "changed") ??
+    rows.find((row) => row.change === "subtle") ??
+    rows[0];
   let mode = modes.includes(params.get("mode")) ? params.get("mode") : "side";
   let zoom = params.get("zoom") === "100" ? 1 : "fit",
     scale = 1,
@@ -42,7 +45,7 @@
         `${row.id} ${row.route} ${row.state}`
           .toLowerCase()
           .includes($("search").value.toLowerCase()) &&
-        (!$("changes").checked || row.change !== "unchanged");
+        (!$("changes").checked || !["unchanged", "subtle"].includes(row.change));
       buttons.get(row.id).hidden = !matches;
       if (matches) visible++;
     }
@@ -307,7 +310,10 @@
     const exact = Number($("threshold").value) === 0;
     $("pixel-metric").textContent =
       `${result.changed.toLocaleString()} / ${result.total.toLocaleString()} pixels changed (${result.percent.toFixed(3)}%)${exact ? " · exact RGBA comparison" : ` · threshold ${$("threshold").value}`} · precomputed from PNGs`;
-    $("pixel-bounds").textContent = result.description;
+    $("pixel-bounds").textContent =
+      selected.change === "subtle"
+        ? `Subtle: at most 128 pixels, each channel ≤ 8/255. ${result.description}`
+        : result.description;
     result.regions.forEach((area, index) => {
       const button = text(
         "button",

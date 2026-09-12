@@ -23,11 +23,15 @@ try {
       const directory = join(temp, side);
       await mkdir(directory);
       const pixels = Buffer.alloc(1440 * 960 * 4, 255);
-      if (side === "head") pixels[0] = 254;
       await writeFile(join(directory, "sessions.png"), encodeHeat(pixels));
+      if (side === "head") pixels[0] = 254;
+      await writeFile(join(directory, "session-overview.png"), encodeHeat(pixels));
       await writeFile(
         join(directory, "capture-1-1.json"),
-        JSON.stringify({ schema: 1, cases: [{ id: "sessions", status: "captured" }] }),
+        JSON.stringify({
+          schema: 1,
+          cases: ["sessions", "session-overview"].map((id) => ({ id, status: "captured" })),
+        }),
       );
     }
     await buildReport({ baseDir: join(temp, "base"), headDir: join(temp, "head"), output: root });
@@ -72,6 +76,14 @@ try {
     HTMLCanvasElement.prototype.toBlob = forbidden;
   });
   const url = `http://127.0.0.1:${server.address().port}/index.html#view=${row.id}&mode=difference`;
+  await page.goto(url.split("#")[0]);
+  await page.waitForFunction(() =>
+    document.querySelector("#pixel-metric").textContent.includes("precomputed from PNGs"),
+  );
+  const initial =
+    report.rows.find((row) => row.change === "changed") ??
+    report.rows.find((row) => row.change === "subtle");
+  assert.equal(await page.locator("#view-title").innerText(), initial.id);
   await page.goto(url);
   const metric = page.locator("#pixel-metric");
   await page.waitForFunction(() =>
@@ -79,6 +91,19 @@ try {
   );
   assert.ok((await metric.innerText()).startsWith(row.analyses[0].changed.toLocaleString("en-US")));
   assert.equal(await page.locator(".bounds").count(), row.analyses[0].regions.length);
+  if (row.change === "subtle") {
+    assert.match(await page.locator("#pixel-bounds").innerText(), /Subtle: at most 128 pixels/);
+    await page.getByLabel("Hide identical and subtle differences").check();
+    assert.equal(
+      await page.locator(`.view-link[aria-label="${row.id}, subtle"]`).isVisible(),
+      false,
+    );
+    await page.getByLabel("Hide identical and subtle differences").uncheck();
+    assert.equal(
+      await page.locator(`.view-link[aria-label="${row.id}, subtle"]`).isVisible(),
+      true,
+    );
+  }
   const shot = async (name) => {
     if (!args.evidence) return;
     await mkdir(resolve(args.evidence), { recursive: true });

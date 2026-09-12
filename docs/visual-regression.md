@@ -42,6 +42,11 @@ required for applicable product fixes.
   for provenance; different encodings of identical pixels count as unchanged. Both sides use matching
   Ubuntu 24.04 runners and the same browser. Changes are for human review; the
   suite does not fail merely because an intentional screenshot changed.
+- Sparse low-contrast differences have a separate **subtle** category: at most
+  128 changed pixels and no RGBA channel difference above 8/255. This is triage,
+  not proof that a change is harmless. Exact pixels, counts and heatmaps remain
+  available, including high-contrast single-pixel and extended low-contrast changes.
+  Subtle views are counted separately from identical views and review changes.
 
 Four independent capture jobs run concurrently: two route shards for base and
 two for head. They restore the existing pnpm download cache, install frozen
@@ -65,6 +70,11 @@ animations/transitions and carets are suppressed. External network requests are
 blocked. Console errors, uncaught page errors, and visible Vue error boundaries
 mark a capture incomplete. These controls remove nondeterministic clocks and animation frames
 without masking product regions.
+It then requires two consecutive byte-identical screenshots, with at most five
+attempts. A view that never settles fails explicitly. Attempt counts are retained.
+This catches changing frames but cannot guarantee identical rasterization across
+fresh browser contexts; tiny persistent edge differences are handled by the
+explicit subtle category rather than silently marked identical.
 
 ## Gallery and comments
 
@@ -73,6 +83,10 @@ after capture completion. It generates a standalone gallery with searchable view
 navigation and a changes/limitations filter. New case IDs introduced by the PR
 are included before their manifest reaches `main`. Captured route/state labels
 are preserved, so an older report does not silently acquire newer fixture labels.
+The filter explicitly hides identical and subtle views; all views remain available
+by default. When a report has only subtle differences, it opens one of those
+comparisons first. Comments include the subtle count and a link to exact differences
+without expanding every tiny variation into another before/after image section.
 
 The viewer has five comparison modes:
 
