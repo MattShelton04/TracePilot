@@ -47,7 +47,7 @@
         info.append(
           element(
             "p",
-            `${s.changed} PNG changes · ${s.unchanged} identical · ${s.incomplete + s.baseUnavailable} limitations`,
+            `${s.changed} changed views · ${s.unchanged} identical · ${s.incomplete + s.baseUnavailable} limitations`,
           ),
         );
       const link = element("a", "Open comparison →");

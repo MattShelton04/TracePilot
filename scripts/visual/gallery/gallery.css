@@ -345,8 +345,7 @@ h1 {
   box-shadow: 0 8px 44px #0008;
   overflow: hidden;
 }
-.board img,
-.board canvas {
+.board img {
   position: absolute;
   inset: 0;
   width: 1440px;

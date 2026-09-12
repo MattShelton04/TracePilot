@@ -15,16 +15,16 @@ export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRu
   const runUrl = `https://github.com/${repo}/actions/runs/${run.id}`;
   const gallery = safeHttpUrl(galleryUrl);
   const attempt = run.run_attempt ?? 1;
-  let body = `${commentMarker}\n<!-- tracepilot-visual-report:run=${run.id};attempt=${attempt};sha=${run.head_sha} -->\n### Desktop visual comparison\n\nCommit [${run.head_sha.slice(0, 8)}](https://github.com/${repo}/commit/${run.head_sha}) · [capture run ${run.id}, attempt ${attempt}](${runUrl}/attempts/${attempt})\n\nActual frontend at **1440×960**, dark, 100% scale, with deterministic **synthetic backend fixtures**. Rust/native verification is separate.\n\n**${summary.changed} PNG changes**, ${summary.unchanged} identical, ${summary.baseUnavailable} base unavailable, ${summary.incomplete} incomplete. PNG changes require review; the gallery measures changed pixels and highlights their locations.\n\n`;
+  let body = `${commentMarker}\n<!-- tracepilot-visual-report:run=${run.id};attempt=${attempt};sha=${run.head_sha} -->\n### Desktop visual comparison\n\nCommit [${run.head_sha.slice(0, 8)}](https://github.com/${repo}/commit/${run.head_sha}) · [capture run ${run.id}, attempt ${attempt}](${runUrl}/attempts/${attempt})\n\nActual frontend at **1440×960**, dark, 100% scale, with deterministic **synthetic backend fixtures**. Rust/native verification is separate.\n\n**${summary.changed} views changed**, ${summary.unchanged} identical, ${summary.baseUnavailable} base unavailable, ${summary.incomplete} incomplete. Pixel changes require review; the gallery measures changed pixels and highlights their locations.\n\n`;
   if (!gallery)
-    return `${body}[Capture artifacts](${runUrl}) · [Standalone gallery artifact](https://github.com/${repo}/actions/runs/${publisherRunId})\n\nPages publication is unavailable. Download visual-gallery and open index.html; serve the folder over HTTP for pixel analysis.\n`;
+    return `${body}[Capture artifacts](${runUrl}) · [Standalone gallery artifact](https://github.com/${repo}/actions/runs/${publisherRunId})\n\nPages publication is unavailable. Download visual-gallery and open index.html; precomputed pixel comparisons also work offline.\n`;
   const history = new URL("../../index.html", gallery).href;
   const galleryLink = `${gallery}?attempt=${attempt}`;
   body += `[Interactive gallery](${galleryLink}) · [Screenshot history](${history})\n\nSide by side, before/after, draggable wipe, opacity overlay, pixel differences, zoom and pan.\n\n`;
   const changed = rows.filter((row) => row.change === "changed");
   let embedded = 0;
   for (const row of changed) {
-    const block = `<details><summary>${escapeHtml(row.id)} — PNG changed</summary>\n\n<code>${escapeHtml(row.route)}</code> · <code>${escapeHtml(row.state)}</code>\n\n[Highlight changed regions](${galleryLink}#view=${row.id}&mode=difference)\n\n| Before | After |\n|---|---|\n| ![Before ${row.id}](${gallery}base-${row.id}.png?attempt=${attempt}) | ![After ${row.id}](${gallery}head-${row.id}.png?attempt=${attempt}) |\n\n</details>\n\n`;
+    const block = `<details><summary>${escapeHtml(row.id)} — pixels changed</summary>\n\n<code>${escapeHtml(row.route)}</code> · <code>${escapeHtml(row.state)}</code>\n\n[Highlight changed regions](${galleryLink}#view=${row.id}&mode=difference)\n\n| Before | After |\n|---|---|\n| ![Before ${row.id}](${gallery}base-${row.id}.png?attempt=${attempt}) | ![After ${row.id}](${gallery}head-${row.id}.png?attempt=${attempt}) |\n\n</details>\n\n`;
     // GitHub caps comment bodies. Leave room for the omitted-view index below.
     if (Buffer.byteLength(body + block, "utf8") > 48_000) break;
     body += block;
@@ -39,7 +39,7 @@ export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRu
     }
   }
   if (!changed.length)
-    body += "No paired PNG changes detected. Review any capture limitations in the gallery.\n";
+    body += "No paired pixel changes detected. Review any capture limitations in the gallery.\n";
   return body;
 }
 

@@ -35,12 +35,12 @@ async function document({ title, body, data, scripts }) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'sha256-${hash}'; connect-src 'self'; base-uri 'none'; form-action 'none'"><title>${escapeHtml(title)}</title><style>${css}</style></head><body>${body}<script id="report-data" type="application/json">${scriptJson(data)}</script><script>${code}</script></body></html>`;
 }
 function counts(summary) {
-  return `<div class="counts"><span class="count changed">${summary.changed} PNG changes</span><span class="count unchanged">${summary.unchanged} identical</span><span class="count">${summary.baseUnavailable + summary.incomplete} limitations</span></div>`;
+  return `<div class="counts"><span class="count changed">${summary.changed} views changed</span><span class="count unchanged">${summary.unchanged} identical</span><span class="count">${summary.baseUnavailable + summary.incomplete} limitations</span></div>`;
 }
 export async function renderGallery({ title, rows, summary, metadata = {} }) {
   const runUrl = safeHttpUrl(metadata.runUrl);
   const body = `<header class="app-header"><div><p class="eyebrow">TRACEPILOT / VISUAL REVIEW</p><h1>${escapeHtml(title)}</h1><p class="header-meta">Real frontend · synthetic backend fixtures · 1440 × 960 · dark · 100% UI scale</p></div><div>${counts(summary)}<nav class="header-links" aria-label="Report links"><a id="history-link" href="../../index.html">Browse history ↗</a>${runUrl ? `<a href="${escapeHtml(runUrl)}">Capture run ↗</a>` : ""}<a href="summary.json">Summary JSON</a></nav></div></header>
-<div class="workspace"><aside class="sidebar" aria-label="Captured views"><div class="filters"><input id="search" type="search" aria-label="Filter views" placeholder="Find a view…"><label><input id="changes" type="checkbox"> Changes and limitations only</label></div><nav id="view-list" class="view-list" aria-label="Views"></nav><div class="sidebar-footer"><span id="visible-count"></span><br>PNG changes require human review.<br>Rust and native integration are not tested.</div></aside>
+<div class="workspace"><aside class="sidebar" aria-label="Captured views"><div class="filters"><input id="search" type="search" aria-label="Filter views" placeholder="Find a view…"><label><input id="changes" type="checkbox"> Changes and limitations only</label></div><nav id="view-list" class="view-list" aria-label="Views"></nav><div class="sidebar-footer"><span id="visible-count"></span><br>Pixel changes require human review.<br>Rust and native integration are not tested.</div></aside>
 <main class="review"><div class="view-heading"><div><h2 id="view-title"></h2><p id="view-description" class="view-description"></p></div><span id="view-status" class="status-pill"></span></div>
 <div class="toolbar"><div class="mode-group" role="group" aria-label="Comparison mode">${[
     ["side", "Side by side"],
@@ -64,7 +64,7 @@ export async function renderGallery({ title, rows, summary, metadata = {} }) {
     title,
     body,
     data: {
-      schema: 2,
+      schema: 3,
       title,
       rows,
       summary,
@@ -74,7 +74,7 @@ export async function renderGallery({ title, rows, summary, metadata = {} }) {
           Number.isSafeInteger(metadata.attempt) && metadata.attempt > 0 ? metadata.attempt : 1,
       },
     },
-    scripts: ["pixels.js", "gallery.js"],
+    scripts: ["gallery.js"],
   });
 }
 

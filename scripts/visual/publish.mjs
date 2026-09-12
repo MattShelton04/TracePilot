@@ -1,4 +1,4 @@
-// Trusted workflow_run publisher: no dependency install, PR checkout, artifact
+// Trusted workflow_run publisher: no PR dependency install, PR checkout, artifact
 // script execution, or untrusted HTML publication. Only bounded PNG/JSON data.
 import { execFileSync } from "node:child_process";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";

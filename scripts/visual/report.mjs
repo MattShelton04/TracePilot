@@ -1,21 +1,13 @@
 import { createHash } from "node:crypto";
-import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { escapeHtml, renderGallery } from "./gallery-template.mjs";
 import { cases } from "./manifest.mjs";
+import { compare, describeBounds, thresholds } from "./pixels.mjs";
+import { decodePng, encodeHeat } from "./png.mjs";
 
+export { validatePng } from "./png.mjs";
 export { escapeHtml };
-
-export function validatePng(bytes) {
-  return (
-    bytes.length >= 24 &&
-    bytes.length <= 8_000_000 &&
-    bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) &&
-    bytes.toString("ascii", 12, 16) === "IHDR" &&
-    bytes.readUInt32BE(16) === 1440 &&
-    bytes.readUInt32BE(20) === 960
-  );
-}
 
 async function readSide(directory) {
   const records = new Map();
@@ -79,22 +71,54 @@ export async function buildReport({
       base,
       head,
     };
+    const decoded = {};
     for (const [side, directory] of [
       ["base", baseDir],
       ["head", headDir],
     ]) {
       const source = join(directory, `${item.id}.png`);
       const bytes = await readFile(source).catch(() => null);
-      if (!bytes || !validatePng(bytes)) continue;
+      if (!bytes) continue;
+      try {
+        decoded[side] = decodePng(bytes);
+      } catch {
+        const record = row[side] ?? { errors: [], missing: [] };
+        row[side] = {
+          ...record,
+          status: "incomplete",
+          errors: [...record.errors, "Screenshot PNG could not be safely decoded."],
+        };
+        continue;
+      }
       row[`${side}Hash`] = createHash("sha256").update(bytes).digest("hex");
-      await copyFile(source, join(output, `${side}-${item.id}.png`));
+      await writeFile(join(output, `${side}-${item.id}.png`), bytes);
+    }
+    if (decoded.base && decoded.head) {
+      row.pngChanged = row.baseHash !== row.headHash;
+      row.analyses = {};
+      for (const threshold of thresholds) {
+        // Once exact pixels match, every threshold has the same empty result.
+        if (threshold && row.analyses[0].changed === 0) {
+          row.analyses[threshold] = row.analyses[0];
+          continue;
+        }
+        const result = await compare(decoded.base, decoded.head, 1440, 960, { threshold });
+        const heatFile = result.changed ? `diff-${item.id}-${threshold}.png` : null;
+        if (heatFile) await writeFile(join(output, heatFile), encodeHeat(result.heat));
+        row.analyses[threshold] = {
+          ...result,
+          heat: undefined,
+          heatFile,
+          description: describeBounds(result, threshold, row.pngChanged),
+        };
+      }
     }
     row.change =
       !row.headHash || row.head?.status !== "captured"
         ? "incomplete"
         : !row.baseHash || row.base?.status !== "captured"
           ? "base unavailable"
-          : row.baseHash === row.headHash
+          : row.analyses[0].changed === 0
             ? "unchanged"
             : "changed";
     rows.push(row);

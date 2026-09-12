@@ -17,8 +17,7 @@
     displayedSide = "head",
     lastWidth = 0,
     lastHeight = 0;
-  const cache = new Map(),
-    viewport = $("viewport"),
+  const viewport = $("viewport"),
     stage = $("image-stage"),
     scaled = $("scaled-stage");
   const buttons = new Map();
@@ -28,7 +27,6 @@
     if (className) node.className = className;
     return node;
   };
-  const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
   const both = () => images.base && images.head;
   const dimensions = () => ({ width: mode === "side" && both() ? 2904 : 1440, height: 960 });
   function urlState(push = false) {
@@ -259,10 +257,12 @@
         node.append(after);
       } else if (analysis) {
         node.firstChild.style.opacity = ".48";
-        const heat = new Image();
-        heat.src = analysis.heatUrl;
-        heat.alt = "Changed pixels shown in pink";
-        node.append(heat);
+        if (analysis.heatFile) {
+          const heat = new Image();
+          heat.src = `${analysis.heatFile}${imageVersion}`;
+          heat.alt = "Changed pixels shown in pink";
+          node.append(heat);
+        }
         for (const area of analysis.regions) {
           const bounds = text("div", "", "bounds");
           Object.assign(bounds.style, {
@@ -301,31 +301,19 @@
     }
   });
 
-  function pixels(image) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1440;
-    canvas.height = 960;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    context.drawImage(image, 0, 0);
-    return context.getImageData(0, 0, 1440, 960).data;
-  }
   function showAnalysis(result) {
     analysis = result;
     $("regions").replaceChildren();
     const exact = Number($("threshold").value) === 0;
     $("pixel-metric").textContent =
-      `${result.changed.toLocaleString()} / ${result.total.toLocaleString()} pixels changed (${result.percent.toFixed(3)}%)${exact ? " · exact RGBA comparison" : ` · threshold ${$("threshold").value}`}`;
-    $("pixel-bounds").textContent = TracePilotPixels.describeBounds(
-      result,
-      Number($("threshold").value),
-      selected.change === "changed",
-    );
+      `${result.changed.toLocaleString()} / ${result.total.toLocaleString()} pixels changed (${result.percent.toFixed(3)}%)${exact ? " · exact RGBA comparison" : ` · threshold ${$("threshold").value}`} · precomputed from PNGs`;
+    $("pixel-bounds").textContent = result.description;
     result.regions.forEach((area, index) => {
       const button = text(
         "button",
         `Region ${index + 1} · ${area.x},${area.y} · ${area.width}×${area.height}`,
       );
-      button.title = `${area.pixels.toLocaleString()} changed pixels; bounds grouped in 32px tiles`;
+      button.title = `${area.pixels.toLocaleString()} changed pixels; tight bounds of nearby changes (8px grouping)`;
       button.addEventListener("click", () => {
         mode = "difference";
         zoom = 1;
@@ -353,39 +341,26 @@
       renderStage();
       return;
     }
-    $("pixel-metric").textContent = "Comparing decoded pixels…";
+    $("pixel-metric").textContent = "Loading pixel comparison…";
+    if (mode === "difference") renderStage();
     try {
-      const key = `${selected.id}:${$("threshold").value}`;
-      if (cache.has(key)) {
-        showAnalysis(cache.get(key));
-        return;
+      // Trusted report data and PNG overlays are identical for every reviewer.
+      // Canvas extraction can be perturbed by browser fingerprinting protection.
+      const result = selected.analyses?.[$("threshold").value];
+      if (!result)
+        throw new Error(
+          "This report has no precomputed comparison. Rerun its capture to regenerate the report.",
+        );
+      if (result.heatFile) {
+        const heat = new Image();
+        heat.src = `${result.heatFile}${imageVersion}`;
+        await heat.decode();
       }
-      const result = await TracePilotPixels.compare(
-        pixels(images.base),
-        pixels(images.head),
-        1440,
-        960,
-        {
-          threshold: $("threshold").value,
-          cancelled: () => token !== generation,
-          yield: nextFrame,
-        },
-      );
-      if (!result || token !== generation) return;
-      const canvas = document.createElement("canvas");
-      canvas.width = 1440;
-      canvas.height = 960;
-      canvas.getContext("2d").putImageData(new ImageData(result.heat, 1440, 960), 0, 0);
-      const stored = { ...result, heat: undefined, heatUrl: canvas.toDataURL("image/png") };
-      cache.set(key, stored);
-      if (cache.size > 3) cache.delete(cache.keys().next().value);
-      showAnalysis(stored);
+      if (token !== generation) return;
+      showAnalysis(result);
     } catch (error) {
       if (token !== generation) return;
-      $("pixel-metric").textContent =
-        location.protocol === "file:"
-          ? "Local file security prevents pixel analysis. Serve this folder over HTTP; image comparison modes still work."
-          : `Pixel analysis unavailable: ${error.message}`;
+      $("pixel-metric").textContent = `Pixel analysis unavailable: ${error.message}`;
     }
   }
   async function load(side, row) {

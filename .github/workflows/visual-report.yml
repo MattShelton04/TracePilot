@@ -32,6 +32,8 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - name: Install isolated trusted PNG decoder
+        run: npm ci --prefix scripts/visual --ignore-scripts --no-audit --no-fund
       - name: Verify trusted reporting helpers
         run: |
           node --test scripts/visual/*.test.mjs

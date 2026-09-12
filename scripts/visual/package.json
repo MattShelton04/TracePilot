@@ -1,0 +1,8 @@
+{
+  "name": "tracepilot-visual-report",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pngjs": "7.0.0"
+  }
+}

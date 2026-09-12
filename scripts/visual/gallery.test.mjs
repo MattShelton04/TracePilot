@@ -4,7 +4,7 @@ import { configureVisualFeatures, defaultFeatures } from "./feature-policy.mjs";
 import { renderGallery, renderHistory, safeHttpUrl, scriptJson } from "./gallery-template.mjs";
 import { historyEntry } from "./history.mjs";
 import { cases } from "./manifest.mjs";
-import "./gallery/pixels.js";
+import * as TracePilotPixels from "./pixels.mjs";
 
 test("core captures disable experimental features and alerts; each experimental case explicitly opts in", () => {
   for (const item of cases) {
@@ -37,7 +37,7 @@ test("pixel analysis finds exact bounds and separate regions, with threshold and
   assert.equal(exact.changed, 3);
   assert.equal(exact.regionCount, 2);
   assert.deepEqual(exact.bounds, { x: 10, y: 20, width: 1430, height: 940 });
-  assert.deepEqual(exact.regions[0], { x: 0, y: 0, width: 32, height: 32, pixels: 2 });
+  assert.deepEqual(exact.regions[0], { x: 10, y: 20, width: 2, height: 1, pixels: 2 });
   assert.deepEqual(
     [...exact.heat.slice((20 * 1440 + 10) * 4, (20 * 1440 + 10) * 4 + 4)],
     [255, 69, 112, 210],
@@ -75,6 +75,25 @@ test("filtered zero differences are not described as identical decoded pixels", 
     TracePilotPixels.describeBounds(identical, 0, false),
     "Decoded pixels are identical.",
   );
+});
+
+test("regions stay tight around sparse pixels while preserving thin borders and all heat pixels", async () => {
+  const before = new Uint8ClampedArray(1440 * 960 * 4),
+    after = before.slice();
+  const pixel = (x, y) => {
+    after[(y * 1440 + x) * 4] = 1;
+  };
+  // Previously these occupied neighboring 32px cells and became a 64px box.
+  pixel(1, 1);
+  pixel(63, 31);
+  for (let x = 200; x < 600; x++) pixel(x, 200);
+  const result = await TracePilotPixels.compare(before, after, 1440, 960);
+  assert.equal(result.changed, 402);
+  assert.equal(result.regionCount, 3);
+  assert.deepEqual(result.regions[0], { x: 200, y: 200, width: 400, height: 1, pixels: 400 });
+  assert.deepEqual(result.regions[1], { x: 1, y: 1, width: 1, height: 1, pixels: 1 });
+  assert.deepEqual(result.regions[2], { x: 63, y: 31, width: 1, height: 1, pixels: 1 });
+  assert.equal(result.heat.filter((_, i) => i % 4 === 3 && result.heat[i] > 0).length, 402);
 });
 
 test("report data cannot terminate scripts and executable assets use a hash CSP", async () => {
