@@ -399,6 +399,7 @@
   padding: 0;
   height: 36px;
   width: 36px;
+  max-width: 100%;
   margin: 0 auto;
   gap: 0;
 }

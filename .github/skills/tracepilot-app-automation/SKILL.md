@@ -54,10 +54,11 @@ flooding the conversation with large session lists or search results.
 
 Prefer visible controls and their accessible names. Re-snapshot after navigation
 or layout changes. For a durable assertion or data-dependent wait, the CLI also
-accepts normal Playwright code (PowerShell single quotes avoid shell expansion):
+accepts normal Playwright code. Use outer PowerShell single quotes and JavaScript
+backticks for strings; this also preserves arguments in Windows PowerShell 5.1:
 
 ```powershell
-pnpm exec playwright-cli -s=tracepilot-desktop run-code 'async page => { await page.getByTestId("session-grid").waitFor(); }'
+pnpm exec playwright-cli -s=tracepilot-desktop run-code 'async page => { await page.getByTestId(`session-grid`).waitFor(); }'
 pnpm exec playwright-cli -s=tracepilot-desktop eval '() => window.__TRACEPILOT_IPC_PERF__?.getIpcPerfLog()'
 ```
 

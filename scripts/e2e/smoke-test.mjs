@@ -72,52 +72,72 @@ async function checkDesktopSizes(page) {
   const wasCollapsed = await page
     .getByRole("button", { name: "Expand sidebar", exact: true })
     .isVisible();
+  const setCollapsed = async (collapsed) => {
+    const toggle = page.getByRole("button", {
+      name: collapsed ? "Collapse sidebar" : "Expand sidebar",
+      exact: true,
+    });
+    if (await toggle.isVisible()) await toggle.click();
+    await page.locator(".sidebar").evaluate(async (element) => {
+      await Promise.all(element.getAnimations().map((animation) => animation.finished));
+    });
+  };
   try {
-    if (wasCollapsed)
-      await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
     for (const [label, width, height] of [
       ["default", 1440, 960],
       ["minimum", 960, 640],
       ["large", 2560, 1440],
     ]) {
       await page.setViewportSize({ width, height });
-      // Keyboard focus must scroll the navigation, keeping the brand/footer in place.
-      await page.getByRole("button", { name: "Collapse sidebar", exact: true }).focus();
-      await page.getByTestId("nav-settings").focus();
-      await page.waitForFunction(
-        () => {
-          const bounds = (selector) => document.querySelector(selector)?.getBoundingClientRect();
-          const brand = bounds(".sidebar-brand");
-          const nav = bounds(".sidebar-nav");
-          const settings = bounds('[data-testid="nav-settings"]');
-          const footer = bounds(".sidebar-footer-area");
-          return (
-            brand &&
-            nav &&
-            settings &&
-            footer &&
-            brand.top >= 0 &&
-            footer.bottom <= innerHeight &&
-            settings.top >= nav.top &&
-            settings.bottom <= nav.bottom + 1 &&
-            document.documentElement.scrollWidth <= innerWidth
-          );
-        },
-        undefined,
-        { timeout: 5000 },
-      );
-      await page.screenshot({ path: resolve(screenshotDir, `settings-${label}.png`) });
-      pass(
-        `Desktop navigation: ${label}`,
-        `${width}x${height}; Settings reachable, brand/footer visible`,
-      );
+      for (const collapsed of [false, true]) {
+        const state = collapsed ? "collapsed" : "expanded";
+        await setCollapsed(collapsed);
+        // Keyboard focus must scroll the navigation, keeping the brand/footer in place.
+        await page
+          .getByRole("button", {
+            name: collapsed ? "Expand sidebar" : "Collapse sidebar",
+            exact: true,
+          })
+          .focus();
+        await page.getByTestId("nav-settings").focus();
+        await page.waitForFunction(
+          () => {
+            const bounds = (selector) => document.querySelector(selector)?.getBoundingClientRect();
+            const brand = bounds(".sidebar-brand");
+            const navigation = document.querySelector(".sidebar-nav");
+            const nav = navigation?.getBoundingClientRect();
+            const settings = bounds('[data-testid="nav-settings"]');
+            const footer = bounds(".sidebar-footer-area");
+            return (
+              brand &&
+              nav &&
+              settings &&
+              footer &&
+              brand.top >= 0 &&
+              footer.bottom <= innerHeight &&
+              settings.top >= nav.top &&
+              settings.bottom <= nav.bottom + 1 &&
+              settings.left >= nav.left &&
+              settings.right <= nav.left + navigation.clientWidth + 1 &&
+              navigation.scrollWidth <= navigation.clientWidth &&
+              document.documentElement.scrollWidth <= innerWidth
+            );
+          },
+          undefined,
+          { timeout: 5000 },
+        );
+        await page.screenshot({ path: resolve(screenshotDir, `settings-${label}-${state}.png`) });
+        pass(
+          `Desktop navigation: ${label}, ${state}`,
+          `${width}x${height}; Settings reachable, brand/footer visible, no horizontal overflow`,
+        );
+      }
     }
   } catch (error) {
     fail("Desktop navigation at supported sizes", error.message);
   } finally {
     await page.setViewportSize(original);
-    if (wasCollapsed)
-      await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+    await setCollapsed(wasCollapsed);
   }
 }
 

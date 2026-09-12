@@ -31,6 +31,15 @@ place. Keyboard focus can reveal and activate Settings.
 | --- | --- |
 | ![Sidebar before: footer clipped](../images/automation-sidebar-before.png) | ![Sidebar after: scrolling navigation and visible footer](../images/automation-sidebar-after.png) |
 
+Review also exposed horizontal overflow in the collapsed sidebar at 960×640:
+fixed-width buttons did not account for the vertical scrollbar. Buttons now fit
+the available width. Native WebView2 measurements changed from 48px of content
+in a 41px client area to 41px/41px, removing the horizontal scrollbar.
+
+| Before | After |
+| --- | --- |
+| ![Collapsed sidebar before: horizontal scrollbar](../images/automation-collapsed-before.png) | ![Collapsed sidebar after: buttons fit](../images/automation-collapsed-after.png) |
+
 The Settings explanation claimed empty sessions were filtered out even when
 “Hide empty sessions” was off. It now reports visible/hidden according to the
 switch, and the CLI Command input has an explicit accessible name.
@@ -48,7 +57,8 @@ reviewed and remain in ignored local test output.
 
 | Check | Result |
 | --- | --- |
-| Real-app smoke | 19 checks passed, including Settings keyboard reachability and brand/footer bounds at 1440×960, 960×640, and 2560×1440. |
+| Real-app smoke | 22 checks passed, including expanded/collapsed Settings keyboard reachability, brand/footer bounds, and absence of horizontal navigation overflow at 1440×960, 960×640, and 2560×1440. |
+| Windows PowerShell 5.1 skill example | Executed the documented `run-code` command against the real app. JavaScript backticks preserve string arguments that inner double quotes previously lost. |
 | Lifecycle/readiness suite | All 6 Node tests passed. Healthy reuse, complete process-tree cleanup, stale PID protection, timeout cleanup, occupied-port refusal; paths with spaces exercised. |
 | Readiness fixture tests | Browser mocks and failed native IPC rejected; CDP failure disconnects without closing the target; setup works without a database. |
 | Workspace JS/TS suite | 3,224 tests passed across 353 files. |
