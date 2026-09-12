@@ -29,17 +29,15 @@ defineEmits<{ sort: [key: string] }>();
             v-for="col in columns"
             :key="col.key"
             :aria-sort="col.sortable ? (sortKey === col.key ? sortDirection : 'none') : undefined"
-            :class="[
-              col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
-              col.class || '',
-            ]"
+            :class="col.class"
+            :style="{ textAlign: col.align ?? 'left' }"
           >
             <button
               v-if="col.sortable"
               type="button"
               class="data-table-sort"
               :class="{ 'data-table-sort--active': sortKey === col.key }"
-              :style="{ justifyContent: col.align === 'right' ? 'flex-end' : col.align === 'center' ? 'center' : 'flex-start' }"
+              :style="{ flexDirection: col.align === 'right' ? 'row-reverse' : 'row', justifyContent: col.align === 'center' ? 'center' : 'flex-start' }"
               :aria-label="`Sort by ${col.label}`"
               @click="$emit('sort', col.key)"
             >
@@ -60,10 +58,8 @@ defineEmits<{ sort: [key: string] }>();
           <td
             v-for="col in columns"
             :key="col.key"
-            :class="[
-              col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : '',
-              col.class || '',
-            ]"
+            :class="col.class"
+            :style="{ textAlign: col.align }"
           >
             <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
               {{ row[col.key] ?? "" }}
