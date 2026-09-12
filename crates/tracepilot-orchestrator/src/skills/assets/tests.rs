@@ -143,12 +143,14 @@ fn concurrent_add_and_copy_have_one_winner_without_replacing_it() {
 fn invalid_copy_source_does_not_leave_a_destination_or_create_its_parents() {
     let dir = TempDir::new().unwrap();
     let skill_dir = setup_skill_with_assets(&dir);
-    assert!(copy_asset_from(
-        &skill_dir,
-        "nested/missing.txt",
-        &dir.path().join("missing.txt")
-    )
-    .is_err());
+    assert!(
+        copy_asset_from(
+            &skill_dir,
+            "nested/missing.txt",
+            &dir.path().join("missing.txt")
+        )
+        .is_err()
+    );
     assert!(copy_asset_from(&skill_dir, "nested/directory.txt", dir.path()).is_err());
     assert!(!skill_dir.join("nested").exists());
 }

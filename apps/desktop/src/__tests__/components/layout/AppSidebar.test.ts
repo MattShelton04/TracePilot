@@ -1,7 +1,8 @@
-import { mount } from "@vue/test-utils";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
+import AppSidebar from "@/components/layout/AppSidebar.vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 
 // Mock the @tracepilot/client module so the preferences store does not try
@@ -44,9 +45,11 @@ const routerLinkStub = {
   template: "<a :href=\"typeof to === 'string' ? to : '#'\"><slot /></a>",
 };
 
-async function mountSidebar() {
-  // Lazy import so the vi.mock factories above are applied first.
-  const { default: AppSidebar } = await import("@/components/layout/AppSidebar.vue");
+// Vitest hoists vi.mock before static imports. Keep module transformation in
+// collection so the first interaction test does not time that startup work.
+enableAutoUnmount(afterEach);
+
+function mountSidebar() {
   return mount(AppSidebar, {
     global: {
       stubs: {

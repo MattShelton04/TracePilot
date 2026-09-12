@@ -28,8 +28,11 @@ test.describe("Analytics metric panel layout", () => {
           scrollWidth: grid.scrollWidth,
           clientWidth: grid.clientWidth,
           cells: [...grid.querySelectorAll<HTMLElement>(".metric-item")].map((item) => {
-            const value = item.querySelector<HTMLElement>(".metric-value")!;
-            const label = item.querySelector<HTMLElement>(".metric-label")!;
+            const value = item.querySelector<HTMLElement>(".metric-value");
+            const label = item.querySelector<HTMLElement>(".metric-label");
+            if (!value || !label) {
+              throw new Error("Metric items must contain a value and label before measuring.");
+            }
             const box = item.getBoundingClientRect();
             return {
               width: box.width,

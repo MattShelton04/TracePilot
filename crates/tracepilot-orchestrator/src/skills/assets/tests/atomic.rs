@@ -2,11 +2,13 @@ use super::*;
 use std::io::{Read, Write};
 
 fn assert_no_staging_files(skill_dir: &Path) {
-    assert!(std::fs::read_dir(skill_dir).unwrap().all(|entry| !entry
-        .unwrap()
-        .file_name()
-        .to_string_lossy()
-        .starts_with(".tracepilot-asset-")));
+    assert!(std::fs::read_dir(skill_dir).unwrap().all(|entry| {
+        !entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(".tracepilot-asset-")
+    }));
 }
 
 struct FailingWriter<'a> {
@@ -91,9 +93,11 @@ fn publication_collision_preserves_winner_and_removes_readonly_staging() {
     .unwrap_err();
     assert!(error.to_string().contains("already exists"));
     assert_eq!(std::fs::read(&destination).unwrap(), b"winner");
-    assert!(!std::fs::metadata(destination)
-        .unwrap()
-        .permissions()
-        .readonly());
+    assert!(
+        !std::fs::metadata(destination)
+            .unwrap()
+            .permissions()
+            .readonly()
+    );
     assert_no_staging_files(&skill_dir);
 }
