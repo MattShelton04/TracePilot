@@ -79,10 +79,14 @@ jobs:
         run: node harness/node_modules/playwright-core/cli.js install --with-deps chromium
       - name: Harness policy tests
         run: |
+          npm ci --prefix harness/scripts/visual --ignore-scripts --no-audit --no-fund
           node --test harness/scripts/visual/*.test.mjs
           python3 harness/scripts/visual/extract_test.py
       - name: Capture real frontend routes with synthetic backend fixtures
         run: node harness/scripts/visual/capture.mjs --root=app --out=captures --shard=${{ matrix.shard }}/2 --revision=${{ matrix.revision }}
+      - name: Verify gallery without browser canvas extraction
+        if: matrix.revision == 'head' && matrix.shard == 1
+        run: node harness/scripts/visual/gallery-check.mjs
       - name: Retain captures and explicit failures
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

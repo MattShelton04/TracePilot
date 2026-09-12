@@ -56,3 +56,4 @@ packages/ui/src/__vrt__/__screenshots__/**/*-diff.png
 .agent/
 .jules/
 package-lock.json
+!scripts/visual/package-lock.json

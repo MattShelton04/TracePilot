@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { captureExitCode } from "./capture-policy.mjs";
+import { captureExitCode, stableScreenshot } from "./capture-policy.mjs";
 import { fixedTime, selectCases, viewport } from "./manifest.mjs";
 
 const args = Object.fromEntries(
@@ -152,11 +152,14 @@ try {
           `Visible error boundary: ${(await page.locator(".error-boundary").first().innerText()).slice(0, 300)}`,
         );
       const file = `${item.id}.png`;
-      const png = await page.screenshot({
-        path: resolve(output, file),
-        animations: "disabled",
-        caret: "hide",
-      });
+      const { png, attempts } = await stableScreenshot(() =>
+        page.screenshot({
+          animations: "disabled",
+          caret: "hide",
+        }),
+      );
+      await writeFile(resolve(output, file), png);
+      result.screenshotAttempts = attempts;
       result.sha256 = createHash("sha256").update(png).digest("hex");
       result.missingFixtures = await page.evaluate(
         () => window.__TRACEPILOT_VISUAL__?.missing ?? [],

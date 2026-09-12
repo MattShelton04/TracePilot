@@ -9,7 +9,7 @@ export function historyEntry(value) {
   )
     return null;
   const summary = {};
-  for (const key of ["changed", "unchanged", "incomplete", "baseUnavailable", "total"])
+  for (const key of ["changed", "unchanged", "subtle", "incomplete", "baseUnavailable", "total"])
     summary[key] = Number.isSafeInteger(value.summary?.[key])
       ? Math.min(128, Math.max(0, value.summary[key]))
       : 0;

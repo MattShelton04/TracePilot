@@ -21,6 +21,7 @@ It reads the session data Copilot CLI writes under `~/.copilot/session-state/` b
 <p align="center">
   <a href="#what-you-can-do">What you can do</a> |
   <a href="#screenshots">Screenshots</a> |
+  <a href="https://mattshelton04.github.io/TracePilot/visual/">Visual history</a> |
   <a href="#install-and-run">Install and run</a> |
   <a href="#architecture">Architecture</a> |
   <a href="#development">Development</a> |
@@ -109,6 +110,11 @@ TracePilot can export sessions as Markdown, TracePilot JSON, or raw session arch
 ---
 
 ## Screenshots
+
+Browse the [interactive screenshot history](https://mattshelton04.github.io/TracePilot/visual/)
+for automated before/after comparisons of PRs and merges. It captures the real
+frontend at 1440×960 with synthetic data, with side-by-side, wipe, overlay, and
+highlighted pixel differences. See [how visual CI works](docs/visual-regression.md).
 
 The README screenshots are generated from the running desktop app via the same Playwright-over-CDP automation used for local E2E diagnostics. The script captures more pages than the README embeds, so screenshots can be swapped in without manually driving the app.
 

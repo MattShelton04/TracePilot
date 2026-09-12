@@ -3,18 +3,16 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { captureExitCode } from "./capture-policy.mjs";
+import { PNG } from "pngjs";
+import { captureExitCode, stableScreenshot } from "./capture-policy.mjs";
 import { cases, selectCases } from "./manifest.mjs";
+import { decodePng } from "./png.mjs";
 import { buildReport, escapeHtml, validatePng } from "./report.mjs";
 
-function png(value = 0) {
-  const bytes = Buffer.alloc(25);
-  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(bytes);
-  bytes.write("IHDR", 12);
-  bytes.writeUInt32BE(1440, 16);
-  bytes.writeUInt32BE(960, 20);
-  bytes[24] = value;
-  return bytes;
+function png(value = 0, options = {}) {
+  const data = Buffer.alloc(1440 * 960 * 4, 255);
+  data[0] = value;
+  return PNG.sync.write({ width: 1440, height: 960, data }, options);
 }
 
 test("head capture errors fail CI while unavailable historical cases remain reportable", () => {
@@ -28,6 +26,19 @@ test("head capture errors fail CI while unavailable historical cases remain repo
   }
   assert.equal(captureExitCode([]), 1);
   assert.throws(() => captureExitCode([captured], "typo"), /Invalid visual revision/);
+});
+
+test("captures require consecutive exact frames and unstable rendering is an explicit failure", async () => {
+  const frames = [Buffer.from([0]), Buffer.from([1]), Buffer.from([1])];
+  const result = await stableScreenshot(async () => frames.shift());
+  assert.equal(result.attempts, 3);
+  assert.deepEqual(result.png, Buffer.from([1]));
+  let calls = 0;
+  await assert.rejects(
+    stableScreenshot(async () => Buffer.from([calls++])),
+    /did not stabilize within 5/,
+  );
+  assert.equal(calls, 5);
 });
 
 test("two shards cover every case exactly once and reject invalid shards", () => {
@@ -61,6 +72,46 @@ test("artifact images require PNG signatures and the exact desktop dimensions", 
   assert.equal(escapeHtml('<script>"&'), "&lt;script&gt;&quot;&amp;");
 });
 
+test("decoder rejects truncated PNGs, repeated dimensions, interlace and corrupt pixel data", () => {
+  const valid = png();
+  assert.equal(decodePng(valid).length, 1440 * 960 * 4);
+  // Color-profile metadata affects displayed colors but is not represented by
+  // raw RGBA equality. Unsupported inputs must stay explicit limitations.
+  const colorMetadata = PNG.sync.write({
+    width: 1440,
+    height: 960,
+    data: decodePng(valid),
+    gamma: 0.45,
+  });
+  assert.equal(validatePng(colorMetadata), false);
+  const duplicate = Buffer.concat([
+    valid.subarray(0, 33),
+    valid.subarray(8, 33),
+    valid.subarray(33),
+  ]);
+  const interlaced = Buffer.from(valid);
+  interlaced[28] = 1;
+  const wrongDepth = Buffer.from(valid);
+  wrongDepth[24] = 16;
+  const oversizedChunk = Buffer.from(valid);
+  oversizedChunk.writeUInt32BE(0xffffffff, 33);
+  for (const bytes of [
+    duplicate,
+    interlaced,
+    wrongDepth,
+    oversizedChunk,
+    valid.subarray(0, 25),
+    valid.subarray(0, -1),
+    Buffer.concat([valid, Buffer.from("extra")]),
+  ]) {
+    assert.equal(validatePng(bytes), false);
+    assert.throws(() => decodePng(bytes), /Unsupported or malformed/);
+  }
+  const corrupt = Buffer.from(valid);
+  corrupt[41] ^= 1;
+  assert.throws(() => decodePng(corrupt));
+});
+
 test("reports changed captures, missing bases, failures and escaped artifact diagnostics", async () => {
   const temp = await mkdtemp(join(tmpdir(), "tracepilot-visual-report-"));
   try {
@@ -91,7 +142,15 @@ test("reports changed captures, missing bases, failures and escaped artifact dia
     await writeFile(join(head, "tools.png"), png());
     await writeFile(join(head, "future-route.png"), png());
     const report = await buildReport({ baseDir: base, headDir: head, output });
-    assert.equal(report.rows.find((x) => x.id === "sessions").change, "changed");
+    assert.equal(report.rows.find((x) => x.id === "sessions").change, "subtle");
+    assert.equal(report.summary.subtle, 1);
+    const comparison = report.rows.find((x) => x.id === "sessions").analyses;
+    assert.equal(comparison[0].changed, 1);
+    assert.deepEqual(comparison[0].regions, [{ x: 0, y: 0, width: 1, height: 1, pixels: 1 }]);
+    const heat = decodePng(await readFile(join(output, comparison[0].heatFile)));
+    assert.deepEqual([...heat.subarray(0, 4)], [255, 69, 112, 210]);
+    assert.equal(comparison[8].changed, 0);
+    assert.equal(comparison[8].heatFile, null);
     assert.equal(report.rows.find((x) => x.id === "sessions").state, "historical fixture state");
     assert.equal(report.rows.find((x) => x.id === "search").change, "incomplete");
     assert.equal(report.rows.find((x) => x.id === "analytics").change, "unchanged");
@@ -106,6 +165,43 @@ test("reports changed captures, missing bases, failures and escaped artifact dia
     assert.equal(html.includes('<script>alert("artifact")'), false);
     assert.ok(html.includes("synthetic backend fixtures"));
     assert.ok(html.includes("/new/&quot;&lt;script&gt;"));
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
+test("PNG encoding differences are unchanged pixels; invalid images become explicit limitations", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "tracepilot-visual-encoding-"));
+  try {
+    const base = join(temp, "base"),
+      head = join(temp, "head"),
+      output = join(temp, "report");
+    for (const dir of [base, head]) {
+      await mkdir(dir);
+      await writeFile(
+        join(dir, "capture-1-1.json"),
+        JSON.stringify({
+          schema: 1,
+          cases: [
+            { id: "sessions", status: "captured" },
+            { id: "search", status: "captured" },
+          ],
+        }),
+      );
+      await writeFile(join(dir, "sessions.png"), png(42, { colorType: dir === base ? 2 : 6 }));
+      await writeFile(join(dir, "search.png"), dir === head ? png().subarray(0, 25) : png());
+    }
+    const { rows } = await buildReport({ baseDir: base, headDir: head, output });
+    const same = rows.find((row) => row.id === "sessions");
+    assert.notEqual(same.baseHash, same.headHash);
+    assert.equal(same.pngChanged, true);
+    assert.equal(same.change, "unchanged");
+    assert.equal(same.analyses[0].changed, 0);
+    assert.match(same.analyses[0].description, /PNG bytes differ; decoded pixels are identical/);
+    const invalid = rows.find((row) => row.id === "search");
+    assert.equal(invalid.change, "incomplete");
+    assert.equal(invalid.headHash, undefined);
+    assert.match(invalid.head.errors.join(" "), /safely decoded/);
   } finally {
     await rm(temp, { recursive: true, force: true });
   }

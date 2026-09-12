@@ -38,15 +38,22 @@ required for applicable product fixes.
   in the report without failing an otherwise completed base capture. Checkout,
   dependency installation and browser/server startup failures still fail the
   affected job. A first push with no prior commit can have no usable base.
-- Changed views are detected by exact PNG hashes. Both sides use matching
+- Changed views are detected by exact decoded RGBA pixels. PNG hashes are retained
+  for provenance; different encodings of identical pixels count as unchanged. Both sides use matching
   Ubuntu 24.04 runners and the same browser. Changes are for human review; the
   suite does not fail merely because an intentional screenshot changed.
+- Sparse low-contrast differences have a separate **subtle** category: at most
+  128 changed pixels and no RGBA channel difference above 8/255. This is triage,
+  not proof that a change is harmless. Exact pixels, counts and heatmaps remain
+  available, including high-contrast single-pixel and extended low-contrast changes.
+  Subtle views are counted separately from identical views and review changes.
 
 Four independent capture jobs run concurrently: two route shards for base and
 two for head. They restore the existing pnpm download cache, install frozen
 dependencies, and upload captures even when a view fails. This reduces capture
 wall time at the cost of four dependency/browser installations; no Rust build
-is needed. The publisher installs no dependencies and consumes no PR cache.
+is needed. The publisher installs only its isolated, lockfile-pinned PNG decoder with
+lifecycle scripts disabled and consumes no PR cache.
 Concurrency cancels superseded capture runs; publication is serialized.
 Publication queues pending reports so an unrelated PR cannot replace a waiting report.
 On the development Windows/Edge host, repeated warmed single-shard 33-view captures
@@ -63,6 +70,11 @@ animations/transitions and carets are suppressed. External network requests are
 blocked. Console errors, uncaught page errors, and visible Vue error boundaries
 mark a capture incomplete. These controls remove nondeterministic clocks and animation frames
 without masking product regions.
+It then requires two consecutive byte-identical screenshots, with at most five
+attempts. A view that never settles fails explicitly. Attempt counts are retained.
+This catches changing frames but cannot guarantee identical rasterization across
+fresh browser contexts; tiny persistent edge differences are handled by the
+explicit subtle category rather than silently marked identical.
 
 ## Gallery and comments
 
@@ -71,6 +83,10 @@ after capture completion. It generates a standalone gallery with searchable view
 navigation and a changes/limitations filter. New case IDs introduced by the PR
 are included before their manifest reaches `main`. Captured route/state labels
 are preserved, so an older report does not silently acquire newer fixture labels.
+The filter explicitly hides identical and subtle views; all views remain available
+by default. When a report has only subtle differences, it opens one of those
+comparisons first. Comments include the subtle count and a link to exact differences
+without expanding every tiny variation into another before/after image section.
 
 The viewer has five comparison modes:
 
@@ -89,13 +105,20 @@ viewport inspectable. View/mode/100% links can be shared, and browser Back/Forwa
 restores the chosen view. Comparison controls have accessible names, selected
 states and visible keyboard focus.
 
-Pixel analysis runs only in the reviewer's browser, using Canvas and trusted
-JavaScript with no dependencies or network service. It yields between row batches
-and caches at most three analyses. This adds no image-decoding job to CI.
-PNG-hash changes still drive CI summaries; byte-different PNGs can have identical
-decoded pixels, which the viewer explicitly reports. Region outlines group
-adjacent 32px tiles and show the 12 largest regions; exact overall bounds and the
-changed-pixel count remain available. Neither method decides whether a change is
+Pixel analysis runs once in the trusted reporting job. Each pair is decoded once;
+exact RGBA metrics and transparent heatmap PNGs are generated for thresholds
+0, 8, 16 and 32. The default remains exact: no small changes are silently filtered.
+The viewer displays those precomputed assets without canvas extraction. Browser
+fingerprinting protections can perturb `getImageData` and `toDataURL`, which
+previously produced browser-dependent speckles and false region outlines.
+The viewer now works even when those APIs are unavailable, including downloaded
+reports opened offline. Missing analysis or overlays are explicit limitations.
+
+Nearby pixels are grouped using adjacent 8px cells, but each outline is clipped
+to the actual changed-pixel bounds, not expanded to cell boundaries. The 12
+largest regions get navigation buttons; every changed pixel remains highlighted
+and the total number of regions is shown. Thin borders and one-pixel changes
+remain detectable. Neither detection nor grouping decides whether a change is
 intentional or usable.
 
 When Pages uses the existing `gh-pages` branch root, reports are published under
@@ -142,11 +165,14 @@ write secrets. Checkout credentials are not persisted. Fork code, dependencies
 and Vite configuration remain untrusted. They never run in the publishing job.
 
 The publisher checks out only the default branch, verifies the source workflow,
-and downloads artifacts from that run. It never checks out PR code, installs
+and downloads artifacts from that run. It never checks out PR code, installs PR
 dependencies, restores PR caches, evaluates artifact scripts or publishes
-artifact HTML. The extractor accepts bounded flat PNG/JSON names, rejects
+artifact HTML. `npm ci --prefix scripts/visual --ignore-scripts` installs only
+trusted main's isolated `pngjs` dependency using its own integrity lockfile. The extractor accepts bounded flat PNG/JSON names, rejects
 symlinks/path traversal and validates screenshot dimensions. The reporter
-revalidates image headers, uses bounded safe case IDs for paths, escapes all
+validates every PNG chunk before decoding, accepts only bounded 1440×960
+8-bit noninterlaced RGB/RGBA screenshots without ancillary metadata, rejects
+duplicate headers, verifies PNG checksums, uses bounded safe case IDs for paths, escapes all
 artifact text, bounds the combined inventory to 128 views, and generates its own
 HTML. Embedded JSON cannot close its script element; the gallery permits only its
 trusted, hash-authorized JavaScript under a Content Security Policy. History
@@ -166,6 +192,7 @@ Install normal workspace dependencies and the pinned browser once:
 
 ```sh
 pnpm install --frozen-lockfile
+npm ci --prefix scripts/visual --ignore-scripts
 node node_modules/playwright-core/cli.js install chromium
 node scripts/visual/capture.mjs --root=. --out=.tracepilot/visual --shard=1/1
 ```
@@ -196,9 +223,8 @@ To assemble two local captures into a gallery:
 node --input-type=module -e "import {buildReport} from './scripts/visual/report.mjs'; await buildReport({baseDir:'.tracepilot/before',headDir:'.tracepilot/after',output:'.tracepilot/report'});"
 ```
 
-Open the resulting `index.html` to use the image modes. Browser security may
-prevent Canvas from reading images opened via `file://`; the viewer explains
-that limitation. Serve the folder locally to enable pixel metrics and heatmaps:
+Open the resulting `index.html` to use all image modes, metrics and heatmaps
+offline. No browser canvas extraction is needed. A local HTTP server is optional:
 
 ```sh
 python -m http.server 8765 --bind 127.0.0.1 --directory .tracepilot/report
@@ -251,12 +277,10 @@ the head Models, Replay, Settings-pricing and Analytics captures. This checks
 representative rendered content; it does not turn all manifest assertions into
 manual visual review or native backend verification.
 
-The Linux capture, read-only capture permissions and artifact-upload path are
-now exercised on GitHub. Automatic Pages publication, history updates and PR
-comments remain unverified because the trusted `workflow_run` publisher is not
-yet on the default branch. No automatic gallery comment is expected on this
-bootstrap PR; the downloadable capture artifacts and local gallery are the
-verified outputs.
+At this pre-merge checkpoint, the Linux capture and artifact-upload path were
+verified, but automatic publication and PR comments were not: the publisher was
+not yet on the default branch. After PR #813 merged, main run 34691740224
+successfully published to the visual history linked above.
 
 
 ## Interactive viewer refinement validation
@@ -273,5 +297,28 @@ in 42.062 seconds on the development Windows/Edge host. Every case was captured
 with zero recorded errors or missing fixture commands. Sessions and Settings
 showed Replay/SDK disabled, and the explicit Replay case enabled only Replay;
 representative screenshots were inspected. These are fixture frontend checks,
-not native backend proof. Live Pages/comment publication remains subject to the
-bootstrap limitation above.
+not native backend proof. This checkpoint also preceded the publisher merge.
+
+
+## Viewer changes and regression checks
+
+The publisher always runs the version on `main`. A PR that changes the viewer
+receives an automatic comment rendered by the current trusted publisher; its new
+viewer takes effect after merge. Retained reports contain their original viewer.
+To regenerate a main report (including run 34691740224) with the current
+publisher, rerun its original capture workflow after merging. PR reports can
+refresh only while the PR is open and its captured head is still current;
+closed or superseded PR runs are intentionally skipped. Manual diagnostic
+`workflow_dispatch` runs do not publish.
+
+Run `node --test scripts/visual/*.test.mjs` and
+`python scripts/visual/extract_test.py` for policy, decoding and comparison tests.
+`node scripts/visual/gallery-check.mjs` checks all five comparison modes, thresholds,
+region navigation, keyboard/pointer wipe controls, opacity, three desktop sizes,
+missing overlays and offline loading with canvas extraction disabled. It runs once
+in the unprivileged head capture job, using the installed Chromium; on Windows
+use `--channel=msedge`. Pass `--report=<generated-gallery-directory>` to check a real
+captured comparison. These checks do not require a Rust build or access user data.
+
+See [the false-region investigation](reports/visual-diff-2026-09-12.md) for the
+reported run, before/after evidence and measured reporting overhead.
