@@ -16,7 +16,8 @@ Keep this index in sync when scripts are added, renamed, or removed.
 | `dev.ps1` | Launch `pnpm tauri dev` with sensible local defaults (Windows). |
 | `pgo-build.ps1` / `pgo-build.sh` | Two-phase profile-guided optimisation build of the Rust workspace. |
 | `validate-session-versions.py` | Verify `supported-copilot-versions.json` covers the Copilot CLI session schema fixtures under `packages/test-utils/fixtures/`. |
-| `e2e/` | Reusable Playwright-over-CDP harness for the running Tauri app: `launch.ps1` / `stop.ps1`, shared `connect.mjs`, canonical `smoke-test.mjs`, optional `perf-profile.mjs`, and README media capture via `capture-readme-media.mjs`. See `docs/testing.md` for the test-pyramid guide and E2E contract. |
+| `automation/` | Development lifecycle and native readiness checks behind `pnpm app:start`, `app:ui`, `app:status`, and `app:stop`. Interaction uses the upstream Playwright CLI; see [automation](../docs/app-automation.md). |
+| `e2e/` | Optional repeatable Playwright-over-CDP diagnostics for the running Tauri app: `launch.ps1` / `stop.ps1`, shared `connect.mjs`, canonical `smoke-test.mjs`, optional `perf-profile.mjs`, and README media capture via `capture-readme-media.mjs`. See `docs/testing.md` for the test-pyramid guide and E2E contract. |
 
 ## Conventions
 
@@ -35,6 +36,6 @@ A `justfile` mirroring the `.ps1` scripts and a Node/TS port of
 of scope for the current wave. Porting the CDP harness to a
 `tests/e2e/*.spec.ts` Playwright project was evaluated in Wave 106 and
 explicitly deferred — the `tracepilot-app-automation` skill plus the
-canonical smoke/perf scripts are the E2E path (see `docs/testing.md`);
+Playwright CLI are the interactive path; smoke/perf scripts remain optional diagnostics (see `docs/testing.md`);
 follow-up items should be tracked in the current improvement review or a
 fresh issue before being scheduled.

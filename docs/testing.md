@@ -46,96 +46,63 @@ VRT is **not** on default CI because baselines are OS-sensitive (Windows vs
 Linux sub-pixel antialiasing). Baselines must be refreshed together on a
 single OS.
 
-## 3. Desktop end-to-end (Tauri app over CDP)
+## 3. Running-app exploration and desktop E2E
 
-The canonical E2E layer for TracePilot is **not** a `playwright.config.ts`
-with `*.spec.ts` files. Instead, it is driven by the
-`tracepilot-app-automation` skill, which launches the real Tauri 2 + WebView2
-app with Chrome DevTools Protocol enabled and connects `playwright-core` to
-the running webview.
-
-This gives tests access to the real Rust backend, real IPC, real SQLite
-index, and real session data — which is what we actually want to regress
-against for flow-level coverage.
-
-### Layout
-
-```
-scripts/e2e/
-├── launch.ps1          # Start TracePilot with CDP on an auto-selected port
-├── stop.ps1            # Stop a tracked instance (or all of them)
-├── connect.mjs         # Shared helpers: connect, navigateTo, collectTelemetry, ipc, shutdown
-├── smoke-test.mjs      # Canonical flow: session list → detail → search → analytics → settings
-├── perf-profile.mjs    # Optional performance diagnostic: hot paths, IPC, heap, mounts
-├── capture-readme-media.mjs # README screenshot/storyboard capture utility
-└── readme-media/       # Helper modules for README media capture
-```
-
-`.github/skills/tracepilot-app-automation/SKILL.md` is the authoritative
-API reference: route map, `data-testid` catalogue, telemetry recipes, IPC
-command surface, and Windows-specific gotchas.
-
-### Running the canonical smoke flow
+For interactive development, use the pinned **Playwright agent CLI** with the
+[automation skill](../.github/skills/tracepilot-app-automation/SKILL.md). It drives
+the real Tauri webview using snapshots, element references, screenshots, console
+logs, and traces. The [automation guide](app-automation.md) explains the choice,
+lifecycle, frontend-only mode, optional MCP connection, and platform limits.
 
 ```powershell
-# Terminal 1 — launch the app with CDP enabled
-.\scripts\e2e\launch.ps1
+pnpm app:start
+# Use the endpoint printed by startup:
+pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=http://127.0.0.1:9222
+pnpm exec playwright-cli -s=tracepilot-desktop snapshot
+# Finish:
+pnpm exec playwright-cli -s=tracepilot-desktop detach
+pnpm app:stop
+```
 
-# Terminal 2 — run the smoke test once "TracePilot CDP Ready" is printed
+The launcher verifies real Rust IPC and uses the configured sessions and SQLite
+index. A separate WebView profile avoids normal-profile locking; application data
+is shared. Inspect settings and session content within the task's scope.
+`pnpm app:ui` starts a separate Vite server with the existing client mocks for
+frontend exploration. It cannot validate Rust behavior.
+
+### Repeatable smoke, performance, and media flows
+
+The existing `scripts/e2e` utilities remain available for repeatable diagnostics:
+
+```powershell
+pnpm app:start
 node scripts/e2e/smoke-test.mjs
-
-# When finished
-.\scripts\e2e\stop.ps1
-```
-
-The smoke test exits non-zero on any failed assertion or budget violation.
-It writes a JSON report plus screenshots under `scripts/e2e/screenshots/`,
-which is generated output and remains git-ignored.
-
-For performance-focused local diagnostics, launch the app the same way and run:
-
-```powershell
+# Optional:
 node scripts/e2e/perf-profile.mjs
-```
-
-For README/product screenshots, launch with CDP and run:
-
-```powershell
 node scripts/e2e/capture-readme-media.mjs
+pnpm app:stop
 ```
 
-This writes candidate screenshots and review assets under
-`scripts/e2e/screenshots/readme-candidates/` and copies the final selected
-viewport to `docs/images/readme-*.png`.
+`connect.mjs` discovers only this checkout's recorded desktop endpoint, or uses
+an explicit `--port`; it verifies the native target and disconnects on failure.
+`launch.ps1` and `stop.ps1` are compatibility shims for the new lifecycle owner.
+The smoke flow checks sessions, detail, search, analytics, settings and timing
+budgets. It exits non-zero on assertion/budget failures and writes its report
+and screenshots under the ignored `scripts/e2e/screenshots/` directory.
+README capture writes candidates under `screenshots/readme-candidates/` and
+selected product images under `docs/images/`.
 
-### Extending E2E coverage
+Use CLI commands for investigations instead of adding one-off scripts. For
+regressions, extend existing component/store tests, `smoke-test.mjs`, or
+`perf-profile.mjs` as appropriate. Prefer accessible names and stable test IDs;
+wait for visible results or assertions. The older performance flows retain
+sampling windows and are diagnostic, not a substitute for user-flow assertions.
+Clear IPC timing buffers before measuring. Disconnect Playwright in `finally`
+and stop owned processes with `pnpm app:stop` when finished.
 
-Do not add one-off `test-*.mjs` scripts for individual fixes. Prefer extending
-`smoke-test.mjs` when a flow should become part of the reusable local gate, or
-`perf-profile.mjs` when the scenario is specifically a performance diagnostic.
-`capture-readme-media.mjs` is intentionally documentation/media automation, not
-a regression gate.
-
-If a short-lived investigation needs custom automation, keep it out of the
-repository or delete it after the investigation. Reusable additions should:
-
-1. Import helpers from `./connect.mjs` (`connect`, `navigateTo`,
-   `collectTelemetry`, `startConsoleCapture`, `validateBudgets`, `ipc`,
-   `shutdown`).
-2. Prefer `[data-testid="…"]` selectors over CSS classes — the catalogue
-   lives in the skill doc.
-3. Always clear the IPC perf log before measuring
-   (`window.__TRACEPILOT_IPC_PERF__?.clearIpcPerfLog()`).
-4. Call `shutdown(browser, port)` (or `stop.ps1`) in a `finally` block so a
-   failed run does not leave an orphaned WebView2 process.
-
-### CI
-
-E2E is **not** wired into CI in this repository. Running these scripts
-requires a desktop WebView2 runtime, a Tauri build, and is single-instance
-per host (WebView2 locks the user-data directory). Treat them as a local
-pre-release gate and for reproducing flow-level bugs reported against the
-built app.
+Desktop E2E remains opt-in and is not wired into CI. It requires Windows,
+WebView2, the Rust toolchain, Node 22, and pnpm 10. Frontend-only exploration is
+portable via `pnpm dev` and the CLI. WebView2 CDP does not apply to macOS/Linux.
 
 ## Cross-references
 

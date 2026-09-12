@@ -228,6 +228,8 @@ Common commands:
 | --- | --- |
 | Launch desktop dev app | `pnpm --filter @tracepilot/desktop tauri dev` |
 | Launch via convenience script | `pnpm start` |
+| Launch real app for agent inspection | `pnpm app:start` (then the printed Playwright CLI attach command) |
+| Launch frontend-only automation server | `pnpm app:ui` |
 | Frontend build/typecheck | `pnpm build` |
 | Workspace typecheck | `pnpm typecheck` |
 | JS/TS tests | `pnpm test` |
@@ -238,6 +240,9 @@ Common commands:
 | Check file-size budgets | `node scripts/check-file-sizes.mjs` |
 
 If you use [`just`](https://github.com/casey/just), `just --list` shows wrappers for the same tasks. `just ci` mirrors the main local CI gate.
+
+See [running-app automation](docs/app-automation.md) for browser-style interaction
+with the real Tauri backend, screenshots, traces, and frontend-only exploration.
 
 ### Versioning and releases
 
