@@ -5,7 +5,6 @@ import {
   computed,
   type InjectionKey,
   inject,
-  nextTick,
   onMounted,
   onUnmounted,
   reactive,
@@ -13,6 +12,7 @@ import {
   watch,
 } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { useSkillMarkdownToolbar } from "@/composables/skillEditor/markdownToolbar";
 import { browseForFile } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -51,10 +51,20 @@ export function useSkillEditor() {
   const previewBody = ref("");
 
   // ─── Resize handle ────────────────────────────────────────
-  const { leftWidth, dragging, containerRef, onMouseDown } = useResizeHandle({
+  const {
+    leftWidth,
+    minLeftWidth,
+    maxLeftWidth,
+    dragging,
+    containerRef,
+    onMouseDown,
+    onKeyDown: onResizeKeyDown,
+  } = useResizeHandle({
     minPct: 25,
     maxPct: 75,
     initial: 50,
+    minPanePx: 300,
+    splitterPx: 5,
   });
 
   // ─── Computed ─────────────────────────────────────────────
@@ -365,49 +375,10 @@ export function useSkillEditor() {
   }
 
   // ─── Markdown toolbar ─────────────────────────────────────
-  function insertMarkdown(prefix: string, suffix = "") {
-    if (isReadOnly.value) return;
-    const el = editorRef.value;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const scrollPos = el.scrollTop;
-    const text = el.value;
-    const selected = text.substring(start, end);
-    const inner = selected || "text";
-    const replacement = prefix + inner + suffix;
-    previewBody.value = text.substring(0, start) + replacement + text.substring(end);
-    markRawContent(replaceSkillBody(rawContent.value, previewBody.value));
-    nextTick(() => {
-      el.focus();
-      const selStart = start + prefix.length;
-      const selEnd = selStart + inner.length;
-      el.setSelectionRange(selStart, selEnd);
-      el.scrollTop = scrollPos;
+  const { insertBold, insertItalic, insertH1, insertH2, insertBulletList, insertCode, insertLink } =
+    useSkillMarkdownToolbar(editorRef, isReadOnly, (body) => {
+      markRawContent(replaceSkillBody(rawContent.value, body));
     });
-  }
-
-  function insertBold() {
-    insertMarkdown("**", "**");
-  }
-  function insertItalic() {
-    insertMarkdown("*", "*");
-  }
-  function insertH1() {
-    insertMarkdown("\n# ");
-  }
-  function insertH2() {
-    insertMarkdown("\n## ");
-  }
-  function insertBulletList() {
-    insertMarkdown("\n- ");
-  }
-  function insertCode() {
-    insertMarkdown("`", "`");
-  }
-  function insertLink() {
-    insertMarkdown("[", "](url)");
-  }
 
   // ─── Utilities ────────────────────────────────────────────
   function formatSize(bytes: number): string {
@@ -440,9 +411,12 @@ export function useSkillEditor() {
     previewFrontmatter,
     previewBody,
     leftWidth,
+    minLeftWidth,
+    maxLeftWidth,
     dragging,
     containerRef,
     onMouseDown,
+    onResizeKeyDown,
     skillDir,
     editorLineNumbers,
     totalLineCount,

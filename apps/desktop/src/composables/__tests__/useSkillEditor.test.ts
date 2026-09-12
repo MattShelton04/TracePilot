@@ -1,6 +1,6 @@
 import type { SkillAsset, SkillFrontmatter } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { defineComponent, h, provide } from "vue";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────
@@ -25,9 +25,12 @@ vi.mock("@tracepilot/ui", async () => {
     useConfirmDialog: () => ({ confirm: (opts: unknown) => confirmMock(opts) }),
     useResizeHandle: () => ({
       leftWidth: { value: 50 },
+      minLeftWidth: { value: 25 },
+      maxLeftWidth: { value: 75 },
       dragging: { value: false },
       containerRef: { value: null },
       onMouseDown: vi.fn(),
+      onKeyDown: vi.fn(),
     }),
   };
 });
@@ -68,14 +71,22 @@ vi.mock("@/stores/skills", () => ({
 // Import after mocks
 import { SkillEditorKey, useSkillEditor, useSkillEditorContext } from "../useSkillEditor";
 
-function mountHarness() {
+function mountHarness(renderEditor = false) {
   const ctxHolder: { ctx: ReturnType<typeof useSkillEditor> | null } = { ctx: null };
   const Harness = defineComponent({
     setup() {
       const ctx = useSkillEditor();
       provide(SkillEditorKey, ctx);
       ctxHolder.ctx = ctx;
-      return () => h("div");
+      return () =>
+        renderEditor
+          ? h("textarea", {
+              value: ctx.previewBody,
+              ref: (element) => {
+                ctx.editorRef = element as HTMLTextAreaElement | null;
+              },
+            })
+          : h("div");
     },
   });
   const wrapper = mount(Harness);
@@ -106,6 +117,38 @@ beforeEach(() => {
 });
 
 describe("useSkillEditor", () => {
+  it.each([
+    [
+      "insertH1",
+      "Review only disposable files.\n\nPreserve Unicode café 日本語.",
+      0,
+      0,
+      "# Review only disposable files.\n\nPreserve Unicode café 日本語.",
+    ],
+    ["insertH2", "# Review café 日本語", 8, 8, "## Review café 日本語"],
+    [
+      "insertBulletList",
+      "First line\nSecond line\nKeep this",
+      2,
+      23,
+      "- First line\n- Second line\nKeep this",
+    ],
+  ] as const)("%s formats whole affected lines without injecting placeholders", async (action, body, start, end, expected) => {
+    const { ctx, wrapper } = mountHarness(true);
+    onTestFinished(() => wrapper.unmount());
+    await flushPromises();
+    ctx.onBodyInput({ target: { value: body } } as unknown as Event);
+    await wrapper.vm.$nextTick();
+    const editor = wrapper.get("textarea").element;
+    editor.setSelectionRange(start, end);
+    ctx[action]();
+    await wrapper.vm.$nextTick();
+    expect(ctx.previewBody).toBe(expected);
+    expect(ctx.rawContent).toBe(`---\nname: my-skill\ndescription: hello\n---\n${expected}`);
+    expect(editor.value).toBe(expected);
+    expect(ctx.editorDirty).toBe(true);
+  });
+
   it("preserves unsaved edits when navigation is cancelled and permits an explicit discard", async () => {
     const { ctx, wrapper } = mountHarness();
     await new Promise((r) => setTimeout(r, 0));
