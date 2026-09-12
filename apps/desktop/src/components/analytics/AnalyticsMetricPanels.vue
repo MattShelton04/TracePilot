@@ -5,10 +5,16 @@ import { formatDuration, formatNumber, formatNumberFull, SectionPanel } from "@t
 defineProps<{
   data: AnalyticsData;
 }>();
+
+function formatAverage(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  const rounded = Number(value.toFixed(1));
+  return Math.abs(rounded) >= 1_000 ? formatNumber(rounded) : rounded.toFixed(1);
+}
 </script>
 
 <template>
-  <div class="grid-2 mb-4" v-if="data.apiDurationStats || data.productivityMetrics">
+  <div class="metric-panels grid-2 mb-4" v-if="data.apiDurationStats || data.productivityMetrics">
     <SectionPanel v-if="data.apiDurationStats" title="API Duration">
       <div class="metric-grid">
         <div class="metric-item">
@@ -40,23 +46,23 @@ defineProps<{
     <SectionPanel v-if="data.productivityMetrics" title="Productivity Metrics">
       <div class="metric-grid">
         <div class="metric-item">
-          <span class="metric-value">{{ data.productivityMetrics.avgTurnsPerSession.toFixed(1) }}</span>
+          <span class="metric-value">{{ formatAverage(data.productivityMetrics.avgTurnsPerSession) }}</span>
           <span class="metric-label">Avg Turns / Session</span>
         </div>
         <div class="metric-item">
-          <span class="metric-value">{{ data.productivityMetrics.avgToolCallsPerTurn.toFixed(1) }}</span>
+          <span class="metric-value">{{ formatAverage(data.productivityMetrics.avgToolCallsPerTurn) }}</span>
           <span class="metric-label">Avg Tool Calls / Turn</span>
         </div>
         <div class="metric-item">
-          <span class="metric-value">{{ formatNumber(data.productivityMetrics.avgTokensPerTurn) }}</span>
+          <span class="metric-value">{{ formatAverage(data.productivityMetrics.avgTokensPerTurn) }}</span>
           <span class="metric-label">Avg Tokens / Turn</span>
         </div>
         <div class="metric-item" :title="'Average tokens processed per second of API wait time — a measure of model throughput across all sessions.'">
-          <span class="metric-value">{{ formatNumber(data.productivityMetrics.avgTokensPerApiSecond) }}</span>
+          <span class="metric-value">{{ formatAverage(data.productivityMetrics.avgTokensPerApiSecond) }}</span>
           <span class="metric-label">Tokens / API Second</span>
         </div>
         <div class="metric-item" :title="'Average context compactions per session — based on all sessions in the current filter. Higher values indicate sessions hitting context limits frequently.'">
-          <span class="metric-value">{{ data.totalSessions > 0 ? (data.totalCompactions / data.totalSessions).toFixed(1) : '0' }}</span>
+          <span class="metric-value">{{ data.totalSessions > 0 ? formatAverage(data.totalCompactions / data.totalSessions) : '0' }}</span>
           <span class="metric-label">Avg Compactions / Session</span>
         </div>
       </div>
@@ -65,9 +71,13 @@ defineProps<{
 </template>
 
 <style scoped>
+.metric-panels > * {
+  min-width: 0;
+}
+
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
   gap: 16px;
   padding: 18px;
 }
@@ -77,18 +87,24 @@ defineProps<{
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  min-width: 0;
 }
 
 .metric-value {
+  max-width: 100%;
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .metric-label {
+  max-width: 100%;
   font-size: 0.75rem;
   color: var(--text-tertiary);
   text-align: center;
+  overflow-wrap: anywhere;
 }
 </style>
