@@ -267,8 +267,11 @@ export function useMcpServerDetail() {
 
 export type UseMcpServerDetailReturn = ReturnType<typeof useMcpServerDetail>;
 
-export const McpServerDetailKey: InjectionKey<UseMcpServerDetailReturn> =
-  Symbol("McpServerDetailContext");
+// Keep the injection identity stable across original and timestamped HMR modules;
+// each detail view continues to provide its own independent state.
+export const McpServerDetailKey: InjectionKey<UseMcpServerDetailReturn> = Symbol.for(
+  "tracepilot.mcpServerDetail",
+);
 
 export function useMcpServerDetailContext(): UseMcpServerDetailReturn {
   const ctx = inject(McpServerDetailKey);

@@ -103,7 +103,10 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
 
 export type SdkSteeringContext = ReturnType<typeof useSdkSteering>;
 
-export const SdkSteeringKey: InjectionKey<SdkSteeringContext> = Symbol("SdkSteeringContext");
+// Retained providers and timestamped HMR consumers must resolve the same key.
+// The symbol is shared; each component still owns its provided steering state.
+export const SdkSteeringKey: InjectionKey<SdkSteeringContext> =
+  Symbol.for("tracepilot.sdkSteering");
 
 export function useSdkSteeringContext(): SdkSteeringContext {
   const ctx = inject(SdkSteeringKey, null);
