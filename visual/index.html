@@ -1,0 +1,698 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'sha256-pWE2w5oXEIJQZiA4lW/vdaOBbYVtc2MhTwYnPmEP+DQ='; connect-src 'self'; base-uri 'none'; form-action 'none'"><title>TracePilot visual history</title><style>:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #e7eaf2;
+  background: #0b0e15;
+  font-synthesis: none;
+  --muted: #9da7bd;
+  --line: #293143;
+  --accent: #b5a0ff;
+  --green: #8ee0ba;
+  --pink: #ff799c;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+select {
+  touch-action: manipulation;
+}
+button {
+  color: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+button,
+input,
+select {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #161c29;
+}
+input,
+select {
+  color: inherit;
+  padding: 9px 11px;
+}
+button {
+  padding: 8px 11px;
+}
+button:hover:not(:disabled) {
+  background: #242c3f;
+}
+button[aria-pressed="true"] {
+  background: #302844;
+  color: #e0d6ff;
+  border-color: #6d598e;
+}
+h1,
+h2,
+p {
+  margin: 0;
+}
+.app-header {
+  height: 112px;
+  border-bottom: 1px solid var(--line);
+  padding: 19px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  background: #10151f;
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 2px;
+  color: var(--accent);
+  margin-bottom: 7px;
+}
+h1 {
+  font-size: 21px;
+  letter-spacing: -0.4px;
+}
+.header-meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 7px;
+}
+.header-links {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.counts {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.count {
+  border: 1px solid var(--line);
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.count.changed {
+  color: var(--pink);
+  border-color: #613047;
+}
+.count.unchanged {
+  color: var(--green);
+}
+.workspace {
+  height: calc(100dvh - 112px);
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+.sidebar {
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #10141d;
+}
+.filters {
+  padding: 18px 15px 13px;
+  border-bottom: 1px solid var(--line);
+}
+.filters input {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.filters label {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.filters input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+.view-list {
+  overflow: auto;
+  padding: 8px;
+  flex: 1;
+}
+.view-link {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 8px;
+  margin-bottom: 3px;
+}
+.view-link[aria-current="true"] {
+  background: #242039;
+  border-color: #554571;
+}
+.view-thumb {
+  width: 58px;
+  height: 39px;
+  object-fit: cover;
+  border: 1px solid #343c50;
+  border-radius: 4px;
+  background: #1a2030;
+}
+.view-name {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.view-status {
+  font-size: 10px;
+  margin-top: 4px;
+  color: var(--muted);
+  display: block;
+}
+.view-status.changed {
+  color: var(--pink);
+}
+.view-status.unchanged {
+  color: var(--green);
+}
+.sidebar-footer {
+  padding: 13px 16px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.review {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.view-heading {
+  padding: 18px 23px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+}
+.view-heading h2 {
+  font-size: 18px;
+  letter-spacing: -0.3px;
+}
+.view-description {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.status-pill {
+  font-size: 11px;
+  padding: 5px 8px;
+  border: 1px solid #614159;
+  background: #2a1d2a;
+  border-radius: 5px;
+  color: #ffc0d4;
+  white-space: nowrap;
+}
+.toolbar {
+  padding: 12px 20px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  background: #10151f;
+}
+.mode-group,
+.zoom-group,
+.adjustments {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.mode-group button,
+.zoom-group button {
+  font-size: 11px;
+  padding: 7px 9px;
+}
+.zoom-group {
+  margin-left: auto;
+}
+.zoom-value {
+  min-width: 43px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.adjustments {
+  min-height: 43px;
+  padding: 7px 22px;
+  gap: 13px;
+  font-size: 11px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.adjustments label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adjustments input[type="range"] {
+  padding: 0;
+  width: 140px;
+  accent-color: var(--accent);
+}
+.adjustments button {
+  font-size: 10px;
+  padding: 4px 9px;
+}
+.stage-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+  overflow: auto;
+  background: radial-gradient(#242b3a 0.8px, transparent 0.8px) 0 0 / 12px 12px;
+  background-color: #0b0e15;
+  overscroll-behavior: contain;
+  scrollbar-color: #47516a #111725;
+  touch-action: none;
+}
+.stage-viewport.can-pan {
+  cursor: grab;
+}
+.stage-viewport.panning {
+  cursor: grabbing;
+  user-select: none;
+}
+.stage-space {
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  padding: 26px;
+  display: grid;
+  place-items: center;
+}
+.scaled-stage {
+  position: relative;
+  flex: none;
+}
+.image-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: top left;
+  display: flex;
+  gap: 24px;
+}
+.board {
+  width: 1440px;
+  height: 960px;
+  position: relative;
+  flex: none;
+  background: #151922;
+  box-shadow: 0 8px 44px #0008;
+  overflow: hidden;
+}
+.board img,
+.board canvas {
+  position: absolute;
+  inset: 0;
+  width: 1440px;
+  height: 960px;
+  pointer-events: none;
+  user-select: none;
+}
+.board-label {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 10px;
+  border: 1px solid #56627d;
+  border-radius: 5px;
+  background: #0a0e18e8;
+  color: #eef0fa;
+  font-size: 15px;
+  z-index: 4;
+}
+.board-label.after {
+  left: auto;
+  right: 12px;
+  color: #b3f4d4;
+}
+.bounds {
+  position: absolute;
+  border: 2px solid #ff7b9f;
+  box-shadow: 0 0 0 1px #301425;
+  pointer-events: none;
+  z-index: 3;
+}
+.wipe-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #d3c5ff;
+  z-index: 5;
+  transform: translateX(-50%);
+}
+.wipe-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #282036;
+  border: 2px solid #d3c5ff;
+  color: #f3eaff;
+  border-radius: 22px;
+  width: 44px;
+  height: 62px;
+  padding: 0;
+  font-size: 22px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.wipe-grip:focus-visible {
+  outline: 4px solid #fff;
+  outline-offset: 5px;
+}
+.pixel-summary {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 12px 22px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  min-height: 44px;
+  background: #10151f;
+}
+.pixel-summary strong {
+  color: #f2cad8;
+  font-weight: 600;
+}
+.regions {
+  max-height: 96px;
+  overflow: auto;
+  flex-shrink: 0;
+  padding: 0 22px 13px;
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  background: #10151f;
+}
+.regions button {
+  font-size: 10px;
+  padding: 5px 8px;
+  color: #edc5d3;
+}
+.limitations {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 0 22px 12px;
+  color: #eac491;
+  background: #10151f;
+  max-height: 115px;
+  overflow: auto;
+}
+.limitations summary {
+  cursor: pointer;
+}
+.limitations ul {
+  margin-bottom: 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+.empty-message {
+  padding: 48px;
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 620px;
+  line-height: 1.7;
+}
+.empty-filter {
+  padding: 18px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+[hidden][hidden] {
+  display: none;
+}
+.history-main {
+  max-width: 1420px;
+  margin: 0 auto;
+  padding: 26px;
+}
+.history-controls {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: end;
+  margin-bottom: 24px;
+}
+.history-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 20px;
+}
+.run-card {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  overflow: hidden;
+  background: #121824;
+}
+.run-card img {
+  width: 100%;
+  aspect-ratio: 1.5;
+  object-fit: cover;
+  border-bottom: 1px solid var(--line);
+}
+.run-info {
+  padding: 17px;
+}
+.run-info h2 {
+  font-size: 15px;
+  line-height: 1.4;
+}
+.run-info p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+  margin-top: 7px;
+}
+.run-info a {
+  display: inline-block;
+  margin-top: 13px;
+  font-size: 12px;
+}
+.history-note {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin-bottom: 24px;
+  max-width: 920px;
+}
+.no-script {
+  padding: 20px;
+}
+.no-script img {
+  width: 46%;
+  height: auto;
+}
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .app-header {
+    padding: 16px 20px;
+  }
+  .view-thumb {
+    width: 42px;
+    height: 28px;
+  }
+  .view-link {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+  .toolbar {
+    padding: 10px 14px;
+  }
+  .header-links {
+    gap: 10px;
+  }
+  .view-heading {
+    padding: 14px;
+  }
+  .adjustments {
+    padding: 7px 14px;
+  }
+  .mode-group {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) {
+  .app-header {
+    height: auto;
+    min-height: 112px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .workspace {
+    height: auto;
+    min-height: calc(100dvh - 112px);
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    max-height: 230px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .filters {
+    padding: 10px;
+  }
+  .sidebar-footer {
+    display: none;
+  }
+  .view-list {
+    display: flex;
+    gap: 5px;
+    overflow: auto;
+  }
+  .view-link {
+    width: 190px;
+    flex: none;
+  }
+  .review {
+    min-height: 690px;
+  }
+  .stage-viewport {
+    min-height: 360px;
+  }
+  .counts {
+    margin-bottom: 5px;
+  }
+  .header-meta {
+    max-width: 95vw;
+  }
+  .pixel-summary {
+    flex-wrap: wrap;
+  }
+  .history-main {
+    padding: 18px;
+  }
+}
+</style></head><body><header class="app-header"><div><p class="eyebrow">TRACEPILOT / VISUAL HISTORY</p><h1>The desktop, through every change</h1><p class="header-meta">1440 × 960 · actual frontend · synthetic backend fixtures</p></div><a href="../dev/">Developer workbench ↗</a></header><main class="history-main"><p class="history-note">Choose a view to follow its screenshots across retained commits. Each run opens its exact before/after comparison. Fixture or browser changes can also affect images; historical runs may use different fixture versions. The latest 20 main runs and 20 PR runs are retained.</p><div class="history-controls"><label>View<select id="history-view"></select></label><label>Runs<select id="history-kind"><option value="all">All runs</option><option value="main">Main only</option><option value="pr">Pull requests only</option></select></label><label>Find a commit or PR<input id="history-search" type="search" placeholder="Commit, PR or date…"></label></div><p id="history-count" class="history-note" role="status"></p><div id="history-grid" class="history-grid"></div></main><script id="report-data" type="application/json">{"entries":[{"id":34691740224,"sha":"ee2a15b564f086cd68c4da2547914693f848ddce","pr":null,"attempt":1,"title":"Main · ee2a15b5 · fixture visual comparison","created":"2026-09-12T11:42:20.000Z","summary":{"changed":23,"unchanged":10,"incomplete":0,"baseUnavailable":0,"total":33},"views":["sessions","session-overview","session-conversation","session-events","session-todos","session-metrics","session-context","session-explorer","session-timeline","session-explorer-file","search","search-results","analytics","tools","code","model-comparison","compare","compare-populated","replay","export","export-preview","settings","settings-pricing","orchestration","worktree-manager","session-launcher","config-injector","mcp-manager","mcp-server-detail","skills-manager","skill-editor","cli-context","not-found"]}]}</script><script>(() => {
+  const { entries } = JSON.parse(document.getElementById("report-data").textContent);
+  const view = document.getElementById("history-view"),
+    kind = document.getElementById("history-kind");
+  const search = document.getElementById("history-search"),
+    grid = document.getElementById("history-grid");
+  const ids = [...new Set(entries.flatMap((entry) => entry.views ?? ["sessions"]))].sort();
+  const requested = new URLSearchParams(location.hash.slice(1)).get("view");
+  for (const id of ids) view.add(new Option(id, id));
+  view.value = ids.includes(requested) ? requested : ids.includes("sessions") ? "sessions" : ids[0];
+  const element = (tag, text, className) => {
+    const node = document.createElement(tag);
+    node.textContent = text;
+    if (className) node.className = className;
+    return node;
+  };
+  function render() {
+    const filtered = entries.filter(
+      (entry) =>
+        (kind.value === "all" || (kind.value === "pr") === Boolean(entry.pr)) &&
+        `${entry.title} ${entry.sha} ${entry.created}`
+          .toLowerCase()
+          .includes(search.value.toLowerCase()),
+    );
+    grid.replaceChildren();
+    document.getElementById("history-count").textContent =
+      `${filtered.length} retained runs · ${view.value || "no views"}`;
+    for (const entry of filtered) {
+      const card = element("article", "", "run-card"),
+        info = element("div", "", "run-info");
+      const url = `runs/${entry.id}/index.html?attempt=${entry.attempt}#view=${encodeURIComponent(view.value)}`;
+      if ((entry.views ?? ["sessions"]).includes(view.value)) {
+        const link = element("a", ""),
+          image = element("img", "");
+        link.href = url;
+        link.setAttribute("aria-label", `Open ${view.value} at ${entry.sha.slice(0, 8)}`);
+        image.src = `runs/${entry.id}/head-${view.value}.png?attempt=${entry.attempt}`;
+        image.alt = `${view.value}, after ${entry.sha.slice(0, 8)}`;
+        image.loading = "lazy";
+        link.append(image);
+        card.append(link);
+      }
+      info.append(element("h2", entry.title));
+      info.append(element("p", `${entry.created} · attempt ${entry.attempt ?? 1}`));
+      const s = entry.summary;
+      if (s)
+        info.append(
+          element(
+            "p",
+            `${s.changed} PNG changes · ${s.unchanged} identical · ${s.incomplete + s.baseUnavailable} limitations`,
+          ),
+        );
+      const link = element("a", "Open comparison →");
+      link.href = url;
+      info.append(link);
+      card.append(info);
+      grid.append(card);
+    }
+    history.replaceState(null, "", `#view=${encodeURIComponent(view.value)}`);
+  }
+  view.addEventListener("change", render);
+  kind.addEventListener("change", render);
+  search.addEventListener("input", render);
+  render();
+})();
+</script></body></html>
