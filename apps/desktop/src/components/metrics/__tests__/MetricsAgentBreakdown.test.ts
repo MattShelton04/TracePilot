@@ -12,6 +12,97 @@ import MetricsModelTable from "../MetricsModelTable.vue";
 
 beforeEach(() => setupPinia());
 describe("agent metrics UI", () => {
+  it("keeps the current page across usage refreshes and resets it when sorting", async () => {
+    const metrics: ShutdownMetrics = {
+      agentUsage: {
+        eventIndex: 1,
+        hasInvalidFields: false,
+        agents: Object.fromEntries(
+          Array.from({ length: 51 }, (_, index) => [
+            `worker-${String(index).padStart(2, "0")}`,
+            { modelMetrics: {} },
+          ]),
+        ),
+      },
+    };
+    const wrapper = mount(MetricsAgentBreakdown, { props: { metrics, turns: [] } });
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Next")
+      ?.trigger("click");
+    const rows = () =>
+      wrapper
+        .findAll('[data-testid="agent-usage-table"] tbody button')
+        .map((button) => button.attributes("title"));
+    expect(rows()).toEqual(["worker-49", "worker-50"]);
+    await wrapper.setProps({ metrics: { ...metrics } });
+    expect(rows()).toEqual(["worker-49", "worker-50"]);
+    await wrapper.get('button[aria-label="Sort by Agent"]').trigger("click");
+    expect(rows()).toHaveLength(50);
+    wrapper.unmount();
+  });
+  it("selects main usage on opening and sorts headers with unknown values last", async () => {
+    const metrics: ShutdownMetrics = {
+      agentUsage: {
+        eventIndex: 1,
+        hasInvalidFields: false,
+        agents: {
+          main: {
+            totalNanoAiu: 1e9,
+            modelMetrics: {
+              luna: { usage: { inputTokens: 100, outputTokens: 20, cacheReadTokens: 40 } },
+            },
+          },
+          paid: { totalNanoAiu: 2e9, modelMetrics: {} },
+          free: { totalNanoAiu: 0, modelMetrics: {} },
+          unknown: { modelMetrics: {} },
+        },
+      },
+    };
+    const turns = [
+      makeTurn({
+        toolCalls: ["paid", "free", "unknown"].map((id) =>
+          makeTurnToolCall({
+            toolCallId: `launch-${id}`,
+            agentId: id,
+            agentDisplayName: id,
+            isSubagent: true,
+          }),
+        ),
+      }),
+    ];
+    const wrapper = mount(MetricsAgentBreakdown, { props: { metrics, turns } });
+    const rowIds = () =>
+      wrapper
+        .findAll('[data-testid="agent-usage-table"] tbody button')
+        .map((button) => button.attributes("title"));
+    expect(wrapper.get('[data-testid="agent-usage-detail"]').text()).toContain(
+      "Main agent · Own usage",
+    );
+    expect(
+      wrapper.get('[data-testid="agent-usage-detail"] [role="meter"]').attributes("aria-valuenow"),
+    ).toBe("40");
+    expect(wrapper.find("select").exists()).toBe(false);
+    expect(rowIds()).toEqual(["main", "paid", "free", "unknown"]);
+    const credits = wrapper.get('button[aria-label="Sort by Recorded credits"]');
+    await credits.trigger("click");
+    expect(rowIds()).toEqual(["paid", "main", "free", "unknown"]);
+    expect(credits.element.closest("th")?.getAttribute("aria-sort")).toBe("descending");
+    await credits.trigger("click");
+    expect(rowIds()).toEqual(["free", "main", "paid", "unknown"]);
+    expect(credits.element.closest("th")?.getAttribute("aria-sort")).toBe("ascending");
+    // Refreshes must preserve both sort state and the chosen worker.
+    await wrapper.get('tbody button[title="paid"]').trigger("click");
+    await wrapper.setProps({ metrics: { ...metrics } });
+    expect(rowIds()).toEqual(["free", "main", "paid", "unknown"]);
+    expect(wrapper.get('[data-testid="agent-usage-detail"]').text()).toContain("paid · Own usage");
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Reset to hierarchy")
+      ?.trigger("click");
+    expect(rowIds()).toEqual(["main", "paid", "free", "unknown"]);
+    wrapper.unmount();
+  });
   it("does not chart made-up proportions or estimate agent costs from incomplete usage", () => {
     const data = useMetricsTabData(
       computed(() => ({

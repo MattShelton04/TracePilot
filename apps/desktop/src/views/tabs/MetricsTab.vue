@@ -98,7 +98,7 @@ const {
       </div>
       <ErrorAlert v-if="mode === 'agent' && store.turnsError" :message="store.turnsError" variant="inline" class="mb-4" retryable @retry="retryLoadTurns" />
       <p v-if="mode === 'agent' && !store.loaded.has('turns') && !store.turnsError" class="text-sm text-[var(--text-tertiary)] mb-4">Loading agent activity…</p>
-      <MetricsAgentBreakdown v-if="mode === 'agent' && store.loaded.has('turns')" :metrics="metrics" :turns="turns" @activity="selectSubagent" />
+      <MetricsAgentBreakdown v-if="mode === 'agent' && store.loaded.has('turns')" :key="store.sessionId ?? undefined" :metrics="metrics" :turns="turns" @activity="selectSubagent" />
       <MetricsCacheBreakdown v-if="mode === 'model'" :breakdown="tokenBreakdown" />
 
       <MetricsModelTable
