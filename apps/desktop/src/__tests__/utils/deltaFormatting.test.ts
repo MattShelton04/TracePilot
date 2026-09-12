@@ -26,9 +26,9 @@ describe("formatSessionDelta", () => {
     expect(result.arrow).toBe("↑");
   });
 
-  it("shows absolute difference when change ≤ 1%", () => {
+  it("keeps the percentage unit when change is below 1%", () => {
     const result = formatSessionDelta(100, 100.5, true);
-    expect(result.delta).toBe("↑ 0.5");
+    expect(result.delta).toBe("↑ 0.5%");
   });
 
   it("marks decrease as positive when higher is NOT better", () => {
@@ -45,17 +45,22 @@ describe("formatSessionDelta", () => {
     expect(result.arrow).toBe("↑");
   });
 
-  it("handles a = 0, b > 0 (uses base = 1)", () => {
+  it("explains growth from zero without inventing a percentage", () => {
     const result = formatSessionDelta(0, 5, true);
     expect(result.arrow).toBe("↑");
     expect(result.deltaClass).toBe("delta-positive");
-    // pct = |5| / max(0, 1) * 100 = 500%
-    expect(result.delta).toBe("↑ 500%");
+    expect(result.delta).toBe("↑ From 0");
+  });
+
+  it("uses the actual baseline for normalized values below one", () => {
+    expect(formatSessionDelta(0.25, 0.5, false).delta).toBe("↑ 100%");
+    expect(formatSessionDelta(0.5, 0.25, false).delta).toBe("↓ 50%");
+    expect(formatSessionDelta(5, 0, false).delta).toBe("↓ 100%");
   });
 
   it("handles negative values", () => {
     const result = formatSessionDelta(-10, -5, true);
-    // diff = -5 - (-10) = 5, base = max(10, 1) = 10, pct = 50%
+    // diff = -5 - (-10) = 5, base = 10, pct = 50%
     expect(result.delta).toBe("↑ 50%");
     expect(result.deltaClass).toBe("delta-positive");
   });

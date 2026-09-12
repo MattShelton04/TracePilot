@@ -26,7 +26,7 @@ export interface FormattedDelta {
  * Format the delta between two values for the session-comparison table.
  *
  * Direction: `b − a` (session B vs session A).
- * Percentage base: `max(|a|, 1)`.
+ * Percentage base: `|a|`. A zero baseline cannot express percentage growth.
  */
 export function formatSessionDelta(a: number, b: number, higherIsBetter: boolean): FormattedDelta {
   if (!Number.isFinite(a) || !Number.isFinite(b)) {
@@ -35,14 +35,13 @@ export function formatSessionDelta(a: number, b: number, higherIsBetter: boolean
   if (a === 0 && b === 0) return { delta: "—", deltaClass: "delta-neutral", arrow: "" };
   const diff = b - a;
   if (Math.abs(diff) < 0.001) return { delta: "—", deltaClass: "delta-neutral", arrow: "" };
-  const base = Math.max(Math.abs(a), 1);
-  const pct = Math.abs(diff / base) * 100;
   const isBetter = higherIsBetter ? diff > 0 : diff < 0;
   const arrow = diff > 0 ? "↑" : "↓";
   const cls = isBetter ? "delta-positive" : "delta-negative";
 
-  // Use whole percentages for large changes, otherwise one clean decimal
-  const label = pct > 1 ? `${pct.toFixed(0)}%` : `${formatCleanFloat(Math.abs(diff), 1)}`;
+  // Keep units consistent for small/normalized values; never invent a nonzero base.
+  const pct = a === 0 ? null : Math.abs(diff / a) * 100;
+  const label = pct === null ? "From 0" : `${pct > 1 ? pct.toFixed(0) : formatCleanFloat(pct, 1)}%`;
 
   return { delta: `${arrow} ${label}`, deltaClass: cls, arrow };
 }

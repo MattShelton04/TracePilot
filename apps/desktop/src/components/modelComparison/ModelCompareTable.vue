@@ -8,21 +8,24 @@ const ctx = useModelComparisonContext();
   <div class="section-panel mb-4">
     <div class="section-panel-header panel-header-flex">
       <span>Side-by-Side Comparison</span>
-      <div class="norm-toggle">
+      <div class="norm-toggle" role="group" aria-label="Comparison normalization">
         <button
           :class="['toggle-btn', { active: ctx.normMode === 'raw' }]"
+          :aria-pressed="ctx.normMode === 'raw'"
           @click="ctx.normMode = 'raw'"
         >
           Raw
         </button>
         <button
           :class="['toggle-btn', { active: ctx.normMode === 'per-10m-tokens' }]"
+          :aria-pressed="ctx.normMode === 'per-10m-tokens'"
           @click="ctx.normMode = 'per-10m-tokens'"
         >
           Per 10M Tokens
         </button>
         <button
           :class="['toggle-btn', { active: ctx.normMode === 'share' }]"
+          :aria-pressed="ctx.normMode === 'share'"
           @click="ctx.normMode = 'share'"
         >
           Share %

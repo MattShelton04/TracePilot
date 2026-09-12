@@ -1,8 +1,17 @@
 <script setup lang="ts">
 import { formatAiCredits, formatPercent } from "@tracepilot/types";
-import { useModelComparisonContext } from "@/composables/useModelComparison";
+import { type SortKey, useModelComparisonContext } from "@/composables/useModelComparison";
 
 const ctx = useModelComparisonContext();
+const sortColumns: { key: SortKey; label: string }[] = [
+  { key: "model", label: "Model" },
+  { key: "tokens", label: "Total" },
+  { key: "inputTokens", label: "Input" },
+  { key: "outputTokens", label: "Output" },
+  { key: "cacheReadTokens", label: "Cache" },
+  { key: "percentage", label: "Share" },
+  { key: "aiCredits", label: "AI Credits" },
+];
 </script>
 
 <template>
@@ -10,21 +19,24 @@ const ctx = useModelComparisonContext();
     <div class="section-panel-header panel-header-flex">
       <span>Performance Matrix</span>
       <div class="matrix-toggles">
-        <div class="norm-toggle">
+        <div class="norm-toggle" role="group" aria-label="Matrix normalization">
           <button
             :class="['toggle-btn', { active: ctx.normMode === 'raw' }]"
+            :aria-pressed="ctx.normMode === 'raw'"
             @click="ctx.normMode = 'raw'"
           >
             Raw
           </button>
           <button
             :class="['toggle-btn', { active: ctx.normMode === 'per-10m-tokens' }]"
+            :aria-pressed="ctx.normMode === 'per-10m-tokens'"
             @click="ctx.normMode = 'per-10m-tokens'"
           >
             Per 10M Tokens
           </button>
           <button
             :class="['toggle-btn', { active: ctx.normMode === 'share' }]"
+            :aria-pressed="ctx.normMode === 'share'"
             @click="ctx.normMode = 'share'"
           >
             Share %
@@ -45,26 +57,21 @@ const ctx = useModelComparisonContext();
         </colgroup>
         <thead>
           <tr>
-            <th class="sort-header" @click="ctx.toggleSort('model')">
-              Model <span class="sort-arrow">{{ ctx.sortArrow('model') }}</span>
-            </th>
-            <th class="sort-header" @click="ctx.toggleSort('tokens')">
-              Total <span class="sort-arrow">{{ ctx.sortArrow('tokens') }}</span>
-            </th>
-            <th class="sort-header" @click="ctx.toggleSort('inputTokens')">
-              Input <span class="sort-arrow">{{ ctx.sortArrow('inputTokens') }}</span>
-            </th>
-            <th class="sort-header" @click="ctx.toggleSort('outputTokens')">
-              Output <span class="sort-arrow">{{ ctx.sortArrow('outputTokens') }}</span>
-            </th>
-            <th class="sort-header" @click="ctx.toggleSort('cacheReadTokens')">
-              Cache <span class="sort-arrow">{{ ctx.sortArrow('cacheReadTokens') }}</span>
-            </th>
-            <th class="sort-header" @click="ctx.toggleSort('percentage')">
-              Share <span class="sort-arrow">{{ ctx.sortArrow('percentage') }}</span>
-            </th>
-            <th class="sort-header" @click="ctx.toggleSort('aiCredits')">
-              AI Credits <span class="sort-arrow">{{ ctx.sortArrow('aiCredits') }}</span>
+            <th
+              v-for="column in sortColumns"
+              :key="column.key"
+              class="sort-header"
+              scope="col"
+              :aria-sort="ctx.sortKey === column.key ? (ctx.sortDir === 'asc' ? 'ascending' : 'descending') : undefined"
+            >
+              <button
+                type="button"
+                class="matrix-sort-button"
+                :aria-label="`Sort by ${column.label}`"
+                @click="ctx.toggleSort(column.key)"
+              >
+                {{ column.label }} <span class="sort-arrow" aria-hidden="true">{{ ctx.sortArrow(column.key) }}</span>
+              </button>
             </th>
           </tr>
         </thead>

@@ -9,7 +9,6 @@ import type {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 
-// ── Mocks ──────────────────────────────────────────────────────
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../mocks/client");
   return createClientMock({
@@ -27,7 +26,6 @@ vi.mock("vue", async () => {
   return {
     ...actual,
     onUnmounted: vi.fn((cb: () => void) => {
-      // Store callback for manual invocation in tests
       (globalThis as Record<string, unknown>).__unmountCallback = cb;
     }),
   };
@@ -37,8 +35,6 @@ import { previewExport } from "@tracepilot/client";
 import { useExportPreview } from "../../composables/useExportPreview";
 
 const mockPreviewExport = vi.mocked(previewExport);
-
-// ── Helpers ────────────────────────────────────────────────────
 
 function makePreviewResult(content = "# Preview"): ExportPreviewResult {
   return {
@@ -79,6 +75,60 @@ afterEach(() => {
 });
 
 describe("useExportPreview", () => {
+  it("clears stale content immediately when format or redaction changes", async () => {
+    const refs = createRefs();
+    mockPreviewExport.mockResolvedValue(makePreviewResult("private preview"));
+    const state = useExportPreview(
+      refs.sessionId,
+      refs.format,
+      refs.sections,
+      refs.contentDetail,
+      refs.redaction,
+    );
+    refs.sessionId.value = "sess-1";
+    await vi.advanceTimersByTimeAsync(400);
+    expect(state.preview.value?.content).toBe("private preview");
+    refs.redaction.value.stripSecrets = true;
+    expect(state.preview.value).toBeNull();
+    expect(state.loading.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(400);
+    refs.format.value = "markdown";
+    expect(state.preview.value).toBeNull();
+    expect(state.loading.value).toBe(true);
+  });
+
+  it("rejects an old IPC response during the next input's debounce window", async () => {
+    const refs = createRefs();
+    const older = createDeferred<ExportPreviewResult>();
+    mockPreviewExport.mockReturnValueOnce(older.promise);
+    const state = useExportPreview(refs.sessionId, refs.format, refs.sections);
+    refs.sessionId.value = "sess-1";
+    await vi.advanceTimersByTimeAsync(400);
+    refs.sessionId.value = "sess-2";
+    older.resolve(makePreviewResult("wrong session"));
+    await nextTick();
+    expect(state.preview.value).toBeNull();
+    expect(state.loading.value).toBe(true);
+    expect(mockPreviewExport).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears a pending render immediately when switching to Raw Zip", async () => {
+    const refs = createRefs();
+    const format = ref<"json" | "markdown" | "zip">("json");
+    const older = createDeferred<ExportPreviewResult>();
+    mockPreviewExport.mockReturnValueOnce(older.promise);
+    const state = useExportPreview(refs.sessionId, format, refs.sections);
+    refs.sessionId.value = "sess-1";
+    await vi.advanceTimersByTimeAsync(400);
+    format.value = "zip";
+    expect(state.loading.value).toBe(false);
+    older.resolve(makePreviewResult("not a zip preview"));
+    await nextTick();
+    expect(state.preview.value).toBeNull();
+    await vi.advanceTimersByTimeAsync(400);
+    expect(mockPreviewExport).toHaveBeenCalledTimes(1);
+  });
+
   // ── Initial State ──────────────────────────────────────────
 
   it("starts with null preview, not loading, no error", () => {
@@ -385,14 +435,11 @@ describe("useExportPreview", () => {
       refs.sections,
     );
 
-    // Should clear, not fetch
     await refresh();
     expect(preview.value).toBeNull();
     expect(error.value).toBeNull();
     expect(mockPreviewExport).not.toHaveBeenCalled();
   });
-
-  // ── Unmount Cleanup ────────────────────────────────────────
 
   it("invalidates in-flight requests on unmount", async () => {
     const refs = createRefs();
@@ -401,7 +448,6 @@ describe("useExportPreview", () => {
 
     const { preview } = useExportPreview(refs.sessionId, refs.format, refs.sections);
 
-    // Start a fetch
     refs.sessionId.value = "sess-1";
     await nextTick();
     vi.advanceTimersByTime(400);
@@ -411,11 +457,9 @@ describe("useExportPreview", () => {
     const unmountCb = (globalThis as Record<string, unknown>).__unmountCallback as () => void;
     if (unmountCb) unmountCb();
 
-    // Resolve the in-flight request
     previewDeferred.resolve(makePreviewResult("Stale"));
     await vi.runAllTimersAsync();
 
-    // Preview should not be updated after unmount
     expect(preview.value).toBeNull();
   });
 

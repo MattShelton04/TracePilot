@@ -108,13 +108,18 @@ function commitDates() {
 <style scoped>
 .time-range-filter {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .time-range-presets {
   display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  max-width: 100%;
   border: 1px solid var(--border-default);
   border-radius: 6px;
   overflow: hidden;
