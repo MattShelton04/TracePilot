@@ -2,7 +2,7 @@
 /**
  * ReplayTransportBar — transport controls, scrubber, and speed selector.
  */
-defineProps<{
+const props = defineProps<{
   currentStep: number;
   totalSteps: number;
   isPlaying: boolean;
@@ -15,14 +15,47 @@ defineProps<{
 const emit = defineEmits<{
   play: [];
   pause: [];
-  "toggle-play-pause": [];
   next: [];
   prev: [];
   "set-speed": [speed: number];
   "scrub-click": [event: MouseEvent];
+  seek: [step: number];
 }>();
 
 const speeds = [0.5, 1, 2, 4];
+
+function handleScrubberKeydown(event: KeyboardEvent) {
+  if (
+    event.defaultPrevented ||
+    event.isComposing ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    event.shiftKey
+  )
+    return;
+
+  switch (event.key) {
+    case "ArrowLeft":
+    case "ArrowDown":
+      emit("prev");
+      break;
+    case "ArrowRight":
+    case "ArrowUp":
+      emit("next");
+      break;
+    case "Home":
+      emit("seek", 0);
+      break;
+    case "End":
+      emit("seek", Math.max(0, props.totalSteps - 1));
+      break;
+    default:
+      return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+}
 </script>
 
 <template>
@@ -56,12 +89,10 @@ const speeds = [0.5, 1, 2, 4];
 
     <!-- Scrubber -->
     <div class="scrubber" @click="emit('scrub-click', $event)" role="slider"
-         :aria-valuenow="currentStep" :aria-valuemin="0" :aria-valuemax="totalSteps - 1"
+         :aria-valuenow="currentStep" :aria-valuemin="0" :aria-valuemax="Math.max(0, totalSteps - 1)"
+         :aria-valuetext="`Turn ${currentStep + 1} of ${totalSteps}`"
          aria-label="Replay progress" tabindex="0"
-         @keydown.left.prevent="emit('prev')"
-         @keydown.right.prevent="emit('next')"
-         @keydown.home.prevent="emit('scrub-click', { offsetX: 0, currentTarget: { getBoundingClientRect: () => ({ width: 1 }) } } as unknown as MouseEvent)"
-         @keydown.end.prevent="emit('scrub-click', { offsetX: 1, currentTarget: { getBoundingClientRect: () => ({ width: 1 }) } } as unknown as MouseEvent)"
+         @keydown="handleScrubberKeydown"
     >
       <span class="scrub-time">{{ elapsedFormatted }}</span>
       <div class="scrub-track">
@@ -73,7 +104,7 @@ const speeds = [0.5, 1, 2, 4];
     </div>
 
     <!-- Speed selector -->
-    <div class="speed-group" role="radiogroup" aria-label="Playback speed">
+    <div class="speed-group" role="group" aria-label="Playback speed">
       <button
         v-for="s in speeds"
         :key="s"
@@ -120,6 +151,12 @@ const speeds = [0.5, 1, 2, 4];
   border-color: var(--accent-fg);
 }
 .transport-btn:disabled { opacity: 0.3; cursor: default; }
+.transport-btn:focus-visible,
+.speed-btn:focus-visible,
+.scrubber:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 3px;
+}
 .transport-play {
   width: 38px; height: 38px;
   border-radius: 50%;

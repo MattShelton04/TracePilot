@@ -83,23 +83,14 @@ const tickerEvents = computed(() => {
   return events;
 });
 
-function handleKeydown(e: KeyboardEvent) {
-  if (
-    (e.target as HTMLElement)?.tagName === "INPUT" ||
-    (e.target as HTMLElement)?.tagName === "TEXTAREA"
-  )
-    return;
-  controller.handleKeydown(e);
-}
-
 onMounted(() => {
-  window.addEventListener("keydown", handleKeydown);
+  window.addEventListener("keydown", controller.handleKeydown);
   if (sessionsStore.sessions.length === 0) {
     sessionsStore.fetchSessions();
   }
 });
 onUnmounted(() => {
-  window.removeEventListener("keydown", handleKeydown);
+  window.removeEventListener("keydown", controller.handleKeydown);
 });
 
 const { initialLoading, retryLoadTurns } = useReplaySessionLoader(store, sessionId);
@@ -244,6 +235,7 @@ const totalToolCalls = computed(() =>
           @prev="controller.prevStep()"
           @set-speed="controller.setSpeed($event)"
           @scrub-click="controller.onScrubberClick($event)"
+          @seek="controller.goToStep($event)"
         />
 
         <!-- Main Split Layout -->
