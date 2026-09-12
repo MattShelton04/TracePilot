@@ -82,7 +82,7 @@ jobs:
           node --test harness/scripts/visual/*.test.mjs
           python3 harness/scripts/visual/extract_test.py
       - name: Capture real frontend routes with synthetic backend fixtures
-        run: node harness/scripts/visual/capture.mjs --root=app --out=captures --shard=${{ matrix.shard }}/2
+        run: node harness/scripts/visual/capture.mjs --root=app --out=captures --shard=${{ matrix.shard }}/2 --revision=${{ matrix.revision }}
       - name: Retain captures and explicit failures
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

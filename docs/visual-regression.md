@@ -28,8 +28,12 @@ required for applicable product fixes.
   dependencies still come from their respective target revision.
 - Missing routes, incompatible old client fixture contracts, failed checkouts,
   runtime errors and missing fixture commands are recorded as **base unavailable**
-  or **incomplete**. They are never treated as an unchanged/pass result. A first
-  push with no prior commit can have no usable base.
+  or **incomplete**, never as unchanged. Head capture jobs fail for both failed
+  and incomplete cases, including console errors and missing fixtures. Base
+  cases may be unavailable when a PR introduces a view; those limitations stay
+  in the report without failing an otherwise completed base capture. Checkout,
+  dependency installation and browser/server startup failures still fail the
+  affected job. A first push with no prior commit can have no usable base.
 - Changed views are detected by exact PNG hashes. Both sides use matching
   Ubuntu 24.04 runners and the same browser. Changes are for human review; the
   suite does not fail merely because an intentional screenshot changed.
@@ -40,6 +44,7 @@ dependencies, and upload captures even when a view fails. This reduces capture
 wall time at the cost of four dependency/browser installations; no Rust build
 is needed. The publisher installs no dependencies and consumes no PR cache.
 Concurrency cancels superseded capture runs; publication is serialized.
+Publication queues pending reports so an unrelated PR cannot replace a waiting report.
 On the development Windows/Edge host, repeated warmed single-shard 33-view captures
 took 39–41 seconds, excluding dependency/browser installation. Two shards are
 an initial wall-time tradeoff; use uploaded capture `durationMs` values and
@@ -120,6 +125,8 @@ separate loopback Vite server/cache and browser, and closes both when finished.
 It does not attach to the native app. `--case=search-results` selects one case;
 `--shard=1/2` selects one of two shards. `--port=<port>` is optional; the default
 uses an available ephemeral port. Output stays under ignored `.tracepilot/`.
+Local captures default to `--revision=head`; use `--revision=base` only when
+capturing a historical comparison whose unavailable cases should be reported.
 
 Add a manifest entry with a stable lowercase ID, real hash route, explicit
 state, and a selector that only becomes visible when the intended content is

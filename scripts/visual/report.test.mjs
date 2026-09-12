@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { captureExitCode } from "./capture-policy.mjs";
 import { cases, selectCases } from "./manifest.mjs";
 import { buildReport, escapeHtml, validatePng } from "./report.mjs";
 
@@ -15,6 +16,19 @@ function png(value = 0) {
   bytes[24] = value;
   return bytes;
 }
+
+test("head capture errors fail CI while unavailable historical cases remain reportable", () => {
+  const captured = { id: "sessions", status: "captured" };
+  assert.equal(captureExitCode([captured]), 0);
+  assert.equal(captureExitCode([captured], "base"), 0);
+  for (const status of ["incomplete", "failed"]) {
+    const reports = [captured, { id: "new-route", status }];
+    assert.equal(captureExitCode(reports, "head"), 1);
+    assert.equal(captureExitCode(reports, "base"), 0);
+  }
+  assert.equal(captureExitCode([]), 1);
+  assert.throws(() => captureExitCode([captured], "typo"), /Invalid visual revision/);
+});
 
 test("two shards cover every case exactly once and reject invalid shards", () => {
   assert.deepEqual(

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { captureExitCode } from "./capture-policy.mjs";
 import { fixedTime, selectCases, viewport } from "./manifest.mjs";
 
 const args = Object.fromEntries(
@@ -11,6 +12,8 @@ const args = Object.fromEntries(
 const root = resolve(args.root ?? ".");
 const output = resolve(args.out ?? ".tracepilot/visual");
 const shard = args.shard ?? "1/1";
+const revision = args.revision ?? "head";
+captureExitCode([], revision); // Validate before starting the browser or Vite.
 const selected = selectCases(shard).filter((item) => !args.case || item.id === args.case);
 if (!selected.length) throw new Error("No visual cases selected");
 const app = resolve(root, "apps/desktop");
@@ -176,6 +179,7 @@ try {
     JSON.stringify(
       {
         schema: 1,
+        revision,
         viewport,
         fixedTime,
         shard,
@@ -187,4 +191,4 @@ try {
     ),
   );
 }
-if (reports.some((item) => item.status === "failed")) process.exitCode = 1;
+process.exitCode = captureExitCode(reports, revision);

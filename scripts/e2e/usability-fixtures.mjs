@@ -1,10 +1,9 @@
 /**
  * Create sanitized on-disk sessions for the real Tauri usability audit.
  * Usage: node scripts/e2e/usability-fixtures.mjs
- *
  * All output stays under .tracepilot/usability-audit-home. This never changes
  * app config, starts the app, calls a service, or removes an existing resource.
- * Repeated runs return the existing manifest instead of replacing audit data.
+ * Repeated runs preserve audit data; --enrich-viewers only adds missing Explorer assets.
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -19,6 +18,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { enrichViewerFixtures } from "./usability-viewer-fixtures.mjs";
 
 const checkout = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const auditHome = join(checkout, ".tracepilot/usability-audit-home");
@@ -29,7 +29,6 @@ const owner = "tracepilot-usability-audit-2026-09-12";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const models = ["gpt-5.6-luna", "gpt-4.1", "claude-sonnet-4.6", "claude-opus-4.6"];
 const repositories = ["audit/demo", "audit/documentation", "audit/desktop-accessibility"];
-
 function assertChild(parent, child) {
   const difference = relative(parent, child);
   assert(
@@ -39,7 +38,6 @@ function assertChild(parent, child) {
       !difference.startsWith(`..${sep}`),
   );
 }
-
 // Reject directory redirects before creating any file. Existing parents are
 // allowed (the launcher may already have created the blank task profile).
 function ensureDirectory(path) {
@@ -59,12 +57,10 @@ function ensureDirectory(path) {
     }
   }
 }
-
 function writeNew(path, content) {
   assertChild(auditHome, path);
   writeFileSync(path, content, { encoding: "utf8", flag: "wx" });
 }
-
 function git(...args) {
   const result = spawnSync(
     "git",
@@ -81,7 +77,6 @@ function git(...args) {
   );
   return result.stdout.trim();
 }
-
 function createRepository() {
   ensureDirectory(dirname(repository));
   mkdirSync(repository); // Refuse any preexisting repository.
@@ -114,7 +109,6 @@ function createRepository() {
   git("commit", "--no-gpg-sign", "--message", "Create disposable TracePilot audit demo");
   return git("rev-parse", "HEAD");
 }
-
 function workspace(session, start, end) {
   const metadata =
     session.kind === "missing-metadata"
@@ -363,7 +357,7 @@ async function createArtifacts(directory) {
   return { sqlite: true, todos: 4, dependencies: 2, customTableRows: 120, checkpoints: 3 };
 }
 
-function display(manifest, reused) {
+function display(manifest, reused, viewerArtifacts) {
   console.log(
     JSON.stringify(
       {
@@ -374,6 +368,7 @@ function display(manifest, reused) {
         repository,
         repositoryCommit: manifest.repositoryCommit,
         artifacts: manifest.artifacts,
+        viewerArtifacts,
         sessions: manifest.sessions
           .filter((session) => session.kind !== "list")
           .map(({ id, kind, title, eventCount }) => ({ id, kind, title, eventCount })),
@@ -384,6 +379,10 @@ function display(manifest, reused) {
   );
 }
 
+const enrichViewers = process.argv[2] === "--enrich-viewers";
+assert(process.argv.length <= 3 && (!process.argv[2] || enrichViewers), "Unknown fixture option.");
+if (enrichViewers)
+  assert(existsSync(manifestPath), "Enrichment requires a complete fixture profile.");
 ensureDirectory(auditHome);
 if (existsSync(manifestPath)) {
   const existing = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -397,7 +396,10 @@ if (existsSync(manifestPath)) {
     assert(uuidPattern.test(session.id));
     assert(existsSync(join(sessionRoot, session.id)), `Fixture session is missing: ${session.id}`);
   }
-  display(existing, true);
+  const viewerArtifacts = enrichViewers
+    ? enrichViewerFixtures(existing, { sessionRoot, ensureDirectory, writeNew })
+    : undefined;
+  display(existing, true, viewerArtifacts);
 } else {
   ensureDirectory(sessionRoot);
   const scenarios = [
