@@ -42,14 +42,30 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   const editingYaml = ref("");
   const loading = ref(false);
   const saving = ref(false);
+  const restoring = ref(false);
   const error = ref<string | null>(null);
   const initGuard = useAsyncGuard();
   const migrationGuard = useAsyncGuard();
+  let latestInitialization: Promise<boolean> | null = null;
 
   const hasCustomizations = computed(() => versions.value.some((v) => v.hasCustomizations));
   const activeVersionStr = computed(() => activeVersion.value?.version ?? "unknown");
 
-  async function initialize() {
+  async function initialize(): Promise<boolean> {
+    let request = loadConfiguration();
+    latestInitialization = request;
+    let refreshed = await request;
+    // A view can remount while Restore is rereading. Follow the newest read so
+    // a discarded older response cannot invalidate a fresh configuration.
+    while (latestInitialization !== request && latestInitialization) {
+      request = latestInitialization;
+      refreshed = await request;
+    }
+    return refreshed;
+  }
+
+  async function loadConfiguration() {
+    let configRefreshed = false;
     await runAction({
       loading,
       error,
@@ -64,7 +80,10 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
         }),
       onSuccess: (settled) => {
         if (settled.agents.status === "fulfilled") agents.value = settled.agents.value;
-        if (settled.config.status === "fulfilled") copilotConfig.value = settled.config.value;
+        if (settled.config.status === "fulfilled") {
+          copilotConfig.value = settled.config.value;
+          configRefreshed = true;
+        }
         if (settled.versions.status === "fulfilled") versions.value = settled.versions.value;
         if (settled.active.status === "fulfilled") activeVersion.value = settled.active.value;
         if (settled.backups.status === "fulfilled") backups.value = settled.backups.value;
@@ -72,6 +91,7 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
         error.value = aggregateSettledErrors(Object.values(settled));
       },
     });
+    return configRefreshed;
   }
 
   function selectAgent(agent: AgentDefinition) {
@@ -80,7 +100,7 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   }
 
   async function saveAgent(): Promise<boolean> {
-    if (!selectedAgent.value) return false;
+    if (!selectedAgent.value || saving.value) return false;
     const agent = selectedAgent.value;
     saving.value = true;
     try {
@@ -98,6 +118,7 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   }
 
   async function saveGlobalConfig(config: Record<string, unknown>): Promise<boolean> {
+    if (saving.value) return false;
     saving.value = true;
     try {
       const ok = await runMutation(error, async () => {
@@ -129,13 +150,28 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
   }
 
   async function restoreBackup(backupPath: string, restoreTo: string): Promise<boolean> {
-    const ok = await runMutation(error, async () => {
-      await restoreBackupApi(backupPath, restoreTo);
-      toastStore.success("Backup restored");
-      await initialize(); // Reload everything
-      return true as const;
-    });
-    return ok ?? false;
+    if (saving.value || loading.value) return false;
+    saving.value = true;
+    restoring.value = true;
+    try {
+      const ok = await runMutation(error, async () => {
+        await restoreBackupApi(backupPath, restoreTo);
+        const refreshed = await initialize();
+        if (!refreshed || !copilotConfig.value) {
+          // The write succeeded, but the previous snapshot no longer represents disk.
+          copilotConfig.value = null;
+          throw new Error(
+            `Backup restored, but configuration refresh failed. Use Reload from Disk before saving. ${error.value ?? ""}`.trim(),
+          );
+        }
+        toastStore.success("Backup restored");
+        return true as const;
+      });
+      return ok ?? false;
+    } finally {
+      restoring.value = false;
+      saving.value = false;
+    }
   }
 
   async function deleteBackup(backupPath: string): Promise<boolean> {
@@ -192,6 +228,7 @@ export const useConfigInjectorStore = defineStore("configInjector", () => {
     editingYaml,
     loading,
     saving,
+    restoring,
     error,
     hasCustomizations,
     activeVersionStr,

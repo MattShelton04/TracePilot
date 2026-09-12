@@ -246,6 +246,10 @@
   margin-bottom: 14px;
 }
 
+.agent-tools-list {
+  display: contents;
+}
+
 .tool-chip {
   display: inline-block;
   padding: 2px 7px;
@@ -262,6 +266,8 @@
 }
 
 .tool-chip--more {
+  font-family: inherit;
+  line-height: inherit;
   cursor: pointer;
   background: var(--accent-subtle, var(--neutral-subtle));
   color: var(--accent-fg, var(--text-secondary));
@@ -270,6 +276,12 @@
 
 .tool-chip--more:hover {
   background: var(--accent-muted, var(--canvas-default));
+}
+
+.config-injector-page
+  :is(.tool-chip--more, .toggle-btn, .switch-track, .btn-icon-sm):focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: -2px;
 }
 
 .auto-saved-hint {
@@ -862,12 +874,22 @@
 
 .backup-form {
   display: flex;
+  align-items: flex-end;
   gap: 10px;
   margin-top: 10px;
 }
 
-.backup-form .form-input {
+.backup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   flex: 1;
+  min-width: 0;
+}
+
+.backup-field .form-input {
+  width: 100%;
+  min-width: 0;
 }
 
 .backup-list {
