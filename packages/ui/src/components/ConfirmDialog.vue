@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import { type ConfirmVariant, useConfirmDialog } from "../composables/useConfirmDialog";
 import ModalDialog from "./ModalDialog.vue";
 
@@ -8,17 +8,20 @@ const { options, visible, resolve } = useConfirmDialog();
 const checked = ref(false);
 const cancelBtnRef = ref<HTMLButtonElement | null>(null);
 
-// Reset checkbox & focus Cancel button each time the dialog opens.
-watch(visible, async (open) => {
+// Reset the checkbox each time the dialog opens. ModalDialog coordinates the
+// Cancel focus with its overlay ownership, including nested confirmations.
+watch(visible, (open) => {
   if (open) {
     checked.value = false;
-    await nextTick();
-    cancelBtnRef.value?.focus();
   }
 });
 
 function handleCancel() {
   resolve({ confirmed: false, checked: false });
+}
+
+function initialFocus() {
+  return cancelBtnRef.value;
 }
 
 function handleConfirm() {
@@ -44,6 +47,7 @@ function variantClass(v?: ConfirmVariant): string {
   <ModalDialog
     :visible="visible"
     :title="options?.title"
+    :initial-focus="initialFocus"
     role="alertdialog"
     @update:visible="handleVisibleUpdate"
   >

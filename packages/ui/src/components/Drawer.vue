@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { X } from "lucide-vue-next";
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref } from "vue";
+import { useOverlayFocus } from "../composables/useOverlayFocus";
 
 /**
  * Side-mounted drawer primitive.
@@ -37,44 +38,20 @@ const emit = defineEmits<{
   "update:visible": [value: boolean];
 }>();
 
-const overlayRef = ref<HTMLElement | null>(null);
 const panelRef = ref<HTMLElement | null>(null);
-let previouslyFocused: HTMLElement | null = null;
 
 function close() {
   emit("update:visible", false);
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape" && props.visible) {
-    const overlays = document.querySelectorAll(".drawer-overlay, .modal-overlay");
-    if (overlays.length === 0 || overlays[overlays.length - 1] === overlayRef.value) {
-      e.preventDefault();
-      close();
-    }
-  }
-}
-
 const panelStyle = computed(() => ({ width: props.width, maxWidth: "90vw" }));
 
-watch(
-  () => props.visible,
-  (v) => {
-    if (v) {
-      previouslyFocused = document.activeElement as HTMLElement | null;
-      nextTick(() => {
-        panelRef.value?.focus();
-      });
-    } else if (previouslyFocused) {
-      const el = previouslyFocused;
-      previouslyFocused = null;
-      nextTick(() => el.focus?.());
-    }
-  },
-);
-
-onMounted(() => document.addEventListener("keydown", onKeydown));
-onUnmounted(() => document.removeEventListener("keydown", onKeydown));
+useOverlayFocus({
+  active: () => props.visible,
+  panel: panelRef,
+  modal: () => props.modal,
+  onEscape: close,
+});
 </script>
 
 <template>
@@ -82,7 +59,6 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
     <Transition name="drawer">
       <div
         v-if="visible"
-        ref="overlayRef"
         class="drawer-overlay"
         :class="[`drawer-overlay--${placement}`, { 'drawer-overlay--modal': modal }]"
         @mousedown.self="close"

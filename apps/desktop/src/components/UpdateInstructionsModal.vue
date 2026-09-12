@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ProgressBar } from "@tracepilot/ui";
-import { computed, onMounted } from "vue";
+import { ProgressBar, useOverlayFocus } from "@tracepilot/ui";
+import { computed, onMounted, ref } from "vue";
 import { useAutoUpdate } from "@/composables/useAutoUpdate";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
 import { openExternal } from "@/utils/openExternal";
@@ -8,6 +8,9 @@ import { openExternal } from "@/utils/openExternal";
 const emit = defineEmits<{
   close: [];
 }>();
+
+const panelRef = ref<HTMLElement | null>(null);
+useOverlayFocus({ active: true, panel: panelRef, onEscape: () => emit("close") });
 
 const { updateResult } = useUpdateCheck();
 const { status, progress, errorMessage, installType, detectInstallType, installUpdate } =
@@ -46,7 +49,7 @@ function handleOpenRelease() {
 <template>
   <Teleport to="body">
     <div class="modal-overlay" @click.self="emit('close')">
-      <div class="modal-content" role="dialog" aria-labelledby="update-modal-title">
+      <div ref="panelRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="update-modal-title" tabindex="-1">
         <div class="modal-header">
           <h2 id="update-modal-title">Update to v{{ version }}</h2>
           <button class="modal-close" aria-label="Close update instructions" @click="emit('close')">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CreateWorktreeRequest, WorktreeInfo } from "@tracepilot/types";
-import { LoadingSpinner, SearchableSelect, useToast } from "@tracepilot/ui";
+import { LoadingSpinner, SearchableSelect, useOverlayFocus, useToast } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
 import { useGitRepository } from "@/composables/useGitRepository";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -50,6 +50,9 @@ const computedWorktreePath = computed(() => {
 function close() {
   emit("update:modelValue", false);
 }
+
+const panelRef = ref<HTMLElement | null>(null);
+useOverlayFocus({ active: () => props.modelValue, panel: panelRef, onEscape: close });
 
 async function onRepoChange() {
   const repoPath = createModalRepoPath.value;
@@ -116,7 +119,7 @@ watch(
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="modelValue" class="modal-overlay" @click.self="close">
-        <div class="modal-dialog" role="dialog" aria-labelledby="create-wt-title">
+        <div ref="panelRef" class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="create-wt-title" tabindex="-1">
           <div class="modal-header">
             <h2 id="create-wt-title" class="modal-title">Create Worktree</h2>
             <button class="icon-btn" aria-label="Close create worktree dialog" @click="close">

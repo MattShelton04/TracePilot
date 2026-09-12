@@ -1,13 +1,18 @@
 <script setup lang="ts">
-defineProps<{ visible: boolean }>();
-defineEmits<{ close: [] }>();
+import { useOverlayFocus } from "@tracepilot/ui";
+import { ref } from "vue";
+
+const props = defineProps<{ visible: boolean }>();
+const emit = defineEmits<{ close: [] }>();
+const panelRef = ref<HTMLElement | null>(null);
+useOverlayFocus({ active: () => props.visible, panel: panelRef, onEscape: () => emit("close") });
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
       <div v-if="visible" class="syntax-help-overlay" @click.self="$emit('close')">
-        <div class="syntax-help-modal">
+        <div ref="panelRef" class="syntax-help-modal" role="dialog" aria-modal="true" aria-label="Search Syntax Guide" tabindex="-1">
           <div class="syntax-help-header">
             <h3>Search Syntax Guide</h3>
             <button

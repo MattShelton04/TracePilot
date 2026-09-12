@@ -14,7 +14,7 @@ function setLineNumbersRef(el: Element | null) {
 <template>
   <div class="instructions-section">
     <div class="instructions-header">
-      <span class="instructions-label">Instructions</span>
+      <label for="skill-editor-instructions" class="instructions-label">Instructions</label>
       <span class="instructions-hint">Markdown supported</span>
     </div>
     <div class="md-toolbar">
@@ -45,6 +45,7 @@ function setLineNumbersRef(el: Element | null) {
         <span v-for="n in ctx.editorLineNumbers" :key="n" class="ln">{{ n }}</span>
       </div>
       <textarea
+        id="skill-editor-instructions"
         :ref="setEditorRef as unknown as string"
         class="md-textarea"
         :value="ctx.previewBody"

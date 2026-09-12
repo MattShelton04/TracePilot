@@ -1,6 +1,9 @@
-import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
+import { afterEach, describe, expect, it } from "vitest";
+import { nextTick } from "vue";
 import ModalDialog from "../components/ModalDialog.vue";
+
+enableAutoUnmount(afterEach);
 
 describe("ModalDialog", () => {
   it("renders nothing when visible is false", () => {
@@ -56,9 +59,11 @@ describe("ModalDialog", () => {
 
   it("emits update:visible false on Escape key", async () => {
     const wrapper = mount(ModalDialog, {
+      attachTo: document.body,
       props: { visible: true, title: "Test" },
       global: { stubs: { Teleport: true } },
     });
+    await nextTick();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(wrapper.emitted("update:visible")).toBeTruthy();
     expect(wrapper.emitted("update:visible")?.[0]).toEqual([false]);

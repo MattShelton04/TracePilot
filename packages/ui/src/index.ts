@@ -199,6 +199,8 @@ export { matchesCombo, useKeydown, useShortcut } from "./composables/useKeyboard
 export { useLiveDuration } from "./composables/useLiveDuration";
 export type { UseLocalStorageOptions } from "./composables/useLocalStorage";
 export { useLocalStorage } from "./composables/useLocalStorage";
+export type { UseOverlayFocusOptions } from "./composables/useOverlayFocus";
+export { useOverlayFocus } from "./composables/useOverlayFocus";
 export type { UsePersistedRefOptions } from "./composables/usePersistedRef";
 export { usePersistedRef } from "./composables/usePersistedRef";
 export type {

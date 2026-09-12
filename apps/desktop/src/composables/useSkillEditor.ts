@@ -12,7 +12,7 @@ import {
   ref,
   watch,
 } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { browseForFile } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -94,13 +94,36 @@ export function useSkillEditor() {
   });
 
   const lastSavedDisplay = computed(() => {
-    if (!lastSaved.value) return "Not saved yet";
+    if (editorDirty.value) return "Unsaved changes";
+    if (!lastSaved.value) return "Saved";
     const diff = Math.floor((Date.now() - lastSaved.value.getTime()) / 1000);
     if (diff < 10) return "Just saved";
     if (diff < 60) return `Saved ${diff}s ago`;
     const mins = Math.floor(diff / 60);
     return `Saved ${mins} min ago`;
   });
+
+  // Guard all navigation paths, including the sidebar and history, rather than
+  // protecting only the editor's Back button. Share a pending decision so rapid
+  // navigation cannot replace an already-open confirmation.
+  let pendingNavigation: Promise<boolean> | null = null;
+  function confirmNavigation(): boolean | Promise<boolean> {
+    if (!editorDirty.value || isReadOnly.value) return true;
+    if (!pendingNavigation) {
+      pendingNavigation = showConfirm({
+        title: "Unsaved Skill Changes",
+        message: "Leave this skill and discard your unsaved changes?",
+        variant: "warning",
+        confirmLabel: "Discard and Leave",
+        cancelLabel: "Keep Editing",
+      }).then(({ confirmed }) => confirmed).finally(() => { pendingNavigation = null; });
+    }
+    return pendingNavigation;
+  }
+  onBeforeRouteLeave(confirmNavigation);
+  onBeforeRouteUpdate((to, from) =>
+    to.params.name === from.params.name ? true : confirmNavigation(),
+  );
 
   // ─── Lifecycle ────────────────────────────────────────────
   onMounted(async () => {
@@ -230,6 +253,7 @@ export function useSkillEditor() {
     const ok = await store.deleteSkill(skillDir.value);
     deleting.value = false;
     if (ok) {
+      editorDirty.value = false;
       pushRoute(router, ROUTE_NAMES.skillsManager);
     }
   }
@@ -294,9 +318,10 @@ export function useSkillEditor() {
     const normalized = href.replace(/^\.\//, "");
 
     // Find matching asset in the loaded assets list
-    const matchingAsset = assets.value.find(
-      (a) => a.path === normalized || a.path.endsWith(`/${normalized}`) || a.name === normalized,
-    );
+    const matchingAsset = assets.value.find((asset) => {
+      const path = asset.path.replace(/\\/g, "/");
+      return path === normalized || path.endsWith(`/${normalized}`) || asset.name === normalized;
+    });
 
     if (matchingAsset) {
       await handleViewAsset(matchingAsset);

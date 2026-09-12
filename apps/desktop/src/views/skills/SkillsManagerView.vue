@@ -4,20 +4,30 @@ import {
   formatNumberFull,
   type SkillBatchImportResult,
 } from "@tracepilot/types";
-import { PageHeader, PageShell, Tooltip, useConfirmDialog } from "@tracepilot/ui";
+import { PageHeader, PageShell, Tooltip, useConfirmDialog, useOverlayFocus } from "@tracepilot/ui";
 import { Brain } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
 import { confirmSkillDeletion } from "@/components/skills/skillActions";
 import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "@/components/skills/tokenEstimate";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import "@/styles/features/skills-manager.css";
 import { useSkillsStore } from "@/stores/skills";
 
 const store = useSkillsStore();
+const router = useRouter();
 const { confirm: showConfirm } = useConfirmDialog();
 const showImportWizard = ref(false);
 const showNewSkillModal = ref(false);
+const newSkillPanelRef = ref<HTMLElement | null>(null);
+useOverlayFocus({
+  active: showNewSkillModal,
+  panel: newSkillPanelRef,
+  onEscape: () => { showNewSkillModal.value = false; },
+});
 
 // New skill form
 const newSkillName = ref("");
@@ -46,7 +56,7 @@ function formatTokensWithCommas(n: number): string {
 }
 
 async function handleCreateSkill() {
-  if (!newSkillName.value.trim()) return;
+  if (creating.value || !newSkillName.value.trim()) return;
   creating.value = true;
   const dir = await store.createSkill(newSkillName.value.trim(), newSkillDesc.value.trim(), "");
   creating.value = false;
@@ -54,6 +64,7 @@ async function handleCreateSkill() {
     showNewSkillModal.value = false;
     newSkillName.value = "";
     newSkillDesc.value = "";
+    pushRoute(router, ROUTE_NAMES.skillEditor, { params: { name: dir } });
   }
 }
 
@@ -233,7 +244,7 @@ async function handleToggleEnabled(_dir: string, enabled: boolean, name: string)
 
       <!-- New Skill Modal -->
       <div v-if="showNewSkillModal" class="modal-overlay" @click.self="showNewSkillModal = false">
-        <div class="modal">
+          <div ref="newSkillPanelRef" class="modal" role="dialog" aria-modal="true" aria-label="New Skill" tabindex="-1">
           <div class="modal__header">
             <h3 class="modal__title">New Skill</h3>
             <button

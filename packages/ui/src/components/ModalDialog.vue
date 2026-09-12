@@ -1,58 +1,44 @@
 <script setup lang="ts">
 import { X } from "lucide-vue-next";
-import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { ref } from "vue";
+import { useOverlayFocus } from "../composables/useOverlayFocus";
 
 const props = defineProps<{
   visible: boolean;
   title?: string;
   /** ARIA role for the dialog element. Defaults to 'dialog'. Use 'alertdialog' for confirmations. */
   role?: "dialog" | "alertdialog";
+  /** Resolve the initial control after this dialog takes focus ownership. */
+  initialFocus?: () => HTMLElement | null;
 }>();
 
 const emit = defineEmits<{
   "update:visible": [value: boolean];
 }>();
 
-const overlayRef = ref<HTMLElement | null>(null);
-const closeBtnRef = ref<HTMLElement | null>(null);
+const panelRef = ref<HTMLElement | null>(null);
 
 function close() {
   emit("update:visible", false);
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape" && props.visible) {
-    // Only close if this is the topmost modal
-    const allOverlays = document.querySelectorAll(".modal-overlay");
-    if (allOverlays.length === 0 || allOverlays[allOverlays.length - 1] === overlayRef.value) {
-      close();
-    }
-  }
-}
-
-watch(
-  () => props.visible,
-  (v) => {
-    if (v) {
-      nextTick(() => closeBtnRef.value?.focus());
-    }
-  },
-);
-
-onMounted(() => document.addEventListener("keydown", onKeydown));
-onUnmounted(() => document.removeEventListener("keydown", onKeydown));
+useOverlayFocus({
+  active: () => props.visible,
+  panel: panelRef,
+  onEscape: close,
+  initialFocus: () => props.initialFocus?.() ?? null,
+});
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="visible" ref="overlayRef" class="modal-overlay" @click.self="close">
-      <div class="modal" :role="role ?? 'dialog'" aria-modal="true" :aria-label="title">
+    <div v-if="visible" class="modal-overlay" @click.self="close">
+      <div ref="panelRef" class="modal" :role="role ?? 'dialog'" aria-modal="true" :aria-label="title" tabindex="-1">
         <div v-if="title || $slots.header" class="modal-header">
           <slot name="header">
             <h3>{{ title }}</h3>
           </slot>
           <button
-            ref="closeBtnRef"
             class="btn btn-ghost btn-sm modal-close"
             type="button"
             @click="close"

@@ -1,5 +1,5 @@
 import type { SkillAsset, SkillFrontmatter } from "@tracepilot/types";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, provide } from "vue";
 
@@ -7,9 +7,12 @@ import { defineComponent, h, provide } from "vue";
 
 const routeMock = { params: { name: "my-skill" }, query: {} as Record<string, string> };
 const routerMock = { push: vi.fn(), replace: vi.fn() };
+const navigationGuards = vi.hoisted(() => ({ leave: vi.fn(), update: vi.fn() }));
 vi.mock("vue-router", () => ({
   useRoute: () => routeMock,
   useRouter: () => routerMock,
+  onBeforeRouteLeave: (guard: unknown) => navigationGuards.leave(guard),
+  onBeforeRouteUpdate: (guard: unknown) => navigationGuards.update(guard),
 }));
 
 const confirmMock = vi.fn<(opts?: unknown) => Promise<{ confirmed: boolean }>>(async () => ({
@@ -103,6 +106,51 @@ beforeEach(() => {
 });
 
 describe("useSkillEditor", () => {
+  it("preserves unsaved edits when navigation is cancelled and permits an explicit discard", async () => {
+    const { ctx, wrapper } = mountHarness();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(ctx.lastSavedDisplay).toBe("Saved");
+    ctx.editorDirty = true;
+    ctx.rawContent = "unsaved instruction";
+    expect(ctx.lastSavedDisplay).toBe("Unsaved changes");
+    const guard = navigationGuards.leave.mock.calls.at(-1)![0];
+    confirmMock.mockResolvedValueOnce({ confirmed: false });
+    expect(await guard()).toBe(false);
+    expect(ctx.rawContent).toBe("unsaved instruction");
+    expect(ctx.editorDirty).toBe(true);
+    confirmMock.mockResolvedValueOnce({ confirmed: true });
+    expect(await guard()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("guards changing skills but allows same-skill query navigation", async () => {
+    const { ctx, wrapper } = mountHarness();
+    await new Promise((r) => setTimeout(r, 0));
+    ctx.editorDirty = true;
+    const guard = navigationGuards.update.mock.calls.at(-1)![0];
+    expect(guard({ params: { name: "a" } }, { params: { name: "a" } })).toBe(true);
+    expect(confirmMock).not.toHaveBeenCalled();
+    confirmMock.mockResolvedValueOnce({ confirmed: false });
+    expect(await guard({ params: { name: "b" } }, { params: { name: "a" } })).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("uses Windows asset metadata when a Markdown link uses forward slashes", async () => {
+    storeMock.listAssets.mockResolvedValue([
+      { name: "checklist.md", path: "references\\checklist.md", sizeBytes: 53, isDirectory: false },
+    ]);
+    const { ctx, wrapper } = mountHarness();
+    await new Promise((r) => setTimeout(r, 0));
+    const link = document.createElement("a");
+    link.href = "references/checklist.md";
+    link.addEventListener("click", ctx.handlePreviewClick);
+    link.dispatchEvent(new MouseEvent("click", { cancelable: true }));
+    await flushPromises();
+    expect(ctx.viewingAsset?.sizeBytes).toBe(53);
+    expect(storeMock.readAsset).toHaveBeenCalledWith("my-skill", "references\\checklist.md");
+    wrapper.unmount();
+  });
+
   it("derives skillDir from the route param (url-decoded)", () => {
     routeMock.params.name = encodeURIComponent("project/my-skill");
     const { ctx, wrapper } = mountHarness();
