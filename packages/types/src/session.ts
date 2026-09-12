@@ -60,6 +60,9 @@ export interface SessionDetail {
 
 /** Shutdown metrics from session.shutdown event */
 export interface ShutdownMetrics {
+  /** Per-agent billing is a shutdown snapshot, not a live request stream. */
+  agentUsage?: import("./agentUsage.js").AgentUsageSnapshot | null;
+  metricsTimestamp?: string | null;
   shutdownType?: string | null;
   shutdownCount?: number | null;
   totalPremiumRequests?: number | null;

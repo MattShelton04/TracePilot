@@ -72,6 +72,12 @@ pub struct ShutdownData {
     pub model_metrics: Option<HashMap<String, ModelMetricDetail>>,
     pub session_segments: Option<Vec<SessionSegment>>,
     pub agent_metrics: Option<serde_json::Value>,
+    /// Normalized per-agent ledger, populated only for aggregated Metrics responses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_usage: Option<crate::models::agent_usage::AgentUsageSnapshot>,
+    /// Timestamp of the latest session shutdown used by the Metrics response.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metrics_timestamp: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -12,3 +12,4 @@ pub use session_summary::{SessionSummary, ShutdownMetrics};
 
 // Re-export the raw event type for consumers
 pub use crate::parsing::events::RawEvent as SessionEvent;
+pub mod agent_usage;
