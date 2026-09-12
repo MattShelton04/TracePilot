@@ -1,5 +1,56 @@
 [
   {
+    "id": 34695234702,
+    "sha": "73301f66d5882b7f8237f27131b0cb24b91b6824",
+    "pr": null,
+    "attempt": 1,
+    "title": "Main · 73301f66 · fixture visual comparison",
+    "created": "2026-09-12T13:00:51.000Z",
+    "summary": {
+      "changed": 0,
+      "unchanged": 27,
+      "subtle": 6,
+      "incomplete": 0,
+      "baseUnavailable": 0,
+      "total": 33
+    },
+    "views": [
+      "sessions",
+      "session-overview",
+      "session-conversation",
+      "session-events",
+      "session-todos",
+      "session-metrics",
+      "session-context",
+      "session-explorer",
+      "session-timeline",
+      "session-explorer-file",
+      "search",
+      "search-results",
+      "analytics",
+      "tools",
+      "code",
+      "model-comparison",
+      "compare",
+      "compare-populated",
+      "replay",
+      "export",
+      "export-preview",
+      "settings",
+      "settings-pricing",
+      "orchestration",
+      "worktree-manager",
+      "session-launcher",
+      "config-injector",
+      "mcp-manager",
+      "mcp-server-detail",
+      "skills-manager",
+      "skill-editor",
+      "cli-context",
+      "not-found"
+    ]
+  },
+  {
     "id": 34694173445,
     "sha": "2e77551c521eea3bce1c745243d1a24b89d91d82",
     "pr": 814,
@@ -9,6 +60,7 @@
     "summary": {
       "changed": 7,
       "unchanged": 26,
+      "subtle": 0,
       "incomplete": 0,
       "baseUnavailable": 0,
       "total": 33
@@ -59,6 +111,7 @@
     "summary": {
       "changed": 7,
       "unchanged": 26,
+      "subtle": 0,
       "incomplete": 0,
       "baseUnavailable": 0,
       "total": 33
@@ -109,6 +162,7 @@
     "summary": {
       "changed": 5,
       "unchanged": 28,
+      "subtle": 0,
       "incomplete": 0,
       "baseUnavailable": 0,
       "total": 33
@@ -159,6 +213,7 @@
     "summary": {
       "changed": 7,
       "unchanged": 26,
+      "subtle": 0,
       "incomplete": 0,
       "baseUnavailable": 0,
       "total": 33
@@ -209,6 +264,7 @@
     "summary": {
       "changed": 23,
       "unchanged": 10,
+      "subtle": 0,
       "incomplete": 0,
       "baseUnavailable": 0,
       "total": 33
