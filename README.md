@@ -258,7 +258,9 @@ The workspace version is centralized in the root `Cargo.toml` and mirrored into 
 .\scripts\bump-version.ps1 -Version <version>
 ```
 
-After a version bump, update `CHANGELOG.md`, update the release manifest if needed, run the validation gates, and publish through the repository release workflow.
+The script updates only the root and pnpm workspace package manifests, leaving third-party test fixtures and local Copilot packages at their own versions. It requires pnpm and `cargo-edit` (`cargo install cargo-edit`).
+
+After a version bump, update `CHANGELOG.md` and `apps/desktop/public/release-manifest.json`, run the validation gates, and open a PR to `main`. Once the PR is merged, tag the merged commit with `v<version>` and push that tag to trigger the repository release workflow.
 
 ---
 
