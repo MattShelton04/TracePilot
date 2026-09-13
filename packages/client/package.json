@@ -1,6 +1,6 @@
 {
   "name": "@tracepilot/client",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "description": "TypeScript client wrapper for TracePilot backend commands",
   "author": "Matt Shelton (@MattShelton04)",
