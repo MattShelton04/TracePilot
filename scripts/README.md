@@ -10,7 +10,7 @@ Keep this index in sync when scripts are added, renamed, or removed.
 | --- | --- |
 | `bench.ps1` | Run the `tracepilot-bench` Criterion suite locally (Windows). |
 | `build.ps1` | Full release build of the desktop app + Rust workspace (Windows). |
-| `bump-version.ps1` | Synchronise `version` across `package.json`, workspace `Cargo.toml`, and `tauri.conf.json`. |
+| `bump-version.ps1` | Synchronise the Cargo workspace/lockfile and root/pnpm workspace package versions. Tauri inherits the Cargo version; third-party fixtures and non-workspace packages are excluded. |
 | `check-file-sizes.mjs` | File-size gate enforced by lefthook/CI. Fails on new per-file LOC-cap violations; see top-of-file allowlist. |
 | `clean.ps1` | Remove build artefacts (`target/`, `dist/`, `node_modules/.cache`, etc.). |
 | `dev.ps1` | Launch `pnpm tauri dev` with sensible local defaults (Windows). |

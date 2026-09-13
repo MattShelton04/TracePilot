@@ -1,6 +1,6 @@
 # scripts/bump-version.ps1
 # Usage: .\scripts\bump-version.ps1 -Version 0.2.0
-# Prerequisite: cargo install cargo-edit
+# Prerequisites: cargo install cargo-edit; pnpm
 
 param(
     [Parameter(Mandatory)]
@@ -23,27 +23,36 @@ if ($status) {
 
 Write-Host "Bumping TracePilot to v$Version..." -ForegroundColor Cyan
 
+# Resolve the workspace before changing files. A recursive filesystem scan also
+# finds third-party test fixtures and ignored local Copilot installations, whose
+# versions are independent of TracePilot and must never be bumped.
+$packageList = pnpm list --recursive --depth -1 --json
+if ($LASTEXITCODE -ne 0) { Write-Error "Could not list pnpm workspace packages."; exit 1 }
+$packages = @($packageList | ConvertFrom-Json)
+if ($packages.Count -eq 0) { Write-Error "No pnpm workspace packages found."; exit 1 }
+
 # 1. Update Cargo workspace version (uses cargo-edit, understands TOML properly)
 cargo set-version --workspace $Version
 if ($LASTEXITCODE -ne 0) { Write-Error "cargo set-version failed. Install with: cargo install cargo-edit"; exit 1 }
 Write-Host "  ✓ Cargo workspace version updated" -ForegroundColor Green
 
-# 2. Update all package.json files (encode output as UTF-8 explicitly)
-Get-ChildItem -Recurse -Filter package.json |
-    Where-Object { $_.FullName -notmatch '\\node_modules\\' -and $_.FullName -notmatch '\\target\\' } |
-    ForEach-Object {
-        $content = Get-Content $_.FullName -Raw -Encoding UTF8
-        $json = $content | ConvertFrom-Json
-        if ($null -ne $json.version) {
-            $json.version = $Version
-            $json | ConvertTo-Json -Depth 20 |
-                Set-Content -Path $_.FullName -Encoding UTF8
-            Write-Host "  ✓ $($_.FullName)" -ForegroundColor Green
-        }
+# 2. Update only the root and pnpm workspace package manifests.
+$packages | ForEach-Object {
+    $packagePath = Join-Path $_.path 'package.json'
+    $content = Get-Content $packagePath -Raw -Encoding UTF8
+    $json = $content | ConvertFrom-Json
+    if ($null -ne $json.version) {
+        $json.version = $Version
+        # Keep the repository's LF/UTF-8 format on Windows as well.
+        $updatedContent = ($json | ConvertTo-Json -Depth 20) -replace "\r\n", "`n"
+        [IO.File]::WriteAllText($packagePath, "$updatedContent`n", [Text.UTF8Encoding]::new($false))
+        Write-Host "  ✓ $packagePath" -ForegroundColor Green
     }
+}
 
 # 3. Update Cargo.lock after version change
-cargo check --workspace --quiet 2>$null
+cargo check --workspace --quiet
+if ($LASTEXITCODE -ne 0) { Write-Error "cargo check failed. Resolve the errors before releasing."; exit 1 }
 Write-Host "  ✓ Cargo.lock updated" -ForegroundColor Green
 
 # 4. Show next steps (do NOT auto-commit — let developer review CHANGELOG first)
