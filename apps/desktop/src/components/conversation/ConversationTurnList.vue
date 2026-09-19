@@ -15,7 +15,12 @@
  * (rather than in the parent's scoped style) so the scope hash matches the
  * DOM nodes that actually receive the class.
  */
-import type { ConversationTurn, SessionEventSeverity, TurnToolCall } from "@tracepilot/types";
+import type {
+  CacheWindow,
+  ConversationTurn,
+  SessionEventSeverity,
+  TurnToolCall,
+} from "@tracepilot/types";
 import {
   AgentBadge,
   Badge,
@@ -34,6 +39,7 @@ import {
   truncateText,
 } from "@tracepilot/ui";
 import { Coins, User } from "lucide-vue-next";
+import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 
 interface ToggleSetLike<T> {
   has: (value: T) => boolean;
@@ -52,6 +58,8 @@ const props = defineProps<{
   loadingResults: ReadonlySet<string>;
   failedResults: ReadonlySet<string>;
   richEnabledFor: (toolName: string) => boolean;
+  /** Prompt-cache windows keyed by the turn they resumed (compact view). */
+  cacheWindows?: ReadonlyMap<number, CacheWindow>;
 }>();
 
 const emit = defineEmits<{
@@ -124,6 +132,7 @@ function onRetryFullResult(toolCallId: string) {
   <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
   <div v-if="viewMode === 'compact'" class="turn-group">
     <template v-for="turn in turns" :key="turn.turnIndex">
+      <CacheResumeDivider v-if="cacheWindows?.get(turn.turnIndex)" :window="cacheWindows.get(turn.turnIndex)!" />
       <div v-if="turn.userMessage" :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined" :data-turn-idx="turn.eventIndex == null ? turn.turnIndex : undefined" class="compact-turn-user">
         <span class="compact-turn-label-prefix user"><User :size="14" aria-hidden="true" /> User</span>
         <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>

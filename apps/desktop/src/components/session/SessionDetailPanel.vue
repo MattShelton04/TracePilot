@@ -31,6 +31,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import type { Router } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
+import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
@@ -172,6 +173,17 @@ watch(
   },
 );
 
+const showPromptCache = computed(() => prefs.isFeatureEnabled("promptCacheInsights"));
+
+// Registered after the detail watcher so the session id is already current.
+watch(
+  [() => props.sessionId, showPromptCache],
+  ([, enabled]) => {
+    if (enabled) void props.store.loadPromptCache();
+  },
+  { immediate: true },
+);
+
 watch(isSessionActive, (active) => {
   if (!active) {
     confirmingCopy.value = false;
@@ -283,6 +295,10 @@ watch(isSessionActive, (active) => {
         </div>
 
         <div class="detail-actions-right">
+          <PromptCacheHeaderChip
+            v-if="showPromptCache && isSessionActive"
+            :timeline="store.promptCache"
+          />
           <RefreshToolbar
             :refreshing="refreshing"
             :auto-refresh-enabled="prefs.autoRefreshEnabled"
@@ -402,6 +418,7 @@ watch(isSessionActive, (active) => {
 .detail-actions-right {
   display: flex;
   align-items: center;
+  gap: 12px;
   margin-left: auto;
 }
 .resume-warning {

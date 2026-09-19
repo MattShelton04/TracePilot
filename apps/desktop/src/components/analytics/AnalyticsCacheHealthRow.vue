@@ -2,10 +2,14 @@
 import type { AnalyticsData } from "@tracepilot/types";
 import { formatPercent } from "@tracepilot/types";
 import { formatNumber, SectionPanel } from "@tracepilot/ui";
+import AnalyticsPromptCachePanel from "@/components/analytics/AnalyticsPromptCachePanel.vue";
+import { usePreferencesStore } from "@/stores/preferences";
 
 defineProps<{
   data: AnalyticsData;
 }>();
+
+const prefs = usePreferencesStore();
 </script>
 
 <template>
@@ -44,6 +48,10 @@ defineProps<{
         </div>
       </div>
     </SectionPanel>
+    <AnalyticsPromptCachePanel
+      v-if="data.promptCache && prefs.isFeatureEnabled('promptCacheInsights')"
+      :data="data.promptCache"
+    />
   </div>
 </template>
 

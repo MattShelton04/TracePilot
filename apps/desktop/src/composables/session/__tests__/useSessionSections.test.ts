@@ -7,6 +7,7 @@ const mockGetSessionCheckpoints = vi.fn();
 const mockGetSessionPlan = vi.fn();
 const mockGetShutdownMetrics = vi.fn();
 const mockGetSessionIncidents = vi.fn();
+const mockGetSessionPromptCache = vi.fn();
 
 vi.mock("@tracepilot/client", () => ({
   getSessionTodos: (...a: unknown[]) => mockGetSessionTodos(...a),
@@ -14,6 +15,7 @@ vi.mock("@tracepilot/client", () => ({
   getSessionPlan: (...a: unknown[]) => mockGetSessionPlan(...a),
   getShutdownMetrics: (...a: unknown[]) => mockGetShutdownMetrics(...a),
   getSessionIncidents: (...a: unknown[]) => mockGetSessionIncidents(...a),
+  getSessionPromptCache: (...a: unknown[]) => mockGetSessionPromptCache(...a),
 }));
 
 import { useSessionSections } from "@/composables/session/useSessionSections";
@@ -41,6 +43,16 @@ describe("useSessionSections", () => {
     await sections.checkpointsDef.load();
     expect(sections.checkpointsSection.data.value).toEqual([{ number: 1, content: "cp" }]);
     expect(loaded.value.has("checkpoints")).toBe(true);
+  });
+
+  it("stores the prompt-cache timeline from its response envelope", async () => {
+    const { sections, loaded } = setup();
+    const timeline = { source: "checkpoints", windows: [] };
+    mockGetSessionPromptCache.mockResolvedValue({ timeline, eventsFileSize: 1 });
+    await sections.promptCacheDef.load();
+    expect(mockGetSessionPromptCache).toHaveBeenCalledWith("sess-1");
+    expect(sections.promptCacheSection.data.value).toEqual(timeline);
+    expect(loaded.value.has("promptCache")).toBe(true);
   });
 
   it("stores per-section error on failure", async () => {

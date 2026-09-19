@@ -6,6 +6,7 @@
 import type {
   CheckpointEntry,
   ConversationTurn,
+  PromptCacheTimeline,
   SessionDetail,
   SessionIncident,
   SessionPlan,
@@ -24,6 +25,7 @@ export interface CachedSession {
   shutdownMetrics: ShutdownMetrics | null;
   incidents: SessionIncident[];
   todos: TodosResponse | null;
+  promptCache?: PromptCacheTimeline | null;
   loadedSections: Set<string>;
 }
 

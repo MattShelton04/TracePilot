@@ -44,6 +44,7 @@ describe("settings feature groups", () => {
     expect(groups[0]!.findAll(".setting-label").map((label) => label.text())).toEqual([
       "Skills",
       "Export",
+      "Prompt Cache Insights",
       "Exact Context Capture",
     ]);
     expect(groups[1]!.find(".feature-group-title").text()).toBe("Experimental");

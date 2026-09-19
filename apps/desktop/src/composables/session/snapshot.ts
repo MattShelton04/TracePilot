@@ -31,6 +31,7 @@ export function buildCachedSessionSnapshot(
     shutdownMetrics: ctx.sections.metricsSection.data.value,
     incidents: ctx.sections.incidentsSection.data.value,
     todos: ctx.sections.todosSection.data.value,
+    promptCache: ctx.sections.promptCacheSection.data.value,
     loadedSections: new Set(ctx.loaded.value),
   } satisfies CachedSession;
 }
@@ -64,5 +65,6 @@ export function restoreFromCachedSession(ctx: SnapshotContext, cached: CachedSes
   ctx.sections.metricsSection.data.value = cached.shutdownMetrics;
   ctx.sections.incidentsSection.data.value = cached.incidents;
   ctx.sections.todosSection.data.value = cached.todos;
+  ctx.sections.promptCacheSection.data.value = cached.promptCache ?? null;
   ctx.loaded.value = new Set(cached.loadedSections);
 }

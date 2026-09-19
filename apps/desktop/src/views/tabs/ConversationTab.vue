@@ -30,6 +30,7 @@ import ConversationViewSwitcher, {
 } from "@/components/conversation/ConversationViewSwitcher.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { useConversationDeepLinkScroll } from "@/composables/useConversationDeepLinkScroll";
+import { usePromptCache } from "@/composables/usePromptCache";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -55,6 +56,8 @@ const {
   loadFullResult: handleLoadFullResult,
   retryFullResult: handleRetryResult,
 } = useToolResultLoader(() => store.sessionId);
+
+const { windowsByTurn: cacheWindows } = usePromptCache(store);
 
 // Shared derived data from turns
 const { getSections, getArgsSummary, findToolCallIndex, totalToolCalls, totalDurationMs } =
@@ -230,6 +233,7 @@ function richEnabledFor(toolName: string): boolean {
       ref="chatViewRef"
       :objective="sessionObjective"
       :objective-status="sessionObjectiveStatus"
+      :cache-windows="cacheWindows"
       @message-sent="handleChatSteeringMessage"
       @reveal-objective="revealObjective"
     />
@@ -239,6 +243,7 @@ function richEnabledFor(toolName: string): boolean {
       v-else
       :turns="store.turns"
       :view-mode="activeView"
+      :cache-windows="cacheWindows"
       :get-sections="getSections"
       :get-args-summary="getArgsSummary"
       :find-tool-call-index="findToolCallIndex"

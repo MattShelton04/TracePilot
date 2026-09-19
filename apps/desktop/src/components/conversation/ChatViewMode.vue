@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import type { CacheWindow } from "@tracepilot/types";
 import { type CurrentObjective, ObjectiveBanner } from "@tracepilot/ui";
 import { ref } from "vue";
+import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
 import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
 import UserMessageAnchor from "@/components/conversation/chat/UserMessageAnchor.vue";
@@ -19,10 +21,13 @@ const props = withDefaults(
   defineProps<{
     objective?: CurrentObjective | null;
     objectiveStatus?: ObjectiveStatus;
+    /** Prompt-cache windows keyed by the turn they resumed. */
+    cacheWindows?: Map<number, CacheWindow>;
   }>(),
   {
     objective: null,
     objectiveStatus: "idle",
+    cacheWindows: () => new Map(),
   },
 );
 
@@ -108,6 +113,11 @@ defineExpose({ revealEvent });
                   :event="entry.event"
                 />
               </template>
+
+              <CacheResumeDivider
+                v-if="props.cacheWindows.get(turn.turnIndex)"
+                :window="props.cacheWindows.get(turn.turnIndex)!"
+              />
 
               <!-- User message anchor -->
               <UserMessageAnchor

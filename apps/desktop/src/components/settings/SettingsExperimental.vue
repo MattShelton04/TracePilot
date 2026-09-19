@@ -26,6 +26,12 @@ const recommendedFlags: readonly FeatureOption[] = [
     description: "Enable the Export view to download sessions in various formats.",
   },
   {
+    key: "promptCacheInsights",
+    label: "Prompt Cache Insights",
+    description:
+      "Show when a session's prompt cache is predicted to expire, whether replies came before or after that point, and what likely broke the cache.",
+  },
+  {
     key: "exactContextCapture",
     label: "Exact Context Capture",
     description:

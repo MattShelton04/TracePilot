@@ -6,12 +6,14 @@ import MetricsAgentBreakdown from "@/components/metrics/MetricsAgentBreakdown.vu
 import MetricsCacheBreakdown from "@/components/metrics/MetricsCacheBreakdown.vue";
 import MetricsCodeChanges from "@/components/metrics/MetricsCodeChanges.vue";
 import MetricsModelTable from "@/components/metrics/MetricsModelTable.vue";
+import MetricsPromptCacheSection from "@/components/metrics/MetricsPromptCacheSection.vue";
 import MetricsSessionActivity from "@/components/metrics/MetricsSessionActivity.vue";
 import MetricsStatCards from "@/components/metrics/MetricsStatCards.vue";
 import MetricsTokenBudget from "@/components/metrics/MetricsTokenBudget.vue";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
+import { usePromptCache } from "@/composables/usePromptCache";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -30,6 +32,12 @@ useSessionTabLoader(
   () => (mode.value === "agent" ? store.sessionId : null),
   () => store.loadTurns(),
 );
+
+const {
+  enabled: promptCacheEnabled,
+  timeline: promptCache,
+  retry: retryPromptCache,
+} = usePromptCache(store);
 
 function retryLoadMetrics() {
   store.loaded.delete("metrics");
@@ -82,6 +90,18 @@ const {
 
     <EmptyState v-if="!metrics && !store.metricsError" description="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
 
+    <template v-if="promptCacheEnabled">
+      <ErrorAlert
+        v-if="store.promptCacheError"
+        :message="store.promptCacheError"
+        variant="inline"
+        :retryable="true"
+        class="mb-4"
+        @retry="retryPromptCache"
+      />
+      <MetricsPromptCacheSection v-if="promptCache && !metrics" :timeline="promptCache" class="mt-4" />
+    </template>
+
     <template v-if="metrics">
       <MetricsStatCards
         :metrics="metrics"
@@ -100,6 +120,7 @@ const {
       <p v-if="mode === 'agent' && !store.loaded.has('turns') && !store.turnsError" class="text-sm text-[var(--text-tertiary)] mb-4">Loading agent activity…</p>
       <MetricsAgentBreakdown v-if="mode === 'agent' && store.loaded.has('turns')" :key="store.sessionId ?? undefined" :metrics="metrics" :turns="turns" @activity="selectSubagent" />
       <MetricsCacheBreakdown v-if="mode === 'model'" :breakdown="tokenBreakdown" />
+      <MetricsPromptCacheSection v-if="promptCacheEnabled && promptCache" :timeline="promptCache" />
 
       <MetricsModelTable
         v-if="mode === 'model'"
