@@ -69,6 +69,15 @@ export interface VersionDiff {
   modifiedRpcMethods: RpcModification[];
   addedAgents: string[];
   removedAgents: string[];
+  /** Changes to event types TracePilot depends on despite an internal schema. */
+  watchedChanges: WatchedEventChange[];
+}
+
+export interface WatchedEventChange {
+  eventType: string;
+  change: "added" | "removed" | "modified";
+  /** The TracePilot feature that reads this event. */
+  reason: string;
 }
 
 export interface EventModification {

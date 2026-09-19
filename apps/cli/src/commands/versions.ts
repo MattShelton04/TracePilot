@@ -134,6 +134,13 @@ function printDiff(diff: ReturnType<typeof diffVersions>) {
     return;
   }
 
+  for (const watched of diff.watchedChanges) {
+    console.log(
+      chalk.magenta(
+        `  ! Watched event ${watched.change}: ${watched.eventType} — ${watched.reason}`,
+      ),
+    );
+  }
   if (diff.addedEvents.length > 0) {
     console.log(chalk.green(`  +${diff.addedEvents.length} event types:`));
     for (const e of diff.addedEvents) {

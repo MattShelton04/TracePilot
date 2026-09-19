@@ -5,7 +5,38 @@ import type {
   RpcModification,
   SchemaType,
   VersionDiff,
+  WatchedEventChange,
 } from "./types.js";
+
+/**
+ * Event types whose fields are internal or opaque in the CLI schema but back
+ * TracePilot features. Any schema change to them needs a manual review.
+ */
+export const WATCHED_EVENT_TYPES: Readonly<Record<string, string>> = {
+  "session.usage_checkpoint":
+    "Prompt-cache insights read modelCacheState and promptCacheBreakState (internal)",
+  "assistant.usage": "Prompt-cache insights: per-request cache reads and expiry (ephemeral)",
+  prompt_cache_break: "Prompt-cache insights: the CLI's cache-break diagnosis (ephemeral)",
+};
+
+function watchedChanges(
+  added: string[],
+  removed: string[],
+  modified: EventModification[],
+): WatchedEventChange[] {
+  const entries: [string, WatchedEventChange["change"]][] = [
+    ...added.map((e) => [e, "added"] as [string, "added"]),
+    ...removed.map((e) => [e, "removed"] as [string, "removed"]),
+    ...modified.map((m) => [m.eventType, "modified"] as [string, "modified"]),
+  ];
+  return entries
+    .filter(([eventType]) => eventType in WATCHED_EVENT_TYPES)
+    .map(([eventType, change]) => ({
+      eventType,
+      change,
+      reason: WATCHED_EVENT_TYPES[eventType],
+    }));
+}
 
 /** Serialize a SchemaType to a canonical string for structural comparison. */
 function schemaTypeFingerprint(st: SchemaType): string {
@@ -137,6 +168,7 @@ export function diffVersions(v1: CopilotVersion, v2: CopilotVersion): VersionDif
     modifiedRpcMethods,
     addedAgents: [...v2Agents].filter((a) => !v1Agents.has(a)),
     removedAgents: [...v1Agents].filter((a) => !v2Agents.has(a)),
+    watchedChanges: watchedChanges(addedEvents, removedEvents, modifiedEvents),
   };
 }
 
