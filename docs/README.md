@@ -23,6 +23,9 @@ This index lists current user/developer documentation. Stale generated tech-debt
 | Document | Description |
 |----------|-------------|
 | [Exact Context Capture](features/exact-context-capture-plan.md) | Feasibility research and phased implementation plan for isolated model-request snapshots. |
+| [Prompt-Cache Insights](features/prompt-cache-insights-plan.md) | Proposed plan for showing cache expiry, resume markers and prefix-change causes from `session.usage_checkpoint`. |
+| [Skills Analytics](features/skills-analytics-design.md) | Proposed per-skill usage analytics, flags and a Usage tab for the Skills manager. |
+| [Agents Explorer](features/agents-explorer-design.md) | Proposed Agents page for built-in and custom agents, sharing the Skills editor, with cross-session run analytics. |
 | [Incremental Analytics](architecture/incremental-analytics.md) | Analytics pipeline and incremental computation strategy. |
 | [Design System](design/design-system.md) | Colour tokens, typography, spacing, and component patterns. |
 | [Tool-Call Rendering](design/tool-call-rendering.md) | How tool calls/results are visualised in the session viewer. |
@@ -61,6 +64,7 @@ This index lists current user/developer documentation. Stale generated tech-debt
 | [Search Index Migration](search-index-migration/README.md) | Search-index migration architecture, benchmarks, and retrospective. |
 | [Analytics Persistence](research/analytics-persistence.md) | Persisting analytics data to disk. |
 | [Copilot CLI Evolution](research/copilot-cli-evolution-risks.md) | Risk analysis of Copilot CLI schema changes. |
+| [Copilot Session Store](research/copilot-session-store-db.md) | What the CLI's `session-store.db` contains, who has it, and how TracePilot could safely read it. |
 | [Optimisation Plan](research/optimization-plan.md) | Performance optimisation research notes. |
 | [VS Code Support](research/vscode-session-support-feasibility.md) | Feasibility of supporting VS Code Copilot sessions. |
 
