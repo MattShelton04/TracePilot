@@ -59,6 +59,7 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
     // 2–5. Events processing — parse ONCE, derive count from len()
     let events_path = crate::paths::SessionPaths::from_root(session_dir).events_jsonl();
     let mut typed_events_out = None;
+    let mut turns_out = None;
     let mut diagnostics_out = None;
 
     if events_path.exists() {
@@ -69,10 +70,11 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
                 let typed_events = parsed.events;
                 diagnostics_out = Some(parsed.diagnostics);
 
-                apply_event_enrichment(&mut summary, &typed_events);
+                let turns = apply_event_enrichment(&mut summary, &typed_events);
 
                 if retain_events {
                     typed_events_out = Some(typed_events);
+                    turns_out = Some(turns);
                 }
             }
             Err(e) => {
@@ -90,6 +92,7 @@ fn load_session_summary_impl(session_dir: &Path, retain_events: bool) -> Result<
     Ok(SessionLoadResult {
         summary,
         typed_events: typed_events_out,
+        turns: turns_out,
         diagnostics: diagnostics_out,
     })
 }

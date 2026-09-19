@@ -1,3 +1,4 @@
+use crate::models::conversation::ConversationTurn;
 use crate::models::session_summary::SessionSummary;
 use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::parsing::events::TypedEvent;
@@ -10,6 +11,9 @@ use crate::parsing::events::TypedEvent;
 pub struct SessionLoadResult {
     pub summary: SessionSummary,
     pub typed_events: Option<Vec<TypedEvent>>,
+    /// Turns reconstructed while enriching the summary. Retained alongside
+    /// `typed_events` so derived analytics (e.g. agent runs) reuse them.
+    pub turns: Option<Vec<ConversationTurn>>,
     /// Parsing diagnostics (unknown event types, deserialization failures).
     /// Present when events were parsed, `None` if `events.jsonl` was missing.
     pub diagnostics: Option<ParseDiagnostics>,
