@@ -185,14 +185,17 @@ pub struct CacheStats {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PromptCacheAnalytics {
-    /// Sessions contributing at least one predicted, resumed window.
+    /// Sessions contributing at least one predicted reply.
     pub sessions_with_predicted: u32,
+    /// Predicted windows ended by a prompt. Agent wakes are excluded from
+    /// every figure except `resent_prefix_tokens`.
     pub resumed_windows: u64,
     pub warm_resumes: u64,
     /// Resumes after the predicted expiry, including model switches.
     pub resumes_after_expiry: u64,
     pub median_idle_seconds: Option<u64>,
-    /// Cached prefix tokens at idle, summed over resumes after expiry.
+    /// Cached prefix tokens at idle, summed over resumes after expiry,
+    /// including agent wakes.
     pub resent_prefix_tokens: u64,
     /// Most frequent prefix-change kinds, descending.
     pub top_change_kinds: Vec<PrefixChangeCount>,

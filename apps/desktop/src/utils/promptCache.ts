@@ -15,6 +15,9 @@ import type {
 } from "@tracepilot/types";
 import { formatNumber } from "@tracepilot/types";
 
+/** `CacheWindow.resumeSource` when the agent woke itself without a prompt. */
+export const AGENT_RESUME_SOURCE = "agent";
+
 /** Below this much remaining time the live chip switches to "expiring". */
 export const EXPIRING_THRESHOLD_MS = 5 * 60_000;
 
@@ -126,8 +129,10 @@ export function isMarkableWindow(window: CacheWindow): boolean {
 }
 
 /**
- * Map each markable window to the conversation turn it resumed. Matches by
- * event index first, then interaction id, then the turn's start timestamp.
+ * Map each markable window to the conversation turn it resumed. Prompts match
+ * by event index, then interaction id, then start time. An agent wake has no
+ * prompt and shares the interaction id of an earlier prompt, so it matches by
+ * the start time of the turn it began only.
  */
 export function mapWindowsToTurns(
   windows: readonly CacheWindow[],
@@ -148,10 +153,17 @@ export function mapWindowsToTurns(
   const result = new Map<number, CacheWindow>();
   for (const window of windows) {
     if (!isMarkableWindow(window)) continue;
+    const byTime = window.resumeAt ? byTimestamp.get(Date.parse(window.resumeAt)) : undefined;
     const turn =
-      (window.resumeEventIndex != null ? byEventIndex.get(window.resumeEventIndex) : undefined) ??
-      (window.resumeInteractionId ? byInteraction.get(window.resumeInteractionId) : undefined) ??
-      (window.resumeAt ? byTimestamp.get(Date.parse(window.resumeAt)) : undefined);
+      window.resumeSource === AGENT_RESUME_SOURCE
+        ? byTime
+        : ((window.resumeEventIndex != null
+            ? byEventIndex.get(window.resumeEventIndex)
+            : undefined) ??
+          (window.resumeInteractionId
+            ? byInteraction.get(window.resumeInteractionId)
+            : undefined) ??
+          byTime);
     if (turn && !result.has(turn.turnIndex)) result.set(turn.turnIndex, window);
   }
   return result;
@@ -162,16 +174,17 @@ export function describeResume(window: CacheWindow): string {
   const idle = `idle ${formatIdle(window.idleSeconds)}`;
   const offset = window.resumeOffsetSeconds;
   const who =
-    window.resumeSource === "agent"
+    window.resumeSource === AGENT_RESUME_SOURCE
       ? "the agent resumed"
       : window.resumeSource
         ? "the session resumed"
         : "this reply";
   switch (window.outcome) {
     case "warm":
-      return offset != null
-        ? `${idle} · cache warm, ${formatIdle(-offset)} before expiry`
-        : `${idle} · cache warm`;
+      if (offset == null) return `${idle} · cache warm`;
+      return -offset < 60
+        ? `${idle} · cache warm, under a minute before expiry`
+        : `${idle} · cache warm, ${formatIdle(-offset)} before expiry`;
     case "expired":
       return offset != null
         ? `${idle} · cache expired ${formatIdle(offset)} before ${who}`
@@ -192,6 +205,21 @@ export function resumeChipLabel(window: CacheWindow): string {
   }
   if (window.outcome === "expired" || window.outcome === "modelChanged") return "Cold resume";
   return OUTCOME_LABELS[window.outcome];
+}
+
+/**
+ * Idle time as a fraction of the time the cache had left at idle start.
+ * The CLI measures expiry from the start of the last request, so the TTL
+ * alone would overstate it; `null` when either end is unknown.
+ */
+export function idleFractionOfTtl(window: CacheWindow): number | null {
+  if (window.idleSeconds == null) return null;
+  const budgetSeconds =
+    window.expiresAt != null
+      ? (Date.parse(window.expiresAt) - Date.parse(window.idleStart)) / 1000
+      : window.ttlSeconds;
+  if (budgetSeconds == null || !Number.isFinite(budgetSeconds) || budgetSeconds <= 0) return null;
+  return window.idleSeconds / budgetSeconds;
 }
 
 /** Tooltip text with the model, TTL, confidence and any prefix changes. */

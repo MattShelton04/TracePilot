@@ -6,6 +6,7 @@ import {
   findLiveWindow,
   formatCountdown,
   formatIdle,
+  idleFractionOfTtl,
   liveCacheStatus,
   mapWindowsToTurns,
   resumeChipLabel,
@@ -87,6 +88,22 @@ describe("mapWindowsToTurns", () => {
     ]);
   });
 
+  it("places agent wakes on the turn they started, not the earlier prompt", () => {
+    const turns = [
+      turn({ turnIndex: 0, eventIndex: 3, interactionId: "i1" }),
+      turn({ turnIndex: 1, interactionId: "i1", timestamp: "2026-09-12T00:45:00Z" }),
+    ];
+    const wake = makeWindow({
+      resumeSource: "agent",
+      resumeEventIndex: 40,
+      resumeInteractionId: "i1",
+      resumeAt: "2026-09-12T00:45:00.000Z",
+    });
+    expect([...mapWindowsToTurns([wake], turns).keys()]).toEqual([1]);
+    const unmatched = { ...wake, resumeAt: "2026-09-12T00:46:00.000Z" };
+    expect(mapWindowsToTurns([unmatched], turns).size).toBe(0);
+  });
+
   it("skips windows without a timing claim or a resume", () => {
     const turns = [turn({ turnIndex: 1, eventIndex: 12 })];
     const hidden = [
@@ -94,6 +111,20 @@ describe("mapWindowsToTurns", () => {
       makeWindow({ outcome: "pending", resumeAt: null }),
     ];
     expect(mapWindowsToTurns(hidden, turns).size).toBe(0);
+  });
+});
+
+describe("idleFractionOfTtl", () => {
+  it("measures idle time against the predicted expiry, not the raw TTL", () => {
+    // Expiry 15.5 minutes after idle start: 22 minutes idle is past it.
+    const window = makeWindow({
+      idleStart: "2026-09-12T12:43:09.000Z",
+      expiresAt: "2026-09-12T12:58:39.000Z",
+      idleSeconds: 22 * 60,
+    });
+    expect(idleFractionOfTtl(window)).toBeGreaterThan(1);
+    expect(idleFractionOfTtl({ ...window, expiresAt: null })).toBeCloseTo(22 / 30);
+    expect(idleFractionOfTtl({ ...window, idleSeconds: null })).toBeNull();
   });
 });
 
@@ -117,6 +148,9 @@ describe("copy", () => {
 
   it("labels likely cache breaks and cold resumes", () => {
     expect(resumeChipLabel(makeWindow())).toBe("Warm resume");
+    expect(describeResume(makeWindow({ resumeOffsetSeconds: -20 }))).toBe(
+      "idle 10m · cache warm, under a minute before expiry",
+    );
     expect(
       resumeChipLabel(
         makeWindow({ prefixChanges: [{ kind: "tools", summary: "+1 tool", details: [] }] }),

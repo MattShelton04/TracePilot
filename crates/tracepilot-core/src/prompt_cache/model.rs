@@ -130,12 +130,13 @@ pub struct CacheWindow {
     /// `resume_at - expires_at` in seconds. Negative means the reply came
     /// before the expiry.
     pub resume_offset_seconds: Option<i64>,
-    /// Index of the resuming `user.message` in the event log. Matches
-    /// `ConversationTurn::event_index`.
+    /// Index of the resuming event: a `user.message` (matches
+    /// `ConversationTurn::event_index`) or, for an agent wake, the
+    /// `assistant.turn_start`, whose turn carries no event index.
     pub resume_event_index: Option<usize>,
     pub resume_interaction_id: Option<String>,
-    /// `user.message.source` of the resuming prompt when it was not typed by
-    /// the user (e.g. `"system"`).
+    /// Set when the resume was not typed by the user: the `user.message`
+    /// source (e.g. `"system"`), or `"agent"` when the agent woke itself.
     pub resume_source: Option<String>,
     /// Cacheable prefix tokens of the last request before idling. After an
     /// expiry, roughly this many tokens are re-sent without cache.
@@ -169,7 +170,11 @@ pub enum PromptCacheSource {
 #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PromptCacheSummary {
+    /// Windows ended by a prompt (user or system). Agent wakes are counted in
+    /// `agent_resumes`; the outcome counts, `likely_breaks` and the median
+    /// cover replies only.
     pub resumed_windows: usize,
+    pub agent_resumes: usize,
     pub warm: usize,
     pub expired: usize,
     pub model_changed: usize,
@@ -177,7 +182,8 @@ pub struct PromptCacheSummary {
     pub unknown: usize,
     /// Resumed windows with at least one prefix change.
     pub likely_breaks: usize,
-    /// Sum of `prefix_tokens` over expired and model-changed resumes.
+    /// Sum of `prefix_tokens` over expired and model-changed resumes,
+    /// including agent wakes.
     pub resent_prefix_tokens: u64,
     pub median_idle_seconds: Option<u64>,
 }

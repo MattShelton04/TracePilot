@@ -7,6 +7,7 @@ use crate::Result;
 use rusqlite::{Connection, params_from_iter};
 
 use tracepilot_core::analytics::types::{ModelCacheTtl, PrefixChangeCount, PromptCacheAnalytics};
+use tracepilot_core::prompt_cache::AGENT_RESUME_SOURCE;
 
 use super::super::helpers::to_refs;
 
@@ -18,7 +19,8 @@ pub(super) fn query_prompt_cache(
     bind_values: &[String],
 ) -> Result<PromptCacheAnalytics> {
     let sql = format!(
-        "SELECT w.session_id, w.outcome, w.idle_seconds, w.prefix_tokens, w.change_kinds
+        "SELECT w.session_id, w.outcome, w.idle_seconds, w.prefix_tokens, w.change_kinds,
+                w.resume_source
          FROM session_cache_windows w
          JOIN sessions s ON s.id = w.session_id{where_clause}
            AND w.resume_at IS NOT NULL"
@@ -32,6 +34,7 @@ pub(super) fn query_prompt_cache(
             row.get::<_, Option<i64>>(2)?,
             row.get::<_, Option<i64>>(3)?,
             row.get::<_, Option<String>>(4)?,
+            row.get::<_, Option<String>>(5)?,
         ))
     })?;
 
@@ -40,16 +43,21 @@ pub(super) fn query_prompt_cache(
     let mut idle = Vec::new();
     let mut kinds: BTreeMap<String, u64> = BTreeMap::new();
     for row in rows {
-        let (session_id, outcome, idle_seconds, prefix_tokens, change_kinds) = row?;
+        let (session_id, outcome, idle_seconds, prefix_tokens, change_kinds, source) = row?;
+        let cold = matches!(outcome.as_str(), "expired" | "modelChanged");
+        if cold {
+            analytics.resent_prefix_tokens += prefix_tokens.unwrap_or(0).max(0) as u64;
+        }
+        // Agent wakes are not replies; they only add to the re-sent tokens.
+        if source.as_deref() == Some(AGENT_RESUME_SOURCE) {
+            continue;
+        }
         sessions.insert(session_id);
         analytics.resumed_windows += 1;
-        match outcome.as_str() {
-            "warm" => analytics.warm_resumes += 1,
-            "expired" | "modelChanged" => {
-                analytics.resumes_after_expiry += 1;
-                analytics.resent_prefix_tokens += prefix_tokens.unwrap_or(0).max(0) as u64;
-            }
-            _ => {}
+        if outcome == "warm" {
+            analytics.warm_resumes += 1;
+        } else if cold {
+            analytics.resumes_after_expiry += 1;
         }
         idle.extend(idle_seconds.map(|s| s.max(0) as u64));
         for kind in change_kinds.iter().flat_map(|k| k.split(',')) {

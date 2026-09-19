@@ -38,25 +38,32 @@ pub fn diff_baselines(
     if let Some(change) = history_change(prev, next, rewrite_causes) {
         changes.push(change);
     }
-    if let (Some(before), Some(after)) = (&prev.cache_config, &next.cache_config)
-        && before != after
-    {
-        changes.push(PrefixChange {
-            kind: PrefixChangeKind::CacheConfig,
-            summary: "Cache configuration changed".into(),
-            details: config_differences(before, after),
-        });
+    if let (Some(before), Some(after)) = (&prev.cache_config, &next.cache_config) {
+        let details = config_differences(before, after);
+        if !details.is_empty() {
+            changes.push(PrefixChange {
+                kind: PrefixChangeKind::CacheConfig,
+                summary: "Cache configuration changed".into(),
+                details,
+            });
+        }
     }
     changes
 }
 
-/// `key: old → new` for each top-level key that differs.
+/// `cache_config` keys that describe a single request rather than the cache
+/// setup: `incremental_input` tracks whether the request was agent-initiated.
+const PER_REQUEST_CONFIG_KEYS: &[&str] = &["incremental_input"];
+
+/// `key: old → new` for each top-level key that differs, ignoring
+/// per-request keys. Empty when nothing relevant changed.
 fn config_differences(before: &Value, after: &Value) -> Vec<String> {
     let (Some(before), Some(after)) = (before.as_object(), after.as_object()) else {
-        return Vec::new();
+        return vec!["configuration replaced".to_string()];
     };
     let keys: BTreeSet<&String> = before.keys().chain(after.keys()).collect();
     keys.into_iter()
+        .filter(|key| !PER_REQUEST_CONFIG_KEYS.contains(&key.as_str()))
         .filter(|key| before.get(*key) != after.get(*key))
         .map(|key| {
             let show = |v: Option<&Value>| v.map_or_else(|| "unset".to_string(), Value::to_string);

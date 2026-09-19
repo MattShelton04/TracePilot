@@ -33,5 +33,6 @@ were omitted. That probe emitted one `subagent.completed` event for two requests
 `v1_0_83_prompt_cache.jsonl` is a synthetic session shaped like real 1.0.83
 `session.usage_checkpoint` events (`modelCacheState` and `promptCacheBreakState`).
 It covers a warm resume with a new tool, an expired resume after a compaction
-(history rewrite and cache-config change), and a model switch while idle. Hashes,
+(a history rewrite, alongside a per-request `incremental_input` flip that must
+not count as a cache change), and a model switch while idle. Hashes,
 IDs and tool lists are synthetic or truncated; it contains no user content.

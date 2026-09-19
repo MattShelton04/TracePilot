@@ -7,11 +7,15 @@ use serde_json::Value;
 
 use super::baseline::{CacheBaseline, MAIN_CONVERSATION, parse_baselines};
 use super::model::{CacheWindow, ObservedCacheTtl, PromptCacheSource, PromptCacheTimeline};
-use super::outcome::{classify, prefix_changes, summarize};
+use super::outcome::{AGENT_RESUME_SOURCE, classify, prefix_changes, summarize};
 use super::parse_timestamp;
 use super::state::{Checkpoint, ModelExpiry, Resume, WindowDraft};
-use crate::models::event_types::{ModelCacheState, SessionEventType, UsageCheckpointData};
+use crate::models::event_types::{ModelCacheState, SessionEventType};
 use crate::parsing::events::{TypedEvent, TypedEventData};
+
+/// Tolerance before an expiry that precedes its own checkpoint is taken to
+/// contradict the reported TTL.
+const TTL_EVIDENCE_SLACK_SECONDS: i64 = 60;
 
 /// Build the prompt-cache timeline for one session.
 ///
@@ -92,7 +96,12 @@ impl Walker {
             }
             TypedEventData::SessionUsageCheckpoint(data) => {
                 if let Some(at) = timestamp {
-                    self.record_checkpoint(at, data);
+                    self.record_checkpoint(
+                        at,
+                        Some(data.total_nano_aiu),
+                        data.model_cache_state.as_deref().unwrap_or(&[]),
+                        data.prompt_cache_break_state.as_deref().unwrap_or(&[]),
+                    );
                 }
             }
             TypedEventData::Other(value)
@@ -100,9 +109,14 @@ impl Walker {
             {
                 // The typed parse failed (schema drift). Read what we can.
                 if let Some(at) = timestamp {
-                    let (data, malformed) = lenient_checkpoint(value);
-                    self.malformed += malformed;
-                    self.record_checkpoint(at, &data);
+                    let lenient = lenient_checkpoint(value);
+                    self.malformed += lenient.malformed;
+                    self.record_checkpoint(
+                        at,
+                        lenient.total_nano_aiu,
+                        &lenient.states,
+                        lenient.break_state,
+                    );
                 }
             }
             TypedEventData::UserMessage(data) if is_main => {
@@ -126,26 +140,41 @@ impl Walker {
         }
     }
 
-    fn record_checkpoint(&mut self, at: DateTime<Utc>, data: &UsageCheckpointData) {
+    fn record_checkpoint(
+        &mut self,
+        at: DateTime<Utc>,
+        total_nano_aiu: Option<u64>,
+        states: &[ModelCacheState],
+        break_state: &[Value],
+    ) {
         let mut expiries = HashMap::new();
-        for state in data.model_cache_state.iter().flatten() {
+        for state in states {
             let Some(model) = state.model_id.clone().filter(|m| !m.is_empty()) else {
                 self.malformed += 1;
                 continue;
             };
-            if let Some(ttl) = state.cache_ttl_seconds {
+            let expires_at = state.cache_expires_at.as_deref().and_then(parse_timestamp);
+            // An expiry well before its own checkpoint contradicts the TTL
+            // (seen for a model the session had stopped using), so it is not
+            // evidence for the registry.
+            let contradicts_ttl = expires_at.is_some_and(|expires| {
+                expires < at - Duration::seconds(TTL_EVIDENCE_SLACK_SECONDS)
+            });
+            if let Some(ttl) = state.cache_ttl_seconds
+                && !contradicts_ttl
+            {
                 *self.observed_ttls.entry((model.clone(), ttl)).or_default() += 1;
             }
             expiries.insert(
                 model,
                 ModelExpiry {
-                    expires_at: state.cache_expires_at.as_deref().and_then(parse_timestamp),
+                    expires_at,
                     ttl_seconds: state.cache_ttl_seconds,
                 },
             );
         }
 
-        let parsed = parse_baselines(data.prompt_cache_break_state.as_deref().unwrap_or(&[]));
+        let parsed = parse_baselines(break_state);
         self.malformed += parsed.malformed;
         let baselines: HashMap<String, CacheBaseline> = parsed
             .baselines
@@ -157,7 +186,7 @@ impl Walker {
 
         let checkpoint_index = self.checkpoints.len();
         let checkpoint = Checkpoint {
-            total_nano_aiu: data.total_nano_aiu,
+            total_nano_aiu,
             expiries,
             baselines,
             rewrite_causes: std::mem::take(&mut self.rewrite_causes),
@@ -204,7 +233,12 @@ impl Walker {
         at: DateTime<Utc>,
         interaction_id: Option<String>,
     ) {
-        let resume = self.resume_at(event_index, at, interaction_id, Some("agent".into()));
+        let resume = self.resume_at(
+            event_index,
+            at,
+            interaction_id,
+            Some(AGENT_RESUME_SOURCE.into()),
+        );
         if let Some(draft) = self.pending_draft() {
             draft.resume = Some(resume);
         }
@@ -339,44 +373,62 @@ impl Walker {
             prefix_tokens: start_baseline.and_then(|b| b.frontier_tokens.or(b.prompt_tokens)),
             interaction_nano_aiu: start
                 .zip(next)
-                .map(|(s, n)| n.total_nano_aiu.saturating_sub(s.total_nano_aiu)),
+                .and_then(|(s, n)| Some(n.total_nano_aiu?.saturating_sub(s.total_nano_aiu?))),
             prefix_changes: prefix_changes(draft, start_baseline, next),
         }
     }
 }
 
-/// Parse a checkpoint whose typed deserialization failed, keeping whatever
-/// entries are readable. Returns the data and the number of skipped entries.
-fn lenient_checkpoint(value: &Value) -> (UsageCheckpointData, usize) {
+/// A checkpoint read field by field after its typed parse failed.
+struct LenientCheckpoint<'a> {
+    total_nano_aiu: Option<u64>,
+    states: Vec<ModelCacheState>,
+    break_state: &'a [Value],
+    malformed: usize,
+}
+
+/// Parse a checkpoint whose typed deserialization failed (schema drift),
+/// keeping every field that is still readable.
+fn lenient_checkpoint(value: &Value) -> LenientCheckpoint<'_> {
     let mut malformed = 0;
-    let model_cache_state = value
+    let states = value
         .get("modelCacheState")
         .and_then(Value::as_array)
-        .map(|entries| {
-            entries
-                .iter()
-                .filter_map(|entry| {
-                    let parsed = serde_json::from_value::<ModelCacheState>(entry.clone()).ok();
-                    if parsed.is_none() {
-                        malformed += 1;
-                    }
-                    parsed
-                })
-                .collect()
-        });
-    let data = UsageCheckpointData {
-        total_nano_aiu: value
-            .get("totalNanoAiu")
-            .and_then(Value::as_u64)
-            .unwrap_or(0),
-        total_premium_requests: value.get("totalPremiumRequests").and_then(Value::as_f64),
-        model_cache_state,
-        prompt_cache_break_state: value
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| {
+            let Some(model_id) = entry.get("modelId").and_then(Value::as_str) else {
+                malformed += 1;
+                return None;
+            };
+            Some(ModelCacheState {
+                model_id: Some(model_id.to_string()),
+                cache_expires_at: entry
+                    .get("cacheExpiresAt")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                cache_ttl_seconds: entry.get("cacheTtlSeconds").and_then(lenient_u64),
+                extra: serde_json::Map::new(),
+            })
+        })
+        .collect();
+    LenientCheckpoint {
+        total_nano_aiu: value.get("totalNanoAiu").and_then(lenient_u64),
+        states,
+        break_state: value
             .get("promptCacheBreakState")
             .and_then(Value::as_array)
-            .cloned(),
-    };
-    (data, malformed)
+            .map_or(&[], Vec::as_slice),
+        malformed,
+    }
+}
+
+/// A non-negative integer, also accepting floats and numeric strings.
+fn lenient_u64(value: &Value) -> Option<u64> {
+    value
+        .as_u64()
+        .or_else(|| value.as_f64().filter(|f| *f >= 0.0).map(|f| f as u64))
+        .or_else(|| value.as_str()?.trim().parse().ok())
 }
 
 fn set_if_some(target: &mut Option<String>, value: &Option<String>) {

@@ -77,6 +77,7 @@ export const MOCK_PROMPT_CACHE: PromptCacheTimeline = {
   observedTtls: [{ model: "gpt-5.6-luna", ttlSeconds: 1800, count: 3 }],
   summary: {
     resumedWindows: 2,
+    agentResumes: 0,
     warm: 1,
     expired: 1,
     modelChanged: 0,

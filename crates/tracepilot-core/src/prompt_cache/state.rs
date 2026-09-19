@@ -15,7 +15,7 @@ pub(super) struct ModelExpiry {
 
 #[derive(Debug)]
 pub(super) struct Checkpoint {
-    pub(super) total_nano_aiu: u64,
+    pub(super) total_nano_aiu: Option<u64>,
     pub(super) expiries: HashMap<String, ModelExpiry>,
     /// Main-conversation baselines keyed by model.
     pub(super) baselines: HashMap<String, CacheBaseline>,

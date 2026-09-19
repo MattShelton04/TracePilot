@@ -53,7 +53,10 @@ export interface CacheWindow {
   confidence: CacheConfidence;
   /** `resumeAt - expiresAt` in seconds; negative means before the expiry. */
   resumeOffsetSeconds: number | null;
-  /** Event index of the resuming prompt; matches `ConversationTurn.eventIndex`. */
+  /**
+   * Event index of the resuming prompt (matches `ConversationTurn.eventIndex`),
+   * or of the `assistant.turn_start` when the agent woke itself.
+   */
   resumeEventIndex: number | null;
   resumeInteractionId: string | null;
   /** Set when the resume was not typed by the user (e.g. `"system"`, `"agent"`). */
@@ -72,7 +75,9 @@ export interface ObservedCacheTtl {
 }
 
 export interface PromptCacheSummary {
+  /** Windows ended by a prompt; agent wakes are counted in `agentResumes`. */
   resumedWindows: number;
+  agentResumes: number;
   warm: number;
   expired: number;
   modelChanged: number;

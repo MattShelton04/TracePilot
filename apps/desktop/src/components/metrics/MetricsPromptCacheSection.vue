@@ -11,10 +11,12 @@ import { Badge, DataTable, formatAiCredits, SectionPanel, StatCard, Tooltip } fr
 import { Info } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import {
+  AGENT_RESUME_SOURCE,
   CONFIDENCE_EXPLANATIONS,
   CONFIDENCE_LABELS,
   formatApproxTokens,
   formatIdle,
+  idleFractionOfTtl,
   OUTCOME_LABELS,
 } from "@/utils/promptCache";
 
@@ -44,11 +46,11 @@ const OUTCOME_VARIANTS: Record<CacheWindow["outcome"], "success" | "warning" | "
   unknown: "neutral",
 };
 
-/** Idle time relative to TTL, clamped at 1.5× so the TTL marker stays visible. */
+/** Idle time relative to the expiry, clamped at 1.5× so the marker stays visible. */
 const METER_SPAN = 1.5;
 function meterPercent(window: CacheWindow): number | null {
-  if (window.idleSeconds == null || !window.ttlSeconds) return null;
-  return Math.min(window.idleSeconds / window.ttlSeconds, METER_SPAN) / METER_SPAN;
+  const fraction = idleFractionOfTtl(window);
+  return fraction == null ? null : Math.min(fraction, METER_SPAN) / METER_SPAN;
 }
 const TTL_MARKER = `${(1 / METER_SPAN) * 100}%`;
 
@@ -57,7 +59,7 @@ const columns = [
   { key: "idle", label: "Idle vs TTL" },
   { key: "outcome", label: "Outcome" },
   { key: "prefixTokens", label: "Prefix", align: "right" as const },
-  { key: "changes", label: "Likely cache-break causes" },
+  { key: "changes", label: "Likely break causes" },
   { key: "usage", label: "Next interaction", align: "right" as const },
 ];
 const rows = computed(() => visibleWindows.value.map((window) => ({ window })));
@@ -107,9 +109,14 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
         <StatCard :value="afterExpiry" label="After expiry" mini />
         <StatCard :value="formatIdle(summary.medianIdleSeconds)" label="Median idle" mini />
       </div>
-      <p v-if="summary.resentPrefixTokens > 0" class="text-xs text-[var(--text-tertiary)] mb-3">
-        {{ formatApproxTokens(summary.resentPrefixTokens) }} re-sent without cache after expiry
-        ({{ CONFIDENCE_LABELS[confidence].toLowerCase() }}).
+      <p v-if="summary.resentPrefixTokens > 0 || summary.agentResumes > 0" class="text-xs text-[var(--text-tertiary)] mb-3">
+        <template v-if="summary.resentPrefixTokens > 0">
+          {{ formatApproxTokens(summary.resentPrefixTokens) }} re-sent without cache after expiry
+          ({{ CONFIDENCE_LABELS[confidence].toLowerCase() }}).
+        </template>
+        <template v-if="summary.agentResumes > 0">
+          {{ summary.agentResumes }} {{ summary.agentResumes === 1 ? 'resume was' : 'resumes were' }} started by the agent, not a reply, and {{ summary.agentResumes === 1 ? 'is' : 'are' }} left out of the counts above.
+        </template>
       </p>
 
       <div class="prompt-cache__table">
@@ -125,7 +132,7 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
                 class="prompt-cache__meter"
                 :class="{ 'prompt-cache__meter--estimated': rowWindow(row).confidence === 'estimated' }"
                 role="img"
-                :aria-label="`Idle ${formatIdle(rowWindow(row).idleSeconds)} of a ${formatIdle(rowWindow(row).ttlSeconds)} TTL`"
+                :aria-label="`Idle ${formatIdle(rowWindow(row).idleSeconds)}; the marker is the predicted expiry`"
               >
                 <div
                   class="prompt-cache__meter-fill"
@@ -137,9 +144,15 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
             </div>
           </template>
           <template #cell-outcome="{ row }">
-            <Badge :variant="OUTCOME_VARIANTS[rowWindow(row).outcome]">
-              {{ OUTCOME_LABELS[rowWindow(row).outcome] }}
-            </Badge>
+            <span class="prompt-cache__outcome">
+              <Badge :variant="OUTCOME_VARIANTS[rowWindow(row).outcome]">
+                {{ OUTCOME_LABELS[rowWindow(row).outcome] }}
+              </Badge>
+              <span v-if="rowWindow(row).resumeSource === AGENT_RESUME_SOURCE" class="prompt-cache__tag">Agent resumed</span>
+              <span v-if="rowWindow(row).confidence !== confidence" class="prompt-cache__tag">
+                {{ CONFIDENCE_LABELS[rowWindow(row).confidence] }}
+              </span>
+            </span>
           </template>
           <template #cell-prefixTokens="{ row }">
             <span class="tabular">{{ rowWindow(row).prefixTokens == null ? '—' : formatNumber(rowWindow(row).prefixTokens) }}</span>
@@ -160,7 +173,7 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
         </DataTable>
       </div>
       <p class="text-xs text-[var(--text-tertiary)] mt-2">
-        The bar marks the cache TTL. A prefix change would likely break the cache even when warm; the session log cannot confirm individual cache hits.
+        The bar marks the predicted expiry. A prefix change would likely break the cache even when warm; the session log cannot confirm individual cache hits.
       </p>
     </template>
   </SectionPanel>
@@ -220,6 +233,17 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
   width: 2px;
   margin-left: -1px;
   background: var(--text-secondary);
+}
+.prompt-cache__outcome {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.prompt-cache__tag {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 .prompt-cache__changes {
   margin: 0;

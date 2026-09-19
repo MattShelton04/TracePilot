@@ -149,9 +149,9 @@ pub(super) fn write_child_rows(
         conn,
         "INSERT INTO session_cache_windows \
         (session_id, window_index, idle_start, resume_at, idle_seconds, model, \
-         expires_at, ttl_seconds, outcome, prefix_tokens, interaction_nano_aiu, \
-         change_kinds) VALUES",
-        12,
+         expires_at, ttl_seconds, outcome, resume_source, prefix_tokens, \
+         interaction_nano_aiu, change_kinds) VALUES",
+        13,
         &analytics.cache_window_rows,
         |row, params| {
             params.push(&session_id as &dyn rusqlite::ToSql);
@@ -163,6 +163,7 @@ pub(super) fn write_child_rows(
             params.push(&row.expires_at);
             params.push(&row.ttl_seconds);
             params.push(&row.outcome);
+            params.push(&row.resume_source);
             params.push(&row.prefix_tokens);
             params.push(&row.interaction_nano_aiu);
             params.push(&row.change_kinds);

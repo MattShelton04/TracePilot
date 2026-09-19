@@ -335,7 +335,7 @@ What shipped, and where it deliberately differs from the plan above.
 | Typed checkpoint | `ModelCacheState` in `session_lifecycle_data.rs` (all fields optional, unknown fields kept in `extra`) |
 | Core reconstruction | `crates/tracepilot-core/src/prompt_cache/` (`baseline`, `builder`, `state`, `outcome`, `changes`, `model`) → `build_prompt_cache_timeline(events, ttl_lookup)` |
 | IPC | `get_session_prompt_cache` (`commands/session/prompt_cache.rs`), reusing the parsed-event LRU |
-| Index | Migration 17: `session_cache_windows`, `session_cache_ttls`; analytics version 10; `AnalyticsData.promptCache` |
+| Index | Migrations 17–18: `session_cache_windows` (with `resume_source`), `session_cache_ttls`; analytics version 11; `AnalyticsData.promptCache` |
 | Desktop | `usePromptCache`, `PromptCacheHeaderChip`, `CacheResumeDivider` (chat and compact views), `MetricsPromptCacheSection`, `AnalyticsPromptCachePanel`, Model Comparison "Cache TTL" column |
 | CLI | `WATCHED_EVENT_TYPES` in the version analyzer |
 | Flag | `features.promptCacheInsights`, default on |
@@ -349,7 +349,10 @@ What shipped, and where it deliberately differs from the plan above.
   makes a model call without a user prompt (observed in real sessions). The first main
   `assistant.turn_start` after a checkpoint therefore resumes the window, with
   `resumeSource: "agent"`. A later checkpoint with no resume in between supersedes the
-  earlier idle point.
+  earlier idle point. Agent wakes are not replies: they are left out of the reply counts,
+  the median idle and the Analytics percentages, and only add to the re-sent tokens. In
+  the conversation they are placed by the start time of the turn they began, since they
+  share the interaction id of an earlier prompt.
 - **A shutdown does not close a window.** If the session is later resumed (`session.resume`
   then a prompt), the window is classified normally, since the provider cache does not depend
   on the CLI process. `sessionEnded` is only reported when nothing followed.
@@ -359,19 +362,31 @@ What shipped, and where it deliberately differs from the plan above.
 - **Checkpoints exist before 1.0.83.** 1.0.75+ writes `modelCacheState` without
   `promptCacheBreakState`, so those sessions get predicted timing without prefix changes.
 - **Prefix changes compare the baseline before the idle window with the one after the
-  resumed interaction.** When either fingerprint is missing, model and effort changes come
-  from `session.model_change`, and history rewrites from compaction, truncation or
-  context-clear events seen while idle. Cache-config changes list the changed keys (real
-  sessions flip `incremental_input`).
+  resumed interaction.** A history rewrite whose only known causes happened after the
+  resume (e.g. a compaction during the next interaction) is dropped, since it cannot have
+  broken that resume; a rewrite with no known cause is kept. When either fingerprint is
+  missing, model and effort changes come from `session.model_change`, and history rewrites
+  from compaction, truncation or context-clear events seen while idle.
+- **`cache_config.incremental_input` is ignored.** In every real baseline it equals
+  "the request was agent-initiated", so it flips between single-request and multi-request
+  interactions without meaning a cache change. Other changed keys are listed.
+- **Idle-vs-TTL meters use the predicted expiry.** The CLI measures expiry from the start
+  of the last request, so the gap from the checkpoint to the expiry is slightly shorter
+  than the TTL; the meter marker is that expiry, keeping it consistent with the outcome.
 - **The TTL registry is per session, not a global counter table.** `session_cache_ttls`
   rows are replaced on reindex, so counts cannot double. The estimate uses the most common
-  TTL per model, and a tie picks the shorter TTL. There is no built-in `cacheTtlDefaults`
+  TTL per model, and a tie picks the shorter TTL. An observation whose expiry lies more
+  than a minute before its own checkpoint contradicts its TTL (seen once for gpt-5-mini)
+  and is not counted. There is no built-in `cacheTtlDefaults`
   table or Settings override: without an observed TTL a window is **unavailable** rather
   than guessed. The registry is read lazily, only for sessions that need an estimate.
 - **Only predicted windows are indexed.** Estimates depend on the registry that the index
   feeds, so they are computed on demand. Cross-session figures cover predicted windows only.
 - **`interactionNanoAiu` is shown neutrally** as "Next interaction" usage, answering the
   open question in §12.
+- **Lenient parsing is field by field.** A checkpoint that fails the typed parse keeps
+  every readable field (a TTL sent as a string or float still counts); a missing
+  `totalNanoAiu` leaves the interaction usage unknown rather than zero.
 - **Diagnostics** are reported on the timeline (`malformedEntryCount`) rather than in
   `ParseDiagnostics`, since a malformed cache entry never affects event parsing.
 

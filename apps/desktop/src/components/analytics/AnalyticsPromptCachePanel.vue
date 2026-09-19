@@ -35,7 +35,7 @@ const causeLabel = (kind: string) => CHANGE_KIND_LABELS[kind as PrefixChangeKind
   <SectionPanel title="Prompt Cache Timing" data-testid="analytics-prompt-cache">
     <template #actions>
       <span v-if="data.resumedWindows > 0" class="text-xs text-[var(--text-tertiary)]">{{ sessionsLabel }}</span>
-      <Tooltip :text="`Only replies whose cache expiry was predicted by Copilot CLI are counted. ${CONFIDENCE_EXPLANATIONS.predicted}`">
+      <Tooltip :text="`Only replies whose cache expiry was predicted by Copilot CLI are counted; the agent waking itself is not a reply. ${CONFIDENCE_EXPLANATIONS.predicted}`">
         <button type="button" aria-label="About prompt cache timing" class="text-[var(--text-tertiary)]">
           <Info :size="14" />
         </button>
@@ -49,7 +49,7 @@ const causeLabel = (kind: string) => CHANGE_KIND_LABELS[kind as PrefixChangeKind
       <div class="prompt-timing__grid">
         <div class="prompt-timing__metric">
           <span class="prompt-timing__value">{{ formatPercent(afterExpiryPercent) }}</span>
-          <span class="prompt-timing__label">Replies after predicted expiry</span>
+          <span class="prompt-timing__label">Replies after predicted expiry or a model switch</span>
         </div>
         <div class="prompt-timing__metric">
           <span class="prompt-timing__value">{{ formatIdle(data.medianIdleSeconds) }}</span>

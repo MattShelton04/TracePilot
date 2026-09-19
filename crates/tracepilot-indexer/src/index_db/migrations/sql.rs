@@ -414,3 +414,9 @@ CREATE TABLE IF NOT EXISTS session_cache_ttls (
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 "#;
+
+pub(super) const MIGRATION_18: &str = r#"
+-- What resumed a cache window: NULL for a user prompt, "system", or "agent"
+-- when the agent woke itself. Agent wakes are kept out of reply figures.
+ALTER TABLE session_cache_windows ADD COLUMN resume_source TEXT;
+"#;

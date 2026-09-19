@@ -26,6 +26,7 @@ pub(super) fn extract_prompt_cache_rows(
             expires_at: window.expires_at,
             ttl_seconds: window.ttl_seconds.map(saturating_i64),
             outcome: window.outcome.as_str(),
+            resume_source: window.resume_source,
             prefix_tokens: window.prefix_tokens.map(saturating_i64),
             interaction_nano_aiu: window.interaction_nano_aiu.map(saturating_i64),
             change_kinds: (!window.prefix_changes.is_empty()).then(|| {

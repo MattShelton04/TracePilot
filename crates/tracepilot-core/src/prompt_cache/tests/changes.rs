@@ -89,7 +89,7 @@ fn effort_change_is_detected_from_events_without_baselines() {
 }
 
 #[test]
-fn compaction_between_baselines_explains_the_history_rewrite() {
+fn compaction_while_idle_explains_the_history_rewrite() {
     let events = vec![
         start(MODEL),
         user("00:00:01", "i1"),
@@ -100,12 +100,12 @@ fn compaction_between_baselines_explains_the_history_rewrite() {
             1800,
             Some(baseline("high", default_tools(), 4, &["a", "b", "c", "d"])),
         ),
-        user("00:01:00", "i2"),
         event(
             "session.compaction_complete",
-            "00:01:10",
+            "00:00:50",
             json!({"success": true}),
         ),
+        user("00:01:00", "i2"),
         checkpoint(
             "00:01:30",
             0,
@@ -206,4 +206,51 @@ fn cache_config_changes_list_the_changed_keys() {
     let change = &build(&events).windows[0].prefix_changes[0];
     assert_eq!(change.kind, PrefixChangeKind::CacheConfig);
     assert_eq!(change.details, vec![r#"arm: "control" → "treatment""#]);
+}
+
+#[test]
+fn a_compaction_after_the_resume_is_not_blamed_for_it() {
+    let events = vec![
+        start(MODEL),
+        user("00:00:01", "i1"),
+        checkpoint(
+            "00:00:11",
+            0,
+            "00:30:00",
+            1800,
+            Some(baseline("high", default_tools(), 4, &["a", "b", "c", "d"])),
+        ),
+        user("00:01:00", "i2"),
+        event(
+            "session.compaction_complete",
+            "00:01:10",
+            json!({"success": true}),
+        ),
+        checkpoint(
+            "00:01:30",
+            0,
+            "00:31:00",
+            1800,
+            Some(baseline("high", default_tools(), 3, &["a", "x", "y"])),
+        ),
+    ];
+    let timeline = build(&events);
+    assert!(timeline.windows[0].prefix_changes.is_empty());
+    assert_eq!(timeline.summary.likely_breaks, 0);
+}
+
+#[test]
+fn per_request_cache_config_keys_are_ignored() {
+    let mut before = baseline("high", default_tools(), 2, &["a", "b"]);
+    before["cache_config"] = json!({"arm": "control", "incremental_input": true});
+    let mut after = baseline("high", default_tools(), 4, &["a", "b", "c", "d"]);
+    after["cache_config"] = json!({"arm": "control", "incremental_input": false});
+    let events = vec![
+        start(MODEL),
+        user("00:00:01", "i1"),
+        checkpoint("00:00:11", 0, "00:30:00", 1800, Some(before)),
+        user("00:01:00", "i2"),
+        checkpoint("00:01:30", 0, "00:31:00", 1800, Some(after)),
+    ];
+    assert!(build(&events).windows[0].prefix_changes.is_empty());
 }

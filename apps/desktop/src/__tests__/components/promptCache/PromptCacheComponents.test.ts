@@ -107,6 +107,7 @@ describe("MetricsPromptCacheSection", () => {
           {
             summary: {
               resumedWindows: 2,
+              agentResumes: 0,
               warm: 1,
               expired: 1,
               modelChanged: 0,

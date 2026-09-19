@@ -53,10 +53,8 @@ fn reconstructs_warm_expired_and_model_changed_windows() {
     assert_eq!(expired.resume_offset_seconds, Some(874));
     assert_eq!(expired.prefix_tokens, Some(21_000));
     let kinds: Vec<_> = expired.prefix_changes.iter().map(|c| c.kind).collect();
-    assert_eq!(
-        kinds,
-        vec![PrefixChangeKind::History, PrefixChangeKind::CacheConfig]
-    );
+    // The `incremental_input` flip is per request, not a cache change.
+    assert_eq!(kinds, vec![PrefixChangeKind::History]);
     assert_eq!(
         expired.prefix_changes[0].summary,
         "History rewritten at message 1 (compaction)"

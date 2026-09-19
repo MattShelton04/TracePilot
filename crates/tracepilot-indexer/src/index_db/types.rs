@@ -3,6 +3,9 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v11: record what resumed each cache window, so agent wakes can be kept
+/// out of reply figures.
+///
 /// v10: extract prompt-cache windows and observed cache TTLs from
 /// `session.usage_checkpoint` events into their own tables.
 ///
@@ -10,7 +13,7 @@
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 10;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 11;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -124,6 +127,7 @@ pub(crate) struct CacheWindowRow {
     pub expires_at: Option<String>,
     pub ttl_seconds: Option<i64>,
     pub outcome: &'static str,
+    pub resume_source: Option<String>,
     pub prefix_tokens: Option<i64>,
     pub interaction_nano_aiu: Option<i64>,
     pub change_kinds: Option<String>,

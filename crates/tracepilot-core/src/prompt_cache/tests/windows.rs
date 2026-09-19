@@ -195,21 +195,72 @@ fn a_checkpoint_that_fails_typed_parsing_is_read_leniently() {
             json!({
                 "totalNanoAiu": 5,
                 "modelCacheState": [
-                    {"modelId": MODEL, "cacheExpiresAt": "2026-09-12T00:30:00Z", "cacheTtlSeconds": 1800},
-                    {"modelId": "other", "cacheTtlSeconds": "not-a-number"}
+                    {"modelId": MODEL, "cacheExpiresAt": "2026-09-12T00:30:00Z", "cacheTtlSeconds": "1800"},
+                    {"cacheTtlSeconds": 60}
                 ]
             }),
         ),
         user("00:10:00", "i2"),
+        event(
+            "session.usage_checkpoint",
+            "00:10:30",
+            json!({"modelCacheState": "not an array"}),
+        ),
     ];
     assert!(matches!(
         events[2].typed_data,
         crate::parsing::events::TypedEventData::Other(_)
     ));
     let timeline = build(&events);
-    assert_eq!(timeline.checkpoint_count, 1);
+    assert_eq!(timeline.checkpoint_count, 2);
+    // Only the entry without a model id is unreadable.
     assert_eq!(timeline.malformed_entry_count, 1);
-    assert_eq!(timeline.windows[0].outcome, CacheWindowOutcome::Warm);
+    let window = &timeline.windows[0];
+    assert_eq!(window.outcome, CacheWindowOutcome::Warm);
+    assert_eq!(window.ttl_seconds, Some(1800));
+    // A missing cumulative total must not turn into a huge delta.
+    assert_eq!(window.interaction_nano_aiu, None);
+}
+
+#[test]
+fn agent_wakes_stay_out_of_reply_figures() {
+    let events = vec![
+        start(MODEL),
+        user("00:00:01", "i1"),
+        checkpoint("00:00:11", 0, "00:30:00", 1800, None),
+        event(
+            "assistant.turn_start",
+            "00:45:00",
+            json!({"turnId": "3", "interactionId": "i1"}),
+        ),
+        checkpoint("00:45:30", 0, "01:15:00", 1800, None),
+        user("00:50:00", "i2"),
+    ];
+    let summary = build(&events).summary;
+    assert_eq!(summary.agent_resumes, 1);
+    assert_eq!(summary.resumed_windows, 1);
+    assert_eq!(summary.expired, 0);
+    assert_eq!(summary.warm, 1);
+    assert_eq!(summary.median_idle_seconds, Some(270));
+}
+
+#[test]
+fn an_expiry_before_its_checkpoint_is_not_ttl_evidence() {
+    let data = json!({
+        "totalNanoAiu": 0,
+        "modelCacheState": [
+            {"modelId": MODEL, "cacheExpiresAt": "2026-09-12T00:30:00Z", "cacheTtlSeconds": 1800},
+            {"modelId": "gpt-5-mini", "cacheExpiresAt": "2026-09-12T00:00:00Z", "cacheTtlSeconds": 86400}
+        ]
+    });
+    let events = vec![
+        start(MODEL),
+        user("00:00:01", "i1"),
+        event("session.usage_checkpoint", "00:05:00", data),
+    ];
+    let ttls = build(&events).observed_ttls;
+    assert_eq!(ttls.len(), 1);
+    assert_eq!(ttls[0].model, MODEL);
 }
 
 #[test]

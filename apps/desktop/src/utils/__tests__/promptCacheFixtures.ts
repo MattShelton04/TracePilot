@@ -36,6 +36,7 @@ export function makeTimeline(
     observedTtls: [],
     summary: {
       resumedWindows: 0,
+      agentResumes: 0,
       warm: 0,
       expired: 0,
       modelChanged: 0,

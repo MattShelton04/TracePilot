@@ -10,6 +10,9 @@ use super::model::{
 };
 use super::state::{Checkpoint, WindowDraft};
 
+/// `CacheWindow::resume_source` for a model call the agent started itself.
+pub const AGENT_RESUME_SOURCE: &str = "agent";
+
 /// The cache timing of one window.
 pub(super) struct Classification {
     pub(super) outcome: CacheWindowOutcome,
@@ -117,7 +120,13 @@ pub(super) fn prefix_changes(
 
     let mut changes = match (start_baseline, next_baseline, next) {
         (Some(prev), Some(next_baseline), Some(next)) => {
-            diff_baselines(prev, next_baseline, &next.rewrite_causes)
+            let mut changes = diff_baselines(prev, next_baseline, &draft.idle_rewrite_causes);
+            // A rewrite whose only known causes came after the resume (e.g. a
+            // compaction during the next interaction) cannot have broken it.
+            if draft.idle_rewrite_causes.is_empty() && !next.rewrite_causes.is_empty() {
+                changes.retain(|change| change.kind != PrefixChangeKind::History);
+            }
+            changes
         }
         _ => {
             // No fingerprints on both sides: rely on events seen while idle.
@@ -152,6 +161,18 @@ pub(super) fn summarize(windows: &[CacheWindow]) -> PromptCacheSummary {
     let mut summary = PromptCacheSummary::default();
     let mut idle: Vec<u64> = Vec::new();
     for window in windows.iter().filter(|w| w.resume_at.is_some()) {
+        if matches!(
+            window.outcome,
+            CacheWindowOutcome::Expired | CacheWindowOutcome::ModelChanged
+        ) {
+            summary.resent_prefix_tokens += window.prefix_tokens.unwrap_or(0);
+        }
+        // An agent waking itself (e.g. a background task finished) is not a
+        // reply, so it stays out of the reply figures.
+        if window.resume_source.as_deref() == Some(AGENT_RESUME_SOURCE) {
+            summary.agent_resumes += 1;
+            continue;
+        }
         summary.resumed_windows += 1;
         match window.outcome {
             CacheWindowOutcome::Warm => summary.warm += 1,
@@ -159,12 +180,6 @@ pub(super) fn summarize(windows: &[CacheWindow]) -> PromptCacheSummary {
             CacheWindowOutcome::ModelChanged => summary.model_changed += 1,
             CacheWindowOutcome::NoCache => summary.no_cache += 1,
             _ => summary.unknown += 1,
-        }
-        if matches!(
-            window.outcome,
-            CacheWindowOutcome::Expired | CacheWindowOutcome::ModelChanged
-        ) {
-            summary.resent_prefix_tokens += window.prefix_tokens.unwrap_or(0);
         }
         if !window.prefix_changes.is_empty() {
             summary.likely_breaks += 1;

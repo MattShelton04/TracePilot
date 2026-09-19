@@ -30,6 +30,7 @@ pub use model::{
     CacheConfidence, CacheWindow, CacheWindowOutcome, ObservedCacheTtl, PrefixChange,
     PrefixChangeKind, PromptCacheSource, PromptCacheSummary, PromptCacheTimeline,
 };
+pub use outcome::AGENT_RESUME_SOURCE;
 
 use chrono::{DateTime, Utc};
 
