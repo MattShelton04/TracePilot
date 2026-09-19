@@ -335,7 +335,7 @@ What shipped, and where it deliberately differs from the plan above.
 | Typed checkpoint | `ModelCacheState` in `session_lifecycle_data.rs` (all fields optional, unknown fields kept in `extra`) |
 | Core reconstruction | `crates/tracepilot-core/src/prompt_cache/` (`baseline`, `builder`, `state`, `outcome`, `changes`, `model`) → `build_prompt_cache_timeline(events, ttl_lookup)` |
 | IPC | `get_session_prompt_cache` (`commands/session/prompt_cache.rs`), reusing the parsed-event LRU |
-| Index | Migrations 17–18: `session_cache_windows` (with `resume_source`), `session_cache_ttls`; analytics version 11; `AnalyticsData.promptCache` |
+| Index | Migration 17: `session_cache_windows` (with `resume_source`), `session_cache_ttls`; analytics version 10; `AnalyticsData.promptCache` |
 | Desktop | `usePromptCache`, `PromptCacheHeaderChip`, `CacheResumeDivider` (chat and compact views), `MetricsPromptCacheSection`, `AnalyticsPromptCachePanel`, Model Comparison "Cache TTL" column |
 | CLI | `WATCHED_EVENT_TYPES` in the version analyzer |
 | Flag | `features.promptCacheInsights`, default on |

@@ -395,6 +395,8 @@ CREATE TABLE IF NOT EXISTS session_cache_windows (
     expires_at TEXT,
     ttl_seconds INTEGER,
     outcome TEXT NOT NULL,
+    -- NULL for a user prompt; "system", or "agent" when the agent woke itself.
+    resume_source TEXT,
     prefix_tokens INTEGER,
     interaction_nano_aiu INTEGER,
     -- Comma-separated prefix-change kinds (e.g. "tools,history").
@@ -413,10 +415,4 @@ CREATE TABLE IF NOT EXISTS session_cache_ttls (
     PRIMARY KEY (session_id, model, ttl_seconds),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
-"#;
-
-pub(super) const MIGRATION_18: &str = r#"
--- What resumed a cache window: NULL for a user prompt, "system", or "agent"
--- when the agent woke itself. Agent wakes are kept out of reply figures.
-ALTER TABLE session_cache_windows ADD COLUMN resume_source TEXT;
 "#;

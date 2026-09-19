@@ -3,17 +3,15 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
-/// v11: record what resumed each cache window, so agent wakes can be kept
-/// out of reply figures.
-///
-/// v10: extract prompt-cache windows and observed cache TTLs from
-/// `session.usage_checkpoint` events into their own tables.
+/// v10: extract prompt-cache windows (including what resumed each one) and
+/// observed cache TTLs from `session.usage_checkpoint` events into their own
+/// tables.
 ///
 /// v9: retain legacy segments following cumulative shutdowns (downgrade / upgrade)
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 11;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 10;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
