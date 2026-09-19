@@ -1,3 +1,32 @@
+// ── agents.js ──────────────────────────────────────────────────────
+export type {
+  AgentBucketCount,
+  AgentCatalog,
+  AgentCreateScope,
+  AgentDayCount,
+  AgentDayOutcomes,
+  AgentDefinitionDetail,
+  AgentDefinitionSummary,
+  AgentDiagnostic,
+  AgentDispatchCount,
+  AgentFailureReason,
+  AgentFields,
+  AgentFormat,
+  AgentLabelCount,
+  AgentOtherField,
+  AgentParentCount,
+  AgentRunOutcome,
+  AgentRunRecord,
+  AgentScope,
+  AgentSelectionStats,
+  AgentUsageDetail,
+  AgentUsageStats,
+  AgentUsageSummary,
+  AgentWriteResult,
+  MetricDistribution,
+  SubagentOverride,
+  SubagentSettings,
+} from "./agents.js";
 // ── agentUsage.js ──────────────────────────────────────────────────
 export type { AgentUsageEntry, AgentUsageSnapshot } from "./agentUsage.js";
 // ── analytics.js ───────────────────────────────────────────────────

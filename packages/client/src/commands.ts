@@ -123,6 +123,18 @@ export const IPC_COMMANDS = [
   "mcp_import_from_file",
   "mcp_import_from_github",
   "mcp_compute_diff",
+  // Agents explorer commands
+  "agents_list",
+  "agents_get",
+  "agents_preview",
+  "agents_save",
+  "agents_save_raw",
+  "agents_create",
+  "agents_delete",
+  "agents_set_override",
+  "agents_set_disabled",
+  "agents_usage_summary",
+  "agents_usage_detail",
   // Skills commands
   "skills_list_all",
   "skills_encountered_project",

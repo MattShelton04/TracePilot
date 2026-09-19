@@ -281,6 +281,18 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::orchestration::get_available_models,
             commands::orchestration::open_in_explorer,
             commands::orchestration::open_in_terminal,
+            // Agents explorer commands
+            commands::agents::agents_list,
+            commands::agents::agents_get,
+            commands::agents::agents_preview,
+            commands::agents::agents_save,
+            commands::agents::agents_save_raw,
+            commands::agents::agents_create,
+            commands::agents::agents_delete,
+            commands::agents::agents_set_override,
+            commands::agents::agents_set_disabled,
+            commands::agents::agents_usage_summary,
+            commands::agents::agents_usage_detail,
             // Logging commands (2)
             commands::logging::get_log_path,
             commands::logging::export_logs,

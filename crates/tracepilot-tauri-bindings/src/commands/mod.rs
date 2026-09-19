@@ -1,5 +1,6 @@
 //! Tauri command modules, split by domain.
 
+pub mod agents;
 pub mod analytics;
 pub mod analytics_executor;
 pub mod blocking_helper;

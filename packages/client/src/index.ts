@@ -7,6 +7,7 @@
  * original name and type.
  */
 
+export * from "./agents.js";
 export * from "./composables.js";
 export * from "./config.js";
 export * from "./export.js";
