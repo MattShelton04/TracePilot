@@ -29,7 +29,7 @@ const recommendedFlags: readonly FeatureOption[] = [
     key: "promptCacheInsights",
     label: "Prompt Cache Insights",
     description:
-      "Show when a session's prompt cache is predicted to expire, whether replies came before or after that point, and what likely broke the cache.",
+      "Show when the prompt cache expires, whether replies beat it, and what likely broke it.",
   },
   {
     key: "exactContextCapture",

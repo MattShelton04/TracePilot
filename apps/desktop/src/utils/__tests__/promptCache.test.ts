@@ -2,7 +2,6 @@ import type { ConversationTurn } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
 import {
   describeResume,
-  describeWindowDetail,
   findLiveWindow,
   formatCountdown,
   formatIdle,
@@ -10,6 +9,7 @@ import {
   liveCacheStatus,
   mapWindowsToTurns,
   resumeChipLabel,
+  windowDetailRows,
 } from "@/utils/promptCache";
 import { makeTimeline, makeWindow } from "./promptCacheFixtures";
 
@@ -130,46 +130,49 @@ describe("idleFractionOfTtl", () => {
 
 describe("copy", () => {
   it("describes warm and expired resumes without blaming the user", () => {
-    expect(describeResume(makeWindow())).toBe("idle 10m · cache warm, 20m before expiry");
+    expect(describeResume(makeWindow())).toBe("idle 10m · 20m left");
+    expect(describeResume(makeWindow({ resumeOffsetSeconds: -20 }))).toBe(
+      "idle 10m · under a minute left",
+    );
     const expired = makeWindow({
       outcome: "expired",
       idleSeconds: 47 * 60,
       resumeOffsetSeconds: 17 * 60,
     });
-    expect(describeResume(expired)).toBe("idle 47m · cache expired 17m before this reply");
-    expect(describeResume({ ...expired, resumeSource: "agent" })).toBe(
-      "idle 47m · cache expired 17m before the agent resumed",
-    );
+    expect(describeResume(expired)).toBe("idle 47m · expired 17m earlier");
     for (const window of [makeWindow(), expired]) {
-      expect(describeResume(window)).not.toMatch(/wasted/i);
-      expect(describeWindowDetail(window)).not.toMatch(/wasted/i);
+      expect(describeResume(window)).not.toMatch(/wasted|predicted/i);
+      for (const row of windowDetailRows(window)) expect(row.value).not.toMatch(/wasted/i);
     }
   });
 
-  it("labels likely cache breaks and cold resumes", () => {
-    expect(resumeChipLabel(makeWindow())).toBe("Warm resume");
-    expect(describeResume(makeWindow({ resumeOffsetSeconds: -20 }))).toBe(
-      "idle 10m · cache warm, under a minute before expiry",
-    );
+  it("labels each resume outcome", () => {
+    expect(resumeChipLabel(makeWindow())).toBe("Cache warm");
     expect(
       resumeChipLabel(
         makeWindow({ prefixChanges: [{ kind: "tools", summary: "+1 tool", details: [] }] }),
       ),
     ).toBe("Likely cache break");
-    expect(resumeChipLabel(makeWindow({ outcome: "expired" }))).toBe("Cold resume");
-    expect(resumeChipLabel(makeWindow({ outcome: "modelChanged" }))).toBe("Cold resume");
+    expect(resumeChipLabel(makeWindow({ outcome: "expired" }))).toBe("Cache expired");
+    expect(resumeChipLabel(makeWindow({ outcome: "modelChanged" }))).toBe("Model changed");
   });
 
-  it("qualifies re-sent tokens with the confidence level", () => {
-    const detail = describeWindowDetail(
-      makeWindow({
-        outcome: "expired",
-        confidence: "estimated",
-        prefixChanges: [{ kind: "effort", summary: "Effort high → xhigh", details: [] }],
-      }),
+  it("labels only estimates and lists re-sent tokens after a miss", () => {
+    const rows = (w: Parameters<typeof windowDetailRows>[0]) =>
+      Object.fromEntries(windowDetailRows(w).map((r) => [r.label, r.value]));
+
+    const warm = rows(makeWindow());
+    expect(warm.Idle).toBe("10m");
+    expect(warm.Model).toBe("gpt-5.6-luna · TTL 30m");
+    expect(warm.Expiry).toContain("20m after reply");
+    expect(warm.Timing).toBeUndefined();
+    expect(warm["Re-sent"]).toBeUndefined();
+
+    const estimated = rows(
+      makeWindow({ outcome: "expired", confidence: "estimated", resumeSource: "agent" }),
     );
-    expect(detail).toContain("Estimated");
-    expect(detail).toContain("about 54K tokens re-sent without cache");
-    expect(detail).toContain("Likely cache break: Effort high → xhigh");
+    expect(estimated.Timing).toBe("Estimated");
+    expect(estimated["Resumed by"]).toBe("Agent");
+    expect(estimated["Re-sent"]).toBe("about 54K tokens");
   });
 });

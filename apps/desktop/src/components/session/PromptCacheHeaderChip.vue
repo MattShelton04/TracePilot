@@ -2,7 +2,7 @@
 /**
  * Live prompt-cache countdown for a running session, driven by the expiry
  * Copilot CLI records when the agent goes idle. Ticks on the client between
- * refreshes; hidden unless the expiry is predicted by the CLI.
+ * refreshes; hidden unless the CLI recorded the expiry.
  */
 import type { PromptCacheTimeline } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/types";
@@ -10,13 +10,7 @@ import { Tooltip } from "@tracepilot/ui";
 import { Timer } from "lucide-vue-next";
 import { computed } from "vue";
 import { useLiveClock } from "@/composables/useLiveClock";
-import {
-  CONFIDENCE_LABELS,
-  findLiveWindow,
-  formatCountdown,
-  formatIdle,
-  liveCacheStatus,
-} from "@/utils/promptCache";
+import { findLiveWindow, formatCountdown, formatIdle, liveCacheStatus } from "@/utils/promptCache";
 
 const props = defineProps<{ timeline: PromptCacheTimeline | null }>();
 
@@ -47,7 +41,6 @@ const tooltip = computed(() => {
     current.model ?? "Unknown model",
     current.ttlSeconds ? `TTL ${formatIdle(current.ttlSeconds)}` : null,
     current.expiresAt ? `expires ${formatTime(current.expiresAt)}` : null,
-    CONFIDENCE_LABELS[current.confidence],
   ]
     .filter(Boolean)
     .join(" · ");

@@ -31,7 +31,7 @@ describe("PromptCacheHeaderChip", () => {
     const chip = () => wrapper.get('[data-testid="prompt-cache-chip"]');
     expect(chip().text()).toBe("Cache warm · 17:42");
     expect(chip().classes()).toContain("cache-chip--warm");
-    expect(chip().attributes("aria-label")).toContain("Predicted by Copilot CLI");
+    expect(chip().attributes("aria-label")).toContain("gpt-5.6-luna · TTL 30m");
 
     await vi.advanceTimersByTimeAsync(13 * 60_000);
     expect(chip().text()).toBe("Cache expiring · 4:42");
@@ -52,10 +52,11 @@ describe("PromptCacheHeaderChip", () => {
 });
 
 describe("CacheResumeDivider", () => {
-  it("marks warm resumes and lists likely cache breaks", () => {
+  it("marks warm resumes and lists likely cache breaks", async () => {
     const warm = mount(CacheResumeDivider, { props: { window: makeWindow() } });
     expect(warm.classes()).toContain("cache-divider--warm");
-    expect(warm.text()).toContain("Warm resume");
+    expect(warm.text()).toContain("Cache warm");
+    expect(warm.find('[data-testid="cache-resume-detail"]').exists()).toBe(false);
 
     const broken = mount(CacheResumeDivider, {
       props: {
@@ -66,9 +67,13 @@ describe("CacheResumeDivider", () => {
     });
     expect(broken.classes()).toContain("cache-divider--attention");
     expect(broken.text()).toContain("Likely cache break");
-    expect(broken.get(".cache-divider__label").attributes("aria-label")).toContain(
-      "Likely cache break: +1 tool",
-    );
+    const label = broken.get(".cache-divider__label");
+    await label.trigger("click");
+    expect(label.attributes("aria-expanded")).toBe("true");
+    const detail = broken.get('[data-testid="cache-resume-detail"]');
+    expect(detail.text()).toContain("Tools");
+    expect(detail.text()).toContain("+1 tool");
+    expect(detail.text()).toContain("gpt-5.6-luna · TTL 30m");
   });
 
   it("uses a dashed, labelled style for estimates", () => {
@@ -83,13 +88,13 @@ describe("CacheResumeDivider", () => {
     });
     expect(wrapper.classes()).toContain("cache-divider--estimated");
     expect(wrapper.classes()).toContain("cache-divider--cold");
-    expect(wrapper.text()).toContain("Cold resume");
+    expect(wrapper.text()).toContain("Cache expired");
     expect(wrapper.text()).toContain("Estimated");
   });
 });
 
 describe("MetricsPromptCacheSection", () => {
-  it("lists predicted windows with their outcome and causes", () => {
+  it("lists windows with cause chips and expands to the details", async () => {
     const wrapper = mount(MetricsPromptCacheSection, {
       props: {
         timeline: makeTimeline(
@@ -121,11 +126,17 @@ describe("MetricsPromptCacheSection", () => {
         ),
       },
     });
-    expect(wrapper.text()).toContain("Predicted by Copilot CLI");
+    expect(wrapper.text()).not.toMatch(/predicted|wasted/i);
     expect(wrapper.findAll("tbody tr")).toHaveLength(2);
-    expect(wrapper.text()).toContain("History rewritten at message 1");
-    expect(wrapper.text()).toContain("about 54K tokens re-sent without cache");
-    expect(wrapper.text()).not.toMatch(/wasted/i);
+    expect(wrapper.get(".prompt-cache__chip").text()).toBe("History");
+    expect(wrapper.text()).not.toContain("History rewritten at message 1");
+    expect(wrapper.text()).toContain("about 54K tokens re-sent after expiry.");
+
+    await wrapper.findAll("button[aria-expanded]")[1]?.trigger("click");
+    const detail = wrapper.get('[data-testid="prompt-cache-detail"]');
+    expect(detail.text()).toContain("History rewritten at message 1");
+    expect(detail.text()).toContain("about 54K tokens");
+    expect(detail.text()).not.toContain("Prefix");
   });
 
   it("hides estimates for older CLI versions until requested", async () => {
@@ -136,7 +147,7 @@ describe("MetricsPromptCacheSection", () => {
         }),
       },
     });
-    expect(wrapper.text()).toContain("Cache timing isn't recorded for this CLI version.");
+    expect(wrapper.text()).toContain("This CLI version doesn't record cache timing.");
     expect(wrapper.find("table").exists()).toBe(false);
 
     const toggle = wrapper.findAll("button").find((b) => b.text() === "Show estimate");
@@ -154,7 +165,7 @@ describe("MetricsPromptCacheSection", () => {
         ),
       },
     });
-    expect(wrapper.text()).toContain("nothing is estimated");
+    expect(wrapper.text()).toContain("No cache TTL is known");
     expect(wrapper.findAll("button").some((b) => b.text() === "Show estimate")).toBe(false);
   });
 });
@@ -167,6 +178,7 @@ describe("AnalyticsPromptCachePanel", () => {
     resumesAfterExpiry: 5,
     medianIdleSeconds: 420,
     resentPrefixTokens: 120_000,
+    resentPrefixTokensByModel: [],
     topChangeKinds: [
       { kind: "history", count: 4 },
       { kind: "tools", count: 2 },
@@ -179,13 +191,32 @@ describe("AnalyticsPromptCachePanel", () => {
     expect(wrapper.text()).toContain("25%");
     expect(wrapper.text()).toContain("from 13 sessions");
     expect(wrapper.text()).toContain("7m");
-    expect(wrapper.text()).toContain("History rewrite");
+    expect(wrapper.text()).toContain("History");
+    expect(wrapper.text()).toContain("Likely cache-break causes");
+    expect(wrapper.findAll(".prompt-timing__cause")).toHaveLength(2);
+    expect(wrapper.text()).not.toContain("Est. extra cost");
   });
 
-  it("explains when no session has predicted timing", () => {
+  it("prices re-sent tokens per model", () => {
+    const wrapper = mount(AnalyticsPromptCachePanel, {
+      props: {
+        data: {
+          ...data,
+          resentPrefixTokensByModel: [
+            { model: "gpt-5.6-luna", tokens: 100_000 },
+            { model: "not-a-model", tokens: 20_000 },
+          ],
+        },
+      },
+    });
+    expect(wrapper.text()).toContain("Est. extra cost");
+    expect(wrapper.text()).toContain("2.3 AIC");
+  });
+
+  it("explains when no session has recorded timing", () => {
     const wrapper = mount(AnalyticsPromptCachePanel, {
       props: { data: { ...data, sessionsWithPredicted: 0, resumedWindows: 0 } },
     });
-    expect(wrapper.text()).toContain("No replies with predicted cache timing");
+    expect(wrapper.text()).toContain("No cache timing in this range yet");
   });
 });

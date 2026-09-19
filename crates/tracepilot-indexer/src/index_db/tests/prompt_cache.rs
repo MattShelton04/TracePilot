@@ -100,6 +100,15 @@ fn dashboard_reports_resumes_after_expiry_and_change_causes() {
     assert_eq!(cache.warm_resumes, 1);
     assert_eq!(cache.resumes_after_expiry, 2);
     assert_eq!(cache.resent_prefix_tokens, 30_000);
+    let by_model: Vec<_> = cache
+        .resent_prefix_tokens_by_model
+        .iter()
+        .map(|m| (m.model.as_str(), m.tokens))
+        .collect();
+    assert_eq!(
+        by_model,
+        vec![("gpt-5.6-luna", 21_000), ("claude-sonnet-5", 9_000)]
+    );
     assert_eq!(cache.median_idle_seconds, Some(579));
     let kinds: Vec<_> = cache
         .top_change_kinds

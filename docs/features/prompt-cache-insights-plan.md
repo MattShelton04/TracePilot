@@ -390,3 +390,12 @@ What shipped, and where it deliberately differs from the plan above.
 - **Diagnostics** are reported on the timeline (`malformedEntryCount`) rather than in
   `ParseDiagnostics`, since a malformed cache entry never affects event parsing.
 
+- **Estimated extra cost of misses.** After an expiry or model switch the prefix is
+  re-sent and cached again, so the extra cost is that prefix billed as cache writes (or
+  plain input when the model has no write rate) minus the same tokens billed as cache
+  reads, using the pricing registry. Metrics prices each window, and Analytics prices
+  `resentPrefixTokensByModel`. Unpriced models are left out, and the figure is always
+  labelled "Est.".
+- **Copy.** CLI-recorded timing is the default and is not labelled; only estimates say
+  "Estimated". Conversation dividers expand on click into a detail card, and Metrics rows
+  show cause chips and expand to the full change details.

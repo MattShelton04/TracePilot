@@ -2,8 +2,8 @@
  * Pure helpers for prompt-cache insights: labels, live countdown state and
  * matching idle windows to conversation turns.
  *
- * Copy rules (see docs/features/prompt-cache-insights-plan.md §4): talk about
- * tokens re-sent, never "wasted"; always carry the confidence level.
+ * Copy rules: talk about tokens re-sent, never "wasted". CLI-recorded timing
+ * is the default and goes unlabelled; only estimates say so.
  */
 import type {
   CacheConfidence,
@@ -13,7 +13,7 @@ import type {
   PrefixChangeKind,
   PromptCacheTimeline,
 } from "@tracepilot/types";
-import { formatNumber } from "@tracepilot/types";
+import { formatNumber, formatTime } from "@tracepilot/types";
 
 /** `CacheWindow.resumeSource` when the agent woke itself without a prompt. */
 export const AGENT_RESUME_SOURCE = "agent";
@@ -22,17 +22,16 @@ export const AGENT_RESUME_SOURCE = "agent";
 export const EXPIRING_THRESHOLD_MS = 5 * 60_000;
 
 export const CONFIDENCE_LABELS: Record<CacheConfidence, string> = {
-  predicted: "Predicted by Copilot CLI",
+  predicted: "Copilot CLI",
   estimated: "Estimated",
   unavailable: "Unavailable",
 };
 
+/** One-line explanations, short enough for a tooltip. */
 export const CONFIDENCE_EXPLANATIONS: Record<CacheConfidence, string> = {
-  predicted:
-    "Copilot CLI records when it expects the provider cache to expire. The provider does not confirm individual cache hits in the session log.",
-  estimated:
-    "No expiry was recorded for this window. It is estimated from the idle gap and the TTL most often observed for the model in other sessions.",
-  unavailable: "No TTL is known for this model, so no cache timing is claimed.",
+  predicted: "Expiry recorded by Copilot CLI when the session went idle.",
+  estimated: "Estimated from the idle gap and the model's usual cache TTL.",
+  unavailable: "No cache TTL is known for this model.",
 };
 
 export const OUTCOME_LABELS: Record<CacheWindowOutcome, string> = {
@@ -45,15 +44,20 @@ export const OUTCOME_LABELS: Record<CacheWindowOutcome, string> = {
   unknown: "Unknown",
 };
 
+/** Short names for prefix-change kinds, used as chips. */
 export const CHANGE_KIND_LABELS: Record<PrefixChangeKind, string> = {
-  model: "Model switch",
-  effort: "Reasoning effort",
-  tools: "Tools added or removed",
-  toolDefinition: "Tool definition",
+  model: "Model",
+  effort: "Effort",
+  tools: "Tools",
+  toolDefinition: "Tool schema",
   systemPrompt: "System prompt",
-  history: "History rewrite",
-  cacheConfig: "Cache configuration",
+  history: "History",
+  cacheConfig: "Cache config",
 };
+
+export function changeKindLabel(kind: string): string {
+  return CHANGE_KIND_LABELS[kind as PrefixChangeKind] ?? kind;
+}
 
 export type LiveCacheState = "warm" | "expiring" | "expired";
 
@@ -169,30 +173,17 @@ export function mapWindowsToTurns(
   return result;
 }
 
-/** One-line description of a resumed window, e.g. for a conversation divider. */
+/** One-line summary of a resumed window, e.g. for a conversation divider. */
 export function describeResume(window: CacheWindow): string {
   const idle = `idle ${formatIdle(window.idleSeconds)}`;
   const offset = window.resumeOffsetSeconds;
-  const who =
-    window.resumeSource === AGENT_RESUME_SOURCE
-      ? "the agent resumed"
-      : window.resumeSource
-        ? "the session resumed"
-        : "this reply";
   switch (window.outcome) {
     case "warm":
-      if (offset == null) return `${idle} · cache warm`;
-      return -offset < 60
-        ? `${idle} · cache warm, under a minute before expiry`
-        : `${idle} · cache warm, ${formatIdle(-offset)} before expiry`;
+      return offset != null && -offset >= 60
+        ? `${idle} · ${formatIdle(-offset)} left`
+        : `${idle} · under a minute left`;
     case "expired":
-      return offset != null
-        ? `${idle} · cache expired ${formatIdle(offset)} before ${who}`
-        : `${idle} · cache expired`;
-    case "modelChanged":
-      return `${idle} · model changed, cache not reusable`;
-    case "noCache":
-      return `${idle} · no prompt cache for this model`;
+      return offset != null ? `${idle} · expired ${formatIdle(offset)} earlier` : idle;
     default:
       return idle;
   }
@@ -200,11 +191,18 @@ export function describeResume(window: CacheWindow): string {
 
 /** Short chip label for a resumed window. */
 export function resumeChipLabel(window: CacheWindow): string {
-  if (window.outcome === "warm") {
-    return window.prefixChanges.length > 0 ? "Likely cache break" : "Warm resume";
+  switch (window.outcome) {
+    case "warm":
+      return window.prefixChanges.length > 0 ? "Likely cache break" : "Cache warm";
+    case "expired":
+      return "Cache expired";
+    case "modelChanged":
+      return "Model changed";
+    case "noCache":
+      return "No cache";
+    default:
+      return OUTCOME_LABELS[window.outcome];
   }
-  if (window.outcome === "expired" || window.outcome === "modelChanged") return "Cold resume";
-  return OUTCOME_LABELS[window.outcome];
 }
 
 /**
@@ -222,17 +220,37 @@ export function idleFractionOfTtl(window: CacheWindow): number | null {
   return window.idleSeconds / budgetSeconds;
 }
 
-/** Tooltip text with the model, TTL, confidence and any prefix changes. */
-export function describeWindowDetail(window: CacheWindow): string {
-  const parts: string[] = [];
-  if (window.model) parts.push(window.model);
-  if (window.ttlSeconds) parts.push(`TTL ${formatIdle(window.ttlSeconds)}`);
-  parts.push(CONFIDENCE_LABELS[window.confidence]);
-  if (window.prefixTokens != null && window.outcome !== "warm") {
-    parts.push(`${formatApproxTokens(window.prefixTokens)} re-sent without cache`);
+export interface WindowDetailRow {
+  label: string;
+  value: string;
+}
+
+/** Label/value rows for a window's detail card. Causes are listed separately. */
+export function windowDetailRows(window: CacheWindow): WindowDetailRow[] {
+  const rows: WindowDetailRow[] = [];
+  rows.push({ label: "Idle", value: formatIdle(window.idleSeconds) });
+  if (window.expiresAt) {
+    const offset = window.resumeOffsetSeconds;
+    const relative =
+      offset == null
+        ? ""
+        : offset > 0
+          ? ` · ${formatIdle(offset)} before reply`
+          : ` · ${formatIdle(-offset)} after reply`;
+    rows.push({ label: "Expiry", value: `${formatTime(window.expiresAt)}${relative}` });
   }
-  for (const change of window.prefixChanges) {
-    parts.push(`Likely cache break: ${change.summary}`);
+  const model = [window.model, window.ttlSeconds ? `TTL ${formatIdle(window.ttlSeconds)}` : null]
+    .filter(Boolean)
+    .join(" · ");
+  if (model) rows.push({ label: "Model", value: model });
+  if (window.confidence !== "predicted") {
+    rows.push({ label: "Timing", value: CONFIDENCE_LABELS[window.confidence] });
   }
-  return parts.join(" · ");
+  if (window.resumeSource === AGENT_RESUME_SOURCE) {
+    rows.push({ label: "Resumed by", value: "Agent" });
+  }
+  if ((window.outcome === "expired" || window.outcome === "modelChanged") && window.prefixTokens) {
+    rows.push({ label: "Re-sent", value: formatApproxTokens(window.prefixTokens) });
+  }
+  return rows;
 }

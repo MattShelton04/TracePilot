@@ -197,10 +197,21 @@ pub struct PromptCacheAnalytics {
     /// Cached prefix tokens at idle, summed over resumes after expiry,
     /// including agent wakes.
     pub resent_prefix_tokens: u64,
+    /// `resent_prefix_tokens` split by the model that re-read the prefix, so
+    /// the UI can price it. Descending by tokens.
+    #[serde(default)]
+    pub resent_prefix_tokens_by_model: Vec<ModelTokens>,
     /// Most frequent prefix-change kinds, descending.
     pub top_change_kinds: Vec<PrefixChangeCount>,
     /// The most common TTL observed per model.
     pub observed_ttls: Vec<ModelCacheTtl>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelTokens {
+    pub model: String,
+    pub tokens: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

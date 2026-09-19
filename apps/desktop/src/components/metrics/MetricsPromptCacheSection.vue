@@ -1,28 +1,33 @@
 <script setup lang="ts">
 /**
  * Prompt-cache section of the Metrics tab: every idle window with its idle
- * time against the cache TTL, the outcome, likely cache-break causes and the
- * usage of the interaction that followed. Older CLI versions do not record
- * cache timing, so their estimate is only shown on request.
+ * time against the cache TTL, the outcome and likely cache-break causes.
+ * Rows expand to the full details. Older CLI versions do not record cache
+ * timing, so their estimate is only shown on request.
  */
-import type { CacheConfidence, CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
+import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
 import { calculateObservedAiCredits, formatNumber, formatTime } from "@tracepilot/types";
-import { Badge, DataTable, formatAiCredits, SectionPanel, StatCard, Tooltip } from "@tracepilot/ui";
-import { Info } from "lucide-vue-next";
+import { Badge, formatAiCredits, SectionPanel, StatCard, Tooltip } from "@tracepilot/ui";
+import { ChevronRight, Info } from "lucide-vue-next";
 import { computed, ref } from "vue";
+import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
 import {
   AGENT_RESUME_SOURCE,
   CONFIDENCE_EXPLANATIONS,
-  CONFIDENCE_LABELS,
+  changeKindLabel,
   formatApproxTokens,
   formatIdle,
   idleFractionOfTtl,
   OUTCOME_LABELS,
+  windowDetailRows,
 } from "@/utils/promptCache";
 
 const props = defineProps<{ timeline: PromptCacheTimeline }>();
 
+const { windowMissCredits, totalMissCredits } = usePromptCacheCost();
+
 const showEstimate = ref(false);
+const expanded = ref(new Set<number>());
 const isTurnGaps = computed(() => props.timeline.source === "turnGaps");
 const hasEstimate = computed(() =>
   props.timeline.windows.some((w) => w.confidence === "estimated"),
@@ -32,9 +37,9 @@ const visibleWindows = computed(() =>
     isTurnGaps.value ? showEstimate.value && w.confidence === "estimated" : true,
   ),
 );
-const confidence = computed<CacheConfidence>(() => (isTurnGaps.value ? "estimated" : "predicted"));
 const summary = computed(() => props.timeline.summary);
 const afterExpiry = computed(() => summary.value.expired + summary.value.modelChanged);
+const extraCredits = computed(() => totalMissCredits(visibleWindows.value));
 
 const OUTCOME_VARIANTS: Record<CacheWindow["outcome"], "success" | "warning" | "neutral"> = {
   warm: "success",
@@ -54,28 +59,38 @@ function meterPercent(window: CacheWindow): number | null {
 }
 const TTL_MARKER = `${(1 / METER_SPAN) * 100}%`;
 
-const columns = [
-  { key: "idleStart", label: "Idle from" },
-  { key: "idle", label: "Idle vs TTL" },
-  { key: "outcome", label: "Outcome" },
-  { key: "prefixTokens", label: "Prefix", align: "right" as const },
-  { key: "changes", label: "Likely break causes" },
-  { key: "usage", label: "Next interaction", align: "right" as const },
-];
-const rows = computed(() => visibleWindows.value.map((window) => ({ window })));
-const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
+function toggle(index: number) {
+  const next = new Set(expanded.value);
+  if (!next.delete(index)) next.add(index);
+  expanded.value = next;
+}
+
+function detailRows(window: CacheWindow) {
+  const rows = windowDetailRows(window);
+  // Misses already list the prefix as "Re-sent".
+  if (window.prefixTokens != null && !rows.some((row) => row.label === "Re-sent")) {
+    rows.push({ label: "Prefix", value: `${formatNumber(window.prefixTokens)} tokens` });
+  }
+  if (window.interactionNanoAiu != null) {
+    rows.push({
+      label: "Next interaction",
+      value: formatAiCredits(calculateObservedAiCredits(window.interactionNanoAiu)),
+    });
+  }
+  return rows;
+}
+
+function rowCredits(window: CacheWindow) {
+  const credits = windowMissCredits(window);
+  return credits == null ? "—" : formatAiCredits(credits);
+}
 </script>
 
 <template>
   <SectionPanel title="Prompt Cache" class="mb-6" data-testid="prompt-cache-section">
     <template #actions>
-      <Badge
-        v-if="!isTurnGaps || showEstimate"
-        :variant="confidence === 'predicted' ? 'success' : 'warning'"
-      >
-        {{ CONFIDENCE_LABELS[confidence] }}
-      </Badge>
-      <Tooltip :text="CONFIDENCE_EXPLANATIONS[confidence]">
+      <Badge v-if="isTurnGaps && showEstimate" variant="warning">Estimated</Badge>
+      <Tooltip :text="CONFIDENCE_EXPLANATIONS[isTurnGaps ? 'estimated' : 'predicted']">
         <button type="button" aria-label="About prompt-cache timing" class="text-[var(--text-tertiary)]">
           <Info :size="14" />
         </button>
@@ -83,13 +98,13 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
     </template>
 
     <p v-if="timeline.source === 'none'" class="text-sm text-[var(--text-tertiary)]">
-      No idle windows yet. Copilot CLI records cache timing each time the agent goes idle.
+      No idle windows yet.
     </p>
 
     <div v-else-if="isTurnGaps" class="prompt-cache__notice">
       <p class="text-sm text-[var(--text-secondary)]">
-        Cache timing isn't recorded for this CLI version.
-        <template v-if="!hasEstimate">No cache TTL is known for this session's models, so nothing is estimated.</template>
+        This CLI version doesn't record cache timing.
+        <template v-if="!hasEstimate">No cache TTL is known for these models.</template>
       </p>
       <button
         v-if="hasEstimate"
@@ -108,72 +123,117 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
         <StatCard :value="summary.warm" label="Warm" color="success" mini />
         <StatCard :value="afterExpiry" label="After expiry" mini />
         <StatCard :value="formatIdle(summary.medianIdleSeconds)" label="Median idle" mini />
+        <StatCard
+          v-if="extraCredits != null"
+          :value="formatAiCredits(extraCredits)"
+          label="Est. extra cost"
+          mini
+        />
       </div>
       <p v-if="summary.resentPrefixTokens > 0 || summary.agentResumes > 0" class="text-xs text-[var(--text-tertiary)] mb-3">
         <template v-if="summary.resentPrefixTokens > 0">
-          {{ formatApproxTokens(summary.resentPrefixTokens) }} re-sent without cache after expiry
-          ({{ CONFIDENCE_LABELS[confidence].toLowerCase() }}).
+          {{ formatApproxTokens(summary.resentPrefixTokens) }} re-sent after expiry.
         </template>
         <template v-if="summary.agentResumes > 0">
-          {{ summary.agentResumes }} {{ summary.agentResumes === 1 ? 'resume was' : 'resumes were' }} started by the agent, not a reply, and {{ summary.agentResumes === 1 ? 'is' : 'are' }} left out of the counts above.
+          {{ summary.agentResumes }} agent {{ summary.agentResumes === 1 ? 'wake' : 'wakes' }} not counted as replies.
         </template>
       </p>
 
       <div class="prompt-cache__table">
-        <DataTable :columns="columns" :rows="rows">
-          <template #cell-idleStart="{ row }">
-            <span class="tabular">{{ formatTime(rowWindow(row).idleStart) }}</span>
-          </template>
-          <template #cell-idle="{ row }">
-            <div class="prompt-cache__meter-cell">
-              <span class="tabular">{{ formatIdle(rowWindow(row).idleSeconds) }}</span>
-              <div
-                v-if="meterPercent(rowWindow(row)) != null"
-                class="prompt-cache__meter"
-                :class="{ 'prompt-cache__meter--estimated': rowWindow(row).confidence === 'estimated' }"
-                role="img"
-                :aria-label="`Idle ${formatIdle(rowWindow(row).idleSeconds)}; the marker is the predicted expiry`"
-              >
-                <div
-                  class="prompt-cache__meter-fill"
-                  :class="`prompt-cache__meter-fill--${rowWindow(row).outcome}`"
-                  :style="{ width: `${(meterPercent(rowWindow(row)) ?? 0) * 100}%` }"
-                />
-                <div class="prompt-cache__meter-ttl" :style="{ left: TTL_MARKER }" />
-              </div>
-            </div>
-          </template>
-          <template #cell-outcome="{ row }">
-            <span class="prompt-cache__outcome">
-              <Badge :variant="OUTCOME_VARIANTS[rowWindow(row).outcome]">
-                {{ OUTCOME_LABELS[rowWindow(row).outcome] }}
-              </Badge>
-              <span v-if="rowWindow(row).resumeSource === AGENT_RESUME_SOURCE" class="prompt-cache__tag">Agent resumed</span>
-              <span v-if="rowWindow(row).confidence !== confidence" class="prompt-cache__tag">
-                {{ CONFIDENCE_LABELS[rowWindow(row).confidence] }}
-              </span>
-            </span>
-          </template>
-          <template #cell-prefixTokens="{ row }">
-            <span class="tabular">{{ rowWindow(row).prefixTokens == null ? '—' : formatNumber(rowWindow(row).prefixTokens) }}</span>
-          </template>
-          <template #cell-changes="{ row }">
-            <ul v-if="rowWindow(row).prefixChanges.length" class="prompt-cache__changes">
-              <li v-for="change in rowWindow(row).prefixChanges" :key="change.kind">
-                <Tooltip :text="change.details.join(', ') || change.summary" :disabled="change.details.length === 0">
-                  <span>{{ change.summary }}</span>
-                </Tooltip>
-              </li>
-            </ul>
-            <span v-else class="text-[var(--text-tertiary)]">—</span>
-          </template>
-          <template #cell-usage="{ row }">
-            <span class="tabular">{{ rowWindow(row).interactionNanoAiu == null ? '—' : formatAiCredits(calculateObservedAiCredits(rowWindow(row).interactionNanoAiu)) }}</span>
-          </template>
-        </DataTable>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="prompt-cache__toggle-col"><span class="sr-only">Details</span></th>
+              <th>Idle from</th>
+              <th>Idle vs TTL</th>
+              <th>Outcome</th>
+              <th>Likely causes</th>
+              <th style="text-align: right">Est. extra cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="window in visibleWindows" :key="window.index">
+              <tr class="prompt-cache__row" @click="toggle(window.index)">
+                <td>
+                  <button
+                    type="button"
+                    class="prompt-cache__toggle"
+                    :aria-expanded="expanded.has(window.index)"
+                    :aria-label="`Details for idle window from ${formatTime(window.idleStart)}`"
+                    @click.stop="toggle(window.index)"
+                  >
+                    <ChevronRight :size="14" :class="{ 'prompt-cache__chevron--open': expanded.has(window.index) }" />
+                  </button>
+                </td>
+                <td><span class="tabular">{{ formatTime(window.idleStart) }}</span></td>
+                <td>
+                  <div class="prompt-cache__meter-cell">
+                    <span class="tabular">{{ formatIdle(window.idleSeconds) }}</span>
+                    <div
+                      v-if="meterPercent(window) != null"
+                      class="prompt-cache__meter"
+                      :class="{ 'prompt-cache__meter--estimated': window.confidence === 'estimated' }"
+                      role="img"
+                      :aria-label="`Idle ${formatIdle(window.idleSeconds)}; the marker is the cache expiry`"
+                    >
+                      <div
+                        class="prompt-cache__meter-fill"
+                        :class="`prompt-cache__meter-fill--${window.outcome}`"
+                        :style="{ width: `${(meterPercent(window) ?? 0) * 100}%` }"
+                      />
+                      <div class="prompt-cache__meter-ttl" :style="{ left: TTL_MARKER }" />
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="prompt-cache__outcome">
+                    <Badge :variant="OUTCOME_VARIANTS[window.outcome]">
+                      {{ OUTCOME_LABELS[window.outcome] }}
+                    </Badge>
+                    <span v-if="window.resumeSource === AGENT_RESUME_SOURCE" class="prompt-cache__tag">Agent</span>
+                    <span v-if="window.confidence === 'estimated' && !isTurnGaps" class="prompt-cache__tag">Estimated</span>
+                  </span>
+                </td>
+                <td>
+                  <span v-if="window.prefixChanges.length" class="prompt-cache__chips">
+                    <span v-for="change in window.prefixChanges" :key="change.kind" class="prompt-cache__chip">
+                      {{ changeKindLabel(change.kind) }}
+                    </span>
+                  </span>
+                  <span v-else class="text-[var(--text-tertiary)]">—</span>
+                </td>
+                <td style="text-align: right"><span class="tabular">{{ rowCredits(window) }}</span></td>
+              </tr>
+              <tr v-if="expanded.has(window.index)" class="prompt-cache__detail" data-testid="prompt-cache-detail">
+                <td />
+                <td colspan="5">
+                  <div class="prompt-cache__detail-body">
+                    <dl>
+                      <template v-for="row in detailRows(window)" :key="row.label">
+                        <dt>{{ row.label }}</dt>
+                        <dd>{{ row.value }}</dd>
+                      </template>
+                    </dl>
+                    <ul v-if="window.prefixChanges.length" class="prompt-cache__changes">
+                      <li v-for="change in window.prefixChanges" :key="change.kind">
+                        <span class="prompt-cache__chip">{{ changeKindLabel(change.kind) }}</span>
+                        <span>
+                          {{ change.summary }}
+                          <span v-if="change.details.length" class="prompt-cache__change-details">
+                            {{ change.details.join(', ') }}
+                          </span>
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
       </div>
       <p class="text-xs text-[var(--text-tertiary)] mt-2">
-        The bar marks the predicted expiry. A prefix change would likely break the cache even when warm; the session log cannot confirm individual cache hits.
+        The marker is the cache expiry. Causes are likely, not confirmed.
       </p>
     </template>
   </SectionPanel>
@@ -190,12 +250,39 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
 }
 .prompt-cache__stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
 .prompt-cache__table {
   overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+.prompt-cache__toggle-col {
+  width: 32px;
+}
+.prompt-cache__row {
+  cursor: pointer;
+}
+.prompt-cache__toggle {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.prompt-cache__toggle:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
+}
+.prompt-cache__toggle svg {
+  transition: transform 0.15s ease;
+}
+.prompt-cache__chevron--open {
+  transform: rotate(90deg);
 }
 .prompt-cache__meter-cell {
   display: flex;
@@ -234,7 +321,8 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
   margin-left: -1px;
   background: var(--text-secondary);
 }
-.prompt-cache__outcome {
+.prompt-cache__outcome,
+.prompt-cache__chips {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
@@ -245,7 +333,42 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
   color: var(--text-tertiary);
   white-space: nowrap;
 }
+.prompt-cache__chip {
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.prompt-cache__detail td {
+  background: var(--canvas-subtle);
+}
+.prompt-cache__detail-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.prompt-cache__detail-body dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+.prompt-cache__detail-body dt {
+  color: var(--text-tertiary);
+}
+.prompt-cache__detail-body dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
 .prompt-cache__changes {
+  flex: 1;
+  min-width: 240px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -253,13 +376,18 @@ const rowWindow = (row: Record<string, unknown>) => row.window as CacheWindow;
   flex-direction: column;
   gap: 4px;
 }
+.prompt-cache__changes li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.prompt-cache__change-details {
+  display: block;
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
 .tabular {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-@media (max-width: 1100px) {
-  .prompt-cache__stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 </style>

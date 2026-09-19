@@ -118,6 +118,11 @@ export interface ModelCacheTtl {
   observations: number;
 }
 
+export interface ModelTokens {
+  model: string;
+  tokens: number;
+}
+
 /** Cross-session prompt-cache timing (predicted windows only). */
 export interface PromptCacheAnalytics {
   sessionsWithPredicted: number;
@@ -126,6 +131,8 @@ export interface PromptCacheAnalytics {
   resumesAfterExpiry: number;
   medianIdleSeconds: number | null;
   resentPrefixTokens: number;
+  /** `resentPrefixTokens` split by model, descending, so the UI can price it. */
+  resentPrefixTokensByModel: ModelTokens[];
   topChangeKinds: PrefixChangeCount[];
   observedTtls: ModelCacheTtl[];
 }

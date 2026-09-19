@@ -204,6 +204,7 @@ export type {
   CacheWindow,
   CacheWindowOutcome,
   ModelCacheTtl,
+  ModelTokens,
   ObservedCacheTtl,
   PrefixChange,
   PrefixChangeCount,
