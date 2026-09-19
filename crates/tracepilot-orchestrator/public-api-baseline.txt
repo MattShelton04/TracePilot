@@ -3,8 +3,10 @@
 # Any diff against this file should be reviewed; prefer narrower
 # visibility (`pub(crate)` / `pub(super)`) unless the item must be
 # consumed from outside the crate.
+mod agents
 mod bridge
 mod config_injector
+mod context_capture
 mod github
 mod launcher
 mod mcp

@@ -9,6 +9,9 @@ pub const COPILOT_DIR_NAME: &str = ".copilot";
 pub const TRACEPILOT_DIR_NAME: &str = "tracepilot";
 pub const SESSION_STATE_DIR_NAME: &str = "session-state";
 pub const SKILLS_DIR_NAME: &str = "skills";
+pub const AGENTS_DIR_NAME: &str = "agents";
+pub const CLAUDE_DIR_NAME: &str = ".claude";
+pub const COPILOT_INSTALLED_PLUGINS_DIR: &str = "installed-plugins";
 pub const GITHUB_DIR_NAME: &str = ".github";
 
 pub const COPILOT_SETTINGS_FILE: &str = "settings.json";
@@ -69,6 +72,15 @@ impl CopilotPaths {
 
     pub fn global_skills_dir(&self) -> PathBuf {
         self.home.join(SKILLS_DIR_NAME)
+    }
+
+    /// Personal custom agents (`<COPILOT_HOME>/agents`).
+    pub fn global_agents_dir(&self) -> PathBuf {
+        self.home.join(AGENTS_DIR_NAME)
+    }
+
+    pub fn installed_plugins_dir(&self) -> PathBuf {
+        self.home.join(COPILOT_INSTALLED_PLUGINS_DIR)
     }
 
     pub fn pkg_dir(&self) -> PathBuf {
@@ -208,6 +220,16 @@ impl RepoPaths {
 
     pub fn github_skills_dir(&self) -> PathBuf {
         self.github_dir().join(SKILLS_DIR_NAME)
+    }
+
+    /// Project custom agents (`.github/agents`).
+    pub fn github_agents_dir(&self) -> PathBuf {
+        self.github_dir().join(AGENTS_DIR_NAME)
+    }
+
+    /// Claude-format project agents (`.claude/agents`).
+    pub fn claude_agents_dir(&self) -> PathBuf {
+        self.root.join(CLAUDE_DIR_NAME).join(AGENTS_DIR_NAME)
     }
 }
 

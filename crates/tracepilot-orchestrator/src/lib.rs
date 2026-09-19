@@ -3,9 +3,11 @@
 //! Provides git worktree management, session launching, config injection,
 //! version management, repository registry, and session templates.
 
+pub mod agents;
 pub mod config_injector;
 pub mod context_capture;
 mod error;
+pub(crate) mod frontmatter;
 pub mod github;
 pub(crate) mod json_io;
 pub mod launcher;
