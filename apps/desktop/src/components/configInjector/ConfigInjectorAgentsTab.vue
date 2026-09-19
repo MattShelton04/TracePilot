@@ -10,7 +10,7 @@ import {
 } from "@tracepilot/ui";
 import { computed, ref, useId } from "vue";
 import { TOOLS_COLLAPSE_LIMIT, useConfigInjectorContext } from "@/composables/useConfigInjector";
-import { agentMeta } from "./agentMeta";
+import { agentMeta } from "@/utils/agents/agentMeta";
 
 const ctx = useConfigInjectorContext();
 const {
