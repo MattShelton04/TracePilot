@@ -181,8 +181,27 @@ pub struct UsageCheckpointData {
     /// Session-wide accumulated usage in nano AI units.
     pub total_nano_aiu: u64,
     pub total_premium_requests: Option<f64>,
-    pub model_cache_state: Option<Vec<serde_json::Value>>,
+    /// The CLI's prompt-cache expiry per model (internal schema, 1.0.75+).
+    pub model_cache_state: Option<Vec<ModelCacheState>>,
+    /// Prompt-prefix fingerprints per conversation and model. The schema marks
+    /// this as opaque, so it stays untyped on the wire and is parsed leniently
+    /// by [`crate::prompt_cache`].
     pub prompt_cache_break_state: Option<Vec<serde_json::Value>>,
+}
+
+/// One entry of `session.usage_checkpoint.modelCacheState`.
+///
+/// Every field is optional because the schema is internal. Unknown fields are
+/// kept in `extra` so exports and the raw Events tab stay lossless.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelCacheState {
+    pub model_id: Option<String>,
+    /// ISO 8601 time at which the CLI predicts the provider cache expires.
+    pub cache_expires_at: Option<String>,
+    pub cache_ttl_seconds: Option<u64>,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

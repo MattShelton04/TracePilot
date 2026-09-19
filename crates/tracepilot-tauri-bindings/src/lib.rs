@@ -186,6 +186,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::session::get_session_checkpoints,
             commands::session::get_session_plan,
             commands::session::get_shutdown_metrics,
+            commands::session::get_session_prompt_cache,
             commands::session::get_tool_result,
             commands::session::resume_session_in_terminal,
             commands::session::context_capture_preflight,

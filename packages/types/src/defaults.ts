@@ -53,6 +53,7 @@ export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
   copilotSdk: false,
   exactContextCapture: false,
   configInjector: false,
+  promptCacheInsights: true,
 };
 
 /**

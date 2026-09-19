@@ -1,4 +1,4 @@
-//! Session-related Tauri commands (12 commands).
+//! Session-related Tauri commands.
 //!
 //! Split into focused submodules by concern. Glob re-exports below preserve
 //! the original `commands::session::<command_name>` paths in `lib.rs` so
@@ -15,6 +15,7 @@ mod context_capture;
 mod detail;
 mod events;
 mod list;
+mod prompt_cache;
 mod resume;
 mod shared;
 mod turns;
@@ -28,5 +29,6 @@ pub use context_capture::*;
 pub use detail::*;
 pub use events::*;
 pub use list::*;
+pub use prompt_cache::*;
 pub use resume::*;
 pub use turns::*;

@@ -1,6 +1,6 @@
 /**
  * useSessionSections — owns the standard async sections (todos, checkpoints,
- * plan, shutdown metrics, incidents) for a session detail instance.
+ * plan, shutdown metrics, incidents, prompt cache) for a session detail instance.
  *
  * Extracted from useSessionDetail. Returns the data refs, error refs,
  * per-section load functions, and helpers for clearing/resetting and
@@ -10,11 +10,13 @@ import {
   getSessionCheckpoints,
   getSessionIncidents,
   getSessionPlan,
+  getSessionPromptCache,
   getSessionTodos,
   getShutdownMetrics,
 } from "@tracepilot/client";
 import type {
   CheckpointEntry,
+  PromptCacheTimeline,
   SessionIncident,
   SessionPlan,
   ShutdownMetrics,
@@ -43,6 +45,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
   const planSection = createAsyncSection<SessionPlan | null>(null);
   const metricsSection = createAsyncSection<ShutdownMetrics | null>(null);
   const incidentsSection = createAsyncSection<SessionIncident[]>([]);
+  const promptCacheSection = createAsyncSection<PromptCacheTimeline | null>(null);
 
   const todosDef = defineAsyncSection({
     key: "todos",
@@ -100,12 +103,25 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     logLevel: "warn",
   });
 
+  const promptCacheDef = defineAsyncSection({
+    key: "promptCache",
+    section: promptCacheSection,
+    defaultValue: () => null,
+    fetchFn: async (id) => (await getSessionPromptCache(id)).timeline,
+    sessionId: opts.sessionId,
+    loaded: opts.loaded,
+    guard: opts.guard,
+    logPrefix,
+    logLevel: "warn",
+  });
+
   const standardSections: AsyncSectionDefinition<unknown>[] = [
     todosDef as AsyncSectionDefinition<unknown>,
     checkpointsDef as AsyncSectionDefinition<unknown>,
     planDef as AsyncSectionDefinition<unknown>,
     metricsDef as AsyncSectionDefinition<unknown>,
     incidentsDef as AsyncSectionDefinition<unknown>,
+    promptCacheDef as AsyncSectionDefinition<unknown>,
   ];
 
   function clearErrors() {
@@ -136,11 +152,13 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     planSection,
     metricsSection,
     incidentsSection,
+    promptCacheSection,
     todosDef,
     checkpointsDef,
     planDef,
     metricsDef,
     incidentsDef,
+    promptCacheDef,
     standardSections,
     clearErrors,
     resetData,

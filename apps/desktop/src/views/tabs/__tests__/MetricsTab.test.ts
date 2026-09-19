@@ -14,6 +14,9 @@ const store = reactive({
   turnsError: "Failed to refresh agent activity",
   loadShutdownMetrics: vi.fn(),
   loadTurns: vi.fn(),
+  promptCache: null,
+  promptCacheError: null,
+  loadPromptCache: vi.fn(),
 });
 vi.mock("@/composables/useSessionDetailContext", () => ({ useSessionDetailContext: () => store }));
 

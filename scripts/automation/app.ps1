@@ -49,11 +49,16 @@ function Get-FreePort([int]$First, [int]$Last) {
 
 function Start-Node($Entry, $Arguments, $Name) {
     if (-not (Test-Path -LiteralPath $Entry)) { throw "Missing $Entry. Run pnpm install first." }
-    $process = Start-Process -FilePath (Get-Command node -ErrorAction Stop).Source `
-        -ArgumentList (@('"' + $Entry + '"') + $Arguments) `
-        -WorkingDirectory (Join-Path $repoRoot 'apps/desktop') -WindowStyle Hidden -PassThru `
-        -RedirectStandardOutput (Join-Path $runtimeDir "$Mode-$Name.log") `
-        -RedirectStandardError (Join-Path $runtimeDir "$Mode-$Name.err.log")
+    # Start-Process -Redirect* creates the child with handle inheritance, so the
+    # long-lived dev server holds this script's stdout pipe open and callers
+    # (pnpm, agents) never see app:start finish. Launching without -Redirect*
+    # uses ShellExecute, which inherits no handles; cmd redirects to the logs.
+    $node = (Get-Command node -ErrorAction Stop).Source
+    $log = Join-Path $runtimeDir "$Mode-$Name.log"
+    $errLog = Join-Path $runtimeDir "$Mode-$Name.err.log"
+    $command = ((@('"' + $node + '"', '"' + $Entry + '"') + $Arguments) -join ' ') + " > `"$log`" 2> `"$errLog`""
+    $process = Start-Process -FilePath $env:ComSpec -ArgumentList @('/d', '/s', '/c', "`"$command`"") `
+        -WorkingDirectory (Join-Path $repoRoot 'apps/desktop') -WindowStyle Hidden -PassThru
     $process = Get-Process -Id $process.Id
     $record = @{ pid = $process.Id; started = $process.StartTime.ToUniversalTime().Ticks.ToString(); executable = $process.Path }
     $script:state.processes += $record

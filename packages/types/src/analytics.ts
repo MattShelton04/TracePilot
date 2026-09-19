@@ -1,3 +1,5 @@
+import type { PromptCacheAnalytics } from "./promptCache.js";
+
 // ─── Analytics Types ──────────────────────────────────────────────
 // Aggregated analytics, tool usage analysis, and code impact metrics for dashboards.
 
@@ -76,6 +78,11 @@ export interface AnalyticsData {
     compactions: number;
     truncations: number;
   }>;
+  /**
+   * Cross-session prompt-cache timing. Optional because analytics cached
+   * by older builds predate it.
+   */
+  promptCache?: PromptCacheAnalytics;
 }
 
 /** API duration statistics (avg, median, p95) computed from total_api_duration_ms */

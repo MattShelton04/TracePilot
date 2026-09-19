@@ -306,6 +306,7 @@ pub(super) fn query_analytics(
         total_compactions: total_compactions.max(0) as u64,
         total_truncations: total_truncations.max(0) as u64,
         incidents_by_day,
+        prompt_cache: super::prompt_cache::query_prompt_cache(conn, &where_clause, &bind_values)?,
     })
 }
 

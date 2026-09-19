@@ -4,6 +4,7 @@ export {
   MOCK_TOOL_ANALYSIS,
 } from "./analytics.js";
 export { MOCK_EXPORT_RESULT } from "./export.js";
+export { MOCK_PROMPT_CACHE } from "./promptCache.js";
 export {
   getMockSessionDetail,
   MOCK_CHECKPOINTS,

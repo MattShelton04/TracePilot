@@ -3,6 +3,7 @@ import type {
   ContextTimelineResponse,
   EventsResponse,
   FreshnessResponse,
+  PromptCacheResponse,
   SessionDbTable,
   SessionDetail,
   SessionFileEntry,
@@ -55,6 +56,11 @@ export async function getSessionContextTimeline(
   sessionId: string,
 ): Promise<ContextTimelineResponse> {
   return invoke<ContextTimelineResponse>("get_session_context_timeline", { sessionId });
+}
+
+/** Prompt-cache idle windows, predicted expiries and prefix changes. */
+export async function getSessionPromptCache(sessionId: string): Promise<PromptCacheResponse> {
+  return invoke<PromptCacheResponse>("get_session_prompt_cache", { sessionId });
 }
 
 export async function checkSessionFreshness(sessionId: string): Promise<FreshnessResponse> {

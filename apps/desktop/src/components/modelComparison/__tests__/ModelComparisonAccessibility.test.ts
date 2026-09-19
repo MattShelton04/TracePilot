@@ -10,6 +10,7 @@ vi.mock("@/stores/preferences", () => ({
     computeWholesaleCost: () => 0,
     computeUsageBasedCost: () => 0,
     costPerPremiumRequest: 0,
+    isFeatureEnabled: () => true,
   }),
 }));
 

@@ -76,6 +76,18 @@ export function useModelComparison() {
     });
   });
 
+  /** Most common prompt-cache TTL (seconds) Copilot CLI reported per model. */
+  const cacheTtlByModel = computed(
+    () =>
+      new Map(
+        (prefs.isFeatureEnabled("promptCacheInsights")
+          ? (data.value?.promptCache?.observedTtls ?? [])
+          : []
+        ).map((entry) => [entry.model, entry.ttlSeconds]),
+      ),
+  );
+  const showCacheTtl = computed(() => cacheTtlByModel.value.size > 0);
+
   const totalTokens = computed(() => modelRows.value.reduce((sum, m) => sum + m.tokens, 0));
   const totalCost = computed(() => modelRows.value.reduce((sum, m) => sum + (m.cost ?? 0), 0));
   const totalAiCredits = computed(() =>
@@ -157,6 +169,8 @@ export function useModelComparison() {
     data,
     pageSubtitle,
     modelRows,
+    cacheTtlByModel,
+    showCacheTtl,
     totalTokens,
     totalCost,
     totalAiCredits,

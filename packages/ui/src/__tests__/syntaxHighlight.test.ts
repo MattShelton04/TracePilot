@@ -242,12 +242,17 @@ describe("syntaxHighlight: ReDoS smoke test", () => {
     "markdown",
   ];
 
-  it.each(LANGUAGES)("language %s completes within 200ms on pathological inputs", (lang) => {
+  // Catastrophic backtracking takes seconds or never finishes, so a generous
+  // budget still catches it while tolerating slow shared CI runners (a 100k
+  // input measured 237ms on one).
+  const BUDGET_MS = 1000;
+
+  it.each(LANGUAGES)("language %s completes within budget on pathological inputs", (lang) => {
     for (const input of PATHOLOGICAL_INPUTS) {
       const start = performance.now();
       highlightLine(input, lang);
       const elapsed = performance.now() - start;
-      expect(elapsed, `lang=${lang} input.len=${input.length}`).toBeLessThan(200);
+      expect(elapsed, `lang=${lang} input.len=${input.length}`).toBeLessThan(BUDGET_MS);
     }
   });
 });

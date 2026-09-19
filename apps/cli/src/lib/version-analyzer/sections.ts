@@ -103,6 +103,13 @@ export function renderSchemaEvolution(ctx: ReportContext): string[] {
     lines.push(`### ${diff.from} → ${diff.to} (${totalChanges} changes)`);
     lines.push("");
 
+    if (diff.watchedChanges.length > 0) {
+      lines.push("> **Review needed — watched internal events changed:**");
+      for (const w of diff.watchedChanges) {
+        lines.push(`> - \`${w.eventType}\` ${w.change}: ${w.reason}`);
+      }
+      lines.push("");
+    }
     if (diff.addedEvents.length > 0) {
       lines.push(`**+${diff.addedEvents.length} new event types:**`);
       for (const e of diff.addedEvents) lines.push(`- \`${e}\``);

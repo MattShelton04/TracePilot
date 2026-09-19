@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatAiCredits, formatPercent } from "@tracepilot/types";
 import { type SortKey, useModelComparisonContext } from "@/composables/useModelComparison";
+import { formatIdle } from "@/utils/promptCache";
 
 const ctx = useModelComparisonContext();
 const sortColumns: { key: SortKey; label: string }[] = [
@@ -52,27 +53,36 @@ const sortColumns: { key: SortKey; label: string }[] = [
           <col class="col-input" />
           <col class="col-output" />
           <col class="col-cached" />
+          <col v-if="ctx.showCacheTtl" class="col-ttl" />
           <col class="col-share" />
           <col class="col-cost" />
         </colgroup>
         <thead>
           <tr>
-            <th
-              v-for="column in sortColumns"
-              :key="column.key"
-              class="sort-header"
-              scope="col"
-              :aria-sort="ctx.sortKey === column.key ? (ctx.sortDir === 'asc' ? 'ascending' : 'descending') : undefined"
-            >
-              <button
-                type="button"
-                class="matrix-sort-button"
-                :aria-label="`Sort by ${column.label}`"
-                @click="ctx.toggleSort(column.key)"
+            <template v-for="column in sortColumns" :key="column.key">
+              <th
+                class="sort-header"
+                scope="col"
+                :aria-sort="ctx.sortKey === column.key ? (ctx.sortDir === 'asc' ? 'ascending' : 'descending') : undefined"
               >
-                {{ column.label }} <span class="sort-arrow" aria-hidden="true">{{ ctx.sortArrow(column.key) }}</span>
-              </button>
-            </th>
+                <button
+                  type="button"
+                  class="matrix-sort-button"
+                  :aria-label="`Sort by ${column.label}`"
+                  @click="ctx.toggleSort(column.key)"
+                >
+                  {{ column.label }} <span class="sort-arrow" aria-hidden="true">{{ ctx.sortArrow(column.key) }}</span>
+                </button>
+              </th>
+              <th
+                v-if="column.key === 'cacheReadTokens' && ctx.showCacheTtl"
+                scope="col"
+                class="num-cell"
+                title="Prompt-cache TTL most often reported by Copilot CLI for this model"
+              >
+                Cache TTL
+              </th>
+            </template>
           </tr>
         </thead>
         <tbody>
@@ -87,6 +97,7 @@ const sortColumns: { key: SortKey; label: string }[] = [
             <td class="num-cell">{{ ctx.fmtNorm(row.inputTokens) }}</td>
             <td class="num-cell">{{ ctx.fmtNorm(row.outputTokens) }}</td>
             <td class="num-cell">{{ ctx.fmtNorm(row.cacheReadTokens) }} ({{ formatPercent(row.cacheHitRate) }})</td>
+            <td v-if="ctx.showCacheTtl" class="num-cell">{{ ctx.cacheTtlByModel.has(row.model) ? formatIdle(ctx.cacheTtlByModel.get(row.model)) : '—' }}</td>
             <td class="num-cell">
               <div class="inline-progress">
                 <span>{{ formatPercent(row.percentage) }}</span>

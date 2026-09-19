@@ -317,6 +317,11 @@ pub(crate) fn extract_session_analytics(
         }
     }
 
+    let (cache_window_rows, cache_ttl_rows) = typed_events
+        .as_deref()
+        .map(super::prompt_cache::extract_prompt_cache_rows)
+        .unwrap_or_default();
+
     SessionAnalytics {
         total_tokens,
         total_cost,
@@ -343,5 +348,7 @@ pub(crate) fn extract_session_analytics(
         total_compaction_input,
         total_compaction_output,
         incidents,
+        cache_window_rows,
+        cache_ttl_rows,
     }
 }
