@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::baseline::{CacheBaseline, MAIN_CONVERSATION, parse_baselines};
 use super::model::{CacheWindow, ObservedCacheTtl, PromptCacheSource, PromptCacheTimeline};
-use super::outcome::{AGENT_RESUME_SOURCE, classify, prefix_changes, summarize};
+use super::outcome::{AGENT_RESUME_SOURCE, break_causes, classify, prefix_changes, summarize};
 use super::parse_timestamp;
 use super::state::{Checkpoint, ModelExpiry, Resume, WindowDraft};
 use crate::models::event_types::{ModelCacheState, SessionEventType};
@@ -62,19 +62,22 @@ impl Walker {
         let timestamp = event.raw.timestamp;
         match &event.typed_data {
             TypedEventData::SessionStart(data) => {
-                set_if_some(&mut self.current_model, &data.selected_model);
+                set_model(&mut self.current_model, &data.selected_model);
                 set_if_some(&mut self.current_effort, &data.reasoning_effort);
             }
             TypedEventData::SessionResume(data) => {
-                set_if_some(&mut self.current_model, &data.selected_model);
+                set_model(&mut self.current_model, &data.selected_model);
                 set_if_some(&mut self.current_effort, &data.reasoning_effort);
             }
             TypedEventData::ModelChange(data) if is_main => {
-                set_if_some(&mut self.current_model, &data.new_model);
+                set_model(&mut self.current_model, &data.new_model);
                 set_if_some(&mut self.current_effort, &data.reasoning_effort);
             }
+            TypedEventData::SessionAutoModeResolved(data) if is_main => {
+                set_model(&mut self.current_model, &data.chosen_model);
+            }
             TypedEventData::TurnStart(data) if is_main => {
-                set_if_some(&mut self.current_model, &data.model);
+                set_model(&mut self.current_model, &data.model);
                 // The agent can wake without a prompt, e.g. when a background
                 // sub-agent finishes. That model call resumes the cache too.
                 if let Some(at) = timestamp {
@@ -353,6 +356,13 @@ impl Walker {
         let classification = classify(draft, start, model.as_deref(), estimated_ttl);
         let resume_at = draft.resume.as_ref().map(|r| r.at);
         let start_baseline = start.and_then(|c| c.active_baseline(draft.idle_model.as_deref()));
+        let resume_baseline = next.and_then(|c| c.active_baseline(model.as_deref()));
+        let changes = break_causes(
+            classification.outcome,
+            prefix_changes(draft, start_baseline, next),
+            start_baseline,
+            resume_baseline,
+        );
 
         CacheWindow {
             index,
@@ -374,7 +384,7 @@ impl Walker {
             interaction_nano_aiu: start
                 .zip(next)
                 .and_then(|(s, n)| Some(n.total_nano_aiu?.saturating_sub(s.total_nano_aiu?))),
-            prefix_changes: prefix_changes(draft, start_baseline, next),
+            prefix_changes: changes,
         }
     }
 }
@@ -429,6 +439,19 @@ fn lenient_u64(value: &Value) -> Option<u64> {
         .as_u64()
         .or_else(|| value.as_f64().filter(|f| *f >= 0.0).map(|f| f as u64))
         .or_else(|| value.as_str()?.trim().parse().ok())
+}
+
+/// `auto` is Copilot's model picker, not a model; `session.auto_mode_resolved`
+/// names the model it chose.
+const AUTO_MODEL: &str = "auto";
+
+fn set_model(target: &mut Option<String>, value: &Option<String>) {
+    if value
+        .as_deref()
+        .is_some_and(|model| !model.eq_ignore_ascii_case(AUTO_MODEL))
+    {
+        set_if_some(target, value);
+    }
 }
 
 fn set_if_some(target: &mut Option<String>, value: &Option<String>) {

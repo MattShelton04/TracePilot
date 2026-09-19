@@ -120,7 +120,6 @@ const {
       <p v-if="mode === 'agent' && !store.loaded.has('turns') && !store.turnsError" class="text-sm text-[var(--text-tertiary)] mb-4">Loading agent activity…</p>
       <MetricsAgentBreakdown v-if="mode === 'agent' && store.loaded.has('turns')" :key="store.sessionId ?? undefined" :metrics="metrics" :turns="turns" @activity="selectSubagent" />
       <MetricsCacheBreakdown v-if="mode === 'model'" :breakdown="tokenBreakdown" />
-      <MetricsPromptCacheSection v-if="promptCacheEnabled && promptCache" :timeline="promptCache" />
 
       <MetricsModelTable
         v-if="mode === 'model'"
@@ -130,6 +129,8 @@ const {
       />
 
       <MetricsSessionActivity :metrics="metrics" />
+
+      <MetricsPromptCacheSection v-if="promptCacheEnabled && promptCache" :timeline="promptCache" />
 
       <MetricsTokenBudget :metrics="metrics" :has-token-budget="hasTokenBudget" />
 

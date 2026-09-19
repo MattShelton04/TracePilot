@@ -399,3 +399,14 @@ What shipped, and where it deliberately differs from the plan above.
 - **Copy.** CLI-recorded timing is the default and is not labelled; only estimates say
   "Estimated". Conversation dividers expand on click into a detail card, and Metrics rows
   show cause chips and expand to the full change details.
+- **Cause accuracy.** Checked against the `cache_read` the CLI records for each request.
+  `auto` is the model picker, not a model, so the model comes from
+  `session.auto_mode_resolved` (`chosenModel`) instead. Before this, a resume in auto mode
+  looked like a model switch with no price. Causes are kept only where they could have
+  broken the cache:
+  - an expired cache lists none;
+  - a model switch lists only the switch;
+  - when the checkpoint after a resume holds the resume request itself (initiator
+    `user`, so a single-request interaction) and it read at least 90% of the idle prefix
+    from cache, nothing is listed. For example, a history change near the end of the
+    conversation re-sends only the tail.

@@ -70,7 +70,7 @@ fn indexing_stores_predicted_windows_and_ttls_once() {
         )
         .unwrap();
     assert_eq!(outcome, "expired");
-    assert_eq!(kinds.as_deref(), Some("history"));
+    assert_eq!(kinds, None);
 
     let ttls = db.query_observed_cache_ttls().unwrap();
     assert_eq!(ttls.len(), 1);
@@ -115,7 +115,8 @@ fn dashboard_reports_resumes_after_expiry_and_change_causes() {
         .iter()
         .map(|k| (k.kind.as_str(), k.count))
         .collect();
-    assert_eq!(kinds, vec![("history", 1), ("model", 1), ("tools", 1)]);
+    // The expired window's idle compaction is not a cause: the cache was gone.
+    assert_eq!(kinds, vec![("model", 1), ("tools", 1)]);
 
     let other_repo = db
         .query_analytics(None, None, Some("org/other"), false)

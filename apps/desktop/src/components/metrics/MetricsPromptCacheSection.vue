@@ -40,6 +40,16 @@ const visibleWindows = computed(() =>
 const summary = computed(() => props.timeline.summary);
 const afterExpiry = computed(() => summary.value.expired + summary.value.modelChanged);
 const extraCredits = computed(() => totalMissCredits(visibleWindows.value));
+const agentWakeNote = computed(() => {
+  const wakes = summary.value.agentResumes;
+  if (wakes === 0) return "";
+  return ` ${wakes} agent ${wakes === 1 ? "wake isn't" : "wakes aren't"} counted.`;
+});
+const resentTooltip = computed(() => {
+  const base = "Replies after the cache expired or on another model.";
+  const tokens = summary.value.resentPrefixTokens;
+  return tokens > 0 ? `${base} ${formatApproxTokens(tokens)} re-sent.` : base;
+});
 
 const OUTCOME_VARIANTS: Record<CacheWindow["outcome"], "success" | "warning" | "neutral"> = {
   warm: "success",
@@ -119,25 +129,39 @@ function rowCredits(window: CacheWindow) {
 
     <template v-if="visibleWindows.length > 0">
       <div class="prompt-cache__stats">
-        <StatCard :value="summary.resumedWindows" label="Replies after idle" mini />
-        <StatCard :value="summary.warm" label="Warm" color="success" mini />
-        <StatCard :value="afterExpiry" label="After expiry" mini />
-        <StatCard :value="formatIdle(summary.medianIdleSeconds)" label="Median idle" mini />
+        <StatCard
+          :value="summary.resumedWindows"
+          label="Replies after idle"
+          :tooltip="`Prompts sent after the agent went idle.${agentWakeNote}`"
+          mini
+        />
+        <StatCard
+          :value="summary.warm"
+          label="Warm"
+          color="success"
+          :tooltip="`Replies sent before the cache expired.${agentWakeNote}`"
+          mini
+        />
+        <StatCard
+          :value="afterExpiry"
+          label="After expiry"
+          :tooltip="resentTooltip"
+          mini
+        />
+        <StatCard
+          :value="formatIdle(summary.medianIdleSeconds)"
+          label="Median idle"
+          tooltip="Median time between going idle and the next reply."
+          mini
+        />
         <StatCard
           v-if="extraCredits != null"
           :value="formatAiCredits(extraCredits)"
           label="Est. extra cost"
+          tooltip="Re-caching the prefix after each miss, from model prices."
           mini
         />
       </div>
-      <p v-if="summary.resentPrefixTokens > 0 || summary.agentResumes > 0" class="text-xs text-[var(--text-tertiary)] mb-3">
-        <template v-if="summary.resentPrefixTokens > 0">
-          {{ formatApproxTokens(summary.resentPrefixTokens) }} re-sent after expiry.
-        </template>
-        <template v-if="summary.agentResumes > 0">
-          {{ summary.agentResumes }} agent {{ summary.agentResumes === 1 ? 'wake' : 'wakes' }} not counted as replies.
-        </template>
-      </p>
 
       <div class="prompt-cache__table">
         <table class="data-table">

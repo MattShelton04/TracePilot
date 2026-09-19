@@ -130,7 +130,11 @@ describe("MetricsPromptCacheSection", () => {
     expect(wrapper.findAll("tbody tr")).toHaveLength(2);
     expect(wrapper.get(".prompt-cache__chip").text()).toBe("History");
     expect(wrapper.text()).not.toContain("History rewritten at message 1");
-    expect(wrapper.text()).toContain("about 54K tokens re-sent after expiry.");
+    expect(wrapper.text()).not.toContain("re-sent");
+    const card = (label: string) =>
+      wrapper.findAll(".stat-card").find((c) => c.text().includes(label));
+    expect(card("After expiry")?.attributes("title")).toContain("about 54K tokens re-sent.");
+    expect(card("Warm")?.attributes("title")).not.toContain("agent");
 
     await wrapper.findAll("button[aria-expanded]")[1]?.trigger("click");
     const detail = wrapper.get('[data-testid="prompt-cache-detail"]');

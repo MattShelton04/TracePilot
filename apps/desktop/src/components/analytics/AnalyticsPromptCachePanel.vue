@@ -9,7 +9,7 @@ import { formatAiCredits, SectionPanel, Tooltip } from "@tracepilot/ui";
 import { Info } from "lucide-vue-next";
 import { computed } from "vue";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
-import { changeKindLabel, formatApproxTokens, formatIdle } from "@/utils/promptCache";
+import { changeKindLabel, formatIdle } from "@/utils/promptCache";
 
 const props = defineProps<{ data: PromptCacheAnalytics }>();
 
@@ -71,9 +71,6 @@ const extraCredits = computed(() => {
           <span class="prompt-timing__label">Est. extra cost</span>
         </div>
       </div>
-      <p v-if="data.resentPrefixTokens > 0" class="prompt-timing__note">
-        {{ formatApproxTokens(data.resentPrefixTokens) }} re-sent after expiry.
-      </p>
       <section v-if="causes.length" class="prompt-timing__causes" aria-labelledby="prompt-timing-causes">
         <header class="prompt-timing__causes-header">
           <h4 id="prompt-timing-causes">Likely cache-break causes</h4>
@@ -104,7 +101,7 @@ const extraCredits = computed(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 16px;
-  padding: 18px 18px 8px;
+  padding: 18px;
 }
 .prompt-timing__metric {
   display: flex;
@@ -122,13 +119,6 @@ const extraCredits = computed(() => {
 .prompt-timing__label {
   font-size: 0.75rem;
   color: var(--text-tertiary);
-}
-.prompt-timing__note {
-  margin: 0;
-  padding: 0 18px 12px;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  text-align: center;
 }
 .prompt-timing__causes {
   margin: 0 18px 18px;

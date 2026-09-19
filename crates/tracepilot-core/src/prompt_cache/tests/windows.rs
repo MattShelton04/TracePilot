@@ -424,3 +424,107 @@ fn an_agent_wake_without_a_prompt_resumes_the_window() {
     assert_eq!(window.interaction_nano_aiu, Some(300));
     assert_eq!(timeline.windows.len(), 2);
 }
+
+#[test]
+fn auto_mode_resolves_to_the_chosen_model() {
+    let before = baseline("high", default_tools(), 2, &["a", "b"]);
+    let mut after = baseline(
+        "high",
+        tools(&[("view", "aaa", true), ("skill", "ccc", true)]),
+        4,
+        &["x", "y", "c", "d"],
+    );
+    after["initiator"] = json!("user");
+    after["cache_read"] = json!(0);
+    let events = vec![
+        start(MODEL),
+        user("00:00:01", "i1"),
+        checkpoint("00:00:11", 0, "00:30:00", 1800, Some(before)),
+        event(
+            "session.model_change",
+            "01:00:00",
+            json!({"newModel": "auto", "previousModel": MODEL}),
+        ),
+        event(
+            "session.auto_mode_resolved",
+            "01:00:01",
+            json!({"chosenModel": MODEL}),
+        ),
+        user("01:00:02", "i2"),
+        checkpoint("01:00:09", 0, "01:30:02", 1800, Some(after)),
+    ];
+    let window = &build(&events).windows[0];
+    // The picker is not a model: the cache simply expired on the same model.
+    assert_eq!(window.model.as_deref(), Some(MODEL));
+    assert_eq!(window.outcome, CacheWindowOutcome::Expired);
+    // Changes made while the cache was already gone did not break it.
+    assert!(window.prefix_changes.is_empty());
+}
+
+#[test]
+fn a_model_switch_lists_only_the_switch() {
+    let after = json!({
+        "model": "claude-sonnet-5",
+        "tools": tools(&[("view", "zzz", true)]),
+        "conversation": {"message_count": 4, "points": []},
+    });
+    let events = vec![
+        start(MODEL),
+        user("00:00:01", "i1"),
+        checkpoint(
+            "00:00:11",
+            0,
+            "00:30:00",
+            1800,
+            Some(baseline("high", default_tools(), 2, &["a", "b"])),
+        ),
+        event(
+            "session.model_change",
+            "00:02:00",
+            json!({"newModel": "claude-sonnet-5", "previousModel": MODEL, "reasoningEffort": "low"}),
+        ),
+        user("00:03:00", "i2"),
+        event(
+            "session.usage_checkpoint",
+            "00:03:10",
+            json!({"totalNanoAiu": 0, "promptCacheBreakState": [
+                {"conversation": "main", "models": {"claude-sonnet-5": after}}
+            ]}),
+        ),
+    ];
+    let window = &build(&events).windows[0];
+    assert_eq!(window.outcome, CacheWindowOutcome::ModelChanged);
+    let kinds: Vec<_> = window.prefix_changes.iter().map(|c| c.kind).collect();
+    assert_eq!(kinds, vec![PrefixChangeKind::Model]);
+}
+
+#[test]
+fn an_observed_cache_hit_is_not_a_break() {
+    let resume = |cache_read: u64| {
+        let mut after = baseline("high", default_tools(), 4, &["a", "x", "c", "d"]);
+        after["initiator"] = json!("user");
+        after["cache_read"] = json!(cache_read);
+        vec![
+            start(MODEL),
+            user("00:00:01", "i1"),
+            checkpoint(
+                "00:00:11",
+                0,
+                "00:30:00",
+                1800,
+                Some(baseline("high", default_tools(), 2, &["a", "b"])),
+            ),
+            user("00:01:00", "i2"),
+            checkpoint("00:01:10", 0, "00:31:00", 1800, Some(after)),
+        ]
+    };
+    // The resume request read 95% of the prefix from cache: the rewrite only
+    // touched the tail, so the cache held.
+    let hit = &build(&resume(19_000)).windows[0];
+    assert_eq!(hit.outcome, CacheWindowOutcome::Warm);
+    assert!(hit.prefix_changes.is_empty());
+
+    let miss = &build(&resume(1_000)).windows[0];
+    let kinds: Vec<_> = miss.prefix_changes.iter().map(|c| c.kind).collect();
+    assert_eq!(kinds, vec![PrefixChangeKind::History]);
+}

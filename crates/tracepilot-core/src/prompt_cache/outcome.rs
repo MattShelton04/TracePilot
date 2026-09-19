@@ -157,6 +157,56 @@ pub(super) fn prefix_changes(
     changes
 }
 
+/// Share of the idle prefix the resume request must read from cache to count
+/// as a hit when the CLI recorded that request.
+const OBSERVED_HIT_SHARE: f64 = 0.9;
+
+/// Keep only the changes that could have broken the cache. An expired cache
+/// was lost whatever changed, and a model switch starts a new cache. When the
+/// CLI's record of the resume request shows the prefix was read from cache,
+/// nothing broke it (e.g. a rewrite near the end of the history).
+pub(super) fn break_causes(
+    outcome: CacheWindowOutcome,
+    mut changes: Vec<PrefixChange>,
+    idle_baseline: Option<&CacheBaseline>,
+    resume_baseline: Option<&CacheBaseline>,
+) -> Vec<PrefixChange> {
+    match outcome {
+        CacheWindowOutcome::Warm | CacheWindowOutcome::Unknown => {
+            if observed_hit(idle_baseline, resume_baseline) {
+                changes.clear();
+            }
+            changes
+        }
+        CacheWindowOutcome::ModelChanged => {
+            changes.retain(|change| change.kind == PrefixChangeKind::Model);
+            changes
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// Whether the resume request read most of the idle prefix from cache.
+fn observed_hit(idle: Option<&CacheBaseline>, resume: Option<&CacheBaseline>) -> bool {
+    let (Some(idle), Some(resume)) = (idle, resume) else {
+        return false;
+    };
+    // A checkpoint keeps the interaction's last request. Follow-up requests
+    // are agent-initiated, so a user-initiated one is the resume request.
+    if resume.initiator.as_deref() != Some("user") {
+        return false;
+    }
+    match (
+        idle.frontier_tokens.or(idle.prompt_tokens),
+        resume.cache_read,
+    ) {
+        (Some(prefix), Some(read)) if prefix > 0 => {
+            read as f64 >= prefix as f64 * OBSERVED_HIT_SHARE
+        }
+        _ => false,
+    }
+}
+
 pub(super) fn summarize(windows: &[CacheWindow]) -> PromptCacheSummary {
     let mut summary = PromptCacheSummary::default();
     let mut idle: Vec<u64> = Vec::new();

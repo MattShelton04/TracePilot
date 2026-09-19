@@ -52,13 +52,8 @@ fn reconstructs_warm_expired_and_model_changed_windows() {
 
     assert_eq!(expired.resume_offset_seconds, Some(874));
     assert_eq!(expired.prefix_tokens, Some(21_000));
-    let kinds: Vec<_> = expired.prefix_changes.iter().map(|c| c.kind).collect();
-    // The `incremental_input` flip is per request, not a cache change.
-    assert_eq!(kinds, vec![PrefixChangeKind::History]);
-    assert_eq!(
-        expired.prefix_changes[0].summary,
-        "History rewritten at message 1 (compaction)"
-    );
+    // The cache had already expired, so the idle compaction did not break it.
+    assert!(expired.prefix_changes.is_empty());
 
     assert_eq!(switched.model.as_deref(), Some("claude-sonnet-5"));
     assert_eq!(switched.prefix_changes[0].kind, PrefixChangeKind::Model);
@@ -66,7 +61,7 @@ fn reconstructs_warm_expired_and_model_changed_windows() {
 
     let summary = &timeline.summary;
     assert_eq!(summary.resumed_windows, 3);
-    assert_eq!(summary.likely_breaks, 3);
+    assert_eq!(summary.likely_breaks, 2);
     assert_eq!(summary.resent_prefix_tokens, 30_000);
     assert_eq!(summary.median_idle_seconds, Some(579));
 }
