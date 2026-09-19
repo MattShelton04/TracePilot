@@ -6,6 +6,8 @@ import type {
   FreshnessResponse,
   ImportPreviewResult,
   ImportResult,
+  PromptCacheResponse,
+  PromptCacheTimeline,
   SearchFacetsResponse,
   SearchResultsResponse,
   SearchStatsResponse,
@@ -98,6 +100,94 @@ const MOCK_CONTEXT_CAPTURE: ContextCaptureSnapshot = {
       },
       warnings: [],
     },
+  },
+};
+
+const MINUTE_MS = 60_000;
+const mockIso = (offsetMinutes: number) =>
+  new Date(Date.now() + offsetMinutes * MINUTE_MS).toISOString();
+
+// Shape of a real 1.0.83 session: a warm reply, an expired reply after a
+// compaction, and a live idle window whose predicted expiry is 17 minutes out.
+const MOCK_PROMPT_CACHE: PromptCacheTimeline = {
+  source: "checkpoints",
+  checkpointCount: 3,
+  baselineCount: 3,
+  malformedEntryCount: 0,
+  windows: [
+    {
+      index: 0,
+      idleStart: mockIso(-95),
+      resumeAt: mockIso(-86),
+      idleSeconds: 540,
+      model: "gpt-5.6-luna",
+      expiresAt: mockIso(-65),
+      ttlSeconds: 1800,
+      outcome: "warm",
+      confidence: "predicted",
+      resumeOffsetSeconds: -1260,
+      resumeEventIndex: null,
+      resumeInteractionId: null,
+      resumeSource: null,
+      prefixTokens: 21_000,
+      interactionNanoAiu: 800_000_000,
+      prefixChanges: [],
+    },
+    {
+      index: 1,
+      idleStart: mockIso(-80),
+      resumeAt: mockIso(-33),
+      idleSeconds: 2820,
+      model: "gpt-5.6-luna",
+      expiresAt: mockIso(-50),
+      ttlSeconds: 1800,
+      outcome: "expired",
+      confidence: "predicted",
+      resumeOffsetSeconds: 1020,
+      resumeEventIndex: null,
+      resumeInteractionId: null,
+      resumeSource: null,
+      prefixTokens: 54_000,
+      interactionNanoAiu: 1_200_000_000,
+      prefixChanges: [
+        { kind: "tools", summary: "+1 tool", details: ["+ web_fetch"] },
+        {
+          kind: "history",
+          summary: "History rewritten at message 1 (compaction)",
+          details: ["compaction"],
+        },
+      ],
+    },
+    {
+      index: 2,
+      idleStart: mockIso(-13),
+      resumeAt: null,
+      idleSeconds: null,
+      model: "gpt-5.6-luna",
+      expiresAt: mockIso(17),
+      ttlSeconds: 1800,
+      outcome: "pending",
+      confidence: "predicted",
+      resumeOffsetSeconds: null,
+      resumeEventIndex: null,
+      resumeInteractionId: null,
+      resumeSource: null,
+      prefixTokens: 58_000,
+      interactionNanoAiu: null,
+      prefixChanges: [],
+    },
+  ],
+  observedTtls: [{ model: "gpt-5.6-luna", ttlSeconds: 1800, count: 3 }],
+  summary: {
+    resumedWindows: 2,
+    warm: 1,
+    expired: 1,
+    modelChanged: 0,
+    noCache: 0,
+    unknown: 0,
+    likelyBreaks: 1,
+    resentPrefixTokens: 54_000,
+    medianIdleSeconds: 2820,
   },
 };
 
@@ -287,6 +377,11 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_session_checkpoints: mocks.MOCK_CHECKPOINTS,
     get_session_plan: { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
     get_shutdown_metrics: mocks.MOCK_SHUTDOWN_METRICS,
+    get_session_prompt_cache: {
+      timeline: MOCK_PROMPT_CACHE,
+      eventsFileSize: 1024,
+      eventsFileMtime: MOCK_EVENTS_MTIME,
+    } as PromptCacheResponse,
     context_capture_list: [],
     context_capture_preflight: {
       sourceSessionId: mockSessionId,

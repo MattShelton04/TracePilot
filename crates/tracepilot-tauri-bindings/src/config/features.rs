@@ -23,6 +23,9 @@ pub struct FeaturesConfig {
     pub exact_context_capture: bool,
     #[serde(default)]
     pub config_injector: bool,
+    /// Prompt-cache countdown, resume markers and cache-break causes.
+    #[serde(default = "default_true")]
+    pub prompt_cache_insights: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -36,6 +39,7 @@ impl Default for FeaturesConfig {
             copilot_sdk: false,
             exact_context_capture: false,
             config_injector: false,
+            prompt_cache_insights: true,
         }
     }
 }

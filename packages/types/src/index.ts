@@ -10,6 +10,22 @@ export type {
   ToolAnalysisData,
   ToolUsageEntry,
 } from "./analytics.js";
+// ── promptCache.js ─────────────────────────────────────────────────
+export type {
+  CacheConfidence,
+  CacheWindow,
+  CacheWindowOutcome,
+  ModelCacheTtl,
+  ObservedCacheTtl,
+  PrefixChange,
+  PrefixChangeCount,
+  PrefixChangeKind,
+  PromptCacheAnalytics,
+  PromptCacheResponse,
+  PromptCacheSource,
+  PromptCacheSummary,
+  PromptCacheTimeline,
+} from "./promptCache.js";
 // ── config.js ──────────────────────────────────────────────────────
 export type {
   ModelPriceEntry,
