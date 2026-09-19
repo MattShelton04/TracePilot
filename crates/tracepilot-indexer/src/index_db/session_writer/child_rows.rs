@@ -6,7 +6,7 @@ use super::super::types::SessionAnalytics;
 
 /// Delete rows from all session child tables for a given session_id.
 ///
-/// Consolidates the 6 individual DELETE statements into a single helper.
+/// Consolidates the individual DELETE statements into a single helper.
 /// Table names are hardcoded constants (not dynamic) so there is no SQL
 /// injection risk.
 pub(super) fn delete_child_rows(conn: &Connection, session_id: &str) -> Result<()> {
@@ -17,6 +17,8 @@ pub(super) fn delete_child_rows(conn: &Connection, session_id: &str) -> Result<(
         "DELETE FROM session_activity WHERE session_id = ?1",
         "DELETE FROM session_incidents WHERE session_id = ?1",
         "DELETE FROM session_segments WHERE session_id = ?1",
+        "DELETE FROM session_cache_windows WHERE session_id = ?1",
+        "DELETE FROM session_cache_ttls WHERE session_id = ?1",
     ];
 
     for sql in DELETE_SQLS {
@@ -140,6 +142,44 @@ pub(super) fn write_child_rows(
             params.push(&inc.severity);
             params.push(&inc.summary);
             params.push(&inc.detail_json);
+        },
+    )?;
+
+    batched_insert(
+        conn,
+        "INSERT INTO session_cache_windows \
+        (session_id, window_index, idle_start, resume_at, idle_seconds, model, \
+         expires_at, ttl_seconds, outcome, prefix_tokens, interaction_nano_aiu, \
+         change_kinds) VALUES",
+        12,
+        &analytics.cache_window_rows,
+        |row, params| {
+            params.push(&session_id as &dyn rusqlite::ToSql);
+            params.push(&row.window_index);
+            params.push(&row.idle_start);
+            params.push(&row.resume_at);
+            params.push(&row.idle_seconds);
+            params.push(&row.model);
+            params.push(&row.expires_at);
+            params.push(&row.ttl_seconds);
+            params.push(&row.outcome);
+            params.push(&row.prefix_tokens);
+            params.push(&row.interaction_nano_aiu);
+            params.push(&row.change_kinds);
+        },
+    )?;
+
+    batched_insert(
+        conn,
+        "INSERT INTO session_cache_ttls \
+        (session_id, model, ttl_seconds, observation_count) VALUES",
+        4,
+        &analytics.cache_ttl_rows,
+        |row, params| {
+            params.push(&session_id as &dyn rusqlite::ToSql);
+            params.push(&row.model);
+            params.push(&row.ttl_seconds);
+            params.push(&row.observation_count);
         },
     )?;
 

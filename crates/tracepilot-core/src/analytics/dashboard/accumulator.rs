@@ -1,4 +1,6 @@
-use super::super::types::{AnalyticsData, ProductivityMetrics, SessionAnalyticsInput};
+use super::super::types::{
+    AnalyticsData, ProductivityMetrics, PromptCacheAnalytics, SessionAnalyticsInput,
+};
 use super::daily::DailySeriesAccumulator;
 use super::durations::compute_duration_stats;
 use super::models::ModelDistributionAccumulator;
@@ -125,6 +127,8 @@ impl AnalyticsAccumulator {
             total_compactions: 0,
             total_truncations: 0,
             incidents_by_day: Vec::new(),
+            // Cache windows are only available from the index.
+            prompt_cache: PromptCacheAnalytics::default(),
         }
     }
 

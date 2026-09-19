@@ -8,6 +8,7 @@ use super::IndexDb;
 mod code_impact;
 mod dashboard;
 mod day_bucket;
+mod prompt_cache;
 mod tool_analysis;
 
 impl IndexDb {
@@ -20,6 +21,12 @@ impl IndexDb {
         hide_empty: bool,
     ) -> Result<AnalyticsData> {
         dashboard::query_analytics(&self.conn, from_date, to_date, repo, hide_empty)
+    }
+
+    /// The most common prompt-cache TTL observed per model across all indexed
+    /// sessions. Used to estimate cache windows for older sessions.
+    pub fn query_observed_cache_ttls(&self) -> Result<Vec<ModelCacheTtl>> {
+        prompt_cache::query_observed_ttls(&self.conn, None)
     }
 
     /// Query tool analysis from session_tool_calls table.

@@ -11,6 +11,7 @@ use super::types::*;
 
 mod analytics;
 mod child_rows;
+mod prompt_cache;
 mod prune;
 
 pub(crate) use analytics::extract_session_analytics;

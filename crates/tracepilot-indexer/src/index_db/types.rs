@@ -3,11 +3,14 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v10: extract prompt-cache windows and observed cache TTLs from
+/// `session.usage_checkpoint` events into their own tables.
+///
 /// v9: retain legacy segments following cumulative shutdowns (downgrade / upgrade)
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 9;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 10;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -111,6 +114,28 @@ pub(crate) struct ModifiedFileRow {
     pub extension: Option<String>,
 }
 
+/// Row for the session_cache_windows table (predicted windows only).
+pub(crate) struct CacheWindowRow {
+    pub window_index: i64,
+    pub idle_start: String,
+    pub resume_at: Option<String>,
+    pub idle_seconds: Option<i64>,
+    pub model: Option<String>,
+    pub expires_at: Option<String>,
+    pub ttl_seconds: Option<i64>,
+    pub outcome: &'static str,
+    pub prefix_tokens: Option<i64>,
+    pub interaction_nano_aiu: Option<i64>,
+    pub change_kinds: Option<String>,
+}
+
+/// Row for the session_cache_ttls table.
+pub(crate) struct CacheTtlRow {
+    pub model: String,
+    pub ttl_seconds: i64,
+    pub observation_count: i64,
+}
+
 /// Row for the session_incidents table.
 #[derive(Debug)]
 pub(crate) struct IncidentRow {
@@ -169,6 +194,10 @@ pub(crate) struct SessionAnalytics {
     pub total_compaction_input: i64,
     pub total_compaction_output: i64,
     pub incidents: Vec<IncidentRow>,
+
+    // Prompt cache
+    pub cache_window_rows: Vec<CacheWindowRow>,
+    pub cache_ttl_rows: Vec<CacheTtlRow>,
 }
 
 /// Return value from `IndexDb::get_file_metadata`.

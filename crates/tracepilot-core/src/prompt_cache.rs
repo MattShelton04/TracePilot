@@ -17,6 +17,8 @@ mod baseline;
 mod builder;
 mod changes;
 mod model;
+mod outcome;
+mod state;
 
 pub use baseline::{
     CacheBaseline, MAIN_CONVERSATION, ParsedBaselines, SegmentFingerprint, ToolFingerprint,

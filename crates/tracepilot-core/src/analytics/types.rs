@@ -50,6 +50,10 @@ pub struct AnalyticsData {
     pub total_compactions: u64,
     pub total_truncations: u64,
     pub incidents_by_day: Vec<DayIncidents>,
+    /// Cross-session prompt-cache timing. Only sessions with
+    /// checkpoint-predicted expiries contribute.
+    #[serde(default)]
+    pub prompt_cache: PromptCacheAnalytics,
 }
 
 /// Token usage for a single day.
@@ -175,6 +179,42 @@ pub struct CacheStats {
     pub cache_hit_rate: f64,
     /// Fresh (non-cached) input tokens = total_input - cache_read.
     pub non_cached_input_tokens: u64,
+}
+
+/// Aggregate prompt-cache timing across sessions with predicted expiries.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptCacheAnalytics {
+    /// Sessions contributing at least one predicted, resumed window.
+    pub sessions_with_predicted: u32,
+    pub resumed_windows: u64,
+    pub warm_resumes: u64,
+    /// Resumes after the predicted expiry, including model switches.
+    pub resumes_after_expiry: u64,
+    pub median_idle_seconds: Option<u64>,
+    /// Cached prefix tokens at idle, summed over resumes after expiry.
+    pub resent_prefix_tokens: u64,
+    /// Most frequent prefix-change kinds, descending.
+    pub top_change_kinds: Vec<PrefixChangeCount>,
+    /// The most common TTL observed per model.
+    pub observed_ttls: Vec<ModelCacheTtl>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PrefixChangeCount {
+    /// A `PrefixChangeKind` value in camelCase (e.g. `"systemPrompt"`).
+    pub kind: String,
+    pub count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelCacheTtl {
+    pub model: String,
+    pub ttl_seconds: u64,
+    /// Checkpoints that reported this TTL for the model.
+    pub observations: u64,
 }
 
 // ── Tool Analysis ─────────────────────────────────────────────────────

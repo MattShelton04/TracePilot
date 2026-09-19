@@ -381,3 +381,36 @@ CREATE INDEX IF NOT EXISTS idx_sessions_nonempty_updated_at
     ON sessions(updated_at DESC)
     WHERE turn_count IS NOT NULL AND turn_count > 0;
 "#;
+
+pub(super) const MIGRATION_17: &str = r#"
+-- Prompt-cache idle windows with a checkpoint-predicted expiry
+-- (Copilot CLI 1.0.75+). Estimated windows are derived on demand instead.
+CREATE TABLE IF NOT EXISTS session_cache_windows (
+    session_id TEXT NOT NULL,
+    window_index INTEGER NOT NULL,
+    idle_start TEXT NOT NULL,
+    resume_at TEXT,
+    idle_seconds INTEGER,
+    model TEXT,
+    expires_at TEXT,
+    ttl_seconds INTEGER,
+    outcome TEXT NOT NULL,
+    prefix_tokens INTEGER,
+    interaction_nano_aiu INTEGER,
+    -- Comma-separated prefix-change kinds (e.g. "tools,history").
+    change_kinds TEXT,
+    PRIMARY KEY (session_id, window_index),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+-- Prompt-cache TTLs reported per model. Feeds the estimate for sessions
+-- written before checkpoints existed and the Model Comparison view.
+CREATE TABLE IF NOT EXISTS session_cache_ttls (
+    session_id TEXT NOT NULL,
+    model TEXT NOT NULL,
+    ttl_seconds INTEGER NOT NULL,
+    observation_count INTEGER NOT NULL,
+    PRIMARY KEY (session_id, model, ttl_seconds),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+"#;

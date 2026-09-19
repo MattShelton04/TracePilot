@@ -5,5 +5,6 @@ mod agent_usage;
 mod analytics;
 mod common;
 mod maintenance;
+mod prompt_cache;
 mod search_content;
 mod sessions;
