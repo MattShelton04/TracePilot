@@ -1,6 +1,8 @@
 # Prompt-cache insights — implementation plan
 
-Status: **Proposed** (2026-09-19). Not started.
+Status: **Phases 1–3 implemented** (2026-09-19). Phase 4 (enrichments) and the optional
+Timeline band and alert are not started. See [§13](#13-implementation-notes) for where the
+implementation differs from this plan.
 Related:
 [Copilot session store research](../research/copilot-session-store-db.md),
 [1.0.83 alignment](../reports/versions/2026-09-12-v1.0.83-alignment.md),
@@ -321,3 +323,55 @@ gets its own setting.
 - **Open question: resume request.** Should Metrics show the cost of the interaction that
   followed an expired window? The data is there (the `totalNanoAiu` delta), but attributing it
   to the cache is speculative. The proposal is to show it neutrally as "interaction cost".
+
+## 13. Implementation notes
+
+What shipped, and where it deliberately differs from the plan above.
+
+**Where the code lives**
+
+| Layer | Location |
+|---|---|
+| Typed checkpoint | `ModelCacheState` in `session_lifecycle_data.rs` (all fields optional, unknown fields kept in `extra`) |
+| Core reconstruction | `crates/tracepilot-core/src/prompt_cache/` (`baseline`, `builder`, `state`, `outcome`, `changes`, `model`) → `build_prompt_cache_timeline(events, ttl_lookup)` |
+| IPC | `get_session_prompt_cache` (`commands/session/prompt_cache.rs`), reusing the parsed-event LRU |
+| Index | Migration 17: `session_cache_windows`, `session_cache_ttls`; analytics version 10; `AnalyticsData.promptCache` |
+| Desktop | `usePromptCache`, `PromptCacheHeaderChip`, `CacheResumeDivider` (chat and compact views), `MetricsPromptCacheSection`, `AnalyticsPromptCachePanel`, Model Comparison "Cache TTL" column |
+| CLI | `WATCHED_EVENT_TYPES` in the version analyzer |
+| Flag | `features.promptCacheInsights`, default on |
+
+**Deviations from the plan**
+
+- **Main-agent prompts are identified by `agentId`, not `parentAgentTaskId`.** In real 1.0.83
+  logs, root prompts carry a `parentAgentTaskId` too; sub-agent events are the ones with an
+  envelope `agentId`, matching turn reconstruction.
+- **An agent wake-up resumes a window.** When a background sub-agent finishes, the main agent
+  makes a model call without a user prompt (observed in real sessions). The first main
+  `assistant.turn_start` after a checkpoint therefore resumes the window, with
+  `resumeSource: "agent"`. A later checkpoint with no resume in between supersedes the
+  earlier idle point.
+- **A shutdown does not close a window.** If the session is later resumed (`session.resume`
+  then a prompt), the window is classified normally, since the provider cache does not depend
+  on the CLI process. `sessionEnded` is only reported when nothing followed.
+- **Liveness is not an input to the core.** The final unanswered window is `pending`; the
+  header shows a countdown only while `is_session_running` is true, and the Metrics table
+  labels it "No reply yet". This keeps the reconstruction pure and cacheable.
+- **Checkpoints exist before 1.0.83.** 1.0.75+ writes `modelCacheState` without
+  `promptCacheBreakState`, so those sessions get predicted timing without prefix changes.
+- **Prefix changes compare the baseline before the idle window with the one after the
+  resumed interaction.** When either fingerprint is missing, model and effort changes come
+  from `session.model_change`, and history rewrites from compaction, truncation or
+  context-clear events seen while idle. Cache-config changes list the changed keys (real
+  sessions flip `incremental_input`).
+- **The TTL registry is per session, not a global counter table.** `session_cache_ttls`
+  rows are replaced on reindex, so counts cannot double. The estimate uses the most common
+  TTL per model, and a tie picks the shorter TTL. There is no built-in `cacheTtlDefaults`
+  table or Settings override: without an observed TTL a window is **unavailable** rather
+  than guessed. The registry is read lazily, only for sessions that need an estimate.
+- **Only predicted windows are indexed.** Estimates depend on the registry that the index
+  feeds, so they are computed on demand. Cross-session figures cover predicted windows only.
+- **`interactionNanoAiu` is shown neutrally** as "Next interaction" usage, answering the
+  open question in §12.
+- **Diagnostics** are reported on the timeline (`malformedEntryCount`) rather than in
+  `ParseDiagnostics`, since a malformed cache entry never affects event parsing.
+
