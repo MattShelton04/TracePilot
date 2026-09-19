@@ -33,7 +33,7 @@ const ALLOW_FILES = new Set([
   "apps/desktop/src/styles/layout.css",
   "apps/desktop/src/styles/features/export.css",
   "apps/desktop/src/styles/features/waterfall.css",
-  "apps/desktop/src/styles/features/skill-editor.css",
+  "apps/desktop/src/styles/features/definition-editor.css",
   "apps/desktop/src/styles/features/todo-dependency-graph.css",
   "apps/desktop/src/styles/features/session-search.css",
   "apps/desktop/src/styles/features/session-launcher.css",

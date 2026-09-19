@@ -69,6 +69,7 @@ vi.mock("@/stores/skills", () => ({
 }));
 
 // Import after mocks
+import SkillEditorMarkdownEditor from "@/components/skillEditor/SkillEditorMarkdownEditor.vue";
 import { SkillEditorKey, useSkillEditor, useSkillEditorContext } from "../useSkillEditor";
 
 function mountHarness(renderEditor = false) {
@@ -78,15 +79,7 @@ function mountHarness(renderEditor = false) {
       const ctx = useSkillEditor();
       provide(SkillEditorKey, ctx);
       ctxHolder.ctx = ctx;
-      return () =>
-        renderEditor
-          ? h("textarea", {
-              value: ctx.previewBody,
-              ref: (element) => {
-                ctx.editorRef = element as HTMLTextAreaElement | null;
-              },
-            })
-          : h("div");
+      return () => (renderEditor ? h(SkillEditorMarkdownEditor) : h("div"));
     },
   });
   const wrapper = mount(Harness);
@@ -119,29 +112,29 @@ beforeEach(() => {
 describe("useSkillEditor", () => {
   it.each([
     [
-      "insertH1",
+      "H1",
       "Review only disposable files.\n\nPreserve Unicode café 日本語.",
       0,
       0,
       "# Review only disposable files.\n\nPreserve Unicode café 日本語.",
     ],
-    ["insertH2", "# Review café 日本語", 8, 8, "## Review café 日本語"],
+    ["H2", "# Review café 日本語", 8, 8, "## Review café 日本語"],
     [
-      "insertBulletList",
+      "Bullet List",
       "First line\nSecond line\nKeep this",
       2,
       23,
       "- First line\n- Second line\nKeep this",
     ],
-  ] as const)("%s formats whole affected lines without injecting placeholders", async (action, body, start, end, expected) => {
+  ] as const)("%s formats whole affected lines without injecting placeholders", async (title, body, start, end, expected) => {
     const { ctx, wrapper } = mountHarness(true);
     onTestFinished(() => wrapper.unmount());
     await flushPromises();
-    ctx.onBodyInput({ target: { value: body } } as unknown as Event);
+    ctx.setBody(body);
     await wrapper.vm.$nextTick();
     const editor = wrapper.get("textarea").element;
     editor.setSelectionRange(start, end);
-    ctx[action]();
+    await wrapper.get(`button[title="${title}"]`).trigger("click");
     await wrapper.vm.$nextTick();
     expect(ctx.previewBody).toBe(expected);
     expect(ctx.rawContent).toBe(`---\nname: my-skill\ndescription: hello\n---\n${expected}`);
