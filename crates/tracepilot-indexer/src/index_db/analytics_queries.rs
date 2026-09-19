@@ -2,9 +2,11 @@
 
 use crate::Result;
 use tracepilot_core::analytics::types::*;
+use tracepilot_core::analytics::{AgentUsageDetail, AgentUsageSummary};
 
 use super::IndexDb;
 
+mod agents;
 mod code_impact;
 mod dashboard;
 mod day_bucket;
@@ -27,6 +29,42 @@ impl IndexDb {
     /// sessions. Used to estimate cache windows for older sessions.
     pub fn query_observed_cache_ttls(&self) -> Result<Vec<ModelCacheTtl>> {
         prompt_cache::query_observed_ttls(&self.conn, None)
+    }
+
+    /// Cross-session usage for every agent seen in the index.
+    pub fn query_agent_usage_summary(
+        &self,
+        from_date: Option<&str>,
+        to_date: Option<&str>,
+        repo: Option<&str>,
+    ) -> Result<AgentUsageSummary> {
+        agents::query_agent_usage_summary(
+            &self.conn,
+            agents::AgentRunFilter {
+                from_date,
+                to_date,
+                repo,
+            },
+        )
+    }
+
+    /// Usage breakdowns for one agent name (case-insensitive).
+    pub fn query_agent_usage_detail(
+        &self,
+        agent_name: &str,
+        from_date: Option<&str>,
+        to_date: Option<&str>,
+        repo: Option<&str>,
+    ) -> Result<AgentUsageDetail> {
+        agents::query_agent_usage_detail(
+            &self.conn,
+            agents::AgentRunFilter {
+                from_date,
+                to_date,
+                repo,
+            },
+            agent_name,
+        )
     }
 
     /// Query tool analysis from session_tool_calls table.

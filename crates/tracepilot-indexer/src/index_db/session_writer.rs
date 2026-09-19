@@ -9,6 +9,7 @@ use tracepilot_core::ids::SessionId;
 use super::IndexDb;
 use super::types::*;
 
+mod agent_runs;
 mod analytics;
 mod child_rows;
 mod prompt_cache;
@@ -39,8 +40,13 @@ pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessio
 
     let file_meta = SessionFileMeta::from_session_path(session_path);
 
-    let analytics =
-        extract_session_analytics(&summary, &typed_events, diagnostics.as_ref(), &file_meta);
+    let analytics = extract_session_analytics(
+        &summary,
+        &typed_events,
+        load_result.turns.as_deref(),
+        diagnostics.as_ref(),
+        &file_meta,
+    );
 
     let index_info = SessionIndexInfo {
         repository: summary.repository.clone(),
@@ -170,6 +176,7 @@ impl IndexDb {
             )?;
 
             child_rows::write_child_rows(&self.conn, &session_id, analytics)?;
+            agent_runs::write_agent_rows(&self.conn, &session_id, &analytics.agent_runs)?;
 
             Ok(())
         })();
