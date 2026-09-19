@@ -134,7 +134,14 @@ describe("MetricsPromptCacheSection", () => {
     const card = (label: string) =>
       wrapper.findAll(".stat-card").find((c) => c.text().includes(label));
     expect(card("After expiry")?.attributes("title")).toContain("about 54K tokens re-sent.");
-    expect(card("Warm")?.attributes("title")).not.toContain("agent");
+    expect(card("Agent wakes")).toBeUndefined();
+
+    await wrapper.setProps({
+      timeline: makeTimeline(wrapper.props("timeline").windows, {
+        summary: { ...wrapper.props("timeline").summary, agentResumes: 3 },
+      }),
+    });
+    expect(card("Agent wakes")?.text()).toContain("3");
 
     await wrapper.findAll("button[aria-expanded]")[1]?.trigger("click");
     const detail = wrapper.get('[data-testid="prompt-cache-detail"]');

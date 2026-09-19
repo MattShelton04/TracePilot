@@ -40,11 +40,6 @@ const visibleWindows = computed(() =>
 const summary = computed(() => props.timeline.summary);
 const afterExpiry = computed(() => summary.value.expired + summary.value.modelChanged);
 const extraCredits = computed(() => totalMissCredits(visibleWindows.value));
-const agentWakeNote = computed(() => {
-  const wakes = summary.value.agentResumes;
-  if (wakes === 0) return "";
-  return ` ${wakes} agent ${wakes === 1 ? "wake isn't" : "wakes aren't"} counted.`;
-});
 const resentTooltip = computed(() => {
   const base = "Replies after the cache expired or on another model.";
   const tokens = summary.value.resentPrefixTokens;
@@ -130,22 +125,23 @@ function rowCredits(window: CacheWindow) {
     <template v-if="visibleWindows.length > 0">
       <div class="prompt-cache__stats">
         <StatCard
-          :value="summary.resumedWindows"
-          label="Replies after idle"
-          :tooltip="`Prompts sent after the agent went idle.${agentWakeNote}`"
-          mini
-        />
-        <StatCard
           :value="summary.warm"
           label="Warm"
           color="success"
-          :tooltip="`Replies sent before the cache expired.${agentWakeNote}`"
+          :tooltip="`Replies sent before the cache expired. Agent wakes aren't counted.`"
           mini
         />
         <StatCard
           :value="afterExpiry"
           label="After expiry"
           :tooltip="resentTooltip"
+          mini
+        />
+        <StatCard
+          v-if="summary.agentResumes > 0"
+          :value="summary.agentResumes"
+          label="Agent wakes"
+          tooltip="The agent resumed without a prompt, e.g. when a background task finished."
           mini
         />
         <StatCard
@@ -172,7 +168,7 @@ function rowCredits(window: CacheWindow) {
               <th>Idle vs TTL</th>
               <th>Outcome</th>
               <th>Likely causes</th>
-              <th style="text-align: right">Est. extra cost</th>
+              <th style="text-align: right" title="Estimated extra cost of re-caching the prefix">Extra cost</th>
             </tr>
           </thead>
           <tbody>
@@ -274,7 +270,7 @@ function rowCredits(window: CacheWindow) {
 }
 .prompt-cache__stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
