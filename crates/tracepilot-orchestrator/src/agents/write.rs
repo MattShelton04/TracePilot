@@ -45,7 +45,7 @@ pub fn resolve_mutable(
     // A linked custom definition cannot bypass packaged/plugin write policy.
     let target = path.canonicalize()?;
     if path_starts_with(&target, &roots.plugins_dir())
-        || (builtin == BuiltinWrites::Denied && path_starts_with(&target, &roots.pkg_dir()))
+        || (builtin == BuiltinWrites::Denied && roots.is_distribution_path(&target))
     {
         return Err(OrchestratorError::Config(
             "The linked definition is read-only.".into(),

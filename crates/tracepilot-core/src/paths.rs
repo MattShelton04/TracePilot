@@ -5,8 +5,13 @@
 
 use std::path::{Path, PathBuf};
 
+pub mod cli_install;
 mod isolation;
 
+pub use cli_install::{
+    COPILOT_CLI_DIST_DIR_ENV, COPILOT_HOME_ENV, COPILOT_SKILLS_DIRS_ENV, DistRoot, DistSource,
+    dist_roots,
+};
 pub use isolation::{
     DataRootError, TRACEPILOT_DATA_ROOT_ENV, isolated_data_root, path_is_within_data_root,
     validate_data_root,
@@ -53,12 +58,22 @@ impl CopilotPaths {
         Self::from_home(home.as_ref().join(COPILOT_DIR_NAME))
     }
 
+    /// The Copilot home this machine would use: the isolation root when one is
+    /// set, then `COPILOT_HOME` (which the CLI itself honours), then
+    /// `~/.copilot`.
     pub fn try_default() -> Option<Self> {
         match isolated_data_root() {
             Ok(Some(root)) => Some(Self::from_home(root.join("copilot"))),
-            Ok(None) => crate::utils::home_dir_opt().map(Self::from_user_home),
+            Ok(None) => cli_install::copilot_home_override()
+                .map(Self::from_home)
+                .or_else(|| crate::utils::home_dir_opt().map(Self::from_user_home)),
             Err(_) => None,
         }
+    }
+
+    /// Distribution roots of the installed CLI, wherever it was installed to.
+    pub fn dist_roots(&self) -> Vec<cli_install::DistRoot> {
+        cli_install::dist_roots(&self.home)
     }
 
     pub fn home(&self) -> &Path {
@@ -301,16 +316,22 @@ impl SessionPaths {
     }
 }
 
-pub fn default_copilot_home() -> PathBuf {
+/// The Copilot home every default below is derived from.
+///
+/// Panics only on an invalid isolation root, which is a configuration error
+/// the process cannot continue past.
+fn default_copilot_paths() -> CopilotPaths {
     match isolated_data_root() {
-        Ok(Some(root)) => CopilotPaths::from_home(root.join("copilot"))
-            .home()
-            .to_path_buf(),
-        Ok(None) => CopilotPaths::from_user_home(crate::utils::home_dir())
-            .home()
-            .to_path_buf(),
+        Ok(Some(root)) => CopilotPaths::from_home(root.join("copilot")),
+        Ok(None) => cli_install::copilot_home_override()
+            .map(CopilotPaths::from_home)
+            .unwrap_or_else(|| CopilotPaths::from_user_home(crate::utils::home_dir())),
         Err(error) => panic!("invalid application data isolation: {error}"),
     }
+}
+
+pub fn default_copilot_home() -> PathBuf {
+    default_copilot_paths().home().to_path_buf()
 }
 
 pub fn default_copilot_home_opt() -> Option<PathBuf> {
@@ -318,11 +339,7 @@ pub fn default_copilot_home_opt() -> Option<PathBuf> {
 }
 
 pub fn default_session_state_dir() -> PathBuf {
-    match isolated_data_root() {
-        Ok(Some(root)) => CopilotPaths::from_home(root.join("copilot")).session_state_dir(),
-        Ok(None) => CopilotPaths::from_user_home(crate::utils::home_dir()).session_state_dir(),
-        Err(error) => panic!("invalid application data isolation: {error}"),
-    }
+    default_copilot_paths().session_state_dir()
 }
 
 pub fn default_tracepilot_root() -> PathBuf {
@@ -330,10 +347,7 @@ pub fn default_tracepilot_root() -> PathBuf {
         Ok(Some(root)) => TracePilotPaths::from_root(root.join(TRACEPILOT_DIR_NAME))
             .root()
             .to_path_buf(),
-        Ok(None) => CopilotPaths::from_user_home(crate::utils::home_dir())
-            .tracepilot()
-            .root()
-            .to_path_buf(),
+        Ok(None) => default_copilot_paths().tracepilot().root().to_path_buf(),
         Err(error) => panic!("invalid application data isolation: {error}"),
     }
 }
@@ -341,9 +355,7 @@ pub fn default_tracepilot_root() -> PathBuf {
 pub fn default_index_db_path() -> PathBuf {
     match isolated_data_root() {
         Ok(Some(root)) => TracePilotPaths::from_root(root.join(TRACEPILOT_DIR_NAME)).index_db(),
-        Ok(None) => CopilotPaths::from_user_home(crate::utils::home_dir())
-            .tracepilot()
-            .index_db(),
+        Ok(None) => default_copilot_paths().tracepilot().index_db(),
         Err(error) => panic!("invalid application data isolation: {error}"),
     }
 }

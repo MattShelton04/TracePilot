@@ -46,7 +46,16 @@ fn catalog_discovers_registered_projects_and_keeps_settings_local() {
     )
     .unwrap();
     let result = list_skills(&cfg, first.to_str()).unwrap();
-    assert!(result.diagnostics.is_empty());
+    // A machine without a discoverable CLI installation reports that as a
+    // warning; nothing here should fail to load.
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.severity == "warning"),
+        "unexpected load failures: {:?}",
+        result.diagnostics
+    );
     assert_eq!(
         result.skills.len(),
         3,

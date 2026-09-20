@@ -1,5 +1,6 @@
 use super::*;
 use tempfile::TempDir;
+use tracepilot_core::paths::cli_install;
 
 fn create_test_skill(dir: &Path, name: &str) {
     let skill_dir = dir.join(name);
@@ -175,7 +176,11 @@ fn count_assets_skips_hidden_dirs() {
 fn builtin_discovery_keeps_latest_version_per_name() {
     let dir = TempDir::new().unwrap();
     let old_builtin = dir.path().join("win32-x64").join("1.0.0").join("builtin");
-    let new_builtin = dir.path().join("win32-x64").join("1.2.0").join("builtin");
+    let new_builtin = dir
+        .path()
+        .join("win32-x64")
+        .join("1.2.0")
+        .join("builtin-skills");
     let universal_builtin = dir.path().join("universal").join("1.1.0").join("builtin");
     std::fs::create_dir_all(&old_builtin).unwrap();
     std::fs::create_dir_all(&new_builtin).unwrap();
@@ -185,7 +190,7 @@ fn builtin_discovery_keeps_latest_version_per_name() {
     create_test_skill(&new_builtin, "new-skill");
     create_test_skill(&universal_builtin, "shared-skill");
 
-    let result = discover_builtin_skills(dir.path()).unwrap();
+    let result = discover_builtin_skills(&cli_install::package_dist_roots(dir.path()));
 
     assert_eq!(result.len(), 2);
     let shared = result
@@ -203,5 +208,81 @@ fn builtin_discovery_ignores_temporary_packages() {
     std::fs::create_dir_all(&temporary_builtin).unwrap();
     create_test_skill(&temporary_builtin, "temporary-skill");
 
-    assert!(discover_builtin_skills(dir.path()).unwrap().is_empty());
+    assert!(discover_builtin_skills(&cli_install::package_dist_roots(dir.path())).is_empty());
+}
+
+#[test]
+fn an_unreadable_package_directory_does_not_hide_personal_skills() {
+    let dir = TempDir::new().unwrap();
+    let home = dir.path().join(".copilot");
+    std::fs::create_dir_all(home.join("skills")).unwrap();
+    create_test_skill(&home.join("skills"), "mine");
+    // The CLI's download left a file where the package directory belongs.
+    std::fs::write(home.join("pkg"), "not a directory").unwrap();
+
+    let result = discover_user_skills(&home).unwrap();
+
+    assert!(result.skills.iter().any(|skill| skill.name == "mine"));
+}
+
+#[test]
+fn personal_skills_survive_a_copilot_home_without_a_cli_installation() {
+    let dir = TempDir::new().unwrap();
+    let home = dir.path().join(".copilot");
+    std::fs::create_dir_all(home.join("skills")).unwrap();
+    create_test_skill(&home.join("skills"), "solo");
+
+    let result = discover_user_skills(&home).unwrap();
+
+    let solo = result.skills.iter().find(|s| s.name == "solo").unwrap();
+    assert_eq!(solo.scope, SkillScope::Global);
+    assert!(
+        result.diagnostics.iter().all(|d| d.severity == "warning"),
+        "a missing CLI installation must not read as a load failure"
+    );
+}
+
+#[test]
+fn the_agents_personal_root_is_a_sibling_of_the_copilot_home() {
+    let dirs = personal_skill_dirs(Path::new("/home/alice/.copilot"));
+
+    assert!(dirs.contains(&PathBuf::from("/home/alice/.copilot/skills")));
+    assert!(dirs.contains(&PathBuf::from("/home/alice/.agents/skills")));
+}
+
+#[test]
+fn both_personal_roots_are_listed_together() {
+    let dir = TempDir::new().unwrap();
+    let home = dir.path().join(".copilot");
+    std::fs::create_dir_all(home.join("skills")).unwrap();
+    std::fs::create_dir_all(dir.path().join(".agents/skills")).unwrap();
+    create_test_skill(&home.join("skills"), "from-copilot");
+    create_test_skill(&dir.path().join(".agents/skills"), "from-agents");
+
+    let names: Vec<_> = discover_user_skills(&home)
+        .unwrap()
+        .skills
+        .into_iter()
+        .map(|skill| skill.name)
+        .collect();
+
+    assert!(names.contains(&"from-copilot".to_string()));
+    assert!(names.contains(&"from-agents".to_string()));
+}
+
+#[test]
+fn builtin_discovery_reads_an_npm_style_package_root() {
+    let dir = TempDir::new().unwrap();
+    let package = dir.path().join("node_modules/@github/copilot");
+    std::fs::create_dir_all(package.join("builtin-skills")).unwrap();
+    create_test_skill(&package.join("builtin-skills"), "packaged");
+
+    let result = discover_builtin_skills(&[cli_install::DistRoot {
+        path: package,
+        version: Some("1.0.86".into()),
+        source: cli_install::DistSource::NodeModules,
+    }]);
+
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].scope, SkillScope::Builtin);
 }

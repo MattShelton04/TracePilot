@@ -1,9 +1,16 @@
 //! Skill discovery — scans filesystem for SKILL.md files.
 //!
 //! Discovers skills in:
-//! - Global Copilot skills under the Copilot home
-//! - Built-in skills bundled under versioned Copilot packages
+//! - Personal skills under the Copilot home, `~/.agents/skills` and
+//!   `COPILOT_SKILLS_DIRS`
+//! - Built-in skills bundled with the installed CLI, wherever it was installed
+//!   to (see [`tracepilot_core::paths::cli_install`])
 //! - Repository skills under supported repo-scoped skill roots
+//!
+//! Every root is scanned independently. A root that is missing, unreadable or
+//! not a directory becomes a diagnostic, never an error, so one broken
+//! location — most often a half-extracted CLI package — cannot hide the skills
+//! the user does have.
 
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
@@ -13,6 +20,10 @@ use crate::skills::types::{
 use semver::Version;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use tracepilot_core::paths::cli_install::{self, DistRoot};
+
+/// Shown when no CLI installation can be found anywhere on disk.
+pub const MISSING_CLI_NOTE: &str = "No Copilot CLI installation was found, so its built-in skills are not listed. Set COPILOT_HOME if the CLI keeps its files somewhere else.";
 
 fn copilot_paths() -> crate::error::Result<tracepilot_core::paths::CopilotPaths> {
     tracepilot_core::paths::CopilotPaths::try_default()
@@ -29,13 +40,39 @@ pub fn builtin_packages_dir() -> crate::error::Result<PathBuf> {
     Ok(copilot_paths()?.pkg_dir())
 }
 
+/// Personal skill roots the CLI reads: `<COPILOT_HOME>/skills`, the
+/// `~/.agents/skills` alternative, and anything in `COPILOT_SKILLS_DIRS`.
+///
+/// `.agents` is taken as a sibling of the Copilot home rather than from the
+/// real user home, so a configured or isolated home keeps both roots together.
+pub fn personal_skill_dirs(copilot_home: &Path) -> Vec<PathBuf> {
+    let mut dirs =
+        vec![tracepilot_core::paths::CopilotPaths::from_home(copilot_home).global_skills_dir()];
+    if let Some(home) = copilot_home.parent() {
+        dirs.push(cli_install::agents_home_skills_dir(home));
+    }
+    dirs.extend(cli_install::extra_skill_dirs());
+    dirs.dedup();
+    dirs
+}
+
+/// The installed CLI's distribution roots, or an empty list when no
+/// installation can be found.
+pub fn builtin_dist_roots(copilot_home: &Path) -> Vec<DistRoot> {
+    cli_install::dist_roots(copilot_home)
+}
+
 /// Centralized fixed roots from which skill content may be read.
 ///
-/// Repository-scoped roots are validated structurally because their locations
-/// are supplied at runtime.
+/// Covers every personal root plus the installed CLI's own directories, so a
+/// built-in skill stays readable however the CLI was installed. Repository
+/// roots are validated structurally because they are supplied at runtime.
 pub fn registered_skill_roots() -> crate::error::Result<Vec<PathBuf>> {
     let paths = copilot_paths()?;
-    Ok(vec![paths.global_skills_dir(), paths.pkg_dir()])
+    let mut roots = personal_skill_dirs(paths.home());
+    roots.push(paths.pkg_dir());
+    roots.extend(paths.dist_roots().into_iter().map(|root| root.path));
+    Ok(roots)
 }
 
 /// Get the primary repository skills directory (`.github/skills/` under repo root).
@@ -53,20 +90,38 @@ fn repo_skill_dirs(repo_root: &Path) -> [PathBuf; 4] {
     ]
 }
 
-/// Discover project skills without rescanning global or packaged definitions.
+/// Discover project skills without rescanning personal or packaged definitions.
 pub fn discover_repository(root: &Path) -> Result<SkillDiscoveryResult, SkillsError> {
     let mut result = SkillDiscoveryResult {
         skills: Vec::new(),
         diagnostics: Vec::new(),
     };
     for directory in repo_skill_dirs(root) {
-        if directory.exists() {
-            let found = discover_in_directory_detailed(&directory, SkillScope::Repository)?;
+        collect_root(&mut result, &directory, SkillScope::Repository);
+    }
+    Ok(result)
+}
+
+/// Scan one root into `result`. A missing root is silent; an unreadable one is
+/// reported so the user can see why it is empty. Neither stops the scan.
+fn collect_root(result: &mut SkillDiscoveryResult, directory: &Path, scope: SkillScope) {
+    if !directory.exists() {
+        return;
+    }
+    match discover_in_directory_detailed(directory, scope) {
+        Ok(found) => {
             result.skills.extend(found.skills);
             result.diagnostics.extend(found.diagnostics);
         }
+        Err(error) => {
+            tracing::warn!("Skipping skills directory {}: {error}", directory.display());
+            result.diagnostics.push(SkillDiagnostic {
+                path: directory.to_string_lossy().to_string(),
+                message: error.to_string(),
+                severity: "error".into(),
+            });
+        }
     }
-    Ok(result)
 }
 
 /// Owning repository for a skill under any supported project root.
@@ -109,98 +164,84 @@ pub fn discover_all_detailed(
 }
 
 /// Discover personal and bundled skills from the configured Copilot home.
+///
+/// Returns `Ok` even when every root fails: the failures travel as diagnostics
+/// so the manager still lists whatever was readable.
 pub fn discover_user_skills(copilot_home: &Path) -> Result<SkillDiscoveryResult, SkillsError> {
-    let paths = tracepilot_core::paths::CopilotPaths::from_home(copilot_home);
     let mut result = SkillDiscoveryResult {
         skills: Vec::new(),
         diagnostics: Vec::new(),
     };
-    if paths.global_skills_dir().exists() {
-        let global =
-            discover_in_directory_detailed(&paths.global_skills_dir(), SkillScope::Global)?;
-        result.skills.extend(global.skills);
-        result.diagnostics.extend(global.diagnostics);
+    for directory in personal_skill_dirs(copilot_home) {
+        collect_root(&mut result, &directory, SkillScope::Global);
     }
-    if paths.pkg_dir().exists() {
-        result
-            .skills
-            .extend(discover_builtin_skills(&paths.pkg_dir())?);
+    let dist_roots = builtin_dist_roots(copilot_home);
+    if dist_roots.is_empty() {
+        // Said once, as a warning rather than an error: the user's own skills
+        // above are unaffected, and this explains the missing built-ins.
+        result.diagnostics.push(SkillDiagnostic {
+            path: tracepilot_core::paths::CopilotPaths::from_home(copilot_home)
+                .pkg_dir()
+                .to_string_lossy()
+                .to_string(),
+            message: MISSING_CLI_NOTE.into(),
+            severity: "warning".into(),
+        });
     }
+    result.skills.extend(discover_builtin_skills(&dist_roots));
     Ok(result)
 }
 
-/// Discover packaged built-in skills, retaining the newest semantic-versioned
-/// copy of each case-insensitive skill name across package targets.
-fn discover_builtin_skills(packages_dir: &Path) -> Result<Vec<SkillSummary>, SkillsError> {
-    let package_targets = std::fs::read_dir(packages_dir).map_err(|e| {
-        SkillsError::io_ctx(
-            format!(
-                "Failed to read Copilot packages directory {}",
-                packages_dir.display()
-            ),
-            e,
-        )
-    })?;
-    let mut discovered = BTreeMap::<String, (Version, SkillSummary)>::new();
+/// Discover the built-in skills the installed CLI ships, keeping the
+/// newest-versioned copy of each case-insensitive name.
+///
+/// Roots without a built-in directory (an old CLI, or a package still being
+/// extracted) are skipped, and an unreadable one is logged rather than
+/// returned, because built-ins are a bonus next to the user's own skills.
+fn discover_builtin_skills(dist_roots: &[DistRoot]) -> Vec<SkillSummary> {
+    let mut discovered = BTreeMap::<String, (Option<Version>, SkillSummary)>::new();
 
-    for target in package_targets.flatten() {
-        let target_path = target.path();
-        if !target_path.is_dir()
-            || target
-                .file_name()
-                .to_string_lossy()
-                .eq_ignore_ascii_case("tmp")
-        {
-            continue;
-        }
-
-        let Ok(versions) = std::fs::read_dir(&target_path) else {
+    for root in dist_roots {
+        let Some(builtin_dir) = root.builtin_skills_dir() else {
             continue;
         };
-        for version_entry in versions.flatten() {
-            let version_path = version_entry.path();
-            if !version_path.is_dir() {
+        let version = root
+            .version
+            .as_deref()
+            .and_then(|raw| Version::parse(raw).ok());
+        let summaries = match discover_in_directory(&builtin_dir, SkillScope::Builtin) {
+            Ok(summaries) => summaries,
+            Err(error) => {
+                tracing::warn!(
+                    "Skipping built-in skills at {}: {error}",
+                    builtin_dir.display()
+                );
                 continue;
             }
-            let Ok(version) = Version::parse(&version_entry.file_name().to_string_lossy()) else {
-                continue;
-            };
-            let builtin_dir = version_path.join("builtin");
-            if !builtin_dir.is_dir() {
-                continue;
-            }
-
-            let summaries = match discover_in_directory(&builtin_dir, SkillScope::Builtin) {
-                Ok(summaries) => summaries,
-                Err(error) => {
-                    tracing::warn!(
-                        "Skipping built-in skills at {}: {error}",
-                        builtin_dir.display()
-                    );
-                    continue;
-                }
-            };
-            for summary in summaries {
-                let key = summary.name.trim().to_lowercase();
-                let should_replace =
-                    discovered
-                        .get(&key)
-                        .is_none_or(|(current_version, current_summary)| {
-                            version.cmp(current_version).is_gt()
-                                || (version.eq(current_version)
-                                    && summary.directory < current_summary.directory)
-                        });
-                if should_replace {
-                    discovered.insert(key, (version.clone(), summary));
-                }
+        };
+        for summary in summaries {
+            let key = summary.name.trim().to_lowercase();
+            let should_replace =
+                discovered
+                    .get(&key)
+                    .is_none_or(|(current_version, current_summary)| {
+                        match (&version, current_version) {
+                            (Some(new), Some(current)) if new != current => new > current,
+                            // An unversioned root only wins on a shorter path, so
+                            // the choice stays stable across scans.
+                            _ => summary.directory < current_summary.directory,
+                        }
+                    });
+            if should_replace {
+                discovered.insert(key, (version.clone(), summary));
             }
         }
     }
 
-    Ok(discovered
+    discovered
         .into_values()
         .map(|(_, summary)| summary)
-        .collect())
+        .collect()
 }
 
 /// Discover skills in a specific directory.

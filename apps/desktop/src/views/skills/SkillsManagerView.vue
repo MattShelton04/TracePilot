@@ -53,6 +53,15 @@ const newSkillDesc = ref("");
 const creating = ref(false);
 const createError = ref<string | null>(null);
 
+// A skill that failed to parse is a different story from a root that simply
+// is not there, so the two are reported separately.
+const loadFailures = computed(() =>
+  store.diagnostics.filter((diagnostic) => diagnostic.severity !== "warning"),
+);
+const discoveryWarnings = computed(() =>
+  store.diagnostics.filter((diagnostic) => diagnostic.severity === "warning"),
+);
+
 const scopeOptions = computed<SegmentOption[]>(() =>
   SKILL_SCOPE_FILTERS.map((option) => ({
     ...option,
@@ -249,16 +258,25 @@ async function handleToggleEnabled(directory: string, enabled: boolean) {
         <button class="btn btn--secondary btn--sm" @click="store.loadSkills()">Retry</button>
       </div>
 
-        <details v-if="store.diagnostics.length" class="state-message state-message--warning">
+        <details v-if="loadFailures.length" class="state-message state-message--warning">
           <summary>
-            {{ store.diagnostics.length }} skill{{ store.diagnostics.length === 1 ? '' : 's' }} could not be loaded
+            {{ loadFailures.length }} skill{{ loadFailures.length === 1 ? '' : 's' }} could not be loaded
           </summary>
           <ul>
-            <li v-for="diagnostic in store.diagnostics" :key="diagnostic.path">
+            <li v-for="diagnostic in loadFailures" :key="diagnostic.path">
               <code>{{ diagnostic.path }}</code>: {{ diagnostic.message }}
             </li>
           </ul>
         </details>
+
+        <Banner
+          v-for="warning in discoveryWarnings"
+          :key="warning.path"
+          tone="info"
+          title="Built-in skills unavailable"
+        >
+          {{ warning.message }}
+        </Banner>
 
         <Banner v-if="store.usageError" tone="warning" title="Usage unavailable">
           {{ store.usage ? "Showing previously loaded usage:" : "Skills are shown without cross-session usage:" }} {{ store.usageError }}

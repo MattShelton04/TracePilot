@@ -77,10 +77,7 @@ impl Fixture {
     }
 
     pub fn roots(&self) -> AgentRoots {
-        AgentRoots {
-            copilot_home: self.home.clone(),
-            repo_roots: vec![self.repo.clone()],
-        }
+        AgentRoots::new(self.home.clone(), vec![self.repo.clone()])
     }
 
     pub fn backups(&self) -> PathBuf {
