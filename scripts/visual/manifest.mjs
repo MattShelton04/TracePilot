@@ -1,6 +1,9 @@
 // Every named desktop route has an entry. These are browser fixture states,
 // never evidence that Rust, the SDK, native dialogs or external services work.
+import { skill } from "./fixtures.mjs";
+
 const session = "/session/sess-auth-refactor";
+const skillEditor = `/skills/${encodeURIComponent(skill.directory)}`;
 export const cases = [
   { id: "sessions", route: "/", ready: '[data-testid="session-card"]', state: "populated" },
   ...[
@@ -133,13 +136,13 @@ export const cases = [
   { id: "skills-manager", route: "/skills", ready: ".skill-card", state: "populated" },
   {
     id: "skill-editor",
-    route: "/skills/visual-review",
+    route: skillEditor,
     ready: ".editor-body",
     state: "populated synthetic skill",
   },
   {
     id: "skill-usage",
-    route: "/skills/visual-review?tab=usage",
+    route: `${skillEditor}?tab=usage`,
     ready: ".skill-usage > dl",
     state: "synthetic skill with cross-session usage",
   },

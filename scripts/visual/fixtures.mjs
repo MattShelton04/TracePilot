@@ -3,7 +3,7 @@
 // These additions cover domains whose normal browser mode has no fallback.
 import { configureVisualFeatures } from "./feature-policy.mjs";
 
-const skill = {
+export const skill = {
   name: "visual-review",
   description: "Review a change for clarity, correctness, and useful tests.",
   scope: "global",
