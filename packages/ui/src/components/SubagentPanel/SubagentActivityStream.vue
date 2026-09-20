@@ -12,6 +12,7 @@ import {
   getAgentIcon,
   inferAgentTypeFromToolCall,
 } from "../../utils/agentTypes";
+import { getReasoningSummary } from "../../utils/reasoning";
 import ToolCallItem from "../ToolCallItem.vue";
 import type { SubagentActivityItem, SubagentActivityPillType } from "./types";
 
@@ -71,6 +72,8 @@ function toggleReasoning(key: string) {
 }
 
 function reasoningPreview(content: string): string {
+  const summary = getReasoningSummary(content);
+  if (summary) return summary;
   const first = content.split("\n")[0] ?? "";
   return first.length > 80 ? `${first.slice(0, 80)}…` : first;
 }
@@ -107,7 +110,6 @@ function richEnabled(toolName: string): boolean {
           <button
             class="sap-reasoning-toggle"
             :aria-expanded="isReasoningExpanded(item.key)"
-            aria-label="Toggle reasoning block"
             @click="toggleReasoning(item.key)"
           >
             <span :class="['sap-chevron', { open: isReasoningExpanded(item.key) }]">▸</span>
@@ -116,6 +118,7 @@ function richEnabled(toolName: string): boolean {
             <span
               v-if="!isReasoningExpanded(item.key)"
               class="sap-reasoning-preview"
+              :title="reasoningPreview(item.content)"
             >{{ reasoningPreview(item.content) }}</span>
           </button>
           <div
@@ -135,35 +138,42 @@ function richEnabled(toolName: string): boolean {
           <span v-if="item.toolCall.isComplete" class="sap-pill-check">✓</span>
         </div>
 
-        <slot
+        <div
           v-else-if="item.kind === 'tool'"
-          name="tool"
-          :item="item"
-          :expanded="expandedToolDetails.has(item.key)"
-          :full-result="item.toolCall.toolCallId ? fullResults.get(item.toolCall.toolCallId) : undefined"
-          :loading-full-result="item.toolCall.toolCallId ? loadingResults.has(item.toolCall.toolCallId) : false"
-          :failed-full-result="item.toolCall.toolCallId ? failedResults.has(item.toolCall.toolCallId) : false"
-          :rich-enabled="richEnabled(item.toolCall.toolName)"
-          :toggle="() => expandedToolDetails.toggle(item.key)"
+          :data-sap-event-idx="item.toolCall.eventIndex ?? undefined"
+          :data-sap-tool-call-id="item.toolCall.toolCallId ?? undefined"
         >
-          <ToolCallItem
-            :tc="item.toolCall"
-            variant="compact"
+          <slot
+            name="tool"
+            :item="item"
             :expanded="expandedToolDetails.has(item.key)"
             :full-result="item.toolCall.toolCallId ? fullResults.get(item.toolCall.toolCallId) : undefined"
             :loading-full-result="item.toolCall.toolCallId ? loadingResults.has(item.toolCall.toolCallId) : false"
             :failed-full-result="item.toolCall.toolCallId ? failedResults.has(item.toolCall.toolCallId) : false"
             :rich-enabled="richEnabled(item.toolCall.toolName)"
-            @toggle="expandedToolDetails.toggle(item.key)"
-            @load-full-result="emit('load-full-result', $event)"
-            @retry-full-result="emit('retry-full-result', $event)"
-          />
-        </slot>
+            :toggle="() => expandedToolDetails.toggle(item.key)"
+          >
+            <ToolCallItem
+              :tc="item.toolCall"
+              variant="compact"
+              :expanded="expandedToolDetails.has(item.key)"
+              :full-result="item.toolCall.toolCallId ? fullResults.get(item.toolCall.toolCallId) : undefined"
+              :loading-full-result="item.toolCall.toolCallId ? loadingResults.has(item.toolCall.toolCallId) : false"
+              :failed-full-result="item.toolCall.toolCallId ? failedResults.has(item.toolCall.toolCallId) : false"
+              :rich-enabled="richEnabled(item.toolCall.toolName)"
+              @toggle="expandedToolDetails.toggle(item.key)"
+              @load-full-result="emit('load-full-result', $event)"
+              @retry-full-result="emit('retry-full-result', $event)"
+            />
+          </slot>
+        </div>
 
         <button
           v-else-if="item.kind === 'nested-subagent'"
           type="button"
           class="sap-nested-subagent"
+          :data-sap-event-idx="item.toolCall.eventIndex ?? undefined"
+          :data-sap-tool-call-id="item.toolCall.toolCallId ?? undefined"
           @click="item.toolCall.toolCallId && emit('select-subagent', item.toolCall.toolCallId)"
         >
           <div

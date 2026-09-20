@@ -63,7 +63,11 @@ describe("SubagentPanel slots", () => {
     expect(wrapper.text()).toContain("view");
   });
 
-  it("reveals the originating intent row when the objective is clicked", async () => {
+  it.each([
+    "intent",
+    "tool",
+    "nested-subagent",
+  ] as const)("reveals the originating %s row when the banner is clicked", async (kind) => {
     const scrollIntoView = vi.fn();
     const originalScrollIntoView = Element.prototype.scrollIntoView;
     Object.defineProperty(Element.prototype, "scrollIntoView", {
@@ -78,16 +82,17 @@ describe("SubagentPanel slots", () => {
             status: "in-progress",
             activities: [
               {
-                kind: "pill",
+                kind: kind === "intent" ? "pill" : kind,
                 key: "intent-1",
                 sortKey: 1,
                 type: "intent",
                 label: "Reviewing branch",
                 toolCall: makeToolCall({
-                  toolName: "report_intent",
+                  toolName: kind === "intent" ? "report_intent" : kind === "tool" ? "view" : "task",
                   toolCallId: "intent-call",
                   eventIndex: 42,
                   arguments: { intent: "Reviewing branch" },
+                  intentionSummary: "Reviewing branch",
                 }),
               },
             ],

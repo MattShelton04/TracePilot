@@ -169,7 +169,7 @@ function retryLoadTurns() {
 }
 
 // ── Persistent objective banner ─────────────────────────────────────────
-// Latest report_intent across the main agent's tool calls, regardless of
+// Latest explicit objective, or saved tool activity when absent, across main-agent
 // turn — gives the user a stable "what is the agent currently aiming at?"
 // indicator that complements the inline pill rendering inside the chat.
 

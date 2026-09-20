@@ -12,6 +12,17 @@ const sample: CurrentObjective = {
 };
 
 describe("ObjectiveBanner", () => {
+  it("labels saved intentions as Activity and keeps their source and reveal link", async () => {
+    const w = mount(ObjectiveBanner, {
+      props: { objective: { ...sample, source: "tool_intention" } },
+    });
+    expect(w.get(".ob-label").text()).toBe("Activity");
+    expect(w.attributes("aria-label")).toContain("Activity:");
+    expect(w.get(".ob-text").attributes("title")).toContain("Latest saved tool intention");
+    await w.get("button.ob-text").trigger("click");
+    expect(w.emitted("reveal")?.[0]).toEqual([{ eventIndex: 12, toolCallId: "tc-1" }]);
+  });
+
   it("renders the objective text and accent label", () => {
     const w = mount(ObjectiveBanner, { props: { objective: sample } });
     expect(w.find(".ob-text").text()).toBe(sample.text);

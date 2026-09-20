@@ -2,6 +2,7 @@ pub mod agent_data;
 pub mod conversation_data;
 pub mod event_type_enum;
 pub mod model_data;
+mod reasoning;
 pub mod session_lifecycle_data;
 pub mod tool_execution_data;
 

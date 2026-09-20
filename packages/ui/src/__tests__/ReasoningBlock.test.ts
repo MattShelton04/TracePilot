@@ -3,6 +3,39 @@ import { describe, expect, it } from "vitest";
 import ReasoningBlock from "../components/ReasoningBlock.vue";
 
 describe("ReasoningBlock", () => {
+  it("shows the heading while collapsed and preserves the complete original on expansion", async () => {
+    const content = "**Checking compatibility**\n\nFull reasoning.\n\n**Next step**\nMore.";
+    const wrapper = mount(ReasoningBlock, {
+      props: { reasoning: [content], expanded: false },
+    });
+    expect(wrapper.get(".reasoning-summary").text()).toBe("Checking compatibility");
+    expect(wrapper.get(".reasoning-summary").attributes("title")).toBe("Checking compatibility");
+    expect(wrapper.find(".reasoning-content").exists()).toBe(false);
+    await wrapper.setProps({ expanded: true });
+    expect(wrapper.get(".reasoning-content").text()).toBe(content);
+  });
+
+  it("previews available headings in mixed old/new blocks without exposing plain prose", () => {
+    const wrapper = mount(ReasoningBlock, {
+      props: {
+        reasoning: ["Older reasoning", "**Checking**\nBody", "**Testing**\nBody"],
+        expanded: false,
+      },
+    });
+    expect(wrapper.get(".reasoning-summary").text()).toBe("Checking · Testing");
+    expect(wrapper.get("button").text()).toContain("3 reasoning blocks");
+    expect(wrapper.text()).not.toContain("Older reasoning");
+  });
+
+  it("updates a preview when a streamed heading completes", async () => {
+    const wrapper = mount(ReasoningBlock, {
+      props: { reasoning: ["**Checking"], expanded: false },
+    });
+    expect(wrapper.find(".reasoning-summary").exists()).toBe(false);
+    await wrapper.setProps({ reasoning: ["**Checking**\n\nBody"] });
+    expect(wrapper.get(".reasoning-summary").text()).toBe("Checking");
+  });
+
   it("renders nothing when reasoning array is empty", () => {
     const wrapper = mount(ReasoningBlock, {
       props: { reasoning: [], expanded: false },

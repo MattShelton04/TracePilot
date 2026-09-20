@@ -15,7 +15,6 @@ const props = withDefaults(
   }>(),
   {
     scope: "session",
-    label: "Objective",
     status: "running",
   },
 );
@@ -25,6 +24,14 @@ const emit = defineEmits<{
 }>();
 
 const hasObjective = computed(() => !!props.objective);
+const displayLabel = computed(
+  () => props.label ?? (props.objective?.source === "tool_intention" ? "Activity" : "Objective"),
+);
+const sourceDescription = computed(() =>
+  props.objective?.source === "tool_intention"
+    ? "Latest saved tool intention; no explicit objective was recorded."
+    : "Objective reported by the agent.",
+);
 const canReveal = computed(
   () => props.objective?.eventIndex != null || !!props.objective?.toolCallId,
 );
@@ -44,8 +51,8 @@ const statusLabel = computed(() => {
 });
 
 const ariaText = computed(() => {
-  if (!props.objective) return `${props.label}: none reported yet.`;
-  return `${props.label}: ${props.objective.text}.`;
+  if (!props.objective) return `${displayLabel.value}: none reported yet.`;
+  return `${displayLabel.value}: ${props.objective.text}.`;
 });
 
 const accentStyle = computed(() =>
@@ -72,17 +79,17 @@ function handleClick() {
     :data-objective-event-idx="objective?.eventIndex ?? undefined"
   >
     <span class="ob-dot" aria-hidden="true" />
-    <span class="ob-label">{{ label }}</span>
+    <span class="ob-label" :title="sourceDescription">{{ displayLabel }}</span>
     <button
       v-if="hasObjective && canReveal"
       type="button"
       class="ob-text"
-      :title="objective!.text"
+      :title="`${objective!.text}\n${sourceDescription}`"
       @click="handleClick"
     >
       {{ objective!.text }}
     </button>
-    <span v-else-if="hasObjective" class="ob-text ob-text-static" :title="objective!.text">
+    <span v-else-if="hasObjective" class="ob-text ob-text-static" :title="`${objective!.text}\n${sourceDescription}`">
       {{ objective!.text }}
     </span>
     <span v-else class="ob-text empty-text">No objective yet</span>

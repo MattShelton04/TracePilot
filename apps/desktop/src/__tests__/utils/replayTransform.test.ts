@@ -20,6 +20,35 @@ function makeTurn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
 }
 
 describe("turnsToReplaySteps", () => {
+  it("uses main-agent activity for modern titles without borrowing child intents", () => {
+    const [step] = turnsToReplaySteps([
+      makeTurn({
+        toolCalls: [
+          {
+            toolName: "report_intent",
+            isComplete: true,
+            parentToolCallId: "child",
+            arguments: { intent: "Child objective" },
+            eventIndex: 9,
+          },
+          {
+            toolName: "view",
+            isComplete: true,
+            intentionSummary: "Inspect main sources",
+            eventIndex: 1,
+          },
+          {
+            toolName: "powershell",
+            isComplete: true,
+            intentionSummary: "Verify main changes",
+            eventIndex: 5,
+          },
+        ],
+      }),
+    ]);
+    expect(step.title).toBe("Verify main changes");
+  });
+
   it("returns empty array for empty input", () => {
     expect(turnsToReplaySteps([])).toEqual([]);
   });
