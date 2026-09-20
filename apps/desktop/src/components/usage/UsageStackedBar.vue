@@ -34,10 +34,10 @@ function share(value: number): number {
   return total.value > 0 ? (value / total.value) * 100 : 0;
 }
 
-/** Sub-1% slices still get a sliver, so nothing disappears silently. */
+/** Exact shares; the legend keeps even very small categories readable. */
 function width(value: number): string {
   const pct = share(value);
-  return `${pct > 0 ? Math.max(pct, 1.5) : 0}%`;
+  return `${Math.min(100, Math.max(0, pct))}%`;
 }
 
 function label(value: number): string {
@@ -48,7 +48,7 @@ function label(value: number): string {
 
 <template>
   <div v-if="visible.length" class="stacked">
-    <div class="stacked__track">
+    <div class="stacked__track" aria-hidden="true">
       <span
         v-for="segment in visible"
         :key="segment.key"
@@ -83,6 +83,10 @@ function label(value: number): string {
   border-radius: var(--radius-sm);
   background: var(--canvas-inset, var(--canvas-subtle));
   overflow: hidden;
+}
+
+.stacked__segment {
+  flex-shrink: 0;
 }
 
 .stacked__segment,

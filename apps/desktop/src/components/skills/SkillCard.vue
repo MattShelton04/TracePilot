@@ -9,7 +9,7 @@ import { Badge, DefinitionCard, formatRelativeTime, Tooltip } from "@tracepilot/
 import { FolderGit2, Package, Search, Sparkles } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import UsageSparkline from "@/components/usage/UsageSparkline.vue";
+import UsageCardSummary, { type UsageCardStat } from "@/components/usage/UsageCardSummary.vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { type SkillEntry, shortenSkillPath } from "@/utils/skills/entries";
@@ -60,7 +60,7 @@ const sparkValues = computed(() =>
  * Three labelled figures rather than one run-on sentence, so the same column
  * means the same thing on every card in the grid.
  */
-const stats = computed(() => {
+const stats = computed<UsageCardStat[] | null>(() => {
   const value = usage.value;
   if (!value || value.uses === 0) return null;
   return [
@@ -68,7 +68,7 @@ const stats = computed(() => {
     { key: "sessions", label: "sessions", value: formatNumber(value.sessions) },
     {
       key: "injected",
-      label: "per use",
+      label: "tokens/use",
       value:
         value.medianContentTokens != null ? `~${formatNumber(value.medianContentTokens)}` : "—",
     },
@@ -140,26 +140,13 @@ function formatTokens(tokens: number): string {
     </template>
 
     <template #footer>
-      <div class="skill-card__usage">
-        <dl v-if="stats" class="skill-card__stats">
-          <div v-for="stat in stats" :key="stat.key" class="skill-card__stat">
-            <dt class="skill-card__stat-label">{{ stat.label }}</dt>
-            <dd class="skill-card__stat-value">{{ stat.value }}</dd>
-          </div>
-        </dl>
-        <span v-else class="skill-card__idle">{{ idleText }}</span>
-
-        <div class="skill-card__trend">
-          <UsageSparkline
-            v-if="sparkValues.length > 1"
-            :values="sparkValues"
-            :label="`Daily uses for ${entry.name}`"
-            :width="72"
-            :height="18"
-          />
-          <span v-if="lastUsed" class="skill-card__last">{{ lastUsed }}</span>
-        </div>
-      </div>
+      <p v-if="skill?.scope === 'repository'" class="skill-card__project" :title="skill.directory">
+        {{ skill.directory }}
+      </p>
+      <UsageCardSummary
+        :stats="stats" :values="sparkValues" :label="`Daily uses for ${entry.name}`"
+        :last-used="lastUsed" :idle-text="idleText"
+      />
 
       <div v-if="skill" class="skill-card__actions">
         <label class="toggle-switch">
@@ -222,73 +209,21 @@ function formatTokens(tokens: number): string {
   font-size: 0.5625rem;
 }
 
-/* ── Usage line ──────────────────────────────────────────── */
-.skill-card__usage {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px;
-  align-items: end;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.skill-card__stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0 8px;
-  margin: 0;
-  min-width: 0;
-}
-
-.skill-card__stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.skill-card__stat-label {
-  font-size: 0.5625rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-tertiary);
-}
-
-.skill-card__stat-value {
-  margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.skill-card__project {
+  margin: 0 0 8px;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.skill-card__idle {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-
-.skill-card__trend {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.skill-card__last {
-  font-size: 0.5625rem;
-  color: var(--text-tertiary);
   white-space: nowrap;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
 }
 
+/* ── Usage line ──────────────────────────────────────────── */
 .skill-card__missing-path {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  margin: 0;
+  margin: 8px 0 0;
   min-height: 29px;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
@@ -310,6 +245,7 @@ function formatTokens(tokens: number): string {
 
 /* ── Card actions (toggle + hover buttons) ───────────────── */
 .skill-card__actions {
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 4px;

@@ -137,7 +137,7 @@ const fileLabel = computed(() => {
               @update:model-value="ctx.activeTab = $event as typeof ctx.activeTab"
             />
           </div>
-          <div class="panel-scroll">
+          <div class="panel-scroll" :class="{ 'panel-scroll--usage': ctx.activeTab === 'usage' }">
             <AgentPreviewTab v-if="ctx.activeTab === 'preview'" />
             <AgentUsageTab v-else-if="ctx.activeTab === 'usage'" />
             <AgentEffectiveTab v-else />

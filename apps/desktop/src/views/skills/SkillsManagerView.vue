@@ -1,22 +1,18 @@
 <script setup lang="ts">
-import {
-  formatNumber as formatCompactNumber,
-  formatNumberFull,
-  type SkillBatchImportResult,
-} from "@tracepilot/types";
+import { formatNumberFull, type SkillBatchImportResult } from "@tracepilot/types";
 import {
   Banner,
+  EmptyState,
   PageHeader,
   PageShell,
-  SearchInput,
-  SegmentedControl,
   type SegmentOption,
-  Select,
   Tooltip,
   useConfirmDialog,
   useOverlayFocus,
 } from "@tracepilot/ui";
 import { Brain } from "lucide-vue-next";
+import DefinitionFilters from "@/components/definitions/DefinitionFilters.vue";
+import "@/styles/features/definition-manager.css";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import SkillCard from "@/components/skills/SkillCard.vue";
@@ -33,7 +29,7 @@ import { pushRoute } from "@/router/navigation";
 import "@/styles/features/skills-manager.css";
 import { useSkillsStore } from "@/stores/skills";
 import type { SkillFlag, SkillScopeFilter, SkillSortKey } from "@/utils/skills/entries";
-import { USAGE_RANGE_LABELS, USAGE_RANGES, type UsageRange } from "@/utils/usage/range";
+import { USAGE_RANGE_LABELS } from "@/utils/usage/range";
 
 const store = useSkillsStore();
 const router = useRouter();
@@ -56,13 +52,6 @@ const newSkillDesc = ref("");
 const creating = ref(false);
 const createError = ref<string | null>(null);
 
-const CONTEXT_WINDOW = 128_000;
-
-const contextPct = computed(() => {
-  const pct = (store.tokenBudget.enabledTokens / CONTEXT_WINDOW) * 100;
-  return pct.toFixed(1);
-});
-
 const scopeOptions = computed<SegmentOption[]>(() =>
   SKILL_SCOPE_FILTERS.map((option) => ({
     ...option,
@@ -72,8 +61,6 @@ const scopeOptions = computed<SegmentOption[]>(() =>
         : store.entries.filter((entry) => entry.scope === option.value).length,
   })).filter((option) => option.value === "all" || (option.count ?? 0) > 0),
 );
-
-const rangeOptions = computed<SegmentOption[]>(() => [...USAGE_RANGES]);
 
 const sortOptions = [
   { value: "uses", label: "Most used" },
@@ -89,7 +76,13 @@ const rangeLabel = computed(() => USAGE_RANGE_LABELS[store.range]);
  * click that can only produce an empty list.
  */
 const visibleFlags = computed(() =>
-  SKILL_FLAG_FILTERS.filter((flag) => (store.flagCounts[flag] ?? 0) > 0),
+  SKILL_FLAG_FILTERS.filter(
+    (flag) => (store.flagCounts[flag] ?? 0) > 0 || store.filterFlags.has(flag),
+  ).map((flag) => ({
+    value: flag,
+    ...SKILL_FLAG_BADGES[flag],
+    count: store.flagCounts[flag] ?? 0,
+  })),
 );
 
 /**
@@ -161,7 +154,7 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
 
 <template>
   <PageShell>
-    <div class="skills-manager-view">
+    <div class="definition-manager skills-manager-view">
       <PageHeader title="Skills" subtitle="What is installed, what gets used, and what each one costs">
         <template #icon>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
@@ -187,33 +180,33 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
       <!-- Stats Strip -->
       <div class="stats-strip">
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--installed" />
-          {{ store.tokenBudget.totalSkills }} Installed
+
+          {{ store.tokenBudget.totalSkills }} installed
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--global" />
-          {{ store.globalSkills.length }} Global
+
+          {{ store.globalSkills.length }} global
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--project" />
-          {{ store.repoSkills.length }} Project
+
+          {{ store.repoSkills.length }} project
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--builtin" />
-          {{ store.builtinSkills.length }} Built-in
+
+          {{ store.builtinSkills.length }} built-in
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--active" />
-          {{ store.tokenBudget.enabledSkills }} Active
+
+          {{ store.tokenBudget.enabledSkills }} active
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--used" />
-          {{ store.usageLoading ? "…" : store.usedSkillCount }} Used
+
+          {{ store.usageLoading ? "…" : store.usedSkillCount }} used
           <span class="stat-chip__muted">in {{ rangeLabel }}</span>
         </span>
       </div>
@@ -227,65 +220,22 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
           <Tooltip :text="SKILL_TOKEN_ESTIMATE_TOOLTIP" position="bottom">
             <code tabindex="0">~{{ formatTokensWithCommas(store.tokenBudget.enabledTokens) }}</code>
           </Tooltip>
-          tokens across {{ store.tokenBudget.enabledSkills }} active skill{{ store.tokenBudget.enabledSkills === 1 ? "" : "s" }}
-          · {{ contextPct }}% of 128k context
+          listing tokens · {{ store.tokenBudget.enabledSkills }} active skill{{ store.tokenBudget.enabledSkills === 1 ? "" : "s" }}
+          · all projects
         </span>
-        <div class="token-info__bar">
-          <div
-            class="token-info__bar-fill"
-            :style="{ width: Math.min(100, Number(contextPct)) + '%' }"
-          />
-        </div>
+
       </div>
 
       <!-- Filter Row: Scope + Range + Sort + Search -->
-      <div class="filter-row">
-        <SegmentedControl
-          :model-value="store.filterScope"
-          :options="scopeOptions"
-          @update:model-value="store.setFilterScope($event as SkillScopeFilter)"
-        />
-        <SegmentedControl
-          :model-value="store.range"
-          :options="rangeOptions"
-          aria-label="Usage range"
-          @update:model-value="store.setRange($event as UsageRange)"
-        />
-        <Select
-          :model-value="store.sort"
-          :options="[...sortOptions]"
-          size="sm"
-          aria-label="Sort skills"
-          @update:model-value="store.sort = $event as SkillSortKey"
-        />
-        <SearchInput v-model="store.searchQuery" class="filter-row__search" placeholder="Search skills…" />
-      </div>
-
-      <div class="flag-row">
-        <Tooltip
-          v-for="flag in visibleFlags"
-          :key="flag"
-          :text="SKILL_FLAG_BADGES[flag].title"
-          position="bottom"
-        >
-          <button
-            type="button"
-            class="flag-chip"
-            :class="{ 'flag-chip--active': store.filterFlags.has(flag) }"
-            :aria-pressed="store.filterFlags.has(flag)"
-            @click="store.toggleFlag(flag)"
-          >
-            {{ SKILL_FLAG_BADGES[flag].label }}
-            <span class="flag-chip__count">{{ store.flagCounts[flag] }}</span>
-          </button>
-        </Tooltip>
-        <button
-          v-if="store.filterFlags.size || store.searchQuery || store.filterScope !== 'all'"
-          type="button"
-          class="flag-chip flag-chip--clear"
-          @click="store.clearFilters()"
-        >Clear filters</button>
-      </div>
+      <DefinitionFilters
+        :scope="store.filterScope" :scopes="scopeOptions" :range="store.range"
+        :sort="store.sort" :sorts="[...sortOptions]" :search="store.searchQuery"
+        noun="skills" :flags="visibleFlags" :selected-flags="store.filterFlags"
+        @update:scope="store.setFilterScope($event as SkillScopeFilter)"
+        @update:range="store.setRange" @update:sort="store.sort = $event as SkillSortKey"
+        @update:search="store.searchQuery = $event"
+        @toggle-flag="store.toggleFlag($event as SkillFlag)" @clear="store.clearFilters"
+      />
 
       <!-- Loading / Error -->
       <div v-if="store.loading" class="state-message">Loading skills…</div>
@@ -310,8 +260,7 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
           Skills are shown without cross-session usage: {{ store.usageError }}
         </Banner>
         <Banner v-else-if="usageNeverIndexed" tone="info" title="No usage indexed yet">
-          Usage appears once the session index has been rebuilt for this version. Until then every
-          skill shows as never used.
+          No indexed sessions have recorded a skill invocation. Installed skills remain available below.
         </Banner>
         <Banner
           v-else-if="noUsageInRange"
@@ -325,7 +274,7 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
         </Banner>
 
         <!-- Skills Grid -->
-        <div v-if="store.filteredSkills.length > 0" class="skills-grid">
+        <div v-if="store.filteredSkills.length > 0" class="definition-grid skills-grid">
           <SkillCard
             v-for="entry in store.filteredSkills"
             :key="entry.key"
@@ -337,28 +286,22 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
         </div>
 
         <!-- Empty State -->
-        <div v-else class="empty-state">
-          <div class="empty-state__icon" aria-hidden="true">
-            <Brain :size="48" :stroke-width="1.5" />
-          </div>
-          <h3 class="empty-state__title">No skills match</h3>
-          <p class="empty-state__desc">
-            {{
-              store.entries.length
-                ? "Try a different search, scope or flag."
-                : "Create your first skill or import one to get started"
-            }}
-          </p>
-          <div class="empty-state__actions">
-            <template v-if="store.entries.length">
-              <button class="btn btn--primary" @click="store.clearFilters()">Clear filters</button>
-            </template>
-            <template v-else>
-              <button class="btn btn--primary" @click="openNewSkill">Create Skill</button>
-              <button class="btn btn--secondary" @click="store.clearError(); showImportWizard = true">Import</button>
-            </template>
-          </div>
-        </div>
+        <EmptyState
+          v-else
+          title="No skills match"
+          :description="store.entries.length
+            ? 'Try a different search, scope or flag.'
+            : 'Create your first skill or import one to get started.'"
+          :primary-action="store.entries.length
+            ? { label: 'Clear filters', onClick: store.clearFilters }
+            : { label: 'Create Skill', onClick: openNewSkill }"
+        >
+          <template #icon><Brain :size="40" :stroke-width="1.5" /></template>
+          <template v-if="!store.entries.length" #actions>
+            <button class="btn btn--primary" @click="openNewSkill">Create Skill</button>
+            <button class="btn btn--secondary" @click="store.clearError(); showImportWizard = true">Import</button>
+          </template>
+        </EmptyState>
       </template>
 
       <!-- New Skill Modal -->

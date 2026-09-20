@@ -21,34 +21,34 @@ function summaryOf(skills: ReturnType<typeof usageStats>[]) {
 }
 
 describe("skills usage", () => {
-  it("asks the index for the selected range, defaulting to 90 days", async () => {
+  it("asks the index for the selected range, defaulting to all time", async () => {
     vi.setSystemTime(new Date("2026-09-20T12:00:00Z"));
     const store = useSkillsStore();
-    expect(store.range).toBe("90d");
+    expect(store.range).toBe("all");
 
     await store.loadUsage();
 
-    // Inclusive bounds: 90 days ending today starts 89 days back.
     expect(mocks.skillsUsageSummary).toHaveBeenCalledWith({
-      fromDate: "2026-06-23",
-      toDate: "2026-09-20",
+      fromDate: null,
+      toDate: null,
     });
     vi.useRealTimers();
   });
 
   it("remembers the chosen range, so an older corpus is not empty on every visit", async () => {
     const store = useSkillsStore();
-    await store.setRange("all");
-    expect(localStorage.getItem("tracepilot-skills-usage-range")).toBe("all");
+    await store.setRange("90d");
+    expect(localStorage.getItem("tracepilot-skills-usage-range")).toBe("90d");
   });
 
   it("ignores a stored range that is no longer a valid option", () => {
     localStorage.setItem("tracepilot-skills-usage-range", "7d");
-    expect(useSkillsStore().range).toBe("90d");
+    expect(useSkillsStore().range).toBe("all");
   });
 
   it("drops the date bounds entirely for all-time", async () => {
     const store = useSkillsStore();
+    await store.setRange("90d");
     await store.setRange("all");
     expect(mocks.skillsUsageSummary).toHaveBeenLastCalledWith({ fromDate: null, toDate: null });
   });
@@ -57,7 +57,7 @@ describe("skills usage", () => {
     const store = useSkillsStore();
     await store.loadUsage();
     mocks.skillsUsageSummary.mockClear();
-    await store.setRange("90d");
+    await store.setRange("all");
     expect(mocks.skillsUsageSummary).not.toHaveBeenCalled();
   });
 

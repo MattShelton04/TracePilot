@@ -9,7 +9,7 @@ export type UsageRange = "30d" | "90d" | "all";
 export const USAGE_RANGES: readonly { value: UsageRange; label: string }[] = [
   { value: "30d", label: "30d" },
   { value: "90d", label: "90d" },
-  { value: "all", label: "All" },
+  { value: "all", label: "All time" },
 ];
 
 /** Long-form labels for prose, where "30d" reads as jargon. */

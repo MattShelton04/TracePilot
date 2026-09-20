@@ -48,6 +48,7 @@ function summary(agents: ReturnType<typeof usage>[]): AgentUsageSummary {
 describe("useAgentsStore", () => {
   beforeEach(() => {
     setupPinia();
+    localStorage.clear();
     for (const mock of Object.values(mocks)) mock.mockReset();
     mocks.agentsList.mockResolvedValue(catalog([definition("reviewer")]));
     mocks.agentsUsageSummary.mockResolvedValue(summary([usage("reviewer")]));
@@ -68,11 +69,15 @@ describe("useAgentsStore", () => {
     await store.loadAll();
     mocks.agentsUsageSummary.mockClear();
 
-    await store.setRange("all");
-    expect(mocks.agentsUsageSummary).toHaveBeenCalledWith({ fromDate: null, toDate: null });
+    expect(store.range).toBe("all");
+    await store.setRange("90d");
+    expect(mocks.agentsUsageSummary).toHaveBeenCalledWith({
+      fromDate: expect.any(String),
+      toDate: expect.any(String),
+    });
 
     mocks.agentsUsageSummary.mockClear();
-    await store.setRange("all");
+    await store.setRange("90d");
     expect(mocks.agentsUsageSummary).not.toHaveBeenCalled();
   });
 

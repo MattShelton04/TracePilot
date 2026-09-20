@@ -82,9 +82,9 @@ function mountTab(ctxOverrides: Partial<SkillEditorContext> = {}) {
 describe("SkillUsageTab", () => {
   it("leads with the four figures that answer whether the skill earns its keep", () => {
     const { wrapper } = mountTab();
-    const terms = wrapper.findAll(".skill-usage__summary dt").map((dt) => dt.text());
-    expect(terms).toEqual(["Uses", "Repositories", "Injected per use", "Listing cost"]);
-    expect(wrapper.get(".skill-usage__summary").text()).toContain("~1.8K");
+    const terms = wrapper.findAll(".usage-detail__summary dt").map((dt) => dt.text());
+    expect(terms).toEqual(["Uses", "Repositories", "Tokens per use", "Listing tokens"]);
+    expect(wrapper.get(".usage-detail__summary").text()).toContain("~1.8K");
   });
 
   it("gives the injected-cost median a denominator, since not every use records content", () => {
@@ -134,12 +134,12 @@ describe("SkillUsageTab", () => {
 
   it("warns that the figures describe an older version when the file has drifted", () => {
     const { wrapper } = mountTab({ installedSha256: "sha-edited" } as never);
-    expect(wrapper.get(".skill-usage__notice").text()).toContain("changed since it was last used");
+    expect(wrapper.get(".usage-detail__notice").text()).toContain("changed since it was last used");
   });
 
   it("stays quiet about drift when the installed content has not been read", () => {
     const { wrapper } = mountTab({ installedSha256: null } as never);
-    expect(wrapper.find(".skill-usage__notice").exists()).toBe(false);
+    expect(wrapper.find(".usage-detail__notice").exists()).toBe(false);
   });
 
   it("attributes uses with no recorded model rather than under-reporting the total", () => {
@@ -152,7 +152,7 @@ describe("SkillUsageTab", () => {
       usage: detail({ stats: stats({ uses: 0 }) }),
       usageRange: "30d",
     } as never);
-    expect(wrapper.get(".skill-usage__empty").text()).toBe(
+    expect(wrapper.get(".usage-detail__empty").text()).toBe(
       "This skill was not invoked in 30 days.",
     );
   });
@@ -160,7 +160,7 @@ describe("SkillUsageTab", () => {
   it("shows a load failure instead of an empty state that would read as 'never used'", () => {
     const { wrapper } = mountTab({ usage: null, usageError: "Index unavailable" } as never);
     expect(wrapper.get('[role="alert"]').text()).toBe("Index unavailable");
-    expect(wrapper.find(".skill-usage__empty").exists()).toBe(false);
+    expect(wrapper.find(".usage-detail__empty").exists()).toBe(false);
   });
 });
 

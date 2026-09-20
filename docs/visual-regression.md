@@ -26,7 +26,7 @@ required for applicable product fixes.
   Updates made independently on `main` therefore do not appear as PR changes.
 - Pushes to `main` compare the previous tip against the new tip. This produces
   a screenshot history after merges.
-- Both revisions use the same head manifest, fixture overrides, imported client
+- Both revisions use the workflow revision’s manifest, fixture overrides, imported client
   mock datasets (`mock/**` and `internal/mockData.ts`), and lockfile-pinned
   Playwright/Chromium. Components, client adapters, types/defaults and application
   dependencies still come from their respective target revision. The fixture

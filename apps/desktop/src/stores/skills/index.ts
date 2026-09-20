@@ -1,7 +1,10 @@
+import { skillsUsageSummary } from "@tracepilot/client";
 import type { Skill, SkillDiagnostic, SkillSummary } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { ref, shallowRef } from "vue";
+import { createUsageSummary } from "@/composables/useUsageSummary";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import type { SkillFlag, SkillScopeFilter, SkillSortKey } from "@/utils/skills/entries";
 import { createSkillsAssetActions } from "./assets";
 import { createSkillsComputed } from "./computed";
@@ -10,7 +13,6 @@ import { createSkillsDiscoveryActions } from "./discovery";
 import { createSkillsImportActions } from "./imports";
 import { createSkillsLoadingActions } from "./loading";
 import { createSkillsMutationActions } from "./mutations";
-import { createSkillsUsageSlice } from "./usage";
 
 export const useSkillsStore = defineStore("skills", () => {
   const skills = shallowRef<SkillSummary[]>([]);
@@ -39,7 +41,7 @@ export const useSkillsStore = defineStore("skills", () => {
     loadGuard,
   };
 
-  const usageSlice = createSkillsUsageSlice();
+  const usageSlice = createUsageSummary(skillsUsageSummary, STORAGE_KEYS.skillsUsageRange);
   const computed = createSkillsComputed(context, usageSlice.usage, usageSlice.range);
   const loadingActions = createSkillsLoadingActions(context);
   const mutationActions = createSkillsMutationActions(context, loadingActions.loadSkills);

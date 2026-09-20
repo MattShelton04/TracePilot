@@ -178,7 +178,7 @@ function openSkills(search?: string) {
 
       <p v-if="unused" class="skills-panel__note">
         {{ unused.count }} enabled {{ unused.plural }} went unused here, adding about
-        {{ unused.tokens }} tokens to every turn ·
+        {{ unused.tokens }} listing tokens across all projects ·
         <button type="button" class="skills-panel__link" @click="openSkills()">Review them</button>
       </p>
       <p v-if="coverage" class="skills-panel__note">{{ coverage }}</p>

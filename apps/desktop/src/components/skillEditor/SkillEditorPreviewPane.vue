@@ -34,7 +34,7 @@ const tabs = computed<TabNavItem[]>(() => [
       />
     </div>
 
-    <div class="panel-scroll">
+    <div class="panel-scroll" :class="{ 'panel-scroll--usage': ctx.activeTab === 'usage' }">
       <template v-if="ctx.activeTab === 'preview'">
         <div class="preview-content">
           <!-- Preview Frontmatter Card -->

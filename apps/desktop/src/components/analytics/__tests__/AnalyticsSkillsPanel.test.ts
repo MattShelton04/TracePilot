@@ -141,12 +141,12 @@ describe("AnalyticsSkillsPanel", () => {
     });
   });
 
-  it("reports what enabled but unused skills cost on every turn", async () => {
+  it("reports listing estimates across installations without claiming a per-turn total", async () => {
     setStores({ skills: [installed("frontend-design"), installed("never-used")] });
     const wrapper = mount(AnalyticsSkillsPanel);
     await flushPromises();
     expect(wrapper.text()).toContain("1 enabled skill went unused here");
-    expect(wrapper.text()).toContain("400 tokens to every turn");
+    expect(wrapper.text()).toContain("400 listing tokens across all projects");
   });
 
   it("withholds the unused line under a repository filter, where it would be a guess", async () => {

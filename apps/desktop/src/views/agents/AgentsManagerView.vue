@@ -1,17 +1,9 @@
 <script setup lang="ts">
 import { formatNumber } from "@tracepilot/types";
-import {
-  Banner,
-  EmptyState,
-  PageHeader,
-  PageShell,
-  SearchInput,
-  SegmentedControl,
-  type SegmentOption,
-  Select,
-  Tooltip,
-} from "@tracepilot/ui";
+import { Banner, EmptyState, PageHeader, PageShell, type SegmentOption } from "@tracepilot/ui";
 import { Bot, Plus } from "lucide-vue-next";
+import DefinitionFilters from "@/components/definitions/DefinitionFilters.vue";
+import "@/styles/features/definition-manager.css";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AgentCard from "@/components/agents/AgentCard.vue";
@@ -20,9 +12,14 @@ import { FLAG_BADGES, FLAG_FILTERS, SCOPE_FILTER_LABELS } from "@/components/age
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useAgentsStore } from "@/stores/agents";
-import { type AgentEntry, type AgentScopeFilter, agentRouteId } from "@/utils/agents/entries";
-import { AGENT_USAGE_RANGES, type AgentUsageRange } from "@/utils/agents/range";
-import "@/styles/features/agents-manager.css";
+import {
+  type AgentEntry,
+  type AgentFlag,
+  type AgentScopeFilter,
+  type AgentSortKey,
+  agentRouteId,
+} from "@/utils/agents/entries";
+import { USAGE_RANGE_LABELS } from "@/utils/usage/range";
 
 const store = useAgentsStore();
 const router = useRouter();
@@ -51,8 +48,6 @@ const scopeOptions = computed<SegmentOption[]>(() =>
   })).filter((option) => option.value === "all" || (option.count ?? 0) > 0),
 );
 
-const rangeOptions = computed<SegmentOption[]>(() => [...AGENT_USAGE_RANGES]);
-
 const sortOptions = [
   { value: "runs", label: "Most runs" },
   { value: "name", label: "Name" },
@@ -60,6 +55,14 @@ const sortOptions = [
   { value: "duration", label: "Median duration" },
   { value: "lastUsed", label: "Last used" },
 ] as const;
+
+const visibleFlags = computed(() =>
+  FLAG_FILTERS.map((flag) => ({
+    value: flag,
+    ...FLAG_BADGES[flag],
+    count: store.entries.filter((entry) => entry.flags.includes(flag)).length,
+  })).filter((flag) => flag.count > 0 || store.flags.has(flag.value)),
+);
 
 const failureRatePct = computed(() => {
   const usage = store.usage;
@@ -80,7 +83,7 @@ function onCreated(path: string) {
 
 <template>
   <PageShell>
-    <div class="agents-manager-view">
+    <div class="definition-manager agents-manager-view">
       <PageHeader title="Agents" subtitle="Definitions and cross-session usage for every Copilot CLI agent">
         <template #icon>
           <Bot :size="16" :stroke-width="1.75" />
@@ -112,55 +115,20 @@ function onCreated(path: string) {
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
           {{ store.usage ? formatNumber(store.usage.totalRuns) : "—" }} runs
-          <span class="stat-chip__muted">in range</span>
+          <span class="stat-chip__muted">in {{ USAGE_RANGE_LABELS[store.range] }}</span>
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">{{ failureRatePct }} failed or cancelled</span>
       </div>
 
-      <div class="filter-row">
-        <SegmentedControl
-          :model-value="store.scope"
-          :options="scopeOptions"
-          @update:model-value="store.scope = $event as AgentScopeFilter"
-        />
-        <SegmentedControl
-          :model-value="store.range"
-          :options="rangeOptions"
-          @update:model-value="store.setRange($event as AgentUsageRange)"
-        />
-        <Select
-          :model-value="store.sort"
-          :options="[...sortOptions]"
-          size="sm"
-          aria-label="Sort agents"
-          @update:model-value="store.sort = $event"
-        />
-        <SearchInput v-model="store.search" class="filter-row__search" placeholder="Search agents…" />
-      </div>
-
-      <div class="flag-row">
-        <Tooltip
-          v-for="flag in FLAG_FILTERS"
-          :key="flag"
-          :text="FLAG_BADGES[flag].title"
-          position="bottom"
-        >
-          <button
-            type="button"
-            class="flag-chip"
-            :class="{ 'flag-chip--active': store.flags.has(flag) }"
-            :aria-pressed="store.flags.has(flag)"
-            @click="store.toggleFlag(flag)"
-          >{{ FLAG_BADGES[flag].label }}</button>
-        </Tooltip>
-        <button
-          v-if="store.flags.size || store.search || store.scope !== 'all'"
-          type="button"
-          class="flag-chip flag-chip--clear"
-          @click="store.clearFilters()"
-        >Clear filters</button>
-      </div>
+      <DefinitionFilters
+        :scope="store.scope" :scopes="scopeOptions" :range="store.range"
+        :sort="store.sort" :sorts="[...sortOptions]" v-model:search="store.search"
+        noun="agents" :flags="visibleFlags" :selected-flags="store.flags"
+        @update:scope="store.scope = $event as AgentScopeFilter"
+        @update:range="store.setRange" @update:sort="store.sort = $event as AgentSortKey"
+        @toggle-flag="store.toggleFlag($event as AgentFlag)" @clear="store.clearFilters"
+      />
 
       <Banner v-if="store.error" tone="danger" :title="'Agents could not be loaded'">
         {{ store.error }}
@@ -190,7 +158,7 @@ function onCreated(path: string) {
       <p v-if="store.catalogLoading" class="state-message">Loading agents…</p>
 
       <template v-else>
-        <div v-if="store.filteredEntries.length" class="agents-grid">
+        <div v-if="store.filteredEntries.length" class="definition-grid agents-grid">
           <AgentCard
             v-for="entry in store.filteredEntries"
             :key="entry.key"
@@ -208,10 +176,9 @@ function onCreated(path: string) {
               ? 'Try a different search, scope or flag.'
               : 'No agent definitions were found and no sessions have run one yet.'
           "
-          :primary-action="{ label: 'Create agent', onClick: () => (showCreate = true) }"
-          :secondary-action="
-            store.entries.length ? { label: 'Clear filters', onClick: store.clearFilters } : undefined
-          "
+          :primary-action="store.entries.length
+            ? { label: 'Clear filters', onClick: store.clearFilters }
+            : { label: 'Create agent', onClick: () => (showCreate = true) }"
         >
           <template #icon><Bot :size="40" :stroke-width="1.5" /></template>
         </EmptyState>

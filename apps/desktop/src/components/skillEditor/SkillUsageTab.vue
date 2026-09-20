@@ -1,16 +1,4 @@
 <script setup lang="ts">
-/**
- * Cross-session usage for one skill.
- *
- * The four figures that answer "is this skill earning its keep?" lead: how
- * often it was used, over how many sessions, what each use costs in injected
- * context, and what it costs per turn just by being listed. Everything else
- * is context you go looking for, so it sits in collapsed sections.
- *
- * Denominators are shown wherever the CLI records a field on only some
- * invocations — a trigger split over three of 162 uses would be a lie
- * without one.
- */
 import { formatNumber } from "@tracepilot/types";
 import { formatRelativeTime, LoadingSpinner, Tooltip } from "@tracepilot/ui";
 import { computed } from "vue";
@@ -52,7 +40,7 @@ const kpis = computed(() => {
     },
     {
       key: "injected",
-      label: "Injected per use",
+      label: "Tokens per use",
       value:
         value.medianContentTokens != null ? `~${formatNumber(value.medianContentTokens)}` : "—",
       note:
@@ -68,9 +56,9 @@ const kpis = computed(() => {
     },
     {
       key: "listing",
-      label: "Listing cost",
+      label: "Listing tokens",
       value: `~${formatNumber(listing)}`,
-      note: "every turn while enabled",
+      note: "per turn when available",
       description:
         "Estimated tokens the frontmatter adds to every turn while this skill is enabled, whether or not it is used.",
     },
@@ -159,24 +147,25 @@ const fallbackOnly = computed(
 </script>
 
 <template>
-  <div class="skill-usage">
-    <p v-if="ctx.usageError" class="skill-usage__error" role="alert">{{ ctx.usageError }}</p>
-    <div v-else-if="ctx.usageLoading && !stats" class="skill-usage__loading">
+  <div class="usage-detail skill-usage">
+    <p v-if="ctx.usageError" class="usage-detail__error" role="alert">{{ ctx.usageError }}</p>
+    <div v-else-if="ctx.usageLoading && !stats" class="usage-detail__loading">
       <LoadingSpinner size="sm" />
       Loading usage…
     </div>
 
     <template v-else-if="stats && stats.uses > 0">
-      <p v-if="drifted" class="skill-usage__notice">
+      <p v-if="drifted" class="usage-detail__notice">
         This skill has changed since it was last used, so these figures describe an earlier
         version of it.
       </p>
-      <p v-if="fallbackOnly" class="skill-usage__notice skill-usage__notice--muted">
+      <p v-if="fallbackOnly" class="usage-detail__notice usage-detail__notice--muted">
         These invocations were recorded as skill tool calls without a content event, so their
         injected cost is unknown.
       </p>
 
-      <dl class="skill-usage__summary">
+      <p class="usage-detail__help">Usage over {{ rangeLabel }} · grouped by skill name across installs</p>
+      <dl class="usage-detail__summary">
         <div v-for="kpi in kpis" :key="kpi.key" :title="kpi.description">
           <dt>{{ kpi.label }}</dt>
           <dd>{{ kpi.value }}</dd>
@@ -184,218 +173,102 @@ const fallbackOnly = computed(
         </div>
       </dl>
 
-      <section class="skill-usage__section">
-        <h4 class="skill-usage__title">
+      <section class="usage-detail__section">
+        <h4 class="usage-detail__title">
           Uses over {{ rangeLabel }}
-          <span v-if="lastUsed" class="skill-usage__denominator">last used {{ lastUsed }}</span>
+          <span v-if="lastUsed" class="usage-detail__denominator">last used {{ lastUsed }}</span>
         </h4>
         <UsageSparkline
           v-if="dailyUses.length > 1"
-          class="skill-usage__trend"
+          class="usage-detail__trend"
           :values="dailyUses"
           :label="`Daily uses for ${stats.name}`"
           :width="320"
           :height="32"
         />
-        <p v-if="firstUsed" class="skill-usage__empty">First used {{ firstUsed }}.</p>
+        <p v-if="firstUsed" class="usage-detail__empty">First used {{ firstUsed }}.</p>
       </section>
 
-      <section class="skill-usage__section">
-        <h4 class="skill-usage__title">
+      <section class="usage-detail__section">
+        <h4 class="usage-detail__title">
           Who invoked it
           <Tooltip
             v-if="!triggerKnown"
             text="Copilot CLI only began recording whether a skill was invoked by you or by the model in 1.0.49. Earlier invocations are shown as not recorded rather than guessed."
             position="bottom"
           >
-            <span class="skill-usage__denominator" tabindex="0">not recorded before CLI 1.0.49</span>
+            <span class="usage-detail__denominator" tabindex="0">not recorded before CLI 1.0.49</span>
           </Tooltip>
         </h4>
         <UsageStackedBar v-if="triggerKnown" :segments="triggers" :total="stats.uses" />
-        <p v-else class="skill-usage__empty">
+        <p v-else class="usage-detail__empty">
           No invocation in this range recorded who triggered it.
         </p>
       </section>
 
-      <details class="skill-usage__more" :open="invokedBy.length > 1">
+      <details class="usage-detail__more" :open="invokedBy.length > 1">
         <summary>Agents, models and repositories</summary>
-        <div class="skill-usage__more-body">
+        <div class="usage-detail__more-body">
           <div>
-            <h4 class="skill-usage__title">
+            <h4 class="usage-detail__title">
               Invoked by
-              <span class="skill-usage__denominator">
+              <span class="usage-detail__denominator">
                 {{ formatNumber(stats.subagentUses) }} of {{ formatNumber(stats.uses) }} by subagents
               </span>
             </h4>
-            <UsageBreakdownBars :rows="invokedBy" :total="stats.uses" />
+            <p class="usage-detail__help">Which agent loaded the skill. This is separate from whether you or the model requested it.</p>
+            <UsageBreakdownBars :rows="invokedBy" :total="stats.uses" unit="uses" />
           </div>
           <div>
-            <h4 class="skill-usage__title">Models in use at the time</h4>
+            <h4 class="usage-detail__title">Models in use at the time</h4>
+            <p class="usage-detail__help">The model recorded when the skill was loaded, as a share of all uses.</p>
             <UsageBreakdownBars
               :rows="models"
+              unit="uses"
               :total="stats.uses"
               empty-text="No invocation recorded a model."
             />
           </div>
           <div v-if="repositories.length">
-            <h4 class="skill-usage__title">Repositories</h4>
-            <UsageBreakdownBars :rows="repositories" :total="stats.uses" />
+            <h4 class="usage-detail__title">Repositories</h4>
+            <UsageBreakdownBars :rows="repositories" :total="stats.uses" unit="uses" />
           </div>
         </div>
       </details>
 
-      <details class="skill-usage__more" :open="paths.length > 1">
+      <details class="usage-detail__more" :open="paths.length > 1">
         <summary>
           Where it was loaded from
-          <span v-if="paths.length > 1" class="skill-usage__denominator">
+          <span v-if="paths.length > 1" class="usage-detail__denominator">
             {{ paths.length }} directories
           </span>
         </summary>
-        <div class="skill-usage__more-body">
+        <div class="usage-detail__more-body">
+          <p class="usage-detail__help">Historical file locations for this skill name. Different paths can be separate installations.</p>
           <UsageBreakdownBars
             :rows="paths"
+            unit="uses"
+            wrap-labels
             :total="stats.uses"
             :limit="10"
             empty-text="No invocation recorded a path, which is how SDK-provided skills appear."
           />
-          <p v-if="stats.contentVersions > 1" class="skill-usage__empty">
+          <p v-if="stats.contentVersions > 1" class="usage-detail__empty">
             {{ stats.contentVersions }} distinct versions of this skill were invoked in this range.
           </p>
         </div>
       </details>
 
-      <section class="skill-usage__section">
-        <h4 class="skill-usage__title">Recent uses</h4>
+      <section class="usage-detail__section">
+        <h4 class="usage-detail__title">Recent uses</h4>
         <SkillRecentInvocations :invocations="ctx.usage?.recentInvocations ?? []" />
       </section>
     </template>
 
-    <p v-else class="skill-usage__empty">
+    <p v-else class="usage-detail__empty">
       This skill was not invoked in {{ rangeLabel }}.
     </p>
   </div>
 </template>
 
-<style scoped>
-.skill-usage {
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-}
-
-.skill-usage__summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 24px;
-  margin: 0;
-  padding: 16px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-md);
-  background: var(--canvas-subtle);
-}
-
-.skill-usage__summary dt,
-.skill-usage__summary small {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-
-.skill-usage__summary dd {
-  margin: 4px 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-}
-
-@container (min-width: 560px) {
-  .skill-usage__summary {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.skill-usage__section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.skill-usage__trend {
-  width: 100%;
-}
-
-.skill-usage__title {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.skill-usage__denominator {
-  font-size: 0.625rem;
-  font-weight: 400;
-  color: var(--text-tertiary);
-}
-
-/* Context you go looking for, rather than a wall of bars on arrival. */
-.skill-usage__more > summary {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px 0;
-  list-style-position: inside;
-}
-
-.skill-usage__more > summary:hover {
-  color: var(--text-primary);
-}
-
-.skill-usage__more-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 8px 0 4px;
-}
-
-.skill-usage__empty,
-.skill-usage__loading {
-  margin: 0;
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.skill-usage__notice {
-  margin: 0;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  background: var(--attention-subtle);
-  border: 1px solid color-mix(in srgb, var(--attention-fg) 22%, transparent);
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-}
-
-.skill-usage__notice--muted {
-  background: var(--canvas-subtle);
-  border-color: var(--border-default);
-  color: var(--text-tertiary);
-}
-
-.skill-usage__error {
-  margin: 0;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  background: var(--danger-subtle);
-  color: var(--danger-fg);
-  font-size: 0.75rem;
-}
-</style>
+<style src="../usage/usage-detail.css"></style>

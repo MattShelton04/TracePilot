@@ -79,7 +79,7 @@ describe("AgentCard", () => {
         }),
       }),
     );
-    const stats = wrapper.findAll(".agent-card__stat").map((stat) => stat.text());
+    const stats = wrapper.findAll(".usage-card-summary__stat").map((stat) => stat.text());
     expect(stats[0]).toContain("runs");
     expect(stats[0]).toContain("120");
     expect(stats[1]).toContain("38s");

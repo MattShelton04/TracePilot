@@ -15,6 +15,16 @@ vi.mock("@tracepilot/client", async () => {
     // pre-refactor behavior and avoid config-driven side effects in tests
     checkConfigExists: vi.fn().mockResolvedValue(false),
     getConfig: vi.fn().mockResolvedValue(null),
+    skillsListAll: vi.fn().mockResolvedValue({ skills: [], diagnostics: [] }),
+    skillsUsageSummary: vi.fn().mockResolvedValue({
+      totalUses: 0,
+      totalSessions: 0,
+      unknownTriggerUses: 0,
+      fallbackUses: 0,
+      totalContentTokens: 0,
+      usesWithContent: 0,
+      skills: [],
+    }),
     getAnalytics: (...args: unknown[]) => mockGetAnalytics(...args),
     getToolAnalysis: (...args: unknown[]) => mockGetToolAnalysis(...args),
     getCodeImpact: (...args: unknown[]) => mockGetCodeImpact(...args),

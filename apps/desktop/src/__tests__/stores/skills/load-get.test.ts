@@ -135,8 +135,8 @@ describe("useSkillsStore", () => {
       await store.loadAll();
 
       expect(mocks.skillsUsageSummary).toHaveBeenCalledWith({
-        fromDate: expect.any(String),
-        toDate: expect.any(String),
+        fromDate: null,
+        toDate: null,
       });
       const reviewed = store.entries.find((entry) => entry.name === "code-review");
       expect(reviewed?.usage?.uses).toBe(7);
@@ -192,10 +192,13 @@ describe("useSkillsStore", () => {
       await store.loadAll();
       mocks.skillsUsageSummary.mockClear();
 
-      await store.setRange("all");
-      expect(mocks.skillsUsageSummary).toHaveBeenCalledWith({ fromDate: null, toDate: null });
+      await store.setRange("90d");
+      expect(mocks.skillsUsageSummary).toHaveBeenCalledWith({
+        fromDate: expect.any(String),
+        toDate: expect.any(String),
+      });
 
-      await store.setRange("all");
+      await store.setRange("90d");
       expect(mocks.skillsUsageSummary).toHaveBeenCalledOnce();
     });
   });

@@ -163,16 +163,16 @@ describe("SkillCard usage", () => {
       props: props({ usage: makeUsage() }),
     });
 
-    const stats = wrapper.findAll(".skill-card__stat-value").map((node) => node.text());
+    const stats = wrapper.findAll(".usage-card-summary dd").map((node) => node.text());
     expect(stats).toEqual(["12", "4", "~1.8K"]);
-    expect(wrapper.find(".skill-card__idle").exists()).toBe(false);
+    expect(wrapper.find(".usage-card-summary__idle").exists()).toBe(false);
   });
 
   it("says a skill went unused rather than showing zeroes", () => {
     const wrapper = mount(SkillCard, { props: props() });
 
-    expect(wrapper.get(".skill-card__idle").text()).toBe("No uses in this range");
-    expect(wrapper.find(".skill-card__stat-value").exists()).toBe(false);
+    expect(wrapper.get(".usage-card-summary__idle").text()).toBe("No uses in this range");
+    expect(wrapper.find(".usage-card-summary dd").exists()).toBe(false);
   });
 
   it("renders a daily-uses sparkline only when there is a series to draw", () => {
@@ -241,7 +241,7 @@ describe("SkillCard for a skill that is no longer installed", () => {
 
   it("still reports how much it was used", () => {
     const wrapper = mount(SkillCard, { props: missing() });
-    expect(wrapper.findAll(".skill-card__stat-value").map((n) => n.text())).toEqual([
+    expect(wrapper.findAll(".usage-card-summary dd").map((n) => n.text())).toEqual([
       "12",
       "4",
       "~1.8K",

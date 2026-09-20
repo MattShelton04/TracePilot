@@ -16,7 +16,9 @@ const ctx = useSkillEditorContext();
       <span class="skill-icon-sm">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4v4l3 2"/></svg>
       </span>
-      {{ ctx.store.selectedSkill.frontmatter.name || 'Skill' }}
+      <span class="topbar-name-text" :title="ctx.store.selectedSkill.frontmatter.name">
+        {{ ctx.store.selectedSkill.frontmatter.name || 'Skill' }}
+      </span>
     </div>
     <div v-if="ctx.store.selectedSkill" class="topbar-meta">
       <SkillScopeBadge :scope="ctx.store.selectedSkill.scope" />

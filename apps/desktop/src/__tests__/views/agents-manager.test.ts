@@ -110,9 +110,9 @@ describe("AgentsManagerView", () => {
   });
 
   it("hands flag chips to the store rather than filtering locally", async () => {
-    const { store, wrapper } = mountView();
+    const { store, wrapper } = mountView({ flags: new Set(["mismatch"]) });
     await flushPromises();
-    const chip = wrapper.findAll(".flag-chip").find((b) => b.text() === "Model mismatch");
+    const chip = wrapper.findAll(".flag-chip").find((b) => b.text().includes("Model mismatch"));
     await chip!.trigger("click");
     expect(store.toggleFlag).toHaveBeenCalledWith("mismatch");
   });
