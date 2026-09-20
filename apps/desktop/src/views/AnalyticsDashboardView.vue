@@ -14,6 +14,7 @@ import AnalyticsCacheHealthRow from "@/components/analytics/AnalyticsCacheHealth
 import AnalyticsDistributionRow from "@/components/analytics/AnalyticsDistributionRow.vue";
 import AnalyticsIncidentChart from "@/components/analytics/AnalyticsIncidentChart.vue";
 import AnalyticsMetricPanels from "@/components/analytics/AnalyticsMetricPanels.vue";
+import AnalyticsSkillsPanel from "@/components/analytics/AnalyticsSkillsPanel.vue";
 import AnalyticsStatsGrids from "@/components/analytics/AnalyticsStatsGrids.vue";
 import AnalyticsTokenActivityRow from "@/components/analytics/AnalyticsTokenActivityRow.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
@@ -108,6 +109,7 @@ const timeRangeLabel = computed(() => {
         />
         <AnalyticsCacheHealthRow :data="data" />
         <AnalyticsAgentsPanel v-if="prefs.isFeatureEnabled('agents')" />
+        <AnalyticsSkillsPanel v-if="prefs.isFeatureEnabled('skills')" />
         <AnalyticsIncidentChart
           :data="data"
           :chart-layout="chartLayout"

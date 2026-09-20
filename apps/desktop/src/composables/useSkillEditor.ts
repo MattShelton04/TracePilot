@@ -52,7 +52,9 @@ export function useSkillEditor() {
 
   // Usage loads independently of the file, so a skill with no index rows
   // still opens and edits normally.
-  const activeTab = ref<"preview" | "usage">("preview");
+  // `?tab=usage` opens straight on Usage, so a link from the dashboard or a
+  // conversation lands on the figures rather than on the file.
+  const activeTab = ref<"preview" | "usage">(route.query.tab === "usage" ? "usage" : "preview");
   const usage = ref<SkillUsageDetail | null>(null);
   const usageLoading = ref(false);
   const usageError = ref<string | null>(null);

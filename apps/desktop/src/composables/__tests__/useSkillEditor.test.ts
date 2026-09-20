@@ -116,6 +116,20 @@ beforeEach(() => {
   routeMock.query = {};
 });
 
+describe("usage tab", () => {
+  it("opens on Preview by default", () => {
+    const { ctx } = mountHarness();
+    expect(ctx.activeTab).toBe("preview");
+  });
+
+  it("opens straight on Usage when linked to with ?tab=usage", () => {
+    routeMock.query = { tab: "usage" };
+    const { ctx } = mountHarness();
+    expect(ctx.activeTab).toBe("usage");
+    routeMock.query = {};
+  });
+});
+
 describe("useSkillEditor", () => {
   it.each([
     [

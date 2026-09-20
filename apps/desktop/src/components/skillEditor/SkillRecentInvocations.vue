@@ -86,7 +86,7 @@ function triggerLabel(record: SkillInvocationRecord): string {
 }
 
 .invocations__open:hover {
-  border-color: var(--border-accent, var(--accent-fg));
+  border-color: var(--border-accent);
 }
 
 .invocations__open:focus-visible {

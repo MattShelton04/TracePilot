@@ -99,6 +99,11 @@ pub struct SkillUsageSummary {
     pub total_sessions: u64,
     pub unknown_trigger_uses: u64,
     pub fallback_uses: u64,
+    /// Tokens every invocation in range injected, summed. Only the uses that
+    /// recorded their content contribute, so this is a floor, not a total.
+    pub total_content_tokens: u64,
+    /// Denominator for `total_content_tokens`.
+    pub uses_with_content: u64,
     pub skills: Vec<SkillUsageStats>,
 }
 

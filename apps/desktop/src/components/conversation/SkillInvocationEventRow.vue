@@ -51,13 +51,18 @@ const editorTarget = computed(() => {
   return path.replace(/[\\/]SKILL\.md$/i, "");
 });
 
-const canOpenEditor = computed(
-  () =>
-    Boolean(editorTarget.value) &&
-    !isViewer() &&
-    Boolean(router) &&
-    prefs.isFeatureEnabled("skills"),
+const skillsReachable = computed(
+  () => !isViewer() && Boolean(router) && prefs.isFeatureEnabled("skills"),
 );
+
+const canOpenEditor = computed(() => Boolean(editorTarget.value) && skillsReachable.value);
+
+/**
+ * Usage is keyed by name, so it is reachable even for an invocation with no
+ * path — an SDK-provided skill, or one recorded only as a tool call. Without
+ * a directory to open, the manager's search is the way in.
+ */
+const canViewUsage = computed(() => Boolean(skillName.value) && skillsReachable.value);
 
 const timestamp = computed(() => props.event?.timestamp ?? props.toolCall?.startedAt);
 const durationMs = computed(() => props.toolCall?.durationMs);
@@ -84,6 +89,22 @@ function openEditor(e: MouseEvent) {
     params: { name: encodeURIComponent(editorTarget.value) },
     query: sourceSessionId.value ? { fromSession: sourceSessionId.value } : undefined,
   });
+}
+
+function openUsage(e: MouseEvent) {
+  e.stopPropagation();
+  if (!canViewUsage.value || !router) return;
+  if (editorTarget.value) {
+    pushRoute(router, ROUTE_NAMES.skillEditor, {
+      params: { name: encodeURIComponent(editorTarget.value) },
+      query: {
+        tab: "usage",
+        ...(sourceSessionId.value ? { fromSession: sourceSessionId.value } : {}),
+      },
+    });
+    return;
+  }
+  pushRoute(router, ROUTE_NAMES.skillsManager, { query: { q: skillName.value } });
 }
 </script>
 
@@ -114,10 +135,18 @@ function openEditor(e: MouseEvent) {
     </button>
 
     <div v-if="expanded" class="skill-row__body">
-      <div v-if="skillPath || canOpenEditor" class="skill-row__meta">
+      <div v-if="skillPath || canOpenEditor || canViewUsage" class="skill-row__meta">
         <span v-if="skillPath" class="skill-row__path" :title="skillPath">
           {{ skillPath }}
         </span>
+        <button
+          v-if="canViewUsage"
+          type="button"
+          class="skill-row__usage-btn"
+          @click="openUsage"
+        >
+          {{ editorTarget ? "View usage" : "Find in Skills" }}
+        </button>
         <button
           v-if="canOpenEditor"
           type="button"
@@ -261,7 +290,8 @@ function openEditor(e: MouseEvent) {
   white-space: nowrap;
 }
 
-.skill-row__editor-btn {
+.skill-row__editor-btn,
+.skill-row__usage-btn {
   flex-shrink: 0;
   padding: 3px 10px;
   border: 1px solid var(--accent-muted, rgba(56, 139, 253, 0.4));
@@ -278,7 +308,21 @@ function openEditor(e: MouseEvent) {
   border-color: var(--accent-fg);
 }
 
-.skill-row__editor-btn:focus-visible {
+/* Secondary to "Open in editor": the same shape, without the fill. */
+.skill-row__usage-btn {
+  border-color: var(--border-default);
+  background: none;
+  color: var(--text-secondary);
+}
+
+.skill-row__usage-btn:hover {
+  background: var(--canvas-subtle);
+  border-color: var(--accent-fg);
+  color: var(--accent-fg);
+}
+
+.skill-row__editor-btn:focus-visible,
+.skill-row__usage-btn:focus-visible {
   outline: 2px solid var(--accent-fg);
   outline-offset: 2px;
 }

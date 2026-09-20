@@ -204,6 +204,8 @@ export function setupSkillsStoreTest() {
       totalSessions: 0,
       unknownTriggerUses: 0,
       fallbackUses: 0,
+      totalContentTokens: 0,
+      usesWithContent: 0,
       skills: [],
     });
   });

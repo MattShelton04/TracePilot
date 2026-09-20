@@ -137,6 +137,12 @@ export const cases = [
     ready: ".editor-body",
     state: "populated synthetic skill",
   },
+  {
+    id: "skill-usage",
+    route: "/skills/visual-review?tab=usage",
+    ready: ".skill-usage__summary",
+    state: "synthetic skill with cross-session usage",
+  },
   { id: "agents-manager", route: "/agents", ready: ".agent-card", state: "populated" },
   {
     id: "agent-editor",

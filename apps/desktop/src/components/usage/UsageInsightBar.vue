@@ -108,13 +108,13 @@ function dismiss(id: string) {
 .insight__dot {
   width: 6px;
   height: 6px;
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-full);
   flex-shrink: 0;
   background: var(--accent-emphasis);
 }
 
 .insight--warning {
-  border-color: var(--warning-muted, var(--border-default));
+  border-color: var(--warning-muted);
 }
 
 .insight--warning .insight__dot {
@@ -134,7 +134,7 @@ function dismiss(id: string) {
   padding: 2px 8px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  background: var(--canvas-default, var(--canvas-subtle));
+  background: var(--canvas-default);
   color: var(--accent-fg);
   font-family: inherit;
   font-size: 0.6875rem;
@@ -162,7 +162,7 @@ function dismiss(id: string) {
 }
 
 .insight__dismiss:hover {
-  background: var(--canvas-inset, var(--canvas-subtle));
+  background: var(--canvas-inset);
   color: var(--text-primary);
 }
 

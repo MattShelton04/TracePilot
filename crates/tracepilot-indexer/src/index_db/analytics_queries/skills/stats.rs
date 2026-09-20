@@ -201,6 +201,11 @@ pub(super) fn summarize(rows: &[InvocationRow]) -> SkillUsageSummary {
             .len() as u64,
         unknown_trigger_uses: skills.iter().map(|stats| stats.unknown_trigger).sum(),
         fallback_uses: skills.iter().map(|stats| stats.fallback_uses).sum(),
+        total_content_tokens: rows.iter().filter_map(|row| row.content_tokens).sum(),
+        uses_with_content: rows
+            .iter()
+            .filter(|row| row.content_tokens.is_some())
+            .count() as u64,
         skills,
     }
 }

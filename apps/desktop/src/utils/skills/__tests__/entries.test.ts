@@ -73,6 +73,8 @@ function summary(skills: SkillUsageStats[]): SkillUsageSummary {
     totalSessions: 1,
     unknownTriggerUses: 0,
     fallbackUses: 0,
+    totalContentTokens: 0,
+    usesWithContent: 0,
     skills,
   };
 }

@@ -126,6 +126,8 @@ describe("useSkillsStore", () => {
         totalSessions: 3,
         unknownTriggerUses: 7,
         fallbackUses: 0,
+        totalContentTokens: 0,
+        usesWithContent: 0,
         skills: [usageStats("code-review", FIXTURE_SUMMARY.directory, 7)],
       });
 
@@ -148,6 +150,8 @@ describe("useSkillsStore", () => {
         totalSessions: 5,
         unknownTriggerUses: 12,
         fallbackUses: 0,
+        totalContentTokens: 0,
+        usesWithContent: 0,
         skills: [usageStats("testing-usability", "C:\\gone\\usability-testing", 12)],
       });
 
@@ -179,6 +183,8 @@ describe("useSkillsStore", () => {
         totalSessions: 0,
         unknownTriggerUses: 0,
         fallbackUses: 0,
+        totalContentTokens: 0,
+        usesWithContent: 0,
         skills: [],
       });
 

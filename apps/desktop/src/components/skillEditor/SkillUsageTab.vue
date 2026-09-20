@@ -286,7 +286,7 @@ const fallbackOnly = computed(
   gap: 16px 24px;
   margin: 0;
   padding: 16px;
-  border: 1px solid var(--border-muted, var(--border-default));
+  border: 1px solid var(--border-muted);
   border-radius: var(--radius-md);
   background: var(--canvas-subtle);
 }
@@ -373,8 +373,8 @@ const fallbackOnly = computed(
   margin: 0;
   padding: 8px 12px;
   border-radius: var(--radius-md);
-  background: var(--attention-subtle, var(--canvas-subtle));
-  border: 1px solid var(--attention-muted, var(--border-default));
+  background: var(--attention-subtle);
+  border: 1px solid color-mix(in srgb, var(--attention-fg) 22%, transparent);
   color: var(--text-secondary);
   font-size: 0.75rem;
 }

@@ -13,6 +13,77 @@ const skill = {
   enabled: true,
   hasAssets: false,
   assetCount: 0,
+  modifiedAt: "2026-09-10T09:00:00Z",
+  contentSha256: "visual-review-sha",
+};
+
+/** Deterministic daily counts, so the sparkline is identical every run. */
+const skillDays = Array.from({ length: 12 }, (_, index) => ({
+  date: `2026-09-${String(index + 4).padStart(2, "0")}`,
+  uses: [3, 1, 4, 2, 6, 5, 2, 7, 4, 3, 8, 5][index],
+}));
+
+/**
+ * Usage for `visual-review`, with the coverage gaps the real corpus has: no
+ * trigger on most invocations and a handful of tool-call-only rows. The
+ * second row has no install behind it, which is the "missing skill" card.
+ */
+const skillUsage = {
+  name: skill.name,
+  normalizedName: skill.name,
+  description: skill.description,
+  uses: 50,
+  sessions: 14,
+  repositories: 2,
+  firstUsed: "2026-09-04T08:15:00Z",
+  lastUsed: "2026-09-15T17:40:00Z",
+  userInvoked: 6,
+  agentInvoked: 12,
+  unknownTrigger: 32,
+  mainAgentUses: 41,
+  subagentUses: 9,
+  fallbackUses: 4,
+  medianContentTokens: 1840,
+  usesWithContent: 46,
+  latestContentSha256: "visual-review-sha",
+  contentVersions: 2,
+  paths: [{ path: `${skill.directory}/SKILL.md`, directory: skill.directory, uses: 50 }],
+  topModels: [{ label: "claude-opus-5", uses: 34 }],
+  topRepositories: [{ label: "tracepilot/app", uses: 38 }],
+  dailyUses: skillDays,
+  pluginName: null,
+  source: "personal",
+};
+
+const missingSkillUsage = {
+  ...skillUsage,
+  name: "retired-migration-helper",
+  normalizedName: "retired-migration-helper",
+  description: "A skill that ran in past sessions but is no longer installed.",
+  uses: 9,
+  sessions: 3,
+  repositories: 1,
+  userInvoked: 0,
+  agentInvoked: 0,
+  unknownTrigger: 9,
+  mainAgentUses: 9,
+  subagentUses: 0,
+  fallbackUses: 0,
+  medianContentTokens: 620,
+  usesWithContent: 9,
+  latestContentSha256: "retired-sha",
+  contentVersions: 1,
+  paths: [
+    {
+      path: "/visual-fixtures/skills/retired-migration-helper/SKILL.md",
+      directory: "/visual-fixtures/skills/retired-migration-helper",
+      uses: 9,
+    },
+  ],
+  topModels: [],
+  topRepositories: [{ label: "tracepilot/app", uses: 9 }],
+  dailyUses: skillDays.slice(0, 4),
+  source: "project",
 };
 const disconnected = {
   state: "disconnected",
@@ -97,7 +168,61 @@ const overrides = {
     ],
     diagnostics: [],
   },
-  skills_encountered_project: [],
+  skills_usage_summary: {
+    totalUses: 59,
+    totalSessions: 16,
+    unknownTriggerUses: 41,
+    fallbackUses: 4,
+    totalContentTokens: 98_420,
+    usesWithContent: 55,
+    skills: [skillUsage, missingSkillUsage],
+  },
+  skills_usage_detail: {
+    stats: skillUsage,
+    invokedBy: [
+      { label: "Main agent", uses: 41 },
+      { label: "explore", uses: 9 },
+    ],
+    models: [{ label: "claude-opus-5", uses: 34 }],
+    repositories: [
+      { label: "tracepilot/app", uses: 38 },
+      { label: "tracepilot/docs", uses: 12 },
+    ],
+    recentInvocations: [
+      {
+        sessionId: "sess-auth-refactor",
+        sessionSummary: "Refactor the auth module into plugins",
+        repository: "tracepilot/app",
+        turnIndex: 12,
+        eventIndex: 88,
+        timestamp: "2026-09-15T17:40:00Z",
+        skillName: skill.name,
+        path: `${skill.directory}/SKILL.md`,
+        trigger: "user-invoked",
+        agentName: null,
+        model: "claude-opus-5",
+        contentTokens: 1840,
+        contentSha256: "visual-review-sha",
+        origin: "event",
+      },
+      {
+        sessionId: "sess-auth-refactor",
+        sessionSummary: "Refactor the auth module into plugins",
+        repository: "tracepilot/app",
+        turnIndex: 9,
+        eventIndex: 61,
+        timestamp: "2026-09-14T11:05:00Z",
+        skillName: skill.name,
+        path: null,
+        trigger: null,
+        agentName: "explore",
+        model: null,
+        contentTokens: null,
+        contentSha256: null,
+        origin: "tool_call_fallback",
+      },
+    ],
+  },
   skills_list_assets: [],
   skills_repos_with_skills: [],
   skills_get_skill: {

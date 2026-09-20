@@ -86,6 +86,13 @@ export interface SkillUsageSummary {
   totalSessions: number;
   unknownTriggerUses: number;
   fallbackUses: number;
+  /**
+   * Tokens every invocation in range injected, summed. Only the uses that
+   * recorded their content contribute, so this is a floor, not a total.
+   */
+  totalContentTokens: number;
+  /** Denominator for `totalContentTokens`. */
+  usesWithContent: number;
   skills: SkillUsageStats[];
 }
 

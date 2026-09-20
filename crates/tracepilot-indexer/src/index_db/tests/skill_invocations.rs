@@ -219,6 +219,27 @@ fn a_fallback_invocation_reports_no_cost_or_fingerprint() {
 }
 
 #[test]
+fn the_injected_total_counts_only_the_uses_that_recorded_content() {
+    let (_tmp, db) = indexed("2026-09-12");
+    let summary = db.query_skill_usage_summary(None, None, None).unwrap();
+
+    let with_content: u64 = summary
+        .skills
+        .iter()
+        .map(|skill| skill.uses_with_content)
+        .sum();
+    assert_eq!(summary.uses_with_content, with_content);
+    assert_eq!(
+        summary.uses_with_content, 2,
+        "the pdf fallback carried no content"
+    );
+    assert!(
+        summary.total_content_tokens > 0,
+        "the two invocations with content contribute a floor, not zero"
+    );
+}
+
+#[test]
 fn detail_links_back_to_the_turn_that_used_it() {
     let (_tmp, db) = indexed("2026-09-12");
     let detail = db
