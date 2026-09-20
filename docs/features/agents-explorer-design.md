@@ -1,6 +1,7 @@
 # Agents explorer — design
 
-Status: **Proposed** (2026-09-19).
+Status: **Delivered** (2026-09-20), behind the `agents` feature flag.
+See §14 for where the implementation deviates from this design.
 Builds on: the Config Injector (experimental, `configInjector` flag),
 [subagent analysis](subagent-analysis-plan.md) (Metrics → By agent, delivered),
 [Skills analytics design](skills-analytics-design.md) (shared editor shell and usage components).
@@ -358,3 +359,37 @@ These rules come from the subagent analysis:
   plugin updates overwrite them.
 - Should the Launcher gain an "agent" picker using this catalogue (`--agent <name>`)? This is a
   natural follow-up.
+
+## 14. As built
+
+Delivered behind the `agents` flag, with **Configuration → Agents** between Skills and
+CLI Context. What differs from the design above:
+
+- **Settings shape confirmed** (§3.2, §12). CLI 1.0.79's bundle and `api.schema.json` give
+  `subagents.agents.<agentType> = { model, effortLevel, contextTier }`, plus
+  `subagents.disabledSubagents: string[]`; `model`, `effortLevel` and `contextTier` each accept
+  `inherit`. This was verified end to end against a real `settings.json`: applying and removing
+  an override leaves the file byte-identical to its original content. An unrecognised shape makes
+  overrides read-only, as planned.
+- **Editor extraction is narrower than the adapter in §6.** Rather than a generic
+  `DefinitionAdapter<TDef>`, the genuinely shared pieces were extracted —
+  `components/definitionEditor/MarkdownBodyEditor.vue`, the markdown toolbar,
+  `useUnsavedChangesGuard`, and `styles/features/definition-editor.css`. Skills keeps its
+  behaviour and its own composable; the Agent editor composes the same parts. A full adapter
+  would have been indirection for two consumers.
+- **Parsing and patching stay in Rust.** The form edits an `AgentFields` draft and the backend
+  patches only the keys that changed, so comments, key order and unknown keys survive. A raw mode
+  saves the whole file. There is no YAML library in the frontend.
+- **Outcomes are `completed | failed | cancelled | incomplete`.** An idle multi-turn worker is
+  reconstructed as completed rather than given its own outcome.
+- **The Analytics card calls `agents_usage_summary` directly** with the dashboard's range and
+  repository, so `AnalyticsData` is unchanged and no disk fallback is needed.
+- **`slow` also needs at least 10 timed runs.** A p90-versus-previous-median trend over three
+  runs is noise, which the real data made obvious.
+- **`{{placeholders}}` are resolved in descriptions too**, not only in the prompt body, because
+  the built-ins carry them in `description`.
+- **The detail route is `/agents/detail?id=…`**, since a definition's id is a file path. Agents
+  seen only in sessions use `name:<agent>`.
+
+Not yet done: the Config Injector's Agents tab still owns bulk model assignment (§13's open
+question) and now links into this page; the Launcher has no agent picker.
