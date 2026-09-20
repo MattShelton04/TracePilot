@@ -15,13 +15,16 @@ pnpm install
 pnpm test:e2e             # Build release frontend/backend and run native journeys
 pnpm test:e2e -SkipBuild  # Repeat using the existing app and fixture generator
 pnpm test:e2e -Install    # Build NSIS, install, test the installed exe, uninstall
+pnpm test:e2e -Install -SkipBuild # Repeat with the existing installer
 ```
 
 `-Install` builds a separate **TracePilot E2E** package with a distinct application
 identifier/executable name and updater artifact generation disabled. It retains the shipping NSIS
 configuration and opts into the existing `automation-devtools` feature for CDP.
 Normal release configuration is unchanged. The suite checks installer exit status,
-the installed executable hash, uninstall registration, and removal on uninstall.
+the installed product identity/version, uninstall registration, and removal on uninstall.
+It records installer and installed executable hashes for diagnostics (Tauri patches
+bundle metadata, so the installed and unbundled executable hashes differ).
 An existing E2E installation causes a refusal rather than an upgrade/removal.
 
 Every test generates a fresh, owned data directory beneath

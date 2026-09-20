@@ -1,0 +1,9 @@
+{
+  "productName": "TracePilot E2E",
+  "identifier": "dev.tracepilot.e2e",
+  "mainBinaryName": "tracepilot-e2e",
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "targets": ["nsis"]
+  }
+}
