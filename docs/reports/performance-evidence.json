@@ -1525,5 +1525,711 @@
         }
       ]
     }
-  ]
+  ],
+  "nativeIndexing": {
+    "binarySha256": "cc82ebca7dfafdb452a1782877e22fb710887fe08acc2aac9a436f26d3185141",
+    "method": "Real release Tauri app. Native lifecycle events timestamped in renderer; list readiness includes two animation frames. First setup starts with absent database and fresh WebView profile. Full rebuilds use the existing process, Settings reads settled and auto-refresh disabled. OS cache uncontrolled; no cold-disk/process-startup or before/after speedup claim. Correctness checks run after timing.",
+    "notes": [
+      "One first-setup sample per corpus; three full-rebuild samples. Massive validation includes exact expected search/content counts and native FTS integrity check.",
+      "Initial scripted rebuild calls while Settings read its database failed with Windows sharing violation on 100/1000-session corpora. Subsequent samples wait for Settings storage stats; those failed attempts are not successful timings."
+    ],
+    "corpora": [
+      {
+        "label": "synthetic typical",
+        "sessions": 100,
+        "sourceBytes": 7321544,
+        "setup": [
+          {
+            "sessionIndexMs": 696.5,
+            "searchIndexMs": 391.5,
+            "indexingTotalMs": 1088.4000000953674,
+            "actionToSearchCompleteMs": 1193.7000000476837,
+            "actionToListReadyMs": 2410.7000000476837,
+            "sessionIndexToListReadyMs": 1608.9000000953674,
+            "health": {
+              "totalSessions": 100,
+              "indexedSessions": 100,
+              "pendingSessions": 0,
+              "totalContentRows": 13268,
+              "ftsIndexRows": 13268,
+              "inSync": true,
+              "dbSizeBytes": 5144576
+            }
+          }
+        ],
+        "rebuild": [
+          {
+            "sessionIndexMs": 402.10000002384186,
+            "searchIndexMs": 353.60000002384186,
+            "indexingTotalMs": 760,
+            "actionToSearchCompleteMs": 762.8999999761581,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 100,
+              "indexedSessions": 100,
+              "pendingSessions": 0,
+              "totalContentRows": 13268,
+              "ftsIndexRows": 13268,
+              "inSync": true,
+              "dbSizeBytes": 5156864
+            }
+          },
+          {
+            "sessionIndexMs": 556.1000000238419,
+            "searchIndexMs": 371,
+            "indexingTotalMs": 927.6000000238419,
+            "actionToSearchCompleteMs": 929.1000000238419,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 100,
+              "indexedSessions": 100,
+              "pendingSessions": 0,
+              "totalContentRows": 13268,
+              "ftsIndexRows": 13268,
+              "inSync": true,
+              "dbSizeBytes": 5156864
+            }
+          },
+          {
+            "sessionIndexMs": 381.5,
+            "searchIndexMs": 344.5,
+            "indexingTotalMs": 726.5,
+            "actionToSearchCompleteMs": 727.7999999523163,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 100,
+              "indexedSessions": 100,
+              "pendingSessions": 0,
+              "totalContentRows": 13268,
+              "ftsIndexRows": 13268,
+              "inSync": true,
+              "dbSizeBytes": 5156864
+            }
+          }
+        ]
+      },
+      {
+        "label": "synthetic large",
+        "sessions": 1000,
+        "sourceBytes": 50802617,
+        "setup": [
+          {
+            "sessionIndexMs": 3170.100000023842,
+            "searchIndexMs": 3342.600000023842,
+            "indexingTotalMs": 6513,
+            "actionToSearchCompleteMs": 6752.799999952316,
+            "actionToListReadyMs": 5428.299999952316,
+            "sessionIndexToListReadyMs": 2018.3999999761581,
+            "health": {
+              "totalSessions": 1000,
+              "indexedSessions": 1000,
+              "pendingSessions": 0,
+              "totalContentRows": 105046,
+              "ftsIndexRows": 105046,
+              "inSync": true,
+              "dbSizeBytes": 42700800
+            }
+          }
+        ],
+        "rebuild": [
+          {
+            "sessionIndexMs": 1368.8999999761581,
+            "searchIndexMs": 3610.3000000715256,
+            "indexingTotalMs": 4979.700000047684,
+            "actionToSearchCompleteMs": 4982.200000047684,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 1000,
+              "indexedSessions": 1000,
+              "pendingSessions": 0,
+              "totalContentRows": 105046,
+              "ftsIndexRows": 105046,
+              "inSync": true,
+              "dbSizeBytes": 42635264
+            }
+          },
+          {
+            "sessionIndexMs": 1266.3999999761581,
+            "searchIndexMs": 3339.399999976158,
+            "indexingTotalMs": 4606.299999952316,
+            "actionToSearchCompleteMs": 4608.600000023842,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 1000,
+              "indexedSessions": 1000,
+              "pendingSessions": 0,
+              "totalContentRows": 105046,
+              "ftsIndexRows": 105046,
+              "inSync": true,
+              "dbSizeBytes": 42635264
+            }
+          },
+          {
+            "sessionIndexMs": 1976.1000000238419,
+            "searchIndexMs": 3095.5,
+            "indexingTotalMs": 5072.200000047684,
+            "actionToSearchCompleteMs": 5074.200000047684,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 1000,
+              "indexedSessions": 1000,
+              "pendingSessions": 0,
+              "totalContentRows": 105046,
+              "ftsIndexRows": 105046,
+              "inSync": true,
+              "dbSizeBytes": 42635264
+            }
+          }
+        ]
+      },
+      {
+        "label": "copied local subset",
+        "sessions": 20,
+        "sourceBytes": 344262552,
+        "setup": [
+          {
+            "sessionIndexMs": 1475.6999999284744,
+            "searchIndexMs": 3829.1999999284744,
+            "indexingTotalMs": 5305.299999952316,
+            "actionToSearchCompleteMs": 5361.199999928474,
+            "actionToListReadyMs": 2990.0999999046326,
+            "sessionIndexToListReadyMs": 1458.5,
+            "health": {
+              "totalSessions": 20,
+              "indexedSessions": 20,
+              "pendingSessions": 0,
+              "totalContentRows": 65385,
+              "ftsIndexRows": 65385,
+              "inSync": true,
+              "dbSizeBytes": 59568128
+            }
+          }
+        ],
+        "rebuild": [
+          {
+            "sessionIndexMs": 1265.1000000238419,
+            "searchIndexMs": 3243.5,
+            "indexingTotalMs": 4509.200000047684,
+            "actionToSearchCompleteMs": 4513.700000047684,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 20,
+              "indexedSessions": 20,
+              "pendingSessions": 0,
+              "totalContentRows": 65385,
+              "ftsIndexRows": 65385,
+              "inSync": true,
+              "dbSizeBytes": 59564032
+            }
+          },
+          {
+            "sessionIndexMs": 1245.2999999523163,
+            "searchIndexMs": 3854.2000000476837,
+            "indexingTotalMs": 5100,
+            "actionToSearchCompleteMs": 5101.200000047684,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 20,
+              "indexedSessions": 20,
+              "pendingSessions": 0,
+              "totalContentRows": 65385,
+              "ftsIndexRows": 65385,
+              "inSync": true,
+              "dbSizeBytes": 59564032
+            }
+          },
+          {
+            "sessionIndexMs": 1312.3999999761581,
+            "searchIndexMs": 3255.100000023842,
+            "indexingTotalMs": 4568,
+            "actionToSearchCompleteMs": 4570,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 20,
+              "indexedSessions": 20,
+              "pendingSessions": 0,
+              "totalContentRows": 65385,
+              "ftsIndexRows": 65385,
+              "inSync": true,
+              "dbSizeBytes": 59564032
+            }
+          }
+        ]
+      },
+      {
+        "label": "massive",
+        "sessions": 500,
+        "sourceBytes": 3359340340,
+        "setup": [
+          {
+            "sessionIndexMs": 10860.800000071526,
+            "searchIndexMs": 44893.90000009537,
+            "indexingTotalMs": 55755.300000071526,
+            "actionToSearchCompleteMs": 55899.60000002384,
+            "actionToListReadyMs": 12862.299999952316,
+            "sessionIndexToListReadyMs": 1857.1999999284744,
+            "health": {
+              "totalSessions": 500,
+              "indexedSessions": 500,
+              "pendingSessions": 0,
+              "totalContentRows": 1165200,
+              "ftsIndexRows": 1165200,
+              "inSync": true,
+              "dbSizeBytes": 749088768
+            },
+            "search": {
+              "totalCount": 155800,
+              "returned": 1
+            }
+          }
+        ],
+        "rebuild": [
+          {
+            "sessionIndexMs": 10040.299999952316,
+            "searchIndexMs": 46672.200000047684,
+            "indexingTotalMs": 56712.89999997616,
+            "actionToSearchCompleteMs": 56717.5,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 500,
+              "indexedSessions": 500,
+              "pendingSessions": 0,
+              "totalContentRows": 1165200,
+              "ftsIndexRows": 1165200,
+              "inSync": true,
+              "dbSizeBytes": 749105152
+            },
+            "search": {
+              "totalCount": 155800,
+              "returned": 1
+            }
+          },
+          {
+            "sessionIndexMs": 11305.799999952316,
+            "searchIndexMs": 43462.40000009537,
+            "indexingTotalMs": 54768.700000047684,
+            "actionToSearchCompleteMs": 54770.90000009537,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 500,
+              "indexedSessions": 500,
+              "pendingSessions": 0,
+              "totalContentRows": 1165200,
+              "ftsIndexRows": 1165200,
+              "inSync": true,
+              "dbSizeBytes": 749105152
+            },
+            "search": {
+              "totalCount": 155800,
+              "returned": 1
+            }
+          },
+          {
+            "sessionIndexMs": 13568.699999928474,
+            "searchIndexMs": 46753.40000009537,
+            "indexingTotalMs": 60322.60000002384,
+            "actionToSearchCompleteMs": 60324.5,
+            "actionToListReadyMs": null,
+            "sessionIndexToListReadyMs": null,
+            "health": {
+              "totalSessions": 500,
+              "indexedSessions": 500,
+              "pendingSessions": 0,
+              "totalContentRows": 1165200,
+              "ftsIndexRows": 1165200,
+              "inSync": true,
+              "dbSizeBytes": 749105152
+            },
+            "search": {
+              "totalCount": 155800,
+              "returned": 1
+            }
+          }
+        ]
+      }
+    ],
+    "diagnostic": {
+      "method": "Separate native full rebuild with debug logging; excluded from accepted samples. Maintenance timers exclude ANALYZE.",
+      "sessionPhaseNativeMs": 9801,
+      "searchPhaseNativeMs": 42903,
+      "bulkContentWriteAndFtsRebuildMs": 27953,
+      "searchFunctionIncludingFirstMaintenanceMs": 41594,
+      "maintenanceOptimizeVacuumCheckpointMs": [2202, 8]
+    }
+  },
+  "massiveDesktop": {
+    "sourceBytes": 3359340340,
+    "events": 1477800,
+    "sessions": 500,
+    "selectedTurns": 4000,
+    "selectedTools": 12000,
+    "selectedSourceBytes": 68583420,
+    "method": "First visit and three warm revisits in one existing native process after indexing; 1440x960, no CPU throttle. Hash-route-to-rendered-content with two animation frames. Warm search revisits may reuse cached results/facets; not uncached SQLite query timings.",
+    "samples": [
+      {
+        "name": "session-list",
+        "iteration": 0,
+        "durationMs": 354.6767,
+        "rendererBusyMs": 345.688,
+        "ipc": []
+      },
+      {
+        "name": "conversation",
+        "iteration": 0,
+        "durationMs": 10227.5813,
+        "rendererBusyMs": 9184.422999999999,
+        "ipc": [
+          {
+            "cmd": "list_sessions",
+            "durationMs": 66.20000004768372,
+            "failed": false
+          },
+          {
+            "cmd": "is_session_running",
+            "durationMs": 12.5,
+            "failed": false
+          },
+          {
+            "cmd": "get_session_prompt_cache",
+            "durationMs": 592.3999999761581,
+            "failed": false
+          },
+          {
+            "cmd": "get_session_detail",
+            "durationMs": 758.2999999523163,
+            "failed": false
+          },
+          {
+            "cmd": "get_session_turns",
+            "durationMs": 483.10000002384186,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "analytics",
+        "iteration": 0,
+        "durationMs": 2019.6162000000004,
+        "rendererBusyMs": 1949.2330000000013,
+        "ipc": [
+          {
+            "cmd": "get_analytics",
+            "durationMs": 35.700000047683716,
+            "failed": false
+          },
+          {
+            "cmd": "agents_usage_summary",
+            "durationMs": 43.5,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "search",
+        "iteration": 0,
+        "durationMs": 2428.2065999999995,
+        "rendererBusyMs": 712.6280000000005,
+        "ipc": [
+          {
+            "cmd": "get_search_tool_names",
+            "durationMs": 56.40000009536743,
+            "failed": false
+          },
+          {
+            "cmd": "get_search_repositories",
+            "durationMs": 68.30000007152557,
+            "failed": false
+          },
+          {
+            "cmd": "get_search_stats",
+            "durationMs": 353.3000000715256,
+            "failed": false
+          },
+          {
+            "cmd": "fts_health",
+            "durationMs": 1187.1999999284744,
+            "failed": false
+          },
+          {
+            "cmd": "search_content",
+            "durationMs": 1972.7000000476837,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "session-list",
+        "iteration": 1,
+        "durationMs": 398.721800000003,
+        "rendererBusyMs": 399.4,
+        "ipc": [
+          {
+            "cmd": "get_config",
+            "durationMs": 372.5,
+            "failed": false
+          },
+          {
+            "cmd": "get_git_info",
+            "durationMs": 411.5,
+            "failed": false
+          },
+          {
+            "cmd": "get_db_size",
+            "durationMs": 9.600000023841858,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "conversation",
+        "iteration": 1,
+        "durationMs": 9600.362100000002,
+        "rendererBusyMs": 9592.926,
+        "ipc": [
+          {
+            "cmd": "context_capture_storage_stats",
+            "durationMs": 6.799999952316284,
+            "failed": false
+          },
+          {
+            "cmd": "list_sessions",
+            "durationMs": 9352.600000023842,
+            "failed": false
+          },
+          {
+            "cmd": "get_search_facets",
+            "durationMs": 10400.300000071526,
+            "failed": false
+          },
+          {
+            "cmd": "get_search_facets",
+            "durationMs": 12398.899999976158,
+            "failed": false
+          },
+          {
+            "cmd": "is_session_running",
+            "durationMs": 1282.7999999523163,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "analytics",
+        "iteration": 1,
+        "durationMs": 597.1224000000002,
+        "rendererBusyMs": 586.8820000000028,
+        "ipc": [
+          {
+            "cmd": "agents_usage_summary",
+            "durationMs": 93.09999990463257,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "search",
+        "iteration": 1,
+        "durationMs": 82.04579999999987,
+        "rendererBusyMs": 74.4499999999988,
+        "ipc": [
+          {
+            "cmd": "get_search_facets",
+            "durationMs": 42.299999952316284,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "session-list",
+        "iteration": 2,
+        "durationMs": 319.0317000000032,
+        "rendererBusyMs": 320.1450000000001,
+        "ipc": [
+          {
+            "cmd": "get_git_info",
+            "durationMs": 318.39999997615814,
+            "failed": false
+          },
+          {
+            "cmd": "get_config",
+            "durationMs": 20,
+            "failed": false
+          },
+          {
+            "cmd": "get_db_size",
+            "durationMs": 5.5,
+            "failed": false
+          },
+          {
+            "cmd": "get_session_count",
+            "durationMs": 6.899999976158142,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "conversation",
+        "iteration": 2,
+        "durationMs": 11651.897699999998,
+        "rendererBusyMs": 11640.706999999999,
+        "ipc": [
+          {
+            "cmd": "context_capture_storage_stats",
+            "durationMs": 7,
+            "failed": false
+          },
+          {
+            "cmd": "list_sessions",
+            "durationMs": 11423.100000023842,
+            "failed": false
+          },
+          {
+            "cmd": "get_search_stats",
+            "durationMs": 11865.099999904633,
+            "failed": false
+          },
+          {
+            "cmd": "is_session_running",
+            "durationMs": 1250.7999999523163,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "analytics",
+        "iteration": 2,
+        "durationMs": 617.0361000000048,
+        "rendererBusyMs": 617.3490000000044,
+        "ipc": [
+          {
+            "cmd": "agents_usage_summary",
+            "durationMs": 73.60000002384186,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "search",
+        "iteration": 2,
+        "durationMs": 89.068299999999,
+        "rendererBusyMs": 90.32300000000504,
+        "ipc": [
+          {
+            "cmd": "get_search_repositories",
+            "durationMs": 56.799999952316284,
+            "failed": false
+          },
+          {
+            "cmd": "get_search_tool_names",
+            "durationMs": 56.89999997615814,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "session-list",
+        "iteration": 3,
+        "durationMs": 364.4308999999994,
+        "rendererBusyMs": 366.4660000000026,
+        "ipc": [
+          {
+            "cmd": "get_config",
+            "durationMs": 340.2000000476837,
+            "failed": false
+          },
+          {
+            "cmd": "get_git_info",
+            "durationMs": 372.10000002384186,
+            "failed": false
+          },
+          {
+            "cmd": "get_db_size",
+            "durationMs": 19.5,
+            "failed": false
+          },
+          {
+            "cmd": "get_session_count",
+            "durationMs": 7.900000095367432,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "conversation",
+        "iteration": 3,
+        "durationMs": 9894.055999999997,
+        "rendererBusyMs": 9888.135999999995,
+        "ipc": [
+          {
+            "cmd": "context_capture_storage_stats",
+            "durationMs": 6.600000023841858,
+            "failed": false
+          },
+          {
+            "cmd": "list_sessions",
+            "durationMs": 9575.600000023842,
+            "failed": false
+          },
+          {
+            "cmd": "get_search_stats",
+            "durationMs": 10077.299999952316,
+            "failed": false
+          },
+          {
+            "cmd": "is_session_running",
+            "durationMs": 1301.8999999761581,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "analytics",
+        "iteration": 3,
+        "durationMs": 559.6668000000063,
+        "rendererBusyMs": 550.6439999999984,
+        "ipc": [
+          {
+            "cmd": "agents_usage_summary",
+            "durationMs": 64,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "name": "search",
+        "iteration": 3,
+        "durationMs": 83.84369999999763,
+        "rendererBusyMs": 79.38599999999951,
+        "ipc": [
+          {
+            "cmd": "get_search_repositories",
+            "durationMs": 52.799999952316284,
+            "failed": false
+          },
+          {
+            "cmd": "get_search_tool_names",
+            "durationMs": 54.60000002384186,
+            "failed": false
+          }
+        ]
+      }
+    ],
+    "diagnosticProfile": {
+      "renderMs": 9486.3,
+      "getBoundingClientRectSelfMs": 2413.128,
+      "gcSelfMs": 482.537,
+      "note": "Separate diagnostic profile; synchronous geometry reads charge browser layout to the read. Not proof that all this time is removable."
+    }
+  }
 }

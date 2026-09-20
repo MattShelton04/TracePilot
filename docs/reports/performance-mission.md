@@ -159,7 +159,7 @@ warm medians below are **scaling observations only**, four visits per cell:
 
 Final release binary: 37,541,376 bytes versus 37,570,560 for the instrumented
 baseline (−29,184 bytes), including all mission source changes. Final JS+CSS:
-2,492.94 KiB within the 2,500 KiB required budget, with little headroom. Largest
+2,492.94 KiB against the 2,500 KiB advisory threshold. Largest
 chunk 293.57 KiB exceeds the 250 KiB advisory threshold; initial HTML assets are
 3 / 3. No bundle-size reduction is claimed without a matching baseline asset total.
 
@@ -210,7 +210,7 @@ session files into this boundary.
 
 | Lane | Actual trigger / enforcement | Retained evidence |
 | --- | --- | --- |
-| Frontend bundle | Relevant PRs/manual; total JS+CSS required; largest chunk and initial assets advisory | JSON, Markdown, bundle analysis artifact; 90 days |
+| Frontend bundle | Relevant PRs/manual; all size thresholds advisory; missing/invalid inputs fail | JSON, Markdown, bundle analysis artifact and reporter log; 90 days |
 | Rust Criterion | Nightly/manual Ubuntu; execution and missing/invalid results/budgets fail; timing thresholds advisory | Criterion tree, samples/estimates, metadata, summary, contract log; 90 days |
 | Windows native | Local/manual committed harness; no automatic hosted Windows UX gate | Validated samples, binary/environment/build/fixture metadata, screenshots, optional profile |
 
@@ -228,6 +228,15 @@ Workflows use read-only permissions and nonpersistent checkout credentials. The
 measurement job no longer attempts Pages pushes or PR comments. Unrelated existing
 Pages content is untouched; no publishing pipeline was added. These measurements
 were validated locally; hosted Actions results are separate PR evidence.
+
+The follow-up removes the hard JS+CSS ceiling at the user's request. All bundle
+thresholds now warn, while missing/invalid measurement inputs still fail. A tested
+Node reporter replaces workflow-inline extraction, produces reusable JSON/Markdown,
+and retains its log with the bundle analysis. This makes the same reporting contract
+available locally and in CI; it does not add the multi-GiB workload to routine PR jobs.
+The standard required CI now runs the lightweight reporting/comparison contracts
+on every PR and the generator's small contract tests on Linux and Windows. These
+protect the measurement tools and massive fixture plan without timing shared runners.
 
 `scripts/perf/compare.mjs` produces offline Markdown/JSON with improvement,
 regression, effectively unchanged, inconclusive, execution failure, missing result
@@ -344,6 +353,93 @@ The strongest SQL follow-ups are:
   concurrency complexity. Index availability alone does not mean every query is
   optimal, but the evidence does not justify a general SQLite rewrite.
 
+## Fresh-install indexing and a multi-GiB workload
+
+The previous 1,000-session synthetic corpus contains only **48.45 MiB** of event
+logs. The authorized local inventory contains 389 sessions / **2.42 GiB**. Session
+count alone was therefore inadequate coverage for fresh-install performance.
+The new opt-in `massive` scale contains **500 sessions, 3.13 GiB of event logs,
+1,477,800 events, 155,800 turns and 426,800 tool calls**. Its skew is 300 small,
+130 medium, 50 large and 20 monster sessions; monster sessions have 2,500–4,000
+turns. The largest generated log is 66.4 MiB. Tool outputs vary in length and
+contain deterministic source/test/diff text, rather than one giant padding blob.
+Generation streams events, records exact source bytes, and leaves the massive
+database absent so the real app performs schema creation and indexing.
+
+Native release measurements below use the same accepted executable as above.
+First setup uses an absent database and a fresh WebView profile, completes the
+actual setup wizard, and measures from its final button click. Index durations
+use native lifecycle events observed in the renderer; they include event delivery
+latency. Search indexing continues after the session-index command returns.
+There is one first-setup sample per corpus and three full rebuilds from Settings:
+
+| Corpus | Session indexing | Search indexing | Both phases | Click to usable list | Full rebuild median [range] |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 100 synthetic / 6.98 MiB | 0.70 s | 0.39 s | 1.09 s | 2.41 s | 0.76 [0.73, 0.93] s |
+| 1,000 synthetic / 48.45 MiB | 3.17 s | 3.34 s | 6.51 s | 5.43 s | 4.98 [4.61, 5.07] s |
+| 20 copied local / 328.31 MiB | 1.48 s | 3.83 s | 5.31 s | 2.99 s | 4.57 [4.51, 5.10] s |
+| 500 synthetic / 3.13 GiB | 10.86 s | 44.89 s | 55.76 s | 12.86 s | 56.71 [54.77, 60.32] s |
+
+These are current-head baselines, **not indexing speedups**, process-launch times
+or controlled cold-disk results. OS cache is uncontrolled. Full rebuild deletes
+and recreates the owned database; no original local histories were modified.
+Every sample checks session totals and FTS row health. Massive samples additionally
+verify all **1,165,200 content rows**, **155,800 expected search matches**, zero
+pending sessions, and native FTS integrity. Verification runs after timing.
+The resulting massive database is approximately 714 MiB.
+
+The list becomes usable before search finishes on larger datasets. The loading
+screen also deliberately adds a completion sequence after session indexing:
+an 800 ms minimum display, then 400 ms deceleration, 350 ms hold and 400 ms fade.
+Observed session-index completion to usable list was 1.46–2.02 s, which also
+includes list loading/rendering. Mounting the list starts another incremental
+index pass; the lifecycle traces preserve that overlapping work. Neither delay
+was removed in this follow-up.
+
+Initial scripted rebuild calls immediately after entering Settings encountered
+a Windows sharing violation on the 100/1,000-session corpora. Settings opens
+database readers on mount. The harness now waits for storage statistics before
+measuring an idle rebuild; failed attempts are excluded from successful timings.
+This is a remaining concurrent-read/rebuild concern, not a shipped fix.
+
+With the massive database populated, actual UI measurements were:
+
+| Flow | First measured visit | Median of three warm revisits |
+| --- | ---: | ---: |
+| Session list | 355 ms | 364 ms |
+| 4,000-turn / 12,000-tool conversation | 10.23 s | 9.89 s |
+| Analytics | 2.02 s | 597 ms |
+| Search | 2.43 s | 84 ms |
+
+Warm search revisits reuse app results/facets and are **not uncached SQL timings**.
+A separate 4,000-turn renderer profile attributed about **2.41 s** to synchronous
+`getBoundingClientRect`, with substantial additional DOM, scroll and GC work.
+This reinforces layout/render coordination as the next conversation experiment;
+it does not establish that all sampled layout time is removable. Heap growth
+across visits fell after GC in the diagnostic pass, so no leak claim is made.
+One separate debug-logging rebuild (excluded from the samples above) attributed
+**27.95 s of a 42.90 s search phase to bulk SQLite content writing plus FTS
+reconstruction**. Logs confirmed two maintenance passes on full rebuild; their
+internal optimize/vacuum/checkpoint timers were 2.20 s and 0.008 s, excluding
+ANALYZE. Parsing the logs again is a candidate, but it does not explain the whole
+search-index cost. Bulk-write/FTS profiling is the next indexing investigation;
+buffer reuse must also account for memory and incremental freshness semantics.
+
+Reproduce the opt-in volume case (allow several GiB of disk space):
+
+```powershell
+cargo run --release -p tracepilot-bench --example performance_probe -- generate --root C:\benchmarks\tracepilot-massive --scale massive
+```
+
+Then follow the [native indexing measurement instructions](../app-automation.md#native-indexing-measurements).
+Numeric samples are in `performance-evidence.json`; private logs and profiles stay
+under ignored `.tracepilot/perf/`. Focused generator tests validate a small
+representative stream and the massive plan without creating GiB in CI.
+Follow-up validation passed all three generator tests, all 15 performance-report
+contracts, full workspace typechecks, Rust formatting, Biome, workflow YAML,
+file-size, documentation-link and diff checks. The real built bundle reporter
+exits successfully while warning about the advisory largest-chunk threshold.
+
 ## Commits, delegation and limits
 
 Reviewable commits in order:
@@ -355,8 +451,10 @@ Reviewable commits in order:
 5. `5bc82273` — eliminate repeated formatting/DOM work; native correctness check.
 6. `030bc56c` — validate CI evidence and report budget enforcement honestly.
 7. `46c16e6b` — measured results and sanitized numeric evidence.
-8. Follow-up validation — SQLite/query-plan assessment and setter-spy test typing
+8. `aeaa8ea3` — SQLite/query-plan assessment and setter-spy test typing
    corrected after full-workspace typechecking.
+9. `4604bac4` — multi-GiB deterministic fixture and native indexing harness.
+10. `67dc7c3b` — advisory bundle sizes and required reporting/fixture CI contracts.
 
 Astra mapped flows, diagnosed the IPC fallback, interpreted profiles, chose changes,
 ran native A/A and base/head acceptance, reviewed source and made retention decisions.
@@ -372,7 +470,8 @@ remain inconclusive/unchanged as described above.
 
 Limits: one Windows machine/WebView; macOS/Linux untested; no controlled cold-disk
 or startup comparison, long-duration leak study, whole-app CPU/working-set
-improvement claim, or completed hosted Actions validation at measurement time.
+improvement claim. All hosted PR checks passed on `aeaa8ea3`; later fixture/CI
+follow-up commits have their own hosted check results.
 Huge sessions still take seconds of DOM
 work; OS cache, GC and prefetch add variance. The app was stopped after validation,
 and the accepted executable was restored under `target/release`.
