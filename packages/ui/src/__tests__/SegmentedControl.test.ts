@@ -71,3 +71,26 @@ describe("SegmentedControl", () => {
     expect(wrapper.find(".segmented-control").classes()).not.toContain("segmented-control--pill");
   });
 });
+
+describe("keyboard navigation", () => {
+  it("keeps one tab stop and moves selection and focus with arrow keys", async () => {
+    const wrapper = mount(SegmentedControl, {
+      attachTo: document.body,
+      props: {
+        modelValue: "all",
+        options: [
+          { value: "30d", label: "30 days" },
+          { value: "all", label: "All time" },
+        ],
+      },
+    });
+    const radios = wrapper.findAll('[role="radio"]');
+    expect(radios.map((radio) => radio.attributes("tabindex"))).toEqual(["-1", "0"]);
+    await radios[1].trigger("keydown", { key: "ArrowRight" });
+    expect(wrapper.emitted("update:modelValue")?.[0]).toEqual(["30d"]);
+    expect(document.activeElement).toBe(radios[0].element);
+    await radios[0].trigger("keydown", { key: "End" });
+    expect(wrapper.emitted("update:modelValue")?.[1]).toEqual(["all"]);
+    wrapper.unmount();
+  });
+});

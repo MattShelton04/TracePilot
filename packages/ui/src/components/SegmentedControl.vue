@@ -5,7 +5,7 @@ export interface SegmentOption {
   count?: number;
 }
 
-defineProps<{
+const props = defineProps<{
   modelValue: string;
   options: SegmentOption[];
   /**
@@ -18,6 +18,32 @@ defineProps<{
 const emit = defineEmits<{
   "update:modelValue": [value: string];
 }>();
+function onKeydown(event: KeyboardEvent, index: number) {
+  const count = props.options.length;
+  let next: number;
+  switch (event.key) {
+    case "ArrowRight":
+    case "ArrowDown":
+      next = (index + 1) % count;
+      break;
+    case "ArrowLeft":
+    case "ArrowUp":
+      next = (index - 1 + count) % count;
+      break;
+    case "Home":
+      next = 0;
+      break;
+    case "End":
+      next = count - 1;
+      break;
+    default:
+      return;
+  }
+  event.preventDefault();
+  emit("update:modelValue", props.options[next].value);
+  const group = (event.currentTarget as HTMLElement).parentElement;
+  group?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+}
 </script>
 
 <template>
@@ -27,11 +53,14 @@ const emit = defineEmits<{
     role="radiogroup"
   >
     <button
-      v-for="opt in options"
+      v-for="(opt, index) in options"
       :key="opt.value"
       class="segment-btn"
       :class="{ active: modelValue === opt.value, 'segment-btn--pill': rounded === 'pill' }"
+      type="button"
       role="radio"
+      :tabindex="modelValue === opt.value || (!options.some(option => option.value === modelValue) && index === 0) ? 0 : -1"
+      @keydown="onKeydown($event, index)"
       :aria-checked="modelValue === opt.value"
       @click="emit('update:modelValue', opt.value)"
     >
