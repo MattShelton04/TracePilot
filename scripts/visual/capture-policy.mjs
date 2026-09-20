@@ -3,7 +3,8 @@ export function captureExitCode(reports, revision = "head") {
   if (revision !== "base" && revision !== "head") {
     throw new Error(`Invalid visual revision: ${revision}`);
   }
-  if (revision === "base") return 0;
+  // A few new routes can be unavailable; a completely broken baseline is a failure.
+  if (revision === "base") return reports.some((item) => item.status === "captured") ? 0 : 1;
   return reports.length > 0 && reports.every((item) => item.status === "captured") ? 0 : 1;
 }
 // The first paint can differ from subsequent rasterized frames even after fonts

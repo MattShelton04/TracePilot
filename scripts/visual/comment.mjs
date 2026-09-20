@@ -1,21 +1,17 @@
+import { postReportComment } from "../ci/report-comment.mjs";
 import { escapeHtml, safeHttpUrl } from "./gallery-template.mjs";
 
 export const commentMarker = "<!-- tracepilot-visual-report -->";
-const ownComment = (comment) =>
-  comment.user?.login === "github-actions[bot]" && comment.body?.startsWith(commentMarker);
-
-export function commentRevision(body) {
-  const match = /<!-- tracepilot-visual-report:run=(\d+);attempt=(\d+);sha=([a-f0-9]{40}) -->/.exec(
-    body ?? "",
-  );
-  return match ? { id: Number(match[1]), attempt: Number(match[2]), sha: match[3] } : null;
-}
-
-export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRunId }) {
+export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRunId, baseSha }) {
   const runUrl = `https://github.com/${repo}/actions/runs/${run.id}`;
   const gallery = safeHttpUrl(galleryUrl);
   const attempt = run.run_attempt ?? 1;
   let body = `${commentMarker}\n<!-- tracepilot-visual-report:run=${run.id};attempt=${attempt};sha=${run.head_sha} -->\n### Desktop visual comparison\n\nCommit [${run.head_sha.slice(0, 8)}](https://github.com/${repo}/commit/${run.head_sha}) · [capture run ${run.id}, attempt ${attempt}](${runUrl}/attempts/${attempt})\n\nActual frontend at **1440×960**, dark, 100% scale, with deterministic **synthetic backend fixtures**. Rust/native verification is separate.\n\n**${summary.changed} review changes**, ${summary.unchanged} identical, ${summary.subtle ?? 0} subtle, ${summary.baseUnavailable} base unavailable, ${summary.incomplete} incomplete. Pixel changes require review; the gallery measures changed pixels and highlights their locations.\n\n`;
+  if (/^[a-f0-9]{40}$/.test(baseSha))
+    body += `Base [${baseSha.slice(0, 8)}](https://github.com/${repo}/commit/${baseSha}) → head ${run.head_sha.slice(0, 8)}.\n\n`;
+  if (summary.baseUnavailable || summary.incomplete)
+    body +=
+      "**Comparison incomplete.** Unavailable or failed captures cannot establish that the UI is unchanged. Review capture limitations in the gallery.\n\n";
   if (!gallery)
     return `${body}[Capture artifacts](${runUrl}) · [Standalone gallery artifact](https://github.com/${repo}/actions/runs/${publisherRunId})\n\nPages publication is unavailable. Download visual-gallery and open index.html; precomputed pixel comparisons also work offline.\n`;
   const history = new URL("../../index.html", gallery).href;
@@ -51,43 +47,14 @@ export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRu
     }
     body += "\n";
   }
-  if (!changed.length)
+  if (!changed.length && !summary.baseUnavailable && !summary.incomplete)
     body +=
       "No larger or higher-contrast pixel changes detected. Review any capture limitations in the gallery.\n";
   return body;
 }
 
-/** Update one bot-owned issue comment; issue comments have no resolved state. */
-export async function updateComment({ api, pr, run, body }) {
-  const current = await api(`/pulls/${pr}`);
-  if (current.state !== "open" || current.head.sha !== run.head_sha) return "stale-head";
-  const previous = [];
-  for (let page = 1; ; page++) {
-    const comments = await api(`/issues/${pr}/comments?per_page=100&page=${page}`);
-    previous.push(...comments.filter(ownComment));
-    if (comments.length < 100) break;
-  }
-  if (
-    previous.some((comment) => {
-      const revision = commentRevision(comment.body);
-      return (
-        revision?.sha === run.head_sha &&
-        (revision.id > run.id ||
-          (revision.id === run.id && revision.attempt > (run.run_attempt ?? 1)))
-      );
-    })
-  )
-    return "newer-report";
-  previous.sort((a, b) => a.id - b.id);
-  // Recheck after pagination so a new commit never receives the preceding report.
-  const latest = await api(`/pulls/${pr}`);
-  if (latest.state !== "open" || latest.head.sha !== run.head_sha) return "stale-head";
-  await api(previous.length ? `/issues/comments/${previous[0].id}` : `/issues/${pr}/comments`, {
-    method: previous.length ? "PATCH" : "POST",
-    body: JSON.stringify({ body }),
-    headers: { "Content-Type": "application/json" },
-  });
-  for (const duplicate of previous.slice(1))
-    await api(`/issues/comments/${duplicate.id}`, { method: "DELETE" });
-  return previous.length ? "updated" : "created";
+/** Preserve previous revision comments; duplicate deliveries do not post twice. */
+export async function postComment({ api, pr, run, body }) {
+  const marker = `<!-- tracepilot-visual-report:run=${run.id};attempt=${run.run_attempt ?? 1};sha=${run.head_sha} -->`;
+  return postReportComment({ api, pr, run, body, marker });
 }

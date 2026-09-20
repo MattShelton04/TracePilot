@@ -3,6 +3,9 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
+import { renderBundleMarkdown } from "./bundle-markdown.mjs";
+
+export { renderBundleMarkdown };
 
 const FRONTEND_BUDGET_KEYS = Object.freeze([
   "totalBundleSizeKb",
@@ -109,32 +112,6 @@ export function collectBundleReport({ distDir, budget }) {
   };
 }
 
-export function renderBundleMarkdown(report) {
-  const { totalBundleSizeKb, largestChunkKb, initialLoadChunks } = report.metrics;
-  const status = (metric) => (metric.status === "within" ? "within" : "exceeded (advisory)");
-  const lines = [
-    "## Bundle analysis",
-    "",
-    "All size thresholds are advisory. Missing or invalid measurement inputs still fail the job.",
-    "",
-    "| Metric | Actual | Threshold | Status |",
-    "| --- | ---: | ---: | --- |",
-    `| Total JS + CSS | ${totalBundleSizeKb.actual.toFixed(1)} KiB | ${totalBundleSizeKb.budget} KiB | ${status(totalBundleSizeKb)} |`,
-    `| Largest chunk (\`${largestChunkKb.file}\`) | ${largestChunkKb.actual.toFixed(1)} KiB | ${largestChunkKb.budget} KiB | ${status(largestChunkKb)} |`,
-    `| Initial HTML JS/CSS assets | ${initialLoadChunks.actual} | ${initialLoadChunks.budget} | ${status(initialLoadChunks)} |`,
-    "",
-    "| File | Size (KiB) | Gzipped (KiB) |",
-    "| --- | ---: | ---: |",
-  ];
-  lines.push(
-    ...report.assets.map(
-      (asset) =>
-        `| \`${asset.file}\` | ${(asset.bytes / 1024).toFixed(1)} | ${(asset.gzipBytes / 1024).toFixed(1)} |`,
-    ),
-  );
-  return `${lines.join("\n")}\n`;
-}
-
 function parseOptions(args) {
   const options = Object.fromEntries(
     args.map((arg) => {
@@ -155,6 +132,10 @@ export function run(args = process.argv.slice(2)) {
   const options = parseOptions(args);
   const budget = readJson(options.budgetPath, "performance thresholds");
   const report = collectBundleReport({ distDir: options.distDir, budget });
+  if (process.env.BUNDLE_REVISION_SHA) {
+    assert(/^[a-f0-9]{40}$/.test(process.env.BUNDLE_REVISION_SHA), "Invalid bundle revision");
+    report.metadata.sha = process.env.BUNDLE_REVISION_SHA;
+  }
   mkdirSync(dirname(options.outputPath), { recursive: true });
   mkdirSync(dirname(options.summaryPath), { recursive: true });
   writeFileSync(options.outputPath, `${JSON.stringify(report, null, 2)}\n`);
