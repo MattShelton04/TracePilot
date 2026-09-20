@@ -137,6 +137,13 @@ export const cases = [
     ready: ".editor-body",
     state: "populated synthetic skill",
   },
+  { id: "agents-manager", route: "/agents", ready: ".agent-card", state: "populated" },
+  {
+    id: "agent-editor",
+    route: "/agents/detail?id=/visual-fixtures/agents/visual-explore.agent.md",
+    ready: ".agent-editor .frontmatter-card",
+    state: "populated synthetic personal agent",
+  },
   {
     id: "cli-context",
     route: "/cli-context",

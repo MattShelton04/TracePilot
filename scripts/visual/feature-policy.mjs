@@ -6,6 +6,7 @@ export const defaultFeatures = Object.freeze({
   renderMarkdown: true,
   mcpServers: false,
   skills: true,
+  agents: true,
   copilotSdk: false,
   exactContextCapture: false,
   configInjector: false,
