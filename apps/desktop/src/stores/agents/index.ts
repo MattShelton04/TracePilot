@@ -1,8 +1,10 @@
 import { agentsList, agentsUsageSummary } from "@tracepilot/client";
-import type { AgentCatalog, AgentUsageSummary } from "@tracepilot/types";
+import type { AgentCatalog } from "@tracepilot/types";
 import { runAction, useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
+import { createUsageSummary } from "@/composables/useUsageSummary";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import {
   type AgentFlag,
   type AgentScopeFilter,
@@ -10,7 +12,6 @@ import {
   buildAgentEntries,
   filterAndSortEntries,
 } from "@/utils/agents/entries";
-import { type AgentUsageRange, rangeBounds } from "@/utils/agents/range";
 import { createAgentMutations } from "./mutations";
 
 /**
@@ -20,14 +21,12 @@ import { createAgentMutations } from "./mutations";
  */
 export const useAgentsStore = defineStore("agents", () => {
   const catalog = shallowRef<AgentCatalog | null>(null);
-  const usage = shallowRef<AgentUsageSummary | null>(null);
-  const range = ref<AgentUsageRange>("30d");
+  const usageSlice = createUsageSummary(agentsUsageSummary, STORAGE_KEYS.agentsUsageRange);
+  const { usage, range, loadUsage } = usageSlice;
   const catalogLoading = ref(false);
-  const usageLoading = ref(false);
+  const initialized = ref(false);
   const error = ref<string | null>(null);
-  const usageError = ref<string | null>(null);
   const catalogGuard = useAsyncGuard();
-  const usageGuard = useAsyncGuard();
 
   const scope = ref<AgentScopeFilter>("all");
   const flags = ref<ReadonlySet<AgentFlag>>(new Set());
@@ -64,26 +63,9 @@ export const useAgentsStore = defineStore("agents", () => {
     });
   }
 
-  async function loadUsage() {
-    await runAction({
-      loading: usageLoading,
-      error: usageError,
-      guard: usageGuard,
-      action: () => agentsUsageSummary(rangeBounds(range.value)),
-      onSuccess: (result) => {
-        usage.value = result;
-      },
-    });
-  }
-
-  async function loadAll() {
-    await Promise.all([loadCatalog(), loadUsage()]);
-  }
-
-  async function setRange(next: AgentUsageRange) {
-    if (range.value === next) return;
-    range.value = next;
-    await loadUsage();
+  async function loadAll(force = false) {
+    await Promise.all([loadCatalog(), loadUsage(force)]);
+    initialized.value = true;
   }
 
   function toggleFlag(flag: AgentFlag) {
@@ -103,12 +85,10 @@ export const useAgentsStore = defineStore("agents", () => {
 
   return {
     catalog,
-    usage,
-    range,
+    ...usageSlice,
     catalogLoading,
-    usageLoading,
+    initialized,
     error,
-    usageError,
     scope,
     flags,
     search,
@@ -118,9 +98,7 @@ export const useAgentsStore = defineStore("agents", () => {
     scopeCounts,
     hasCustomAgents,
     loadCatalog,
-    loadUsage,
     loadAll,
-    setRange,
     toggleFlag,
     clearFilters,
     ...mutations,

@@ -6,7 +6,10 @@ import SkillsManagerView from "@/views/skills/SkillsManagerView.vue";
 
 const { getStore } = vi.hoisted(() => ({ getStore: vi.fn() }));
 vi.mock("@/stores/skills", () => ({ useSkillsStore: getStore }));
-vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("vue-router", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useRoute: () => ({ query: {} }),
+}));
 vi.mock("@/router/navigation", () => ({ pushRoute: vi.fn() }));
 
 enableAutoUnmount(afterEach);
@@ -20,12 +23,28 @@ async function openForm() {
     globalSkills: [],
     repoSkills: [],
     builtinSkills: [],
+    missingSkills: [],
+    entries: [],
     filteredSkills: [],
+    unusedEnabledSkills: [],
+    usedSkillCount: 0,
     diagnostics: [],
     searchQuery: "",
     filterScope: "all",
+    filterFlags: new Set(),
+    flagCounts: {},
+    sort: "uses",
+    range: "90d",
+    usage: null,
+    usageLoading: false,
+    usageError: null,
+    loadAll: vi.fn(),
     loadSkills: vi.fn(),
-    loadEncounteredProjectSkills: vi.fn(),
+    setRange: vi.fn(),
+    setFilterScope: vi.fn(),
+    toggleFlag: vi.fn(),
+    showOnlyFlag: vi.fn(),
+    clearFilters: vi.fn(),
     createSkill: vi.fn(),
     clearError: () => {
       store.error = null;

@@ -1,11 +1,7 @@
 <script setup lang="ts">
-/**
- * Ranked labelled bars for a categorical breakdown (models, parents,
- * failure reasons…). Bars are scaled against the largest row, while the
- * percentage is of the total so small rows stay readable.
- */
+/** Categorical shares with the same denominator for bar length and percentage. */
 import { formatNumberFull } from "@tracepilot/types";
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 
 export interface BreakdownRow {
   key: string;
@@ -23,15 +19,26 @@ const props = withDefaults(
     total?: number | null;
     limit?: number;
     emptyText?: string;
+    unit?: "runs" | "uses";
+    wrapLabels?: boolean;
   }>(),
-  { total: null, limit: 8, emptyText: "Not recorded" },
+  { total: null, limit: 8, emptyText: "Not recorded", unit: "runs", wrapLabels: false },
 );
 
-const visible = computed(() => props.rows.slice(0, props.limit));
+const expanded = ref(false);
+watch(
+  () => props.rows,
+  () => {
+    expanded.value = false;
+  },
+);
+const visible = computed(() => (expanded.value ? props.rows : props.rows.slice(0, props.limit)));
 const total = computed(
   () => props.total ?? props.rows.reduce((sum, row) => sum + row.value, 0) ?? 0,
 );
-const max = computed(() => Math.max(1, ...props.rows.map((row) => row.value)));
+function width(value: number): string {
+  return `${total.value > 0 ? Math.min(100, Math.max(0, (value / total.value) * 100)) : 0}%`;
+}
 
 function share(value: number): string {
   if (!total.value) return "";
@@ -41,26 +48,28 @@ function share(value: number): string {
 </script>
 
 <template>
-  <ul v-if="visible.length" class="breakdown">
+  <ul v-if="visible.length" class="breakdown" :class="{ 'breakdown--wrap': wrapLabels }">
     <li v-for="row in visible" :key="row.key" class="breakdown__row">
       <div class="breakdown__head">
         <span class="breakdown__label" :title="row.label">{{ row.label }}</span>
         <span class="breakdown__value">
-          {{ formatNumberFull(row.value) }}
+          {{ formatNumberFull(row.value) }} {{ row.value === 1 ? unit.slice(0, -1) : unit }}
           <span v-if="total" class="breakdown__share">{{ share(row.value) }}</span>
         </span>
       </div>
-      <div class="breakdown__track">
+      <div class="breakdown__track" aria-hidden="true">
         <div
           class="breakdown__fill"
           :class="`breakdown__fill--${row.tone ?? 'accent'}`"
-          :style="{ width: `${Math.max(2, (row.value / max) * 100)}%` }"
+          :style="{ width: width(row.value) }"
         />
       </div>
       <p v-if="row.detail" class="breakdown__detail" :title="row.detail">{{ row.detail }}</p>
     </li>
-    <li v-if="rows.length > visible.length" class="breakdown__more">
-      +{{ rows.length - visible.length }} more
+    <li v-if="rows.length > limit" class="breakdown__more">
+      <button type="button" :aria-expanded="expanded" @click="expanded = !expanded">
+        {{ expanded ? 'Show fewer' : `Show ${rows.length - visible.length} more` }}
+      </button>
     </li>
   </ul>
   <p v-else class="breakdown__empty">{{ emptyText }}</p>
@@ -137,9 +146,26 @@ function share(value: number): string {
   margin: 4px 0 0;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+
+.breakdown--wrap .breakdown__label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.breakdown__more button {
+  border: none;
+  background: none;
+  padding: 4px 0;
+  font: inherit;
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+
+.breakdown__more button:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
 }
 
 .breakdown__more,

@@ -8,24 +8,24 @@ setupSkillsStoreTest();
 describe("useSkillsStore", () => {
   // ── filteredSkills (computed) ──────────────────────────────
   describe("filteredSkills", () => {
-    it("returns global skills sorted by name by default", async () => {
+    it("returns every skill by default, sorted by name while none are used", async () => {
       mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
       const store = useSkillsStore();
       await store.loadSkills();
-
-      const names = store.filteredSkills.map((s) => s.name);
-      expect(names).toEqual(["api-docs", "code-review"]);
-    });
-
-    it("returns all skills sorted by name when the all filter is applied", async () => {
-      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
-      const store = useSkillsStore();
-      await store.loadSkills();
-
-      store.filterScope = "all";
 
       const names = store.filteredSkills.map((s) => s.name);
       expect(names).toEqual(["api-docs", "code-review", "test-gen"]);
+    });
+
+    it("narrows to one scope when the scope filter is applied", async () => {
+      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      const store = useSkillsStore();
+      await store.loadSkills();
+
+      store.filterScope = "global";
+
+      const names = store.filteredSkills.map((s) => s.name);
+      expect(names).toEqual(["api-docs", "code-review"]);
     });
 
     it("filters by searchQuery on name", async () => {
@@ -44,7 +44,6 @@ describe("useSkillsStore", () => {
       const store = useSkillsStore();
       await store.loadSkills();
 
-      store.filterScope = "all";
       store.searchQuery = "unit tests";
 
       expect(store.filteredSkills).toHaveLength(1);

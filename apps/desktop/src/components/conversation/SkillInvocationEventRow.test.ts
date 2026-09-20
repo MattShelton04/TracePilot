@@ -236,6 +236,66 @@ describe("SkillInvocationEventRow", () => {
     expect(wrapper.find(".skill-row__editor-btn").exists()).toBe(false);
   });
 
+  it("opens this skill's usage, keeping the session it came from", async () => {
+    routeMock.params = { id: "session-123" };
+
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: {
+        event: evt({
+          skillInvocation: {
+            contextFolded: true,
+            name: "trace-skill",
+            path: "C:\\skills\\trace-skill\\SKILL.md",
+            content: "body",
+            contentLength: 4,
+          },
+        }),
+      },
+    });
+
+    await wrapper.get(".skill-row__header").trigger("click");
+    const usageBtn = wrapper.get(".skill-row__usage-btn");
+    expect(usageBtn.text()).toBe("View usage");
+    await usageBtn.trigger("click");
+
+    expect(pushRoute).toHaveBeenCalledWith(routerMock, ROUTE_NAMES.skillEditor, {
+      params: { name: encodeURIComponent("C:\\skills\\trace-skill") },
+      query: { tab: "usage", fromSession: "session-123" },
+    });
+  });
+
+  it("falls back to the Skills search when the invocation recorded no path", async () => {
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: {
+        event: evt({
+          skillInvocation: { contextFolded: false, name: "sdk-only-skill" },
+        }),
+      },
+    });
+
+    await wrapper.get(".skill-row__header").trigger("click");
+    const usageBtn = wrapper.get(".skill-row__usage-btn");
+    expect(usageBtn.text()).toBe("Find in Skills");
+    await usageBtn.trigger("click");
+
+    expect(pushRoute).toHaveBeenCalledWith(routerMock, ROUTE_NAMES.skillsManager, {
+      query: { q: "sdk-only-skill" },
+    });
+  });
+
+  it("hides the usage button in popout viewer windows", async () => {
+    windowRoleMock.isViewer = true;
+
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: {
+        event: evt({ skillInvocation: { contextFolded: false, name: "trace-skill" } }),
+      },
+    });
+
+    await wrapper.get(".skill-row__header").trigger("click");
+    expect(wrapper.find(".skill-row__usage-btn").exists()).toBe(false);
+  });
+
   it("opens the skill editor when the button is clicked with a valid path and flag", async () => {
     routeMock.params = { id: "session-123" };
 

@@ -1,76 +1,11 @@
-/**
- * Shared styles for the Skills Manager feature.
- *
- * Extracted from `views/skills/SkillsManagerView.vue` scoped styles (Phase 8
- * of tech-debt cleanup). Every selector is namespaced under
- * `.skills-manager-view` — a wrapping element added to the SFC's template
- * (mirroring the precedent from `skill-import-wizard.css`) — so that generic
- * class names (`.btn`, `.modal`, `.modal-overlay`, `.empty-state`,
- * `.search-input`, etc.) cannot leak out and clash with the global
- * `apps/desktop/src/styles/components.css` / `overlays.css` / `features.css`
- * rules.
- */
-
-/* ── Stats Strip ─────────────────────────────────────────── */
-.skills-manager-view .stats-strip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 0 2px;
-  flex-wrap: wrap;
-}
-
-.skills-manager-view .stat-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.skills-manager-view .stat-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.skills-manager-view .stat-dot--installed {
-  background: var(--accent-fg);
-}
-
-.skills-manager-view .stat-dot--global {
-  background: var(--accent-fg);
-}
-
-.skills-manager-view .stat-dot--project {
-  background: var(--success-fg);
-}
-
-.skills-manager-view .stat-dot--builtin {
-  background: var(--attention-fg);
-}
-
-.skills-manager-view .stat-dot--active {
-  background: var(--success-fg);
-}
-
-.skills-manager-view .stat-sep {
-  color: var(--text-tertiary);
-  font-size: 0.625rem;
-  user-select: none;
-}
-
 /* ── Token Info ──────────────────────────────────────────── */
 .skills-manager-view .token-info {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  margin-top: 8px;
-  background: var(--accent-subtle, rgba(99, 102, 241, 0.04));
-  border: 1px solid rgba(99, 102, 241, 0.12);
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-muted, var(--border-default));
   border-radius: var(--radius-md);
   font-size: 0.75rem;
   color: var(--text-secondary);
@@ -95,252 +30,6 @@
   background: var(--accent-muted);
   padding: 1px 5px;
   border-radius: 3px;
-}
-
-.skills-manager-view .token-info__bar {
-  width: 80px;
-  height: 6px;
-  background: var(--canvas-inset);
-  border-radius: 3px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.skills-manager-view .token-info__bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: var(--accent-emphasis);
-  transition: width 0.3s ease;
-}
-
-/* ── Filter Row ──────────────────────────────────────────── */
-.skills-manager-view .filter-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 16px 0 20px;
-  flex-wrap: wrap;
-}
-
-/* ── Scope Segmented Control ─────────────────────────────── */
-.skills-manager-view .scope-segmented {
-  display: inline-flex;
-  gap: 0;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.skills-manager-view .scope-seg-btn {
-  padding: 6px 16px;
-  height: 32px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  background: var(--canvas-default, var(--canvas-subtle));
-  border: none;
-  border-right: 1px solid var(--border-default);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: inherit;
-}
-
-.skills-manager-view .scope-seg-btn:last-child {
-  border-right: none;
-}
-
-.skills-manager-view .scope-seg-btn:hover {
-  color: var(--text-primary);
-  background: var(--canvas-subtle);
-}
-
-.skills-manager-view .scope-seg-btn.active {
-  color: var(--accent-fg);
-  background: var(--accent-muted);
-  font-weight: 600;
-}
-
-/* ── Search ──────────────────────────────────────────────── */
-.skills-manager-view .search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  height: 32px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--canvas-subtle);
-  max-width: 240px;
-  flex: 1;
-  transition: border-color var(--transition-fast);
-  box-sizing: border-box;
-}
-
-.skills-manager-view .search-box:focus-within {
-  border-color: var(--accent-fg);
-}
-
-.skills-manager-view .search-icon {
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
-.skills-manager-view .search-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  outline: none;
-}
-
-.skills-manager-view .search-input::placeholder {
-  color: var(--text-tertiary);
-}
-
-/* ── Buttons ─────────────────────────────────────────────── */
-.skills-manager-view .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all var(--transition-fast);
-  font-family: inherit;
-}
-
-.skills-manager-view .btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.skills-manager-view .btn--primary {
-  background: var(--gradient-accent, var(--accent-emphasis));
-  border: 1px solid transparent;
-  color: var(--text-on-emphasis);
-  font-weight: 600;
-  box-shadow: 0 1px 6px rgba(99, 102, 241, 0.35);
-}
-
-.skills-manager-view .btn--primary:hover:not(:disabled) {
-  box-shadow: 0 3px 14px rgba(99, 102, 241, 0.45);
-  transform: translateY(-1px);
-}
-
-.skills-manager-view .btn--primary:active {
-  transform: translateY(0);
-}
-
-.skills-manager-view .btn--primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.skills-manager-view .btn--secondary {
-  background: var(--canvas-default, var(--canvas-subtle));
-  border: 1px solid var(--border-default);
-  color: var(--text-secondary);
-}
-
-.skills-manager-view .btn--secondary:hover {
-  color: var(--text-primary);
-  border-color: var(--accent-fg);
-  background: var(--accent-subtle, var(--canvas-inset));
-}
-
-.skills-manager-view .btn--ghost {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-tertiary);
-}
-
-.skills-manager-view .btn--ghost:hover {
-  color: var(--text-secondary);
-  background: var(--canvas-subtle);
-  border-color: var(--border-default);
-}
-
-.skills-manager-view .btn--sm {
-  padding: 4px 10px;
-  font-size: 0.75rem;
-}
-
-/* ── Skills Grid ─────────────────────────────────────────── */
-.skills-manager-view .skills-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 12px;
-}
-
-/* ── State Messages ──────────────────────────────────────── */
-.skills-manager-view .state-message {
-  text-align: center;
-  padding: 40px 20px;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.skills-manager-view .state-message--error {
-  color: var(--danger-fg);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.skills-manager-view .state-message--warning {
-  padding: 10px 14px;
-  margin: -4px 0 16px;
-  border: 1px solid color-mix(in srgb, var(--attention-fg, #d29922) 22%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--attention-muted, #d29922) 12%, transparent);
-  color: var(--text-secondary);
-  text-align: left;
-}
-
-/* ── Empty State ─────────────────────────────────────────── */
-.skills-manager-view .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 60px 20px;
-}
-
-.skills-manager-view .empty-state__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 3rem;
-  margin-bottom: 12px;
-  color: var(--text-tertiary);
-  opacity: 0.75;
-}
-
-.skills-manager-view .empty-state__title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 6px;
-}
-
-.skills-manager-view .empty-state__desc {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0 0 20px;
-}
-
-.skills-manager-view .empty-state__actions {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
 }
 
 /* ── Modal ───────────────────────────────────────────────── */
@@ -465,4 +154,23 @@
   gap: 8px;
   padding: 12px 20px;
   border-top: 1px solid var(--border-muted);
+}
+
+/* Inline action inside a banner, e.g. "Show all time". */
+.skills-manager-view .banner-action {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+
+.skills-manager-view .banner-action:hover {
+  text-decoration: underline;
+}
+
+.skills-manager-view .banner-action:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
 }

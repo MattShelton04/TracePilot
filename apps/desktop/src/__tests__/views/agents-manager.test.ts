@@ -45,6 +45,7 @@ function mountView(overrides: Record<string, unknown> = {}) {
     usage: SUMMARY,
     range: "30d",
     catalogLoading: false,
+    initialized: true,
     usageLoading: false,
     error: null as string | null,
     usageError: null as string | null,
@@ -110,9 +111,9 @@ describe("AgentsManagerView", () => {
   });
 
   it("hands flag chips to the store rather than filtering locally", async () => {
-    const { store, wrapper } = mountView();
+    const { store, wrapper } = mountView({ flags: new Set(["mismatch"]) });
     await flushPromises();
-    const chip = wrapper.findAll(".flag-chip").find((b) => b.text() === "Model mismatch");
+    const chip = wrapper.findAll(".flag-chip").find((b) => b.text().includes("Model mismatch"));
     await chip!.trigger("click");
     expect(store.toggleFlag).toHaveBeenCalledWith("mismatch");
   });
@@ -130,4 +131,18 @@ describe("AgentsManagerView", () => {
     await flushPromises();
     expect(wrapper.text()).toContain("Overrides are read-only");
   });
+});
+
+it("keeps totals and cards visible during background refresh", async () => {
+  const { wrapper } = mountView({ catalogLoading: true, usageLoading: true });
+  expect(wrapper.find(".definition-card__open").exists()).toBe(true);
+  expect(wrapper.get(".stats-strip").text()).toContain("10 runs");
+  expect(wrapper.find(".definition-loading").exists()).toBe(false);
+});
+
+it("shows one loading placeholder until both initial requests settle", () => {
+  const { wrapper } = mountView({ initialized: false });
+  expect(wrapper.find(".definition-loading").exists()).toBe(true);
+  expect(wrapper.find(".stats-strip").exists()).toBe(false);
+  expect(wrapper.find(".filter-row").exists()).toBe(false);
 });

@@ -53,6 +53,12 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     viewingContent: null,
     previewFrontmatter: { name: "My Skill", description: "desc" },
     previewBody: "# Body",
+    activeTab: "preview" as const,
+    usage: null,
+    usageLoading: false,
+    usageError: null,
+    usageRange: "90d" as const,
+    installedSha256: null,
     leftWidth: 50,
     minLeftWidth: 25,
     maxLeftWidth: 75,
@@ -61,6 +67,8 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     onMouseDown: vi.fn(),
     onResizeKeyDown: vi.fn(),
     skillDir: "my-skill",
+    skillName: "My Skill",
+    isUsageOnly: false,
     totalLineCount: 1,
     byteCount: 10,
     tokenUsage: { frontmatterTokens: 12, instructionTokens: 34 },
@@ -212,6 +220,21 @@ describe("SkillEditorMarkdownEditor", () => {
 });
 
 describe("SkillEditorPreviewPane", () => {
+  it("opens on Preview rather than Usage", () => {
+    const wrapper = mountWithCtx(SkillEditorPreviewPane, makeCtx());
+    expect(wrapper.find(".md-stub").exists()).toBe(true);
+    expect(wrapper.find(".skill-usage").exists()).toBe(false);
+  });
+
+  it("switches to the Usage tab and reports why there is nothing to show", async () => {
+    const ctx = makeCtx({ activeTab: "usage" } as never);
+    const wrapper = mountWithCtx(SkillEditorPreviewPane, ctx);
+
+    expect(wrapper.find(".skill-usage").exists()).toBe(true);
+    expect(wrapper.text()).toContain("was not invoked in 90 days");
+    expect(wrapper.find(".md-stub").exists()).toBe(false);
+  });
+
   it("renders previewFrontmatter name + body + assets tree", () => {
     const ctx = makeCtx();
     const wrapper = mountWithCtx(SkillEditorPreviewPane, ctx);

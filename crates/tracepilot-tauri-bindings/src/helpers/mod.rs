@@ -10,6 +10,7 @@ use crate::error::BindingsError;
 
 mod cache;
 mod db;
+mod definition_repos;
 mod emit;
 mod path;
 
@@ -38,5 +39,6 @@ pub(crate) struct OpenIndexDb {
 
 pub(crate) use cache::{indexed_session_to_list_item, load_summary_list_item, read_config};
 pub(crate) use db::{open_index_db, remove_index_db_files, with_session_path};
+pub(crate) use definition_repos::definition_repo_roots;
 pub(crate) use emit::{emit_best_effort, emit_indexing_progress};
 pub(crate) use path::{validate_path_within, validate_path_within_any, validate_write_path_within};

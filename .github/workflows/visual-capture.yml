@@ -28,11 +28,11 @@ jobs:
         revision: [base, head]
         shard: [1, 2]
     steps:
-      # The same head harness/manifest/fixture overrides drive both revisions.
-      # This lets the first PR work before the base has a visual harness.
+      # Use the workflow revision (the PR merge commit) for the shared harness.
+      # It includes helpers added on main even when the PR head predates them.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
           path: harness
           fetch-depth: 0
           persist-credentials: false

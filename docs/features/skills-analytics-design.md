@@ -1,8 +1,13 @@
 # Skills analytics — design
 
-Status: **Proposed** (2026-09-19). This extends the existing Skills manager (`skills` feature flag).
-Related: [Agents explorer design](agents-explorer-design.md), which shares the editor shell and
-usage patterns. Also [prompt-cache insights](prompt-cache-insights-plan.md).
+Status: **Implemented** (2026-09-20, PR #841). This extends the existing Skills manager
+(`skills` feature flag). Related: [Agents explorer design](agents-explorer-design.md), which
+shares the editor shell and usage patterns. Also
+[prompt-cache insights](prompt-cache-insights-plan.md).
+
+What shipped differs from this design in the ways recorded in §14. The sections below are kept
+as written so the reasoning behind each decision stays readable; where they disagree with the
+code, §14 says which won and why.
 
 ## 1. Problem
 
@@ -201,9 +206,21 @@ fall back to the file write on any failure.
 The Skills editor components (`components/skillEditor/*`, `useSkillEditor.ts`, 469 lines) are
 the template for the Agents editor. Phase 3 of this design extracts a generic
 `DefinitionEditor` shell. The detailed plan is in
-[agents-explorer-design.md §6](agents-explorer-design.md). The Usage tab, sparkline, flag badge
-and insight bar are built as generic components here (`components/usage/*`) so that Agents can
-use them unchanged.
+[agents-explorer-design.md §6](agents-explorer-design.md).
+
+As shipped, the reuse runs the other way: the Agents explorer landed first, so Skills adopted
+what it had built rather than the reverse.
+
+- `utils/usage/range.ts` is the shared range module. `utils/agents/range.ts` is now a pure
+  re-export of it, so both features compute identical `fromDate`/`toDate` bounds and label a
+  range the same way.
+- `components/usage/UsageSparkline.vue`, `UsageStackedBar.vue` and `UsageBreakdownBars.vue` are
+  used unchanged by the skill Usage tab and the dashboard panel.
+- `utils/skills/entries.ts` mirrors `buildAgentEntries`, and `AnalyticsSkillsPanel.vue` mirrors
+  `AnalyticsAgentsPanel.vue`: each queries its own summary command with the dashboard's range
+  and repository rather than widening `AnalyticsData`.
+- `.panel-header--tabs` moved from `agent-editor.css` into `definition-editor.css`, so both
+  editors share one rule.
 
 ## 11. Phases
 
@@ -232,7 +249,38 @@ use them unchanged.
 ## 13. Open questions
 
 - Should "Unused" consider **user-level** vs **repo-level** scope separately? A project skill
-  can be unused in this repo but used elsewhere. Proposal: when a repository filter is active,
-  compute flags within that repo.
-- Should the insight bar offer one-click "Disable all unused"? Proposal: no in phase 2. Offer a
-  pre-filtered list with per-row toggles instead.
+  can be unused in this repo but used elsewhere. **Resolved for the dashboard:** the Analytics
+  panel withholds the unused line entirely while a repository filter is active, because the
+  catalog is machine-wide and comparing it against one repository's usage would call skills
+  unused that are used constantly elsewhere. The manager has no repository filter, so the
+  question does not arise there.
+- Should the insight bar offer one-click "Disable all unused"? **Resolved:** there is no insight
+  bar (§14.6). The "Unused & enabled" count in the stats strip narrows the list to exactly those
+  skills, and each row keeps its own toggle. Nothing acts in bulk.
+
+## 14. What shipped, and where it diverges
+
+1. **Timestamps are RFC3339 `TEXT`, not `ts_unix`.** Every other child table filters with
+   `date(COALESCE(x, s.created_at))`; a second convention would have meant a second way to get
+   date filtering wrong.
+2. **Resolution and merging live in TypeScript** (`utils/skills/entries.ts`), not in a Rust
+   `skills/usage.rs`. This mirrors `buildAgentEntries`, and makes the rules — directory first,
+   then name — unit-testable without a database. Rust stays pure aggregation.
+3. **`skills_encountered_project` is removed, not shimmed.** The usage table supersedes it for
+   every scope and all history, rather than 100 sessions of project skills, and its removal
+   drops a ~300-line runtime event-log scan.
+4. **Tokens are stored as `frontmatterTokens` + `instructionTokens`**, so a skill that is no
+   longer installed still has a listing-cost estimate.
+5. **Every late-added CLI field carries its denominator on screen.** No corpus-wide gap is
+   folded into a known bucket: a trigger split where nothing was recorded is stated as a
+   sentence rather than drawn as a 100%-neutral bar.
+6. **There is no insight bar.** The stats strip already states the same counts, so the bar was a
+   second voice repeating them. Its useful half — one click from a count to its evidence — moved
+   onto the counts themselves.
+7. **The range is remembered, and an empty range says which kind of empty it is.** The local
+   corpus's skill use all predates the 90-day default, so a window with no uses offers
+   "Show all time"; only an all-time query with no uses claims the index has nothing. For the
+   same reason `unused` is withheld when the index recorded no use at all — otherwise the flag
+   describes the index rather than the skill.
+8. **`?tab=usage`** opens the editor directly on Usage, which is how the conversation row's
+   "View usage" and the dashboard reach it.

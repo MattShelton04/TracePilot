@@ -15,7 +15,7 @@ import {
   Tooltip,
 } from "@tracepilot/ui";
 import { computed } from "vue";
-import UsageSparkline from "@/components/usage/UsageSparkline.vue";
+import UsageCardSummary, { type UsageCardStat } from "@/components/usage/UsageCardSummary.vue";
 import { agentMeta } from "@/utils/agents/agentMeta";
 import { type AgentEntry, failureRate } from "@/utils/agents/entries";
 import { resolvePlaceholderText } from "@/utils/agents/placeholders";
@@ -64,23 +64,22 @@ const sparkValues = computed(() => {
  * render as an em dash rather than being dropped, so the columns line up
  * across the grid.
  */
-const stats = computed(() => {
+const stats = computed<UsageCardStat[] | null>(() => {
   const usage = props.entry.usage;
   if (!usage || usage.runs === 0) return null;
   const rate = failureRate(usage);
   return [
-    { key: "runs", label: "runs", value: formatNumber(usage.runs), tone: "" },
+    { key: "runs", label: "runs", value: formatNumber(usage.runs) },
     {
       key: "p50",
       label: "median",
       value: usage.durationMs.p50 != null ? formatDuration(usage.durationMs.p50) : "—",
-      tone: "",
     },
     {
       key: "failed",
       label: "failed/cancelled",
       value: rate === 0 ? "0%" : `${(rate * 100).toFixed(rate < 0.1 ? 1 : 0)}%`,
-      tone: props.entry.flags.includes("failing") ? "danger" : rate === 0 ? "muted" : "",
+      tone: props.entry.flags.includes("failing") ? "danger" : rate === 0 ? "muted" : undefined,
     },
   ];
 });
@@ -117,39 +116,22 @@ const lastRun = computed(() => {
       </Tooltip>
     </template>
 
-    <p v-if="models.length" class="agent-card__models" :title="modelsTitle">
-      <span v-for="(model, index) in models" :key="model">
-        <span v-if="index > 0" class="agent-card__arrow" aria-hidden="true">→</span>{{ model }}
-      </span>
+    <div v-if="models.length" class="agent-card__models" :title="modelsTitle">
+      <span class="agent-card__model-label">{{ entry.override?.model ? 'Model override' : 'Model' }}</span>
+      <span class="agent-card__primary-model">{{ models[0] }}</span>
       <span v-if="entry.definition?.fields.reasoningEffort" class="agent-card__effort">
-        · {{ entry.definition.fields.reasoningEffort }}
+        {{ entry.definition.fields.reasoningEffort }} effort
       </span>
-    </p>
+      <span v-if="models.length > 1" class="agent-card__fallbacks">
+        Fallback: {{ models.slice(1).join(' → ') }}
+      </span>
+    </div>
 
     <template #footer>
-    <div class="agent-card__usage">
-      <dl v-if="stats" class="agent-card__stats">
-        <div v-for="stat in stats" :key="stat.key" class="agent-card__stat">
-          <dt class="agent-card__stat-label">{{ stat.label }}</dt>
-          <dd class="agent-card__stat-value" :class="`agent-card__stat-value--${stat.tone || 'plain'}`">
-            {{ stat.value }}
-          </dd>
-        </div>
-      </dl>
-      <span v-else class="agent-card__idle">No runs in this range</span>
-
-      <div class="agent-card__trend">
-        <UsageSparkline
-          v-if="sparkValues.length > 1"
-          :values="sparkValues"
-          :label="`Daily runs for ${entry.name}`"
-          :width="72"
-          :height="18"
-          :tone="entry.flags.includes('failing') ? 'danger' : 'accent'"
-        />
-        <span v-if="lastRun" class="agent-card__last">{{ lastRun }}</span>
-      </div>
-    </div>
+      <UsageCardSummary
+        :stats="stats" :values="sparkValues" :label="`Daily runs for ${entry.name}`"
+        :last-used="lastRun" idle-text="No runs in this range" :tone="entry.flags.includes('failing') ? 'danger' : 'accent'"
+      />
     </template>
   </DefinitionCard>
 </template>
@@ -168,92 +150,26 @@ const lastRun = computed(() => {
 }
 
 .agent-card__models {
-  margin: 0 0 10px;
-  font-size: 0.6875rem;
-  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+}
+.agent-card__model-label, .agent-card__effort, .agent-card__fallbacks {
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.agent-card__arrow {
-  color: var(--text-tertiary);
-  margin: 0 4px;
-}
-
-.agent-card__effort {
-  font-family: var(--font-sans);
-  color: var(--text-tertiary);
-}
-
-.agent-card__usage {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px;
-  align-items: end;
-  gap: 12px;
-}
-
-/* Three labelled figures rather than one run-on sentence, so the same
-   column means the same thing on every card in the grid. */
-.agent-card__stats {
-  display: grid;
-  grid-template-columns: minmax(0, 0.65fr) minmax(0, 1fr) minmax(0, 1.6fr);
-  gap: 0 8px;
-  margin: 0;
-  min-width: 0;
-}
-
-.agent-card__stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.agent-card__stat-label {
-  font-size: 0.5625rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-tertiary);
-}
-
-.agent-card__stat-value {
-  margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.agent-card__stat-value--danger {
-  color: var(--danger-fg);
-}
-
-.agent-card__stat-value--muted {
-  color: var(--text-tertiary);
-}
-
-.agent-card__idle {
   font-size: 0.6875rem;
-  color: var(--text-tertiary);
 }
-
-.agent-card__trend {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  flex-shrink: 0;
+.agent-card__primary-model {
+  padding: 4px 8px;
+  border: 1px solid var(--accent-muted);
+  border-radius: var(--radius-sm);
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
-
-.agent-card__last {
-  font-size: 0.5625rem;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
+.agent-card__fallbacks { width: 100%; overflow-wrap: anywhere; }
 </style>

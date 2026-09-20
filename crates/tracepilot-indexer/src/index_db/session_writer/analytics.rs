@@ -323,9 +323,17 @@ pub(crate) fn extract_session_analytics(
         .map(super::prompt_cache::extract_prompt_cache_rows)
         .unwrap_or_default();
 
-    let agent_runs = match (typed_events.as_deref(), turns) {
+    let (agent_runs, skill_invocations) = match (typed_events.as_deref(), turns) {
         (Some(events), Some(turns)) => {
-            tracepilot_core::agent_runs::extract_agent_runs(events, turns)
+            let agent_runs = tracepilot_core::agent_runs::extract_agent_runs(events, turns);
+            // Reuses the runs just extracted so a subagent's invocations carry
+            // its name without walking the lifecycle events twice.
+            let skills = tracepilot_core::skill_invocations::extract_skill_invocations(
+                events,
+                turns,
+                &agent_runs.runs,
+            );
+            (agent_runs, skills)
         }
         _ => Default::default(),
     };
@@ -359,5 +367,6 @@ pub(crate) fn extract_session_analytics(
         cache_window_rows,
         cache_ttl_rows,
         agent_runs,
+        skill_invocations,
     }
 }

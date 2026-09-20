@@ -1,12 +1,4 @@
-//! Atomic staging + rename primitive used by every skill importer.
-//!
-//! NOTE(w81 audit): Evaluated for promotion to `tracepilot_core::utils::atomic`
-//! and **deliberately left in place**. All four callers (`local`, `github`,
-//! `file`, tests) live under `skills/import/`, so the helper is still
-//! single-module-scope. Promotion would require either genericising over the
-//! error type (awkward given the domain-specific [`SkillsError::DuplicateSkill`]
-//! variant) or leaking `SkillsError` into core. Revisit if a second module
-//! ever needs an atomic directory install.
+//! Atomic staging + rename primitive shared by skill imports and duplication.
 
 use crate::skills::error::SkillsError;
 use std::path::{Path, PathBuf};
@@ -28,7 +20,7 @@ use std::path::{Path, PathBuf};
 /// of the final destination, guaranteeing same-filesystem operation. On
 /// Windows, `MoveFileExW` is used — it is not strictly atomic but is safe
 /// for a just-created staging directory that no other process references.
-pub(super) fn atomic_dir_install<T, F>(
+pub(crate) fn atomic_dir_install<T, F>(
     dest_parent: &Path,
     skill_name: &str,
     populate: F,

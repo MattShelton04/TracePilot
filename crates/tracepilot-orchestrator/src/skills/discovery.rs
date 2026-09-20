@@ -53,6 +53,36 @@ fn repo_skill_dirs(repo_root: &Path) -> [PathBuf; 4] {
     ]
 }
 
+/// Discover project skills without rescanning global or packaged definitions.
+pub fn discover_repository(root: &Path) -> Result<SkillDiscoveryResult, SkillsError> {
+    let mut result = SkillDiscoveryResult {
+        skills: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+    for directory in repo_skill_dirs(root) {
+        if directory.exists() {
+            let found = discover_in_directory_detailed(&directory, SkillScope::Repository)?;
+            result.skills.extend(found.skills);
+            result.diagnostics.extend(found.diagnostics);
+        }
+    }
+    Ok(result)
+}
+
+/// Owning repository for a skill under any supported project root.
+pub fn skill_repository(skill_dir: &Path) -> Option<&Path> {
+    skill_dir.ancestors().find_map(|ancestor| {
+        if ancestor.file_name()? != "skills" {
+            return None;
+        }
+        let parent = ancestor.parent()?;
+        let marker = parent.file_name()?.to_str()?;
+        matches!(marker, ".github" | ".copilot" | ".agents" | ".claude")
+            .then(|| parent.parent())
+            .flatten()
+    })
+}
+
 /// Discover all skills (global + optional repository).
 pub fn discover_all(repo_root: Option<&Path>) -> Result<Vec<SkillSummary>, SkillsError> {
     Ok(discover_all_detailed(repo_root)?.skills)
@@ -62,41 +92,41 @@ pub fn discover_all(repo_root: Option<&Path>) -> Result<Vec<SkillSummary>, Skill
 pub fn discover_all_detailed(
     repo_root: Option<&Path>,
 ) -> Result<SkillDiscoveryResult, SkillsError> {
-    let mut summaries = Vec::new();
-    let mut diagnostics = Vec::new();
-
-    // Global skills
-    if let Ok(global_dir) = global_skills_dir()
-        && global_dir.exists()
-    {
-        let result = discover_in_directory_detailed(&global_dir, SkillScope::Global)?;
-        summaries.extend(result.skills);
-        diagnostics.extend(result.diagnostics);
-    }
-
-    // Built-in skills bundled with installed Copilot CLI versions.
-    if let Ok(packages_dir) = builtin_packages_dir()
-        && packages_dir.exists()
-    {
-        summaries.extend(discover_builtin_skills(&packages_dir)?);
-    }
-
-    // Repository skills
+    let mut result = match copilot_paths() {
+        Ok(paths) => discover_user_skills(paths.home())?,
+        Err(_) => SkillDiscoveryResult {
+            skills: Vec::new(),
+            diagnostics: Vec::new(),
+        },
+    };
     if let Some(root) = repo_root {
-        for repo_dir in repo_skill_dirs(root) {
-            if repo_dir.exists() {
-                let result = discover_in_directory_detailed(&repo_dir, SkillScope::Repository)?;
-                summaries.extend(result.skills);
-                diagnostics.extend(result.diagnostics);
-            }
-        }
+        let project = discover_repository(root)?;
+        result.skills.extend(project.skills);
+        result.diagnostics.extend(project.diagnostics);
     }
+    result.skills.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(result)
+}
 
-    summaries.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(SkillDiscoveryResult {
-        skills: summaries,
-        diagnostics,
-    })
+/// Discover personal and bundled skills from the configured Copilot home.
+pub fn discover_user_skills(copilot_home: &Path) -> Result<SkillDiscoveryResult, SkillsError> {
+    let paths = tracepilot_core::paths::CopilotPaths::from_home(copilot_home);
+    let mut result = SkillDiscoveryResult {
+        skills: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+    if paths.global_skills_dir().exists() {
+        let global =
+            discover_in_directory_detailed(&paths.global_skills_dir(), SkillScope::Global)?;
+        result.skills.extend(global.skills);
+        result.diagnostics.extend(global.diagnostics);
+    }
+    if paths.pkg_dir().exists() {
+        result
+            .skills
+            .extend(discover_builtin_skills(&paths.pkg_dir())?);
+    }
+    Ok(result)
 }
 
 /// Discover packaged built-in skills, retaining the newest semantic-versioned
@@ -257,7 +287,17 @@ fn load_skill_summary(
         disabled_reason: None,
         has_assets: asset_count > 0,
         asset_count,
+        modified_at: file_modified_at(skill_md_path),
+        content_sha256: tracepilot_core::tokens::content_fingerprint(&content),
     })
+}
+
+/// `SKILL.md` modification time, or `None` when the filesystem will not say.
+fn file_modified_at(path: &Path) -> Option<chrono::DateTime<chrono::Utc>> {
+    std::fs::metadata(path)
+        .ok()
+        .and_then(|metadata| metadata.modified().ok())
+        .map(chrono::DateTime::from)
 }
 
 /// Load a full skill from a SKILL.md path.
@@ -273,11 +313,6 @@ pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, Skil
         .to_string_lossy()
         .to_string();
 
-    let modified_at = std::fs::metadata(skill_md_path)
-        .ok()
-        .and_then(|m| m.modified().ok())
-        .map(chrono::DateTime::from);
-
     Ok(Skill {
         frontmatter: fm,
         body,
@@ -288,35 +323,17 @@ pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, Skil
         instruction_tokens,
         enabled: true,
         disabled_reason: None,
-        modified_at,
+        modified_at: file_modified_at(skill_md_path),
     })
 }
 
 /// Recursively count non-SKILL.md, non-hidden files in a directory.
 fn count_assets(dir: &Path) -> usize {
-    count_assets_recursive(dir)
-}
-
-fn count_assets_recursive(dir: &Path) -> usize {
-    let mut count = 0;
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return 0,
-    };
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if name_str.starts_with('.') {
-            continue;
-        }
-        let path = entry.path();
-        if path.is_dir() {
-            count += count_assets_recursive(&path);
-        } else if name_str != "SKILL.md" {
-            count += 1;
-        }
-    }
-    count
+    crate::skills::assets::list_assets(dir)
+        .unwrap_or_default()
+        .iter()
+        .filter(|asset| !asset.is_directory)
+        .count()
 }
 
 #[cfg(test)]

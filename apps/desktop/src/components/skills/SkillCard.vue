@@ -1,17 +1,25 @@
 <script setup lang="ts">
-import { formatNumber as formatCompactNumber } from "@tracepilot/types";
-import { DefinitionCard, Tooltip } from "@tracepilot/ui";
-import { FolderGit2, Package, Sparkles } from "lucide-vue-next";
+/**
+ * One skill in the manager grid: identity and scope, what it costs, and how
+ * it has actually been used. A skill that sessions invoked but that is no
+ * longer installed renders the same way minus the parts that need a file.
+ */
+import { formatNumber } from "@tracepilot/types";
+import { Badge, DefinitionCard, formatRelativeTime, normalizePath, Tooltip } from "@tracepilot/ui";
+import { FolderGit2, Package, Search, Sparkles } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
+import UsageCardSummary, { type UsageCardStat } from "@/components/usage/UsageCardSummary.vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import { type DisplaySkillSummary, isEncounteredSkill } from "@/stores/skills/encountered";
-import SkillScopeBadge from "./SkillScopeBadge.vue";
+import { type SkillEntry, shortenSkillPath, skillRouteId } from "@/utils/skills/entries";
+import { type UsageRange, zeroFilledDays } from "@/utils/usage/range";
+import { SKILL_FLAG_BADGES, skillScopeBadge } from "./skillBadges";
 import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "./tokenEstimate";
 
 const props = defineProps<{
-  skill: DisplaySkillSummary;
+  entry: SkillEntry;
+  range: UsageRange;
 }>();
 
 const emit = defineEmits<{
@@ -20,109 +28,172 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
-const enablementTooltip = computed(() =>
-  props.skill.disabledReason === "repository"
-    ? "Disabled by repository settings; change the repository setting to enable it."
-    : "Updates disabledSkills in Copilot user settings for future sessions.",
+
+const skill = computed(() => props.entry.skill);
+const usage = computed(() => props.entry.usage);
+const isMissing = computed(() => props.entry.kind === "missing");
+const isBuiltin = computed(() => props.entry.scope === "builtin");
+const badge = computed(() => skillScopeBadge(props.entry.scope));
+// The scope badge on a missing skill already reads "Not installed", so
+// repeating it as a flag would put the same words twice on one card.
+const badgeFlags = computed(() => props.entry.flags.filter((flag) => flag !== "missing"));
+
+const inheritedDisable = computed(
+  () =>
+    skill.value?.scope === "repository" &&
+    (skill.value.disabledReason === "user" || skill.value.disabledReason === "repository"),
 );
-const isEncountered = computed(() => isEncounteredSkill(props.skill));
-const canOpenEditor = computed(() => !isEncountered.value || Boolean(props.skill.directory));
-const encounteredLabel = computed(() => {
-  if (!isEncounteredSkill(props.skill)) return "";
-  const count = props.skill.invocationCount;
-  return `Seen ${count} time${count === 1 ? "" : "s"} in recent sessions`;
+const enablementTooltip = computed(() => {
+  if (inheritedDisable.value)
+    return skill.value?.disabledReason === "user"
+      ? "Disabled globally in Copilot user settings. Remove that restriction before enabling this project."
+      : "Disabled in shared repository settings (.github/copilot/settings.json). Remove that restriction first.";
+  return skill.value?.scope === "repository"
+    ? "Applies to this skill name in this project only, for future sessions. Saved in .github/copilot/settings.local.json."
+    : "Applies to every skill with this name across all projects, for future sessions (Copilot user settings).";
 });
-const sourceTitle = computed(() => {
-  if (!isEncounteredSkill(props.skill)) return undefined;
-  return props.skill.sourcePath
-    ? `${encounteredLabel.value}: ${props.skill.sourcePath}`
-    : encounteredLabel.value;
+const enablementLabel = computed(() => {
+  if (inheritedDisable.value)
+    return skill.value?.disabledReason === "user" ? "Disabled globally" : "Disabled by repository";
+  return `${skill.value?.enabled ? "Enabled" : "Disabled"} ${skill.value?.scope === "repository" ? "in project" : "globally"}`;
 });
-const isBuiltin = computed(() => props.skill.scope === "builtin");
+
+/**
+ * A missing skill's last known path is the only way back to it, so it takes
+ * the place of the enable toggle it cannot have.
+ */
+const missingHint = computed(() =>
+  props.entry.lastKnownPath ? shortenSkillPath(props.entry.lastKnownPath) : "No path recorded",
+);
+
+const sparkValues = computed(() =>
+  zeroFilledDays(usage.value?.dailyUses ?? [], props.range, usage.value?.firstUsed ?? null),
+);
+
+/**
+ * Three labelled figures rather than one run-on sentence, so the same column
+ * means the same thing on every card in the grid.
+ */
+const stats = computed<UsageCardStat[] | null>(() => {
+  const value = usage.value;
+  if (!value || value.uses === 0) return null;
+  return [
+    { key: "uses", label: "uses", value: formatNumber(value.uses) },
+    { key: "sessions", label: "sessions", value: formatNumber(value.sessions) },
+    {
+      key: "injected",
+      label: "tokens/use",
+      value:
+        value.medianContentTokens != null ? `~${formatNumber(value.medianContentTokens)}` : "—",
+    },
+  ];
+});
+
+const lastUsed = computed(() =>
+  usage.value?.lastUsed ? formatRelativeTime(usage.value.lastUsed) : null,
+);
+
+const idleText = computed(() => (isMissing.value ? "Not installed here" : "No uses in this range"));
 
 function navigateToEditor() {
-  if (!canOpenEditor.value) return;
   pushRoute(router, ROUTE_NAMES.skillEditor, {
-    params: { name: props.skill.directory },
+    params: { name: skillRouteId(props.entry) },
+    ...(isMissing.value ? { query: { tab: "usage" } } : {}),
   });
 }
 
 function onToggle() {
-  emit("toggleEnabled", props.skill.directory, !props.skill.enabled);
+  if (!skill.value) return;
+  emit("toggleEnabled", skill.value.directory, !skill.value.enabled);
 }
 
 function onDelete() {
-  if (isBuiltin.value) return;
-  emit("delete", props.skill.directory);
+  if (isBuiltin.value || !skill.value) return;
+  emit("delete", skill.value.directory);
 }
 
-function formatTokens(n: number): string {
-  return `~${formatCompactNumber(n)}`;
+function formatTokens(tokens: number): string {
+  return `~${formatNumber(tokens)}`;
 }
 </script>
 
 <template>
   <DefinitionCard
     class="skill-card"
-    :class="{ 'skill-card--static': !canOpenEditor }"
-    :name="skill.name"
-    :description="skill.description"
-    :open-label="`Open skill ${skill.name}`"
-    :interactive="canOpenEditor"
+    :name="entry.name"
+    :description="entry.description"
+    :open-label="`Open skill ${entry.name}`"
+    :muted="!isMissing && !entry.enabled"
     @open="navigateToEditor"
   >
     <template #icon>
-      <FolderGit2 v-if="skill.scope === 'repository'" :size="18" :stroke-width="1.75" />
-      <Package v-else-if="skill.scope === 'builtin'" :size="18" :stroke-width="1.75" />
+      <Search v-if="isMissing" :size="18" :stroke-width="1.75" />
+      <FolderGit2 v-else-if="entry.scope === 'repository'" :size="18" :stroke-width="1.75" />
+      <Package v-else-if="entry.scope === 'builtin'" :size="18" :stroke-width="1.75" />
       <Sparkles v-else :size="18" :stroke-width="1.75" />
     </template>
+
     <template #badges>
-      <SkillScopeBadge :scope="skill.scope" />
-      <span v-if="isEncountered" class="badge-xs badge-encountered" :title="sourceTitle">
-        Encountered
-      </span>
-      <span v-if="skill.assetCount > 0" class="badge-xs badge-files">
+      <Badge :variant="badge.tone">{{ badge.label }}</Badge>
+      <span v-if="skill && skill.assetCount > 0" class="badge-xs badge-files">
         {{ skill.assetCount }} file{{ skill.assetCount === 1 ? "" : "s" }}
       </span>
-      <Tooltip :text="SKILL_TOKEN_ESTIMATE_TOOLTIP" position="bottom">
+      <Tooltip v-if="skill" :text="SKILL_TOKEN_ESTIMATE_TOOLTIP" position="bottom">
         <span class="badge-xs badge-tokens skill-card__token-estimate" tabindex="0">
-          Discover {{ formatTokens(skill.frontmatterTokens) }} · On use +{{ formatTokens(skill.instructionTokens) }}
+          Listing {{ formatTokens(skill.frontmatterTokens) }} · On use +{{ formatTokens(skill.instructionTokens) }}
         </span>
+      </Tooltip>
+      <Tooltip
+        v-for="flag in badgeFlags"
+        :key="flag"
+        :text="SKILL_FLAG_BADGES[flag].title"
+        position="bottom"
+      >
+        <Badge :variant="SKILL_FLAG_BADGES[flag].tone">{{ SKILL_FLAG_BADGES[flag].label }}</Badge>
       </Tooltip>
     </template>
 
     <template #footer>
-    <div v-if="isEncountered" class="skill-card__actions skill-card__actions--static">
-      <span class="encountered-meta" :title="sourceTitle">{{ encounteredLabel }}</span>
-    </div>
+      <p v-if="skill?.scope === 'repository'" class="skill-card__project" :title="normalizePath(skill.directory)">
+        {{ normalizePath(skill.directory) }}
+      </p>
+      <UsageCardSummary
+        :stats="stats" :values="sparkValues" :label="`Daily uses for ${entry.name}`"
+        :last-used="lastUsed" :idle-text="idleText"
+      />
 
-    <div v-else class="skill-card__actions">
-      <label class="toggle-switch">
-        <input
-          type="checkbox"
-          :checked="skill.enabled"
-          :disabled="skill.disabledReason === 'repository'"
-          :aria-label="`Enable skill ${skill.name}`"
-          :title="enablementTooltip"
-          @change="onToggle"
-        />
-        <span class="toggle-track" />
-        <span class="toggle-label" :title="enablementTooltip">{{ skill.enabled ? "Enabled" : "Disabled" }}</span>
-      </label>
+      <div v-if="skill" class="skill-card__actions">
+        <label class="toggle-switch">
+          <input
+            type="checkbox"
+            :checked="skill.enabled"
+            :disabled="inheritedDisable"
+            :aria-label="`Enable skill ${entry.name}`"
+            :title="enablementTooltip"
+            @change="onToggle"
+          />
+          <span class="toggle-track" />
+          <span class="toggle-label" :title="enablementTooltip">{{ enablementLabel }}</span>
+        </label>
 
-      <div class="card-hover-actions">
-        <button type="button" class="action-btn" :title="isBuiltin ? 'View skill' : 'Edit skill'" :aria-label="`${isBuiltin ? 'View' : 'Edit'} skill ${skill.name}`" @click="navigateToEditor">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 13l4-1L14 4l-2-2L4 10l-1 4z" /><path d="M10 4l2 2" />
-          </svg>
-        </button>
-        <button v-if="!isBuiltin" type="button" class="action-btn action-btn--danger" title="Remove skill" :aria-label="`Remove skill ${skill.name}`" @click="onDelete">
-          <svg viewBox="0 0 16 16" fill="currentColor">
-            <path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zm4.5 1.25V1.75A1.75 1.75 0 009.25 0h-2.5A1.75 1.75 0 005 1.75V3H2.75a.75.75 0 000 1.5h.67l.83 9.41A1.75 1.75 0 006 15.5h4a1.75 1.75 0 001.75-1.59l.83-9.41h.67a.75.75 0 000-1.5H11z" />
-          </svg>
-        </button>
+        <div class="card-hover-actions">
+          <button type="button" class="action-btn" :title="isBuiltin ? 'View skill' : 'Edit skill'" :aria-label="`${isBuiltin ? 'View' : 'Edit'} skill ${entry.name}`" @click="navigateToEditor">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 13l4-1L14 4l-2-2L4 10l-1 4z" /><path d="M10 4l2 2" />
+            </svg>
+          </button>
+          <button v-if="!isBuiltin" type="button" class="action-btn action-btn--danger" title="Remove skill" :aria-label="`Remove skill ${entry.name}`" @click="onDelete">
+            <svg viewBox="0 0 16 16" fill="currentColor">
+              <path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zm4.5 1.25V1.75A1.75 1.75 0 009.25 0h-2.5A1.75 1.75 0 005 1.75V3H2.75a.75.75 0 000 1.5h.67l.83 9.41A1.75 1.75 0 006 15.5h4a1.75 1.75 0 001.75-1.59l.83-9.41h.67a.75.75 0 000-1.5H11z" />
+            </svg>
+          </button>
+        </div>
       </div>
-    </div>
+
+      <p v-else class="skill-card__missing-path" :title="entry.lastKnownPath ? normalizePath(entry.lastKnownPath) : undefined">
+        <span class="skill-card__missing-label">Last loaded from</span>
+        <span class="skill-card__missing-value">{{ missingHint }}</span>
+      </p>
     </template>
   </DefinitionCard>
 </template>
@@ -148,18 +219,47 @@ function formatTokens(n: number): string {
   background: var(--canvas-default, var(--canvas-subtle));
   border: 1px solid var(--border-default);
   color: var(--text-tertiary);
-  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.5625rem;
 }
 
-.badge-encountered {
-  background: color-mix(in srgb, var(--accent-muted) 55%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-fg) 18%, transparent);
-  color: var(--accent-fg);
+.skill-card__project {
+  margin: 0 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
 }
 
-/* ── Card Actions (toggle + hover buttons) ──────────────── */
+/* ── Usage line ──────────────────────────────────────────── */
+.skill-card__missing-path {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 8px 0 0;
+  min-height: 29px;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+.skill-card__missing-label {
+  flex-shrink: 0;
+}
+
+/* The shortened path still needs a stop, for a deeply nested leaf name. */
+.skill-card__missing-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+/* ── Card actions (toggle + hover buttons) ───────────────── */
 .skill-card__actions {
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -167,20 +267,6 @@ function formatTokens(n: number): string {
   z-index: 1;
 }
 
-.skill-card__actions--static {
-  min-height: 29px;
-}
-
-.encountered-meta {
-  color: var(--text-tertiary);
-  font-size: 0.6875rem;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Toggle Switch */
 .toggle-switch {
   position: relative;
   display: inline-flex;
@@ -241,7 +327,6 @@ function formatTokens(n: number): string {
 .toggle-switch input:checked + .toggle-track::after {
   transform: translateX(16px);
   background: var(--accent-fg);
-  box-shadow: 0 0 6px rgba(129, 140, 248, 0.5);
 }
 
 .toggle-label {
@@ -260,7 +345,6 @@ function formatTokens(n: number): string {
   opacity: 0.9;
 }
 
-/* Hover action buttons */
 .card-hover-actions {
   display: flex;
   align-items: center;
@@ -304,8 +388,15 @@ function formatTokens(n: number): string {
 
 .action-btn--danger:hover {
   color: var(--danger-fg);
-  background: var(--danger-subtle, rgba(248, 81, 73, 0.1));
-  border-color: rgba(251, 113, 133, 0.15);
+  background: var(--danger-subtle);
+  border-color: var(--danger-muted, var(--border-default));
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .card-hover-actions,
+  .toggle-track,
+  .toggle-track::after {
+    transition: none;
+  }
+}
 </style>

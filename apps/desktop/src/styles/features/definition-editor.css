@@ -47,6 +47,8 @@
 }
 
 .definition-editor .topbar-back {
+  flex-shrink: 0;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -81,6 +83,7 @@
 }
 
 .definition-editor .topbar-skill-name {
+  min-width: 0;
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -318,6 +321,38 @@
 .definition-editor .panel-scroll::-webkit-scrollbar-thumb {
   background: var(--border-default);
   border-radius: var(--radius-full);
+}
+
+/* The shared tab strip is built for a page body: it carries its own bottom
+   border and a 20px margin below it. Inside the 40px panel header both push
+   the tabs off-centre, leaving a gap under them, so the strip is made to
+   fill the header and its underline lands on the header's own border. */
+.definition-editor .panel-header--tabs {
+  align-items: stretch;
+  padding: 0 12px;
+}
+
+.definition-editor .panel-header--tabs .tab-nav {
+  margin-bottom: 0;
+  border-bottom: none;
+  align-items: stretch;
+}
+
+.definition-editor .panel-header--tabs .tab-nav-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 1100px) {
+  .definition-editor .panel-header--tabs {
+    padding: 0 4px;
+  }
+
+  .definition-editor .panel-header--tabs .tab-nav-item {
+    padding: 0 8px;
+  }
 }
 
 /* ── Resize Handle ──────────────────────────────────────── */
@@ -1200,4 +1235,21 @@
   font-size: 0.75rem;
   color: var(--text-tertiary);
   margin-top: 4px;
+}
+
+/* Usage panels own their padding in both definition editors. */
+.definition-editor .panel-right .panel-scroll.panel-scroll--usage {
+  padding: 0;
+}
+
+.definition-editor .topbar-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .definition-editor .topbar-actions .kbd-hint {
+    display: none;
+  }
 }

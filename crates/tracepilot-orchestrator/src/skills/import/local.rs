@@ -39,18 +39,23 @@ pub fn import_from_local(
 }
 
 /// Copy all files from a source directory to a destination.
-pub(super) fn copy_dir_contents(src: &Path, dst: &Path) -> Result<usize, SkillsError> {
+pub(crate) fn copy_dir_contents(src: &Path, dst: &Path) -> Result<usize, SkillsError> {
     std::fs::create_dir_all(dst)?;
     let mut count = 0;
 
-    for entry in std::fs::read_dir(src)?.flatten() {
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-
-        if src_path.is_dir() {
-            count += copy_dir_contents(&src_path, &dst_path)?;
+    // WalkDir follows installed links while detecting ancestor cycles. Import
+    // fails atomically on a broken link or loop instead of recursing forever.
+    for entry in walkdir::WalkDir::new(src).follow_links(true).min_depth(1) {
+        let entry = entry.map_err(|error| SkillsError::Import(error.to_string()))?;
+        let relative = entry
+            .path()
+            .strip_prefix(src)
+            .map_err(|error| SkillsError::Import(error.to_string()))?;
+        let destination = dst.join(relative);
+        if entry.file_type().is_dir() {
+            std::fs::create_dir_all(&destination)?;
         } else {
-            std::fs::copy(&src_path, &dst_path)?;
+            std::fs::copy(entry.path(), &destination)?;
             count += 1;
         }
     }
@@ -147,20 +152,13 @@ pub(super) fn skill_preview_from_dir(skill_dir: &Path) -> Result<LocalSkillPrevi
 
 /// Recursively count all files (including SKILL.md) in a directory tree.
 pub(super) fn count_files_recursive(dir: &Path) -> usize {
-    let mut count = 0;
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return 0,
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            count += count_files_recursive(&path);
-        } else {
-            count += 1;
-        }
-    }
-    count
+    walkdir::WalkDir::new(dir)
+        .follow_links(true)
+        .min_depth(1)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .count()
 }
 
 /// Scans multiple repository paths for skills and returns results grouped by repo.

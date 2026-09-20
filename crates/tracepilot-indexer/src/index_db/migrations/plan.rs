@@ -4,7 +4,7 @@ use super::columns::ensure_search_columns;
 use super::sql::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
     MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_13, MIGRATION_14, MIGRATION_15,
-    MIGRATION_16, MIGRATION_17, MIGRATION_18,
+    MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19,
 };
 use tracepilot_core::utils::migrator::{Migration, MigrationPlan};
 
@@ -109,6 +109,12 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
         version: 18,
         name: "agent runs",
         sql: MIGRATION_18,
+        pre_hook: None,
+    },
+    Migration {
+        version: 19,
+        name: "skill invocations",
+        sql: MIGRATION_19,
         pre_hook: None,
     },
 ];

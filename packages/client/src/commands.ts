@@ -137,7 +137,8 @@ export const IPC_COMMANDS = [
   "agents_usage_detail",
   // Skills commands
   "skills_list_all",
-  "skills_encountered_project",
+  "skills_usage_summary",
+  "skills_usage_detail",
   "skills_get_skill",
   "skills_create",
   "skills_update",

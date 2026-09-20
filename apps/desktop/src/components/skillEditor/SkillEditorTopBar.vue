@@ -12,18 +12,21 @@ const ctx = useSkillEditorContext();
       {{ ctx.backLabel }}
     </button>
     <div class="topbar-divider" />
-    <div v-if="ctx.store.selectedSkill" class="topbar-skill-name">
+    <div v-if="ctx.skillName" class="topbar-skill-name">
       <span class="skill-icon-sm">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4v4l3 2"/></svg>
       </span>
-      {{ ctx.store.selectedSkill.frontmatter.name || 'Skill' }}
+      <span class="topbar-name-text" :title="ctx.skillName">
+        {{ ctx.skillName || 'Skill' }}
+      </span>
     </div>
     <div v-if="ctx.store.selectedSkill" class="topbar-meta">
       <SkillScopeBadge :scope="ctx.store.selectedSkill.scope" />
       <span v-if="ctx.editorDirty" class="status-modified">Modified</span>
     </div>
     <div class="topbar-actions">
-      <span v-if="ctx.isReadOnly" class="kbd-hint">Packaged skills are read-only</span>
+      <span v-if="ctx.isUsageOnly" class="kbd-hint">Read-only history</span>
+      <span v-else-if="ctx.isReadOnly" class="kbd-hint">Packaged skills are read-only</span>
       <span v-else class="kbd-hint">
         <span class="kbd">Ctrl</span>+<span class="kbd">S</span>
       </span>

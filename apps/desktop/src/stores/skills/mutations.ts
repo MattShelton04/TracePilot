@@ -72,49 +72,32 @@ export function createSkillsMutationActions(context: SkillsContext, loadSkills: 
     });
   }
 
-  async function setSkillEnabled(name: string, enabled: boolean): Promise<boolean> {
-    const key = name.trim().toLowerCase();
-    if (enablementPending.has(key)) return false;
-
-    const previousSkill = skills.value.find((skill) => skill.name.trim().toLowerCase() === key);
-    const previousSelected =
-      selectedSkill.value?.frontmatter.name.trim().toLowerCase() === key
-        ? selectedSkill.value
-        : undefined;
-    skills.value = skills.value.map((skill) =>
-      skill.name.trim().toLowerCase() === key
-        ? { ...skill, enabled, disabledReason: enabled ? undefined : "user" }
-        : skill,
-    );
-    if (selectedSkill.value?.frontmatter.name.trim().toLowerCase() === key) {
-      selectedSkill.value = {
-        ...selectedSkill.value,
-        enabled,
-        disabledReason: enabled ? undefined : "user",
-      };
-    }
-
-    enablementPending.add(key);
-    let succeeded = false;
+  async function setSkillEnabled(directory: string, enabled: boolean): Promise<boolean> {
+    if (enablementPending.has(directory)) return false;
+    enablementPending.add(directory);
     try {
-      succeeded =
+      return (
         (await runMutation(error, async () => {
-          await skillsSetEnabled(name, enabled);
+          await skillsSetEnabled(directory, enabled);
+          // Re-read effective settings: global restrictions and duplicate names
+          // within one repository can affect more than the clicked definition.
+          await loadSkills();
+          const updated = skills.value.find(
+            (skill) => skill.directory === selectedSkill.value?.directory,
+          );
+          if (selectedSkill.value && updated) {
+            selectedSkill.value = {
+              ...selectedSkill.value,
+              enabled: updated.enabled,
+              disabledReason: updated.disabledReason,
+            };
+          }
           return true as const;
-        })) ?? false;
+        })) ?? false
+      );
     } finally {
-      enablementPending.delete(key);
+      enablementPending.delete(directory);
     }
-
-    if (!succeeded) {
-      if (previousSkill) {
-        skills.value = skills.value.map((skill) =>
-          skill.name.trim().toLowerCase() === key ? previousSkill : skill,
-        );
-      }
-      if (previousSelected) selectedSkill.value = previousSelected;
-    }
-    return succeeded;
   }
 
   return {

@@ -48,6 +48,7 @@ function summary(agents: ReturnType<typeof usage>[]): AgentUsageSummary {
 describe("useAgentsStore", () => {
   beforeEach(() => {
     setupPinia();
+    localStorage.clear();
     for (const mock of Object.values(mocks)) mock.mockReset();
     mocks.agentsList.mockResolvedValue(catalog([definition("reviewer")]));
     mocks.agentsUsageSummary.mockResolvedValue(summary([usage("reviewer")]));
@@ -68,11 +69,15 @@ describe("useAgentsStore", () => {
     await store.loadAll();
     mocks.agentsUsageSummary.mockClear();
 
-    await store.setRange("all");
-    expect(mocks.agentsUsageSummary).toHaveBeenCalledWith({ fromDate: null, toDate: null });
+    expect(store.range).toBe("all");
+    await store.setRange("90d");
+    expect(mocks.agentsUsageSummary).toHaveBeenCalledWith({
+      fromDate: expect.any(String),
+      toDate: expect.any(String),
+    });
 
     mocks.agentsUsageSummary.mockClear();
-    await store.setRange("all");
+    await store.setRange("90d");
     expect(mocks.agentsUsageSummary).not.toHaveBeenCalled();
   });
 
@@ -124,4 +129,29 @@ describe("useAgentsStore", () => {
     store.clearError();
     expect(store.error).toBeNull();
   });
+});
+
+it("waits for both initial requests and keeps initialized data during revisits", async () => {
+  setupPinia();
+  localStorage.clear();
+  let finish!: (value: AgentUsageSummary) => void;
+  mocks.agentsList.mockResolvedValue(catalog([definition("reviewer")]));
+  mocks.agentsUsageSummary.mockImplementationOnce(
+    () =>
+      new Promise<AgentUsageSummary>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const store = useAgentsStore();
+  const loading = store.loadAll();
+  await Promise.resolve();
+  expect(store.initialized).toBe(false);
+  finish(summary([usage("reviewer")]));
+  await loading;
+  expect(store.initialized).toBe(true);
+  const cached = store.usage;
+  const revisit = store.loadAll();
+  expect(store.initialized).toBe(true);
+  expect(store.usage).toBe(cached);
+  await revisit;
 });

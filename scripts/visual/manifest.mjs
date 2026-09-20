@@ -1,6 +1,9 @@
 // Every named desktop route has an entry. These are browser fixture states,
 // never evidence that Rust, the SDK, native dialogs or external services work.
+import { skill } from "./fixtures.mjs";
+
 const session = "/session/sess-auth-refactor";
+const skillEditor = `/skills/${encodeURIComponent(skill.directory)}`;
 export const cases = [
   { id: "sessions", route: "/", ready: '[data-testid="session-card"]', state: "populated" },
   ...[
@@ -133,9 +136,15 @@ export const cases = [
   { id: "skills-manager", route: "/skills", ready: ".skill-card", state: "populated" },
   {
     id: "skill-editor",
-    route: "/skills/visual-review",
+    route: skillEditor,
     ready: ".editor-body",
     state: "populated synthetic skill",
+  },
+  {
+    id: "skill-usage",
+    route: `${skillEditor}?tab=usage`,
+    ready: ".skill-usage > dl",
+    state: "synthetic skill with cross-session usage",
   },
   { id: "agents-manager", route: "/agents", ready: ".agent-card", state: "populated" },
   {
@@ -150,7 +159,7 @@ export const cases = [
       "/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml",
     start: ".agent-editor .frontmatter-card",
     prepare: "agent-usage",
-    ready: ".agent-usage__summary",
+    ready: ".agent-usage > dl",
     state: "agent usage and model breakdown",
   },
   {

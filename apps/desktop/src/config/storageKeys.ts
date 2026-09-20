@@ -47,6 +47,9 @@ export const STORAGE_KEYS = Object.freeze({
   sidebarCollapsed: "tracepilot-sidebar-collapsed",
   /** Preferred structured/raw mode for Session Explorer file types. */
   sessionExplorerViewModes: "tracepilot-session-explorer-view-modes",
+  /** Usage range last chosen in the Skills manager. */
+  agentsUsageRange: "tracepilot-agents-usage-range",
+  skillsUsageRange: "tracepilot-skills-usage-range",
 } as const);
 
 /** Narrowed union of valid `localStorage` keys used by the desktop app. */

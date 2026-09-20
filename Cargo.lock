@@ -6066,6 +6066,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_norway",
+ "sha2",
  "specta",
  "strum",
  "tempfile",

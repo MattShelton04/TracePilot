@@ -1,19 +1,18 @@
-import type { Skill, SkillDiagnostic, SkillScope, SkillSummary } from "@tracepilot/types";
+import type { Skill, SkillDiagnostic, SkillSummary } from "@tracepilot/types";
 import type { AsyncGuard } from "@tracepilot/ui";
 import type { Ref, ShallowRef } from "vue";
-import type { EncounteredSkillSummary } from "./encountered";
+import type { SkillFlag, SkillScopeFilter, SkillSortKey } from "@/utils/skills/entries";
 
 export interface SkillsContext {
   skills: ShallowRef<SkillSummary[]>;
   diagnostics: ShallowRef<SkillDiagnostic[]>;
-  encounteredSkills: ShallowRef<EncounteredSkillSummary[]>;
   selectedSkill: ShallowRef<Skill | null>;
   loading: Ref<boolean>;
-  encounteredLoading: Ref<boolean>;
   error: Ref<string | null>;
-  encounteredError: Ref<string | null>;
   searchQuery: Ref<string>;
-  filterScope: Ref<"all" | SkillScope>;
+  filterScope: Ref<SkillScopeFilter>;
+  filterFlags: Ref<ReadonlySet<SkillFlag>>;
+  sort: Ref<SkillSortKey>;
   currentRepoRoot: Ref<string | undefined>;
   loadGuard: AsyncGuard;
 }

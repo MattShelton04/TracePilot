@@ -19,8 +19,10 @@ mod local;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use atomic::atomic_dir_install;
 pub use file::import_from_file;
 pub use github::{
     discover_github_skills, import_from_github, import_github_skill, preview_github_import,
 };
+pub(crate) use local::copy_dir_contents;
 pub use local::{discover_local_skills, discover_repo_skills, import_from_local};

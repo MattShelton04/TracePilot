@@ -1,24 +1,40 @@
 <script setup lang="ts">
+import { formatNumberFull, type SkillBatchImportResult } from "@tracepilot/types";
 import {
-  formatNumber as formatCompactNumber,
-  formatNumberFull,
-  type SkillBatchImportResult,
-} from "@tracepilot/types";
-import { PageHeader, PageShell, Tooltip, useConfirmDialog, useOverlayFocus } from "@tracepilot/ui";
-import { Brain } from "lucide-vue-next";
-import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+  Banner,
+  EmptyState,
+  PageHeader,
+  PageShell,
+  type SegmentOption,
+  Tooltip,
+  useConfirmDialog,
+  useOverlayFocus,
+} from "@tracepilot/ui";
+import { Brain, RefreshCw } from "lucide-vue-next";
+import DefinitionFilters from "@/components/definitions/DefinitionFilters.vue";
+import DefinitionLoading from "@/components/definitions/DefinitionLoading.vue";
+import "@/styles/features/definition-manager.css";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import SkillCard from "@/components/skills/SkillCard.vue";
 import SkillImportWizard from "@/components/skills/SkillImportWizard.vue";
 import { confirmSkillDeletion } from "@/components/skills/skillActions";
+import {
+  SKILL_FLAG_BADGES,
+  SKILL_FLAG_FILTERS,
+  SKILL_SCOPE_FILTERS,
+} from "@/components/skills/skillBadges";
 import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "@/components/skills/tokenEstimate";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import "@/styles/features/skills-manager.css";
 import { useSkillsStore } from "@/stores/skills";
+import type { SkillFlag, SkillScopeFilter, SkillSortKey } from "@/utils/skills/entries";
+import { USAGE_RANGE_LABELS } from "@/utils/usage/range";
 
 const store = useSkillsStore();
 const router = useRouter();
+const route = useRoute();
 const { confirm: showConfirm } = useConfirmDialog();
 const showImportWizard = ref(false);
 const showNewSkillModal = ref(false);
@@ -37,22 +53,64 @@ const newSkillDesc = ref("");
 const creating = ref(false);
 const createError = ref<string | null>(null);
 
-const CONTEXT_WINDOW = 128_000;
+const scopeOptions = computed<SegmentOption[]>(() =>
+  SKILL_SCOPE_FILTERS.map((option) => ({
+    ...option,
+    count:
+      option.value === "all"
+        ? store.entries.length
+        : store.entries.filter((entry) => entry.scope === option.value).length,
+  })).filter((option) => option.value === "all" || (option.count ?? 0) > 0),
+);
 
-const contextPct = computed(() => {
-  const pct = (store.tokenBudget.enabledTokens / CONTEXT_WINDOW) * 100;
-  return pct.toFixed(1);
-});
+const sortOptions = [
+  { value: "uses", label: "Most used" },
+  { value: "lastUsed", label: "Last used" },
+  { value: "listingCost", label: "Listing cost" },
+  { value: "name", label: "Name" },
+] as const;
 
-onMounted(async () => {
-  await store.loadSkills();
-  if (store.error) return;
-  await store.loadEncounteredProjectSkills();
-});
+const rangeLabel = computed(() => USAGE_RANGE_LABELS[store.range]);
 
-function formatTokens(n: number): string {
-  return formatCompactNumber(n);
-}
+/**
+ * Only flags something actually carries. A chip reading "Shadowed 0" invites a
+ * click that can only produce an empty list.
+ */
+const visibleFlags = computed(() =>
+  SKILL_FLAG_FILTERS.filter(
+    (flag) => (store.flagCounts[flag] ?? 0) > 0 || store.filterFlags.has(flag),
+  ).map((flag) => ({
+    value: flag,
+    ...SKILL_FLAG_BADGES[flag],
+    count: store.flagCounts[flag] ?? 0,
+  })),
+);
+
+/**
+ * No usage came back for this range. Which of the two reasons that is depends
+ * on the range: over all time it means the index has nothing, and over a
+ * window it means only that nothing happened inside it. Conflating the two
+ * would tell a reader with months-old skill use that their index is broken.
+ */
+const noUsageInRange = computed(
+  () =>
+    !store.usageLoading && !store.usageError && store.usage !== null && store.usage.totalUses === 0,
+);
+const usageNeverIndexed = computed(() => noUsageInRange.value && store.range === "all");
+
+// A deep link (from the Analytics card or a conversation row) must be visible
+// even after a previous visit narrowed the filters.
+watch(
+  () => route.query.q,
+  (query) => {
+    if (typeof query !== "string") return;
+    store.clearFilters();
+    store.searchQuery = query;
+  },
+  { immediate: true },
+);
+
+onMounted(() => store.loadAll());
 
 function formatTokensWithCommas(n: number): string {
   return formatNumberFull(n);
@@ -90,21 +148,24 @@ async function handleDeleteSkill(dir: string) {
   await confirmSkillDeletion(showConfirm, store.deleteSkill, dir);
 }
 
-async function handleToggleEnabled(_dir: string, enabled: boolean, name: string) {
-  await store.setSkillEnabled(name, enabled);
+async function handleToggleEnabled(directory: string, enabled: boolean) {
+  await store.setSkillEnabled(directory, enabled);
 }
 </script>
 
 <template>
   <PageShell>
-    <div class="skills-manager-view">
-    <PageHeader title="Skills">
+    <div class="definition-manager skills-manager-view">
+      <PageHeader title="Skills" subtitle="What is installed, what gets used, and what each one costs">
         <template #icon>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
             <path d="M9 1L5 9h4l-2 6 6-8H9l2-6z"/>
           </svg>
         </template>
         <template #actions>
+          <button type="button" class="btn btn--ghost" :disabled="store.loading || store.usageLoading" @click="store.loadAll(undefined, true)">
+            <RefreshCw :size="14" /> Refresh
+          </button>
           <button class="btn btn--ghost" @click="store.clearError(); showImportWizard = true">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
               <path d="M8 2v8M4 6l4-4 4 4" /><path d="M2 12v2h12v-2" />
@@ -121,34 +182,38 @@ async function handleToggleEnabled(_dir: string, enabled: boolean, name: string)
       </PageHeader>
 
       <!-- Stats Strip -->
+      <DefinitionLoading v-if="!store.initialized" noun="skills" />
+      <template v-else>
       <div class="stats-strip">
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--installed" />
-          {{ store.tokenBudget.totalSkills }} Installed
+
+          {{ store.tokenBudget.totalSkills }} installed
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--global" />
-          {{ store.globalSkills.length }} Global
+
+          {{ store.globalSkills.length }} global
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--project" />
-          {{ store.repoSkills.length }} Project
+
+          {{ store.repoSkills.length }} project
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--builtin" />
-          {{ store.builtinSkills.length }} Built-in
+
+          {{ store.builtinSkills.length }} built-in
         </span>
-        <template v-if="store.encounteredLoading">
-          <span class="stat-sep">&middot;</span>
-          <span class="stat-chip">Scanning recent sessions…</span>
-        </template>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
-          <span class="stat-dot stat-dot--active" />
-          {{ store.tokenBudget.enabledSkills }} Active
+
+          {{ store.tokenBudget.enabledSkills }} active
+        </span>
+        <span class="stat-sep">&middot;</span>
+        <span class="stat-chip">
+
+          {{ store.usage ? store.usedSkillCount : "—" }} used
+          <span class="stat-chip__muted">in {{ rangeLabel }}</span>
         </span>
       </div>
 
@@ -161,59 +226,29 @@ async function handleToggleEnabled(_dir: string, enabled: boolean, name: string)
           <Tooltip :text="SKILL_TOKEN_ESTIMATE_TOOLTIP" position="bottom">
             <code tabindex="0">~{{ formatTokensWithCommas(store.tokenBudget.enabledTokens) }}</code>
           </Tooltip>
-          tokens across {{ store.tokenBudget.enabledSkills }} active skill{{ store.tokenBudget.enabledSkills === 1 ? "" : "s" }}
-          · {{ contextPct }}% of 128k context
+          listing tokens · {{ store.tokenBudget.enabledSkills }} active skill{{ store.tokenBudget.enabledSkills === 1 ? "" : "s" }}
+          · all projects
         </span>
-        <div class="token-info__bar">
-          <div
-            class="token-info__bar-fill"
-            :style="{ width: Math.min(100, Number(contextPct)) + '%' }"
-          />
-        </div>
+
       </div>
 
-      <!-- Filter Row: Scope + Search -->
-      <div class="filter-row">
-        <div class="scope-segmented">
-          <button
-            :class="['scope-seg-btn', { active: store.filterScope === 'global' }]"
-            @click="store.setFilterScope('global')"
-          >Global</button>
-          <button
-            :class="['scope-seg-btn', { active: store.filterScope === 'repository' }]"
-            @click="store.setFilterScope('repository')"
-          >Project</button>
-          <button
-            :class="['scope-seg-btn', { active: store.filterScope === 'builtin' }]"
-            @click="store.setFilterScope('builtin')"
-          >Built-in</button>
-          <button
-            :class="['scope-seg-btn', { active: store.filterScope === 'all' }]"
-            @click="store.setFilterScope('all')"
-          >All</button>
-        </div>
-
-        <div class="search-box">
-          <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z" />
-          </svg>
-          <input
-            v-model="store.searchQuery"
-            class="search-input"
-            type="text"
-            placeholder="Search skills…"
-          />
-        </div>
-      </div>
+      <!-- Filter Row: Scope + Range + Sort + Search -->
+      <DefinitionFilters
+        :scope="store.filterScope" :scopes="scopeOptions" :range="store.range"
+        :sort="store.sort" :sorts="[...sortOptions]" :search="store.searchQuery"
+        noun="skills" :flags="visibleFlags" :selected-flags="store.filterFlags"
+        @update:scope="store.setFilterScope($event as SkillScopeFilter)"
+        @update:range="store.setRange" @update:sort="store.sort = $event as SkillSortKey"
+        @update:search="store.searchQuery = $event"
+        @toggle-flag="store.toggleFlag($event as SkillFlag)" @clear="store.clearFilters"
+      />
 
       <!-- Loading / Error -->
-      <div v-if="store.loading" class="state-message">Loading skills…</div>
-      <div v-else-if="store.error" class="state-message state-message--error">
+      <div v-if="store.error" class="state-message state-message--error">
         {{ store.error }}
         <button class="btn btn--secondary btn--sm" @click="store.loadSkills()">Retry</button>
       </div>
 
-      <template v-else>
         <details v-if="store.diagnostics.length" class="state-message state-message--warning">
           <summary>
             {{ store.diagnostics.length }} skill{{ store.diagnostics.length === 1 ? '' : 's' }} could not be loaded
@@ -224,35 +259,53 @@ async function handleToggleEnabled(_dir: string, enabled: boolean, name: string)
             </li>
           </ul>
         </details>
-        <div v-if="store.encounteredError" class="state-message state-message--warning">
-          Session-encountered project skills could not be loaded: {{ store.encounteredError }}
-        </div>
+
+        <Banner v-if="store.usageError" tone="warning" title="Usage unavailable">
+          {{ store.usage ? "Showing previously loaded usage:" : "Skills are shown without cross-session usage:" }} {{ store.usageError }}
+        </Banner>
+        <Banner v-else-if="usageNeverIndexed" tone="info" title="No usage indexed yet">
+          No indexed sessions have recorded a skill invocation. Installed skills remain available below.
+        </Banner>
+        <Banner
+          v-else-if="noUsageInRange"
+          tone="info"
+          :title="`No skill uses in the last ${rangeLabel}`"
+        >
+          Skills are shown without usage figures for this window.
+          <button type="button" class="banner-action" @click="store.setRange('all')">
+            Show all time
+          </button>
+        </Banner>
 
         <!-- Skills Grid -->
-        <div v-if="store.filteredSkills.length > 0" class="skills-grid">
+        <div v-if="store.filteredSkills.length > 0" class="definition-grid skills-grid">
           <SkillCard
-            v-for="skill in store.filteredSkills"
-            :key="skill.directory"
-            :skill="skill"
+            v-for="entry in store.filteredSkills"
+            :key="entry.key"
+            :entry="entry"
+            :range="store.range"
             @delete="handleDeleteSkill"
-            @toggle-enabled="(dir, enabled) => handleToggleEnabled(dir, enabled, skill.name)"
+            @toggle-enabled="handleToggleEnabled"
           />
         </div>
 
         <!-- Empty State -->
-        <div v-else class="empty-state">
-          <div class="empty-state__icon" aria-hidden="true">
-            <Brain :size="48" :stroke-width="1.5" />
-          </div>
-          <h3 class="empty-state__title">No skills found</h3>
-          <p class="empty-state__desc">
-            {{ store.searchQuery ? "Try a different search term" : "Create your first skill or import one to get started" }}
-          </p>
-          <div class="empty-state__actions">
+        <EmptyState
+          v-else
+          title="No skills match"
+          :description="store.entries.length
+            ? 'Try a different search, scope or flag.'
+            : 'Create your first skill or import one to get started.'"
+          :primary-action="store.entries.length
+            ? { label: 'Clear filters', onClick: store.clearFilters }
+            : { label: 'Create Skill', onClick: openNewSkill }"
+        >
+          <template #icon><Brain :size="40" :stroke-width="1.5" /></template>
+          <template v-if="!store.entries.length" #actions>
             <button class="btn btn--primary" @click="openNewSkill">Create Skill</button>
             <button class="btn btn--secondary" @click="store.clearError(); showImportWizard = true">Import</button>
-          </div>
-        </div>
+          </template>
+        </EmptyState>
       </template>
 
       <!-- New Skill Modal -->

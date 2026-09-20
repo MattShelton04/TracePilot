@@ -42,6 +42,15 @@ pub fn resolve_mutable(
             path.display()
         ))
     })?;
+    // A linked custom definition cannot bypass packaged/plugin write policy.
+    let target = path.canonicalize()?;
+    if path_starts_with(&target, &roots.plugins_dir())
+        || (builtin == BuiltinWrites::Denied && path_starts_with(&target, &roots.pkg_dir()))
+    {
+        return Err(OrchestratorError::Config(
+            "The linked definition is read-only.".into(),
+        ));
+    }
     match scope {
         AgentScope::Plugin => Err(OrchestratorError::Config(
             "Plugin agents are read-only: plugin updates replace local edits.".into(),
@@ -317,6 +326,13 @@ pub(crate) fn template(name: &str, description: &str) -> String {
 
 /// Write via a sibling temp file and rename over the target.
 fn atomic_write_text(path: &Path, content: &str) -> Result<()> {
+    // Replace the target atomically without replacing an installed symlink.
+    let target = if path.is_symlink() {
+        Some(path.canonicalize()?)
+    } else {
+        None
+    };
+    let path = target.as_deref().unwrap_or(path);
     let parent = path
         .parent()
         .ok_or_else(|| OrchestratorError::Config("Definition has no parent directory".into()))?;

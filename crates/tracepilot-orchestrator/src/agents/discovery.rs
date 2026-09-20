@@ -174,7 +174,7 @@ fn markdown_files(dir: &Path, inside_agents_dir: bool) -> Vec<PathBuf> {
         return Vec::new();
     }
     let mut paths: Vec<PathBuf> = walkdir::WalkDir::new(dir)
-        .follow_links(false)
+        .follow_links(true)
         .max_depth(MAX_DEPTH)
         .into_iter()
         .filter_entry(|entry| {

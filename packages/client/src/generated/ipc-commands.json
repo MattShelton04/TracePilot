@@ -161,7 +161,6 @@
   "skills_discover_local",
   "skills_discover_repos",
   "skills_duplicate",
-  "skills_encountered_project",
   "skills_get_skill",
   "skills_gh_auth_status",
   "skills_import_file",
@@ -176,6 +175,8 @@
   "skills_set_enabled",
   "skills_update",
   "skills_update_raw",
+  "skills_usage_detail",
+  "skills_usage_summary",
   "toggle_repo_favourite",
   "unlock_worktree",
   "validate_session_dir"

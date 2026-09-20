@@ -2,7 +2,9 @@
 
 use crate::Result;
 use tracepilot_core::analytics::types::*;
-use tracepilot_core::analytics::{AgentUsageDetail, AgentUsageSummary};
+use tracepilot_core::analytics::{
+    AgentUsageDetail, AgentUsageSummary, SkillUsageDetail, SkillUsageSummary,
+};
 
 use super::IndexDb;
 
@@ -11,6 +13,7 @@ mod code_impact;
 mod dashboard;
 mod day_bucket;
 mod prompt_cache;
+mod skills;
 mod tool_analysis;
 
 impl IndexDb {
@@ -64,6 +67,44 @@ impl IndexDb {
                 repo,
             },
             agent_name,
+        )
+    }
+
+    /// Cross-session usage for every skill seen in the index, installed or
+    /// not.
+    pub fn query_skill_usage_summary(
+        &self,
+        from_date: Option<&str>,
+        to_date: Option<&str>,
+        repo: Option<&str>,
+    ) -> Result<SkillUsageSummary> {
+        skills::query_skill_usage_summary(
+            &self.conn,
+            skills::SkillUsageFilter {
+                from_date,
+                to_date,
+                repo,
+            },
+        )
+    }
+
+    /// Usage breakdowns and recent invocations for one skill name
+    /// (case-insensitive).
+    pub fn query_skill_usage_detail(
+        &self,
+        skill_name: &str,
+        from_date: Option<&str>,
+        to_date: Option<&str>,
+        repo: Option<&str>,
+    ) -> Result<SkillUsageDetail> {
+        skills::query_skill_usage_detail(
+            &self.conn,
+            skills::SkillUsageFilter {
+                from_date,
+                to_date,
+                repo,
+            },
+            skill_name,
         )
     }
 

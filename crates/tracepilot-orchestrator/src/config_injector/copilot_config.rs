@@ -241,11 +241,20 @@ pub(crate) fn update_settings_json(
     copilot_home: &Path,
     mutate: impl FnOnce(&mut serde_json::Map<String, serde_json::Value>) -> Result<()>,
 ) -> Result<()> {
+    update_settings_file(
+        &CopilotPaths::from_home(copilot_home).settings_json(),
+        mutate,
+    )
+}
+
+fn update_settings_file(
+    settings_path: &Path,
+    mutate: impl FnOnce(&mut serde_json::Map<String, serde_json::Value>) -> Result<()>,
+) -> Result<()> {
     let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|_| {
         OrchestratorError::Config("Copilot settings write lock was poisoned".into())
     })?;
-    let settings_path = CopilotPaths::from_home(copilot_home).settings_json();
-    let mut root = match read_json_file(&settings_path).map_err(OrchestratorError::Config)? {
+    let mut root = match read_json_file(settings_path).map_err(OrchestratorError::Config)? {
         Some(serde_json::Value::Object(map)) => map,
         Some(_) => {
             return Err(OrchestratorError::Config(format!(
@@ -256,7 +265,31 @@ pub(crate) fn update_settings_json(
         None => serde_json::Map::new(),
     };
     mutate(&mut root)?;
-    crate::json_io::atomic_json_write(&settings_path, &serde_json::Value::Object(root))
+    crate::json_io::atomic_json_write(settings_path, &serde_json::Value::Object(root))
+}
+
+/// Personal, repository-scoped disable. Copilot unions this with repository
+/// and user restrictions; removing it does not override either inherited list.
+pub fn set_local_skill_enabled(repo_root: &Path, name: &str, enabled: bool) -> Result<()> {
+    let path = repo_root.join(".github/copilot/settings.local.json");
+    update_settings_file(&path, |root| {
+        let mut disabled: Vec<String> = match root.get("disabledSkills") {
+            Some(value) => serde_json::from_value(value.clone()).map_err(|_| {
+                OrchestratorError::Config(format!(
+                    "Refusing to update {}: disabledSkills must be an array of strings",
+                    path.display()
+                ))
+            })?,
+            None => Vec::new(),
+        };
+        disabled.retain(|entry| !entry.eq_ignore_ascii_case(name));
+        if !enabled {
+            disabled.push(name.to_owned());
+        }
+        disabled.sort_by_key(|entry| entry.to_lowercase());
+        root.insert("disabledSkills".into(), serde_json::json!(disabled));
+        Ok(())
+    })
 }
 
 /// Add or remove one skill from the user-level `disabledSkills` setting.

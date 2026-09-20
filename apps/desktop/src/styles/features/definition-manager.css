@@ -1,0 +1,239 @@
+.definition-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Stats strip ─────────────────────────────────────────── */
+.definition-manager .stats-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.definition-manager .stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.definition-manager .stat-chip--warning {
+  color: var(--warning-fg);
+}
+
+.definition-manager .stat-chip__muted {
+  color: var(--text-tertiary);
+}
+
+.definition-manager .stat-sep {
+  color: var(--border-default);
+}
+
+/* ── Filters ─────────────────────────────────────────────── */
+.definition-manager .filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The sort select sizes to its content rather than eating the filter row. */
+.definition-manager .filter-row .tp-select {
+  width: auto;
+  min-width: 150px;
+}
+
+.definition-manager .filter-row__search {
+  flex: 1;
+  min-width: 180px;
+}
+
+.definition-manager .flag-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.definition-manager .flag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full, 999px);
+  border: 1px solid var(--border-default);
+  background: var(--canvas-subtle);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.definition-manager .flag-chip:hover {
+  border-color: var(--border-accent, var(--accent-fg));
+  color: var(--text-primary);
+}
+
+.definition-manager .flag-chip--active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-emphasis);
+  color: var(--accent-fg);
+}
+
+.definition-manager .flag-chip--clear {
+  border-style: dashed;
+}
+
+/* ── Grid and states ─────────────────────────────────────── */
+.definition-manager .definition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.definition-manager .state-message {
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.definition-manager .diagnostics {
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.definition-manager .diagnostics summary {
+  cursor: pointer;
+  color: var(--warning-fg);
+}
+
+.definition-manager .diagnostics ul {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.definition-manager .diagnostics code {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+/* Keep scope on its own row at smaller desktop widths. */
+@media (max-width: 1100px) {
+  .definition-manager .definition-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+
+  .definition-manager .filter-row {
+    display: grid;
+    grid-template-columns: max-content max-content minmax(0, 1fr);
+  }
+
+  .definition-manager .filter-row__scope {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .definition-manager .filter-row__search {
+    min-width: 0;
+  }
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.definition-manager .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.definition-manager .btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.definition-manager .btn--primary {
+  background: var(--gradient-accent, var(--accent-emphasis));
+  border: 1px solid transparent;
+  color: var(--text-on-emphasis);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.definition-manager .btn--primary:hover:not(:disabled) {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.definition-manager .btn--primary:active {
+  transform: translateY(0);
+}
+
+.definition-manager .btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.definition-manager .btn--secondary {
+  background: var(--canvas-default, var(--canvas-subtle));
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.definition-manager .btn--secondary:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-fg);
+  background: var(--accent-subtle, var(--canvas-inset));
+}
+
+.definition-manager .btn--ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-tertiary);
+}
+
+.definition-manager .btn--ghost:hover {
+  color: var(--text-secondary);
+  background: var(--canvas-subtle);
+  border-color: var(--border-default);
+}
+
+.definition-manager .btn--sm {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
+
+.definition-manager .flag-chip__count {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.definition-manager .flag-chip--active .flag-chip__count {
+  color: var(--accent-fg);
+}
+.definition-manager .flag-chip:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+}

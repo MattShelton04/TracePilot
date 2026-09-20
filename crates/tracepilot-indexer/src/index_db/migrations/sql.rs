@@ -485,3 +485,5 @@ CREATE TABLE IF NOT EXISTS session_agent_selections (
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 "#;
+
+pub(super) const MIGRATION_19: &str = include_str!("019_skill_invocations.sql");

@@ -14,8 +14,8 @@ mod copilot_config;
 pub(crate) use copilot_config::read_json_file as read_copilot_json_file;
 pub(crate) use copilot_config::update_settings_json;
 pub use copilot_config::{
-    CONFIG_FILE, SETTINGS_FILE, read_copilot_config, read_disabled_skills_file, set_skill_enabled,
-    write_copilot_config,
+    CONFIG_FILE, SETTINGS_FILE, read_copilot_config, read_disabled_skills_file,
+    set_local_skill_enabled, set_skill_enabled, write_copilot_config,
 };
 
 use crate::error::{OrchestratorError, Result};

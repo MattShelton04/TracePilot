@@ -165,12 +165,12 @@ describe("AgentUsageTab", () => {
       store: { range: "30d" },
     } as unknown as Partial<AgentEditorContext>);
     const wrapper = mount(host(AgentUsageTab, ctx));
-    const metrics = wrapper.findAll(".agent-usage__distribution");
-    expect(metrics[0].text()).toContain("27 of 100 runs reported it");
+    const metrics = wrapper.findAll(".metric-distribution");
+    expect(metrics[0].text()).toContain("Based on 27 of 100 runs");
     expect(metrics[0].text()).toContain("1s");
     expect(metrics[1].text()).toContain("No runs reported this metric");
-    expect(metrics[1].findAll("dd").every((cell) => cell.text() === "—")).toBe(true);
-    expect(metrics[1].text()).toContain("includes descendants");
+    expect(metrics[1].find("dl").exists()).toBe(false);
+    expect(metrics[1].text()).toContain("can include descendant agents");
   });
 });
 

@@ -1,55 +1,83 @@
-import { computed } from "vue";
+import type { SkillUsageSummary } from "@tracepilot/types";
+import { computed, type ShallowRef } from "vue";
+import { buildSkillEntries, filterAndSortSkills, type SkillFlag } from "@/utils/skills/entries";
+import type { UsageRange } from "@/utils/usage/range";
 import type { SkillsContext } from "./context";
 
-export function createSkillsComputed(context: SkillsContext) {
-  const { skills, encounteredSkills, searchQuery, filterScope } = context;
+export function createSkillsComputed(
+  context: SkillsContext,
+  usage: ShallowRef<SkillUsageSummary | null>,
+  range: { value: UsageRange },
+) {
+  const { skills, searchQuery, filterScope, filterFlags, sort } = context;
 
-  const displaySkills = computed(() => [...skills.value, ...encounteredSkills.value]);
+  /**
+   * Installed skills merged with cross-session usage. Skills used in sessions
+   * but no longer installed appear here too, so they can be found rather than
+   * silently vanishing from the catalog.
+   */
+  const entries = computed(() => buildSkillEntries(skills.value, usage.value, range.value));
 
-  const sortedSkills = computed(() =>
-    [...displaySkills.value].sort((a, b) => a.name.localeCompare(b.name)),
+  const filteredSkills = computed(() =>
+    filterAndSortSkills(entries.value, {
+      scope: filterScope.value,
+      flags: filterFlags.value,
+      search: searchQuery.value,
+      sort: sort.value,
+    }),
   );
 
-  const globalSkills = computed(() => skills.value.filter((s) => s.scope === "global"));
+  const globalSkills = computed(() => skills.value.filter((skill) => skill.scope === "global"));
+  const repoSkills = computed(() => skills.value.filter((skill) => skill.scope === "repository"));
+  const builtinSkills = computed(() => skills.value.filter((skill) => skill.scope === "builtin"));
+  const missingSkills = computed(() => entries.value.filter((entry) => entry.kind === "missing"));
 
-  const repoSkills = computed(() => displaySkills.value.filter((s) => s.scope === "repository"));
+  /** Enabled skills used at least once in the selected range. */
+  const usedSkillCount = computed(
+    () => entries.value.filter((entry) => (entry.usage?.uses ?? 0) > 0).length,
+  );
+  const unusedEnabledSkills = computed(() =>
+    entries.value.filter((entry) => entry.flags.includes("unused")),
+  );
+  /** Listing tokens those unused skills still cost on every turn. */
+  const unusedEnabledTokens = computed(() =>
+    unusedEnabledSkills.value.reduce((sum, entry) => sum + entry.listingTokens, 0),
+  );
 
-  const builtinSkills = computed(() => skills.value.filter((s) => s.scope === "builtin"));
-
-  const filteredSkills = computed(() => {
-    let list = sortedSkills.value;
-
-    if (filterScope.value !== "all") {
-      list = list.filter((s) => s.scope === filterScope.value);
+  /**
+   * How many skills carry each flag, so a chip states its own size the way
+   * the scope control does. Counted over every entry rather than the filtered
+   * list, so a chip's number does not change as other filters are applied.
+   */
+  const flagCounts = computed(() => {
+    const counts = {} as Record<SkillFlag, number>;
+    for (const entry of entries.value) {
+      for (const flag of entry.flags) counts[flag] = (counts[flag] ?? 0) + 1;
     }
-
-    if (searchQuery.value.trim()) {
-      const q = searchQuery.value.toLowerCase();
-      list = list.filter(
-        (s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q),
-      );
-    }
-
-    return list;
+    return counts;
   });
 
   const tokenBudget = computed(() => {
-    const total = skills.value.length;
-    const enabled = skills.value.filter((s) => s.enabled).length;
-    const totalTokens = skills.value.reduce((sum, s) => sum + s.frontmatterTokens, 0);
-    const enabledTokens = skills.value
-      .filter((s) => s.enabled)
-      .reduce((sum, s) => sum + s.frontmatterTokens, 0);
-    return { totalSkills: total, enabledSkills: enabled, totalTokens, enabledTokens };
+    const enabled = skills.value.filter((skill) => skill.enabled);
+    return {
+      totalSkills: skills.value.length,
+      enabledSkills: enabled.length,
+      totalTokens: skills.value.reduce((sum, skill) => sum + skill.frontmatterTokens, 0),
+      enabledTokens: enabled.reduce((sum, skill) => sum + skill.frontmatterTokens, 0),
+    };
   });
 
   return {
-    displaySkills,
-    sortedSkills,
+    entries,
+    filteredSkills,
     globalSkills,
     repoSkills,
     builtinSkills,
-    filteredSkills,
+    missingSkills,
+    usedSkillCount,
+    unusedEnabledSkills,
+    flagCounts,
+    unusedEnabledTokens,
     tokenBudget,
   };
 }
