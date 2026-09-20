@@ -74,12 +74,15 @@ export const SKILL_FLAG_BADGES: Readonly<Record<SkillFlag, FlagBadge>> = {
   },
 };
 
-/** Flag filter chips, in the order the manager shows them. */
+/**
+ * Flag filter chips, in the order the manager shows them. `missing` is absent
+ * on purpose: the scope control already has a "Not installed" option, and two
+ * controls for one set would only disagree.
+ */
 export const SKILL_FLAG_FILTERS: readonly SkillFlag[] = [
   "unused",
   "usedDisabled",
   "dormant",
-  "missing",
   "drifted",
   "shadowed",
 ];

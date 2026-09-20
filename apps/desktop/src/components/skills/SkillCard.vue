@@ -34,6 +34,9 @@ const usage = computed(() => props.entry.usage);
 const isMissing = computed(() => props.entry.kind === "missing");
 const isBuiltin = computed(() => props.entry.scope === "builtin");
 const badge = computed(() => skillScopeBadge(props.entry.scope));
+// The scope badge on a missing skill already reads "Not installed", so
+// repeating it as a flag would put the same words twice on one card.
+const badgeFlags = computed(() => props.entry.flags.filter((flag) => flag !== "missing"));
 
 const enablementTooltip = computed(() =>
   skill.value?.disabledReason === "repository"
@@ -42,8 +45,8 @@ const enablementTooltip = computed(() =>
 );
 
 /**
- * A missing skill's last known path is the only way back to it, so it is the
- * card's subtitle rather than a tooltip.
+ * A missing skill's last known path is the only way back to it, so it takes
+ * the place of the enable toggle it cannot have.
  */
 const missingHint = computed(() =>
   props.entry.lastKnownPath
@@ -105,7 +108,7 @@ function formatTokens(tokens: number): string {
     class="skill-card"
     :class="{ 'skill-card--static': isMissing }"
     :name="entry.name"
-    :description="entry.description || (isMissing ? missingHint : '')"
+    :description="entry.description"
     :open-label="`Open skill ${entry.name}`"
     :interactive="!isMissing"
     :muted="!isMissing && !entry.enabled"
@@ -129,7 +132,7 @@ function formatTokens(tokens: number): string {
         </span>
       </Tooltip>
       <Tooltip
-        v-for="flag in entry.flags"
+        v-for="flag in badgeFlags"
         :key="flag"
         :text="SKILL_FLAG_BADGES[flag].title"
         position="bottom"
@@ -285,8 +288,7 @@ function formatTokens(tokens: number): string {
 .skill-card__missing-path {
   margin: 0;
   min-height: 29px;
-  display: flex;
-  align-items: center;
+  line-height: 29px;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   overflow: hidden;

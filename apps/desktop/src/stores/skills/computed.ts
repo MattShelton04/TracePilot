@@ -1,8 +1,7 @@
 import type { SkillUsageSummary } from "@tracepilot/types";
 import { computed, type ShallowRef } from "vue";
 import { buildSkillEntries, filterAndSortSkills } from "@/utils/skills/entries";
-import { deriveSkillInsights } from "@/utils/skills/insights";
-import { USAGE_RANGE_LABELS, type UsageRange } from "@/utils/usage/range";
+import type { UsageRange } from "@/utils/usage/range";
 import type { SkillsContext } from "./context";
 
 export function createSkillsComputed(
@@ -45,10 +44,6 @@ export function createSkillsComputed(
     unusedEnabledSkills.value.reduce((sum, entry) => sum + entry.listingTokens, 0),
   );
 
-  const insights = computed(() =>
-    deriveSkillInsights(entries.value, USAGE_RANGE_LABELS[range.value]),
-  );
-
   const tokenBudget = computed(() => {
     const enabled = skills.value.filter((skill) => skill.enabled);
     return {
@@ -69,7 +64,6 @@ export function createSkillsComputed(
     usedSkillCount,
     unusedEnabledSkills,
     unusedEnabledTokens,
-    insights,
     tokenBudget,
   };
 }

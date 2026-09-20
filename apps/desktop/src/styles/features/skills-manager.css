@@ -466,3 +466,41 @@
     min-width: 100%;
   }
 }
+
+/* Inline action inside a banner, e.g. "Show all time". */
+.skills-manager-view .banner-action {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+
+.skills-manager-view .banner-action:hover {
+  text-decoration: underline;
+}
+
+.skills-manager-view .banner-action:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+}
+
+/* A count that is also the way to see what it counts. */
+.skills-manager-view .stat-chip--action {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.skills-manager-view .stat-chip--action:hover {
+  text-decoration: underline;
+}
+
+.skills-manager-view .stat-chip--action:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}

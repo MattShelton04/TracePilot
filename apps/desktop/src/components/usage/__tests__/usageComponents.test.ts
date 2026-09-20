@@ -1,8 +1,6 @@
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { nextTick } from "vue";
 import UsageBreakdownBars from "../UsageBreakdownBars.vue";
-import UsageInsightBar from "../UsageInsightBar.vue";
 import UsageSparkline from "../UsageSparkline.vue";
 
 enableAutoUnmount(afterEach);
@@ -54,56 +52,5 @@ describe("UsageBreakdownBars", () => {
   it("falls back to the empty text", () => {
     const wrapper = mount(UsageBreakdownBars, { props: { rows: [], emptyText: "Not recorded" } });
     expect(wrapper.text()).toBe("Not recorded");
-  });
-});
-
-describe("UsageInsightBar", () => {
-  const insights = [
-    { id: "unused", text: "6 enabled skills unused in 90 days", tone: "warning" as const },
-    { id: "missing", text: "2 skills are not installed here", tone: "accent" as const },
-  ];
-
-  const mountBar = (props: Record<string, unknown> = {}) =>
-    mount(UsageInsightBar, { props: { insights, storageKey: "test:insights", ...props } });
-
-  it("renders nothing when there is nothing worth saying", () => {
-    expect(mountBar({ insights: [] }).find(".insight").exists()).toBe(false);
-  });
-
-  it("hands the filter decision back to the caller rather than acting itself", async () => {
-    const wrapper = mountBar();
-    await wrapper.get(".insight__action").trigger("click");
-    expect(wrapper.emitted("act")).toEqual([["unused"]]);
-  });
-
-  it("dismisses one insight without hiding the others", async () => {
-    const wrapper = mountBar();
-    await wrapper.get(".insight__dismiss").trigger("click");
-    const remaining = wrapper.findAll(".insight");
-    expect(remaining).toHaveLength(1);
-    expect(remaining[0].text()).toContain("not installed here");
-  });
-
-  it("remembers a dismissal across mounts, per insight", async () => {
-    const first = mountBar();
-    await first.get(".insight__dismiss").trigger("click");
-    expect(JSON.parse(localStorage.getItem("test:insights")!)).toEqual(["unused"]);
-
-    const second = mountBar();
-    await nextTick();
-    expect(second.findAll(".insight")).toHaveLength(1);
-  });
-
-  it("renders every insight when stored dismissals are unreadable", async () => {
-    localStorage.setItem("test:insights", "not json");
-    const wrapper = mountBar();
-    await nextTick();
-    expect(wrapper.findAll(".insight")).toHaveLength(2);
-  });
-
-  it("labels each dismiss button with what it hides", () => {
-    expect(mountBar().get(".insight__dismiss").attributes("aria-label")).toBe(
-      "Dismiss: 6 enabled skills unused in 90 days",
-    );
   });
 });

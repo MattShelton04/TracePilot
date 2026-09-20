@@ -97,13 +97,19 @@ function computeFlags(
   shadowedNames: ReadonlySet<string>,
   range: UsageRange,
   now: Date,
+  /**
+   * Whether the index recorded any skill use at all in this range. With none,
+   * "unused" would describe the index rather than the skill, so it is
+   * withheld until there is something to have been absent from.
+   */
+  hasUsageEvidence: boolean,
 ): SkillFlag[] {
   const flags: SkillFlag[] = [];
   const uses = usage?.uses ?? 0;
 
   if (entry.kind === "missing") {
     flags.push("missing");
-  } else if (entry.enabled && uses === 0) {
+  } else if (hasUsageEvidence && entry.enabled && uses === 0) {
     const start = rangeStart(range, now);
     const modified = entry.skill?.modifiedAt ? Date.parse(entry.skill.modifiedAt) : Number.NaN;
     // A skill installed inside the range has not had a fair chance yet.
@@ -193,6 +199,7 @@ export function buildSkillEntries(
   }
 
   const shadowed = shadowedSkillNames(skills);
+  const hasEvidence = (usage?.totalUses ?? 0) > 0;
   const entries: SkillEntry[] = skills.map((skill) => {
     const key = normalizeDirectory(skill.directory);
     const stats = usageBySkill.get(key) ?? null;
@@ -208,7 +215,7 @@ export function buildSkillEntries(
       listingTokens: skill.frontmatterTokens,
       lastKnownPath: null,
     };
-    return { ...base, flags: computeFlags(base, stats, shadowed, range, now) };
+    return { ...base, flags: computeFlags(base, stats, shadowed, range, now, hasEvidence) };
   });
 
   for (const stats of unmatched) {
@@ -226,7 +233,7 @@ export function buildSkillEntries(
       listingTokens: 0,
       lastKnownPath: stats.paths[0]?.path ?? null,
     };
-    entries.push({ ...base, flags: computeFlags(base, stats, shadowed, range, now) });
+    entries.push({ ...base, flags: computeFlags(base, stats, shadowed, range, now, hasEvidence) });
   }
 
   return entries;

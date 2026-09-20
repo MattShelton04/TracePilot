@@ -1,10 +1,12 @@
 // biome-ignore-all assist/source/organizeImports: setup must register mocks before the store import.
 import { flushPromises } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ALL_SUMMARIES, mocks, setupSkillsStoreTest, usageStats } from "./setup";
 import { useSkillsStore } from "../../../stores/skills";
 
 setupSkillsStoreTest();
+
+beforeEach(() => localStorage.clear());
 
 function summaryOf(skills: ReturnType<typeof usageStats>[]) {
   return {
@@ -32,6 +34,17 @@ describe("skills usage", () => {
       toDate: "2026-09-20",
     });
     vi.useRealTimers();
+  });
+
+  it("remembers the chosen range, so an older corpus is not empty on every visit", async () => {
+    const store = useSkillsStore();
+    await store.setRange("all");
+    expect(localStorage.getItem("tracepilot-skills-usage-range")).toBe("all");
+  });
+
+  it("ignores a stored range that is no longer a valid option", () => {
+    localStorage.setItem("tracepilot-skills-usage-range", "7d");
+    expect(useSkillsStore().range).toBe("90d");
   });
 
   it("drops the date bounds entirely for all-time", async () => {

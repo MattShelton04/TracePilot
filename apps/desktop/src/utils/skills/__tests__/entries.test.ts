@@ -183,14 +183,26 @@ describe("buildSkillEntries", () => {
 
 describe("flags", () => {
   it("flags an enabled, long-installed skill with no uses as unused", () => {
-    const entries = buildSkillEntries([skill("idle")], summary([]), "90d", NOW);
+    const entries = buildSkillEntries(
+      [skill("idle"), skill("busy")],
+      summary([usage("busy")]),
+      "90d",
+      NOW,
+    );
     expect(flagsOf(entries, "idle")).toContain("unused");
+  });
+
+  it("calls nothing unused when the index recorded no use at all", () => {
+    // Before the index is rebuilt every skill has zero uses, which describes
+    // the index rather than the skills.
+    const entries = buildSkillEntries([skill("idle")], summary([]), "90d", NOW);
+    expect(flagsOf(entries, "idle")).toEqual([]);
   });
 
   it("does not flag a skill installed inside the range as unused", () => {
     const entries = buildSkillEntries(
-      [skill("brand-new", { modifiedAt: day(3) })],
-      summary([]),
+      [skill("brand-new", { modifiedAt: day(3) }), skill("busy")],
+      summary([usage("busy")]),
       "90d",
       NOW,
     );

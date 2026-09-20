@@ -92,6 +92,27 @@ describe("SkillUsageTab", () => {
     expect(wrapper.text()).toContain("median of 38 of 40");
   });
 
+  it("drops the denominator when every use contributed to the median", () => {
+    const { wrapper } = mountTab({
+      usage: detail({ stats: stats({ usesWithContent: 40 }) }),
+    } as never);
+    expect(wrapper.text()).toContain("median of 40 uses");
+    expect(wrapper.text()).not.toContain("40 of 40");
+  });
+
+  it("states that no trigger was recorded rather than drawing an all-unknown bar", () => {
+    const { wrapper } = mountTab();
+    expect(wrapper.find(".stacked").exists()).toBe(false);
+    expect(wrapper.text()).toContain("No invocation in this range recorded who triggered it");
+  });
+
+  it("draws the trigger split once the CLI has recorded real triggers", () => {
+    const { wrapper } = mountTab({
+      usage: detail({ stats: stats({ userInvoked: 10, unknownTrigger: 30 }) }),
+    } as never);
+    expect(wrapper.find(".stacked").exists()).toBe(true);
+  });
+
   it("says the cost is unknown rather than showing a median of nothing", () => {
     const { wrapper } = mountTab({
       usage: detail({ stats: stats({ medianContentTokens: null, usesWithContent: 0 }) }),

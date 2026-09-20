@@ -2,7 +2,26 @@ import { skillsUsageSummary } from "@tracepilot/client";
 import type { SkillUsageSummary } from "@tracepilot/types";
 import { runAction, useAsyncGuard } from "@tracepilot/ui";
 import { type Ref, ref, type ShallowRef, shallowRef } from "vue";
-import { rangeBounds, type UsageRange } from "@/utils/usage/range";
+import { STORAGE_KEYS } from "@/config/storageKeys";
+import { logWarn } from "@/utils/logger";
+import { rangeBounds, USAGE_RANGES, type UsageRange } from "@/utils/usage/range";
+
+const DEFAULT_RANGE: UsageRange = "90d";
+
+/**
+ * The chosen range is remembered because a corpus whose skill use predates
+ * the default window would otherwise look empty on every visit.
+ */
+function storedRange(): UsageRange {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.skillsUsageRange);
+    const match = USAGE_RANGES.find((option) => option.value === raw);
+    return match ? match.value : DEFAULT_RANGE;
+  } catch (error) {
+    logWarn("[skills] Could not read the stored usage range", error);
+    return DEFAULT_RANGE;
+  }
+}
 
 export interface SkillsUsageSlice {
   usage: ShallowRef<SkillUsageSummary | null>;
@@ -22,7 +41,7 @@ export interface SkillsUsageSlice {
  */
 export function createSkillsUsageSlice(): SkillsUsageSlice {
   const usage = shallowRef<SkillUsageSummary | null>(null);
-  const range = ref<UsageRange>("90d");
+  const range = ref<UsageRange>(storedRange());
   const usageLoading = ref(false);
   const usageError = ref<string | null>(null);
   const guard = useAsyncGuard();
@@ -42,6 +61,11 @@ export function createSkillsUsageSlice(): SkillsUsageSlice {
   async function setRange(next: UsageRange) {
     if (range.value === next) return;
     range.value = next;
+    try {
+      localStorage.setItem(STORAGE_KEYS.skillsUsageRange, next);
+    } catch (error) {
+      logWarn("[skills] Could not persist the usage range", error);
+    }
     await loadUsage();
   }
 

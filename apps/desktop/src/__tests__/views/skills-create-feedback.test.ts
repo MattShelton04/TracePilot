@@ -26,7 +26,6 @@ async function openForm() {
     missingSkills: [],
     entries: [],
     filteredSkills: [],
-    insights: [],
     unusedEnabledSkills: [],
     usedSkillCount: 0,
     diagnostics: [],

@@ -56,9 +56,11 @@ const kpis = computed(() => {
       value:
         value.medianContentTokens != null ? `~${formatNumber(value.medianContentTokens)}` : "—",
       note:
-        value.usesWithContent > 0
-          ? `median of ${formatNumber(value.usesWithContent)} of ${formatNumber(value.uses)}`
-          : "No content recorded",
+        value.usesWithContent === 0
+          ? "No content recorded"
+          : value.usesWithContent === value.uses
+            ? `median of ${formatNumber(value.uses)} uses`
+            : `median of ${formatNumber(value.usesWithContent)} of ${formatNumber(value.uses)}`,
       description:
         value.usesWithContent > 0
           ? `Median estimated tokens this skill added to the context when invoked, over the ${formatNumber(value.usesWithContent)} invocations that recorded their content.`
@@ -209,7 +211,10 @@ const fallbackOnly = computed(
             <span class="skill-usage__denominator" tabindex="0">not recorded before CLI 1.0.49</span>
           </Tooltip>
         </h4>
-        <UsageStackedBar :segments="triggers" :total="stats.uses" />
+        <UsageStackedBar v-if="triggerKnown" :segments="triggers" :total="stats.uses" />
+        <p v-else class="skill-usage__empty">
+          No invocation in this range recorded who triggered it.
+        </p>
       </section>
 
       <details class="skill-usage__more" :open="invokedBy.length > 1">

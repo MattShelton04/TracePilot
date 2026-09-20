@@ -28,9 +28,7 @@ import {
   SKILL_SCOPE_FILTERS,
 } from "@/components/skills/skillBadges";
 import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "@/components/skills/tokenEstimate";
-import UsageInsightBar from "@/components/usage/UsageInsightBar.vue";
 import { ROUTE_NAMES } from "@/config/routes";
-import { STORAGE_KEYS } from "@/config/storageKeys";
 import { pushRoute } from "@/router/navigation";
 import "@/styles/features/skills-manager.css";
 import { useSkillsStore } from "@/stores/skills";
@@ -87,14 +85,16 @@ const sortOptions = [
 const rangeLabel = computed(() => USAGE_RANGE_LABELS[store.range]);
 
 /**
- * Usage is written by the indexer, so an index that has not caught up yet
- * shows nothing rather than zero. Saying so is more honest than letting every
- * skill read as unused.
+ * No usage came back for this range. Which of the two reasons that is depends
+ * on the range: over all time it means the index has nothing, and over a
+ * window it means only that nothing happened inside it. Conflating the two
+ * would tell a reader with months-old skill use that their index is broken.
  */
-const usageUnavailable = computed(
+const noUsageInRange = computed(
   () =>
     !store.usageLoading && !store.usageError && store.usage !== null && store.usage.totalUses === 0,
 );
+const usageNeverIndexed = computed(() => noUsageInRange.value && store.range === "all");
 
 // A deep link (from the Analytics card or a conversation row) must be visible
 // even after a previous visit narrowed the filters.
@@ -144,6 +144,16 @@ function handleImported(_result: SkillBatchImportResult) {
 
 async function handleDeleteSkill(dir: string) {
   await confirmSkillDeletion(showConfirm, store.deleteSkill, dir);
+}
+
+/** The two warning counts are the way into their own evidence. */
+function showUnused() {
+  store.showOnlyFlag("unused");
+}
+
+function showMissing() {
+  store.clearFilters();
+  store.setFilterScope("missing");
 }
 
 async function handleToggleEnabled(name: string, enabled: boolean) {
@@ -210,15 +220,25 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
         </span>
         <template v-if="store.unusedEnabledSkills.length">
           <span class="stat-sep">&middot;</span>
-          <span class="stat-chip stat-chip--warning">
+          <button
+            type="button"
+            class="stat-chip stat-chip--warning stat-chip--action"
+            :title="`Show the ${store.unusedEnabledSkills.length} enabled skills with no use in ${rangeLabel}`"
+            @click="showUnused"
+          >
             {{ store.unusedEnabledSkills.length }} Unused &amp; enabled
-          </span>
+          </button>
         </template>
         <template v-if="store.missingSkills.length">
           <span class="stat-sep">&middot;</span>
-          <span class="stat-chip stat-chip--warning">
+          <button
+            type="button"
+            class="stat-chip stat-chip--warning stat-chip--action"
+            title="Show the skills that sessions invoked but are not installed here"
+            @click="showMissing"
+          >
             {{ store.missingSkills.length }} Not installed
-          </span>
+          </button>
         </template>
       </div>
 
@@ -241,12 +261,6 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
           />
         </div>
       </div>
-
-      <UsageInsightBar
-        :insights="store.insights"
-        :storage-key="STORAGE_KEYS.skillsDismissedInsights"
-        @act="(id) => { const insight = store.insights.find((i) => i.id === id); if (insight) store.showOnlyFlag(insight.flag); }"
-      />
 
       <!-- Filter Row: Scope + Range + Sort + Search -->
       <div class="filter-row">
@@ -316,9 +330,19 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
         <Banner v-if="store.usageError" tone="warning" title="Usage unavailable">
           Skills are shown without cross-session usage: {{ store.usageError }}
         </Banner>
-        <Banner v-else-if="usageUnavailable" tone="info" title="No usage indexed yet">
+        <Banner v-else-if="usageNeverIndexed" tone="info" title="No usage indexed yet">
           Usage appears once the session index has been rebuilt for this version. Until then every
           skill shows as never used.
+        </Banner>
+        <Banner
+          v-else-if="noUsageInRange"
+          tone="info"
+          :title="`No skill uses in the last ${rangeLabel}`"
+        >
+          Skills are shown without usage figures for this window.
+          <button type="button" class="banner-action" @click="store.setRange('all')">
+            Show all time
+          </button>
         </Banner>
 
         <!-- Skills Grid -->
