@@ -1,0 +1,1164 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'sha256-/VJQMf7MPcyRrzkdQQNH+IMu7qZZHyIistXAIh4ThDA='; connect-src 'self'; base-uri 'none'; form-action 'none'"><title>PR #831 · 2fe45fff · fixture visual comparison</title><style>:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #e7eaf2;
+  background: #0b0e15;
+  font-synthesis: none;
+  --muted: #9da7bd;
+  --line: #293143;
+  --accent: #b5a0ff;
+  --green: #8ee0ba;
+  --pink: #ff799c;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+select {
+  touch-action: manipulation;
+}
+button {
+  color: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+button,
+input,
+select {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #161c29;
+}
+input,
+select {
+  color: inherit;
+  padding: 9px 11px;
+}
+button {
+  padding: 8px 11px;
+}
+button:hover:not(:disabled) {
+  background: #242c3f;
+}
+button[aria-pressed="true"] {
+  background: #302844;
+  color: #e0d6ff;
+  border-color: #6d598e;
+}
+h1,
+h2,
+p {
+  margin: 0;
+}
+.app-header {
+  height: 112px;
+  border-bottom: 1px solid var(--line);
+  padding: 19px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  background: #10151f;
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 2px;
+  color: var(--accent);
+  margin-bottom: 7px;
+}
+h1 {
+  font-size: 21px;
+  letter-spacing: -0.4px;
+}
+.header-meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 7px;
+}
+.header-links {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.counts {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.count {
+  border: 1px solid var(--line);
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.count.changed {
+  color: var(--pink);
+  border-color: #613047;
+}
+.count.unchanged {
+  color: var(--green);
+}
+.workspace {
+  height: calc(100dvh - 112px);
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+.sidebar {
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #10141d;
+}
+.filters {
+  padding: 18px 15px 13px;
+  border-bottom: 1px solid var(--line);
+}
+.filters input {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.filters label {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.filters input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+.view-list {
+  overflow: auto;
+  padding: 8px;
+  flex: 1;
+}
+.view-link {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 8px;
+  margin-bottom: 3px;
+}
+.view-link[aria-current="true"] {
+  background: #242039;
+  border-color: #554571;
+}
+.view-thumb {
+  width: 58px;
+  height: 39px;
+  object-fit: cover;
+  border: 1px solid #343c50;
+  border-radius: 4px;
+  background: #1a2030;
+}
+.view-name {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.view-status {
+  font-size: 10px;
+  margin-top: 4px;
+  color: var(--muted);
+  display: block;
+}
+.view-status.changed {
+  color: var(--pink);
+}
+.view-status.unchanged {
+  color: var(--green);
+}
+.sidebar-footer {
+  padding: 13px 16px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.review {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.view-heading {
+  padding: 18px 23px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+}
+.view-heading h2 {
+  font-size: 18px;
+  letter-spacing: -0.3px;
+}
+.view-description {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.status-pill {
+  font-size: 11px;
+  padding: 5px 8px;
+  border: 1px solid #614159;
+  background: #2a1d2a;
+  border-radius: 5px;
+  color: #ffc0d4;
+  white-space: nowrap;
+}
+.toolbar {
+  padding: 12px 20px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  background: #10151f;
+}
+.mode-group,
+.zoom-group,
+.adjustments {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.mode-group button,
+.zoom-group button {
+  font-size: 11px;
+  padding: 7px 9px;
+}
+.zoom-group {
+  margin-left: auto;
+}
+.zoom-value {
+  min-width: 43px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.adjustments {
+  min-height: 43px;
+  padding: 7px 22px;
+  gap: 13px;
+  font-size: 11px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.adjustments label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adjustments input[type="range"] {
+  padding: 0;
+  width: 140px;
+  accent-color: var(--accent);
+}
+.adjustments button {
+  font-size: 10px;
+  padding: 4px 9px;
+}
+.stage-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+  overflow: auto;
+  background: radial-gradient(#242b3a 0.8px, transparent 0.8px) 0 0 / 12px 12px;
+  background-color: #0b0e15;
+  overscroll-behavior: contain;
+  scrollbar-color: #47516a #111725;
+  touch-action: none;
+}
+.stage-viewport.can-pan {
+  cursor: grab;
+}
+.stage-viewport.panning {
+  cursor: grabbing;
+  user-select: none;
+}
+.stage-space {
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  padding: 26px;
+  display: grid;
+  place-items: center;
+}
+.scaled-stage {
+  position: relative;
+  flex: none;
+}
+.image-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: top left;
+  display: flex;
+  gap: 24px;
+}
+.board {
+  width: 1440px;
+  height: 960px;
+  position: relative;
+  flex: none;
+  background: #151922;
+  box-shadow: 0 8px 44px #0008;
+  overflow: hidden;
+}
+.board img {
+  position: absolute;
+  inset: 0;
+  width: 1440px;
+  height: 960px;
+  pointer-events: none;
+  user-select: none;
+}
+.board-label {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 10px;
+  border: 1px solid #56627d;
+  border-radius: 5px;
+  background: #0a0e18e8;
+  color: #eef0fa;
+  font-size: 15px;
+  z-index: 4;
+}
+.board-label.after {
+  left: auto;
+  right: 12px;
+  color: #b3f4d4;
+}
+.bounds {
+  position: absolute;
+  border: 2px solid #ff7b9f;
+  box-shadow: 0 0 0 1px #301425;
+  pointer-events: none;
+  z-index: 3;
+}
+.wipe-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #d3c5ff;
+  z-index: 5;
+  transform: translateX(-50%);
+}
+.wipe-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #282036;
+  border: 2px solid #d3c5ff;
+  color: #f3eaff;
+  border-radius: 22px;
+  width: 44px;
+  height: 62px;
+  padding: 0;
+  font-size: 22px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.wipe-grip:focus-visible {
+  outline: 4px solid #fff;
+  outline-offset: 5px;
+}
+.pixel-summary {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 12px 22px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  min-height: 44px;
+  background: #10151f;
+}
+.pixel-summary strong {
+  color: #f2cad8;
+  font-weight: 600;
+}
+.regions {
+  max-height: 96px;
+  overflow: auto;
+  flex-shrink: 0;
+  padding: 0 22px 13px;
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  background: #10151f;
+}
+.regions button {
+  font-size: 10px;
+  padding: 5px 8px;
+  color: #edc5d3;
+}
+.limitations {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 0 22px 12px;
+  color: #eac491;
+  background: #10151f;
+  max-height: 115px;
+  overflow: auto;
+}
+.limitations summary {
+  cursor: pointer;
+}
+.limitations ul {
+  margin-bottom: 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+.empty-message {
+  padding: 48px;
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 620px;
+  line-height: 1.7;
+}
+.empty-filter {
+  padding: 18px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+[hidden][hidden] {
+  display: none;
+}
+.history-main {
+  max-width: 1420px;
+  margin: 0 auto;
+  padding: 26px;
+}
+.history-controls {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: end;
+  margin-bottom: 24px;
+}
+.history-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 20px;
+}
+.run-card {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  overflow: hidden;
+  background: #121824;
+}
+.run-card img {
+  width: 100%;
+  aspect-ratio: 1.5;
+  object-fit: cover;
+  border-bottom: 1px solid var(--line);
+}
+.run-info {
+  padding: 17px;
+}
+.run-info h2 {
+  font-size: 15px;
+  line-height: 1.4;
+}
+.run-info p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+  margin-top: 7px;
+}
+.run-info a {
+  display: inline-block;
+  margin-top: 13px;
+  font-size: 12px;
+}
+.history-note {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin-bottom: 24px;
+  max-width: 920px;
+}
+.no-script {
+  padding: 20px;
+}
+.no-script img {
+  width: 46%;
+  height: auto;
+}
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .app-header {
+    padding: 16px 20px;
+  }
+  .view-thumb {
+    width: 42px;
+    height: 28px;
+  }
+  .view-link {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+  .toolbar {
+    padding: 10px 14px;
+  }
+  .header-links {
+    gap: 10px;
+  }
+  .view-heading {
+    padding: 14px;
+  }
+  .adjustments {
+    padding: 7px 14px;
+  }
+  .mode-group {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) {
+  .app-header {
+    height: auto;
+    min-height: 112px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .workspace {
+    height: auto;
+    min-height: calc(100dvh - 112px);
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    max-height: 230px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .filters {
+    padding: 10px;
+  }
+  .sidebar-footer {
+    display: none;
+  }
+  .view-list {
+    display: flex;
+    gap: 5px;
+    overflow: auto;
+  }
+  .view-link {
+    width: 190px;
+    flex: none;
+  }
+  .review {
+    min-height: 690px;
+  }
+  .stage-viewport {
+    min-height: 360px;
+  }
+  .counts {
+    margin-bottom: 5px;
+  }
+  .header-meta {
+    max-width: 95vw;
+  }
+  .pixel-summary {
+    flex-wrap: wrap;
+  }
+  .history-main {
+    padding: 18px;
+  }
+}
+</style></head><body><header class="app-header"><div><p class="eyebrow">TRACEPILOT / VISUAL REVIEW</p><h1>PR #831 · 2fe45fff · fixture visual comparison</h1><p class="header-meta">Real frontend · synthetic backend fixtures · 1440 × 960 · dark · 100% UI scale</p></div><div><div class="counts"><span class="count changed">0 review changes</span><span class="count unchanged">0 identical</span><span class="count">0 subtle</span><span class="count">36 limitations</span></div><nav class="header-links" aria-label="Report links"><a id="history-link" href="../../index.html">Browse history ↗</a><a href="https://github.com/MattShelton04/TracePilot/actions/runs/35483778770/attempts/1">Capture run ↗</a><a href="summary.json">Summary JSON</a></nav></div></header>
+<div class="workspace"><aside class="sidebar" aria-label="Captured views"><div class="filters"><input id="search" type="search" aria-label="Filter views" placeholder="Find a view…"><label><input id="changes" type="checkbox"> Hide identical and subtle differences</label></div><nav id="view-list" class="view-list" aria-label="Views"></nav><div class="sidebar-footer"><span id="visible-count"></span><br>Pixel changes require human review.<br>Rust and native integration are not tested.</div></aside>
+<main class="review"><div class="view-heading"><div><h2 id="view-title"></h2><p id="view-description" class="view-description"></p></div><span id="view-status" class="status-pill"></span></div>
+<div class="toolbar"><div class="mode-group" role="group" aria-label="Comparison mode"><button type="button" data-mode="side" aria-pressed="false">Side by side</button><button type="button" data-mode="toggle" aria-pressed="false">Before / after</button><button type="button" data-mode="wipe" aria-pressed="false">Wipe</button><button type="button" data-mode="overlay" aria-pressed="false">Overlay</button><button type="button" data-mode="difference" aria-pressed="false">Difference</button></div><div class="zoom-group" role="group" aria-label="Zoom"><button id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-value" class="zoom-value"></span><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit</button><button id="zoom-actual">100%</button></div></div>
+<div class="adjustments"><div id="toggle-controls"><button data-side="base" aria-pressed="false">Before</button> <button data-side="head" aria-pressed="true">After</button></div><label id="wipe-control">Before / after split <input id="wipe-range" type="range" min="0" max="100" value="50"><output id="wipe-value">50%</output></label><label id="opacity-control">After opacity <input id="opacity" type="range" min="0" max="100" value="50"><output id="opacity-value">50%</output></label><label id="threshold-control">Pixel threshold <select id="threshold"><option value="0">Exact (0)</option><option value="8">8 / 255</option><option value="16">16 / 255</option><option value="32">32 / 255</option></select></label><span id="mode-hint"></span></div>
+<div id="viewport" class="stage-viewport" tabindex="0" aria-label="Screenshot comparison, scroll or drag to pan when zoomed" aria-describedby="pan-help"><div class="stage-space"><div id="scaled-stage" class="scaled-stage"><div id="image-stage" class="image-stage"></div></div></div></div><p id="pan-help" class="sr-only">Fit shows the complete viewport. At 100% or higher, drag the image or use scrollbars and arrow keys to pan. Comparison controls are keyboard accessible.</p>
+<div class="pixel-summary"><span id="pixel-metric" role="status" aria-live="polite">Select a view to inspect its pixels.</span><span id="pixel-bounds"></span></div><div id="regions" class="regions" aria-label="Changed regions"></div><details id="limitations" class="limitations"><summary>Capture limitations</summary><ul id="issues"></ul></details></main></div>
+<noscript><section class="no-script"><h2>Before and after images</h2><p>Enable JavaScript for wipe, overlay, pixel comparison and zoom.</p><article><h3>sessions · base unavailable</h3><p>/ · populated</p><img src="base-sessions.png" alt="base sessions"><img src="head-sessions.png" alt="head sessions"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;[data-testid=&quot;session-card&quot;]&#39;).first() to be visible
+</li></ul></article><article><h3>session-overview · base unavailable</h3><p>/session/sess-auth-refactor/overview · populated</p><img src="base-session-overview.png" alt="base session-overview"><img src="head-session-overview.png" alt="head session-overview"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.detail-title&#39;).first() to be visible
+</li></ul></article><article><h3>session-conversation · base unavailable</h3><p>/session/sess-auth-refactor/conversation · populated</p><img src="base-session-conversation.png" alt="base session-conversation"><img src="head-session-conversation.png" alt="head session-conversation"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.detail-title&#39;).first() to be visible
+</li></ul></article><article><h3>session-events · base unavailable</h3><p>/session/sess-auth-refactor/events · populated</p><img src="base-session-events.png" alt="base session-events"><img src="head-session-events.png" alt="head session-events"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.detail-title&#39;).first() to be visible
+</li></ul></article><article><h3>session-todos · base unavailable</h3><p>/session/sess-auth-refactor/todos · populated</p><img src="base-session-todos.png" alt="base session-todos"><img src="head-session-todos.png" alt="head session-todos"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.detail-title&#39;).first() to be visible
+</li></ul></article><article><h3>session-metrics · base unavailable</h3><p>/session/sess-auth-refactor/metrics · populated</p><img src="base-session-metrics.png" alt="base session-metrics"><img src="head-session-metrics.png" alt="head session-metrics"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.detail-title&#39;).first() to be visible
+</li></ul></article><article><h3>session-context · base unavailable</h3><p>/session/sess-auth-refactor/context · populated</p><img src="base-session-context.png" alt="base session-context"><img src="head-session-context.png" alt="head session-context"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.detail-title&#39;).first() to be visible
+</li></ul></article><article><h3>session-explorer · base unavailable</h3><p>/session/sess-auth-refactor/explorer · populated</p><img src="base-session-explorer.png" alt="base session-explorer"><img src="head-session-explorer.png" alt="head session-explorer"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.fb-tree&#39;).first() to be visible
+</li></ul></article><article><h3>session-timeline · base unavailable</h3><p>/session/sess-auth-refactor/timeline · populated</p><img src="base-session-timeline.png" alt="base session-timeline"><img src="head-session-timeline.png" alt="head session-timeline"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.detail-title&#39;).first() to be visible
+</li></ul></article><article><h3>session-explorer-file · base unavailable</h3><p>/session/sess-auth-refactor/explorer · synthetic plan.md selected in the file reader</p><img src="base-session-explorer-file.png" alt="base session-explorer-file"><img src="head-session-explorer-file.png" alt="head session-explorer-file"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.fb-tree&#39;).first() to be visible
+</li></ul></article><article><h3>search · base unavailable</h3><p>/search · empty search prompt; indexed fixtures</p><img src="base-search.png" alt="base search"><img src="head-search.png" alt="head search"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>fts_health</li></ul></article><article><h3>search-results · base unavailable</h3><p>/search?q=auth · populated search results</p><img src="base-search-results.png" alt="base search-results"><img src="head-search-results.png" alt="head search-results"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>fts_health</li></ul></article><article><h3>analytics · base unavailable</h3><p>/analytics · populated</p><img src="base-analytics.png" alt="base analytics"><img src="head-analytics.png" alt="head analytics"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>list_sessions</li><li>get_analytics</li></ul></article><article><h3>tools · base unavailable</h3><p>/tools · populated</p><img src="base-tools.png" alt="base tools"><img src="head-tools.png" alt="head tools"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>list_sessions</li><li>get_tool_analysis</li></ul></article><article><h3>code · base unavailable</h3><p>/code · populated</p><img src="base-code.png" alt="base code"><img src="head-code.png" alt="head code"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>list_sessions</li><li>get_code_impact</li></ul></article><article><h3>model-comparison · base unavailable</h3><p>/models · populated</p><img src="base-model-comparison.png" alt="base model-comparison"><img src="head-model-comparison.png" alt="head model-comparison"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>list_sessions</li><li>get_analytics</li></ul></article><article><h3>compare · base unavailable</h3><p>/compare · session picker</p><img src="base-compare.png" alt="base compare"><img src="head-compare.png" alt="head compare"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>list_sessions</li></ul></article><article><h3>compare-populated · base unavailable</h3><p>/compare · two synthetic sessions compared; zero file-count baseline</p><img src="base-compare-populated.png" alt="base compare-populated"><img src="head-compare-populated.png" alt="head compare-populated"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.selectOption: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByLabel(&#39;Select Session A&#39;)
+    - locator resolved to &lt;select class=&quot;comp-select&quot; aria-label=&quot;Select Session A&quot;&gt;…&lt;/select&gt;
+  - attempting select option action
+    2 × waiting for element to be visible and enabled
+      - did not find some options
+    - retrying select option action
+    - waiting 20ms
+    2 × waiting for element to be visible and enabled
+      - did not find some options
+    - retrying select option acti</li></ul></article><article><h3>replay · base unavailable</h3><p>/replay/sess-auth-refactor · Experimental · explicitly enabled; populated paused replay</p><img src="base-replay.png" alt="base replay"><img src="head-replay.png" alt="head replay"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;h1&#39;).first() to be visible
+</li></ul></article><article><h3>export · base unavailable</h3><p>/export · Experimental · explicitly enabled; session picker</p><img src="base-export.png" alt="base export"><img src="head-export.png" alt="head export"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>list_sessions</li></ul></article><article><h3>export-preview · base unavailable</h3><p>/export?sessionId=sess-auth-refactor&amp;preset=minimal-team-log · Experimental · explicitly enabled; selected session and populated Markdown preview</p><img src="base-export-preview.png" alt="base export-preview"><img src="head-export-preview.png" alt="head export-preview"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>list_sessions</li><li>get_session_sections</li><li>get_session_sections</li></ul></article><article><h3>settings · base unavailable</h3><p>/settings · configured defaults</p><img src="base-settings.png" alt="base settings"><img src="head-settings.png" alt="head settings"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>get_log_path</li><li>get_git_info</li><li>get_config</li><li>context_capture_storage_stats</li></ul></article><article><h3>settings-pricing · base unavailable</h3><p>/settings · configured pricing</p><img src="base-settings-pricing.png" alt="base settings-pricing"><img src="head-settings-pricing.png" alt="head settings-pricing"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li><li>get_log_path</li><li>get_git_info</li><li>get_config</li><li>context_capture_storage_stats</li></ul></article><article><h3>orchestration · base unavailable</h3><p>/orchestration · SDK disabled; fixture sessions</p><img src="base-orchestration.png" alt="base orchestration"><img src="head-orchestration.png" alt="head orchestration"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;h1&#39;).first() to be visible
+</li></ul></article><article><h3>worktree-manager · base unavailable</h3><p>/orchestration/worktrees · populated fixture repositories</p><img src="base-worktree-manager.png" alt="base worktree-manager"><img src="head-worktree-manager.png" alt="head worktree-manager"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li></ul></article><article><h3>session-launcher · base unavailable</h3><p>/orchestration/launcher · launch form; no process launched</p><img src="base-session-launcher.png" alt="base session-launcher"><img src="head-session-launcher.png" alt="head session-launcher"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li></ul></article><article><h3>config-injector · base unavailable</h3><p>/orchestration/config · Experimental · explicitly enabled; fixture configuration</p><img src="base-config-injector.png" alt="base config-injector"><img src="head-config-injector.png" alt="head config-injector"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;h1&#39;).first() to be visible
+</li></ul></article><article><h3>mcp-manager · base unavailable</h3><p>/mcp · Experimental · explicitly enabled; populated</p><img src="base-mcp-manager.png" alt="base mcp-manager"><img src="head-mcp-manager.png" alt="head mcp-manager"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.mcp-server-card, .server-card&#39;).first() to be visible
+</li></ul></article><article><h3>mcp-server-detail · base unavailable</h3><p>/mcp/visual-files · Experimental · explicitly enabled; configured; no network health check</p><img src="base-mcp-server-detail.png" alt="base mcp-server-detail"><img src="head-mcp-server-detail.png" alt="head mcp-server-detail"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.detail-server-name&#39;).first() to be visible
+</li></ul></article><article><h3>skills-manager · base unavailable</h3><p>/skills · populated</p><img src="base-skills-manager.png" alt="base skills-manager"><img src="head-skills-manager.png" alt="head skills-manager"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li></ul></article><article><h3>skill-editor · base unavailable</h3><p>/skills/visual-review · populated synthetic skill</p><img src="base-skill-editor.png" alt="base skill-editor"><img src="head-skill-editor.png" alt="head skill-editor"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li></ul></article><article><h3>cli-context · base unavailable</h3><p>/cli-context · Experimental · explicitly enabled; no captured external context</p><img src="base-cli-context.png" alt="base cli-context"><img src="head-cli-context.png" alt="head cli-context"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;h1&#39;).first() to be visible
+</li></ul></article><article><h3>not-found · base unavailable</h3><p>/visual-route-does-not-exist · not found</p><img src="base-not-found.png" alt="base not-found"><img src="head-not-found.png" alt="head not-found"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>get_config</li><li>get_config</li><li>list_sessions</li></ul></article><article><h3>agent-editor · base unavailable</h3><p>/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md · populated synthetic personal agent</p><img src="base-agent-editor.png" alt="base agent-editor"><img src="head-agent-editor.png" alt="head agent-editor"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.agent-editor .frontmatter-card&#39;).first() to be visible
+</li></ul></article><article><h3>agents-manager · base unavailable</h3><p>/agents · populated</p><img src="base-agents-manager.png" alt="base agents-manager"><img src="head-agents-manager.png" alt="head agents-manager"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.agent-card&#39;).first() to be visible
+</li></ul></article><article><h3>agent-usage · base unavailable</h3><p>/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml · agent usage and model breakdown</p><img src="base-agent-usage.png" alt="base agent-usage"><img src="head-agent-usage.png" alt="head agent-usage"><ul><li>Failed to load resource: the server responded with a status of 500 (Internal Server Error)</li><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.agent-editor .frontmatter-card&#39;).first() to be visible
+</li></ul></article></section></noscript><script id="report-data" type="application/json">{"schema":3,"title":"PR #831 · 2fe45fff · fixture visual comparison","rows":[{"id":"sessions","route":"/","ready":"[data-testid=\"session-card\"]","state":"populated","base":{"route":"/","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('[data-testid=\"session-card\"]').first() to be visible\n"],"missing":[]},"head":{"route":"/","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"49c2683ac1bd02673125267da284c81d8f4c7e9234b4f4479eb657dbd37008f2","headHash":"6b7276492a34f53e546e056ea963b1a97ee0cd42ed50dec715218e776cbf21b2","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-sessions-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1055370,"total":1382400,"percent":76.34331597222223,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1054121},{"x":1352,"y":313,"width":39,"height":12,"pixels":216},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":515,"y":851,"width":2,"height":2,"pixels":4},{"x":539,"y":851,"width":2,"height":2,"pixels":4},{"x":563,"y":851,"width":2,"height":2,"pixels":4},{"x":587,"y":851,"width":2,"height":2,"pixels":4}],"regionCount":205,"heatFile":"diff-sessions-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":146146,"total":1382400,"percent":10.571903935185185,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":88968},{"x":256,"y":176,"width":1017,"height":280,"pixels":31336},{"x":675,"y":221,"width":299,"height":47,"pixels":6181},{"x":304,"y":464,"width":934,"height":12,"pixels":4346},{"x":249,"y":508,"width":660,"height":39,"pixels":4042},{"x":1062,"y":191,"width":185,"height":17,"pixels":1202},{"x":675,"y":192,"width":171,"height":16,"pixels":1120},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":19,"y":468,"width":87,"height":15,"pixels":541}],"regionCount":83,"heatFile":"diff-sessions-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":84884,"total":1382400,"percent":6.140335648148148,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":308,"width":982,"height":148,"pixels":28030},{"x":183,"y":64,"width":814,"height":219,"pixels":18857},{"x":144,"y":19,"width":1296,"height":29,"pixels":9690},{"x":304,"y":464,"width":934,"height":12,"pixels":3968},{"x":249,"y":508,"width":660,"height":39,"pixels":3188},{"x":675,"y":221,"width":179,"height":41,"pixels":2304},{"x":1061,"y":221,"width":168,"height":20,"pixels":2182},{"x":869,"y":221,"width":105,"height":20,"pixels":2057},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":1243,"y":221,"width":79,"height":20,"pixels":1178},{"x":1062,"y":192,"width":185,"height":16,"pixels":1093},{"x":676,"y":192,"width":170,"height":16,"pixels":1022}],"regionCount":54,"heatFile":"diff-sessions-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"session-overview","route":"/session/sess-auth-refactor/overview","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/overview","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"],"missing":[]},"head":{"route":"/session/sess-auth-refactor/overview","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"81071b35360e90903a303f1246086f9ab659154f20d4f7fa1d41874227983b56","headHash":"9e9e3a32ebc411dacb227b518a7c15fcb42ecc2dcb2d0b2582fee6c05fd41eb6","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-session-overview-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1076564,"total":1382400,"percent":77.87644675925925,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1073809},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":515,"y":170,"width":139,"height":12,"pixels":713},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4},{"x":1139,"y":83,"width":2,"height":2,"pixels":4},{"x":1091,"y":107,"width":2,"height":2,"pixels":4}],"regionCount":42,"heatFile":"diff-session-overview-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":205617,"total":1382400,"percent":14.873914930555555,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":168898},{"x":268,"y":873,"width":1144,"height":87,"pixels":16520},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":978,"y":522,"width":56,"height":21,"pixels":1144},{"x":369,"y":644,"width":152,"height":13,"pixels":1109},{"x":369,"y":618,"width":149,"height":13,"pixels":1080},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":1258,"y":808,"width":137,"height":22,"pixels":852},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690}],"regionCount":80,"heatFile":"diff-session-overview-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":106029,"total":1382400,"percent":7.669921875,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":256,"y":308,"width":1012,"height":148,"pixels":30458},{"x":183,"y":64,"width":797,"height":219,"pixels":14479},{"x":144,"y":18,"width":1152,"height":20,"pixels":10541},{"x":202,"y":491,"width":1036,"height":87,"pixels":6920},{"x":285,"y":769,"width":1110,"height":59,"pixels":5337},{"x":257,"y":464,"width":981,"height":15,"pixels":5105},{"x":268,"y":722,"width":1144,"height":131,"pixels":2197},{"x":268,"y":873,"width":1144,"height":87,"pixels":2174},{"x":383,"y":812,"width":244,"height":14,"pixels":1534},{"x":260,"y":242,"width":158,"height":41,"pixels":1523},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310}],"regionCount":81,"heatFile":"diff-session-overview-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"session-conversation","route":"/session/sess-auth-refactor/conversation","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/conversation","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"],"missing":[]},"head":{"route":"/session/sess-auth-refactor/conversation","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"7fbab091507ea29fce62780a6ac393b59a96dcd2d4ae033577c3973bd48992a9","headHash":"698c06acc899d491560461ea748d2668b704860d67521547ee1ac2fc3e1a3470","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-session-conversation-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1064885,"total":1382400,"percent":77.03161168981481,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1062046},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":515,"y":170,"width":139,"height":12,"pixels":713},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4},{"x":1139,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":40,"heatFile":"diff-session-conversation-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":268997,"total":1382400,"percent":19.45869502314815,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":184178},{"x":319,"y":796,"width":1045,"height":71,"pixels":48350},{"x":320,"y":664,"width":1060,"height":93,"pixels":8027},{"x":336,"y":596,"width":939,"height":47,"pixels":7753},{"x":337,"y":938,"width":517,"height":13,"pixels":2569},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":1372,"y":892,"width":40,"height":40,"pixels":1312},{"x":553,"y":555,"width":356,"height":12,"pixels":1158},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744}],"regionCount":88,"heatFile":"diff-session-conversation-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":148200,"total":1382400,"percent":10.72048611111111,"bounds":{"x":8,"y":16,"width":1432,"height":935},"regions":[{"x":319,"y":796,"width":1045,"height":71,"pixels":48100},{"x":202,"y":306,"width":1162,"height":267,"pixels":47589},{"x":183,"y":64,"width":797,"height":219,"pixels":14479},{"x":144,"y":18,"width":1152,"height":20,"pixels":10702},{"x":337,"y":630,"width":516,"height":13,"pixels":2345},{"x":337,"y":938,"width":517,"height":13,"pixels":2317},{"x":260,"y":242,"width":220,"height":41,"pixels":2024},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":1372,"y":892,"width":40,"height":40,"pixels":1291},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":554,"y":555,"width":355,"height":12,"pixels":1057}],"regionCount":72,"heatFile":"diff-session-conversation-32.png","description":"Bounds: 8, 16 · 1432 × 935"}},"change":"base unavailable"},{"id":"session-events","route":"/session/sess-auth-refactor/events","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/events","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"],"missing":[]},"head":{"route":"/session/sess-auth-refactor/events","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"b099a77421834272398044e0481be07c5ebb9796d843f7421c1bfcd19158e3f3","headHash":"145c07d86c49891baa726fde592bccd212d1793bbc0682111419bbd8479ff6cd","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-session-events-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":962174,"total":1382400,"percent":69.60170717592592,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":958587},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":515,"y":170,"width":139,"height":12,"pixels":713},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4},{"x":1139,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":227,"heatFile":"diff-session-events-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":164905,"total":1382400,"percent":11.928891782407407,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":136442},{"x":257,"y":464,"width":1024,"height":31,"pixels":12357},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":553,"y":555,"width":356,"height":12,"pixels":1158},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":775},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":515,"y":170,"width":139,"height":12,"pixels":683},{"x":19,"y":468,"width":87,"height":15,"pixels":541}],"regionCount":79,"heatFile":"diff-session-events-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":89366,"total":1382400,"percent":6.464554398148148,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":304,"width":1025,"height":152,"pixels":31506},{"x":183,"y":64,"width":797,"height":219,"pixels":14479},{"x":257,"y":464,"width":1024,"height":31,"pixels":11584},{"x":144,"y":18,"width":1152,"height":20,"pixels":10442},{"x":202,"y":512,"width":1036,"height":55,"pixels":1887},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":242,"width":158,"height":41,"pixels":1108},{"x":554,"y":555,"width":355,"height":12,"pixels":1057},{"x":19,"y":400,"width":134,"height":14,"pixels":681},{"x":18,"y":506,"width":94,"height":20,"pixels":670}],"regionCount":62,"heatFile":"diff-session-events-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"session-todos","route":"/session/sess-auth-refactor/todos","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/todos","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"],"missing":[]},"head":{"route":"/session/sess-auth-refactor/todos","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"ee662eb80cebcbeace4c5f3febd6c743edf1fae84c31f779644536bd54d70344","headHash":"7786fef0e270d007e9817e25096b0d9f1c29047bdbe9277415cb2b4e5522677d","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-session-todos-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1055702,"total":1382400,"percent":76.36733217592592,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1050913},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":553,"y":555,"width":356,"height":12,"pixels":1168},{"x":408,"y":532,"width":245,"height":12,"pixels":794},{"x":515,"y":170,"width":139,"height":12,"pixels":713},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":39,"heatFile":"diff-session-todos-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":257399,"total":1382400,"percent":18.619719328703702,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":148549},{"x":407,"y":679,"width":370,"height":120,"pixels":44124},{"x":903,"y":679,"width":370,"height":120,"pixels":44124},{"x":359,"y":596,"width":916,"height":10,"pixels":4536},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":554,"y":555,"width":355,"height":12,"pixels":1132},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":408,"y":532,"width":245,"height":12,"pixels":739},{"x":19,"y":435,"width":125,"height":14,"pixels":690}],"regionCount":61,"heatFile":"diff-session-todos-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":141900,"total":1382400,"percent":10.264756944444445,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":256,"y":308,"width":1137,"height":187,"pixels":44766},{"x":407,"y":679,"width":370,"height":120,"pixels":44113},{"x":183,"y":64,"width":797,"height":219,"pixels":14479},{"x":144,"y":18,"width":1152,"height":20,"pixels":10437},{"x":903,"y":679,"width":370,"height":120,"pixels":3737},{"x":961,"y":706,"width":249,"height":23,"pixels":1984},{"x":202,"y":512,"width":1036,"height":55,"pixels":1838},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":242,"width":158,"height":41,"pixels":1108},{"x":554,"y":555,"width":355,"height":12,"pixels":1047}],"regionCount":69,"heatFile":"diff-session-todos-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"session-metrics","route":"/session/sess-auth-refactor/metrics","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/metrics","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"],"missing":[]},"head":{"route":"/session/sess-auth-refactor/metrics","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"bff69f6c8aa3dc7012d295d8c191fd542d5d8dbfb8fdbf5c286f519f55998b01","headHash":"944401ba13cdd2c7fda3c4371c9f86d18c2e0cfacccb44bdf1bff9809ee4edbe","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-session-metrics-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1073493,"total":1382400,"percent":77.654296875,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1070646},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":515,"y":170,"width":139,"height":12,"pixels":713},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4},{"x":1139,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":42,"heatFile":"diff-session-metrics-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":230397,"total":1382400,"percent":16.66644965277778,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":172010},{"x":268,"y":851,"width":1144,"height":109,"pixels":18191},{"x":415,"y":611,"width":978,"height":30,"pixels":8479},{"x":417,"y":768,"width":856,"height":13,"pixels":6854},{"x":268,"y":476,"width":1144,"height":193,"pixels":6662},{"x":553,"y":555,"width":488,"height":12,"pixels":1761},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":752},{"x":18,"y":358,"width":97,"height":22,"pixels":744}],"regionCount":94,"heatFile":"diff-session-metrics-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":127865,"total":1382400,"percent":9.24949363425926,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":256,"y":308,"width":982,"height":194,"pixels":43388},{"x":183,"y":64,"width":797,"height":219,"pixels":14479},{"x":144,"y":18,"width":1152,"height":20,"pixels":10504},{"x":415,"y":612,"width":978,"height":29,"pixels":8390},{"x":417,"y":768,"width":856,"height":8,"pixels":6836},{"x":417,"y":794,"width":856,"height":8,"pixels":6836},{"x":287,"y":928,"width":1106,"height":32,"pixels":3853},{"x":268,"y":693,"width":1144,"height":141,"pixels":3247},{"x":268,"y":858,"width":1144,"height":102,"pixels":2239},{"x":202,"y":512,"width":1036,"height":55,"pixels":2225},{"x":554,"y":555,"width":487,"height":12,"pixels":1553},{"x":268,"y":485,"width":1144,"height":184,"pixels":1345}],"regionCount":85,"heatFile":"diff-session-metrics-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"session-context","route":"/session/sess-auth-refactor/context","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/context","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"],"missing":[]},"head":{"route":"/session/sess-auth-refactor/context","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"f79060bcb06320988ae4323516784dd1cbab6769966ce89dc31d6934dc217bac","headHash":"57da699e9811fc912cbfd93f82de58460dd562e4be2f44463375e4422eccafbf","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-session-context-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1072007,"total":1382400,"percent":77.54680266203704,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1069180},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":515,"y":170,"width":139,"height":12,"pixels":713},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4},{"x":1139,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":37,"heatFile":"diff-session-context-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":394112,"total":1382400,"percent":28.50925925925926,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":379524},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":515,"y":170,"width":139,"height":12,"pixels":683},{"x":19,"y":468,"width":87,"height":15,"pixels":541},{"x":692,"y":170,"width":97,"height":13,"pixels":506},{"x":19,"y":322,"width":81,"height":15,"pixels":498},{"x":19,"y":141,"width":79,"height":14,"pixels":490}],"regionCount":184,"heatFile":"diff-session-context-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":264241,"total":1382400,"percent":19.114655671296298,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":202,"y":512,"width":1165,"height":430,"pixels":177862},{"x":256,"y":296,"width":1156,"height":199,"pixels":40578},{"x":183,"y":64,"width":797,"height":219,"pixels":14479},{"x":144,"y":18,"width":1152,"height":20,"pixels":10491},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":242,"width":158,"height":41,"pixels":1108},{"x":1296,"y":507,"width":97,"height":453,"pixels":942},{"x":19,"y":400,"width":134,"height":14,"pixels":681},{"x":18,"y":506,"width":94,"height":20,"pixels":670},{"x":18,"y":359,"width":97,"height":20,"pixels":631}],"regionCount":71,"heatFile":"diff-session-context-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"session-explorer","route":"/session/sess-auth-refactor/explorer","ready":".fb-tree","state":"populated","base":{"route":"/session/sess-auth-refactor/explorer","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.fb-tree').first() to be visible\n"],"missing":[]},"head":{"route":"/session/sess-auth-refactor/explorer","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"60114144b5348c307a865759fe4bc29713d46111f73af535a0e42ed6fff38120","headHash":"703be3b8369313c25c0a29a628abe8e9b49f1bbb829dc41078c5d586df6459a9","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-session-explorer-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":985910,"total":1382400,"percent":71.31872106481481,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":982343},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":515,"y":170,"width":139,"height":12,"pixels":713},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4},{"x":1139,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":222,"heatFile":"diff-session-explorer-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":160573,"total":1382400,"percent":11.615523726851851,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":101277},{"x":256,"y":288,"width":982,"height":168,"pixels":30923},{"x":257,"y":464,"width":981,"height":31,"pixels":9010},{"x":508,"y":596,"width":5,"height":364,"pixels":1820},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":553,"y":555,"width":356,"height":12,"pixels":1158},{"x":859,"y":645,"width":207,"height":12,"pixels":1010},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":757},{"x":18,"y":358,"width":97,"height":22,"pixels":744}],"regionCount":95,"heatFile":"diff-session-explorer-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":84364,"total":1382400,"percent":6.102719907407407,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":297,"width":982,"height":159,"pixels":28259},{"x":183,"y":64,"width":797,"height":219,"pixels":14479},{"x":144,"y":18,"width":1152,"height":20,"pixels":10504},{"x":257,"y":464,"width":981,"height":31,"pixels":8266},{"x":202,"y":512,"width":1036,"height":55,"pixels":1880},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":242,"width":158,"height":41,"pixels":1108},{"x":554,"y":555,"width":355,"height":12,"pixels":1057},{"x":508,"y":596,"width":5,"height":235,"pixels":882},{"x":860,"y":645,"width":206,"height":12,"pixels":858}],"regionCount":65,"heatFile":"diff-session-explorer-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"session-timeline","route":"/session/sess-auth-refactor/timeline","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/timeline","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"],"missing":[]},"head":{"route":"/session/sess-auth-refactor/timeline","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"6e912bbff9c92df3ad3827041749f39e1e2baf699500ad3fe6c7ee6ea9a40248","headHash":"06ab56b76a76b56ff08da003c48b7b599c26c533f9b332d7ede1ddf4e46f0483","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-session-timeline-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":936488,"total":1382400,"percent":67.74363425925925,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":932901},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":515,"y":170,"width":139,"height":12,"pixels":713},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4},{"x":1139,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":227,"heatFile":"diff-session-timeline-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":195359,"total":1382400,"percent":14.131872106481481,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":152164},{"x":553,"y":539,"width":427,"height":268,"pixels":27156},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":1274,"y":443,"width":138,"height":32,"pixels":1068},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":775},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":515,"y":170,"width":139,"height":12,"pixels":683},{"x":19,"y":468,"width":87,"height":15,"pixels":541}],"regionCount":79,"heatFile":"diff-session-timeline-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":93958,"total":1382400,"percent":6.796730324074074,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":298,"width":999,"height":197,"pixels":40078},{"x":183,"y":64,"width":797,"height":219,"pixels":14479},{"x":144,"y":18,"width":1152,"height":20,"pixels":10528},{"x":1271,"y":292,"width":141,"height":28,"pixels":2694},{"x":202,"y":512,"width":1036,"height":55,"pixels":1887},{"x":554,"y":554,"width":355,"height":37,"pixels":1683},{"x":700,"y":596,"width":280,"height":211,"pixels":1579},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":242,"width":158,"height":41,"pixels":1108},{"x":745,"y":754,"width":114,"height":36,"pixels":974}],"regionCount":73,"heatFile":"diff-session-timeline-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"session-explorer-file","route":"/session/sess-auth-refactor/explorer","start":".fb-tree","prepare":"open-plan","ready":".fcv__markdown-body","command":"session_read_file","state":"synthetic plan.md selected in the file reader","base":{"route":"/session/sess-auth-refactor/explorer","state":"synthetic plan.md selected in the file reader","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.fb-tree').first() to be visible\n"],"missing":[]},"head":{"route":"/session/sess-auth-refactor/explorer","state":"synthetic plan.md selected in the file reader","status":"captured","errors":[],"missing":[]},"baseHash":"60114144b5348c307a865759fe4bc29713d46111f73af535a0e42ed6fff38120","headHash":"e585d5cdaf822a9865a617d26d0e697ea848da0d0bb4f7987f768b4ebc1391cd","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-session-explorer-file-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":957986,"total":1382400,"percent":69.29875578703704,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":954419},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":515,"y":170,"width":139,"height":12,"pixels":713},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4},{"x":1139,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":222,"heatFile":"diff-session-explorer-file-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":162280,"total":1382400,"percent":11.73900462962963,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":143481},{"x":508,"y":596,"width":5,"height":364,"pixels":1820},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":553,"y":555,"width":356,"height":12,"pixels":1158},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":757},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":515,"y":170,"width":139,"height":12,"pixels":683},{"x":1296,"y":357,"width":116,"height":64,"pixels":606}],"regionCount":95,"heatFile":"diff-session-explorer-file-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":92189,"total":1382400,"percent":6.668764467592593,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":297,"width":982,"height":198,"pixels":45222},{"x":183,"y":64,"width":797,"height":219,"pixels":14479},{"x":144,"y":18,"width":1152,"height":20,"pixels":10504},{"x":202,"y":512,"width":1036,"height":55,"pixels":1880},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":242,"width":158,"height":41,"pixels":1108},{"x":554,"y":555,"width":355,"height":12,"pixels":1057},{"x":508,"y":596,"width":5,"height":235,"pixels":882},{"x":19,"y":400,"width":134,"height":14,"pixels":681},{"x":18,"y":506,"width":94,"height":20,"pixels":670}],"regionCount":66,"heatFile":"diff-session-explorer-file-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"search","route":"/search","ready":".search-view","state":"empty search prompt; indexed fixtures","base":{"route":"/search","state":"empty search prompt; indexed fixtures","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","fts_health"]},"head":{"route":"/search","state":"empty search prompt; indexed fixtures","status":"captured","errors":[],"missing":[]},"baseHash":"641ec98884c6be8bd25e0ddf57be6f92947fecfd598a75dfb894fc9f48055cf6","headHash":"dad5fb982d8c74a53e3e5e4fb7949ce52339b6b0890586574188d3c0c69e154d","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-search-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":860275,"total":1382400,"percent":62.23054108796296,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":858041},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":1056,"y":264,"width":44,"height":8,"pixels":232},{"x":463,"y":268,"width":45,"height":9,"pixels":205},{"x":961,"y":566,"width":18,"height":18,"pixels":200},{"x":1138,"y":566,"width":18,"height":18,"pixels":127},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4}],"regionCount":238,"heatFile":"diff-search-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":202234,"total":1382400,"percent":14.629195601851851,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":178309},{"x":553,"y":544,"width":677,"height":143,"pixels":5281},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":260,"y":244,"width":158,"height":39,"pixels":1335},{"x":1086,"y":597,"width":127,"height":40,"pixels":1332},{"x":857,"y":718,"width":228,"height":10,"pixels":1267},{"x":731,"y":597,"width":122,"height":40,"pixels":1255},{"x":268,"y":596,"width":92,"height":17,"pixels":947},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690}],"regionCount":117,"heatFile":"diff-search-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":96045,"total":1382400,"percent":6.947699652777778,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":202,"y":300,"width":1036,"height":269,"pixels":46180},{"x":182,"y":64,"width":798,"height":219,"pixels":11955},{"x":144,"y":19,"width":1296,"height":29,"pixels":9903},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":244,"width":158,"height":39,"pixels":1220},{"x":554,"y":555,"width":355,"height":29,"pixels":1217},{"x":857,"y":718,"width":227,"height":10,"pixels":1082},{"x":905,"y":623,"width":130,"height":27,"pixels":835},{"x":19,"y":400,"width":134,"height":14,"pixels":681},{"x":18,"y":506,"width":94,"height":20,"pixels":670}],"regionCount":78,"heatFile":"diff-search-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"search-results","route":"/search?q=auth","ready":".result-card","command":"search_content","state":"populated search results","base":{"route":"/search?q=auth","state":"populated search results","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","fts_health"]},"head":{"route":"/search?q=auth","state":"populated search results","status":"captured","errors":[],"missing":[]},"baseHash":"7c36bd065ffe98b556da00e720c00f6bec634ede93ce834f7b79735640c4ff4f","headHash":"8415f441fe648973e7cea53577ed87ecacf76225b1b48fe3ce97d28155a2a08e","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-search-results-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":942186,"total":1382400,"percent":68.15581597222223,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":927909},{"x":1019,"y":899,"width":397,"height":50,"pixels":12836},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":463,"y":268,"width":45,"height":9,"pixels":205},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4}],"regionCount":176,"heatFile":"diff-search-results-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":199460,"total":1382400,"percent":14.428530092592593,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":180974},{"x":1019,"y":907,"width":397,"height":37,"pixels":2368},{"x":1263,"y":466,"width":114,"height":19,"pixels":2126},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":260,"y":244,"width":158,"height":39,"pixels":1335},{"x":268,"y":596,"width":92,"height":17,"pixels":947},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":19,"y":468,"width":87,"height":15,"pixels":541},{"x":19,"y":72,"width":79,"height":14,"pixels":528}],"regionCount":83,"heatFile":"diff-search-results-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":97221,"total":1382400,"percent":7.032769097222222,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":300,"width":1085,"height":156,"pixels":35127},{"x":202,"y":464,"width":1139,"height":105,"pixels":15825},{"x":182,"y":64,"width":798,"height":219,"pixels":11611},{"x":144,"y":19,"width":1296,"height":29,"pixels":9903},{"x":408,"y":532,"width":501,"height":35,"pixels":2443},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":244,"width":158,"height":39,"pixels":1220},{"x":19,"y":400,"width":134,"height":14,"pixels":681},{"x":18,"y":506,"width":94,"height":20,"pixels":670},{"x":18,"y":359,"width":97,"height":20,"pixels":631}],"regionCount":77,"heatFile":"diff-search-results-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"analytics","route":"/analytics","ready":"svg","command":"get_analytics","state":"populated","base":{"route":"/analytics","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","list_sessions","get_analytics"]},"head":{"route":"/analytics","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"9fdc1fb8532ce4630be12690f621bd8394e8c7fb0bb73cb857ebe2a78565eafc","headHash":"6fbf5dce5e61c3548ccf34a75d61915d8b27a300364c0b4f056d200dbaefacab","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-analytics-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1102686,"total":1382400,"percent":79.76605902777777,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1100577},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":50,"heatFile":"diff-analytics-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":286375,"total":1382400,"percent":20.71578414351852,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":241296},{"x":899,"y":774,"width":484,"height":171,"pixels":20117},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":260,"y":236,"width":159,"height":47,"pixels":1504},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":1154,"y":234,"width":105,"height":46,"pixels":1285},{"x":865,"y":236,"width":113,"height":19,"pixels":1125},{"x":1052,"y":597,"width":154,"height":13,"pixels":953},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":576,"y":236,"width":83,"height":19,"pixels":796}],"regionCount":95,"heatFile":"diff-analytics-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":157952,"total":1382400,"percent":11.425925925925926,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":315,"y":774,"width":492,"height":186,"pixels":35989},{"x":256,"y":217,"width":1156,"height":239,"pixels":31573},{"x":911,"y":778,"width":471,"height":167,"pixels":19285},{"x":202,"y":464,"width":1036,"height":119,"pixels":15824},{"x":183,"y":64,"width":797,"height":219,"pixels":14125},{"x":144,"y":19,"width":1296,"height":29,"pixels":10110},{"x":268,"y":687,"width":1144,"height":273,"pixels":2859},{"x":260,"y":236,"width":158,"height":47,"pixels":1381},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":1154,"y":234,"width":105,"height":45,"pixels":1157}],"regionCount":93,"heatFile":"diff-analytics-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"tools","route":"/tools","ready":"h1","command":"get_tool_analysis","state":"populated","base":{"route":"/tools","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","list_sessions","get_tool_analysis"]},"head":{"route":"/tools","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"ef72f84a1570c27c768c98f45023dc2265fea9d56f4a43ed831b6222a2455ec6","headHash":"605f30fb5185e96aca81bdc67f00462d0bfd44167502adef7c6d82ecfd924bd7","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-tools-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1080323,"total":1382400,"percent":78.14836516203704,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1077840},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":1154,"y":268,"width":70,"height":12,"pixels":400},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":54,"heatFile":"diff-tools-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":238129,"total":1382400,"percent":17.22576678240741,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":200068},{"x":866,"y":817,"width":527,"height":23,"pixels":3856},{"x":956,"y":853,"width":391,"height":8,"pixels":3124},{"x":956,"y":888,"width":391,"height":8,"pixels":3124},{"x":956,"y":923,"width":391,"height":8,"pixels":3124},{"x":553,"y":547,"width":356,"height":25,"pixels":2053},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":260,"y":220,"width":159,"height":63,"pixels":1687},{"x":866,"y":874,"width":527,"height":36,"pixels":1491},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":866,"y":944,"width":527,"height":16,"pixels":1349},{"x":730,"y":64,"width":190,"height":33,"pixels":1313}],"regionCount":96,"heatFile":"diff-tools-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":135732,"total":1382400,"percent":9.81857638888889,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":202,"y":308,"width":1036,"height":259,"pixels":42868},{"x":314,"y":850,"width":437,"height":110,"pixels":22936},{"x":183,"y":64,"width":797,"height":219,"pixels":13927},{"x":144,"y":19,"width":1296,"height":29,"pixels":9824},{"x":268,"y":596,"width":1144,"height":364,"pixels":3931},{"x":956,"y":818,"width":391,"height":8,"pixels":3124},{"x":956,"y":853,"width":391,"height":8,"pixels":3116},{"x":956,"y":888,"width":391,"height":8,"pixels":3116},{"x":956,"y":923,"width":391,"height":8,"pixels":3116},{"x":554,"y":547,"width":355,"height":25,"pixels":1914},{"x":260,"y":220,"width":158,"height":63,"pixels":1560},{"x":587,"y":64,"width":133,"height":33,"pixels":1312}],"regionCount":93,"heatFile":"diff-tools-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"code","route":"/code","ready":"h1","command":"get_code_impact","state":"populated","base":{"route":"/code","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","list_sessions","get_code_impact"]},"head":{"route":"/code","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"3e21d53d89835a7942648270e242d79e602ee8faa10ef95a9c6b1d075a04775c","headHash":"ed3aaabb38c29455cfacb9b9337d620de39f6c701037434583e98c65bc1d891a","pngChanged":true,"analyses":{"0":{"changed":1382370,"total":1382400,"percent":99.99782986111111,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382370}],"regionCount":1,"heatFile":"diff-code-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1137529,"total":1382400,"percent":82.28653067129629,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1135112},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":1154,"y":269,"width":63,"height":11,"pixels":376},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":46,"heatFile":"diff-code-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":327675,"total":1382400,"percent":23.70334201388889,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":306705},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":260,"y":236,"width":159,"height":47,"pixels":1568},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":1155,"y":236,"width":60,"height":19,"pixels":634},{"x":1290,"y":496,"width":103,"height":22,"pixels":610},{"x":1281,"y":475,"width":112,"height":10,"pixels":584}],"regionCount":95,"heatFile":"diff-code-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":207100,"total":1382400,"percent":14.98119212962963,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":347,"y":772,"width":1000,"height":188,"pixels":100165},{"x":256,"y":294,"width":1137,"height":202,"pixels":48148},{"x":183,"y":64,"width":797,"height":219,"pixels":13884},{"x":144,"y":19,"width":1296,"height":29,"pixels":9792},{"x":202,"y":507,"width":1036,"height":60,"pixels":5535},{"x":554,"y":540,"width":593,"height":46,"pixels":2754},{"x":268,"y":628,"width":1144,"height":332,"pixels":2587},{"x":260,"y":236,"width":158,"height":47,"pixels":1438},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":832,"y":369,"width":580,"height":245,"pixels":1040}],"regionCount":71,"heatFile":"diff-code-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"model-comparison","route":"/models","ready":"h1","state":"populated","base":{"route":"/models","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","list_sessions","get_analytics"]},"head":{"route":"/models","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"e02b8ff2b7d18d2a44c5f26f175c622ea98153979eb0c194bf478fb7f17a22a1","headHash":"09f8048397863729f62632846cfead2abb1a25a07abc8f1f8f44f7df0280adbd","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-model-comparison-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1024226,"total":1382400,"percent":74.09042245370371,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1020887},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":283,"y":657,"width":123,"height":13,"pixels":828},{"x":283,"y":618,"width":64,"height":13,"pixels":414},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4}],"regionCount":51,"heatFile":"diff-model-comparison-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":227686,"total":1382400,"percent":16.470341435185187,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":190172},{"x":268,"y":512,"width":1144,"height":172,"pixels":10746},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":260,"y":236,"width":159,"height":47,"pixels":1357},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":865,"y":236,"width":113,"height":19,"pixels":1069},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":576,"y":236,"width":83,"height":19,"pixels":889},{"x":1114,"y":657,"width":151,"height":11,"pixels":887},{"x":1114,"y":618,"width":151,"height":11,"pixels":875},{"x":18,"y":506,"width":94,"height":21,"pixels":799}],"regionCount":120,"heatFile":"diff-model-comparison-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":110842,"total":1382400,"percent":8.01808449074074,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":256,"y":308,"width":982,"height":187,"pixels":40964},{"x":183,"y":64,"width":797,"height":219,"pixels":14089},{"x":144,"y":19,"width":1296,"height":29,"pixels":10036},{"x":488,"y":855,"width":69,"height":105,"pixels":3754},{"x":202,"y":512,"width":1036,"height":55,"pixels":3284},{"x":268,"y":698,"width":1144,"height":262,"pixels":2751},{"x":268,"y":521,"width":1144,"height":163,"pixels":2203},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":236,"width":158,"height":47,"pixels":1240},{"x":554,"y":555,"width":355,"height":12,"pixels":1049}],"regionCount":102,"heatFile":"diff-model-comparison-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"compare","route":"/compare","ready":"h1","state":"session picker","base":{"route":"/compare","state":"session picker","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","list_sessions"]},"head":{"route":"/compare","state":"session picker","status":"captured","errors":[],"missing":[]},"baseHash":"761ca30df176bdc3d620e9ec1bb555b59a73559955548172876413537d58f71a","headHash":"bad8dcb420daf329eaafa4f002256ccdbc5169cde57a127855f6748328652685","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-compare-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":986439,"total":1382400,"percent":71.35698784722223,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":978612},{"x":1015,"y":131,"width":106,"height":51,"pixels":4076},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":674,"y":157,"width":115,"height":11,"pixels":766},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4}],"regionCount":258,"heatFile":"diff-compare-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":163497,"total":1382400,"percent":11.827039930555555,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":100400},{"x":256,"y":308,"width":982,"height":148,"pixels":33078},{"x":257,"y":464,"width":981,"height":31,"pixels":9019},{"x":1015,"y":143,"width":106,"height":39,"pixels":3969},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":553,"y":555,"width":356,"height":12,"pixels":1158},{"x":260,"y":244,"width":159,"height":39,"pixels":1059},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":775}],"regionCount":87,"heatFile":"diff-compare-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":84464,"total":1382400,"percent":6.109953703703703,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":308,"width":982,"height":148,"pixels":30379},{"x":183,"y":64,"width":797,"height":219,"pixels":13964},{"x":144,"y":19,"width":1296,"height":29,"pixels":10081},{"x":257,"y":464,"width":981,"height":31,"pixels":8272},{"x":1015,"y":143,"width":106,"height":39,"pixels":3936},{"x":202,"y":512,"width":1036,"height":55,"pixels":1887},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":554,"y":555,"width":355,"height":12,"pixels":1057},{"x":260,"y":244,"width":158,"height":39,"pixels":969},{"x":674,"y":157,"width":115,"height":11,"pixels":684}],"regionCount":53,"heatFile":"diff-compare-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"compare-populated","route":"/compare","start":".selector-row","prepare":"compare-sessions","ready":".delta-table","command":"get_shutdown_metrics","state":"two synthetic sessions compared; zero file-count baseline","base":{"route":"/compare","state":"two synthetic sessions compared; zero file-count baseline","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.selectOption: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByLabel('Select Session A')\n    - locator resolved to \u003cselect class=\"comp-select\" aria-label=\"Select Session A\"\u003e…\u003c/select\u003e\n  - attempting select option action\n    2 × waiting for element to be visible and enabled\n      - did not find some options\n    - retrying select option action\n    - waiting 20ms\n    2 × waiting for element to be visible and enabled\n      - did not find some options\n    - retrying select option acti"],"missing":[]},"head":{"route":"/compare","state":"two synthetic sessions compared; zero file-count baseline","status":"captured","errors":[],"missing":[]},"baseHash":"36621bfdfed832126c1c20890c1fba842eb9a6c7d08d483da6c657299fe65530","headHash":"350571989ecfa7d364062034a35ba30df154c6db7b1fc2d490bd72f4eeef48fc","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-compare-populated-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1016401,"total":1382400,"percent":73.52437789351852,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":950599},{"x":848,"y":851,"width":564,"height":109,"pixels":55873},{"x":1009,"y":130,"width":132,"height":62,"pixels":6575},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":867,"y":255,"width":145,"height":16,"pixels":886},{"x":867,"y":230,"width":61,"height":9,"pixels":323},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42}],"regionCount":47,"heatFile":"diff-compare-populated-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":238267,"total":1382400,"percent":17.235749421296298,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":164459},{"x":268,"y":851,"width":564,"height":109,"pixels":27010},{"x":257,"y":464,"width":981,"height":34,"pixels":10155},{"x":969,"y":923,"width":422,"height":37,"pixels":7878},{"x":1015,"y":138,"width":110,"height":46,"pixels":4329},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":848,"y":861,"width":564,"height":99,"pixels":1454},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":553,"y":553,"width":356,"height":14,"pixels":1356},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":864,"y":875,"width":181,"height":13,"pixels":1201},{"x":18,"y":399,"width":135,"height":16,"pixels":911}],"regionCount":123,"heatFile":"diff-compare-populated-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":129694,"total":1382400,"percent":9.381799768518519,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":183,"y":64,"width":1097,"height":392,"pixels":56382},{"x":144,"y":19,"width":1296,"height":29,"pixels":10081},{"x":257,"y":464,"width":981,"height":31,"pixels":9066},{"x":351,"y":925,"width":460,"height":18,"pixels":7750},{"x":969,"y":925,"width":422,"height":18,"pixels":7558},{"x":1015,"y":142,"width":106,"height":39,"pixels":3956},{"x":202,"y":512,"width":1036,"height":55,"pixels":3386},{"x":268,"y":347,"width":1144,"height":490,"pixels":2061},{"x":851,"y":207,"width":561,"height":116,"pixels":1976},{"x":674,"y":157,"width":228,"height":13,"pixels":1416},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310}],"regionCount":90,"heatFile":"diff-compare-populated-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"replay","route":"/replay/sess-auth-refactor","ready":"h1","state":"Experimental · explicitly enabled; populated paused replay","features":["sessionReplay"],"base":{"route":"/replay/sess-auth-refactor","state":"Experimental · explicitly enabled; populated paused replay","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('h1').first() to be visible\n"],"missing":[]},"head":{"route":"/replay/sess-auth-refactor","state":"Experimental · explicitly enabled; populated paused replay","status":"captured","errors":[],"missing":[]},"baseHash":"d4b713320c407d0b9c203eda6e4ec7386562fd86c393ce90a12e37609973e695","headHash":"f66b26eb89c50783ee416c52ecb56c64c47e09d05fba9cdfa233df04849dca31","pngChanged":true,"analyses":{"0":{"changed":1382399,"total":1382400,"percent":99.99992766203704,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382399}],"regionCount":1,"heatFile":"diff-replay-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":844022,"total":1382400,"percent":61.054832175925924,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":839763},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":553,"y":555,"width":356,"height":12,"pixels":1168},{"x":891,"y":530,"width":121,"height":13,"pixels":561},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":141,"heatFile":"diff-replay-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":314729,"total":1382400,"percent":22.76685474537037,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":292935},{"x":1072,"y":617,"width":336,"height":102,"pixels":1932},{"x":1072,"y":810,"width":336,"height":95,"pixels":1858},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":1072,"y":731,"width":336,"height":67,"pixels":1434},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":554,"y":555,"width":355,"height":12,"pixels":1132},{"x":19,"y":435,"width":134,"height":14,"pixels":810},{"x":1088,"y":770,"width":133,"height":13,"pixels":736},{"x":18,"y":553,"width":94,"height":9,"pixels":580},{"x":18,"y":406,"width":97,"height":9,"pixels":575}],"regionCount":183,"heatFile":"diff-replay-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":144473,"total":1382400,"percent":10.450882523148149,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":202,"y":220,"width":1186,"height":665,"pixels":83749},{"x":183,"y":64,"width":797,"height":219,"pixels":16311},{"x":144,"y":18,"width":1152,"height":20,"pixels":10682},{"x":8,"y":322,"width":136,"height":59,"pixels":4952},{"x":1320,"y":77,"width":92,"height":40,"pixels":1610},{"x":1072,"y":810,"width":336,"height":95,"pixels":1578},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":1072,"y":731,"width":336,"height":67,"pixels":1273},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":1072,"y":617,"width":336,"height":102,"pixels":1174},{"x":554,"y":555,"width":355,"height":12,"pixels":1046}],"regionCount":77,"heatFile":"diff-replay-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"export","route":"/export","ready":"h1","features":["exportView"],"state":"Experimental · explicitly enabled; session picker","base":{"route":"/export","state":"Experimental · explicitly enabled; session picker","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","list_sessions"]},"head":{"route":"/export","state":"Experimental · explicitly enabled; session picker","status":"captured","errors":[],"missing":[]},"baseHash":"d52384ab5380f1483d9d8c1dfc3d8053513005aabe2c952b6a712fbc38c1a7d5","headHash":"fa9b871c3aba63f7ce2b48b55bcef4ee7ffe0bd57b77a9795bbf73219eab539d","pngChanged":true,"analyses":{"0":{"changed":1382399,"total":1382400,"percent":99.99992766203704,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382399}],"regionCount":1,"heatFile":"diff-export-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1038288,"total":1382400,"percent":75.10763888888889,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1035489},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":207,"heatFile":"diff-export-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":171940,"total":1382400,"percent":12.437789351851851,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":142603},{"x":275,"y":849,"width":345,"height":105,"pixels":5649},{"x":276,"y":600,"width":344,"height":96,"pixels":2928},{"x":275,"y":743,"width":345,"height":62,"pixels":2860},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":553,"y":555,"width":356,"height":27,"pixels":1781},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":1225,"y":192,"width":45,"height":20,"pixels":876},{"x":19,"y":435,"width":134,"height":14,"pixels":810},{"x":408,"y":532,"width":245,"height":12,"pixels":775},{"x":18,"y":553,"width":94,"height":9,"pixels":580}],"regionCount":61,"heatFile":"diff-export-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":104005,"total":1382400,"percent":7.523509837962963,"bounds":{"x":8,"y":16,"width":1432,"height":929},"regions":[{"x":202,"y":307,"width":1036,"height":272,"pixels":44972},{"x":183,"y":64,"width":797,"height":219,"pixels":16953},{"x":144,"y":19,"width":1296,"height":29,"pixels":9588},{"x":260,"y":220,"width":158,"height":63,"pixels":1996},{"x":554,"y":555,"width":355,"height":27,"pixels":1681},{"x":1264,"y":76,"width":74,"height":32,"pixels":1529},{"x":1281,"y":177,"width":103,"height":37,"pixels":1351},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":1225,"y":192,"width":45,"height":20,"pixels":868},{"x":434,"y":223,"width":132,"height":14,"pixels":814}],"regionCount":77,"heatFile":"diff-export-32.png","description":"Bounds: 8, 16 · 1432 × 929"}},"change":"base unavailable"},{"id":"export-preview","route":"/export?sessionId=sess-auth-refactor\u0026preset=minimal-team-log","ready":".preview-footer","command":"preview_export","state":"Experimental · explicitly enabled; selected session and populated Markdown preview","features":["exportView"],"base":{"route":"/export?sessionId=sess-auth-refactor\u0026preset=minimal-team-log","state":"Experimental · explicitly enabled; selected session and populated Markdown preview","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","list_sessions","get_session_sections","get_session_sections"]},"head":{"route":"/export?sessionId=sess-auth-refactor\u0026preset=minimal-team-log","state":"Experimental · explicitly enabled; selected session and populated Markdown preview","status":"captured","errors":[],"missing":[]},"baseHash":"2f7e2fd47ef64ce3d2685d7cd1da4af57a4aa649fa6a683e9cfcf1983d45cc57","headHash":"6fe26a096e3705220c4de9040baea1f9902a6f0fbf28bf97dc11259079695793","pngChanged":true,"analyses":{"0":{"changed":1382337,"total":1382400,"percent":99.99544270833333,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382337}],"regionCount":1,"heatFile":"diff-export-preview-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1006155,"total":1382400,"percent":72.783203125,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1003272},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":228,"heatFile":"diff-export-preview-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":197557,"total":1382400,"percent":14.290870949074074,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":159541},{"x":275,"y":600,"width":345,"height":357,"pixels":17687},{"x":670,"y":616,"width":231,"height":33,"pixels":1977},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":1186,"y":192,"width":84,"height":20,"pixels":1656},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":276,"y":588,"width":113,"height":42,"pixels":1299},{"x":584,"y":832,"width":36,"height":36,"pixels":868},{"x":19,"y":435,"width":134,"height":14,"pixels":810},{"x":668,"y":248,"width":171,"height":12,"pixels":758},{"x":18,"y":553,"width":94,"height":9,"pixels":580}],"regionCount":58,"heatFile":"diff-export-preview-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":124100,"total":1382400,"percent":8.977141203703704,"bounds":{"x":8,"y":16,"width":1432,"height":941},"regions":[{"x":202,"y":289,"width":1112,"height":278,"pixels":56758},{"x":183,"y":64,"width":797,"height":219,"pixels":18153},{"x":144,"y":19,"width":1296,"height":29,"pixels":9588},{"x":584,"y":600,"width":36,"height":109,"pixels":2952},{"x":260,"y":220,"width":158,"height":63,"pixels":1996},{"x":276,"y":835,"width":144,"height":83,"pixels":1843},{"x":670,"y":616,"width":230,"height":33,"pixels":1727},{"x":1186,"y":192,"width":84,"height":20,"pixels":1648},{"x":276,"y":729,"width":88,"height":84,"pixels":1596},{"x":1264,"y":76,"width":74,"height":32,"pixels":1529},{"x":1281,"y":177,"width":103,"height":37,"pixels":1428},{"x":306,"y":929,"width":157,"height":26,"pixels":1374}],"regionCount":70,"heatFile":"diff-export-preview-32.png","description":"Bounds: 8, 16 · 1432 × 941"}},"change":"base unavailable"},{"id":"settings","route":"/settings","ready":".settings-root","state":"configured defaults","base":{"route":"/settings","state":"configured defaults","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","get_log_path","get_git_info","get_config","context_capture_storage_stats"]},"head":{"route":"/settings","state":"configured defaults","status":"captured","errors":[],"missing":[]},"baseHash":"daaa3358a8c0379b9217221a6d804d3b0f1db669e45f99f23513e9f2c8c5b9df","headHash":"572cbe8b6ec8d43b9bc34f28e529707288be4d8ed3b61e8af722762bbbbf46f2","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-settings-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1073975,"total":1382400,"percent":77.68916377314815,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1071191},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":1331,"y":747,"width":50,"height":20,"pixels":660},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4}],"regionCount":39,"heatFile":"diff-settings-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":190405,"total":1382400,"percent":13.773509837962964,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":148829},{"x":268,"y":492,"width":1144,"height":313,"pixels":12977},{"x":257,"y":464,"width":981,"height":31,"pixels":9490},{"x":299,"y":648,"width":348,"height":37,"pixels":2248},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":1059,"y":888,"width":318,"height":34,"pixels":990},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":347,"y":698,"width":200,"height":11,"pixels":834},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744}],"regionCount":54,"heatFile":"diff-settings-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":98078,"total":1382400,"percent":7.094762731481482,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":256,"y":308,"width":982,"height":148,"pixels":31844},{"x":183,"y":64,"width":797,"height":230,"pixels":15058},{"x":144,"y":19,"width":1296,"height":29,"pixels":9672},{"x":257,"y":464,"width":981,"height":31,"pixels":8577},{"x":202,"y":512,"width":1036,"height":67,"pixels":5981},{"x":303,"y":742,"width":362,"height":31,"pixels":2992},{"x":302,"y":592,"width":222,"height":28,"pixels":2682},{"x":303,"y":892,"width":410,"height":32,"pixels":2215},{"x":303,"y":648,"width":344,"height":31,"pixels":1687},{"x":1295,"y":205,"width":82,"height":28,"pixels":1546},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310}],"regionCount":67,"heatFile":"diff-settings-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"settings-pricing","route":"/settings","ready":".settings-root","scrollText":"AI Credit Tracking","state":"configured pricing","base":{"route":"/settings","state":"configured pricing","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions","get_log_path","get_git_info","get_config","context_capture_storage_stats"]},"head":{"route":"/settings","state":"configured pricing","status":"captured","errors":[],"missing":[]},"baseHash":"f051c059e03710af4d4f90ac90e6cc674e5643b2f5f37ae352bd4c96a16e79f8","headHash":"d3ae3b9fd38001d6e72b96f811017811cd4e9e27e37f6c3d3fbaf8629eae27fd","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-settings-pricing-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1160755,"total":1382400,"percent":83.96665219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1160356},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":584,"y":579,"width":11,"height":4,"pixels":16},{"x":1115,"y":155,"width":2,"height":2,"pixels":4},{"x":1139,"y":155,"width":2,"height":2,"pixels":4},{"x":1163,"y":155,"width":2,"height":2,"pixels":4},{"x":1187,"y":155,"width":2,"height":2,"pixels":4},{"x":1211,"y":155,"width":2,"height":2,"pixels":4}],"regionCount":19,"heatFile":"diff-settings-pricing-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":198361,"total":1382400,"percent":14.349030671296296,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":182277},{"x":554,"y":555,"width":355,"height":37,"pixels":2396},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":730,"y":64,"width":190,"height":33,"pixels":1332},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":19,"y":468,"width":87,"height":15,"pixels":541},{"x":19,"y":72,"width":79,"height":14,"pixels":528},{"x":1296,"y":390,"width":97,"height":47,"pixels":514},{"x":19,"y":322,"width":81,"height":15,"pixels":498}],"regionCount":81,"heatFile":"diff-settings-pricing-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":98299,"total":1382400,"percent":7.110749421296297,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":183,"y":61,"width":1055,"height":395,"pixels":48978},{"x":202,"y":464,"width":1036,"height":129,"pixels":16573},{"x":144,"y":19,"width":1296,"height":104,"pixels":9845},{"x":287,"y":708,"width":803,"height":11,"pixels":3063},{"x":554,"y":555,"width":355,"height":36,"pixels":2210},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1251},{"x":285,"y":646,"width":208,"height":9,"pixels":1129},{"x":1252,"y":62,"width":125,"height":28,"pixels":779},{"x":19,"y":400,"width":134,"height":14,"pixels":681},{"x":303,"y":792,"width":111,"height":13,"pixels":671},{"x":18,"y":506,"width":94,"height":20,"pixels":670}],"regionCount":63,"heatFile":"diff-settings-pricing-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"orchestration","route":"/orchestration","ready":"h1","state":"SDK disabled; fixture sessions","base":{"route":"/orchestration","state":"SDK disabled; fixture sessions","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('h1').first() to be visible\n"],"missing":[]},"head":{"route":"/orchestration","state":"SDK disabled; fixture sessions","status":"captured","errors":[],"missing":[]},"baseHash":"d1ec7ee57eac77380d51c21bb3b6f298b10a96058ea2d1b7c9a47f6a612ca290","headHash":"80c3521d9942c67ca805664f139b01955d598cb0537b2f8877297aaa56a6a70e","pngChanged":true,"analyses":{"0":{"changed":1382372,"total":1382400,"percent":99.99797453703704,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382372}],"regionCount":1,"heatFile":"diff-orchestration-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":968813,"total":1382400,"percent":70.08195891203704,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":965769},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":1080,"y":162,"width":18,"height":32,"pixels":200},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4}],"regionCount":220,"heatFile":"diff-orchestration-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":239979,"total":1382400,"percent":17.35959201388889,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":212865},{"x":268,"y":701,"width":1144,"height":56,"pixels":9554},{"x":874,"y":175,"width":117,"height":79,"pixels":1944},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":553,"y":555,"width":356,"height":12,"pixels":1158},{"x":8,"y":434,"width":136,"height":16,"pixels":821},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":609,"y":720,"width":124,"height":13,"pixels":785},{"x":19,"y":468,"width":87,"height":15,"pixels":541},{"x":19,"y":72,"width":79,"height":14,"pixels":528}],"regionCount":112,"heatFile":"diff-orchestration-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":123249,"total":1382400,"percent":8.915581597222221,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":308,"width":982,"height":192,"pixels":42561},{"x":183,"y":64,"width":939,"height":219,"pixels":21733},{"x":1138,"y":145,"width":274,"height":136,"pixels":20731},{"x":144,"y":19,"width":1296,"height":29,"pixels":9840},{"x":8,"y":359,"width":145,"height":65,"pixels":4936},{"x":289,"y":615,"width":185,"height":35,"pixels":2009},{"x":202,"y":512,"width":1036,"height":73,"pixels":1947},{"x":874,"y":175,"width":117,"height":79,"pixels":1654},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":554,"y":555,"width":355,"height":12,"pixels":1057}],"regionCount":62,"heatFile":"diff-orchestration-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"worktree-manager","route":"/orchestration/worktrees","ready":".wt-manager .right-panel","command":"list_worktrees","state":"populated fixture repositories","base":{"route":"/orchestration/worktrees","state":"populated fixture repositories","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions"]},"head":{"route":"/orchestration/worktrees","state":"populated fixture repositories","status":"captured","errors":[],"missing":[]},"baseHash":"0c92c3d50c97ab4dd6c2e240b22446cbea8a22e1aa8518a0347bf8b754fb5e95","headHash":"623532facfbfb9f1c834d48c4909baf02eb7ba0be135bd21f2d0fb4a3ebc3299","pngChanged":true,"analyses":{"0":{"changed":1382375,"total":1382400,"percent":99.99819155092592,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382375}],"regionCount":1,"heatFile":"diff-worktree-manager-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":962660,"total":1382400,"percent":69.63686342592592,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":946079},{"x":923,"y":875,"width":54,"height":26,"pixels":1151},{"x":923,"y":817,"width":54,"height":23,"pixels":1131},{"x":923,"y":755,"width":54,"height":26,"pixels":1114},{"x":1036,"y":634,"width":57,"height":27,"pixels":984},{"x":584,"y":873,"width":106,"height":30,"pixels":907},{"x":528,"y":683,"width":37,"height":37,"pixels":776},{"x":584,"y":632,"width":29,"height":29,"pixels":772},{"x":528,"y":754,"width":37,"height":28,"pixels":772},{"x":528,"y":874,"width":37,"height":28,"pixels":772},{"x":824,"y":755,"width":60,"height":26,"pixels":565},{"x":923,"y":632,"width":61,"height":29,"pixels":539}],"regionCount":179,"heatFile":"diff-worktree-manager-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":195646,"total":1382400,"percent":14.152633101851851,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":156021},{"x":553,"y":555,"width":356,"height":47,"pixels":2552},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":252,"y":243,"width":167,"height":40,"pixels":1470},{"x":584,"y":686,"width":105,"height":37,"pixels":1422},{"x":584,"y":748,"width":105,"height":37,"pixels":1422},{"x":924,"y":817,"width":53,"height":23,"pixels":1124},{"x":924,"y":876,"width":53,"height":23,"pixels":1124},{"x":924,"y":695,"width":53,"height":22,"pixels":1074},{"x":924,"y":757,"width":53,"height":22,"pixels":1074},{"x":1036,"y":634,"width":46,"height":23,"pixels":966},{"x":18,"y":399,"width":135,"height":16,"pixels":911}],"regionCount":156,"heatFile":"diff-worktree-manager-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":123519,"total":1382400,"percent":8.935112847222221,"bounds":{"x":8,"y":16,"width":1432,"height":926},"regions":[{"x":202,"y":277,"width":1037,"height":398,"pixels":46948},{"x":183,"y":59,"width":841,"height":224,"pixels":27478},{"x":144,"y":19,"width":1296,"height":29,"pixels":10029},{"x":8,"y":425,"width":136,"height":59,"pixels":4791},{"x":520,"y":124,"width":920,"height":67,"pixels":3159},{"x":554,"y":555,"width":355,"height":47,"pixels":2386},{"x":252,"y":244,"width":166,"height":39,"pixels":1321},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":528,"y":692,"width":28,"height":28,"pixels":752},{"x":528,"y":754,"width":28,"height":28,"pixels":752},{"x":584,"y":632,"width":28,"height":28,"pixels":751},{"x":528,"y":815,"width":28,"height":28,"pixels":730}],"regionCount":146,"heatFile":"diff-worktree-manager-32.png","description":"Bounds: 8, 16 · 1432 × 926"}},"change":"base unavailable"},{"id":"session-launcher","route":"/orchestration/launcher","ready":"h1","state":"launch form; no process launched","base":{"route":"/orchestration/launcher","state":"launch form; no process launched","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions"]},"head":{"route":"/orchestration/launcher","state":"launch form; no process launched","status":"captured","errors":[],"missing":[]},"baseHash":"c99d1b361456c031ae14f3bc2a48d8971800e026c4e1cc2aed9c9489c1aa3f48","headHash":"da641d807dc70cbc02f18ffb80732f1637fb862f775fe4d3a9da9ab3e9e3d9b4","pngChanged":true,"analyses":{"0":{"changed":1382380,"total":1382400,"percent":99.99855324074075,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382380}],"regionCount":1,"heatFile":"diff-session-launcher-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":859089,"total":1382400,"percent":62.144748263888886,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":840327},{"x":1078,"y":901,"width":345,"height":47,"pixels":15975},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":337,"y":220,"width":8,"height":8,"pixels":34},{"x":1259,"y":299,"width":2,"height":2,"pixels":4},{"x":1283,"y":299,"width":2,"height":2,"pixels":4}],"regionCount":195,"heatFile":"diff-session-launcher-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":195706,"total":1382400,"percent":14.15697337962963,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":153624},{"x":1081,"y":903,"width":339,"height":42,"pixels":13979},{"x":408,"y":532,"width":605,"height":66,"pixels":7294},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":1095,"y":133,"width":128,"height":56,"pixels":1639},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":1081,"y":572,"width":339,"height":98,"pixels":1189},{"x":268,"y":917,"width":148,"height":14,"pixels":979},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":289,"y":865,"width":115,"height":13,"pixels":783},{"x":18,"y":358,"width":97,"height":22,"pixels":744}],"regionCount":96,"heatFile":"diff-session-launcher-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":115965,"total":1382400,"percent":8.388671875,"bounds":{"x":8,"y":16,"width":1432,"height":928},"regions":[{"x":183,"y":64,"width":1055,"height":436,"pixels":56408},{"x":1081,"y":903,"width":339,"height":41,"pixels":13586},{"x":144,"y":19,"width":1296,"height":29,"pixels":9967},{"x":408,"y":532,"width":599,"height":66,"pixels":6748},{"x":8,"y":435,"width":136,"height":91,"pixels":5636},{"x":202,"y":512,"width":1036,"height":74,"pixels":2651},{"x":287,"y":804,"width":549,"height":13,"pixels":2414},{"x":1095,"y":133,"width":128,"height":56,"pixels":1539},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":268,"y":917,"width":148,"height":14,"pixels":865}],"regionCount":72,"heatFile":"diff-session-launcher-32.png","description":"Bounds: 8, 16 · 1432 × 928"}},"change":"base unavailable"},{"id":"config-injector","route":"/orchestration/config","ready":"h1","state":"Experimental · explicitly enabled; fixture configuration","features":["configInjector"],"base":{"route":"/orchestration/config","state":"Experimental · explicitly enabled; fixture configuration","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('h1').first() to be visible\n"],"missing":[]},"head":{"route":"/orchestration/config","state":"Experimental · explicitly enabled; fixture configuration","status":"captured","errors":[],"missing":[]},"baseHash":"d4b713320c407d0b9c203eda6e4ec7386562fd86c393ce90a12e37609973e695","headHash":"4346c74a15d9d88594ddc14c19aaf3aded198381a2b37331ed2e387df114772d","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-config-injector-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1132710,"total":1382400,"percent":81.93793402777777,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1045777},{"x":659,"y":707,"width":362,"height":253,"pixels":85614},{"x":699,"y":742,"width":16,"height":16,"pixels":146},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1403,"y":443,"width":2,"height":2,"pixels":4},{"x":1427,"y":443,"width":2,"height":2,"pixels":4},{"x":1403,"y":467,"width":2,"height":2,"pixels":4},{"x":1427,"y":467,"width":2,"height":2,"pixels":4}],"regionCount":217,"heatFile":"diff-config-injector-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":185469,"total":1382400,"percent":13.416449652777779,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":134480},{"x":317,"y":835,"width":256,"height":49,"pixels":6207},{"x":685,"y":581,"width":276,"height":23,"pixels":2433},{"x":685,"y":835,"width":126,"height":23,"pixels":2428},{"x":741,"y":733,"width":136,"height":43,"pixels":2295},{"x":317,"y":790,"width":275,"height":33,"pixels":2042},{"x":685,"y":790,"width":306,"height":33,"pixels":1948},{"x":296,"y":707,"width":352,"height":253,"pixels":1891},{"x":664,"y":707,"width":352,"height":253,"pixels":1890},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":373,"y":734,"width":70,"height":42,"pixels":1797},{"x":1053,"y":536,"width":245,"height":33,"pixels":1774}],"regionCount":95,"heatFile":"diff-config-injector-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":127525,"total":1382400,"percent":9.224898726851851,"bounds":{"x":8,"y":16,"width":1432,"height":944},"regions":[{"x":202,"y":308,"width":1182,"height":383,"pixels":51557},{"x":183,"y":64,"width":1201,"height":229,"pixels":22377},{"x":144,"y":18,"width":1296,"height":30,"pixels":9916},{"x":8,"y":583,"width":232,"height":67,"pixels":7668},{"x":741,"y":733,"width":136,"height":43,"pixels":2243},{"x":317,"y":790,"width":275,"height":33,"pixels":1812},{"x":373,"y":734,"width":70,"height":42,"pixels":1775},{"x":685,"y":790,"width":305,"height":33,"pixels":1723},{"x":664,"y":707,"width":352,"height":253,"pixels":1699},{"x":1053,"y":536,"width":245,"height":33,"pixels":1526},{"x":296,"y":707,"width":352,"height":253,"pixels":1509},{"x":587,"y":64,"width":133,"height":33,"pixels":1353}],"regionCount":89,"heatFile":"diff-config-injector-32.png","description":"Bounds: 8, 16 · 1432 × 944"}},"change":"base unavailable"},{"id":"mcp-manager","route":"/mcp","ready":".mcp-server-card, .server-card","features":["mcpServers"],"state":"Experimental · explicitly enabled; populated","base":{"route":"/mcp","state":"Experimental · explicitly enabled; populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.mcp-server-card, .server-card').first() to be visible\n"],"missing":[]},"head":{"route":"/mcp","state":"Experimental · explicitly enabled; populated","status":"captured","errors":[],"missing":[]},"baseHash":"d4b713320c407d0b9c203eda6e4ec7386562fd86c393ce90a12e37609973e695","headHash":"7321b871f867b5ae15fa11da2e3c453f44229d55cbabbf879ceba5c8d46f7868","pngChanged":true,"analyses":{"0":{"changed":1382370,"total":1382400,"percent":99.99782986111111,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382370}],"regionCount":1,"heatFile":"diff-mcp-manager-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":993322,"total":1382400,"percent":71.85489004629629,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":990551},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":224,"heatFile":"diff-mcp-manager-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":153710,"total":1382400,"percent":11.119068287037036,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":136274},{"x":260,"y":242,"width":465,"height":52,"pixels":2186},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":553,"y":555,"width":356,"height":12,"pixels":1158},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":775},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":19,"y":468,"width":87,"height":15,"pixels":541}],"regionCount":85,"heatFile":"diff-mcp-manager-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":89651,"total":1382400,"percent":6.485170717592593,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":308,"width":982,"height":187,"pixels":38127},{"x":183,"y":64,"width":797,"height":219,"pixels":14427},{"x":144,"y":19,"width":1296,"height":29,"pixels":9878},{"x":1294,"y":74,"width":122,"height":43,"pixels":4860},{"x":8,"y":538,"width":136,"height":58,"pixels":4484},{"x":202,"y":512,"width":1036,"height":55,"pixels":1887},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":260,"y":244,"width":158,"height":39,"pixels":1158},{"x":554,"y":555,"width":355,"height":12,"pixels":1057},{"x":8,"y":617,"width":223,"height":33,"pixels":706}],"regionCount":55,"heatFile":"diff-mcp-manager-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"mcp-server-detail","route":"/mcp/visual-files","ready":".detail-server-name","state":"Experimental · explicitly enabled; configured; no network health check","features":["mcpServers"],"base":{"route":"/mcp/visual-files","state":"Experimental · explicitly enabled; configured; no network health check","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-server-name').first() to be visible\n"],"missing":[]},"head":{"route":"/mcp/visual-files","state":"Experimental · explicitly enabled; configured; no network health check","status":"captured","errors":[],"missing":[]},"baseHash":"d4b713320c407d0b9c203eda6e4ec7386562fd86c393ce90a12e37609973e695","headHash":"e10b02fae92d2c8cae42777f49481bf4a07d60c5e2ad94e36841734b1e9122b4","pngChanged":true,"analyses":{"0":{"changed":1382370,"total":1382400,"percent":99.99782986111111,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382370}],"regionCount":1,"heatFile":"diff-mcp-server-detail-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":981135,"total":1382400,"percent":70.97330729166667,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":979629},{"x":932,"y":64,"width":38,"height":12,"pixels":239},{"x":1125,"y":283,"width":36,"height":9,"pixels":171},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1067,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1067,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":222,"heatFile":"diff-mcp-server-detail-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":166452,"total":1382400,"percent":12.04079861111111,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":141826},{"x":257,"y":464,"width":981,"height":38,"pixels":10288},{"x":260,"y":244,"width":179,"height":39,"pixels":2344},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":1042,"y":182,"width":125,"height":11,"pixels":693},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":19,"y":468,"width":87,"height":15,"pixels":541},{"x":19,"y":322,"width":81,"height":15,"pixels":498},{"x":19,"y":141,"width":79,"height":14,"pixels":490}],"regionCount":84,"heatFile":"diff-mcp-server-detail-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":94910,"total":1382400,"percent":6.865596064814815,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":299,"width":982,"height":157,"pixels":30049},{"x":183,"y":64,"width":797,"height":219,"pixels":12639},{"x":202,"y":512,"width":1036,"height":96,"pixels":12270},{"x":144,"y":19,"width":1296,"height":29,"pixels":10070},{"x":257,"y":464,"width":981,"height":31,"pixels":9068},{"x":8,"y":538,"width":136,"height":58,"pixels":4484},{"x":260,"y":244,"width":170,"height":39,"pixels":1369},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":587,"y":64,"width":133,"height":33,"pixels":1309},{"x":730,"y":64,"width":190,"height":33,"pixels":1237},{"x":8,"y":617,"width":223,"height":33,"pixels":706},{"x":19,"y":400,"width":134,"height":14,"pixels":681}],"regionCount":57,"heatFile":"diff-mcp-server-detail-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"skills-manager","route":"/skills","ready":".skill-card","state":"populated","base":{"route":"/skills","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions"]},"head":{"route":"/skills","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"bddfc70eabba3d3ea1d5e1f7a59a5d21477200db996606c4c3bf743900ded11c","headHash":"5ea98a62f87c12278891f7141c0a2da8527d5c9656c6bcebaf51c86d3e4843b8","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-skills-manager-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":992968,"total":1382400,"percent":71.8292824074074,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":990178},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":229,"heatFile":"diff-skills-manager-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":187817,"total":1382400,"percent":13.586299189814815,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":120128},{"x":256,"y":308,"width":982,"height":148,"pixels":38472},{"x":257,"y":464,"width":981,"height":31,"pixels":9188},{"x":260,"y":244,"width":283,"height":39,"pixels":3900},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":553,"y":555,"width":356,"height":12,"pixels":1158},{"x":555,"y":245,"width":240,"height":32,"pixels":928},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":775}],"regionCount":83,"heatFile":"diff-skills-manager-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":99817,"total":1382400,"percent":7.220558449074074,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":308,"width":982,"height":148,"pixels":33265},{"x":183,"y":64,"width":1229,"height":219,"pixels":20714},{"x":144,"y":19,"width":1296,"height":29,"pixels":9580},{"x":257,"y":464,"width":981,"height":31,"pixels":8239},{"x":8,"y":538,"width":136,"height":59,"pixels":4538},{"x":1303,"y":74,"width":111,"height":42,"pixels":4440},{"x":260,"y":244,"width":158,"height":39,"pixels":2998},{"x":202,"y":512,"width":1036,"height":55,"pixels":1887},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":554,"y":555,"width":355,"height":12,"pixels":1057}],"regionCount":54,"heatFile":"diff-skills-manager-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"skill-editor","route":"/skills/visual-review","ready":".editor-body","state":"populated synthetic skill","base":{"route":"/skills/visual-review","state":"populated synthetic skill","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions"]},"head":{"route":"/skills/visual-review","state":"populated synthetic skill","status":"captured","errors":[],"missing":[]},"baseHash":"cd356b1910388fe828e5275cc64f205c6744e0706419ae6f5088c8af68300867","headHash":"f03cc42184f8ba7211dc2ee6eea1a62a645b0f234de3ec1f30a875e4be52ab29","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-skill-editor-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":658778,"total":1382400,"percent":47.65465856481482,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":648305},{"x":932,"y":259,"width":218,"height":20,"pixels":4064},{"x":884,"y":181,"width":175,"height":63,"pixels":3347},{"x":305,"y":654,"width":294,"height":13,"pixels":1084},{"x":1171,"y":65,"width":61,"height":18,"pixels":282},{"x":932,"y":64,"width":38,"height":12,"pixels":243},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1427,"y":491,"width":2,"height":2,"pixels":4},{"x":1427,"y":515,"width":2,"height":2,"pixels":4}],"regionCount":313,"heatFile":"diff-skill-editor-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":163645,"total":1382400,"percent":11.837745949074074,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":143728},{"x":932,"y":259,"width":218,"height":20,"pixels":4026},{"x":888,"y":185,"width":171,"height":36,"pixels":2143},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":305,"y":654,"width":294,"height":13,"pixels":1040},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":792},{"x":304,"y":596,"width":294,"height":23,"pixels":777},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690},{"x":933,"y":230,"width":111,"height":14,"pixels":566}],"regionCount":50,"heatFile":"diff-skill-editor-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":96622,"total":1382400,"percent":6.989438657407407,"bounds":{"x":8,"y":16,"width":1432,"height":936},"regions":[{"x":257,"y":308,"width":981,"height":148,"pixels":30059},{"x":183,"y":62,"width":797,"height":221,"pixels":15112},{"x":144,"y":19,"width":1296,"height":29,"pixels":9761},{"x":257,"y":464,"width":1043,"height":37,"pixels":8699},{"x":8,"y":538,"width":136,"height":59,"pixels":4538},{"x":202,"y":512,"width":1036,"height":56,"pixels":3240},{"x":1343,"y":58,"width":77,"height":31,"pixels":2342},{"x":890,"y":185,"width":169,"height":32,"pixels":1986},{"x":872,"y":164,"width":544,"height":136,"pixels":1959},{"x":260,"y":238,"width":158,"height":49,"pixels":1488},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1237}],"regionCount":67,"heatFile":"diff-skill-editor-32.png","description":"Bounds: 8, 16 · 1432 × 936"}},"change":"base unavailable"},{"id":"cli-context","route":"/cli-context","ready":"h1","state":"Experimental · explicitly enabled; no captured external context","features":["exactContextCapture"],"base":{"route":"/cli-context","state":"Experimental · explicitly enabled; no captured external context","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('h1').first() to be visible\n"],"missing":[]},"head":{"route":"/cli-context","state":"Experimental · explicitly enabled; no captured external context","status":"captured","errors":[],"missing":[]},"baseHash":"d4b713320c407d0b9c203eda6e4ec7386562fd86c393ce90a12e37609973e695","headHash":"c6fee2c5b553bcb44a6902dc4022c3a480a83472ddbc173ccf17dbb75e54aa44","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-cli-context-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":941704,"total":1382400,"percent":68.12094907407408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":937483},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":554,"y":555,"width":355,"height":12,"pixels":1152},{"x":408,"y":532,"width":253,"height":12,"pixels":742},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4}],"regionCount":92,"heatFile":"diff-cli-context-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":255788,"total":1382400,"percent":18.50318287037037,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":228799},{"x":268,"y":648,"width":197,"height":34,"pixels":6675},{"x":655,"y":874,"width":370,"height":31,"pixels":3242},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":740,"y":845,"width":200,"height":16,"pixels":1648},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":554,"y":555,"width":355,"height":12,"pixels":1058},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":18,"y":358,"width":97,"height":22,"pixels":744},{"x":19,"y":435,"width":125,"height":14,"pixels":690}],"regionCount":89,"heatFile":"diff-cli-context-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":127869,"total":1382400,"percent":9.24978298611111,"bounds":{"x":8,"y":16,"width":1432,"height":933},"regions":[{"x":202,"y":243,"width":1191,"height":358,"pixels":62468},{"x":183,"y":64,"width":797,"height":219,"pixels":13972},{"x":144,"y":19,"width":1296,"height":29,"pixels":9782},{"x":8,"y":583,"width":232,"height":67,"pixels":7668},{"x":1216,"y":545,"width":159,"height":39,"pixels":5711},{"x":268,"y":702,"width":1144,"height":247,"pixels":4354},{"x":268,"y":648,"width":197,"height":34,"pixels":3846},{"x":655,"y":874,"width":370,"height":31,"pixels":2941},{"x":268,"y":183,"width":1144,"height":437,"pixels":1683},{"x":740,"y":845,"width":200,"height":16,"pixels":1523},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310}],"regionCount":64,"heatFile":"diff-cli-context-32.png","description":"Bounds: 8, 16 · 1432 × 933"}},"change":"base unavailable"},{"id":"not-found","route":"/visual-route-does-not-exist","ready":"h2","state":"not found","base":{"route":"/visual-route-does-not-exist","state":"not found","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"],"missing":["get_config","get_config","list_sessions"]},"head":{"route":"/visual-route-does-not-exist","state":"not found","status":"captured","errors":[],"missing":[]},"baseHash":"ff618e459d1c96b244ab5dc9a926685f6e1f5147516de1e547ae3555076e954d","headHash":"3b5ffd08b54d99e163b32cb5bdd429284d649a066726ec4204da489125d81a07","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-not-found-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":985291,"total":1382400,"percent":71.27394386574075,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":982302},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":201,"y":555,"width":23,"height":9,"pixels":96},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":258,"heatFile":"diff-not-found-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":156664,"total":1382400,"percent":11.33275462962963,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":96036},{"x":256,"y":308,"width":982,"height":148,"pixels":29707},{"x":257,"y":464,"width":981,"height":31,"pixels":9019},{"x":775,"y":256,"width":131,"height":35,"pixels":4559},{"x":587,"y":64,"width":133,"height":33,"pixels":1390},{"x":709,"y":222,"width":261,"height":13,"pixels":1373},{"x":765,"y":188,"width":151,"height":20,"pixels":1368},{"x":730,"y":64,"width":190,"height":33,"pixels":1313},{"x":553,"y":555,"width":356,"height":12,"pixels":1158},{"x":260,"y":244,"width":159,"height":39,"pixels":1059},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799}],"regionCount":86,"heatFile":"diff-not-found-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":79552,"total":1382400,"percent":5.75462962962963,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":308,"width":982,"height":148,"pixels":27286},{"x":183,"y":64,"width":797,"height":219,"pixels":10511},{"x":144,"y":19,"width":1296,"height":29,"pixels":9690},{"x":257,"y":464,"width":981,"height":31,"pixels":8272},{"x":775,"y":256,"width":131,"height":34,"pixels":4432},{"x":202,"y":512,"width":1036,"height":55,"pixels":1887},{"x":587,"y":64,"width":133,"height":33,"pixels":1312},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":765,"y":188,"width":151,"height":20,"pixels":1305},{"x":730,"y":64,"width":190,"height":33,"pixels":1240},{"x":709,"y":222,"width":261,"height":13,"pixels":1232},{"x":554,"y":555,"width":355,"height":12,"pixels":1057}],"regionCount":50,"heatFile":"diff-not-found-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"agent-editor","route":"/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md","state":"populated synthetic personal agent","base":{"route":"/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md","state":"populated synthetic personal agent","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.agent-editor .frontmatter-card').first() to be visible\n"],"missing":[]},"head":{"route":"/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md","state":"populated synthetic personal agent","status":"captured","errors":[],"missing":[]},"baseHash":"ff618e459d1c96b244ab5dc9a926685f6e1f5147516de1e547ae3555076e954d","headHash":"3dd31b94385c57300a0139d80254e7e60e7b416b374b2e3742e6ca3df6ac0c81","pngChanged":true,"analyses":{"0":{"changed":1382369,"total":1382400,"percent":99.99775752314815,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382369}],"regionCount":1,"heatFile":"diff-agent-editor-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":664310,"total":1382400,"percent":48.054832175925924,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":650429},{"x":1048,"y":269,"width":231,"height":20,"pixels":4096},{"x":944,"y":269,"width":96,"height":20,"pixels":1852},{"x":945,"y":240,"width":331,"height":14,"pixels":1783},{"x":352,"y":726,"width":294,"height":34,"pixels":1300},{"x":903,"y":203,"width":82,"height":17,"pixels":700},{"x":1076,"y":60,"width":87,"height":28,"pixels":595},{"x":1001,"y":113,"width":90,"height":13,"pixels":437},{"x":1183,"y":69,"width":60,"height":10,"pixels":302},{"x":1003,"y":65,"width":61,"height":18,"pixels":282},{"x":932,"y":64,"width":38,"height":12,"pixels":243},{"x":328,"y":679,"width":46,"height":12,"pixels":209}],"regionCount":353,"heatFile":"diff-agent-editor-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":165029,"total":1382400,"percent":11.937861689814815,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":139500},{"x":1048,"y":269,"width":231,"height":20,"pixels":4012},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":944,"y":269,"width":96,"height":20,"pixels":1824},{"x":945,"y":240,"width":331,"height":14,"pixels":1676},{"x":352,"y":726,"width":294,"height":34,"pixels":1264},{"x":554,"y":555,"width":355,"height":12,"pixels":1136},{"x":304,"y":606,"width":264,"height":13,"pixels":953},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":792},{"x":18,"y":358,"width":97,"height":22,"pixels":744}],"regionCount":99,"heatFile":"diff-agent-editor-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":102362,"total":1382400,"percent":7.404658564814815,"bounds":{"x":8,"y":16,"width":1432,"height":937},"regions":[{"x":257,"y":238,"width":1092,"height":263,"pixels":41439},{"x":183,"y":64,"width":797,"height":219,"pixels":14004},{"x":144,"y":19,"width":1296,"height":29,"pixels":9653},{"x":8,"y":547,"width":232,"height":63,"pixels":5661},{"x":1270,"y":58,"width":170,"height":42,"pixels":2933},{"x":202,"y":512,"width":1036,"height":56,"pixels":2871},{"x":240,"y":932,"width":1200,"height":21,"pixels":2659},{"x":884,"y":176,"width":520,"height":134,"pixels":1873},{"x":945,"y":240,"width":331,"height":14,"pixels":1514},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":587,"y":64,"width":133,"height":33,"pixels":1309},{"x":730,"y":64,"width":190,"height":33,"pixels":1237}],"regionCount":78,"heatFile":"diff-agent-editor-32.png","description":"Bounds: 8, 16 · 1432 × 937"}},"change":"base unavailable"},{"id":"agents-manager","route":"/agents","state":"populated","base":{"route":"/agents","state":"populated","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.agent-card').first() to be visible\n"],"missing":[]},"head":{"route":"/agents","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"ff618e459d1c96b244ab5dc9a926685f6e1f5147516de1e547ae3555076e954d","headHash":"a0f2ff363b3834d1803e2a7f338e3690e99c5b944eda77d5954564300393a62c","pngChanged":true,"analyses":{"0":{"changed":1382369,"total":1382400,"percent":99.99775752314815,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382369}],"regionCount":1,"heatFile":"diff-agents-manager-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":1058213,"total":1382400,"percent":76.54897280092592,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1056147},{"x":587,"y":64,"width":133,"height":33,"pixels":1434},{"x":932,"y":64,"width":38,"height":12,"pixels":242},{"x":202,"y":245,"width":8,"height":11,"pixels":70},{"x":202,"y":269,"width":8,"height":11,"pixels":68},{"x":202,"y":173,"width":9,"height":11,"pixels":61},{"x":202,"y":197,"width":8,"height":11,"pixels":42},{"x":1091,"y":59,"width":2,"height":2,"pixels":4},{"x":1115,"y":59,"width":2,"height":2,"pixels":4},{"x":1139,"y":59,"width":2,"height":2,"pixels":4},{"x":1091,"y":83,"width":2,"height":2,"pixels":4},{"x":1115,"y":83,"width":2,"height":2,"pixels":4}],"regionCount":49,"heatFile":"diff-agents-manager-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":223762,"total":1382400,"percent":16.18648726851852,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":171246},{"x":1056,"y":785,"width":116,"height":74,"pixels":3117},{"x":670,"y":785,"width":55,"height":73,"pixels":2638},{"x":285,"y":785,"width":53,"height":73,"pixels":2598},{"x":670,"y":635,"width":165,"height":21,"pixels":2363},{"x":285,"y":635,"width":111,"height":21,"pixels":2202},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":722,"y":790,"width":258,"height":34,"pixels":1845},{"x":1056,"y":635,"width":76,"height":21,"pixels":1575},{"x":285,"y":582,"width":40,"height":40,"pixels":1556},{"x":337,"y":790,"width":254,"height":34,"pixels":1511},{"x":1108,"y":790,"width":268,"height":34,"pixels":1495}],"regionCount":81,"heatFile":"diff-agents-manager-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":138140,"total":1382400,"percent":9.992766203703704,"bounds":{"x":8,"y":16,"width":1432,"height":924},"regions":[{"x":256,"y":220,"width":1119,"height":236,"pixels":42429},{"x":183,"y":64,"width":797,"height":219,"pixels":13392},{"x":144,"y":19,"width":1296,"height":29,"pixels":9668},{"x":257,"y":464,"width":981,"height":31,"pixels":8418},{"x":202,"y":504,"width":1084,"height":63,"pixels":6021},{"x":8,"y":547,"width":232,"height":63,"pixels":5661},{"x":670,"y":785,"width":55,"height":73,"pixels":2606},{"x":285,"y":635,"width":111,"height":21,"pixels":2170},{"x":1056,"y":635,"width":76,"height":21,"pixels":1565},{"x":1056,"y":785,"width":62,"height":74,"pixels":1538},{"x":722,"y":790,"width":257,"height":34,"pixels":1512},{"x":640,"y":768,"width":671,"height":172,"pixels":1367}],"regionCount":107,"heatFile":"diff-agents-manager-32.png","description":"Bounds: 8, 16 · 1432 × 924"}},"change":"base unavailable"},{"id":"agent-usage","route":"/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml","state":"agent usage and model breakdown","base":{"route":"/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml","state":"agent usage and model breakdown","status":"incomplete","errors":["Failed to load resource: the server responded with a status of 500 (Internal Server Error)","locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.agent-editor .frontmatter-card').first() to be visible\n"],"missing":[]},"head":{"route":"/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml","state":"agent usage and model breakdown","status":"captured","errors":[],"missing":[]},"baseHash":"ff618e459d1c96b244ab5dc9a926685f6e1f5147516de1e547ae3555076e954d","headHash":"8e7c25961b889669389f5d1335b50f61ab26a6bfae62b452acc0f32df7c4b059","pngChanged":true,"analyses":{"0":{"changed":1382371,"total":1382400,"percent":99.99790219907408,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":1382371}],"regionCount":1,"heatFile":"diff-agent-usage-0.png","description":"Bounds: 0, 0 · 1440 × 960"},"8":{"changed":655218,"total":1382400,"percent":47.397135416666664,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":650921},{"x":1026,"y":113,"width":90,"height":13,"pixels":437},{"x":875,"y":268,"width":97,"height":9,"pixels":379},{"x":1156,"y":173,"width":85,"height":9,"pixels":329},{"x":1156,"y":197,"width":36,"height":16,"pixels":321},{"x":874,"y":197,"width":38,"height":15,"pixels":298},{"x":1155,"y":234,"width":78,"height":9,"pixels":286},{"x":874,"y":234,"width":64,"height":9,"pixels":250},{"x":932,"y":64,"width":38,"height":12,"pixels":243},{"x":1375,"y":674,"width":54,"height":11,"pixels":233},{"x":1374,"y":580,"width":55,"height":10,"pixels":225},{"x":1155,"y":268,"width":38,"height":9,"pixels":149}],"regionCount":218,"heatFile":"diff-agent-usage-8.png","description":"Bounds: 0, 0 · 1440 × 960"},"16":{"changed":167253,"total":1382400,"percent":12.098741319444445,"bounds":{"x":0,"y":0,"width":1440,"height":960},"regions":[{"x":0,"y":0,"width":1440,"height":960,"pixels":136464},{"x":554,"y":528,"width":874,"height":40,"pixels":4541},{"x":857,"y":621,"width":571,"height":41,"pixels":4041},{"x":305,"y":606,"width":388,"height":37,"pixels":2762},{"x":11,"y":13,"width":109,"height":38,"pixels":1849},{"x":857,"y":674,"width":189,"height":22,"pixels":1009},{"x":857,"y":785,"width":176,"height":13,"pixels":929},{"x":18,"y":399,"width":135,"height":16,"pixels":911},{"x":18,"y":506,"width":94,"height":21,"pixels":799},{"x":408,"y":532,"width":245,"height":12,"pixels":792},{"x":857,"y":743,"width":164,"height":11,"pixels":787},{"x":18,"y":358,"width":97,"height":22,"pixels":744}],"regionCount":84,"heatFile":"diff-agent-usage-16.png","description":"Bounds: 0, 0 · 1440 × 960"},"32":{"changed":118621,"total":1382400,"percent":8.58080150462963,"bounds":{"x":8,"y":16,"width":1432,"height":937},"regions":[{"x":202,"y":238,"width":1226,"height":330,"pixels":53600},{"x":183,"y":64,"width":830,"height":219,"pixels":15823},{"x":144,"y":19,"width":1296,"height":29,"pixels":9653},{"x":8,"y":547,"width":232,"height":63,"pixels":5661},{"x":240,"y":900,"width":1200,"height":53,"pixels":4467},{"x":554,"y":528,"width":874,"height":40,"pixels":4298},{"x":857,"y":621,"width":571,"height":41,"pixels":3819},{"x":305,"y":606,"width":388,"height":37,"pixels":2559},{"x":16,"y":16,"width":104,"height":29,"pixels":1310},{"x":730,"y":64,"width":190,"height":33,"pixels":1237},{"x":857,"y":674,"width":189,"height":22,"pixels":869},{"x":857,"y":785,"width":176,"height":13,"pixels":841}],"regionCount":72,"heatFile":"diff-agent-usage-32.png","description":"Bounds: 8, 16 · 1432 × 937"}},"change":"base unavailable"}],"summary":{"changed":0,"unchanged":0,"subtle":0,"incomplete":0,"baseUnavailable":36,"total":36},"metadata":{"runUrl":"https://github.com/MattShelton04/TracePilot/actions/runs/35483778770/attempts/1","attempt":1}}</script><script>(() => {
+  const report = JSON.parse(document.getElementById("report-data").textContent);
+  const $ = (id) => document.getElementById(id);
+  const imageVersion = `?attempt=${report.metadata.attempt}`;
+  const modes = ["side", "toggle", "wipe", "overlay", "difference"];
+  const rows = report.rows,
+    byId = new Map(rows.map((row) => [row.id, row]));
+  const params = new URLSearchParams(location.hash.slice(1));
+  let selected =
+    byId.get(params.get("view")) ??
+    rows.find((row) => row.change === "changed") ??
+    rows.find((row) => row.change === "subtle") ??
+    rows[0];
+  let mode = modes.includes(params.get("mode")) ? params.get("mode") : "side";
+  let zoom = params.get("zoom") === "100" ? 1 : "fit",
+    scale = 1,
+    generation = 0;
+  let images = {},
+    analysis = null,
+    displayedSide = "head",
+    lastWidth = 0,
+    lastHeight = 0;
+  const viewport = $("viewport"),
+    stage = $("image-stage"),
+    scaled = $("scaled-stage");
+  const buttons = new Map();
+  const text = (tag, content, className) => {
+    const node = document.createElement(tag);
+    node.textContent = content;
+    if (className) node.className = className;
+    return node;
+  };
+  const both = () => images.base && images.head;
+  const dimensions = () => ({ width: mode === "side" && both() ? 2904 : 1440, height: 960 });
+  function urlState(push = false) {
+    const query = new URLSearchParams({ view: selected.id, mode });
+    if (zoom === 1) query.set("zoom", "100");
+    history[push ? "pushState" : "replaceState"](null, "", `#${query}`);
+    $("history-link").href = `../../index.html#view=${encodeURIComponent(selected.id)}`;
+  }
+  function filter() {
+    let visible = 0;
+    for (const row of rows) {
+      const matches =
+        `${row.id} ${row.route} ${row.state}`
+          .toLowerCase()
+          .includes($("search").value.toLowerCase()) &&
+        (!$("changes").checked || !["unchanged", "subtle"].includes(row.change));
+      buttons.get(row.id).hidden = !matches;
+      if (matches) visible++;
+    }
+    $("visible-count").textContent = `${visible} of ${rows.length} views`;
+    $("empty-filter").hidden = visible > 0;
+  }
+  for (const row of rows) {
+    const button = text("button", "", "view-link");
+    button.type = "button";
+    button.setAttribute("aria-label", `${row.id}, ${row.change}`);
+    const thumb = document.createElement("img");
+    thumb.className = "view-thumb";
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    if (row.headHash || row.baseHash)
+      thumb.src = `${row.headHash ? "head" : "base"}-${row.id}.png${imageVersion}`;
+    else thumb.hidden = true;
+    const label = text("span", "");
+    label.append(
+      text("span", row.id, "view-name"),
+      text("span", row.change, `view-status ${row.change}`),
+    );
+    button.append(thumb, label);
+    button.addEventListener("click", () => select(row, true));
+    buttons.set(row.id, button);
+    $("view-list").append(button);
+  }
+  const noMatches = text("p", "No views match these filters.", "empty-filter");
+  noMatches.id = "empty-filter";
+  $("view-list").append(noMatches);
+  $("search").addEventListener("input", filter);
+  $("changes").addEventListener("change", filter);
+
+  function fitScale() {
+    const size = dimensions();
+    return Math.min(
+      (viewport.clientWidth - 52) / size.width,
+      (viewport.clientHeight - 52) / size.height,
+      1,
+    );
+  }
+  function resize(center = false) {
+    const oldScale = scale,
+      oldLeft = viewport.scrollLeft,
+      oldTop = viewport.scrollTop;
+    const size = dimensions();
+    scale = zoom === "fit" ? Math.max(0.08, fitScale()) : zoom;
+    stage.style.width = `${size.width}px`;
+    stage.style.height = `${size.height}px`;
+    stage.style.transform = `scale(${scale})`;
+    scaled.style.width = `${size.width * scale}px`;
+    scaled.style.height = `${size.height * scale}px`;
+    viewport.classList.toggle("can-pan", scale > fitScale() + 0.01);
+    $("zoom-value").textContent = `${Math.round(scale * 100)}%`;
+    $("zoom-fit").setAttribute("aria-pressed", String(zoom === "fit"));
+    $("zoom-actual").setAttribute("aria-pressed", String(zoom === 1));
+    $("zoom-out").disabled = scale <= 0.1;
+    $("zoom-in").disabled = scale >= 4;
+    if (zoom === "fit") {
+      viewport.scrollLeft = 0;
+      viewport.scrollTop = 0;
+    } else if (center && oldScale) {
+      viewport.scrollLeft =
+        ((oldLeft + viewport.clientWidth / 2) * scale) / oldScale - viewport.clientWidth / 2;
+      viewport.scrollTop =
+        ((oldTop + viewport.clientHeight / 2) * scale) / oldScale - viewport.clientHeight / 2;
+    }
+    updateWipe();
+  }
+  function setZoom(value) {
+    zoom = value;
+    resize(true);
+    urlState();
+  }
+  $("zoom-fit").addEventListener("click", () => setZoom("fit"));
+  $("zoom-actual").addEventListener("click", () => setZoom(1));
+  $("zoom-in").addEventListener("click", () => setZoom(Math.min(4, scale * 1.25)));
+  $("zoom-out").addEventListener("click", () => setZoom(Math.max(0.1, scale / 1.25)));
+  new ResizeObserver(() => {
+    if (lastWidth === viewport.clientWidth && lastHeight === viewport.clientHeight) return;
+    lastWidth = viewport.clientWidth;
+    lastHeight = viewport.clientHeight;
+    resize();
+  }).observe(viewport);
+
+  function imageNode(side) {
+    const node = images[side].cloneNode();
+    node.alt = `${side === "base" ? "Before" : "After"}: ${selected.id}`;
+    node.draggable = false;
+    return node;
+  }
+  function board(side, label = true) {
+    const node = text("div", "", "board");
+    node.append(imageNode(side));
+    if (label)
+      node.append(
+        text(
+          "span",
+          side === "base" ? "BEFORE / BASE" : "AFTER / HEAD",
+          `board-label ${side === "head" ? "after" : ""}`,
+        ),
+      );
+    return node;
+  }
+  function updateWipe() {
+    const value = Number($("wipe-range").value);
+    $("wipe-value").textContent = `${value}%`;
+    const layer = $("wipe-layer"),
+      line = $("wipe-line"),
+      grip = $("wipe-grip");
+    if (layer) layer.style.clipPath = `inset(0 0 0 ${value}%)`;
+    if (line) line.style.left = `${value}%`;
+    if (grip) {
+      grip.setAttribute("aria-valuenow", String(value));
+      grip.setAttribute("aria-valuetext", `${value}% before, ${100 - value}% after`);
+      grip.style.transform = `translate(-50%,-50%) scale(${1 / Math.max(scale, 0.2)})`;
+    }
+  }
+  function wipeBoard() {
+    const node = board("base");
+    const after = imageNode("head");
+    after.id = "wipe-layer";
+    node.append(after, text("span", "AFTER / HEAD", "board-label after"));
+    const line = text("div", "", "wipe-line");
+    line.id = "wipe-line";
+    const grip = text("button", "↔", "wipe-grip");
+    grip.id = "wipe-grip";
+    grip.type = "button";
+    for (const [key, value] of Object.entries({
+      role: "separator",
+      "aria-label": "Before and after split",
+      "aria-orientation": "vertical",
+      "aria-valuemin": "0",
+      "aria-valuemax": "100",
+    }))
+      grip.setAttribute(key, value);
+    grip.addEventListener("keydown", (event) => {
+      const old = Number($("wipe-range").value),
+        step = event.shiftKey ? 10 : 1;
+      const value = { ArrowLeft: old - step, ArrowRight: old + step, Home: 0, End: 100 }[event.key];
+      if (value === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      $("wipe-range").value = Math.max(0, Math.min(100, value));
+      updateWipe();
+    });
+    grip.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      grip.setPointerCapture(event.pointerId);
+      grip.focus({ preventScroll: true });
+    });
+    grip.addEventListener("pointermove", (event) => {
+      if (!grip.hasPointerCapture(event.pointerId)) return;
+      const rect = node.getBoundingClientRect();
+      $("wipe-range").value = Math.max(
+        0,
+        Math.min(100, (100 * (event.clientX - rect.left)) / rect.width),
+      );
+      updateWipe();
+    });
+    grip.addEventListener("pointerup", (event) => {
+      if (grip.hasPointerCapture(event.pointerId)) grip.releasePointerCapture(event.pointerId);
+    });
+    line.append(grip);
+    node.append(line);
+    return node;
+  }
+  function renderStage() {
+    stage.replaceChildren();
+    for (const button of document.querySelectorAll("[data-mode]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+      button.disabled = !both() && ["wipe", "overlay", "difference"].includes(button.dataset.mode);
+    }
+    $("toggle-controls").hidden = mode !== "toggle";
+    $("wipe-control").hidden = mode !== "wipe";
+    $("opacity-control").hidden = mode !== "overlay";
+    $("threshold-control").hidden = mode !== "difference";
+    $("mode-hint").textContent = {
+      side: "Compare the same desktop viewport",
+      toggle: "Switch images without moving the viewport",
+      wipe: "Drag the divider or use its arrow keys",
+      overlay: "Adjust opacity to reveal alignment changes",
+      difference: "Pink pixels changed · rectangles mark changed areas",
+    }[mode];
+    for (const button of document.querySelectorAll("[data-side]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.side === displayedSide));
+      button.disabled = !images[button.dataset.side];
+    }
+    if (!images.base && !images.head) {
+      stage.append(
+        text(
+          "p",
+          "No usable image is available. Review the capture limitations below.",
+          "empty-message",
+        ),
+      );
+      resize();
+      return;
+    }
+    if (!both()) stage.append(board(images.head ? "head" : "base"));
+    else if (mode === "side") stage.append(board("base"), board("head"));
+    else if (mode === "toggle") stage.append(board(displayedSide));
+    else if (mode === "wipe") stage.append(wipeBoard());
+    else {
+      const node = board(mode === "overlay" ? "base" : "head", false);
+      if (mode === "overlay") {
+        const after = imageNode("head");
+        after.id = "opacity-layer";
+        after.style.opacity = Number($("opacity").value) / 100;
+        node.append(after);
+      } else if (analysis) {
+        node.firstChild.style.opacity = ".48";
+        if (analysis.heatFile) {
+          const heat = new Image();
+          heat.src = `${analysis.heatFile}${imageVersion}`;
+          heat.alt = "Changed pixels shown in pink";
+          node.append(heat);
+        }
+        for (const area of analysis.regions) {
+          const bounds = text("div", "", "bounds");
+          Object.assign(bounds.style, {
+            left: `${area.x}px`,
+            top: `${area.y}px`,
+            width: `${area.width}px`,
+            height: `${area.height}px`,
+          });
+          node.append(bounds);
+        }
+      }
+      stage.append(node);
+    }
+    resize();
+  }
+  for (const button of document.querySelectorAll("[data-mode]"))
+    button.addEventListener("click", () => {
+      mode = button.dataset.mode;
+      renderStage();
+      urlState();
+    });
+  for (const button of document.querySelectorAll("[data-side]"))
+    button.addEventListener("click", () => {
+      displayedSide = button.dataset.side;
+      renderStage();
+    });
+  $("wipe-range").addEventListener("input", updateWipe);
+  $("opacity").addEventListener("input", () => {
+    $("opacity-value").textContent = `${$("opacity").value}%`;
+    if ($("opacity-layer")) $("opacity-layer").style.opacity = Number($("opacity").value) / 100;
+  });
+  $("threshold").addEventListener("change", () => {
+    if (both()) {
+      generation++;
+      analyze(generation);
+    }
+  });
+
+  function showAnalysis(result) {
+    analysis = result;
+    $("regions").replaceChildren();
+    const exact = Number($("threshold").value) === 0;
+    $("pixel-metric").textContent =
+      `${result.changed.toLocaleString()} / ${result.total.toLocaleString()} pixels changed (${result.percent.toFixed(3)}%)${exact ? " · exact RGBA comparison" : ` · threshold ${$("threshold").value}`} · precomputed from PNGs`;
+    $("pixel-bounds").textContent =
+      selected.change === "subtle"
+        ? `Subtle: at most 128 pixels, each channel ≤ 8/255. ${result.description}`
+        : result.description;
+    result.regions.forEach((area, index) => {
+      const button = text(
+        "button",
+        `Region ${index + 1} · ${area.x},${area.y} · ${area.width}×${area.height}`,
+      );
+      button.title = `${area.pixels.toLocaleString()} changed pixels; tight bounds of nearby changes (8px grouping)`;
+      button.addEventListener("click", () => {
+        mode = "difference";
+        zoom = 1;
+        renderStage();
+        viewport.scrollLeft = Math.max(0, 26 + area.x + area.width / 2 - viewport.clientWidth / 2);
+        viewport.scrollTop = Math.max(0, 26 + area.y + area.height / 2 - viewport.clientHeight / 2);
+        urlState();
+      });
+      $("regions").append(button);
+    });
+    if (result.regionCount > 12)
+      $("regions").append(
+        text("span", `${result.regionCount - 12} smaller regions omitted`, "view-description"),
+      );
+    // Analysis may finish while a reviewer drags the wipe or focuses a control.
+    if (mode === "difference") renderStage();
+    else resize();
+  }
+  async function analyze(token) {
+    analysis = null;
+    $("regions").replaceChildren();
+    $("pixel-bounds").textContent = "";
+    if (!both()) {
+      $("pixel-metric").textContent = "Pixel comparison needs a usable before and after image.";
+      renderStage();
+      return;
+    }
+    $("pixel-metric").textContent = "Loading pixel comparison…";
+    if (mode === "difference") renderStage();
+    try {
+      // Trusted report data and PNG overlays are identical for every reviewer.
+      // Canvas extraction can be perturbed by browser fingerprinting protection.
+      const result = selected.analyses?.[$("threshold").value];
+      if (!result)
+        throw new Error(
+          "This report has no precomputed comparison. Rerun its capture to regenerate the report.",
+        );
+      if (result.heatFile) {
+        const heat = new Image();
+        heat.src = `${result.heatFile}${imageVersion}`;
+        await heat.decode();
+      }
+      if (token !== generation) return;
+      showAnalysis(result);
+    } catch (error) {
+      if (token !== generation) return;
+      $("pixel-metric").textContent = `Pixel analysis unavailable: ${error.message}`;
+    }
+  }
+  async function load(side, row) {
+    if (!row[`${side}Hash`]) return null;
+    const image = new Image();
+    image.src = `${side}-${row.id}.png${imageVersion}`;
+    await image.decode();
+    if (image.naturalWidth !== 1440 || image.naturalHeight !== 960)
+      throw new Error(`${side} image has unexpected dimensions`);
+    return image;
+  }
+  async function select(row, push = false) {
+    selected = row;
+    const token = ++generation;
+    images = {};
+    analysis = null;
+    $("view-title").textContent = row.id;
+    $("view-description").textContent = `${row.route} · ${row.state}`;
+    $("view-status").textContent = row.change;
+    for (const [id, button] of buttons) button.setAttribute("aria-current", String(id === row.id));
+    $("issues").replaceChildren();
+    const issues = [];
+    for (const side of ["base", "head"])
+      for (const message of [
+        ...(row[side]?.errors ?? []),
+        ...(row[side]?.missing ?? []).map((cmd) => `Missing fixture: ${cmd}`),
+      ])
+        issues.push(`${side}: ${message}`);
+    $("limitations").hidden = issues.length === 0;
+    for (const issue of issues) $("issues").append(text("li", issue));
+    $("regions").replaceChildren();
+    $("pixel-bounds").textContent = "";
+    $("pixel-metric").textContent = "Loading screenshots…";
+    stage.replaceChildren(text("p", "Loading screenshots…", "empty-message"));
+    urlState(push);
+    const loaded = await Promise.allSettled([load("base", row), load("head", row)]);
+    if (token !== generation) return;
+    for (let index = 0; index < 2; index++) {
+      const side = index === 0 ? "base" : "head";
+      if (loaded[index].status === "fulfilled") images[side] = loaded[index].value;
+      else {
+        $("issues").append(text("li", `${side}: ${loaded[index].reason.message}`));
+        $("limitations").hidden = false;
+      }
+    }
+    renderStage();
+    await analyze(token);
+  }
+  let pan = null;
+  viewport.addEventListener("pointerdown", (event) => {
+    if (
+      event.button !== 0 ||
+      event.target.closest("button,input,select") ||
+      scale <= fitScale() + 0.01
+    )
+      return;
+    pan = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop,
+    };
+    viewport.setPointerCapture(event.pointerId);
+    viewport.classList.add("panning");
+    viewport.focus({ preventScroll: true });
+  });
+  viewport.addEventListener("pointermove", (event) => {
+    if (!pan) return;
+    viewport.scrollLeft = pan.left - event.clientX + pan.x;
+    viewport.scrollTop = pan.top - event.clientY + pan.y;
+  });
+  const endPan = () => {
+    pan = null;
+    viewport.classList.remove("panning");
+  };
+  viewport.addEventListener("pointerup", endPan);
+  viewport.addEventListener("pointercancel", endPan);
+  viewport.addEventListener("lostpointercapture", endPan);
+  window.addEventListener("popstate", () => {
+    const next = new URLSearchParams(location.hash.slice(1));
+    mode = modes.includes(next.get("mode")) ? next.get("mode") : "side";
+    zoom = next.get("zoom") === "100" ? 1 : "fit";
+    select(byId.get(next.get("view")) ?? rows[0]);
+  });
+  filter();
+  select(selected);
+})();
+</script></body></html>
