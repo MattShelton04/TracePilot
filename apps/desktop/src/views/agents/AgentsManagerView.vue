@@ -10,7 +10,6 @@ import {
   type SegmentOption,
   Select,
   Tooltip,
-  useDismissable,
 } from "@tracepilot/ui";
 import { Bot, Plus } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
@@ -29,7 +28,6 @@ const store = useAgentsStore();
 const router = useRouter();
 const route = useRoute();
 const showCreate = ref(false);
-const { isDismissed, dismiss } = useDismissable("agents-insights");
 
 // Deep links must be visible even after a previous visit narrowed the filters.
 watch(
@@ -119,13 +117,6 @@ function onCreated(path: string) {
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">{{ failureRatePct }} failed or cancelled</span>
       </div>
-
-      <Banner v-if="store.insights.length && !isDismissed" class="agents-insights" role="note" dismissible @dismiss="dismiss">
-        <span v-for="insight in store.insights" :key="insight.id" :class="`agents-insights__item--${insight.tone}`">
-          <button v-if="insight.filter" type="button" class="agents-insights__action" @click="store.applyInsight(insight)">{{ insight.text }}</button>
-          <span v-else>{{ insight.text }}</span>
-        </span>
-      </Banner>
 
       <div class="filter-row">
         <SegmentedControl

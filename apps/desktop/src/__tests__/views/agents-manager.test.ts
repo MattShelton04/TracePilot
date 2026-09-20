@@ -9,7 +9,6 @@ import { computed, reactive, ref } from "vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { buildAgentEntries } from "@/utils/agents/entries";
-import { buildAgentInsights } from "@/utils/agents/insights";
 import AgentsManagerView from "@/views/agents/AgentsManagerView.vue";
 
 const { getStore, getRoute } = vi.hoisted(() => ({ getStore: vi.fn(), getRoute: vi.fn() }));
@@ -55,13 +54,11 @@ function mountView(overrides: Record<string, unknown> = {}) {
     sort: "runs",
     entries: computed(() => buildAgentEntries(loaded, SUMMARY, "30d")),
     filteredEntries: computed(() => buildAgentEntries(loaded, SUMMARY, "30d")),
-    insights: computed(() => buildAgentInsights(buildAgentEntries(loaded, SUMMARY, "30d"))),
     scopeCounts: { builtin: 0, personal: 1, project: 0, plugin: 0, unresolved: 0 },
     hasCustomAgents: true,
     loadAll: vi.fn(),
     setRange: vi.fn(),
     toggleFlag: vi.fn(),
-    applyInsight: vi.fn(),
     clearFilters: vi.fn(),
     createAgent: vi.fn(),
     clearError: vi.fn(),
@@ -72,25 +69,6 @@ function mountView(overrides: Record<string, unknown> = {}) {
 }
 
 describe("AgentsManagerView", () => {
-  it("applies and persistently dismisses actionable insights", async () => {
-    const insight = {
-      id: "unused",
-      tone: "info",
-      text: "One unused agent",
-      filter: { flag: "unused" },
-    };
-    const { store, wrapper } = mountView({ insights: [insight] });
-    await wrapper.get(".agents-insights__action").trigger("click");
-    expect(store.applyInsight).toHaveBeenCalledWith(insight);
-    await wrapper.get('.agents-insights [aria-label="Dismiss"]').trigger("click");
-    expect(wrapper.find(".agents-insights").exists()).toBe(false);
-    wrapper.unmount();
-    expect(
-      mountView({ insights: [insight] })
-        .wrapper.find(".agents-insights")
-        .exists(),
-    ).toBe(false);
-  });
   it("applies agent deep links and clears filters on initial and subsequent navigation", async () => {
     const route = reactive({ query: { q: "reviewer" } });
     getRoute.mockReturnValue(route);

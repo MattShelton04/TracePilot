@@ -36,7 +36,7 @@ function open(run: AgentRunRecord) {
     <li v-for="run in runs" :key="`${run.sessionId}-${run.runKey}`" class="runs__row">
       <button type="button" class="runs__open" @click="open(run)">
         <StatusPill :tone="OUTCOME_TONE[run.outcome]" :label="run.outcome" size="xs" />
-        <span class="runs__summary">
+        <span class="runs__summary" :title="run.sessionSummary || run.description || run.sessionId">
           {{ run.sessionSummary || run.description || run.sessionId }}
         </span>
         <span class="runs__meta">
@@ -65,11 +65,12 @@ function open(run: AgentRunRecord) {
 }
 
 .runs__open {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 8px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--canvas-subtle);
@@ -93,13 +94,17 @@ function open(run: AgentRunRecord) {
 }
 
 .runs__meta {
+  grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  flex-shrink: 0;
+  min-width: 0;
   font-size: 0.625rem;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
+
+.runs__meta > span { overflow-wrap: anywhere; }
 
 .runs__model {
   font-family: var(--font-mono);

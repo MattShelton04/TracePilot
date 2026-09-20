@@ -3,16 +3,20 @@ import {
   agentFields as fields,
   agentSettings as settings,
 } from "@tracepilot/client/mock";
-import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Component, defineComponent, h, provide, reactive } from "vue";
 import { type AgentEditorContext, AgentEditorKey } from "@/composables/useAgentEditor";
 import { resolveEffectiveConfig } from "@/utils/agents/effective";
 import AgentEffectiveTab from "../AgentEffectiveTab.vue";
 import AgentMetadataForm from "../AgentMetadataForm.vue";
 import AgentModelList from "../AgentModelList.vue";
+import AgentOverrideDialog from "../AgentOverrideDialog.vue";
 import AgentPreviewTab from "../AgentPreviewTab.vue";
 import AgentUsageTab from "../AgentUsageTab.vue";
+
+enableAutoUnmount(afterEach);
+vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
@@ -167,5 +171,35 @@ describe("AgentUsageTab", () => {
     expect(metrics[1].text()).toContain("No runs reported this metric");
     expect(metrics[1].findAll("dd").every((cell) => cell.text() === "—")).toBe(true);
     expect(metrics[1].text()).toContain("includes descendants");
+  });
+});
+
+describe("AgentOverrideDialog", () => {
+  it("keeps a failed write open, shows its error, and does not apply the disable change", async () => {
+    const setDisabled = vi.fn();
+    const ctx = makeCtx({
+      agentType: "reviewer",
+      store: { error: "Settings are read-only" },
+      setOverride: vi.fn().mockResolvedValue(false),
+      setDisabled,
+    } as unknown as Partial<AgentEditorContext>);
+    const wrapper = mount(
+      defineComponent({
+        setup() {
+          provide(AgentEditorKey, ctx);
+          return () => h(AgentOverrideDialog, { visible: true });
+        },
+      }),
+      { global: { stubs: { Teleport: true } } },
+    );
+    await wrapper.get('[role="switch"]').trigger("click");
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Apply")!
+      .trigger("click");
+    await flushPromises();
+    expect(wrapper.get('[role="alert"]').text()).toBe("Settings are read-only");
+    expect(setDisabled).not.toHaveBeenCalled();
+    expect(wrapper.getComponent(AgentOverrideDialog).emitted("update:visible")).toBeUndefined();
   });
 });

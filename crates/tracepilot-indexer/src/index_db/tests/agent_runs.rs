@@ -173,6 +173,52 @@ fn indexing_stores_runs_once_and_summarizes_them() {
 }
 
 #[test]
+fn detail_keeps_models_beyond_the_managers_top_three() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    for (index, model) in ["model-a", "model-b", "model-c", "model-d"]
+        .iter()
+        .enumerate()
+    {
+        let events: Vec<String> = agent_session("2026-09-12")
+            .into_iter()
+            .map(|line| line.replace("gpt-5.4-mini", model))
+            .collect();
+        let session = write_raw_session(
+            tmp.path(),
+            &format!("model-session-{index}"),
+            "org/models",
+            &events,
+        );
+        db.upsert_session(&session).unwrap();
+    }
+    let summary = db.query_agent_usage_summary(None, None, None).unwrap();
+    assert_eq!(
+        summary
+            .agents
+            .iter()
+            .find(|agent| agent.name == "explore")
+            .unwrap()
+            .top_models
+            .len(),
+        3
+    );
+    let detail = db
+        .query_agent_usage_detail("explore", None, None, None)
+        .unwrap();
+    assert_eq!(detail.stats.top_models.len(), 4);
+    assert_eq!(
+        detail
+            .stats
+            .top_models
+            .iter()
+            .map(|model| model.runs)
+            .sum::<u64>(),
+        detail.stats.runs
+    );
+}
+
+#[test]
 fn detail_breaks_down_parents_failures_and_recent_runs() {
     let tmp = tempfile::tempdir().unwrap();
     let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();

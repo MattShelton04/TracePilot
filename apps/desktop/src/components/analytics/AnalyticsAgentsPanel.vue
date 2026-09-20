@@ -154,7 +154,9 @@ function openAgents(search?: string) {
       <div class="agents-panel__top">
         <div class="agents-panel__head">
           <h4 class="agents-panel__title">Busiest agents</h4>
-          <span class="agents-panel__legend">runs · median · failed/cancelled</span>
+          <span class="agents-panel__legend">Runs</span>
+          <span class="agents-panel__legend">Median</span>
+          <span class="agents-panel__legend">Failed/cancelled</span>
         </div>
         <ul class="agents-panel__list">
           <li v-for="agent in topAgents" :key="agent.name">
@@ -228,19 +230,22 @@ function openAgents(search?: string) {
 }
 
 .agents-panel__top {
+  --agent-columns: minmax(7rem, 1fr) minmax(3rem, 1.2fr) 3rem 4.5rem 6.5rem;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .agents-panel__head {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--agent-columns);
   align-items: baseline;
-  justify-content: space-between;
   gap: 8px;
+  padding: 0 8px;
 }
 
 .agents-panel__title {
+  grid-column: span 2;
   margin: 0;
   font-size: 0.75rem;
   font-weight: 600;
@@ -250,6 +255,7 @@ function openAgents(search?: string) {
 .agents-panel__legend {
   font-size: 0.625rem;
   color: var(--text-tertiary);
+  text-align: right;
 }
 
 .agents-panel__list {
@@ -264,7 +270,7 @@ function openAgents(search?: string) {
 /* Each row is the way into that agent, so the whole row is the target. */
 .agents-panel__row {
   display: grid;
-  grid-template-columns: minmax(4rem, 1fr) minmax(48px, 1.2fr) auto auto auto;
+  grid-template-columns: var(--agent-columns);
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -316,6 +322,7 @@ function openAgents(search?: string) {
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  text-align: right;
 }
 
 .agents-panel__figure--muted {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Banner, EmptyState, TabNav, type TabNavItem } from "@tracepilot/ui";
+import { Banner, EmptyState, TabNav, type TabNavItem, useResizeHandle } from "@tracepilot/ui";
 import { FileQuestion } from "lucide-vue-next";
-import { computed, provide, ref, useId } from "vue";
+import { computed, provide, reactive, ref, useId } from "vue";
 import AgentEditorTopBar from "@/components/agentEditor/AgentEditorTopBar.vue";
 import AgentEffectiveTab from "@/components/agentEditor/AgentEffectiveTab.vue";
 import AgentMetadataForm from "@/components/agentEditor/AgentMetadataForm.vue";
@@ -20,6 +20,17 @@ const editorPaneId = useId();
 const resizeHintId = useId();
 const bodyId = useId();
 const showOverride = ref(false);
+const definitionPaneId = useId();
+const sourceSplit = reactive(
+  useResizeHandle({
+    axis: "y",
+    initial: 45,
+    minPct: 20,
+    maxPct: 80,
+    minPanePx: 120,
+    splitterPx: 8,
+  }),
+);
 
 // TabNav keys the active tab off `routeName` in local (v-model) mode too.
 const tabs = computed<TabNavItem[]>(() => [
@@ -63,13 +74,13 @@ const fileLabel = computed(() => {
               {{ ctx.isReadOnly ? "Source" : "Editor" }}
             </span>
             <span class="panel-header-filename">{{ fileLabel }}</span>
-            <label v-if="ctx.detail" class="raw-toggle">
-              <input type="checkbox" :checked="ctx.rawMode" @change="ctx.rawMode = !ctx.rawMode" />
+            <label v-if="ctx.detail" class="raw-toggle" :title="ctx.dirty ? 'Save or discard changes before switching editors' : undefined">
+              <input type="checkbox" :checked="ctx.rawMode" :disabled="ctx.dirty || ctx.saving" @change="ctx.rawMode = !ctx.rawMode" />
               Raw file
             </label>
           </div>
 
-          <div class="panel-scroll">
+          <div class="panel-scroll" :class="{ 'agent-source': ctx.detail && !ctx.rawMode }" :ref="(el) => (sourceSplit.containerRef = el as HTMLElement | null)" :style="{ '--definition-split': `${sourceSplit.leftWidth}%` }">
             <!-- Nothing else can go in this pane for a session-only agent, so
                  it fills it rather than leaving a banner above empty space. -->
             <EmptyState
@@ -83,22 +94,6 @@ const fileLabel = computed(() => {
             </EmptyState>
 
             <template v-else-if="ctx.detail">
-              <Banner v-if="ctx.readOnlyReason" tone="info" title="Read-only">
-                {{ ctx.readOnlyReason }}
-                <template v-if="ctx.detail.summary.scope === 'builtin'">
-                  Use <strong>Override</strong> to change its model or effort in a way that survives
-                  CLI updates.
-                </template>
-              </Banner>
-
-              <Banner
-                v-for="diagnostic in ctx.detail.diagnostics"
-                :key="diagnostic.message"
-                :tone="diagnostic.severity === 'error' ? 'danger' : 'warning'"
-              >
-                {{ diagnostic.message }}
-              </Banner>
-
               <MarkdownBodyEditor
                 v-if="ctx.rawMode"
                 :id="bodyId"
@@ -110,7 +105,11 @@ const fileLabel = computed(() => {
                 @update:model-value="ctx.setRaw"
               />
               <template v-else>
-                <AgentMetadataForm />
+                <div :id="definitionPaneId" class="agent-source__definition">
+                  <Banner v-for="diagnostic in ctx.detail.diagnostics" :key="diagnostic.message" :tone="diagnostic.severity === 'error' ? 'danger' : 'warning'">{{ diagnostic.message }}</Banner>
+                  <AgentMetadataForm />
+                </div>
+                <div class="resize-handle agent-source__resize" :class="{ active: sourceSplit.dragging }" role="separator" tabindex="0" aria-label="Resize definition and prompt" aria-orientation="horizontal" :aria-controls="definitionPaneId" :aria-valuemin="sourceSplit.minLeftWidth" :aria-valuemax="sourceSplit.maxLeftWidth" :aria-valuenow="sourceSplit.leftWidth" :aria-valuetext="`${Math.round(sourceSplit.leftWidth)}% definition height`" title="Drag to resize. Up/Down arrows adjust height; Enter resets." @mousedown="sourceSplit.onMouseDown" @keydown="sourceSplit.onKeyDown" />
                 <MarkdownBodyEditor
                   :id="bodyId"
                   label="Prompt"

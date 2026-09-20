@@ -2,6 +2,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 /** Resizable split panels with pixel-aware bounds and keyboard control. */
 export function useResizeHandle(options?: {
+  /** Axis of the layout; y resizes vertically stacked panes. */
+  axis?: "x" | "y";
   minPct?: number;
   maxPct?: number;
   initial?: number;
@@ -9,6 +11,9 @@ export function useResizeHandle(options?: {
   splitterPx?: number;
 }) {
   const initial = options?.initial ?? 50;
+  const vertical = options?.axis === "y";
+  const backward = vertical ? "ArrowUp" : "ArrowLeft";
+  const forward = vertical ? "ArrowDown" : "ArrowRight";
   const leftWidth = ref(initial);
   const dragging = ref(false);
   const containerRef = ref<HTMLElement | null>(null);
@@ -38,7 +43,8 @@ export function useResizeHandle(options?: {
   }
 
   function measure() {
-    containerWidth.value = containerRef.value?.getBoundingClientRect().width ?? 0;
+    const rect = containerRef.value?.getBoundingClientRect();
+    containerWidth.value = (vertical ? rect?.height : rect?.width) ?? 0;
     setWidth(leftWidth.value);
   }
 
@@ -64,9 +70,11 @@ export function useResizeHandle(options?: {
   function onMouseMove(event: MouseEvent) {
     if (!dragging.value || !containerRef.value) return;
     const rect = containerRef.value.getBoundingClientRect();
-    if (!rect.width) return;
-    containerWidth.value = rect.width;
-    setWidth(((event.clientX - rect.left) / rect.width) * 100);
+    const size = vertical ? rect.height : rect.width;
+    if (!size) return;
+    containerWidth.value = size;
+    const position = vertical ? event.clientY - rect.top : event.clientX - rect.left;
+    setWidth((position / size) * 100);
   }
 
   function onKeyDown(event: KeyboardEvent) {
@@ -78,7 +86,7 @@ export function useResizeHandle(options?: {
       event.metaKey
     )
       return;
-    if (!["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(event.key)) return;
+    if (![backward, forward, "Home", "End", "Enter"].includes(event.key)) return;
     measure();
     if (!containerWidth.value) return;
     event.preventDefault();
@@ -86,7 +94,7 @@ export function useResizeHandle(options?: {
     if (event.key === "Home") setWidth(minLeftWidth.value);
     else if (event.key === "End") setWidth(maxLeftWidth.value);
     else if (event.key === "Enter") setWidth(initial);
-    else setWidth(leftWidth.value + (event.key === "ArrowLeft" ? -step : step));
+    else setWidth(leftWidth.value + (event.key === backward ? -step : step));
   }
 
   let observer: ResizeObserver | undefined;

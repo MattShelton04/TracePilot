@@ -10,7 +10,6 @@ import {
   buildAgentEntries,
   filterAndSortEntries,
 } from "@/utils/agents/entries";
-import { type AgentInsight, buildAgentInsights } from "@/utils/agents/insights";
 import { type AgentUsageRange, rangeBounds } from "@/utils/agents/range";
 import { createAgentMutations } from "./mutations";
 
@@ -44,7 +43,6 @@ export const useAgentsStore = defineStore("agents", () => {
       sort: sort.value,
     }),
   );
-  const insights = computed(() => buildAgentInsights(entries.value));
   const scopeCounts = computed(() => {
     const counts = { builtin: 0, personal: 0, project: 0, plugin: 0, unresolved: 0 };
     for (const entry of entries.value) counts[entry.scope] += 1;
@@ -95,11 +93,6 @@ export const useAgentsStore = defineStore("agents", () => {
     flags.value = next;
   }
 
-  function applyInsight(insight: AgentInsight) {
-    if (insight.filter?.scope) scope.value = insight.filter.scope;
-    if (insight.filter?.flag) flags.value = new Set([insight.filter.flag]);
-  }
-
   function clearFilters() {
     scope.value = "all";
     flags.value = new Set();
@@ -122,7 +115,6 @@ export const useAgentsStore = defineStore("agents", () => {
     sort,
     entries,
     filteredEntries,
-    insights,
     scopeCounts,
     hasCustomAgents,
     loadCatalog,
@@ -130,7 +122,6 @@ export const useAgentsStore = defineStore("agents", () => {
     loadAll,
     setRange,
     toggleFlag,
-    applyInsight,
     clearFilters,
     ...mutations,
   };

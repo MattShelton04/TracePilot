@@ -384,12 +384,24 @@ CLI Context. What differs from the design above:
   reconstructed as completed rather than given its own outcome.
 - **The Analytics card calls `agents_usage_summary` directly** with the dashboard's range and
   repository, so `AnalyticsData` is unchanged and no disk fallback is needed.
+- **The database additions are one migration (18).** It creates both agent tables and their
+  indexes together, upgrading directly from the released version 17 schema.
 - **`slow` also needs at least 10 timed runs.** A p90-versus-previous-median trend over three
   runs is noise, which the real data made obvious.
 - **`{{placeholders}}` are resolved in descriptions too**, not only in the prompt body, because
   the built-ins carry them in `description`.
 - **The detail route is `/agents/detail?id=…`**, since a definition's id is a file path. Agents
   seen only in sessions use `name:<agent>`.
+- **Cards and synthetic data are shared.** Agents and Skills use `DefinitionCard` from
+  `@tracepilot/ui`; browser mocks and unit tests use factories from `@tracepilot/client/mock`.
+  Visual captures use the browser corpus, including a dedicated Usage case.
+- **The manager has no tips banner.** Scope and flag filters provide direct access to the
+  same states. Read-only definitions use a badge with an explanatory tooltip.
+- **Definition and Prompt resize independently.** Drag their horizontal divider or use
+  Up/Down, Shift for larger steps, Home/End for limits, and Enter to reset.
+- **Usage starts with balanced metrics and outcomes.** Models, failure reasons, timing and
+  execution context expand on demand. Model detail includes all recorded models; missing
+  model evidence is explicit. Reporting coverage stays visible with the metrics.
 
 Not yet done: the Config Injector's Agents tab still owns bulk model assignment (§13's open
 question) and now links into this page; the Launcher has no agent picker.

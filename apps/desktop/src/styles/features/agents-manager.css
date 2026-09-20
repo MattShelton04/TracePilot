@@ -147,28 +147,3 @@
     min-width: 100%;
   }
 }
-
-.agents-insights .banner__message {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-}
-.agents-insights__item--warning {
-  color: var(--warning-fg);
-}
-.agents-insights__item--success {
-  color: var(--success-fg);
-}
-.agents-insights__action {
-  padding: 0;
-  border: 0;
-  border-bottom: 1px dashed var(--border-default);
-  background: none;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-.agents-insights__action:hover {
-  color: var(--accent-fg);
-}

@@ -6,7 +6,6 @@ import {
 import type { AgentUsageSummary } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
 import { buildAgentEntries, filterAndSortEntries } from "../entries";
-import { buildAgentInsights } from "../insights";
 import { rangeBounds, rangeDays } from "../range";
 
 function summary(agents: ReturnType<typeof usage>[]): AgentUsageSummary {
@@ -131,25 +130,6 @@ describe("filterAndSortEntries", () => {
     expect(filterAndSortEntries(entries, { ...base, sort: "duration" }).map((e) => e.name)).toEqual(
       ["alpha", "beta"],
     );
-  });
-});
-
-describe("buildAgentInsights", () => {
-  it("reports only actionable observations, each with its filter", () => {
-    const entries = buildAgentEntries(
-      catalog([definition("idle")]),
-      summary([
-        usage("explore", { runs: 2411 }),
-        usage("drift", { mismatchRuns: 3 }),
-        usage("ghost"),
-      ]),
-      "30d",
-      NOW,
-    );
-    const insights = buildAgentInsights(entries);
-    expect(insights.map((i) => i.id)).toEqual(["mismatch", "unused", "unresolved"]);
-    expect(insights.every((insight) => insight.filter)).toBe(true);
-    expect(insights.find((i) => i.id === "unresolved")?.filter).toEqual({ scope: "unresolved" });
   });
 });
 

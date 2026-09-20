@@ -5,7 +5,7 @@ import type {
   AgentUsageDetail,
   SubagentOverride,
 } from "@tracepilot/types";
-import { toErrorMessage, useConfirmDialog, useResizeHandle } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard, useConfirmDialog, useResizeHandle } from "@tracepilot/ui";
 import {
   computed,
   type InjectionKey,
@@ -42,6 +42,9 @@ export function useAgentEditor() {
   const router = useRouter();
   const store = useAgentsStore();
   const { confirm: showConfirm } = useConfirmDialog();
+  const definitionGuard = useAsyncGuard();
+  const usageGuard = useAsyncGuard();
+  let draftVersion = 0;
 
   const detail = ref<AgentDefinitionDetail | null>(null);
   const usage = ref<AgentUsageDetail | null>(null);
@@ -100,13 +103,19 @@ export function useAgentEditor() {
     return detail.value?.summary.readOnlyReason ?? null;
   });
   const isReadOnly = computed(() => readOnlyReason.value !== null);
-  const canOverride = computed(() => !settings.value?.shapeError);
+  const canOverride = computed(() =>
+    Boolean(settings.value && agentName.value && !settings.value.shapeError),
+  );
 
   const errorDiagnostics = computed(
     () => detail.value?.diagnostics.filter((d) => d.severity === "error") ?? [],
   );
   const canSave = computed(
-    () => !isReadOnly.value && dirty.value && !saving.value && errorDiagnostics.value.length === 0,
+    () =>
+      !isReadOnly.value &&
+      dirty.value &&
+      !saving.value &&
+      (rawMode.value || errorDiagnostics.value.length === 0),
   );
 
   const saveState = computed(() => {
@@ -132,7 +141,11 @@ export function useAgentEditor() {
     await load();
   });
 
-  onUnmounted(() => document.removeEventListener("keydown", onKeydown));
+  onUnmounted(() => {
+    document.removeEventListener("keydown", onKeydown);
+    definitionGuard.invalidate();
+    usageGuard.invalidate();
+  });
 
   watch(routeId, () => load());
   watch(
@@ -149,61 +162,77 @@ export function useAgentEditor() {
 
   /** The definition first: for a file id it supplies the name usage is keyed by. */
   async function load() {
-    await loadDefinition();
-    await loadUsage();
+    usageGuard.invalidate();
+    usage.value = null;
+    usageError.value = null;
+    usageLoading.value = false;
+    rawMode.value = false;
+    lastSaved.value = null;
+    lastBackup.value = null;
+    if (await loadDefinition()) await loadUsage();
   }
 
   async function loadDefinition() {
+    const token = definitionGuard.start();
     detail.value = null;
     fields.value = null;
     body.value = "";
     rawDraft.value = "";
     dirty.value = false;
     error.value = null;
-    if (!definitionPath.value) return;
+    loading.value = false;
+    if (!definitionPath.value) return true;
     loading.value = true;
     try {
       const loaded = await agentsGet(definitionPath.value);
+      if (!definitionGuard.isValid(token)) return false;
       detail.value = loaded;
       fields.value = cloneFields(loaded.summary.fields);
       body.value = loaded.body;
       rawDraft.value = loaded.rawContent;
     } catch (cause) {
-      error.value = toErrorMessage(cause);
+      if (definitionGuard.isValid(token)) error.value = toErrorMessage(cause);
     } finally {
-      loading.value = false;
+      if (definitionGuard.isValid(token)) loading.value = false;
     }
+    return definitionGuard.isValid(token);
   }
 
   async function loadUsage() {
+    const token = usageGuard.start();
     const name = agentName.value;
+    usage.value = null;
     if (!name) return;
     usageLoading.value = true;
     usageError.value = null;
     try {
-      usage.value = await agentsUsageDetail(name, rangeBounds(store.range));
+      const result = await agentsUsageDetail(name, rangeBounds(store.range));
+      if (usageGuard.isValid(token)) usage.value = result;
     } catch (cause) {
-      usageError.value = toErrorMessage(cause);
+      if (usageGuard.isValid(token)) usageError.value = toErrorMessage(cause);
     } finally {
-      usageLoading.value = false;
+      if (usageGuard.isValid(token)) usageLoading.value = false;
     }
   }
 
   function patchFields(patch: Partial<AgentFields>) {
     if (isReadOnly.value || !fields.value) return;
     fields.value = { ...fields.value, ...patch };
+    draftVersion++;
     dirty.value = true;
   }
 
   function setBody(next: string) {
     if (isReadOnly.value) return;
     body.value = next;
+    draftVersion++;
     dirty.value = true;
   }
 
   function setRaw(next: string) {
     if (isReadOnly.value) return;
     rawDraft.value = next;
+    draftVersion++;
     dirty.value = true;
   }
 
@@ -212,17 +241,24 @@ export function useAgentEditor() {
     if (!canSave.value || !fields.value) return;
     saving.value = true;
     error.value = null;
+    const token = definitionGuard.current();
+    const version = draftVersion;
+    const previousName = agentName.value;
     try {
       const result = rawMode.value
         ? await agentsSaveRaw(definitionPath.value, rawDraft.value)
         : await agentsSave(definitionPath.value, fields.value, body.value);
+      if (!definitionGuard.isValid(token)) return;
       lastBackup.value = result.backupPath;
       lastSaved.value = new Date();
-      dirty.value = false;
-      await loadDefinition();
+      // Typing while the save is in flight must keep the newer draft.
+      if (draftVersion === version) {
+        dirty.value = false;
+        if ((await loadDefinition()) && agentName.value !== previousName) await loadUsage();
+      }
       await store.loadCatalog();
     } catch (cause) {
-      error.value = toErrorMessage(cause);
+      if (definitionGuard.isValid(token)) error.value = toErrorMessage(cause);
     } finally {
       saving.value = false;
     }
@@ -255,11 +291,11 @@ export function useAgentEditor() {
   }
 
   async function setOverride(value: SubagentOverride | null) {
-    await store.setOverride(agentType.value, value);
+    return store.setOverride(agentType.value, value);
   }
 
   async function setDisabled(next: boolean) {
-    await store.setDisabled(agentType.value, next);
+    return store.setDisabled(agentType.value, next);
   }
 
   function goBack() {

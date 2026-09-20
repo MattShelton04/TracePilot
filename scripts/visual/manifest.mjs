@@ -145,6 +145,15 @@ export const cases = [
     state: "populated synthetic personal agent",
   },
   {
+    id: "agent-usage",
+    route:
+      "/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml",
+    start: ".agent-editor .frontmatter-card",
+    prepare: "agent-usage",
+    ready: ".agent-usage__summary",
+    state: "agent usage and model breakdown",
+  },
+  {
     id: "cli-context",
     route: "/cli-context",
     ready: "h1",

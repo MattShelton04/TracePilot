@@ -118,9 +118,16 @@ describe("AgentEditorView", () => {
       },
     });
     await flushPromises();
-    expect(wrapper.text()).toContain("Installed with the Copilot CLI");
-    expect(wrapper.text()).toContain("survives");
+    expect(wrapper.text()).toContain("Read-only");
+    expect(wrapper.find(".panel-left .banner").exists()).toBe(false);
+    expect(wrapper.findAll("button").some((b) => b.text() === "Override")).toBe(true);
     expect(wrapper.findAll("button").some((b) => b.text().includes("Save"))).toBe(false);
+  });
+
+  it("prevents switching draft formats while there are unsaved edits", async () => {
+    const { wrapper } = mountView({ dirty: true });
+    expect(wrapper.get<HTMLInputElement>(".raw-toggle input").element.disabled).toBe(true);
+    expect(wrapper.get(".raw-toggle").attributes("title")).toContain("Save or discard");
   });
 
   it("offers usage but no editor for an agent seen only in sessions", async () => {

@@ -89,14 +89,12 @@ describe("useAgentsStore", () => {
     expect(store.hasCustomAgents).toBe(true);
   });
 
-  it("narrows the grid when an insight is applied, and clears again", async () => {
+  it("narrows the grid by scope, and clears again", async () => {
     mocks.agentsUsageSummary.mockResolvedValue(summary([usage("ghost-agent")]));
     const store = useAgentsStore();
     await store.loadAll();
 
-    const insight = store.insights.find((item) => item.id === "unresolved");
-    expect(insight).toBeDefined();
-    store.applyInsight(insight!);
+    store.scope = "unresolved";
     expect(store.scope).toBe("unresolved");
     expect(store.filteredEntries.map((entry) => entry.name)).toEqual(["ghost-agent"]);
 

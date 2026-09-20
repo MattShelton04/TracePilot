@@ -63,7 +63,7 @@ const kpis = computed(() => {
       key: "runs",
       label: "Runs",
       value: formatNumber(value.runs),
-      note: `${formatNumber(value.sessions)} sessions`,
+      note: `${formatNumber(value.sessions)} session${value.sessions === 1 ? "" : "s"}`,
       description: `Across ${formatNumber(value.sessions)} session${value.sessions === 1 ? "" : "s"}.`,
     },
     {
@@ -124,14 +124,18 @@ const distributions = computed(() => {
   }));
 });
 
-const models = computed<BreakdownRow[]>(
-  () =>
-    stats.value?.topModels.map((model) => ({
-      key: model.label,
-      label: model.label,
-      value: model.runs,
-    })) ?? [],
-);
+const models = computed<BreakdownRow[]>(() => {
+  const value = stats.value;
+  if (!value) return [];
+  const rows = value.topModels.map((model) => ({
+    key: model.label,
+    label: model.label,
+    value: model.runs,
+  }));
+  const missing = value.runs - rows.reduce((sum, row) => sum + row.value, 0);
+  if (missing > 0) rows.push({ key: "not-recorded", label: "Not recorded", value: missing });
+  return rows;
+});
 
 /** Only newer CLI versions record what was configured, so the denominator matters. */
 const dispatch = computed<BreakdownRow[]>(
@@ -243,7 +247,7 @@ const modelsOpen = computed(() => (stats.value?.mismatchRuns ?? 0) > 0);
         <div class="agent-usage__more-body">
           <div>
             <h4 class="agent-usage__title">Models actually used</h4>
-            <UsageBreakdownBars :rows="models" :total="stats.runs" empty-text="No run recorded a model." />
+            <UsageBreakdownBars :rows="models" :total="stats.runs" :limit="models.length" empty-text="No run recorded a model." />
           </div>
           <div v-if="dispatch.length">
             <h4 class="agent-usage__title">

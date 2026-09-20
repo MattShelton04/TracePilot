@@ -126,6 +126,8 @@ try {
         await page.getByLabel("Select Session A").selectOption("sess-search-polish");
         await page.getByLabel("Select Session B").selectOption("sess-auth-refactor");
         await page.getByRole("button", { name: "Compare", exact: true }).click();
+      } else if (item.prepare === "agent-usage") {
+        await page.getByRole("tab", { name: /^Usage/ }).click();
       }
       await page.locator(item.ready).first().waitFor({ state: "visible", timeout: 15000 });
       if (item.command)

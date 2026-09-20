@@ -1,8 +1,8 @@
 // biome-ignore-all assist/source/organizeImports: mocks must be registered before the composable import.
 import { setupPinia } from "@tracepilot/test-utils";
-import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent } from "vue";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, reactive } from "vue";
 
 const mocks = vi.hoisted(() => ({
   agentsGet: vi.fn(),
@@ -30,6 +30,7 @@ const storeMock = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("@/stores/agents", () => ({ useAgentsStore: () => storeMock.value }));
 
 import { useAgentEditor } from "../useAgentEditor";
+enableAutoUnmount(afterEach);
 import {
   agentCatalog as catalog,
   agentDefinition as definition,
@@ -80,7 +81,7 @@ describe("useAgentEditor", () => {
     ]) {
       mock.mockReset();
     }
-    mocks.route.query = { id: "/defs/reviewer.agent.md" };
+    mocks.route.query = reactive({ id: "/defs/reviewer.agent.md" });
     mocks.agentsGet.mockResolvedValue(detail());
     mocks.agentsUsageDetail.mockResolvedValue(null);
     storeMock.value = {
@@ -151,6 +152,17 @@ describe("useAgentEditor", () => {
     expect(mocks.agentsSave).not.toHaveBeenCalled();
   });
 
+  it("refreshes usage after saving a different dispatch name", async () => {
+    mocks.agentsSave.mockResolvedValue({ path: "/defs/reviewer.agent.md", backupPath: null });
+    const editor = mountEditor();
+    await flushPromises();
+    editor.ctx.patchFields({ name: "renamed" });
+    mocks.agentsGet.mockResolvedValue(detail({ summary: definition("renamed") }));
+    await editor.ctx.save();
+    expect(mocks.agentsUsageDetail).toHaveBeenLastCalledWith("renamed", expect.anything());
+    expect(editor.ctx.agentName).toBe("renamed");
+  });
+
   it("ignores edits to a read-only definition", async () => {
     mocks.agentsGet.mockResolvedValue(
       detail({
@@ -187,5 +199,47 @@ describe("useAgentEditor", () => {
 
     expect(editor.ctx.error).toContain("file vanished");
     expect(editor.ctx.fields).toBeNull();
+  });
+
+  it("ignores an old definition response after navigating to a session-only agent", async () => {
+    let finish!: (value: ReturnType<typeof detail>) => void;
+    mocks.agentsGet.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const editor = mountEditor();
+    mocks.route.query.id = "name:ghost-agent";
+    await flushPromises();
+    finish(detail());
+    await flushPromises();
+    expect(editor.ctx.agentName).toBe("ghost-agent");
+    expect(editor.ctx.detail).toBeNull();
+    expect(editor.ctx.loading).toBe(false);
+    expect(mocks.agentsUsageDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps edits made while saving and allows malformed files to be repaired in raw mode", async () => {
+    mocks.agentsGet.mockResolvedValueOnce(
+      detail({ diagnostics: [{ severity: "error", message: "Invalid YAML" }] }),
+    );
+    let finish!: (value: { path: string; backupPath: string | null }) => void;
+    mocks.agentsSaveRaw.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const editor = mountEditor();
+    await flushPromises();
+    editor.ctx.rawMode = true;
+    editor.ctx.setRaw("---\nname: reviewer\n---\nFixed");
+    expect(editor.ctx.canSave).toBe(true);
+    const pending = editor.ctx.save();
+    editor.ctx.setRaw("---\nname: reviewer\n---\nNewer draft");
+    finish({ path: "/defs/reviewer.agent.md", backupPath: "/backup" });
+    await pending;
+    expect(editor.ctx.rawDraft).toContain("Newer draft");
+    expect(editor.ctx.dirty).toBe(true);
+    expect(mocks.agentsGet).toHaveBeenCalledTimes(1);
   });
 });

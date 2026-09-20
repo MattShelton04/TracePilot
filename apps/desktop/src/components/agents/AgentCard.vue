@@ -188,9 +188,9 @@ const lastRun = computed(() => {
 }
 
 .agent-card__usage {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: end;
   gap: 12px;
 }
 
@@ -198,8 +198,8 @@ const lastRun = computed(() => {
    column means the same thing on every card in the grid. */
 .agent-card__stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, auto));
-  gap: 0 16px;
+  grid-template-columns: minmax(0, 0.65fr) minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 0 8px;
   margin: 0;
   min-width: 0;
 }

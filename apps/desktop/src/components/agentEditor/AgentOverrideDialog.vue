@@ -20,6 +20,7 @@ const effort = ref("");
 const contextTier = ref("");
 const disabled = ref(false);
 const saving = ref(false);
+const error = ref<string | null>(null);
 
 const effortOptions = [
   { value: "", label: "Not set" },
@@ -47,6 +48,7 @@ const changed = computed(
 
 watch(visible, (open) => {
   if (!open) return;
+  error.value = null;
   model.value = ctx.override?.model ?? "";
   effort.value = ctx.override?.effortLevel ?? "";
   contextTier.value = ctx.override?.contextTier ?? "";
@@ -56,7 +58,7 @@ watch(visible, (open) => {
 async function apply() {
   saving.value = true;
   const hasValue = Boolean(model.value || effort.value || contextTier.value);
-  await ctx.setOverride(
+  const applied = await ctx.setOverride(
     hasValue
       ? {
           model: model.value || null,
@@ -65,23 +67,27 @@ async function apply() {
         }
       : null,
   );
-  if (disabled.value !== ctx.disabled) await ctx.setDisabled(disabled.value);
+  const enabled =
+    applied && (disabled.value === ctx.disabled || (await ctx.setDisabled(disabled.value)));
   saving.value = false;
-  visible.value = false;
+  if (enabled) visible.value = false;
+  else error.value = ctx.store.error ?? "Could not apply the override. Please try again.";
 }
 
 async function reset() {
   saving.value = true;
-  await ctx.setOverride(null);
-  if (ctx.disabled) await ctx.setDisabled(false);
+  const applied = await ctx.setOverride(null);
+  const enabled = applied && (!ctx.disabled || (await ctx.setDisabled(false)));
   saving.value = false;
-  visible.value = false;
+  if (enabled) visible.value = false;
+  else error.value = ctx.store.error ?? "Could not remove the override. Please try again.";
 }
 </script>
 
 <template>
   <ModalDialog v-model:visible="visible" :title="`Override ${ctx.agentType}`">
     <div class="override">
+      <p v-if="error" role="alert" class="override__error">{{ error }}</p>
       <p class="override__intro">
         Written to <code>{{ ctx.settings?.settingsPath ?? "settings.json" }}</code> under
         <code>subagents.agents.{{ ctx.agentType }}</code>, the same place <code>/subagents</code>
@@ -120,7 +126,7 @@ async function reset() {
         layout="inline"
         description="Adds the agent to disabledSubagents so the CLI will not run it."
       >
-        <Toggle v-model="disabled" />
+        <Toggle v-model="disabled" aria-label="Disable agent" />
       </Field>
     </div>
 
@@ -154,6 +160,8 @@ async function reset() {
   font-family: var(--font-mono);
   color: var(--text-secondary);
 }
+
+.override__error { margin: 0; color: var(--danger-fg); font-size: 0.75rem; }
 
 .override__divider {
   height: 1px;

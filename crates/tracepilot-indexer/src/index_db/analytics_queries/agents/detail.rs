@@ -101,8 +101,11 @@ pub(in crate::index_db) fn build_detail(rows: &[RunRow]) -> AgentUsageDetail {
     failure_reasons.sort_by(|a, b| b.runs.cmp(&a.runs));
     failure_reasons.truncate(TOP_ENTRIES);
 
+    let mut stats = agent_stats(&all);
+    // The manager needs only the top three; the detail must account for every model.
+    stats.top_models = ranked(current.iter().filter_map(|r| r.model.clone()));
     AgentUsageDetail {
-        stats: agent_stats(&all),
+        stats,
         outcomes_by_day: by_day.into_values().collect(),
         dispatch,
         invoked_by,
@@ -180,12 +183,19 @@ pub(super) fn normalize_error(text: &str) -> String {
             out.push_str(&token[start + core.len()..]);
         } else if has_digit {
             let mut previous_digit = false;
-            for c in token.chars() {
+            let mut chars = token.chars().peekable();
+            while let Some(c) = chars.next() {
                 if c.is_ascii_digit() {
                     if !previous_digit {
                         out.push('#');
                     }
                     previous_digit = true;
+                } else if c == '.'
+                    && previous_digit
+                    && chars.peek().is_some_and(char::is_ascii_digit)
+                {
+                    // Decimal timings and integer timings belong to the same failure group.
+                    continue;
                 } else {
                     out.push(c);
                     previous_digit = false;
@@ -204,6 +214,10 @@ mod tests {
 
     #[test]
     fn normalize_error_masks_numbers_and_ids() {
+        assert_eq!(
+            normalize_error("retry time: 7.595s"),
+            normalize_error("retry time: 10s")
+        );
         assert_eq!(
             normalize_error("Request 429: retry after 30s (id 3f2a9c1b-77aa-4c)"),
             "Request #: retry after #s (id …)"
