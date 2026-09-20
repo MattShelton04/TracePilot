@@ -35,7 +35,7 @@ TracePilot reads data owned by the GitHub Copilot CLI and writes its own local s
 | `<repo>/.github/agents/`, `<repo>/.claude/agents/` | Repository/user | Repo-scoped `*.agent.md` definitions, discovered recursively. | `agents::discovery`, Agents editor. | Repo content is not app data; never copy/move except explicit agent operations. |
 | `~/.copilot/installed-plugins/<plugin>/**/agents/` | Plugin | Plugin-supplied agents. | `agents::discovery`. | Read-only: a plugin update overwrites them. |
 | `~/.copilot/pkg/<platform>/<version>/definitions/` | Copilot CLI | Built-in `*.agent.yaml` definitions. | `agents::discovery`, `config_injector::read_agent_definitions`. | Directory name centralized as `COPILOT_DEFINITIONS_DIR`. Read for the active CLI version; edits require validation and backups, and are gated behind the `configInjector` flag because a CLI update replaces them. |
-| `~/.agents/skills/` | Copilot CLI / user | The CLI's second personal skills root, listed alongside `~/.copilot/skills/` in `copilot skill --help`. | `skills::discovery::personal_skill_dirs`. | Read-only for TracePilot's own writes; new skills are still created under `~/.copilot/skills/`. |
+| `~/.agents/skills/` | Copilot CLI / user | The CLI's second personal skills root, listed alongside `~/.copilot/skills/` in `copilot skill --help`. | `skills::discovery::personal_skill_dirs`. | Existing skills are editable and use personal enablement settings; new skills are still created under `<COPILOT_HOME>/skills/`. |
 | `<dist>/builtin-skills/`, `<dist>/builtin/` | Copilot CLI | Built-in `SKILL.md` directories shipped with the CLI. `builtin-skills/` is the current spelling; `builtin/` is the older one and both appear in recent packages. | `skills::discovery::discover_builtin_skills` via `cli_install::DistRoot::builtin_skills_dir`. | Read-only. The newest-versioned copy of each name wins. |
 | `<dist>/definitions/` | Copilot CLI | Built-in `*.agent.yaml` definitions. | `agents::discovery`, `config_injector::read_agent_definitions`. | Read-only unless the `configInjector` flag is on. Exactly one distribution root contributes, so two installations cannot list every built-in agent twice. |
 | `~/.copilot/tracepilot/` | TracePilot | App-owned local state colocated under Copilot home by default. | `TracePilotConfig.paths.tracepilotHome`, templates, repo registry, backups, docs. | Path shape comes from `TracePilotPaths`. Users can change this app data directory in setup or Settings; TracePilot copies known app-owned files/directories into the new root and preserves the old root. |
@@ -59,17 +59,25 @@ directory holding that bundle is a *distribution root*; the resolver is
 
 | Installation method | Distribution root | Notes |
 | --- | --- | --- |
-| WinGet (`winget install GitHub.Copilot`) | `<COPILOT_HOME>/pkg/<platform>-<arch>/<version>/` | One `copilot.exe` in `%LOCALAPPDATA%\Microsoft\WinGet\Packages\GitHub.Copilot_*\` that self-extracts its assets into the Copilot home on first run. |
-| Homebrew cask (`brew install --cask copilot-cli`) | `<COPILOT_HOME>/pkg/<platform>-<arch>/<version>/` | Same self-extracting binary, linked from Homebrew's `bin`. |
-| Install script (`curl -fsSL https://gh.io/copilot-install \| bash`) | `<COPILOT_HOME>/pkg/<platform>-<arch>/<version>/` | Installs only `$PREFIX/bin/copilot` (`/usr/local` as root, `$HOME/.local` otherwise); the assets are extracted at run time. |
-| Direct download from `github/copilot-cli` releases | `<COPILOT_HOME>/pkg/<platform>-<arch>/<version>/` | As above, from wherever the user unpacked the executable. |
+| WinGet (`winget install GitHub.Copilot`) | `%LOCALAPPDATA%/copilot/pkg/<target>/<version>/` | Self-extracting executable; older builds used `<COPILOT_HOME>/pkg`. |
+| Homebrew cask (`brew install --cask copilot-cli`) | `~/Library/Caches/copilot/pkg/<target>/<version>/` on macOS | Same self-extracting binary, linked from Homebrew's `bin`. |
+| Install script (`curl -fsSL https://gh.io/copilot-install \| bash`) | OS cache's `copilot/pkg/<target>/<version>/` | Installs `$PREFIX/bin/copilot`; Linux defaults to `$XDG_CACHE_HOME/copilot/pkg` or `~/.cache/copilot/pkg`. |
+| Direct download from `github/copilot-cli` releases | OS cache's `copilot/pkg/<target>/<version>/` | As above, from wherever the user unpacked the executable. |
 | npm (`npm install -g @github/copilot`) | `<npm prefix>/node_modules/@github/copilot` (Windows) or `<npm prefix>/lib/node_modules/@github/copilot` | `@github/copilot` is a loader that spawns `@github/copilot-<platform>-<arch>`. Older releases shipped `definitions/` and `builtin/` in the package itself and ran from there. |
 | `COPILOT_CLI_DIST_DIR=<dir>` | `<dir>` | Overrides the bundle directory outright. |
 
 Older packages used `pkg/universal/<version>` instead of a platform tag, and
 `pkg/tmp` is the CLI's staging area for a partly downloaded update — never a
-distribution root. Because a running CLI keeps `<COPILOT_HOME>/pkg` current,
-that tree is preferred; the wider search below runs only when it yields nothing.
+distribution root. Current OS caches and legacy home packages are searched
+together, so an old installation cannot hide an update in a new location.
+Built-in agents prefer the newest complete installation (`.extraction-complete`
+for extracted packages), falling back to an available incomplete root only if
+none are complete. Skills retain the newest copy of each name.
+
+A usable `COPILOT_CLI_DIST_DIR` overrides which bundle supplies both catalogs,
+even if it has an older version or omits built-ins found in another installation.
+An absent or assetless override falls back to ordinary discovery. Other detected
+installations remain registered as read-only skill roots.
 
 npm-style prefixes vary by Node toolchain, so `cli_install::node_global_package_dirs`
 checks `npm_config_prefix`/`NVM_BIN`, the platform defaults
@@ -77,7 +85,8 @@ checks `npm_config_prefix`/`NVM_BIN`, the platform defaults
 version-managed layouts of nvm, fnm, Volta, pnpm and Bun. If none of those
 match, `cli_install::executable_dist_dirs` follows the `copilot` executable on
 `PATH` through its symlinks and looks beside it, in `../libexec` and in
-`../lib/node_modules/@github/copilot`.
+`../lib/node_modules/@github/copilot`. Windows npm shims also resolve the
+`node_modules/@github/copilot` directory beside the shim itself.
 
 ### Environment overrides the CLI honours
 
@@ -86,6 +95,15 @@ match, `cli_install::executable_dist_dirs` follows the `copilot` executable on
 | `COPILOT_HOME` | Replaces `~/.copilot` as the CLI home when TracePilot has no configured `copilotHome`, so personal skills, agents, settings and session state follow it. |
 | `COPILOT_SKILLS_DIRS` | `PATH`-separated extra personal skill roots, scanned alongside `<COPILOT_HOME>/skills`. |
 | `COPILOT_CLI_DIST_DIR` | Names the distribution root directly. |
+| `COPILOT_PKG_CACHE_HOME`, `COPILOT_CACHE_HOME` | Additional self-extractor cache roots; each contains `pkg/<target>/<version>/`. |
+| `XDG_CACHE_HOME` | Cache base used on Linux, also searched as a fallback on other platforms. |
+
+When `TRACEPILOT_DATA_ROOT` is set, discovered roots and skill access must stay
+inside that boundary, including environment overrides and linked files.
+Machine-wide npm/PATH discovery is disabled. Invalid isolation settings fail
+closed. Outside isolation, existing linked personal and project skills retain
+their normal behavior; opening a personal skill from any registered personal
+root keeps its Global scope and uses Copilot's personal enablement settings.
 
 ### Degradation contract
 

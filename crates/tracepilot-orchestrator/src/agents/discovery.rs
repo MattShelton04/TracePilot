@@ -30,7 +30,7 @@ use super::types::{
 use crate::error::{OrchestratorError, Result};
 
 /// Shown when no CLI installation can be found anywhere on disk.
-pub const MISSING_CLI_NOTE: &str = "No Copilot CLI installation was found, so its built-in agents are not listed. Set COPILOT_HOME if the CLI keeps its files somewhere else.";
+pub const MISSING_CLI_NOTE: &str = "No Copilot CLI installation was found, so its built-in agents are not listed. Set COPILOT_CLI_DIST_DIR to the CLI bundle directory if it is installed somewhere else.";
 
 /// Definitions larger than this are skipped rather than loaded.
 const MAX_DEFINITION_BYTES: u64 = 1024 * 1024;
@@ -84,6 +84,9 @@ impl AgentRoots {
 
     /// Classify a definition path, or `None` when it is outside every root.
     pub(crate) fn scope_of(&self, path: &Path) -> Option<(AgentScope, Option<PathBuf>)> {
+        if !tracepilot_core::paths::path_is_allowed_by_isolation(path) {
+            return None;
+        }
         let within = |root: PathBuf| path_starts_with(path, &root);
         if within(self.personal_dir()) {
             return Some((AgentScope::Personal, None));
@@ -197,33 +200,21 @@ pub fn discover(roots: &AgentRoots) -> AgentCatalog {
 
 /// The one distribution root that supplies built-in agents.
 ///
-/// The CLI's own active package wins when it is complete and present; failing
-/// that, the newest distribution root by semantic version. Picking exactly one
-/// keeps a leftover installation from listing every built-in agent twice.
+/// An explicit bundle override wins, otherwise prefer the newest complete
+/// installation across both current and legacy caches. Picking exactly one
+/// keeps leftover installations from listing every built-in agent twice.
 fn builtin_source(roots: &AgentRoots) -> Option<&DistRoot> {
-    let with_definitions = || {
-        roots
-            .dist_roots
-            .iter()
-            .filter(|root| root.definitions_dir().is_some())
-    };
-    let active = match crate::version_manager::active_version(&roots.copilot_home) {
-        Ok(active) => Some(PathBuf::from(active.path)),
-        Err(error) => {
-            tracing::debug!("No active Copilot CLI package for built-in agents: {error}");
-            None
-        }
-    };
-    if let Some(active) = active
-        && let Some(root) = with_definitions().find(|root| root.path == active)
-    {
-        return Some(root);
-    }
-    with_definitions().max_by_key(|root| {
-        root.version
-            .as_deref()
-            .and_then(|raw| semver::Version::parse(raw).ok())
-    })
+    cli_install::effective_dist_roots(&roots.dist_roots)
+        .filter(|root| root.definitions_dir().is_some())
+        .max_by_key(|root| {
+            (
+                root.is_complete(),
+                root.version
+                    .as_deref()
+                    .and_then(|raw| semver::Version::parse(raw).ok()),
+                std::cmp::Reverse(&root.path),
+            )
+        })
 }
 
 /// Top-level YAML files of a CLI version's `definitions` directory.
@@ -243,7 +234,7 @@ pub fn builtin_definition_paths(version_dir: &Path) -> Vec<PathBuf> {
 /// Markdown definitions under `dir`. With `inside_agents_dir`, only files
 /// below a directory named `agents` count (plugin layouts vary).
 fn markdown_files(dir: &Path, inside_agents_dir: bool) -> Vec<PathBuf> {
-    if !dir.is_dir() {
+    if !tracepilot_core::paths::path_is_allowed_by_isolation(dir) || !dir.is_dir() {
         return Vec::new();
     }
     let mut paths: Vec<PathBuf> = walkdir::WalkDir::new(dir)
@@ -251,7 +242,8 @@ fn markdown_files(dir: &Path, inside_agents_dir: bool) -> Vec<PathBuf> {
         .max_depth(MAX_DEPTH)
         .into_iter()
         .filter_entry(|entry| {
-            !entry.file_name().to_string_lossy().starts_with('.') || entry.depth() == 0
+            tracepilot_core::paths::path_is_allowed_by_isolation(entry.path())
+                && (!entry.file_name().to_string_lossy().starts_with('.') || entry.depth() == 0)
         })
         .flatten()
         .filter(|entry| entry.file_type().is_file())

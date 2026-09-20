@@ -21,9 +21,10 @@ use semver::Version;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use tracepilot_core::paths::cli_install::{self, DistRoot};
+use tracepilot_core::paths::path_is_allowed_by_isolation;
 
 /// Shown when no CLI installation can be found anywhere on disk.
-pub const MISSING_CLI_NOTE: &str = "No Copilot CLI installation was found, so its built-in skills are not listed. Set COPILOT_HOME if the CLI keeps its files somewhere else.";
+pub const MISSING_CLI_NOTE: &str = "No Copilot CLI installation was found, so its built-in skills are not listed. Set COPILOT_CLI_DIST_DIR to the CLI bundle directory if it is installed somewhere else.";
 
 fn copilot_paths() -> crate::error::Result<tracepilot_core::paths::CopilotPaths> {
     tracepilot_core::paths::CopilotPaths::try_default()
@@ -52,6 +53,8 @@ pub fn personal_skill_dirs(copilot_home: &Path) -> Vec<PathBuf> {
         dirs.push(cli_install::agents_home_skills_dir(home));
     }
     dirs.extend(cli_install::extra_skill_dirs());
+    dirs.retain(|dir| path_is_allowed_by_isolation(dir));
+    dirs.sort();
     dirs.dedup();
     dirs
 }
@@ -105,7 +108,7 @@ pub fn discover_repository(root: &Path) -> Result<SkillDiscoveryResult, SkillsEr
 /// Scan one root into `result`. A missing root is silent; an unreadable one is
 /// reported so the user can see why it is empty. Neither stops the scan.
 fn collect_root(result: &mut SkillDiscoveryResult, directory: &Path, scope: SkillScope) {
-    if !directory.exists() {
+    if !path_is_allowed_by_isolation(directory) || !directory.exists() {
         return;
     }
     match discover_in_directory_detailed(directory, scope) {
@@ -201,7 +204,7 @@ pub fn discover_user_skills(copilot_home: &Path) -> Result<SkillDiscoveryResult,
 fn discover_builtin_skills(dist_roots: &[DistRoot]) -> Vec<SkillSummary> {
     let mut discovered = BTreeMap::<String, (Option<Version>, SkillSummary)>::new();
 
-    for root in dist_roots {
+    for root in cli_install::effective_dist_roots(dist_roots) {
         let Some(builtin_dir) = root.builtin_skills_dir() else {
             continue;
         };
@@ -225,12 +228,9 @@ fn discover_builtin_skills(dist_roots: &[DistRoot]) -> Vec<SkillSummary> {
                 discovered
                     .get(&key)
                     .is_none_or(|(current_version, current_summary)| {
-                        match (&version, current_version) {
-                            (Some(new), Some(current)) if new != current => new > current,
-                            // An unversioned root only wins on a shorter path, so
-                            // the choice stays stable across scans.
-                            _ => summary.directory < current_summary.directory,
-                        }
+                        version > *current_version
+                            || (version == *current_version
+                                && summary.directory < current_summary.directory)
                     });
             if should_replace {
                 discovered.insert(key, (version.clone(), summary));
@@ -261,6 +261,10 @@ fn discover_in_directory_detailed(
     let mut summaries = Vec::new();
     let mut diagnostics = Vec::new();
 
+    if !path_is_allowed_by_isolation(dir) {
+        return Err(SkillsError::PathTraversal(dir.display().to_string()));
+    }
+
     let entries = std::fs::read_dir(dir).map_err(|e| {
         SkillsError::io_ctx(
             format!("Failed to read skills directory {}", dir.display()),
@@ -275,7 +279,7 @@ fn discover_in_directory_detailed(
         }
 
         let skill_md = path.join("SKILL.md");
-        if !skill_md.exists() {
+        if !path_is_allowed_by_isolation(&skill_md) || !skill_md.exists() {
             continue;
         }
 

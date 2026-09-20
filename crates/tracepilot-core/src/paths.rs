@@ -13,8 +13,8 @@ pub use cli_install::{
     dist_roots,
 };
 pub use isolation::{
-    DataRootError, TRACEPILOT_DATA_ROOT_ENV, isolated_data_root, path_is_within_data_root,
-    validate_data_root,
+    DataRootError, TRACEPILOT_DATA_ROOT_ENV, isolated_data_root, path_is_allowed_by_isolation,
+    path_is_within_data_root, validate_data_root,
 };
 
 pub const COPILOT_DIR_NAME: &str = ".copilot";

@@ -45,7 +45,7 @@ fn catalog_discovers_registered_projects_and_keeps_settings_local() {
         r#"{"disabledSkills":["REVIEW"]}"#,
     )
     .unwrap();
-    let result = list_skills(&cfg, first.to_str()).unwrap();
+    let mut result = list_skills(&cfg, first.to_str()).unwrap();
     // A machine without a discoverable CLI installation reports that as a
     // warning; nothing here should fail to load.
     assert!(
@@ -56,6 +56,11 @@ fn catalog_discovers_registered_projects_and_keeps_settings_local() {
         "unexpected load failures: {:?}",
         result.diagnostics
     );
+    // The machine may also have packaged skills in its OS or npm cache. This
+    // fixture tests repository discovery independently of those installations.
+    result
+        .skills
+        .retain(|skill| skill.scope == SkillScope::Repository);
     assert_eq!(
         result.skills.len(),
         3,
@@ -84,6 +89,66 @@ fn catalog_discovers_registered_projects_and_keeps_settings_local() {
         assert_eq!(enabled, skill.enabled, "Editor and catalog agree");
         assert_eq!(reason, skill.disabled_reason);
     }
+}
+
+#[test]
+fn personal_alternative_roots_toggle_user_settings() {
+    const TEST_ROOT: &str = "TRACEPILOT_PERSONAL_SKILLS_TEST_ROOT";
+    let Some(root) = std::env::var_os(TEST_ROOT) else {
+        let temp = tempfile::tempdir().unwrap();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "commands::skills::catalog::tests::personal_alternative_roots_toggle_user_settings",
+                "--nocapture",
+            ])
+            .env(TEST_ROOT, temp.path())
+            .env("COPILOT_HOME", temp.path().join(".copilot"))
+            .env("COPILOT_SKILLS_DIRS", temp.path().join("custom-skills"))
+            .env_remove("TRACEPILOT_DATA_ROOT")
+            .env_remove("COPILOT_CLI_DIST_DIR")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    };
+    let root = std::path::PathBuf::from(root);
+    let copilot_home = root.join(".copilot");
+    let alternative = write_skill(&root, ".agents", "alternative");
+    let custom = root.join("custom-skills/custom");
+    std::fs::create_dir_all(&custom).unwrap();
+    std::fs::write(
+        custom.join("SKILL.md"),
+        "---\nname: custom\ndescription: Test\n---\nBody",
+    )
+    .unwrap();
+    for directory in [&alternative, &custom] {
+        let skill = tracepilot_orchestrator::skills::manager::get_skill(directory).unwrap();
+        assert_eq!(skill.scope, SkillScope::Global);
+        set_enabled(&copilot_home, directory, false).unwrap();
+        assert!(
+            read_copilot_config(&copilot_home)
+                .unwrap()
+                .disabled_skills
+                .contains(&skill.frontmatter.name)
+        );
+        set_enabled(&copilot_home, directory, true).unwrap();
+        assert!(
+            read_copilot_config(&copilot_home)
+                .unwrap()
+                .disabled_skills
+                .is_empty()
+        );
+    }
+    assert!(
+        !root.join(".github").exists(),
+        "personal skills must not create project settings"
+    );
 }
 
 #[test]

@@ -6,8 +6,8 @@
 //!
 //! - WinGet, the Homebrew cask, the `gh.io/copilot-install` script and the
 //!   downloadable executables all ship one self-extracting binary that unpacks
-//!   into `<COPILOT_HOME>/pkg/<target>/<version>/` (older builds used
-//!   `pkg/universal/<version>`). This is the only layout TracePilot used to know.
+//!   into the OS cache's `copilot/pkg/<target>/<version>/`. Older builds used
+//!   `<COPILOT_HOME>/pkg`, including `pkg/universal/<version>`.
 //! - `npm install -g @github/copilot` leaves the package in the Node global
 //!   root instead: `<prefix>/node_modules/@github/copilot` on Windows and
 //!   `<prefix>/lib/node_modules/@github/copilot` elsewhere. nvm, Volta, pnpm,
@@ -21,13 +21,15 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{COPILOT_DEFINITIONS_DIR, SKILLS_DIR_NAME};
+use super::{COPILOT_DEFINITIONS_DIR, SKILLS_DIR_NAME, path_is_allowed_by_isolation};
 
 /// Overrides `~/.copilot` for the CLI, and therefore for personal skills,
 /// agents and settings.
 pub const COPILOT_HOME_ENV: &str = "COPILOT_HOME";
 /// Overrides the directory the CLI loads its own bundle (and built-ins) from.
 pub const COPILOT_CLI_DIST_DIR_ENV: &str = "COPILOT_CLI_DIST_DIR";
+pub const COPILOT_PKG_CACHE_HOME_ENV: &str = "COPILOT_PKG_CACHE_HOME";
+pub const COPILOT_CACHE_HOME_ENV: &str = "COPILOT_CACHE_HOME";
 /// Extra personal skill directories, separated like `PATH`.
 pub const COPILOT_SKILLS_DIRS_ENV: &str = "COPILOT_SKILLS_DIRS";
 
@@ -50,6 +52,8 @@ pub enum DistSource {
     Env,
     /// Extracted under `<COPILOT_HOME>/pkg`.
     CopilotPackages,
+    /// Extracted into the OS cache or an explicit package-cache location.
+    PackageCache,
     /// An `npm install -g` (or pnpm/Bun/Volta equivalent) package directory.
     NodeModules,
     /// Found by following the `copilot` executable on `PATH`.
@@ -72,18 +76,37 @@ impl DistRoot {
         BUILTIN_SKILL_DIR_NAMES
             .iter()
             .map(|name| self.path.join(name))
-            .find(|dir| dir.is_dir())
+            .find(|dir| path_is_allowed_by_isolation(dir) && dir.is_dir())
     }
 
     /// `definitions/`, which holds the built-in `*.agent.yaml` files.
     pub fn definitions_dir(&self) -> Option<PathBuf> {
         let dir = self.path.join(COPILOT_DEFINITIONS_DIR);
-        dir.is_dir().then_some(dir)
+        (path_is_allowed_by_isolation(&dir) && dir.is_dir()).then_some(dir)
     }
 
     fn has_assets(&self) -> bool {
         self.builtin_skills_dir().is_some() || self.definitions_dir().is_some()
     }
+
+    /// Extracted packages advertise completeness; npm and explicit bundle
+    /// directories do not use the self-extractor's marker.
+    pub fn is_complete(&self) -> bool {
+        !matches!(
+            self.source,
+            DistSource::CopilotPackages | DistSource::PackageCache
+        ) || self.path.join(".extraction-complete").is_file()
+    }
+}
+
+/// Roots supplying the running CLI's built-ins. A usable explicit override
+/// replaces the inventory, including skills absent from the override. Keep the
+/// full inventory separately for read-only checks on inactive installations.
+pub fn effective_dist_roots(roots: &[DistRoot]) -> impl Iterator<Item = &DistRoot> {
+    let overridden = roots.iter().any(|root| root.source == DistSource::Env);
+    roots
+        .iter()
+        .filter(move |root| !overridden || root.source == DistSource::Env)
 }
 
 /// The CLI home the CLI itself would use, honouring [`COPILOT_HOME_ENV`].
@@ -102,7 +125,7 @@ pub fn extra_skill_dirs() -> Vec<PathBuf> {
         return Vec::new();
     };
     std::env::split_paths(&raw)
-        .filter(|path| !path.as_os_str().is_empty())
+        .filter(|path| !path.as_os_str().is_empty() && path_is_allowed_by_isolation(path))
         .collect()
 }
 
@@ -114,13 +137,14 @@ pub fn agents_home_skills_dir(user_home: &Path) -> PathBuf {
 /// Every distribution root that looks like an installed Copilot CLI, most
 /// authoritative first and de-duplicated by path.
 ///
-/// `<COPILOT_HOME>/pkg` is preferred because a running CLI keeps it current.
-/// The wider search only runs when that yields nothing, so the usual
-/// installation never pays for it — and a test fixture with its own `pkg`
-/// never reaches the machine's real installation.
+/// Includes both current and legacy package locations: an old home cache must
+/// not hide an updated installation in the OS cache. Isolation limits every
+/// candidate to its boundary and disables machine-wide package-manager scans.
 pub fn dist_roots(copilot_home: &Path) -> Vec<DistRoot> {
     let mut roots = Vec::new();
-    if let Some(dir) = std::env::var_os(COPILOT_CLI_DIST_DIR_ENV).map(PathBuf::from) {
+    if let Some(dir) = env_path(COPILOT_CLI_DIST_DIR_ENV)
+        && path_is_allowed_by_isolation(&dir)
+    {
         push_root(
             &mut roots,
             DistRoot {
@@ -133,12 +157,52 @@ pub fn dist_roots(copilot_home: &Path) -> Vec<DistRoot> {
     for root in package_dist_roots(&super::CopilotPaths::from_home(copilot_home).pkg_dir()) {
         push_root(&mut roots, root);
     }
-    if roots.is_empty() {
+    for cache in package_cache_dirs() {
+        for mut root in package_dist_roots(&cache) {
+            root.source = DistSource::PackageCache;
+            push_root(&mut roots, root);
+        }
+    }
+    if matches!(super::isolated_data_root(), Ok(None)) {
         for root in external_dist_roots() {
             push_root(&mut roots, root);
         }
     }
     roots
+}
+
+fn env_path(key: &str) -> Option<PathBuf> {
+    std::env::var_os(key)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+}
+
+/// Self-extractor caches in CLI search order, excluding the legacy home tree.
+/// The XDG fallback is searched on every platform, as it is by the CLI loader.
+fn package_cache_dirs() -> Vec<PathBuf> {
+    let home = crate::utils::home_dir_opt();
+    let xdg = env_path("XDG_CACHE_HOME").or_else(|| home.as_ref().map(|home| home.join(".cache")));
+    let platform = if cfg!(windows) {
+        env_path("LOCALAPPDATA")
+            .or_else(|| home.as_ref().map(|home| home.join(".cache")))
+            .map(|base| base.join("copilot"))
+    } else if cfg!(target_os = "macos") {
+        home.as_ref()
+            .map(|home| home.join("Library/Caches/copilot"))
+    } else {
+        xdg.as_ref().map(|base| base.join("copilot"))
+    };
+    [
+        env_path(COPILOT_PKG_CACHE_HOME_ENV),
+        env_path(COPILOT_CACHE_HOME_ENV),
+        platform,
+        xdg.map(|base| base.join("copilot")),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|base| base.join("pkg"))
+    .filter(|path| path_is_allowed_by_isolation(path))
+    .collect()
 }
 
 /// Distribution roots under a `<COPILOT_HOME>/pkg` directory, across every
@@ -147,6 +211,9 @@ pub fn dist_roots(copilot_home: &Path) -> Vec<DistRoot> {
 /// An unreadable `pkg` yields an empty list rather than an error: a broken
 /// package directory must not hide the user's own skills and agents.
 pub fn package_dist_roots(pkg_dir: &Path) -> Vec<DistRoot> {
+    if !path_is_allowed_by_isolation(pkg_dir) {
+        return Vec::new();
+    }
     let Ok(targets) = std::fs::read_dir(pkg_dir) else {
         return Vec::new();
     };
@@ -154,7 +221,8 @@ pub fn package_dist_roots(pkg_dir: &Path) -> Vec<DistRoot> {
     for target in targets.flatten() {
         let target_path = target.path();
         // `pkg/tmp` is the CLI's staging area for a partly downloaded update.
-        if !target_path.is_dir()
+        if !path_is_allowed_by_isolation(&target_path)
+            || !target_path.is_dir()
             || target
                 .file_name()
                 .to_string_lossy()
@@ -167,7 +235,7 @@ pub fn package_dist_roots(pkg_dir: &Path) -> Vec<DistRoot> {
         };
         for version in versions.flatten() {
             let path = version.path();
-            if !path.is_dir() {
+            if !path_is_allowed_by_isolation(&path) || !path.is_dir() {
                 continue;
             }
             roots.push(DistRoot {
@@ -304,7 +372,14 @@ pub fn executable_dist_dirs() -> Vec<PathBuf> {
     let Some(bin_dir) = resolved.parent() else {
         return Vec::new();
     };
-    let mut candidates = vec![bin_dir.to_path_buf()];
+    let mut candidates = vec![
+        bin_dir.to_path_buf(),
+        // Windows npm puts the shim directly in its prefix, without `bin/`.
+        bin_dir
+            .join(NODE_MODULES_DIR)
+            .join(COPILOT_NPM_SCOPE)
+            .join(COPILOT_NPM_PACKAGE),
+    ];
     if let Some(prefix) = bin_dir.parent() {
         // Homebrew's `libexec`, and the npm shim's sibling package.
         candidates.push(prefix.join("libexec"));
@@ -367,9 +442,18 @@ fn child_dirs(base: &Path) -> Vec<PathBuf> {
 }
 
 fn push_root(roots: &mut Vec<DistRoot>, root: DistRoot) {
-    if root.has_assets() && !roots.iter().any(|existing| existing.path == root.path) {
+    if path_is_allowed_by_isolation(&root.path)
+        && root.has_assets()
+        && !roots
+            .iter()
+            .any(|existing| same_path(&existing.path, &root.path))
+    {
         roots.push(root);
     }
+}
+
+fn same_path(a: &Path, b: &Path) -> bool {
+    a == b || matches!((a.canonicalize(), b.canonicalize()), (Ok(a), Ok(b)) if a == b)
 }
 
 /// `true` when `path` sits inside a directory the CLI installed itself into.
@@ -474,14 +558,14 @@ mod tests {
     }
 
     #[test]
-    fn dist_roots_prefer_packages_and_skip_assetless_directories() {
+    fn package_roots_skip_assetless_directories() {
         let dir = tempfile::tempdir().unwrap();
         let home = dir.path().join(".copilot");
         write_dist(&home.join("pkg").join("win32-x64").join("1.2.0"), "builtin");
         // No assets: present on disk but not a usable distribution.
         std::fs::create_dir_all(home.join("pkg").join("linux-x64").join("1.3.0")).unwrap();
 
-        let roots = dist_roots(&home);
+        let roots = package_dist_roots(&home.join("pkg"));
 
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].version.as_deref(), Some("1.2.0"));

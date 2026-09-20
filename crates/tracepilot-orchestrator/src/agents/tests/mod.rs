@@ -77,7 +77,13 @@ impl Fixture {
     }
 
     pub fn roots(&self) -> AgentRoots {
-        AgentRoots::new(self.home.clone(), vec![self.repo.clone()])
+        AgentRoots {
+            copilot_home: self.home.clone(),
+            repo_roots: vec![self.repo.clone()],
+            dist_roots: tracepilot_core::paths::cli_install::package_dist_roots(
+                &self.home.join("pkg"),
+            ),
+        }
     }
 
     pub fn backups(&self) -> PathBuf {

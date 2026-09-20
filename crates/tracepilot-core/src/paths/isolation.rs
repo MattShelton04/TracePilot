@@ -30,6 +30,16 @@ pub fn isolated_data_root() -> Result<Option<PathBuf>, DataRootError> {
     Ok(Some(root))
 }
 
+/// Whether a discovered path respects the process's optional isolation boundary.
+/// Invalid isolation settings fail closed instead of exposing real user data.
+pub fn path_is_allowed_by_isolation(path: &Path) -> bool {
+    match isolated_data_root() {
+        Ok(Some(root)) => path_is_within_data_root(&root, path),
+        Ok(None) => true,
+        Err(_) => false,
+    }
+}
+
 pub fn validate_data_root(root: &Path) -> Result<(), DataRootError> {
     if !root.is_absolute() {
         return Err(DataRootError::Relative(root.to_path_buf()));
@@ -198,7 +208,9 @@ mod tests {
 
     #[test]
     fn env_unset_preserves_legacy_user_home_defaults() {
-        if std::env::var_os(TRACEPILOT_DATA_ROOT_ENV).is_some() {
+        if std::env::var_os(TRACEPILOT_DATA_ROOT_ENV).is_some()
+            || crate::paths::cli_install::copilot_home_override().is_some()
+        {
             return;
         }
         let user_home = crate::utils::home_dir();
