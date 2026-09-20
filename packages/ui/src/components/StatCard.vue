@@ -46,6 +46,8 @@ const valueClasses = computed(() => {
 <template>
   <div
     class="stat-card"
+    role="group"
+    :aria-label="label"
     :class="{ 'mini-stat': mini }"
     :style="rootStyle"
     :title="tooltip"

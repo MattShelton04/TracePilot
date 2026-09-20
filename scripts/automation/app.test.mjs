@@ -156,6 +156,32 @@ test("Windows lifecycle owns only its recorded process trees", {
     assert.equal(existsSync(statePath), false);
   });
 
+  await t.test("custom executables require an isolated production launch", async () => {
+    await assert.rejects(
+      run("start", "desktop", ["-Executable", process.execPath]),
+      /-Executable requires desktop production mode/,
+    );
+    assert.equal(existsSync(join(runtime, "desktop.json")), false);
+  });
+
+  await t.test("separate lifecycle state does not stop the normal instance", async () => {
+    const isolated = join(root, "independent lifecycle");
+    const options = ["-StateDirectory", isolated];
+    await run("start");
+    const normal = state();
+    try {
+      await run("start", "ui", options);
+      const separate = JSON.parse(readFileSync(join(isolated, "ui.json"), "utf8"));
+      assert.notEqual(separate.url, normal.url);
+      await run("stop", "ui", options);
+      assert.equal(alive(normal.processes[0].pid), true);
+      assert.equal(await (await fetch(normal.url)).text(), "fixture");
+    } finally {
+      await run("stop", "ui", options);
+      await run("stop");
+    }
+  });
+
   await t.test("rejects an occupied requested CDP port without disturbing its owner", async () => {
     const server = createServer();
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
