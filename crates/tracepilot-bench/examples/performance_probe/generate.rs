@@ -1,26 +1,14 @@
-use chrono::{Duration as ChronoDuration, TimeZone, Utc};
-use serde_json::{Value, json};
-use std::fs::OpenOptions;
-use std::io::{BufWriter, Write};
 use std::path::Path;
+
 use tracepilot_indexer::reindex_all;
 
+use super::events::write_events;
 use super::model::{
     AnyError, FIXTURE_VERSION, FixtureManifest, MANIFEST_FILE, MARKER_FILE, ManifestSession,
-    ManifestTotals, SEARCH_SENTINEL, STRESS_LABEL, Scale, StableSentinels, UUID_BASE,
+    ManifestTotals, SEARCH_SENTINEL, STRESS_LABEL, Scale, StableSentinels,
 };
+use super::plan::{MASSIVE_MAX_SESSION_BYTES, MASSIVE_MIN_SOURCE_BYTES, SessionSpec, build_specs};
 use super::validate::{count_files, create_new_json, create_new_text, fail};
-
-#[derive(Debug)]
-struct SessionSpec {
-    id: String,
-    title: String,
-    profile: &'static str,
-    event_count: usize,
-    turn_count: usize,
-    tool_call_count: usize,
-    stress_output: bool,
-}
 
 pub(super) fn generate_corpus(root: &Path, scale: Scale) -> Result<FixtureManifest, AnyError> {
     ensure_empty_target(root)?;
@@ -44,7 +32,13 @@ pub(super) fn generate_corpus(root: &Path, scale: Scale) -> Result<FixtureManife
             &session_dir.join("workspace.yaml"),
             &workspace_yaml(spec, index),
         )?;
-        let stress_bytes = write_events(&session_dir.join("events.jsonl"), spec, index)?;
+        let stats = write_events(&session_dir.join("events.jsonl"), spec, index)?;
+        if matches!(scale, Scale::Massive) && stats.source_bytes > MASSIVE_MAX_SESSION_BYTES {
+            return fail(format!(
+                "massive session {} was {} bytes; limit is {}",
+                spec.id, stats.source_bytes, MASSIVE_MAX_SESSION_BYTES
+            ));
+        }
         sessions.push(ManifestSession {
             id: spec.id.clone(),
             title: spec.title.clone(),
@@ -53,28 +47,20 @@ pub(super) fn generate_corpus(root: &Path, scale: Scale) -> Result<FixtureManife
             turn_count: spec.turn_count,
             tool_call_count: spec.tool_call_count,
             expected_search_matches: spec.turn_count,
-            stress_bytes,
+            stress_bytes: stats.stress_bytes,
+            source_bytes: stats.source_bytes,
         });
     }
 
-    create_new_text(&tracepilot_root.join("config.toml"), &config_toml(root))?;
+    let source_bytes = sessions.iter().map(|session| session.source_bytes).sum();
+    if matches!(scale, Scale::Massive) && source_bytes < MASSIVE_MIN_SOURCE_BYTES {
+        return fail(format!(
+            "massive corpus was {source_bytes} source bytes; minimum is {MASSIVE_MIN_SOURCE_BYTES}"
+        ));
+    }
 
-    let db_path = tracepilot_root.join("index.db");
-    let indexed = reindex_all(&sessions_root, &db_path)?;
-    if indexed != sessions.len() {
-        return fail(format!(
-            "initial full index handled {indexed} sessions, expected {}",
-            sessions.len()
-        ));
-    }
-    let (search_indexed, search_skipped) =
-        tracepilot_indexer::reindex_search_content(&sessions_root, &db_path, |_| {}, || false)?;
-    if (search_indexed, search_skipped) != (sessions.len(), 0) {
-        return fail(format!(
-            "initial search index result was ({search_indexed}, {search_skipped}), expected ({}, 0)",
-            sessions.len()
-        ));
-    }
+    create_new_text(&tracepilot_root.join("config.toml"), &config_toml(root))?;
+    initialize_index(scale, &sessions_root, &tracepilot_root, sessions.len())?;
 
     // SQLite schema migrations retain versioned safety backups. Count the
     // files actually produced by this fixture version, plus the manifest that
@@ -87,6 +73,7 @@ pub(super) fn generate_corpus(root: &Path, scale: Scale) -> Result<FixtureManife
         tool_call_count: sessions.iter().map(|s| s.tool_call_count).sum(),
         expected_search_matches: sessions.iter().map(|s| s.expected_search_matches).sum(),
         stress_bytes: sessions.iter().map(|s| s.stress_bytes).sum(),
+        source_bytes,
         file_count: generated_file_count,
     };
     let manifest = FixtureManifest {
@@ -113,6 +100,36 @@ pub(super) fn generate_corpus(root: &Path, scale: Scale) -> Result<FixtureManife
     Ok(manifest)
 }
 
+fn initialize_index(
+    scale: Scale,
+    sessions_root: &Path,
+    tracepilot_root: &Path,
+    session_count: usize,
+) -> Result<(), AnyError> {
+    let db_path = tracepilot_root.join("index.db");
+    if matches!(scale, Scale::Massive) {
+        // Keep massive generation bounded to a single event/output buffer.
+        // The real app or `probe` command owns the intentionally expensive
+        // schema migration, full indexing, and search indexing passes.
+        return Ok(());
+    }
+
+    let indexed = reindex_all(sessions_root, &db_path)?;
+    if indexed != session_count {
+        return fail(format!(
+            "initial full index handled {indexed} sessions, expected {session_count}"
+        ));
+    }
+    let (search_indexed, search_skipped) =
+        tracepilot_indexer::reindex_search_content(sessions_root, &db_path, |_| {}, || false)?;
+    if (search_indexed, search_skipped) != (session_count, 0) {
+        return fail(format!(
+            "initial search index result was ({search_indexed}, {search_skipped}), expected ({session_count}, 0)"
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_empty_target(root: &Path) -> Result<(), AnyError> {
     if !root.exists() {
         return Ok(());
@@ -132,269 +149,12 @@ fn ensure_empty_target(root: &Path) -> Result<(), AnyError> {
     Ok(())
 }
 
-fn build_specs(scale: Scale) -> Result<Vec<SessionSpec>, AnyError> {
-    let count = scale.session_count();
-    let mut specs = Vec::with_capacity(count);
-    let ordinary_events = [34usize, 50, 82, 130, 258];
-    for index in 0..count {
-        let (profile, event_count, turn_count, stress_output) = if index + 1 == count {
-            if matches!(scale, Scale::Large) {
-                ("stress-20k-events", 20_000, 800, true)
-            } else {
-                ("stress-5k-events", 5_000, 400, true)
-            }
-        } else if index + 2 == count {
-            if matches!(scale, Scale::Large) {
-                ("stress-5k-events", 5_000, 400, false)
-            } else {
-                ("detailed-200-turn", 1_600, 200, false)
-            }
-        } else if index + 3 == count && matches!(scale, Scale::Large) {
-            ("detailed-200-turn", 1_600, 200, false)
-        } else {
-            let events = ordinary_events[index % ordinary_events.len()];
-            ("ordinary", events, ((events - 2) / 8).max(1), false)
-        };
-        let fixed_events = 2 + 4 * turn_count;
-        if event_count < fixed_events || (event_count - fixed_events) % 2 != 0 {
-            return fail(format!("invalid event/turn plan for session {index}"));
-        }
-        let tool_call_count = (event_count - fixed_events) / 2;
-        let id = uuid::Uuid::from_u128(UUID_BASE + index as u128).to_string();
-        specs.push(SessionSpec {
-            id,
-            title: format!("Synthetic {} {} session {index:04}", scale.name(), profile),
-            profile,
-            event_count,
-            turn_count,
-            tool_call_count,
-            stress_output,
-        });
-    }
-    Ok(specs)
-}
-
 fn workspace_yaml(spec: &SessionSpec, index: usize) -> String {
     let day = index % 28 + 1;
     format!(
         "id: {}\nname: {:?}\nuser_named: false\nsummary_count: 0\ncwd: C:/synthetic/tracepilot-workload\ngit_root: C:/synthetic/tracepilot-workload\nrepository: github.com/example/tracepilot-synthetic\nbranch: perf-fixture\nhost_type: cli\ncreated_at: \"2026-01-{day:02}T08:00:00Z\"\nupdated_at: \"2026-01-{day:02}T09:00:00Z\"\n",
         spec.id, spec.title
     )
-}
-
-fn write_events(path: &Path, spec: &SessionSpec, session_index: usize) -> Result<usize, AnyError> {
-    let file = OpenOptions::new().create_new(true).write(true).open(path)?;
-    let mut writer = BufWriter::new(file);
-    let base = Utc
-        .with_ymd_and_hms(2026, 1, 1, 8, 0, 0)
-        .single()
-        .ok_or_else(|| std::io::Error::other("invalid fixed fixture timestamp"))?
-        + ChronoDuration::days((session_index % 28) as i64);
-    let mut sequence = 0usize;
-    let mut event_index = 0usize;
-    let mut write_event = |event_type: &str, data: Value| -> Result<(), AnyError> {
-        sequence += 1;
-        event_index += 1;
-        let timestamp = (base + ChronoDuration::seconds(sequence as i64))
-            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-        serde_json::to_writer(
-            &mut writer,
-            &json!({
-                "type": event_type,
-                "data": data,
-                "id": format!("{}-e{event_index:06}", spec.id),
-                "timestamp": timestamp
-            }),
-        )?;
-        writer.write_all(b"\n")?;
-        Ok(())
-    };
-
-    write_event(
-        "session.start",
-        json!({
-            "sessionId": spec.id,
-            "version": "1.0.83",
-            "producer": "copilot-cli",
-            "copilotVersion": "1.0.83",
-            "selectedModel": "claude-sonnet-4.5",
-            "context": {
-                "cwd": "C:/synthetic/tracepilot-workload",
-                "gitRoot": "C:/synthetic/tracepilot-workload",
-                "repository": "github.com/example/tracepilot-synthetic",
-                "branch": "perf-fixture",
-                "hostType": "cli"
-            }
-        }),
-    )?;
-
-    let base_tools = spec.tool_call_count / spec.turn_count;
-    let extra_tools = spec.tool_call_count % spec.turn_count;
-    let mut tool_ordinal = 0usize;
-    let stress_ordinal = spec.stress_output.then_some(spec.tool_call_count / 2);
-    let mut stress_bytes = 0usize;
-
-    for turn_index in 0..spec.turn_count {
-        let turn_id = format!("{}-turn-{turn_index:05}", spec.id);
-        let interaction_id = format!("{}-interaction-{turn_index:05}", spec.id);
-        write_event(
-            "user.message",
-            json!({
-                "content": user_message(turn_index),
-                "interactionId": interaction_id,
-                "messageId": format!("user-{turn_index:05}"),
-                "turnId": turn_id
-            }),
-        )?;
-        write_event(
-            "assistant.turn_start",
-            json!({
-                "turnId": turn_id,
-                "interactionId": interaction_id,
-                "model": "claude-sonnet-4.5"
-            }),
-        )?;
-        write_event(
-            "assistant.message",
-            json!({
-                "content": assistant_message(turn_index),
-                "messageId": format!("assistant-{turn_index:05}"),
-                "interactionId": interaction_id,
-                "turnId": turn_id,
-                "model": "claude-sonnet-4.5"
-            }),
-        )?;
-
-        let tools_this_turn = base_tools + usize::from(turn_index < extra_tools);
-        for local_tool in 0..tools_this_turn {
-            let tool_name = tool_name(tool_ordinal);
-            let call_id = format!("{}-tool-{tool_ordinal:06}", spec.id);
-            write_event(
-                "tool.execution_start",
-                json!({
-                    "toolName": tool_name,
-                    "toolCallId": call_id,
-                    "turnId": turn_id,
-                    "arguments": tool_arguments(tool_name, turn_index, local_tool)
-                }),
-            )?;
-            let result = if stress_ordinal == Some(tool_ordinal) {
-                let value = format!("{STRESS_LABEL}\n{}", "x".repeat(1024 * 1024));
-                stress_bytes = value.len();
-                value
-            } else {
-                tool_result(tool_name, turn_index, local_tool)
-            };
-            write_event(
-                "tool.execution_complete",
-                json!({
-                    "toolCallId": call_id,
-                    "result": result,
-                    "success": true,
-                    "turnId": turn_id,
-                    "interactionId": interaction_id,
-                    "toolTelemetry": {"durationMs": 5 + (tool_ordinal % 97)}
-                }),
-            )?;
-            tool_ordinal += 1;
-        }
-        write_event(
-            "assistant.turn_end",
-            json!({"turnId": turn_id, "model": "claude-sonnet-4.5"}),
-        )?;
-    }
-
-    write_event(
-        "session.shutdown",
-        json!({
-            "shutdownType": "routine",
-            "totalPremiumRequests": spec.turn_count as f64,
-            "totalApiDurationMs": spec.turn_count as u64 * 850,
-            "sessionStartTime": base.timestamp_millis() as u64,
-            "currentModel": "claude-sonnet-4.5",
-            "currentTokens": spec.turn_count as u64 * 900,
-            "codeChanges": {
-                "linesAdded": spec.turn_count * 7,
-                "linesRemoved": spec.turn_count * 2,
-                "filesModified": ["src/service.rs", "src/index.rs", "tests/service.rs"]
-            },
-            "modelMetrics": {
-                "claude-sonnet-4.5": {
-                    "requests": {"count": spec.turn_count, "cost": spec.turn_count as f64 * 0.02},
-                    "usage": {
-                        "inputTokens": spec.turn_count * 600,
-                        "outputTokens": spec.turn_count * 300,
-                        "cacheReadTokens": spec.turn_count * 250,
-                        "cacheWriteTokens": spec.turn_count * 25
-                    }
-                }
-            }
-        }),
-    )?;
-    writer.flush()?;
-
-    if event_index != spec.event_count || tool_ordinal != spec.tool_call_count {
-        return fail(format!(
-            "generator count mismatch for {}: events {event_index}/{}, tools {tool_ordinal}/{}",
-            spec.id, spec.event_count, spec.tool_call_count
-        ));
-    }
-    Ok(stress_bytes)
-}
-
-fn user_message(turn: usize) -> String {
-    match turn % 4 {
-        0 => format!("Please refactor service module {turn} and keep its public behavior stable."),
-        1 => format!(
-            "Please refactor the request pipeline for case {turn}. Check error propagation, cancellation, and deterministic ordering before updating the implementation."
-        ),
-        2 => format!(
-            "Please refactor this Rust example and explain the result:\n```rust\nfn case_{turn}(value: usize) -> usize {{\n    value.saturating_add(1)\n}}\n```"
-        ),
-        _ => format!(
-            "Please refactor workload {turn}. The acceptance notes require stable IDs, explicit failures, bounded output, and a regression check with representative tool activity."
-        ),
-    }
-}
-
-fn assistant_message(turn: usize) -> String {
-    match turn % 3 {
-        0 => format!("I’ll inspect the module and trace the call sites for workload {turn}."),
-        1 => format!(
-            "I found the relevant boundary for workload {turn}; I’ll update it and verify the result."
-        ),
-        _ => format!("The implementation for workload {turn} is ready for focused validation."),
-    }
-}
-
-fn tool_name(ordinal: usize) -> &'static str {
-    const TOOLS: &[&str] = &["view", "grep", "powershell", "edit", "glob", "create"];
-    TOOLS[ordinal % TOOLS.len()]
-}
-
-fn tool_arguments(tool: &str, turn: usize, local: usize) -> Value {
-    match tool {
-        "grep" => json!({"pattern": "Result<", "path": format!("src/module_{turn}")}),
-        "powershell" => json!({"command": format!("cargo test focused_case_{turn}_{local}")}),
-        "glob" => json!({"pattern": format!("src/module_{turn}/**/*.rs")}),
-        _ => json!({"path": format!("src/module_{turn}/file_{local}.rs")}),
-    }
-}
-
-fn tool_result(tool: &str, turn: usize, local: usize) -> String {
-    match tool {
-        "grep" => format!("src/module_{turn}/file_{local}.rs:42: Result<(), ServiceError>"),
-        "powershell" => {
-            format!("running 1 test\ntest focused_case_{turn}_{local} ... ok\ntest result: ok")
-        }
-        "view" => {
-            format!("pub fn workload_{turn}_{local}() -> Result<(), ServiceError> {{ Ok(()) }}")
-        }
-        "edit" | "create" => {
-            format!("Updated src/module_{turn}/file_{local}.rs successfully")
-        }
-        _ => format!("src/module_{turn}/file_{local}.rs"),
-    }
 }
 
 fn config_toml(root: &Path) -> String {
@@ -413,4 +173,23 @@ fn config_toml(root: &Path) -> String {
 
 fn toml_string(path: &Path) -> String {
     serde_json::to_string(&path.to_string_lossy()).unwrap_or_else(|_| "\"\"".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn massive_initialization_leaves_database_for_native_first_setup() {
+        let root = tempfile::tempdir().unwrap();
+        let sessions_root = root.path().join("copilot").join("session-state");
+        let tracepilot_root = root.path().join("tracepilot");
+        std::fs::create_dir_all(&sessions_root).unwrap();
+        std::fs::create_dir_all(&tracepilot_root).unwrap();
+
+        initialize_index(Scale::Massive, &sessions_root, &tracepilot_root, 500).unwrap();
+
+        assert!(!tracepilot_root.join("index.db").exists());
+        assert!(!tracepilot_root.join("backups").exists());
+    }
 }

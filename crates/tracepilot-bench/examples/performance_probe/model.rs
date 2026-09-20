@@ -19,6 +19,7 @@ pub(super) enum Scale {
     Small,
     Typical,
     Large,
+    Massive,
 }
 
 impl Scale {
@@ -27,8 +28,9 @@ impl Scale {
             "small" => Ok(Self::Small),
             "typical" => Ok(Self::Typical),
             "large" => Ok(Self::Large),
+            "massive" => Ok(Self::Massive),
             _ => fail(format!(
-                "unknown scale '{value}'; expected small, typical, or large"
+                "unknown scale '{value}'; expected small, typical, large, or massive"
             )),
         }
     }
@@ -38,6 +40,7 @@ impl Scale {
             Self::Small => "small",
             Self::Typical => "typical",
             Self::Large => "large",
+            Self::Massive => "massive",
         }
     }
 
@@ -46,6 +49,7 @@ impl Scale {
             Self::Small => 10,
             Self::Typical => 100,
             Self::Large => 1_000,
+            Self::Massive => 500,
         }
     }
 }
@@ -80,6 +84,8 @@ pub(super) struct ManifestSession {
     pub(super) tool_call_count: usize,
     pub(super) expected_search_matches: usize,
     pub(super) stress_bytes: usize,
+    #[serde(default)]
+    pub(super) source_bytes: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -91,6 +97,8 @@ pub(super) struct ManifestTotals {
     pub(super) tool_call_count: usize,
     pub(super) expected_search_matches: usize,
     pub(super) stress_bytes: usize,
+    #[serde(default)]
+    pub(super) source_bytes: u64,
     pub(super) file_count: usize,
 }
 

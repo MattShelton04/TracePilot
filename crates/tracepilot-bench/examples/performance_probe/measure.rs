@@ -28,7 +28,8 @@ pub(super) fn probe_corpus(
         "sessions": manifest.totals.session_count,
         "events": manifest.totals.event_count,
         "turns": manifest.totals.turn_count,
-        "toolCalls": manifest.totals.tool_call_count
+        "toolCalls": manifest.totals.tool_call_count,
+        "sourceBytes": manifest.totals.source_bytes
     });
     let mut operations = Vec::new();
 

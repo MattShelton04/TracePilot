@@ -120,6 +120,32 @@ It gives local clients full access to that development app. Stop it when finishe
 Runtime logs, profiles, snapshots, and traces are ignored by Git. Review evidence
 for session text, paths, secrets, and other private content before publishing.
 
+## Native indexing measurements
+
+`scripts/perf/indexing.mjs` measures the actual release app's session and
+background search indexing separately. Use an owned performance corpus generated
+by `performance_probe`; the script checks the recorded launcher root and native
+configuration before rebuilding its database. It also checks session counts,
+FTS integrity, nonempty results, and exact synthetic search/content counts.
+
+For first setup, generate a new `massive` corpus without `--probe` (this scale
+leaves indexing to the app), set `setupComplete = false` in its config, and start it with
+`app:start -Runtime production -DataRoot <corpus>`. The database must not exist.
+The probe completes the wizard using the configured isolated paths:
+
+```powershell
+node scripts/perf/indexing.mjs --manifest=<corpus>/fixture-manifest.json --mode=setup --out=.tracepilot/perf/first-setup.json
+node scripts/perf/indexing.mjs --manifest=<corpus>/fixture-manifest.json --mode=rebuild --samples=3 --out=.tracepilot/perf/full-rebuild.json
+```
+
+Setup records time from the final wizard click to a rendered session list and
+search completion. Rebuild samples run from Settings with auto-refresh disabled,
+after its initial database reads finish. A completed session-index command alone
+does not count as completed search indexing. These are empty-database or full
+rebuild measurements; filesystem cache is uncontrolled. Raw output includes local
+launcher paths and must be reviewed before sharing. The `massive` generator scale
+is opt-in and writes multiple GiB; keep it out of routine unit-test runs.
+
 ## Optional MCP connection
 
 An MCP-capable agent can use the upstream server against the endpoint printed by

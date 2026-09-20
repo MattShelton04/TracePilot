@@ -59,11 +59,18 @@ pub(super) fn verify_corpus(
 
     let mut events = 0usize;
     let mut turns = 0usize;
+    let mut source_bytes = 0u64;
     for session in &manifest.sessions {
         let session_dir = sessions_root.join(&session.id);
-        let parsed = tracepilot_core::parsing::events::parse_typed_events(
-            &session_dir.join("events.jsonl"),
-        )?;
+        let events_path = session_dir.join("events.jsonl");
+        let actual_source_bytes = std::fs::metadata(&events_path)?.len();
+        if session.source_bytes != 0 && actual_source_bytes != session.source_bytes {
+            return fail(format!(
+                "{} source size was {}, expected {}",
+                session.id, actual_source_bytes, session.source_bytes
+            ));
+        }
+        let parsed = tracepilot_core::parsing::events::parse_typed_events(&events_path)?;
         validate_parsed(session, &parsed)?;
         let reconstructed = tracepilot_core::turns::reconstruct_turns(&parsed.events);
         if reconstructed.len() != session.turn_count {
@@ -83,14 +90,22 @@ pub(super) fn verify_corpus(
         }
         events += parsed.events.len();
         turns += reconstructed.len();
+        source_bytes += actual_source_bytes;
     }
     if events != manifest.totals.event_count || turns != manifest.totals.turn_count {
         return fail("verified event/turn totals do not match manifest");
+    }
+    if manifest.totals.source_bytes != 0 && source_bytes != manifest.totals.source_bytes {
+        return fail(format!(
+            "verified source size was {source_bytes}, expected {}",
+            manifest.totals.source_bytes
+        ));
     }
     Ok(json!({
         "discoveredSessions": discovered.len(),
         "parsedEvents": events,
         "reconstructedTurns": turns,
+        "sourceBytes": source_bytes,
         "actualFiles": actual_files,
         "minimumOwnedFiles": manifest.totals.file_count,
         "allParseDiagnosticsClean": true,

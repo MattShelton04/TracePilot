@@ -4,12 +4,16 @@
 //! Tauri command layer, desktop IPC, webview rendering, or controlled filesystem
 //! cache state, and it does not claim an optimization.
 
+#[path = "performance_probe/events.rs"]
+mod events;
 #[path = "performance_probe/generate.rs"]
 mod generate;
 #[path = "performance_probe/measure.rs"]
 mod measure;
 #[path = "performance_probe/model.rs"]
 mod model;
+#[path = "performance_probe/plan.rs"]
+mod plan;
 #[path = "performance_probe/validate.rs"]
 mod validate;
 
@@ -54,6 +58,7 @@ fn run() -> Result<(), AnyError> {
                     "sessionCount": manifest.totals.session_count,
                     "eventCount": manifest.totals.event_count,
                     "turnCount": manifest.totals.turn_count,
+                    "sourceBytes": manifest.totals.source_bytes,
                     "fileCount": manifest.totals.file_count,
                     "probeCommand": format!(
                         "cargo run --release -p tracepilot-bench --example performance_probe -- probe --root \"{}\" --repeats 3",
@@ -77,7 +82,7 @@ fn run() -> Result<(), AnyError> {
 
 fn usage_error<T>() -> Result<T, AnyError> {
     fail(
-        "usage:\n  cargo run --release -p tracepilot-bench --example performance_probe -- generate --root <absolute-path> --scale <small|typical|large> [--probe] [--repeats 3] [--output <new-file>]\n  cargo run --release -p tracepilot-bench --example performance_probe -- probe --root <absolute-path> [--repeats 3] [--output <new-file>]",
+        "usage:\n  cargo run --release -p tracepilot-bench --example performance_probe -- generate --root <absolute-path> --scale <small|typical|large|massive> [--probe] [--repeats 3] [--output <new-file>]\n  cargo run --release -p tracepilot-bench --example performance_probe -- probe --root <absolute-path> [--repeats 3] [--output <new-file>]",
     )
 }
 
