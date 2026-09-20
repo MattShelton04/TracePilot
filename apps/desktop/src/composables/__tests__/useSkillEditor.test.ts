@@ -40,6 +40,10 @@ vi.mock("@/composables/useBrowseDirectory", () => ({
   browseForDirectory: vi.fn(async () => null),
 }));
 
+vi.mock("@tracepilot/client", () => ({
+  skillsUsageDetail: vi.fn(async () => null),
+}));
+
 vi.mock("@/utils/logger", () => ({
   logWarn: vi.fn(),
   logError: vi.fn(),
@@ -55,6 +59,9 @@ const storeMock = {
     instructionTokens: number;
   },
   error: null as string | null,
+  skills: [] as { directory: string; contentSha256: string }[],
+  range: "90d" as const,
+  loadSkills: vi.fn(async () => {}),
   getSkill: vi.fn(async (_dir: string) => storeMock.selectedSkill),
   updateSkillRaw: vi.fn(async () => true),
   deleteSkill: vi.fn(async () => true),

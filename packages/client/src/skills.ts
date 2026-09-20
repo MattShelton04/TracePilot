@@ -1,7 +1,6 @@
 /** Skills client IPC wrappers. */
 
 import type {
-  EncounteredSkillSummary,
   GhAuthInfo,
   GitHubSkillPreview,
   LocalSkillPreview,
@@ -11,6 +10,8 @@ import type {
   SkillDiscoveryResult,
   SkillFrontmatter,
   SkillImportResult,
+  SkillUsageDetail,
+  SkillUsageSummary,
 } from "@tracepilot/types";
 import { createInvoke } from "./invoke.js";
 
@@ -24,13 +25,34 @@ export async function skillsListAll(repoRoot?: string): Promise<SkillDiscoveryRe
   });
 }
 
-export async function skillsEncounteredProject(
-  installedNames: string[],
-  limit?: number,
-): Promise<EncounteredSkillSummary[]> {
-  return invoke<EncounteredSkillSummary[]>("skills_encountered_project", {
-    installedNames,
-    limit: limit ?? null,
+// -- Usage --
+
+/** Date range (`YYYY-MM-DD`, inclusive) and repository filter for usage. */
+export interface SkillUsageFilter {
+  fromDate?: string | null;
+  toDate?: string | null;
+  repo?: string | null;
+}
+
+export async function skillsUsageSummary(
+  filter: SkillUsageFilter = {},
+): Promise<SkillUsageSummary> {
+  return invoke<SkillUsageSummary>("skills_usage_summary", {
+    fromDate: filter.fromDate ?? null,
+    toDate: filter.toDate ?? null,
+    repo: filter.repo ?? null,
+  });
+}
+
+export async function skillsUsageDetail(
+  skillName: string,
+  filter: SkillUsageFilter = {},
+): Promise<SkillUsageDetail> {
+  return invoke<SkillUsageDetail>("skills_usage_detail", {
+    skillName,
+    fromDate: filter.fromDate ?? null,
+    toDate: filter.toDate ?? null,
+    repo: filter.repo ?? null,
   });
 }
 

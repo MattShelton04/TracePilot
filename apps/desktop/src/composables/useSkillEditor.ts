@@ -1,6 +1,7 @@
-import type { SkillAsset, SkillFrontmatter } from "@tracepilot/types";
+import { skillsUsageDetail } from "@tracepilot/client";
+import type { SkillAsset, SkillFrontmatter, SkillUsageDetail } from "@tracepilot/types";
 import { formatBytes } from "@tracepilot/types";
-import { useConfirmDialog, useResizeHandle } from "@tracepilot/ui";
+import { runAction, useAsyncGuard, useConfirmDialog, useResizeHandle } from "@tracepilot/ui";
 import {
   computed,
   type InjectionKey,
@@ -25,6 +26,7 @@ import {
   patchSkillFrontmatter,
   replaceSkillBody,
 } from "@/utils/skillFrontmatter";
+import { rangeBounds } from "@/utils/usage/range";
 
 /** Shared state and actions provided by SkillEditorView to its children. */
 
@@ -47,6 +49,14 @@ export function useSkillEditor() {
 
   const previewFrontmatter = ref<SkillFrontmatter | null>(null);
   const previewBody = ref("");
+
+  // Usage loads independently of the file, so a skill with no index rows
+  // still opens and edits normally.
+  const activeTab = ref<"preview" | "usage">("preview");
+  const usage = ref<SkillUsageDetail | null>(null);
+  const usageLoading = ref(false);
+  const usageError = ref<string | null>(null);
+  const usageGuard = useAsyncGuard();
 
   // ─── Resize handle ────────────────────────────────────────
   const {
@@ -76,6 +86,16 @@ export function useSkillEditor() {
   });
   const backLabel = computed(() => (returnSessionId.value ? "Back to Session" : "Back to Skills"));
   const isReadOnly = computed(() => store.selectedSkill?.scope === "builtin");
+  /** The manager's range, so both pages describe the same window. */
+  const usageRange = computed(() => store.range);
+  /**
+   * Fingerprint of the file as saved, for the drift notice. It comes from the
+   * catalog rather than the open draft, so an unsaved edit never reads as
+   * drift against past usage.
+   */
+  const installedSha256 = computed(
+    () => store.skills.find((skill) => skill.directory === skillDir.value)?.contentSha256 ?? null,
+  );
 
   const totalLineCount = computed(() => rawContent.value.split("\n").length);
   const byteCount = computed(() => new TextEncoder().encode(rawContent.value).length);
@@ -109,6 +129,7 @@ export function useSkillEditor() {
   // ─── Lifecycle ────────────────────────────────────────────
   onMounted(async () => {
     if (skillDir.value) await loadSkill();
+    if (store.skills.length === 0) store.loadSkills();
     document.addEventListener("keydown", handleKeydown);
   });
 
@@ -119,6 +140,17 @@ export function useSkillEditor() {
   watch(skillDir, async (dir) => {
     if (dir) await loadSkill();
   });
+
+  // The skill's own name identifies its usage; the directory does not,
+  // because the two can disagree. This follows the *saved* name rather than
+  // the draft, so typing in the name field does not re-query the index.
+  watch(
+    [() => store.selectedSkill?.frontmatter.name, usageRange],
+    ([name]) => {
+      if (name) loadUsage(name);
+    },
+    { immediate: true },
+  );
 
   // ─── Core logic ───────────────────────────────────────────
   function handleKeydown(e: KeyboardEvent) {
@@ -152,6 +184,18 @@ export function useSkillEditor() {
     rawContent.value = nextContent;
     parseContent(nextContent);
     editorDirty.value = true;
+  }
+
+  async function loadUsage(name: string) {
+    await runAction({
+      loading: usageLoading,
+      error: usageError,
+      guard: usageGuard,
+      action: () => skillsUsageDetail(name, rangeBounds(usageRange.value)),
+      onSuccess: (result) => {
+        usage.value = result;
+      },
+    });
   }
 
   async function loadAssets() {
@@ -369,6 +413,12 @@ export function useSkillEditor() {
     viewingContent,
     previewFrontmatter,
     previewBody,
+    activeTab,
+    usage,
+    usageLoading,
+    usageError,
+    usageRange,
+    installedSha256,
     leftWidth,
     minLeftWidth,
     maxLeftWidth,

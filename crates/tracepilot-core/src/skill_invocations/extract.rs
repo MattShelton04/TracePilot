@@ -107,17 +107,15 @@ pub fn extract_skill_invocations(
         let Some(name) = non_empty(data.name.as_ref()) else {
             continue;
         };
-        let placement = event
-            .raw
-            .id
-            .as_deref()
-            .and_then(|id| placements.get(id));
+        let placement = event.raw.id.as_deref().and_then(|id| placements.get(id));
         let normalized_name = normalize_skill_name(&name);
         if let Some(tool_call_id) = placement.and_then(|p| p.tool_call_id.as_deref()) {
             covered.tool_calls.insert(tool_call_id.to_string());
         }
         let turn_index = placement.map(|p| p.turn_index).unwrap_or(0);
-        covered.named_turns.insert((turn_index, normalized_name.clone()));
+        covered
+            .named_turns
+            .insert((turn_index, normalized_name.clone()));
         let path = non_empty(data.path.as_ref());
         let content = data.content.as_deref().filter(|text| !text.is_empty());
         let (frontmatter_tokens, instruction_tokens) = match content {
@@ -146,7 +144,8 @@ pub fn extract_skill_invocations(
                 .and_then(|id| agents.get(id))
                 .map(|name| (*name).to_string()),
             agent_id,
-            model: non_empty(data.model.as_ref()).or_else(|| placement.and_then(|p| p.model.clone())),
+            model: non_empty(data.model.as_ref())
+                .or_else(|| placement.and_then(|p| p.model.clone())),
             plugin_name: non_empty(data.plugin_name.as_ref()),
             plugin_version: non_empty(data.plugin_version.as_ref()),
             content_sha256: content.map(content_fingerprint),

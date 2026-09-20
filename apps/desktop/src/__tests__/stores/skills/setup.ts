@@ -1,5 +1,11 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import type { Skill, SkillAsset, SkillImportResult, SkillSummary } from "@tracepilot/types";
+import type {
+  Skill,
+  SkillAsset,
+  SkillImportResult,
+  SkillSummary,
+  SkillUsageStats,
+} from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, beforeEach, vi } from "vitest";
 
@@ -23,7 +29,7 @@ const hoistedMocks = vi.hoisted(() => ({
   skillsImportGitHub: vi.fn(),
   skillsImportGitHubSkill: vi.fn(),
   skillsDiscoverRepos: vi.fn(),
-  skillsEncounteredProject: vi.fn(),
+  skillsUsageSummary: vi.fn(),
   logWarn: vi.fn(),
 }));
 
@@ -47,7 +53,7 @@ vi.mock("@tracepilot/client", () => ({
   skillsImportGitHub: (...args: unknown[]) => hoistedMocks.skillsImportGitHub(...args),
   skillsImportGitHubSkill: (...args: unknown[]) => hoistedMocks.skillsImportGitHubSkill(...args),
   skillsDiscoverRepos: (...args: unknown[]) => hoistedMocks.skillsDiscoverRepos(...args),
-  skillsEncounteredProject: (...args: unknown[]) => hoistedMocks.skillsEncounteredProject(...args),
+  skillsUsageSummary: (...args: unknown[]) => hoistedMocks.skillsUsageSummary(...args),
 }));
 
 vi.mock("@tracepilot/ui", async (importOriginal) => {
@@ -72,6 +78,7 @@ export const FIXTURE_SUMMARY: SkillSummary = {
   instructionTokens: 900,
   hasAssets: true,
   assetCount: 2,
+  contentSha256: "sha-code-review",
 };
 
 export const FIXTURE_SUMMARY_REPO: SkillSummary = {
@@ -84,6 +91,7 @@ export const FIXTURE_SUMMARY_REPO: SkillSummary = {
   instructionTokens: 600,
   hasAssets: false,
   assetCount: 0,
+  contentSha256: "sha-test-gen",
 };
 
 export const FIXTURE_SUMMARY_DISABLED: SkillSummary = {
@@ -96,6 +104,7 @@ export const FIXTURE_SUMMARY_DISABLED: SkillSummary = {
   instructionTokens: 400,
   hasAssets: false,
   assetCount: 0,
+  contentSha256: "sha-api-docs",
 };
 
 export const FIXTURE_SUMMARY_BUILTIN: SkillSummary = {
@@ -108,6 +117,7 @@ export const FIXTURE_SUMMARY_BUILTIN: SkillSummary = {
   instructionTokens: 800,
   hasAssets: false,
   assetCount: 0,
+  contentSha256: "sha-customize-cloud-agent",
 };
 
 export const FIXTURE_SKILL: Skill = {
@@ -139,6 +149,42 @@ export const FIXTURE_IMPORT_RESULT: SkillImportResult = {
   filesCopied: 3,
 };
 
+/** A usage row that resolves to `directory`, as the indexer reports one. */
+export function usageStats(name: string, directory: string, uses: number): SkillUsageStats {
+  return {
+    name,
+    normalizedName: name.toLowerCase(),
+    description: null,
+    uses,
+    sessions: Math.min(uses, 3),
+    repositories: 1,
+    firstUsed: "2026-08-20T00:00:00Z",
+    lastUsed: "2026-09-18T00:00:00Z",
+    userInvoked: 0,
+    agentInvoked: 0,
+    unknownTrigger: uses,
+    mainAgentUses: uses,
+    subagentUses: 0,
+    fallbackUses: 0,
+    medianContentTokens: 1200,
+    usesWithContent: uses,
+    latestContentSha256: `sha-${name}`,
+    contentVersions: 1,
+    paths: [
+      {
+        path: `${directory}/SKILL.md`,
+        directory: directory.replace(/\\/g, "/").toLowerCase(),
+        uses,
+      },
+    ],
+    topModels: [],
+    topRepositories: [],
+    dailyUses: [],
+    pluginName: null,
+    source: null,
+  };
+}
+
 export const ALL_SUMMARIES: SkillSummary[] = [
   FIXTURE_SUMMARY,
   FIXTURE_SUMMARY_REPO,
@@ -153,7 +199,13 @@ export function setupSkillsStoreTest() {
   beforeEach(() => {
     setupPinia();
     for (const mock of allMocks()) mock.mockReset();
-    hoistedMocks.skillsEncounteredProject.mockResolvedValue([]);
+    hoistedMocks.skillsUsageSummary.mockResolvedValue({
+      totalUses: 0,
+      totalSessions: 0,
+      unknownTriggerUses: 0,
+      fallbackUses: 0,
+      skills: [],
+    });
   });
 
   afterEach(async () => {

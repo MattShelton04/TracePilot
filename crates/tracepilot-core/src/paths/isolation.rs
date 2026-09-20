@@ -99,7 +99,7 @@ fn path_has_root_prefix(root: &Path, candidate: &Path) -> bool {
 fn path_has_root_prefix(root: &Path, candidate: &Path) -> bool {
     let root = root
         .to_string_lossy()
-        .trim_end_matches(|character| character == '\\' || character == '/')
+        .trim_end_matches(['\\', '/'])
         .to_lowercase();
     let candidate = candidate.to_string_lossy().to_lowercase();
     candidate == root

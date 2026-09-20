@@ -12,11 +12,16 @@
  */
 
 /* ── Stats Strip ─────────────────────────────────────────── */
+.skills-manager-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .skills-manager-view .stats-strip {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 0 2px;
   flex-wrap: wrap;
 }
 
@@ -56,6 +61,19 @@
   background: var(--success-fg);
 }
 
+.skills-manager-view .stat-dot--used {
+  background: var(--done-fg, var(--accent-fg));
+}
+
+/* A count that is evidence of something to act on, not just a total. */
+.skills-manager-view .stat-chip--warning {
+  color: var(--warning-fg);
+}
+
+.skills-manager-view .stat-chip__muted {
+  color: var(--text-tertiary);
+}
+
 .skills-manager-view .stat-sep {
   color: var(--text-tertiary);
   font-size: 0.625rem;
@@ -68,9 +86,8 @@
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  margin-top: 8px;
-  background: var(--accent-subtle, rgba(99, 102, 241, 0.04));
-  border: 1px solid rgba(99, 102, 241, 0.12);
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-muted, var(--border-default));
   border-radius: var(--radius-md);
   font-size: 0.75rem;
   color: var(--text-secondary);
@@ -114,89 +131,64 @@
 }
 
 /* ── Filter Row ──────────────────────────────────────────── */
+/* SegmentedControl, Select and SearchInput come from @tracepilot/ui; only
+   their sizing within this row belongs here. */
 .skills-manager-view .filter-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 16px 0 20px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-/* ── Scope Segmented Control ─────────────────────────────── */
-.skills-manager-view .scope-segmented {
-  display: inline-flex;
-  gap: 0;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  flex-shrink: 0;
+/* The sort select sizes to its content rather than eating the filter row. */
+.skills-manager-view .filter-row .tp-select {
+  width: auto;
+  min-width: 150px;
 }
 
-.skills-manager-view .scope-seg-btn {
-  padding: 6px 16px;
-  height: 32px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-tertiary);
-  background: var(--canvas-default, var(--canvas-subtle));
-  border: none;
-  border-right: 1px solid var(--border-default);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: inherit;
+.skills-manager-view .filter-row__search {
+  flex: 1;
+  min-width: 180px;
 }
 
-.skills-manager-view .scope-seg-btn:last-child {
-  border-right: none;
-}
-
-.skills-manager-view .scope-seg-btn:hover {
-  color: var(--text-primary);
-  background: var(--canvas-subtle);
-}
-
-.skills-manager-view .scope-seg-btn.active {
-  color: var(--accent-fg);
-  background: var(--accent-muted);
-  font-weight: 600;
-}
-
-/* ── Search ──────────────────────────────────────────────── */
-.skills-manager-view .search-box {
+/* ── Flag chips ──────────────────────────────────────────── */
+.skills-manager-view .flag-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 0 12px;
-  height: 32px;
+}
+
+.skills-manager-view .flag-chip {
+  padding: 4px 12px;
+  border-radius: var(--radius-full, 999px);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
   background: var(--canvas-subtle);
-  max-width: 240px;
-  flex: 1;
-  transition: border-color var(--transition-fast);
-  box-sizing: border-box;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
 }
 
-.skills-manager-view .search-box:focus-within {
-  border-color: var(--accent-fg);
-}
-
-.skills-manager-view .search-icon {
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
-.skills-manager-view .search-input {
-  flex: 1;
-  border: none;
-  background: transparent;
+.skills-manager-view .flag-chip:hover {
+  border-color: var(--border-accent, var(--accent-fg));
   color: var(--text-primary);
-  font-size: 0.8125rem;
-  outline: none;
 }
 
-.skills-manager-view .search-input::placeholder {
-  color: var(--text-tertiary);
+.skills-manager-view .flag-chip--active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-emphasis);
+  color: var(--accent-fg);
+}
+
+.skills-manager-view .flag-chip--clear {
+  border-style: dashed;
+}
+
+.skills-manager-view .flag-chip:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
 }
 
 /* ── Buttons ─────────────────────────────────────────────── */
@@ -298,9 +290,9 @@
 .skills-manager-view .state-message--warning {
   padding: 10px 14px;
   margin: -4px 0 16px;
-  border: 1px solid color-mix(in srgb, var(--attention-fg, #d29922) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--attention-fg) 22%, transparent);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--attention-muted, #d29922) 12%, transparent);
+  background: var(--attention-subtle);
   color: var(--text-secondary);
   text-align: left;
 }
@@ -465,4 +457,12 @@
   gap: 8px;
   padding: 12px 20px;
   border-top: 1px solid var(--border-muted);
+}
+
+/* Below the 960px minimum width the filter row stacks rather than wrapping
+   into single-control rows. */
+@media (max-width: 1100px) {
+  .skills-manager-view .filter-row__search {
+    min-width: 100%;
+  }
 }

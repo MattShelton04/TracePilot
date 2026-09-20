@@ -44,9 +44,10 @@ fn paths(rows: &[&InvocationRow]) -> Vec<SkillPathCount> {
     let mut order: Vec<&str> = Vec::new();
     let mut counts: HashMap<&str, (String, u64)> = HashMap::new();
     for row in rows {
-        let (Some(directory), Some(path)) =
-            (row.normalized_directory.as_deref(), row.skill_path.as_deref())
-        else {
+        let (Some(directory), Some(path)) = (
+            row.normalized_directory.as_deref(),
+            row.skill_path.as_deref(),
+        ) else {
             continue;
         };
         counts
@@ -68,15 +69,20 @@ fn paths(rows: &[&InvocationRow]) -> Vec<SkillPathCount> {
             })
         })
         .collect();
-    paths.sort_by(|a, b| b.uses.cmp(&a.uses).then_with(|| a.directory.cmp(&b.directory)));
+    paths.sort_by(|a, b| {
+        b.uses
+            .cmp(&a.uses)
+            .then_with(|| a.directory.cmp(&b.directory))
+    });
     paths
 }
 
 /// Aggregate one skill. `rows` are that skill's invocations, newest first.
 pub(super) fn skill_stats(rows: &[&InvocationRow]) -> SkillUsageStats {
     let latest = rows.first();
-    let latest_with =
-        |field: fn(&InvocationRow) -> Option<&String>| rows.iter().find_map(|row| field(row).cloned());
+    let latest_with = |field: fn(&InvocationRow) -> Option<&String>| {
+        rows.iter().find_map(|row| field(row).cloned())
+    };
 
     let mut stats = SkillUsageStats {
         name: latest.map(|row| row.skill_name.clone()).unwrap_or_default(),
@@ -99,9 +105,7 @@ pub(super) fn skill_stats(rows: &[&InvocationRow]) -> SkillUsageStats {
         last_used: latest.and_then(|row| row.timestamp.clone()),
         // The newest invocation that carried content is what the installed
         // file is compared against.
-        latest_content_sha256: rows
-            .iter()
-            .find_map(|row| row.content_sha256.clone()),
+        latest_content_sha256: rows.iter().find_map(|row| row.content_sha256.clone()),
         paths: paths(rows),
         top_models: ranked(rows.iter().filter_map(|row| row.model.clone()))
             .into_iter()

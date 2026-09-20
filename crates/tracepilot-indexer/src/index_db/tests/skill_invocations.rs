@@ -156,8 +156,7 @@ fn indexing_stores_invocations_once_and_summarizes_them() {
     assert_eq!(frontend.source.as_deref(), Some("personal-copilot"));
     assert_eq!(frontend.top_models[0].label, "gpt-5.4-mini");
     assert_eq!(
-        frontend.paths[0].directory,
-        "c:/users/a/.copilot/skills/frontend-design",
+        frontend.paths[0].directory, "c:/users/a/.copilot/skills/frontend-design",
         "the path is folded for matching but kept for display"
     );
     assert!(frontend.latest_content_sha256.is_some());
@@ -306,7 +305,10 @@ fn pruning_a_session_removes_its_invocations() {
     assert_eq!(count(&db, "session_skill_invocations"), 3);
 
     // The session is gone from disk, so nothing is live any more.
-    assert_eq!(db.prune_deleted(&std::collections::HashSet::new()).unwrap(), 1);
+    assert_eq!(
+        db.prune_deleted(&std::collections::HashSet::new()).unwrap(),
+        1
+    );
 
     assert_eq!(count(&db, "session_skill_invocations"), 0);
     assert_eq!(

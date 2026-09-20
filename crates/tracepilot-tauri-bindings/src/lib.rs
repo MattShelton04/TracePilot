@@ -317,7 +317,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::mcp::mcp_compute_diff,
             // Skills commands
             commands::skills::skills_list_all,
-            commands::skills::encountered::skills_encountered_project,
+            commands::skills::usage::skills_usage_summary,
+            commands::skills::usage::skills_usage_detail,
             commands::skills::skills_get_skill,
             commands::skills::skills_set_enabled,
             commands::skills::skills_create,

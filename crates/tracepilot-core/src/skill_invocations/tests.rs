@@ -35,7 +35,8 @@ fn parented(mut event: TypedEvent, parent: &str) -> TypedEvent {
     event
 }
 
-const SKILL_BODY: &str = "---\nname: frontend-design\ndescription: Design work\n---\n\nUse the tokens.";
+const SKILL_BODY: &str =
+    "---\nname: frontend-design\ndescription: Design work\n---\n\nUse the tokens.";
 
 fn skill_call(time: &str, call: &str, name: &str) -> TypedEvent {
     event(
@@ -61,7 +62,11 @@ fn invoked(time: &str, data: Value) -> TypedEvent {
 /// extract skill invocations from both.
 fn extract(events: Vec<TypedEvent>) -> Vec<SkillInvocation> {
     let mut all = vec![
-        event("session.start", "00:00:00", json!({"copilotVersion": "1.0.83"})),
+        event(
+            "session.start",
+            "00:00:00",
+            json!({"copilotVersion": "1.0.83"}),
+        ),
         event("user.message", "00:00:01", json!({"content": "go"})),
     ];
     all.extend(events);

@@ -48,6 +48,16 @@ export interface SkillSummary {
   disabledReason?: SkillDisabledReason;
   hasAssets: boolean;
   assetCount: number;
+  /**
+   * `SKILL.md` modification time, used to tell "never used" apart from
+   * "installed too recently to have been used yet".
+   */
+  modifiedAt?: string;
+  /**
+   * Fingerprint of the installed content, compared against the one recorded
+   * at invocation to detect a skill that changed since it was last used.
+   */
+  contentSha256: string;
 }
 
 export interface SkillDiagnostic {
@@ -59,17 +69,6 @@ export interface SkillDiagnostic {
 export interface SkillDiscoveryResult {
   skills: SkillSummary[];
   diagnostics: SkillDiagnostic[];
-}
-
-/** Project skill encountered in recent CLI sessions. */
-export interface EncounteredSkillSummary {
-  name: string;
-  description: string;
-  directory: string;
-  frontmatterTokens: number;
-  instructionTokens: number;
-  sourcePath: string;
-  invocationCount: number;
 }
 
 /** An asset file in a skill directory. */

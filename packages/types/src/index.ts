@@ -328,7 +328,6 @@ export type {
 export { narrowSessionEvent } from "./session-event-payloads.js";
 // ── skills.js ──────────────────────────────────────────────────────
 export type {
-  EncounteredSkillSummary,
   GhAuthInfo,
   GitHubSkillPreview,
   LocalSkillPreview,
@@ -347,6 +346,17 @@ export type {
   SkillTokenBudget,
   SkillTokenEntry,
 } from "./skills.js";
+// ── skillUsage.js ──────────────────────────────────────────────────
+export type {
+  SkillDayCount,
+  SkillInvocationOrigin,
+  SkillInvocationRecord,
+  SkillLabelCount,
+  SkillPathCount,
+  SkillUsageDetail,
+  SkillUsageStats,
+  SkillUsageSummary,
+} from "./skillUsage.js";
 export type { ToolArgs } from "./tool-args.js";
 // ── tool-args.js ───────────────────────────────────────────────────
 export { getToolArgs, toolArgString } from "./tool-args.js";

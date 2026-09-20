@@ -37,7 +37,9 @@ pub fn split_frontmatter(content: &str) -> (Option<&str>, &str) {
         return (None, content);
     };
     let yaml = after_open[..close].trim();
-    let body = after_open[close + 4..].trim_start_matches(['-', '\r']).trim();
+    let body = after_open[close + 4..]
+        .trim_start_matches(['-', '\r'])
+        .trim();
     (Some(yaml), body)
 }
 
@@ -89,7 +91,8 @@ mod tests {
 
     #[test]
     fn frontmatter_splits_into_yaml_and_body() {
-        let (yaml, body) = split_frontmatter("---\nname: x\ndescription: y\n---\n\n# Title\n\nUse.");
+        let (yaml, body) =
+            split_frontmatter("---\nname: x\ndescription: y\n---\n\n# Title\n\nUse.");
         assert_eq!(yaml, Some("name: x\ndescription: y"));
         assert_eq!(body, "# Title\n\nUse.");
     }
@@ -116,7 +119,10 @@ mod tests {
     #[test]
     fn instruction_estimate_ignores_frontmatter_size() {
         let short = "---\nname: x\ndescription: same\n---\nShort body.";
-        let long = format!("---\nname: x\ndescription: same\n---\n{}", "Long. ".repeat(500));
+        let long = format!(
+            "---\nname: x\ndescription: same\n---\n{}",
+            "Long. ".repeat(500)
+        );
         assert_eq!(
             estimate_skill_token_usage(short).0,
             estimate_skill_token_usage(&long).0

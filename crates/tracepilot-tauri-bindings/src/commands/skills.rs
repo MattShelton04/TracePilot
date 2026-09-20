@@ -1,6 +1,6 @@
 //! Skills Tauri commands.
 
-pub mod encountered;
+pub mod usage;
 
 use std::path::Path;
 

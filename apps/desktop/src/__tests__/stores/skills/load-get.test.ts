@@ -5,10 +5,12 @@ import { describe, expect, it } from "vitest";
 import {
   createDeferred,
   ALL_SUMMARIES,
+  FIXTURE_SUMMARY,
   FIXTURE_SKILL,
   FIXTURE_SUMMARY_REPO,
   mocks,
   setupSkillsStoreTest,
+  usageStats,
 } from "./setup";
 import { useSkillsStore } from "../../../stores/skills";
 
@@ -42,9 +44,9 @@ describe("useSkillsStore", () => {
       expect(store.searchQuery).toBe("");
     });
 
-    it("defaults filterScope to 'global'", () => {
+    it("defaults filterScope to 'all', so nothing is hidden on arrival", () => {
       const store = useSkillsStore();
-      expect(store.filterScope).toBe("global");
+      expect(store.filterScope).toBe("all");
     });
   });
 
@@ -116,44 +118,79 @@ describe("useSkillsStore", () => {
     });
   });
 
-  describe("loadEncounteredProjectSkills", () => {
-    it("loads project skills encountered in recent indexed skill tool sessions", async () => {
+  describe("usage", () => {
+    it("merges cross-session usage onto the installed skills", async () => {
       mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
-      mocks.skillsEncounteredProject.mockResolvedValue([
-        {
-          name: "tracepilot-app-automation",
-          description: "App automation",
-          directory: "C:\\repo\\.github\\skills\\tracepilot-app-automation",
-          frontmatterTokens: 400,
-          instructionTokens: 800,
-          sourcePath: "C:\\repo\\.github\\skills\\tracepilot-app-automation\\SKILL.md",
-          invocationCount: 2,
-        },
-      ]);
+      mocks.skillsUsageSummary.mockResolvedValue({
+        totalUses: 7,
+        totalSessions: 3,
+        unknownTriggerUses: 7,
+        fallbackUses: 0,
+        skills: [usageStats("code-review", FIXTURE_SUMMARY.directory, 7)],
+      });
 
       const store = useSkillsStore();
-      await store.loadSkills();
-      await store.loadEncounteredProjectSkills();
+      await store.loadAll();
 
-      expect(mocks.skillsEncounteredProject).toHaveBeenCalledWith(
-        ["code-review", "test-gen", "api-docs"],
-        100,
-      );
-      expect(store.encounteredSkills).toHaveLength(1);
-      expect(store.encounteredSkills[0]).toMatchObject({
-        name: "tracepilot-app-automation",
-        directory: "C:\\repo\\.github\\skills\\tracepilot-app-automation",
-        description: "App automation",
-        scope: "repository",
-        source: "session",
-        frontmatterTokens: 400,
-        instructionTokens: 800,
-        invocationCount: 2,
+      expect(mocks.skillsUsageSummary).toHaveBeenCalledWith({
+        fromDate: expect.any(String),
+        toDate: expect.any(String),
       });
-      expect(store.repoSkills.map((skill) => skill.name)).toEqual([
-        "test-gen",
-        "tracepilot-app-automation",
-      ]);
+      const reviewed = store.entries.find((entry) => entry.name === "code-review");
+      expect(reviewed?.usage?.uses).toBe(7);
+      expect(store.usedSkillCount).toBe(1);
+    });
+
+    it("keeps a skill used in sessions but not installed as its own entry", async () => {
+      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      mocks.skillsUsageSummary.mockResolvedValue({
+        totalUses: 12,
+        totalSessions: 5,
+        unknownTriggerUses: 12,
+        fallbackUses: 0,
+        skills: [usageStats("testing-usability", "C:\\gone\\usability-testing", 12)],
+      });
+
+      const store = useSkillsStore();
+      await store.loadAll();
+
+      const missing = store.missingSkills;
+      expect(missing).toHaveLength(1);
+      expect(missing[0].name).toBe("testing-usability");
+      expect(missing[0].flags).toContain("missing");
+    });
+
+    it("shows definitions even when usage cannot be read", async () => {
+      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      mocks.skillsUsageSummary.mockRejectedValue(new Error("index is locked"));
+
+      const store = useSkillsStore();
+      await store.loadAll();
+
+      expect(store.skills).toHaveLength(3);
+      expect(store.usageError).toBe("index is locked");
+      expect(store.error).toBeNull();
+    });
+
+    it("reloads usage when the range changes", async () => {
+      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      mocks.skillsUsageSummary.mockResolvedValue({
+        totalUses: 0,
+        totalSessions: 0,
+        unknownTriggerUses: 0,
+        fallbackUses: 0,
+        skills: [],
+      });
+
+      const store = useSkillsStore();
+      await store.loadAll();
+      mocks.skillsUsageSummary.mockClear();
+
+      await store.setRange("all");
+      expect(mocks.skillsUsageSummary).toHaveBeenCalledWith({ fromDate: null, toDate: null });
+
+      await store.setRange("all");
+      expect(mocks.skillsUsageSummary).toHaveBeenCalledOnce();
     });
   });
 

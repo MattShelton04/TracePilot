@@ -75,9 +75,11 @@ impl SkillInvocation {
     pub fn content_tokens(&self) -> Option<u32> {
         match (self.frontmatter_tokens, self.instruction_tokens) {
             (None, None) => None,
-            (frontmatter, instructions) => {
-                Some(frontmatter.unwrap_or(0).saturating_add(instructions.unwrap_or(0)))
-            }
+            (frontmatter, instructions) => Some(
+                frontmatter
+                    .unwrap_or(0)
+                    .saturating_add(instructions.unwrap_or(0)),
+            ),
         }
     }
 }
