@@ -91,6 +91,9 @@ describe("AgentEditorView", () => {
     await flushPromises();
     expect(wrapper.find("#agent-name").exists()).toBe(true);
     expect(wrapper.get(".panel-header-filename").text()).toBe("reviewer.agent.md");
+    expect(
+      wrapper.get('[aria-label="Resize definition and prompt"]').attributes("aria-orientation"),
+    ).toBe("horizontal");
     expect(wrapper.text()).toContain("reviewer");
   });
 

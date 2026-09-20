@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { provide, useId } from "vue";
+import DefinitionSourcePane from "@/components/definitionEditor/DefinitionSourcePane.vue";
 import SkillAssetPreviewModal from "@/components/skillEditor/SkillAssetPreviewModal.vue";
 import SkillEditorMarkdownEditor from "@/components/skillEditor/SkillEditorMarkdownEditor.vue";
 import SkillEditorMetadataForm from "@/components/skillEditor/SkillEditorMetadataForm.vue";
@@ -45,10 +46,10 @@ provide(SkillEditorKey, ctx);
               <span class="panel-header-filename">SKILL.md</span>
             </div>
 
-            <div class="panel-scroll">
-              <SkillEditorMetadataForm />
+            <DefinitionSourcePane label="Resize frontmatter and instructions">
+              <template #definition><SkillEditorMetadataForm /></template>
               <SkillEditorMarkdownEditor />
-            </div>
+            </DefinitionSourcePane>
           </div>
 
           <div

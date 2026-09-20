@@ -397,7 +397,8 @@ CLI Context. What differs from the design above:
   Visual captures use the browser corpus, including a dedicated Usage case.
 - **The manager has no tips banner.** Scope and flag filters provide direct access to the
   same states. Read-only definitions use a badge with an explanatory tooltip.
-- **Definition and Prompt resize independently.** Drag their horizontal divider or use
+- **Definition and Prompt resize independently.** Both editors use `DefinitionSourcePane`
+  for this split (Frontmatter and Instructions in Skills). Drag the horizontal divider or use
   Up/Down, Shift for larger steps, Home/End for limits, and Enter to reset.
 - **Usage starts with balanced metrics and outcomes.** Models, failure reasons, timing and
   execution context expand on demand. Model detail includes all recorded models; missing

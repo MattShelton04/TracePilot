@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { Banner, EmptyState, TabNav, type TabNavItem, useResizeHandle } from "@tracepilot/ui";
+import { Banner, EmptyState, TabNav, type TabNavItem } from "@tracepilot/ui";
 import { FileQuestion } from "lucide-vue-next";
-import { computed, provide, reactive, ref, useId } from "vue";
+import { computed, provide, ref, useId } from "vue";
 import AgentEditorTopBar from "@/components/agentEditor/AgentEditorTopBar.vue";
 import AgentEffectiveTab from "@/components/agentEditor/AgentEffectiveTab.vue";
 import AgentMetadataForm from "@/components/agentEditor/AgentMetadataForm.vue";
 import AgentOverrideDialog from "@/components/agentEditor/AgentOverrideDialog.vue";
 import AgentPreviewTab from "@/components/agentEditor/AgentPreviewTab.vue";
 import AgentUsageTab from "@/components/agentEditor/AgentUsageTab.vue";
+import DefinitionSourcePane from "@/components/definitionEditor/DefinitionSourcePane.vue";
 import MarkdownBodyEditor from "@/components/definitionEditor/MarkdownBodyEditor.vue";
 import { AgentEditorKey, useAgentEditor } from "@/composables/useAgentEditor";
 import "@/styles/features/definition-editor.css";
@@ -20,17 +21,6 @@ const editorPaneId = useId();
 const resizeHintId = useId();
 const bodyId = useId();
 const showOverride = ref(false);
-const definitionPaneId = useId();
-const sourceSplit = reactive(
-  useResizeHandle({
-    axis: "y",
-    initial: 45,
-    minPct: 20,
-    maxPct: 80,
-    minPanePx: 120,
-    splitterPx: 8,
-  }),
-);
 
 // TabNav keys the active tab off `routeName` in local (v-model) mode too.
 const tabs = computed<TabNavItem[]>(() => [
@@ -80,7 +70,11 @@ const fileLabel = computed(() => {
             </label>
           </div>
 
-          <div class="panel-scroll" :class="{ 'agent-source': ctx.detail && !ctx.rawMode }" :ref="(el) => (sourceSplit.containerRef = el as HTMLElement | null)" :style="{ '--definition-split': `${sourceSplit.leftWidth}%` }">
+          <DefinitionSourcePane :resizable="Boolean(ctx.detail && !ctx.rawMode)">
+            <template #definition>
+              <Banner v-for="diagnostic in ctx.detail?.diagnostics" :key="diagnostic.message" :tone="diagnostic.severity === 'error' ? 'danger' : 'warning'">{{ diagnostic.message }}</Banner>
+              <AgentMetadataForm />
+            </template>
             <!-- Nothing else can go in this pane for a session-only agent, so
                  it fills it rather than leaving a banner above empty space. -->
             <EmptyState
@@ -104,22 +98,16 @@ const fileLabel = computed(() => {
                 hint="Saved verbatim — comments and key order are yours to keep"
                 @update:model-value="ctx.setRaw"
               />
-              <template v-else>
-                <div :id="definitionPaneId" class="agent-source__definition">
-                  <Banner v-for="diagnostic in ctx.detail.diagnostics" :key="diagnostic.message" :tone="diagnostic.severity === 'error' ? 'danger' : 'warning'">{{ diagnostic.message }}</Banner>
-                  <AgentMetadataForm />
-                </div>
-                <div class="resize-handle agent-source__resize" :class="{ active: sourceSplit.dragging }" role="separator" tabindex="0" aria-label="Resize definition and prompt" aria-orientation="horizontal" :aria-controls="definitionPaneId" :aria-valuemin="sourceSplit.minLeftWidth" :aria-valuemax="sourceSplit.maxLeftWidth" :aria-valuenow="sourceSplit.leftWidth" :aria-valuetext="`${Math.round(sourceSplit.leftWidth)}% definition height`" title="Drag to resize. Up/Down arrows adjust height; Enter resets." @mousedown="sourceSplit.onMouseDown" @keydown="sourceSplit.onKeyDown" />
-                <MarkdownBodyEditor
-                  :id="bodyId"
-                  label="Prompt"
-                  :model-value="ctx.body"
-                  :readonly="ctx.isReadOnly"
-                  @update:model-value="ctx.setBody"
-                />
-              </template>
+              <MarkdownBodyEditor
+                v-else
+                :id="bodyId"
+                label="Prompt"
+                :model-value="ctx.body"
+                :readonly="ctx.isReadOnly"
+                @update:model-value="ctx.setBody"
+              />
             </template>
-          </div>
+          </DefinitionSourcePane>
         </div>
 
         <div

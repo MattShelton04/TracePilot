@@ -321,6 +321,36 @@
 }
 
 /* ── Resize Handle ──────────────────────────────────────── */
+.definition-editor .definition-source {
+  display: grid;
+  grid-template-rows: var(--definition-split, 45%) 8px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.definition-editor .definition-source__metadata {
+  min-height: 0;
+  overflow: auto;
+}
+
+.definition-editor .resize-handle.definition-source__resize {
+  width: 100%;
+  height: 8px;
+  cursor: row-resize;
+  position: relative;
+}
+
+.definition-editor .definition-source__resize::after {
+  content: "";
+  position: absolute;
+  width: 32px;
+  height: 2px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+}
+
 .definition-editor .resize-handle {
   cursor: col-resize;
   z-index: 5;

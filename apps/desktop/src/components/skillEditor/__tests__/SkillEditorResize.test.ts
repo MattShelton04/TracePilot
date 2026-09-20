@@ -34,7 +34,7 @@ describe("Skill editor separator", () => {
         },
       },
     });
-    const separator = wrapper.get('[role="separator"]');
+    const separator = wrapper.get('[aria-label="Resize editor and preview"]');
     expect(separator.attributes()).toMatchObject({
       tabindex: "0",
       "aria-label": "Resize editor and preview",
@@ -52,6 +52,21 @@ describe("Skill editor separator", () => {
     );
     await separator.trigger("keydown", { key: "ArrowRight" });
     expect(resizeKey).toHaveBeenCalledWith(expect.objectContaining({ key: "ArrowRight" }));
+
+    const source = wrapper.get(".definition-source");
+    vi.spyOn(source.element, "getBoundingClientRect").mockReturnValue({ height: 500 } as DOMRect);
+    const verticalSplit = wrapper.get('[aria-label="Resize frontmatter and instructions"]');
+    expect(verticalSplit.attributes("aria-orientation")).toBe("horizontal");
+    expect(
+      wrapper
+        .get(`[id="${verticalSplit.attributes("aria-controls")}"]`)
+        .find("skill-editor-metadata-form-stub")
+        .exists(),
+    ).toBe(true);
+    await verticalSplit.trigger("keydown", { key: "ArrowUp" });
+    expect(Number(verticalSplit.attributes("aria-valuenow"))).toBeCloseTo(41.8);
+    await verticalSplit.trigger("keydown", { key: "Enter" });
+    expect(verticalSplit.attributes("aria-valuenow")).toBe("45");
     wrapper.unmount();
   });
 });
