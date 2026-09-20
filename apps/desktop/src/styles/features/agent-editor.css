@@ -47,18 +47,35 @@
   margin-top: 12px;
 }
 
+/* The shared .field-footer carries a char counter in the Skill editor; the
+   Agent form uses it for guidance, which reads as a caption. */
+.agent-editor .field-footer--hint {
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+
+/* The banner in the editor pane carries the full read-only explanation. */
+.agent-editor .topbar-actions .kbd-hint {
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .agent-editor .info-item--error {
   color: var(--danger-fg);
 }
 
-/* Below the 960px minimum the split stacks so neither pane is unusable. */
+/* The shell is a fixed-height two-pane split, so stacking at narrow widths
+   would halve an already short viewport. The panes stay side by side, as in
+   the Skill editor, and the resize handle lets either one take the space. */
 @media (max-width: 1000px) {
-  .agent-editor .editor-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(240px, 1fr) auto minmax(240px, 1fr);
+  .agent-editor .panel-header {
+    padding: 8px 12px;
   }
 
-  .agent-editor .resize-handle {
-    display: none;
+  .agent-editor .panel-right .panel-scroll {
+    padding: 8px;
   }
 }

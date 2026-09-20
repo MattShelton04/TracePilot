@@ -49,14 +49,15 @@ const rows = computed(() => {
       source: config.contextTier.source,
       detail: config.contextTier.detail,
     },
-    {
-      key: "tools",
-      label: "Tools",
-      value: config.tools.value ? config.tools.value.join(", ") : "every tool",
-      source: config.tools.source,
-      detail: config.tools.detail,
-    },
   ];
+});
+
+/** A built-in can list dozens of tools, so the names go behind a disclosure. */
+const tools = computed(() => ctx.effective.tools);
+const toolsSummary = computed(() => {
+  const list = tools.value.value;
+  if (!list) return "every tool";
+  return `${list.length} tool${list.length === 1 ? "" : "s"}`;
 });
 </script>
 
@@ -76,6 +77,21 @@ const rows = computed(() => {
           <span class="effective__resolved">{{ row.value }}</span>
           <Badge :variant="SOURCE_TONE[row.source]">{{ SOURCE_LABEL[row.source] }}</Badge>
           <p class="effective__detail">{{ row.detail }}</p>
+        </dd>
+      </div>
+
+      <div class="effective__row">
+        <dt class="effective__label">Tools</dt>
+        <dd class="effective__value">
+          <span class="effective__resolved">{{ toolsSummary }}</span>
+          <Badge :variant="SOURCE_TONE[tools.source]">{{ SOURCE_LABEL[tools.source] }}</Badge>
+          <p class="effective__detail">{{ tools.detail }}</p>
+          <details v-if="tools.value?.length" class="effective__tools">
+            <summary>Show tool names</summary>
+            <ul>
+              <li v-for="tool in tools.value" :key="tool">{{ tool }}</li>
+            </ul>
+          </details>
         </dd>
       </div>
     </dl>
@@ -138,6 +154,29 @@ const rows = computed(() => {
   margin: 0;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
+}
+
+.effective__tools {
+  flex-basis: 100%;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+.effective__tools summary {
+  cursor: pointer;
+  color: var(--accent-fg);
+}
+
+.effective__tools ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 4px;
+  font-family: var(--font-mono);
 }
 
 .effective__footnote {

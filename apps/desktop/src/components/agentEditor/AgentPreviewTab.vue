@@ -7,25 +7,34 @@
 import { MarkdownContent } from "@tracepilot/ui";
 import { computed } from "vue";
 import { useAgentEditorContext } from "@/composables/useAgentEditor";
-import { findPlaceholders, renderPromptPreview } from "@/utils/agents/placeholders";
+import {
+  findPlaceholders,
+  renderPromptPreview,
+  resolvePlaceholderText,
+} from "@/utils/agents/placeholders";
 
 const ctx = useAgentEditorContext();
 
 const rendered = computed(() => renderPromptPreview(ctx.body));
+/** Built-in descriptions carry placeholders too, so resolve them here as well. */
+const description = computed(() =>
+  ctx.fields?.description ? resolvePlaceholderText(ctx.fields.description) : "",
+);
 /** `token` is pre-built because `{{` cannot appear inside an interpolation. */
-const placeholders = computed(() =>
-  findPlaceholders(ctx.body).map((placeholder) => ({
+const placeholders = computed(() => {
+  const text = `${ctx.fields?.description ?? ""} ${ctx.body}`;
+  return findPlaceholders(text).map((placeholder) => ({
     ...placeholder,
     token: `{{${placeholder.name}}}`,
-  })),
-);
+  }));
+});
 </script>
 
 <template>
   <div class="preview-content">
     <div v-if="ctx.fields" class="preview-frontmatter">
       <div class="preview-skill-name">{{ ctx.fields.displayName || ctx.fields.name || ctx.agentName }}</div>
-      <p class="preview-skill-desc">{{ ctx.fields.description || "No description" }}</p>
+      <p class="preview-skill-desc">{{ description || "No description" }}</p>
       <div class="preview-skill-meta">
         <span v-for="model in ctx.fields.models" :key="model" class="badge badge-neutral">{{ model }}</span>
         <span v-if="ctx.fields.reasoningEffort" class="badge badge-neutral">

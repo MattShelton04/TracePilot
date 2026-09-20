@@ -48,6 +48,12 @@
   gap: 8px;
 }
 
+/* The sort select sizes to its content rather than eating the filter row. */
+.agents-manager-view .filter-row .tp-select {
+  width: auto;
+  min-width: 150px;
+}
+
 .agents-manager-view .filter-row__search {
   flex: 1;
   min-width: 180px;

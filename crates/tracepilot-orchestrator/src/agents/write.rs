@@ -299,12 +299,13 @@ pub(crate) fn template(name: &str, description: &str) -> String {
     } else {
         description
     };
+    // Only the keys the CLI requires. Model, tools and the rest are added by
+    // the Agents editor, so commented-out hints here would linger as noise
+    // above the real keys once those are patched in.
     format!(
         "---\n\
          name: {name}\n\
          description: {description}\n\
-         # model: claude-opus-5            # or a fallback list: [claude-opus-5, gpt-5.6-luna]\n\
-         # tools: [view, grep, glob]       # omit to allow every tool\n\
          ---\n\n\
          You are a focused agent. Describe its role, the steps it follows and what it returns.\n\n\
          ## Instructions\n\n\

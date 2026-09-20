@@ -6,7 +6,7 @@
  * from their own index table and need no disk fallback.
  */
 import { agentsUsageSummary } from "@tracepilot/client";
-import type { AgentUsageSummary } from "@tracepilot/types";
+import { type AgentUsageSummary, calculateObservedAiCredits } from "@tracepilot/types";
 import { formatAiCredits, formatNumber, SectionPanel, toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
@@ -14,6 +14,7 @@ import UsageBreakdownBars, { type BreakdownRow } from "@/components/usage/UsageB
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useAnalyticsStore } from "@/stores/analytics";
+import { FAILING_RATE } from "@/utils/agents/entries";
 
 const store = useAnalyticsStore();
 const router = useRouter();
@@ -48,7 +49,11 @@ const topAgents = computed<BreakdownRow[]>(
       key: agent.name,
       label: agent.name,
       value: agent.runs,
-      tone: agent.failed + agent.cancelled > 0 ? ("warning" as const) : ("accent" as const),
+      // Orange marks a rate worth acting on, not any failure at all.
+      tone:
+        agent.runs > 0 && (agent.failed + agent.cancelled) / agent.runs > FAILING_RATE
+          ? ("warning" as const)
+          : ("accent" as const),
     })) ?? [],
 );
 
@@ -64,7 +69,7 @@ const credits = computed(() => {
   const value = summary.value;
   if (!value || value.runsWithCredits === 0) return null;
   return {
-    total: formatAiCredits(value.totalOwnNanoAiu),
+    total: formatAiCredits(calculateObservedAiCredits(value.totalOwnNanoAiu)),
     coverage: `${formatNumber(value.runsWithCredits)} of ${formatNumber(value.totalRuns)} runs`,
   };
 });

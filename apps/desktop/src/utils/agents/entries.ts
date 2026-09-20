@@ -45,6 +45,8 @@ export interface AgentEntry {
 export const FAILING_MIN_RUNS = 20;
 export const FAILING_RATE = 0.1;
 export const SLOW_FACTOR = 3;
+/** A trend over a handful of runs is noise, so `slow` needs a real sample. */
+export const SLOW_MIN_RUNS = 10;
 
 /** When several definitions share a name, the CLI prefers the most local. */
 const SCOPE_PRECEDENCE: Record<AgentScope, number> = {
@@ -107,7 +109,14 @@ function computeFlags(
   }
   const p90 = usage?.durationMs.p90;
   const previous = usage?.previousMedianDurationMs;
-  if (p90 != null && previous != null && previous > 0 && p90 > SLOW_FACTOR * previous) {
+  if (
+    usage &&
+    usage.durationMs.count >= SLOW_MIN_RUNS &&
+    p90 != null &&
+    previous != null &&
+    previous > 0 &&
+    p90 > SLOW_FACTOR * previous
+  ) {
     flags.push("slow");
   }
   if (entry.override) flags.push("overridden");

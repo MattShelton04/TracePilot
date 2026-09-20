@@ -17,6 +17,7 @@ import { computed } from "vue";
 import UsageSparkline from "@/components/usage/UsageSparkline.vue";
 import { agentMeta } from "@/utils/agents/agentMeta";
 import { type AgentEntry, failureRate } from "@/utils/agents/entries";
+import { resolvePlaceholderText } from "@/utils/agents/placeholders";
 import { type AgentUsageRange, rangeDays } from "@/utils/agents/range";
 import { cardModels, FLAG_BADGES, scopeBadge } from "./agentBadges";
 
@@ -31,6 +32,8 @@ const icon = computed(() =>
   resolveLucideIcon(agentMeta(props.entry.name).iconName, LUCIDE_ICON_COMPONENTS.bot),
 );
 const badge = computed(() => scopeBadge(props.entry.scope));
+/** Built-in descriptions carry `{{placeholders}}` the CLI fills at runtime. */
+const description = computed(() => resolvePlaceholderText(props.entry.description));
 const models = computed(() => cardModels(props.entry));
 const modelsTitle = computed(() =>
   props.entry.override?.model
@@ -83,7 +86,7 @@ const usageLine = computed(() => {
             {{ entry.displayName }}
           </span>
         </div>
-        <p class="agent-card__desc">{{ entry.description || "No description" }}</p>
+        <p class="agent-card__desc">{{ description || "No description" }}</p>
       </div>
     </div>
 

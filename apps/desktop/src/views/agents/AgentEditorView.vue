@@ -20,11 +20,16 @@ const resizeHintId = useId();
 const bodyId = useId();
 const showOverride = ref(false);
 
-// Local (non-routed) mode: `routeName` is unused but part of the item shape.
+// TabNav keys the active tab off `routeName` in local (v-model) mode too.
 const tabs = computed<TabNavItem[]>(() => [
-  { name: "preview", routeName: "", label: "Preview" },
-  { name: "usage", routeName: "", label: "Usage", count: ctx.usage?.stats.runs || undefined },
-  { name: "effective", routeName: "", label: "Effective config" },
+  { name: "preview", routeName: "preview", label: "Preview" },
+  {
+    name: "usage",
+    routeName: "usage",
+    label: "Usage",
+    count: ctx.usage?.stats.runs || undefined,
+  },
+  { name: "effective", routeName: "effective", label: "Effective config" },
 ]);
 
 const fileLabel = computed(() => {
@@ -134,6 +139,7 @@ const fileLabel = computed(() => {
             <TabNav
               :tabs="tabs"
               :model-value="ctx.activeTab"
+              aria-label="Agent detail"
               @update:model-value="ctx.activeTab = $event as typeof ctx.activeTab"
             />
           </div>

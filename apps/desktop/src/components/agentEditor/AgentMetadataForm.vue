@@ -62,7 +62,7 @@ function setText(key: "name" | "displayName" | "description" | "modelPolicy", va
             :placeholder="ctx.detail?.summary.fileStem"
             @input="setText('name', ($event.target as HTMLInputElement).value)"
           />
-          <div class="field-footer">The name the CLI dispatches by; defaults to the file name.</div>
+          <div class="field-footer field-footer--hint">The name the CLI dispatches by; defaults to the file name.</div>
         </div>
 
         <div class="field-group">
@@ -75,7 +75,7 @@ function setText(key: "name" | "displayName" | "description" | "modelPolicy", va
             :readonly="ctx.isReadOnly"
             @input="setText('description', ($event.target as HTMLTextAreaElement).value)"
           />
-          <div class="field-footer">Shown to the model when it chooses an agent.</div>
+          <div class="field-footer field-footer--hint">Shown to the model when it chooses an agent.</div>
         </div>
 
         <AgentModelList
@@ -154,7 +154,7 @@ function setText(key: "name" | "displayName" | "description" | "modelPolicy", va
                 placeholder="leave empty for every tool"
                 @input="setTools(($event.target as HTMLInputElement).value)"
               />
-              <div class="field-footer">
+              <div class="field-footer field-footer--hint">
                 Comma-separated. An empty value removes the key, which gives the agent every tool.
               </div>
             </div>
@@ -229,7 +229,7 @@ function setText(key: "name" | "displayName" | "description" | "modelPolicy", va
 
             <div v-if="ctx.detail?.otherFields.length" class="field-group">
               <span class="field-label">Other fields</span>
-              <div class="field-footer">Kept as-is on save.</div>
+              <div class="field-footer field-footer--hint">Kept as-is on save.</div>
               <pre class="field-input field-input--mono">{{
                 ctx.detail.otherFields.map((f) => `${f.key}: ${f.value}`).join("\n")
               }}</pre>

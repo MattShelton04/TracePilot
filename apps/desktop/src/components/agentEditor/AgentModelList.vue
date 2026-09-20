@@ -94,7 +94,7 @@ function remove(index: number) {
       <Plus :size="12" :stroke-width="2" />
       {{ models.length ? "Add fallback" : "Add model" }}
     </button>
-    <div class="field-footer">
+    <div class="field-footer field-footer--hint">
       {{
         models.length > 1
           ? "The CLI tries these in order when a model is unavailable."

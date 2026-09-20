@@ -1,6 +1,6 @@
 import type { AgentScope } from "@tracepilot/types";
 import type { AgentEntry, AgentFlag } from "@/utils/agents/entries";
-import { FAILING_MIN_RUNS, FAILING_RATE, SLOW_FACTOR } from "@/utils/agents/entries";
+import { FAILING_MIN_RUNS, FAILING_RATE, SLOW_FACTOR, SLOW_MIN_RUNS } from "@/utils/agents/entries";
 
 export type BadgeTone = "accent" | "success" | "warning" | "danger" | "done" | "neutral";
 
@@ -55,7 +55,7 @@ export const FLAG_BADGES: Readonly<Record<AgentFlag, FlagBadge>> = {
   slow: {
     label: "Slower",
     tone: "warning",
-    title: `p90 duration is more than ${SLOW_FACTOR}× this agent's median in the previous window.`,
+    title: `Over at least ${SLOW_MIN_RUNS} timed runs, p90 duration is more than ${SLOW_FACTOR}× this agent's median in the previous window.`,
   },
   overridden: {
     label: "Overridden",

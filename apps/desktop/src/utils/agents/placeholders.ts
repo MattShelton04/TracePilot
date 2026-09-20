@@ -29,6 +29,11 @@ export function findPlaceholders(text: string): PromptPlaceholder[] {
   }));
 }
 
+/** Plain text with known placeholders substituted; unknown ones stay literal. */
+export function resolvePlaceholderText(text: string): string {
+  return text.replace(PLACEHOLDER, (whole, name: string) => KNOWN_VALUES[name] ?? whole);
+}
+
 /**
  * Markdown for the preview: outside code, placeholders become inline code
  * (the resolved value, or the placeholder itself); inside code they are

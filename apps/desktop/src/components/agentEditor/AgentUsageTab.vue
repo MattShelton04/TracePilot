@@ -4,6 +4,7 @@
  * selected on the manager, and denominators are shown wherever older CLI
  * versions report a metric on only some runs.
  */
+import { calculateObservedAiCredits } from "@tracepilot/types";
 import { formatAiCredits, formatNumber, LoadingSpinner } from "@tracepilot/ui";
 import { computed } from "vue";
 import AgentRecentRuns from "@/components/agentEditor/AgentRecentRuns.vue";
@@ -113,7 +114,8 @@ const repositories = computed<BreakdownRow[]>(
 const credits = computed(() => {
   const value = stats.value;
   if (!value || value.ownNanoAiu == null || value.runsWithCredits === 0) return null;
-  return `${formatAiCredits(value.ownNanoAiu)} over ${formatNumber(value.runsWithCredits)} of ${formatNumber(value.runs)} runs`;
+  const credits = formatAiCredits(calculateObservedAiCredits(value.ownNanoAiu));
+  return `${credits} over ${formatNumber(value.runsWithCredits)} of ${formatNumber(value.runs)} runs`;
 });
 </script>
 

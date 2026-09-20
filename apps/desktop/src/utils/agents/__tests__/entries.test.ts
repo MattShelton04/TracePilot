@@ -71,6 +71,10 @@ describe("buildAgentEntries", () => {
         usage("tiny", { runs: 5, failed: 4 }),
         usage("slowpoke", {
           previousMedianDurationMs: 1000,
+          durationMs: { count: 12, min: 1, p25: 1, p50: 2000, p75: 3000, p90: 3500, max: 4000 },
+        }),
+        usage("blip", {
+          previousMedianDurationMs: 1000,
           durationMs: { count: 5, min: 1, p25: 1, p50: 2000, p75: 3000, p90: 3500, max: 4000 },
         }),
         usage("drift", { mismatchRuns: 2 }),
@@ -85,6 +89,7 @@ describe("buildAgentEntries", () => {
     expect(flags("flaky")).toEqual(["failing"]);
     expect(flags("tiny"), "fewer than 20 runs").toEqual([]);
     expect(flags("slowpoke")).toEqual(["slow"]);
+    expect(flags("blip"), "too few timed runs to call a trend").toEqual([]);
     expect(flags("drift")).toEqual(["mismatch"]);
   });
 });
