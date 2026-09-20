@@ -53,6 +53,36 @@ fn repo_skill_dirs(repo_root: &Path) -> [PathBuf; 4] {
     ]
 }
 
+/// Discover project skills without rescanning global or packaged definitions.
+pub fn discover_repository(root: &Path) -> Result<SkillDiscoveryResult, SkillsError> {
+    let mut result = SkillDiscoveryResult {
+        skills: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+    for directory in repo_skill_dirs(root) {
+        if directory.exists() {
+            let found = discover_in_directory_detailed(&directory, SkillScope::Repository)?;
+            result.skills.extend(found.skills);
+            result.diagnostics.extend(found.diagnostics);
+        }
+    }
+    Ok(result)
+}
+
+/// Owning repository for a skill under any supported project root.
+pub fn skill_repository(skill_dir: &Path) -> Option<&Path> {
+    skill_dir.ancestors().find_map(|ancestor| {
+        if ancestor.file_name()? != "skills" {
+            return None;
+        }
+        let parent = ancestor.parent()?;
+        let marker = parent.file_name()?.to_str()?;
+        matches!(marker, ".github" | ".copilot" | ".agents" | ".claude")
+            .then(|| parent.parent())
+            .flatten()
+    })
+}
+
 /// Discover all skills (global + optional repository).
 pub fn discover_all(repo_root: Option<&Path>) -> Result<Vec<SkillSummary>, SkillsError> {
     Ok(discover_all_detailed(repo_root)?.skills)
@@ -62,41 +92,41 @@ pub fn discover_all(repo_root: Option<&Path>) -> Result<Vec<SkillSummary>, Skill
 pub fn discover_all_detailed(
     repo_root: Option<&Path>,
 ) -> Result<SkillDiscoveryResult, SkillsError> {
-    let mut summaries = Vec::new();
-    let mut diagnostics = Vec::new();
-
-    // Global skills
-    if let Ok(global_dir) = global_skills_dir()
-        && global_dir.exists()
-    {
-        let result = discover_in_directory_detailed(&global_dir, SkillScope::Global)?;
-        summaries.extend(result.skills);
-        diagnostics.extend(result.diagnostics);
-    }
-
-    // Built-in skills bundled with installed Copilot CLI versions.
-    if let Ok(packages_dir) = builtin_packages_dir()
-        && packages_dir.exists()
-    {
-        summaries.extend(discover_builtin_skills(&packages_dir)?);
-    }
-
-    // Repository skills
+    let mut result = match copilot_paths() {
+        Ok(paths) => discover_user_skills(paths.home())?,
+        Err(_) => SkillDiscoveryResult {
+            skills: Vec::new(),
+            diagnostics: Vec::new(),
+        },
+    };
     if let Some(root) = repo_root {
-        for repo_dir in repo_skill_dirs(root) {
-            if repo_dir.exists() {
-                let result = discover_in_directory_detailed(&repo_dir, SkillScope::Repository)?;
-                summaries.extend(result.skills);
-                diagnostics.extend(result.diagnostics);
-            }
-        }
+        let project = discover_repository(root)?;
+        result.skills.extend(project.skills);
+        result.diagnostics.extend(project.diagnostics);
     }
+    result.skills.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(result)
+}
 
-    summaries.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(SkillDiscoveryResult {
-        skills: summaries,
-        diagnostics,
-    })
+/// Discover personal and bundled skills from the configured Copilot home.
+pub fn discover_user_skills(copilot_home: &Path) -> Result<SkillDiscoveryResult, SkillsError> {
+    let paths = tracepilot_core::paths::CopilotPaths::from_home(copilot_home);
+    let mut result = SkillDiscoveryResult {
+        skills: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+    if paths.global_skills_dir().exists() {
+        let global =
+            discover_in_directory_detailed(&paths.global_skills_dir(), SkillScope::Global)?;
+        result.skills.extend(global.skills);
+        result.diagnostics.extend(global.diagnostics);
+    }
+    if paths.pkg_dir().exists() {
+        result
+            .skills
+            .extend(discover_builtin_skills(&paths.pkg_dir())?);
+    }
+    Ok(result)
 }
 
 /// Discover packaged built-in skills, retaining the newest semantic-versioned

@@ -36,14 +36,8 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
     }
 
     // Check if it's under a repo-scoped skills directory.
-    for ancestor in canonical.ancestors() {
-        if ancestor.ends_with(tracepilot_core::paths::SKILLS_DIR_NAME)
-            && let Some(parent) = ancestor.parent()
-            && (parent.ends_with(tracepilot_core::paths::COPILOT_DIR_NAME)
-                || parent.ends_with(tracepilot_core::paths::GITHUB_DIR_NAME))
-        {
-            return Ok(());
-        }
+    if crate::skills::discovery::skill_repository(&canonical).is_some() {
+        return Ok(());
     }
 
     Err(SkillsError::PathTraversal(format!(

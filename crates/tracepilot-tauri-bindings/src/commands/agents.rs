@@ -28,27 +28,9 @@ fn validate_agent_name(name: &str) -> CmdResult<()> {
 
 /// Registered repositories plus an explicitly requested one.
 fn agent_roots(cfg: &TracePilotConfig, extra_repo: Option<&str>) -> AgentRoots {
-    let mut repo_roots: Vec<PathBuf> =
-        tracepilot_orchestrator::repo_registry::list_registered_repos_in(&cfg.tracepilot_home())
-            .map(|repos| {
-                repos
-                    .into_iter()
-                    .map(|repo| PathBuf::from(repo.path))
-                    .collect()
-            })
-            .unwrap_or_else(|error| {
-                tracing::warn!("Could not read the repository registry: {error}");
-                Vec::new()
-            });
-    if let Some(extra) = extra_repo.map(PathBuf::from)
-        && extra.is_dir()
-        && !repo_roots.contains(&extra)
-    {
-        repo_roots.push(extra);
-    }
     AgentRoots {
         copilot_home: cfg.copilot_home(),
-        repo_roots,
+        repo_roots: crate::helpers::definition_repo_roots(cfg, extra_repo),
     }
 }
 
