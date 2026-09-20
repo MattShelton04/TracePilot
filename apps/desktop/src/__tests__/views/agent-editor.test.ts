@@ -102,7 +102,7 @@ describe("AgentEditorView", () => {
 
   it("explains a read-only built-in and points at the override action", async () => {
     const { wrapper } = mountView({
-      readOnlyReason: "Installed with Copilot CLI 1.0.79",
+      readOnlyReason: "Installed with the Copilot CLI",
       isReadOnly: true,
       detail: {
         summary: definition("explore", { scope: "builtin" }),
@@ -114,7 +114,7 @@ describe("AgentEditorView", () => {
       },
     });
     await flushPromises();
-    expect(wrapper.text()).toContain("Installed with Copilot CLI 1.0.79");
+    expect(wrapper.text()).toContain("Installed with the Copilot CLI");
     expect(wrapper.text()).toContain("survives");
     expect(wrapper.findAll("button").some((b) => b.text().includes("Save"))).toBe(false);
   });

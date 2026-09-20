@@ -15,22 +15,15 @@ const percent = (value: number) =>
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${formatNumberFull(count)} ${count === 1 ? one : many}`;
 
-/** Short, actionable observations for the insight bar, most useful first. */
+/**
+ * Short observations for the insight bar, most useful first.
+ *
+ * Every insight has to earn its row: it names something to look at and
+ * carries the filter that shows it. "Your busiest agent ran N times" is
+ * already on the cards and in the stats strip, so it is not one.
+ */
 export function buildAgentInsights(entries: AgentEntry[]): AgentInsight[] {
   const insights: AgentInsight[] = [];
-  const used = entries.filter((entry) => (entry.usage?.runs ?? 0) > 0);
-  const top = [...used].sort((a, b) => (b.usage?.runs ?? 0) - (a.usage?.runs ?? 0))[0];
-  if (top?.usage) {
-    const failures = top.usage.failed + top.usage.cancelled;
-    insights.push({
-      id: "top",
-      tone: failures === 0 ? "success" : "info",
-      text: `${top.name} ran ${plural(top.usage.runs, "time")}; ${
-        failures === 0 ? "no failures" : `${percent(failureRate(top.usage))} failed or cancelled`
-      }.`,
-    });
-  }
-
   const mismatched = entries.filter((entry) => entry.flags.includes("mismatch"));
   if (mismatched.length > 0) {
     insights.push({

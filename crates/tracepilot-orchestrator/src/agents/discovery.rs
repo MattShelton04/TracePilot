@@ -263,10 +263,12 @@ fn summarize(
             .unwrap_or_else(|| "Plugin".to_string()),
     };
     let read_only_reason = match scope {
-        AgentScope::Builtin => Some(format!(
-            "Installed with Copilot CLI {}. Updates replace it, so override it for your sessions instead.",
-            version()
-        )),
+        // The version itself is in `source_label`, which the editor shows
+        // once; repeating it here read as noise.
+        AgentScope::Builtin => Some(
+            "Installed with the Copilot CLI. A CLI update replaces this file, so override it for your sessions instead."
+                .to_string(),
+        ),
         AgentScope::Plugin => {
             Some("Managed by its plugin. Plugin updates replace local edits.".to_string())
         }

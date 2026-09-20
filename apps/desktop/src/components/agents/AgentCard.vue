@@ -46,6 +46,9 @@ const modelsTitle = computed(() =>
 );
 const toolCount = computed(() => props.entry.definition?.fields.tools?.length ?? null);
 
+/** The Config Injector's per-agent colour, reused for the icon and accent. */
+const accent = computed(() => `var(${agentMeta(props.entry.name).colorVar})`);
+
 /** Zero-filled so a gap in the daily counts reads as "no runs", not as a jump. */
 const sparkValues = computed(() => {
   const usage = props.entry.usage;
@@ -54,20 +57,45 @@ const sparkValues = computed(() => {
   return rangeDays(props.range, usage.firstUsed).map((date) => byDate.get(date) ?? 0);
 });
 
-const usageLine = computed(() => {
+/**
+ * The three figures that decide whether an agent needs attention, each with
+ * its own label so no one has to decode a run-on sentence. `null` values
+ * render as an em dash rather than being dropped, so the columns line up
+ * across the grid.
+ */
+const stats = computed(() => {
   const usage = props.entry.usage;
   if (!usage || usage.runs === 0) return null;
-  const parts = [`${formatNumber(usage.runs)} run${usage.runs === 1 ? "" : "s"}`];
-  if (usage.durationMs.p50 != null) parts.push(`p50 ${formatDuration(usage.durationMs.p50)}`);
   const rate = failureRate(usage);
-  parts.push(rate === 0 ? "no failures" : `${(rate * 100).toFixed(rate < 0.1 ? 1 : 0)}% failed`);
-  if (usage.lastUsed) parts.push(`last ${formatRelativeTime(usage.lastUsed)}`);
-  return parts.join(" · ");
+  return [
+    { key: "runs", label: "runs", value: formatNumber(usage.runs), tone: "" },
+    {
+      key: "p50",
+      label: "median",
+      value: usage.durationMs.p50 != null ? formatDuration(usage.durationMs.p50) : "—",
+      tone: "",
+    },
+    {
+      key: "failed",
+      label: "failed",
+      value: rate === 0 ? "0%" : `${(rate * 100).toFixed(rate < 0.1 ? 1 : 0)}%`,
+      tone: props.entry.flags.includes("failing") ? "danger" : rate === 0 ? "muted" : "",
+    },
+  ];
+});
+
+const lastRun = computed(() => {
+  const lastUsed = props.entry.usage?.lastUsed;
+  return lastUsed ? formatRelativeTime(lastUsed) : null;
 });
 </script>
 
 <template>
-  <article class="agent-card" :class="{ 'agent-card--disabled': entry.disabled }">
+  <article
+    class="agent-card"
+    :class="{ 'agent-card--disabled': entry.disabled }"
+    :style="{ '--agent-accent': accent }"
+  >
     <div class="agent-card__accent" />
 
     <div class="agent-card__top">
@@ -114,16 +142,27 @@ const usageLine = computed(() => {
     </p>
 
     <div class="agent-card__usage">
-      <span v-if="usageLine" class="agent-card__usage-text">{{ usageLine }}</span>
-      <span v-else class="agent-card__usage-text agent-card__usage-text--muted">
-        No runs in this range
-      </span>
-      <UsageSparkline
-        v-if="sparkValues.length > 1"
-        :values="sparkValues"
-        :label="`Daily runs for ${entry.name}`"
-        :tone="entry.flags.includes('failing') ? 'danger' : 'accent'"
-      />
+      <dl v-if="stats" class="agent-card__stats">
+        <div v-for="stat in stats" :key="stat.key" class="agent-card__stat">
+          <dt class="agent-card__stat-label">{{ stat.label }}</dt>
+          <dd class="agent-card__stat-value" :class="`agent-card__stat-value--${stat.tone || 'plain'}`">
+            {{ stat.value }}
+          </dd>
+        </div>
+      </dl>
+      <span v-else class="agent-card__idle">No runs in this range</span>
+
+      <div class="agent-card__trend">
+        <UsageSparkline
+          v-if="sparkValues.length > 1"
+          :values="sparkValues"
+          :label="`Daily runs for ${entry.name}`"
+          :width="72"
+          :height="18"
+          :tone="entry.flags.includes('failing') ? 'danger' : 'accent'"
+        />
+        <span v-if="lastRun" class="agent-card__last">{{ lastRun }}</span>
+      </div>
     </div>
   </article>
 </template>
@@ -161,11 +200,13 @@ const usageLine = computed(() => {
   outline-offset: 2px;
 }
 
+/* The per-agent colour comes from the same `agentMeta` map the Config
+   Injector uses, so an agent reads the same wherever it appears. */
 .agent-card__accent {
   position: absolute;
   inset: 0 0 auto 0;
   height: 2px;
-  background: var(--gradient-accent, var(--accent-emphasis));
+  background: var(--agent-accent, var(--accent-emphasis));
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -186,8 +227,8 @@ const usageLine = computed(() => {
   justify-content: center;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
-  background: var(--canvas-default, var(--canvas-subtle));
-  color: var(--accent-fg);
+  background: color-mix(in srgb, var(--agent-accent, var(--accent-emphasis)) 12%, transparent);
+  color: var(--agent-accent, var(--accent-fg));
   line-height: 0;
 }
 
@@ -295,24 +336,74 @@ const usageLine = computed(() => {
 
 .agent-card__usage {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
   margin-top: auto;
   padding-top: 8px;
   border-top: 1px solid var(--border-muted, var(--border-default));
 }
 
-.agent-card__usage-text {
-  font-size: 0.6875rem;
-  color: var(--text-secondary);
+/* Three labelled figures rather than one run-on sentence, so the same
+   column means the same thing on every card in the grid. */
+.agent-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  gap: 0 16px;
+  margin: 0;
+  min-width: 0;
+}
+
+.agent-card__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.agent-card__stat-label {
+  font-size: 0.5625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.agent-card__stat-value {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.agent-card__usage-text--muted {
+.agent-card__stat-value--danger {
+  color: var(--danger-fg);
+}
+
+.agent-card__stat-value--muted {
   color: var(--text-tertiary);
+}
+
+.agent-card__idle {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+.agent-card__trend {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.agent-card__last {
+  font-size: 0.5625rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 </style>

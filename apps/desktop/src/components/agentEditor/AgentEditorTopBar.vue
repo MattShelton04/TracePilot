@@ -22,11 +22,15 @@ const emit = defineEmits<{ override: [] }>();
       </Badge>
       <Badge v-if="ctx.disabled" variant="danger">Disabled</Badge>
       <Badge v-if="ctx.override" variant="accent">Overridden</Badge>
+      <!-- The editor pane's banner carries the reason; the bar only needs
+           to say that nothing here can be typed into. -->
+      <Tooltip v-if="ctx.readOnlyReason" :text="ctx.readOnlyReason" position="bottom">
+        <Badge variant="neutral">Read-only</Badge>
+      </Tooltip>
       <span v-if="ctx.dirty" class="status-modified">Modified</span>
     </div>
     <div class="topbar-actions">
-      <span v-if="ctx.readOnlyReason" class="kbd-hint">{{ ctx.readOnlyReason }}</span>
-      <span v-else class="kbd-hint">
+      <span v-if="!ctx.readOnlyReason" class="kbd-hint">
         <span class="kbd">Ctrl</span>+<span class="kbd">S</span>
       </span>
 

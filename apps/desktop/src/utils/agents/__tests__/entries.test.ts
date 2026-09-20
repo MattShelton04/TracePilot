@@ -129,7 +129,7 @@ describe("filterAndSortEntries", () => {
 });
 
 describe("buildAgentInsights", () => {
-  it("summarises the top agent, mismatches and unresolved agents", () => {
+  it("reports only actionable observations, each with its filter", () => {
     const entries = buildAgentEntries(
       catalog([definition("idle")]),
       summary([
@@ -141,8 +141,8 @@ describe("buildAgentInsights", () => {
       NOW,
     );
     const insights = buildAgentInsights(entries);
-    expect(insights[0].text).toBe("explore ran 2,411 times; no failures.");
-    expect(insights.map((i) => i.id)).toEqual(["top", "mismatch", "unused", "unresolved"]);
+    expect(insights.map((i) => i.id)).toEqual(["mismatch", "unused", "unresolved"]);
+    expect(insights.every((insight) => insight.filter)).toBe(true);
     expect(insights.find((i) => i.id === "unresolved")?.filter).toEqual({ scope: "unresolved" });
   });
 });

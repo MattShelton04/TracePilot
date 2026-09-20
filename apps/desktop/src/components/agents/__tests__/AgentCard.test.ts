@@ -79,10 +79,11 @@ describe("AgentCard", () => {
         }),
       }),
     );
-    const text = wrapper.get(".agent-card__usage-text").text();
-    expect(text).toContain("120 runs");
-    expect(text).toContain("p50 38s");
-    expect(text).toContain("2.5% failed");
+    const stats = wrapper.findAll(".agent-card__stat").map((stat) => stat.text());
+    expect(stats[0]).toContain("runs");
+    expect(stats[0]).toContain("120");
+    expect(stats[1]).toContain("38s");
+    expect(stats[2]).toContain("2.5%");
     expect(wrapper.find(".usage-sparkline").exists()).toBe(true);
   });
 

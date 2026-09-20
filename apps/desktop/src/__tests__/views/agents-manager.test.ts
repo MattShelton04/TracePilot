@@ -81,7 +81,9 @@ describe("AgentsManagerView", () => {
     const strip = wrapper.get(".stats-strip").text();
     expect(strip).toContain("10 runs");
     expect(strip).toContain("10% failed or cancelled");
-    expect(strip).toContain("CLI 1.0.79");
+    // The installed CLI version belongs to a definition's source, not to a
+    // page-level chip that repeats on every screen.
+    expect(strip).not.toContain("CLI 1.0.79");
   });
 
   it("opens the detail page for the card that was clicked", async () => {

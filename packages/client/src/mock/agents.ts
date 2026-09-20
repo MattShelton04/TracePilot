@@ -57,7 +57,7 @@ function builtin(
     fields: { ...emptyFields(), name, displayName, description, models: [model], tools },
     hasMcpServers: false,
     readOnlyReason:
-      "Installed with Copilot CLI 1.0.79. Updates replace it, so override it for your sessions instead.",
+      "Installed with the Copilot CLI. A CLI update replaces this file, so override it for your sessions instead.",
     modifiedAt: "2026-09-01T10:00:00Z",
   };
 }

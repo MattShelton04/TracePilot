@@ -5,15 +5,15 @@
  * means "use whatever the session runs with".
  */
 import { getAllModelIds } from "@tracepilot/types";
-import { ActionButton, Field, ModalDialog, Select, Toggle } from "@tracepilot/ui";
-import { computed, ref, useId, watch } from "vue";
+import { ActionButton, Field, ModalDialog, SearchableSelect, Select, Toggle } from "@tracepilot/ui";
+import { computed, ref, watch } from "vue";
 import { useAgentEditorContext } from "@/composables/useAgentEditor";
 
 const visible = defineModel<boolean>("visible", { required: true });
 
 const ctx = useAgentEditorContext();
-const listId = useId();
-const knownModels = getAllModelIds();
+/** `inherit` is a real value here: it pins the agent to the session model. */
+const modelOptions = ["inherit", ...getAllModelIds()];
 
 const model = ref("");
 const effort = ref("");
@@ -88,24 +88,19 @@ async function reset() {
         writes. Unlike editing the installed definition, this survives CLI updates.
       </p>
 
-      <datalist :id="listId">
-        <option value="inherit" />
-        <option v-for="id in knownModels" :key="id" :value="id" />
-      </datalist>
-
       <Field
+        v-slot="{ id }"
         label="Model"
         layout="stacked"
-        description="A model id, or `inherit` to follow the session model. Empty removes the key."
+        description="A model id, or “inherit” to follow the session model. Clearing it removes the key."
       >
-        <input
+        <SearchableSelect
           v-model="model"
-          type="text"
-          class="override__input"
-          :list="listId"
-          spellcheck="false"
-          placeholder="inherit"
-          aria-label="Override model"
+          :input-id="id"
+          :options="modelOptions"
+          allow-custom
+          clearable
+          placeholder="Not set"
         />
       </Field>
 
@@ -117,7 +112,10 @@ async function reset() {
         <Select v-model="contextTier" :options="tierOptions" aria-label="Override context tier" />
       </Field>
 
+      <div class="override__divider" />
+
       <Field
+        class="override__switch"
         label="Disabled"
         layout="inline"
         description="Adds the agent to disabledSubagents so the CLI will not run it."
@@ -157,19 +155,19 @@ async function reset() {
   color: var(--text-secondary);
 }
 
-.override__input {
-  width: 100%;
-  padding: 5px 8px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--canvas-default, var(--canvas-subtle));
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+.override__divider {
+  height: 1px;
+  background: var(--border-default);
 }
 
-.override__input:focus {
-  outline: none;
-  border-color: var(--accent-fg);
+/* An inline Field splits the row 1fr / 1.4fr, which left the toggle floating
+   mid-dialog. The switch needs only its own width, at the end of the row. */
+.override .override__switch {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0;
+}
+
+.override .override__switch :deep(.field__control-row) {
+  justify-content: flex-end;
 }
 </style>

@@ -17,8 +17,26 @@
   overflow: hidden;
 }
 
+/* The shared tab strip is built for a page body: it carries its own bottom
+   border and a 20px margin below it. Inside the 40px panel header both push
+   the tabs off-centre, leaving a gap under them, so the strip is made to
+   fill the header and its underline lands on the header's own border. */
 .agent-editor .panel-header--tabs {
+  align-items: stretch;
   padding: 0 12px;
+}
+
+.agent-editor .panel-header--tabs .tab-nav {
+  margin-bottom: 0;
+  border-bottom: none;
+  align-items: stretch;
+}
+
+.agent-editor .panel-header--tabs .tab-nav-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 0.75rem;
 }
 
 .agent-editor .raw-toggle {
@@ -47,6 +65,34 @@
   margin-top: 12px;
 }
 
+/* An agent description is a sentence or two the model reads when it picks an
+   agent. The shared 60px floor made it the tallest control on the form and
+   still scrolled, so it sizes to its `rows` instead. */
+.agent-editor .field-textarea {
+  min-height: 0;
+  font-size: 0.75rem;
+}
+
+/* Long tool lists, option captions and unknown keys wrap inside the pane
+   rather than widening the form past it. */
+.agent-editor .frontmatter-advanced__body,
+.agent-editor .frontmatter-option > span {
+  min-width: 0;
+}
+
+.agent-editor .frontmatter-option small {
+  overflow-wrap: anywhere;
+}
+
+.agent-editor pre.field-input {
+  margin: 0;
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.6875rem;
+}
+
 /* The shared .field-footer carries a char counter in the Skill editor; the
    Agent form uses it for guidance, which reads as a caption. */
 .agent-editor .field-footer--hint {
@@ -55,12 +101,11 @@
   line-height: 1.45;
 }
 
-/* The banner in the editor pane carries the full read-only explanation. */
-.agent-editor .topbar-actions .kbd-hint {
-  max-width: 280px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* A session-only agent has nothing to edit, so the empty state takes the
+   pane instead of sitting as a banner above dead space. */
+.agent-editor__missing {
+  margin: auto;
+  padding: 24px;
 }
 
 .agent-editor .info-item--error {

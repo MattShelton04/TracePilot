@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Banner, TabNav, type TabNavItem } from "@tracepilot/ui";
+import { Banner, EmptyState, TabNav, type TabNavItem } from "@tracepilot/ui";
+import { FileQuestion } from "lucide-vue-next";
 import { computed, provide, ref, useId } from "vue";
 import AgentEditorTopBar from "@/components/agentEditor/AgentEditorTopBar.vue";
 import AgentEffectiveTab from "@/components/agentEditor/AgentEffectiveTab.vue";
@@ -69,11 +70,17 @@ const fileLabel = computed(() => {
           </div>
 
           <div class="panel-scroll">
-            <Banner v-if="ctx.isSessionOnly" tone="info" title="No definition found">
-              This agent appears in sessions but no definition file was found — it may have been
-              renamed or deleted, come from an <code>--add-dir</code> directory, or belong to a
-              plugin that is no longer installed. Its usage is shown on the right.
-            </Banner>
+            <!-- Nothing else can go in this pane for a session-only agent, so
+                 it fills it rather than leaving a banner above empty space. -->
+            <EmptyState
+              v-if="ctx.isSessionOnly"
+              class="agent-editor__missing"
+              title="No definition found"
+              description="This agent ran in your sessions but has no definition file. It may have been renamed or deleted, come from an --add-dir directory, or belong to a plugin that is no longer installed."
+              :primary-action="{ label: 'See how it was used', onClick: () => (ctx.activeTab = 'usage') }"
+            >
+              <template #icon><FileQuestion :size="32" :stroke-width="1.5" /></template>
+            </EmptyState>
 
             <template v-else-if="ctx.detail">
               <Banner v-if="ctx.readOnlyReason" tone="info" title="Read-only">

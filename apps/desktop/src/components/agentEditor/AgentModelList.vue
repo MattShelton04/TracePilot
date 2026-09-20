@@ -5,6 +5,7 @@
  * allowed because the CLI accepts model ids TracePilot does not know yet.
  */
 import { getAllModelIds } from "@tracepilot/types";
+import { SearchableSelect } from "@tracepilot/ui";
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-vue-next";
 import { useId } from "vue";
 
@@ -15,8 +16,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{ update: [models: string[]] }>();
 
-const listId = useId();
 const knownModels = getAllModelIds();
+const idBase = useId();
+/** Each combobox needs its own id so its hidden label can name its rank. */
+const fieldId = (index: number) => `${idBase}-${index}`;
+const rankLabel = (index: number) => (index === 0 ? "Primary model" : `Fallback model ${index}`);
 
 function set(index: number, value: string) {
   const next = [...props.models];
@@ -43,23 +47,22 @@ function remove(index: number) {
 <template>
   <div class="field-group">
     <span class="field-label">Models</span>
-    <datalist :id="listId">
-      <option v-for="model in knownModels" :key="model" :value="model" />
-    </datalist>
 
     <div v-for="(model, index) in models" :key="index" class="model-row">
-      <span class="model-row__rank" :title="index === 0 ? 'Primary model' : `Fallback ${index}`">
-        {{ index === 0 ? "1" : index + 1 }}
-      </span>
-      <input
-        type="text"
-        class="field-input field-input--mono"
-        :list="listId"
-        :value="model"
-        :readonly="readonly"
-        spellcheck="false"
-        :aria-label="index === 0 ? 'Primary model' : `Fallback model ${index}`"
-        @input="set(index, ($event.target as HTMLInputElement).value)"
+      <span class="model-row__rank" :title="rankLabel(index)">{{ index + 1 }}</span>
+      <label :for="fieldId(index)" class="model-row__label">{{ rankLabel(index) }}</label>
+      <!-- A read-only definition shows the value rather than a disabled
+           control that looks typeable. -->
+      <code v-if="readonly" class="model-row__static">{{ model || "—" }}</code>
+      <SearchableSelect
+        v-else
+        :input-id="fieldId(index)"
+        class="model-row__select"
+        :model-value="model"
+        :options="knownModels"
+        allow-custom
+        :placeholder="index === 0 ? 'Model id' : 'Fallback model id'"
+        @update:model-value="set(index, $event)"
       />
       <div v-if="!readonly" class="model-row__actions">
         <button
@@ -121,9 +124,32 @@ function remove(index: number) {
   font-variant-numeric: tabular-nums;
 }
 
-.model-row .field-input {
+/* The rank already names the row on screen; the label is for screen readers. */
+.model-row__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.model-row__select {
   flex: 1;
   min-width: 0;
+}
+
+.model-row__static {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-default);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 .model-row__actions {

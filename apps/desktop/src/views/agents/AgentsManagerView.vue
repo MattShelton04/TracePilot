@@ -115,10 +115,6 @@ function onCreated(path: string) {
         </span>
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">{{ failureRatePct }} failed or cancelled</span>
-        <template v-if="store.catalog?.cliVersion">
-          <span class="stat-sep">&middot;</span>
-          <span class="stat-chip stat-chip__muted">CLI {{ store.catalog.cliVersion }}</span>
-        </template>
       </div>
 
       <UsageInsightBar

@@ -152,7 +152,7 @@ describe("useAgentEditor", () => {
       detail({
         summary: definition("explore", {
           scope: "builtin",
-          readOnlyReason: "Installed with Copilot CLI 1.0.79",
+          readOnlyReason: "Installed with the Copilot CLI",
         }),
       }),
     );
