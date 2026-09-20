@@ -23,9 +23,12 @@ describe("PromptCacheHeaderChip", () => {
     expiresAt: "2026-09-12T00:30:00.000Z",
   });
 
-  it("counts down, warns under five minutes and reports the expiry", async () => {
+  it.each([
+    "pending",
+    "sessionEnded",
+  ] as const)("counts down and reports expiry for a %s session", async (outcome) => {
     const wrapper = mount(PromptCacheHeaderChip, {
-      props: { timeline: makeTimeline([pending]) },
+      props: { timeline: makeTimeline([{ ...pending, outcome }]) },
       attachTo: document.body,
     });
     const chip = () => wrapper.get('[data-testid="prompt-cache-chip"]');

@@ -16,7 +16,6 @@ const props = withDefaults(
   {
     scope: "session",
     label: "Objective",
-    status: "running",
   },
 );
 
@@ -25,6 +24,7 @@ const emit = defineEmits<{
 }>();
 
 const hasObjective = computed(() => !!props.objective);
+const sourceDescription = "Objective reported by the agent.";
 const canReveal = computed(
   () => props.objective?.eventIndex != null || !!props.objective?.toolCallId,
 );
@@ -38,8 +38,10 @@ const statusLabel = computed(() => {
       return "Failed";
     case "idle":
       return "Idle";
-    default:
+    case "running":
       return "Running";
+    default:
+      return null;
   }
 });
 
@@ -64,7 +66,7 @@ function handleClick() {
 <template>
   <section
     class="objective-banner"
-    :class="[`scope-${scope}`, `status-${status}`, { empty: !hasObjective }]"
+    :class="[`scope-${scope}`, status && `status-${status}`, { empty: !hasObjective }]"
     :style="accentStyle"
     role="status"
     aria-live="polite"
@@ -72,21 +74,21 @@ function handleClick() {
     :data-objective-event-idx="objective?.eventIndex ?? undefined"
   >
     <span class="ob-dot" aria-hidden="true" />
-    <span class="ob-label">{{ label }}</span>
+    <span class="ob-label" :title="sourceDescription">{{ label }}</span>
     <button
       v-if="hasObjective && canReveal"
       type="button"
       class="ob-text"
-      :title="objective!.text"
+      :title="`${objective!.text}\n${sourceDescription}`"
       @click="handleClick"
     >
       {{ objective!.text }}
     </button>
-    <span v-else-if="hasObjective" class="ob-text ob-text-static" :title="objective!.text">
+    <span v-else-if="hasObjective" class="ob-text ob-text-static" :title="`${objective!.text}\n${sourceDescription}`">
       {{ objective!.text }}
     </span>
     <span v-else class="ob-text empty-text">No objective yet</span>
-    <span :class="['ob-status', `ob-status-${status}`]">
+    <span v-if="statusLabel" :class="['ob-status', status && `ob-status-${status}`]">
       {{ statusLabel }}
       <span v-if="status === 'running' && hasObjective" class="ob-status-dots" aria-hidden="true">
         <span>.</span><span>.</span><span>.</span>

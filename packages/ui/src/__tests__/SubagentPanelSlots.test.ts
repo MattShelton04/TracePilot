@@ -63,7 +63,48 @@ describe("SubagentPanel slots", () => {
     expect(wrapper.text()).toContain("view");
   });
 
-  it("reveals the originating intent row when the objective is clicked", async () => {
+  it.each([
+    "idle",
+    "cancelled",
+  ] as const)("does not animate a recorded objective as running for a %s worker", (status) => {
+    const view = makeView(
+      makeToolCall({ toolName: "report_intent", arguments: { intent: "Review changes" } }),
+    );
+    const wrapper = mount(SubagentPanel, {
+      props: {
+        view: { ...view, status },
+        renderMarkdown: false,
+        fullResults: new Map(),
+        loadingResults: emptyResultSet(),
+        failedResults: emptyResultSet(),
+      },
+    });
+    expect(wrapper.get(".ob-label").text()).toBe("Objective");
+    expect(wrapper.get(".ob-status").text()).toBe("Idle");
+    expect(wrapper.find(".ob-status-dots").exists()).toBe(false);
+  });
+
+  it.each([
+    "tool",
+    "nested-subagent",
+  ] as const)("keeps %s intentions out of the objective banner", (kind) => {
+    const toolCall = makeToolCall({ intentionSummary: "Reviewing branch" });
+    const wrapper = mount(SubagentPanel, {
+      props: {
+        view: {
+          ...makeView(toolCall),
+          activities: [{ kind, key: "activity", sortKey: 1, toolCall }],
+        },
+        renderMarkdown: false,
+        fullResults: new Map(),
+        loadingResults: emptyResultSet(),
+        failedResults: emptyResultSet(),
+      },
+    });
+    expect(wrapper.find(".objective-banner").exists()).toBe(false);
+  });
+
+  it("reveals the originating intent row when the banner is clicked", async () => {
     const scrollIntoView = vi.fn();
     const originalScrollIntoView = Element.prototype.scrollIntoView;
     Object.defineProperty(Element.prototype, "scrollIntoView", {
@@ -88,6 +129,7 @@ describe("SubagentPanel slots", () => {
                   toolCallId: "intent-call",
                   eventIndex: 42,
                   arguments: { intent: "Reviewing branch" },
+                  intentionSummary: "Reviewing branch",
                 }),
               },
             ],

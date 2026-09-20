@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { setupPinia } from "@tracepilot/test-utils";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
+import { usePreferencesStore } from "@/stores/preferences";
+import { makeTimeline, makeWindow } from "@/utils/__tests__/promptCacheFixtures";
 
 const mocks = vi.hoisted(() => ({
   isSessionRunning: vi.fn(),
@@ -105,5 +107,39 @@ describe("SessionDetailPanel", () => {
     expect(css).toMatch(
       /\.page-content\.explorer-mode \.page-content-inner\s*\{[^}]*width:\s*100%;/s,
     );
+  });
+
+  it("shows recorded cache expiry beside resume controls for an ended session", async () => {
+    const prefs = usePreferencesStore();
+    prefs.featureFlags.promptCacheInsights = true;
+    const store = createStore();
+    store.promptCache = makeTimeline([
+      makeWindow({
+        outcome: "sessionEnded",
+        resumeAt: null,
+        expiresAt: new Date(Date.now() - 12 * 60_000).toISOString(),
+      }),
+    ]);
+    const wrapper = mount(SessionDetailPanel, {
+      props: {
+        store,
+        sessionId: "session-1",
+        tabMode: "local",
+        activeSubTab: "overview",
+        refreshEnabled: false,
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.find(".active-badge-inline").exists()).toBe(false);
+    expect(wrapper.get('[data-testid="prompt-cache-chip"]').text()).toContain(
+      "Cache expired 12m ago",
+    );
+    expect(wrapper.text()).toContain("Resume");
+
+    prefs.featureFlags.promptCacheInsights = false;
+    await wrapper.setProps({ sessionId: "session-2" });
+    expect(wrapper.find('[data-testid="prompt-cache-chip"]').exists()).toBe(false);
+    wrapper.unmount();
   });
 });

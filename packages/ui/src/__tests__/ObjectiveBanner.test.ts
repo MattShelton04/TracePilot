@@ -12,6 +12,20 @@ const sample: CurrentObjective = {
 };
 
 describe("ObjectiveBanner", () => {
+  it("keeps recorded objectives neutral when their current status is unknown", async () => {
+    const w = mount(ObjectiveBanner, {
+      props: { objective: sample },
+    });
+    expect(w.get(".ob-label").text()).toBe("Objective");
+    expect(w.attributes("aria-label")).toContain("Objective:");
+    expect(w.get(".ob-text").attributes("title")).toContain("Objective reported by the agent");
+    expect(w.find(".ob-status").exists()).toBe(false);
+    expect(w.find(".ob-status-dots").exists()).toBe(false);
+    expect(w.classes()).not.toContain("status-running");
+    await w.get("button.ob-text").trigger("click");
+    expect(w.emitted("reveal")?.[0]).toEqual([{ eventIndex: 12, toolCallId: "tc-1" }]);
+  });
+
   it("renders the objective text and accent label", () => {
     const w = mount(ObjectiveBanner, { props: { objective: sample } });
     expect(w.find(".ob-text").text()).toBe(sample.text);

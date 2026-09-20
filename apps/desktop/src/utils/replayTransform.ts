@@ -6,15 +6,17 @@
  */
 import type { ConversationTurn, ReplayStep, TurnToolCall } from "@tracepilot/types";
 import { getToolArgs, toolArgString } from "@tracepilot/types";
+import { getMainAgentObjective } from "@tracepilot/ui";
 
 /**
  * Convert an array of ConversationTurns into ReplaySteps.
  *
  * Each turn maps 1:1 to a step. The step title is derived from:
  * 1. The user message (if present)
- * 2. The first assistant message
- * 3. The intention summary of the first tool call
- * 4. A fallback like "Turn N"
+ * 2. The main agent's explicit objective
+ * 3. The first main-agent assistant message
+ * 4. The first main-agent tool intention
+ * 5. A fallback like "Turn N"
  */
 export function turnsToReplaySteps(turns: ConversationTurn[]): ReplayStep[] {
   const steps: ReplayStep[] = [];
@@ -76,25 +78,23 @@ function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
     return msg.length > 100 ? `${msg.slice(0, 97)}…` : msg;
   }
 
-  // Check for report_intent tool call
-  const intentCall = turn.toolCalls.find((tc) => tc.toolName === "report_intent" && tc.arguments);
-  if (intentCall) {
-    const intent = toolArgString(getToolArgs(intentCall), "intent");
-    if (intent) {
-      return intent;
-    }
-  }
+  const objective = getMainAgentObjective([turn]);
+  if (objective) return objective.text;
 
   // First assistant message
-  if (turn.assistantMessages.length > 0) {
-    const msg = turn.assistantMessages[0].content.trim();
+  const message = turn.assistantMessages.find(
+    (item) => !item.parentToolCallId && item.content.trim(),
+  );
+  if (message) {
+    const msg = message.content.trim();
     return msg.length > 100 ? `${msg.slice(0, 97)}…` : msg;
   }
 
-  // First tool call intention
-  if (turn.toolCalls.length > 0 && turn.toolCalls[0].intentionSummary) {
-    return turn.toolCalls[0].intentionSummary;
-  }
+  // A tool intention can name this turn without implying a session objective.
+  const toolIntention = turn.toolCalls
+    .find((tc) => !tc.parentToolCallId && tc.intentionSummary?.trim())
+    ?.intentionSummary?.trim();
+  if (toolIntention) return toolIntention;
 
   // Fallback
   if (stepType === "tool" && turn.toolCalls.length > 0) {

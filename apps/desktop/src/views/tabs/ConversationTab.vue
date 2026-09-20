@@ -169,17 +169,10 @@ function retryLoadTurns() {
 }
 
 // ── Persistent objective banner ─────────────────────────────────────────
-// Latest report_intent across the main agent's tool calls, regardless of
-// turn — gives the user a stable "what is the agent currently aiming at?"
-// indicator that complements the inline pill rendering inside the chat.
+// Latest recorded main-agent objective. Saved session metadata cannot establish
+// whether this objective is still running or has been completed.
 
 const sessionObjective = computed(() => getMainAgentObjective(store.turns));
-
-const sessionObjectiveStatus = computed<"running" | "completed" | "idle">(() => {
-  if (store.detail?.shutdownMetrics) return "completed";
-  if (store.turns.length === 0) return "idle";
-  return "running";
-});
 
 function revealObjective(info: { eventIndex?: number; toolCallId?: string }) {
   // Find the owning turn and reveal via the active view.
@@ -232,7 +225,6 @@ function richEnabledFor(toolName: string): boolean {
       v-else-if="activeView === 'chat'"
       ref="chatViewRef"
       :objective="sessionObjective"
-      :objective-status="sessionObjectiveStatus"
       :cache-windows="cacheWindows"
       @message-sent="handleChatSteeringMessage"
       @reveal-objective="revealObjective"
@@ -262,7 +254,6 @@ function richEnabledFor(toolName: string): boolean {
       class="conv-objective-strip"
       scope="session"
       :objective="sessionObjective"
-      :status="sessionObjectiveStatus"
       @reveal="revealObjective"
     />
 

@@ -99,11 +99,9 @@ impl TurnReconstructor {
                 event_index: Some(event_index),
             });
         }
-        if let Some(reasoning) = &data.reasoning_text
-            && !reasoning.trim().is_empty()
-        {
+        if let Some(reasoning) = data.visible_reasoning() {
             turn.reasoning_texts.push(AttributedMessage {
-                content: reasoning.clone(),
+                content: reasoning.into_owned(),
                 parent_tool_call_id: owner,
                 agent_display_name: None, // resolved in finalize()
                 event_index: Some(event_index),

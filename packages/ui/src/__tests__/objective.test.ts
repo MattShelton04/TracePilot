@@ -17,6 +17,53 @@ function intentCall(intent: string, partial: Partial<TurnToolCall> = {}): TurnTo
 }
 
 describe("getCurrentObjective", () => {
+  it("does not infer an objective from saved tool intentions", () => {
+    const calls: TurnToolCall[] = [
+      { toolName: "view", isComplete: true, intentionSummary: "Inspect sources", eventIndex: 8 },
+      {
+        toolName: "powershell",
+        isComplete: false,
+        intentionSummary: " Run checks ",
+        eventIndex: 20,
+        toolCallId: "test-call",
+      },
+      { toolName: "view", isComplete: true, intentionSummary: "Older activity", eventIndex: 2 },
+      { toolName: "read_agent", isComplete: true, intentionSummary: " ", eventIndex: 25 },
+    ];
+    expect(getCurrentObjective(calls)).toBeNull();
+  });
+
+  it("keeps explicit legacy objectives ahead of lower-level tool intentions", () => {
+    expect(
+      getCurrentObjective([
+        intentCall("Fixing compatibility", { eventIndex: 1 }),
+        { toolName: "view", isComplete: true, intentionSummary: "Read a file", eventIndex: 2 },
+      ]),
+    ).toMatchObject({ text: "Fixing compatibility", updateCount: 1 });
+  });
+
+  it("counts consecutive updates in chronological order even for unsorted input", () => {
+    expect(
+      getCurrentObjective([
+        intentCall("checking", { eventIndex: 3 }),
+        intentCall("building", { eventIndex: 1 }),
+        intentCall("checking", { eventIndex: 2 }),
+      ])?.updateCount,
+    ).toBe(2);
+  });
+
+  it("does not promote arbitrary descriptions or commands to objectives", () => {
+    expect(
+      getCurrentObjective([
+        {
+          toolName: "powershell",
+          isComplete: true,
+          arguments: { description: "A tool description", command: "echo hi" },
+        },
+      ]),
+    ).toBeNull();
+  });
+
   it("returns null when there are no tool calls", () => {
     expect(getCurrentObjective([])).toBeNull();
   });
@@ -30,7 +77,7 @@ describe("getCurrentObjective", () => {
   });
 
   it("ignores empty / whitespace intents", () => {
-    const calls = [intentCall("   "), intentCall("")];
+    const calls = [intentCall("   "), intentCall("", { intentionSummary: "Report intent" })];
     expect(getCurrentObjective(calls)).toBeNull();
   });
 
@@ -79,6 +126,31 @@ describe("getCurrentObjective", () => {
 });
 
 describe("getMainAgentObjective", () => {
+  it("does not use tool intentions or a child's objective as the main objective", () => {
+    expect(
+      getMainAgentObjective([
+        {
+          toolCalls: [
+            {
+              toolName: "view",
+              isComplete: true,
+              intentionSummary: "Inspect main sources",
+              eventIndex: 1,
+            },
+            intentCall("Child objective", { parentToolCallId: "child", eventIndex: 9 }),
+            {
+              toolName: "view",
+              isComplete: true,
+              intentionSummary: "Child activity",
+              parentToolCallId: "child",
+              eventIndex: 10,
+            },
+          ],
+        },
+      ]),
+    ).toBeNull();
+  });
+
   it("scopes to tool calls without a parentToolCallId", () => {
     const turns = [
       {
@@ -129,6 +201,48 @@ describe("getMainAgentObjective", () => {
 });
 
 describe("getSubagentObjective", () => {
+  it("does not infer objectives from tools, non-intent pills or nested launches", () => {
+    const activities: SubagentActivityItem[] = [
+      {
+        kind: "tool",
+        key: "view",
+        sortKey: 1,
+        toolCall: {
+          toolName: "view",
+          isComplete: true,
+          intentionSummary: "Inspect code",
+          eventIndex: 1,
+        },
+      },
+      {
+        kind: "pill",
+        type: "read_agent",
+        label: "worker",
+        key: "read",
+        sortKey: 2,
+        toolCall: {
+          toolName: "read_agent",
+          isComplete: true,
+          intentionSummary: "Check worker",
+          eventIndex: 2,
+        },
+      },
+      {
+        kind: "nested-subagent",
+        key: "nested",
+        sortKey: 3,
+        toolCall: {
+          toolName: "task",
+          isComplete: false,
+          intentionSummary: "Delegate review",
+          toolCallId: "nested",
+          eventIndex: 3,
+        },
+      },
+    ];
+    expect(getSubagentObjective(activities)).toBeNull();
+  });
+
   function pill(intent: string, eventIndex?: number): SubagentActivityItem {
     return {
       kind: "pill",
@@ -147,7 +261,7 @@ describe("getSubagentObjective", () => {
 
   it("returns null when there are no intent pills", () => {
     const activities: SubagentActivityItem[] = [
-      { kind: "reasoning", key: "r", sortKey: 0, content: "thinking" },
+      { kind: "reasoning", key: "r", sortKey: 0, content: "**Checking sources**\n\nThinking..." },
     ];
     expect(getSubagentObjective(activities)).toBeNull();
   });

@@ -2,14 +2,14 @@
  * Derive a session's (or subagent's) **current objective** from a list of
  * tool calls or subagent activity items.
  *
- * Source of truth: the latest non-empty `report_intent` tool call. We pick
- * "latest" by the largest `eventIndex` (when present), falling back to
+ * Use only non-empty legacy `report_intent` calls. Tool intentions and
+ * reasoning headings describe individual actions, not session objectives.
+ * Modern `assistant.intent` is ephemeral and unavailable in saved sessions.
+ * Pick "latest" by the largest `eventIndex` (when present), falling back to
  * `completedAt`/`startedAt` timestamps and ultimately to input order so
  * legacy data without event indices still produces a stable result.
  *
- * The CLI surfaces the same value as a progress bar; in the desktop app
- * we use this helper to drive a persistent objective banner instead of
- * relying purely on inline pill rendering.
+ * Retain the originating tool/event so the objective can be inspected in context.
  */
 import type { TurnToolCall } from "@tracepilot/types";
 import { getToolArgs, toolArgString } from "@tracepilot/types";
@@ -18,9 +18,9 @@ import type { SubagentActivityItem } from "../components/SubagentPanel/types";
 export interface CurrentObjective {
   /** The intent text reported by the agent (already trimmed, never empty). */
   text: string;
-  /** Tool call id of the originating `report_intent` (for deep-linking). */
+  /** Tool call id of the originating update (for deep-linking). */
   toolCallId?: string;
-  /** Event index of the originating `report_intent` (for deep-linking). */
+  /** Event index of the originating update (for deep-linking). */
   eventIndex?: number;
   /** ISO timestamp of the originating event, when available. */
   timestamp?: string;
@@ -54,7 +54,7 @@ function compareRank(a: [number, number, number], b: [number, number, number]): 
   return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
 }
 
-function pushIfIntent(out: IntentRecord[], tc: TurnToolCall, ordinal: number): void {
+function pushToolObjective(out: IntentRecord[], tc: TurnToolCall, ordinal: number): void {
   if (tc.toolName !== "report_intent") return;
   const text = toolArgString(getToolArgs(tc), "intent").trim();
   if (!text) return;
@@ -69,19 +69,12 @@ function pushIfIntent(out: IntentRecord[], tc: TurnToolCall, ordinal: number): v
 
 function finalize(records: IntentRecord[]): CurrentObjective | null {
   if (records.length === 0) return null;
+  records.sort((a, b) => compareRank(recordRank(a), recordRank(b)));
   const distinctUpdates = records.reduce<string[]>((acc, record) => {
     if (acc[acc.length - 1] !== record.text) acc.push(record.text);
     return acc;
   }, []);
-  let latest = records[0];
-  let latestRank = recordRank(latest);
-  for (let i = 1; i < records.length; i++) {
-    const rank = recordRank(records[i]);
-    if (compareRank(rank, latestRank) > 0) {
-      latest = records[i];
-      latestRank = rank;
-    }
-  }
+  const latest = records[records.length - 1];
   return {
     text: latest.text,
     toolCallId: latest.toolCallId,
@@ -98,7 +91,7 @@ function finalize(records: IntentRecord[]): CurrentObjective | null {
  */
 export function getCurrentObjective(toolCalls: readonly TurnToolCall[]): CurrentObjective | null {
   const records: IntentRecord[] = [];
-  for (let i = 0; i < toolCalls.length; i++) pushIfIntent(records, toolCalls[i], i);
+  for (let i = 0; i < toolCalls.length; i++) pushToolObjective(records, toolCalls[i], i);
   return finalize(records);
 }
 
@@ -115,16 +108,15 @@ export function getMainAgentObjective(
   for (const turn of turns) {
     for (const tc of turn.toolCalls) {
       if (tc.parentToolCallId) continue;
-      pushIfIntent(records, tc, ordinal++);
+      pushToolObjective(records, tc, ordinal++);
     }
   }
   return finalize(records);
 }
 
 /**
- * Returns the latest objective from a subagent's activity stream. Subagent
- * panels already build activities (with intent pills); reusing them keeps
- * the banner perfectly in sync without re-walking child tool calls.
+ * Returns the latest explicit objective from an already
+ * scoped subagent stream. Intent pills retain their legacy label fallback.
  */
 export function getSubagentObjective(
   activities: readonly SubagentActivityItem[],
@@ -132,7 +124,11 @@ export function getSubagentObjective(
   const records: IntentRecord[] = [];
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i];
-    if (a.kind !== "pill" || a.type !== "intent") continue;
+    if (a.kind === "reasoning") continue;
+    if (a.kind !== "pill" || a.type !== "intent") {
+      pushToolObjective(records, a.toolCall, i);
+      continue;
+    }
     const tc = a.toolCall;
     const text = toolArgString(getToolArgs(tc), "intent").trim() || a.label.trim();
     if (!text) continue;

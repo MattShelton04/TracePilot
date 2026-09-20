@@ -153,6 +153,15 @@ function onRetryFullResult(toolCallId: string) {
       <div class="compact-turn-body">
         <!-- Agent-grouped messages in compact view -->
         <template v-for="(section, sIdx) in getSections(turn.turnIndex)" :key="`compact-s-${sIdx}`">
+          <ReasoningBlock
+            :reasoning="section.reasoning"
+            :expanded="expandedReasoning.has(`compact-${turn.turnIndex}-${section.agentId ?? 'main'}`)"
+            @toggle="expandedReasoning.toggle(`compact-${turn.turnIndex}-${section.agentId ?? 'main'}`)"
+          >
+            <template v-if="section.agentId" #prefix>
+              <AgentBadge :agent-name="section.agentDisplayName" :agent-type="section.agentType" compact />
+            </template>
+          </ReasoningBlock>
           <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`compact-msg-${sIdx}-${idx}`" class="compact-turn-label">
             <span class="compact-turn-label-prefix assistant">
               <span
