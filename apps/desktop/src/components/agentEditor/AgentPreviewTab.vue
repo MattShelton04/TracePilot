@@ -12,7 +12,13 @@ import { findPlaceholders, renderPromptPreview } from "@/utils/agents/placeholde
 const ctx = useAgentEditorContext();
 
 const rendered = computed(() => renderPromptPreview(ctx.body));
-const placeholders = computed(() => findPlaceholders(ctx.body));
+/** `token` is pre-built because `{{` cannot appear inside an interpolation. */
+const placeholders = computed(() =>
+  findPlaceholders(ctx.body).map((placeholder) => ({
+    ...placeholder,
+    token: `{{${placeholder.name}}}`,
+  })),
+);
 </script>
 
 <template>
@@ -33,7 +39,7 @@ const placeholders = computed(() => findPlaceholders(ctx.body));
 
     <ul v-if="placeholders.length" class="placeholders">
       <li v-for="placeholder in placeholders" :key="placeholder.name">
-        <code>{{ "{{" + placeholder.name + "}}" }}</code>
+        <code>{{ placeholder.token }}</code>
         <span v-if="placeholder.resolved">→ <code>{{ placeholder.resolved }}</code></span>
         <span v-else class="placeholders__unknown">filled by the CLI at runtime</span>
         <span class="placeholders__count">×{{ placeholder.count }}</span>

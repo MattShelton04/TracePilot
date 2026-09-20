@@ -9,10 +9,27 @@ import {
   truncateText,
 } from "@tracepilot/ui";
 import { computed, ref, useId } from "vue";
+import { useRouter } from "vue-router";
 import { TOOLS_COLLAPSE_LIMIT, useConfigInjectorContext } from "@/composables/useConfigInjector";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
+import { usePreferencesStore } from "@/stores/preferences";
 import { agentMeta } from "@/utils/agents/agentMeta";
 
 const ctx = useConfigInjectorContext();
+const router = useRouter();
+const prefs = usePreferencesStore();
+
+/**
+ * This tab stays the bulk model assignment view; everything else about an
+ * agent — usage, overrides, the prompt — lives on the Agents page.
+ */
+const agentsPageEnabled = computed(() => prefs.isFeatureEnabled("agents"));
+
+function openInAgents(filePath: string) {
+  pushRoute(router, ROUTE_NAMES.agentEditor, { query: { id: filePath } });
+}
+
 const {
   store,
   expandedTools,
@@ -60,6 +77,14 @@ const premiumAgentCount = computed(
 
 <template>
   <div class="tab-panel">
+    <p v-if="agentsPageEnabled" class="agents-page-hint">
+      Bulk model assignment for the installed definitions.
+      <button type="button" class="agents-page-hint__link" @click="pushRoute(router, ROUTE_NAMES.agentsManager)">
+        Open Agents
+      </button>
+      for usage, overrides and custom agents.
+    </p>
+
     <!-- Stat Cards -->
     <div class="stat-grid">
       <StatCard
@@ -95,7 +120,14 @@ const premiumAgentCount = computed(
             <component :is="agentIcon(agent.name)" :size="18" :stroke-width="1.5" />
           </div>
           <div class="agent-info">
-            <span class="agent-name">{{ agent.name }}</span>
+            <button
+              v-if="agentsPageEnabled"
+              type="button"
+              class="agent-name agent-name--link"
+              :aria-label="`Open ${agent.name} in Agents`"
+              @click="openInAgents(agent.filePath)"
+            >{{ agent.name }}</button>
+            <span v-else class="agent-name">{{ agent.name }}</span>
             <span
               class="tier-badge"
               :class="`tier-badge--${modelTier(agentModels[agent.filePath] ?? agent.model)}`"
