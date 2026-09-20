@@ -24,6 +24,7 @@
     "app:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 stop",
     "app:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 status",
     "test:automation": "node --test scripts/automation/*.test.mjs",
+    "test:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/e2e/test.ps1",
     "build": "pnpm --filter @tracepilot/desktop build",
     "build:cli": "pnpm --filter @tracepilot/cli build",
     "cli": "tsx apps/cli/src/index.ts",
@@ -56,6 +57,7 @@
     "@biomejs/biome": "^2.4.7",
     "@fontsource-variable/inter": "catalog:",
     "@playwright/cli": "0.1.19",
+    "@playwright/test": "1.59.1",
     "playwright-core": "^1.58.2",
     "rimraf": "^6.1.3",
     "tsx": "catalog:"

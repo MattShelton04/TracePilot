@@ -17,7 +17,8 @@ Keep this index in sync when scripts are added, renamed, or removed.
 | `pgo-build.ps1` / `pgo-build.sh` | Two-phase profile-guided optimisation build of the Rust workspace. |
 | `validate-session-versions.py` | Verify `supported-copilot-versions.json` covers the Copilot CLI session schema fixtures under `packages/test-utils/fixtures/`. |
 | `automation/` | Development lifecycle and native readiness checks behind `pnpm app:start`, `app:ui`, `app:status`, and `app:stop`. Interaction uses the upstream Playwright CLI; see [automation](../docs/app-automation.md). |
-| `e2e/` | Optional repeatable Playwright-over-CDP diagnostics for the running Tauri app: `launch.ps1` / `stop.ps1`, shared `connect.mjs`, canonical `smoke-test.mjs`, optional `perf-profile.mjs`, and README media capture via `capture-readme-media.mjs`. See `docs/testing.md` for the test-pyramid guide and E2E contract. |
+| `e2e/test.ps1` | Build and run the native integration suite; `-Install` also installs/uninstalls the isolated NSIS package. See [native integration tests](../tests/e2e/README.md). |
+| Other `e2e/` scripts | Optional diagnostics for the running Tauri app: shared `connect.mjs`, `smoke-test.mjs`, `perf-profile.mjs`, and README media capture. See [testing](../docs/testing.md). |
 
 ## Conventions
 
@@ -33,9 +34,7 @@ Keep this index in sync when scripts are added, renamed, or removed.
 
 A `justfile` mirroring the `.ps1` scripts and a Node/TS port of
 `validate-session-versions.py` are tracked under Plan §6.3 and remain out
-of scope for the current wave. Porting the CDP harness to a
-`tests/e2e/*.spec.ts` Playwright project was evaluated in Wave 106 and
-explicitly deferred — the `tracepilot-app-automation` skill plus the
-Playwright CLI are the interactive path; smoke/perf scripts remain optional diagnostics (see `docs/testing.md`);
-follow-up items should be tracked in the current improvement review or a
-fresh issue before being scheduled.
+of scope for the current wave. The `tracepilot-app-automation` skill and
+Playwright CLI remain the interactive path. The native integration suite in
+`tests/e2e/` is the repeatable CI gate; older smoke/perf scripts remain optional
+diagnostics (see [testing](../docs/testing.md)).

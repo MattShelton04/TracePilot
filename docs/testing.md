@@ -12,10 +12,11 @@ tooling, scripts, and CI status for each.
 | Unit / integration (Rust) | `cargo test` | `crates/**` | ✅ `cargo test` |
 | Component visual regression | Playwright CT | `packages/ui/src/__vrt__/*.vrt.spec.ts` | ❌ on-demand only |
 | Desktop frontend visual comparison | Chromium + synthetic backend fixtures | `scripts/visual/`, `visual-*.yml` workflows | ✅ relevant PRs and main pushes |
-| Desktop end-to-end (real Tauri app) | Playwright agent CLI + optional CDP diagnostics | `scripts/automation/`, `scripts/e2e/` | ❌ on-demand only |
+| Desktop integration (installed Tauri app) | Playwright Test + native WebView2/CDP | `tests/e2e/`, `scripts/e2e/test.ps1` | ✅ Windows installer job on PRs and main |
+| Interactive desktop diagnostics | Playwright agent CLI | `scripts/automation/`, `scripts/e2e/` | ❌ on-demand |
 
 The JS/TS and Rust unit suites are the primary regression gate. Component VRT
-and native E2E are opt-in. [Desktop frontend visual comparisons](visual-regression.md)
+is opt-in; native integration tests run in CI. [Desktop frontend visual comparisons](visual-regression.md)
 run in CI with synthetic backend data and report PR base/head changes; they do
 not verify Rust or native behavior. VRT needs a Chromium download;
 desktop automation attaches to the installed WebView2 runtime and needs a live
@@ -51,6 +52,12 @@ Linux sub-pixel antialiasing). Baselines must be refreshed together on a
 single OS.
 
 ## 3. Running-app exploration and desktop E2E
+
+The [native integration suite](../tests/e2e/README.md) runs first-time setup,
+indexing, browsing/session tabs, full-text search, file refresh, settings, restart,
+and an empty-library arrival flow against synthetic files and a real Rust backend.
+Run `pnpm test:e2e` locally; use `-SkipBuild` for repeat runs or `-Install` to
+exercise NSIS installation and uninstall as CI does. No private data is used.
 
 For interactive development, use the pinned **Playwright agent CLI** with the
 [automation skill](../.github/skills/tracepilot-app-automation/SKILL.md). It drives
