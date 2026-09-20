@@ -6046,6 +6046,7 @@ dependencies = [
  "chrono",
  "criterion",
  "rusqlite",
+ "serde",
  "serde_json",
  "tempfile",
  "tracepilot-core",

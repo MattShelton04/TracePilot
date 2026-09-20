@@ -12,6 +12,7 @@ dhat-heap = ["tracepilot-core/dhat-heap"]
 tracepilot-core = { workspace = true }
 tracepilot-indexer = { workspace = true }
 rusqlite = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }

@@ -1,4 +1,4 @@
-use crate::builder::SessionFixtureBuilder;
+use crate::builder::{SessionFixtureBuilder, fixture_session_id};
 use crate::workspace::make_workspace_yaml;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -60,7 +60,7 @@ pub fn create_varied_session_fixture(session_count: usize) -> (TempDir, PathBuf)
     for (pi, &quota) in quotas.iter().enumerate() {
         let profile = profiles[pi];
         for _ in 0..quota {
-            let session_id = format!("session-varied-{idx:04}");
+            let session_id = fixture_session_id(idx);
             let session_dir = sessions_dir.join(&session_id);
             std::fs::create_dir_all(&session_dir).unwrap();
 
@@ -72,7 +72,7 @@ pub fn create_varied_session_fixture(session_count: usize) -> (TempDir, PathBuf)
             .unwrap();
             std::fs::write(
                 session_dir.join("events.jsonl"),
-                builder.build_jsonl_string(),
+                builder.build_jsonl_string_for(&session_id),
             )
             .unwrap();
 

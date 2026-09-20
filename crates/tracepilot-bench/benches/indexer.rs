@@ -1,8 +1,33 @@
+use std::path::Path;
+
 use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
 use tracepilot_bench::{
     SessionFixtureBuilder, create_multi_session_fixture, create_varied_session_fixture,
 };
 use tracepilot_indexer::index_db::IndexDb;
+
+fn populate_db(db: &IndexDb, sessions_path: &Path, expected_count: usize) {
+    let indexed = db
+        .with_transaction(|db| {
+            let mut indexed = 0;
+            for entry in std::fs::read_dir(sessions_path)? {
+                let entry = entry?;
+                if entry.file_type()?.is_dir() {
+                    db.upsert_session(&entry.path())?;
+                    indexed += 1;
+                }
+            }
+            Ok(indexed)
+        })
+        .expect("populate benchmark index");
+
+    assert_eq!(indexed, expected_count, "fixture directory count");
+    assert_eq!(
+        db.session_count().expect("count indexed sessions"),
+        expected_count,
+        "indexed session count"
+    );
+}
 
 fn bench_upsert_session(c: &mut Criterion) {
     let mut group = c.benchmark_group("upsert_session");
@@ -50,7 +75,9 @@ fn bench_reindex_all(c: &mut Criterion) {
                         (db_dir, db_path)
                     },
                     |(_db_dir, db_path)| {
-                        tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        let indexed =
+                            tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        assert_eq!(indexed, count);
                     },
                     BatchSize::SmallInput,
                 );
@@ -69,20 +96,17 @@ fn bench_search(c: &mut Criterion) {
 
         let (_sessions_guard, sessions_path) = create_multi_session_fixture(count, 50);
 
-        db.with_transaction(|db| {
-            for entry in std::fs::read_dir(&sessions_path).unwrap() {
-                let entry = entry.unwrap();
-                if entry.file_type().unwrap().is_dir() {
-                    let _ = db.upsert_session(&entry.path());
-                }
-            }
-            Ok(())
-        })
-        .unwrap();
+        populate_db(&db, &sessions_path, count);
+        assert!(
+            !db.search("refactor")
+                .expect("verify benchmark search")
+                .is_empty(),
+            "benchmark search query must match fixture metadata"
+        );
 
         group.throughput(criterion::Throughput::Elements(count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), &db, |b, db| {
-            b.iter(|| db.search("Refactor module").unwrap());
+            b.iter(|| db.search("refactor").unwrap());
         });
     }
     group.finish();
@@ -97,16 +121,13 @@ fn bench_query_analytics(c: &mut Criterion) {
 
         let (_sessions_guard, sessions_path) = create_multi_session_fixture(count, 50);
 
-        db.with_transaction(|db| {
-            for entry in std::fs::read_dir(&sessions_path).unwrap() {
-                let entry = entry.unwrap();
-                if entry.file_type().unwrap().is_dir() {
-                    let _ = db.upsert_session(&entry.path());
-                }
-            }
-            Ok(())
-        })
-        .unwrap();
+        populate_db(&db, &sessions_path, count);
+        assert_eq!(
+            db.query_analytics(None, None, None, false)
+                .expect("verify benchmark analytics")
+                .total_sessions,
+            count as u32
+        );
 
         group.throughput(criterion::Throughput::Elements(count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), &db, |b, db| {
@@ -135,7 +156,9 @@ fn bench_reindex_varied(c: &mut Criterion) {
                         (db_dir, db_path)
                     },
                     |(_db_dir, db_path)| {
-                        tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        let indexed =
+                            tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        assert_eq!(indexed, count);
                     },
                     BatchSize::SmallInput,
                 );
@@ -174,17 +197,21 @@ fn bench_reindex_search_content(c: &mut Criterion) {
                         let db_dir = tempfile::tempdir().unwrap();
                         let db_path = db_dir.path().join("bench.db");
                         // Phase 1 must run first — search indexing depends on session metadata
-                        tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        let indexed =
+                            tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        assert_eq!(indexed, count);
                         (db_dir, db_path)
                     },
                     |(_db_dir, db_path)| {
-                        tracepilot_indexer::reindex_search_content(
+                        let (indexed, skipped) = tracepilot_indexer::reindex_search_content(
                             sessions_path,
                             &db_path,
                             |_| {},
                             || false,
                         )
                         .unwrap();
+                        assert_eq!(indexed, count);
+                        assert_eq!(skipped, 0);
                     },
                     BatchSize::SmallInput,
                 );
@@ -214,17 +241,21 @@ fn bench_reindex_search_varied(c: &mut Criterion) {
                     || {
                         let db_dir = tempfile::tempdir().unwrap();
                         let db_path = db_dir.path().join("bench.db");
-                        tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        let indexed =
+                            tracepilot_indexer::reindex_all(sessions_path, &db_path).unwrap();
+                        assert_eq!(indexed, count);
                         (db_dir, db_path)
                     },
                     |(_db_dir, db_path)| {
-                        tracepilot_indexer::reindex_search_content(
+                        let (indexed, skipped) = tracepilot_indexer::reindex_search_content(
                             sessions_path,
                             &db_path,
                             |_| {},
                             || false,
                         )
                         .unwrap();
+                        assert_eq!(indexed, count);
+                        assert_eq!(skipped, 0);
                     },
                     BatchSize::SmallInput,
                 );

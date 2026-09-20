@@ -1,3 +1,4 @@
+use crate::builder::fixture_session_id;
 use crate::events::{build_session_events, events_to_jsonl};
 use crate::workspace::make_workspace_yaml;
 use tempfile::TempDir;
@@ -19,12 +20,12 @@ pub fn generate_analytics_inputs(
     let mut inputs = Vec::with_capacity(session_count);
 
     for i in 0..session_count {
-        let session_id = format!("bench-analytics-{i:04}");
+        let session_id = fixture_session_id(i);
         let session_dir = dir.path().join(&session_id);
         std::fs::create_dir_all(&session_dir).unwrap();
 
         let tool_calls_total = turns_per_session * tool_calls_per_turn;
-        let events = build_session_events(turns_per_session, tool_calls_total);
+        let events = build_session_events(&session_id, turns_per_session, tool_calls_total);
 
         std::fs::write(
             session_dir.join("workspace.yaml"),

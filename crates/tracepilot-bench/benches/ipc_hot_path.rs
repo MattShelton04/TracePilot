@@ -41,11 +41,37 @@ fn build_indexed_corpus(count: usize) -> (TempDir, TempDir, IndexDb) {
     let db_dir = tempfile::tempdir().expect("create db tempdir");
     let db_path = db_dir.path().join("bench.db");
 
-    reindex_all(&sessions_path, &db_path).expect("reindex_all");
-    reindex_search_content(&sessions_path, &db_path, |_| {}, || false)
-        .expect("reindex_search_content");
+    let indexed = reindex_all(&sessions_path, &db_path).expect("reindex_all");
+    assert_eq!(indexed, count, "full index must include every fixture");
+    let (search_indexed, search_skipped) =
+        reindex_search_content(&sessions_path, &db_path, |_| {}, || false)
+            .expect("reindex_search_content");
+    assert_eq!(
+        search_indexed, count,
+        "search index must include every fixture"
+    );
+    assert_eq!(
+        search_skipped, 0,
+        "fresh search index must not skip fixtures"
+    );
 
     let db = IndexDb::open_readonly(&db_path).expect("open readonly");
+    let sessions = db
+        .list_sessions_filtered(None, None, None, false)
+        .expect("list indexed benchmark sessions");
+    assert_eq!(sessions.len(), count, "indexed session count");
+
+    let validation_filters = SearchFilters {
+        limit: Some(1),
+        ..Default::default()
+    };
+    assert!(
+        !db.query_content(Some("refactor"), &validation_filters)
+            .expect("query common benchmark term")
+            .is_empty(),
+        "common-term search must return benchmark content"
+    );
+
     (sessions_guard, db_dir, db)
 }
 

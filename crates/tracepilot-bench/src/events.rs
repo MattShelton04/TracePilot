@@ -35,7 +35,11 @@ fn make_timestamp(base: DateTime<Utc>, offset_secs: i64) -> String {
 ///
 /// Produces a deterministic stream following real Copilot CLI event patterns:
 /// `session.start` → N×(user.message, turn_start, assistant.message, tools…, turn_end) → `session.shutdown`.
-pub(crate) fn build_session_events(turn_count: usize, tool_call_count: usize) -> Vec<Value> {
+pub(crate) fn build_session_events(
+    session_id: &str,
+    turn_count: usize,
+    tool_call_count: usize,
+) -> Vec<Value> {
     let base = base_time();
     let mut events = Vec::new();
     let mut ts_offset: i64 = 0;
@@ -52,7 +56,7 @@ pub(crate) fn build_session_events(turn_count: usize, tool_call_count: usize) ->
     events.push(json!({
         "type": "session.start",
         "data": {
-            "sessionId": "bench-session-0001",
+            "sessionId": session_id,
             "version": "1.0",
             "producer": "copilot-cli",
             "context": {
