@@ -329,29 +329,11 @@ pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, Skil
 
 /// Recursively count non-SKILL.md, non-hidden files in a directory.
 fn count_assets(dir: &Path) -> usize {
-    count_assets_recursive(dir)
-}
-
-fn count_assets_recursive(dir: &Path) -> usize {
-    let mut count = 0;
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return 0,
-    };
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if name_str.starts_with('.') {
-            continue;
-        }
-        let path = entry.path();
-        if path.is_dir() {
-            count += count_assets_recursive(&path);
-        } else if name_str != "SKILL.md" {
-            count += 1;
-        }
-    }
-    count
+    crate::skills::assets::list_assets(dir)
+        .unwrap_or_default()
+        .iter()
+        .filter(|asset| !asset.is_directory)
+        .count()
 }
 
 #[cfg(test)]

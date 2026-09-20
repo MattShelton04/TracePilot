@@ -25,38 +25,40 @@ fn collect_assets(
     dir: &Path,
     assets: &mut Vec<SkillAsset>,
 ) -> Result<(), SkillsError> {
-    for entry in std::fs::read_dir(dir)?.flatten() {
+    let canonical_root = root.canonicalize()?;
+    for entry in walkdir::WalkDir::new(dir)
+        .follow_links(true)
+        .min_depth(1)
+        .into_iter()
+        .filter_entry(|entry| {
+            entry.depth() == 0
+                || (!entry.file_name().to_string_lossy().starts_with('.')
+                    && entry
+                        .path()
+                        .canonicalize()
+                        .is_ok_and(|path| path.starts_with(&canonical_root)))
+        })
+        .flatten()
+    {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
-
-        // Skip hidden files and SKILL.md
-        if name.starts_with('.') || (name == "SKILL.md" && dir == root) {
+        if name == "SKILL.md" && path.parent() == Some(root) {
             continue;
         }
-
-        let relative = path
-            .strip_prefix(root)
-            .unwrap_or(&path)
-            .to_string_lossy()
-            .to_string();
-
-        if path.is_dir() {
-            assets.push(SkillAsset {
-                path: relative.clone(),
-                name: name.clone(),
-                size_bytes: 0,
-                is_directory: true,
-            });
-            collect_assets(root, &path, assets)?;
-        } else {
-            let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-            assets.push(SkillAsset {
-                path: relative,
-                name,
-                size_bytes: size,
-                is_directory: false,
-            });
-        }
+        assets.push(SkillAsset {
+            path: path
+                .strip_prefix(root)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .to_string(),
+            name,
+            size_bytes: if entry.file_type().is_dir() {
+                0
+            } else {
+                entry.metadata().map(|m| m.len()).unwrap_or(0)
+            },
+            is_directory: entry.file_type().is_dir(),
+        });
     }
 
     Ok(())

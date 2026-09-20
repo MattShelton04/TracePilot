@@ -92,3 +92,23 @@ fn missing_sources_produce_an_empty_catalog() {
     assert!(catalog.cli_version.is_none());
     assert!(catalog.diagnostics.is_empty());
 }
+
+#[test]
+fn linked_agent_directories_are_discovered_without_following_cycles() {
+    let fixture = Fixture::new();
+    let shared = fixture.repo.join("shared");
+    std::fs::create_dir_all(&shared).unwrap();
+    std::fs::write(shared.join("reviewer.md"), REVIEWER_MD).unwrap();
+    crate::test_links::directory_link(&shared, &shared.join("cycle"));
+    let installed = fixture.repo.join(".github/agents/team");
+    crate::test_links::directory_link(&shared, &installed);
+    let catalog = discover(&fixture.roots());
+    let entries: Vec<_> = catalog
+        .definitions
+        .iter()
+        .filter(|d| d.name == "reviewer")
+        .collect();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].scope, AgentScope::Project);
+    assert_eq!(Path::new(&entries[0].path), installed.join("reviewer.md"));
+}

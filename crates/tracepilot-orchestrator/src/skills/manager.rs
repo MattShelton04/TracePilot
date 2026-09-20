@@ -16,6 +16,14 @@ use tracepilot_core::ids::SkillName;
 /// This prevents IPC callers from passing arbitrary paths that could lead to
 /// reads/writes/deletes of unrelated directories.
 pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
+    // Validate the installation path as well as its target. A skill explicitly
+    // linked into a supported root is installed there, even if shared elsewhere.
+    if skill_dir
+        .components()
+        .any(|part| matches!(part, std::path::Component::ParentDir))
+    {
+        return Err(SkillsError::PathTraversal(skill_dir.display().to_string()));
+    }
     let canonical = skill_dir
         .canonicalize()
         .unwrap_or_else(|_| skill_dir.to_path_buf());
@@ -29,14 +37,16 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
                 return Ok(());
             }
             // Also check non-canonical in case dir doesn't exist yet.
-            if canonical.starts_with(&root) {
+            if canonical.starts_with(&root) || skill_dir.starts_with(&root) {
                 return Ok(());
             }
         }
     }
 
     // Check if it's under a repo-scoped skills directory.
-    if crate::skills::discovery::skill_repository(&canonical).is_some() {
+    if crate::skills::discovery::skill_repository(skill_dir).is_some()
+        || crate::skills::discovery::skill_repository(&canonical).is_some()
+    {
         return Ok(());
     }
 
@@ -49,39 +59,28 @@ pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
 /// Validate that a skill path is registered and may be mutated.
 pub fn validate_mutable_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
     validate_skill_dir(skill_dir)?;
-    let canonical = skill_dir
-        .canonicalize()
-        .unwrap_or_else(|_| skill_dir.to_path_buf());
-
-    if let Ok(packages) = builtin_packages_dir() {
-        if let Ok(packages_canon) = packages.canonicalize()
-            && canonical.starts_with(&packages_canon)
-        {
-            return Err(SkillsError::ReadOnly(skill_dir.display().to_string()));
-        }
-        if canonical.starts_with(&packages) {
-            return Err(SkillsError::ReadOnly(skill_dir.display().to_string()));
-        }
+    if is_builtin_skill_dir(skill_dir) {
+        return Err(SkillsError::ReadOnly(skill_dir.display().to_string()));
     }
 
     Ok(())
 }
 
 fn is_builtin_skill_dir(skill_dir: &Path) -> bool {
-    let canonical = skill_dir
-        .canonicalize()
-        .unwrap_or_else(|_| skill_dir.to_path_buf());
-    if let Ok(packages) = builtin_packages_dir() {
-        if let Ok(packages_canon) = packages.canonicalize()
-            && canonical.starts_with(&packages_canon)
-        {
-            return true;
-        }
-        if canonical.starts_with(&packages) {
-            return true;
-        }
-    }
-    false
+    let Ok(packages) = builtin_packages_dir() else {
+        return false;
+    };
+    let packages_canonical = packages.canonicalize().unwrap_or_else(|_| packages.clone());
+    // Both folder links and individual SKILL.md links retain packaged content's
+    // read-only policy, even when installed under a writable project root.
+    [
+        Some(skill_dir.to_path_buf()),
+        skill_dir.canonicalize().ok(),
+        skill_dir.join("SKILL.md").canonicalize().ok(),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|path| path.starts_with(&packages) || path.starts_with(&packages_canonical))
 }
 
 /// Create a new skill in the global skills directory.
@@ -161,12 +160,16 @@ pub fn update_skill_raw(skill_dir: &Path, raw_content: &str) -> Result<(), Skill
 
 /// Delete a skill directory entirely.
 pub fn delete_skill(skill_dir: &Path) -> Result<(), SkillsError> {
-    if !skill_dir.exists() {
-        return Err(SkillsError::NotFound(
-            skill_dir.to_string_lossy().to_string(),
-        ));
+    let metadata = std::fs::symlink_metadata(skill_dir)?;
+    if metadata.file_type().is_symlink() {
+        #[cfg(windows)]
+        std::fs::remove_dir(skill_dir)?;
+        #[cfg(not(windows))]
+        std::fs::remove_file(skill_dir)?;
+    } else {
+        // Rust's remove_dir_all does not follow directory junctions either.
+        std::fs::remove_dir_all(skill_dir)?;
     }
-    std::fs::remove_dir_all(skill_dir)?;
     Ok(())
 }
 
@@ -231,18 +234,13 @@ pub fn duplicate_skill(skill_dir: &Path, new_name: &SkillName) -> Result<PathBuf
     let content = tracepilot_core::TracePilotError::read_to_string(&skill_path)?;
     parse_skill_md(&content)?;
 
-    let new_dir = skill_dir.parent().unwrap_or(Path::new(".")).join(new_name);
-
-    if new_dir.exists() {
-        return Err(SkillsError::DuplicateSkill(new_name.to_string()));
-    }
-
-    // Copy the entire directory
-    copy_dir_recursive(skill_dir, &new_dir)?;
-
-    // Update the frontmatter name in the copy
     let new_content = patch_frontmatter_scalar(&content, "name", new_name);
-    std::fs::write(new_dir.join("SKILL.md"), new_content)?;
+    let parent = skill_dir.parent().unwrap_or(Path::new("."));
+    let (new_dir, _) = crate::skills::import::atomic_dir_install(parent, new_name, |staging| {
+        crate::skills::import::copy_dir_contents(skill_dir, staging)?;
+        std::fs::write(staging.join("SKILL.md"), new_content)?;
+        Ok(())
+    })?;
 
     Ok(new_dir)
 }
@@ -263,38 +261,12 @@ fn determine_scope(skill_dir: &Path) -> SkillScope {
     if is_builtin_skill_dir(skill_dir) {
         return SkillScope::Builtin;
     }
-    let path_str = skill_dir.to_string_lossy();
-    if path_str.contains(tracepilot_core::paths::COPILOT_DIR_NAME)
-        && !path_str.contains(tracepilot_core::paths::SKILLS_DIR_NAME)
-    {
-        SkillScope::Repository
-    } else if let Ok(global) = global_skills_dir() {
-        if skill_dir.starts_with(&global) {
-            SkillScope::Global
-        } else {
-            SkillScope::Repository
-        }
-    } else {
-        SkillScope::Repository
+    // The logical global path wins before the structurally identical
+    // <repo>/.copilot/skills path. Project links keep their installing scope.
+    if global_skills_dir().is_ok_and(|root| skill_dir.starts_with(root)) {
+        return SkillScope::Global;
     }
-}
-
-/// Recursively copy a directory and all its contents.
-fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), SkillsError> {
-    std::fs::create_dir_all(dst)?;
-
-    for entry in std::fs::read_dir(src)?.flatten() {
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-
-        if src_path.is_dir() {
-            copy_dir_recursive(&src_path, &dst_path)?;
-        } else {
-            std::fs::copy(&src_path, &dst_path)?;
-        }
-    }
-
-    Ok(())
+    SkillScope::Repository
 }
 
 #[cfg(test)]

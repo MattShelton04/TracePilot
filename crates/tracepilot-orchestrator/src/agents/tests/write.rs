@@ -224,3 +224,32 @@ fn project_agents_require_a_registered_repository() {
         .is_err()
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn saving_linked_agent_preserves_link_and_delete_only_unlinks() {
+    let fixture = Fixture::new();
+    let source = fixture.repo.join("shared.md");
+    std::fs::write(&source, REVIEWER_MD).unwrap();
+    let link = fixture.repo.join(".github/agents/reviewer.md");
+    std::fs::create_dir_all(link.parent().unwrap()).unwrap();
+    std::os::unix::fs::symlink(&source, &link).unwrap();
+    let backup = fixture.repo.join("backups");
+    super::super::write::save_raw(
+        &fixture.roots(),
+        &link,
+        &REVIEWER_MD.replace("Review the diff.", "Edited instructions."),
+        BuiltinWrites::Denied,
+        &backup,
+    )
+    .unwrap();
+    assert!(link.is_symlink());
+    assert!(
+        std::fs::read_to_string(&source)
+            .unwrap()
+            .contains("Edited instructions.")
+    );
+    super::super::write::delete(&fixture.roots(), &link, &backup).unwrap();
+    assert!(!link.exists());
+    assert!(source.exists());
+}

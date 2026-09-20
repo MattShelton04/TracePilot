@@ -205,3 +205,60 @@ fn packaged_skill_paths_are_readable_but_not_mutable() {
         Err(SkillsError::ReadOnly(_))
     ));
 }
+
+#[test]
+fn linked_skill_keeps_installation_scope_and_removal_preserves_target() {
+    let temp = TempDir::new().unwrap();
+    let target = setup_skill(temp.path(), "shared");
+    let link = temp.path().join("repo/.github/skills/linked");
+    crate::test_links::directory_link(&target, &link);
+    validate_skill_dir(&link).unwrap();
+    validate_mutable_skill_dir(&link).unwrap();
+    let skill = get_skill(&link).unwrap();
+    assert_eq!(skill.scope, SkillScope::Repository);
+    assert_eq!(Path::new(&skill.directory), link);
+    update_skill_raw(
+        &link,
+        "---\nname: shared\ndescription: Edited\n---\nNew body",
+    )
+    .unwrap();
+    assert!(
+        std::fs::read_to_string(target.join("SKILL.md"))
+            .unwrap()
+            .contains("New body")
+    );
+    assert!(validate_skill_dir(&link.join("../outside")).is_err());
+    delete_skill(&link).unwrap();
+    assert!(!link.exists());
+    assert!(target.join("SKILL.md").exists());
+}
+
+#[test]
+fn linked_skill_roots_and_asset_cycles_are_handled() {
+    let temp = TempDir::new().unwrap();
+    let source = temp.path().join("shared-skills");
+    let target = setup_skill(&source, "review");
+    std::fs::create_dir_all(target.join("references")).unwrap();
+    std::fs::write(target.join("references/notes.md"), "notes").unwrap();
+    crate::test_links::directory_link(&target, &target.join("references/cycle"));
+    let root = temp.path().join("repo/.agents/skills");
+    crate::test_links::directory_link(&source, &root);
+    let discovered =
+        crate::skills::discovery::discover_repository(&temp.path().join("repo")).unwrap();
+    assert_eq!(discovered.skills.len(), 1);
+    assert_eq!(discovered.skills[0].asset_count, 1);
+    let installed = root.join("review");
+    validate_skill_dir(&installed).unwrap();
+    assert_eq!(get_skill(&installed).unwrap().scope, SkillScope::Repository);
+    let assets = crate::skills::assets::list_assets(&installed).unwrap();
+    assert_eq!(assets.iter().filter(|a| !a.is_directory).count(), 1);
+    assert!(
+        crate::skills::import::import_from_local(&installed, &temp.path().join("imported"))
+            .is_err()
+    );
+    assert!(!temp.path().join("imported/review").exists());
+    let previews = crate::skills::import::discover_local_skills(&installed).unwrap();
+    assert_eq!(previews[0].file_count, 2);
+    assert!(duplicate_skill(&installed, &SkillName::from_validated("copy")).is_err());
+    assert!(!root.join("copy").exists());
+}
