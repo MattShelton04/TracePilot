@@ -7,14 +7,15 @@ on:
     paths:
       - 'apps/desktop/**'
       - 'packages/**'
-      - 'scripts/perf/check-bundle.mjs'
-      - 'scripts/perf/check-bundle.test.mjs'
+      - 'scripts/perf/*bundle*'
+      - 'scripts/ci/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'perf-budget.json'
       - '.github/actions/setup-node-pnpm/**'
       - '.github/workflows/bundle-analysis.yml'
+      - '.github/workflows/bundle-report.yml'
 
 permissions:
   contents: read
@@ -25,40 +26,75 @@ concurrency:
 
 jobs:
   bundle-analysis:
-    name: Analyze Frontend Bundle
+    name: Analyze Frontend Bundle (${{ matrix.revision }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        revision: [base, head]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: harness
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: harness/.node-version
+          package-manager-cache: false
+
+      - name: Select comparison commits
+        id: refs
+        run: node harness/scripts/ci/compare-refs.mjs harness
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.revision == 'base' && steps.refs.outputs.base || steps.refs.outputs.head }}
+          path: app
           persist-credentials: false
 
       # Frontend bundle analysis does not need Rust or native Tauri packages.
-      - uses: ./.github/actions/setup-node-pnpm
+      - uses: ./harness/.github/actions/setup-node-pnpm
+        with:
+          working-directory: app
 
       - name: Verify bundle reporting contract
-        run: node --test scripts/perf/check-bundle.test.mjs
+        run: node --test harness/scripts/perf/*bundle*.test.mjs harness/scripts/ci/*.test.mjs
 
       - name: Build with bundle analysis
-        run: pnpm --filter @tracepilot/desktop build --mode analyze
+        working-directory: app
+        run: pnpm --filter @tracepilot/desktop exec vite build --mode analyze
 
       - name: Measure and report bundle sizes
         shell: bash
+        env:
+          BUNDLE_REVISION_SHA: ${{ matrix.revision == 'base' && steps.refs.outputs.base || steps.refs.outputs.head }}
         run: |
-          node scripts/perf/check-bundle.mjs \
-            --dist=apps/desktop/dist \
-            --budget=perf-budget.json \
+          node harness/scripts/perf/check-bundle.mjs \
+            --dist=app/apps/desktop/dist \
+            --budget=harness/perf-budget.json \
             --output=bundle-report.json \
             --summary=bundle-report.md 2>&1 | tee bundle-contract.log
           cat bundle-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload bounded measurements for the trusted reporter
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bundle-${{ matrix.revision }}
+          path: bundle-report.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload bundle analysis report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: bundle-analysis-${{ github.run_number }}
+          name: bundle-analysis-${{ matrix.revision }}-${{ github.run_number }}
           path: |
-            apps/desktop/dist/bundle-stats.html
+            app/apps/desktop/dist/bundle-stats.html
             bundle-report.json
             bundle-report.md
             bundle-contract.log

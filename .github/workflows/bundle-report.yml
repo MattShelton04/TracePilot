@@ -1,0 +1,45 @@
+name: Bundle Report
+
+on:
+  workflow_run:
+    workflows: [Bundle Analysis]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+concurrency:
+  group: bundle-report-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Only trusted default-branch code executes with comment permissions.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Verify reporting contracts
+        run: node --test scripts/perf/*bundle*.test.mjs scripts/ci/*.test.mjs
+      - name: Download measurement data only
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: bundle-@(base|head)
+          path: ${{ runner.temp }}/bundle-reports
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Post compact bundle comparison
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BUNDLE_REPORT_DIR: ${{ runner.temp }}/bundle-reports
+        run: node scripts/perf/publish-bundle.mjs
