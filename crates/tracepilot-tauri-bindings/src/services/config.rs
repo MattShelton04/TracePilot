@@ -126,6 +126,7 @@ pub(crate) async fn factory_reset(shared_config: &SharedConfig) -> CmdResult<()>
 }
 
 pub(crate) fn validate_configured_roots(config: &TracePilotConfig) -> Result<(), BindingsError> {
+    config.validate_isolation_boundary()?;
     validate_absolute_path("Copilot home", &config.copilot_home())?;
     validate_absolute_path("TracePilot data directory", &config.tracepilot_home())?;
     let tracepilot_home = config.tracepilot_home();

@@ -37,6 +37,10 @@ console-subscriber = { version = "0.4", optional = true }
 #   Connect: tokio-console http://127.0.0.1:6669
 [features]
 tokio-console = ["dep:console-subscriber"]
+# Release builds disable webview developer tools by default. The automation
+# launcher opts into this feature solely so WebView2 exposes its loopback CDP
+# endpoint; normal shipping builds do not enable it.
+automation-devtools = ["tauri/devtools"]
 
 [[bin]]
 name = "tracepilot-desktop"

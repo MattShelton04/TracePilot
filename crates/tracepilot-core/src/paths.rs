@@ -5,6 +5,13 @@
 
 use std::path::{Path, PathBuf};
 
+mod isolation;
+
+pub use isolation::{
+    DataRootError, TRACEPILOT_DATA_ROOT_ENV, isolated_data_root, path_is_within_data_root,
+    validate_data_root,
+};
+
 pub const COPILOT_DIR_NAME: &str = ".copilot";
 pub const TRACEPILOT_DIR_NAME: &str = "tracepilot";
 pub const SESSION_STATE_DIR_NAME: &str = "session-state";
@@ -47,7 +54,11 @@ impl CopilotPaths {
     }
 
     pub fn try_default() -> Option<Self> {
-        crate::utils::home_dir_opt().map(Self::from_user_home)
+        match isolated_data_root() {
+            Ok(Some(root)) => Some(Self::from_home(root.join("copilot"))),
+            Ok(None) => crate::utils::home_dir_opt().map(Self::from_user_home),
+            Err(_) => None,
+        }
     }
 
     pub fn home(&self) -> &Path {
@@ -143,7 +154,11 @@ impl TracePilotPaths {
     }
 
     pub fn try_default() -> Option<Self> {
-        CopilotPaths::try_default().map(|p| p.tracepilot())
+        match isolated_data_root() {
+            Ok(Some(root)) => Some(Self::from_root(root.join(TRACEPILOT_DIR_NAME))),
+            Ok(None) => CopilotPaths::try_default().map(|p| p.tracepilot()),
+            Err(_) => None,
+        }
     }
 
     pub fn root(&self) -> &Path {
@@ -287,9 +302,15 @@ impl SessionPaths {
 }
 
 pub fn default_copilot_home() -> PathBuf {
-    CopilotPaths::from_user_home(crate::utils::home_dir())
-        .home()
-        .to_path_buf()
+    match isolated_data_root() {
+        Ok(Some(root)) => CopilotPaths::from_home(root.join("copilot"))
+            .home()
+            .to_path_buf(),
+        Ok(None) => CopilotPaths::from_user_home(crate::utils::home_dir())
+            .home()
+            .to_path_buf(),
+        Err(error) => panic!("invalid application data isolation: {error}"),
+    }
 }
 
 pub fn default_copilot_home_opt() -> Option<PathBuf> {
@@ -297,20 +318,34 @@ pub fn default_copilot_home_opt() -> Option<PathBuf> {
 }
 
 pub fn default_session_state_dir() -> PathBuf {
-    CopilotPaths::from_user_home(crate::utils::home_dir()).session_state_dir()
+    match isolated_data_root() {
+        Ok(Some(root)) => CopilotPaths::from_home(root.join("copilot")).session_state_dir(),
+        Ok(None) => CopilotPaths::from_user_home(crate::utils::home_dir()).session_state_dir(),
+        Err(error) => panic!("invalid application data isolation: {error}"),
+    }
 }
 
 pub fn default_tracepilot_root() -> PathBuf {
-    CopilotPaths::from_user_home(crate::utils::home_dir())
-        .tracepilot()
-        .root()
-        .to_path_buf()
+    match isolated_data_root() {
+        Ok(Some(root)) => TracePilotPaths::from_root(root.join(TRACEPILOT_DIR_NAME))
+            .root()
+            .to_path_buf(),
+        Ok(None) => CopilotPaths::from_user_home(crate::utils::home_dir())
+            .tracepilot()
+            .root()
+            .to_path_buf(),
+        Err(error) => panic!("invalid application data isolation: {error}"),
+    }
 }
 
 pub fn default_index_db_path() -> PathBuf {
-    CopilotPaths::from_user_home(crate::utils::home_dir())
-        .tracepilot()
-        .index_db()
+    match isolated_data_root() {
+        Ok(Some(root)) => TracePilotPaths::from_root(root.join(TRACEPILOT_DIR_NAME)).index_db(),
+        Ok(None) => CopilotPaths::from_user_home(crate::utils::home_dir())
+            .tracepilot()
+            .index_db(),
+        Err(error) => panic!("invalid application data isolation: {error}"),
+    }
 }
 
 #[cfg(test)]
