@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "TracePilot performance thresholds. Frontend total size is enforced in CI; frontend chunk metrics and Rust timings are advisory on shared runners. Update thresholds only with measured evidence.",
+  "$comment": "TracePilot performance thresholds are advisory. CI still fails when required measurements are missing or invalid. Update thresholds only with measured evidence.",
   "frontend": {
     "totalBundleSizeKb": 2500,
     "largestChunkKb": 250,
     "initialLoadChunks": 3,
-    "notes": "Measured from `pnpm --filter @tracepilot/desktop build --mode analyze`. Total JS + CSS size is enforced. Largest chunk and initial HTML asset count are reported as advisory metrics."
+    "notes": "Measured from `pnpm --filter @tracepilot/desktop build --mode analyze`. Total JS + CSS size, largest chunk, and initial HTML asset count are reported as advisory metrics."
   },
   "ipc": {
     "listSessionsMs": 200,

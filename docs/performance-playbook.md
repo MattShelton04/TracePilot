@@ -3,7 +3,7 @@
 Quick-reference guide for profiling, benchmarking, and finding bottlenecks in TracePilot.
 
 > Historical generated performance analysis reports were removed in the 2026-05-01 docs cleanup.
-> **Performance thresholds**: [`perf-budget.json`](../perf-budget.json) (total bundle size enforced; timings advisory)
+> **Performance thresholds**: [`perf-budget.json`](../perf-budget.json) (advisory; missing or invalid required measurements still fail CI)
 
 ---
 
@@ -156,8 +156,9 @@ Opens an interactive treemap (`stats.html`) showing what's in each chunk. Look f
 - Dependencies that should be lazy-loaded
 - Duplicate code across chunks
 
-The bundle workflow enforces the total JS + CSS size from `perf-budget.json`
-on relevant PRs. Largest-chunk size and initial HTML asset count are advisory.
+The bundle workflow reports total JS + CSS size, largest-chunk size, and initial
+HTML asset count from `perf-budget.json` on relevant PRs. All size thresholds
+are advisory; missing assets or invalid measurement inputs still fail the job.
 
 ---
 
@@ -228,7 +229,7 @@ Performance coverage:
 
 | Check | What it does |
 |-------|-------------|
-| **Bundle analysis** | Relevant PRs: builds frontend, enforces total size, retains size tables as artifacts and job summaries |
+| **Bundle analysis** | Relevant PRs: builds frontend, reports advisory size thresholds, retains size tables as artifacts and job summaries |
 | **Criterion benchmarks** | Nightly/manual Linux runs: validates populated fixtures and required results; timing thresholds are advisory |
 | **Native desktop** | Manual Windows release measurements with isolated data; see the [performance mission report](reports/performance-mission.md) |
 | **Typecheck + tests** | Standard correctness checks; see the [testing guide](testing.md) |

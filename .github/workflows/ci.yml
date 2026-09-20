@@ -84,6 +84,10 @@ jobs:
       - name: Rust tests
         run: cargo test --workspace --exclude tracepilot-desktop
 
+      # Validate the massive fixture plan on both OSes without generating GiB.
+      - name: Performance fixture contracts
+        run: cargo test -p tracepilot-bench --example performance_probe
+
       - name: Rust lint (clippy, advisory)
         if: runner.os == 'Linux'
         # The current branch has a pre-existing needless-range-loop warning.
@@ -129,6 +133,11 @@ jobs:
 
       - name: File size budgets
         run: node scripts/check-file-sizes.mjs
+
+      - name: Performance reporting contracts
+        run: |
+          node --test scripts/perf/check-budgets.test.mjs scripts/perf/check-bundle.test.mjs scripts/perf/compare.test.mjs
+          node --check scripts/perf/indexing.mjs
 
       - name: Workflow action pins
         env:

@@ -20,15 +20,16 @@ repo root and grouped by surface:
 
 | Group      | What it covers                                                               |
 | ---------- | ---------------------------------------------------------------------------- |
-| `frontend` | Enforced total size; advisory largest chunk and initial HTML asset count     |
+| `frontend` | Advisory total size, largest chunk, and initial HTML asset count             |
 | `ipc`      | Diagnostic P95 latency targets for Tauri IPC commands                        |
 | `render`   | Dev-only Vue mount-to-paint warning thresholds                               |
 | `rust`     | Advisory thresholds for required Criterion mean estimates                    |
 
 The [`Benchmarks`](../../.github/workflows/benchmark.yml) workflow fails when
 a required result is missing, malformed, or unmapped. Timing threshold
-exceedances remain advisory on shared runners. The frontend workflow hard-gates
-total JS + CSS size and reports its other two declared metrics as advisory.
+exceedances remain advisory on shared runners. The frontend workflow reports
+all three declared size metrics as advisory and fails only when required
+measurement inputs are missing or invalid.
 
 ## Running Benchmarks Locally
 
