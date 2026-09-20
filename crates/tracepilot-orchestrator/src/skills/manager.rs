@@ -1,7 +1,8 @@
 //! Skill lifecycle manager — CRUD operations for skills.
 
 use crate::skills::discovery::{
-    builtin_packages_dir, global_skills_dir, load_skill, registered_skill_roots,
+    builtin_dist_roots, builtin_packages_dir, global_skills_dir, load_skill, personal_skill_dirs,
+    registered_skill_roots,
 };
 use crate::skills::error::SkillsError;
 use crate::skills::parser::parse_skill_md;
@@ -11,11 +12,18 @@ use std::path::{Path, PathBuf};
 use tracepilot_core::ids::SkillName;
 
 /// Validate that a skill_dir path is contained within a known skills root
-/// (global `~/.copilot/skills/`, packaged `~/.copilot/pkg/`, or a repo skills root).
+/// (a personal root, the installed CLI's own directories, or a repo skills root).
 ///
 /// This prevents IPC callers from passing arbitrary paths that could lead to
 /// reads/writes/deletes of unrelated directories.
 pub fn validate_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
+    // Check the file as well as the folder: an isolated skill may link its
+    // SKILL.md to personal content outside the automation boundary.
+    if !tracepilot_core::paths::path_is_allowed_by_isolation(skill_dir)
+        || !tracepilot_core::paths::path_is_allowed_by_isolation(&skill_dir.join("SKILL.md"))
+    {
+        return Err(SkillsError::PathTraversal(skill_dir.display().to_string()));
+    }
     // Validate the installation path as well as its target. A skill explicitly
     // linked into a supported root is installed there, even if shared elsewhere.
     if skill_dir
@@ -66,21 +74,39 @@ pub fn validate_mutable_skill_dir(skill_dir: &Path) -> Result<(), SkillsError> {
     Ok(())
 }
 
+/// Built-in content is read-only wherever the CLI was installed: the extracted
+/// packages under `<COPILOT_HOME>/pkg`, and the distribution roots an npm,
+/// Homebrew or WinGet install leaves elsewhere on disk.
+fn builtin_roots() -> Vec<PathBuf> {
+    let mut roots: Vec<PathBuf> = builtin_packages_dir().into_iter().collect();
+    if let Some(paths) = tracepilot_core::paths::CopilotPaths::try_default() {
+        roots.extend(
+            builtin_dist_roots(paths.home())
+                .into_iter()
+                .map(|root| root.path),
+        );
+    }
+    roots
+}
+
 fn is_builtin_skill_dir(skill_dir: &Path) -> bool {
-    let Ok(packages) = builtin_packages_dir() else {
-        return false;
-    };
-    let packages_canonical = packages.canonicalize().unwrap_or_else(|_| packages.clone());
     // Both folder links and individual SKILL.md links retain packaged content's
     // read-only policy, even when installed under a writable project root.
-    [
+    let candidates: Vec<PathBuf> = [
         Some(skill_dir.to_path_buf()),
         skill_dir.canonicalize().ok(),
         skill_dir.join("SKILL.md").canonicalize().ok(),
     ]
     .into_iter()
     .flatten()
-    .any(|path| path.starts_with(&packages) || path.starts_with(&packages_canonical))
+    .collect();
+
+    builtin_roots().into_iter().any(|root| {
+        let canonical = root.canonicalize().unwrap_or_else(|_| root.clone());
+        candidates
+            .iter()
+            .any(|path| path.starts_with(&root) || path.starts_with(&canonical))
+    })
 }
 
 /// Create a new skill in the global skills directory.
@@ -263,7 +289,11 @@ fn determine_scope(skill_dir: &Path) -> SkillScope {
     }
     // The logical global path wins before the structurally identical
     // <repo>/.copilot/skills path. Project links keep their installing scope.
-    if global_skills_dir().is_ok_and(|root| skill_dir.starts_with(root)) {
+    if tracepilot_core::paths::CopilotPaths::try_default().is_some_and(|paths| {
+        personal_skill_dirs(paths.home())
+            .iter()
+            .any(|root| skill_dir.starts_with(root))
+    }) {
         return SkillScope::Global;
     }
     SkillScope::Repository

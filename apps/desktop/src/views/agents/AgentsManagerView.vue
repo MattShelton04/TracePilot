@@ -39,6 +39,15 @@ watch(
 );
 onMounted(() => store.loadAll());
 
+// A definition that failed to parse is a different story from a root that
+// simply is not there, so the two are reported separately.
+const loadFailures = computed(() =>
+  (store.catalog?.diagnostics ?? []).filter((diagnostic) => diagnostic.severity !== "warning"),
+);
+const discoveryWarnings = computed(() =>
+  (store.catalog?.diagnostics ?? []).filter((diagnostic) => diagnostic.severity === "warning"),
+);
+
 const scopeOptions = computed<SegmentOption[]>(() =>
   SCOPE_FILTER_LABELS.map((option) => ({
     ...option,
@@ -144,18 +153,27 @@ function onCreated(path: string) {
       </Banner>
 
       <details
-        v-if="store.catalog?.diagnostics.length"
+        v-if="loadFailures.length"
         class="diagnostics"
       >
         <summary>
-          {{ store.catalog.diagnostics.length }} definition{{ store.catalog.diagnostics.length === 1 ? "" : "s" }} could not be read
+          {{ loadFailures.length }} definition{{ loadFailures.length === 1 ? "" : "s" }} could not be read
         </summary>
         <ul>
-          <li v-for="diagnostic in store.catalog.diagnostics" :key="diagnostic.path">
+          <li v-for="diagnostic in loadFailures" :key="diagnostic.path">
             <code>{{ diagnostic.path }}</code>: {{ diagnostic.message }}
           </li>
         </ul>
       </details>
+
+      <Banner
+        v-for="warning in discoveryWarnings"
+        :key="warning.path"
+        tone="info"
+        title="Built-in agents unavailable"
+      >
+        {{ warning.message }}
+      </Banner>
 
       <Banner v-if="store.catalog?.settings.shapeError" tone="warning" title="Unrecognised subagents settings">
         {{ store.catalog.settings.shapeError }} Overrides are read-only until the shape is understood.

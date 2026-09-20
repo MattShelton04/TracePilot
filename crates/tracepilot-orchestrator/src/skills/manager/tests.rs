@@ -192,6 +192,8 @@ fn create_skill_rejects_path_traversal() {
 
 #[test]
 fn packaged_skill_paths_are_readable_but_not_mutable() {
+    // Other unit fixtures temporarily change the process's home directory.
+    let _guard = crate::TEST_ENV_LOCK.lock().unwrap();
     let builtin = builtin_packages_dir()
         .unwrap()
         .join("win32-x64")

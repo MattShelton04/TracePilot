@@ -28,10 +28,10 @@ fn validate_agent_name(name: &str) -> CmdResult<()> {
 
 /// Registered repositories plus an explicitly requested one.
 fn agent_roots(cfg: &TracePilotConfig, extra_repo: Option<&str>) -> AgentRoots {
-    AgentRoots {
-        copilot_home: cfg.copilot_home(),
-        repo_roots: crate::helpers::definition_repo_roots(cfg, extra_repo),
-    }
+    AgentRoots::new(
+        cfg.copilot_home(),
+        crate::helpers::definition_repo_roots(cfg, extra_repo),
+    )
 }
 
 /// Built-in definitions are writable only in the Config Injector's

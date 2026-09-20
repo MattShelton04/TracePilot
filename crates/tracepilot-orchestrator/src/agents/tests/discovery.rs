@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::{Fixture, REVIEWER_MD};
+use super::{EXPLORE_YAML, Fixture, REVIEWER_MD};
 use crate::agents::discover;
 use crate::agents::types::{AgentFormat, AgentScope};
 
@@ -87,10 +87,74 @@ fn missing_sources_produce_an_empty_catalog() {
     let catalog = discover(&crate::agents::AgentRoots {
         copilot_home: dir.path().join("none"),
         repo_roots: vec![dir.path().join("missing-repo")],
+        dist_roots: Vec::new(),
     });
     assert!(catalog.definitions.is_empty());
     assert!(catalog.cli_version.is_none());
-    assert!(catalog.diagnostics.is_empty());
+    assert_eq!(
+        catalog
+            .diagnostics
+            .iter()
+            .map(|d| d.severity.as_str())
+            .collect::<Vec<_>>(),
+        vec!["warning"],
+        "a missing CLI is reported as a warning, not a failure"
+    );
+}
+
+#[test]
+fn a_cli_installed_outside_the_copilot_home_still_supplies_builtin_agents() {
+    let fixture = Fixture::new();
+    // An npm global install: no extracted package under the Copilot home.
+    let package = fixture.repo.join("node_modules/@github/copilot");
+    std::fs::create_dir_all(package.join("definitions")).unwrap();
+    std::fs::write(package.join("definitions/explore.agent.yaml"), EXPLORE_YAML).unwrap();
+    fixture.write(
+        Path::new(".copilot/agents/mine.agent.md"),
+        "---\ndescription: Personal\n---\nHi",
+    );
+
+    let catalog = discover(&crate::agents::AgentRoots {
+        copilot_home: fixture.home.clone(),
+        repo_roots: vec![],
+        dist_roots: vec![tracepilot_core::paths::cli_install::DistRoot {
+            path: package.clone(),
+            version: Some("1.0.86".into()),
+            source: tracepilot_core::paths::cli_install::DistSource::NodeModules,
+        }],
+    });
+
+    let explore = catalog
+        .definitions
+        .iter()
+        .find(|d| d.name == "explore")
+        .expect("built-in agent from the npm package");
+    assert_eq!(explore.scope, AgentScope::Builtin);
+    assert_eq!(explore.source_label, "Copilot CLI 1.0.86");
+    assert!(catalog.definitions.iter().any(|d| d.name == "mine"));
+}
+
+#[test]
+fn personal_agents_survive_a_missing_cli_installation() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join(".copilot");
+    std::fs::create_dir_all(home.join("agents")).unwrap();
+    std::fs::write(
+        home.join("agents/solo.agent.md"),
+        "---\ndescription: Personal\n---\nHi",
+    )
+    .unwrap();
+
+    let catalog = discover(&crate::agents::AgentRoots {
+        copilot_home: home,
+        repo_roots: vec![],
+        dist_roots: Vec::new(),
+    });
+
+    assert_eq!(catalog.definitions.len(), 1);
+    assert_eq!(catalog.definitions[0].scope, AgentScope::Personal);
+    assert!(catalog.cli_version.is_none());
+    assert!(catalog.diagnostics.iter().all(|d| d.severity == "warning"));
 }
 
 #[test]

@@ -80,6 +80,9 @@ impl Fixture {
         AgentRoots {
             copilot_home: self.home.clone(),
             repo_roots: vec![self.repo.clone()],
+            dist_roots: tracepilot_core::paths::cli_install::package_dist_roots(
+                &self.home.join("pkg"),
+            ),
         }
     }
 

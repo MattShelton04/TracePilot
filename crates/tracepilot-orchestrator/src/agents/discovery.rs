@@ -1,16 +1,23 @@
 //! Enumerate agent definitions from every source the CLI reads.
 //!
-//! - Built-in: `definitions/*.yaml` of the active CLI package version.
+//! - Built-in: `definitions/*.yaml` of the installed CLI. Which directory that
+//!   is depends on how the CLI was installed, so the distribution roots come
+//!   from [`tracepilot_core::paths::cli_install`] rather than one fixed path.
 //! - Personal: `<COPILOT_HOME>/agents/**`.
 //! - Project: `<repo>/.github/agents/**` and `<repo>/.claude/agents/**`
 //!   for every registered repository (plus an explicit one).
 //! - Plugins: `<COPILOT_HOME>/installed-plugins/**/agents/**`.
+//!
+//! Every source is independent: one that is missing or unreadable leaves the
+//! others intact, so a user without a discoverable CLI installation still sees
+//! their own agents.
 //!
 //! Agents that exist only inside the CLI binary (e.g. `general-purpose`)
 //! have no file and are represented from session evidence by the UI.
 
 use std::path::{Path, PathBuf};
 
+use tracepilot_core::paths::cli_install::{self, DistRoot};
 use tracepilot_core::paths::{
     AGENTS_DIR_NAME, COPILOT_DEFINITIONS_DIR, CopilotPaths, GITHUB_DIR_NAME, RepoPaths,
 };
@@ -22,6 +29,9 @@ use super::types::{
 };
 use crate::error::{OrchestratorError, Result};
 
+/// Shown when no CLI installation can be found anywhere on disk.
+pub const MISSING_CLI_NOTE: &str = "No Copilot CLI installation was found, so its built-in agents are not listed. Set COPILOT_CLI_DIST_DIR to the CLI bundle directory if it is installed somewhere else.";
+
 /// Definitions larger than this are skipped rather than loaded.
 const MAX_DEFINITION_BYTES: u64 = 1024 * 1024;
 const MAX_DEPTH: usize = 6;
@@ -31,9 +41,22 @@ const MAX_DEPTH: usize = 6;
 pub struct AgentRoots {
     pub copilot_home: PathBuf,
     pub repo_roots: Vec<PathBuf>,
+    /// Directories holding an installed CLI's bundled assets. Empty when no
+    /// installation was found, which only costs the built-in agents.
+    pub dist_roots: Vec<DistRoot>,
 }
 
 impl AgentRoots {
+    /// Resolve the CLI's distribution roots for this home.
+    pub fn new(copilot_home: PathBuf, repo_roots: Vec<PathBuf>) -> Self {
+        let dist_roots = cli_install::dist_roots(&copilot_home);
+        Self {
+            copilot_home,
+            repo_roots,
+            dist_roots,
+        }
+    }
+
     pub fn personal_dir(&self) -> PathBuf {
         CopilotPaths::from_home(&self.copilot_home).global_agents_dir()
     }
@@ -46,8 +69,24 @@ impl AgentRoots {
         CopilotPaths::from_home(&self.copilot_home).pkg_dir()
     }
 
+    /// The distribution root a built-in definition belongs to.
+    fn owning_dist_root(&self, path: &Path) -> Option<&DistRoot> {
+        self.dist_roots
+            .iter()
+            .find(|root| path_starts_with(path, &root.path))
+    }
+
+    /// `true` when the path belongs to the installed CLI itself, in the
+    /// extracted packages or wherever else it was installed.
+    pub(crate) fn is_distribution_path(&self, path: &Path) -> bool {
+        path_starts_with(path, &self.pkg_dir()) || self.owning_dist_root(path).is_some()
+    }
+
     /// Classify a definition path, or `None` when it is outside every root.
     pub(crate) fn scope_of(&self, path: &Path) -> Option<(AgentScope, Option<PathBuf>)> {
+        if !tracepilot_core::paths::path_is_allowed_by_isolation(path) {
+            return None;
+        }
         let within = |root: PathBuf| path_starts_with(path, &root);
         if within(self.personal_dir()) {
             return Some((AgentScope::Personal, None));
@@ -55,7 +94,7 @@ impl AgentRoots {
         if within(self.plugins_dir()) {
             return Some((AgentScope::Plugin, None));
         }
-        if within(self.pkg_dir()) {
+        if within(self.pkg_dir()) || self.owning_dist_root(path).is_some() {
             let in_definitions = path
                 .parent()
                 .is_some_and(|dir| dir.ends_with(COPILOT_DEFINITIONS_DIR));
@@ -119,14 +158,20 @@ pub fn discover(roots: &AgentRoots) -> AgentCatalog {
         }),
     };
 
-    match crate::version_manager::active_version(&roots.copilot_home) {
-        Ok(active) => {
-            catalog.cli_version = Some(active.version.clone());
-            for path in builtin_definition_paths(Path::new(&active.path)) {
+    match builtin_source(roots) {
+        Some(builtin) => {
+            catalog.cli_version = builtin.version.clone();
+            for path in builtin_definition_paths(&builtin.path) {
                 add(&mut catalog, path);
             }
         }
-        Err(error) => tracing::debug!("No active Copilot CLI package for built-in agents: {error}"),
+        // A warning, not an error: personal, project and plugin agents below
+        // are unaffected, and this explains the missing built-ins.
+        None => catalog.diagnostics.push(AgentDiagnostic {
+            path: roots.pkg_dir().to_string_lossy().to_string(),
+            message: MISSING_CLI_NOTE.into(),
+            severity: "warning".into(),
+        }),
     }
     for path in markdown_files(&roots.personal_dir(), false) {
         add(&mut catalog, path);
@@ -153,6 +198,25 @@ pub fn discover(roots: &AgentRoots) -> AgentCatalog {
     catalog
 }
 
+/// The one distribution root that supplies built-in agents.
+///
+/// An explicit bundle override wins, otherwise prefer the newest complete
+/// installation across both current and legacy caches. Picking exactly one
+/// keeps leftover installations from listing every built-in agent twice.
+fn builtin_source(roots: &AgentRoots) -> Option<&DistRoot> {
+    cli_install::effective_dist_roots(&roots.dist_roots)
+        .filter(|root| root.definitions_dir().is_some())
+        .max_by_key(|root| {
+            (
+                root.is_complete(),
+                root.version
+                    .as_deref()
+                    .and_then(|raw| semver::Version::parse(raw).ok()),
+                std::cmp::Reverse(&root.path),
+            )
+        })
+}
+
 /// Top-level YAML files of a CLI version's `definitions` directory.
 pub fn builtin_definition_paths(version_dir: &Path) -> Vec<PathBuf> {
     let Ok(entries) = std::fs::read_dir(version_dir.join(COPILOT_DEFINITIONS_DIR)) else {
@@ -170,7 +234,7 @@ pub fn builtin_definition_paths(version_dir: &Path) -> Vec<PathBuf> {
 /// Markdown definitions under `dir`. With `inside_agents_dir`, only files
 /// below a directory named `agents` count (plugin layouts vary).
 fn markdown_files(dir: &Path, inside_agents_dir: bool) -> Vec<PathBuf> {
-    if !dir.is_dir() {
+    if !tracepilot_core::paths::path_is_allowed_by_isolation(dir) || !dir.is_dir() {
         return Vec::new();
     }
     let mut paths: Vec<PathBuf> = walkdir::WalkDir::new(dir)
@@ -178,7 +242,8 @@ fn markdown_files(dir: &Path, inside_agents_dir: bool) -> Vec<PathBuf> {
         .max_depth(MAX_DEPTH)
         .into_iter()
         .filter_entry(|entry| {
-            !entry.file_name().to_string_lossy().starts_with('.') || entry.depth() == 0
+            tracepilot_core::paths::path_is_allowed_by_isolation(entry.path())
+                && (!entry.file_name().to_string_lossy().starts_with('.') || entry.depth() == 0)
         })
         .flatten()
         .filter(|entry| entry.file_type().is_file())
@@ -247,8 +312,16 @@ fn summarize(
             .map(|v| v.to_string_lossy().to_string())
             .unwrap_or_default()
     };
+    let builtin_label = || match roots
+        .owning_dist_root(path)
+        .and_then(|root| root.version.clone())
+        .or_else(|| Some(version()).filter(|label| !label.is_empty()))
+    {
+        Some(version) => format!("Copilot CLI {version}"),
+        None => "Copilot CLI".to_string(),
+    };
     let source_label = match scope {
-        AgentScope::Builtin => format!("Copilot CLI {}", version()),
+        AgentScope::Builtin => builtin_label(),
         AgentScope::Personal => "Personal".to_string(),
         AgentScope::Project => repo_root
             .as_deref()
