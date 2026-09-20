@@ -45,7 +45,7 @@ fn main() {
 
     let context = tauri::generate_context!();
     #[cfg(all(windows, any(debug_assertions, feature = "automation-devtools")))]
-    let context = automation::configure(context).unwrap_or_else(|error| {
+    let (context, automation_window) = automation::configure(context).unwrap_or_else(|error| {
         eprintln!("Fatal: invalid automation configuration: {error}");
         std::process::exit(2);
     });
@@ -82,7 +82,11 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tracepilot_tauri_bindings::init())
-        .setup(|_app| {
+        .setup(move |_app| {
+            #[cfg(all(windows, any(debug_assertions, feature = "automation-devtools")))]
+            if let Some(window) = automation_window {
+                window.build(_app)?;
+            }
             log::info!("TracePilot v{} starting", env!("CARGO_PKG_VERSION"));
             Ok(())
         })
