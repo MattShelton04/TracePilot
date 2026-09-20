@@ -5,6 +5,8 @@ param(
     [ValidateSet('desktop', 'ui')][string]$Mode = 'desktop',
     [ValidateSet('development', 'production')][string]$Runtime = 'development',
     [string]$DataRoot = '',
+    [string]$Executable = '',
+    [string]$StateDirectory = '',
     [switch]$SkipBuild,
     [ValidateRange(0, 65535)][int]$Port = 0,
     [ValidateRange(1, 3600)][int]$TimeoutSeconds = 600
@@ -12,11 +14,24 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $runtimeDir = Join-Path $repoRoot '.tracepilot/automation'
+if ($StateDirectory) {
+    if (-not [IO.Path]::IsPathRooted($StateDirectory)) { throw '-StateDirectory must be absolute.' }
+    $runtimeDir = [IO.Path]::GetFullPath($StateDirectory)
+}
 $statePath = Join-Path $runtimeDir "$Mode.json"
 $session = "tracepilot-$Mode"
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 if ($Action -eq 'start' -and $SkipBuild -and $Runtime -ne 'production') {
     throw "-SkipBuild is valid only with -Runtime production."
+}
+if ($Action -eq 'start' -and $Executable) {
+    if ($Mode -ne 'desktop' -or $Runtime -ne 'production' -or -not $SkipBuild -or -not $DataRoot) {
+        throw '-Executable requires desktop production mode, -SkipBuild, and an isolated -DataRoot.'
+    }
+    if (-not [IO.Path]::IsPathRooted($Executable) -or -not (Test-Path -LiteralPath $Executable -PathType Leaf)) {
+        throw '-Executable must name an existing absolute executable path.'
+    }
+    $Executable = [IO.Path]::GetFullPath($Executable)
 }
 
 function Resolve-DataRoot([string]$RequestedRoot) {
@@ -202,6 +217,9 @@ try {
                     if ($state.dataRoot -ne $requestedDataRoot -or ($Port -and $endpointPort -ne $Port)) {
                         throw "A healthy desktop instance is tracked with different launch options (runtime=$($state.runtime), dataRoot=$($state.dataRoot), port=$endpointPort). Stop it before changing runtime, data root, or port."
                     }
+                    if ($Executable -and $state.build.executable -ne $Executable) {
+                        throw 'A healthy desktop instance uses a different executable. Stop it before changing executable.'
+                    }
                 }
             }
             if ($Mode -eq 'desktop') {
@@ -258,6 +276,8 @@ try {
     }
     $savedArgs = $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
     $savedProfile = $env:WEBVIEW2_USER_DATA_FOLDER
+    $savedAutomationPort = $env:TRACEPILOT_AUTOMATION_PORT
+    $savedAutomationProfile = $env:TRACEPILOT_AUTOMATION_PROFILE
     $savedDataRoot = $env:TRACEPILOT_DATA_ROOT
     Write-Host "Starting $Mode. Logs: $runtimeDir"
     try {
@@ -267,6 +287,8 @@ try {
         if ($Mode -eq 'desktop') {
             $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=$cdpPort --remote-debugging-address=127.0.0.1"
             $env:WEBVIEW2_USER_DATA_FOLDER = if ($resolvedPaths) { $resolvedPaths.webviewProfile } else { Join-Path $runtimeDir 'webview-profile' }
+            $env:TRACEPILOT_AUTOMATION_PORT = "$cdpPort"
+            $env:TRACEPILOT_AUTOMATION_PROFILE = $env:WEBVIEW2_USER_DATA_FOLDER
             if ($resolvedDataRoot) { $env:TRACEPILOT_DATA_ROOT = $resolvedDataRoot } else { Remove-Item Env:TRACEPILOT_DATA_ROOT -ErrorAction SilentlyContinue }
             if ($Runtime -eq 'development') {
                 $configPath = Join-Path $runtimeDir 'tauri.dev.json'
@@ -279,6 +301,7 @@ try {
                     Write-Host "Using the existing production executable; build was explicitly skipped."
                 }
                 $releaseExecutable = Join-Path $repoRoot 'target/release/tracepilot-desktop.exe'
+                if ($Executable) { $releaseExecutable = $Executable }
                 if (-not (Test-Path -LiteralPath $releaseExecutable -PathType Leaf)) {
                     throw "-SkipBuild requires an existing production executable: $releaseExecutable"
                 }
@@ -325,6 +348,8 @@ try {
     } finally {
         $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = $savedArgs
         $env:WEBVIEW2_USER_DATA_FOLDER = $savedProfile
+        $env:TRACEPILOT_AUTOMATION_PORT = $savedAutomationPort
+        $env:TRACEPILOT_AUTOMATION_PROFILE = $savedAutomationProfile
         $env:TRACEPILOT_DATA_ROOT = $savedDataRoot
     }
 } finally { $lock.Dispose() }

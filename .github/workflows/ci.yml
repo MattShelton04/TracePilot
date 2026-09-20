@@ -103,9 +103,11 @@ jobs:
       - name: Rust tests
         run: cargo test --workspace --exclude tracepilot-desktop
 
-      # Validate the massive fixture plan on both OSes without generating GiB.
+      # Validate performance plans and the native E2E corpus on both OSes.
       - name: Performance fixture contracts
-        run: cargo test -p tracepilot-bench --example performance_probe
+        run: |
+          cargo test -p tracepilot-bench --example performance_probe
+          cargo test -p tracepilot-bench --example e2e_fixture
 
       - name: Rust lint (clippy, advisory)
         if: runner.os == 'Linux'
@@ -113,6 +115,43 @@ jobs:
         # Keep this visible without turning this PR into lint cleanup.
         continue-on-error: true
         run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
+
+  desktop_e2e:
+    name: desktop integration (Windows installer)
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: Native automation lifecycle contracts
+        run: pnpm test:automation
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: e2e-release
+          save-cache: "true"
+      - name: Build, install, exercise, and uninstall native app
+        run: pnpm test:e2e -Install
+      - name: Upload native integration diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: desktop-e2e-${{ github.run_attempt }}
+          retention-days: 7
+          include-hidden-files: true
+          path: |
+            .tracepilot/e2e-results/installation.json
+            .tracepilot/e2e-results/results.xml
+            .tracepilot/e2e-results/report/
+            .tracepilot/e2e-results/tests/**/native/*.log
+            .tracepilot/e2e-results/tests/**/native/*.json
+            .tracepilot/e2e-results/tests/**/native/*.png
+            .tracepilot/e2e-results/tests/**/native/*.zip
+            .tracepilot/e2e-results/tests/**/native/*.yml
+            .tracepilot/e2e-results/tests/**/native/lifecycle/*.json
+            .tracepilot/e2e-results/tests/**/native/lifecycle/*.log
+            .tracepilot/e2e-results/tests/**/native/data root/logs/
+            .tracepilot/e2e-results/tests/**/native/data root/fixture.json
+            .tracepilot/e2e-results/tests/**/native/data root/tracepilot/config.toml
 
   # Fast repository-policy checks do not need dependency installation or
   # native Tauri packages.
@@ -196,7 +235,7 @@ jobs:
   required:
     name: required
     if: always()
-    needs: [frontend_build, frontend_test, desktop_test, rust, policy, security]
+    needs: [frontend_build, frontend_test, desktop_test, desktop_e2e, rust, policy, security]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -206,11 +245,12 @@ jobs:
           FRONTEND_BUILD: ${{ needs.frontend_build.result }}
           FRONTEND_TEST: ${{ needs.frontend_test.result }}
           DESKTOP_TEST: ${{ needs.desktop_test.result }}
+          DESKTOP_E2E: ${{ needs.desktop_e2e.result }}
           RUST: ${{ needs.rust.result }}
           POLICY: ${{ needs.policy.result }}
           SECURITY: ${{ needs.security.result }}
         run: |
-          for result in "$FRONTEND_BUILD" "$FRONTEND_TEST" "$DESKTOP_TEST" "$RUST" "$POLICY" "$SECURITY"; do
+          for result in "$FRONTEND_BUILD" "$FRONTEND_TEST" "$DESKTOP_TEST" "$DESKTOP_E2E" "$RUST" "$POLICY" "$SECURITY"; do
             if [ "$result" != "success" ]; then
               echo "::error::A required CI job finished with result: $result"
               exit 1

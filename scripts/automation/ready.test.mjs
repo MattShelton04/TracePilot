@@ -24,7 +24,10 @@ test("desktop readiness rejects browser mocks and disconnects on IPC failure", {
     window.__TRACEPILOT_PERF__ = {};
   });
   const endpoint = `http://127.0.0.1:${port}`;
-  await assert.rejects(connectDesktop(endpoint, 500), /No TracePilot Tauri webview/);
+  // Give Edge/CDP time to connect on hosted Windows before checking the
+  // expected readiness result. These assertions do not measure startup speed.
+  const readinessTimeout = 10_000;
+  await assert.rejects(connectDesktop(endpoint, readinessTimeout), /No TracePilot Tauri webview/);
   assert.equal(browser.isConnected(), true);
   await page.evaluate(() => {
     window.__TAURI_INTERNALS__ = {
@@ -34,7 +37,7 @@ test("desktop readiness rejects browser mocks and disconnects on IPC failure", {
       },
     };
   });
-  await assert.rejects(connectDesktop(endpoint, 1000), /IPC unavailable/);
+  await assert.rejects(connectDesktop(endpoint, readinessTimeout), /IPC unavailable/);
   assert.equal(await page.title(), "TracePilot");
 
   // First-time setup must not depend on an existing session directory/database.
@@ -47,7 +50,7 @@ test("desktop readiness rejects browser mocks and disconnects on IPC failure", {
       return "source";
     };
   });
-  const connection = await connectDesktop(endpoint, 1000);
+  const connection = await connectDesktop(endpoint, readinessTimeout);
   assert.equal(connection.installType, "source");
   await connection.browser.close();
   assert.equal(await page.title(), "TracePilot");

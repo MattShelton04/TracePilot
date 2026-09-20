@@ -20,6 +20,12 @@ cargo doc -p tracepilot-bench --no-deps --open
 
 ## Usage
 
+The native integration suite also reuses `SessionFixtureBuilder` through
+`examples/e2e_fixture.rs`: 128 sessions across a year, five repositories, three
+models, varied lengths, interrupted turns, tool failures, plans, and todos.
+It writes a manifest but no app config/index, leaving first setup to the native
+app. See [native integration tests](../../tests/e2e/README.md).
+
 ```bash
 cargo bench -p tracepilot-bench                          # run every bench
 cargo bench -p tracepilot-bench -- session_scan          # filter by name
