@@ -10,6 +10,7 @@ on:
       - 'scripts/perf/*bundle*'
       - 'scripts/ci/**'
       - 'package.json'
+      - '.node-version'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'perf-budget.json'

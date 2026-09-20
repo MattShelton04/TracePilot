@@ -1,6 +1,13 @@
 version: 2
 
 updates:
+  # The trusted visual publisher has its own isolated npm lockfile.
+  - package-ecosystem: npm
+    directory: /scripts/visual
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
   - package-ecosystem: npm
     directory: /
     schedule:

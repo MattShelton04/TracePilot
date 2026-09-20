@@ -105,7 +105,7 @@ try {
   if (pages.source?.branch !== "gh-pages" || pages.source?.path !== "/")
     throw new Error("Pages must use the existing gh-pages branch root source");
   // Preserve the workbench and every path outside visual/.
-  execFileSync("git", ["fetch", "origin", "gh-pages"], { stdio: "inherit" });
+  execFileSync("git", ["fetch", "--depth=1", "origin", "gh-pages"], { stdio: "inherit" });
   const tree = join(workspace, "pages");
   execFileSync("git", ["worktree", "add", "--detach", tree, "FETCH_HEAD"], { stdio: "inherit" });
   const visual = join(tree, "visual");

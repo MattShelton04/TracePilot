@@ -32,7 +32,8 @@ jobs:
         run: pnpm typecheck
 
       - name: Frontend build
-        run: pnpm build
+        # Typecheck already ran above; the package build script repeats vue-tsc.
+        run: pnpm --filter @tracepilot/desktop exec vite build
 
       # Biome also checks formatting, which is intentionally advisory.
       - name: Frontend lint and format (advisory)
@@ -40,7 +41,7 @@ jobs:
         run: pnpm biome check --error-on-warnings .
 
   frontend_test:
-    name: frontend (tests)
+    name: frontend (workspace tests)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -52,8 +53,24 @@ jobs:
         with:
           save-cache: "true"
 
-      - name: Frontend tests
-        run: pnpm test
+      - name: Workspace package and CLI tests
+        run: pnpm --filter '!@tracepilot/desktop' -r test
+
+  # Desktop's 291 test files previously waited for the workspace dependency
+  # suites, then ran for ~166 seconds. Preserve isolation and split by file.
+  desktop_test:
+    name: frontend (desktop tests ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: Desktop tests
+        run: pnpm --filter @tracepilot/desktop test --shard=${{ matrix.shard }}/3
 
   # Cross-platform coverage remains for Rust, where platform-specific
   # filesystem/process behavior matters. Frontend work is not duplicated.
@@ -136,7 +153,7 @@ jobs:
 
       - name: Performance reporting contracts
         run: |
-          node --test scripts/perf/check-budgets.test.mjs scripts/perf/check-bundle.test.mjs scripts/perf/compare.test.mjs
+          node --test scripts/perf/*.test.mjs scripts/ci/*.test.mjs
           node --check scripts/perf/indexing.mjs
 
       - name: Workflow action pins
@@ -177,7 +194,7 @@ jobs:
   required:
     name: required
     if: always()
-    needs: [frontend_build, frontend_test, rust, policy, security]
+    needs: [frontend_build, frontend_test, desktop_test, rust, policy, security]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -186,11 +203,12 @@ jobs:
         env:
           FRONTEND_BUILD: ${{ needs.frontend_build.result }}
           FRONTEND_TEST: ${{ needs.frontend_test.result }}
+          DESKTOP_TEST: ${{ needs.desktop_test.result }}
           RUST: ${{ needs.rust.result }}
           POLICY: ${{ needs.policy.result }}
           SECURITY: ${{ needs.security.result }}
         run: |
-          for result in "$FRONTEND_BUILD" "$FRONTEND_TEST" "$RUST" "$POLICY" "$SECURITY"; do
+          for result in "$FRONTEND_BUILD" "$FRONTEND_TEST" "$DESKTOP_TEST" "$RUST" "$POLICY" "$SECURITY"; do
             if [ "$result" != "success" ]; then
               echo "::error::A required CI job finished with result: $result"
               exit 1
