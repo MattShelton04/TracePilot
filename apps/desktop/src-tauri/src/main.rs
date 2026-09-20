@@ -2,6 +2,9 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(all(windows, any(debug_assertions, feature = "automation-devtools")))]
+mod automation;
+
 fn main() {
     if let Err(error) = tracepilot_core::paths::isolated_data_root() {
         eprintln!("Fatal: invalid TRACEPILOT_DATA_ROOT: {error}");
@@ -40,6 +43,13 @@ fn main() {
         },
     };
 
+    let context = tauri::generate_context!();
+    #[cfg(all(windows, any(debug_assertions, feature = "automation-devtools")))]
+    let context = automation::configure(context).unwrap_or_else(|error| {
+        eprintln!("Fatal: invalid automation configuration: {error}");
+        std::process::exit(2);
+    });
+
     tauri::Builder::default()
         .manage(shared_config)
         // Log plugin registered FIRST so all subsequent plugin init is captured.
@@ -76,7 +86,7 @@ fn main() {
             log::info!("TracePilot v{} starting", env!("CARGO_PKG_VERSION"));
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .run(context)
         .unwrap_or_else(|e| {
             eprintln!("Fatal: TracePilot failed to start: {e}");
             std::process::exit(1);

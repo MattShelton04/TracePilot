@@ -101,6 +101,10 @@ export const test = base.extend({
         assert.equal(state.dataRoot.toLowerCase(), root.toLowerCase());
         assert.equal(state.build.executable.toLowerCase(), executable.toLowerCase());
         connection = await connectDesktop(state.endpoint);
+        assert(
+          existsSync(join(root, "webview-profile")),
+          "WebView must create its isolated profile",
+        );
         generation++;
         await connection.context.tracing.start({
           screenshots: true,

@@ -276,6 +276,8 @@ try {
     }
     $savedArgs = $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
     $savedProfile = $env:WEBVIEW2_USER_DATA_FOLDER
+    $savedAutomationPort = $env:TRACEPILOT_AUTOMATION_PORT
+    $savedAutomationProfile = $env:TRACEPILOT_AUTOMATION_PROFILE
     $savedDataRoot = $env:TRACEPILOT_DATA_ROOT
     Write-Host "Starting $Mode. Logs: $runtimeDir"
     try {
@@ -285,6 +287,8 @@ try {
         if ($Mode -eq 'desktop') {
             $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=$cdpPort --remote-debugging-address=127.0.0.1"
             $env:WEBVIEW2_USER_DATA_FOLDER = if ($resolvedPaths) { $resolvedPaths.webviewProfile } else { Join-Path $runtimeDir 'webview-profile' }
+            $env:TRACEPILOT_AUTOMATION_PORT = "$cdpPort"
+            $env:TRACEPILOT_AUTOMATION_PROFILE = $env:WEBVIEW2_USER_DATA_FOLDER
             if ($resolvedDataRoot) { $env:TRACEPILOT_DATA_ROOT = $resolvedDataRoot } else { Remove-Item Env:TRACEPILOT_DATA_ROOT -ErrorAction SilentlyContinue }
             if ($Runtime -eq 'development') {
                 $configPath = Join-Path $runtimeDir 'tauri.dev.json'
@@ -344,6 +348,8 @@ try {
     } finally {
         $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = $savedArgs
         $env:WEBVIEW2_USER_DATA_FOLDER = $savedProfile
+        $env:TRACEPILOT_AUTOMATION_PORT = $savedAutomationPort
+        $env:TRACEPILOT_AUTOMATION_PROFILE = $savedAutomationProfile
         $env:TRACEPILOT_DATA_ROOT = $savedDataRoot
     }
 } finally { $lock.Dispose() }

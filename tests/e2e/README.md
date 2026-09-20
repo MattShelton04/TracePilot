@@ -72,6 +72,16 @@ Use accessible roles/names and fixture outcomes when extending coverage. Use a
 stable test ID only where the existing UI provides one. Avoid CSS structure,
 screenshots as assertions, exact timings, and copying every UI unit test here.
 
+CI restores a dedicated `e2e-release` Rust dependency cache and the shared pnpm
+store cache. Main-branch runs save caches; PRs restore them. The app build and all
+tests still run, and every journey generates a new corpus and index.
+
+The launcher passes the loopback CDP port and isolated profile through Tauri's
+WebView configuration in development/`automation-devtools` builds. This also
+works on elevated Windows runners, where recent WebView2 versions ignore
+`WEBVIEW2_*` environment overrides. Normal release builds exclude this code.
+See [Microsoft's elevated-host guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security#for-an-elevated-host-app-use-appropriate-override-flags).
+
 Reports, per-process traces/screenshots, console output, lifecycle logs, and app
 logs are under `.tracepilot/e2e-results/`. CI uploads diagnostics for seven days,
 including on failure, without uploading the WebView cache. Open the HTML report
