@@ -98,15 +98,16 @@ export function formatApproxTokens(tokens: number | null | undefined): string {
 }
 
 /**
- * The window a live countdown can be shown for: the latest window, still
- * waiting for a reply, with an expiry predicted by the CLI. Estimated values
- * are never shown as a live countdown.
+ * The latest unresumed window with an expiry recorded by the CLI. Ending the
+ * session does not end its cache TTL. Never reuse an earlier resumed window
+ * or show an estimated expiry as a live countdown.
  */
 export function findLiveWindow(timeline: PromptCacheTimeline | null | undefined) {
   const last = timeline?.windows.at(-1);
   if (
     !last ||
-    last.outcome !== "pending" ||
+    (last.outcome !== "pending" && last.outcome !== "sessionEnded") ||
+    last.resumeAt != null ||
     last.confidence !== "predicted" ||
     !last.expiresAt ||
     last.ttlSeconds === 0

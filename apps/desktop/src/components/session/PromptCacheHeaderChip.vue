@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * Live prompt-cache countdown for a running session, driven by the expiry
- * Copilot CLI records when the agent goes idle. Ticks on the client between
- * refreshes; hidden unless the CLI recorded the expiry.
+ * Prompt-cache countdown for the next resume, including ended sessions, driven
+ * by the expiry Copilot CLI records when the agent goes idle. Ticks on the client
+ * between refreshes; hidden unless the CLI recorded the expiry.
  */
 import type { PromptCacheTimeline } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/types";

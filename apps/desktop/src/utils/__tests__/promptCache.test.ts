@@ -51,13 +51,22 @@ describe("live countdown", () => {
     expect(liveCacheStatus("not a date", at("00:00:00"))).toBeNull();
   });
 
-  it("only counts down a pending window predicted by the CLI", () => {
+  it("counts down the latest unresumed window, including ended sessions", () => {
     const pending = makeWindow({ outcome: "pending", resumeAt: null });
     expect(findLiveWindow(makeTimeline([makeWindow(), pending]))).toBe(pending);
     expect(findLiveWindow(makeTimeline([pending, makeWindow()]))).toBeNull();
     expect(findLiveWindow(makeTimeline([{ ...pending, confidence: "estimated" }]))).toBeNull();
     expect(findLiveWindow(makeTimeline([{ ...pending, ttlSeconds: 0 }]))).toBeNull();
-    expect(findLiveWindow(makeTimeline([{ ...pending, outcome: "sessionEnded" }]))).toBeNull();
+    const ended = makeWindow({ ...pending, outcome: "sessionEnded" });
+    expect(findLiveWindow(makeTimeline([makeWindow(), ended]))).toBe(ended);
+    expect(findLiveWindow(makeTimeline([ended, makeWindow()]))).toBeNull();
+    expect(findLiveWindow(makeTimeline([{ ...ended, confidence: "estimated" }]))).toBeNull();
+    expect(findLiveWindow(makeTimeline([{ ...ended, confidence: "unavailable" }]))).toBeNull();
+    expect(findLiveWindow(makeTimeline([{ ...ended, expiresAt: null }]))).toBeNull();
+    expect(findLiveWindow(makeTimeline([{ ...ended, ttlSeconds: 0 }]))).toBeNull();
+    expect(
+      findLiveWindow(makeTimeline([{ ...ended, resumeAt: "2026-09-12T00:20:00Z" }])),
+    ).toBeNull();
     expect(findLiveWindow(null)).toBeNull();
   });
 });

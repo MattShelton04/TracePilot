@@ -18,7 +18,7 @@ display them.
 
 This plan turns that data into:
 
-1. a **live cache countdown** for active sessions;
+1. a **live cache countdown** for active and ended sessions with a recorded expiry;
 2. **resume markers** in the Conversation tab showing whether you replied while the cache was
    warm or after it had expired;
 3. **prefix-change causes**, i.e. why a cache would break: tools, system prompt, model, effort,
@@ -220,7 +220,7 @@ silently assume a TTL.
 
 | # | View | Change | Updates live? | Fallback |
 |---|---|---|---|---|
-| 1 | **Session header** (`SessionDetailView` header area, next to the live/auto-refresh controls) | Chip: "Cache warm · 17:42" (green), "expiring · 3:10" (amber, under 5 min), "Cache expired 12m ago" (neutral). Tooltip gives the model, TTL and "Predicted by Copilot CLI". | Yes. It ticks on the client from `expires_at`, and the window re-derives on each refresh. | Hidden when there is no Predicted expiry. Estimated values are never shown as a live countdown. |
+| 1 | **Session header** (`SessionDetailView` header area, next to the live/auto-refresh controls) | Chip: "Cache warm · 17:42" (green), "expiring · 3:10" (amber, under 5 min), "Cache expired 12m ago" (neutral). Tooltip gives the model, TTL and expiry time. Also visible for ended sessions when considering a resume. | Yes. It ticks on the client from `expires_at`, and the window re-derives on each refresh. | Uses only the latest unresumed window (`pending` or `sessionEnded`) with a CLI-recorded expiry. Hidden for missing expiry or zero TTL. Estimated values are never shown as a live countdown. |
 | 2 | **Conversation tab** (`ConversationTurnList.vue`, chat view) | A divider between interactions: "idle 47m · cache expired 17m before this reply". A chip on the resumed user turn: warm, cold resume or likely cache break. A tooltip lists the prefix changes. | Yes, on turn refresh. | Estimated dividers use a dashed style and the "Estimated" label. No divider when Unavailable. |
 | 3 | **Metrics tab** (new `MetricsPromptCacheSection.vue` below `MetricsCacheBreakdown`) | A strip of idle windows (warm or expired), counts, re-sent prefix tokens, a table of prefix changes, and interaction cost deltas. | On refresh. | For sessions before 1.0.83: "Cache timing isn't recorded for this CLI version", with the estimate available behind a toggle. |
 | 4 | **Analytics dashboard** (`AnalyticsCacheHealthRow.vue`) | Adds "Replies after predicted expiry %", "Median idle before reply", and the top prefix-change causes. | On index update. | These figures cover only sessions with Predicted data. The denominator is shown ("from 13 sessions"). |

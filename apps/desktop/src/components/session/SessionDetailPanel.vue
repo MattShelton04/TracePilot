@@ -296,7 +296,7 @@ watch(isSessionActive, (active) => {
 
         <div class="detail-actions-right">
           <PromptCacheHeaderChip
-            v-if="showPromptCache && isSessionActive"
+            v-if="showPromptCache"
             :timeline="store.promptCache"
           />
           <RefreshToolbar
