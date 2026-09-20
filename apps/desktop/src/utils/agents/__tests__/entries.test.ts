@@ -1,9 +1,13 @@
+import {
+  agentCatalog as catalog,
+  agentDefinition as definition,
+  agentUsage as usage,
+} from "@tracepilot/client/mock";
 import type { AgentUsageSummary } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
 import { buildAgentEntries, filterAndSortEntries } from "../entries";
 import { buildAgentInsights } from "../insights";
 import { rangeBounds, rangeDays } from "../range";
-import { catalog, definition, NOW, usage } from "./fixtures";
 
 function summary(agents: ReturnType<typeof usage>[]): AgentUsageSummary {
   return {
@@ -20,6 +24,8 @@ function summary(agents: ReturnType<typeof usage>[]): AgentUsageSummary {
     mainAgentSelections: [],
   };
 }
+
+const NOW = new Date("2026-09-19T12:00:00Z");
 
 describe("buildAgentEntries", () => {
   it("attaches usage to the most local definition and keeps session-only agents", () => {

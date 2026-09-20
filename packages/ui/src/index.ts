@@ -36,6 +36,7 @@ export { default as ChartFrame } from "./components/ChartFrame.vue";
 export { default as ChartTooltip } from "./components/ChartTooltip.vue";
 export { default as ConfirmDialog } from "./components/ConfirmDialog.vue";
 export { default as DataTable } from "./components/DataTable.vue";
+export { default as DefinitionCard } from "./components/DefinitionCard.vue";
 export { default as DefList } from "./components/DefList.vue";
 export { default as Drawer } from "./components/Drawer.vue";
 export type { EmptyStateAction, EmptyStateProps } from "./components/EmptyState.vue";

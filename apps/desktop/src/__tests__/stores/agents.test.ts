@@ -22,7 +22,12 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 import { useAgentsStore } from "../../stores/agents";
-import { catalog, definition, settings, usage } from "../../utils/agents/__tests__/fixtures";
+import {
+  agentCatalog as catalog,
+  agentDefinition as definition,
+  agentSettings as settings,
+  agentUsage as usage,
+} from "@tracepilot/client/mock";
 
 function summary(agents: ReturnType<typeof usage>[]): AgentUsageSummary {
   return {

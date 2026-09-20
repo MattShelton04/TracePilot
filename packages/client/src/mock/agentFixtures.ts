@@ -6,9 +6,7 @@ import type {
   SubagentSettings,
 } from "@tracepilot/types";
 
-export const NOW = new Date("2026-09-19T12:00:00Z");
-
-export function fields(overrides: Partial<AgentFields> = {}): AgentFields {
+export function agentFields(overrides: Partial<AgentFields> = {}): AgentFields {
   return {
     name: null,
     displayName: null,
@@ -27,7 +25,7 @@ export function fields(overrides: Partial<AgentFields> = {}): AgentFields {
   };
 }
 
-export function definition(
+export function agentDefinition(
   name: string,
   overrides: Partial<AgentDefinitionSummary> = {},
 ): AgentDefinitionSummary {
@@ -42,7 +40,7 @@ export function definition(
     path: `/defs/${name}.agent.md`,
     sourceLabel: "Personal",
     repoRoot: null,
-    fields: fields({ name }),
+    fields: agentFields({ name }),
     hasMcpServers: false,
     readOnlyReason: null,
     modifiedAt: "2026-01-01T00:00:00Z",
@@ -50,7 +48,10 @@ export function definition(
   };
 }
 
-export function usage(name: string, overrides: Partial<AgentUsageStats> = {}): AgentUsageStats {
+export function agentUsage(
+  name: string,
+  overrides: Partial<AgentUsageStats> = {},
+): AgentUsageStats {
   const dist = { count: 0, min: null, p25: null, p50: null, p75: null, p90: null, max: null };
   return {
     name,
@@ -63,9 +64,9 @@ export function usage(name: string, overrides: Partial<AgentUsageStats> = {}): A
     failed: 0,
     cancelled: 0,
     incomplete: 0,
-    durationMs: dist,
-    totalTokens: dist,
-    toolCalls: dist,
+    durationMs: { ...dist },
+    totalTokens: { ...dist },
+    toolCalls: { ...dist },
     previousMedianDurationMs: null,
     runsWithCredits: 0,
     ownNanoAiu: null,
@@ -83,7 +84,7 @@ export function usage(name: string, overrides: Partial<AgentUsageStats> = {}): A
   };
 }
 
-export function settings(overrides: Partial<SubagentSettings> = {}): SubagentSettings {
+export function agentSettings(overrides: Partial<SubagentSettings> = {}): SubagentSettings {
   return {
     settingsPath: "/home/.copilot/settings.json",
     overrides: {},
@@ -98,14 +99,14 @@ export function settings(overrides: Partial<SubagentSettings> = {}): SubagentSet
   };
 }
 
-export function catalog(
+export function agentCatalog(
   definitions: AgentDefinitionSummary[],
   settingsOverrides: Partial<SubagentSettings> = {},
 ): AgentCatalog {
   return {
     definitions,
     diagnostics: [],
-    settings: settings(settingsOverrides),
+    settings: agentSettings(settingsOverrides),
     cliVersion: "1.0.79",
     personalDir: "/home/.copilot/agents",
     repoRoots: [],

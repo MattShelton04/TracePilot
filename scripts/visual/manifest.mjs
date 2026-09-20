@@ -140,7 +140,7 @@ export const cases = [
   { id: "agents-manager", route: "/agents", ready: ".agent-card", state: "populated" },
   {
     id: "agent-editor",
-    route: "/agents/detail?id=/visual-fixtures/agents/visual-explore.agent.md",
+    route: "/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md",
     ready: ".agent-editor .frontmatter-card",
     state: "populated synthetic personal agent",
   },

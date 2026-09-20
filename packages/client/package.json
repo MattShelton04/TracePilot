@@ -11,6 +11,10 @@
   "types": "src/index.ts",
   "sideEffects": false,
   "exports": {
+    "./mock": {
+      "types": "./src/mock/index.ts",
+      "default": "./src/mock/index.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

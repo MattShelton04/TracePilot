@@ -1,13 +1,18 @@
+import {
+  agentUsage,
+  agentFields as fields,
+  agentSettings as settings,
+} from "@tracepilot/client/mock";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { type Component, defineComponent, h, provide, reactive } from "vue";
 import { type AgentEditorContext, AgentEditorKey } from "@/composables/useAgentEditor";
-import { fields, settings } from "@/utils/agents/__tests__/fixtures";
 import { resolveEffectiveConfig } from "@/utils/agents/effective";
 import AgentEffectiveTab from "../AgentEffectiveTab.vue";
 import AgentMetadataForm from "../AgentMetadataForm.vue";
 import AgentModelList from "../AgentModelList.vue";
 import AgentPreviewTab from "../AgentPreviewTab.vue";
+import AgentUsageTab from "../AgentUsageTab.vue";
 
 vi.mock("@tracepilot/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@tracepilot/ui");
@@ -135,5 +140,32 @@ describe("AgentPreviewTab", () => {
     const wrapper = mount(host(AgentPreviewTab, makeCtx()));
     expect(wrapper.get(".md-stub").text()).toContain("`grep`");
     expect(wrapper.text()).toContain("filled by the CLI at runtime");
+  });
+});
+
+describe("AgentUsageTab", () => {
+  it("keeps metric coverage and missing values visible in the timing section", () => {
+    const stats = agentUsage("reviewer", { runs: 100 });
+    stats.durationMs = { ...stats.durationMs, count: 27, p50: 1_000 };
+    const ctx = makeCtx({
+      usage: {
+        stats,
+        recentRuns: [],
+        dispatch: [],
+        failureReasons: [],
+        invokedBy: [],
+        depths: [],
+        parallelism: [],
+        repositories: [],
+      },
+      store: { range: "30d" },
+    } as unknown as Partial<AgentEditorContext>);
+    const wrapper = mount(host(AgentUsageTab, ctx));
+    const metrics = wrapper.findAll(".agent-usage__distribution");
+    expect(metrics[0].text()).toContain("27 of 100 runs reported it");
+    expect(metrics[0].text()).toContain("1s");
+    expect(metrics[1].text()).toContain("No runs reported this metric");
+    expect(metrics[1].findAll("dd").every((cell) => cell.text() === "—")).toBe(true);
+    expect(metrics[1].text()).toContain("includes descendants");
   });
 });

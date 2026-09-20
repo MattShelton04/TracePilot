@@ -1,7 +1,7 @@
+import { agentFields as fields, agentSettings as settings } from "@tracepilot/client/mock";
 import { describe, expect, it } from "vitest";
 import { resolveEffectiveConfig } from "../effective";
 import { findPlaceholders, renderPromptPreview } from "../placeholders";
-import { fields, settings } from "./fixtures";
 
 describe("resolveEffectiveConfig", () => {
   it("prefers the /subagents override and says what it shadows", () => {

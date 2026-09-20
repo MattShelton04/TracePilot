@@ -1,6 +1,6 @@
+import { agentDefinition as definition, agentUsage as usage } from "@tracepilot/client/mock";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { definition, usage } from "@/utils/agents/__tests__/fixtures";
 import type { AgentEntry } from "@/utils/agents/entries";
 import AgentCard from "../AgentCard.vue";
 
@@ -37,7 +37,7 @@ describe("AgentCard", () => {
   it("opens the agent from the title button", async () => {
     const agent = entry();
     const wrapper = mountCard(agent);
-    const open = wrapper.get<HTMLButtonElement>(".agent-card__open");
+    const open = wrapper.get<HTMLButtonElement>(".definition-card__open");
     expect(open.attributes("aria-label")).toBe("Open agent explore");
     await open.trigger("click");
     expect(wrapper.emitted("open")?.[0]?.[0]).toEqual(agent);

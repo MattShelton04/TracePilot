@@ -1,11 +1,11 @@
 import { agentsUsageSummary } from "@tracepilot/client";
+import { agentUsage as usage } from "@tracepilot/client/mock";
 import type { AgentUsageSummary } from "@tracepilot/types";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive } from "vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import { usage } from "@/utils/agents/__tests__/fixtures";
 import AnalyticsAgentsPanel from "../AnalyticsAgentsPanel.vue";
 
 const { getStore } = vi.hoisted(() => ({ getStore: vi.fn() }));

@@ -10,6 +10,7 @@ import {
   type SegmentOption,
   Select,
   Tooltip,
+  useDismissable,
 } from "@tracepilot/ui";
 import { Bot, Plus } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
@@ -17,7 +18,6 @@ import { useRoute, useRouter } from "vue-router";
 import AgentCard from "@/components/agents/AgentCard.vue";
 import AgentCreateModal from "@/components/agents/AgentCreateModal.vue";
 import { FLAG_BADGES, FLAG_FILTERS, SCOPE_FILTER_LABELS } from "@/components/agents/agentBadges";
-import UsageInsightBar from "@/components/usage/UsageInsightBar.vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useAgentsStore } from "@/stores/agents";
@@ -29,6 +29,7 @@ const store = useAgentsStore();
 const router = useRouter();
 const route = useRoute();
 const showCreate = ref(false);
+const { isDismissed, dismiss } = useDismissable("agents-insights");
 
 // Deep links must be visible even after a previous visit narrowed the filters.
 watch(
@@ -62,10 +63,6 @@ const sortOptions = [
   { value: "lastUsed", label: "Last used" },
 ] as const;
 
-const insights = computed(() =>
-  store.insights.map((insight) => ({ ...insight, actionable: Boolean(insight.filter) })),
-);
-
 const failureRatePct = computed(() => {
   const usage = store.usage;
   if (!usage || usage.totalRuns === 0) return "—";
@@ -75,11 +72,6 @@ const failureRatePct = computed(() => {
 
 function openAgent(entry: AgentEntry) {
   pushRoute(router, ROUTE_NAMES.agentEditor, { query: { id: agentRouteId(entry) } });
-}
-
-function applyInsight(id: string) {
-  const insight = store.insights.find((item) => item.id === id);
-  if (insight) store.applyInsight(insight);
 }
 
 function onCreated(path: string) {
@@ -128,11 +120,12 @@ function onCreated(path: string) {
         <span class="stat-chip">{{ failureRatePct }} failed or cancelled</span>
       </div>
 
-      <UsageInsightBar
-        :insights="insights"
-        storage-key="agents-insights"
-        @select="applyInsight"
-      />
+      <Banner v-if="store.insights.length && !isDismissed" class="agents-insights" role="note" dismissible @dismiss="dismiss">
+        <span v-for="insight in store.insights" :key="insight.id" :class="`agents-insights__item--${insight.tone}`">
+          <button v-if="insight.filter" type="button" class="agents-insights__action" @click="store.applyInsight(insight)">{{ insight.text }}</button>
+          <span v-else>{{ insight.text }}</span>
+        </span>
+      </Banner>
 
       <div class="filter-row">
         <SegmentedControl

@@ -12,7 +12,11 @@ vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/router/navigation", () => ({ pushRoute: vi.fn() }));
 
 import { resolveEffectiveConfig } from "@/utils/agents/effective";
-import { definition, fields, settings } from "@/utils/agents/__tests__/fixtures";
+import {
+  agentDefinition as definition,
+  agentFields as fields,
+  agentSettings as settings,
+} from "@tracepilot/client/mock";
 import AgentEditorView from "@/views/agents/AgentEditorView.vue";
 
 enableAutoUnmount(afterEach);

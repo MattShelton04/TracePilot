@@ -30,7 +30,11 @@ const storeMock = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("@/stores/agents", () => ({ useAgentsStore: () => storeMock.value }));
 
 import { useAgentEditor } from "../useAgentEditor";
-import { catalog, definition, fields } from "@/utils/agents/__tests__/fixtures";
+import {
+  agentCatalog as catalog,
+  agentDefinition as definition,
+  agentFields as fields,
+} from "@tracepilot/client/mock";
 
 function detail(overrides: Record<string, unknown> = {}) {
   const summary = definition("reviewer", {

@@ -10,18 +10,17 @@
  */
 import { calculateObservedAiCredits } from "@tracepilot/types";
 import {
+  DefList,
   formatAiCredits,
   formatDuration,
   formatNumber,
   formatRelativeTime,
-  KPI,
-  KPIRow,
   LoadingSpinner,
+  Tooltip,
 } from "@tracepilot/ui";
 import { computed } from "vue";
 import AgentRecentRuns from "@/components/agentEditor/AgentRecentRuns.vue";
 import UsageBreakdownBars, { type BreakdownRow } from "@/components/usage/UsageBreakdownBars.vue";
-import UsageDistribution from "@/components/usage/UsageDistribution.vue";
 import UsageSparkline from "@/components/usage/UsageSparkline.vue";
 import UsageStackedBar, { type StackedSegment } from "@/components/usage/UsageStackedBar.vue";
 import { useAgentEditorContext } from "@/composables/useAgentEditor";
@@ -64,12 +63,14 @@ const kpis = computed(() => {
       key: "runs",
       label: "Runs",
       value: formatNumber(value.runs),
+      note: `${formatNumber(value.sessions)} sessions`,
       description: `Across ${formatNumber(value.sessions)} session${value.sessions === 1 ? "" : "s"}.`,
     },
     {
       key: "duration",
       label: "Median duration",
       value: value.durationMs.p50 != null ? formatDuration(value.durationMs.p50) : "—",
+      note: `${formatNumber(value.durationMs.count)} timed runs`,
       description:
         value.durationMs.p90 != null
           ? `p90 ${formatDuration(value.durationMs.p90)} over ${formatNumber(value.durationMs.count)} timed runs.`
@@ -78,6 +79,7 @@ const kpis = computed(() => {
     {
       key: "failed",
       label: "Failed or cancelled",
+      note: `${formatNumber(value.failed + value.cancelled)} of ${formatNumber(value.runs)} runs`,
       value:
         value.runs === 0
           ? "—"
@@ -88,11 +90,38 @@ const kpis = computed(() => {
       key: "credits",
       label: "Credits",
       value: credits ?? "—",
+      note:
+        value.runsWithCredits > 0
+          ? `Exclusive · ${formatNumber(value.runsWithCredits)} of ${formatNumber(value.runs)} runs`
+          : "No ledger recorded",
       description: credits
         ? `Exclusive to this agent, over ${formatNumber(value.runsWithCredits)} of ${formatNumber(value.runs)} runs that carried the CLI's metrics ledger.`
         : "No run carried the CLI's agent metrics ledger, which is where exclusive credits come from.",
     },
   ];
+});
+
+// Percentiles retain their reporting denominator for older CLI sessions.
+const distributions = computed(() => {
+  const value = stats.value;
+  if (!value) return [];
+  return [
+    { title: "Duration", data: value.durationMs, format: formatDuration },
+    { title: "Tokens", data: value.totalTokens, format: formatNumber },
+    { title: "Tool calls", data: value.toolCalls, format: formatNumber },
+  ].map(({ title, data, format }) => ({
+    title,
+    items: [
+      { label: "p25", value: data.p25 },
+      { label: "Median", value: data.p50 },
+      { label: "p90", value: data.p90 },
+      { label: "Max", value: data.max },
+    ].map(({ label, value }) => ({ label, value: value == null ? "—" : format(value) })),
+    coverage:
+      data.count === 0
+        ? "No runs reported this metric"
+        : `${formatNumber(data.count)} of ${formatNumber(value.runs)} runs reported it`,
+  }));
 });
 
 const models = computed<BreakdownRow[]>(
@@ -185,16 +214,13 @@ const modelsOpen = computed(() => (stats.value?.mismatchRuns ?? 0) > 0);
     </div>
 
     <template v-else-if="stats && stats.runs > 0">
-      <KPIRow density="compact">
-        <KPI
-          v-for="kpi in kpis"
-          :key="kpi.key"
-          density="compact"
-          :label="kpi.label"
-          :value="kpi.value"
-          :description="kpi.description"
-        />
-      </KPIRow>
+      <dl class="agent-usage__summary">
+        <div v-for="kpi in kpis" :key="kpi.key" :title="kpi.description">
+          <dt>{{ kpi.label }}</dt>
+          <dd>{{ kpi.value }}</dd>
+          <small>{{ kpi.note }}</small>
+        </div>
+      </dl>
 
       <section class="agent-usage__section">
         <h4 class="agent-usage__title">
@@ -210,11 +236,6 @@ const modelsOpen = computed(() => (stats.value?.mismatchRuns ?? 0) > 0);
           :width="320"
           :height="32"
         />
-      </section>
-
-      <section v-if="failures.length" class="agent-usage__section">
-        <h4 class="agent-usage__title">Why runs ended early</h4>
-        <UsageBreakdownBars :rows="failures" :total="stats.failed + stats.cancelled" />
       </section>
 
       <details class="agent-usage__more" :open="modelsOpen">
@@ -236,18 +257,26 @@ const modelsOpen = computed(() => (stats.value?.mismatchRuns ?? 0) > 0);
         </div>
       </details>
 
+      <details v-if="failures.length" class="agent-usage__more">
+        <summary>Failure reasons <span class="agent-usage__denominator">{{ formatNumber(stats.failed) }} failed runs</span></summary>
+        <div class="agent-usage__more-body">
+          <UsageBreakdownBars :rows="failures" :total="stats.failed" :limit="10" />
+        </div>
+      </details>
+
       <details class="agent-usage__more">
         <summary>Timing, tokens and tool calls</summary>
         <div class="agent-usage__more-body">
-          <UsageDistribution title="Duration" :distribution="stats.durationMs" :runs="stats.runs" format="duration" />
-          <UsageDistribution
-            title="Tokens"
-            :distribution="stats.totalTokens"
-            :runs="stats.runs"
-            format="number"
-            note="subagent.completed reports tokens that can include descendant agents, so these are never summed across a hierarchy."
-          />
-          <UsageDistribution title="Tool calls" :distribution="stats.toolCalls" :runs="stats.runs" format="number" />
+          <div v-for="metric in distributions" :key="metric.title" class="agent-usage__distribution">
+            <h4 class="agent-usage__title">
+              {{ metric.title }}
+              <Tooltip v-if="metric.title === 'Tokens'" text="Reported tokens can include descendant agents, so they are never summed across a hierarchy." position="bottom">
+                <span class="agent-usage__denominator" tabindex="0">includes descendants</span>
+              </Tooltip>
+            </h4>
+            <DefList :items="metric.items" />
+            <p class="agent-usage__empty">{{ metric.coverage }}</p>
+          </div>
         </div>
       </details>
 
@@ -290,11 +319,39 @@ const modelsOpen = computed(() => (stats.value?.mismatchRuns ?? 0) > 0);
 
 <style scoped>
 .agent-usage {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
+.agent-usage__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+}
+.agent-usage__summary dt,
+.agent-usage__summary small {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+.agent-usage__summary dd {
+  margin: 4px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+@container (min-width: 720px) {
+  .agent-usage__summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.agent-usage__distribution,
 .agent-usage__section {
   display: flex;
   flex-direction: column;

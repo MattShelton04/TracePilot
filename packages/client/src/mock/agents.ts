@@ -10,8 +10,15 @@ import type {
   AgentWriteResult,
   MetricDistribution,
   SubagentOverride,
-  SubagentSettings,
 } from "@tracepilot/types";
+
+import {
+  agentCatalog,
+  agentDefinition,
+  agentFields,
+  agentSettings,
+  agentUsage,
+} from "./agentFixtures.js";
 
 // Browser-mode fixtures for the Agents explorer. Shapes follow a real local
 // corpus: built-ins from the active CLI package, one personal and one
@@ -20,22 +27,6 @@ import type {
 const DAY_MS = 86_400_000;
 const PKG = "/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions";
 
-const emptyFields = (): AgentFields => ({
-  name: null,
-  displayName: null,
-  description: null,
-  models: [],
-  modelPolicy: null,
-  reasoningEffort: null,
-  contextTier: null,
-  tools: null,
-  includeCustomInstructions: null,
-  deferredToolLoading: null,
-  disableModelInvocation: null,
-  userInvocable: null,
-  infer: null,
-});
-
 function builtin(
   name: string,
   displayName: string,
@@ -43,23 +34,19 @@ function builtin(
   model: string,
   tools: string[] | null,
 ): AgentDefinitionSummary {
-  return {
+  return agentDefinition(name, {
     id: `${PKG}/${name}.agent.yaml`,
-    name,
-    fileStem: name,
     displayName,
     description,
     scope: "builtin",
     format: "yaml",
     path: `${PKG}/${name}.agent.yaml`,
     sourceLabel: "Copilot CLI 1.0.79",
-    repoRoot: null,
-    fields: { ...emptyFields(), name, displayName, description, models: [model], tools },
-    hasMcpServers: false,
+    fields: { ...agentFields(), name, displayName, description, models: [model], tools },
     readOnlyReason:
       "Installed with the Copilot CLI. A CLI update replaces this file, so override it for your sessions instead.",
     modifiedAt: "2026-09-01T10:00:00Z",
-  };
+  });
 }
 
 const REVIEWER_BODY =
@@ -108,7 +95,7 @@ function initialDefinitions(): AgentDefinitionSummary[] {
       sourceLabel: "Personal",
       repoRoot: null,
       fields: {
-        ...emptyFields(),
+        ...agentFields(),
         name: "reviewer",
         description: "Reviews pull requests against the team's checklist.",
         models: ["claude-opus-5", "gpt-5.6-luna"],
@@ -133,7 +120,7 @@ function initialDefinitions(): AgentDefinitionSummary[] {
       sourceLabel: "tracepilot",
       repoRoot: "/home/dev/src/tracepilot",
       fields: {
-        ...emptyFields(),
+        ...agentFields(),
         description: "Writes and updates user-facing documentation.",
         models: ["gpt-5.4-mini"],
       },
@@ -147,22 +134,20 @@ function initialDefinitions(): AgentDefinitionSummary[] {
 const state = {
   definitions: initialDefinitions(),
   bodies: new Map<string, string>(),
-  settings: {
+  settings: agentSettings({
     settingsPath: "/home/dev/.copilot/settings.json",
     overrides: { explore: { model: "gpt-5.4-mini", effortLevel: "low", contextTier: null } },
     disabled: ["security-review"],
-    maxConcurrency: null,
     maxDepth: 4,
     sessionModel: "gpt-5.6-luna",
     sessionEffort: "high",
-    shapeError: null,
-    raw: null,
-  } as SubagentSettings,
+  }),
 };
 
-function distribution(p50: number, spread = 3): MetricDistribution {
+function distribution(p50: number, count: number, spread = 3): MetricDistribution {
+  if (!count) return { count: 0, min: null, p25: null, p50: null, p75: null, p90: null, max: null };
   return {
-    count: 40,
+    count,
     min: Math.round(p50 / spread),
     p25: Math.round(p50 * 0.6),
     p50,
@@ -185,35 +170,27 @@ function stats(
     date: new Date(now - (29 - i) * DAY_MS).toISOString().slice(0, 10),
     runs: Math.max(0, Math.round((runs / 30) * (0.4 + ((i * 7) % 11) / 10))),
   })).filter((d) => d.runs > 0);
-  return {
-    name,
-    agentType: name,
-    displayName: null,
-    description: null,
+  return agentUsage(name, {
     runs,
-    sessions: Math.max(1, Math.round(runs / 6)),
-    completed: runs - failed - 1,
+    sessions: runs ? Math.max(1, Math.round(runs / 6)) : 0,
+    completed: Math.max(0, runs - failed - (runs ? 1 : 0)),
     failed,
-    cancelled: 1,
-    incomplete: 0,
-    durationMs: distribution(p50Ms),
-    totalTokens: distribution(p50Ms * 12),
-    toolCalls: distribution(Math.max(2, Math.round(p50Ms / 4000))),
+    cancelled: runs ? 1 : 0,
+    durationMs: distribution(p50Ms, runs),
+    totalTokens: distribution(p50Ms * 12, runs),
+    toolCalls: distribution(Math.max(2, Math.round(p50Ms / 4000)), runs),
     previousMedianDurationMs: Math.round(p50Ms * 0.9),
     runsWithCredits: Math.round(runs / 3),
     ownNanoAiu: Math.round(runs * 90_000_000),
-    firstUsed: new Date(now - 29 * DAY_MS).toISOString(),
-    lastUsed: new Date(now - 2 * 3_600_000).toISOString(),
-    topModels: [{ label: model, runs }],
-    mismatchRuns: 0,
+    firstUsed: runs ? new Date(now - 29 * DAY_MS).toISOString() : null,
+    lastUsed: runs ? new Date(now - 2 * 3_600_000).toISOString() : null,
+    topModels: runs ? [{ label: model, runs }] : [],
     runsWithConfiguration: Math.round(runs / 3),
     maxDepth: 1,
     peakSiblings: 4,
-    followUps: 0,
-    multiTurnRuns: 0,
     dailyRuns,
     ...extra,
-  };
+  });
 }
 
 function summary(): AgentUsageSummary {
@@ -304,12 +281,12 @@ function detail(name: string): AgentUsageDetail {
           ]
         : [],
     invokedBy: [
-      { parent: null, runs: found.runs - 20 },
-      { parent: "general-purpose", runs: 20 },
+      { parent: null, runs: found.runs - Math.min(20, found.runs) },
+      { parent: "general-purpose", runs: Math.min(20, found.runs) },
     ],
     depths: [
-      { value: 0, runs: found.runs - 20 },
-      { value: 1, runs: 20 },
+      { value: 0, runs: found.runs - Math.min(20, found.runs) },
+      { value: 1, runs: Math.min(20, found.runs) },
     ],
     parallelism: [
       { value: 1, runs: Math.round(found.runs / 2) },
@@ -387,10 +364,7 @@ export function agentsMock<T>(cmd: string, args: Record<string, unknown> = {}): 
   switch (cmd) {
     case "agents_list":
       return {
-        definitions: state.definitions,
-        diagnostics: [],
-        settings: state.settings,
-        cliVersion: "1.0.79",
+        ...agentCatalog(state.definitions, state.settings),
         personalDir: "/home/dev/.copilot/agents",
         repoRoots: ["/home/dev/src/tracepilot"],
       } satisfies AgentCatalog as T;
@@ -421,7 +395,7 @@ export function agentsMock<T>(cmd: string, args: Record<string, unknown> = {}): 
         ),
         scope: project ? "project" : "personal",
         sourceLabel: project ? "tracepilot" : "Personal",
-        fields: { ...emptyFields(), name, description: String(args.description || "") },
+        fields: { ...agentFields(), name, description: String(args.description || "") },
       };
       created.path = project
         ? `/home/dev/src/tracepilot/.github/agents/${name}.agent.md`

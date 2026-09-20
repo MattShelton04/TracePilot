@@ -1,9 +1,13 @@
+import {
+  agentCatalog as catalog,
+  agentDefinition as definition,
+  agentUsage as usage,
+} from "@tracepilot/client/mock";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, reactive, ref } from "vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import { catalog, definition, usage } from "@/utils/agents/__tests__/fixtures";
 import { buildAgentEntries } from "@/utils/agents/entries";
 import { buildAgentInsights } from "@/utils/agents/insights";
 import AgentsManagerView from "@/views/agents/AgentsManagerView.vue";
@@ -68,6 +72,25 @@ function mountView(overrides: Record<string, unknown> = {}) {
 }
 
 describe("AgentsManagerView", () => {
+  it("applies and persistently dismisses actionable insights", async () => {
+    const insight = {
+      id: "unused",
+      tone: "info",
+      text: "One unused agent",
+      filter: { flag: "unused" },
+    };
+    const { store, wrapper } = mountView({ insights: [insight] });
+    await wrapper.get(".agents-insights__action").trigger("click");
+    expect(store.applyInsight).toHaveBeenCalledWith(insight);
+    await wrapper.get('.agents-insights [aria-label="Dismiss"]').trigger("click");
+    expect(wrapper.find(".agents-insights").exists()).toBe(false);
+    wrapper.unmount();
+    expect(
+      mountView({ insights: [insight] })
+        .wrapper.find(".agents-insights")
+        .exists(),
+    ).toBe(false);
+  });
   it("applies agent deep links and clears filters on initial and subsequent navigation", async () => {
     const route = reactive({ query: { q: "reviewer" } });
     getRoute.mockReturnValue(route);
@@ -102,7 +125,7 @@ describe("AgentsManagerView", () => {
   it("opens the detail page for the card that was clicked", async () => {
     const { wrapper } = mountView();
     await flushPromises();
-    await wrapper.get(".agent-card__open").trigger("click");
+    await wrapper.get(".definition-card__open").trigger("click");
     expect(pushRoute).toHaveBeenCalledWith(expect.anything(), ROUTE_NAMES.agentEditor, {
       query: { id: "/defs/reviewer.agent.md" },
     });

@@ -85,7 +85,8 @@ function label(value: number): string {
   overflow: hidden;
 }
 
-.stacked__segment {
+.stacked__segment,
+.stacked__dot {
   height: 100%;
   background: var(--accent-emphasis);
 }
@@ -131,7 +132,6 @@ function label(value: number): string {
   width: 6px;
   height: 6px;
   border-radius: var(--radius-full, 999px);
-  background: var(--accent-emphasis);
   flex-shrink: 0;
 }
 
