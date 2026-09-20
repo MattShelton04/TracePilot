@@ -14,6 +14,9 @@
  *       base-uri 'self'
  *       frame-ancestors 'none'
  *       script-src-attr 'none'
+ *   - `connect-src` is the exact allowlist needed by the app, including
+ *     Tauri IPC's `ipc://localhost` and Windows `http://ipc.localhost`
+ *     transports without broad localhost, scheme, or wildcard access.
  *
  * Also scans the built `apps/desktop/dist/index.html` (if present from a
  * prior `pnpm build`) for any inline `<script>` bodies — warns but does
@@ -40,6 +43,14 @@ const REQUIRED_DIRECTIVES = [
 ];
 
 const FORBIDDEN_SCRIPT_SRC_TOKENS = ["'unsafe-inline'", "'unsafe-eval'"];
+
+const CONNECT_SRC_ALLOWLIST = [
+  "'self'",
+  "ipc:",
+  "http://ipc.localhost",
+  "https://github.com",
+  "https://api.github.com",
+];
 
 function parseCsp(csp) {
   // Parse `directive value1 value2; directive value1 ...` into a map.
@@ -93,6 +104,20 @@ function checkDirectives(csp) {
     if (!values.includes(value)) {
       errors.push(`directive \`${name}\` must include ${value} (got: ${values.join(" ")})`);
     }
+  }
+
+  const connectSrc = directives.get("connect-src") ?? [];
+  const unexpectedConnectSources = connectSrc.filter(
+    (source) => !CONNECT_SRC_ALLOWLIST.includes(source),
+  );
+  const missingConnectSources = CONNECT_SRC_ALLOWLIST.filter(
+    (source) => !connectSrc.includes(source),
+  );
+  if (unexpectedConnectSources.length > 0) {
+    errors.push(`connect-src contains unexpected source(s): ${unexpectedConnectSources.join(" ")}`);
+  }
+  if (missingConnectSources.length > 0) {
+    errors.push(`connect-src is missing required source(s): ${missingConnectSources.join(" ")}`);
   }
   return errors;
 }
