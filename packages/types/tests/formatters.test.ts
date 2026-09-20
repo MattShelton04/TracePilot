@@ -1,5 +1,51 @@
-import { describe, expect, it } from "vitest";
-import { formatAiCredits, formatLiveDuration } from "../src/utils/formatters.js";
+import { describe, expect, it, vi } from "vitest";
+import { formatAiCredits, formatLiveDuration, formatTime } from "../src/utils/formatters.js";
+
+const TIME_OPTIONS: Intl.DateTimeFormatOptions = {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+};
+
+describe("formatTime", () => {
+  it("matches Date.toLocaleTimeString across boundary dates and invalid or missing input", () => {
+    const dates = [
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T23:59:59.999Z",
+      "2026-10-04T01:59:59+10:00",
+      "2026-10-04T03:00:00+11:00",
+      "2026-04-05T02:59:59+11:00",
+      "2026-04-05T02:00:00+10:00",
+    ];
+
+    for (const date of dates) {
+      expect(formatTime(date)).toBe(new Date(date).toLocaleTimeString([], TIME_OPTIONS));
+    }
+    expect(formatTime("not-a-date")).toBe(
+      new Date("not-a-date").toLocaleTimeString([], TIME_OPTIONS),
+    );
+    expect(formatTime(null)).toBe("");
+    expect(formatTime(undefined)).toBe("");
+    expect(formatTime("")).toBe("");
+  });
+
+  it("constructs once per synchronous batch and refreshes after the next microtask", async () => {
+    await Promise.resolve();
+    const dateTimeFormatSpy = vi.spyOn(Intl, "DateTimeFormat");
+    try {
+      formatTime("2026-01-01T00:00:00.000Z");
+      formatTime("2026-01-01T00:00:01.000Z");
+      formatTime("2026-01-01T00:00:02.000Z");
+      expect(dateTimeFormatSpy).toHaveBeenCalledTimes(1);
+
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+      formatTime("2026-01-01T00:00:03.000Z");
+      expect(dateTimeFormatSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      dateTimeFormatSpy.mockRestore();
+    }
+  });
+});
 
 describe("formatAiCredits", () => {
   it("preserves useful precision and labels the unit", () => {
