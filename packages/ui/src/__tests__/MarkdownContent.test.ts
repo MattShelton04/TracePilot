@@ -143,7 +143,9 @@ describe("MarkdownContent", () => {
 
       for (let i = 0; i < 4; i++) await flushPromises();
 
-      const writes = innerHtmlSetter.mock.instances.filter((instance) => instance === root);
+      const writes = innerHtmlSetter.mock.instances.filter(
+        (instance: unknown) => instance === root,
+      );
       expect(writes).toHaveLength(1);
       expect(selection?.toString()).toBe("select");
       expect(selection?.anchorNode).toBe(text);

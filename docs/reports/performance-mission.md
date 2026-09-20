@@ -226,8 +226,8 @@ ran against built assets and produced its JSON/Markdown summaries successfully.
 
 Workflows use read-only permissions and nonpersistent checkout credentials. The
 measurement job no longer attempts Pages pushes or PR comments. Unrelated existing
-Pages content is untouched; no publishing pipeline was added. Hosted Actions were
-not run from this task.
+Pages content is untouched; no publishing pipeline was added. These measurements
+were validated locally; hosted Actions results are separate PR evidence.
 
 `scripts/perf/compare.mjs` produces offline Markdown/JSON with improvement,
 regression, effectively unchanged, inconclusive, execution failure, missing result
@@ -280,6 +280,70 @@ Local raw evidence includes `typical-base-a/b`, `typical-head-a/b`,
 under `.tracepilot/perf/`. Private profiles/screenshots must stay local. A public
 corpus cannot reproduce a particular private session's timings.
 
+## Follow-up: everyday impact and SQLite review
+
+The largest benefit is opening or refreshing very large histories that must cross
+the native bridge. The 76.6% result applies to one large IPC response, while the
+measured complete warm conversation improvement is 17.7%. Routine session lists,
+search and analytics had no established improvement from this change. There is no
+measured population-wide "average user" percentage.
+
+Further rendering work remains plausible. Final-head 640-turn CPU profiles still
+attribute about 303–411 ms to `getBoundingClientRect`, with other scroll/layout
+reads also costly. This is browser layout charged to a synchronous read, not proof
+that removing that read would save its full sampled duration. The next experiment
+should coordinate panel-offset and scroll measurements/writes, then validate full
+render, scrolling, deep links, text selection and live updates. The chat panel
+offset helper currently reads geometry and writes breakout styles on scroll.
+
+Tool groups also mount collapsed rows using `v-show`, and their visibility helper
+repeatedly counts/prefix-scans the same group. Precomputing visibility is a bounded
+candidate; reducing hidden row mounting requires checking expansion latency and
+deep-link behavior. Neither is a proven additional speedup yet. Whole-conversation
+virtualization remains higher risk for find, copy, selection and scroll stability.
+
+SQLite has substantial existing optimization: WAL/NORMAL writer configuration,
+foreign keys, a busy timeout, transactions, FTS5, composite indexes, a partial
+nonempty-session index, and throttled ANALYZE/FTS/vacuum/checkpoint maintenance.
+Read-only query-plan inspection confirmed the intended indexes for chronological
+session lists, repository filters, per-session content browsing and neighboring
+events. The inspected databases had planner statistics populated. No database
+migration or new index was added in this follow-up.
+
+Read-only diagnostics, five warm samples, on the existing isolated databases:
+
+| Operation | 100 synthetic sessions / 13,268 search rows | 1,000 / 105,046 rows | 20 copied sessions / 65,385 rows |
+| --- | ---: | ---: | ---: |
+| Fetch complete session list | 0.28 ms | 2.81 ms | 0.07 ms |
+| Common-term relevance results, first 50 | 3.25 ms | 33.94 ms | 12.99 ms |
+| Separate matching-result count | 1.12 ms | 18.66 ms | 6.19 ms |
+| Four facet/totals queries, sum of individual medians | 4.43 ms | 77.24 ms | 26.77 ms |
+| Per-session content browse, first 50 | 0.06 ms | 0.04 ms | 0.04 ms |
+
+These diagnostics used Python SQLite **3.42.0**, while the native release links
+**3.46.0**. They identify query shapes and approximate costs; they are not new
+native app timings or directly comparable benchmark results. Queries returned
+complete rows but no private result text/identifiers were recorded. Local script
+and numeric plans: `.tracepilot/perf/sqlite-followup.py` and `sqlite-followup.json`.
+
+The strongest SQL follow-ups are:
+
+- A search performs results plus COUNT; a facet-cache miss adds three grouped
+  dimensions and totals, repeating COUNT. Facets are requested after results, and
+  each dimension intentionally excludes its own filter. Share work only while
+  preserving those semantics, exact counts and fresh index state.
+- Weighted FTS relevance uses a temporary sort over matches. Common terms have
+  measurable cost; a replacement must preserve the current ranking, not simply
+  remove weights to benchmark faster.
+- Analytics wraps timestamps in `date(COALESCE(...))`; the tested date filter
+  scans sessions. It cost only 0.37 ms at 1,000 sessions, so adding an expression
+  index is lower priority than rendering/search work and must preserve NULL and
+  date/time semantics.
+- Opening a read connection plus COUNT averaged about 0.7–0.9 ms in these
+  diagnostics. Connection pooling is lower priority and could add lifecycle and
+  concurrency complexity. Index availability alone does not mean every query is
+  optimal, but the evidence does not justify a general SQLite rewrite.
+
 ## Commits, delegation and limits
 
 Reviewable commits in order:
@@ -290,7 +354,9 @@ Reviewable commits in order:
 4. `d48990e4` — validated native desktop/IPC measurements and comparisons.
 5. `5bc82273` — eliminate repeated formatting/DOM work; native correctness check.
 6. `030bc56c` — validate CI evidence and report budget enforcement honestly.
-7. The reporting commit containing this document and sanitized numeric evidence.
+7. `46c16e6b` — measured results and sanitized numeric evidence.
+8. Follow-up validation — SQLite/query-plan assessment and setter-spy test typing
+   corrected after full-workspace typechecking.
 
 Astra mapped flows, diagnosed the IPC fallback, interpreted profiles, chose changes,
 ran native A/A and base/head acceptance, reviewed source and made retention decisions.
@@ -306,6 +372,7 @@ remain inconclusive/unchanged as described above.
 
 Limits: one Windows machine/WebView; macOS/Linux untested; no controlled cold-disk
 or startup comparison, long-duration leak study, whole-app CPU/working-set
-improvement claim, or hosted Actions run. Huge sessions still take seconds of DOM
+improvement claim, or completed hosted Actions validation at measurement time.
+Huge sessions still take seconds of DOM
 work; OS cache, GC and prefetch add variance. The app was stopped after validation,
 and the accepted executable was restored under `target/release`.
