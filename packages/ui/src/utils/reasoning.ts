@@ -11,3 +11,13 @@ export function getReasoningSummary(content: string): string | null {
   // Avoid promoting nested Markdown, links, code or markup into a heading.
   return heading && !/[`_<>[\]\\]/.test(heading) ? heading : null;
 }
+
+/** Display body with only the recognized opening heading removed. Stored text is unchanged. */
+export function getReasoningBody(content: string): string {
+  if (!getReasoningSummary(content)) return content;
+  const trimmed = content.trimStart();
+  const newline = trimmed.indexOf("\n");
+  if (newline === -1) return "";
+  // Drop blank separator lines, preserving body indentation and later headings.
+  return trimmed.slice(newline + 1).replace(/^(?:[\t ]*\r?\n)+/, "");
+}

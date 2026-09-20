@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getReasoningSummary } from "../utils/reasoning";
+import { getReasoningBody, getReasoningSummary } from "../utils/reasoning";
 
 describe("getReasoningSummary", () => {
   it.each([
@@ -29,5 +29,24 @@ describe("getReasoningSummary", () => {
     "__Unobserved syntax__",
   ])("keeps the generic label for %j", (text) => {
     expect(getReasoningSummary(text)).toBeNull();
+    expect(getReasoningBody(text)).toBe(text);
+  });
+});
+
+describe("getReasoningBody", () => {
+  it.each([
+    ["**Inspecting session data**\n\nDetails", "Details"],
+    [
+      "\r\n ** Checking compatibility ** \r\n\t\r\n    Indented details\r\n",
+      "    Indented details\r\n",
+    ],
+    ["**分析兼容性**", ""],
+    [
+      "**First heading**\n\nDetails\n\n**Later heading**\nMore",
+      "Details\n\n**Later heading**\nMore",
+    ],
+    ["**First heading**\n**Second heading**\nDetails", "**Second heading**\nDetails"],
+  ])("removes only the recognized opening heading from %j", (text, expected) => {
+    expect(getReasoningBody(text)).toBe(expected);
   });
 });

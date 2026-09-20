@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import ReasoningBlock from "../components/ReasoningBlock.vue";
 
 describe("ReasoningBlock", () => {
-  it("shows the heading while collapsed and preserves the complete original on expansion", async () => {
+  it("keeps the heading above the expanded body without duplicating it", async () => {
     const content = "**Checking compatibility**\n\nFull reasoning.\n\n**Next step**\nMore.";
     const wrapper = mount(ReasoningBlock, {
       props: { reasoning: [content], expanded: false },
@@ -12,10 +12,14 @@ describe("ReasoningBlock", () => {
     expect(wrapper.get(".reasoning-summary").attributes("title")).toBe("Checking compatibility");
     expect(wrapper.find(".reasoning-content").exists()).toBe(false);
     await wrapper.setProps({ expanded: true });
-    expect(wrapper.get(".reasoning-content").text()).toBe(content);
+    expect(wrapper.get(".reasoning-summary").text()).toBe("Checking compatibility");
+    expect(wrapper.get(".reasoning-content").text()).toBe(
+      "Full reasoning.\n\n**Next step**\nMore.",
+    );
+    expect(wrapper.props("reasoning")).toEqual([content]);
   });
 
-  it("previews available headings in mixed old/new blocks without exposing plain prose", () => {
+  it("previews available headings in mixed old/new blocks without exposing plain prose", async () => {
     const wrapper = mount(ReasoningBlock, {
       props: {
         reasoning: ["Older reasoning", "**Checking**\nBody", "**Testing**\nBody"],
@@ -25,6 +29,12 @@ describe("ReasoningBlock", () => {
     expect(wrapper.get(".reasoning-summary").text()).toBe("Checking · Testing");
     expect(wrapper.get("button").text()).toContain("3 reasoning blocks");
     expect(wrapper.text()).not.toContain("Older reasoning");
+    await wrapper.setProps({ expanded: true });
+    const body = wrapper.get(".reasoning-content").text();
+    expect(body).toContain("Older reasoning");
+    expect(body).not.toContain("**Checking**");
+    expect(body).not.toContain("**Testing**");
+    expect(wrapper.findAll(".reasoning-divider")).toHaveLength(2);
   });
 
   it("updates a preview when a streamed heading completes", async () => {

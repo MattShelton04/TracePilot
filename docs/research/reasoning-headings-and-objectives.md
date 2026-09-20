@@ -23,7 +23,9 @@ The initial count recognizes a leading `**heading**` followed by whitespace/end.
 The UI uses the stricter standalone-line form, a 160-character limit, and no nested
 Markdown. It does not guess a title from ordinary prose. Newer observed headings
 are 7–48 characters long. Twenty-eight newer messages have multiple bold headings;
-the preview uses the first heading of each message and expansion retains all text.
+the preview uses the first heading of each message. When expanded, that opening
+heading stays in the header and is omitted from the display body. Later headings
+and body indentation remain intact; stored reasoning and search content are unchanged.
 
 The audit counted nonempty `assistant.message.data.reasoningText` and standalone
 `assistant.reasoning.data.content` separately. The latter has zero instances in
@@ -81,8 +83,8 @@ was achieved. Subagent banners can still use their separately tracked worker sta
 
 1. Add conservative, shared heading extraction with old/plain/malformed fallbacks.
    Show previews in shared reasoning rows (Chat, Compact, Timeline and replay) and subagent
-   rows. Keep subagent headings visible when expanded too, and preserve the full
-   original reasoning text.
+   rows. Keep subagent headings visible when expanded too, omit duplicate opening
+   headings from displayed bodies, and preserve the full original stored text.
 2. Add structured visible-summary fallback in Rust; use it in reconstruction and
    indexing. Test canonical-text precedence, malformed/unknown providers, empty
    and encrypted-only data, and child attribution.
@@ -97,7 +99,7 @@ was achieved. Subagent banners can still use their separately tracked worker sta
 ## Validation completed
 
 - Initial full `pnpm test`: 3,732 tests passed across all frontend packages.
-  Follow-up objective, reasoning, replay and cache regressions: 115 tests passed.
+  Follow-up objective, reasoning, replay and cache regressions: 120 tests passed.
   Workspace typechecks, changed-file Biome, rustfmt and file-size/doc-link checks passed.
 - `cargo test --workspace --exclude tracepilot-desktop`: 1,578 passed, five ignored,
   zero failures. This includes structured-summary search/reconstruction agreement,
@@ -110,7 +112,8 @@ was achieved. Subagent banners can still use their separately tracked worker sta
   were visually inspected. Compact and Timeline were checked at 1440×960.
 - Follow-up live checks verified no inferred Activity banner in all three conversation
   modes, neutral legacy objectives with working source links, persistent expanded
-  subagent headings, and cache expiry alongside Resume for ended sessions. Older
+  subagent headings without duplicated body titles, and cache expiry alongside
+  Resume for ended sessions. Older
   sessions without recorded cache timing still omit the cache chip. Countdown
   transitions for ended sessions are covered by clock-controlled component tests.
 - Live inspection also corrected two nearby gaps: Compact previously omitted all

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { getReasoningSummary } from "../utils/reasoning";
+import { getReasoningBody, getReasoningSummary } from "../utils/reasoning";
 import ExpandChevron from "./ExpandChevron.vue";
 
 const props = defineProps<{
@@ -37,7 +37,7 @@ defineEmits<{
     <div v-if="expanded" class="reasoning-content" tabindex="0">
       <template v-for="(text, rIdx) in reasoning" :key="rIdx">
         <hr v-if="rIdx > 0" class="reasoning-divider" />
-        {{ text }}
+        {{ getReasoningBody(text) }}
       </template>
     </div>
   </div>
