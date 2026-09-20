@@ -116,14 +116,16 @@ const lastRun = computed(() => {
       </Tooltip>
     </template>
 
-    <p v-if="models.length" class="agent-card__models" :title="modelsTitle">
-      <span v-for="(model, index) in models" :key="model">
-        <span v-if="index > 0" class="agent-card__arrow" aria-hidden="true">→</span>{{ model }}
-      </span>
+    <div v-if="models.length" class="agent-card__models" :title="modelsTitle">
+      <span class="agent-card__model-label">{{ entry.override?.model ? 'Model override' : 'Model' }}</span>
+      <span class="agent-card__primary-model">{{ models[0] }}</span>
       <span v-if="entry.definition?.fields.reasoningEffort" class="agent-card__effort">
-        · {{ entry.definition.fields.reasoningEffort }}
+        {{ entry.definition.fields.reasoningEffort }} effort
       </span>
-    </p>
+      <span v-if="models.length > 1" class="agent-card__fallbacks">
+        Fallback: {{ models.slice(1).join(' → ') }}
+      </span>
+    </div>
 
     <template #footer>
       <UsageCardSummary
@@ -148,23 +150,26 @@ const lastRun = computed(() => {
 }
 
 .agent-card__models {
-  margin: 0 0 10px;
-  font-size: 0.6875rem;
-  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+}
+.agent-card__model-label, .agent-card__effort, .agent-card__fallbacks {
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.6875rem;
 }
-
-.agent-card__arrow {
-  color: var(--text-tertiary);
-  margin: 0 4px;
+.agent-card__primary-model {
+  padding: 4px 8px;
+  border: 1px solid var(--accent-muted);
+  border-radius: var(--radius-sm);
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
-
-.agent-card__effort {
-  font-family: var(--font-sans);
-  color: var(--text-tertiary);
-}
-
+.agent-card__fallbacks { width: 100%; overflow-wrap: anywhere; }
 </style>

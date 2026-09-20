@@ -48,3 +48,66 @@ describe("definition usage ranges", () => {
     expect(slice.usageError.value).toBe("index unavailable");
   });
 });
+
+describe("usage refresh caching", () => {
+  it("reuses recent usage, deduplicates refreshes and retains data until replacement", async () => {
+    let finish!: (value: number) => void;
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce(4)
+      .mockImplementationOnce(
+        () =>
+          new Promise<number>((resolve) => {
+            finish = resolve;
+          }),
+      );
+    const slice = createUsageSummary<number>(query, "usage-cache");
+    await slice.loadUsage();
+    await slice.loadUsage();
+    expect(query).toHaveBeenCalledTimes(1);
+    const refresh = slice.loadUsage(true);
+    const duplicate = slice.loadUsage();
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(slice.usage.value).toBe(4);
+    finish(8);
+    await Promise.all([refresh, duplicate]);
+    expect(slice.usage.value).toBe(8);
+  });
+
+  it("refreshes expired usage without blanking it", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(100_000);
+    try {
+      const query = vi.fn().mockResolvedValue(4);
+      const slice = createUsageSummary<number>(query, "usage-cache");
+      await slice.loadUsage();
+      now.mockReturnValue(161_000);
+      const refresh = slice.loadUsage();
+      expect(slice.usage.value).toBe(4);
+      await refresh;
+      expect(query).toHaveBeenCalledTimes(2);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it("does not restore a cleared window while a different request is pending", async () => {
+    let finish!: (value: number) => void;
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce(4)
+      .mockImplementationOnce(
+        () =>
+          new Promise<number>((resolve) => {
+            finish = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(8);
+    const slice = createUsageSummary<number>(query, "usage-cache");
+    await slice.loadUsage();
+    const other = slice.setRange("30d");
+    await slice.setRange("all");
+    finish(1);
+    await other;
+    expect(slice.usage.value).toBe(8);
+  });
+});

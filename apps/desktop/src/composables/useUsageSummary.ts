@@ -4,6 +4,7 @@ import { logWarn } from "@/utils/logger";
 import { rangeBounds, USAGE_RANGES, type UsageRange } from "@/utils/usage/range";
 
 const DEFAULT_RANGE: UsageRange = "all";
+const CACHE_TTL_MS = 60_000;
 
 /** Remember explicit choices; a fresh catalog includes the whole corpus. */
 function storedRange(storageKey: string): UsageRange {
@@ -22,7 +23,7 @@ export interface UsageSummarySlice<T> {
   range: Ref<UsageRange>;
   usageLoading: Ref<boolean>;
   usageError: Ref<string | null>;
-  loadUsage: () => Promise<void>;
+  loadUsage: (force?: boolean) => Promise<void>;
   setRange: (next: UsageRange) => Promise<void>;
 }
 
@@ -36,18 +37,34 @@ export function createUsageSummary<T>(
   const usageLoading = ref(false);
   const usageError = ref<string | null>(null);
   const guard = useAsyncGuard();
+  let loadedRange: UsageRange | null = null;
+  let loadedAt = 0;
+  let pending: { range: UsageRange; promise: Promise<void> } | null = null;
 
-  async function loadUsage() {
-    usage.value = null;
-    await runAction({
+  async function loadUsage(force = false) {
+    const requestedRange = range.value;
+    if (pending?.range === requestedRange) return pending.promise;
+    if (!force && loadedRange === requestedRange && Date.now() - loadedAt < CACHE_TTL_MS) return;
+    // A refresh must not blank the grid. A different range must never show
+    // the previous window's totals, including when its request fails.
+    if (loadedRange !== requestedRange) {
+      usage.value = null;
+      loadedRange = null;
+    }
+    const promise = runAction({
       loading: usageLoading,
       error: usageError,
       guard,
-      action: () => query(rangeBounds(range.value)),
+      action: () => query(rangeBounds(requestedRange)),
       onSuccess: (result) => {
         usage.value = result;
+        loadedRange = requestedRange;
+        loadedAt = Date.now();
       },
     });
+    pending = { range: requestedRange, promise };
+    await promise;
+    if (pending?.promise === promise) pending = null;
   }
 
   async function setRange(next: UsageRange) {

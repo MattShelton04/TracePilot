@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { formatNumber } from "@tracepilot/types";
 import { Banner, EmptyState, PageHeader, PageShell, type SegmentOption } from "@tracepilot/ui";
-import { Bot, Plus } from "lucide-vue-next";
+import { Bot, Plus, RefreshCw } from "lucide-vue-next";
 import DefinitionFilters from "@/components/definitions/DefinitionFilters.vue";
+import DefinitionLoading from "@/components/definitions/DefinitionLoading.vue";
 import "@/styles/features/definition-manager.css";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -89,6 +90,9 @@ function onCreated(path: string) {
           <Bot :size="16" :stroke-width="1.75" />
         </template>
         <template #actions>
+          <button type="button" class="btn btn--ghost" :disabled="store.catalogLoading || store.usageLoading" @click="store.loadAll(true)">
+            <RefreshCw :size="14" /> Refresh
+          </button>
           <button class="btn btn--primary" @click="showCreate = true">
             <Plus :size="14" :stroke-width="2" />
             New Agent
@@ -96,6 +100,8 @@ function onCreated(path: string) {
         </template>
       </PageHeader>
 
+      <DefinitionLoading v-if="!store.initialized" noun="agents" />
+      <template v-else>
       <div class="stats-strip">
         <span class="stat-chip">{{ store.entries.length }} agents</span>
         <span class="stat-sep">&middot;</span>
@@ -134,7 +140,7 @@ function onCreated(path: string) {
         {{ store.error }}
       </Banner>
       <Banner v-else-if="store.usageError" tone="warning" title="Usage unavailable">
-        Definitions are shown without cross-session usage: {{ store.usageError }}
+        {{ store.usage ? "Showing previously loaded usage:" : "Definitions are shown without cross-session usage:" }} {{ store.usageError }}
       </Banner>
 
       <details
@@ -155,9 +161,6 @@ function onCreated(path: string) {
         {{ store.catalog.settings.shapeError }} Overrides are read-only until the shape is understood.
       </Banner>
 
-      <p v-if="store.catalogLoading" class="state-message">Loading agents…</p>
-
-      <template v-else>
         <div v-if="store.filteredEntries.length" class="definition-grid agents-grid">
           <AgentCard
             v-for="entry in store.filteredEntries"

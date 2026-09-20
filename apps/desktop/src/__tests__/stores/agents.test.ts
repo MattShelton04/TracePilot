@@ -130,3 +130,28 @@ describe("useAgentsStore", () => {
     expect(store.error).toBeNull();
   });
 });
+
+it("waits for both initial requests and keeps initialized data during revisits", async () => {
+  setupPinia();
+  localStorage.clear();
+  let finish!: (value: AgentUsageSummary) => void;
+  mocks.agentsList.mockResolvedValue(catalog([definition("reviewer")]));
+  mocks.agentsUsageSummary.mockImplementationOnce(
+    () =>
+      new Promise<AgentUsageSummary>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const store = useAgentsStore();
+  const loading = store.loadAll();
+  await Promise.resolve();
+  expect(store.initialized).toBe(false);
+  finish(summary([usage("reviewer")]));
+  await loading;
+  expect(store.initialized).toBe(true);
+  const cached = store.usage;
+  const revisit = store.loadAll();
+  expect(store.initialized).toBe(true);
+  expect(store.usage).toBe(cached);
+  await revisit;
+});

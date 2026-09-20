@@ -24,6 +24,7 @@ export const useAgentsStore = defineStore("agents", () => {
   const usageSlice = createUsageSummary(agentsUsageSummary, STORAGE_KEYS.agentsUsageRange);
   const { usage, range, loadUsage } = usageSlice;
   const catalogLoading = ref(false);
+  const initialized = ref(false);
   const error = ref<string | null>(null);
   const catalogGuard = useAsyncGuard();
 
@@ -62,8 +63,9 @@ export const useAgentsStore = defineStore("agents", () => {
     });
   }
 
-  async function loadAll() {
-    await Promise.all([loadCatalog(), loadUsage()]);
+  async function loadAll(force = false) {
+    await Promise.all([loadCatalog(), loadUsage(force)]);
+    initialized.value = true;
   }
 
   function toggleFlag(flag: AgentFlag) {
@@ -85,6 +87,7 @@ export const useAgentsStore = defineStore("agents", () => {
     catalog,
     ...usageSlice,
     catalogLoading,
+    initialized,
     error,
     scope,
     flags,
