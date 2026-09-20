@@ -60,8 +60,8 @@ export async function skillsGetSkill(skillDir: string): Promise<Skill> {
   return invoke<Skill>("skills_get_skill", { skillDir });
 }
 
-export async function skillsSetEnabled(name: string, enabled: boolean): Promise<void> {
-  return invoke<void>("skills_set_enabled", { name, enabled });
+export async function skillsSetEnabled(skillDir: string, enabled: boolean): Promise<void> {
+  return invoke<void>("skills_set_enabled", { skillDir, enabled });
 }
 
 // -- CRUD --

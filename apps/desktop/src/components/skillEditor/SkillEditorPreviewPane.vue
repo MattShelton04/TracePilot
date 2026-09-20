@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { formatNumberFull } from "@tracepilot/types";
-import { MarkdownContent, TabNav, type TabNavItem, Tooltip } from "@tracepilot/ui";
+import {
+  MarkdownContent,
+  SegmentedControl,
+  TabNav,
+  type TabNavItem,
+  Tooltip,
+} from "@tracepilot/ui";
 import { computed } from "vue";
 import SkillUsageTab from "@/components/skillEditor/SkillUsageTab.vue";
 import SkillAssetsTree from "@/components/skills/SkillAssetsTree.vue";
@@ -8,12 +14,13 @@ import SkillScopeBadge from "@/components/skills/SkillScopeBadge.vue";
 import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "@/components/skills/tokenEstimate";
 import { useSkillEditorContext } from "@/composables/useSkillEditor";
 import { openExternal } from "@/utils/openExternal";
+import { USAGE_RANGES, type UsageRange } from "@/utils/usage/range";
 
 const ctx = useSkillEditorContext();
 
 // TabNav keys the active tab off `routeName` in local (v-model) mode too.
 const tabs = computed<TabNavItem[]>(() => [
-  { name: "preview", routeName: "preview", label: "Preview" },
+  ...(ctx.isUsageOnly ? [] : [{ name: "preview", routeName: "preview", label: "Preview" }]),
   {
     name: "usage",
     routeName: "usage",
@@ -32,6 +39,10 @@ const tabs = computed<TabNavItem[]>(() => [
         aria-label="Skill detail"
         @update:model-value="ctx.activeTab = $event as typeof ctx.activeTab"
       />
+    </div>
+
+    <div v-if="ctx.isUsageOnly" class="historical-usage-range">
+      <SegmentedControl :model-value="ctx.usageRange" :options="[...USAGE_RANGES]" aria-label="Usage range" @update:model-value="ctx.store.setRange($event as UsageRange)" />
     </div>
 
     <div class="panel-scroll" :class="{ 'panel-scroll--usage': ctx.activeTab === 'usage' }">
@@ -83,3 +94,7 @@ const tabs = computed<TabNavItem[]>(() => [
     </div>
   </div>
 </template>
+
+<style scoped>
+.historical-usage-range { padding: 12px 16px 0; }
+</style>

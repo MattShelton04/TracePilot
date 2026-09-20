@@ -19,6 +19,7 @@ export const useSkillsStore = defineStore("skills", () => {
   const diagnostics = shallowRef<SkillDiagnostic[]>([]);
   const selectedSkill = shallowRef<Skill | null>(null);
   const loading = ref(false);
+  const initialized = ref(false);
   const error = ref<string | null>(null);
   const searchQuery = ref("");
   const filterScope = ref<SkillScopeFilter>("all");
@@ -78,8 +79,9 @@ export const useSkillsStore = defineStore("skills", () => {
   }
 
   /** The catalog and its usage, loaded together but failing independently. */
-  async function loadAll(repoRoot?: string) {
-    await Promise.all([loadingActions.loadSkills(repoRoot), usageSlice.loadUsage()]);
+  async function loadAll(repoRoot?: string, force = false) {
+    await Promise.all([loadingActions.loadSkills(repoRoot), usageSlice.loadUsage(force)]);
+    initialized.value = true;
   }
 
   return {
@@ -88,6 +90,7 @@ export const useSkillsStore = defineStore("skills", () => {
     diagnostics,
     selectedSkill,
     loading,
+    initialized,
     error,
     searchQuery,
     filterScope,

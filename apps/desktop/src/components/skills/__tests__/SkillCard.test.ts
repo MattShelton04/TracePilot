@@ -137,10 +137,10 @@ describe("SkillCard action semantics", () => {
     expect(pushRoute).toHaveBeenCalledOnce();
   });
 
-  it("preserves built-in read-only actions and repository-disabled enablement", async () => {
+  it("preserves built-in read-only actions", async () => {
     const wrapper = mount(SkillCard, {
       props: props({
-        skill: makeSkill({ scope: "builtin", enabled: false, disabledReason: "repository" }),
+        skill: makeSkill({ scope: "builtin", enabled: false, disabledReason: "user" }),
         scope: "builtin",
         enabled: false,
       }),
@@ -148,9 +148,7 @@ describe("SkillCard action semantics", () => {
     expect(wrapper.find('[title="Remove skill"]').exists()).toBe(false);
     expect(wrapper.find('[title="Edit skill"]').exists()).toBe(false);
     const enabled = wrapper.get<HTMLInputElement>('input[type="checkbox"]');
-    expect(enabled.element.disabled).toBe(true);
-    enabled.element.click();
-    expect(wrapper.emitted("toggleEnabled")).toBeUndefined();
+    expect(enabled.element.disabled).toBe(false);
     await wrapper.get('[title="View skill"]').trigger("click");
     expect(pushRoute).toHaveBeenCalledOnce();
     expect(wrapper.emitted("delete")).toBeUndefined();
@@ -220,23 +218,23 @@ describe("SkillCard for a skill that is no longer installed", () => {
       lastKnownPath: "C:\\gone\\skills\\deleted-skill\\SKILL.md",
     });
 
-  it("stays static and shows where it was last loaded from", async () => {
+  it("opens recorded usage and shows where it was last loaded from", async () => {
     const wrapper = mount(SkillCard, { props: missing() });
 
-    expect(wrapper.classes()).toContain("skill-card--static");
-    expect(wrapper.find(".definition-card__open").exists()).toBe(false);
+    expect(wrapper.find(".definition-card__open").exists()).toBe(true);
     expect(wrapper.find("input[type=checkbox]").exists()).toBe(false);
     // The card shows the root and the folder; the full path is the title.
-    expect(wrapper.get(".skill-card__missing-value").text()).toBe(
-      "C:\\gone\\skills\\deleted-skill",
-    );
+    expect(wrapper.get(".skill-card__missing-value").text()).toBe("C:/gone/skills/deleted-skill");
     expect(wrapper.get(".skill-card__missing-path").attributes("title")).toBe(
-      "C:\\gone\\skills\\deleted-skill\\SKILL.md",
+      "C:/gone/skills/deleted-skill/SKILL.md",
     );
     expect(wrapper.text()).toContain("Not installed");
 
-    await wrapper.trigger("click");
-    expect(pushRoute).not.toHaveBeenCalled();
+    await wrapper.get(".definition-card__open").trigger("click");
+    expect(pushRoute).toHaveBeenCalledWith(expect.anything(), ROUTE_NAMES.skillEditor, {
+      params: { name: "name:deleted-skill" },
+      query: { tab: "usage" },
+    });
   });
 
   it("still reports how much it was used", () => {
@@ -247,4 +245,23 @@ describe("SkillCard for a skill that is no longer installed", () => {
       "~1.8K",
     ]);
   });
+});
+
+it("shows inherited global restrictions separately from local project disables", () => {
+  const inherited = mount(SkillCard, {
+    props: props({
+      scope: "repository",
+      skill: makeSkill({ scope: "repository", enabled: false, disabledReason: "user" }),
+    }),
+  });
+  expect(inherited.get<HTMLInputElement>("input[type=checkbox]").element.disabled).toBe(true);
+  expect(inherited.text()).toContain("Disabled globally");
+  const local = mount(SkillCard, {
+    props: props({
+      scope: "repository",
+      skill: makeSkill({ scope: "repository", enabled: false, disabledReason: "local" }),
+    }),
+  });
+  expect(local.get<HTMLInputElement>("input[type=checkbox]").element.disabled).toBe(false);
+  expect(local.text()).toContain("Disabled in project");
 });

@@ -61,6 +61,9 @@ const storeMock = {
   error: null as string | null,
   skills: [] as { directory: string; contentSha256: string }[],
   range: "90d" as const,
+  clearError: vi.fn(() => {
+    storeMock.error = null;
+  }),
   loadSkills: vi.fn(async () => {}),
   getSkill: vi.fn(async (_dir: string) => storeMock.selectedSkill),
   updateSkillRaw: vi.fn(async () => true),
@@ -357,4 +360,18 @@ describe("useSkillEditor", () => {
     });
     expect(() => mount(Bad)).toThrow();
   });
+});
+
+it("loads usage for an uninstalled skill without requesting a definition or assets", async () => {
+  const { skillsUsageDetail } = await import("@tracepilot/client");
+  routeMock.params.name = "name:deleted-skill";
+  const { ctx, wrapper } = mountHarness();
+  await flushPromises();
+  expect(ctx.isUsageOnly).toBe(true);
+  expect(ctx.skillName).toBe("deleted-skill");
+  expect(ctx.isReadOnly).toBe(true);
+  expect(storeMock.getSkill).not.toHaveBeenCalled();
+  expect(storeMock.listAssets).not.toHaveBeenCalled();
+  expect(skillsUsageDetail).toHaveBeenCalledWith("deleted-skill", expect.any(Object));
+  wrapper.unmount();
 });

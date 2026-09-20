@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { SkillInvocationRecord } from "@tracepilot/types";
 import { provide, useId } from "vue";
 import DefinitionSourcePane from "@/components/definitionEditor/DefinitionSourcePane.vue";
 import SkillAssetPreviewModal from "@/components/skillEditor/SkillAssetPreviewModal.vue";
@@ -7,10 +8,12 @@ import SkillEditorMetadataForm from "@/components/skillEditor/SkillEditorMetadat
 import SkillEditorPreviewPane from "@/components/skillEditor/SkillEditorPreviewPane.vue";
 import SkillEditorStatusBar from "@/components/skillEditor/SkillEditorStatusBar.vue";
 import SkillEditorTopBar from "@/components/skillEditor/SkillEditorTopBar.vue";
+import SkillHistoricalSource from "@/components/skillEditor/SkillHistoricalSource.vue";
 import { SkillEditorKey, useSkillEditor } from "@/composables/useSkillEditor";
 import "@/styles/features/definition-editor.css";
 
 const ctx = useSkillEditor();
+const noInvocations: SkillInvocationRecord[] = [];
 const editorPaneId = useId();
 const resizeHintId = useId();
 provide(SkillEditorKey, ctx);
@@ -22,15 +25,15 @@ provide(SkillEditorKey, ctx);
       <SkillEditorTopBar />
 
       <!-- Error -->
-      <div v-if="ctx.store.error" role="alert" class="error-bar">{{ ctx.store.error }}</div>
+      <div v-if="!ctx.isUsageOnly && ctx.store.error" role="alert" class="error-bar">{{ ctx.store.error }}</div>
 
       <!-- Loading -->
-      <div v-if="!ctx.store.selectedSkill && !ctx.store.error" class="state-message">
+      <div v-if="!ctx.isUsageOnly && !ctx.store.selectedSkill && !ctx.store.error" class="state-message">
         Loading skill…
       </div>
 
       <!-- Editor Body -->
-      <template v-if="ctx.store.selectedSkill">
+      <template v-if="ctx.isUsageOnly || ctx.store.selectedSkill">
         <div
           :ref="(el) => (ctx.containerRef = el as HTMLElement | null)"
           class="editor-body"
@@ -41,12 +44,13 @@ provide(SkillEditorKey, ctx);
             <div class="panel-header">
               <span class="panel-header-title">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M6 5h4M6 8h4M6 11h2"/></svg>
-                {{ ctx.isReadOnly ? "Source" : "Editor" }}
+                {{ ctx.isUsageOnly ? "Recorded source" : ctx.isReadOnly ? "Source" : "Editor" }}
               </span>
-              <span class="panel-header-filename">SKILL.md</span>
+              <span class="panel-header-filename">{{ ctx.isUsageOnly ? "Historical copy" : "SKILL.md" }}</span>
             </div>
 
-            <DefinitionSourcePane label="Resize frontmatter and instructions">
+            <SkillHistoricalSource v-if="ctx.isUsageOnly" :records="ctx.usage?.recentInvocations ?? noInvocations" :usage-loading="ctx.usageLoading" />
+            <DefinitionSourcePane v-else label="Resize frontmatter and instructions">
               <template #definition><SkillEditorMetadataForm /></template>
               <SkillEditorMarkdownEditor />
             </DefinitionSourcePane>
@@ -74,7 +78,7 @@ provide(SkillEditorKey, ctx);
         </div>
         <span :id="resizeHintId" class="resize-help">Use Left and Right arrows to resize. Hold Shift for larger steps. Home and End move to the limits. Enter resets the split.</span>
 
-        <SkillEditorStatusBar />
+        <SkillEditorStatusBar v-if="!ctx.isUsageOnly" />
       </template>
 
       <SkillAssetPreviewModal />

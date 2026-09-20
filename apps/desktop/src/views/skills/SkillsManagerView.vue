@@ -10,8 +10,9 @@ import {
   useConfirmDialog,
   useOverlayFocus,
 } from "@tracepilot/ui";
-import { Brain } from "lucide-vue-next";
+import { Brain, RefreshCw } from "lucide-vue-next";
 import DefinitionFilters from "@/components/definitions/DefinitionFilters.vue";
+import DefinitionLoading from "@/components/definitions/DefinitionLoading.vue";
 import "@/styles/features/definition-manager.css";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -147,8 +148,8 @@ async function handleDeleteSkill(dir: string) {
   await confirmSkillDeletion(showConfirm, store.deleteSkill, dir);
 }
 
-async function handleToggleEnabled(name: string, enabled: boolean) {
-  await store.setSkillEnabled(name, enabled);
+async function handleToggleEnabled(directory: string, enabled: boolean) {
+  await store.setSkillEnabled(directory, enabled);
 }
 </script>
 
@@ -162,6 +163,9 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
           </svg>
         </template>
         <template #actions>
+          <button type="button" class="btn btn--ghost" :disabled="store.loading || store.usageLoading" @click="store.loadAll(undefined, true)">
+            <RefreshCw :size="14" /> Refresh
+          </button>
           <button class="btn btn--ghost" @click="store.clearError(); showImportWizard = true">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
               <path d="M8 2v8M4 6l4-4 4 4" /><path d="M2 12v2h12v-2" />
@@ -178,6 +182,8 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
       </PageHeader>
 
       <!-- Stats Strip -->
+      <DefinitionLoading v-if="!store.initialized" noun="skills" />
+      <template v-else>
       <div class="stats-strip">
         <span class="stat-chip">
 
@@ -206,7 +212,7 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
         <span class="stat-sep">&middot;</span>
         <span class="stat-chip">
 
-          {{ store.usageLoading ? "…" : store.usedSkillCount }} used
+          {{ store.usage ? store.usedSkillCount : "—" }} used
           <span class="stat-chip__muted">in {{ rangeLabel }}</span>
         </span>
       </div>
@@ -238,13 +244,11 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
       />
 
       <!-- Loading / Error -->
-      <div v-if="store.loading" class="state-message">Loading skills…</div>
-      <div v-else-if="store.error" class="state-message state-message--error">
+      <div v-if="store.error" class="state-message state-message--error">
         {{ store.error }}
         <button class="btn btn--secondary btn--sm" @click="store.loadSkills()">Retry</button>
       </div>
 
-      <template v-else>
         <details v-if="store.diagnostics.length" class="state-message state-message--warning">
           <summary>
             {{ store.diagnostics.length }} skill{{ store.diagnostics.length === 1 ? '' : 's' }} could not be loaded
@@ -257,7 +261,7 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
         </details>
 
         <Banner v-if="store.usageError" tone="warning" title="Usage unavailable">
-          Skills are shown without cross-session usage: {{ store.usageError }}
+          {{ store.usage ? "Showing previously loaded usage:" : "Skills are shown without cross-session usage:" }} {{ store.usageError }}
         </Banner>
         <Banner v-else-if="usageNeverIndexed" tone="info" title="No usage indexed yet">
           No indexed sessions have recorded a skill invocation. Installed skills remain available below.
@@ -281,7 +285,7 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
             :entry="entry"
             :range="store.range"
             @delete="handleDeleteSkill"
-            @toggle-enabled="(_dir, enabled) => handleToggleEnabled(entry.name, enabled)"
+            @toggle-enabled="handleToggleEnabled"
           />
         </div>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatNumberFull } from "@tracepilot/types";
+import { normalizePath } from "@tracepilot/ui";
 import { useSkillEditorContext } from "@/composables/useSkillEditor";
 
 const ctx = useSkillEditorContext();
@@ -10,7 +11,7 @@ const ctx = useSkillEditorContext();
     <div class="info-group">
       <span class="info-item">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/></svg>
-        {{ ctx.store.selectedSkill!.directory }}/SKILL.md
+        {{ normalizePath(ctx.store.selectedSkill!.directory) }}/SKILL.md
       </span>
       <span class="info-item">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>

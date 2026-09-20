@@ -17,6 +17,7 @@ pub enum SkillScope {
 pub enum SkillDisabledReason {
     User,
     Repository,
+    Local,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

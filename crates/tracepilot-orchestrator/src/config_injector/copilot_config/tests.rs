@@ -167,3 +167,25 @@ fn set_skill_enabled_refuses_invalid_disabled_skills_shape() {
         r#"{"disabledSkills":"test","custom":true}"#
     );
 }
+
+#[test]
+fn local_skill_toggle_preserves_settings_and_refuses_bad_data() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join(".github/copilot/settings.local.json");
+    set_local_skill_enabled(temp.path(), "review", false).unwrap();
+    assert_eq!(read_disabled_skills_file(&path).unwrap(), vec!["review"]);
+    std::fs::write(
+        &path,
+        r#"{"disabledSkills":["REVIEW","other"],"model":"preserved"}"#,
+    )
+    .unwrap();
+    set_local_skill_enabled(temp.path(), "review", true).unwrap();
+    let value = read_json_file(&path).unwrap().unwrap();
+    assert_eq!(value["model"], "preserved");
+    assert_eq!(value["disabledSkills"], serde_json::json!(["other"]));
+    for invalid in [r#"{"disabledSkills":[1]}"#, "[]", "{broken"] {
+        std::fs::write(&path, invalid).unwrap();
+        assert!(set_local_skill_enabled(temp.path(), "review", false).is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), invalid);
+    }
+}

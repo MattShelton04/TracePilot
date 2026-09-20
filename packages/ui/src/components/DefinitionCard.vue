@@ -54,7 +54,7 @@ defineEmits<{ open: [] }>();
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
-.definition-card--muted { opacity: 0.7; }
+.definition-card--muted { border-style: dashed; }
 .definition-card:has(.definition-card__open:focus-visible) {
   outline: 2px solid var(--accent-fg);
   outline-offset: 2px;

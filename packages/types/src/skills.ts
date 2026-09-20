@@ -2,7 +2,7 @@
 
 /** Skill scope — where the skill is stored/active. */
 export type SkillScope = "global" | "repository" | "builtin";
-export type SkillDisabledReason = "user" | "repository";
+export type SkillDisabledReason = "user" | "repository" | "local";
 
 /** Parsed SKILL.md frontmatter. */
 export interface SkillFrontmatter {

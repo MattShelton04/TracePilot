@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatNumber } from "@tracepilot/types";
-import { formatRelativeTime, LoadingSpinner, Tooltip } from "@tracepilot/ui";
+import { formatRelativeTime, LoadingSpinner, normalizePath, Tooltip } from "@tracepilot/ui";
 import { computed } from "vue";
 import SkillRecentInvocations from "@/components/skillEditor/SkillRecentInvocations.vue";
 import UsageBreakdownBars, { type BreakdownRow } from "@/components/usage/UsageBreakdownBars.vue";
@@ -57,8 +57,8 @@ const kpis = computed(() => {
     {
       key: "listing",
       label: "Listing tokens",
-      value: `~${formatNumber(listing)}`,
-      note: "per turn when available",
+      value: ctx.isUsageOnly ? "—" : `~${formatNumber(listing)}`,
+      note: ctx.isUsageOnly ? "No installed definition" : "per turn when available",
       description:
         "Estimated tokens the frontmatter adds to every turn while this skill is enabled, whether or not it is used.",
     },
@@ -118,7 +118,7 @@ const paths = computed<BreakdownRow[]>(
   () =>
     stats.value?.paths.map((path) => ({
       key: path.directory,
-      label: path.path,
+      label: normalizePath(path.path),
       value: path.uses,
     })) ?? [],
 );

@@ -67,6 +67,8 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     onMouseDown: vi.fn(),
     onResizeKeyDown: vi.fn(),
     skillDir: "my-skill",
+    skillName: "My Skill",
+    isUsageOnly: false,
     totalLineCount: 1,
     byteCount: 10,
     tokenUsage: { frontmatterTokens: 12, instructionTokens: 34 },

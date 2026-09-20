@@ -5,14 +5,14 @@
  * longer installed renders the same way minus the parts that need a file.
  */
 import { formatNumber } from "@tracepilot/types";
-import { Badge, DefinitionCard, formatRelativeTime, Tooltip } from "@tracepilot/ui";
+import { Badge, DefinitionCard, formatRelativeTime, normalizePath, Tooltip } from "@tracepilot/ui";
 import { FolderGit2, Package, Search, Sparkles } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import UsageCardSummary, { type UsageCardStat } from "@/components/usage/UsageCardSummary.vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import { type SkillEntry, shortenSkillPath } from "@/utils/skills/entries";
+import { type SkillEntry, shortenSkillPath, skillRouteId } from "@/utils/skills/entries";
 import { type UsageRange, zeroFilledDays } from "@/utils/usage/range";
 import { SKILL_FLAG_BADGES, skillScopeBadge } from "./skillBadges";
 import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "./tokenEstimate";
@@ -38,11 +38,25 @@ const badge = computed(() => skillScopeBadge(props.entry.scope));
 // repeating it as a flag would put the same words twice on one card.
 const badgeFlags = computed(() => props.entry.flags.filter((flag) => flag !== "missing"));
 
-const enablementTooltip = computed(() =>
-  skill.value?.disabledReason === "repository"
-    ? "Disabled by repository settings; change the repository setting to enable it."
-    : "Updates disabledSkills in Copilot user settings for future sessions.",
+const inheritedDisable = computed(
+  () =>
+    skill.value?.scope === "repository" &&
+    (skill.value.disabledReason === "user" || skill.value.disabledReason === "repository"),
 );
+const enablementTooltip = computed(() => {
+  if (inheritedDisable.value)
+    return skill.value?.disabledReason === "user"
+      ? "Disabled globally in Copilot user settings. Remove that restriction before enabling this project."
+      : "Disabled in shared repository settings (.github/copilot/settings.json). Remove that restriction first.";
+  return skill.value?.scope === "repository"
+    ? "Applies to this skill name in this project only, for future sessions. Saved in .github/copilot/settings.local.json."
+    : "Applies to every skill with this name across all projects, for future sessions (Copilot user settings).";
+});
+const enablementLabel = computed(() => {
+  if (inheritedDisable.value)
+    return skill.value?.disabledReason === "user" ? "Disabled globally" : "Disabled by repository";
+  return `${skill.value?.enabled ? "Enabled" : "Disabled"} ${skill.value?.scope === "repository" ? "in project" : "globally"}`;
+});
 
 /**
  * A missing skill's last known path is the only way back to it, so it takes
@@ -82,8 +96,10 @@ const lastUsed = computed(() =>
 const idleText = computed(() => (isMissing.value ? "Not installed here" : "No uses in this range"));
 
 function navigateToEditor() {
-  if (isMissing.value || !skill.value) return;
-  pushRoute(router, ROUTE_NAMES.skillEditor, { params: { name: skill.value.directory } });
+  pushRoute(router, ROUTE_NAMES.skillEditor, {
+    params: { name: skillRouteId(props.entry) },
+    ...(isMissing.value ? { query: { tab: "usage" } } : {}),
+  });
 }
 
 function onToggle() {
@@ -104,11 +120,9 @@ function formatTokens(tokens: number): string {
 <template>
   <DefinitionCard
     class="skill-card"
-    :class="{ 'skill-card--static': isMissing }"
     :name="entry.name"
     :description="entry.description"
     :open-label="`Open skill ${entry.name}`"
-    :interactive="!isMissing"
     :muted="!isMissing && !entry.enabled"
     @open="navigateToEditor"
   >
@@ -140,8 +154,8 @@ function formatTokens(tokens: number): string {
     </template>
 
     <template #footer>
-      <p v-if="skill?.scope === 'repository'" class="skill-card__project" :title="skill.directory">
-        {{ skill.directory }}
+      <p v-if="skill?.scope === 'repository'" class="skill-card__project" :title="normalizePath(skill.directory)">
+        {{ normalizePath(skill.directory) }}
       </p>
       <UsageCardSummary
         :stats="stats" :values="sparkValues" :label="`Daily uses for ${entry.name}`"
@@ -153,13 +167,13 @@ function formatTokens(tokens: number): string {
           <input
             type="checkbox"
             :checked="skill.enabled"
-            :disabled="skill.disabledReason === 'repository'"
+            :disabled="inheritedDisable"
             :aria-label="`Enable skill ${entry.name}`"
             :title="enablementTooltip"
             @change="onToggle"
           />
           <span class="toggle-track" />
-          <span class="toggle-label" :title="enablementTooltip">{{ skill.enabled ? "Enabled" : "Disabled" }}</span>
+          <span class="toggle-label" :title="enablementTooltip">{{ enablementLabel }}</span>
         </label>
 
         <div class="card-hover-actions">
@@ -176,7 +190,7 @@ function formatTokens(tokens: number): string {
         </div>
       </div>
 
-      <p v-else class="skill-card__missing-path" :title="entry.lastKnownPath || undefined">
+      <p v-else class="skill-card__missing-path" :title="entry.lastKnownPath ? normalizePath(entry.lastKnownPath) : undefined">
         <span class="skill-card__missing-label">Last loaded from</span>
         <span class="skill-card__missing-value">{{ missingHint }}</span>
       </p>

@@ -94,7 +94,7 @@ describe("normalizeDirectory", () => {
 describe("shortenSkillPath", () => {
   it("keeps the root it came from and the folder it lived in", () => {
     expect(shortenSkillPath("C:\\git\\Portify\\.github\\skills\\usability-testing\\SKILL.md")).toBe(
-      "C:\\git\\Portify\\…\\usability-testing",
+      "C:/git/Portify/…/usability-testing",
     );
   });
 

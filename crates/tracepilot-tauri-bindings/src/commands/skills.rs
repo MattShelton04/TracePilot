@@ -59,15 +59,14 @@ pub async fn skills_get_skill(
 #[tracing::instrument(skip(state), err)]
 pub async fn skills_set_enabled(
     state: tauri::State<'_, crate::config::SharedConfig>,
-    name: String,
+    skill_dir: String,
     enabled: bool,
 ) -> CmdResult<()> {
     let copilot_home = read_config(&state).copilot_home();
-    blocking_cmd!(tracepilot_orchestrator::config_injector::set_skill_enabled(
-        &copilot_home,
-        &name,
-        enabled,
-    ))
+    blocking_cmd!({
+        check_skill_dir(&skill_dir)?;
+        catalog::set_enabled(&copilot_home, Path::new(&skill_dir), enabled)
+    })
 }
 
 // -- CRUD --

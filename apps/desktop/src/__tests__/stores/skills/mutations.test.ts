@@ -198,29 +198,40 @@ describe("useSkillsStore", () => {
   });
 
   describe("setSkillEnabled", () => {
-    it("updates local state immediately without reloading the skills page", async () => {
+    it("targets the installed directory and reloads effective settings", async () => {
       mocks.skillsSetEnabled.mockResolvedValue(undefined);
-      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      mocks.skillsListAll
+        .mockResolvedValueOnce(ALL_SUMMARIES)
+        .mockResolvedValueOnce(
+          ALL_SUMMARIES.map((skill) =>
+            skill.directory === FIXTURE_SUMMARY.directory ? { ...skill, enabled: false } : skill,
+          ),
+        );
       const store = useSkillsStore();
       await store.loadSkills();
-      mocks.skillsListAll.mockClear();
-
-      const result = store.setSkillEnabled("code-review", false);
-
-      expect(store.skills.find((skill) => skill.name === "code-review")?.enabled).toBe(false);
-      expect(await result).toBe(true);
-      expect(mocks.skillsSetEnabled).toHaveBeenCalledWith("code-review", false);
-      expect(mocks.skillsListAll).not.toHaveBeenCalled();
+      expect(await store.setSkillEnabled(FIXTURE_SUMMARY.directory, false)).toBe(true);
+      expect(mocks.skillsSetEnabled).toHaveBeenCalledWith(FIXTURE_SUMMARY.directory, false);
+      expect(
+        store.skills.find((skill) => skill.directory === FIXTURE_SUMMARY.directory)?.enabled,
+      ).toBe(false);
     });
 
-    it("rolls back the optimistic update when persistence fails", async () => {
+    it("leaves distinct same-named definitions intact when persistence fails", async () => {
+      const copies = [
+        FIXTURE_SUMMARY,
+        {
+          ...FIXTURE_SUMMARY,
+          directory: "/other/skills/code-review",
+          description: "Other definition",
+          enabled: false,
+        },
+      ];
       mocks.skillsSetEnabled.mockRejectedValue(new Error("settings write failed"));
-      mocks.skillsListAll.mockResolvedValue(ALL_SUMMARIES);
+      mocks.skillsListAll.mockResolvedValue(copies);
       const store = useSkillsStore();
       await store.loadSkills();
-
-      expect(await store.setSkillEnabled("code-review", false)).toBe(false);
-      expect(store.skills.find((skill) => skill.name === "code-review")?.enabled).toBe(true);
+      expect(await store.setSkillEnabled(FIXTURE_SUMMARY.directory, false)).toBe(false);
+      expect(store.skills).toEqual(copies);
       expect(store.error).toBe("settings write failed");
     });
   });

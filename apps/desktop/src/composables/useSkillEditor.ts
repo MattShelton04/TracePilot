@@ -82,12 +82,20 @@ export function useSkillEditor() {
     const param = route.params.name;
     return typeof param === "string" ? decodeURIComponent(param) : "";
   });
+  const isUsageOnly = computed(() => skillDir.value.startsWith("name:"));
+  const skillName = computed(() =>
+    isUsageOnly.value
+      ? skillDir.value.slice(5)
+      : store.selectedSkill?.directory === skillDir.value
+        ? store.selectedSkill.frontmatter.name
+        : "",
+  );
   const returnSessionId = computed(() => {
     const fromSession = route.query.fromSession;
     return typeof fromSession === "string" && fromSession.trim() ? fromSession : "";
   });
   const backLabel = computed(() => (returnSessionId.value ? "Back to Session" : "Back to Skills"));
-  const isReadOnly = computed(() => store.selectedSkill?.scope === "builtin");
+  const isReadOnly = computed(() => isUsageOnly.value || store.selectedSkill?.scope === "builtin");
   /** The manager's range, so both pages describe the same window. */
   const usageRange = computed(() => store.range);
   /**
@@ -147,8 +155,12 @@ export function useSkillEditor() {
   // because the two can disagree. This follows the *saved* name rather than
   // the draft, so typing in the name field does not re-query the index.
   watch(
-    [() => store.selectedSkill?.frontmatter.name, usageRange],
+    [skillName, usageRange],
     ([name]) => {
+      usageGuard.invalidate();
+      usage.value = null;
+      usageLoading.value = false;
+      usageError.value = null;
       if (name) loadUsage(name);
     },
     { immediate: true },
@@ -163,8 +175,18 @@ export function useSkillEditor() {
   }
 
   async function loadSkill() {
-    const skill = await store.getSkill(skillDir.value);
-    if (skill) {
+    if (isUsageOnly.value) {
+      store.selectedSkill = null;
+      store.clearError();
+      rawContent.value = "";
+      assets.value = [];
+      editorDirty.value = false;
+      activeTab.value = "usage";
+      return;
+    }
+    const directory = skillDir.value;
+    const skill = await store.getSkill(directory);
+    if (skill && skillDir.value === directory) {
       rawContent.value = skill.rawContent;
       editorDirty.value = false;
       parseContent(skill.rawContent);
@@ -429,6 +451,8 @@ export function useSkillEditor() {
     onMouseDown,
     onResizeKeyDown,
     skillDir,
+    skillName,
+    isUsageOnly,
     totalLineCount,
     byteCount,
     tokenUsage,

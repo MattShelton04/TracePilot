@@ -78,7 +78,7 @@ export function normalizeDirectory(directory: string): string {
  * The full path stays available as the element's title.
  */
 export function shortenSkillPath(path: string): string {
-  const separator = path.includes("\\") ? "\\" : "/";
+  const separator = "/";
   // A POSIX path's leading separator is its root, not an empty segment.
   const root = /^[\\/]/.test(path) ? separator : "";
   const segments = path.split(/[\\/]+/).filter(Boolean);
