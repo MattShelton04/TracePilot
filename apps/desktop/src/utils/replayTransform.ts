@@ -13,9 +13,10 @@ import { getMainAgentObjective } from "@tracepilot/ui";
  *
  * Each turn maps 1:1 to a step. The step title is derived from:
  * 1. The user message (if present)
- * 2. The main agent's objective or saved tool intention
+ * 2. The main agent's explicit objective
  * 3. The first main-agent assistant message
- * 4. A fallback like "Turn N"
+ * 4. The first main-agent tool intention
+ * 5. A fallback like "Turn N"
  */
 export function turnsToReplaySteps(turns: ConversationTurn[]): ReplayStep[] {
   const steps: ReplayStep[] = [];
@@ -88,6 +89,12 @@ function deriveStepTitle(turn: ConversationTurn, stepType: string): string {
     const msg = message.content.trim();
     return msg.length > 100 ? `${msg.slice(0, 97)}…` : msg;
   }
+
+  // A tool intention can name this turn without implying a session objective.
+  const toolIntention = turn.toolCalls
+    .find((tc) => !tc.parentToolCallId && tc.intentionSummary?.trim())
+    ?.intentionSummary?.trim();
+  if (toolIntention) return toolIntention;
 
   // Fallback
   if (stepType === "tool" && turn.toolCalls.length > 0) {

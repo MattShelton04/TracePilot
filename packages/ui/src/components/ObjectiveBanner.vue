@@ -15,7 +15,7 @@ const props = withDefaults(
   }>(),
   {
     scope: "session",
-    status: "running",
+    label: "Objective",
   },
 );
 
@@ -24,14 +24,7 @@ const emit = defineEmits<{
 }>();
 
 const hasObjective = computed(() => !!props.objective);
-const displayLabel = computed(
-  () => props.label ?? (props.objective?.source === "tool_intention" ? "Activity" : "Objective"),
-);
-const sourceDescription = computed(() =>
-  props.objective?.source === "tool_intention"
-    ? "Latest saved tool intention; no explicit objective was recorded."
-    : "Objective reported by the agent.",
-);
+const sourceDescription = "Objective reported by the agent.";
 const canReveal = computed(
   () => props.objective?.eventIndex != null || !!props.objective?.toolCallId,
 );
@@ -45,14 +38,16 @@ const statusLabel = computed(() => {
       return "Failed";
     case "idle":
       return "Idle";
-    default:
+    case "running":
       return "Running";
+    default:
+      return null;
   }
 });
 
 const ariaText = computed(() => {
-  if (!props.objective) return `${displayLabel.value}: none reported yet.`;
-  return `${displayLabel.value}: ${props.objective.text}.`;
+  if (!props.objective) return `${props.label}: none reported yet.`;
+  return `${props.label}: ${props.objective.text}.`;
 });
 
 const accentStyle = computed(() =>
@@ -71,7 +66,7 @@ function handleClick() {
 <template>
   <section
     class="objective-banner"
-    :class="[`scope-${scope}`, `status-${status}`, { empty: !hasObjective }]"
+    :class="[`scope-${scope}`, status && `status-${status}`, { empty: !hasObjective }]"
     :style="accentStyle"
     role="status"
     aria-live="polite"
@@ -79,7 +74,7 @@ function handleClick() {
     :data-objective-event-idx="objective?.eventIndex ?? undefined"
   >
     <span class="ob-dot" aria-hidden="true" />
-    <span class="ob-label" :title="sourceDescription">{{ displayLabel }}</span>
+    <span class="ob-label" :title="sourceDescription">{{ label }}</span>
     <button
       v-if="hasObjective && canReveal"
       type="button"
@@ -93,7 +88,7 @@ function handleClick() {
       {{ objective!.text }}
     </span>
     <span v-else class="ob-text empty-text">No objective yet</span>
-    <span :class="['ob-status', `ob-status-${status}`]">
+    <span v-if="statusLabel" :class="['ob-status', status && `ob-status-${status}`]">
       {{ statusLabel }}
       <span v-if="status === 'running' && hasObjective" class="ob-status-dots" aria-hidden="true">
         <span>.</span><span>.</span><span>.</span>

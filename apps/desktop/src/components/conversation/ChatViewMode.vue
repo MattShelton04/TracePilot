@@ -15,18 +15,14 @@ import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 import SubagentPanel from "./SubagentPanel.vue";
 import SystemMessagePanel from "./SystemMessagePanel.vue";
 
-type ObjectiveStatus = "running" | "completed" | "failed" | "idle";
-
 const props = withDefaults(
   defineProps<{
     objective?: CurrentObjective | null;
-    objectiveStatus?: ObjectiveStatus;
     /** Prompt-cache windows keyed by the turn they resumed. */
     cacheWindows?: Map<number, CacheWindow>;
   }>(),
   {
     objective: null,
-    objectiveStatus: "idle",
     cacheWindows: () => new Map(),
   },
 );
@@ -163,7 +159,6 @@ defineExpose({ revealEvent });
           class="cv-objective-strip"
           scope="session"
           :objective="props.objective"
-          :status="props.objectiveStatus"
           @reveal="emit('revealObjective', $event)"
         />
 

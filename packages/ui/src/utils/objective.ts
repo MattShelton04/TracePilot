@@ -2,15 +2,14 @@
  * Derive a session's (or subagent's) **current objective** from a list of
  * tool calls or subagent activity items.
  *
- * Prefer the latest non-empty legacy `report_intent` tool call. When that
- * source is absent, use saved tool `intentionSummary` as activity (not an
- * explicit session objective). Modern `assistant.intent` is ephemeral.
+ * Use only non-empty legacy `report_intent` calls. Tool intentions and
+ * reasoning headings describe individual actions, not session objectives.
+ * Modern `assistant.intent` is ephemeral and unavailable in saved sessions.
  * Pick "latest" by the largest `eventIndex` (when present), falling back to
  * `completedAt`/`startedAt` timestamps and ultimately to input order so
  * legacy data without event indices still produces a stable result.
  *
- * The banner retains the originating tool/event so either source can be
- * inspected in context, and labels inferred activity separately.
+ * Retain the originating tool/event so the objective can be inspected in context.
  */
 import type { TurnToolCall } from "@tracepilot/types";
 import { getToolArgs, toolArgString } from "@tracepilot/types";
@@ -19,8 +18,6 @@ import type { SubagentActivityItem } from "../components/SubagentPanel/types";
 export interface CurrentObjective {
   /** The intent text reported by the agent (already trimmed, never empty). */
   text: string;
-  /** Absent on older callers; treated as a legacy explicit objective. */
-  source?: "report_intent" | "tool_intention";
   /** Tool call id of the originating update (for deep-linking). */
   toolCallId?: string;
   /** Event index of the originating update (for deep-linking). */
@@ -33,7 +30,6 @@ export interface CurrentObjective {
 
 interface IntentRecord {
   text: string;
-  source: NonNullable<CurrentObjective["source"]>;
   toolCallId?: string;
   eventIndex?: number;
   timestamp?: string;
@@ -59,13 +55,11 @@ function compareRank(a: [number, number, number], b: [number, number, number]): 
 }
 
 function pushToolObjective(out: IntentRecord[], tc: TurnToolCall, ordinal: number): void {
-  const intent =
-    tc.toolName === "report_intent" ? toolArgString(getToolArgs(tc), "intent").trim() : "";
-  const text = intent || tc.intentionSummary?.trim();
+  if (tc.toolName !== "report_intent") return;
+  const text = toolArgString(getToolArgs(tc), "intent").trim();
   if (!text) return;
   out.push({
     text,
-    source: intent ? "report_intent" : "tool_intention",
     toolCallId: tc.toolCallId,
     eventIndex: tc.eventIndex,
     timestamp: tc.completedAt ?? tc.startedAt,
@@ -75,9 +69,6 @@ function pushToolObjective(out: IntentRecord[], tc: TurnToolCall, ordinal: numbe
 
 function finalize(records: IntentRecord[]): CurrentObjective | null {
   if (records.length === 0) return null;
-  // A tool's next action should not replace an explicitly reported objective.
-  const explicit = records.filter((record) => record.source === "report_intent");
-  if (explicit.length) records = explicit;
   records.sort((a, b) => compareRank(recordRank(a), recordRank(b)));
   const distinctUpdates = records.reduce<string[]>((acc, record) => {
     if (acc[acc.length - 1] !== record.text) acc.push(record.text);
@@ -86,7 +77,6 @@ function finalize(records: IntentRecord[]): CurrentObjective | null {
   const latest = records[records.length - 1];
   return {
     text: latest.text,
-    source: latest.source,
     toolCallId: latest.toolCallId,
     eventIndex: latest.eventIndex,
     timestamp: latest.timestamp,
@@ -125,7 +115,7 @@ export function getMainAgentObjective(
 }
 
 /**
- * Returns the latest explicit objective or saved tool activity from an already
+ * Returns the latest explicit objective from an already
  * scoped subagent stream. Intent pills retain their legacy label fallback.
  */
 export function getSubagentObjective(
@@ -144,7 +134,6 @@ export function getSubagentObjective(
     if (!text) continue;
     records.push({
       text,
-      source: "report_intent",
       toolCallId: tc.toolCallId,
       eventIndex: tc.eventIndex,
       timestamp: tc.completedAt ?? tc.startedAt,

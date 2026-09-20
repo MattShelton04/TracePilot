@@ -17,7 +17,7 @@ function intentCall(intent: string, partial: Partial<TurnToolCall> = {}): TurnTo
 }
 
 describe("getCurrentObjective", () => {
-  it("falls back to the latest nonempty saved tool intention with its origin", () => {
+  it("does not infer an objective from saved tool intentions", () => {
     const calls: TurnToolCall[] = [
       { toolName: "view", isComplete: true, intentionSummary: "Inspect sources", eventIndex: 8 },
       {
@@ -30,13 +30,7 @@ describe("getCurrentObjective", () => {
       { toolName: "view", isComplete: true, intentionSummary: "Older activity", eventIndex: 2 },
       { toolName: "read_agent", isComplete: true, intentionSummary: " ", eventIndex: 25 },
     ];
-    expect(getCurrentObjective(calls)).toMatchObject({
-      text: "Run checks",
-      source: "tool_intention",
-      eventIndex: 20,
-      toolCallId: "test-call",
-      updateCount: 3,
-    });
+    expect(getCurrentObjective(calls)).toBeNull();
   });
 
   it("keeps explicit legacy objectives ahead of lower-level tool intentions", () => {
@@ -45,7 +39,7 @@ describe("getCurrentObjective", () => {
         intentCall("Fixing compatibility", { eventIndex: 1 }),
         { toolName: "view", isComplete: true, intentionSummary: "Read a file", eventIndex: 2 },
       ]),
-    ).toMatchObject({ text: "Fixing compatibility", source: "report_intent", updateCount: 1 });
+    ).toMatchObject({ text: "Fixing compatibility", updateCount: 1 });
   });
 
   it("counts consecutive updates in chronological order even for unsorted input", () => {
@@ -83,7 +77,7 @@ describe("getCurrentObjective", () => {
   });
 
   it("ignores empty / whitespace intents", () => {
-    const calls = [intentCall("   "), intentCall("")];
+    const calls = [intentCall("   "), intentCall("", { intentionSummary: "Report intent" })];
     expect(getCurrentObjective(calls)).toBeNull();
   });
 
@@ -132,7 +126,7 @@ describe("getCurrentObjective", () => {
 });
 
 describe("getMainAgentObjective", () => {
-  it("does not let a child's explicit objective or newer activity override main activity", () => {
+  it("does not use tool intentions or a child's objective as the main objective", () => {
     expect(
       getMainAgentObjective([
         {
@@ -154,7 +148,7 @@ describe("getMainAgentObjective", () => {
           ],
         },
       ]),
-    ).toMatchObject({ text: "Inspect main sources", source: "tool_intention" });
+    ).toBeNull();
   });
 
   it("scopes to tool calls without a parentToolCallId", () => {
@@ -207,7 +201,7 @@ describe("getMainAgentObjective", () => {
 });
 
 describe("getSubagentObjective", () => {
-  it("uses intentions from scoped tools, pills and nested launches", () => {
+  it("does not infer objectives from tools, non-intent pills or nested launches", () => {
     const activities: SubagentActivityItem[] = [
       {
         kind: "tool",
@@ -246,12 +240,7 @@ describe("getSubagentObjective", () => {
         },
       },
     ];
-    expect(getSubagentObjective(activities)).toMatchObject({
-      text: "Delegate review",
-      source: "tool_intention",
-      eventIndex: 3,
-      toolCallId: "nested",
-    });
+    expect(getSubagentObjective(activities)).toBeNull();
   });
 
   function pill(intent: string, eventIndex?: number): SubagentActivityItem {
@@ -272,7 +261,7 @@ describe("getSubagentObjective", () => {
 
   it("returns null when there are no intent pills", () => {
     const activities: SubagentActivityItem[] = [
-      { kind: "reasoning", key: "r", sortKey: 0, content: "thinking" },
+      { kind: "reasoning", key: "r", sortKey: 0, content: "**Checking sources**\n\nThinking..." },
     ];
     expect(getSubagentObjective(activities)).toBeNull();
   });

@@ -20,7 +20,7 @@ function makeTurn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
 }
 
 describe("turnsToReplaySteps", () => {
-  it("uses main-agent activity for modern titles without borrowing child intents", () => {
+  it("uses the first main-agent tool intention for titles without borrowing child intents", () => {
     const [step] = turnsToReplaySteps([
       makeTurn({
         toolCalls: [
@@ -46,7 +46,7 @@ describe("turnsToReplaySteps", () => {
         ],
       }),
     ]);
-    expect(step.title).toBe("Verify main changes");
+    expect(step.title).toBe("Inspect main sources");
   });
 
   it("returns empty array for empty input", () => {

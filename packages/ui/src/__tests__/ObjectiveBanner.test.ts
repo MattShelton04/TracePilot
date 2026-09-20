@@ -12,13 +12,16 @@ const sample: CurrentObjective = {
 };
 
 describe("ObjectiveBanner", () => {
-  it("labels saved intentions as Activity and keeps their source and reveal link", async () => {
+  it("keeps recorded objectives neutral when their current status is unknown", async () => {
     const w = mount(ObjectiveBanner, {
-      props: { objective: { ...sample, source: "tool_intention" } },
+      props: { objective: sample },
     });
-    expect(w.get(".ob-label").text()).toBe("Activity");
-    expect(w.attributes("aria-label")).toContain("Activity:");
-    expect(w.get(".ob-text").attributes("title")).toContain("Latest saved tool intention");
+    expect(w.get(".ob-label").text()).toBe("Objective");
+    expect(w.attributes("aria-label")).toContain("Objective:");
+    expect(w.get(".ob-text").attributes("title")).toContain("Objective reported by the agent");
+    expect(w.find(".ob-status").exists()).toBe(false);
+    expect(w.find(".ob-status-dots").exists()).toBe(false);
+    expect(w.classes()).not.toContain("status-running");
     await w.get("button.ob-text").trigger("click");
     expect(w.emitted("reveal")?.[0]).toEqual([{ eventIndex: 12, toolCallId: "tc-1" }]);
   });
