@@ -49,8 +49,6 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     assetsLoading: false,
     editorDirty: false,
     lastSaved: null,
-    editorRef: null,
-    lineNumbersRef: null,
     viewingAsset: null,
     viewingContent: null,
     previewFrontmatter: { name: "My Skill", description: "desc" },
@@ -63,7 +61,6 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     onMouseDown: vi.fn(),
     onResizeKeyDown: vi.fn(),
     skillDir: "my-skill",
-    editorLineNumbers: [1],
     totalLineCount: 1,
     byteCount: 10,
     tokenUsage: { frontmatterTokens: 12, instructionTokens: 34 },
@@ -83,21 +80,13 @@ function makeCtx(overrides: Partial<SkillEditorContext> = {}): SkillEditorContex
     handleViewAsset: vi.fn(),
     handlePreviewClick: vi.fn(),
     goBack: vi.fn(),
-    onBodyInput: vi.fn(),
+    setBody: vi.fn(),
     onNameInput: vi.fn(),
     onDescInput: vi.fn(),
     onFrontmatterTextInput: vi.fn(),
     onFrontmatterBooleanInput: vi.fn(),
     onAutomaticInvocationInput: vi.fn(),
-    insertBold: vi.fn(),
-    insertItalic: vi.fn(),
-    insertH1: vi.fn(),
-    insertH2: vi.fn(),
-    insertBulletList: vi.fn(),
-    insertCode: vi.fn(),
-    insertLink: vi.fn(),
     formatSize: (n: number) => `${n} B`,
-    syncScroll: vi.fn(),
     closeAssetPreview: vi.fn(),
   };
   return reactive({ ...base, ...overrides }) as unknown as SkillEditorContext;
@@ -193,24 +182,24 @@ describe("SkillEditorMetadataForm", () => {
 });
 
 describe("SkillEditorMarkdownEditor", () => {
-  it("toolbar buttons call insertX handlers", async () => {
+  it("toolbar buttons format the body through setBody", async () => {
     const ctx = makeCtx();
     const wrapper = mountWithCtx(SkillEditorMarkdownEditor, ctx);
+    const ta = wrapper.find("textarea.md-textarea").element as HTMLTextAreaElement;
+    ta.setSelectionRange(2, 6);
     await wrapper.find('button[title="Bold"]').trigger("click");
-    expect(ctx.insertBold).toHaveBeenCalled();
-    await wrapper.find('button[title="Italic"]').trigger("click");
-    expect(ctx.insertItalic).toHaveBeenCalled();
+    expect(ctx.setBody).toHaveBeenLastCalledWith("# **Body**");
     await wrapper.find('button[title="Link"]').trigger("click");
-    expect(ctx.insertLink).toHaveBeenCalled();
+    expect(ctx.setBody).toHaveBeenCalledTimes(2);
   });
 
-  it("textarea bound to previewBody and fires onBodyInput", async () => {
+  it("textarea bound to previewBody and reports edits through setBody", async () => {
     const ctx = makeCtx();
     const wrapper = mountWithCtx(SkillEditorMarkdownEditor, ctx);
     const ta = wrapper.find("textarea.md-textarea");
     expect((ta.element as HTMLTextAreaElement).value).toBe("# Body");
-    await ta.trigger("input");
-    expect(ctx.onBodyInput).toHaveBeenCalled();
+    await ta.setValue("# Edited");
+    expect(ctx.setBody).toHaveBeenCalledWith("# Edited");
   });
 
   it("makes builtin instructions read-only", () => {

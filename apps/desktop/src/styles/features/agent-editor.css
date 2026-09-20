@@ -1,0 +1,144 @@
+/**
+ * Agent editor — the parts that differ from the shared definition editor
+ * shell in `definition-editor.css`, which this page loads first.
+ */
+
+/* The split lives in a custom property rather than an inline
+   grid-template-columns, so the narrow-viewport rule below can override it
+   without !important. */
+.agent-editor .editor-body {
+  grid-template-columns: var(--agent-split, 50%) 5px 1fr;
+}
+
+.agent-editor .panel-right {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.agent-editor .panel-header {
+  gap: 8px;
+}
+.agent-editor .panel-header-filename {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-editor .raw-toggle {
+  flex-shrink: 0;
+}
+
+/* The shared tab strip is built for a page body: it carries its own bottom
+   border and a 20px margin below it. Inside the 40px panel header both push
+   the tabs off-centre, leaving a gap under them, so the strip is made to
+   fill the header and its underline lands on the header's own border. */
+.agent-editor .panel-header--tabs {
+  align-items: stretch;
+  padding: 0 12px;
+}
+
+.agent-editor .panel-header--tabs .tab-nav {
+  margin-bottom: 0;
+  border-bottom: none;
+  align-items: stretch;
+}
+
+.agent-editor .panel-header--tabs .tab-nav-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 0.75rem;
+}
+
+.agent-editor .raw-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.agent-editor .raw-toggle input {
+  accent-color: var(--accent-emphasis);
+  cursor: pointer;
+}
+
+.agent-editor .panel-right .panel-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+/* An agent description is a sentence or two the model reads when it picks an
+   agent. The shared 60px floor made it the tallest control on the form and
+   still scrolled, so it sizes to its `rows` instead. */
+.agent-editor .field-textarea {
+  min-height: 0;
+  field-sizing: content;
+  max-height: 12rem;
+  font-size: 0.75rem;
+}
+
+/* Long tool lists, option captions and unknown keys wrap inside the pane
+   rather than widening the form past it. */
+.agent-editor .frontmatter-advanced__body,
+.agent-editor .frontmatter-option > span {
+  min-width: 0;
+}
+
+.agent-editor .frontmatter-option small {
+  overflow-wrap: anywhere;
+}
+
+.agent-editor pre.field-input {
+  margin: 0;
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.6875rem;
+}
+
+/* The shared .field-footer carries a char counter in the Skill editor; the
+   Agent form uses it for guidance, which reads as a caption. */
+.agent-editor .field-footer--hint {
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+
+/* A session-only agent has nothing to edit, so the empty state takes the
+   pane instead of sitting as a banner above dead space. */
+.agent-editor__missing {
+  margin: auto;
+  padding: 24px;
+}
+
+.agent-editor .info-item--error {
+  color: var(--danger-fg);
+}
+
+/* The shell is a fixed-height two-pane split, so stacking at narrow widths
+   would halve an already short viewport. The panes stay side by side, as in
+   the Skill editor, and the resize handle lets either one take the space. */
+@media (max-width: 1000px) {
+  .agent-editor .panel-header {
+    padding: 8px 12px;
+  }
+
+  .agent-editor .panel-right .panel-scroll {
+    padding: 8px;
+  }
+
+  .agent-editor .panel-header--tabs {
+    padding: 0 4px;
+  }
+  .agent-editor .panel-header--tabs .tab-nav-item {
+    padding: 0 8px;
+  }
+}

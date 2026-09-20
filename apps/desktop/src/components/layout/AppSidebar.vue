@@ -3,6 +3,7 @@ import { useLocalStorage } from "@tracepilot/ui";
 import {
   BarChart3,
   Bell,
+  Bot,
   Braces,
   ChevronLeft,
   ChevronRight,
@@ -58,6 +59,7 @@ const sidebarIconMap: Record<string, Component> = {
   config: Sliders,
   mcp: Plug,
   skills: Zap,
+  agents: Bot,
   "cli-context": Braces,
 };
 

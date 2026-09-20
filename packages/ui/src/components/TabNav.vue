@@ -29,6 +29,8 @@ const props = defineProps<{
    * (index * 50ms) so consumers can drive entry animations.
    */
   staggered?: boolean;
+  /** Accessible name for the tablist. Defaults to the session tabs wording. */
+  ariaLabel?: string;
 }>();
 
 const emit = defineEmits<{
@@ -153,7 +155,7 @@ function handleKeydown(e: KeyboardEvent, index: number) {
     class="tab-nav"
     :class="{ 'tab-nav--pill': variant === 'pill' }"
     role="tablist"
-    aria-label="Session tabs"
+    :aria-label="ariaLabel ?? 'Session tabs'"
     data-testid="session-tabs"
   >
     <button

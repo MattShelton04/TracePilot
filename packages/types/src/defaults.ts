@@ -54,6 +54,7 @@ export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
   exactContextCapture: false,
   configInjector: false,
   promptCacheInsights: true,
+  agents: true,
 };
 
 /**

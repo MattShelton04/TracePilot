@@ -131,6 +131,18 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "delete_session_template",
     "restore_default_templates",
     "increment_template_usage",
+    // Agents explorer
+    "agents_list",
+    "agents_get",
+    "agents_preview",
+    "agents_save",
+    "agents_save_raw",
+    "agents_create",
+    "agents_delete",
+    "agents_set_override",
+    "agents_set_disabled",
+    "agents_usage_summary",
+    "agents_usage_detail",
     // Logging
     "get_log_path",
     "export_logs",

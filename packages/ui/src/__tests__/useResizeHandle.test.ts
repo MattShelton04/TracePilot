@@ -9,13 +9,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function setup(initialWidth = 716) {
+async function setup(initialWidth = 716, axis: "x" | "y" = "x") {
   let width = initialWidth;
   let api!: ReturnType<typeof useResizeHandle>;
   const wrapper = mount(
     defineComponent({
       setup() {
         api = useResizeHandle({
+          axis,
           minPct: 25,
           maxPct: 75,
           initial: 50,
@@ -32,7 +33,7 @@ async function setup(initialWidth = 716) {
   );
   cleanups.push(() => wrapper.unmount());
   vi.spyOn(wrapper.element, "getBoundingClientRect").mockImplementation(
-    () => ({ width, left: 0 }) as DOMRect,
+    () => ({ width, height: width, left: 0, top: 100 }) as DOMRect,
   );
   window.dispatchEvent(new Event("resize"));
   await nextTick();
@@ -47,6 +48,20 @@ async function setup(initialWidth = 716) {
 }
 
 describe("useResizeHandle", () => {
+  it("uses pointer height and up/down keys for vertically stacked panes", async () => {
+    const { api, wrapper } = await setup(1000, "y");
+    const separator = wrapper.get("[tabindex]");
+    await separator.trigger("keydown", { key: "ArrowUp" });
+    expect(api.leftWidth.value).toBeCloseTo(48.4);
+    await separator.trigger("keydown", { key: "ArrowDown", shiftKey: true });
+    expect(api.leftWidth.value).toBeCloseTo(54.8);
+    await separator.trigger("mousedown", { button: 0 });
+    document.dispatchEvent(new MouseEvent("mousemove", { clientY: 450 }));
+    document.dispatchEvent(new MouseEvent("mouseup"));
+    expect(api.leftWidth.value).toBe(35);
+    await separator.trigger("keydown", { key: "Enter" });
+    expect(api.leftWidth.value).toBe(50);
+  });
   it("keeps both panes readable when dragged at the minimum desktop size", async () => {
     const { api, wrapper } = await setup();
     await wrapper.get("[tabindex]").trigger("mousedown", { button: 0 });

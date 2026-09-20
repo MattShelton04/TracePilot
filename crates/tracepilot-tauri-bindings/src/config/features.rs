@@ -26,6 +26,9 @@ pub struct FeaturesConfig {
     /// Prompt-cache countdown, resume markers and cache-break causes.
     #[serde(default = "default_true")]
     pub prompt_cache_insights: bool,
+    /// Agents explorer: agent definitions, overrides and cross-session usage.
+    #[serde(default = "default_true")]
+    pub agents: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -40,6 +43,7 @@ impl Default for FeaturesConfig {
             exact_context_capture: false,
             config_injector: false,
             prompt_cache_insights: true,
+            agents: true,
         }
     }
 }

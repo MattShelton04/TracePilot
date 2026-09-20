@@ -25,6 +25,7 @@ export const SIDEBAR_IDS = {
   configInjector: "config-injector",
   mcp: "mcp",
   skills: "skills",
+  agents: "agents",
   cliContext: "cli-context",
 } as const;
 

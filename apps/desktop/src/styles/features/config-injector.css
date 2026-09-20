@@ -203,6 +203,40 @@
   text-overflow: ellipsis;
 }
 
+/* The name doubles as the link into the Agents page when that flag is on. */
+.agent-name--link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-name--link:hover {
+  color: var(--accent-fg);
+  text-decoration: underline;
+}
+
+.agents-page-hint {
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.agents-page-hint__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+
+.agents-page-hint__link:hover {
+  text-decoration: underline;
+}
+
 /* ── Tier Badges ── */
 .tier-badge {
   display: inline-flex;

@@ -82,6 +82,7 @@ export interface TracePilotConfig {
     exactContextCapture: boolean;
     configInjector: boolean;
     promptCacheInsights: boolean;
+    agents: boolean;
   };
   logging: {
     level: string;

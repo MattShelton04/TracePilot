@@ -9,6 +9,7 @@ import {
 } from "@tracepilot/ui";
 import { computed } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
+import AnalyticsAgentsPanel from "@/components/analytics/AnalyticsAgentsPanel.vue";
 import AnalyticsCacheHealthRow from "@/components/analytics/AnalyticsCacheHealthRow.vue";
 import AnalyticsDistributionRow from "@/components/analytics/AnalyticsDistributionRow.vue";
 import AnalyticsIncidentChart from "@/components/analytics/AnalyticsIncidentChart.vue";
@@ -106,6 +107,7 @@ const timeRangeLabel = computed(() => {
           :dismiss-tooltip="dismissTooltip"
         />
         <AnalyticsCacheHealthRow :data="data" />
+        <AnalyticsAgentsPanel v-if="prefs.isFeatureEnabled('agents')" />
         <AnalyticsIncidentChart
           :data="data"
           :chart-layout="chartLayout"

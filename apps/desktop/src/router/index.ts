@@ -230,7 +230,7 @@ const routes: RouteRecordRaw[] = [
       title: "Config Injector",
       sidebarId: "config-injector",
       featureFlag: "configInjector",
-      sidebar: { section: "configuration", label: "Config Injector", icon: "config", order: 3 },
+      sidebar: { section: "configuration", label: "Config Injector", icon: "config", order: 5 },
     },
   },
   // === MCP Server Management ===
@@ -277,6 +277,28 @@ const routes: RouteRecordRaw[] = [
       featureFlag: "skills",
     },
   },
+  // === Agents routes ===
+  {
+    path: "/agents",
+    name: "agents-manager",
+    component: () => import("@/views/agents/AgentsManagerView.vue"),
+    meta: {
+      title: "Agents",
+      sidebarId: "agents",
+      featureFlag: "agents",
+      sidebar: { section: "configuration", label: "Agents", icon: "agents", order: 2 },
+    },
+  },
+  {
+    path: "/agents/detail",
+    name: "agent-editor",
+    component: () => import("@/views/agents/AgentEditorView.vue"),
+    meta: {
+      title: "Agent",
+      sidebarId: "agents",
+      featureFlag: "agents",
+    },
+  },
   {
     path: "/cli-context",
     name: "cli-context",
@@ -285,7 +307,7 @@ const routes: RouteRecordRaw[] = [
       title: "CLI Context",
       sidebarId: "cli-context",
       featureFlag: "exactContextCapture",
-      sidebar: { section: "configuration", label: "CLI Context", icon: "cli-context", order: 2 },
+      sidebar: { section: "configuration", label: "CLI Context", icon: "cli-context", order: 4 },
     },
   },
   // 404 catch-all — must be last

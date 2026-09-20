@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatNumber as formatCompactNumber } from "@tracepilot/types";
-import { Tooltip } from "@tracepilot/ui";
+import { DefinitionCard, Tooltip } from "@tracepilot/ui";
 import { FolderGit2, Package, Sparkles } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
@@ -62,38 +62,21 @@ function formatTokens(n: number): string {
 </script>
 
 <template>
-  <article
+  <DefinitionCard
     class="skill-card"
-    :class="{
-      'skill-card--encountered': isEncountered,
-      'skill-card--static': !canOpenEditor,
-    }"
+    :class="{ 'skill-card--static': !canOpenEditor }"
+    :name="skill.name"
+    :description="skill.description"
+    :open-label="`Open skill ${skill.name}`"
+    :interactive="canOpenEditor"
+    @open="navigateToEditor"
   >
-    <!-- Accent top line (visible on hover) -->
-    <div class="skill-card__accent" />
-
-    <div class="skill-card__top">
-      <div class="skill-card__icon">
-        <FolderGit2 v-if="skill.scope === 'repository'" :size="18" :stroke-width="1.75" />
-        <Package v-else-if="skill.scope === 'builtin'" :size="18" :stroke-width="1.75" />
-        <Sparkles v-else :size="18" :stroke-width="1.75" />
-      </div>
-      <div class="skill-card__info">
-        <div class="skill-card__name-row">
-          <button
-            v-if="canOpenEditor"
-            type="button"
-            class="skill-card__name skill-card__open"
-            :aria-label="`Open skill ${skill.name}`"
-            @click="navigateToEditor"
-          >{{ skill.name }}</button>
-          <span v-else class="skill-card__name">{{ skill.name }}</span>
-        </div>
-        <p class="skill-card__desc">{{ skill.description || "No description" }}</p>
-      </div>
-    </div>
-
-    <div class="skill-card__badges">
+    <template #icon>
+      <FolderGit2 v-if="skill.scope === 'repository'" :size="18" :stroke-width="1.75" />
+      <Package v-else-if="skill.scope === 'builtin'" :size="18" :stroke-width="1.75" />
+      <Sparkles v-else :size="18" :stroke-width="1.75" />
+    </template>
+    <template #badges>
       <SkillScopeBadge :scope="skill.scope" />
       <span v-if="isEncountered" class="badge-xs badge-encountered" :title="sourceTitle">
         Encountered
@@ -106,32 +89,11 @@ function formatTokens(n: number): string {
           Discover {{ formatTokens(skill.frontmatterTokens) }} · On use +{{ formatTokens(skill.instructionTokens) }}
         </span>
       </Tooltip>
-    </div>
+    </template>
 
+    <template #footer>
     <div v-if="isEncountered" class="skill-card__actions skill-card__actions--static">
       <span class="encountered-meta" :title="sourceTitle">{{ encounteredLabel }}</span>
-    </div>
-
-    <div v-else-if="isBuiltin" class="skill-card__actions">
-      <label class="toggle-switch">
-        <input
-          type="checkbox"
-          :checked="skill.enabled"
-          :disabled="skill.disabledReason === 'repository'"
-          :aria-label="`Enable skill ${skill.name}`"
-          :title="enablementTooltip"
-          @change="onToggle"
-        />
-        <span class="toggle-track" />
-        <span class="toggle-label" :title="enablementTooltip">{{ skill.enabled ? "Enabled" : "Disabled" }}</span>
-      </label>
-      <div class="card-hover-actions">
-        <button type="button" class="action-btn" title="View skill" :aria-label="`View skill ${skill.name}`" @click="navigateToEditor">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-            <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/>
-          </svg>
-        </button>
-      </div>
     </div>
 
     <div v-else class="skill-card__actions">
@@ -149,172 +111,23 @@ function formatTokens(n: number): string {
       </label>
 
       <div class="card-hover-actions">
-        <button type="button" class="action-btn" title="Edit skill" :aria-label="`Edit skill ${skill.name}`" @click="navigateToEditor">
+        <button type="button" class="action-btn" :title="isBuiltin ? 'View skill' : 'Edit skill'" :aria-label="`${isBuiltin ? 'View' : 'Edit'} skill ${skill.name}`" @click="navigateToEditor">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 13l4-1L14 4l-2-2L4 10l-1 4z" /><path d="M10 4l2 2" />
           </svg>
         </button>
-        <button type="button" class="action-btn action-btn--danger" title="Remove skill" :aria-label="`Remove skill ${skill.name}`" @click="onDelete">
+        <button v-if="!isBuiltin" type="button" class="action-btn action-btn--danger" title="Remove skill" :aria-label="`Remove skill ${skill.name}`" @click="onDelete">
           <svg viewBox="0 0 16 16" fill="currentColor">
             <path d="M6.5 1.75a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V3h-3V1.75zm4.5 1.25V1.75A1.75 1.75 0 009.25 0h-2.5A1.75 1.75 0 005 1.75V3H2.75a.75.75 0 000 1.5h.67l.83 9.41A1.75 1.75 0 006 15.5h4a1.75 1.75 0 001.75-1.59l.83-9.41h.67a.75.75 0 000-1.5H11z" />
           </svg>
         </button>
       </div>
     </div>
-  </article>
+    </template>
+  </DefinitionCard>
 </template>
 
 <style scoped>
-/* ── Card Container ─────────────────────────────────────── */
-.skill-card {
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  background: var(--canvas-subtle);
-  background-image: var(--gradient-card);
-  border: 1px solid var(--border-default);
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.2s ease;
-}
-
-.skill-card--static {
-  cursor: default;
-}
-
-.skill-card:hover {
-  border-color: var(--border-accent, var(--accent-fg));
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.skill-card--encountered:hover {
-  transform: translateY(-1px);
-}
-
-.skill-card:hover .skill-card__accent {
-  opacity: 1;
-}
-
-.skill-card:has(.skill-card__open:focus-visible) {
-  outline: 2px solid var(--accent-fg);
-  outline-offset: 2px;
-}
-
-.skill-card__open {
-  padding: 0;
-  border: 0;
-  background: none;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-/* The title's native button owns the card click surface. Other controls
-   remain siblings, above that surface, and retain their own activation. */
-.skill-card__open::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
-.skill-card__token-estimate,
-.skill-card__actions {
-  position: relative;
-  z-index: 1;
-}
-
-/* Accent top bar */
-.skill-card__accent {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--gradient-accent, var(--accent-emphasis));
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-/* ── Card Top (icon + info) ─────────────────────────────── */
-.skill-card__top {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.skill-card__icon {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border: 1px solid var(--border-default);
-  background: var(--canvas-default, var(--canvas-subtle));
-  color: var(--accent-fg);
-  transition: all 0.2s ease;
-  line-height: 0;
-}
-
-.skill-card:hover .skill-card__icon {
-  border-color: var(--border-accent, var(--accent-fg));
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.08);
-}
-
-.skill-card__icon svg {
-  display: block;
-}
-
-.skill-card__info {
-  flex: 1;
-  min-width: 0;
-}
-
-.skill-card__name-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 2px;
-}
-
-.skill-card__name {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color var(--transition-fast);
-}
-
-.skill-card:hover .skill-card__name {
-  color: var(--accent-fg);
-}
-
-.skill-card__desc {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-  line-height: 1.45;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* ── Badges ─────────────────────────────────────────────── */
-.skill-card__badges {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
 .badge-xs {
   display: inline-flex;
   align-items: center;
@@ -350,8 +163,8 @@ function formatTokens(n: number): string {
   display: flex;
   align-items: center;
   gap: 4px;
-  border-top: 1px solid var(--border-subtle, var(--border-muted));
-  padding-top: 10px;
+  position: relative;
+  z-index: 1;
 }
 
 .skill-card__actions--static {
@@ -495,19 +308,4 @@ function formatTokens(n: number): string {
   border-color: rgba(251, 113, 133, 0.15);
 }
 
-/* ── Stagger animation ──────────────────────────────────── */
-@keyframes card-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.skill-card {
-  animation: card-in 0.35s ease backwards;
-}
 </style>

@@ -12,6 +12,7 @@ use super::super::types::*;
 pub(crate) fn extract_session_analytics(
     summary: &tracepilot_core::SessionSummary,
     typed_events: &Option<Vec<tracepilot_core::parsing::events::TypedEvent>>,
+    turns: Option<&[tracepilot_core::ConversationTurn]>,
     _diagnostics: Option<&tracepilot_core::parsing::diagnostics::ParseDiagnostics>,
     file_meta: &SessionFileMeta,
 ) -> SessionAnalytics {
@@ -322,6 +323,13 @@ pub(crate) fn extract_session_analytics(
         .map(super::prompt_cache::extract_prompt_cache_rows)
         .unwrap_or_default();
 
+    let agent_runs = match (typed_events.as_deref(), turns) {
+        (Some(events), Some(turns)) => {
+            tracepilot_core::agent_runs::extract_agent_runs(events, turns)
+        }
+        _ => Default::default(),
+    };
+
     SessionAnalytics {
         total_tokens,
         total_cost,
@@ -350,5 +358,6 @@ pub(crate) fn extract_session_analytics(
         incidents,
         cache_window_rows,
         cache_ttl_rows,
+        agent_runs,
     }
 }

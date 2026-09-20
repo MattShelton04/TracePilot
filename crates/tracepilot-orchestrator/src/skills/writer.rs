@@ -1,5 +1,6 @@
 //! SKILL.md writer — generates well-formed SKILL.md content.
 
+use crate::frontmatter::{patch_frontmatter_field, replace_body, yaml_escape};
 use crate::skills::types::{SkillAllowedTools, SkillFrontmatter};
 
 /// Generate a complete SKILL.md file from frontmatter and body.
@@ -12,45 +13,6 @@ pub fn write_skill_md(frontmatter: &SkillFrontmatter, body: &str) -> String {
     }
 }
 
-/// Escape a YAML scalar value — quote if it contains special characters or YAML keywords.
-fn yaml_escape(s: &str) -> String {
-    if s.is_empty() {
-        return "\"\"".to_string();
-    }
-    let lower = s.to_lowercase();
-    let is_yaml_keyword = matches!(
-        lower.as_str(),
-        "true" | "false" | "yes" | "no" | "on" | "off" | "null" | "~"
-    );
-    let needs_quoting = is_yaml_keyword
-        || s.contains(':')
-        || s.contains('#')
-        || s.contains('\n')
-        || s.contains('"')
-        || s.contains('\'')
-        || s.starts_with('[')
-        || s.starts_with('{')
-        || s.starts_with('>')
-        || s.starts_with('|')
-        || s.starts_with('&')
-        || s.starts_with('*')
-        || s.starts_with('!')
-        || s.starts_with('%')
-        || s.starts_with('@')
-        || s.starts_with('`')
-        || s.contains("---");
-    if needs_quoting {
-        format!(
-            "\"{}\"",
-            s.replace('\\', "\\\\")
-                .replace('"', "\\\"")
-                .replace('\n', "\\n")
-        )
-    } else {
-        s.to_string()
-    }
-}
-
 /// Patch one top-level scalar while retaining unrelated YAML, comments, and line endings.
 pub(crate) fn patch_frontmatter_scalar(content: &str, key: &str, value: &str) -> String {
     patch_frontmatter_field(
@@ -58,54 +20,6 @@ pub(crate) fn patch_frontmatter_scalar(content: &str, key: &str, value: &str) ->
         key,
         Some(vec![format!("{key}: {}", yaml_escape(value))]),
     )
-}
-
-fn patch_frontmatter_field(content: &str, key: &str, replacement: Option<Vec<String>>) -> String {
-    let newline = if content.contains("\r\n") {
-        "\r\n"
-    } else {
-        "\n"
-    };
-    let had_final_newline = content.ends_with('\n');
-    let mut lines: Vec<String> = content.lines().map(ToString::to_string).collect();
-    let Some(open) = lines
-        .iter()
-        .position(|line| line.trim().trim_start_matches('\u{feff}') == "---")
-    else {
-        return content.to_string();
-    };
-    let Some(close) = lines
-        .iter()
-        .enumerate()
-        .skip(open + 1)
-        .find_map(|(index, line)| (line.trim() == "---").then_some(index))
-    else {
-        return content.to_string();
-    };
-    let key_prefix = format!("{key}:");
-    if let Some(start) = (open + 1..close).find(|index| lines[*index].starts_with(&key_prefix)) {
-        let scalar = lines[start]
-            .split_once(':')
-            .map(|(_, value)| value.trim())
-            .unwrap_or_default();
-        let mut end = start + 1;
-        if scalar.is_empty() || matches!(scalar, ">" | ">-" | ">+" | "|" | "|-" | "|+") {
-            while end < close
-                && (lines[end].chars().next().is_some_and(char::is_whitespace)
-                    || lines[end].is_empty())
-            {
-                end += 1;
-            }
-        }
-        lines.splice(start..end, replacement.unwrap_or_default());
-    } else if let Some(replacement) = replacement {
-        lines.splice(close..close, replacement);
-    }
-    let mut result = lines.join(newline);
-    if had_final_newline {
-        result.push_str(newline);
-    }
-    result
 }
 
 /// Update supported fields and body while retaining unknown YAML fields and comments.
@@ -174,32 +88,7 @@ pub(crate) fn patch_skill_md(content: &str, frontmatter: &SkillFrontmatter, body
             .then(|| vec!["auto_attach: true".to_string()]),
     );
 
-    let newline = if updated.contains("\r\n") {
-        "\r\n"
-    } else {
-        "\n"
-    };
-    let lines: Vec<&str> = updated.lines().collect();
-    let Some(open) = lines
-        .iter()
-        .position(|line| line.trim().trim_start_matches('\u{feff}') == "---")
-    else {
-        return updated;
-    };
-    let Some(close) = lines
-        .iter()
-        .enumerate()
-        .skip(open + 1)
-        .find_map(|(index, line)| (line.trim() == "---").then_some(index))
-    else {
-        return updated;
-    };
-    let header = lines[..=close].join(newline);
-    if body.trim().is_empty() {
-        format!("{header}{newline}")
-    } else {
-        format!("{header}{newline}{newline}{}{newline}", body.trim_end())
-    }
+    replace_body(&updated, body)
 }
 
 /// Generate the YAML frontmatter string (without delimiters).

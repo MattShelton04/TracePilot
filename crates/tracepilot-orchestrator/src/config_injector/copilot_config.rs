@@ -232,6 +232,33 @@ fn write_copilot_config_unlocked(copilot_home: &Path, config: &serde_json::Value
     Ok(())
 }
 
+/// Read-modify-write the user's `settings.json` under the settings lock.
+///
+/// The closure receives the whole top-level object; every key it does not
+/// touch is preserved. Refuses to write when the file exists but cannot be
+/// parsed, so a malformed file is never replaced.
+pub(crate) fn update_settings_json(
+    copilot_home: &Path,
+    mutate: impl FnOnce(&mut serde_json::Map<String, serde_json::Value>) -> Result<()>,
+) -> Result<()> {
+    let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|_| {
+        OrchestratorError::Config("Copilot settings write lock was poisoned".into())
+    })?;
+    let settings_path = CopilotPaths::from_home(copilot_home).settings_json();
+    let mut root = match read_json_file(&settings_path).map_err(OrchestratorError::Config)? {
+        Some(serde_json::Value::Object(map)) => map,
+        Some(_) => {
+            return Err(OrchestratorError::Config(format!(
+                "Refusing to update {}: the top level is not an object",
+                settings_path.display()
+            )));
+        }
+        None => serde_json::Map::new(),
+    };
+    mutate(&mut root)?;
+    crate::json_io::atomic_json_write(&settings_path, &serde_json::Value::Object(root))
+}
+
 /// Add or remove one skill from the user-level `disabledSkills` setting.
 /// The read-modify-write is serialized and preserves all unrelated settings.
 pub fn set_skill_enabled(copilot_home: &Path, skill_name: &str, enabled: bool) -> Result<()> {
@@ -308,174 +335,4 @@ pub fn read_disabled_skills_file(settings_path: &Path) -> Result<Vec<String>> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-
-    #[test]
-    fn strip_jsonc_drops_full_line_comments() {
-        let input = "// banner\n// second\n{\n  \"a\": 1\n}\n";
-        let out = strip_jsonc_line_comments(input);
-        // Comments removed but newlines preserved so error line numbers match.
-        assert_eq!(out, "\n\n{\n  \"a\": 1\n}\n");
-        let parsed: serde_json::Value = serde_json::from_str(&out).unwrap();
-        assert_eq!(parsed["a"], 1);
-    }
-
-    #[test]
-    fn read_copilot_config_handles_jsonc_config_json() {
-        let dir = tempfile::tempdir().unwrap();
-        // Reproduces the new CLI's `config.json` shape (leading `//` lines).
-        fs::write(
-            dir.path().join("config.json"),
-            "// User settings belong in settings.json.\n// This file is managed automatically.\n{\n  \"trustedFolders\": [\"C:\\\\git\"]\n}\n",
-        )
-        .unwrap();
-        let cfg = read_copilot_config(dir.path()).unwrap();
-        assert!(cfg.parse_error.is_none(), "got: {:?}", cfg.parse_error);
-        assert_eq!(cfg.trusted_folders, vec!["C:\\git".to_string()]);
-    }
-
-    #[test]
-    fn read_copilot_config_prefers_settings_over_config() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join("config.json"),
-            "{\"model\":\"old-model\",\"trustedFolders\":[\"/a\"]}",
-        )
-        .unwrap();
-        fs::write(
-            dir.path().join("settings.json"),
-            "{\"model\":\"new-model\",\"showReasoning\":true,\"renderMarkdown\":false}",
-        )
-        .unwrap();
-        let cfg = read_copilot_config(dir.path()).unwrap();
-        assert_eq!(cfg.model.as_deref(), Some("new-model"));
-        assert_eq!(cfg.show_reasoning, Some(true));
-        assert_eq!(cfg.render_markdown, Some(false));
-        // Legacy key from config.json still surfaces when settings.json
-        // doesn't override it.
-        assert_eq!(cfg.trusted_folders, vec!["/a".to_string()]);
-    }
-
-    #[test]
-    fn read_copilot_config_reports_parse_error_instead_of_failing() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::write(dir.path().join("settings.json"), "{not-json").unwrap();
-        let cfg = read_copilot_config(dir.path()).unwrap();
-        let err = cfg.parse_error.expect("should populate parse_error");
-        assert!(err.contains("settings.json"), "got: {err}");
-    }
-
-    #[test]
-    fn write_copilot_config_writes_to_settings_json_and_preserves_unknown_keys() {
-        let dir = tempfile::tempdir().unwrap();
-        // Pre-existing settings with unknown keys we must not clobber.
-        fs::write(
-            dir.path().join("settings.json"),
-            "{\"loggedInUsers\":[{\"login\":\"alice\"}],\"model\":\"old\"}",
-        )
-        .unwrap();
-        let payload = serde_json::json!({
-            "model": "claude-opus-4.7",
-            "showReasoning": true,
-            "renderMarkdown": true,
-            "trustedFolders": ["/a", "/b"],
-            // not in allow-list — should be ignored:
-            "loggedInUsers": [],
-        });
-        write_copilot_config(dir.path(), &payload).unwrap();
-
-        let written: serde_json::Value =
-            serde_json::from_str(&fs::read_to_string(dir.path().join("settings.json")).unwrap())
-                .unwrap();
-        assert_eq!(written["model"], "claude-opus-4.7");
-        assert_eq!(written["showReasoning"], true);
-        assert_eq!(written["trustedFolders"], serde_json::json!(["/a", "/b"]));
-        // Unknown key preserved untouched.
-        assert_eq!(written["loggedInUsers"][0]["login"], "alice");
-    }
-
-    #[test]
-    fn write_copilot_config_refuses_when_existing_settings_unparseable() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::write(dir.path().join("settings.json"), "{not-json").unwrap();
-        let payload = serde_json::json!({"model": "x"});
-        let err = write_copilot_config(dir.path(), &payload).unwrap_err();
-        assert!(matches!(err, OrchestratorError::Config(_)));
-        // File untouched.
-        assert_eq!(
-            fs::read_to_string(dir.path().join("settings.json")).unwrap(),
-            "{not-json"
-        );
-    }
-
-    #[test]
-    fn write_copilot_config_unsets_empty_string_values() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join("settings.json"),
-            "{\"model\":\"old\",\"reasoningEffort\":\"high\"}",
-        )
-        .unwrap();
-        let payload = serde_json::json!({"model": "", "reasoningEffort": "low"});
-        write_copilot_config(dir.path(), &payload).unwrap();
-        let written: serde_json::Value =
-            serde_json::from_str(&fs::read_to_string(dir.path().join("settings.json")).unwrap())
-                .unwrap();
-        assert!(
-            written.get("model").is_none(),
-            "empty string should clear key"
-        );
-        assert_eq!(written["reasoningEffort"], "low");
-    }
-
-    #[test]
-    fn set_skill_enabled_creates_updates_and_preserves_settings() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join("settings.json"),
-            r#"{"custom":{"keep":true},"disabledSkills":["Other","TEST"]}"#,
-        )
-        .unwrap();
-
-        set_skill_enabled(dir.path(), "test", true).unwrap();
-        set_skill_enabled(dir.path(), "new-skill", false).unwrap();
-        set_skill_enabled(dir.path(), "NEW-SKILL", false).unwrap();
-
-        let written: serde_json::Value =
-            serde_json::from_str(&fs::read_to_string(dir.path().join("settings.json")).unwrap())
-                .unwrap();
-        assert_eq!(written["custom"]["keep"], true);
-        assert_eq!(
-            written["disabledSkills"],
-            serde_json::json!(["new-skill", "Other"])
-        );
-    }
-
-    #[test]
-    fn set_skill_enabled_refuses_to_overwrite_malformed_settings() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::write(dir.path().join("settings.json"), "{broken").unwrap();
-        assert!(set_skill_enabled(dir.path(), "test", false).is_err());
-        assert_eq!(
-            fs::read_to_string(dir.path().join("settings.json")).unwrap(),
-            "{broken"
-        );
-    }
-
-    #[test]
-    fn set_skill_enabled_refuses_invalid_disabled_skills_shape() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::write(
-            dir.path().join("settings.json"),
-            r#"{"disabledSkills":"test","custom":true}"#,
-        )
-        .unwrap();
-        assert!(set_skill_enabled(dir.path(), "test", false).is_err());
-        assert_eq!(
-            fs::read_to_string(dir.path().join("settings.json")).unwrap(),
-            r#"{"disabledSkills":"test","custom":true}"#
-        );
-    }
-}
+mod tests;

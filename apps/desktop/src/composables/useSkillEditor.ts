@@ -11,8 +11,8 @@ import {
   ref,
   watch,
 } from "vue";
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
-import { useSkillMarkdownToolbar } from "@/composables/skillEditor/markdownToolbar";
+import { useRoute, useRouter } from "vue-router";
+import { useUnsavedChangesGuard } from "@/composables/definitionEditor/useUnsavedChangesGuard";
 import { browseForFile } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -42,8 +42,6 @@ export function useSkillEditor() {
   const assetsLoading = ref(false);
   const editorDirty = ref(false);
   const lastSaved = ref<Date | null>(null);
-  const editorRef = ref<HTMLTextAreaElement | null>(null);
-  const lineNumbersRef = ref<HTMLElement | null>(null);
   const viewingAsset = ref<SkillAsset | null>(null);
   const viewingContent = ref<string | null>(null);
 
@@ -79,11 +77,6 @@ export function useSkillEditor() {
   const backLabel = computed(() => (returnSessionId.value ? "Back to Session" : "Back to Skills"));
   const isReadOnly = computed(() => store.selectedSkill?.scope === "builtin");
 
-  const editorLineNumbers = computed(() => {
-    const count = previewBody.value.split("\n").length;
-    return Array.from({ length: count }, (_, i) => i + 1);
-  });
-
   const totalLineCount = computed(() => rawContent.value.split("\n").length);
   const byteCount = computed(() => new TextEncoder().encode(rawContent.value).length);
   const tokenUsage = computed(() => estimateSkillTokenUsage(rawContent.value));
@@ -106,31 +99,12 @@ export function useSkillEditor() {
     return `Saved ${mins} min ago`;
   });
 
-  // Guard all navigation paths, including the sidebar and history, rather than
-  // protecting only the editor's Back button. Share a pending decision so rapid
-  // navigation cannot replace an already-open confirmation.
-  let pendingNavigation: Promise<boolean> | null = null;
-  function confirmNavigation(): boolean | Promise<boolean> {
-    if (!editorDirty.value || isReadOnly.value) return true;
-    if (!pendingNavigation) {
-      pendingNavigation = showConfirm({
-        title: "Unsaved Skill Changes",
-        message: "Leave this skill and discard your unsaved changes?",
-        variant: "warning",
-        confirmLabel: "Discard and Leave",
-        cancelLabel: "Keep Editing",
-      })
-        .then(({ confirmed }) => confirmed)
-        .finally(() => {
-          pendingNavigation = null;
-        });
-    }
-    return pendingNavigation;
-  }
-  onBeforeRouteLeave(confirmNavigation);
-  onBeforeRouteUpdate((to, from) =>
-    to.params.name === from.params.name ? true : confirmNavigation(),
-  );
+  useUnsavedChangesGuard({
+    isDirty: () => editorDirty.value && !isReadOnly.value,
+    title: "Unsaved Skill Changes",
+    message: "Leave this skill and discard your unsaved changes?",
+    isSameDocument: (to, from) => to.params.name === from.params.name,
+  });
 
   // ─── Lifecycle ────────────────────────────────────────────
   onMounted(async () => {
@@ -187,10 +161,9 @@ export function useSkillEditor() {
   }
 
   // ─── Input handlers ───────────────────────────────────────
-  function onBodyInput(event: Event) {
+  function setBody(body: string) {
     if (isReadOnly.value) return;
-    const target = event.target as HTMLTextAreaElement;
-    markRawContent(replaceSkillBody(rawContent.value, target.value));
+    markRawContent(replaceSkillBody(rawContent.value, body));
   }
 
   function onNameInput(event: Event) {
@@ -374,21 +347,9 @@ export function useSkillEditor() {
     pushRoute(router, ROUTE_NAMES.skillsManager);
   }
 
-  // ─── Markdown toolbar ─────────────────────────────────────
-  const { insertBold, insertItalic, insertH1, insertH2, insertBulletList, insertCode, insertLink } =
-    useSkillMarkdownToolbar(editorRef, isReadOnly, (body) => {
-      markRawContent(replaceSkillBody(rawContent.value, body));
-    });
-
   // ─── Utilities ────────────────────────────────────────────
   function formatSize(bytes: number): string {
     return formatBytes(bytes);
-  }
-
-  function syncScroll() {
-    if (editorRef.value && lineNumbersRef.value) {
-      lineNumbersRef.value.scrollTop = editorRef.value.scrollTop;
-    }
   }
 
   function closeAssetPreview() {
@@ -404,8 +365,6 @@ export function useSkillEditor() {
     assetsLoading,
     editorDirty,
     lastSaved,
-    editorRef,
-    lineNumbersRef,
     viewingAsset,
     viewingContent,
     previewFrontmatter,
@@ -418,7 +377,6 @@ export function useSkillEditor() {
     onMouseDown,
     onResizeKeyDown,
     skillDir,
-    editorLineNumbers,
     totalLineCount,
     byteCount,
     tokenUsage,
@@ -438,21 +396,13 @@ export function useSkillEditor() {
     handleViewAsset,
     handlePreviewClick,
     goBack,
-    onBodyInput,
+    setBody,
     onNameInput,
     onDescInput,
     onFrontmatterTextInput,
     onFrontmatterBooleanInput,
     onAutomaticInvocationInput,
-    insertBold,
-    insertItalic,
-    insertH1,
-    insertH2,
-    insertBulletList,
-    insertCode,
-    insertLink,
     formatSize,
-    syncScroll,
     closeAssetPreview,
   });
 }

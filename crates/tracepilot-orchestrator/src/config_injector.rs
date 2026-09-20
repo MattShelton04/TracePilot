@@ -12,6 +12,7 @@
 
 mod copilot_config;
 pub(crate) use copilot_config::read_json_file as read_copilot_json_file;
+pub(crate) use copilot_config::update_settings_json;
 pub use copilot_config::{
     CONFIG_FILE, SETTINGS_FILE, read_copilot_config, read_disabled_skills_file, set_skill_enabled,
     write_copilot_config,
@@ -23,7 +24,10 @@ use std::path::{Path, PathBuf};
 use tracepilot_core::TracePilotError;
 use tracepilot_core::utils::backup::BackupStore;
 
-/// Read all agent definitions for a given Copilot version.
+/// Read all built-in agent definitions for a given Copilot version.
+///
+/// Parsing is shared with the Agents explorer (`crate::agents`), so both
+/// views agree on models, tools and prompts.
 pub fn read_agent_definitions(version_dir: &Path) -> Result<Vec<AgentDefinition>> {
     let defs_dir = version_dir.join(tracepilot_core::paths::COPILOT_DEFINITIONS_DIR);
     if !defs_dir.exists() {
@@ -34,14 +38,43 @@ pub fn read_agent_definitions(version_dir: &Path) -> Result<Vec<AgentDefinition>
     }
 
     let mut agents = Vec::new();
-    for entry in std::fs::read_dir(&defs_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) == Some("yaml")
-            && let Some(agent) = parse_agent_yaml(&path)?
-        {
-            agents.push(agent);
+    for path in crate::agents::builtin_definition_paths(version_dir) {
+        let content = TracePilotError::read_to_string(&path)?;
+        let path_str = path.to_string_lossy().to_string();
+        let parsed = crate::agents::parse::parse_definition(
+            &content,
+            crate::agents::AgentFormat::Yaml,
+            &path_str,
+        );
+        if let Some(error) = parsed.diagnostics.iter().find(|d| d.severity == "error") {
+            return Err(OrchestratorError::Config(format!(
+                "{}: {}",
+                path.display(),
+                error.message
+            )));
         }
+        agents.push(AgentDefinition {
+            name: parsed
+                .fields
+                .name
+                .clone()
+                .unwrap_or_else(|| crate::agents::parse::file_stem(&path)),
+            file_path: path_str,
+            model: parsed
+                .fields
+                .models
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "default".to_string()),
+            description: parsed.fields.description.clone().unwrap_or_default(),
+            tools: parsed.fields.tools.clone().unwrap_or_default(),
+            prompt_excerpt: tracepilot_core::utils::truncate_utf8_with_marker(
+                &parsed.body,
+                200,
+                Some("…"),
+            ),
+            raw_yaml: content,
+        });
     }
 
     agents.sort_by(|a, b| a.name.cmp(&b.name));
@@ -242,65 +275,6 @@ pub fn diff_files(old_path: &Path, new_path: &Path) -> Result<ConfigDiff> {
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────
-
-fn parse_agent_yaml(path: &Path) -> Result<Option<AgentDefinition>> {
-    let content = TracePilotError::read_to_string(path)?;
-    let value: serde_norway::Value = TracePilotError::from_yaml_str(&content, path.display())?;
-
-    let name = value
-        .get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or_else(|| {
-            path.file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("unknown")
-        })
-        .to_string();
-
-    let model = value
-        .get("model")
-        .and_then(|v| v.as_str())
-        .unwrap_or("default")
-        .to_string();
-
-    let description = value
-        .get("description")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-
-    let tools = value
-        .get("tools")
-        .and_then(|v| v.as_sequence())
-        .map(|seq| {
-            seq.iter()
-                .filter_map(|v| {
-                    v.as_str()
-                        .or_else(|| v.get("name").and_then(|n| n.as_str()))
-                        .map(String::from)
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-
-    // Extract first ~200 chars of the prompt as excerpt
-    let prompt_excerpt = value
-        .get("instructions")
-        .or_else(|| value.get("prompt"))
-        .and_then(|v| v.as_str())
-        .map(|s| tracepilot_core::utils::truncate_utf8_with_marker(s, 200, Some("…")))
-        .unwrap_or_default();
-
-    Ok(Some(AgentDefinition {
-        name,
-        file_path: path.to_string_lossy().to_string(),
-        model,
-        description,
-        tools,
-        prompt_excerpt,
-        raw_yaml: content,
-    }))
-}
 
 /// Get the backup directory for TracePilot agent/config backups.
 pub fn backup_dir() -> Result<PathBuf> {

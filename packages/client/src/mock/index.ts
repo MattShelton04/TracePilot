@@ -1,4 +1,11 @@
 export {
+  agentCatalog,
+  agentDefinition,
+  agentFields,
+  agentSettings,
+  agentUsage,
+} from "./agentFixtures.js";
+export {
   MOCK_ANALYTICS,
   MOCK_CODE_IMPACT,
   MOCK_TOOL_ANALYSIS,

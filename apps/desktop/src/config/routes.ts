@@ -36,6 +36,8 @@ export const ROUTE_NAMES = {
   mcpServerDetail: "mcp-server-detail",
   skillsManager: "skills-manager",
   skillEditor: "skill-editor",
+  agentsManager: "agents-manager",
+  agentEditor: "agent-editor",
   cliContext: "cli-context",
   notFound: "not-found",
 } as const;

@@ -416,3 +416,72 @@ CREATE TABLE IF NOT EXISTS session_cache_ttls (
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 "#;
+
+pub(super) const MIGRATION_18: &str = r#"
+-- One row per agent invocation, derived from the reconstructed subagent
+-- state (see tracepilot_core::agent_runs). Powers the Agents explorer.
+CREATE TABLE IF NOT EXISTS session_agent_runs (
+    session_id TEXT NOT NULL,
+    -- Launching tool-call ID, or the runtime agent ID when none was recorded.
+    run_key TEXT NOT NULL,
+    tool_call_id TEXT,
+    agent_id TEXT,
+    parent_run_key TEXT,
+    -- NULL when launched by the main agent.
+    parent_agent_name TEXT,
+    depth INTEGER NOT NULL,
+    agent_name TEXT NOT NULL,
+    agent_type TEXT,
+    display_name TEXT,
+    description TEXT,
+    -- "sync" | "background" (1.0.83+).
+    execution_mode TEXT,
+    started_at TEXT,
+    ended_at TEXT,
+    -- completed | failed | cancelled | incomplete
+    outcome TEXT NOT NULL,
+    error_text TEXT,
+    requested_model TEXT,
+    model TEXT,
+    configured_model TEXT,
+    configured_effort TEXT,
+    context_tier TEXT,
+    multi_turn INTEGER,
+    first_dispatched_model TEXT,
+    explicit_model_override TEXT,
+    model_override_reason TEXT,
+    configured_model_preference TEXT,
+    configured_matches_actual INTEGER,
+    total_tool_calls INTEGER,
+    -- As reported by the CLI; can include descendants. Never sum across a hierarchy.
+    total_tokens INTEGER,
+    duration_ms INTEGER,
+    -- Exclusive credits from the shutdown agentMetrics ledger (1.0.83+).
+    own_nano_aiu INTEGER,
+    follow_up_count INTEGER NOT NULL DEFAULT 0,
+    peak_siblings INTEGER NOT NULL DEFAULT 1,
+    turn_index INTEGER NOT NULL,
+    event_index INTEGER,
+    -- "events" (subagent lifecycle) | "task_args" (task call only).
+    source TEXT NOT NULL,
+    PRIMARY KEY (session_id, run_key),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_name_started
+    ON session_agent_runs(agent_name COLLATE NOCASE, started_at);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_started
+    ON session_agent_runs(started_at);
+
+-- Main-session custom agent selections (`subagent.selected` / `deselected`).
+CREATE TABLE IF NOT EXISTS session_agent_selections (
+    session_id TEXT NOT NULL,
+    event_index INTEGER NOT NULL,
+    -- NULL for a deselection.
+    agent_name TEXT,
+    display_name TEXT,
+    selected INTEGER NOT NULL,
+    timestamp TEXT,
+    PRIMARY KEY (session_id, event_index),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+"#;

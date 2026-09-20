@@ -54,7 +54,7 @@ export function formatMarkdownBlock(
   };
 }
 
-export function useSkillMarkdownToolbar(
+export function useMarkdownToolbar(
   editorRef: Ref<HTMLTextAreaElement | null>,
   isReadOnly: Readonly<Ref<boolean>>,
   updateBody: (body: string) => void,

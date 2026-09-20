@@ -38,7 +38,7 @@ describe("SkillCard action semantics", () => {
     expect(wrapper.attributes("tabindex")).toBeUndefined();
     expect(wrapper.attributes("role")).toBeUndefined();
 
-    const open = wrapper.get<HTMLButtonElement>(".skill-card__open");
+    const open = wrapper.get<HTMLButtonElement>(".definition-card__open");
     expect(open.element.tagName).toBe("BUTTON");
     expect(open.attributes("type")).toBe("button");
     expect(open.attributes("aria-label")).toBe(`Open skill ${skill.name}`);
@@ -64,7 +64,7 @@ describe("SkillCard action semantics", () => {
     const skill = makeSkill();
     const wrapper = mount(SkillCard, { props: { skill }, attachTo: document.body });
     const remove = wrapper.get<HTMLButtonElement>('[title="Remove skill"]');
-    expect(remove.element.closest(".skill-card__open")).toBeNull();
+    expect(remove.element.closest(".definition-card__open")).toBeNull();
     remove.element.focus();
     const enter = new KeyboardEvent("keydown", {
       key: "Enter",
@@ -80,7 +80,7 @@ describe("SkillCard action semantics", () => {
 
     const enabled = wrapper.get<HTMLInputElement>('input[type="checkbox"]');
     expect(enabled.attributes("aria-label")).toBe(`Enable skill ${skill.name}`);
-    expect(enabled.element.closest(".skill-card__open")).toBeNull();
+    expect(enabled.element.closest(".definition-card__open")).toBeNull();
     await enabled.setValue(false);
     expect(wrapper.emitted("toggleEnabled")).toEqual([[skill.directory, false]]);
     expect(pushRoute).not.toHaveBeenCalled();
@@ -122,9 +122,9 @@ describe("SkillCard action semantics", () => {
     expect(pushRoute).not.toHaveBeenCalled();
 
     await wrapper.setProps({ skill: { ...skill, directory: "available-audit-skill" } });
-    expect(wrapper.find(".skill-card__open").exists()).toBe(true);
+    expect(wrapper.find(".definition-card__open").exists()).toBe(true);
     expect(wrapper.find(".action-btn, input").exists()).toBe(false);
-    await wrapper.get(".skill-card__open").trigger("click");
+    await wrapper.get(".definition-card__open").trigger("click");
     expect(pushRoute).toHaveBeenCalledOnce();
   });
 });

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
-import { formatMarkdownBlock, useSkillMarkdownToolbar } from "../skillEditor/markdownToolbar";
+import { formatMarkdownBlock, useMarkdownToolbar } from "../definitionEditor/markdownToolbar";
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -49,7 +49,7 @@ describe("formatMarkdownBlock", () => {
   });
 });
 
-describe("useSkillMarkdownToolbar", () => {
+describe("useMarkdownToolbar", () => {
   function setup(text: string, start: number, end = start) {
     const editor = document.createElement("textarea");
     document.body.append(editor);
@@ -60,7 +60,7 @@ describe("useSkillMarkdownToolbar", () => {
     const update = vi.fn((body: string) => {
       editor.value = body;
     });
-    const toolbar = useSkillMarkdownToolbar(ref(editor), readOnly, update);
+    const toolbar = useMarkdownToolbar(ref(editor), readOnly, update);
     return { editor, update, readOnly, toolbar };
   }
 

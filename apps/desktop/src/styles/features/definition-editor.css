@@ -1,27 +1,28 @@
 /**
- * Shared styles for the Skill Editor feature.
+ * Shared styles for the definition editors (Skills and Agents).
  *
- * Extracted from `views/skills/SkillEditorView.vue` scoped styles in Wave 36.
- * Loaded (unscoped) by the shell so the cascade reaches all children. Every
- * selector is namespaced under `.skill-editor-feature` — the outer wrapper
- * owned by the shell — to preserve the original scope boundary. The original
+ * Extracted from `views/skills/SkillEditorView.vue` scoped styles in Wave 36
+ * and shared with `views/agents/AgentEditorView.vue`. Loaded (unscoped) by
+ * each shell so the cascade reaches all children. Every selector is
+ * namespaced under `.definition-editor` — the outer wrapper owned by the
+ * shell — to preserve the original scope boundary. The original
  * `:deep()` markdown-content overrides have been rewritten as plain descendant
  * selectors since the stylesheet is no longer scoped.
  */
 
 /* ═══════════════════════════════════════════════════════════
-   SKILL EDITOR — Full-height IDE-like layout
+   DEFINITION EDITOR — Full-height IDE-like layout
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Shell ──────────────────────────────────────────────── */
-.skill-editor-feature {
+.definition-editor {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
 }
-.skill-editor-feature .editor-shell {
+.definition-editor .editor-shell {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -32,7 +33,7 @@
 }
 
 /* ── Top Bar ────────────────────────────────────────────── */
-.skill-editor-feature .editor-topbar {
+.definition-editor .editor-topbar {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -45,7 +46,7 @@
   z-index: 10;
 }
 
-.skill-editor-feature .topbar-back {
+.definition-editor .topbar-back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -62,24 +63,24 @@
   font-family: inherit;
 }
 
-.skill-editor-feature .topbar-back:hover {
+.definition-editor .topbar-back:hover {
   color: var(--text-primary);
   background: var(--neutral-subtle);
 }
 
-.skill-editor-feature .topbar-back svg {
+.definition-editor .topbar-back svg {
   width: 16px;
   height: 16px;
 }
 
-.skill-editor-feature .topbar-divider {
+.definition-editor .topbar-divider {
   width: 1px;
   height: 24px;
   background: var(--border-default);
   flex-shrink: 0;
 }
 
-.skill-editor-feature .topbar-skill-name {
+.definition-editor .topbar-skill-name {
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -89,7 +90,7 @@
   gap: 8px;
 }
 
-.skill-editor-feature .skill-icon-sm {
+.definition-editor .skill-icon-sm {
   width: 24px;
   height: 24px;
   border-radius: var(--radius-sm);
@@ -102,21 +103,21 @@
   flex-shrink: 0;
 }
 
-.skill-editor-feature .topbar-meta {
+.definition-editor .topbar-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-left: 4px;
 }
 
-.skill-editor-feature .topbar-actions {
+.definition-editor .topbar-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-left: auto;
 }
 
-.skill-editor-feature .status-modified {
+.definition-editor .status-modified {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -125,7 +126,7 @@
   color: var(--warning-fg);
 }
 
-.skill-editor-feature .status-modified::before {
+.definition-editor .status-modified::before {
   content: "";
   width: 6px;
   height: 6px;
@@ -144,13 +145,13 @@
   }
 }
 
-.skill-editor-feature .kbd-hint {
+.definition-editor .kbd-hint {
   font-size: 0.6875rem;
   color: var(--text-placeholder);
   margin-right: 4px;
 }
 
-.skill-editor-feature .kbd {
+.definition-editor .kbd {
   display: inline-block;
   padding: 1px 5px;
   border: 1px solid var(--border-default);
@@ -162,7 +163,7 @@
 }
 
 /* ── Buttons ────────────────────────────────────────────── */
-.skill-editor-feature .btn-ghost {
+.definition-editor .btn-ghost {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -179,22 +180,22 @@
   white-space: nowrap;
 }
 
-.skill-editor-feature .btn-ghost:hover:not(:disabled) {
+.definition-editor .btn-ghost:hover:not(:disabled) {
   background: var(--neutral-subtle);
   color: var(--text-primary);
 }
 
-.skill-editor-feature .btn-ghost:disabled {
+.definition-editor .btn-ghost:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.skill-editor-feature .btn-ghost--sm {
+.definition-editor .btn-ghost--sm {
   padding: 4px 10px;
   font-size: 0.6875rem;
 }
 
-.skill-editor-feature .btn-primary {
+.definition-editor .btn-primary {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -211,17 +212,17 @@
   white-space: nowrap;
 }
 
-.skill-editor-feature .btn-primary:hover:not(:disabled) {
+.definition-editor .btn-primary:hover:not(:disabled) {
   opacity: 0.9;
 }
 
-.skill-editor-feature .btn-primary:disabled {
+.definition-editor .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* ── Error & State ──────────────────────────────────────── */
-.skill-editor-feature .error-bar {
+.definition-editor .error-bar {
   padding: 10px 20px;
   background: var(--danger-muted);
   color: var(--danger-fg);
@@ -229,7 +230,7 @@
   flex-shrink: 0;
 }
 
-.skill-editor-feature .state-message {
+.definition-editor .state-message {
   flex: 1;
   display: flex;
   align-items: center;
@@ -239,7 +240,7 @@
 }
 
 /* ── Editor Body ────────────────────────────────────────── */
-.skill-editor-feature .editor-body {
+.definition-editor .editor-body {
   display: grid;
   grid-template-columns: 1fr 5px 1fr;
   flex: 1;
@@ -248,24 +249,24 @@
   position: relative;
 }
 
-.skill-editor-feature .editor-body.is-dragging {
+.definition-editor .editor-body.is-dragging {
   cursor: col-resize;
   user-select: none;
 }
 
 /* ── Panels ─────────────────────────────────────────────── */
-.skill-editor-feature .panel {
+.definition-editor .panel {
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
 }
 
-.skill-editor-feature .panel-left {
+.definition-editor .panel-left {
   border-right: 1px solid var(--border-default);
 }
 
-.skill-editor-feature .panel-header {
+.definition-editor .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -277,7 +278,7 @@
   flex-shrink: 0;
 }
 
-.skill-editor-feature .panel-header-title {
+.definition-editor .panel-header-title {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -288,19 +289,19 @@
   gap: 6px;
 }
 
-.skill-editor-feature .panel-header-title svg {
+.definition-editor .panel-header-title svg {
   width: 13px;
   height: 13px;
   opacity: 0.6;
 }
 
-.skill-editor-feature .panel-header-filename {
+.definition-editor .panel-header-filename {
   font-size: 0.625rem;
   color: var(--text-placeholder);
   font-family: var(--font-mono);
 }
 
-.skill-editor-feature .panel-scroll {
+.definition-editor .panel-scroll {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -310,35 +311,65 @@
   scrollbar-color: var(--border-default) transparent;
 }
 
-.skill-editor-feature .panel-scroll::-webkit-scrollbar {
+.definition-editor .panel-scroll::-webkit-scrollbar {
   width: 5px;
 }
 
-.skill-editor-feature .panel-scroll::-webkit-scrollbar-thumb {
+.definition-editor .panel-scroll::-webkit-scrollbar-thumb {
   background: var(--border-default);
   border-radius: var(--radius-full);
 }
 
 /* ── Resize Handle ──────────────────────────────────────── */
-.skill-editor-feature .resize-handle {
+.definition-editor .definition-source {
+  display: grid;
+  grid-template-rows: var(--definition-split, 45%) 8px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.definition-editor .definition-source__metadata {
+  min-height: 0;
+  overflow: auto;
+}
+
+.definition-editor .resize-handle.definition-source__resize {
+  width: 100%;
+  height: 8px;
+  cursor: row-resize;
+  position: relative;
+}
+
+.definition-editor .definition-source__resize::after {
+  content: "";
+  position: absolute;
+  width: 32px;
+  height: 2px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.definition-editor .resize-handle {
   cursor: col-resize;
   z-index: 5;
   transition: background var(--transition-fast);
   background: var(--border-default);
 }
 
-.skill-editor-feature .resize-handle:hover,
-.skill-editor-feature .resize-handle:focus-visible,
-.skill-editor-feature .resize-handle.active {
+.definition-editor .resize-handle:hover,
+.definition-editor .resize-handle:focus-visible,
+.definition-editor .resize-handle.active {
   background: var(--accent-emphasis);
 }
 
-.skill-editor-feature .resize-handle:focus-visible {
+.definition-editor .resize-handle:focus-visible {
   outline: 2px solid var(--accent-emphasis);
   outline-offset: 1px;
 }
 
-.skill-editor-feature .resize-help {
+.definition-editor .resize-help {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -349,13 +380,13 @@
 }
 
 /* ── Frontmatter Card ───────────────────────────────────── */
-.skill-editor-feature .frontmatter-section {
+.definition-editor .frontmatter-section {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
 }
 
-.skill-editor-feature .frontmatter-card {
+.definition-editor .frontmatter-card {
   background: var(--canvas-raised);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -363,7 +394,7 @@
   position: relative;
 }
 
-.skill-editor-feature .frontmatter-card::before {
+.definition-editor .frontmatter-card::before {
   content: "";
   position: absolute;
   top: 0;
@@ -374,7 +405,7 @@
   opacity: 0.5;
 }
 
-.skill-editor-feature .frontmatter-header {
+.definition-editor .frontmatter-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -382,7 +413,7 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.skill-editor-feature .frontmatter-label {
+.definition-editor .frontmatter-label {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -393,7 +424,7 @@
   gap: 6px;
 }
 
-.skill-editor-feature .yaml-tag {
+.definition-editor .yaml-tag {
   font-family: var(--font-mono);
   font-size: 0.625rem;
   color: var(--accent-fg);
@@ -403,19 +434,19 @@
   font-weight: 500;
 }
 
-.skill-editor-feature .frontmatter-body {
+.definition-editor .frontmatter-body {
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.skill-editor-feature .frontmatter-advanced {
+.definition-editor .frontmatter-advanced {
   padding-top: 9px;
   border-top: 1px solid var(--border-subtle);
 }
 
-.skill-editor-feature .frontmatter-advanced > summary {
+.definition-editor .frontmatter-advanced > summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -426,77 +457,77 @@
   list-style-position: inside;
 }
 
-.skill-editor-feature .frontmatter-advanced__hint {
+.definition-editor .frontmatter-advanced__hint {
   color: var(--text-placeholder);
   font-size: 0.625rem;
   font-weight: 500;
 }
 
-.skill-editor-feature .frontmatter-advanced__body {
+.definition-editor .frontmatter-advanced__body {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding-top: 12px;
 }
 
-.skill-editor-feature .frontmatter-option {
+.definition-editor .frontmatter-option {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   cursor: pointer;
 }
 
-.skill-editor-feature .frontmatter-option:has(input:disabled) {
+.definition-editor .frontmatter-option:has(input:disabled) {
   cursor: default;
 }
 
-.skill-editor-feature .frontmatter-option input {
+.definition-editor .frontmatter-option input {
   margin-top: 2px;
 }
 
-.skill-editor-feature .frontmatter-option span {
+.definition-editor .frontmatter-option span {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.skill-editor-feature .frontmatter-option strong {
+.definition-editor .frontmatter-option strong {
   color: var(--text-secondary);
   font-size: 0.75rem;
 }
 
-.skill-editor-feature .frontmatter-option small,
-.skill-editor-feature .raw-frontmatter > summary {
+.definition-editor .frontmatter-option small,
+.definition-editor .raw-frontmatter > summary {
   color: var(--text-tertiary);
   font-size: 0.6875rem;
   line-height: 1.4;
 }
 
-.skill-editor-feature .raw-frontmatter > summary {
+.definition-editor .raw-frontmatter > summary {
   cursor: pointer;
 }
 
-.skill-editor-feature .raw-frontmatter pre {
+.definition-editor .raw-frontmatter pre {
   max-height: 10rem;
   margin-top: 8px;
   overflow: auto;
   white-space: pre-wrap;
 }
 
-.skill-editor-feature .field-group {
+.definition-editor .field-group {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
 
-.skill-editor-feature .field-label {
+.definition-editor .field-label {
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--text-secondary);
   letter-spacing: 0.01em;
 }
 
-.skill-editor-feature .field-input {
+.definition-editor .field-input {
   width: 100%;
   padding: 8px 12px;
   background: var(--canvas-default);
@@ -509,16 +540,16 @@
   transition: all var(--transition-fast);
 }
 
-.skill-editor-feature .field-input--mono {
+.definition-editor .field-input--mono {
   font-family: var(--font-mono);
 }
 
-.skill-editor-feature .field-input:focus {
+.definition-editor .field-input:focus {
   border-color: var(--accent-emphasis);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
-.skill-editor-feature .field-textarea {
+.definition-editor .field-textarea {
   width: 100%;
   padding: 8px 12px;
   background: var(--canvas-default);
@@ -534,41 +565,41 @@
   transition: all var(--transition-fast);
 }
 
-.skill-editor-feature .field-textarea:focus {
+.definition-editor .field-textarea:focus {
   border-color: var(--accent-emphasis);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
-.skill-editor-feature .field-footer {
+.definition-editor .field-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.skill-editor-feature .char-count {
+.definition-editor .char-count {
   font-size: 0.625rem;
   font-family: var(--font-mono);
   color: var(--text-placeholder);
   font-variant-numeric: tabular-nums;
 }
 
-.skill-editor-feature .char-count.near-limit {
+.definition-editor .char-count.near-limit {
   color: var(--warning-fg);
 }
 
-.skill-editor-feature .char-count.at-limit {
+.definition-editor .char-count.at-limit {
   color: var(--danger-fg);
 }
 
 /* ── Instructions / Markdown Editor ─────────────────────── */
-.skill-editor-feature .instructions-section {
+.definition-editor .instructions-section {
   flex: 1 0 300px;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.skill-editor-feature .instructions-header {
+.definition-editor .instructions-header {
   padding: 16px 20px 6px;
   display: flex;
   align-items: center;
@@ -576,7 +607,7 @@
   flex-shrink: 0;
 }
 
-.skill-editor-feature .instructions-label {
+.definition-editor .instructions-label {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -584,13 +615,13 @@
   color: var(--text-tertiary);
 }
 
-.skill-editor-feature .instructions-hint {
+.definition-editor .instructions-hint {
   font-size: 0.625rem;
   color: var(--text-placeholder);
 }
 
 /* ── Markdown Toolbar ───────────────────────────────────── */
-.skill-editor-feature .md-toolbar {
+.definition-editor .md-toolbar {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -600,7 +631,7 @@
   flex-shrink: 0;
 }
 
-.skill-editor-feature .md-toolbar-btn {
+.definition-editor .md-toolbar-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -615,27 +646,27 @@
   font-family: inherit;
 }
 
-.skill-editor-feature .md-toolbar-btn:hover {
+.definition-editor .md-toolbar-btn:hover {
   background: var(--neutral-subtle);
   color: var(--text-primary);
 }
 
-.skill-editor-feature .md-toolbar-btn svg {
+.definition-editor .md-toolbar-btn svg {
   width: 15px;
   height: 15px;
 }
 
-.skill-editor-feature .md-toolbar-btn--text {
+.definition-editor .md-toolbar-btn--text {
   font-size: 0.75rem;
   font-weight: 700;
 }
 
-.skill-editor-feature .md-toolbar-btn--text-sm {
+.definition-editor .md-toolbar-btn--text-sm {
   font-size: 0.6875rem;
   font-weight: 600;
 }
 
-.skill-editor-feature .md-toolbar-sep {
+.definition-editor .md-toolbar-sep {
   width: 1px;
   height: 18px;
   background: var(--border-default);
@@ -643,14 +674,14 @@
 }
 
 /* ── Editor Wrap ────────────────────────────────────────── */
-.skill-editor-feature .md-editor-wrap {
+.definition-editor .md-editor-wrap {
   flex: 1;
   display: flex;
   overflow: hidden;
   min-height: 0;
 }
 
-.skill-editor-feature .line-numbers {
+.definition-editor .line-numbers {
   width: 44px;
   min-width: 44px;
   padding: 16px 0;
@@ -662,7 +693,7 @@
   flex-shrink: 0;
 }
 
-.skill-editor-feature .ln {
+.definition-editor .ln {
   display: block;
   padding: 0 10px 0 0;
   font-family: var(--font-mono);
@@ -672,7 +703,7 @@
   height: 24px;
 }
 
-.skill-editor-feature .md-textarea {
+.definition-editor .md-textarea {
   flex: 1;
   padding: 16px 20px;
   background: var(--canvas-default);
@@ -689,21 +720,21 @@
   scrollbar-color: var(--border-default) transparent;
 }
 
-.skill-editor-feature .md-textarea::-webkit-scrollbar {
+.definition-editor .md-textarea::-webkit-scrollbar {
   width: 5px;
 }
 
-.skill-editor-feature .md-textarea::-webkit-scrollbar-thumb {
+.definition-editor .md-textarea::-webkit-scrollbar-thumb {
   background: var(--border-default);
   border-radius: var(--radius-full);
 }
 
 /* ── Preview Panel ──────────────────────────────────────── */
-.skill-editor-feature .preview-content {
+.definition-editor .preview-content {
   padding: 24px;
 }
 
-.skill-editor-feature .preview-frontmatter {
+.definition-editor .preview-frontmatter {
   background: var(--canvas-raised);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -713,7 +744,7 @@
   overflow: hidden;
 }
 
-.skill-editor-feature .preview-frontmatter::before {
+.definition-editor .preview-frontmatter::before {
   content: "";
   position: absolute;
   top: 0;
@@ -723,7 +754,7 @@
   background: linear-gradient(135deg, var(--accent-emphasis), var(--accent-fg));
 }
 
-.skill-editor-feature .preview-skill-name {
+.definition-editor .preview-skill-name {
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -734,7 +765,7 @@
   gap: 10px;
 }
 
-.skill-editor-feature .name-icon {
+.definition-editor .name-icon {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md);
@@ -748,14 +779,14 @@
   flex-shrink: 0;
 }
 
-.skill-editor-feature .preview-skill-desc {
+.definition-editor .preview-skill-desc {
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--text-secondary);
   margin-left: 42px;
 }
 
-.skill-editor-feature .preview-skill-meta {
+.definition-editor .preview-skill-meta {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -763,7 +794,7 @@
   margin-left: 42px;
 }
 
-.skill-editor-feature .badge {
+.definition-editor .badge {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
@@ -773,17 +804,17 @@
   line-height: 1.4;
 }
 
-.skill-editor-feature .badge-neutral {
+.definition-editor .badge-neutral {
   background: var(--neutral-muted);
   color: var(--text-secondary);
 }
 
 /* ── Preview Markdown ───────────────────────────────────── */
-.skill-editor-feature .preview-markdown {
+.definition-editor .preview-markdown {
   line-height: 1.7;
 }
 
-.skill-editor-feature .preview-markdown h1 {
+.definition-editor .preview-markdown h1 {
   font-size: 1.375rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -794,7 +825,7 @@
   border-bottom: 1px solid var(--border-default);
 }
 
-.skill-editor-feature .preview-markdown h2 {
+.definition-editor .preview-markdown h2 {
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -803,21 +834,21 @@
   margin: 24px 0 10px !important;
 }
 
-.skill-editor-feature .preview-markdown ul,
-.skill-editor-feature .preview-markdown ol {
+.definition-editor .preview-markdown ul,
+.definition-editor .preview-markdown ol {
   /* biome-ignore lint/complexity/noImportantStyles: overrides `.markdown ul/ol` padding from global prose styles. */
   padding-left: 20px !important;
   /* biome-ignore lint/complexity/noImportantStyles: overrides `.markdown ul/ol` margin from global prose styles. */
   margin: 8px 0 !important;
 }
 
-.skill-editor-feature .preview-markdown li {
+.definition-editor .preview-markdown li {
   font-size: 0.875rem;
   line-height: 1.8;
   color: var(--text-secondary);
 }
 
-.skill-editor-feature .preview-markdown code {
+.definition-editor .preview-markdown code {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   background: var(--neutral-subtle);
@@ -826,7 +857,7 @@
   color: var(--accent-fg);
 }
 
-.skill-editor-feature .preview-markdown pre {
+.definition-editor .preview-markdown pre {
   background: var(--canvas-inset);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -839,19 +870,19 @@
   overflow-x: auto;
 }
 
-.skill-editor-feature .preview-markdown pre code {
+.definition-editor .preview-markdown pre code {
   background: none;
   padding: 0;
   color: inherit;
 }
 
-.skill-editor-feature .preview-markdown p {
+.definition-editor .preview-markdown p {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.7;
 }
 
-.skill-editor-feature .preview-markdown a {
+.definition-editor .preview-markdown a {
   color: var(--accent-fg);
   text-decoration: none;
   cursor: pointer;
@@ -859,24 +890,24 @@
   transition: border-color var(--transition-fast);
 }
 
-.skill-editor-feature .preview-markdown a:hover {
+.definition-editor .preview-markdown a:hover {
   border-bottom-color: var(--accent-fg);
 }
 
 /* ── Assets Section ─────────────────────────────────────── */
-.skill-editor-feature .assets-section {
+.definition-editor .assets-section {
   border-top: 1px solid var(--border-default);
   padding: 20px 24px;
 }
 
-.skill-editor-feature .assets-header {
+.definition-editor .assets-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
 }
 
-.skill-editor-feature .assets-title {
+.definition-editor .assets-title {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -887,7 +918,7 @@
   gap: 6px;
 }
 
-.skill-editor-feature .assets-title .count {
+.definition-editor .assets-title .count {
   background: var(--neutral-muted);
   color: var(--text-secondary);
   padding: 0 6px;
@@ -896,14 +927,14 @@
   font-variant-numeric: tabular-nums;
 }
 
-.skill-editor-feature .assets-loading {
+.definition-editor .assets-loading {
   font-size: 0.8125rem;
   color: var(--text-tertiary);
   text-align: center;
   padding: 16px 0;
 }
 
-.skill-editor-feature .asset-file {
+.definition-editor .asset-file {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -916,16 +947,16 @@
   cursor: default;
 }
 
-.skill-editor-feature .asset-file:hover {
+.definition-editor .asset-file:hover {
   border-color: var(--border-default);
   background: var(--canvas-overlay);
 }
 
-.skill-editor-feature .asset-file--nested {
+.definition-editor .asset-file--nested {
   margin-left: 16px;
 }
 
-.skill-editor-feature .asset-icon {
+.definition-editor .asset-icon {
   width: 28px;
   height: 28px;
   border-radius: var(--radius-sm);
@@ -936,17 +967,17 @@
   flex-shrink: 0;
 }
 
-.skill-editor-feature .asset-icon.md {
+.definition-editor .asset-icon.md {
   background: var(--accent-muted);
   color: var(--accent-fg);
 }
 
-.skill-editor-feature .asset-icon.ref {
+.definition-editor .asset-icon.ref {
   background: var(--done-muted, var(--success-muted));
   color: var(--done-fg, var(--success-fg));
 }
 
-.skill-editor-feature .asset-name {
+.definition-editor .asset-name {
   flex: 1;
   font-size: 0.75rem;
   font-weight: 500;
@@ -954,13 +985,13 @@
   font-family: var(--font-mono);
 }
 
-.skill-editor-feature .asset-size {
+.definition-editor .asset-size {
   font-size: 0.6875rem;
   color: var(--text-placeholder);
   font-variant-numeric: tabular-nums;
 }
 
-.skill-editor-feature .asset-remove {
+.definition-editor .asset-remove {
   background: none;
   border: none;
   color: var(--text-tertiary);
@@ -974,16 +1005,16 @@
     color var(--transition-fast);
 }
 
-.skill-editor-feature .asset-file:hover .asset-remove {
+.definition-editor .asset-file:hover .asset-remove {
   opacity: 1;
 }
 
-.skill-editor-feature .asset-remove:hover {
+.definition-editor .asset-remove:hover {
   color: var(--danger-fg);
   background: var(--danger-muted);
 }
 
-.skill-editor-feature .asset-folder {
+.definition-editor .asset-folder {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -993,13 +1024,13 @@
   font-weight: 500;
 }
 
-.skill-editor-feature .asset-folder svg {
+.definition-editor .asset-folder svg {
   width: 13px;
   height: 13px;
   opacity: 0.5;
 }
 
-.skill-editor-feature .drop-zone-sm {
+.definition-editor .drop-zone-sm {
   border: 1.5px dashed var(--border-default);
   border-radius: var(--radius-md);
   padding: 16px;
@@ -1011,19 +1042,19 @@
   cursor: pointer;
 }
 
-.skill-editor-feature .drop-zone-sm:hover {
+.definition-editor .drop-zone-sm:hover {
   border-color: var(--accent-emphasis);
   color: var(--accent-fg);
   background: var(--accent-subtle);
 }
 
-.skill-editor-feature .drop-zone-browse {
+.definition-editor .drop-zone-browse {
   color: var(--accent-fg);
   cursor: pointer;
 }
 
 /* ── Status Bar ─────────────────────────────────────────── */
-.skill-editor-feature .editor-info-bar {
+.definition-editor .editor-info-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1035,37 +1066,37 @@
   color: var(--text-placeholder);
 }
 
-.skill-editor-feature .info-group {
+.definition-editor .info-group {
   display: flex;
   align-items: center;
   gap: 14px;
 }
 
-.skill-editor-feature .info-item {
+.definition-editor .info-item {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.skill-editor-feature .info-item svg {
+.definition-editor .info-item svg {
   width: 11px;
   height: 11px;
   opacity: 0.5;
 }
 
 /* ── Asset clickable names ─────────────────────────────── */
-.skill-editor-feature .asset-name--clickable {
+.definition-editor .asset-name--clickable {
   cursor: pointer;
   transition: color var(--transition-fast);
 }
 
-.skill-editor-feature .asset-name--clickable:hover {
+.definition-editor .asset-name--clickable:hover {
   color: var(--accent-fg);
   text-decoration: underline;
 }
 
 /* ── Asset Preview Modal ───────────────────────────────── */
-.skill-editor-feature .asset-preview-overlay {
+.definition-editor .asset-preview-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
@@ -1075,7 +1106,7 @@
   z-index: 100;
 }
 
-.skill-editor-feature .asset-preview-modal {
+.definition-editor .asset-preview-modal {
   background: var(--canvas-default);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg, 12px);
@@ -1086,7 +1117,7 @@
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
 }
 
-.skill-editor-feature .asset-preview-header {
+.definition-editor .asset-preview-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1095,14 +1126,14 @@
   flex-shrink: 0;
 }
 
-.skill-editor-feature .asset-preview-title {
+.definition-editor .asset-preview-title {
   font-size: 0.8125rem;
   font-weight: 600;
   font-family: var(--font-mono);
   color: var(--text-primary);
 }
 
-.skill-editor-feature .asset-preview-close {
+.definition-editor .asset-preview-close {
   background: none;
   border: none;
   color: var(--text-tertiary);
@@ -1113,19 +1144,19 @@
   transition: all var(--transition-fast);
 }
 
-.skill-editor-feature .asset-preview-close:hover {
+.definition-editor .asset-preview-close:hover {
   color: var(--text-primary);
   background: var(--neutral-subtle);
 }
 
-.skill-editor-feature .asset-preview-body {
+.definition-editor .asset-preview-body {
   padding: 16px 20px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
 }
 
-.skill-editor-feature .asset-preview-meta {
+.definition-editor .asset-preview-meta {
   display: flex;
   gap: 20px;
   font-size: 0.75rem;
@@ -1134,7 +1165,7 @@
   font-family: var(--font-mono);
 }
 
-.skill-editor-feature .asset-preview-content {
+.definition-editor .asset-preview-content {
   background: var(--canvas-inset);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -1143,7 +1174,7 @@
   max-height: 50vh;
 }
 
-.skill-editor-feature .asset-preview-content pre {
+.definition-editor .asset-preview-content pre {
   margin: 0;
   font-family: var(--font-mono);
   font-size: 0.75rem;
@@ -1153,7 +1184,7 @@
   color: var(--text-primary);
 }
 
-.skill-editor-feature .asset-preview-no-content {
+.definition-editor .asset-preview-no-content {
   font-size: 0.8125rem;
   color: var(--text-placeholder);
   font-style: italic;
@@ -1161,11 +1192,11 @@
   text-align: center;
 }
 
-.skill-editor-feature .asset-preview-no-content p {
+.definition-editor .asset-preview-no-content p {
   margin: 0;
 }
 
-.skill-editor-feature .asset-preview-hint {
+.definition-editor .asset-preview-hint {
   font-size: 0.75rem;
   color: var(--text-tertiary);
   margin-top: 4px;

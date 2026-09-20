@@ -23,6 +23,16 @@ export const AGENT_META: Readonly<Record<string, AgentMeta>> = Object.freeze({
     colorVar: "--done-emphasis",
     motto: "Deep analysis specialist",
   },
+  "general-purpose": {
+    iconName: "bot",
+    colorVar: "--accent-emphasis",
+    motto: "Full-capability delegate",
+  },
+  "security-review": {
+    iconName: "shield",
+    colorVar: "--danger-emphasis",
+    motto: "Secrets and vulnerability auditor",
+  },
   "configure-copilot": {
     iconName: "settings",
     colorVar: "--neutral-emphasis",
@@ -39,3 +49,21 @@ export const DEFAULT_AGENT_META: AgentMeta = Object.freeze({
 export function agentMeta(name: string): AgentMeta {
   return AGENT_META[name] ?? DEFAULT_AGENT_META;
 }
+
+/**
+ * Built-in agents that can run without a definition file on disk: the CLI
+ * embeds some (e.g. `general-purpose`) in its binary, and older package
+ * versions shipped others. Session evidence for these names is shown as a
+ * built-in whose definition is unavailable rather than as unresolved.
+ */
+export const KNOWN_BUILTIN_AGENTS: ReadonlySet<string> = new Set([
+  "code-review",
+  "explore",
+  "general-purpose",
+  "rem-agent",
+  "research",
+  "rubber-duck",
+  "search-subagent",
+  "security-review",
+  "task",
+]);

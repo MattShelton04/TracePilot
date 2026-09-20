@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { provide, useId } from "vue";
+import DefinitionSourcePane from "@/components/definitionEditor/DefinitionSourcePane.vue";
 import SkillAssetPreviewModal from "@/components/skillEditor/SkillAssetPreviewModal.vue";
 import SkillEditorMarkdownEditor from "@/components/skillEditor/SkillEditorMarkdownEditor.vue";
 import SkillEditorMetadataForm from "@/components/skillEditor/SkillEditorMetadataForm.vue";
@@ -7,7 +8,7 @@ import SkillEditorPreviewPane from "@/components/skillEditor/SkillEditorPreviewP
 import SkillEditorStatusBar from "@/components/skillEditor/SkillEditorStatusBar.vue";
 import SkillEditorTopBar from "@/components/skillEditor/SkillEditorTopBar.vue";
 import { SkillEditorKey, useSkillEditor } from "@/composables/useSkillEditor";
-import "@/styles/features/skill-editor.css";
+import "@/styles/features/definition-editor.css";
 
 const ctx = useSkillEditor();
 const editorPaneId = useId();
@@ -16,7 +17,7 @@ provide(SkillEditorKey, ctx);
 </script>
 
 <template>
-  <div class="skill-editor-feature">
+  <div class="definition-editor">
     <div class="editor-shell">
       <SkillEditorTopBar />
 
@@ -45,10 +46,10 @@ provide(SkillEditorKey, ctx);
               <span class="panel-header-filename">SKILL.md</span>
             </div>
 
-            <div class="panel-scroll">
-              <SkillEditorMetadataForm />
+            <DefinitionSourcePane label="Resize frontmatter and instructions">
+              <template #definition><SkillEditorMetadataForm /></template>
               <SkillEditorMarkdownEditor />
-            </div>
+            </DefinitionSourcePane>
           </div>
 
           <div

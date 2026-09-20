@@ -55,6 +55,7 @@
 //! | [`summary`] | Session summary orchestration |
 //! | [`turns`] | Turn reconstruction state machine |
 
+pub mod agent_runs;
 pub mod analytics;
 pub mod constants;
 pub mod context_capture;

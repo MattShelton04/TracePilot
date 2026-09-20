@@ -7,7 +7,8 @@ use crate::models::event_types::{RequestMetrics, ShutdownTokenDetail, UsageMetri
 use serde_json::Value;
 use std::collections::HashMap;
 
-pub(super) fn extract_agent_usage(events: &[TypedEvent]) -> Option<AgentUsageSnapshot> {
+/// Latest per-agent `agentMetrics` ledger from a root `session.shutdown`.
+pub fn extract_agent_usage(events: &[TypedEvent]) -> Option<AgentUsageSnapshot> {
     for (event_index, event) in events.iter().enumerate().rev() {
         if event.raw.agent_id.is_some() {
             continue;

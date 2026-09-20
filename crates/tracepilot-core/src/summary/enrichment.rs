@@ -1,10 +1,17 @@
+use crate::models::conversation::ConversationTurn;
 use crate::models::event_types::ShutdownData;
 use crate::models::session_summary::{SessionSummary, ShutdownMetrics};
 use crate::parsing::events::{TypedEvent, extract_combined_shutdown_data, extract_session_start};
 use crate::turns::{reconstruct_turns, turn_stats};
 
 /// Enrich summary fields derivable from parsed events.
-pub(super) fn apply_event_enrichment(summary: &mut SessionSummary, typed_events: &[TypedEvent]) {
+///
+/// Returns the reconstructed turns so callers that need them (the indexer)
+/// do not reconstruct a second time.
+pub(super) fn apply_event_enrichment(
+    summary: &mut SessionSummary,
+    typed_events: &[TypedEvent],
+) -> Vec<ConversationTurn> {
     summary.event_count = Some(typed_events.len());
 
     if let Some((sd, count)) = extract_combined_shutdown_data(typed_events) {
@@ -39,6 +46,8 @@ pub(super) fn apply_event_enrichment(summary: &mut SessionSummary, typed_events:
                 .map(|d| d.with_timezone(&chrono::Utc));
         }
     }
+
+    turns
 }
 
 /// Convert [`ShutdownData`] (event-level) to [`ShutdownMetrics`] (summary-level).
