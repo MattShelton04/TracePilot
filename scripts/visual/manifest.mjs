@@ -140,7 +140,7 @@ export const cases = [
   {
     id: "skill-usage",
     route: "/skills/visual-review?tab=usage",
-    ready: ".skill-usage__summary",
+    ready: ".skill-usage > dl",
     state: "synthetic skill with cross-session usage",
   },
   { id: "agents-manager", route: "/agents", ready: ".agent-card", state: "populated" },
@@ -156,7 +156,7 @@ export const cases = [
       "/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml",
     start: ".agent-editor .frontmatter-card",
     prepare: "agent-usage",
-    ready: ".agent-usage__summary",
+    ready: ".agent-usage > dl",
     state: "agent usage and model breakdown",
   },
   {
