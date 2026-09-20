@@ -9,8 +9,9 @@ import { decodePng, encodeHeat } from "./png.mjs";
 export { validatePng } from "./png.mjs";
 export { escapeHtml };
 
-async function readSide(directory) {
+async function readSide(directory, side) {
   const records = new Map();
+  const revisions = new Set();
   for (const file of await readdir(directory).catch(() => [])) {
     if (!/^capture-[1-8]-[1-8]\.json$/.test(file)) continue;
     const bytes = await readFile(join(directory, file));
@@ -18,10 +19,16 @@ async function readSide(directory) {
     const data = JSON.parse(bytes.toString("utf8"));
     if (data.schema !== 1 || !Array.isArray(data.cases) || data.cases.length > 128)
       throw new Error("Unsupported capture metadata");
+    if (data.revision && data.revision !== side) throw new Error("Wrong capture revision");
+    if (data.revisionSha) {
+      if (!/^[a-f0-9]{40}$/.test(data.revisionSha)) throw new Error("Invalid capture SHA");
+      revisions.add(data.revisionSha);
+    }
     for (const row of data.cases) {
       if (!row || typeof row.id !== "string" || !/^[a-z][a-z0-9-]{0,63}$/.test(row.id)) continue;
       if (!records.has(row.id) && records.size >= 128)
         throw new Error("Capture inventory exceeds limit");
+      if (records.has(row.id)) throw new Error("Duplicate captured view across shards");
       records.set(row.id, {
         route: typeof row.route === "string" ? row.route.slice(0, 300) : "",
         state: typeof row.state === "string" ? row.state.slice(0, 300) : "",
@@ -37,7 +44,8 @@ async function readSide(directory) {
       });
     }
   }
-  return records;
+  if (revisions.size > 1) throw new Error("Capture shards contain different revisions");
+  return { records, sha: [...revisions][0] };
 }
 
 export async function buildReport({
@@ -48,8 +56,15 @@ export async function buildReport({
   metadata = {},
 }) {
   await mkdir(output, { recursive: true });
-  const baseRows = await readSide(baseDir);
-  const headRows = await readSide(headDir);
+  const baseSide = await readSide(baseDir, "base");
+  const headSide = await readSide(headDir, "head");
+  if (baseSide.sha && baseSide.sha === headSide.sha)
+    throw new Error("Cannot compare a revision against itself");
+  if (headSide.sha && metadata.expectedHeadSha && headSide.sha !== metadata.expectedHeadSha)
+    throw new Error("Captured head does not match the workflow run");
+  metadata = { ...metadata, baseSha: baseSide.sha, headSha: headSide.sha };
+  const baseRows = baseSide.records;
+  const headRows = headSide.records;
   // A route first introduced by a PR must remain visible before its manifest
   // reaches the trusted default branch. Only bounded text/IDs cross this boundary.
   const inventory = new Map(cases.map((item) => [item.id, item]));
@@ -76,6 +91,9 @@ export async function buildReport({
       ["base", baseDir],
       ["head", headDir],
     ]) {
+      // Error-page screenshots are diagnostics in the capture artifact, not a
+      // before/after image that the viewer can accidentally compare as real UI.
+      if (row[side]?.status !== "captured") continue;
       const source = join(directory, `${item.id}.png`);
       const bytes = await readFile(source).catch(() => null);
       if (!bytes) continue;
@@ -93,7 +111,12 @@ export async function buildReport({
       row[`${side}Hash`] = createHash("sha256").update(bytes).digest("hex");
       await writeFile(join(output, `${side}-${item.id}.png`), bytes);
     }
-    if (decoded.base && decoded.head) {
+    if (
+      decoded.base &&
+      decoded.head &&
+      row.base?.status === "captured" &&
+      row.head?.status === "captured"
+    ) {
       row.pngChanged = row.baseHash !== row.headHash;
       row.analyses = {};
       for (const threshold of thresholds) {
@@ -133,5 +156,5 @@ export async function buildReport({
   const html = await renderGallery({ title, rows, summary, metadata });
   await writeFile(join(output, "index.html"), html);
   await writeFile(join(output, "summary.json"), JSON.stringify(summary, null, 2));
-  return { rows, summary };
+  return { rows, summary, metadata };
 }

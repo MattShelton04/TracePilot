@@ -37,6 +37,7 @@ jobs:
       - name: Verify trusted reporting helpers
         run: |
           node --test scripts/visual/*.test.mjs
+          node --test scripts/ci/*.test.mjs
           python3 scripts/visual/extract_test.py
       - name: Publish sanitized gallery and comment
         env:

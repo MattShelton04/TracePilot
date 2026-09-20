@@ -3,10 +3,10 @@ name: Desktop Visual Capture
 on:
   pull_request:
     branches: [main]
-    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', '.github/workflows/visual-*.yml', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
+    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
   push:
     branches: [main]
-    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', '.github/workflows/visual-*.yml', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
+    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
   workflow_dispatch:
 
 # PR code, including fork dependencies/configuration, runs ONLY with read access.
@@ -36,42 +36,21 @@ jobs:
           path: harness
           fetch-depth: 0
           persist-credentials: false
-      - name: Select PR merge base or previous main revision
-        id: refs
-        env:
-          EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          if [ "$EVENT" = pull_request ]; then
-            base=$(git -C harness merge-base "$BASE" "$HEAD")
-          else
-            base="$BASE"
-          fi
-          echo "base=$base" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ matrix.revision == 'base' && steps.refs.outputs.base || (github.event.pull_request.head.sha || github.sha) }}
-          path: app
-          persist-credentials: false
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: 10.32.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version-file: app/.node-version
+          node-version-file: harness/.node-version
           package-manager-cache: false
-      - name: Find pnpm cache
-        id: store
-        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Select PR merge base or previous main revision
+        id: refs
+        run: node harness/scripts/ci/compare-refs.mjs harness
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: ${{ steps.store.outputs.path }}
-          key: pnpm-store-Linux-v10-${{ hashFiles('app/pnpm-lock.yaml') }}
-          restore-keys: pnpm-store-Linux-v10-
-      - name: Install target dependencies
-        working-directory: app
-        run: pnpm install --frozen-lockfile
+          ref: ${{ matrix.revision == 'base' && steps.refs.outputs.base || steps.refs.outputs.head }}
+          path: app
+          persist-credentials: false
+      - uses: ./harness/.github/actions/setup-node-pnpm
+        with:
+          working-directory: app
       - name: Install shared head browser harness
         working-directory: harness
         run: pnpm install --frozen-lockfile --filter tracepilot --ignore-scripts
@@ -81,8 +60,11 @@ jobs:
         run: |
           npm ci --prefix harness/scripts/visual --ignore-scripts --no-audit --no-fund
           node --test harness/scripts/visual/*.test.mjs
+          node --test harness/scripts/ci/*.test.mjs
           python3 harness/scripts/visual/extract_test.py
       - name: Capture real frontend routes with synthetic backend fixtures
+        env:
+          VISUAL_REVISION_SHA: ${{ matrix.revision == 'base' && steps.refs.outputs.base || steps.refs.outputs.head }}
         run: node harness/scripts/visual/capture.mjs --root=app --out=captures --shard=${{ matrix.shard }}/2 --revision=${{ matrix.revision }}
       - name: Verify gallery without browser canvas extraction
         if: matrix.revision == 'head' && matrix.shard == 1

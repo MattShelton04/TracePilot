@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildComment, updateComment } from "./comment.mjs";
+import { buildComment, postComment } from "./comment.mjs";
 import { renderHistory } from "./gallery-template.mjs";
 import { historyEntry, retainedHistory } from "./history.mjs";
 import { buildReport } from "./report.mjs";
@@ -87,7 +87,7 @@ if (run.event === "pull_request") {
   process.exit(0);
 }
 const title = `${pr ? `PR #${pr.number}` : "Main"} · ${run.head_sha.slice(0, 8)} · fixture visual comparison`;
-const { rows, summary } = await buildReport({
+const { rows, summary, metadata } = await buildReport({
   baseDir: join(workspace, "base"),
   headDir: join(workspace, "head"),
   output,
@@ -95,6 +95,7 @@ const { rows, summary } = await buildReport({
   metadata: {
     runUrl: `https://github.com/${repo}/actions/runs/${run.id}/attempts/${run.run_attempt ?? 1}`,
     attempt: run.run_attempt ?? 1,
+    expectedHeadSha: run.head_sha,
   },
 });
 let galleryUrl;
@@ -183,6 +184,7 @@ const body = buildComment({
   repo,
   galleryUrl,
   publisherRunId: process.env.GITHUB_RUN_ID,
+  baseSha: metadata.baseSha,
 });
 if (process.env.GITHUB_STEP_SUMMARY) await writeFile(process.env.GITHUB_STEP_SUMMARY, body);
 if (pr) {
@@ -193,5 +195,5 @@ if (pr) {
     );
     process.exit(0);
   }
-  console.log(`Visual comment: ${await updateComment({ api, pr: pr.number, run, body })}`);
+  console.log(`Visual comment: ${await postComment({ api, pr: pr.number, run, body })}`);
 }
