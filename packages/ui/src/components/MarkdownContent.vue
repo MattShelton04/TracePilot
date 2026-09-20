@@ -46,16 +46,30 @@ const rendered = computed(() => {
 
 const container = ref<HTMLElement | null>(null);
 const MAX_RENDERED_SEARCH_MATCHES = 2_000;
+let insertedSearchMarks = false;
+let markedRendererOutput: string | null = null;
 
 watch(
   [rendered, () => props.searchQuery, () => props.activeSearchIndex],
-  async () => {
+  async (_values, _oldValues, onCleanup) => {
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
     await nextTick();
+    if (cancelled) return;
     const root = container.value;
     if (!root) return;
-    // Restore the already-sanitized renderer output before replacing the
-    // previous search marks. This avoids accumulating wrapper nodes.
-    root.innerHTML = rendered.value;
+
+    // Vue's v-html binding owns ordinary renderer updates. Restore the
+    // sanitized renderer output only when this watcher previously inserted
+    // marks and Vue has not already replaced them with new rendered content.
+    if (insertedSearchMarks && markedRendererOutput === rendered.value) {
+      root.innerHTML = rendered.value;
+    }
+    insertedSearchMarks = false;
+    markedRendererOutput = null;
+
     if (!props.render) return;
     const query = props.searchQuery?.trim();
     if (!query) return;
@@ -89,6 +103,10 @@ watch(
       }
       fragment.append(source.slice(cursor));
       node.replaceWith(fragment);
+    }
+    if (matchIndex > 0) {
+      insertedSearchMarks = true;
+      markedRendererOutput = rendered.value;
     }
     activeMark?.scrollIntoView?.({ block: "center", behavior: "smooth" });
   },

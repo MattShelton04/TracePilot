@@ -30,6 +30,7 @@ real-app proof of concept and before/after UI captures.
 | Check runtime/endpoint | `pnpm app:status` |
 | Disconnect agent | `pnpm exec playwright-cli -s=tracepilot-desktop detach` |
 | Stop desktop and its Vite server | `pnpm app:stop` |
+| Start a built release runtime | `pnpm app:start -Runtime production` |
 | Start frontend-only server | `pnpm app:ui` |
 | Stop frontend-only server | `pnpm app:stop -Mode ui` |
 
@@ -64,18 +65,49 @@ this workflow does not claim to automate OS-owned file pickers or native chrome.
 
 ## Lifecycle contract
 
-[app.ps1](../scripts/automation/app.ps1) owns **launching only**. It starts the
-installed Vite and Tauri CLIs directly with logs redirected to
-`.tracepilot/automation/`. Tauri uses a generated dev config for the selected
-loopback Vite URL; normal product configuration and release builds are unchanged.
-Frontend HMR and Rust watching remain enabled.
+[app.ps1](../scripts/automation/app.ps1) owns **launching only**. Its default
+development runtime starts the installed Vite and Tauri CLIs directly with logs
+redirected to `.tracepilot/automation/`. Tauri uses a generated dev config for
+the selected loopback Vite URL. Frontend HMR and Rust watching remain enabled.
+
+For a production-equivalent runtime, run
+`pnpm app:start -Runtime production -DataRoot C:\benchmarks\tracepilot-run`.
+The data root must be an absolute, dedicated directory. It resolves to:
+
+| State | Isolated path |
+| --- | --- |
+| Copilot home | `<data-root>/copilot` |
+| Session state | `<data-root>/copilot/session-state` |
+| TracePilot home | `<data-root>/tracepilot` |
+| Config | `<data-root>/tracepilot/config.toml` |
+| SQLite index | `<data-root>/tracepilot/index.db` |
+| WebView profile | `<data-root>/webview-profile` |
+| Rust/app logs | `<data-root>/logs` |
+
+The launcher rejects relative paths, broad roots, reparse points, and configured
+state paths outside that boundary. `TRACEPILOT_DATA_ROOT` controls the Rust
+defaults and config bootstrap for the child process only. Omitting `-DataRoot`
+keeps the normal product configuration and session/database behavior unchanged.
+
+Production runtime first runs the normal Tauri release build with `--no-bundle`,
+then launches the release executable against built frontend assets. The build is
+complete before the launcher reports readiness, so attach-driven flow timing
+does not include compilation. This automation executable enables Tauri's
+`devtools` feature solely for WebView2 CDP; shipping builds do not enable it.
+For repeat fresh-process runs of an already-built executable, add `-SkipBuild`.
+That explicit opt-in fails when the release executable is absent and records its
+SHA-256, file timestamp/size, current source revision, and dirty state. Default
+production starts continue to build, avoiding accidental stale-binary reuse.
 
 The launcher serializes lifecycle commands per mode, chooses unused ports,
 records process IDs/start times/executables, and cleans up owned trees on failure.
 It never kills an app merely because of its name or listening port. Repeated
-starts validate and reuse the current instance. A separate WebView profile avoids
-the normal app's profile lock. This does **not** isolate the configured database,
-sessions, or settings: desktop interactions have their usual real effects.
+starts validate runtime, data root, and requested CDP port before reusing the
+current instance. Stop the tracked instance before changing those options. The
+recorded state also identifies built versus HMR frontend, Rust profile, devtools
+mode, release executable path, timestamp, and size so benchmark tooling can
+reject an accidental development comparison. Without `-DataRoot`, desktop
+interactions retain their usual real effects on configured application data.
 
 Desktop readiness checks the existing rendered TracePilot webview and makes a
 read-only `get_install_type` Rust IPC call, which also works before setup. A listening port, page title, mock
@@ -87,6 +119,32 @@ CDP is enabled only in the launched child environment and bound to loopback.
 It gives local clients full access to that development app. Stop it when finished.
 Runtime logs, profiles, snapshots, and traces are ignored by Git. Review evidence
 for session text, paths, secrets, and other private content before publishing.
+
+## Native indexing measurements
+
+`scripts/perf/indexing.mjs` measures the actual release app's session and
+background search indexing separately. Use an owned performance corpus generated
+by `performance_probe`; the script checks the recorded launcher root and native
+configuration before rebuilding its database. It also checks session counts,
+FTS integrity, nonempty results, and exact synthetic search/content counts.
+
+For first setup, generate a new `massive` corpus without `--probe` (this scale
+leaves indexing to the app), set `setupComplete = false` in its config, and start it with
+`app:start -Runtime production -DataRoot <corpus>`. The database must not exist.
+The probe completes the wizard using the configured isolated paths:
+
+```powershell
+node scripts/perf/indexing.mjs --manifest=<corpus>/fixture-manifest.json --mode=setup --out=.tracepilot/perf/first-setup.json
+node scripts/perf/indexing.mjs --manifest=<corpus>/fixture-manifest.json --mode=rebuild --samples=3 --out=.tracepilot/perf/full-rebuild.json
+```
+
+Setup records time from the final wizard click to a rendered session list and
+search completion. Rebuild samples run from Settings with auto-refresh disabled,
+after its initial database reads finish. A completed session-index command alone
+does not count as completed search indexing. These are empty-database or full
+rebuild measurements; filesystem cache is uncontrolled. Raw output includes local
+launcher paths and must be reviewed before sharing. The `massive` generator scale
+is opt-in and writes multiple GiB; keep it out of routine unit-test runs.
 
 ## Optional MCP connection
 

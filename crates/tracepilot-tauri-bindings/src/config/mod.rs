@@ -30,6 +30,7 @@ mod alerts;
 mod defaults;
 mod features;
 mod general;
+mod isolation;
 mod logging;
 mod paths;
 mod performance;
@@ -65,10 +66,6 @@ pub(crate) fn config_backup_file_path(path: &Path) -> PathBuf {
     PathBuf::from(backup)
 }
 
-fn home_dir() -> Option<PathBuf> {
-    tracepilot_core::utils::home_dir_opt()
-}
-
 /// Top-level configuration.
 ///
 /// Note: `rename_all = "camelCase"` ensures JSON (Tauri IPC) uses camelCase to
@@ -100,11 +97,16 @@ pub struct TracePilotConfig {
 
 impl Default for TracePilotConfig {
     fn default() -> Self {
-        // home_dir() can fail if env vars are missing; use empty strings as
-        // sentinel values — the setup wizard will prompt the user for paths.
-        let copilot_paths =
-            tracepilot_core::paths::CopilotPaths::from_user_home(home_dir().unwrap_or_default());
-        let tracepilot_paths = copilot_paths.tracepilot();
+        if let Err(error) = tracepilot_core::paths::isolated_data_root() {
+            panic!("invalid application data isolation: {error}");
+        }
+        // Resolution honors TRACEPILOT_DATA_ROOT when automation requests an
+        // isolated runtime. Empty sentinels remain the fallback when neither
+        // an isolation boundary nor a user home can be resolved.
+        let copilot_paths = tracepilot_core::paths::CopilotPaths::try_default()
+            .unwrap_or_else(|| tracepilot_core::paths::CopilotPaths::from_home(PathBuf::new()));
+        let tracepilot_paths = tracepilot_core::paths::TracePilotPaths::try_default()
+            .unwrap_or_else(|| tracepilot_core::paths::TracePilotPaths::from_root(PathBuf::new()));
         Self {
             version: Self::CURRENT_VERSION,
             paths: PathsConfig {
@@ -237,6 +239,35 @@ impl TracePilotConfig {
                         "Recovered config.toml from the last-known-good backup"
                     );
                 }
+                // Validate the boundary before migrations inspect any configured
+                // database path. A stale benchmark config must never reach the
+                // user's normal data through an absolute override.
+                match tracepilot_core::paths::isolated_data_root() {
+                    Err(error) => {
+                        tracing::warn!(error = %error, "Rejected invalid TRACEPILOT_DATA_ROOT");
+                        return None;
+                    }
+                    Ok(Some(root)) => {
+                        if let Err(error) = config.validate_explicit_paths_within_data_root(&root) {
+                            tracing::warn!(
+                                path = %path.display(),
+                                error = %error,
+                                "Rejected config.toml outside TRACEPILOT_DATA_ROOT"
+                            );
+                            return None;
+                        }
+                        config.normalize_paths();
+                        if let Err(error) = config.validate_paths_within_data_root(&root) {
+                            tracing::warn!(
+                                path = %path.display(),
+                                error = %error,
+                                "Rejected config.toml outside TRACEPILOT_DATA_ROOT"
+                            );
+                            return None;
+                        }
+                    }
+                    Ok(None) => {}
+                }
                 let migrated = config.migrate();
                 if migrated || recovered_from_backup {
                     if migrated {
@@ -293,6 +324,7 @@ impl TracePilotConfig {
         })?;
         let mut normalized = self.clone();
         normalized.normalize_paths();
+        normalized.validate_isolation_boundary()?;
         normalized.save_to(&path)
     }
 

@@ -32,14 +32,32 @@ export function formatShortDate(dateStr?: string | null): string {
   return new Date(dateStr).toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
+const TIME_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+};
+let batchTimeFormatter: Intl.DateTimeFormat | undefined;
+
+function timeFormatterForCurrentBatch(): Intl.DateTimeFormat {
+  if (!batchTimeFormatter) {
+    const formatter = new Intl.DateTimeFormat([], TIME_FORMAT_OPTIONS);
+    batchTimeFormatter = formatter;
+    queueMicrotask(() => {
+      if (batchTimeFormatter === formatter) batchTimeFormatter = undefined;
+    });
+  }
+  return batchTimeFormatter;
+}
+
 /** Format an ISO date string to locale time only (HH:MM:SS). */
 export function formatTime(dateStr?: string | null): string {
   if (!dateStr) return "";
-  return new Date(dateStr).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  const date = new Date(dateStr);
+  // Intl.DateTimeFormat#format throws for an invalid Date, while the original
+  // Date method returns the localized "Invalid Date" result.
+  if (Number.isNaN(date.getTime())) return date.toLocaleTimeString([], TIME_FORMAT_OPTIONS);
+  return timeFormatterForCurrentBatch().format(date);
 }
 
 /** Format a date to a relative time string (e.g. "3m ago").

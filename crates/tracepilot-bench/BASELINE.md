@@ -1,29 +1,37 @@
 # tracepilot-bench — IPC hot-path baselines
 
+> **Invalidated historical data:** these measurements predate the corrected
+> `v2-nonempty-fixtures` corpus. The old directory names were rejected by
+> production session discovery, so database-backed cases could measure an
+> empty database. Retain these numbers for provenance only; do not compare new
+> results against them.
+
 Captured on Windows from `cargo bench -p tracepilot-bench --bench ipc_hot_path`
 at wave **w121** (commit to be recorded once landed). Numbers are the Criterion
-mean (middle of the `[low mean high]` interval) at the indicated corpus size.
+mean (middle of the `[low mean high]` interval) labelled with the requested
+corpus size; the discovered corpus could be empty.
 
 Measurement was short-sampled (`--warm-up-time 1 --measurement-time 2
 --sample-size 10`) to keep the bench run under a couple of minutes; re-run with
 Criterion defaults for a tighter interval. Values will drift with Rust toolchain
 and hardware — treat the shape (orders of magnitude) as the contract, not the
-individual digit. See `perf-budget.json` (`ipc.*`) for the P95 targets these
-feed into.
+individual digit. The `ipc.*` values in `perf-budget.json` are separate
+end-to-end product targets; these service-only results provide diagnostic
+context rather than an automated IPC budget gate.
 
 ## Corpus
 
+The intended corpus was
 `tracepilot_bench::create_multi_session_fixture(count, 80)` → N synthetic
-sessions × ~80 events each, fully reindexed (Phase 1 metadata + Phase 2 FTS
-content). Corpora: **50 / 100 / 200** sessions. The `perf-budget.json` notes
-target ~100 sessions.
+sessions × ~80 events each. The pre-v2 fixture directory names were not valid
+production session IDs, so discovery could yield zero sessions instead of the
+intended **50 / 100 / 200**. The tables below therefore are not populated
+corpus baselines.
 
-## Results (mean)
+## Historical results (invalidated mean estimates)
 
-All times **microseconds** (µs) unless stated. Budgets in `perf-budget.json`
-are **milliseconds** — current values are **3–4 orders of magnitude under
-budget**, so regressions that land here will still look green at the IPC layer
-until they add up to ~100×.
+All times **microseconds** (µs) unless stated. These values must not be used to
+claim budget headroom because the database-backed fixtures could be empty.
 
 ### `ipc_list_sessions` → `ipc.listSessionsMs` (budget: 200 ms)
 
@@ -78,23 +86,20 @@ until they add up to ~100×.
 | sessions | analytics_data | tool_analysis_data | code_impact_data |
 | -------- | -------------- | ------------------ | ---------------- |
 | 50       | 1.25 µs        | 9.28 µs            | 1.41 µs          |
-| 100      | 1.23 µs        | 9.65 µs            | 0.26 µs\*        |
-| 200      | 1.20 µs        | 9.28 µs            | 0.27 µs\*        |
+| 100      | 1.23 µs        | 9.65 µs            | 0.26 µs         |
+| 200      | 1.20 µs        | 9.28 µs            | 0.27 µs         |
 
-\* The `code_impact_data` shrinks sharply above 50 sessions because the synthetic
-corpus produces identical per-session code-change numbers; `serde_json` elides
-repeated zero fields cheaply. Real corpora will track closer to the 50-session
-row.
+## How to interpret the baseline
 
-## How to compare to the budget
+1. Do not compare a corrected run to the invalidated values above.
+2. Run the corrected bench: `cargo bench -p tracepilot-bench --bench ipc_hot_path`.
+3. Read the Criterion mean point estimate and its approximate 95% confidence
+   interval. The interval describes uncertainty around the mean; its upper
+   bound is not a latency percentile.
+4. Compare the same named case and corpus size across like-for-like machines.
+   Convert µs to ms only when using the `ipc.*Ms` product targets as broad
+   diagnostic context.
 
-1. Run the bench: `cargo bench -p tracepilot-bench --bench ipc_hot_path`.
-2. Pick the **P95** (upper bound of the `time:` interval) for the 100-session
-   row — `perf-budget.json` notes are "Measured on a corpus of ~100 sessions …
-   P95 targets".
-3. Convert µs → ms and compare to the matching `ipc.*Ms` key. Anything within
-   2× of the budget should be investigated — the current baseline leaves
-   orders-of-magnitude headroom, so even a 10× regression is a real signal.
-
-CI wiring that automates step 3 is tracked in the Wave 121 future-improvements
-notes (`docs/tech-debt-future-improvements-2026-04.md`).
+CI validates and retains three required mean estimates from the parsing,
+analytics, and indexer suites. It does not treat these historical
+`ipc_hot_path` rows as end-to-end IPC measurements.

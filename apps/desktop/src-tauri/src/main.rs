@@ -3,6 +3,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    if let Err(error) = tracepilot_core::paths::isolated_data_root() {
+        eprintln!("Fatal: invalid TRACEPILOT_DATA_ROOT: {error}");
+        std::process::exit(2);
+    }
+
     // When built with --features tokio-console, use console-subscriber for
     // async task debugging via `tokio-console`. This REPLACES the normal
     // tauri-plugin-log tracing bridge (Rust logs won't appear in the Tauri
@@ -25,6 +30,15 @@ fn main() {
             _ => log::LevelFilter::Info,
         })
         .unwrap_or(log::LevelFilter::Info);
+    let file_log_target = match tracepilot_core::paths::isolated_data_root() {
+        Ok(Some(root)) => tauri_plugin_log::TargetKind::Folder {
+            path: root.join("logs"),
+            file_name: Some("TracePilot".into()),
+        },
+        Ok(None) | Err(_) => tauri_plugin_log::TargetKind::LogDir {
+            file_name: Some("TracePilot".into()),
+        },
+    };
 
     tauri::Builder::default()
         .manage(shared_config)
@@ -36,9 +50,7 @@ fn main() {
             tauri_plugin_log::Builder::new()
                 .targets([
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
-                        file_name: Some("TracePilot".into()),
-                    }),
+                    tauri_plugin_log::Target::new(file_log_target),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
                 ])
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)

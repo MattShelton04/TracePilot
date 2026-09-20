@@ -3,7 +3,7 @@
 Quick-reference guide for profiling, benchmarking, and finding bottlenecks in TracePilot.
 
 > Historical generated performance analysis reports were removed in the 2026-05-01 docs cleanup.
-> **Performance budgets**: [`perf-budget.json`](../perf-budget.json) (CI-enforced)
+> **Performance thresholds**: [`perf-budget.json`](../perf-budget.json) (advisory; missing or invalid required measurements still fail CI)
 
 ---
 
@@ -156,7 +156,9 @@ Opens an interactive treemap (`stats.html`) showing what's in each chunk. Look f
 - Dependencies that should be lazy-loaded
 - Duplicate code across chunks
 
-CI enforces bundle budgets from `perf-budget.json` on every PR.
+The bundle workflow reports total JS + CSS size, largest-chunk size, and initial
+HTML asset count from `perf-budget.json` on relevant PRs. All size thresholds
+are advisory; missing assets or invalid measurement inputs still fail the job.
 
 ---
 
@@ -223,10 +225,15 @@ Requires `rustup component add llvm-tools`.
 
 ## CI Integration
 
-Every PR automatically runs:
+Performance coverage:
 
 | Check | What it does |
 |-------|-------------|
-| **Bundle analysis** | Builds frontend, posts size table as PR comment, enforces `perf-budget.json` |
-| **Criterion benchmarks** | Runs all Rust benchmarks, reports regressions |
-| **Typecheck + tests** | 489 Rust tests + 421 frontend tests |
+| **Bundle analysis** | Relevant PRs: builds frontend, reports advisory size thresholds, retains size tables as artifacts and job summaries |
+| **Criterion benchmarks** | Nightly/manual Linux runs: validates populated fixtures and required results; timing thresholds are advisory |
+| **Native desktop** | Manual Windows release measurements with isolated data; see the [performance mission report](reports/performance-mission.md) |
+| **Typecheck + tests** | Standard correctness checks; see the [testing guide](testing.md) |
+
+Measurement jobs have read-only repository permissions. They do not publish to
+Pages or comment on PRs. See the [performance index](perf/index.md) for artifact
+retention and comparison requirements.

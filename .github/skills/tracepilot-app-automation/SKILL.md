@@ -30,6 +30,23 @@ and settings. The WebView profile is isolated; **application data is shared**.
 Settings, files, sessions, and orchestration actions have real effects. Use
 the task's authorized scope and review captures for private content before publishing.
 
+For a built frontend and release-profile Rust executable, use an explicit
+isolated data root:
+
+```powershell
+pnpm app:start -Runtime production -DataRoot C:\benchmarks\tracepilot-run
+```
+
+The root contains `copilot/session-state`, `tracepilot/config.toml`,
+`tracepilot/index.db`, `webview-profile`, and app logs. The build completes before the
+launcher reports readiness. This automation executable enables native devtools
+for CDP; normal shipping builds do not. Stop the tracked instance before changing
+runtime, data root, or requested port. Omitting `-DataRoot` retains the normal
+shared application-data behavior described above.
+For repeat fresh-process measurements of the same existing executable, add
+`-SkipBuild`; the launcher records its hash/timestamp and current source state.
+The default production command always rebuilds.
+
 ## Observe, act, verify
 
 Read the snapshot file named in each response. Use references from the **current**

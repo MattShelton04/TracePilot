@@ -1,8 +1,8 @@
 # Performance Dashboard
 
-Central index for TracePilot performance benchmarks, budgets, and historical
-trends. This page links the everyday playbook, the CI benchmark workflow, and
-the machine-readable budgets used to gate regressions.
+Central index for TracePilot performance benchmarks, thresholds, and retained
+run artifacts. This page links the everyday playbook, the CI benchmark
+workflow, and the machine-readable performance contract.
 
 ## Contents
 
@@ -10,24 +10,26 @@ the machine-readable budgets used to gate regressions.
 - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [CI Benchmark Workflow](#ci-benchmark-workflow)
 - [Latest Results](#latest-results)
-- [Historical Trends](#historical-trends)
+- [Comparing Runs](#comparing-runs)
 - [Related Docs](#related-docs)
 
 ## Performance Budgets
 
-Budgets are declared in [`perf-budget.json`](../../perf-budget.json) at the
+Thresholds are declared in [`perf-budget.json`](../../perf-budget.json) at the
 repo root and grouped by surface:
 
-| Group      | What it covers                                                             |
-| ---------- | -------------------------------------------------------------------------- |
-| `frontend` | Bundle size, largest chunk, initial-load chunk count                       |
-| `ipc`      | P95 latency targets for Tauri IPC commands                                 |
-| `render`   | Vue mount-to-paint budgets (dev-only `useRenderBudget` composable)         |
-| `rust`     | Criterion benchmark budgets (`parsing`, `analytics`, `indexer` suites)     |
+| Group      | What it covers                                                               |
+| ---------- | ---------------------------------------------------------------------------- |
+| `frontend` | Advisory total size, largest chunk, and initial HTML asset count             |
+| `ipc`      | Diagnostic P95 latency targets for Tauri IPC commands                        |
+| `render`   | Dev-only Vue mount-to-paint warning thresholds                               |
+| `rust`     | Advisory thresholds for required Criterion mean estimates                    |
 
-The Rust budgets are enforced by the
-[`Benchmarks`](../../.github/workflows/benchmark.yml) workflow; the frontend
-budgets are enforced by [`bundle-analysis.yml`](../../.github/workflows/bundle-analysis.yml).
+The [`Benchmarks`](../../.github/workflows/benchmark.yml) workflow fails when
+a required result is missing, malformed, or unmapped. Timing threshold
+exceedances remain advisory on shared runners. The frontend workflow reports
+all three declared size metrics as advisory and fails only when required
+measurement inputs are missing or invalid.
 
 ## Running Benchmarks Locally
 
@@ -58,49 +60,55 @@ flamegraph, and PGO workflows.
 
 ## CI Benchmark Workflow
 
-The [`Benchmarks`](../../.github/workflows/benchmark.yml) workflow is
-**manual-only** (`workflow_dispatch`). Trigger it from the GitHub Actions tab
-when you want a fresh perf snapshot or are validating a perf-sensitive change.
+The [`Benchmarks`](../../.github/workflows/benchmark.yml) workflow runs nightly
+and can also be triggered manually from the GitHub Actions tab. It runs on a
+shared Ubuntu runner; it is not an automatic pull-request gate and does not run
+the native Windows desktop harness.
 
 Each run:
 
-1. Executes `cargo bench -p tracepilot-bench`.
-2. Extracts mean estimates into `benchmark-output.json`.
-3. Checks the `rust` section of `perf-budget.json` and fails if budgets are
-   exceeded.
-4. Uploads the full Criterion HTML report tree as the
-   `criterion-reports-<run-number>` artifact (90-day retention).
-5. Pushes the JSON timeseries to the `dev/bench` data dir via
-   [`benchmark-action/github-action-benchmark`](https://github.com/benchmark-action/github-action-benchmark)
-   for trend tracking.
+1. Executes `cargo bench -p tracepilot-bench` against synthetic fixtures.
+2. Requires corrected, populated results for parsing 1,000 events, analytics
+   across 100 sessions, and common-term content search across 100 sessions.
+3. Records Criterion's mean estimate and reported confidence interval, budget
+   status, fixture/harness identity, revision, run, runner, Node, Rust, and
+   `bench` profile provenance in `benchmark-output.json`.
+4. Fails on missing, malformed, or unknown required data. Threshold
+   exceedances are retained as advisory status.
+5. Uploads the JSON, Markdown summary, checker log, and full Criterion report
+   tree as `criterion-v2-nonempty-fixtures-<run-number>` with 90-day retention.
+
+The workflow has read-only repository permission, does not update Pages, and
+does not comment on pull requests.
 
 ## Latest Results
 
 Latest CI artifacts: see the most recent successful run on the
 [`Benchmarks` workflow page](../../.github/workflows/benchmark.yml). Download
-the `criterion-reports-*` artifact and unzip into [`results/`](./results/) to
-browse the HTML reports locally.
+the `criterion-v2-nonempty-fixtures-*` artifact and unzip into
+[`results/`](./results/) to browse the HTML reports locally.
 
 The [`results/`](./results/) directory is gitignored (artifacts are large and
 reproducible from CI), so committed snapshots live under `results/README.md`
 when we want to pin a reference baseline.
 
-## Historical Trends
+## Comparing Runs
 
-Long-term trend data is published by the CI workflow to the `dev/bench` data
-directory via `benchmark-action/github-action-benchmark`. Once the workflow
-has run on the default branch, charts will be available at
-`https://<org>.github.io/TracePilot/dev/bench/` (GitHub Pages must be enabled
-for the repo). Until then, trends can be reconstructed by downloading the
-`criterion-reports-*` artifacts from past workflow runs.
+There is no benchmark Pages publisher or durable timeseries. Compare compatible
+runs by downloading their retained artifacts and checking the fixture,
+harness, revision, runner, toolchain, and profile metadata before comparing
+mean estimates. Shared-runner timings are diagnostic and artifacts expire
+after 90 days.
 
-> **Placeholder**: link the published GitHub Pages dashboard URL here once it
-> goes live.
+Native Windows release measurements remain manual. Follow
+[`crates/tracepilot-bench/README.md`](../../crates/tracepilot-bench/README.md)
+and the performance mission report for the real-app command and isolation
+requirements.
 
 ## Related Docs
 
 - [`docs/performance-playbook.md`](../performance-playbook.md) — profiling, flamegraphs, PGO
-- [`perf-budget.json`](../../perf-budget.json) — machine-readable budgets
+- [`perf-budget.json`](../../perf-budget.json) — machine-readable thresholds
 - [`crates/tracepilot-bench/`](../../crates/tracepilot-bench/) — Criterion suites
 - [`.github/workflows/benchmark.yml`](../../.github/workflows/benchmark.yml) — CI workflow
 - [`.github/workflows/bundle-analysis.yml`](../../.github/workflows/bundle-analysis.yml) — frontend bundle budgets

@@ -35,21 +35,39 @@ Profiling output (`dhat-heap.json`) can be loaded in the
 The `ipc_hot_path` bench measures the Rust service-layer functions that back
 the hottest Tauri IPC commands (`list_sessions`, `search_content`, `facets`,
 `fts_health`, `get_tool_analysis`, `get_code_impact`, plus the serialization
-leg of `get_analytics`). Each case maps 1:1 to a key under `ipc.*` in
-`perf-budget.json`.
+leg of `get_analytics`). The `ipc.*` values in `perf-budget.json` are product
+latency targets; these service-only Criterion cases provide diagnostic context
+but do not measure or enforce end-to-end IPC latency.
 
 The Tauri runtime is intentionally **not** involved: benches call the pure
 `IndexDb` methods directly against a freshly built, read-only DB. That isolates
 backend latency from the IPC bridge and keeps benches reproducible on CI
-runners without a display server. End-to-end measurement through the real
-bridge is tracked as a future improvement in
-`docs/tech-debt-future-improvements-2026-04.md`.
+runners without a display server. Native release measurement through the real
+Windows app remains manual: after starting the isolated production harness,
+run `node scripts/perf/desktop.mjs --manifest=<fixture-manifest> --out=<result-dir>`.
+See `docs/reports/performance-mission.md` for its scope and limitations.
 
-Baselines captured in [`BASELINE.md`](./BASELINE.md). Compare the P95 (upper
-bound of the Criterion `time:` interval) against the matching `ipc.*Ms` budget
-— any regression that pushes a number within 2× of budget is worth
-investigating. Current numbers are in microseconds, budgets in milliseconds,
-so there is ample headroom.
+Historical pre-correction results are retained in
+[`BASELINE.md`](./BASELINE.md) for provenance, but are invalidated because the
+old multi-session fixture names were rejected by production discovery.
+Criterion reports an estimate of the mean and an approximate 95% confidence
+interval around that mean. The upper confidence bound is not a P95 latency
+percentile.
+
+## CI result contract
+
+The nightly and manually dispatched `Benchmarks` workflow runs Criterion on a
+shared Ubuntu runner. It requires the corrected `parse_typed_events/1000`,
+`compute_analytics/100`, and `ipc_search_content/fts_common_term/100` results,
+recording the fixture identity `v2-nonempty-fixtures`, the mean estimate, and
+its confidence interval. Missing or malformed results fail the run. Timing
+threshold exceedances are advisory because shared-runner variance is
+unsuitable for a hard performance gate.
+
+Each run uploads `benchmark-output.json`, `benchmark-summary.md`, and the full
+Criterion report tree as a 90-day Actions artifact. The workflow also writes
+the summary into the run page. It does not publish to Pages or comment on pull
+requests, and it does not run the native Windows desktop harness.
 
 ## Workspace dependencies
 

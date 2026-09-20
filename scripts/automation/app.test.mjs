@@ -77,6 +77,10 @@ test("Windows lifecycle owns only its recorded process trees", {
   await t.test("reuses a healthy server, then stops both parent and child", async () => {
     await run("start");
     const initial = state();
+    assert.equal(initial.runtime, "development");
+    assert.equal(initial.dataRoot, null);
+    assert.equal(initial.build.frontend, "vite-hmr");
+    assert.equal(initial.build.rustProfile, "debug");
     assert.equal(await (await fetch(initial.url)).text(), "fixture");
     await run("start");
     await run("status");
@@ -115,6 +119,41 @@ test("Windows lifecycle owns only its recorded process trees", {
     const pids = JSON.parse(readFileSync(join(runtime, "fixture-pids.json"), "utf8"));
     assert.equal(existsSync(statePath), false);
     for (const pid of pids) assert.equal(alive(pid), false, `orphan PID ${pid}`);
+  });
+
+  await t.test(
+    "does not silently reuse a healthy instance with mismatched launch options",
+    async () => {
+      await run("start");
+      const owned = state();
+      const mismatched = structuredClone(owned);
+      mismatched.runtime = "production";
+      writeFileSync(statePath, JSON.stringify(mismatched));
+      try {
+        await assert.rejects(run("start"), /different launch options/);
+        assert.equal(alive(owned.processes[0].pid), true);
+        assert.equal(await (await fetch(owned.url)).text(), "fixture");
+      } finally {
+        writeFileSync(statePath, JSON.stringify(owned));
+        await run("stop");
+      }
+    },
+  );
+
+  await t.test("rejects a relative desktop data root before launching", async () => {
+    await assert.rejects(
+      run("start", "desktop", ["-DataRoot", "relative-data"]),
+      /TRACEPILOT_DATA_ROOT must be an absolute path/,
+    );
+    assert.equal(existsSync(join(runtime, "desktop.json")), false);
+  });
+
+  await t.test("rejects SkipBuild outside production runtime", async () => {
+    await assert.rejects(
+      run("start", "ui", ["-SkipBuild"]),
+      /-SkipBuild is valid only with -Runtime production/,
+    );
+    assert.equal(existsSync(statePath), false);
   });
 
   await t.test("rejects an occupied requested CDP port without disturbing its owner", async () => {

@@ -10,7 +10,13 @@ beforeAll(async () => {
 });
 
 /** Mount and wait for the lazy markdown-it/dompurify load + Vue re-render. */
-async function mountAndWait(props: { content: string; maxHeight?: string; render?: boolean }) {
+async function mountAndWait(props: {
+  content: string;
+  maxHeight?: string;
+  render?: boolean;
+  searchQuery?: string;
+  activeSearchIndex?: number;
+}) {
   const wrapper = mount(MarkdownContent, { props });
   // Flush import promise → reactive update → Vue re-render chain
   for (let i = 0; i < 4; i++) await flushPromises();
@@ -112,5 +118,102 @@ describe("MarkdownContent", () => {
     const wrapper = await mountAndWait({ content: "test", render: true });
     const el = wrapper.find(".markdown-content");
     expect(el.classes()).toContain("is-rendered");
+  });
+
+  it("lets v-html perform the only DOM insertion and preserves selection without search", async () => {
+    const innerHtmlSetter = vi.spyOn(Element.prototype, "innerHTML", "set");
+    const host = document.createElement("div");
+    document.body.append(host);
+    let wrapper: ReturnType<typeof mount> | undefined;
+    try {
+      wrapper = mount(MarkdownContent, {
+        props: { content: "select this text" },
+        attachTo: host,
+      });
+      const root = wrapper.get(".markdown-content").element;
+      const text = root.querySelector("p")?.firstChild;
+      expect(text).toBeInstanceOf(Text);
+
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.setStart(text as Text, 0);
+      range.setEnd(text as Text, 6);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+
+      for (let i = 0; i < 4; i++) await flushPromises();
+
+      const writes = innerHtmlSetter.mock.instances.filter(
+        (instance: unknown) => instance === root,
+      );
+      expect(writes).toHaveLength(1);
+      expect(selection?.toString()).toBe("select");
+      expect(selection?.anchorNode).toBe(text);
+    } finally {
+      wrapper?.unmount();
+      host.remove();
+      innerHtmlSetter.mockRestore();
+      window.getSelection()?.removeAllRanges();
+    }
+  });
+
+  it("replaces search marks across query changes and clears them without accumulation", async () => {
+    const wrapper = await mountAndWait({
+      content: "Alpha beta alpha",
+      searchQuery: "alpha",
+      activeSearchIndex: 1,
+    });
+
+    expect(wrapper.findAll("mark.markdown-search-match")).toHaveLength(2);
+    expect(wrapper.findAll("mark.markdown-search-match--active")).toHaveLength(1);
+    expect(wrapper.find("mark.markdown-search-match--active").text()).toBe("alpha");
+
+    await wrapper.setProps({ searchQuery: "beta", activeSearchIndex: 0 });
+    await flushPromises();
+    expect(wrapper.findAll("mark.markdown-search-match")).toHaveLength(1);
+    expect(wrapper.find("mark.markdown-search-match").text()).toBe("beta");
+    expect(wrapper.findAll("mark mark")).toHaveLength(0);
+
+    await wrapper.setProps({ searchQuery: "" });
+    await flushPromises();
+    expect(wrapper.findAll("mark.markdown-search-match")).toHaveLength(0);
+    expect(wrapper.text()).toContain("Alpha beta alpha");
+  });
+
+  it("highlights updated content while a query remains active", async () => {
+    const wrapper = await mountAndWait({
+      content: "match old match",
+      searchQuery: "match",
+      activeSearchIndex: 0,
+    });
+
+    await wrapper.setProps({ content: "new match content" });
+    await flushPromises();
+
+    expect(wrapper.findAll("mark.markdown-search-match")).toHaveLength(1);
+    expect(wrapper.find("mark.markdown-search-match").text()).toBe("match");
+    expect(wrapper.text()).toContain("new match content");
+    expect(wrapper.text()).not.toContain("old");
+  });
+
+  it("removes marks in raw mode and reapplies the active occurrence when rendering resumes", async () => {
+    const wrapper = await mountAndWait({
+      content: "**term** and term",
+      searchQuery: "term",
+      activeSearchIndex: 1,
+    });
+    expect(wrapper.findAll("mark.markdown-search-match")).toHaveLength(2);
+
+    await wrapper.setProps({ render: false });
+    await flushPromises();
+    expect(wrapper.classes()).not.toContain("is-rendered");
+    expect(wrapper.findAll("mark.markdown-search-match")).toHaveLength(0);
+    expect(wrapper.text()).toContain("**term** and term");
+
+    await wrapper.setProps({ render: true });
+    await flushPromises();
+    expect(wrapper.findAll("mark.markdown-search-match")).toHaveLength(2);
+    expect(wrapper.findAll("mark.markdown-search-match--active")).toHaveLength(1);
+    expect(wrapper.find("mark.markdown-search-match--active").text()).toBe("term");
   });
 });
