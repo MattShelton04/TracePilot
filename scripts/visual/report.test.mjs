@@ -25,6 +25,8 @@ test("head capture errors fail CI while unavailable historical cases remain repo
     assert.equal(captureExitCode(reports, "base"), 0);
   }
   assert.equal(captureExitCode([]), 1);
+  assert.equal(captureExitCode([], "base"), 1);
+  assert.equal(captureExitCode([{ status: "failed" }], "base"), 1);
   assert.throws(() => captureExitCode([captured], "typo"), /Invalid visual revision/);
 });
 

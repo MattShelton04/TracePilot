@@ -39,7 +39,11 @@ function counts(summary) {
 }
 export async function renderGallery({ title, rows, summary, metadata = {} }) {
   const runUrl = safeHttpUrl(metadata.runUrl);
-  const body = `<header class="app-header"><div><p class="eyebrow">TRACEPILOT / VISUAL REVIEW</p><h1>${escapeHtml(title)}</h1><p class="header-meta">Real frontend · synthetic backend fixtures · 1440 × 960 · dark · 100% UI scale</p></div><div>${counts(summary)}<nav class="header-links" aria-label="Report links"><a id="history-link" href="../../index.html">Browse history ↗</a>${runUrl ? `<a href="${escapeHtml(runUrl)}">Capture run ↗</a>` : ""}<a href="summary.json">Summary JSON</a></nav></div></header>
+  const revisions =
+    /^[a-f0-9]{40}$/.test(metadata.baseSha) && /^[a-f0-9]{40}$/.test(metadata.headSha)
+      ? ` · Base ${metadata.baseSha.slice(0, 8)} → head ${metadata.headSha.slice(0, 8)}`
+      : "";
+  const body = `<header class="app-header"><div><p class="eyebrow">TRACEPILOT / VISUAL REVIEW</p><h1>${escapeHtml(title)}</h1><p class="header-meta">Real frontend · synthetic backend fixtures · 1440 × 960 · dark · 100% UI scale${revisions}</p></div><div>${counts(summary)}<nav class="header-links" aria-label="Report links"><a id="history-link" href="../../index.html">Browse history ↗</a>${runUrl ? `<a href="${escapeHtml(runUrl)}">Capture run ↗</a>` : ""}<a href="summary.json">Summary JSON</a></nav></div></header>
 <div class="workspace"><aside class="sidebar" aria-label="Captured views"><div class="filters"><input id="search" type="search" aria-label="Filter views" placeholder="Find a view…"><label><input id="changes" type="checkbox"> Hide identical and subtle differences</label></div><nav id="view-list" class="view-list" aria-label="Views"></nav><div class="sidebar-footer"><span id="visible-count"></span><br>Pixel changes require human review.<br>Rust and native integration are not tested.</div></aside>
 <main class="review"><div class="view-heading"><div><h2 id="view-title"></h2><p id="view-description" class="view-description"></p></div><span id="view-status" class="status-pill"></span></div>
 <div class="toolbar"><div class="mode-group" role="group" aria-label="Comparison mode">${[

@@ -29,7 +29,10 @@ required for applicable product fixes.
 - Both revisions use the same head manifest, fixture overrides, imported client
   mock datasets (`mock/**` and `internal/mockData.ts`), and lockfile-pinned
   Playwright/Chromium. Components, client adapters, types/defaults and application
-  dependencies still come from their respective target revision.
+  dependencies still come from their respective target revision. The fixture
+  resolver supplies newly added mock modules even when they do not exist in the
+  historical checkout. Capture manifests record the actual checkout and harness
+  SHAs; the reporter rejects swapped sides, mixed revisions and self-comparisons.
 - Missing routes, incompatible old client fixture contracts, failed checkouts,
   runtime errors and missing fixture commands are recorded as **base unavailable**
   or **incomplete**, never as unchanged. Head capture jobs fail for both failed
@@ -37,7 +40,8 @@ required for applicable product fixes.
   cases may be unavailable when a PR introduces a view; those limitations stay
   in the report without failing an otherwise completed base capture. Checkout,
   dependency installation and browser/server startup failures still fail the
-  affected job. A first push with no prior commit can have no usable base.
+  affected job. A baseline shard with no successful captures also fails. Manual
+  diagnostic runs use the first parent; identical comparison commits are rejected.
 - Changed views are detected by exact decoded RGBA pixels. PNG hashes are retained
   for provenance; different encodings of identical pixels count as unchanged. Both sides use matching
   Ubuntu 24.04 runners and the same browser. Changes are for human review; the
@@ -135,19 +139,18 @@ Old gallery URLs expire from the current site when their retained report is prun
 An older rerun reserves a slot in its main/PR group during publication, so pruning
 cannot immediately delete the gallery being linked by that report.
 
-One canonical bot comment per PR identifies the exact commit, capture run and
-attempt. It embeds every changed before/after pair in collapsible sections, with
-a link directly to that view's highlighted regions. Large inventories are capped
-below GitHub's comment limit; omitted screenshot counts and a full-gallery index
-remain explicit. All 33 current cases fit inline. Artifact descriptions are
-escaped and displayed as code, so their Markdown and mentions are not interpreted.
+Each completed capture attempt posts a **new bot comment**, identifying the head,
+base (when recorded), capture run and attempt. Earlier comments and discussions
+remain intact. Duplicate workflow deliveries are idempotent, and the publisher
+checks for a current open PR and current capture attempt immediately before posting.
+Changed screenshot pairs remain inside collapsed details blocks, bounded below
+GitHub's comment limit, with a full-gallery link for additional views.
 
-Later runs update the same comment. The publisher checks the current PR head
-before and after comment pagination, rejects older capture attempts and reports,
-and cleans up only duplicate comments owned by `github-actions[bot]` with this
-report's marker. Issue comments have no resolved state. Rerun image URLs include
-the attempt to avoid stale cached inline screenshots. Pages builds are
-asynchronous, so new image URLs become available after the Pages build completes.
+Missing baselines and incomplete head captures prominently say **Comparison
+incomplete**. Diagnostic error-page screenshots stay in capture artifacts and
+are never presented as usable before/after images. A report with unavailable
+captures cannot claim that the UI is unchanged.
+
 If Pages publication is unavailable, the comment links capture artifacts and the
 downloadable standalone gallery. Captures are retained for 14 days; standalone
 report artifacts for 30.

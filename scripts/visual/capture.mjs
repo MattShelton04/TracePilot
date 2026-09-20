@@ -1,9 +1,11 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { captureExitCode, stableScreenshot } from "./capture-policy.mjs";
+import { fixtureCorpusPlugin } from "./fixture-plugin.mjs";
 import { fixedTime, selectCases, viewport } from "./manifest.mjs";
 
 const args = Object.fromEntries(
@@ -27,6 +29,12 @@ const { chromium } = requireHarness("playwright-core");
 const fixtureFile = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures.mjs");
 const fixtureImport = `/@fs/${fixtureFile.replaceAll("\\", "/")}`;
 const harnessRoot = resolve(dirname(fixtureFile), "../..");
+const commit = (cwd) =>
+  execFileSync("git", ["-C", cwd, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+const revisionSha = commit(root);
+const harnessSha = commit(harnessRoot);
+if (process.env.VISUAL_REVISION_SHA && process.env.VISUAL_REVISION_SHA !== revisionSha)
+  throw new Error("Visual checkout does not match the requested revision");
 const reports = [];
 const started = performance.now();
 await mkdir(output, { recursive: true });
@@ -42,18 +50,11 @@ const server = await createServer({
     fs: { allow: [root, dirname(fixtureFile)] },
   },
   plugins: [
+    fixtureCorpusPlugin({ targetRoot: root, harnessRoot }),
     {
       name: "visual-fixtures-only",
       enforce: "pre",
       async transform(source, id) {
-        const corpus = /\/packages\/client\/src\/(mock\/[^?]+\.ts|internal\/mockData\.ts)$/.exec(
-          id.replaceAll("\\", "/"),
-        );
-        if (corpus) {
-          // Freeze imported fallback datasets to the same head harness on both
-          // targets, while keeping each target's real client/component logic.
-          return readFile(resolve(harnessRoot, "packages/client/src", corpus[1]), "utf8");
-        }
         if (!id.replaceAll("\\", "/").endsWith("/packages/client/src/invoke.ts")) return;
         const marker = /\): Promise<T> => \{\r?\n/;
         if (!marker.test(source))
@@ -189,6 +190,8 @@ try {
       {
         schema: 1,
         revision,
+        revisionSha,
+        harnessSha,
         viewport,
         fixedTime,
         shard,

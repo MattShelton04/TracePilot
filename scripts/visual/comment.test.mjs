@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildComment, commentMarker, updateComment } from "./comment.mjs";
+import { buildComment, commentMarker, postComment } from "./comment.mjs";
 
 const run = { id: 123, run_attempt: 2, head_sha: "a".repeat(40) };
 const summary = { changed: 33, unchanged: 0, baseUnavailable: 0, incomplete: 0 };
@@ -59,62 +59,29 @@ test("subtle differences are reported separately, never called identical or sile
   assert.equal(body.includes("No paired pixel changes"), false);
 });
 
-test("sticky comment scans all pages, updates one canonical bot comment and only removes owned duplicates", async () => {
-  const first = [
-    own(12),
-    ...Array.from({ length: 99 }, (_, id) => ({
-      id: id + 100,
-      body: commentMarker,
-      user: { login: "human" },
-    })),
-  ];
-  const second = [own(42), { ...own(8), user: { login: "another-bot[bot]" } }];
-  const calls = [];
-  const api = async (path, options) => {
-    calls.push([path, options]);
-    if (path === "/pulls/7") return { state: "open", head: { sha: run.head_sha } };
-    if (path.endsWith("&page=1")) return first;
-    if (path.endsWith("&page=2")) return second;
-    return {};
-  };
-  assert.equal(await updateComment({ api, pr: 7, run, body: "updated" }), "updated");
-  assert.deepEqual(
-    calls.filter(([, options]) => options).map(([path, options]) => [path, options.method]),
-    [
-      ["/issues/comments/12", "PATCH"],
-      ["/issues/comments/42", "DELETE"],
-    ],
-  );
+test("incomplete baselines do not claim no changes", () => {
+  const body = buildComment({
+    ...args,
+    rows: [],
+    baseSha: "b".repeat(40),
+    summary: { changed: 0, unchanged: 0, baseUnavailable: 36, incomplete: 0 },
+  });
+  assert.match(body, /Comparison incomplete/);
+  assert.match(body, /bbbbbbbb/);
+  assert.equal(body.includes("No larger"), false);
 });
 
-test("older reruns and superseded heads leave the latest comment untouched", async () => {
-  for (const scenario of ["head", "attempt", "run", "head-during-pagination"]) {
-    let reads = 0;
-    const writes = [];
-    const api = async (path, options) => {
-      if (options) writes.push(options);
-      if (path === "/pulls/7")
-        return {
-          state: "open",
-          head: {
-            sha:
-              scenario === "head" || (scenario === "head-during-pagination" && reads++ > 0)
-                ? "b".repeat(40)
-                : run.head_sha,
-          },
-        };
-      return [
-        own(
-          12,
-          `${commentMarker}\n<!-- tracepilot-visual-report:run=${scenario === "run" ? 999 : 123};attempt=${scenario === "attempt" ? 3 : 2};sha=${run.head_sha} -->`,
-        ),
-      ];
-    };
-    assert.ok(
-      ["stale-head", "newer-report"].includes(
-        await updateComment({ api, pr: 7, run, body: "old" }),
-      ),
-    );
-    assert.equal(writes.length, 0, scenario);
-  }
+test("visual reports append once per capture attempt", async () => {
+  const writes = [];
+  const api = async (path, options) => {
+    if (options) {
+      writes.push([path, options.method]);
+      return {};
+    }
+    if (path === "/pulls/7") return { state: "open", head: { sha: run.head_sha } };
+    if (path === "/actions/runs/123") return run;
+    return [own(12)];
+  };
+  assert.equal(await postComment({ api, pr: 7, run, body: "report" }), "created");
+  assert.deepEqual(writes, [["/issues/7/comments", "POST"]]);
 });
