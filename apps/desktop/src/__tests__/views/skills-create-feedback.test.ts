@@ -32,6 +32,7 @@ async function openForm() {
     searchQuery: "",
     filterScope: "all",
     filterFlags: new Set(),
+    flagCounts: {},
     sort: "uses",
     range: "90d",
     usage: null,

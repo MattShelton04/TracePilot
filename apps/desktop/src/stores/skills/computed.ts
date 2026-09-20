@@ -1,6 +1,6 @@
 import type { SkillUsageSummary } from "@tracepilot/types";
 import { computed, type ShallowRef } from "vue";
-import { buildSkillEntries, filterAndSortSkills } from "@/utils/skills/entries";
+import { buildSkillEntries, filterAndSortSkills, type SkillFlag } from "@/utils/skills/entries";
 import type { UsageRange } from "@/utils/usage/range";
 import type { SkillsContext } from "./context";
 
@@ -44,6 +44,19 @@ export function createSkillsComputed(
     unusedEnabledSkills.value.reduce((sum, entry) => sum + entry.listingTokens, 0),
   );
 
+  /**
+   * How many skills carry each flag, so a chip states its own size the way
+   * the scope control does. Counted over every entry rather than the filtered
+   * list, so a chip's number does not change as other filters are applied.
+   */
+  const flagCounts = computed(() => {
+    const counts = {} as Record<SkillFlag, number>;
+    for (const entry of entries.value) {
+      for (const flag of entry.flags) counts[flag] = (counts[flag] ?? 0) + 1;
+    }
+    return counts;
+  });
+
   const tokenBudget = computed(() => {
     const enabled = skills.value.filter((skill) => skill.enabled);
     return {
@@ -63,6 +76,7 @@ export function createSkillsComputed(
     missingSkills,
     usedSkillCount,
     unusedEnabledSkills,
+    flagCounts,
     unusedEnabledTokens,
     tokenBudget,
   };

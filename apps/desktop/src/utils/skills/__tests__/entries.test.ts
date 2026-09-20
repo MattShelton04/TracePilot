@@ -7,6 +7,7 @@ import {
   filterAndSortSkills,
   normalizeDirectory,
   shadowedSkillNames,
+  shortenSkillPath,
   skillRouteId,
   winningSkill,
 } from "../entries";
@@ -87,6 +88,26 @@ describe("normalizeDirectory", () => {
     expect(normalizeDirectory("C:\\Users\\A\\.copilot\\skills\\Frontend\\")).toBe(
       "c:/users/a/.copilot/skills/frontend",
     );
+  });
+});
+
+describe("shortenSkillPath", () => {
+  it("keeps the root it came from and the folder it lived in", () => {
+    expect(shortenSkillPath("C:\\git\\Portify\\.github\\skills\\usability-testing\\SKILL.md")).toBe(
+      "C:\\git\\Portify\\…\\usability-testing",
+    );
+  });
+
+  it("leaves a short path alone rather than eliding nothing", () => {
+    expect(shortenSkillPath("/home/dev/skills/review/SKILL.md")).toBe("/home/dev/skills/review");
+  });
+
+  it("drops the file name, which every card already shows", () => {
+    expect(shortenSkillPath("/a/b/review/skill.md")).toBe("/a/b/review");
+  });
+
+  it("keeps the separator the path was written with", () => {
+    expect(shortenSkillPath("/one/two/three/four/five")).toBe("/one/two/three/…/five");
   });
 });
 

@@ -62,12 +62,7 @@
 }
 
 .skills-manager-view .stat-dot--used {
-  background: var(--done-fg, var(--accent-fg));
-}
-
-/* A count that is evidence of something to act on, not just a total. */
-.skills-manager-view .stat-chip--warning {
-  color: var(--warning-fg);
+  background: var(--done-fg);
 }
 
 .skills-manager-view .stat-chip__muted {
@@ -160,8 +155,11 @@
 }
 
 .skills-manager-view .flag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 12px;
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-full);
   border: 1px solid var(--border-default);
   background: var(--canvas-subtle);
   color: var(--text-secondary);
@@ -172,13 +170,23 @@
 }
 
 .skills-manager-view .flag-chip:hover {
-  border-color: var(--border-accent, var(--accent-fg));
+  border-color: var(--border-accent);
   color: var(--text-primary);
 }
 
 .skills-manager-view .flag-chip--active {
   background: var(--accent-subtle);
   border-color: var(--accent-emphasis);
+  color: var(--accent-fg);
+}
+
+/* The chip states its own size, the way the scope control does. */
+.skills-manager-view .flag-chip__count {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.skills-manager-view .flag-chip--active .flag-chip__count {
   color: var(--accent-fg);
 }
 
@@ -484,23 +492,4 @@
 .skills-manager-view .banner-action:focus-visible {
   outline: 2px solid var(--accent-fg);
   outline-offset: 2px;
-}
-
-/* A count that is also the way to see what it counts. */
-.skills-manager-view .stat-chip--action {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-}
-
-.skills-manager-view .stat-chip--action:hover {
-  text-decoration: underline;
-}
-
-.skills-manager-view .stat-chip--action:focus-visible {
-  outline: 2px solid var(--accent-fg);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
 }

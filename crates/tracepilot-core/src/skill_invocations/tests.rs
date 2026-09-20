@@ -340,3 +340,97 @@ fn an_empty_session_extracts_nothing() {
     let no_runs: Vec<AgentRun> = Vec::new();
     assert!(extract_skill_invocations(&[], &[], &no_runs).is_empty());
 }
+
+/// Locks the payload the newest CLI writes, captured from a real 2026-09-20
+/// session. Every field the extractor reads is present, and the unread
+/// `allowedTools` is carried along to prove an added field is ignored rather
+/// than fatal. A future CLI that renames one of these should fail here.
+#[test]
+fn the_current_cli_payload_is_read_in_full() {
+    let invocations = extract(vec![invoked(
+        "00:00:04",
+        json!({
+            "name": "hyperframes-animation",
+            "path": "C:\\Users\\a\\.copilot\\skills\\hyperframes-animation\\SKILL.md",
+            "content": SKILL_BODY,
+            "allowedTools": [],
+            "source": "personal-copilot",
+            "pluginName": null,
+            "pluginVersion": null,
+            "description": "All animation knowledge for HyperFrames",
+            "trigger": "agent-invoked",
+            "model": "mai-code-1.1-flash"
+        }),
+    )]);
+
+    assert_eq!(invocations.len(), 1);
+    let invocation = &invocations[0];
+    assert_eq!(invocation.name, "hyperframes-animation");
+    assert_eq!(invocation.trigger.as_deref(), Some("agent-invoked"));
+    assert_eq!(invocation.source.as_deref(), Some("personal-copilot"));
+    assert_eq!(
+        invocation.description.as_deref(),
+        Some("All animation knowledge for HyperFrames")
+    );
+    assert_eq!(invocation.model.as_deref(), Some("mai-code-1.1-flash"));
+    assert_eq!(invocation.plugin_name, None);
+    assert_eq!(
+        invocation.normalized_directory.as_deref(),
+        Some("c:/users/a/.copilot/skills/hyperframes-animation")
+    );
+    assert!(
+        invocation
+            .instruction_tokens
+            .is_some_and(|tokens| tokens > 0)
+    );
+}
+
+/// The oldest payload in the local corpus carries only a name, a path and
+/// content. It must still produce a row, with the absent fields absent rather
+/// than guessed.
+#[test]
+fn an_older_cli_payload_still_produces_a_row() {
+    let invocations = extract(vec![invoked(
+        "00:00:04",
+        json!({
+            "name": "frontend-design",
+            "path": "/skills/frontend-design/SKILL.md",
+            "content": SKILL_BODY
+        }),
+    )]);
+
+    assert_eq!(invocations.len(), 1);
+    let invocation = &invocations[0];
+    assert_eq!(invocation.name, "frontend-design");
+    assert_eq!(invocation.trigger, None, "never inferred as user-invoked");
+    assert_eq!(invocation.model, None);
+    assert_eq!(invocation.source, None);
+    assert!(invocation.content_sha256.is_some(), "content still hashed");
+}
+
+/// The newest CLI also emits `skill.context_delivered_ref` beside
+/// `skill.invoked`. It describes the same delivery, so counting it would
+/// double every modern invocation.
+#[test]
+fn a_context_delivered_ref_is_not_a_second_invocation() {
+    let invocations = extract(vec![
+        invoked(
+            "00:00:04",
+            json!({"name": "pdf", "path": "/p/SKILL.md", "content": SKILL_BODY}),
+        ),
+        event(
+            "skill.context_delivered_ref",
+            "00:00:05",
+            json!({
+                "interactionId": "abc",
+                "source": "skill-pdf",
+                "contentId": "sha256:deadbeef",
+                "prefix": "<skill-context name='pdf'>",
+                "suffix": "</skill-context>"
+            }),
+        ),
+    ]);
+
+    assert_eq!(invocations.len(), 1);
+    assert_eq!(invocations[0].name, "pdf");
+}

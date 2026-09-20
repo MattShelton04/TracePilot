@@ -85,6 +85,14 @@ const sortOptions = [
 const rangeLabel = computed(() => USAGE_RANGE_LABELS[store.range]);
 
 /**
+ * Only flags something actually carries. A chip reading "Shadowed 0" invites a
+ * click that can only produce an empty list.
+ */
+const visibleFlags = computed(() =>
+  SKILL_FLAG_FILTERS.filter((flag) => (store.flagCounts[flag] ?? 0) > 0),
+);
+
+/**
  * No usage came back for this range. Which of the two reasons that is depends
  * on the range: over all time it means the index has nothing, and over a
  * window it means only that nothing happened inside it. Conflating the two
@@ -144,16 +152,6 @@ function handleImported(_result: SkillBatchImportResult) {
 
 async function handleDeleteSkill(dir: string) {
   await confirmSkillDeletion(showConfirm, store.deleteSkill, dir);
-}
-
-/** The two warning counts are the way into their own evidence. */
-function showUnused() {
-  store.showOnlyFlag("unused");
-}
-
-function showMissing() {
-  store.clearFilters();
-  store.setFilterScope("missing");
 }
 
 async function handleToggleEnabled(name: string, enabled: boolean) {
@@ -218,28 +216,6 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
           {{ store.usageLoading ? "…" : store.usedSkillCount }} Used
           <span class="stat-chip__muted">in {{ rangeLabel }}</span>
         </span>
-        <template v-if="store.unusedEnabledSkills.length">
-          <span class="stat-sep">&middot;</span>
-          <button
-            type="button"
-            class="stat-chip stat-chip--warning stat-chip--action"
-            :title="`Show the ${store.unusedEnabledSkills.length} enabled skills with no use in ${rangeLabel}`"
-            @click="showUnused"
-          >
-            {{ store.unusedEnabledSkills.length }} Unused &amp; enabled
-          </button>
-        </template>
-        <template v-if="store.missingSkills.length">
-          <span class="stat-sep">&middot;</span>
-          <button
-            type="button"
-            class="stat-chip stat-chip--warning stat-chip--action"
-            title="Show the skills that sessions invoked but are not installed here"
-            @click="showMissing"
-          >
-            {{ store.missingSkills.length }} Not installed
-          </button>
-        </template>
       </div>
 
       <!-- Token Usage Summary -->
@@ -287,7 +263,7 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
 
       <div class="flag-row">
         <Tooltip
-          v-for="flag in SKILL_FLAG_FILTERS"
+          v-for="flag in visibleFlags"
           :key="flag"
           :text="SKILL_FLAG_BADGES[flag].title"
           position="bottom"
@@ -297,8 +273,11 @@ async function handleToggleEnabled(name: string, enabled: boolean) {
             class="flag-chip"
             :class="{ 'flag-chip--active': store.filterFlags.has(flag) }"
             :aria-pressed="store.filterFlags.has(flag)"
-            @click="store.toggleFlag(flag as SkillFlag)"
-          >{{ SKILL_FLAG_BADGES[flag].label }}</button>
+            @click="store.toggleFlag(flag)"
+          >
+            {{ SKILL_FLAG_BADGES[flag].label }}
+            <span class="flag-chip__count">{{ store.flagCounts[flag] }}</span>
+          </button>
         </Tooltip>
         <button
           v-if="store.filterFlags.size || store.searchQuery || store.filterScope !== 'all'"

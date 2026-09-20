@@ -226,7 +226,13 @@ describe("SkillCard for a skill that is no longer installed", () => {
     expect(wrapper.classes()).toContain("skill-card--static");
     expect(wrapper.find(".definition-card__open").exists()).toBe(false);
     expect(wrapper.find("input[type=checkbox]").exists()).toBe(false);
-    expect(wrapper.text()).toContain("C:\\gone\\skills\\deleted-skill\\SKILL.md");
+    // The card shows the root and the folder; the full path is the title.
+    expect(wrapper.get(".skill-card__missing-value").text()).toBe(
+      "C:\\gone\\skills\\deleted-skill",
+    );
+    expect(wrapper.get(".skill-card__missing-path").attributes("title")).toBe(
+      "C:\\gone\\skills\\deleted-skill\\SKILL.md",
+    );
     expect(wrapper.text()).toContain("Not installed");
 
     await wrapper.trigger("click");

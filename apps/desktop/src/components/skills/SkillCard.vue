@@ -12,7 +12,7 @@ import { useRouter } from "vue-router";
 import UsageSparkline from "@/components/usage/UsageSparkline.vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import type { SkillEntry } from "@/utils/skills/entries";
+import { type SkillEntry, shortenSkillPath } from "@/utils/skills/entries";
 import { type UsageRange, zeroFilledDays } from "@/utils/usage/range";
 import { SKILL_FLAG_BADGES, skillScopeBadge } from "./skillBadges";
 import { SKILL_TOKEN_ESTIMATE_TOOLTIP } from "./tokenEstimate";
@@ -49,9 +49,7 @@ const enablementTooltip = computed(() =>
  * the place of the enable toggle it cannot have.
  */
 const missingHint = computed(() =>
-  props.entry.lastKnownPath
-    ? `Last loaded from ${props.entry.lastKnownPath}`
-    : "No path was recorded for these invocations.",
+  props.entry.lastKnownPath ? shortenSkillPath(props.entry.lastKnownPath) : "No path recorded",
 );
 
 const sparkValues = computed(() =>
@@ -192,7 +190,8 @@ function formatTokens(tokens: number): string {
       </div>
 
       <p v-else class="skill-card__missing-path" :title="entry.lastKnownPath || undefined">
-        {{ missingHint }}
+        <span class="skill-card__missing-label">Last loaded from</span>
+        <span class="skill-card__missing-value">{{ missingHint }}</span>
       </p>
     </template>
   </DefinitionCard>
@@ -286,14 +285,27 @@ function formatTokens(tokens: number): string {
 }
 
 .skill-card__missing-path {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   margin: 0;
   min-height: 29px;
-  line-height: 29px;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
+}
+
+.skill-card__missing-label {
+  flex-shrink: 0;
+}
+
+/* The shortened path still needs a stop, for a deeply nested leaf name. */
+.skill-card__missing-value {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
 }
 
 /* ── Card actions (toggle + hover buttons) ───────────────── */

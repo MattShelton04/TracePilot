@@ -68,6 +68,26 @@ export function normalizeDirectory(directory: string): string {
   return directory.trim().replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 }
 
+/**
+ * A skill's last known path, shortened to the two parts that identify it: the
+ * root it came from and the folder it lived in. A full absolute path never
+ * fits a card and truncating it at the edge cuts off the folder name, which
+ * is the one part worth reading — `testing-usability` lived in a directory
+ * called `usability-testing`, and that mismatch is the whole point.
+ *
+ * The full path stays available as the element's title.
+ */
+export function shortenSkillPath(path: string): string {
+  const separator = path.includes("\\") ? "\\" : "/";
+  // A POSIX path's leading separator is its root, not an empty segment.
+  const root = /^[\\/]/.test(path) ? separator : "";
+  const segments = path.split(/[\\/]+/).filter(Boolean);
+  // The file name says nothing a card does not already show.
+  if (segments.at(-1)?.toLowerCase() === "skill.md") segments.pop();
+  if (segments.length <= 4) return root + segments.join(separator);
+  return root + [...segments.slice(0, 3), "…", segments.at(-1)].join(separator);
+}
+
 /** Route id for an entry: its directory, or `name:<skill>` when missing. */
 export function skillRouteId(entry: Pick<SkillEntry, "skill" | "name">): string {
   return entry.skill ? entry.skill.directory : `name:${entry.name}`;
