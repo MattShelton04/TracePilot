@@ -1,0 +1,1099 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'sha256-/VJQMf7MPcyRrzkdQQNH+IMu7qZZHyIistXAIh4ThDA='; connect-src 'self'; base-uri 'none'; form-action 'none'"><title>Main · 252a91e7 · fixture visual comparison</title><style>:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #e7eaf2;
+  background: #0b0e15;
+  font-synthesis: none;
+  --muted: #9da7bd;
+  --line: #293143;
+  --accent: #b5a0ff;
+  --green: #8ee0ba;
+  --pink: #ff799c;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+select {
+  touch-action: manipulation;
+}
+button {
+  color: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+button,
+input,
+select {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #161c29;
+}
+input,
+select {
+  color: inherit;
+  padding: 9px 11px;
+}
+button {
+  padding: 8px 11px;
+}
+button:hover:not(:disabled) {
+  background: #242c3f;
+}
+button[aria-pressed="true"] {
+  background: #302844;
+  color: #e0d6ff;
+  border-color: #6d598e;
+}
+h1,
+h2,
+p {
+  margin: 0;
+}
+.app-header {
+  height: 112px;
+  border-bottom: 1px solid var(--line);
+  padding: 19px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  background: #10151f;
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 2px;
+  color: var(--accent);
+  margin-bottom: 7px;
+}
+h1 {
+  font-size: 21px;
+  letter-spacing: -0.4px;
+}
+.header-meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 7px;
+}
+.header-links {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.counts {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.count {
+  border: 1px solid var(--line);
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.count.changed {
+  color: var(--pink);
+  border-color: #613047;
+}
+.count.unchanged {
+  color: var(--green);
+}
+.workspace {
+  height: calc(100dvh - 112px);
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+.sidebar {
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #10141d;
+}
+.filters {
+  padding: 18px 15px 13px;
+  border-bottom: 1px solid var(--line);
+}
+.filters input {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.filters label {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.filters input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+.view-list {
+  overflow: auto;
+  padding: 8px;
+  flex: 1;
+}
+.view-link {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 8px;
+  margin-bottom: 3px;
+}
+.view-link[aria-current="true"] {
+  background: #242039;
+  border-color: #554571;
+}
+.view-thumb {
+  width: 58px;
+  height: 39px;
+  object-fit: cover;
+  border: 1px solid #343c50;
+  border-radius: 4px;
+  background: #1a2030;
+}
+.view-name {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.view-status {
+  font-size: 10px;
+  margin-top: 4px;
+  color: var(--muted);
+  display: block;
+}
+.view-status.changed {
+  color: var(--pink);
+}
+.view-status.unchanged {
+  color: var(--green);
+}
+.sidebar-footer {
+  padding: 13px 16px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.review {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.view-heading {
+  padding: 18px 23px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+}
+.view-heading h2 {
+  font-size: 18px;
+  letter-spacing: -0.3px;
+}
+.view-description {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.status-pill {
+  font-size: 11px;
+  padding: 5px 8px;
+  border: 1px solid #614159;
+  background: #2a1d2a;
+  border-radius: 5px;
+  color: #ffc0d4;
+  white-space: nowrap;
+}
+.toolbar {
+  padding: 12px 20px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  background: #10151f;
+}
+.mode-group,
+.zoom-group,
+.adjustments {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.mode-group button,
+.zoom-group button {
+  font-size: 11px;
+  padding: 7px 9px;
+}
+.zoom-group {
+  margin-left: auto;
+}
+.zoom-value {
+  min-width: 43px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.adjustments {
+  min-height: 43px;
+  padding: 7px 22px;
+  gap: 13px;
+  font-size: 11px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.adjustments label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adjustments input[type="range"] {
+  padding: 0;
+  width: 140px;
+  accent-color: var(--accent);
+}
+.adjustments button {
+  font-size: 10px;
+  padding: 4px 9px;
+}
+.stage-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+  overflow: auto;
+  background: radial-gradient(#242b3a 0.8px, transparent 0.8px) 0 0 / 12px 12px;
+  background-color: #0b0e15;
+  overscroll-behavior: contain;
+  scrollbar-color: #47516a #111725;
+  touch-action: none;
+}
+.stage-viewport.can-pan {
+  cursor: grab;
+}
+.stage-viewport.panning {
+  cursor: grabbing;
+  user-select: none;
+}
+.stage-space {
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  padding: 26px;
+  display: grid;
+  place-items: center;
+}
+.scaled-stage {
+  position: relative;
+  flex: none;
+}
+.image-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: top left;
+  display: flex;
+  gap: 24px;
+}
+.board {
+  width: 1440px;
+  height: 960px;
+  position: relative;
+  flex: none;
+  background: #151922;
+  box-shadow: 0 8px 44px #0008;
+  overflow: hidden;
+}
+.board img {
+  position: absolute;
+  inset: 0;
+  width: 1440px;
+  height: 960px;
+  pointer-events: none;
+  user-select: none;
+}
+.board-label {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 10px;
+  border: 1px solid #56627d;
+  border-radius: 5px;
+  background: #0a0e18e8;
+  color: #eef0fa;
+  font-size: 15px;
+  z-index: 4;
+}
+.board-label.after {
+  left: auto;
+  right: 12px;
+  color: #b3f4d4;
+}
+.bounds {
+  position: absolute;
+  border: 2px solid #ff7b9f;
+  box-shadow: 0 0 0 1px #301425;
+  pointer-events: none;
+  z-index: 3;
+}
+.wipe-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #d3c5ff;
+  z-index: 5;
+  transform: translateX(-50%);
+}
+.wipe-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #282036;
+  border: 2px solid #d3c5ff;
+  color: #f3eaff;
+  border-radius: 22px;
+  width: 44px;
+  height: 62px;
+  padding: 0;
+  font-size: 22px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.wipe-grip:focus-visible {
+  outline: 4px solid #fff;
+  outline-offset: 5px;
+}
+.pixel-summary {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 12px 22px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  min-height: 44px;
+  background: #10151f;
+}
+.pixel-summary strong {
+  color: #f2cad8;
+  font-weight: 600;
+}
+.regions {
+  max-height: 96px;
+  overflow: auto;
+  flex-shrink: 0;
+  padding: 0 22px 13px;
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  background: #10151f;
+}
+.regions button {
+  font-size: 10px;
+  padding: 5px 8px;
+  color: #edc5d3;
+}
+.limitations {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 0 22px 12px;
+  color: #eac491;
+  background: #10151f;
+  max-height: 115px;
+  overflow: auto;
+}
+.limitations summary {
+  cursor: pointer;
+}
+.limitations ul {
+  margin-bottom: 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+.empty-message {
+  padding: 48px;
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 620px;
+  line-height: 1.7;
+}
+.empty-filter {
+  padding: 18px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+[hidden][hidden] {
+  display: none;
+}
+.history-main {
+  max-width: 1420px;
+  margin: 0 auto;
+  padding: 26px;
+}
+.history-controls {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: end;
+  margin-bottom: 24px;
+}
+.history-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 20px;
+}
+.run-card {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  overflow: hidden;
+  background: #121824;
+}
+.run-card img {
+  width: 100%;
+  aspect-ratio: 1.5;
+  object-fit: cover;
+  border-bottom: 1px solid var(--line);
+}
+.run-info {
+  padding: 17px;
+}
+.run-info h2 {
+  font-size: 15px;
+  line-height: 1.4;
+}
+.run-info p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+  margin-top: 7px;
+}
+.run-info a {
+  display: inline-block;
+  margin-top: 13px;
+  font-size: 12px;
+}
+.history-note {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin-bottom: 24px;
+  max-width: 920px;
+}
+.no-script {
+  padding: 20px;
+}
+.no-script img {
+  width: 46%;
+  height: auto;
+}
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .app-header {
+    padding: 16px 20px;
+  }
+  .view-thumb {
+    width: 42px;
+    height: 28px;
+  }
+  .view-link {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+  .toolbar {
+    padding: 10px 14px;
+  }
+  .header-links {
+    gap: 10px;
+  }
+  .view-heading {
+    padding: 14px;
+  }
+  .adjustments {
+    padding: 7px 14px;
+  }
+  .mode-group {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) {
+  .app-header {
+    height: auto;
+    min-height: 112px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .workspace {
+    height: auto;
+    min-height: calc(100dvh - 112px);
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    max-height: 230px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .filters {
+    padding: 10px;
+  }
+  .sidebar-footer {
+    display: none;
+  }
+  .view-list {
+    display: flex;
+    gap: 5px;
+    overflow: auto;
+  }
+  .view-link {
+    width: 190px;
+    flex: none;
+  }
+  .review {
+    min-height: 690px;
+  }
+  .stage-viewport {
+    min-height: 360px;
+  }
+  .counts {
+    margin-bottom: 5px;
+  }
+  .header-meta {
+    max-width: 95vw;
+  }
+  .pixel-summary {
+    flex-wrap: wrap;
+  }
+  .history-main {
+    padding: 18px;
+  }
+}
+</style></head><body><header class="app-header"><div><p class="eyebrow">TRACEPILOT / VISUAL REVIEW</p><h1>Main · 252a91e7 · fixture visual comparison</h1><p class="header-meta">Real frontend · synthetic backend fixtures · 1440 × 960 · dark · 100% UI scale · Base 962ed416 → head 252a91e7</p></div><div><div class="counts"><span class="count changed">3 review changes</span><span class="count unchanged">27 identical</span><span class="count">5 subtle</span><span class="count">2 limitations</span></div><nav class="header-links" aria-label="Report links"><a id="history-link" href="../../index.html">Browse history ↗</a><a href="https://github.com/MattShelton04/TracePilot/actions/runs/35501743390/attempts/1">Capture run ↗</a><a href="summary.json">Summary JSON</a></nav></div></header>
+<div class="workspace"><aside class="sidebar" aria-label="Captured views"><div class="filters"><input id="search" type="search" aria-label="Filter views" placeholder="Find a view…"><label><input id="changes" type="checkbox"> Hide identical and subtle differences</label></div><nav id="view-list" class="view-list" aria-label="Views"></nav><div class="sidebar-footer"><span id="visible-count"></span><br>Pixel changes require human review.<br>Rust and native integration are not tested.</div></aside>
+<main class="review"><div class="view-heading"><div><h2 id="view-title"></h2><p id="view-description" class="view-description"></p></div><span id="view-status" class="status-pill"></span></div>
+<div class="toolbar"><div class="mode-group" role="group" aria-label="Comparison mode"><button type="button" data-mode="side" aria-pressed="false">Side by side</button><button type="button" data-mode="toggle" aria-pressed="false">Before / after</button><button type="button" data-mode="wipe" aria-pressed="false">Wipe</button><button type="button" data-mode="overlay" aria-pressed="false">Overlay</button><button type="button" data-mode="difference" aria-pressed="false">Difference</button></div><div class="zoom-group" role="group" aria-label="Zoom"><button id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-value" class="zoom-value"></span><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit</button><button id="zoom-actual">100%</button></div></div>
+<div class="adjustments"><div id="toggle-controls"><button data-side="base" aria-pressed="false">Before</button> <button data-side="head" aria-pressed="true">After</button></div><label id="wipe-control">Before / after split <input id="wipe-range" type="range" min="0" max="100" value="50"><output id="wipe-value">50%</output></label><label id="opacity-control">After opacity <input id="opacity" type="range" min="0" max="100" value="50"><output id="opacity-value">50%</output></label><label id="threshold-control">Pixel threshold <select id="threshold"><option value="0">Exact (0)</option><option value="8">8 / 255</option><option value="16">16 / 255</option><option value="32">32 / 255</option></select></label><span id="mode-hint"></span></div>
+<div id="viewport" class="stage-viewport" tabindex="0" aria-label="Screenshot comparison, scroll or drag to pan when zoomed" aria-describedby="pan-help"><div class="stage-space"><div id="scaled-stage" class="scaled-stage"><div id="image-stage" class="image-stage"></div></div></div></div><p id="pan-help" class="sr-only">Fit shows the complete viewport. At 100% or higher, drag the image or use scrollbars and arrow keys to pan. Comparison controls are keyboard accessible.</p>
+<div class="pixel-summary"><span id="pixel-metric" role="status" aria-live="polite">Select a view to inspect its pixels.</span><span id="pixel-bounds"></span></div><div id="regions" class="regions" aria-label="Changed regions"></div><details id="limitations" class="limitations"><summary>Capture limitations</summary><ul id="issues"></ul></details></main></div>
+<noscript><section class="no-script"><h2>Before and after images</h2><p>Enable JavaScript for wipe, overlay, pixel comparison and zoom.</p><article><h3>sessions · unchanged</h3><p>/ · populated</p><img src="base-sessions.png" alt="base sessions"><img src="head-sessions.png" alt="head sessions"><ul></ul></article><article><h3>session-overview · unchanged</h3><p>/session/sess-auth-refactor/overview · populated</p><img src="base-session-overview.png" alt="base session-overview"><img src="head-session-overview.png" alt="head session-overview"><ul></ul></article><article><h3>session-conversation · unchanged</h3><p>/session/sess-auth-refactor/conversation · populated</p><img src="base-session-conversation.png" alt="base session-conversation"><img src="head-session-conversation.png" alt="head session-conversation"><ul></ul></article><article><h3>session-events · unchanged</h3><p>/session/sess-auth-refactor/events · populated</p><img src="base-session-events.png" alt="base session-events"><img src="head-session-events.png" alt="head session-events"><ul></ul></article><article><h3>session-todos · unchanged</h3><p>/session/sess-auth-refactor/todos · populated</p><img src="base-session-todos.png" alt="base session-todos"><img src="head-session-todos.png" alt="head session-todos"><ul></ul></article><article><h3>session-metrics · unchanged</h3><p>/session/sess-auth-refactor/metrics · populated</p><img src="base-session-metrics.png" alt="base session-metrics"><img src="head-session-metrics.png" alt="head session-metrics"><ul></ul></article><article><h3>session-context · subtle</h3><p>/session/sess-auth-refactor/context · populated</p><img src="base-session-context.png" alt="base session-context"><img src="head-session-context.png" alt="head session-context"><ul></ul></article><article><h3>session-explorer · unchanged</h3><p>/session/sess-auth-refactor/explorer · populated</p><img src="base-session-explorer.png" alt="base session-explorer"><img src="head-session-explorer.png" alt="head session-explorer"><ul></ul></article><article><h3>session-timeline · subtle</h3><p>/session/sess-auth-refactor/timeline · populated</p><img src="base-session-timeline.png" alt="base session-timeline"><img src="head-session-timeline.png" alt="head session-timeline"><ul></ul></article><article><h3>session-explorer-file · subtle</h3><p>/session/sess-auth-refactor/explorer · synthetic plan.md selected in the file reader</p><img src="base-session-explorer-file.png" alt="base session-explorer-file"><img src="head-session-explorer-file.png" alt="head session-explorer-file"><ul></ul></article><article><h3>search · unchanged</h3><p>/search · empty search prompt; indexed fixtures</p><img src="base-search.png" alt="base search"><img src="head-search.png" alt="head search"><ul></ul></article><article><h3>search-results · unchanged</h3><p>/search?q=auth · populated search results</p><img src="base-search-results.png" alt="base search-results"><img src="head-search-results.png" alt="head search-results"><ul></ul></article><article><h3>analytics · unchanged</h3><p>/analytics · populated</p><img src="base-analytics.png" alt="base analytics"><img src="head-analytics.png" alt="head analytics"><ul></ul></article><article><h3>tools · unchanged</h3><p>/tools · populated</p><img src="base-tools.png" alt="base tools"><img src="head-tools.png" alt="head tools"><ul></ul></article><article><h3>code · unchanged</h3><p>/code · populated</p><img src="base-code.png" alt="base code"><img src="head-code.png" alt="head code"><ul></ul></article><article><h3>model-comparison · unchanged</h3><p>/models · populated</p><img src="base-model-comparison.png" alt="base model-comparison"><img src="head-model-comparison.png" alt="head model-comparison"><ul></ul></article><article><h3>compare · unchanged</h3><p>/compare · session picker</p><img src="base-compare.png" alt="base compare"><img src="head-compare.png" alt="head compare"><ul></ul></article><article><h3>compare-populated · unchanged</h3><p>/compare · two synthetic sessions compared; zero file-count baseline</p><img src="base-compare-populated.png" alt="base compare-populated"><img src="head-compare-populated.png" alt="head compare-populated"><ul></ul></article><article><h3>replay · unchanged</h3><p>/replay/sess-auth-refactor · Experimental · explicitly enabled; populated paused replay</p><img src="base-replay.png" alt="base replay"><img src="head-replay.png" alt="head replay"><ul></ul></article><article><h3>export · unchanged</h3><p>/export · Experimental · explicitly enabled; session picker</p><img src="base-export.png" alt="base export"><img src="head-export.png" alt="head export"><ul></ul></article><article><h3>export-preview · unchanged</h3><p>/export?sessionId=sess-auth-refactor&amp;preset=minimal-team-log · Experimental · explicitly enabled; selected session and populated Markdown preview</p><img src="base-export-preview.png" alt="base export-preview"><img src="head-export-preview.png" alt="head export-preview"><ul></ul></article><article><h3>settings · unchanged</h3><p>/settings · configured defaults</p><img src="base-settings.png" alt="base settings"><img src="head-settings.png" alt="head settings"><ul></ul></article><article><h3>settings-pricing · unchanged</h3><p>/settings · configured pricing</p><img src="base-settings-pricing.png" alt="base settings-pricing"><img src="head-settings-pricing.png" alt="head settings-pricing"><ul></ul></article><article><h3>orchestration · subtle</h3><p>/orchestration · SDK disabled; fixture sessions</p><img src="base-orchestration.png" alt="base orchestration"><img src="head-orchestration.png" alt="head orchestration"><ul></ul></article><article><h3>worktree-manager · unchanged</h3><p>/orchestration/worktrees · populated fixture repositories</p><img src="base-worktree-manager.png" alt="base worktree-manager"><img src="head-worktree-manager.png" alt="head worktree-manager"><ul></ul></article><article><h3>session-launcher · subtle</h3><p>/orchestration/launcher · launch form; no process launched</p><img src="base-session-launcher.png" alt="base session-launcher"><img src="head-session-launcher.png" alt="head session-launcher"><ul></ul></article><article><h3>config-injector · unchanged</h3><p>/orchestration/config · Experimental · explicitly enabled; fixture configuration</p><img src="base-config-injector.png" alt="base config-injector"><img src="head-config-injector.png" alt="head config-injector"><ul></ul></article><article><h3>mcp-manager · unchanged</h3><p>/mcp · Experimental · explicitly enabled; populated</p><img src="base-mcp-manager.png" alt="base mcp-manager"><img src="head-mcp-manager.png" alt="head mcp-manager"><ul></ul></article><article><h3>mcp-server-detail · unchanged</h3><p>/mcp/visual-files · Experimental · explicitly enabled; configured; no network health check</p><img src="base-mcp-server-detail.png" alt="base mcp-server-detail"><img src="head-mcp-server-detail.png" alt="head mcp-server-detail"><ul></ul></article><article><h3>skills-manager · base unavailable</h3><p>/skills · populated</p><img src="head-skills-manager.png" alt="head skills-manager"><ul><li>skills_encountered_project</li></ul></article><article><h3>skill-editor · changed</h3><p>/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review · populated synthetic skill</p><img src="base-skill-editor.png" alt="base skill-editor"><img src="head-skill-editor.png" alt="head skill-editor"><ul></ul></article><article><h3>skill-usage · base unavailable</h3><p>/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review?tab=usage · synthetic skill with cross-session usage</p><img src="head-skill-usage.png" alt="head skill-usage"><ul><li>locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator(&#39;.skill-usage &gt; dl&#39;).first() to be visible
+</li></ul></article><article><h3>agents-manager · changed</h3><p>/agents · populated</p><img src="base-agents-manager.png" alt="base agents-manager"><img src="head-agents-manager.png" alt="head agents-manager"><ul></ul></article><article><h3>agent-editor · unchanged</h3><p>/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md · populated synthetic personal agent</p><img src="base-agent-editor.png" alt="base agent-editor"><img src="head-agent-editor.png" alt="head agent-editor"><ul></ul></article><article><h3>agent-usage · changed</h3><p>/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml · agent usage and model breakdown</p><img src="base-agent-usage.png" alt="base agent-usage"><img src="head-agent-usage.png" alt="head agent-usage"><ul></ul></article><article><h3>cli-context · unchanged</h3><p>/cli-context · Experimental · explicitly enabled; no captured external context</p><img src="base-cli-context.png" alt="base cli-context"><img src="head-cli-context.png" alt="head cli-context"><ul></ul></article><article><h3>not-found · unchanged</h3><p>/visual-route-does-not-exist · not found</p><img src="base-not-found.png" alt="base not-found"><img src="head-not-found.png" alt="head not-found"><ul></ul></article></section></noscript><script id="report-data" type="application/json">{"schema":3,"title":"Main · 252a91e7 · fixture visual comparison","rows":[{"id":"sessions","route":"/","ready":"[data-testid=\"session-card\"]","state":"populated","base":{"route":"/","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"02206fa3e5b251186a3e9b08fa40564f2068163351f4b371ec3d1e389fe9b272","headHash":"02206fa3e5b251186a3e9b08fa40564f2068163351f4b371ec3d1e389fe9b272","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"session-overview","route":"/session/sess-auth-refactor/overview","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/overview","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/session/sess-auth-refactor/overview","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"9e9e3a32ebc411dacb227b518a7c15fcb42ecc2dcb2d0b2582fee6c05fd41eb6","headHash":"9e9e3a32ebc411dacb227b518a7c15fcb42ecc2dcb2d0b2582fee6c05fd41eb6","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"session-conversation","route":"/session/sess-auth-refactor/conversation","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/conversation","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/session/sess-auth-refactor/conversation","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"698c06acc899d491560461ea748d2668b704860d67521547ee1ac2fc3e1a3470","headHash":"698c06acc899d491560461ea748d2668b704860d67521547ee1ac2fc3e1a3470","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"session-events","route":"/session/sess-auth-refactor/events","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/events","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/session/sess-auth-refactor/events","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"145c07d86c49891baa726fde592bccd212d1793bbc0682111419bbd8479ff6cd","headHash":"145c07d86c49891baa726fde592bccd212d1793bbc0682111419bbd8479ff6cd","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"session-todos","route":"/session/sess-auth-refactor/todos","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/todos","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/session/sess-auth-refactor/todos","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"7786fef0e270d007e9817e25096b0d9f1c29047bdbe9277415cb2b4e5522677d","headHash":"7786fef0e270d007e9817e25096b0d9f1c29047bdbe9277415cb2b4e5522677d","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"session-metrics","route":"/session/sess-auth-refactor/metrics","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/metrics","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/session/sess-auth-refactor/metrics","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"944401ba13cdd2c7fda3c4371c9f86d18c2e0cfacccb44bdf1bff9809ee4edbe","headHash":"944401ba13cdd2c7fda3c4371c9f86d18c2e0cfacccb44bdf1bff9809ee4edbe","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"session-context","route":"/session/sess-auth-refactor/context","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/context","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/session/sess-auth-refactor/context","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"57da699e9811fc912cbfd93f82de58460dd562e4be2f44463375e4422eccafbf","headHash":"9e892857ef7b60a7feb8507d6a59a9aa9005af1621b3d00f31797599ee5f2d85","pngChanged":true,"analyses":{"0":{"changed":11,"total":1382400,"percent":0.0007957175925925925,"bounds":{"x":20,"y":22,"width":19,"height":3},"regions":[{"x":20,"y":22,"width":19,"height":3,"pixels":11}],"regionCount":1,"heatFile":"diff-session-context-0.png","description":"Bounds: 20, 22 · 19 × 3"},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (8 / 255)."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (16 / 255)."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (32 / 255)."}},"change":"subtle"},{"id":"session-explorer","route":"/session/sess-auth-refactor/explorer","ready":".fb-tree","state":"populated","base":{"route":"/session/sess-auth-refactor/explorer","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/session/sess-auth-refactor/explorer","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"90715f2895bdec6c2982caf516e0dbbac6a277e6754b25e5248456e7d98e1f57","headHash":"90715f2895bdec6c2982caf516e0dbbac6a277e6754b25e5248456e7d98e1f57","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"session-timeline","route":"/session/sess-auth-refactor/timeline","ready":".detail-title","state":"populated","base":{"route":"/session/sess-auth-refactor/timeline","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/session/sess-auth-refactor/timeline","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"06ab56b76a76b56ff08da003c48b7b599c26c533f9b332d7ede1ddf4e46f0483","headHash":"2a137f12af092f0e1b7aadcd4f50e06fbf1ac63a4c67403a9ab21480529ed8f0","pngChanged":true,"analyses":{"0":{"changed":11,"total":1382400,"percent":0.0007957175925925925,"bounds":{"x":20,"y":22,"width":19,"height":3},"regions":[{"x":20,"y":22,"width":19,"height":3,"pixels":11}],"regionCount":1,"heatFile":"diff-session-timeline-0.png","description":"Bounds: 20, 22 · 19 × 3"},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (8 / 255)."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (16 / 255)."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (32 / 255)."}},"change":"subtle"},{"id":"session-explorer-file","route":"/session/sess-auth-refactor/explorer","start":".fb-tree","prepare":"open-plan","ready":".fcv__markdown-body","command":"session_read_file","state":"synthetic plan.md selected in the file reader","base":{"route":"/session/sess-auth-refactor/explorer","state":"synthetic plan.md selected in the file reader","status":"captured","errors":[],"missing":[]},"head":{"route":"/session/sess-auth-refactor/explorer","state":"synthetic plan.md selected in the file reader","status":"captured","errors":[],"missing":[]},"baseHash":"31f1321d78439839564dbc26985b099d1a11c6e0b25346bc29f3e58534e269ad","headHash":"e585d5cdaf822a9865a617d26d0e697ea848da0d0bb4f7987f768b4ebc1391cd","pngChanged":true,"analyses":{"0":{"changed":11,"total":1382400,"percent":0.0007957175925925925,"bounds":{"x":20,"y":22,"width":19,"height":3},"regions":[{"x":20,"y":22,"width":19,"height":3,"pixels":11}],"regionCount":1,"heatFile":"diff-session-explorer-file-0.png","description":"Bounds: 20, 22 · 19 × 3"},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (8 / 255)."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (16 / 255)."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (32 / 255)."}},"change":"subtle"},{"id":"search","route":"/search","ready":".search-view","state":"empty search prompt; indexed fixtures","base":{"route":"/search","state":"empty search prompt; indexed fixtures","status":"captured","errors":[],"missing":[]},"head":{"route":"/search","state":"empty search prompt; indexed fixtures","status":"captured","errors":[],"missing":[]},"baseHash":"dad5fb982d8c74a53e3e5e4fb7949ce52339b6b0890586574188d3c0c69e154d","headHash":"dad5fb982d8c74a53e3e5e4fb7949ce52339b6b0890586574188d3c0c69e154d","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"search-results","route":"/search?q=auth","ready":".result-card","command":"search_content","state":"populated search results","base":{"route":"/search?q=auth","state":"populated search results","status":"captured","errors":[],"missing":[]},"head":{"route":"/search?q=auth","state":"populated search results","status":"captured","errors":[],"missing":[]},"baseHash":"8415f441fe648973e7cea53577ed87ecacf76225b1b48fe3ce97d28155a2a08e","headHash":"8415f441fe648973e7cea53577ed87ecacf76225b1b48fe3ce97d28155a2a08e","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"analytics","route":"/analytics","ready":"svg","command":"get_analytics","state":"populated","base":{"route":"/analytics","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/analytics","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"6fbf5dce5e61c3548ccf34a75d61915d8b27a300364c0b4f056d200dbaefacab","headHash":"6fbf5dce5e61c3548ccf34a75d61915d8b27a300364c0b4f056d200dbaefacab","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"tools","route":"/tools","ready":"h1","command":"get_tool_analysis","state":"populated","base":{"route":"/tools","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/tools","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"605f30fb5185e96aca81bdc67f00462d0bfd44167502adef7c6d82ecfd924bd7","headHash":"605f30fb5185e96aca81bdc67f00462d0bfd44167502adef7c6d82ecfd924bd7","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"code","route":"/code","ready":"h1","command":"get_code_impact","state":"populated","base":{"route":"/code","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/code","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"ed3aaabb38c29455cfacb9b9337d620de39f6c701037434583e98c65bc1d891a","headHash":"ed3aaabb38c29455cfacb9b9337d620de39f6c701037434583e98c65bc1d891a","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"model-comparison","route":"/models","ready":"h1","state":"populated","base":{"route":"/models","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/models","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"09f8048397863729f62632846cfead2abb1a25a07abc8f1f8f44f7df0280adbd","headHash":"09f8048397863729f62632846cfead2abb1a25a07abc8f1f8f44f7df0280adbd","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"compare","route":"/compare","ready":"h1","state":"session picker","base":{"route":"/compare","state":"session picker","status":"captured","errors":[],"missing":[]},"head":{"route":"/compare","state":"session picker","status":"captured","errors":[],"missing":[]},"baseHash":"bad8dcb420daf329eaafa4f002256ccdbc5169cde57a127855f6748328652685","headHash":"bad8dcb420daf329eaafa4f002256ccdbc5169cde57a127855f6748328652685","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"compare-populated","route":"/compare","start":".selector-row","prepare":"compare-sessions","ready":".delta-table","command":"get_shutdown_metrics","state":"two synthetic sessions compared; zero file-count baseline","base":{"route":"/compare","state":"two synthetic sessions compared; zero file-count baseline","status":"captured","errors":[],"missing":[]},"head":{"route":"/compare","state":"two synthetic sessions compared; zero file-count baseline","status":"captured","errors":[],"missing":[]},"baseHash":"350571989ecfa7d364062034a35ba30df154c6db7b1fc2d490bd72f4eeef48fc","headHash":"350571989ecfa7d364062034a35ba30df154c6db7b1fc2d490bd72f4eeef48fc","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"replay","route":"/replay/sess-auth-refactor","ready":"h1","state":"Experimental · explicitly enabled; populated paused replay","features":["sessionReplay"],"base":{"route":"/replay/sess-auth-refactor","state":"Experimental · explicitly enabled; populated paused replay","status":"captured","errors":[],"missing":[]},"head":{"route":"/replay/sess-auth-refactor","state":"Experimental · explicitly enabled; populated paused replay","status":"captured","errors":[],"missing":[]},"baseHash":"f66b26eb89c50783ee416c52ecb56c64c47e09d05fba9cdfa233df04849dca31","headHash":"f66b26eb89c50783ee416c52ecb56c64c47e09d05fba9cdfa233df04849dca31","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"export","route":"/export","ready":"h1","features":["exportView"],"state":"Experimental · explicitly enabled; session picker","base":{"route":"/export","state":"Experimental · explicitly enabled; session picker","status":"captured","errors":[],"missing":[]},"head":{"route":"/export","state":"Experimental · explicitly enabled; session picker","status":"captured","errors":[],"missing":[]},"baseHash":"fa9b871c3aba63f7ce2b48b55bcef4ee7ffe0bd57b77a9795bbf73219eab539d","headHash":"fa9b871c3aba63f7ce2b48b55bcef4ee7ffe0bd57b77a9795bbf73219eab539d","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"export-preview","route":"/export?sessionId=sess-auth-refactor\u0026preset=minimal-team-log","ready":".preview-footer","command":"preview_export","state":"Experimental · explicitly enabled; selected session and populated Markdown preview","features":["exportView"],"base":{"route":"/export?sessionId=sess-auth-refactor\u0026preset=minimal-team-log","state":"Experimental · explicitly enabled; selected session and populated Markdown preview","status":"captured","errors":[],"missing":[]},"head":{"route":"/export?sessionId=sess-auth-refactor\u0026preset=minimal-team-log","state":"Experimental · explicitly enabled; selected session and populated Markdown preview","status":"captured","errors":[],"missing":[]},"baseHash":"6fe26a096e3705220c4de9040baea1f9902a6f0fbf28bf97dc11259079695793","headHash":"6fe26a096e3705220c4de9040baea1f9902a6f0fbf28bf97dc11259079695793","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"settings","route":"/settings","ready":".settings-root","state":"configured defaults","base":{"route":"/settings","state":"configured defaults","status":"captured","errors":[],"missing":[]},"head":{"route":"/settings","state":"configured defaults","status":"captured","errors":[],"missing":[]},"baseHash":"572cbe8b6ec8d43b9bc34f28e529707288be4d8ed3b61e8af722762bbbbf46f2","headHash":"572cbe8b6ec8d43b9bc34f28e529707288be4d8ed3b61e8af722762bbbbf46f2","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"settings-pricing","route":"/settings","ready":".settings-root","scrollText":"AI Credit Tracking","state":"configured pricing","base":{"route":"/settings","state":"configured pricing","status":"captured","errors":[],"missing":[]},"head":{"route":"/settings","state":"configured pricing","status":"captured","errors":[],"missing":[]},"baseHash":"d3ae3b9fd38001d6e72b96f811017811cd4e9e27e37f6c3d3fbaf8629eae27fd","headHash":"d3ae3b9fd38001d6e72b96f811017811cd4e9e27e37f6c3d3fbaf8629eae27fd","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"orchestration","route":"/orchestration","ready":"h1","state":"SDK disabled; fixture sessions","base":{"route":"/orchestration","state":"SDK disabled; fixture sessions","status":"captured","errors":[],"missing":[]},"head":{"route":"/orchestration","state":"SDK disabled; fixture sessions","status":"captured","errors":[],"missing":[]},"baseHash":"80c3521d9942c67ca805664f139b01955d598cb0537b2f8877297aaa56a6a70e","headHash":"0dbf9b301559d9e70dd37f2bfa91b3643e0a2ca878a7f8a9f079a3d5fa834a97","pngChanged":true,"analyses":{"0":{"changed":1,"total":1382400,"percent":0.00007233796296296296,"bounds":{"x":267,"y":23,"width":1,"height":1},"regions":[{"x":267,"y":23,"width":1,"height":1,"pixels":1}],"regionCount":1,"heatFile":"diff-orchestration-0.png","description":"Bounds: 267, 23 · 1 × 1"},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (8 / 255)."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (16 / 255)."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (32 / 255)."}},"change":"subtle"},{"id":"worktree-manager","route":"/orchestration/worktrees","ready":".wt-manager .right-panel","command":"list_worktrees","state":"populated fixture repositories","base":{"route":"/orchestration/worktrees","state":"populated fixture repositories","status":"captured","errors":[],"missing":[]},"head":{"route":"/orchestration/worktrees","state":"populated fixture repositories","status":"captured","errors":[],"missing":[]},"baseHash":"623532facfbfb9f1c834d48c4909baf02eb7ba0be135bd21f2d0fb4a3ebc3299","headHash":"623532facfbfb9f1c834d48c4909baf02eb7ba0be135bd21f2d0fb4a3ebc3299","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"session-launcher","route":"/orchestration/launcher","ready":"h1","state":"launch form; no process launched","base":{"route":"/orchestration/launcher","state":"launch form; no process launched","status":"captured","errors":[],"missing":[]},"head":{"route":"/orchestration/launcher","state":"launch form; no process launched","status":"captured","errors":[],"missing":[]},"baseHash":"17b420a95b062d050f8ecf2de194f1599fb3164b531fb6c61a56f2c1902ea366","headHash":"da641d807dc70cbc02f18ffb80732f1637fb862f775fe4d3a9da9ab3e9e3d9b4","pngChanged":true,"analyses":{"0":{"changed":2,"total":1382400,"percent":0.00014467592592592592,"bounds":{"x":267,"y":325,"width":1,"height":2},"regions":[{"x":267,"y":325,"width":1,"height":2,"pixels":2}],"regionCount":1,"heatFile":"diff-session-launcher-0.png","description":"Bounds: 267, 325 · 1 × 2"},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (8 / 255)."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (16 / 255)."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"No differences exceed the selected threshold (32 / 255)."}},"change":"subtle"},{"id":"config-injector","route":"/orchestration/config","ready":"h1","state":"Experimental · explicitly enabled; fixture configuration","features":["configInjector"],"base":{"route":"/orchestration/config","state":"Experimental · explicitly enabled; fixture configuration","status":"captured","errors":[],"missing":[]},"head":{"route":"/orchestration/config","state":"Experimental · explicitly enabled; fixture configuration","status":"captured","errors":[],"missing":[]},"baseHash":"7cd52d20a61fdfba43521655c41a29a2f3b9696058c4b57ad81746a228316a9f","headHash":"7cd52d20a61fdfba43521655c41a29a2f3b9696058c4b57ad81746a228316a9f","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"mcp-manager","route":"/mcp","ready":".mcp-server-card, .server-card","features":["mcpServers"],"state":"Experimental · explicitly enabled; populated","base":{"route":"/mcp","state":"Experimental · explicitly enabled; populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/mcp","state":"Experimental · explicitly enabled; populated","status":"captured","errors":[],"missing":[]},"baseHash":"7321b871f867b5ae15fa11da2e3c453f44229d55cbabbf879ceba5c8d46f7868","headHash":"7321b871f867b5ae15fa11da2e3c453f44229d55cbabbf879ceba5c8d46f7868","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"mcp-server-detail","route":"/mcp/visual-files","ready":".detail-server-name","state":"Experimental · explicitly enabled; configured; no network health check","features":["mcpServers"],"base":{"route":"/mcp/visual-files","state":"Experimental · explicitly enabled; configured; no network health check","status":"captured","errors":[],"missing":[]},"head":{"route":"/mcp/visual-files","state":"Experimental · explicitly enabled; configured; no network health check","status":"captured","errors":[],"missing":[]},"baseHash":"e10b02fae92d2c8cae42777f49481bf4a07d60c5e2ad94e36841734b1e9122b4","headHash":"e10b02fae92d2c8cae42777f49481bf4a07d60c5e2ad94e36841734b1e9122b4","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"skills-manager","route":"/skills","ready":".skill-card","state":"populated","base":{"route":"/skills","state":"populated","status":"incomplete","errors":[],"missing":["skills_encountered_project"]},"head":{"route":"/skills","state":"populated","status":"captured","errors":[],"missing":[]},"headHash":"1a50f8631bb69fdf6e5be3ddf58940d60ed43ea437a9dea9d8be940f7b59abf8","change":"base unavailable"},{"id":"skill-editor","route":"/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review","ready":".editor-body","state":"populated synthetic skill","base":{"route":"/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review","state":"populated synthetic skill","status":"captured","errors":[],"missing":[]},"head":{"route":"/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review","state":"populated synthetic skill","status":"captured","errors":[],"missing":[]},"baseHash":"262477a0401557fdf8abde9e2a3b99932d7a75d616fcb91c4aed3fd7249f1808","headHash":"411b8e0a18b5ba8ad7ae03491054ec3f6c4572f28d6bc20db485cc9a89d7bf10","pngChanged":true,"analyses":{"0":{"changed":2108,"total":1382400,"percent":0.15248842592592593,"bounds":{"x":434,"y":69,"width":716,"height":210},"regions":[{"x":857,"y":114,"width":137,"height":25,"pixels":1120},{"x":1020,"y":259,"width":130,"height":20,"pixels":986},{"x":434,"y":69,"width":1,"height":2,"pixels":2}],"regionCount":3,"heatFile":"diff-skill-editor-0.png","description":"Bounds: 434, 69 · 716 × 210"},"8":{"changed":1921,"total":1382400,"percent":0.13896122685185186,"bounds":{"x":434,"y":70,"width":716,"height":209},"regions":[{"x":857,"y":114,"width":137,"height":25,"pixels":1043},{"x":1020,"y":259,"width":130,"height":20,"pixels":877},{"x":434,"y":70,"width":1,"height":1,"pixels":1}],"regionCount":3,"heatFile":"diff-skill-editor-8.png","description":"Bounds: 434, 70 · 716 × 209"},"16":{"changed":1786,"total":1382400,"percent":0.12919560185185186,"bounds":{"x":857,"y":114,"width":293,"height":165},"regions":[{"x":857,"y":114,"width":137,"height":25,"pixels":988},{"x":1020,"y":259,"width":130,"height":20,"pixels":798}],"regionCount":2,"heatFile":"diff-skill-editor-16.png","description":"Bounds: 857, 114 · 293 × 165"},"32":{"changed":1357,"total":1382400,"percent":0.09816261574074074,"bounds":{"x":857,"y":114,"width":284,"height":161},"regions":[{"x":857,"y":114,"width":136,"height":25,"pixels":908},{"x":1020,"y":263,"width":121,"height":12,"pixels":449}],"regionCount":2,"heatFile":"diff-skill-editor-32.png","description":"Bounds: 857, 114 · 284 × 161"}},"change":"changed"},{"id":"skill-usage","route":"/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review?tab=usage","ready":".skill-usage \u003e dl","state":"synthetic skill with cross-session usage","base":{"route":"/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review?tab=usage","state":"synthetic skill with cross-session usage","status":"incomplete","errors":["locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.skill-usage \u003e dl').first() to be visible\n"],"missing":[]},"head":{"route":"/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review?tab=usage","state":"synthetic skill with cross-session usage","status":"captured","errors":[],"missing":[]},"headHash":"61550e69ecab6c6822cb6deb99189adfb43d69d287052330e93930b1da2b5e83","change":"base unavailable"},{"id":"agents-manager","route":"/agents","ready":".agent-card","state":"populated","base":{"route":"/agents","state":"populated","status":"captured","errors":[],"missing":[]},"head":{"route":"/agents","state":"populated","status":"captured","errors":[],"missing":[]},"baseHash":"a0f2ff363b3834d1803e2a7f338e3690e99c5b944eda77d5954564300393a62c","headHash":"64694cf1d7d4c67822800762296cd3a45c2f9981daaa5de823100594a545190b","pngChanged":true,"analyses":{"0":{"changed":437384,"total":1382400,"percent":31.63946759259259,"bounds":{"x":268,"y":75,"width":1146,"height":885},"regions":[{"x":268,"y":323,"width":1144,"height":637,"pixels":396728},{"x":268,"y":229,"width":1144,"height":37,"pixels":15878},{"x":268,"y":280,"width":501,"height":29,"pixels":8710},{"x":1290,"y":75,"width":124,"height":40,"pixels":4890},{"x":408,"y":198,"width":510,"height":15,"pixels":3605},{"x":268,"y":124,"width":400,"height":15,"pixels":3062},{"x":268,"y":154,"width":1144,"height":3,"pixels":2288},{"x":314,"y":85,"width":69,"height":21,"pixels":637},{"x":1201,"y":88,"width":68,"height":12,"pixels":461},{"x":268,"y":199,"width":60,"height":14,"pixels":446},{"x":336,"y":199,"width":64,"height":12,"pixels":373},{"x":268,"y":78,"width":30,"height":31,"pixels":306}],"regionCount":12,"heatFile":"diff-agents-manager-0.png","description":"Bounds: 268, 75 · 1146 × 885"},"8":{"changed":162314,"total":1382400,"percent":11.74146412037037,"bounds":{"x":268,"y":76,"width":1144,"height":884},"regions":[{"x":268,"y":468,"width":1144,"height":420,"pixels":92909},{"x":268,"y":229,"width":1144,"height":37,"pixels":14104},{"x":268,"y":280,"width":501,"height":29,"pixels":5023},{"x":670,"y":897,"width":340,"height":30,"pixels":4474},{"x":1292,"y":76,"width":120,"height":36,"pixels":4284},{"x":1056,"y":443,"width":181,"height":28,"pixels":4190},{"x":1056,"y":897,"width":339,"height":31,"pixels":3888},{"x":285,"y":897,"width":339,"height":30,"pixels":3459},{"x":1108,"y":345,"width":268,"height":51,"pixels":3184},{"x":268,"y":323,"width":1144,"height":59,"pixels":2935},{"x":268,"y":124,"width":400,"height":15,"pixels":2869},{"x":285,"y":408,"width":273,"height":48,"pixels":2861}],"regionCount":31,"heatFile":"diff-agents-manager-8.png","description":"Bounds: 268, 76 · 1144 × 884"},"16":{"changed":142130,"total":1382400,"percent":10.281394675925926,"bounds":{"x":268,"y":76,"width":1144,"height":884},"regions":[{"x":268,"y":503,"width":1144,"height":241,"pixels":43338},{"x":268,"y":705,"width":1144,"height":183,"pixels":30936},{"x":268,"y":229,"width":1142,"height":37,"pixels":11218},{"x":268,"y":280,"width":501,"height":29,"pixels":4400},{"x":1292,"y":76,"width":120,"height":36,"pixels":4274},{"x":1056,"y":443,"width":181,"height":28,"pixels":4158},{"x":671,"y":899,"width":181,"height":28,"pixels":4093},{"x":1057,"y":900,"width":216,"height":28,"pixels":3516},{"x":285,"y":468,"width":192,"height":28,"pixels":3367},{"x":286,"y":899,"width":145,"height":28,"pixels":3074},{"x":1108,"y":345,"width":268,"height":51,"pixels":2918},{"x":268,"y":124,"width":400,"height":15,"pixels":2692}],"regionCount":44,"heatFile":"diff-agents-manager-16.png","description":"Bounds: 268, 76 · 1144 × 884"},"32":{"changed":80599,"total":1382400,"percent":5.830367476851852,"bounds":{"x":268,"y":76,"width":1144,"height":873},"regions":[{"x":285,"y":582,"width":254,"height":162,"pixels":6403},{"x":670,"y":582,"width":306,"height":161,"pixels":6260},{"x":270,"y":230,"width":711,"height":35,"pixels":5585},{"x":1056,"y":785,"width":319,"height":103,"pixels":5396},{"x":1056,"y":582,"width":213,"height":89,"pixels":4450},{"x":285,"y":785,"width":305,"height":102,"pixels":4441},{"x":1292,"y":76,"width":120,"height":36,"pixels":4262},{"x":670,"y":785,"width":309,"height":67,"pixels":3442},{"x":268,"y":124,"width":400,"height":15,"pixels":2349},{"x":1108,"y":345,"width":267,"height":50,"pixels":2178},{"x":337,"y":345,"width":279,"height":50,"pixels":1834},{"x":464,"y":289,"width":292,"height":13,"pixels":1478}],"regionCount":91,"heatFile":"diff-agents-manager-32.png","description":"Bounds: 268, 76 · 1144 × 873"}},"change":"changed"},{"id":"agent-editor","route":"/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md","ready":".agent-editor .frontmatter-card","state":"populated synthetic personal agent","base":{"route":"/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md","state":"populated synthetic personal agent","status":"captured","errors":[],"missing":[]},"head":{"route":"/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md","state":"populated synthetic personal agent","status":"captured","errors":[],"missing":[]},"baseHash":"3dd31b94385c57300a0139d80254e7e60e7b416b374b2e3742e6ca3df6ac0c81","headHash":"3dd31b94385c57300a0139d80254e7e60e7b416b374b2e3742e6ca3df6ac0c81","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"agent-usage","route":"/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml","start":".agent-editor .frontmatter-card","prepare":"agent-usage","ready":".agent-usage \u003e dl","state":"agent usage and model breakdown","base":{"route":"/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml","state":"agent usage and model breakdown","status":"captured","errors":[],"missing":[]},"head":{"route":"/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml","state":"agent usage and model breakdown","status":"captured","errors":[],"missing":[]},"baseHash":"8e7c25961b889669389f5d1335b50f61ab26a6bfae62b452acc0f32df7c4b059","headHash":"e08a99d4d261a541df5eb1a1feb46af93cd87173862d1c67aa05e770675d5545","pngChanged":true,"analyses":{"0":{"changed":148272,"total":1382400,"percent":10.725694444444445,"bounds":{"x":857,"y":152,"width":571,"height":780},"regions":[{"x":857,"y":152,"width":571,"height":605,"pixels":115318},{"x":857,"y":827,"width":571,"height":105,"pixels":28009},{"x":857,"y":780,"width":567,"height":27,"pixels":2388},{"x":1294,"y":245,"width":96,"height":16,"pixels":754},{"x":1293,"y":281,"width":110,"height":10,"pixels":455},{"x":1016,"y":221,"width":86,"height":10,"pixels":404},{"x":1017,"y":245,"width":36,"height":16,"pixels":337},{"x":1016,"y":281,"width":78,"height":10,"pixels":326},{"x":1293,"y":221,"width":38,"height":10,"pixels":181},{"x":1293,"y":308,"width":24,"height":7,"pixels":100}],"regionCount":10,"heatFile":"diff-agent-usage-0.png","description":"Bounds: 857, 152 · 571 × 780"},"8":{"changed":79974,"total":1382400,"percent":5.78515625,"bounds":{"x":857,"y":152,"width":571,"height":780},"regions":[{"x":857,"y":152,"width":571,"height":605,"pixels":69405},{"x":857,"y":827,"width":567,"height":56,"pixels":2817},{"x":861,"y":897,"width":268,"height":35,"pixels":2711},{"x":857,"y":780,"width":567,"height":27,"pixels":2290},{"x":1294,"y":245,"width":96,"height":16,"pixels":732},{"x":1294,"y":281,"width":109,"height":10,"pixels":396},{"x":1156,"y":172,"width":85,"height":10,"pixels":365},{"x":1017,"y":221,"width":85,"height":10,"pixels":352},{"x":1017,"y":245,"width":36,"height":16,"pixels":326},{"x":1016,"y":281,"width":78,"height":10,"pixels":298},{"x":1293,"y":221,"width":38,"height":10,"pixels":156},{"x":1293,"y":308,"width":24,"height":7,"pixels":90}],"regionCount":21,"heatFile":"diff-agent-usage-8.png","description":"Bounds: 857, 152 · 571 × 780"},"16":{"changed":69738,"total":1382400,"percent":5.044704861111111,"bounds":{"x":857,"y":152,"width":571,"height":780},"regions":[{"x":857,"y":152,"width":571,"height":320,"pixels":34027},{"x":857,"y":485,"width":571,"height":272,"pixels":22603},{"x":861,"y":897,"width":268,"height":35,"pixels":2580},{"x":1155,"y":197,"width":98,"height":110,"pixels":2305},{"x":874,"y":197,"width":98,"height":110,"pixels":1801},{"x":857,"y":827,"width":180,"height":49,"pixels":1696},{"x":857,"y":785,"width":176,"height":22,"pixels":1627},{"x":1294,"y":245,"width":96,"height":16,"pixels":720},{"x":1156,"y":327,"width":137,"height":9,"pixels":418},{"x":1294,"y":281,"width":109,"height":10,"pixels":355},{"x":1156,"y":173,"width":85,"height":9,"pixels":321},{"x":1017,"y":245,"width":36,"height":16,"pixels":319}],"regionCount":17,"heatFile":"diff-agent-usage-16.png","description":"Bounds: 857, 152 · 571 × 780"},"32":{"changed":45984,"total":1382400,"percent":3.326388888888889,"bounds":{"x":857,"y":164,"width":571,"height":768},"regions":[{"x":857,"y":485,"width":571,"height":272,"pixels":20629},{"x":857,"y":379,"width":571,"height":87,"pixels":13123},{"x":1156,"y":197,"width":97,"height":110,"pixels":2080},{"x":874,"y":197,"width":98,"height":110,"pixels":1616},{"x":861,"y":899,"width":268,"height":33,"pixels":1595},{"x":857,"y":786,"width":176,"height":21,"pixels":1405},{"x":858,"y":848,"width":179,"height":28,"pixels":1118},{"x":862,"y":164,"width":234,"height":17,"pixels":815},{"x":1294,"y":245,"width":96,"height":16,"pixels":671},{"x":857,"y":828,"width":89,"height":10,"pixels":401},{"x":1156,"y":328,"width":136,"height":8,"pixels":365},{"x":1294,"y":282,"width":109,"height":8,"pixels":302}],"regionCount":21,"heatFile":"diff-agent-usage-32.png","description":"Bounds: 857, 164 · 571 × 768"}},"change":"changed"},{"id":"cli-context","route":"/cli-context","ready":"h1","state":"Experimental · explicitly enabled; no captured external context","features":["exactContextCapture"],"base":{"route":"/cli-context","state":"Experimental · explicitly enabled; no captured external context","status":"captured","errors":[],"missing":[]},"head":{"route":"/cli-context","state":"Experimental · explicitly enabled; no captured external context","status":"captured","errors":[],"missing":[]},"baseHash":"c6fee2c5b553bcb44a6902dc4022c3a480a83472ddbc173ccf17dbb75e54aa44","headHash":"c6fee2c5b553bcb44a6902dc4022c3a480a83472ddbc173ccf17dbb75e54aa44","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"},{"id":"not-found","route":"/visual-route-does-not-exist","ready":"h2","state":"not found","base":{"route":"/visual-route-does-not-exist","state":"not found","status":"captured","errors":[],"missing":[]},"head":{"route":"/visual-route-does-not-exist","state":"not found","status":"captured","errors":[],"missing":[]},"baseHash":"3b5ffd08b54d99e163b32cb5bdd429284d649a066726ec4204da489125d81a07","headHash":"3b5ffd08b54d99e163b32cb5bdd429284d649a066726ec4204da489125d81a07","pngChanged":false,"analyses":{"0":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"8":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"16":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."},"32":{"changed":0,"total":1382400,"percent":0,"bounds":null,"regions":[],"regionCount":0,"heatFile":null,"description":"Decoded pixels are identical."}},"change":"unchanged"}],"summary":{"changed":3,"unchanged":27,"subtle":5,"incomplete":0,"baseUnavailable":2,"total":37},"metadata":{"runUrl":"https://github.com/MattShelton04/TracePilot/actions/runs/35501743390/attempts/1","attempt":1}}</script><script>(() => {
+  const report = JSON.parse(document.getElementById("report-data").textContent);
+  const $ = (id) => document.getElementById(id);
+  const imageVersion = `?attempt=${report.metadata.attempt}`;
+  const modes = ["side", "toggle", "wipe", "overlay", "difference"];
+  const rows = report.rows,
+    byId = new Map(rows.map((row) => [row.id, row]));
+  const params = new URLSearchParams(location.hash.slice(1));
+  let selected =
+    byId.get(params.get("view")) ??
+    rows.find((row) => row.change === "changed") ??
+    rows.find((row) => row.change === "subtle") ??
+    rows[0];
+  let mode = modes.includes(params.get("mode")) ? params.get("mode") : "side";
+  let zoom = params.get("zoom") === "100" ? 1 : "fit",
+    scale = 1,
+    generation = 0;
+  let images = {},
+    analysis = null,
+    displayedSide = "head",
+    lastWidth = 0,
+    lastHeight = 0;
+  const viewport = $("viewport"),
+    stage = $("image-stage"),
+    scaled = $("scaled-stage");
+  const buttons = new Map();
+  const text = (tag, content, className) => {
+    const node = document.createElement(tag);
+    node.textContent = content;
+    if (className) node.className = className;
+    return node;
+  };
+  const both = () => images.base && images.head;
+  const dimensions = () => ({ width: mode === "side" && both() ? 2904 : 1440, height: 960 });
+  function urlState(push = false) {
+    const query = new URLSearchParams({ view: selected.id, mode });
+    if (zoom === 1) query.set("zoom", "100");
+    history[push ? "pushState" : "replaceState"](null, "", `#${query}`);
+    $("history-link").href = `../../index.html#view=${encodeURIComponent(selected.id)}`;
+  }
+  function filter() {
+    let visible = 0;
+    for (const row of rows) {
+      const matches =
+        `${row.id} ${row.route} ${row.state}`
+          .toLowerCase()
+          .includes($("search").value.toLowerCase()) &&
+        (!$("changes").checked || !["unchanged", "subtle"].includes(row.change));
+      buttons.get(row.id).hidden = !matches;
+      if (matches) visible++;
+    }
+    $("visible-count").textContent = `${visible} of ${rows.length} views`;
+    $("empty-filter").hidden = visible > 0;
+  }
+  for (const row of rows) {
+    const button = text("button", "", "view-link");
+    button.type = "button";
+    button.setAttribute("aria-label", `${row.id}, ${row.change}`);
+    const thumb = document.createElement("img");
+    thumb.className = "view-thumb";
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    if (row.headHash || row.baseHash)
+      thumb.src = `${row.headHash ? "head" : "base"}-${row.id}.png${imageVersion}`;
+    else thumb.hidden = true;
+    const label = text("span", "");
+    label.append(
+      text("span", row.id, "view-name"),
+      text("span", row.change, `view-status ${row.change}`),
+    );
+    button.append(thumb, label);
+    button.addEventListener("click", () => select(row, true));
+    buttons.set(row.id, button);
+    $("view-list").append(button);
+  }
+  const noMatches = text("p", "No views match these filters.", "empty-filter");
+  noMatches.id = "empty-filter";
+  $("view-list").append(noMatches);
+  $("search").addEventListener("input", filter);
+  $("changes").addEventListener("change", filter);
+
+  function fitScale() {
+    const size = dimensions();
+    return Math.min(
+      (viewport.clientWidth - 52) / size.width,
+      (viewport.clientHeight - 52) / size.height,
+      1,
+    );
+  }
+  function resize(center = false) {
+    const oldScale = scale,
+      oldLeft = viewport.scrollLeft,
+      oldTop = viewport.scrollTop;
+    const size = dimensions();
+    scale = zoom === "fit" ? Math.max(0.08, fitScale()) : zoom;
+    stage.style.width = `${size.width}px`;
+    stage.style.height = `${size.height}px`;
+    stage.style.transform = `scale(${scale})`;
+    scaled.style.width = `${size.width * scale}px`;
+    scaled.style.height = `${size.height * scale}px`;
+    viewport.classList.toggle("can-pan", scale > fitScale() + 0.01);
+    $("zoom-value").textContent = `${Math.round(scale * 100)}%`;
+    $("zoom-fit").setAttribute("aria-pressed", String(zoom === "fit"));
+    $("zoom-actual").setAttribute("aria-pressed", String(zoom === 1));
+    $("zoom-out").disabled = scale <= 0.1;
+    $("zoom-in").disabled = scale >= 4;
+    if (zoom === "fit") {
+      viewport.scrollLeft = 0;
+      viewport.scrollTop = 0;
+    } else if (center && oldScale) {
+      viewport.scrollLeft =
+        ((oldLeft + viewport.clientWidth / 2) * scale) / oldScale - viewport.clientWidth / 2;
+      viewport.scrollTop =
+        ((oldTop + viewport.clientHeight / 2) * scale) / oldScale - viewport.clientHeight / 2;
+    }
+    updateWipe();
+  }
+  function setZoom(value) {
+    zoom = value;
+    resize(true);
+    urlState();
+  }
+  $("zoom-fit").addEventListener("click", () => setZoom("fit"));
+  $("zoom-actual").addEventListener("click", () => setZoom(1));
+  $("zoom-in").addEventListener("click", () => setZoom(Math.min(4, scale * 1.25)));
+  $("zoom-out").addEventListener("click", () => setZoom(Math.max(0.1, scale / 1.25)));
+  new ResizeObserver(() => {
+    if (lastWidth === viewport.clientWidth && lastHeight === viewport.clientHeight) return;
+    lastWidth = viewport.clientWidth;
+    lastHeight = viewport.clientHeight;
+    resize();
+  }).observe(viewport);
+
+  function imageNode(side) {
+    const node = images[side].cloneNode();
+    node.alt = `${side === "base" ? "Before" : "After"}: ${selected.id}`;
+    node.draggable = false;
+    return node;
+  }
+  function board(side, label = true) {
+    const node = text("div", "", "board");
+    node.append(imageNode(side));
+    if (label)
+      node.append(
+        text(
+          "span",
+          side === "base" ? "BEFORE / BASE" : "AFTER / HEAD",
+          `board-label ${side === "head" ? "after" : ""}`,
+        ),
+      );
+    return node;
+  }
+  function updateWipe() {
+    const value = Number($("wipe-range").value);
+    $("wipe-value").textContent = `${value}%`;
+    const layer = $("wipe-layer"),
+      line = $("wipe-line"),
+      grip = $("wipe-grip");
+    if (layer) layer.style.clipPath = `inset(0 0 0 ${value}%)`;
+    if (line) line.style.left = `${value}%`;
+    if (grip) {
+      grip.setAttribute("aria-valuenow", String(value));
+      grip.setAttribute("aria-valuetext", `${value}% before, ${100 - value}% after`);
+      grip.style.transform = `translate(-50%,-50%) scale(${1 / Math.max(scale, 0.2)})`;
+    }
+  }
+  function wipeBoard() {
+    const node = board("base");
+    const after = imageNode("head");
+    after.id = "wipe-layer";
+    node.append(after, text("span", "AFTER / HEAD", "board-label after"));
+    const line = text("div", "", "wipe-line");
+    line.id = "wipe-line";
+    const grip = text("button", "↔", "wipe-grip");
+    grip.id = "wipe-grip";
+    grip.type = "button";
+    for (const [key, value] of Object.entries({
+      role: "separator",
+      "aria-label": "Before and after split",
+      "aria-orientation": "vertical",
+      "aria-valuemin": "0",
+      "aria-valuemax": "100",
+    }))
+      grip.setAttribute(key, value);
+    grip.addEventListener("keydown", (event) => {
+      const old = Number($("wipe-range").value),
+        step = event.shiftKey ? 10 : 1;
+      const value = { ArrowLeft: old - step, ArrowRight: old + step, Home: 0, End: 100 }[event.key];
+      if (value === undefined) return;
+      event.preventDefault();
+      event.stopPropagation();
+      $("wipe-range").value = Math.max(0, Math.min(100, value));
+      updateWipe();
+    });
+    grip.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      grip.setPointerCapture(event.pointerId);
+      grip.focus({ preventScroll: true });
+    });
+    grip.addEventListener("pointermove", (event) => {
+      if (!grip.hasPointerCapture(event.pointerId)) return;
+      const rect = node.getBoundingClientRect();
+      $("wipe-range").value = Math.max(
+        0,
+        Math.min(100, (100 * (event.clientX - rect.left)) / rect.width),
+      );
+      updateWipe();
+    });
+    grip.addEventListener("pointerup", (event) => {
+      if (grip.hasPointerCapture(event.pointerId)) grip.releasePointerCapture(event.pointerId);
+    });
+    line.append(grip);
+    node.append(line);
+    return node;
+  }
+  function renderStage() {
+    stage.replaceChildren();
+    for (const button of document.querySelectorAll("[data-mode]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+      button.disabled = !both() && ["wipe", "overlay", "difference"].includes(button.dataset.mode);
+    }
+    $("toggle-controls").hidden = mode !== "toggle";
+    $("wipe-control").hidden = mode !== "wipe";
+    $("opacity-control").hidden = mode !== "overlay";
+    $("threshold-control").hidden = mode !== "difference";
+    $("mode-hint").textContent = {
+      side: "Compare the same desktop viewport",
+      toggle: "Switch images without moving the viewport",
+      wipe: "Drag the divider or use its arrow keys",
+      overlay: "Adjust opacity to reveal alignment changes",
+      difference: "Pink pixels changed · rectangles mark changed areas",
+    }[mode];
+    for (const button of document.querySelectorAll("[data-side]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.side === displayedSide));
+      button.disabled = !images[button.dataset.side];
+    }
+    if (!images.base && !images.head) {
+      stage.append(
+        text(
+          "p",
+          "No usable image is available. Review the capture limitations below.",
+          "empty-message",
+        ),
+      );
+      resize();
+      return;
+    }
+    if (!both()) stage.append(board(images.head ? "head" : "base"));
+    else if (mode === "side") stage.append(board("base"), board("head"));
+    else if (mode === "toggle") stage.append(board(displayedSide));
+    else if (mode === "wipe") stage.append(wipeBoard());
+    else {
+      const node = board(mode === "overlay" ? "base" : "head", false);
+      if (mode === "overlay") {
+        const after = imageNode("head");
+        after.id = "opacity-layer";
+        after.style.opacity = Number($("opacity").value) / 100;
+        node.append(after);
+      } else if (analysis) {
+        node.firstChild.style.opacity = ".48";
+        if (analysis.heatFile) {
+          const heat = new Image();
+          heat.src = `${analysis.heatFile}${imageVersion}`;
+          heat.alt = "Changed pixels shown in pink";
+          node.append(heat);
+        }
+        for (const area of analysis.regions) {
+          const bounds = text("div", "", "bounds");
+          Object.assign(bounds.style, {
+            left: `${area.x}px`,
+            top: `${area.y}px`,
+            width: `${area.width}px`,
+            height: `${area.height}px`,
+          });
+          node.append(bounds);
+        }
+      }
+      stage.append(node);
+    }
+    resize();
+  }
+  for (const button of document.querySelectorAll("[data-mode]"))
+    button.addEventListener("click", () => {
+      mode = button.dataset.mode;
+      renderStage();
+      urlState();
+    });
+  for (const button of document.querySelectorAll("[data-side]"))
+    button.addEventListener("click", () => {
+      displayedSide = button.dataset.side;
+      renderStage();
+    });
+  $("wipe-range").addEventListener("input", updateWipe);
+  $("opacity").addEventListener("input", () => {
+    $("opacity-value").textContent = `${$("opacity").value}%`;
+    if ($("opacity-layer")) $("opacity-layer").style.opacity = Number($("opacity").value) / 100;
+  });
+  $("threshold").addEventListener("change", () => {
+    if (both()) {
+      generation++;
+      analyze(generation);
+    }
+  });
+
+  function showAnalysis(result) {
+    analysis = result;
+    $("regions").replaceChildren();
+    const exact = Number($("threshold").value) === 0;
+    $("pixel-metric").textContent =
+      `${result.changed.toLocaleString()} / ${result.total.toLocaleString()} pixels changed (${result.percent.toFixed(3)}%)${exact ? " · exact RGBA comparison" : ` · threshold ${$("threshold").value}`} · precomputed from PNGs`;
+    $("pixel-bounds").textContent =
+      selected.change === "subtle"
+        ? `Subtle: at most 128 pixels, each channel ≤ 8/255. ${result.description}`
+        : result.description;
+    result.regions.forEach((area, index) => {
+      const button = text(
+        "button",
+        `Region ${index + 1} · ${area.x},${area.y} · ${area.width}×${area.height}`,
+      );
+      button.title = `${area.pixels.toLocaleString()} changed pixels; tight bounds of nearby changes (8px grouping)`;
+      button.addEventListener("click", () => {
+        mode = "difference";
+        zoom = 1;
+        renderStage();
+        viewport.scrollLeft = Math.max(0, 26 + area.x + area.width / 2 - viewport.clientWidth / 2);
+        viewport.scrollTop = Math.max(0, 26 + area.y + area.height / 2 - viewport.clientHeight / 2);
+        urlState();
+      });
+      $("regions").append(button);
+    });
+    if (result.regionCount > 12)
+      $("regions").append(
+        text("span", `${result.regionCount - 12} smaller regions omitted`, "view-description"),
+      );
+    // Analysis may finish while a reviewer drags the wipe or focuses a control.
+    if (mode === "difference") renderStage();
+    else resize();
+  }
+  async function analyze(token) {
+    analysis = null;
+    $("regions").replaceChildren();
+    $("pixel-bounds").textContent = "";
+    if (!both()) {
+      $("pixel-metric").textContent = "Pixel comparison needs a usable before and after image.";
+      renderStage();
+      return;
+    }
+    $("pixel-metric").textContent = "Loading pixel comparison…";
+    if (mode === "difference") renderStage();
+    try {
+      // Trusted report data and PNG overlays are identical for every reviewer.
+      // Canvas extraction can be perturbed by browser fingerprinting protection.
+      const result = selected.analyses?.[$("threshold").value];
+      if (!result)
+        throw new Error(
+          "This report has no precomputed comparison. Rerun its capture to regenerate the report.",
+        );
+      if (result.heatFile) {
+        const heat = new Image();
+        heat.src = `${result.heatFile}${imageVersion}`;
+        await heat.decode();
+      }
+      if (token !== generation) return;
+      showAnalysis(result);
+    } catch (error) {
+      if (token !== generation) return;
+      $("pixel-metric").textContent = `Pixel analysis unavailable: ${error.message}`;
+    }
+  }
+  async function load(side, row) {
+    if (!row[`${side}Hash`]) return null;
+    const image = new Image();
+    image.src = `${side}-${row.id}.png${imageVersion}`;
+    await image.decode();
+    if (image.naturalWidth !== 1440 || image.naturalHeight !== 960)
+      throw new Error(`${side} image has unexpected dimensions`);
+    return image;
+  }
+  async function select(row, push = false) {
+    selected = row;
+    const token = ++generation;
+    images = {};
+    analysis = null;
+    $("view-title").textContent = row.id;
+    $("view-description").textContent = `${row.route} · ${row.state}`;
+    $("view-status").textContent = row.change;
+    for (const [id, button] of buttons) button.setAttribute("aria-current", String(id === row.id));
+    $("issues").replaceChildren();
+    const issues = [];
+    for (const side of ["base", "head"])
+      for (const message of [
+        ...(row[side]?.errors ?? []),
+        ...(row[side]?.missing ?? []).map((cmd) => `Missing fixture: ${cmd}`),
+      ])
+        issues.push(`${side}: ${message}`);
+    $("limitations").hidden = issues.length === 0;
+    for (const issue of issues) $("issues").append(text("li", issue));
+    $("regions").replaceChildren();
+    $("pixel-bounds").textContent = "";
+    $("pixel-metric").textContent = "Loading screenshots…";
+    stage.replaceChildren(text("p", "Loading screenshots…", "empty-message"));
+    urlState(push);
+    const loaded = await Promise.allSettled([load("base", row), load("head", row)]);
+    if (token !== generation) return;
+    for (let index = 0; index < 2; index++) {
+      const side = index === 0 ? "base" : "head";
+      if (loaded[index].status === "fulfilled") images[side] = loaded[index].value;
+      else {
+        $("issues").append(text("li", `${side}: ${loaded[index].reason.message}`));
+        $("limitations").hidden = false;
+      }
+    }
+    renderStage();
+    await analyze(token);
+  }
+  let pan = null;
+  viewport.addEventListener("pointerdown", (event) => {
+    if (
+      event.button !== 0 ||
+      event.target.closest("button,input,select") ||
+      scale <= fitScale() + 0.01
+    )
+      return;
+    pan = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop,
+    };
+    viewport.setPointerCapture(event.pointerId);
+    viewport.classList.add("panning");
+    viewport.focus({ preventScroll: true });
+  });
+  viewport.addEventListener("pointermove", (event) => {
+    if (!pan) return;
+    viewport.scrollLeft = pan.left - event.clientX + pan.x;
+    viewport.scrollTop = pan.top - event.clientY + pan.y;
+  });
+  const endPan = () => {
+    pan = null;
+    viewport.classList.remove("panning");
+  };
+  viewport.addEventListener("pointerup", endPan);
+  viewport.addEventListener("pointercancel", endPan);
+  viewport.addEventListener("lostpointercapture", endPan);
+  window.addEventListener("popstate", () => {
+    const next = new URLSearchParams(location.hash.slice(1));
+    mode = modes.includes(next.get("mode")) ? next.get("mode") : "side";
+    zoom = next.get("zoom") === "100" ? 1 : "fit";
+    select(byId.get(next.get("view")) ?? rows[0]);
+  });
+  filter();
+  select(selected);
+})();
+</script></body></html>
