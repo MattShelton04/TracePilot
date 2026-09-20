@@ -121,21 +121,24 @@ test("Windows lifecycle owns only its recorded process trees", {
     for (const pid of pids) assert.equal(alive(pid), false, `orphan PID ${pid}`);
   });
 
-  await t.test("does not silently reuse a healthy instance with mismatched launch options", async () => {
-    await run("start");
-    const owned = state();
-    const mismatched = structuredClone(owned);
-    mismatched.runtime = "production";
-    writeFileSync(statePath, JSON.stringify(mismatched));
-    try {
-      await assert.rejects(run("start"), /different launch options/);
-      assert.equal(alive(owned.processes[0].pid), true);
-      assert.equal(await (await fetch(owned.url)).text(), "fixture");
-    } finally {
-      writeFileSync(statePath, JSON.stringify(owned));
-      await run("stop");
-    }
-  });
+  await t.test(
+    "does not silently reuse a healthy instance with mismatched launch options",
+    async () => {
+      await run("start");
+      const owned = state();
+      const mismatched = structuredClone(owned);
+      mismatched.runtime = "production";
+      writeFileSync(statePath, JSON.stringify(mismatched));
+      try {
+        await assert.rejects(run("start"), /different launch options/);
+        assert.equal(alive(owned.processes[0].pid), true);
+        assert.equal(await (await fetch(owned.url)).text(), "fixture");
+      } finally {
+        writeFileSync(statePath, JSON.stringify(owned));
+        await run("stop");
+      }
+    },
+  );
 
   await t.test("rejects a relative desktop data root before launching", async () => {
     await assert.rejects(
