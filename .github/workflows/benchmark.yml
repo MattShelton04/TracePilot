@@ -2,22 +2,12 @@ name: Benchmarks
 
 on:
   workflow_dispatch:
-    inputs:
-      name:
-        description: 'Benchmark run name (e.g. "pre-refactor", "v0.3.0")'
-        required: false
-        type: string
   schedule:
-    # Nightly run on the default branch to populate the historical-trends
-    # dashboard with one data point per day. PRs are intentionally not run
-    # automatically — Criterion variance on shared GitHub runners is too
-    # high (~20–40%) to give actionable per-PR signal. Trigger via
-    # `workflow_dispatch` for ad-hoc before/after comparisons on a PR.
+    # Shared-runner timings are retained for diagnosis, not used as PR gates.
     - cron: '0 6 * * *'
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: benchmarks-${{ github.ref }}
@@ -26,118 +16,48 @@ concurrency:
 jobs:
   benchmark:
     name: Run Criterion Benchmarks
-    # Runs nightly and can be dispatched manually for an ad-hoc snapshot.
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: benchmark-release
-          # Nightly/main runs seed this workload-specific cache. Manual runs
-          # on PR branches restore main's cache without writing a branch cache.
           save-cache: "true"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+
+      - name: Verify benchmark result contract
+        run: node --test scripts/perf/check-budgets.test.mjs
 
       - name: Run benchmarks
         run: cargo bench -p tracepilot-bench
 
-      - name: Extract benchmark results
+      - name: Validate and summarize required results
+        shell: bash
         run: |
-          python3 -c "
-          import json, glob, os
+          node scripts/perf/check-budgets.mjs \
+            --criterion=target/criterion \
+            --budget=perf-budget.json \
+            --output=benchmark-output.json \
+            --summary=benchmark-summary.md 2>&1 | tee benchmark-contract.log
+          cat benchmark-summary.md >> "$GITHUB_STEP_SUMMARY"
 
-          results = []
-          base = os.path.join('target', 'criterion')
-          for path in sorted(glob.glob(os.path.join(base, '**', 'new', 'estimates.json'), recursive=True)):
-              rel = os.path.relpath(path, base)
-              name = os.path.dirname(os.path.dirname(rel)).replace(os.sep, '/')
-              with open(path) as f:
-                  data = json.load(f)
-              results.append({
-                  'name': name,
-                  'unit': 'ns/iter',
-                  'value': data['mean']['point_estimate']
-              })
-
-          with open('benchmark-output.json', 'w') as f:
-              json.dump(results, f, indent=2)
-
-          print(f'Extracted {len(results)} benchmark results')
-          for r in results:
-              print(f'  {r[\"name\"]}: {r[\"value\"]:.2f} ns/iter')
-          "
-
-      - name: Check Rust perf budget
+      - name: Upload Criterion reports and machine-readable summary
         if: always()
-        run: |
-          python3 -c "
-          import json, glob, os, sys
-
-          if not os.path.exists('perf-budget.json'):
-              print('No perf-budget.json — skipping')
-              sys.exit(0)
-
-          with open('perf-budget.json') as f:
-              budget = json.load(f)
-
-          rust_budget = budget.get('rust', {})
-          if not rust_budget:
-              print('No rust budgets defined — skipping')
-              sys.exit(0)
-
-          base = os.path.join('target', 'criterion')
-          results = {}
-          for path in glob.glob(os.path.join(base, '**', 'new', 'estimates.json'), recursive=True):
-              rel = os.path.relpath(path, base)
-              name = os.path.dirname(os.path.dirname(rel)).replace(os.sep, '/')
-              with open(path) as f:
-                  data = json.load(f)
-              results[name] = data['mean']['point_estimate']
-
-          # Map budget keys to benchmark names
-          mapping = {
-              'parseEventsJsonl100kbNs': 'parse_typed_events/1000',
-              'computeAnalytics100sessionsNs': 'compute_analytics/100',
-          }
-
-          violations = []
-          for budget_key, bench_name in mapping.items():
-              limit = rust_budget.get(budget_key)
-              actual = results.get(bench_name)
-              if limit is None or actual is None:
-                  continue
-              if actual > limit:
-                  violations.append(f'{bench_name}: {actual:.0f} ns > budget {limit} ns')
-                  print(f'⚠️  {bench_name}: {actual:.0f} ns exceeds budget {limit} ns')
-              else:
-                  print(f'✅ {bench_name}: {actual:.0f} ns within budget {limit} ns')
-
-          if violations:
-              print(f'::error::{len(violations)} benchmark(s) exceed perf budget')
-              sys.exit(1)
-          else:
-              print('All benchmarks within budget')
-          "
-
-      - name: Upload Criterion HTML reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
         with:
-          name: criterion-reports-${{ github.run_number }}${{ inputs.name && format('-{0}', inputs.name) || '' }}
-          path: target/criterion
+          name: criterion-v2-nonempty-fixtures-${{ github.run_number }}
+          path: |
+            target/criterion
+            benchmark-output.json
+            benchmark-summary.md
+            benchmark-contract.log
+          if-no-files-found: warn
           retention-days: 90
-
-      - name: Store benchmark results
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
-        with:
-          tool: 'customSmallerIsBetter'
-          output-file-path: benchmark-output.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          benchmark-data-dir-path: dev/bench
-          alert-threshold: '200%'
-          comment-on-alert: true
-          fail-on-alert: false
-          summary-always: true

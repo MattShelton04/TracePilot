@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "TracePilot performance budgets — CI enforced. Update when architecture changes intentionally increase a budget.",
+  "$comment": "TracePilot performance thresholds. Frontend total size is enforced in CI; frontend chunk metrics and Rust timings are advisory on shared runners. Update thresholds only with measured evidence.",
   "frontend": {
     "totalBundleSizeKb": 2500,
     "largestChunkKb": 250,
     "initialLoadChunks": 3,
-    "notes": "Measured from `pnpm --filter @tracepilot/desktop build --mode analyze`. Total includes JS + CSS assets."
+    "notes": "Measured from `pnpm --filter @tracepilot/desktop build --mode analyze`. Total JS + CSS size is enforced. Largest chunk and initial HTML asset count are reported as advisory metrics."
   },
   "ipc": {
     "listSessionsMs": 200,
@@ -31,9 +31,9 @@
     "notes": "Time from component `onMounted` to the second `requestAnimationFrame` callback (first paint commit). Dev-only `useRenderBudget` composable in `apps/desktop/src/composables/useRenderBudget.ts` emits a `console.warn` when the measured delta exceeds the budget. Production builds compile out all instrumentation via `import.meta.env.DEV`."
   },
   "rust": {
-    "parseEventsJsonl100kbNs": 5000000,
-    "computeAnalytics100sessionsNs": 10000000,
-    "searchContent100sessionsMs": 200,
-    "notes": "Measured via `cargo bench -p tracepilot-bench`. Values are P95 of mean estimate."
+    "parseTypedEvents1000Ns": 5000000,
+    "computeAnalytics100SessionsNs": 10000000,
+    "searchContent100SessionsMs": 200,
+    "notes": "Advisory thresholds for Criterion mean point estimates from corrected non-empty fixtures. Reports retain the approximate 95% confidence interval around each mean; this interval is not a latency percentile."
   }
 }

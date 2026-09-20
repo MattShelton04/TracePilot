@@ -2,11 +2,6 @@ name: Bundle Analysis
 
 on:
   workflow_dispatch:
-    inputs:
-      name:
-        description: 'Analysis run label (e.g. "pre-refactor", "v0.5.1")'
-        required: false
-        type: string
   pull_request:
     branches: [main]
     paths:
@@ -21,7 +16,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: bundle-${{ github.workflow }}-${{ github.ref }}
@@ -34,6 +28,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # Frontend bundle analysis does not need Rust or native Tauri packages.
       - uses: ./.github/actions/setup-node-pnpm
@@ -41,67 +37,124 @@ jobs:
       - name: Build with bundle analysis
         run: pnpm --filter @tracepilot/desktop build --mode analyze
 
-      - name: Extract bundle sizes
-        id: sizes
+      - name: Measure bundle and enforce total-size budget
         run: |
-          # Collect JS chunk sizes from the dist output
-          DIST="apps/desktop/dist"
-          echo "## Bundle Sizes" > bundle-report.md
-          echo "" >> bundle-report.md
-          echo "| File | Size (KB) | Gzipped (KB) |" >> bundle-report.md
-          echo "|------|-----------|--------------|" >> bundle-report.md
+          python3 - <<'PY'
+          import gzip
+          import json
+          import os
+          import pathlib
+          import re
+          import sys
 
-          TOTAL=0
-          for f in $(find "$DIST/assets" -name "*.js" -o -name "*.css" | sort); do
-            NAME=$(basename "$f")
-            SIZE=$(stat --format=%s "$f")
-            SIZE_KB=$(echo "scale=1; $SIZE / 1024" | bc)
-            GZIP_SIZE=$(gzip -c "$f" | wc -c)
-            GZIP_KB=$(echo "scale=1; $GZIP_SIZE / 1024" | bc)
-            TOTAL=$(echo "$TOTAL + $SIZE" | bc)
-            echo "| $NAME | $SIZE_KB | $GZIP_KB |" >> bundle-report.md
-          done
+          dist = pathlib.Path("apps/desktop/dist")
+          assets = sorted(
+              path for path in (dist / "assets").rglob("*")
+              if path.is_file() and path.suffix in {".js", ".css"}
+          )
+          if not assets:
+              raise SystemExit("::error::Bundle build produced no JS or CSS assets")
 
-          TOTAL_KB=$(echo "scale=1; $TOTAL / 1024" | bc)
-          echo "" >> bundle-report.md
-          echo "**Total JS+CSS: ${TOTAL_KB} KB**" >> bundle-report.md
-          echo "total_kb=$TOTAL_KB" >> "$GITHUB_OUTPUT"
+          budget_path = pathlib.Path("perf-budget.json")
+          if not budget_path.is_file():
+              raise SystemExit("::error::Missing required perf-budget.json")
+          frontend = json.loads(budget_path.read_text(encoding="utf-8")).get("frontend")
+          if not isinstance(frontend, dict):
+              raise SystemExit("::error::Missing frontend performance budgets")
+          required = ("totalBundleSizeKb", "largestChunkKb", "initialLoadChunks")
+          for key in required:
+              value = frontend.get(key)
+              if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+                  raise SystemExit(f"::error::frontend.{key} must be a positive number")
 
-          cat bundle-report.md
-          cat bundle-report.md >> "$GITHUB_STEP_SUMMARY"
+          rows = []
+          for path in assets:
+              content = path.read_bytes()
+              rows.append({
+                  "file": path.relative_to(dist).as_posix(),
+                  "bytes": len(content),
+                  "gzipBytes": len(gzip.compress(content, compresslevel=9, mtime=0)),
+              })
 
-      - name: Check against perf budget
-        run: |
-          if [ -f perf-budget.json ]; then
-            BUDGET=$(python3 -c "import json; print(json.load(open('perf-budget.json'))['frontend']['totalBundleSizeKb'])")
-            ACTUAL="${{ steps.sizes.outputs.total_kb }}"
-            echo "Budget: ${BUDGET} KB, Actual: ${ACTUAL} KB"
-            if python3 -c "exit(0 if float('$ACTUAL') <= float('$BUDGET') else 1)"; then
-              echo "✅ Bundle size within budget"
-            else
-              echo "❌ Bundle size exceeds budget by $(python3 -c "print(f'{float(\"$ACTUAL\") - float(\"$BUDGET\"):.1f}')")KB"
-              echo "::error::Bundle size ($ACTUAL KB) exceeds budget ($BUDGET KB)"
-              exit 1
-            fi
-          else
-            echo "No perf-budget.json found — skipping budget check"
-          fi
+          total_kb = sum(row["bytes"] for row in rows) / 1024
+          largest = max(rows, key=lambda row: row["bytes"])
+          largest_kb = largest["bytes"] / 1024
+          index_html = (dist / "index.html").read_text(encoding="utf-8")
+          initial_assets = sorted(set(re.findall(
+              r'''(?:src|href)=["']([^"']+\.(?:js|css)(?:\?[^"']*)?)["']''',
+              index_html,
+          )))
+          initial_count = len(initial_assets)
+
+          report = {
+              "schemaVersion": 1,
+              "metrics": {
+                  "totalBundleSizeKb": {
+                      "actual": total_kb,
+                      "budget": frontend["totalBundleSizeKb"],
+                      "enforcement": "required",
+                  },
+                  "largestChunkKb": {
+                      "actual": largest_kb,
+                      "budget": frontend["largestChunkKb"],
+                      "file": largest["file"],
+                      "enforcement": "advisory",
+                  },
+                  "initialLoadChunks": {
+                      "actual": initial_count,
+                      "budget": frontend["initialLoadChunks"],
+                      "files": initial_assets,
+                      "enforcement": "advisory",
+                  },
+              },
+              "assets": rows,
+          }
+          pathlib.Path("bundle-report.json").write_text(
+              json.dumps(report, indent=2) + "\n", encoding="utf-8"
+          )
+
+          total_ok = total_kb <= frontend["totalBundleSizeKb"]
+          largest_ok = largest_kb <= frontend["largestChunkKb"]
+          initial_ok = initial_count <= frontend["initialLoadChunks"]
+          lines = [
+              "## Bundle analysis",
+              "",
+              "| Metric | Actual | Budget | Enforcement | Status |",
+              "| --- | ---: | ---: | --- | --- |",
+              f"| Total JS + CSS | {total_kb:.1f} KB | {frontend['totalBundleSizeKb']} KB | required | {'within' if total_ok else 'exceeded'} |",
+              f"| Largest chunk (`{largest['file']}`) | {largest_kb:.1f} KB | {frontend['largestChunkKb']} KB | advisory | {'within' if largest_ok else 'exceeded (advisory)'} |",
+              f"| Initial HTML JS/CSS assets | {initial_count} | {frontend['initialLoadChunks']} | advisory | {'within' if initial_ok else 'exceeded (advisory)'} |",
+              "",
+              "Largest-chunk and initial-asset thresholds are reported for review but are not CI gates.",
+              "",
+              "| File | Size (KB) | Gzipped (KB) |",
+              "| --- | ---: | ---: |",
+          ]
+          lines.extend(
+              f"| `{row['file']}` | {row['bytes'] / 1024:.1f} | {row['gzipBytes'] / 1024:.1f} |"
+              for row in rows
+          )
+          summary = "\n".join(lines) + "\n"
+          pathlib.Path("bundle-report.md").write_text(summary, encoding="utf-8")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
+              output.write(summary)
+
+          if not total_ok:
+              print(
+                  f"::error::Bundle size ({total_kb:.1f} KB) exceeds "
+                  f"budget ({frontend['totalBundleSizeKb']} KB)"
+              )
+              sys.exit(1)
+          PY
 
       - name: Upload bundle analysis report
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: bundle-analysis${{ inputs.name && format('-{0}', inputs.name) || '' }}-${{ github.run_number }}
+          name: bundle-analysis-${{ github.run_number }}
           path: |
             apps/desktop/dist/bundle-stats.html
+            bundle-report.json
             bundle-report.md
+          if-no-files-found: warn
           retention-days: 90
-
-      - name: Comment on PR
-        # Fork PR tokens are read-only; their report remains in the job summary.
-        if: >-
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository
-        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
-        with:
-          header: bundle-analysis
-          path: bundle-report.md
