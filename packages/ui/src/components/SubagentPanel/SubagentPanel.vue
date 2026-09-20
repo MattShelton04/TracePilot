@@ -73,6 +73,9 @@ const objectiveStatus = computed<"running" | "completed" | "failed" | "idle">(()
       return "completed";
     case "failed":
       return "failed";
+    case "idle":
+    case "cancelled":
+      return "idle";
     default:
       return currentObjective.value ? "running" : "idle";
   }

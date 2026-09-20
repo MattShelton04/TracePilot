@@ -13,8 +13,8 @@ describe("subagent reasoning previews", () => {
         agentKey: "child",
         renderMarkdown: false,
         fullResults: new Map(),
-        loadingResults: new Set(),
-        failedResults: new Set(),
+        loadingResults: new Set<string>(),
+        failedResults: new Set<string>(),
       },
     });
     expect(wrapper.get(".sap-reasoning-content").text()).toBe(content);

@@ -40,6 +40,8 @@ records removal of the legacy intent-reporting tool in 1.0.64. The installed
 that live event. [GitHub's SDK event reference](https://docs.github.com/en/copilot/how-tos/copilot-sdk/features/streaming-events#assistantintent)
 also documents this. There are no persisted `assistant.intent` events in this
 local corpus. An offline viewer cannot recover that exact live value.
+The inspected per-session databases and the shared session store also expose no
+intent/objective columns that could supply a replacement.
 
 However, 1,177 of 1,251 tool requests in the newer cohort (94.1%) carry a nonempty
 `intentionSummary`, across 14 sessions. TracePilot already joins this field to
@@ -73,7 +75,7 @@ banner. Main-agent and child-agent scopes must remain separate.
 ## Implementation and validation plan
 
 1. Add conservative, shared heading extraction with old/plain/malformed fallbacks.
-   Show previews in shared reasoning rows (conversation and replay) and subagent
+   Show previews in shared reasoning rows (Chat, Compact, Timeline and replay) and subagent
    rows. Keep full original reasoning accessible by expansion.
 2. Add structured visible-summary fallback in Rust; use it in reconstruction and
    indexing. Test canonical-text precedence, malformed/unknown providers, empty
@@ -84,3 +86,24 @@ banner. Main-agent and child-agent scopes must remain separate.
 4. Run relevant Rust/frontend tests, workspace typechecks and repository checks.
    Verify real older and newer sessions in the Windows Tauri app through the
    repository automation skill at 1440×960, 960×640 and 2560×1440. Keep captures local.
+
+## Validation completed
+
+- `pnpm test`: 3,732 tests passed across all frontend packages. Two additional
+  idle/cancelled subagent regressions were then added; the affected suites passed
+  (9 tests). `pnpm typecheck` passed after the final changes.
+- `cargo test --workspace --exclude tracepilot-desktop`: 1,578 passed, five ignored,
+  zero failures. This includes structured-summary search/reconstruction agreement,
+  child attribution, canonical text precedence and encrypted/malformed fallbacks.
+- The real Windows Tauri app was started with `pnpm app:start` and attached using
+  the pinned Playwright CLI. Real older and newer sessions verified inline headings,
+  full-text expansion, generic legacy labels, explicit Objective vs saved Activity,
+  source-tool reveal, and subagent heading/activity behavior. Chat layout was checked
+  at 1440×960, 960×640 and 2560×1440, with no horizontal document overflow; screenshots
+  were visually inspected. Compact and Timeline were checked at 1440×960.
+- Live inspection also corrected two nearby gaps: Compact previously omitted all
+  reasoning, and idle/cancelled subagents incorrectly animated their banner as
+  running. Compact now uses the shared reasoning component; inactive workers show
+  an idle banner.
+- Captures and raw local analysis remain in ignored directories. Only aggregate
+  findings and synthetic tests are committed.

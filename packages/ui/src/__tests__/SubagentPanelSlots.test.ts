@@ -64,6 +64,25 @@ describe("SubagentPanel slots", () => {
   });
 
   it.each([
+    "idle",
+    "cancelled",
+  ] as const)("does not animate saved activity as running for a %s worker", (status) => {
+    const view = makeView(makeToolCall({ intentionSummary: "Review changes" }));
+    const wrapper = mount(SubagentPanel, {
+      props: {
+        view: { ...view, status },
+        renderMarkdown: false,
+        fullResults: new Map(),
+        loadingResults: emptyResultSet(),
+        failedResults: emptyResultSet(),
+      },
+    });
+    expect(wrapper.get(".ob-label").text()).toBe("Activity");
+    expect(wrapper.get(".ob-status").text()).toBe("Idle");
+    expect(wrapper.find(".ob-status-dots").exists()).toBe(false);
+  });
+
+  it.each([
     "intent",
     "tool",
     "nested-subagent",
