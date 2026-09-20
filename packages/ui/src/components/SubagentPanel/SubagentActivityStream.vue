@@ -116,7 +116,6 @@ function richEnabled(toolName: string): boolean {
             <span class="sap-reasoning-icon">💭</span>
             <span class="sap-reasoning-label">Thinking</span>
             <span
-              v-if="!isReasoningExpanded(item.key)"
               class="sap-reasoning-preview"
               :title="reasoningPreview(item.content)"
             >{{ reasoningPreview(item.content) }}</span>

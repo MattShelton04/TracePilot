@@ -1,4 +1,4 @@
-# Reasoning headings and session activity
+# Reasoning headings and recorded objectives
 
 ## Evidence (2026-09-20)
 
@@ -48,11 +48,15 @@ However, 1,177 of 1,251 tool requests in the newer cohort (94.1%) carry a nonemp
 `TurnToolCall` by tool-call ID. This is useful saved activity text, but a tool's
 intention is not necessarily the session's overall objective.
 
-Preserve explicit legacy objectives when present. Otherwise use the latest saved
-tool intention for the same agent, label it **Activity**, identify its source in
-the banner tooltip, and retain the event/tool deep link. Do not invent an objective
-from user prompts or arbitrary reasoning prose. If neither source exists, omit the
-banner. Main-agent and child-agent scopes must remain separate.
+Preserve explicit legacy objectives and their event/tool deep links. When no
+explicit objective exists, omit the banner. Tool intentions and reasoning headings
+describe individual actions and can become stale; keep them alongside their own
+tool/reasoning rows instead of inferring a persistent session objective. Main-agent
+and child-agent scopes remain separate.
+
+Recorded session objectives have no running/done badge. A missing shutdown record
+does not establish that work is ongoing, and a shutdown does not prove the objective
+was achieved. Subagent banners can still use their separately tracked worker status.
 
 ## Related enrichment
 
@@ -63,8 +67,9 @@ banner. Main-agent and child-agent scopes must remain separate.
   authoritative and use structured summaries only when it is absent/blank, avoiding
   duplicates and never interpreting encrypted content. Use the same extraction in
   conversation reconstruction and full-text indexing.
-- Tool intentions also improve replay titles using the same scoped objective
-  selector, rather than allowing a child agent's intent to name the parent's turn.
+- Replay titles prefer the main agent's explicit objective, then its assistant
+  message, then its first tool intention. Child-agent intents and messages cannot
+  name the parent's turn. This fallback describes only the individual replay step.
 - The persisted `session.autopilot_objective_changed` schema contains operation,
   ID and status, not objective text; none occur locally. This is distinct from the
   progress intent. It cannot fill the existing banner from this dataset.
@@ -76,34 +81,41 @@ banner. Main-agent and child-agent scopes must remain separate.
 
 1. Add conservative, shared heading extraction with old/plain/malformed fallbacks.
    Show previews in shared reasoning rows (Chat, Compact, Timeline and replay) and subagent
-   rows. Keep full original reasoning accessible by expansion.
+   rows. Keep subagent headings visible when expanded too, and preserve the full
+   original reasoning text.
 2. Add structured visible-summary fallback in Rust; use it in reconstruction and
    indexing. Test canonical-text precedence, malformed/unknown providers, empty
    and encrypted-only data, and child attribution.
-3. Extend objective selection with a source-aware tool-intention fallback. Keep
-   legacy precedence, chronological selection, duplicate counting, scope and
-   deep links. Use it for main-agent/subagent banners and replay titles.
+3. Preserve explicit objectives, chronological selection, duplicate counting,
+   scope and deep links. Omit banners when no objective was recorded and avoid
+   inferring session status from shutdown metadata. Scope replay title fallbacks
+   to the main agent.
 4. Run relevant Rust/frontend tests, workspace typechecks and repository checks.
    Verify real older and newer sessions in the Windows Tauri app through the
    repository automation skill at 1440×960, 960×640 and 2560×1440. Keep captures local.
 
 ## Validation completed
 
-- `pnpm test`: 3,732 tests passed across all frontend packages. Two additional
-  idle/cancelled subagent regressions were then added; the affected suites passed
-  (9 tests). `pnpm typecheck` passed after the final changes.
+- Initial full `pnpm test`: 3,732 tests passed across all frontend packages.
+  Follow-up objective, reasoning, replay and cache regressions: 115 tests passed.
+  Workspace typechecks, changed-file Biome, rustfmt and file-size/doc-link checks passed.
 - `cargo test --workspace --exclude tracepilot-desktop`: 1,578 passed, five ignored,
   zero failures. This includes structured-summary search/reconstruction agreement,
   child attribution, canonical text precedence and encrypted/malformed fallbacks.
 - The real Windows Tauri app was started with `pnpm app:start` and attached using
   the pinned Playwright CLI. Real older and newer sessions verified inline headings,
-  full-text expansion, generic legacy labels, explicit Objective vs saved Activity,
-  source-tool reveal, and subagent heading/activity behavior. Chat layout was checked
+  full-text expansion, generic legacy labels, source-tool reveal, and subagent
+  heading behavior. Chat layout was checked
   at 1440×960, 960×640 and 2560×1440, with no horizontal document overflow; screenshots
   were visually inspected. Compact and Timeline were checked at 1440×960.
+- Follow-up live checks verified no inferred Activity banner in all three conversation
+  modes, neutral legacy objectives with working source links, persistent expanded
+  subagent headings, and cache expiry alongside Resume for ended sessions. Older
+  sessions without recorded cache timing still omit the cache chip. Countdown
+  transitions for ended sessions are covered by clock-controlled component tests.
 - Live inspection also corrected two nearby gaps: Compact previously omitted all
-  reasoning, and idle/cancelled subagents incorrectly animated their banner as
-  running. Compact now uses the shared reasoning component; inactive workers show
-  an idle banner.
+  reasoning, and idle/cancelled subagents incorrectly animated their explicit objective
+  banner as running. Compact now uses the shared reasoning component; inactive workers
+  show an idle banner.
 - Captures and raw local analysis remain in ignored directories. Only aggregate
   findings and synthetic tests are committed.
