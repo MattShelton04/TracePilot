@@ -1,0 +1,64 @@
+/**
+ * Agent editor — the parts that differ from the shared definition editor
+ * shell in `definition-editor.css`, which this page loads first.
+ */
+
+/* The split lives in a custom property rather than an inline
+   grid-template-columns, so the narrow-viewport rule below can override it
+   without !important. */
+.agent-editor .editor-body {
+  grid-template-columns: var(--agent-split, 50%) 5px 1fr;
+}
+
+.agent-editor .panel-right {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.agent-editor .panel-header--tabs {
+  padding: 0 12px;
+}
+
+.agent-editor .raw-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.agent-editor .raw-toggle input {
+  accent-color: var(--accent-emphasis);
+  cursor: pointer;
+}
+
+.agent-editor .panel-right .panel-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.agent-editor .panel-left .panel-scroll > * + * {
+  margin-top: 12px;
+}
+
+.agent-editor .info-item--error {
+  color: var(--danger-fg);
+}
+
+/* Below the 960px minimum the split stacks so neither pane is unusable. */
+@media (max-width: 1000px) {
+  .agent-editor .editor-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(240px, 1fr) auto minmax(240px, 1fr);
+  }
+
+  .agent-editor .resize-handle {
+    display: none;
+  }
+}

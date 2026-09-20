@@ -43,6 +43,7 @@ describe("settings feature groups", () => {
     expect(groups[0]!.find(".feature-group-title").text()).toBe("Recommended");
     expect(groups[0]!.findAll(".setting-label").map((label) => label.text())).toEqual([
       "Skills",
+      "Agents",
       "Export",
       "Prompt Cache Insights",
       "Exact Context Capture",

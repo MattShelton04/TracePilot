@@ -21,6 +21,12 @@ const recommendedFlags: readonly FeatureOption[] = [
     description: "Create and manage reusable skill definitions for Copilot CLI sessions.",
   },
   {
+    key: "agents",
+    label: "Agents",
+    description:
+      "Explore built-in and custom agent definitions, their effective models and cross-session usage.",
+  },
+  {
     key: "exportView",
     label: "Export",
     description: "Enable the Export view to download sessions in various formats.",
