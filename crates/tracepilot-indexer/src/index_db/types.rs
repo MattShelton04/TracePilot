@@ -3,6 +3,9 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v13: preserve repeated skill tool calls when only some have an invocation
+/// event, and retain subagent attribution for fallback invocations.
+///
 /// v12: extract per-invocation skill usage into `session_skill_invocations`
 /// for Skills analytics, including tool-call-only invocations from older CLI
 /// versions that recorded no `skill.invoked` event.
@@ -18,7 +21,7 @@
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 12;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 13;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

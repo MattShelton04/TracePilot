@@ -434,3 +434,6 @@ fn a_context_delivered_ref_is_not_a_second_invocation() {
     assert_eq!(invocations.len(), 1);
     assert_eq!(invocations[0].name, "pdf");
 }
+
+#[path = "repeated_tests.rs"]
+mod repeated;

@@ -109,13 +109,19 @@ pub fn extract_skill_invocations(
         };
         let placement = event.raw.id.as_deref().and_then(|id| placements.get(id));
         let normalized_name = normalize_skill_name(&name);
+        let turn_index = placement.map(|p| p.turn_index).unwrap_or(0);
         if let Some(tool_call_id) = placement.and_then(|p| p.tool_call_id.as_deref()) {
             covered.tool_calls.insert(tool_call_id.to_string());
+        } else {
+            *covered
+                .uncorrelated
+                .entry((
+                    turn_index,
+                    normalized_name.clone(),
+                    event.raw.agent_id.clone(),
+                ))
+                .or_default() += 1;
         }
-        let turn_index = placement.map(|p| p.turn_index).unwrap_or(0);
-        covered
-            .named_turns
-            .insert((turn_index, normalized_name.clone()));
         let path = non_empty(data.path.as_ref());
         let content = data.content.as_deref().filter(|text| !text.is_empty());
         let (frontmatter_tokens, instruction_tokens) = match content {
@@ -155,7 +161,7 @@ pub fn extract_skill_invocations(
         });
     }
 
-    invocations.extend(fallback_invocations(turns, &covered));
+    invocations.extend(fallback_invocations(turns, &mut covered, &agents));
     invocations.sort_by_key(|invocation| invocation.event_index);
     invocations
 }
@@ -163,7 +169,7 @@ pub fn extract_skill_invocations(
 #[derive(Default)]
 struct Covered {
     tool_calls: HashSet<String>,
-    named_turns: HashSet<(usize, String)>,
+    uncorrelated: HashMap<(usize, String, Option<String>), usize>,
 }
 
 /// `skill` tool calls with no `skill.invoked` event behind them.
@@ -171,7 +177,11 @@ struct Covered {
 /// Older CLI versions record the call without the event; in a real local
 /// corpus 6 of 168 skill calls had no event. They carry only the requested
 /// name, so they are recorded without a path, hash or token estimate.
-fn fallback_invocations(turns: &[ConversationTurn], covered: &Covered) -> Vec<SkillInvocation> {
+fn fallback_invocations(
+    turns: &[ConversationTurn],
+    covered: &mut Covered,
+    agents: &HashMap<&str, &str>,
+) -> Vec<SkillInvocation> {
     let mut fallbacks = Vec::new();
     for turn in turns {
         for call in &turn.tool_calls {
@@ -194,12 +204,17 @@ fn fallback_invocations(turns: &[ConversationTurn], covered: &Covered) -> Vec<Sk
                 continue;
             };
             let normalized_name = normalize_skill_name(name);
-            // An uncorrelated event for the same skill in the same turn is
-            // this call's invocation, recorded in more detail.
-            if covered
-                .named_turns
-                .contains(&(turn.turn_index, normalized_name.clone()))
+            // Each uncorrelated event covers at most one call by the same agent.
+            // A correlated invocation must not hide a later use of the same skill.
+            let key = (
+                turn.turn_index,
+                normalized_name.clone(),
+                call.agent_id.clone(),
+            );
+            if let Some(remaining) = covered.uncorrelated.get_mut(&key)
+                && *remaining > 0
             {
+                *remaining -= 1;
                 continue;
             }
             // Without an event of its own the tool call's start event is the
@@ -220,7 +235,11 @@ fn fallback_invocations(turns: &[ConversationTurn], covered: &Covered) -> Vec<Sk
                 source: None,
                 trigger: None,
                 agent_id: call.agent_id.clone(),
-                agent_name: None,
+                agent_name: call
+                    .agent_id
+                    .as_deref()
+                    .and_then(|id| agents.get(id))
+                    .map(|name| (*name).to_string()),
                 model: call.model.clone().or_else(|| turn.model.clone()),
                 plugin_name: None,
                 plugin_version: None,
