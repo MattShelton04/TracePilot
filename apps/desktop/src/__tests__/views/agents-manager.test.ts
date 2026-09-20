@@ -8,15 +8,16 @@ import { buildAgentEntries } from "@/utils/agents/entries";
 import { buildAgentInsights } from "@/utils/agents/insights";
 import AgentsManagerView from "@/views/agents/AgentsManagerView.vue";
 
-const { getStore } = vi.hoisted(() => ({ getStore: vi.fn() }));
+const { getStore, getRoute } = vi.hoisted(() => ({ getStore: vi.fn(), getRoute: vi.fn() }));
 vi.mock("@/stores/agents", () => ({ useAgentsStore: getStore }));
-vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }), useRoute: getRoute }));
 vi.mock("@/router/navigation", () => ({ pushRoute: vi.fn() }));
 
 enableAutoUnmount(afterEach);
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  getRoute.mockReturnValue({ query: {} });
 });
 
 const SUMMARY = {
@@ -67,6 +68,18 @@ function mountView(overrides: Record<string, unknown> = {}) {
 }
 
 describe("AgentsManagerView", () => {
+  it("applies agent deep links and clears filters on initial and subsequent navigation", async () => {
+    const route = reactive({ query: { q: "reviewer" } });
+    getRoute.mockReturnValue(route);
+    const { store } = mountView({ scope: "builtin", flags: new Set(["unused"]) });
+    expect(store.clearFilters).toHaveBeenCalledOnce();
+    expect(store.search).toBe("reviewer");
+    route.query.q = "explore";
+    await flushPromises();
+    expect(store.clearFilters).toHaveBeenCalledTimes(2);
+    expect(store.search).toBe("explore");
+  });
+
   it("loads definitions and usage on mount and renders a card per agent", async () => {
     const { store, wrapper } = mountView();
     await flushPromises();

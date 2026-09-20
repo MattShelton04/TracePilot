@@ -12,8 +12,8 @@ import {
   Tooltip,
 } from "@tracepilot/ui";
 import { Bot, Plus } from "lucide-vue-next";
-import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import AgentCard from "@/components/agents/AgentCard.vue";
 import AgentCreateModal from "@/components/agents/AgentCreateModal.vue";
 import { FLAG_BADGES, FLAG_FILTERS, SCOPE_FILTER_LABELS } from "@/components/agents/agentBadges";
@@ -27,8 +27,19 @@ import "@/styles/features/agents-manager.css";
 
 const store = useAgentsStore();
 const router = useRouter();
+const route = useRoute();
 const showCreate = ref(false);
 
+// Deep links must be visible even after a previous visit narrowed the filters.
+watch(
+  () => route.query.q,
+  (query) => {
+    if (typeof query !== "string") return;
+    store.clearFilters();
+    store.search = query;
+  },
+  { immediate: true },
+);
 onMounted(() => store.loadAll());
 
 const scopeOptions = computed<SegmentOption[]>(() =>
