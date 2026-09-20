@@ -143,6 +143,17 @@ reason to remove useful caches or reduce OS coverage to save minutes.
 
 - Reporting/CI helper suite: 23 tests passed. Visual/CI helper suite: 31 tests
   passed. Python extraction tests: 2 passed. Action pins verified remotely.
+- First hosted [PR #833 CI run](https://github.com/MattShelton04/TracePilot/actions/runs/35492591428):
+  desktop shard jobs passed in 77–81s (test steps 56–59s), compared with the prior
+  228–238s combined frontend job. Its workspace job revealed that pnpm's explicit
+  exclusion filter also selects the root package; the final command explicitly
+  excludes root to prevent its recursive test script rerunning the full suite.
+- Hosted [bundle builds](https://github.com/MattShelton04/TracePilot/actions/runs/35492591318)
+  passed in 40–43s per revision; the new publisher was executed locally against
+  both downloaded measurement artifacts with all API requests intercepted. It
+  generated the expected collapsed comparison and 0.0% delta without posting.
+- All four [hosted visual shards](https://github.com/MattShelton04/TracePilot/actions/runs/35492591336)
+  passed in 69–73s.
 - Real production Vite analysis build passed (208 JS/CSS assets, 2,492.9 KiB raw,
   751.3 KiB summed gzip). The largest-chunk threshold remains advisory.
 - Historical `3d7f1f0f` checkout with the current working-tree harness: **33

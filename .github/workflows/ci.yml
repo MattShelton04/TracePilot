@@ -54,7 +54,9 @@ jobs:
           save-cache: "true"
 
       - name: Workspace package and CLI tests
-        run: pnpm --filter '!@tracepilot/desktop' -r test
+        # Explicit filters include the root package unless excluded; its test
+        # script would recursively run the entire workspace (including desktop).
+        run: pnpm --filter '!tracepilot' --filter '!@tracepilot/desktop' -r test
 
   # Desktop's 291 test files previously waited for the workspace dependency
   # suites, then ran for ~166 seconds. Preserve isolation and split by file.
