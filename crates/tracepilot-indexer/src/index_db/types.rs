@@ -3,6 +3,10 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v12: extract per-invocation skill usage into `session_skill_invocations`
+/// for Skills analytics, including tool-call-only invocations from older CLI
+/// versions that recorded no `skill.invoked` event.
+///
 /// v11: extract per-invocation agent runs and main-agent selections into
 /// `session_agent_runs` / `session_agent_selections` for the Agents explorer.
 ///
@@ -14,7 +18,7 @@
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 11;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 12;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -206,6 +210,7 @@ pub(crate) struct SessionAnalytics {
 
     // Agent runs
     pub agent_runs: tracepilot_core::agent_runs::AgentRunExtraction,
+    pub skill_invocations: Vec<tracepilot_core::skill_invocations::SkillInvocation>,
 }
 
 /// Return value from `IndexDb::get_file_metadata`.

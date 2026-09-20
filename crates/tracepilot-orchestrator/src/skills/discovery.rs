@@ -257,7 +257,17 @@ fn load_skill_summary(
         disabled_reason: None,
         has_assets: asset_count > 0,
         asset_count,
+        modified_at: file_modified_at(skill_md_path),
+        content_sha256: tracepilot_core::tokens::content_fingerprint(&content),
     })
+}
+
+/// `SKILL.md` modification time, or `None` when the filesystem will not say.
+fn file_modified_at(path: &Path) -> Option<chrono::DateTime<chrono::Utc>> {
+    std::fs::metadata(path)
+        .ok()
+        .and_then(|metadata| metadata.modified().ok())
+        .map(chrono::DateTime::from)
 }
 
 /// Load a full skill from a SKILL.md path.
@@ -273,11 +283,6 @@ pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, Skil
         .to_string_lossy()
         .to_string();
 
-    let modified_at = std::fs::metadata(skill_md_path)
-        .ok()
-        .and_then(|m| m.modified().ok())
-        .map(chrono::DateTime::from);
-
     Ok(Skill {
         frontmatter: fm,
         body,
@@ -288,7 +293,7 @@ pub fn load_skill(skill_md_path: &Path, scope: SkillScope) -> Result<Skill, Skil
         instruction_tokens,
         enabled: true,
         disabled_reason: None,
-        modified_at,
+        modified_at: file_modified_at(skill_md_path),
     })
 }
 

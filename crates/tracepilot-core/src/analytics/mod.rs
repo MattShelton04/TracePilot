@@ -13,6 +13,7 @@ pub mod agents;
 mod code_impact;
 mod dashboard;
 pub mod loader;
+pub mod skills;
 mod tools;
 pub mod types;
 pub mod utils;
@@ -27,5 +28,6 @@ pub use loader::{
     load_full_sessions, load_full_sessions_filtered, load_session_summaries,
     load_session_summaries_filtered,
 };
+pub use skills::*;
 pub use tools::compute_tool_analysis;
 pub use types::*;

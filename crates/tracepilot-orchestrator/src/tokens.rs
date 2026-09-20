@@ -1,18 +1,15 @@
 //! Token estimation utilities shared across MCP and Skills features.
 //!
-//! Uses a ~4 characters per token heuristic (average across GPT/Claude
-//! tokenizers for English text). This is intentionally simple — exact
-//! tokenization would require a full tokenizer dependency.
+//! The heuristic itself lives in [`tracepilot_core::tokens`], because the
+//! indexer estimates the same skill content from session logs and the two
+//! figures have to agree.
 
 /// Estimate the number of LLM tokens consumed by arbitrary text.
 ///
 /// Uses the widely-accepted heuristic of ~4 characters per token for
 /// English text. Returns at least 1 for non-empty input.
 pub fn estimate_tokens(text: &str) -> u32 {
-    if text.is_empty() {
-        return 0;
-    }
-    (text.len() as f64 / 4.0).ceil() as u32
+    tracepilot_core::tokens::estimate_tokens(text)
 }
 
 /// Estimate tokens for an MCP tool definition (name + description).

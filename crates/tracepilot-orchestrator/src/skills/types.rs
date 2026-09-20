@@ -114,6 +114,14 @@ pub struct SkillSummary {
     pub disabled_reason: Option<SkillDisabledReason>,
     pub has_assets: bool,
     pub asset_count: usize,
+    /// `SKILL.md` modification time, used to tell "never used" apart from
+    /// "installed too recently to have been used yet".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modified_at: Option<DateTime<Utc>>,
+    /// Fingerprint of the installed content, compared against the one
+    /// recorded at invocation to detect a skill that changed since it was
+    /// last used. Line endings are normalised first.
+    pub content_sha256: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -271,6 +279,8 @@ mod tests {
             disabled_reason: None,
             has_assets: false,
             asset_count: 0,
+            modified_at: None,
+            content_sha256: "abc".into(),
         };
         let json = serde_json::to_string(&summary).unwrap();
         let parsed: SkillSummary = serde_json::from_str(&json).unwrap();

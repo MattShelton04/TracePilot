@@ -14,6 +14,7 @@ mod analytics;
 mod child_rows;
 mod prompt_cache;
 mod prune;
+mod skill_invocations;
 
 pub(crate) use analytics::extract_session_analytics;
 
@@ -177,6 +178,11 @@ impl IndexDb {
 
             child_rows::write_child_rows(&self.conn, &session_id, analytics)?;
             agent_runs::write_agent_rows(&self.conn, &session_id, &analytics.agent_runs)?;
+            skill_invocations::write_skill_invocation_rows(
+                &self.conn,
+                &session_id,
+                &analytics.skill_invocations,
+            )?;
 
             Ok(())
         })();
