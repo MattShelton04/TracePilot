@@ -17,6 +17,7 @@ mod events;
 mod list;
 mod prompt_cache;
 mod resume;
+mod session_store;
 mod shared;
 mod turns;
 
@@ -31,4 +32,5 @@ pub use events::*;
 pub use list::*;
 pub use prompt_cache::*;
 pub use resume::*;
+pub use session_store::*;
 pub use turns::*;

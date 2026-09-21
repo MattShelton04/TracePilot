@@ -17,6 +17,7 @@ mod attribution;
 mod lifecycle;
 mod model;
 mod reader;
+mod rows;
 mod types;
 mod writer;
 

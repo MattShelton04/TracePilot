@@ -12,3 +12,4 @@ export * from "./orchestration.js";
 export * from "./sdk.js";
 export * from "./search.js";
 export * from "./sessions.js";
+export * from "./sessionStore.js";

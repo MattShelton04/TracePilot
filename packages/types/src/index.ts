@@ -326,6 +326,32 @@ export type {
 } from "./session-event-payloads.js";
 // ── session-event-payloads.js ──────────────────────────────────────
 export { narrowSessionEvent } from "./session-event-payloads.js";
+// ── sessionStore.js ────────────────────────────────────────────────
+export type {
+  BillingCheck,
+  BillingItemsStatus,
+  CacheReuse,
+  EnrichmentRefreshResponse,
+  FieldCoverage,
+  LatencyDistribution,
+  ReconciliationStatus,
+  RequestLedgerPage,
+  RequestPerformance,
+  RequestPerformanceResponse,
+  RequestUsageFilters,
+  SessionCoverageRow,
+  SessionRequestUsageResponse,
+  SessionStoreStatusResponse,
+  SessionWorkRefsResponse,
+  StoreAvailability,
+  StoredBillingItem,
+  StoredRequest,
+  StoredWorkRef,
+  StoreFreshness,
+  StoreSourceStatus,
+  WorkRefKind,
+  WorkRefResolution,
+} from "./sessionStore.js";
 // ── skills.js ──────────────────────────────────────────────────────
 export type {
   GhAuthInfo,

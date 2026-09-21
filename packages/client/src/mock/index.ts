@@ -13,6 +13,13 @@ export {
 export { MOCK_EXPORT_RESULT } from "./export.js";
 export { MOCK_PROMPT_CACHE } from "./promptCache.js";
 export {
+  MOCK_REQUEST_LEDGER,
+  MOCK_REQUEST_PERFORMANCE,
+  MOCK_STORE_COVERAGE,
+  MOCK_STORE_SOURCE,
+  MOCK_WORK_REFS,
+} from "./sessionStore.js";
+export {
   getMockSessionDetail,
   MOCK_CHECKPOINTS,
   MOCK_EVENTS,

@@ -179,3 +179,56 @@ pub struct StoreSourceStatus {
     pub sessions_with_requests: i64,
     pub total_requests: i64,
 }
+
+impl StoredRequest {
+    /// Rebuild the core shape so the statistics rules live in one place.
+    ///
+    /// The core `session_store::stats` module owns the decisions that matter
+    /// here — identical populations for a ratio's numerator and denominator,
+    /// per-metric coverage, p95 suppression below a sample threshold — and
+    /// reimplementing them over the stored rows would be where they quietly
+    /// drift apart.
+    ///
+    /// Counters cross back through `u64`: a negative stored count could only
+    /// come from a corrupted index, and dropping it to `None` keeps it out of
+    /// every population rather than poisoning a sum.
+    pub fn to_core(&self) -> tracepilot_core::session_store::StoreRequest {
+        use tracepilot_core::session_store::{
+            BillingItemsStatus, ExactDecimal, RequestInitiator, StoreRequest,
+        };
+        let count = |value: Option<i64>| value.and_then(|value| u64::try_from(value).ok());
+        StoreRequest {
+            source_row_id: self.source_row_id,
+            session_id: self.session_id.clone(),
+            turn_index: self.source_turn_index,
+            agent_id: self.agent_id.clone(),
+            parent_tool_call_id: self.parent_tool_call_id.clone(),
+            model: self.model.clone(),
+            input_tokens: count(self.input_tokens),
+            output_tokens: count(self.output_tokens),
+            cache_read_tokens: count(self.cache_read_tokens),
+            cache_write_tokens: count(self.cache_write_tokens),
+            reasoning_tokens: count(self.reasoning_tokens),
+            total_nano_aiu: self.total_nano_aiu.as_deref().and_then(ExactDecimal::parse),
+            request_multiplier: self
+                .request_multiplier
+                .as_deref()
+                .and_then(ExactDecimal::parse),
+            duration_ms: self.duration_ms,
+            time_to_first_token_ms: self.time_to_first_token_ms,
+            output_ttft_ms: self.output_ttft_ms,
+            inter_token_latency_ms: self.inter_token_latency_ms,
+            initiator: self.initiator.as_deref().map(RequestInitiator::parse),
+            api_endpoint: self.api_endpoint.clone(),
+            reasoning_effort: self.reasoning_effort.clone(),
+            finish_reason: self.finish_reason.clone(),
+            content_filter_triggered: self.content_filter_triggered,
+            copilot_usage_model: self.copilot_usage_model.clone(),
+            billing_items: Vec::new(),
+            billing_items_status: BillingItemsStatus::Absent,
+            recorded_at: self.recorded_at.clone(),
+            invalid_fields: self.invalid_fields.clone(),
+            row_fingerprint: self.row_fingerprint.clone(),
+        }
+    }
+}
