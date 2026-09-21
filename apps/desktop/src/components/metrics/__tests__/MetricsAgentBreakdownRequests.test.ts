@@ -173,6 +173,25 @@ describe("MetricsAgentBreakdown request columns", () => {
     expect(wrapper.get('[data-testid="agent-usage-table"]').text()).toContain("6 AIC");
   });
 
+  it("does not present partial unattributed charges as a complete total", async () => {
+    const wrapper = await render(
+      respond({
+        rollups: [
+          rollup({ requestCount: 1, ownNanoAiu: "1000000000", unattributedRequests: 1 }),
+          rollup({
+            agentId: "unknown",
+            requestCount: 1,
+            ownNanoAiu: null,
+            unattributedRequests: 1,
+          }),
+        ],
+      }),
+    );
+    const note = wrapper.get('[data-testid="agent-requests-unattributed"]').text();
+    expect(note).toContain("2 recorded request(s)");
+    expect(note).not.toContain("AIC");
+  });
+
   it("reads nothing while the feature is off", async () => {
     usePreferencesStore().featureFlags.sessionStoreEnrichment = false;
     const wrapper = await render(null);
