@@ -132,7 +132,9 @@ describe("MetricsAgentBreakdown request columns", () => {
 
   it("keeps an agent with no recorded requests visibly unrecorded", async () => {
     const wrapper = await render(
-      respond({ rollups: [rollup({ agentId: "main", requestCount: 4, ownNanoAiu: "1000000000" })] }),
+      respond({
+        rollups: [rollup({ agentId: "main", requestCount: 4, ownNanoAiu: "1000000000" })],
+      }),
     );
 
     const rows = wrapper.findAll("tbody tr");

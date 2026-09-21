@@ -1,9 +1,9 @@
 import type {
   RequestPerformance,
   SessionCoverageRow,
-  StoreSourceStatus,
   StoredRequest,
   StoredWorkRef,
+  StoreSourceStatus,
 } from "@tracepilot/types";
 
 // Shaped after a real 1.0.86 session: a root request that reused most of its

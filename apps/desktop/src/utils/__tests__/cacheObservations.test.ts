@@ -1,7 +1,7 @@
 import type { CacheObservation } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
-import { buildObservationView, observationsByWindow } from "@/utils/cacheObservations";
 import { makeWindow } from "@/utils/__tests__/promptCacheFixtures";
+import { buildObservationView, observationsByWindow } from "@/utils/cacheObservations";
 
 function observation(overrides: Partial<CacheObservation> = {}): CacheObservation {
   return {
@@ -96,10 +96,7 @@ describe("buildObservationView", () => {
       value: "Matched on order, interval and model, not by a shared identifier.",
     });
 
-    const ambiguous = buildObservationView(
-      makeWindow(),
-      observation({ attribution: "ambiguous" }),
-    );
+    const ambiguous = buildObservationView(makeWindow(), observation({ attribution: "ambiguous" }));
     expect(ambiguous.rows.find((row) => row.label === "Match")?.value).toContain("ambiguous");
   });
 

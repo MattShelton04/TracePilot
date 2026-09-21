@@ -67,7 +67,8 @@ function respond(report: Partial<RequestPerformanceReport>) {
     enabled: true,
     report: {
       stale: false,
-      lastSuccessAt: null,      available: true,
+      lastSuccessAt: null,
+      available: true,
       overall: performance(),
       byModel: [{ model: "gpt-5.6-luna", performance: performance() }],
       sessionCount: 4,
@@ -126,10 +127,10 @@ describe("ModelObservedPerformance", () => {
     const wrapper = await render();
 
     const overall = wrapper.get('[data-testid="observed-row-overall"]').text();
-    expect(overall).toContain("p95 Not enough samples");
+    expect(overall).toContain("p95 —");
     expect(overall).not.toContain("p95 0ms");
     expect(wrapper.get('[data-testid="observed-p95-reason"]').text()).toContain(
-      "display threshold, not a measurement of zero",
+      "at least 20 valid samples",
     );
   });
 
@@ -183,7 +184,7 @@ describe("ModelObservedPerformance", () => {
     const disclaimers = wrapper.findAll('[data-testid="observed-disclaimer"]');
     expect(disclaimers).toHaveLength(1);
     expect(disclaimers[0].text()).toContain("not controlled benchmarks");
-    expect(disclaimers[0].text()).toContain("not a quality ranking");
+    expect(disclaimers[0].text()).toContain("or a quality ranking");
   });
 
   it("passes the page's repository and date filters through", async () => {

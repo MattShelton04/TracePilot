@@ -6,9 +6,9 @@ import {
 import { setupPinia } from "@tracepilot/test-utils";
 import type { RequestLedgerPage, SessionCoverageRow, StoredRequest } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
-import { useRequestLedger } from "@/composables/session/useRequestLedger";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type EffectScope, effectScope, ref } from "vue";
+import { useRequestLedger as createRequestLedger } from "@/composables/session/useRequestLedger";
 import { usePreferencesStore } from "@/stores/preferences";
 import { formatExactCredits } from "@/utils/requestLedger";
 
@@ -19,6 +19,16 @@ vi.mock("@tracepilot/client", async () => {
     getRequestPerformance: vi.fn(),
     getSessionStoreStatus: vi.fn(),
   });
+});
+
+const scopes: EffectScope[] = [];
+function useRequestLedger(...args: Parameters<typeof createRequestLedger>) {
+  const scope = effectScope();
+  scopes.push(scope);
+  return scope.run(() => createRequestLedger(...args))!;
+}
+afterEach(() => {
+  for (const scope of scopes.splice(0)) scope.stop();
 });
 
 const usage = vi.mocked(getSessionRequestUsage);

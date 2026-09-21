@@ -69,7 +69,10 @@ const displayRows = computed(() => {
       ...usage,
       requestFigures: figures,
       storeRequests: requestCell(figures),
-      storeCredits: figures ? formatExactCredits(figures.nanoAiu) : NOT_RECORDED,
+      storeCredits:
+        figures && figures.unparsedCredits === 0
+          ? formatExactCredits(figures.nanoAiu)
+          : NOT_RECORDED,
       storeCacheRatio: ratioCell(figures),
       total: usage.tokens.total,
       share:

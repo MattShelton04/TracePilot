@@ -62,7 +62,7 @@ function toFigures(rollup: AgentRequestRollup): AgentRequestFigures {
   return {
     requestCount: rollup.requestCount,
     nanoAiu: parsed,
-    unparsedCredits: rollup.ownNanoAiu != null && parsed == null ? 1 : 0,
+    unparsedCredits: rollup.requestCount > 0 && parsed == null ? 1 : 0,
     cacheReadTokens: rollup.cacheReadTokens,
     inputTokens: rollup.inputTokens,
   };
@@ -103,31 +103,34 @@ export function joinAgentRequestRollups(
   rows: readonly AgentUsageRow[],
   rollups: readonly AgentRequestRollup[],
 ): AgentRequestJoin {
-  const byAgentId = new Map<string, AgentRequestRollup>();
-  const byRunKey = new Map<string, AgentRequestRollup>();
   let unmatched: AgentRequestFigures | null = null;
   let unattributedRequests = 0;
-
-  for (const rollup of rollups) {
-    unattributedRequests += rollup.unattributedRequests;
-    if (rollup.agentId == null && rollup.runKey == null) {
-      const figures = toFigures(rollup);
-      if (unmatched) addFigures(unmatched, figures);
-      else unmatched = figures;
-      continue;
-    }
-    if (rollup.agentId != null) byAgentId.set(rollup.agentId, rollup);
-    if (rollup.runKey != null) byRunKey.set(rollup.runKey, rollup);
-  }
-
-  const consumed = new Set<AgentRequestRollup>();
+  let unmatchedRollups = 0;
   const byRow = new Map<string, AgentRequestColumns>();
   for (const row of rows) {
-    const rollup = byAgentId.get(row.id) ?? byRunKey.get(row.id);
-    const own = rollup && !consumed.has(rollup) ? toFigures(rollup) : emptyFigures();
-    if (rollup) consumed.add(rollup);
-    byRow.set(row.id, { own, branch: copyFigures(own) });
+    byRow.set(row.id, { own: emptyFigures(), branch: emptyFigures() });
   }
+  for (const rollup of rollups) {
+    unattributedRequests += rollup.unattributedRequests;
+    const figures = toFigures(rollup);
+    const byTool = rows.filter((row) => row.toolCallId && row.toolCallId === rollup.runKey);
+    const byAgent = rows.filter((row) => row.id === rollup.agentId);
+    const candidates = byTool.length
+      ? byTool
+      : byAgent.length
+        ? byAgent
+        : rows.filter((row) => row.id === rollup.runKey);
+    const candidate = candidates.length === 1 ? candidates[0] : undefined;
+    const target =
+      rollup.unattributedRequests === 0 && candidate ? byRow.get(candidate.id) : undefined;
+    if (target) addFigures(target.own, figures);
+    else {
+      if (unmatched) addFigures(unmatched, figures);
+      else unmatched = figures;
+      if (rollup.agentId != null || rollup.runKey != null) unmatchedRollups += 1;
+    }
+  }
+  for (const columns of byRow.values()) columns.branch = copyFigures(columns.own);
 
   // Reverse order visits children before parents, so each descendant is
   // folded into its parent exactly once.
@@ -138,10 +141,6 @@ export function joinAgentRequestRollups(
     const rowColumns = byRow.get(row.id);
     if (parentColumns && rowColumns) addFigures(parentColumns.branch, rowColumns.branch);
   }
-
-  const unmatchedRollups = [...new Set([...byAgentId.values(), ...byRunKey.values()])].filter(
-    (rollup) => !consumed.has(rollup),
-  ).length;
 
   const hasFigures =
     [...byRow.values()].some((columns) => columns.own.requestCount > 0) ||

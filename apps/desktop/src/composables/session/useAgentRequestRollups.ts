@@ -10,8 +10,9 @@
 
 import { getAgentRequestRollups } from "@tracepilot/client";
 import type { AgentRequestRollup, AgentRequestRollupResponse } from "@tracepilot/types";
-import { toErrorMessage, useSessionTabLoader } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard, useSessionTabLoader } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import { useSessionStoreEvents } from "@/composables/useSessionStoreEvents";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logWarn } from "@/utils/logger";
 
@@ -19,27 +20,35 @@ export function useAgentRequestRollups(getSessionId: () => string | null | undef
   const preferences = usePreferencesStore();
   const enabled = computed(() => preferences.isFeatureEnabled("sessionStoreEnrichment"));
 
+  const guard = useAsyncGuard();
   const response = ref<AgentRequestRollupResponse | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
   async function load(): Promise<void> {
     const sessionId = getSessionId();
-    if (!sessionId) return;
+    if (!sessionId || !enabled.value) return;
+    const token = guard.start();
+    error.value = null;
     loading.value = true;
     try {
-      response.value = await getAgentRequestRollups(sessionId);
+      const result = await getAgentRequestRollups(sessionId);
+      if (guard.isValid(token)) response.value = result;
     } catch (e) {
       // The shutdown-based breakdown must survive an unreadable store.
       logWarn("[useAgentRequestRollups] Failed to read agent request roll-ups:", e);
-      error.value = toErrorMessage(e);
+      if (guard.isValid(token)) error.value = toErrorMessage(e);
     } finally {
-      loading.value = false;
+      if (guard.isValid(token)) loading.value = false;
     }
   }
 
+  useSessionStoreEvents(load);
+
   useSessionTabLoader(() => (enabled.value ? getSessionId() : null), load, {
     onClear: () => {
+      guard.invalidate();
+      loading.value = false;
       response.value = null;
       error.value = null;
     },

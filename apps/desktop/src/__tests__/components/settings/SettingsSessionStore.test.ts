@@ -12,6 +12,8 @@ import SettingsSessionStore from "@/components/settings/SettingsSessionStore.vue
 const getSessionStoreStatus = vi.fn<() => Promise<SessionStoreStatusResponse>>();
 const refreshSessionEnrichment = vi.fn<() => Promise<EnrichmentRefreshResponse>>();
 
+const persistNow = vi.fn<() => Promise<void>>();
+
 const flags = reactive<Record<string, boolean>>({ sessionStoreEnrichment: true });
 const toggleFeature = vi.fn((flag: string) => {
   flags[flag] = !flags[flag];
@@ -26,6 +28,7 @@ vi.mock("@/stores/preferences", () => ({
   usePreferencesStore: () => ({
     isFeatureEnabled: (flag: string) => flags[flag] === true,
     toggleFeature,
+    persistNow,
   }),
 }));
 
@@ -69,6 +72,7 @@ beforeEach(() => {
   getSessionStoreStatus.mockReset();
   refreshSessionEnrichment.mockReset();
   toggleFeature.mockClear();
+  persistNow.mockReset().mockResolvedValue(undefined);
   statusFor("ready");
   refreshSessionEnrichment.mockResolvedValue({
     availability: "ready",
@@ -80,6 +84,15 @@ beforeEach(() => {
 });
 
 describe("SettingsSessionStore", () => {
+  it("waits for saving before refreshing and reports a failed save", async () => {
+    persistNow.mockRejectedValueOnce(new Error("disk unavailable"));
+    const wrapper = await mountPanel();
+    await wrapper.get('[role="switch"]').trigger("click");
+    await flushPromises();
+    expect(refreshSessionEnrichment).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("Could not save the preference");
+  });
+
   it("explains what the preference means and what switching it off removes", async () => {
     const wrapper = await mountPanel();
 
@@ -104,6 +117,10 @@ describe("SettingsSessionStore", () => {
     await flushPromises();
 
     expect(toggleFeature).toHaveBeenCalledWith("sessionStoreEnrichment");
+    expect(persistNow).toHaveBeenCalledTimes(1);
+    expect(persistNow.mock.invocationCallOrder[0]).toBeLessThan(
+      refreshSessionEnrichment.mock.invocationCallOrder[0]!,
+    );
     expect(refreshSessionEnrichment).toHaveBeenCalledTimes(1);
     expect(flags.sessionStoreEnrichment).toBe(false);
     expect(wrapper.get(".store-availability-pill").text()).toBe("Off");

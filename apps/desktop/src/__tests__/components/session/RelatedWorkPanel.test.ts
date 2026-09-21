@@ -7,8 +7,17 @@ const getSessionWorkRefs = vi.fn<(sessionId: string) => Promise<SessionWorkRefsR
 const openExternal = vi.fn();
 let enrichmentEnabled = true;
 
-vi.mock("@tracepilot/client", () => ({
+vi.mock("@tracepilot/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tracepilot/client")>()),
   getSessionWorkRefs: (sessionId: string) => getSessionWorkRefs(sessionId),
+}));
+
+const events = vi.hoisted(() => ({ finished: () => {} }));
+vi.mock("@/lib/tauri", () => ({
+  tauriListen: vi.fn(async (_event: string, handler: () => void) => {
+    events.finished = handler;
+    return () => {};
+  }),
 }));
 
 vi.mock("@/stores/preferences", () => ({
@@ -64,6 +73,42 @@ beforeEach(() => {
   getSessionWorkRefs.mockReset();
   openExternal.mockReset();
   respond({});
+});
+
+it("reloads visible references when enrichment finishes", async () => {
+  respond({ refs: [] });
+  const wrapper = await mountPanel();
+  respond({ refs: [ref({ rawValue: "#321", normalizedValue: "321" })] });
+  events.finished();
+  await flushPromises();
+  expect(getSessionWorkRefs).toHaveBeenCalledTimes(2);
+  expect(wrapper.text()).toContain("321");
+  wrapper.unmount();
+});
+
+it("ignores a previous session response that arrives after navigation", async () => {
+  let finishOld: ((value: SessionWorkRefsResponse) => void) | undefined;
+  getSessionWorkRefs.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishOld = resolve;
+      }),
+  );
+  const wrapper = mount(RelatedWorkPanel, { props: { sessionId: "session-a" } });
+  await flushPromises();
+  respond({ refs: [ref({ rawValue: "#222", normalizedValue: "222" })] });
+  await wrapper.setProps({ sessionId: "session-b" });
+  await flushPromises();
+  finishOld?.({
+    enabled: true,
+    available: true,
+    refs: [ref({ rawValue: "#111", normalizedValue: "111" })],
+    sourceAvailability: "ready",
+  });
+  await flushPromises();
+  expect(wrapper.text()).toContain("222");
+  expect(wrapper.text()).not.toContain("111");
+  wrapper.unmount();
 });
 
 describe("RelatedWorkPanel", () => {

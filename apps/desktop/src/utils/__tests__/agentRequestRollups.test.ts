@@ -51,6 +51,38 @@ function rollup(overrides: Partial<AgentRequestRollup> = {}): AgentRequestRollup
 }
 
 describe("joinAgentRequestRollups", () => {
+  it("accumulates distinct rollups for one agent without losing requests", () => {
+    const join = joinAgentRequestRollups(
+      [row("agent-a", null, 0)],
+      [
+        rollup({ agentId: "agent-a", runKey: "one", requestCount: 2, ownNanoAiu: "1" }),
+        rollup({ agentId: "agent-a", runKey: "two", requestCount: 3, ownNanoAiu: "2" }),
+      ],
+    );
+    expect(join.byRow.get("agent-a")?.own.requestCount).toBe(5);
+    expect(join.byRow.get("agent-a")?.own.nanoAiu).toEqual({ units: 3n, scale: 0 });
+  });
+
+  it("keeps non-exact attribution out of an agent's own totals", () => {
+    const join = joinAgentRequestRollups(
+      [row("agent-a", null, 0)],
+      [rollup({ agentId: "agent-a", requestCount: 2, unattributedRequests: 2 })],
+    );
+    expect(join.byRow.get("agent-a")?.own.requestCount).toBe(0);
+    expect(join.attribution.unmatched?.requestCount).toBe(2);
+  });
+
+  it("marks branch credits incomplete when a descendant's charge is missing", () => {
+    const join = joinAgentRequestRollups(
+      [row("main", null, 0), row("child", "main", 1)],
+      [
+        rollup({ agentId: "main", requestCount: 1, ownNanoAiu: "100" }),
+        rollup({ agentId: "child", requestCount: 1 }),
+      ],
+    );
+    expect(join.byRow.get("main")?.branch.unparsedCredits).toBe(1);
+  });
+
   it("adds nano-AIU totals exactly, past the range binary floats can hold", () => {
     // Each total is above Number.MAX_SAFE_INTEGER; Number() would round both
     // operands before they were ever added.
@@ -79,11 +111,7 @@ describe("joinAgentRequestRollups", () => {
   });
 
   it("sums each descendant into a branch exactly once", () => {
-    const rows = [
-      row("main", null, 0),
-      row("agent-a", "main", 1),
-      row("agent-b", "agent-a", 2),
-    ];
+    const rows = [row("main", null, 0), row("agent-a", "main", 1), row("agent-b", "agent-a", 2)];
     const join = joinAgentRequestRollups(rows, [
       rollup({ agentId: "main", requestCount: 2, ownNanoAiu: "1000000000" }),
       rollup({ agentId: "agent-a", requestCount: 3, ownNanoAiu: "2000000000" }),

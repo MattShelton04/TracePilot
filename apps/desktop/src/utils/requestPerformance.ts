@@ -20,15 +20,12 @@ import { millisecondCell, NOT_RECORDED } from "./requestLedger";
 
 /** Said once per section: the comparison is observational, not a benchmark. */
 export const OBSERVATIONAL_NOTE =
-  "Observational comparisons, not controlled benchmarks. Prompt sizes and " +
-  "agent roles vary between sessions and can dominate any difference " +
-  "between models, so this is not a quality ranking.";
+  "These are observations of recorded API calls, not controlled benchmarks or a quality ranking. " +
+  "Prompt sizes and agent roles vary between models.";
 
 /** Said once per section: the four metrics do not share a population. */
 export const POPULATION_NOTE =
-  "Each metric is measured only over the requests that recorded it, so the " +
-  "coverage beside it is its own and the four medians are not comparable " +
-  "with one another.";
+  "Median and p95 use each metric's own recorded samples. Coverage is shown below each value.";
 
 /** Shown in place of a p95 that the backend withheld. */
 export const P95_SUPPRESSED = "Not enough samples";
@@ -167,18 +164,15 @@ export interface CacheReuseView {
  */
 export function buildCacheReuse(cache: CacheReuse): CacheReuseView {
   const requestRatio =
-    cache.requestsWithCounter > 0
-      ? cache.requestsReportingReuse / cache.requestsWithCounter
-      : null;
+    cache.requestsWithCounter > 0 ? cache.requestsReportingReuse / cache.requestsWithCounter : null;
   return {
     requestWeighted: {
       label: "Requests recording any reuse",
       value: percent(requestRatio),
       detail:
         `${formatNumberFull(cache.requestsReportingReuse)} of ` +
-        `${formatNumberFull(cache.requestsWithCounter)} requests that recorded a cache ` +
-        "counter recorded at least one cache read. Requests that never recorded the " +
-        "counter are in neither population.",
+        `${formatNumberFull(cache.requestsWithCounter)} requests with usable input and cache-read ` +
+        "counters recorded at least one cache read. Missing or inconsistent counters are in neither population.",
     },
     tokenWeighted: {
       label: "Cache reads as a share of input tokens",

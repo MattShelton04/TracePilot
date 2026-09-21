@@ -9,8 +9,9 @@
  */
 import { getSessionWorkRefs } from "@tracepilot/client";
 import type { SessionWorkRefsResponse, StoreAvailability } from "@tracepilot/types";
-import { toErrorMessage, useSessionTabLoader } from "@tracepilot/ui";
+import { toErrorMessage, useAsyncGuard, useSessionTabLoader } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import { useSessionStoreEvents } from "@/composables/useSessionStoreEvents";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logWarn } from "@/utils/logger";
 import { toWorkRefRows } from "@/utils/workRefs";
@@ -19,28 +20,36 @@ export function useSessionWorkRefs(getSessionId: () => string | null | undefined
   const preferences = usePreferencesStore();
   const enabled = computed(() => preferences.isFeatureEnabled("sessionStoreEnrichment"));
 
+  const guard = useAsyncGuard();
   const response = ref<SessionWorkRefsResponse | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
   async function load() {
     const sessionId = getSessionId();
-    if (!sessionId) return;
+    if (!sessionId || !enabled.value) return;
+    const token = guard.start();
+    error.value = null;
     loading.value = true;
     try {
-      response.value = await getSessionWorkRefs(sessionId);
+      const result = await getSessionWorkRefs(sessionId);
+      if (guard.isValid(token)) response.value = result;
     } catch (e) {
       // An optional enrichment source must never break the overview, so the
       // failure is surfaced in place rather than thrown at the tab.
       logWarn("[useSessionWorkRefs] Failed to read linked-work references:", e);
-      error.value = toErrorMessage(e);
+      if (guard.isValid(token)) error.value = toErrorMessage(e);
     } finally {
-      loading.value = false;
+      if (guard.isValid(token)) loading.value = false;
     }
   }
 
+  useSessionStoreEvents(load);
+
   useSessionTabLoader(() => (enabled.value ? getSessionId() : null), load, {
     onClear: () => {
+      guard.invalidate();
+      loading.value = false;
       response.value = null;
       error.value = null;
     },

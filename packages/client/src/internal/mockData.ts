@@ -6,7 +6,6 @@ import type {
   FreshnessResponse,
   ImportPreviewResult,
   ImportResult,
-  PromptCacheResponse,
   SearchFacetsResponse,
   SearchResultsResponse,
   SearchStatsResponse,

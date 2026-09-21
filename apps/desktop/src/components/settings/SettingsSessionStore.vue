@@ -139,9 +139,12 @@ async function runRefresh() {
 
 async function handleToggle() {
   preferences.toggleFeature(FEATURE);
-  // Applying the new preference immediately is what makes the "switching it
-  // off removes the cached enrichment" promise true at the moment it is made.
-  await runRefresh();
+  try {
+    await preferences.persistNow();
+    await runRefresh();
+  } catch (error) {
+    statusError.value = `Could not save the preference: ${toErrorMessage(error)}`;
+  }
 }
 </script>
 

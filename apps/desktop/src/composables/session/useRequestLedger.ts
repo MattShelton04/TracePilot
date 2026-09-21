@@ -25,6 +25,7 @@ import type {
 import { toErrorMessage } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
 import { computed, reactive, ref, watch } from "vue";
+import { useSessionStoreEvents } from "@/composables/useSessionStoreEvents";
 import { usePreferencesStore } from "@/stores/preferences";
 import { sumNanoAiu } from "@/utils/requestLedger";
 
@@ -104,6 +105,7 @@ export function useRequestLedger(
   const history = ref<(string | null)[]>([null]);
   const pageIndex = ref(0);
   const guard = useAsyncGuard();
+  const contextGuard = useAsyncGuard();
 
   const requests = computed<StoredRequest[]>(() => page.value?.requests ?? []);
   const available = computed(() => page.value?.available ?? false);
@@ -143,6 +145,7 @@ export function useRequestLedger(
 
   function resetSession(): void {
     guard.invalidate();
+    contextGuard.invalidate();
     page.value = null;
     coverage.value = null;
     source.value = null;
@@ -202,10 +205,12 @@ export function useRequestLedger(
   async function fetchContext(): Promise<void> {
     const id = sessionId();
     if (!id || !enabled.value) return;
+    const token = contextGuard.start();
     const [status, perf] = await Promise.allSettled([
       getSessionStoreStatus(),
       getRequestPerformance(id),
     ]);
+    if (!contextGuard.isValid(token)) return;
     if (status.status === "fulfilled") source.value = status.value.source;
     if (perf.status === "fulfilled") performance.value = perf.value.performance;
   }
@@ -254,6 +259,11 @@ export function useRequestLedger(
     },
     { immediate: true },
   );
+
+  useSessionStoreEvents(() => {
+    if (isActive() && enabled.value) return load();
+    loaded.value = false;
+  });
 
   watch(isActive, (active) => {
     if (active && enabled.value && sessionId() && !loaded.value && !loading.value) void load();

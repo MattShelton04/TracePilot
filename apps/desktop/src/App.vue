@@ -54,7 +54,8 @@ const { phase, expectedSessionCount, onSetupSaved, onSetupComplete, onIndexingCo
 // popup viewer duplicating it would just lose the gate race.
 const preferences = usePreferencesStore();
 const sessionStoreSweep = useSessionStoreSweep(
-  () => isMain() && preferences.isFeatureEnabled("sessionStoreEnrichment"),
+  () => isMain() && phase.value === "app",
+  () => preferences.isFeatureEnabled("sessionStoreEnrichment"),
 );
 void sessionStoreSweep.setup();
 

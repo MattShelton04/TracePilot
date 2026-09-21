@@ -22,6 +22,7 @@ import { computed, ref, watch } from "vue";
 import { useAnalyticsStore } from "@/stores/analytics";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logWarn } from "@/utils/logger";
+import { useSessionStoreEvents } from "./useSessionStoreEvents";
 
 export function useObservedRequestPerformance() {
   const prefs = usePreferencesStore();
@@ -64,10 +65,12 @@ export function useObservedRequestPerformance() {
       guard.invalidate();
       report.value = null;
       error.value = null;
+      loading.value = false;
       if (enabled.value) void load();
     },
     { immediate: true, deep: true },
   );
+  useSessionStoreEvents(load);
 
   /** False means no source could be read — never "this user made no requests". */
   const available = computed(() => report.value?.available ?? false);

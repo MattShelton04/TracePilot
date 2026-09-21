@@ -16,9 +16,8 @@ import {
   buildPerformanceRow,
   LATENCY_METRICS,
   OBSERVATIONAL_NOTE,
-  P95_SUPPRESSED,
-  POPULATION_NOTE,
   type PerformanceRowView,
+  POPULATION_NOTE,
 } from "@/utils/requestPerformance";
 
 const perf = useObservedRequestPerformance();
@@ -68,6 +67,9 @@ const inconsistentTotal = computed(() =>
     </template>
 
     <p class="observed__note" data-testid="observed-disclaimer">{{ OBSERVATIONAL_NOTE }}</p>
+    <p v-if="perf.report.value?.stale" class="observed__attention" data-testid="observed-stale">
+      Cached observations. The latest refresh could not confirm this data; retry from Settings.
+    </p>
 
     <ErrorAlert
       v-if="perf.error.value"
@@ -118,8 +120,8 @@ const inconsistentTotal = computed(() =>
 
       <p class="observed__note">{{ POPULATION_NOTE }}</p>
 
-      <div class="observed__table">
-        <table class="data-table">
+      <div class="observed__table" tabindex="0" role="region" aria-label="Recorded latency by model">
+        <table class="data-table observed__latencies">
           <thead>
             <tr>
               <th>Model</th>
@@ -144,16 +146,16 @@ const inconsistentTotal = computed(() =>
               <td style="text-align: right"><span class="tabular">{{ row.sessionCount }}</span></td>
               <td v-for="metric in row.metrics" :key="metric.key" style="text-align: right">
                 <div class="observed__metric">
-                  <span class="tabular">Median {{ metric.median }}</span>
+                  <span class="tabular observed__median">{{ metric.median }}</span>
                   <span
                     class="tabular"
                     :class="{ 'observed__suppressed': metric.p95Absence !== null }"
                     :title="
                       metric.p95Absence === 'belowThreshold'
-                        ? 'The sample was below the display threshold for a p95. The median and count beside it are unaffected.'
+                        ? 'p95 requires at least 20 valid samples.'
                         : undefined
                     "
-                  >p95 {{ metric.p95 }}</span>
+                  >p95 {{ metric.p95Absence ? '—' : metric.p95 }}</span>
                   <span class="observed__coverage">{{ metric.coverageText }}</span>
                 </div>
               </td>
@@ -163,14 +165,12 @@ const inconsistentTotal = computed(() =>
       </div>
 
       <p v-if="hasSuppressedP95" class="observed__muted" data-testid="observed-p95-reason">
-        “{{ P95_SUPPRESSED }}” means the p95 was withheld because too few requests recorded that
-        metric to display one. It is a display threshold, not a measurement of zero.
+        p95 requires at least 20 valid samples. A dash means the percentile is unavailable.
       </p>
 
       <h4 class="observed__subheading">Recorded cache reuse</h4>
       <p class="observed__note">
-        These two figures answer different questions and often disagree. Neither summarises the
-        other.
+        Request share counts calls with any reuse; token share measures how much input was reused.
       </p>
       <div class="observed__table">
         <table class="data-table">
@@ -244,6 +244,12 @@ const inconsistentTotal = computed(() =>
   overflow-x: auto;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
+}
+.observed__latencies {
+  min-width: 1000px;
+}
+.observed__median {
+  font-weight: 600;
 }
 .observed__subheading {
   margin: 20px 0 8px;

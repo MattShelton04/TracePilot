@@ -19,7 +19,7 @@ import {
   formatRelativeTime,
   StatCard,
 } from "@tracepilot/ui";
-import { computed, ref, useId } from "vue";
+import { computed, ref, useId, watch } from "vue";
 import RequestLedgerDrawer from "@/components/metrics/RequestLedgerDrawer.vue";
 import RequestLedgerFilters from "@/components/metrics/RequestLedgerFilters.vue";
 import RequestLedgerTable from "@/components/metrics/RequestLedgerTable.vue";
@@ -45,6 +45,13 @@ const drawerOpen = ref(false);
 const ledger = useRequestLedger(
   () => props.sessionId,
   () => expanded.value,
+);
+watch(
+  () => props.sessionId,
+  () => {
+    selected.value = null;
+    drawerOpen.value = false;
+  },
 );
 
 /** With no shutdown there is no final total — only what has been recorded. */

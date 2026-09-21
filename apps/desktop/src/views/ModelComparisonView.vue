@@ -44,12 +44,10 @@ provide(ModelComparisonKey, ctx);
             <ModelLeaderboard />
             <ModelCharts />
             <ModelCompareTable />
-            <!-- Observations of individual requests, kept apart from the
-                 session roll-ups above rather than merged into them. -->
-            <ModelObservedPerformance />
           </template>
         </template>
       </LoadingOverlay>
+      <ModelObservedPerformance />
     </div>
   </PageShell>
 </template>
