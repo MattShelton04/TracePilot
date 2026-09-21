@@ -10,6 +10,7 @@ import SettingsGeneral from "@/components/settings/SettingsGeneral.vue";
 import SettingsLogging from "@/components/settings/SettingsLogging.vue";
 import SettingsPricing from "@/components/settings/SettingsPricing.vue";
 import SettingsSdk from "@/components/settings/SettingsSdk.vue";
+import SettingsSessionStore from "@/components/settings/SettingsSessionStore.vue";
 import SettingsToolVisualization from "@/components/settings/SettingsToolVisualization.vue";
 import SettingsUpdates from "@/components/settings/SettingsUpdates.vue";
 import { useSessionsStore } from "@/stores/sessions";
@@ -38,6 +39,7 @@ const databaseSize = computed(() => dataStorageRef.value?.databaseSize ?? "—")
       <SettingsToolVisualization />
       <SettingsUpdates />
       <SettingsExperimental />
+      <SettingsSessionStore />
       <SettingsAlerts />
       <SettingsSdk />
       <SettingsAbout :session-count="sessionCount" :database-size="databaseSize" />

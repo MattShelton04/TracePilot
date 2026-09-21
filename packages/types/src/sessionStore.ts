@@ -133,7 +133,6 @@ export interface StoredWorkRef {
   sessionId: string;
   sourceRowId: number | null;
   kind: WorkRefKind;
-  raw_value?: never;
   /** The value exactly as recorded. */
   rawValue: string;
   normalizedValue: string;
@@ -292,4 +291,71 @@ export interface RequestUsageFilters {
   reportsCacheReuse?: boolean | null;
   fromDate?: string | null;
   toDate?: string | null;
+}
+
+/** One model's observed request performance. */
+export interface ModelRequestPerformance {
+  model: string;
+  performance: RequestPerformance;
+}
+
+/**
+ * Observed performance across sessions, overall and per model.
+ *
+ * These are **observational comparisons, not controlled benchmarks**. Prompt
+ * sizes and agent roles vary enormously between sessions and can dominate any
+ * difference between models, so this is never a quality ranking or a reason
+ * to switch model.
+ */
+export interface RequestPerformanceReport {
+  /**
+   * False when no source is bound or the enrichment tables are absent —
+   * which is not the same as a filter matching no requests.
+   */
+  available: boolean;
+  overall: RequestPerformance | null;
+  byModel: ModelRequestPerformance[];
+  /** Sessions represented, so a one-session-dominated shape is visible. */
+  sessionCount: number;
+}
+
+export interface ModelRequestPerformanceResponse {
+  enabled: boolean;
+  report: RequestPerformanceReport;
+}
+
+/**
+ * One agent's own request figures within a session.
+ *
+ * Own totals only. Derive a branch total by summing descendants once, as the
+ * Agents metrics UI already does — adding a branch total and its children
+ * into a session total double-counts.
+ */
+export interface AgentRequestRollup {
+  runKey: string | null;
+  agentId: string | null;
+  requestCount: number;
+  /** Exact decimal string of own nano AI units. */
+  ownNanoAiu: string | null;
+  cacheReadTokens: number;
+  inputTokens: number;
+  /** Requests whose join to a run was not exact. Shown, never hidden. */
+  unattributedRequests: number;
+}
+
+export interface AgentRequestRollupResponse {
+  enabled: boolean;
+  available: boolean;
+  rollups: AgentRequestRollup[];
+}
+
+/** Filters for the cross-session performance comparison. */
+export interface RequestPerformanceFilters {
+  fromDate?: string | null;
+  toDate?: string | null;
+  repository?: string | null;
+  models?: string[];
+  reasoningEfforts?: string[];
+  initiators?: string[];
+  apiEndpoints?: string[];
 }

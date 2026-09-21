@@ -330,15 +330,21 @@ export type {
 export { narrowSessionEvent } from "./session-event-payloads.js";
 // ── sessionStore.js ────────────────────────────────────────────────
 export type {
+  AgentRequestRollup,
+  AgentRequestRollupResponse,
   BillingCheck,
   BillingItemsStatus,
   CacheReuse,
   EnrichmentRefreshResponse,
   FieldCoverage,
   LatencyDistribution,
+  ModelRequestPerformance,
+  ModelRequestPerformanceResponse,
   ReconciliationStatus,
   RequestLedgerPage,
   RequestPerformance,
+  RequestPerformanceFilters,
+  RequestPerformanceReport,
   RequestPerformanceResponse,
   RequestUsageFilters,
   SessionCoverageRow,

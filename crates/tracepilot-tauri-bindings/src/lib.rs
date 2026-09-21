@@ -191,6 +191,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::session::get_session_request_usage,
             commands::session::get_session_work_refs,
             commands::session::get_request_performance,
+            commands::session::get_model_request_performance,
+            commands::session::get_agent_request_rollups,
             commands::search::refresh_session_enrichment,
             commands::session::get_tool_result,
             commands::session::resume_session_in_terminal,

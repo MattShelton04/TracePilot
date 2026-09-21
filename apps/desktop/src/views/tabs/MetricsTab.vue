@@ -7,6 +7,7 @@ import MetricsCacheBreakdown from "@/components/metrics/MetricsCacheBreakdown.vu
 import MetricsCodeChanges from "@/components/metrics/MetricsCodeChanges.vue";
 import MetricsModelTable from "@/components/metrics/MetricsModelTable.vue";
 import MetricsPromptCacheSection from "@/components/metrics/MetricsPromptCacheSection.vue";
+import MetricsRequestLedgerSection from "@/components/metrics/MetricsRequestLedgerSection.vue";
 import MetricsSessionActivity from "@/components/metrics/MetricsSessionActivity.vue";
 import MetricsStatCards from "@/components/metrics/MetricsStatCards.vue";
 import MetricsTokenBudget from "@/components/metrics/MetricsTokenBudget.vue";
@@ -38,6 +39,10 @@ const {
   timeline: promptCache,
   retry: retryPromptCache,
 } = usePromptCache(store);
+
+// Recorded requests exist whether or not a shutdown record does, so the
+// ledger renders outside the shutdown-metrics block.
+const requestLedgerEnabled = computed(() => prefs.isFeatureEnabled("sessionStoreEnrichment"));
 
 function retryLoadMetrics() {
   store.loaded.delete("metrics");
@@ -141,6 +146,14 @@ const {
         <Badge variant="done">{{ metrics.currentModel }}</Badge>
       </div>
     </template>
+
+    <MetricsRequestLedgerSection
+      v-if="requestLedgerEnabled"
+      :key="store.sessionId ?? undefined"
+      :session-id="store.sessionId"
+      :has-shutdown-totals="Boolean(metrics)"
+    />
+
     <SubagentPanel :subagent="selectedSubagent" :is-open="isPanelOpen" :current-index="selectedIndex" :total-count="allSubagents.length" :has-prev="hasPrev" :has-next="hasNext" :top-offset="panelTopPx" @close="closePanel" @prev="navigatePrev" @next="navigateNext" @select-subagent="selectSubagent" />
   </div>
 </template>

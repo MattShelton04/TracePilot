@@ -426,3 +426,126 @@ fn enrichment_is_not_written_for_a_session_the_baseline_has_not_indexed() {
     assert!(!changed);
     assert_eq!(count(&db, "session_store_coverage"), 0);
 }
+
+#[test]
+fn cross_session_performance_reports_per_model_populations() {
+    let source = SourceFixture::new();
+    // Two models, so the report has something to separate. Both requests
+    // carry a duration; only the fixture's default timings exist, which is
+    // exactly the partial-coverage case the distributions must describe.
+    let conn = Connection::open(&source.db_path).unwrap();
+    conn.execute(
+        "INSERT INTO sessions (id, repository) VALUES (?1, 'owner/name')",
+        [SESSION],
+    )
+    .unwrap();
+    for (model, duration) in [("gpt-5.6-luna", 4000), ("other-model", 9000)] {
+        conn.execute(
+            "INSERT INTO assistant_usage_events
+             (session_id, model, input_tokens, cache_read_tokens, duration_ms, created_at)
+             VALUES (?1, ?2, 1000, 800, ?3, '2026-09-20T10:00:00.000Z')",
+            rusqlite::params![SESSION, model, duration],
+        )
+        .unwrap();
+    }
+    drop(conn);
+    let (_tmp, db, _dir, _generation) = indexed(&source);
+
+    let report = db
+        .query_request_performance(&crate::index_db::RequestPerformanceFilter::default())
+        .unwrap();
+    assert!(report.available);
+    assert_eq!(report.session_count, 1);
+    assert_eq!(report.by_model.len(), 2);
+    let overall = report.overall.expect("a populated overall distribution");
+    assert_eq!(overall.request_count, 2);
+    assert_eq!(overall.duration_ms.median, Some(6500.0));
+    // Two samples is far below the p95 threshold; the median still shows.
+    assert_eq!(overall.duration_ms.p95, None);
+
+    let filtered = db
+        .query_request_performance(&crate::index_db::RequestPerformanceFilter {
+            models: vec!["other-model".to_string()],
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(filtered.by_model.len(), 1);
+    assert_eq!(
+        filtered
+            .overall
+            .expect("filtered distribution")
+            .request_count,
+        1
+    );
+}
+
+#[test]
+fn a_filter_matching_nothing_is_still_an_available_source() {
+    let source = SourceFixture::new();
+    source.seed(SESSION, 1, &[]);
+    let (_tmp, db, _dir, _generation) = indexed(&source);
+
+    let report = db
+        .query_request_performance(&crate::index_db::RequestPerformanceFilter {
+            repository: Some("someone/else".to_string()),
+            ..Default::default()
+        })
+        .unwrap();
+
+    // "The filter matched nothing" and "there is no source" are different
+    // statements, and a zero-valued distribution would read as a measurement.
+    assert!(report.available);
+    assert!(report.overall.is_none());
+    assert!(report.by_model.is_empty());
+}
+
+#[test]
+fn performance_is_unavailable_without_enrichment_tables() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db_path = tmp.path().join("legacy.db");
+    Connection::open(&db_path)
+        .unwrap()
+        .execute_batch("CREATE TABLE sessions (id TEXT PRIMARY KEY);")
+        .unwrap();
+    let db = IndexDb::open_readonly(&db_path).unwrap();
+
+    let report = db
+        .query_request_performance(&crate::index_db::RequestPerformanceFilter::default())
+        .unwrap();
+    assert!(!report.available);
+    assert!(db.query_agent_request_rollups(SESSION).unwrap().is_empty());
+}
+
+#[test]
+fn agent_rollups_keep_own_credits_exact_and_show_unattributed_work() {
+    let source = SourceFixture::new();
+    // Two root requests with large nano totals that lose precision as f64.
+    let conn = Connection::open(&source.db_path).unwrap();
+    conn.execute(
+        "INSERT INTO sessions (id, repository) VALUES (?1, 'owner/name')",
+        [SESSION],
+    )
+    .unwrap();
+    for _ in 0..2 {
+        conn.execute(
+            "INSERT INTO assistant_usage_events
+             (session_id, model, input_tokens, cache_read_tokens, total_nano_aiu, created_at)
+             VALUES (?1, 'gpt-5.6-luna', 1000, 800, 9007199254740993, '2026-09-20T10:00:00.000Z')",
+            [SESSION],
+        )
+        .unwrap();
+    }
+    drop(conn);
+    let (_tmp, db, _dir, _generation) = indexed(&source);
+
+    let rollups = db.query_agent_request_rollups(SESSION).unwrap();
+    assert_eq!(rollups.len(), 1);
+    let rollup = &rollups[0];
+    assert_eq!(rollup.request_count, 2);
+    // Summed with exact decimal arithmetic: f64 would have rounded this.
+    assert_eq!(rollup.own_nano_aiu.as_deref(), Some("18014398509481986"));
+    assert_eq!(rollup.cache_read_tokens, 1600);
+    // No agent ID and no run to join to, so both requests are unattributed
+    // and say so rather than vanishing from the breakdown.
+    assert_eq!(rollup.unattributed_requests, 2);
+}

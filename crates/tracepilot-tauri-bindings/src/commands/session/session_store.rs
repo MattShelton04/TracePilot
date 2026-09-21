@@ -10,11 +10,14 @@ use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::read_config;
 use crate::types::{
-    RequestPerformanceResponse, SessionRequestUsageResponse, SessionStoreStatusResponse,
-    SessionWorkRefsResponse,
+    AgentRequestRollupResponse, ModelRequestPerformanceResponse, RequestPerformanceResponse,
+    SessionRequestUsageResponse, SessionStoreStatusResponse, SessionWorkRefsResponse,
 };
 
-use tracepilot_indexer::index_db::{IndexDb, RequestCursor, RequestLedgerFilter};
+use tracepilot_indexer::index_db::{
+    IndexDb, RequestCursor, RequestLedgerFilter,
+    RequestPerformanceFilter as IndexRequestPerformanceFilter,
+};
 
 /// Filters accepted from the UI for the request ledger.
 ///
@@ -149,11 +152,6 @@ pub async fn get_session_work_refs(
 }
 
 /// Observed request performance across one session.
-///
-/// Scoped to a session rather than the whole library for the first release:
-/// a cross-session distribution needs the repository and date filters the
-/// analytics surfaces already own, and mixing the two filter vocabularies
-/// would produce populations the UI could not describe accurately.
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn get_request_performance(
@@ -181,4 +179,85 @@ pub async fn get_request_performance(
 fn parse_cursor(token: &str) -> Result<RequestCursor, BindingsError> {
     serde_json::from_value(serde_json::Value::String(token.to_string()))
         .map_err(|_| BindingsError::Validation("Invalid request ledger page token".to_string()))
+}
+
+/// Filters for the cross-session performance comparison.
+#[derive(Debug, Default, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RequestPerformanceFilters {
+    pub from_date: Option<String>,
+    pub to_date: Option<String>,
+    pub repository: Option<String>,
+    pub models: Vec<String>,
+    pub reasoning_efforts: Vec<String>,
+    pub initiators: Vec<String>,
+    pub api_endpoints: Vec<String>,
+}
+
+/// Observed request performance across sessions, overall and per model.
+///
+/// These are observational comparisons, not controlled benchmarks: prompt
+/// sizes and agent roles vary enormously between sessions and can dominate
+/// any difference between models.
+#[tauri::command]
+#[tracing::instrument(skip_all, level = "debug")]
+pub async fn get_model_request_performance(
+    state: tauri::State<'_, SharedConfig>,
+    filters: Option<RequestPerformanceFilters>,
+) -> CmdResult<ModelRequestPerformanceResponse> {
+    let config = read_config(&state);
+    let index_path = config.index_db_path();
+    let enabled = config.features.session_store_enrichment;
+    let filters = filters.unwrap_or_default();
+    crate::validators::validate_iso_date_range(&filters.from_date, &filters.to_date)?;
+
+    blocking_cmd!({
+        if !enabled {
+            return Ok(ModelRequestPerformanceResponse::disabled());
+        }
+        let db = IndexDb::open_readonly(&index_path)?;
+        let report = db.query_request_performance(&IndexRequestPerformanceFilter {
+            from_date: filters.from_date,
+            to_date: filters.to_date,
+            repository: filters.repository,
+            models: filters.models,
+            reasoning_efforts: filters.reasoning_efforts,
+            initiators: filters.initiators,
+            api_endpoints: filters.api_endpoints,
+        })?;
+        Ok::<_, BindingsError>(ModelRequestPerformanceResponse {
+            enabled: true,
+            report,
+        })
+    })
+}
+
+/// Per-agent request figures for one session.
+///
+/// Own totals only. A branch total is the caller's to derive by summing
+/// descendants once, exactly as the existing Agents metrics UI does; adding
+/// a branch total and its children into a session total double-counts.
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(%session_id))]
+pub async fn get_agent_request_rollups(
+    state: tauri::State<'_, SharedConfig>,
+    session_id: String,
+) -> CmdResult<AgentRequestRollupResponse> {
+    crate::validators::validate_session_id(&session_id)?;
+    let config = read_config(&state);
+    let index_path = config.index_db_path();
+    let enabled = config.features.session_store_enrichment;
+
+    blocking_cmd!({
+        if !enabled {
+            return Ok(AgentRequestRollupResponse::disabled());
+        }
+        let db = IndexDb::open_readonly(&index_path)?;
+        let rollups = db.query_agent_request_rollups(&session_id)?;
+        Ok::<_, BindingsError>(AgentRequestRollupResponse {
+            enabled: true,
+            available: db.has_session_store_enrichment(),
+            rollups,
+        })
+    })
 }

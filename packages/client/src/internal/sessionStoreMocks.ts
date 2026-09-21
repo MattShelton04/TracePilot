@@ -1,4 +1,6 @@
 import type {
+  AgentRequestRollupResponse,
+  ModelRequestPerformanceResponse,
   PromptCacheResponse,
   RequestPerformanceResponse,
   SessionRequestUsageResponse,
@@ -56,8 +58,44 @@ export function sessionStoreMocks(mocks: Mocks, eventsFileMtime: number): Record
     eventsFileMtime,
   };
 
+  const modelPerformance: ModelRequestPerformanceResponse = {
+    enabled: true,
+    report: {
+      available: true,
+      overall: mocks.MOCK_REQUEST_PERFORMANCE,
+      byModel: [{ model: "gpt-5.6-luna", performance: mocks.MOCK_REQUEST_PERFORMANCE }],
+      sessionCount: 1,
+    },
+  };
+  const agentRollups: AgentRequestRollupResponse = {
+    enabled: true,
+    available: true,
+    rollups: [
+      {
+        runKey: null,
+        agentId: null,
+        requestCount: 2,
+        ownNanoAiu: "4474355000",
+        cacheReadTokens: 295_259,
+        inputTokens: 307_432,
+        unattributedRequests: 2,
+      },
+      {
+        runKey: "run-explore-01",
+        agentId: "agent-explore-01",
+        requestCount: 1,
+        ownNanoAiu: "104812500",
+        cacheReadTokens: 0,
+        inputTokens: 38_210,
+        unattributedRequests: 0,
+      },
+    ],
+  };
+
   return {
     get_session_prompt_cache: promptCache,
+    get_model_request_performance: modelPerformance,
+    get_agent_request_rollups: agentRollups,
     get_session_store_status: status,
     get_session_request_usage: usage,
     get_session_work_refs: workRefs,

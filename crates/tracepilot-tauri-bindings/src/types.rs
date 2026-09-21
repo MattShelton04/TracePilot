@@ -440,3 +440,42 @@ pub struct EnrichmentRefreshResponse {
     pub skipped: usize,
     pub detail: Option<String>,
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelRequestPerformanceResponse {
+    pub enabled: bool,
+    pub report: tracepilot_indexer::index_db::RequestPerformanceReport,
+}
+
+impl ModelRequestPerformanceResponse {
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            report: tracepilot_indexer::index_db::RequestPerformanceReport {
+                available: false,
+                overall: None,
+                by_model: Vec::new(),
+                session_count: 0,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRequestRollupResponse {
+    pub enabled: bool,
+    pub available: bool,
+    pub rollups: Vec<tracepilot_indexer::index_db::AgentRequestRollup>,
+}
+
+impl AgentRequestRollupResponse {
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            available: false,
+            rollups: Vec::new(),
+        }
+    }
+}

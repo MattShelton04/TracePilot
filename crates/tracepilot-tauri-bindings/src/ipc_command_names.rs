@@ -47,6 +47,8 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "get_session_request_usage",
     "get_session_work_refs",
     "get_request_performance",
+    "get_model_request_performance",
+    "get_agent_request_rollups",
     "refresh_session_enrichment",
     "context_capture_preflight",
     "context_capture_start",

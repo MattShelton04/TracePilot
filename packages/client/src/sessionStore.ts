@@ -1,5 +1,8 @@
 import type {
+  AgentRequestRollupResponse,
   EnrichmentRefreshResponse,
+  ModelRequestPerformanceResponse,
+  RequestPerformanceFilters,
   RequestPerformanceResponse,
   RequestUsageFilters,
   SessionRequestUsageResponse,
@@ -61,4 +64,30 @@ export async function getRequestPerformance(
  */
 export async function refreshSessionEnrichment(): Promise<EnrichmentRefreshResponse> {
   return invoke<EnrichmentRefreshResponse>("refresh_session_enrichment");
+}
+
+/**
+ * Observed request performance across sessions, overall and per model.
+ *
+ * Observational comparisons, not controlled benchmarks: prompt sizes and
+ * agent roles vary between sessions and can dominate any model difference.
+ */
+export async function getModelRequestPerformance(
+  filters?: RequestPerformanceFilters,
+): Promise<ModelRequestPerformanceResponse> {
+  return invoke<ModelRequestPerformanceResponse>("get_model_request_performance", {
+    filters: filters ?? null,
+  });
+}
+
+/**
+ * Per-agent request figures for one session, own totals only.
+ *
+ * Sum descendants once to derive a branch total; adding a branch total and
+ * its children into a session total double-counts.
+ */
+export async function getAgentRequestRollups(
+  sessionId: string,
+): Promise<AgentRequestRollupResponse> {
+  return invoke<AgentRequestRollupResponse>("get_agent_request_rollups", { sessionId });
 }

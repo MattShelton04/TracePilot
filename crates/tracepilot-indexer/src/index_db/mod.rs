@@ -12,7 +12,7 @@
 //! - `search_writer` / `search_reader` — FTS5 content and search surface
 //! - `analytics_queries` — aggregate analytics, tool analysis, code impact
 
-mod analytics_queries;
+pub mod analytics_queries;
 pub(crate) mod batch_insert;
 pub mod enrichment;
 mod helpers;
@@ -31,6 +31,9 @@ mod types;
 use rusqlite::Connection;
 
 // Re-export public types used by callers (lib.rs, tauri-bindings).
+pub use analytics_queries::request_performance::{
+    AgentRequestRollup, ModelRequestPerformance, RequestPerformanceFilter, RequestPerformanceReport,
+};
 pub use enrichment::{
     RequestCursor, RequestLedgerFilter, RequestLedgerPage, SessionCoverageRow, StoreSourceStatus,
     StoredBillingItem, StoredRequest, StoredWorkRef,
