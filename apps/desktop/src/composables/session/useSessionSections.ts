@@ -15,6 +15,7 @@ import {
   getShutdownMetrics,
 } from "@tracepilot/client";
 import type {
+  CacheObservation,
   CheckpointEntry,
   PromptCacheTimeline,
   SessionIncident,
@@ -23,7 +24,7 @@ import type {
   TodosResponse,
 } from "@tracepilot/types";
 import type { AsyncGuard, AsyncGuardToken } from "@tracepilot/ui";
-import type { Ref } from "vue";
+import { type Ref, ref } from "vue";
 import {
   type AsyncSectionDefinition,
   createAsyncSection,
@@ -46,6 +47,14 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
   const metricsSection = createAsyncSection<ShutdownMetrics | null>(null);
   const incidentsSection = createAsyncSection<SessionIncident[]>([]);
   const promptCacheSection = createAsyncSection<PromptCacheTimeline | null>(null);
+  /**
+   * Recorded reuse for the requests that resumed each idle window. It rides
+   * along on the prompt-cache read rather than costing a second one, but it
+   * is kept apart from the timeline because it is a different claim: an
+   * expiry prediction and an observed cache-read count answer different
+   * questions and neither rewrites the other.
+   */
+  const promptCacheObservations = ref<CacheObservation[]>([]);
 
   const todosDef = defineAsyncSection({
     key: "todos",
@@ -107,7 +116,13 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     key: "promptCache",
     section: promptCacheSection,
     defaultValue: () => null,
-    fetchFn: async (id) => (await getSessionPromptCache(id)).timeline,
+    fetchFn: async (id) => {
+      const response = await getSessionPromptCache(id);
+      // The section machinery drops results for a session the user has since
+      // left; this ref has to drop them too or it would describe another one.
+      if (opts.sessionId.value === id) promptCacheObservations.value = response.observations ?? [];
+      return response.timeline;
+    },
     sessionId: opts.sessionId,
     loaded: opts.loaded,
     guard: opts.guard,
@@ -134,6 +149,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     for (const sec of standardSections) {
       sec.resetData();
     }
+    promptCacheObservations.value = [];
   }
 
   function refreshLoaded(id: string, token: AsyncGuardToken): Promise<void>[] {
@@ -153,6 +169,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     metricsSection,
     incidentsSection,
     promptCacheSection,
+    promptCacheObservations,
     todosDef,
     checkpointsDef,
     planDef,

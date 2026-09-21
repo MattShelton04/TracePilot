@@ -6,6 +6,7 @@ import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import ModelCharts from "@/components/modelComparison/ModelCharts.vue";
 import ModelCompareTable from "@/components/modelComparison/ModelCompareTable.vue";
 import ModelLeaderboard from "@/components/modelComparison/ModelLeaderboard.vue";
+import ModelObservedPerformance from "@/components/modelComparison/ModelObservedPerformance.vue";
 import ModelStatsGrid from "@/components/modelComparison/ModelStatsGrid.vue";
 import { ModelComparisonKey, useModelComparison } from "@/composables/useModelComparison";
 import "@/styles/features/model-comparison.css";
@@ -43,6 +44,9 @@ provide(ModelComparisonKey, ctx);
             <ModelLeaderboard />
             <ModelCharts />
             <ModelCompareTable />
+            <!-- Observations of individual requests, kept apart from the
+                 session roll-ups above rather than merged into them. -->
+            <ModelObservedPerformance />
           </template>
         </template>
       </LoadingOverlay>

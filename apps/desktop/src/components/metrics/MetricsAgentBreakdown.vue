@@ -11,9 +11,17 @@ import {
 } from "@tracepilot/ui";
 import { Info } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
+import { useAgentRequestRollups } from "@/composables/session/useAgentRequestRollups";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { usePreferencesStore } from "@/stores/preferences";
+import {
+  type AgentRequestFigures,
+  cacheReadRatio,
+  joinAgentRequestRollups,
+} from "@/utils/agentRequestRollups";
 import { agentUsageCoverage, buildAgentUsageRows } from "@/utils/agentUsageRows";
+import { formatExactCredits, NOT_RECORDED } from "@/utils/requestLedger";
 import MetricsCacheBreakdown from "./MetricsCacheBreakdown.vue";
 import MetricsModelTable from "./MetricsModelTable.vue";
 
@@ -27,12 +35,42 @@ const page = ref(0);
 const selectedId = ref<string | null>("main");
 const rows = computed(() => buildAgentUsageRows(props.metrics, props.turns));
 const coverage = computed(() => agentUsageCoverage(props.metrics));
+
+// Recorded requests are a second, independent source. They add columns to the
+// shutdown breakdown; they never stand in for a shutdown total, whose coverage
+// they cannot be assumed to match.
+const sessionDetail = useSessionDetailContext();
+const requests = useAgentRequestRollups(() => sessionDetail.sessionId);
+const requestJoin = computed(() => joinAgentRequestRollups(rows.value, requests.rollups.value));
+const showRequests = computed(
+  () => requests.enabled.value && requests.available.value && requestJoin.value.hasFigures,
+);
+const attribution = computed(() => requestJoin.value.attribution);
+
+/** A row with no roll-up at all is unrecorded, which a recorded 0 is not. */
+function requestCell(figures: AgentRequestFigures | undefined): string {
+  if (!figures || (figures.requestCount === 0 && figures.nanoAiu == null)) return NOT_RECORDED;
+  return formatNumber(figures.requestCount);
+}
+
+function ratioCell(figures: AgentRequestFigures | undefined): string {
+  const ratio = figures ? cacheReadRatio(figures) : null;
+  return ratio == null ? NOT_RECORDED : `${(ratio * 100).toFixed(1)}%`;
+}
+
 const displayRows = computed(() => {
+  const join = requestJoin.value;
   const result = rows.value.map((row) => {
     const usage = descendants.value ? row.branch : row.own;
+    const columns = join.byRow.get(row.id);
+    const figures = descendants.value ? columns?.branch : columns?.own;
     return {
       ...row,
       ...usage,
+      requestFigures: figures,
+      storeRequests: requestCell(figures),
+      storeCredits: figures ? formatExactCredits(figures.nanoAiu) : NOT_RECORDED,
+      storeCacheRatio: ratioCell(figures),
       total: usage.tokens.total,
       share:
         usage.credits != null &&
@@ -80,6 +118,17 @@ const columns = (
     { key: "apiMs", label: "API time", align: "right" as const },
   ] satisfies Array<{ key: SortKey; label: string; align?: "right" }>
 ).map((column) => ({ ...column, sortable: true }));
+
+// Not sortable: credits here are exact decimal strings, and comparing them
+// would mean parsing a nano-AIU total that routinely exceeds 2^53.
+const REQUEST_COLUMNS = [
+  { key: "storeRequests", label: "Model requests", align: "right" as const, sortable: false },
+  { key: "storeCredits", label: "Request credits", align: "right" as const, sortable: false },
+  { key: "storeCacheRatio", label: "Request cache read", align: "right" as const, sortable: false },
+];
+const tableColumns = computed(() =>
+  showRequests.value ? [...columns, ...REQUEST_COLUMNS] : columns,
+);
 function toggleSort(key: string) {
   const column = columns.find((column) => column.key === key);
   if (!column) return;
@@ -111,7 +160,7 @@ const snapshotDate = computed(() =>
       <label class="text-xs flex items-center gap-2 cursor-pointer"><input v-model="descendants" type="checkbox" class="cursor-pointer" />Include descendants</label>
       <button v-if="sortKey" class="cursor-pointer text-xs text-[var(--accent-fg)] hover:underline" @click="sortKey = null">Reset to hierarchy</button>
     </div>
-    <DataTable :columns="columns" :rows="visibleRows" :sort-key="sortKey" :sort-direction="sortDirection" style="overflow-x: auto;" data-testid="agent-usage-table" @sort="toggleSort">
+    <DataTable :columns="tableColumns" :rows="visibleRows" :sort-key="sortKey" :sort-direction="sortDirection" style="overflow-x: auto;" data-testid="agent-usage-table" @sort="toggleSort">
       <template #cell-name="{ row }">
         <div :style="{ paddingLeft: !sortKey ? `${Math.min(row.depth as number, 8) * 16}px` : '0' }">
           <button class="cursor-pointer text-left text-[var(--accent-fg)] hover:underline" :class="{ 'font-semibold': selectedId === row.id }" :title="row.id as string" :aria-pressed="selectedId === row.id" @click="selectedId = row.id as string">{{ row.name }}</button>
@@ -125,6 +174,9 @@ const snapshotDate = computed(() =>
       <template #cell-requests="{ value }">{{ format(value) }}</template>
       <template #cell-tools="{ value }">{{ format(value) }}</template>
       <template #cell-apiMs="{ value }">{{ value != null ? formatDuration(value as number) : '—' }}</template>
+      <template #cell-storeRequests="{ value }">{{ value }}</template>
+      <template #cell-storeCredits="{ value }">{{ value }}</template>
+      <template #cell-storeCacheRatio="{ value }">{{ value }}</template>
     </DataTable>
     <div v-if="pageCount > 1" class="flex items-center gap-4 mt-4 text-xs">
       <button class="btn btn-secondary" :disabled="page === 0" @click="page--">Previous</button>
@@ -134,6 +186,12 @@ const snapshotDate = computed(() =>
     <p v-if="descendants" class="text-xs text-[var(--text-tertiary)] mt-3">Rows include descendants and overlap; do not add them together.</p>
     <p v-if="coverage.attributed != null" class="text-xs text-[var(--text-secondary)] mt-4">Attributed credits: {{ formatAiCredits(coverage.attributed) }}{{ coverage.complete ? '' : ' (partial)' }}<span v-if="coverage.remainder != null"> · Not attributed to an agent: {{ formatAiCredits(coverage.remainder) }}</span></p>
     <p v-if="coverage.exceedsTotal" class="text-xs text-[var(--attention-fg)] mt-3">Agent credits exceed the recorded session total.</p>
+    <template v-if="requests.enabled.value">
+      <p v-if="showRequests" class="text-xs text-[var(--text-secondary)] mt-4" data-testid="agent-requests-note">Model request, credit and cache-read columns come from the Copilot session store and are counted per request. They are a separate figure from the shutdown totals beside them, which are unchanged.</p>
+      <p v-if="showRequests && attribution.unattributedRequests > 0" class="text-xs text-[var(--attention-fg)] mt-2" data-testid="agent-requests-unattributed">Not attributed to an agent run: {{ attribution.unattributedRequests }} recorded request(s)<span v-if="attribution.unmatched"> · {{ formatExactCredits(attribution.unmatched.nanoAiu) }}</span>. This work happened; the breakdown above does not say where.</p>
+      <p v-if="showRequests && attribution.unmatchedRollups > 0" class="text-xs text-[var(--attention-fg)] mt-2" data-testid="agent-requests-unmatched">{{ attribution.unmatchedRollups }} recorded run(s) have no matching row in this breakdown and are not included in the columns above.</p>
+      <p v-if="requests.loaded.value && !requests.available.value" class="text-xs text-[var(--text-tertiary)] mt-4" data-testid="agent-requests-unavailable">No session store could be read, so per-request figures are unavailable for these agents. The shutdown totals above are unaffected.</p>
+    </template>
   </SectionPanel>
   <SectionPanel v-if="selected" :title="`${selected.name} · Own usage`" class="mb-6" data-testid="agent-usage-detail">
     <template #actions>
