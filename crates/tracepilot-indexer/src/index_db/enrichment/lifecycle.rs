@@ -23,7 +23,9 @@ impl IndexDb {
         availability: SourceAvailability,
         error: &SessionStoreError,
     ) -> Result<()> {
-        let existing = self.session_store_status()?;
+        let existing = self
+            .session_store_status()?
+            .filter(|status| status.source_id == binding.source_id);
         let source = StoreSourceRow {
             source_id: binding.source_id.clone(),
             db_path: binding.db_path.display().to_string(),

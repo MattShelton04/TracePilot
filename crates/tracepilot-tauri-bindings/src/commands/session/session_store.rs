@@ -145,7 +145,8 @@ pub async fn get_session_work_refs(
             // Distinguishing "no references found" from "no source to search"
             // matters: the second must not read as evidence that no such work
             // exists.
-            available: db.session_store_coverage(&session_id)?.is_some(),
+            available: db.has_session_store_capability("workRefs")?
+                && db.session_store_coverage(&session_id)?.is_some(),
             refs,
             source_availability: status.map(|status| status.availability),
         })
@@ -170,7 +171,11 @@ pub async fn get_request_performance(
         }
         let db = IndexDb::open_readonly(&index_path)?;
         let requests = db.all_session_requests(&session_id)?;
-        let coverage = db.session_store_coverage(&session_id)?;
+        let coverage = if db.has_session_store_capability("requests")? {
+            db.session_store_coverage(&session_id)?
+        } else {
+            None
+        };
         Ok::<_, BindingsError>(RequestPerformanceResponse::from_requests(
             &requests, coverage,
         ))
@@ -257,7 +262,8 @@ pub async fn get_agent_request_rollups(
         let rollups = db.query_agent_request_rollups(&session_id)?;
         Ok::<_, BindingsError>(AgentRequestRollupResponse {
             enabled: true,
-            available: db.session_store_coverage(&session_id)?.is_some(),
+            available: db.has_session_store_capability("requests")?
+                && db.session_store_coverage(&session_id)?.is_some(),
             rollups,
         })
     })

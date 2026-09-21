@@ -44,6 +44,10 @@ const FIXTURE: &str = "
 /// The reference table as migration 20 creates it, carrying only the columns
 /// the search path reads.
 const WORK_REFS: &str = "
+    CREATE TABLE session_store_sources (
+        generation TEXT, last_attempt_at TEXT, last_success_at TEXT
+    );
+    INSERT INTO session_store_sources VALUES ('g1', '2026-01-01', '2026-01-01');
     CREATE TABLE session_work_refs (
         source_id TEXT NOT NULL,
         generation TEXT NOT NULL,
@@ -53,7 +57,7 @@ const WORK_REFS: &str = "
         raw_value TEXT NOT NULL,
         normalized_value TEXT NOT NULL,
         resolution TEXT NOT NULL,
-        PRIMARY KEY (source_id, generation, ref_identity)
+        PRIMARY KEY (source_id, generation, session_id, ref_identity)
     );
     INSERT INTO session_work_refs
         (source_id, generation, ref_identity, session_id, kind, raw_value,
@@ -96,6 +100,23 @@ fn qualifier_only_search_needs_no_fts_text() {
     let results = db.query_content(None, &pull_requests(&["123"])).unwrap();
 
     assert_eq!(session_ids(&results), vec!["s1", "s2"]);
+}
+
+#[test]
+fn references_from_a_previous_binding_do_not_leak_into_search() {
+    let db = db_with_work_refs();
+    db.conn
+        .execute(
+            "INSERT INTO session_store_sources VALUES ('g2', '2026-01-02', NULL)",
+            [],
+        )
+        .unwrap();
+    assert!(
+        db.query_content(None, &pull_requests(&["123"]))
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(db.query_count(None, &pull_requests(&["123"])).unwrap(), 0);
 }
 
 #[test]

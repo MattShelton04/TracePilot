@@ -143,8 +143,14 @@ fn parse_item(ordinal: usize, entry: &Value) -> Option<BillingItem> {
     Some(BillingItem {
         ordinal: u32::try_from(ordinal).ok()?,
         token_type: token_type.to_string(),
-        token_count: object.get("tokenCount").and_then(json_count),
-        batch_size: object.get("batchSize").and_then(json_count),
+        token_count: object
+            .get("tokenCount")
+            .and_then(json_count)
+            .filter(|value| i64::try_from(*value).is_ok()),
+        batch_size: object
+            .get("batchSize")
+            .and_then(json_count)
+            .filter(|value| i64::try_from(*value).is_ok()),
         cost_per_batch: object.get("costPerBatch").and_then(json_decimal),
         model: object
             .get("model")

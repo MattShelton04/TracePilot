@@ -111,7 +111,7 @@ pub struct WorkRef {
     pub kind: WorkRefKind,
     /// The value exactly as recorded.
     pub raw_value: String,
-    /// Lowercased, URL-stripped value used for dedup and search.
+    /// URL-stripped value used for dedup and search; Git ref case is preserved.
     pub normalized_value: String,
     /// Host taken from the reference itself, e.g. `github.com` or an
     /// Enterprise hostname. Never derived from `host_type`, which is a kind,
@@ -259,7 +259,7 @@ fn parse_reference_url(value: &str) -> Option<ParsedUrl> {
         return None;
     }
     let value = if kind == "commit" {
-        tail.to_ascii_lowercase()
+        normalize_git_ref(tail)
     } else {
         // Strip a trailing `/files` or similar, and reject a non-numeric tail.
         let number: u64 = tail.parse().ok()?;
@@ -291,10 +291,17 @@ fn normalize_bare_value(kind: &WorkRefKind, raw: &str) -> String {
             _ => String::new(),
         };
     }
-    let lowered = trimmed.to_ascii_lowercase();
-    if lowered.is_empty() || lowered.len() > MAX_REF_LEN {
+    if trimmed.is_empty() || trimmed.len() > MAX_REF_LEN {
         String::new()
     } else {
-        lowered
+        normalize_git_ref(trimmed)
+    }
+}
+
+fn normalize_git_ref(value: &str) -> String {
+    if (7..=40).contains(&value.len()) && value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        value.to_ascii_lowercase()
+    } else {
+        value.to_string()
     }
 }

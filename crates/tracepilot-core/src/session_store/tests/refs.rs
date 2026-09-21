@@ -17,6 +17,22 @@ fn normalize(ref_type: &str, value: &str, repository: Option<&str>) -> WorkRef {
 }
 
 #[test]
+fn branch_names_preserve_case_but_commit_hashes_normalize() {
+    assert_eq!(
+        normalize("commit", "Feature/Fix", None).normalized_value,
+        "Feature/Fix"
+    );
+    assert_ne!(
+        normalize("commit", "Feature/Fix", None).identity(),
+        normalize("commit", "feature/fix", None).identity()
+    );
+    assert_eq!(
+        normalize("commit", "ABCDEF1", None).normalized_value,
+        "abcdef1"
+    );
+}
+
+#[test]
 fn a_bare_number_is_session_context_not_a_verified_link() {
     let work_ref = normalize("pr", "123", Some("owner/name"));
     assert_eq!(work_ref.kind, WorkRefKind::PullRequest);

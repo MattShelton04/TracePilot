@@ -300,24 +300,24 @@ impl SearchQueryBuilder {
 }
 
 /// Correlated existence test for one linked-work reference.
-const WORK_REF_EXISTS: &str = "EXISTS (SELECT 1 FROM session_work_refs wr      WHERE wr.session_id = sc.session_id AND wr.kind = ? AND wr.normalized_value = ?)";
+const WORK_REF_EXISTS: &str = "EXISTS (SELECT 1 FROM session_work_refs wr \
+    WHERE wr.session_id = sc.session_id AND wr.kind = ? AND wr.normalized_value = ? \
+    AND wr.generation = (SELECT CASE WHEN last_success_at IS NOT NULL THEN generation END \
+        FROM session_store_sources ORDER BY last_attempt_at DESC LIMIT 1))";
 
 /// Normalize one typed qualifier value into the stored `normalized_value`
-/// form: trimmed, a leading `#` dropped, lowercased, and — for pull requests
-/// and issues — a positive decimal. Returns `None` when no stored row could
-/// ever carry the value.
+/// form using the same rules as the source adapter.
 fn normalize_work_ref_value(kind: &WorkRefKind, value: &str) -> Option<String> {
-    let trimmed = value.trim().trim_start_matches('#').trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    match kind {
-        WorkRefKind::PullRequest | WorkRefKind::Issue => match trimmed.parse::<u64>() {
-            Ok(number) if number > 0 => Some(number.to_string()),
-            _ => None,
-        },
-        _ => Some(trimmed.to_ascii_lowercase()),
-    }
+    let reference = tracepilot_core::session_store::WorkRef::normalize(
+        "",
+        None,
+        kind.qualifier()?,
+        value,
+        None,
+        None,
+        None,
+    );
+    (!reference.normalized_value.is_empty()).then_some(reference.normalized_value)
 }
 
 /// Build the FROM clause for search queries.

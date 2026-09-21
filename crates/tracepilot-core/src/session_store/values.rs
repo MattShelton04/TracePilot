@@ -76,7 +76,7 @@ fn value_ref<'a>(row: &'a Row<'a>, index: usize) -> Option<ValueRef<'a>> {
 }
 
 /// A non-negative integral count. Rejects negatives, non-integral reals and
-/// anything above `u64::MAX`.
+/// anything outside SQLite's signed integer storage range.
 pub fn count(row: &Row<'_>, index: usize) -> Cell<u64> {
     match value_ref(row, index) {
         None | Some(ValueRef::Null) => Cell::Absent,
@@ -92,7 +92,11 @@ pub fn count(row: &Row<'_>, index: usize) -> Cell<u64> {
             }
         }
         Some(ValueRef::Text(bytes)) => match std::str::from_utf8(bytes).ok().map(str::trim) {
-            Some(text) => text.parse::<u64>().map_or(Cell::Invalid, Cell::Value),
+            Some(text) => text
+                .parse::<i64>()
+                .ok()
+                .and_then(|value| u64::try_from(value).ok())
+                .map_or(Cell::Invalid, Cell::Value),
             None => Cell::Invalid,
         },
         Some(_) => Cell::Invalid,

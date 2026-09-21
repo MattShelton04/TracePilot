@@ -94,8 +94,16 @@ fn load_cache_observations(
     if timeline.windows.is_empty() {
         return Vec::new();
     }
-    let requests = tracepilot_indexer::index_db::IndexDb::open_readonly(index_path)
-        .and_then(|db| db.all_session_requests(session_id));
+    let requests =
+        tracepilot_indexer::index_db::IndexDb::open_readonly(index_path).and_then(|db| {
+            if db
+                .session_store_coverage(session_id)?
+                .is_none_or(|coverage| coverage.freshness != "current")
+            {
+                return Ok(Vec::new());
+            }
+            db.all_session_requests(session_id)
+        });
     match requests {
         Ok(requests) => {
             let core: Vec<_> = requests.iter().map(|request| request.to_core()).collect();

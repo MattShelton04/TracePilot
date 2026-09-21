@@ -90,7 +90,7 @@ impl IndexDb {
         if !self.has_session_store_enrichment() {
             return Ok(RequestLedgerPage::unavailable());
         }
-        let Some(generation) = self.active_generation()? else {
+        let Some(generation) = self.request_generation()? else {
             return Ok(RequestLedgerPage::unavailable());
         };
         let revision = self
@@ -151,7 +151,7 @@ impl IndexDb {
         if !self.has_session_store_enrichment() {
             return Ok(Vec::new());
         }
-        let Some(generation) = self.active_generation()? else {
+        let Some(generation) = self.request_generation()? else {
             return Ok(Vec::new());
         };
         let sql = format!(
@@ -211,6 +211,9 @@ impl IndexDb {
         if !table_exists(&self.conn, "session_store_coverage") {
             return Ok(None);
         }
+        let Some(generation) = self.active_generation()? else {
+            return Ok(None);
+        };
         Ok(self
             .conn
             .query_row(
@@ -219,9 +222,9 @@ impl IndexDb {
                         billing_absent, billing_partial, billing_invalid, field_coverage_json, \
                         missing_columns, reconciliation_status, reconciliation_scope, \
                         reconciliation_metrics, reconciliation_differences, read_at, revision \
-                 FROM session_store_coverage WHERE session_id = ?1 \
+                 FROM session_store_coverage WHERE session_id = ?1 AND generation = ?2 \
                  ORDER BY read_at DESC LIMIT 1",
-                [session_id],
+                [session_id, generation.as_str()],
                 |row| {
                     Ok(SessionCoverageRow {
                         session_id: row.get(0)?,
@@ -251,18 +254,34 @@ impl IndexDb {
 
     /// The generation currently published by the bound source.
     pub(crate) fn active_generation(&self) -> Result<Option<String>> {
+        self.generation_for(None)
+    }
+
+    pub(crate) fn request_generation(&self) -> Result<Option<String>> {
+        self.generation_for(Some("requests"))
+    }
+
+    /// Whether the published source snapshot supports this evidence type.
+    pub fn has_session_store_capability(&self, capability: &str) -> Result<bool> {
+        Ok(self.generation_for(Some(capability))?.is_some())
+    }
+
+    fn generation_for(&self, capability: Option<&str>) -> Result<Option<String>> {
         if !table_exists(&self.conn, "session_store_sources") {
             return Ok(None);
         }
         Ok(self
             .conn
             .query_row(
-                "SELECT generation FROM session_store_sources WHERE last_success_at IS NOT NULL \
+                "SELECT CASE WHEN last_success_at IS NOT NULL \
+                    AND (?1 IS NULL OR instr(',' || capabilities || ',', ',' || ?1 || ',') > 0) \
+                    THEN generation END FROM session_store_sources \
                  ORDER BY last_attempt_at DESC LIMIT 1",
-                [],
-                |row| row.get::<_, String>(0),
+                [capability],
+                |row| row.get::<_, Option<String>>(0),
             )
-            .optional()?)
+            .optional()?
+            .flatten())
     }
 
     fn build_request_filter(

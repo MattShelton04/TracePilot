@@ -83,8 +83,8 @@ struct WorkRefRow<'a> {
     sha_shaped: i64,
 }
 
-fn to_i64(value: u64) -> i64 {
-    i64::try_from(value).unwrap_or(i64::MAX)
+fn to_i64(value: u64) -> Option<i64> {
+    i64::try_from(value).ok()
 }
 
 pub(super) fn write_requests(conn: &Connection, write: &SessionEnrichmentWrite<'_>) -> Result<()> {
@@ -159,8 +159,8 @@ pub(super) fn write_billing_items(
                 billing_model: item
                     .billing_model(request.copilot_usage_model.as_deref())
                     .map(str::to_string),
-                token_count: item.token_count.map(to_i64),
-                batch_size: item.batch_size.map(to_i64),
+                token_count: item.token_count.and_then(to_i64),
+                batch_size: item.batch_size.and_then(to_i64),
             })
         })
         .collect();
@@ -203,7 +203,7 @@ pub(super) fn write_work_refs(conn: &Connection, write: &SessionEnrichmentWrite<
         .collect();
     batched_insert(
         conn,
-        "INSERT OR REPLACE INTO session_work_refs \
+        "INSERT INTO session_work_refs \
          (source_id, generation, ref_identity, session_id, source_row_id, kind, raw_value, \
           normalized_value, resolved_host, resolved_repository, candidate_repository, resolution, \
           sha_shaped, source_turn_index, recorded_at) VALUES",

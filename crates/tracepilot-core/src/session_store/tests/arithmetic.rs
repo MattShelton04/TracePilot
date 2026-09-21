@@ -69,6 +69,32 @@ fn items_json() -> &'static str {
 }
 
 #[test]
+fn numeric_billing_rates_keep_all_source_decimal_digits() {
+    let (items, _) = billing::parse_items(Some(
+        r#"[{"tokenType":"input","tokenCount":1,"batchSize":1,"costPerBatch":0.123456789012345678}]"#,
+    ));
+    assert_eq!(
+        items[0].cost_per_batch.unwrap().to_string(),
+        "0.123456789012345678"
+    );
+    assert_eq!(
+        billing::item_total(&items)
+            .and_then(billing::decimal_string)
+            .as_deref(),
+        Some("0.123456789012345678")
+    );
+}
+
+#[test]
+fn oversized_billing_counts_are_unusable_instead_of_clamped() {
+    let (items, _) = billing::parse_items(Some(
+        r#"[{"tokenType":"input","tokenCount":18446744073709551615,"batchSize":1,"costPerBatch":1}]"#,
+    ));
+    assert_eq!(items[0].token_count, None);
+    assert!(billing::item_total(&items).is_none());
+}
+
+#[test]
 fn billing_items_reproduce_a_recorded_charge_exactly() {
     let (items, status) = billing::parse_items(Some(items_json()));
     assert_eq!(status, BillingItemsStatus::Complete);

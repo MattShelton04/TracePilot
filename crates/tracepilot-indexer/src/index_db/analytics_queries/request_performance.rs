@@ -272,9 +272,9 @@ pub(super) fn query_agent_request_rollups(
     // in the rollup, grouped under "unattributed", rather than vanishing.
     let mut stmt = conn.prepare(
         "SELECT l.run_key, u.agent_id, COUNT(*), \
-                COALESCE(SUM(COALESCE(u.cache_read_tokens, 0)), 0), \
-                COALESCE(SUM(COALESCE(u.input_tokens, 0)), 0), \
-                SUM(CASE WHEN l.join_status = 'exact' THEN 0 ELSE 1 END) \
+                COALESCE(SUM(CASE WHEN u.cache_read_tokens BETWEEN 0 AND u.input_tokens THEN u.cache_read_tokens END), 0), \
+                COALESCE(SUM(CASE WHEN u.cache_read_tokens BETWEEN 0 AND u.input_tokens THEN u.input_tokens END), 0), \
+                SUM(CASE WHEN l.join_status = 'exact' AND l.run_key IS NOT NULL THEN 0 ELSE 1 END) \
          FROM session_request_usage u \
          LEFT JOIN session_request_links l \
            ON l.source_id = u.source_id AND l.generation = u.generation \
@@ -318,38 +318,36 @@ fn sum_own_credits(
          LEFT JOIN session_request_links l \
            ON l.source_id = u.source_id AND l.generation = u.generation \
           AND l.source_row_id = u.source_row_id \
-         WHERE u.generation = ?1 AND u.session_id = ?2 AND u.total_nano_aiu IS NOT NULL",
+         WHERE u.generation = ?1 AND u.session_id = ?2",
     )?;
     let rows = stmt
         .query_map(rusqlite::params![generation, session_id], |row| {
             Ok((
                 row.get::<_, Option<String>>(0)?,
                 row.get::<_, Option<String>>(1)?,
-                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(2)?,
             ))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
+    let mut totals = std::collections::BTreeMap::new();
     for (run_key, agent_id, total) in rows {
-        let Some(rollup) = rollups
-            .iter_mut()
-            .find(|rollup| rollup.run_key == run_key && rollup.agent_id == agent_id)
-        else {
-            continue;
-        };
-        let Some(value) = ExactDecimal::parse(&total) else {
-            continue;
-        };
-        let current = rollup
-            .own_nano_aiu
-            .as_deref()
-            .and_then(ExactDecimal::parse)
-            .unwrap_or(ExactDecimal::ZERO);
-        // An overflow leaves the previous total in place rather than
-        // publishing a wrapped one.
-        if let Some(sum) = current.checked_add(value) {
-            rollup.own_nano_aiu = Some(sum.to_string());
-        }
+        let sum = totals
+            .entry((run_key, agent_id))
+            .or_insert(Some(ExactDecimal::ZERO));
+        *sum = sum.and_then(|current| {
+            total
+                .as_deref()
+                .and_then(ExactDecimal::parse)
+                .and_then(|value| current.checked_add(value))
+        });
+    }
+    for rollup in &mut rollups {
+        rollup.own_nano_aiu = totals
+            .get(&(rollup.run_key.clone(), rollup.agent_id.clone()))
+            .copied()
+            .flatten()
+            .map(|total| total.to_string());
     }
     Ok(rollups)
 }

@@ -48,7 +48,7 @@ impl IndexDb {
             return Ok(request_performance::RequestPerformanceReport::unavailable());
         }
         let _snapshot = self.conn.unchecked_transaction()?;
-        let generation = self.active_generation()?;
+        let generation = self.request_generation()?;
         let mut report = request_performance::query_request_performance(
             &self.conn,
             generation.as_deref(),
@@ -74,7 +74,7 @@ impl IndexDb {
         if !self.has_session_store_enrichment() {
             return Ok(Vec::new());
         }
-        let generation = self.active_generation()?;
+        let generation = self.request_generation()?;
         request_performance::query_agent_request_rollups(
             &self.conn,
             generation.as_deref(),

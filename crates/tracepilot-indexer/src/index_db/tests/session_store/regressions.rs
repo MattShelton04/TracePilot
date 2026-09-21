@@ -2,6 +2,71 @@ use super::*;
 use crate::indexing::enrichment::refresh_bound_source;
 
 #[test]
+fn a_refs_only_source_does_not_claim_request_coverage() {
+    let source = SourceFixture::new();
+    source.seed(SESSION, 0, &[("pr", "123")]);
+    Connection::open(&source.db_path)
+        .unwrap()
+        .execute_batch("DROP TABLE assistant_usage_events")
+        .unwrap();
+    let (_tmp, db, _, _) = indexed(&source);
+    assert!(db.has_session_store_capability("workRefs").unwrap());
+    assert!(!db.has_session_store_capability("requests").unwrap());
+    assert!(
+        !db.list_request_usage(&RequestLedgerFilter::default())
+            .unwrap()
+            .available
+    );
+    assert!(
+        !db.query_request_performance(&Default::default())
+            .unwrap()
+            .available
+    );
+    assert_eq!(db.list_session_work_refs(SESSION).unwrap().len(), 1);
+}
+
+#[test]
+fn rollups_do_not_publish_partial_credits_or_unpaired_cache_ratios() {
+    let source = SourceFixture::new();
+    source.seed(SESSION, 2, &[]);
+    Connection::open(&source.db_path).unwrap().execute(
+        "UPDATE assistant_usage_events SET total_nano_aiu = NULL, cache_read_tokens = NULL WHERE id = 2", [],
+    ).unwrap();
+    let (_tmp, db, _, _) = indexed(&source);
+    let rollups = db.query_agent_request_rollups(SESSION).unwrap();
+    assert_eq!(rollups.len(), 1);
+    assert_eq!(rollups[0].request_count, 2);
+    assert_eq!(rollups[0].own_nano_aiu, None);
+    assert_eq!(rollups[0].input_tokens, 1000);
+    assert_eq!(rollups[0].cache_read_tokens, 800);
+    assert_eq!(rollups[0].unattributed_requests, 2);
+}
+
+#[test]
+fn a_missing_new_binding_does_not_publish_the_old_sources_cache() {
+    let source = SourceFixture::new();
+    source.seed(SESSION, 1, &[("pr", "123")]);
+    let (_tmp, db, _, _) = indexed(&source);
+    let mut binding = source.binding();
+    binding.source_id = "new-source".into();
+    binding.db_path = source.dir.path().join("missing.db");
+    db.mark_source_unavailable(
+        &binding,
+        SourceAvailability::Missing,
+        &tracepilot_core::session_store::SessionStoreError::Missing(binding.db_path.clone()),
+    )
+    .unwrap();
+    assert!(db.active_generation().unwrap().is_none());
+    assert!(
+        !db.list_request_usage(&RequestLedgerFilter::default())
+            .unwrap()
+            .available
+    );
+    assert!(db.list_session_work_refs(SESSION).unwrap().is_empty());
+    assert_eq!(count(&db, "session_request_usage"), 1);
+}
+
+#[test]
 fn null_timestamp_rows_remain_reachable_after_dated_pages() {
     let source = SourceFixture::new();
     source.seed(SESSION, 4, &[]);
@@ -209,4 +274,31 @@ fn source_deletion_cascades_all_owned_rows_and_event_rewrites_expire_claims() {
             .unwrap(),
         0
     );
+}
+
+#[test]
+fn the_same_work_reference_survives_in_two_sessions() {
+    const OTHER: &str = "c0ffee00-1111-2222-3333-444455557777";
+    let source = SourceFixture::new();
+    source.seed(
+        SESSION,
+        1,
+        &[("pr", "https://github.com/owner/name/pull/123")],
+    );
+    source.seed(
+        OTHER,
+        1,
+        &[("pr", "https://github.com/owner/name/pull/123")],
+    );
+    let binding = source.binding();
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    for id in [SESSION, OTHER] {
+        let dir = write_raw_session(&binding.session_state_dir, id, "owner/name");
+        db.upsert_session(&dir).unwrap();
+    }
+    refresh_bound_source(&db, &binding, &binding.session_state_dir, |_| {}, || false).unwrap();
+    assert_eq!(db.list_session_work_refs(SESSION).unwrap().len(), 1);
+    assert_eq!(db.list_session_work_refs(OTHER).unwrap().len(), 1);
+    assert_eq!(count(&db, "session_work_refs"), 2);
 }

@@ -148,9 +148,7 @@ fn observation_for(
     }
     // A different model means this request did not resume *this* window's
     // cached prefix, whatever the timestamps say.
-    if let Some(model) = window.model.as_deref()
-        && model != request.model
-    {
+    if window.model.as_deref() != Some(request.model.as_str()) {
         return None;
     }
 

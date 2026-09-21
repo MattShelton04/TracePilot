@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS session_work_refs (
     sha_shaped INTEGER,
     source_turn_index INTEGER,
     recorded_at TEXT,
-    PRIMARY KEY (source_id, generation, ref_identity),
+    PRIMARY KEY (source_id, generation, session_id, ref_identity),
     FOREIGN KEY (source_id) REFERENCES session_store_sources(source_id) ON DELETE CASCADE,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
