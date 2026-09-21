@@ -254,11 +254,12 @@ event type.
    `assistant.usage` and `prompt_cache_break` events (the bridge already carries an `ephemeral`
    flag, `bridge/mod.rs`). This makes the header chip Observed and uses the CLI's own
    `primaryReason`. Keep these in memory for the attached session only.
-2. **Chronicle per-request rows.** `assistant_usage_events` gives an exact `cache_read_tokens`
-   for the request that resumed the session, which upgrades windows to **Observed**. Use the
-   read-only adapter proposed in the
-   [session store research](../research/copilot-session-store-db.md), with capability detection,
-   and never make it required.
+2. **Chronicle per-request rows.** `assistant_usage_events` supplies recorded cache counters.
+   The [session-store enrichment design](copilot-session-store-enrichment-design.md#52-prompt-cache-observations-alongside-predictions)
+   refines this proposal: attach an observed reuse result only when the first relevant resume
+   request can be reliably identified, and preserve expiry predictions separately. Source turn
+   indices do not map directly to TracePilot turns, and zero recorded reads do not prove expiry.
+   Use the optional read-only adapter with per-column capabilities and explicit coverage.
 
 ## 9. Fallback matrix
 

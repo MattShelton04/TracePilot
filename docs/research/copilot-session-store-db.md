@@ -3,6 +3,12 @@
 Status: **Research** (2026-09-19). Read-only analysis of the author's local data plus the CLI
 1.0.83 package. No CLI files were modified.
 
+**Follow-up (2026-09-20):** See the [enrichment design](../features/copilot-session-store-enrichment-design.md)
+for a fresh all-table inspection, complete request-field analysis, implementation phases and
+fallbacks. It finds 416 sessions and 383 requests, explains the compaction accounting discrepancy,
+and verifies itemized billing against every request. Counts below remain the original snapshot;
+the updated integration guidance and current findings are in that design.
+
 ## 1. Short answer
 
 - **Who has it?** Every Copilot CLI user since **1.0.40** (2026-05-01): "Session history, file
@@ -20,17 +26,19 @@ Status: **Research** (2026-09-19). Read-only analysis of the author's local data
   created before 1.0.40, so it has been backfilled. It also has **21 sessions that aren't on
   disk**: 18 with host type `github` and 3 with none, likely remote or cloud sessions.
 - **Is it accurate?** Per-request usage rows **reconcile exactly** with `session.shutdown`
-  totals in 7 of 8 sessions checked. The eighth differs by 1 request (112 vs 111). The cause wasn't
-  investigated; a request after the final shutdown snapshot is one possibility.
+  request/input/output totals in 7 of 8 sessions originally checked. The eighth differs by
+  1 request (112 vs 111). The follow-up identifies that request as compaction: its tokens
+  are outside shutdown model totals, while its charge is already included in session credits.
 - **Should TracePilot piggyback?** Yes, but only as an **optional, read-only enrichment**, and
   `events.jsonl` stays canonical. Its most valuable content is data that `events.jsonl` doesn't
   persist: per-request usage and latency, plus extracted PR, issue and commit refs.
 
 ## 2. Schema (1.0.83)
 
-`schema_version` holds `1`, even though columns have been added over time with `ALTER TABLE`
-(e.g. `sessions.host_type`, `assistant_usage_events.output_ttft_ms`). **Don't rely on the version
-number.** Detect capabilities with `pragma table_info`.
+The initial inspection reported `schema_version = 1`; the fresh 2026-09-20 database inspection
+returns **8**, and also finds `assistant_usage_events.copilot_usage_model`. Columns have been
+added over time with `ALTER TABLE`. **Don't rely on the version number alone.** Record it for
+diagnostics and detect capabilities with `pragma table_info`.
 
 | Table | Rows (local) | Sessions covered | Contents | Does TracePilot have an equivalent? |
 |---|---:|---:|---|---|
@@ -53,7 +61,7 @@ The same runtime also contains per-session databases (`session.db`, with `todos`
 |---|---|
 | Disk sessions present in store | 388 / 388 (<1.0.40: 343/343; 1.0.40–1.0.68: 27/27; ≥1.0.69: 18/18) |
 | Sessions ≥1.0.69 with usage rows | 15 / 18 (2 of the 3 without rows made no model calls; the third was not investigated) |
-| Usage rows vs shutdown `modelMetrics` (requests, input tokens, output tokens) | Exact match in 7/8 sessions. One differs by 1 request (112 vs 111), cause not investigated. |
+| Usage rows vs shutdown `modelMetrics` (requests, input tokens, output tokens) | Exact match in 7/8 original sessions. Follow-up: the 112-vs-111 difference is a compaction request, verified against its persisted compaction event. |
 | `initiator` | NULL on 164 rows (earlier 1.0.69–1.0.75 era). Otherwise user / agent / sub-agent / compaction. |
 | `agent_id`, `parent_tool_call_id` | Set on all 150 `sub-agent` rows. Enables per-agent latency and usage. |
 | Cache TTL sanity | Gap to the previous call under 5 min: 331/348 hits. Over 30 min: 0/1 hits. First call of a session: 0/16. |
@@ -75,27 +83,35 @@ The same runtime also contains per-session databases (`session.db`, with `todos`
 
 1. **Read-only, always.** The CLI writes this file live (WAL mode) and the agent itself runs SQL
    against it. Open it with `SQLITE_OPEN_READONLY`, a busy timeout and no `immutable` flag,
-   because it changes. Where snapshot consistency matters (indexing), copy `db`, `-wal` and
-   `-shm` to a temp dir and read the copy. Never run `VACUUM` or checkpoint it, and never
-   attach it for writing.
+   because it changes. Use a short read transaction for a consistent batch, or SQLite's
+   [backup API](https://www.sqlite.org/backup.html) for a consistent snapshot. Independently
+   copying live `db`, `-wal` and `-shm` files is not an atomic snapshot. Never run `VACUUM`
+   or checkpoint the source, and never attach it for writing.
 2. **Capability detection, not versioning.** Probe `sqlite_master` and
    `pragma table_info(<table>)`. Each feature declares the columns it needs and disables itself
    quietly if they're missing.
-3. **Resolve the path the CLI's way.** Use `COPILOT_HOME` (and the deprecated `--config-dir`),
-   the same resolution as `tracepilot_core::paths::CopilotPaths`. The CLI's own migration code
-   lists `session-store.db` among the files it moves.
+3. **Resolve the configured source.** Use TracePilot's configured Copilot home, whose defaults
+   honor `COPILOT_HOME` and data-root isolation through `tracepilot_core::paths::CopilotPaths`.
+   Do not infer source ownership for arbitrary custom session directories or imported sessions.
 4. **Never the only source.** Every UI that uses it has an `events.jsonl` baseline, and labels
    store-derived values ("from Copilot session store").
 5. **Privacy.** It holds the same content as session files: full user messages and responses.
-   Keep existing redaction and export rules. Don't copy content into the TracePilot index. Store
-   derived aggregates only.
+   Do not duplicate transcripts in the enrichment index. Store only allowlisted request
+   counters, timings, billing items, references and provenance needed by shipped features.
+   New fields need explicit export/redaction support; existing rules do not cover them automatically.
 6. **Schema watch.** Extend the version analyzer to extract `CREATE TABLE` and `ALTER TABLE`
    strings from `runtime.node` for each CLI version (found via `strings`; the schema isn't in
    `app.js`), and diff them like event schemas.
-7. **Performance.** It's small (51 MB locally for 409 sessions), and the indexed queries used
-   here are fast. Read incrementally by `id > last_seen_id` for usage rows, keyed per session.
+7. **Performance and correctness.** The original DB was about 51 MB for 409 sessions. Use
+   indexed, bounded per-session reads. An `id > last_seen_id` cursor alone misses updates,
+   deletions and rebuilt stores with reused IDs; the follow-up starts with complete per-session
+   refreshes and explicit source generations.
 
 ## 6. Proposed adapter
+
+This original sketch is superseded by the [integration architecture and contracts](../features/copilot-session-store-enrichment-design.md#7-integration-architecture).
+In particular, the new adapter distinguishes absence from errors, and refresh runs independently
+of JSONL staleness rather than only during baseline session indexing.
 
 `crates/tracepilot-core/src/chronicle/` (read-only):
 
@@ -110,10 +126,10 @@ impl ChronicleStore {
 }
 ```
 
-The indexer calls it opportunistically during session indexing and stores derived rows in
-TracePilot's index (`session_request_usage`, `session_refs`). The UI never opens the CLI store
-directly. A Settings toggle, "Use Copilot session store for enrichment", defaults to on and
-switches off automatically if the file is missing.
+The UI never opens the CLI store directly. A Settings toggle, "Use Copilot session store for
+enrichment", defaults to on. Missing data changes runtime availability, not the saved preference,
+so a later-created store can be discovered automatically. The follow-up specifies separate
+enrichment tables, refresh lifecycle, retention and fallback behavior.
 
 ## 7. How this was established
 

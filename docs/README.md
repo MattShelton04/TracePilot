@@ -24,6 +24,7 @@ This index lists current user/developer documentation. Stale generated tech-debt
 |----------|-------------|
 | [Exact Context Capture](features/exact-context-capture-plan.md) | Feasibility research and phased implementation plan for isolated model-request snapshots. |
 | [Prompt-Cache Insights](features/prompt-cache-insights-plan.md) | Proposed plan for showing cache expiry, resume markers and prefix-change causes from `session.usage_checkpoint`. |
+| [Copilot Session-Store Enrichment](features/copilot-session-store-enrichment-design.md) | All-table research and proposed optional request billing, performance, cache and linked-work integration, with coverage and fallbacks. |
 | [Skills Analytics](features/skills-analytics-design.md) | Proposed per-skill usage analytics, flags and a Usage tab for the Skills manager. |
 | [Agents Explorer](features/agents-explorer-design.md) | Delivered Agents page for built-in and custom agents, sharing the definition editor, with cross-session run analytics. |
 | [Incremental Analytics](architecture/incremental-analytics.md) | Analytics pipeline and incremental computation strategy. |
