@@ -188,9 +188,11 @@ fn refresh_one(
     // Parse the log once, and only when there is something to attach to it.
     // Locally just 18 of 391 sessions had any recorded requests, so the
     // common case costs nothing at all.
-    let events = (!enrichment.requests.is_empty())
-        .then(|| parse_events(&session.path))
-        .unwrap_or_default();
+    let events = if enrichment.requests.is_empty() {
+        Vec::new()
+    } else {
+        parse_events(&session.path)
+    };
     let links = db.build_request_links(
         session_id,
         &enrichment.requests,

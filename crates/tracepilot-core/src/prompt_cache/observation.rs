@@ -108,11 +108,14 @@ fn is_root_request(request: &StoreRequest) -> bool {
     if request.agent_id.is_some() {
         return false;
     }
-    match request.initiator.as_ref() {
-        Some(RequestInitiator::SubAgent | RequestInitiator::Compaction) => false,
-        Some(RequestInitiator::Other(_)) => false,
-        _ => true,
-    }
+    // An unrecognised initiator is excluded too: a value this build has not
+    // seen cannot be assumed to be the main agent's own work.
+    !matches!(
+        request.initiator.as_ref(),
+        Some(
+            RequestInitiator::SubAgent | RequestInitiator::Compaction | RequestInitiator::Other(_)
+        )
+    )
 }
 
 fn observation_for(

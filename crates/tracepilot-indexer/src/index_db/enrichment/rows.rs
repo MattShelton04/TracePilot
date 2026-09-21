@@ -35,7 +35,7 @@ impl<'a> RequestRow<'a> {
                 .map(|initiator| initiator.as_str().to_string()),
             total_nano_aiu: request.total_nano_aiu.map(|value| value.to_string()),
             request_multiplier: request.request_multiplier.map(|value| value.to_string()),
-            content_filter_triggered: request.content_filter_triggered.map(|flag| i64::from(flag)),
+            content_filter_triggered: request.content_filter_triggered.map(i64::from),
             billing_items_status: serde_plain(&request.billing_items_status),
             billing_check: billing::check(&request.billing_items, request.total_nano_aiu)
                 .as_str()

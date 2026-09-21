@@ -277,7 +277,7 @@ pub(super) fn query_agent_request_rollups(
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(sum_own_credits(conn, generation, session_id, rows)?)
+    sum_own_credits(conn, generation, session_id, rows)
 }
 
 /// Sum each group's recorded credits with exact decimal arithmetic.
