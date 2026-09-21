@@ -1,7 +1,8 @@
 //! Deep FTS query builder and result reader.
 //!
 //! Provides parameterized search across `search_content` + `search_fts` with
-//! filtering by content type, session, tool name, date range, and repository.
+//! filtering by content type, session, tool name, date range, repository, and
+//! linked-work references (`pr:`, `issue:`, `commit:`).
 //! Results include highlighted snippets and pagination. Supports FTS (via the
 //! `search_fts` table) and Browse (filter-only, empty query) modes.
 //!
@@ -14,6 +15,8 @@ mod sanitize;
 mod stats;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod work_ref_tests;
 
 pub use sanitize::sanitize_fts_query;
 
@@ -43,6 +46,13 @@ pub struct SearchFilters {
     pub exclude_content_types: Vec<String>,
     pub repositories: Vec<String>,
     pub tool_names: Vec<String>,
+    /// Linked-work qualifiers (`pr:`, `issue:`, `commit:`). Values are matched
+    /// against `session_work_refs.normalized_value`, so a session qualifies
+    /// when it *mentioned* the reference — never that it authored or merged it.
+    pub pull_requests: Vec<String>,
+    pub issues: Vec<String>,
+    /// `commit:` values. They are Git refs, only some of which are SHAs.
+    pub git_refs: Vec<String>,
     pub session_id: Option<String>,
     pub date_from_unix: Option<i64>,
     pub date_to_unix: Option<i64>,
@@ -50,6 +60,14 @@ pub struct SearchFilters {
     pub offset: Option<usize>,
     /// Sort order: "relevance" (default), "newest", "oldest"
     pub sort_by: Option<String>,
+}
+
+impl SearchFilters {
+    /// Whether any qualifier needs the `session_work_refs` table. Callers use
+    /// this to skip the table probe entirely for the common unfiltered case.
+    pub(super) fn has_work_ref_filters(&self) -> bool {
+        !self.pull_requests.is_empty() || !self.issues.is_empty() || !self.git_refs.is_empty()
+    }
 }
 
 /// Facet counts for the search results sidebar.

@@ -112,7 +112,7 @@ fn test_builder_with_filters() {
     };
 
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
-        .with_filters(&filters)
+        .with_filters(&filters, true)
         .build();
 
     assert!(sql.contains("sc.content_type IN (?, ?)"));
@@ -129,7 +129,7 @@ fn test_builder_with_exclude_filters() {
     };
 
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
-        .with_filters(&filters)
+        .with_filters(&filters, true)
         .build();
 
     assert!(sql.contains("sc.content_type NOT IN (?, ?)"));
@@ -145,7 +145,7 @@ fn test_builder_with_date_range() {
     };
 
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
-        .with_filters(&filters)
+        .with_filters(&filters, true)
         .build();
 
     assert!(sql.contains("sc.timestamp_unix >= ?"));
@@ -237,7 +237,7 @@ fn test_builder_complex_query() {
 
     let (sql, params) = SearchQueryBuilder::new("SELECT sc.id, sc.content", true)
         .with_fts_match("authentication failed")
-        .with_filters(&filters)
+        .with_filters(&filters, true)
         .with_sort(Some("newest"))
         .with_pagination(25, 50)
         .build();
@@ -268,7 +268,7 @@ fn test_builder_param_order_matches_placeholders() {
 
     let (sql, params) = SearchQueryBuilder::new("SELECT *", true)
         .with_fts_match("test")
-        .with_filters(&filters)
+        .with_filters(&filters, true)
         .with_pagination(10, 0)
         .build();
 
@@ -283,7 +283,7 @@ fn test_builder_param_order_matches_placeholders() {
 #[test]
 fn test_builder_empty_filters() {
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
-        .with_filters(&SearchFilters::default())
+        .with_filters(&SearchFilters::default(), true)
         .build();
 
     // Empty filters should still produce valid SQL
@@ -296,7 +296,7 @@ fn test_builder_method_chaining() {
     // Test that builder methods can be chained fluently
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
         .with_optional_fts_match(None)
-        .with_filters(&SearchFilters::default())
+        .with_filters(&SearchFilters::default(), true)
         .with_sort(Some("newest"))
         .with_pagination(10, 0)
         .build();

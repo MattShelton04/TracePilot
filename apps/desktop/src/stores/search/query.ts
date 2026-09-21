@@ -22,6 +22,12 @@ export interface MergedSearchInputs {
   toolName: string | null;
   sessionId: string | null;
   sortBy: SortMode;
+  /** `pr:` — a pull-request number the session mentioned, not one it merged. */
+  pullRequest: string | null;
+  /** `issue:` — an issue number the session mentioned. */
+  issue: string | null;
+  /** `commit:` — a Git ref the session mentioned; only sometimes a SHA. */
+  gitRef: string | null;
 }
 
 /**
@@ -51,6 +57,11 @@ export function mergeSearchInputs(
     toolName: parsed.tool ?? state.toolName,
     sessionId: parsed.session ?? state.sessionId,
     sortBy: parsed.sort ?? effectiveSort,
+    // No filter control sets the linked-work qualifiers, so the typed query
+    // is their only source and there is nothing to fall back to.
+    pullRequest: parsed.pr,
+    issue: parsed.issue,
+    gitRef: parsed.commit,
   };
 }
 

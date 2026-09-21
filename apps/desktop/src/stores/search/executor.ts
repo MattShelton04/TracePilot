@@ -56,6 +56,9 @@ export function createSearchExecutor(deps: SearchExecutorDeps): SearchExecutor {
             q.excludeContentTypes.value.length > 0 ? q.excludeContentTypes.value : undefined,
           repositories: merged.repository ? [merged.repository] : undefined,
           toolNames: merged.toolName ? [merged.toolName] : undefined,
+          pullRequests: merged.pullRequest ? [merged.pullRequest] : undefined,
+          issues: merged.issue ? [merged.issue] : undefined,
+          gitRefs: merged.gitRef ? [merged.gitRef] : undefined,
           sessionId: merged.sessionId ?? undefined,
           dateFromUnix,
           dateToUnix,
@@ -79,6 +82,9 @@ export function createSearchExecutor(deps: SearchExecutorDeps): SearchExecutor {
           repo: merged.repository,
           tool: merged.toolName,
           session: merged.sessionId,
+          pullRequest: merged.pullRequest,
+          issue: merged.issue,
+          gitRef: merged.gitRef,
         });
       },
     });

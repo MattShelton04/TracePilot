@@ -24,6 +24,9 @@ pub(super) fn facets_cache_key(
     exclude_content_types: &Option<Vec<String>>,
     repositories: &Option<Vec<String>>,
     tool_names: &Option<Vec<String>>,
+    pull_requests: &Option<Vec<String>>,
+    issues: &Option<Vec<String>>,
+    git_refs: &Option<Vec<String>>,
     session_id: &Option<String>,
     date_from_unix: &Option<i64>,
     date_to_unix: &Option<i64>,
@@ -34,6 +37,9 @@ pub(super) fn facets_cache_key(
     exclude_content_types.hash(&mut hasher);
     repositories.hash(&mut hasher);
     tool_names.hash(&mut hasher);
+    pull_requests.hash(&mut hasher);
+    issues.hash(&mut hasher);
+    git_refs.hash(&mut hasher);
     session_id.hash(&mut hasher);
     date_from_unix.hash(&mut hasher);
     date_to_unix.hash(&mut hasher);

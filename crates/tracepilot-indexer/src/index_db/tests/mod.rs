@@ -8,5 +8,6 @@ mod common;
 mod maintenance;
 mod prompt_cache;
 mod search_content;
+mod session_store;
 mod sessions;
 mod skill_invocations;
