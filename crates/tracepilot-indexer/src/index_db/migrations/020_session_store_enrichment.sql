@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS session_request_usage (
     invalid_fields TEXT,
     row_fingerprint TEXT NOT NULL,
     PRIMARY KEY (source_id, generation, source_row_id),
+    FOREIGN KEY (source_id) REFERENCES session_store_sources(source_id) ON DELETE CASCADE,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_request_usage_session_time
@@ -119,6 +120,8 @@ CREATE TABLE IF NOT EXISTS session_request_billing_items (
     -- request's copilot_usage_model, never to the execution model.
     billing_model TEXT,
     PRIMARY KEY (source_id, generation, source_row_id, ordinal),
+    FOREIGN KEY (source_id, generation, source_row_id)
+        REFERENCES session_request_usage(source_id, generation, source_row_id) ON DELETE CASCADE,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_request_billing_session
@@ -152,6 +155,7 @@ CREATE TABLE IF NOT EXISTS session_work_refs (
     source_turn_index INTEGER,
     recorded_at TEXT,
     PRIMARY KEY (source_id, generation, ref_identity),
+    FOREIGN KEY (source_id) REFERENCES session_store_sources(source_id) ON DELETE CASCADE,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_work_refs_kind_value
@@ -197,6 +201,7 @@ CREATE TABLE IF NOT EXISTS session_store_coverage (
     revision INTEGER NOT NULL DEFAULT 0,
     enrichment_version INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (source_id, generation, session_id),
+    FOREIGN KEY (source_id) REFERENCES session_store_sources(source_id) ON DELETE CASCADE,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_store_coverage_session
@@ -222,7 +227,26 @@ CREATE TABLE IF NOT EXISTS session_request_links (
     event_fingerprint TEXT,
     mapping_version INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (source_id, generation, source_row_id),
+    FOREIGN KEY (source_id, generation, source_row_id)
+        REFERENCES session_request_usage(source_id, generation, source_row_id) ON DELETE CASCADE,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_request_links_session_run
     ON session_request_links(session_id, run_key);
+
+-- Event-derived claims expire with the indexed snapshot; request evidence
+-- survives until the independent enrichment pass can safely refresh it.
+CREATE TRIGGER invalidate_session_store_links
+AFTER UPDATE OF events_mtime, events_size ON sessions
+WHEN OLD.events_mtime IS NOT NEW.events_mtime OR OLD.events_size IS NOT NEW.events_size
+BEGIN
+    UPDATE session_request_links
+       SET run_key = NULL, turn_index = NULL, event_index = NULL,
+           join_status = 'unavailable', join_method = 'none', event_fingerprint = NULL
+     WHERE session_id = NEW.id;
+    UPDATE session_store_coverage
+       SET freshness = 'stale', reconciliation_status = 'unverified',
+           reconciliation_scope = '', reconciliation_metrics = '',
+           reconciliation_differences = 'event log changed; refresh required', event_fingerprint = NULL
+     WHERE session_id = NEW.id;
+END;

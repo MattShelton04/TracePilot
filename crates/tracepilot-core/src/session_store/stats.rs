@@ -9,6 +9,7 @@
 //! locally — and their medians are therefore not comparable to one another.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use super::model::StoreRequest;
 use super::status::FieldCoverage;
@@ -158,26 +159,40 @@ pub fn request_performance<'a>(
     let mut output_ttft_coverage = FieldCoverage::default();
     let mut itl = Vec::new();
     let mut itl_coverage = FieldCoverage::default();
-    let mut sessions: Vec<&str> = Vec::new();
+    let mut sessions = HashSet::new();
     let mut request_count: u32 = 0;
 
     for request in requests.clone() {
         request_count = request_count.saturating_add(1);
-        if !sessions.contains(&request.session_id.as_str()) {
-            sessions.push(request.session_id.as_str());
-        }
-        collect(request.duration_ms, &mut durations, &mut duration_coverage);
+        sessions.insert(request.session_id.as_str());
         collect(
+            request,
+            "duration_ms",
+            request.duration_ms,
+            &mut durations,
+            &mut duration_coverage,
+        );
+        collect(
+            request,
+            "time_to_first_token_ms",
             request.time_to_first_token_ms,
             &mut ttft,
             &mut ttft_coverage,
         );
         collect(
+            request,
+            "output_ttft_ms",
             request.output_ttft_ms,
             &mut output_ttft,
             &mut output_ttft_coverage,
         );
-        collect(request.inter_token_latency_ms, &mut itl, &mut itl_coverage);
+        collect(
+            request,
+            "inter_token_latency_ms",
+            request.inter_token_latency_ms,
+            &mut itl,
+            &mut itl_coverage,
+        );
     }
 
     RequestPerformance {
@@ -191,7 +206,21 @@ pub fn request_performance<'a>(
     }
 }
 
-fn collect(value: Option<f64>, samples: &mut Vec<f64>, coverage: &mut FieldCoverage) {
+fn collect(
+    request: &StoreRequest,
+    field: &str,
+    value: Option<f64>,
+    samples: &mut Vec<f64>,
+    coverage: &mut FieldCoverage,
+) {
+    if request
+        .invalid_fields
+        .iter()
+        .any(|invalid| invalid == field)
+    {
+        coverage.record_invalid();
+        return;
+    }
     match value {
         Some(value) if value.is_finite() && value >= 0.0 => {
             samples.push(value);

@@ -105,7 +105,7 @@ pub fn attach_observations(
 /// The design's rule is that concurrent workers and compaction never attach
 /// to a root cache window, and this is where that is enforced.
 fn is_root_request(request: &StoreRequest) -> bool {
-    if request.agent_id.is_some() {
+    if request.agent_id.is_some() || request.parent_tool_call_id.is_some() {
         return false;
     }
     // An unrecognised initiator is excluded too: a value this build has not

@@ -17,7 +17,6 @@ vi.mock("@tracepilot/client", async () => {
   return createClientMock({
     getModelRequestPerformance: vi.fn(),
     getAnalytics: vi.fn().mockResolvedValue(null),
-    getAvailableRepos: vi.fn().mockResolvedValue([]),
   });
 });
 
@@ -67,7 +66,8 @@ function respond(report: Partial<RequestPerformanceReport>) {
   return {
     enabled: true,
     report: {
-      available: true,
+      stale: false,
+      lastSuccessAt: null,      available: true,
       overall: performance(),
       byModel: [{ model: "gpt-5.6-luna", performance: performance() }],
       sessionCount: 4,

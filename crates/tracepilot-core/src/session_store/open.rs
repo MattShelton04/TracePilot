@@ -144,6 +144,8 @@ impl SourceReader {
         conn.pragma_update(None, "query_only", true)
             .map_err(|error| SessionStoreError::from_sqlite(&error))?;
 
+        let deadline = Instant::now() + Duration::from_millis(budget_ms);
+        conn.progress_handler(1_000, Some(move || Instant::now() > deadline));
         let capabilities = StoreCapabilities::probe(&conn)
             .map_err(|error| SessionStoreError::from_sqlite(&error))?;
         if capabilities.is_unusable() {
@@ -154,7 +156,7 @@ impl SourceReader {
             conn,
             capabilities,
             binding: binding.clone(),
-            deadline: Instant::now() + Duration::from_millis(budget_ms),
+            deadline,
             budget_ms,
         })
     }
@@ -171,10 +173,8 @@ impl SourceReader {
         &self.binding
     }
 
-    /// Check the total budget before starting another statement. Callers run
-    /// this between reads rather than mid-statement: SQLite's own progress
-    /// handler would be needed to interrupt one, and a 250 ms busy timeout
-    /// already bounds the pathological case.
+    /// Check between rows as well as statements; the progress handler also
+    /// interrupts expensive scans and sorts inside SQLite.
     pub fn check_budget(&self) -> Result<()> {
         if Instant::now() > self.deadline {
             return Err(SessionStoreError::DeadlineExceeded(self.budget_ms));
@@ -186,16 +186,26 @@ impl SourceReader {
     /// sessions without one long-lived budget covering all of them.
     pub fn renew_budget(&mut self) {
         self.deadline = Instant::now() + Duration::from_millis(self.budget_ms);
+        let deadline = self.deadline;
+        self.conn
+            .progress_handler(1_000, Some(move || Instant::now() > deadline));
+    }
+
+    /// Detect commits made by another connection during a sweep. This value
+    /// is only comparable across reads on this same connection.
+    pub fn data_version(&self) -> Result<i64> {
+        self.conn
+            .pragma_query_value(None, "data_version", |row| row.get(0))
+            .map_err(|error| SessionStoreError::from_sqlite(&error))
     }
 
     /// A cheap fingerprint of the source's current contents.
     ///
     /// The store has no update feed: no tombstones, no per-row version, and
     /// `sessions.updated_at` is not proven to move on every usage write. This
-    /// mixes row counts with the minimum and maximum row IDs so that a rebuilt
-    /// store with reused IDs still differs from the original as soon as its
-    /// contents do — and the capability fingerprint catches a schema change
-    /// even when the counts coincide.
+    /// mixes row counts with the minimum and maximum row IDs. This is only a
+    /// coarse change hint: same-size rewrites are detected by rereading rows
+    /// and advancing the index revision, never by trusting this hash alone.
     pub fn generation_fingerprint(&self) -> Result<String> {
         let mut hasher = Sha256::new();
         hasher.update(b"session-store-generation-v1");

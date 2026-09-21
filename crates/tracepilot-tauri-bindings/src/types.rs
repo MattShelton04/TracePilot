@@ -454,6 +454,8 @@ impl ModelRequestPerformanceResponse {
             enabled: false,
             report: tracepilot_indexer::index_db::RequestPerformanceReport {
                 available: false,
+                stale: false,
+                last_success_at: None,
                 overall: None,
                 by_model: Vec::new(),
                 session_count: 0,

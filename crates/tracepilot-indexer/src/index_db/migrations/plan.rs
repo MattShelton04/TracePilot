@@ -143,6 +143,48 @@ mod tests {
     }
 
     #[test]
+    fn enrichment_is_one_atomic_upgrade_from_version_19() {
+        use tracepilot_core::utils::migrator::MigrationPlan;
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", true).unwrap();
+        let previous = MigrationPlan {
+            migrations: &super::INDEX_DB_MIGRATIONS[..super::INDEX_DB_MIGRATIONS.len() - 1],
+        };
+        run_migrations(&mut conn, None, &previous, &MigratorOptions::default()).unwrap();
+        conn.execute("INSERT INTO sessions(id, path, summary) VALUES ('existing', '/session', 'Keep this session')", []).unwrap();
+        run_migrations(&mut conn, None, &INDEX_DB_PLAN, &MigratorOptions::default()).unwrap();
+        run_migrations(&mut conn, None, &INDEX_DB_PLAN, &MigratorOptions::default()).unwrap();
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM schema_version WHERE version > 19",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            1
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT summary FROM sessions WHERE id = 'existing'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "Keep this session"
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| r
+                .get::<_, i64>(
+                0
+            ))
+            .unwrap(),
+            0
+        );
+        // Request children cannot survive without the request they explain.
+        assert!(conn.execute("INSERT INTO session_request_links(source_id, generation, source_row_id, session_id, join_method, join_status) VALUES ('missing', 'g', 1, 'existing', 'none', 'unavailable')", []).is_err());
+    }
+
+    #[test]
     fn end_timestamp_range_query_uses_new_index() {
         let mut conn = Connection::open_in_memory().expect("open in-memory db");
         run_migrations(&mut conn, None, &INDEX_DB_PLAN, &MigratorOptions::default())

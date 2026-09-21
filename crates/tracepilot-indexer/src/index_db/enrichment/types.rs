@@ -159,6 +159,7 @@ pub struct RequestLedgerFilter {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RequestCursor {
     pub generation: String,
+    pub revision: i64,
     /// Sort key of the last row returned. `recorded_at` alone is not unique,
     /// so the row ID breaks ties and makes paging stable.
     pub recorded_at: Option<String>,
@@ -175,8 +176,9 @@ pub struct RequestCursor {
 impl Serialize for RequestCursor {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&format!(
-            "v1.{}.{}.{}",
+            "v2.{}.{}.{}.{}",
             self.generation,
+            self.revision,
             self.recorded_at.as_deref().unwrap_or(""),
             self.source_row_id
         ))
@@ -187,13 +189,15 @@ impl<'de> Deserialize<'de> for RequestCursor {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let token = String::deserialize(deserializer)?;
         let invalid = || DeError::invalid_value(Unexpected::Str(&token), &"a ledger page token");
-        let rest = token.strip_prefix("v1.").ok_or_else(invalid)?;
+        let rest = token.strip_prefix("v2.").ok_or_else(invalid)?;
         // Split from the right: only the row ID and the timestamp have fixed
         // shapes, while a generation hash never contains a dot.
         let (generation, rest) = rest.split_once('.').ok_or_else(invalid)?;
+        let (revision, rest) = rest.split_once('.').ok_or_else(invalid)?;
         let (recorded_at, row_id) = rest.rsplit_once('.').ok_or_else(invalid)?;
         Ok(Self {
             generation: generation.to_string(),
+            revision: revision.parse().map_err(|_| invalid())?,
             recorded_at: (!recorded_at.is_empty()).then(|| recorded_at.to_string()),
             source_row_id: row_id.parse().map_err(|_| invalid())?,
         })

@@ -61,7 +61,8 @@ export function sessionStoreMocks(mocks: Mocks, eventsFileMtime: number): Record
   const modelPerformance: ModelRequestPerformanceResponse = {
     enabled: true,
     report: {
-      available: true,
+      stale: false,
+      lastSuccessAt: null,      available: true,
       overall: mocks.MOCK_REQUEST_PERFORMANCE,
       byModel: [{ model: "gpt-5.6-luna", performance: mocks.MOCK_REQUEST_PERFORMANCE }],
       sessionCount: 1,

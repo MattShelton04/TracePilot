@@ -308,6 +308,8 @@ export interface ModelRequestPerformance {
  * to switch model.
  */
 export interface RequestPerformanceReport {
+  stale: boolean;
+  lastSuccessAt: string | null;
   /**
    * False when no source is bound or the enrichment tables are absent —
    * which is not the same as a filter matching no requests.

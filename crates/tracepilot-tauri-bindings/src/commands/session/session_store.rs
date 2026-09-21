@@ -81,6 +81,7 @@ pub async fn get_session_request_usage(
     let index_path = config.index_db_path();
     let enabled = config.features.session_store_enrichment;
     let filters = filters.unwrap_or_default();
+    crate::validators::validate_iso_date_range(&filters.from_date, &filters.to_date)?;
 
     blocking_cmd!({
         if !enabled {
@@ -144,7 +145,7 @@ pub async fn get_session_work_refs(
             // Distinguishing "no references found" from "no source to search"
             // matters: the second must not read as evidence that no such work
             // exists.
-            available: status.is_some() && db.has_session_store_enrichment(),
+            available: db.session_store_coverage(&session_id)?.is_some(),
             refs,
             source_availability: status.map(|status| status.availability),
         })
@@ -256,7 +257,7 @@ pub async fn get_agent_request_rollups(
         let rollups = db.query_agent_request_rollups(&session_id)?;
         Ok::<_, BindingsError>(AgentRequestRollupResponse {
             enabled: true,
-            available: db.has_session_store_enrichment(),
+            available: db.session_store_coverage(&session_id)?.is_some(),
             rollups,
         })
     })

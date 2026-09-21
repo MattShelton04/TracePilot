@@ -261,3 +261,28 @@ fn p95_is_suppressed_below_the_sample_threshold_but_the_median_survives() {
     assert_eq!(performance.output_ttft_ms.coverage.missing, 3);
     assert_eq!(performance.output_ttft_ms.median, None);
 }
+
+#[test]
+fn missing_counter_cannot_reconcile_against_a_partial_sum() {
+    let fixture = StoreFixture::current();
+    fixture.insert_session(SESSION, None);
+    fixture.insert_usage(&UsageRow::new(SESSION));
+    fixture.insert_usage(&UsageRow::new(SESSION).set("input_tokens", "NULL"));
+    let report = reconcile_session(
+        &read_requests(&fixture),
+        Some(&shutdown_with(2, 1000, 400, 1600)),
+        None,
+    );
+    assert_eq!(report.status, ReconciliationStatus::Partial);
+    assert!(!report.metrics.contains(&"inputTokens".to_string()));
+}
+
+#[test]
+fn invalid_timings_remain_invalid_in_distributions() {
+    let fixture = StoreFixture::current();
+    fixture.insert_session(SESSION, None);
+    fixture.insert_usage(&UsageRow::new(SESSION).set("duration_ms", "-1"));
+    let stats = request_performance(&read_requests(&fixture));
+    assert_eq!(stats.duration_ms.coverage.invalid, 1);
+    assert_eq!(stats.duration_ms.coverage.missing, 0);
+}

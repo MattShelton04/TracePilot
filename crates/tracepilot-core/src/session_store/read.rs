@@ -50,6 +50,10 @@ impl SessionEnrichment {
 /// consistent view of the source; it is committed before the caller writes
 /// anything of its own.
 pub fn read_session(reader: &SourceReader, session_id: &str) -> Result<SessionEnrichment> {
+    let transaction = reader
+        .connection()
+        .unchecked_transaction()
+        .map_err(|error| super::error::SessionStoreError::from_sqlite(&error))?;
     let generation = reader.generation_fingerprint()?;
     let capabilities = reader.capabilities();
     let mut coverage = CoverageBuilder::new(session_id, &reader.binding().source_id, generation)
@@ -67,6 +71,9 @@ pub fn read_session(reader: &SourceReader, session_id: &str) -> Result<SessionEn
     let work_refs = read_session_refs(reader, session_id, repository, &mut coverage)?;
     coverage.accept_work_ref_rows(work_refs.len());
 
+    transaction
+        .commit()
+        .map_err(|error| super::error::SessionStoreError::from_sqlite(&error))?;
     Ok(SessionEnrichment {
         session_id: session_id.to_string(),
         meta,

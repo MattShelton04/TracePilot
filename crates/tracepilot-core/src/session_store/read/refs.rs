@@ -53,17 +53,23 @@ pub fn read_session_refs(
         .connection()
         .prepare(&sql)
         .map_err(|error| SessionStoreError::from_sqlite(&error))?;
-    let limit = i64::try_from(MAX_REFS_PER_SESSION).unwrap_or(i64::MAX);
+    let limit = (MAX_REFS_PER_SESSION + 1) as i64;
     let mut rows = stmt
         .query(rusqlite::params![session_id, limit])
         .map_err(|error| SessionStoreError::from_sqlite(&error))?;
 
     let mut refs: Vec<WorkRef> = Vec::new();
     let mut seen: Vec<String> = Vec::new();
+    let mut read_count = 0;
     while let Some(row) = rows
         .next()
         .map_err(|error| SessionStoreError::from_sqlite(&error))?
     {
+        reader.check_budget()?;
+        read_count += 1;
+        if read_count > MAX_REFS_PER_SESSION {
+            return Err(SessionStoreError::RowLimitExceeded(MAX_REFS_PER_SESSION));
+        }
         let Some(row_session_id) = values::text(row, REF_COL_SESSION_ID).into_option() else {
             coverage.reject_work_ref_row();
             continue;

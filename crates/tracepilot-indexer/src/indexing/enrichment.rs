@@ -66,7 +66,7 @@ pub fn refresh_session_store_enrichment(
     session_state_dir: &Path,
     index_db_path: &Path,
     enabled: bool,
-    mut on_progress: impl FnMut(&EnrichmentProgress),
+    on_progress: impl FnMut(&EnrichmentProgress),
     is_cancelled: impl Fn() -> bool,
 ) -> Result<EnrichmentOutcome> {
     let db = IndexDb::open_or_create(index_db_path)?;
@@ -91,23 +91,42 @@ pub fn refresh_session_store_enrichment(
     if !owns_state_dir(&binding, session_state_dir) {
         // A custom or imported session root is not this store's, and a path
         // or UUID match alone is not evidence that it is.
+        db.purge_session_store_enrichment()?;
         return Ok(EnrichmentOutcome::unavailable(
             SourceAvailability::Missing,
             Some("session directory is not bound to this source".to_string()),
         ));
     }
 
-    let mut reader = match SourceReader::open(&binding) {
+    refresh_bound_source(&db, &binding, session_state_dir, on_progress, is_cancelled)
+}
+
+pub(crate) fn refresh_bound_source(
+    db: &IndexDb,
+    binding: &SourceBinding,
+    session_state_dir: &Path,
+    mut on_progress: impl FnMut(&EnrichmentProgress),
+    is_cancelled: impl Fn() -> bool,
+) -> Result<EnrichmentOutcome> {
+    let mut reader = match SourceReader::open(binding) {
         Ok(reader) => reader,
-        Err(error) => return Ok(record_failure(&db, &binding, &error)),
+        Err(error) => return Ok(record_failure(db, binding, &error)),
+    };
+    let data_version = match reader.data_version() {
+        Ok(version) => version,
+        Err(error) => return Ok(record_failure(db, binding, &error)),
     };
     let generation = match reader.generation_fingerprint() {
         Ok(generation) => generation,
-        Err(error) => return Ok(record_failure(&db, &binding, &error)),
+        Err(error) => return Ok(record_failure(db, binding, &error)),
     };
 
     let source =
-        index_db::enrichment::StoreSourceRow::ready(&binding, &generation, reader.capabilities());
+        index_db::enrichment::StoreSourceRow::ready(binding, &generation, reader.capabilities());
+    // Readers see either the previous complete sweep or the next complete
+    // sweep. Cancellation, failed reads and local write failures roll back
+    // the source pointer and every per-session replacement together.
+    let transaction = db.conn.unchecked_transaction()?;
     db.upsert_store_source(&source, true)?;
 
     let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
@@ -126,22 +145,32 @@ pub fn refresh_session_store_enrichment(
                 processed = position,
                 "Session-store enrichment cancelled mid-sweep"
             );
-            outcome.detail = Some("cancelled".to_string());
-            return Ok(outcome);
+            transaction.rollback()?;
+            return Ok(record_failure(
+                db,
+                binding,
+                &SessionStoreError::Busy("refresh cancelled".to_string()),
+            ));
         }
         // Each session gets its own budget: one long sweep must not be
         // bounded by a deadline that started at the first session.
         reader.renew_budget();
 
-        match refresh_one(&db, &reader, &generation, session) {
+        let enrichment = match session_store::read_session(&reader, session.id.as_str()) {
+            Ok(enrichment) => enrichment,
+            Err(error) => {
+                transaction.rollback()?;
+                return Ok(record_failure(db, binding, &error));
+            }
+        };
+        match refresh_one(db, &reader, &generation, session, enrichment) {
             Ok(Some(true)) => outcome.refreshed += 1,
             Ok(Some(false)) => outcome.unchanged += 1,
             Ok(None) => outcome.skipped += 1,
             Err(error) => {
-                // A transient failure on one session leaves that session's
-                // cached rows intact and does not abandon the sweep.
-                tracing::debug!(error = %error, "Session enrichment refresh failed");
-                outcome.skipped += 1;
+                transaction.rollback()?;
+                db.mark_enrichment_stale()?;
+                return Err(error);
             }
         }
         on_progress(&EnrichmentProgress {
@@ -150,15 +179,21 @@ pub fn refresh_session_store_enrichment(
         });
     }
 
-    // Only once every eligible session in this generation has been processed
-    // is the previous generation safe to drop. A failed or cancelled sweep
-    // keeps it, so a rebuilt store never leaves the UI with nothing.
-    if outcome.detail.is_none()
-        && let Err(error) = db.purge_stale_generations(&binding.source_id, &generation)
-    {
-        tracing::warn!(error = %error, "Failed to drop superseded enrichment generations");
+    if reader.data_version().ok() != Some(data_version) {
+        transaction.rollback()?;
+        return Ok(record_failure(
+            db,
+            binding,
+            &SessionStoreError::Busy("source changed during refresh; retry required".to_string()),
+        ));
     }
-
+    db.purge_stale_generations(&binding.source_id, &generation)?;
+    // Only the configured binding may supply data, even after a home change.
+    db.conn.execute(
+        "DELETE FROM session_store_sources WHERE source_id <> ?1",
+        [&binding.source_id],
+    )?;
+    transaction.commit()?;
     Ok(outcome)
 }
 
@@ -168,15 +203,9 @@ fn refresh_one(
     reader: &SourceReader,
     generation: &str,
     session: &tracepilot_core::session::discovery::DiscoveredSession,
+    enrichment: session_store::SessionEnrichment,
 ) -> Result<Option<bool>> {
     let session_id = session.id.as_str();
-    let enrichment = match session_store::read_session(reader, session_id) {
-        Ok(enrichment) => enrichment,
-        Err(error) => {
-            tracing::debug!(error = %error, "Session enrichment read failed");
-            return Ok(None);
-        }
-    };
     // A truncated or failed read produces an empty value too, so only a
     // confirmed successful read is allowed to replace (and therefore prune)
     // what is already cached.

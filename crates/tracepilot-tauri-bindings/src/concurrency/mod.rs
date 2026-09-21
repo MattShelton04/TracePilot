@@ -104,9 +104,20 @@ impl IndexingSemaphores {
     }
 
     /// Try to acquire the session-store enrichment gate without blocking.
-    pub fn try_acquire_enrichment(&self) -> Result<OwnedSemaphorePermit, TryAcquireError> {
-        acquire_traced("enrichment", &self.enrichment)
+    pub fn try_acquire_enrichment(&self) -> Result<EnrichmentPermit, TryAcquireError> {
+        let sessions = acquire_traced("sessions", &self.sessions)?;
+        let enrichment = acquire_traced("enrichment", &self.enrichment)?;
+        Ok(EnrichmentPermit {
+            _sessions: sessions,
+            _enrichment: enrichment,
+        })
     }
+}
+
+/// Prevent a full index rebuild or baseline rewrite during an enrichment sweep.
+pub struct EnrichmentPermit {
+    _sessions: OwnedSemaphorePermit,
+    _enrichment: OwnedSemaphorePermit,
 }
 
 impl Default for IndexingSemaphores {

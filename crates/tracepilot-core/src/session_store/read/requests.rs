@@ -71,16 +71,24 @@ pub fn read_session_requests(
         .connection()
         .prepare(&sql)
         .map_err(|error| SessionStoreError::from_sqlite(&error))?;
-    let limit = i64::try_from(MAX_REQUESTS_PER_SESSION).unwrap_or(i64::MAX);
+    let limit = (MAX_REQUESTS_PER_SESSION + 1) as i64;
     let mut rows = stmt
         .query(rusqlite::params![session_id, limit])
         .map_err(|error| SessionStoreError::from_sqlite(&error))?;
 
     let mut requests = Vec::new();
+    let mut read_count = 0;
     while let Some(row) = rows
         .next()
         .map_err(|error| SessionStoreError::from_sqlite(&error))?
     {
+        reader.check_budget()?;
+        read_count += 1;
+        if read_count > MAX_REQUESTS_PER_SESSION {
+            return Err(SessionStoreError::RowLimitExceeded(
+                MAX_REQUESTS_PER_SESSION,
+            ));
+        }
         match parse_request(row, coverage) {
             Some(request) => requests.push(request),
             None => coverage.reject_request_row(),
@@ -214,7 +222,7 @@ fn parse_request(row: &Row<'_>, coverage: &mut CoverageBuilder) -> Option<StoreR
         copilot_usage_model: values::text(row, COL_COPILOT_USAGE_MODEL).into_option(),
         billing_items,
         billing_items_status,
-        recorded_at: values::text(row, COL_CREATED_AT).into_option(),
+        recorded_at: values::timestamp(row, COL_CREATED_AT).into_option(),
         invalid_fields,
         row_fingerprint: String::new(),
     };
@@ -239,54 +247,8 @@ fn tally_decimal(
 /// Hash of everything a reader would see, so a refresh that changes nothing
 /// can skip publishing a new revision.
 fn fingerprint(request: &StoreRequest) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(b"session-store-request-v1");
-    hasher.update(request.source_row_id.to_le_bytes());
-    hasher.update(request.model.as_bytes());
-    for value in [
-        request.input_tokens,
-        request.output_tokens,
-        request.cache_read_tokens,
-        request.cache_write_tokens,
-        request.reasoning_tokens,
-    ] {
-        hasher.update(value.unwrap_or(u64::MAX).to_le_bytes());
-    }
-    for value in [
-        request.duration_ms,
-        request.time_to_first_token_ms,
-        request.output_ttft_ms,
-        request.inter_token_latency_ms,
-    ] {
-        hasher.update(value.unwrap_or(f64::NAN).to_bits().to_le_bytes());
-    }
-    for value in [
-        request.total_nano_aiu.map(|value| value.to_string()),
-        request.request_multiplier.map(|value| value.to_string()),
-        request.agent_id.clone(),
-        request.parent_tool_call_id.clone(),
-        request.initiator.as_ref().map(|i| i.as_str().to_string()),
-        request.api_endpoint.clone(),
-        request.reasoning_effort.clone(),
-        request.finish_reason.clone(),
-        request.recorded_at.clone(),
-        request.copilot_usage_model.clone(),
-    ] {
-        hasher.update(value.unwrap_or_default().as_bytes());
-        hasher.update(b"\x1f");
-    }
-    for item in &request.billing_items {
-        hasher.update(item.token_type.as_bytes());
-        hasher.update(item.token_count.unwrap_or(u64::MAX).to_le_bytes());
-        hasher.update(item.batch_size.unwrap_or(u64::MAX).to_le_bytes());
-        hasher.update(
-            item.cost_per_batch
-                .map(|rate| rate.to_string())
-                .unwrap_or_default()
-                .as_bytes(),
-        );
-        hasher.update(item.model.clone().unwrap_or_default().as_bytes());
-        hasher.update(b"\x1e");
-    }
-    format!("{:x}", hasher.finalize())
+    // row_fingerprint is still empty at this point. Serializing the typed row
+    // covers new fields automatically and distinguishes null from zero.
+    let encoded = serde_json::to_vec(request).expect("normalized request is serializable");
+    format!("{:x}", Sha256::digest(encoded))
 }

@@ -298,6 +298,7 @@ fn a_cursor_from_a_superseded_generation_is_rejected_not_honoured() {
             session_id: Some(SESSION.to_string()),
             after: Some(RequestCursor {
                 generation: "an-older-generation".to_string(),
+                revision: 0,
                 recorded_at: None,
                 source_row_id: 0,
             }),
@@ -549,3 +550,5 @@ fn agent_rollups_keep_own_credits_exact_and_show_unattributed_work() {
     // and say so rather than vanishing from the breakdown.
     assert_eq!(rollup.unattributed_requests, 2);
 }
+
+mod regressions;

@@ -163,6 +163,25 @@ pub fn text(row: &Row<'_>, index: usize) -> Cell<String> {
     bounded_text(row, index, MAX_TEXT_BYTES)
 }
 
+/// Normalize source timestamps so ordering and calendar filters use UTC.
+pub fn timestamp(row: &Row<'_>, index: usize) -> Cell<String> {
+    match text(row, index) {
+        Cell::Value(text) => {
+            let parsed = chrono::DateTime::parse_from_rfc3339(&text)
+                .map(|time| time.with_timezone(&chrono::Utc))
+                .or_else(|_| {
+                    chrono::NaiveDateTime::parse_from_str(&text, "%Y-%m-%d %H:%M:%S%.f")
+                        .map(|time| time.and_utc())
+                });
+            parsed
+                .map(|time| Cell::Value(time.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)))
+                .unwrap_or(Cell::Invalid)
+        }
+        Cell::Absent => Cell::Absent,
+        Cell::Invalid => Cell::Invalid,
+    }
+}
+
 /// Bounded UTF-8 text with an explicit budget, for the JSON billing payload.
 pub fn bounded_text(row: &Row<'_>, index: usize, max_bytes: usize) -> Cell<String> {
     match value_ref(row, index) {

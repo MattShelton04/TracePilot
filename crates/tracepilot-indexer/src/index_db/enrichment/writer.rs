@@ -9,7 +9,7 @@
 //! The one thing replacement must never do is confuse a failed read with an
 //! empty one, so the caller only reaches here after a successful read.
 
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params, types::Value};
 
 use crate::Result;
 
@@ -92,11 +92,11 @@ impl IndexDb {
 
         match result {
             Ok(()) => {
-                self.conn.execute_batch("RELEASE replace_enrichment")?;
                 let changed = self.enrichment_digest(write.session_id)? != previous;
                 if changed {
                     self.bump_enrichment_revision(write.source_id, write.session_id)?;
                 }
+                self.conn.execute_batch("RELEASE replace_enrichment")?;
                 Ok(changed)
             }
             Err(error) => {
@@ -117,27 +117,45 @@ impl IndexDb {
             .query_row("SELECT 1 FROM sessions WHERE id = ?1", [session_id], |_| {
                 Ok(())
             })
-            .is_ok())
+            .optional()?
+            .is_some())
     }
 
-    /// Content digest of a session's stored enrichment, used to decide
-    /// whether a refresh changed anything visible.
-    fn enrichment_digest(&self, session_id: &str) -> Result<String> {
-        let requests: String = self.conn.query_row(
-            "SELECT COALESCE(GROUP_CONCAT(row_fingerprint, '|'), '') FROM (
-                 SELECT row_fingerprint FROM session_request_usage
-                 WHERE session_id = ?1 ORDER BY source_row_id)",
-            [session_id],
-            |row| row.get(0),
-        )?;
-        let refs: String = self.conn.query_row(
-            "SELECT COALESCE(GROUP_CONCAT(ref_identity || ':' || resolution, '|'), '') FROM (
-                 SELECT ref_identity, resolution FROM session_work_refs
-                 WHERE session_id = ?1 ORDER BY ref_identity)",
-            [session_id],
-            |row| row.get(0),
-        )?;
-        Ok(format!("{requests}#{refs}"))
+    /// Compare all persisted evidence, including joins and coverage. Read
+    /// timestamps and revision bookkeeping do not constitute new evidence.
+    fn enrichment_digest(&self, session_id: &str) -> Result<Vec<Vec<Vec<Value>>>> {
+        let mut snapshot = Vec::new();
+        for (table, order) in [
+            ("session_request_usage", "source_id, source_row_id"),
+            (
+                "session_request_billing_items",
+                "source_id, source_row_id, ordinal",
+            ),
+            ("session_work_refs", "source_id, ref_identity"),
+            ("session_request_links", "source_id, source_row_id"),
+            ("session_store_coverage", "source_id"),
+        ] {
+            let mut stmt = self.conn.prepare(&format!(
+                "SELECT * FROM {table} WHERE session_id = ?1 ORDER BY {order}"
+            ))?;
+            let columns: Vec<usize> = stmt
+                .column_names()
+                .iter()
+                .enumerate()
+                .filter(|(_, name)| !matches!(**name, "read_at" | "revision"))
+                .map(|(index, _)| index)
+                .collect();
+            let rows = stmt
+                .query_map([session_id], |row| {
+                    columns
+                        .iter()
+                        .map(|index| row.get::<_, Value>(*index))
+                        .collect::<rusqlite::Result<Vec<_>>>()
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            snapshot.push(rows);
+        }
+        Ok(snapshot)
     }
 
     fn bump_enrichment_revision(&self, source_id: &str, session_id: &str) -> Result<()> {
@@ -162,6 +180,7 @@ impl IndexDb {
     /// Used when the setting is turned off: disabling must stop retention,
     /// not merely hide the data. Baseline session rows are untouched.
     pub fn purge_session_store_enrichment(&self) -> Result<()> {
+        let transaction = self.conn.unchecked_transaction()?;
         self.conn.execute_batch(
             "DELETE FROM session_request_billing_items;
              DELETE FROM session_request_links;
@@ -170,6 +189,7 @@ impl IndexDb {
              DELETE FROM session_store_coverage;
              DELETE FROM session_store_sources;",
         )?;
+        transaction.commit()?;
         Ok(())
     }
 

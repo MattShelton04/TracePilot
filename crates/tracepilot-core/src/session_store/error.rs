@@ -30,6 +30,9 @@ pub enum SessionStoreError {
 
     #[error("Copilot session store read exceeded its {0} ms budget")]
     DeadlineExceeded(u64),
+
+    #[error("Copilot session store exceeds the {0}-row per-session read limit")]
+    RowLimitExceeded(usize),
 }
 
 impl SessionStoreError {
@@ -38,7 +41,7 @@ impl SessionStoreError {
             Self::Disabled => SourceAvailability::Disabled,
             Self::Missing(_) => SourceAvailability::Missing,
             Self::Busy(_) | Self::DeadlineExceeded(_) => SourceAvailability::Busy,
-            Self::Unreadable(_) => SourceAvailability::Unreadable,
+            Self::Unreadable(_) | Self::RowLimitExceeded(_) => SourceAvailability::Unreadable,
             Self::Incompatible => SourceAvailability::Incompatible,
         }
     }
@@ -50,6 +53,9 @@ impl SessionStoreError {
             return match code.code {
                 rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked => {
                     Self::Busy(message.clone().unwrap_or_else(|| code.to_string()))
+                }
+                rusqlite::ErrorCode::OperationInterrupted => {
+                    Self::Busy("read budget exceeded".to_string())
                 }
                 rusqlite::ErrorCode::CannotOpen => {
                     Self::Unreadable(message.clone().unwrap_or_else(|| code.to_string()))

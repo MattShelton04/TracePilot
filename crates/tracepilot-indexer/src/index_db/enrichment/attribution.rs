@@ -246,7 +246,9 @@ fn unique_compaction(
         let Some(usage) = candidate.data.compaction_tokens_used.as_ref() else {
             continue;
         };
-        let counters_match = usage.input_tokens == request.input_tokens
+        let counters_match = request.input_tokens.is_some()
+            && request.output_tokens.is_some()
+            && usage.input_tokens == request.input_tokens
             && usage.output_tokens == request.output_tokens
             && usage.cache_read_tokens == request.cache_read_tokens;
         let model_matches = usage

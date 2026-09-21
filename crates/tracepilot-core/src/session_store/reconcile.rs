@@ -50,14 +50,27 @@ impl ReconciliationScope {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Totals {
-    requests: u64,
+    requests: Option<u64>,
     input_tokens: Option<u64>,
     output_tokens: Option<u64>,
     cache_read_tokens: Option<u64>,
     cache_write_tokens: Option<u64>,
     reasoning_tokens: Option<u64>,
+}
+
+impl Default for Totals {
+    fn default() -> Self {
+        Self {
+            requests: Some(0),
+            input_tokens: Some(0),
+            output_tokens: Some(0),
+            cache_read_tokens: Some(0),
+            cache_write_tokens: Some(0),
+            reasoning_tokens: Some(0),
+        }
+    }
 }
 
 /// Compare a session's recorded requests to its combined shutdown metrics.
@@ -79,9 +92,11 @@ pub fn reconcile_session(
     if requests.is_empty() {
         return ReconciliationReport::unverified("no recorded requests");
     }
+    if model_metrics.is_empty() {
+        return ReconciliationReport::unverified("shutdown has no model metrics");
+    }
 
     let expected = shutdown_totals(model_metrics);
-    let metrics = compared_metric_names();
 
     // All-requests first: when it matches, no scope adjustment is needed and
     // claiming one would misdescribe the data.
@@ -92,8 +107,12 @@ pub fn reconcile_session(
         let observed = request_totals(requests, scope);
         let differences = compare(&observed, &expected);
         if differences.is_empty() {
+            let metrics = compared_metric_names(&observed, &expected);
+            let complete = metrics.len() == 4;
             return ReconciliationReport {
-                status: if scope == ReconciliationScope::AllRequests {
+                status: if !complete {
+                    ReconciliationStatus::Partial
+                } else if scope == ReconciliationScope::AllRequests {
                     ReconciliationStatus::Reconciled
                 } else {
                     ReconciliationStatus::ScopeDifference
@@ -101,18 +120,20 @@ pub fn reconcile_session(
                 metrics,
                 scope: scope.as_str().to_string(),
                 snapshot_fingerprint,
-                differences: Vec::new(),
+                differences: if complete {
+                    Vec::new()
+                } else {
+                    vec!["some counters are missing or exceed the arithmetic range; only complete metrics were compared".to_string()]
+                },
             };
         }
     }
 
     let observed = request_totals(requests, ReconciliationScope::AllRequests);
     let differences = compare(&observed, &expected);
-    let comparable = expected.input_tokens.is_some()
-        || expected.output_tokens.is_some()
-        || expected.cache_read_tokens.is_some();
+    let metrics = compared_metric_names(&observed, &expected);
     ReconciliationReport {
-        status: if comparable {
+        status: if metrics.len() == 4 {
             ReconciliationStatus::Mismatch
         } else {
             ReconciliationStatus::Partial
@@ -124,17 +145,31 @@ pub fn reconcile_session(
     }
 }
 
-fn compared_metric_names() -> Vec<String> {
-    ["requests", "inputTokens", "outputTokens", "cacheReadTokens"]
-        .iter()
-        .map(|name| (*name).to_string())
-        .collect()
+fn compared_metric_names(observed: &Totals, expected: &Totals) -> Vec<String> {
+    [
+        ("requests", observed.requests, expected.requests),
+        ("inputTokens", observed.input_tokens, expected.input_tokens),
+        (
+            "outputTokens",
+            observed.output_tokens,
+            expected.output_tokens,
+        ),
+        (
+            "cacheReadTokens",
+            observed.cache_read_tokens,
+            expected.cache_read_tokens,
+        ),
+    ]
+    .into_iter()
+    .filter(|(_, left, right)| left.is_some() && right.is_some())
+    .map(|(name, _, _)| name.to_string())
+    .collect()
 }
 
 fn request_totals(requests: &[StoreRequest], scope: ReconciliationScope) -> Totals {
     let mut totals = Totals::default();
     for request in requests.iter().filter(|request| scope.includes(request)) {
-        totals.requests = totals.requests.saturating_add(1);
+        accumulate(&mut totals.requests, Some(1));
         accumulate(&mut totals.input_tokens, request.input_tokens);
         accumulate(&mut totals.output_tokens, request.output_tokens);
         accumulate(&mut totals.cache_read_tokens, request.cache_read_tokens);
@@ -147,10 +182,16 @@ fn request_totals(requests: &[StoreRequest], scope: ReconciliationScope) -> Tota
 fn shutdown_totals(model_metrics: &HashMap<String, ModelMetricDetail>) -> Totals {
     let mut totals = Totals::default();
     for detail in model_metrics.values() {
-        if let Some(requests) = detail.requests.as_ref().and_then(|metrics| metrics.count) {
-            totals.requests = totals.requests.saturating_add(requests);
-        }
+        accumulate(
+            &mut totals.requests,
+            detail.requests.as_ref().and_then(|metrics| metrics.count),
+        );
         let Some(usage) = detail.usage.as_ref() else {
+            totals.input_tokens = None;
+            totals.output_tokens = None;
+            totals.cache_read_tokens = None;
+            totals.cache_write_tokens = None;
+            totals.reasoning_tokens = None;
             continue;
         };
         accumulate(&mut totals.input_tokens, usage.input_tokens);
@@ -162,24 +203,15 @@ fn shutdown_totals(model_metrics: &HashMap<String, ModelMetricDetail>) -> Totals
     totals
 }
 
-/// Sum into an optional total, where `None` means "nothing contributed yet".
-/// A missing counter on one side leaves the total absent rather than reading
-/// as a zero that would then falsely match.
+/// Missing or overflowing counters make the whole metric incomplete.
 fn accumulate(total: &mut Option<u64>, value: Option<u64>) {
-    if let Some(value) = value {
-        *total = Some(total.unwrap_or(0).saturating_add(value));
-    }
+    *total = total.and_then(|sum| value.and_then(|value| sum.checked_add(value)));
 }
 
 fn compare(observed: &Totals, expected: &Totals) -> Vec<String> {
     let mut differences = Vec::new();
-    if observed.requests != expected.requests {
-        differences.push(format!(
-            "requests: recorded {} vs shutdown {}",
-            observed.requests, expected.requests
-        ));
-    }
     for (name, left, right) in [
+        ("requests", observed.requests, expected.requests),
         ("inputTokens", observed.input_tokens, expected.input_tokens),
         (
             "outputTokens",

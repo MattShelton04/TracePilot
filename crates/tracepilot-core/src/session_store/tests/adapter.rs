@@ -286,3 +286,42 @@ fn a_row_fingerprint_tracks_visible_changes() {
         .clone();
     assert_ne!(first, changed);
 }
+
+#[test]
+fn read_limit_fails_instead_of_publishing_a_truncated_session() {
+    let fixture = StoreFixture::current();
+    fixture.insert_session(SESSION, None);
+    let conn = rusqlite::Connection::open(&fixture.binding().db_path).unwrap();
+    conn.execute("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x < 10001) INSERT INTO assistant_usage_events(session_id, model) SELECT ?1, 'model' FROM n", [SESSION]).unwrap();
+    let reader = SourceReader::open(&fixture.binding()).unwrap();
+    assert!(matches!(
+        read_session(&reader, SESSION),
+        Err(crate::session_store::SessionStoreError::RowLimitExceeded(
+            10000
+        ))
+    ));
+}
+
+#[test]
+fn sqlite_progress_handler_interrupts_an_expensive_statement() {
+    let fixture = StoreFixture::current();
+    let reader = SourceReader::open_with_budget(&fixture.binding(), 20).unwrap();
+    let started = std::time::Instant::now();
+    let result = reader.connection().query_row("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x < 100000000) SELECT SUM(x) FROM n", [], |row| row.get::<_, i64>(0));
+    assert!(result.is_err());
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
+}
+
+#[test]
+fn timestamps_normalize_offsets_for_ordering() {
+    let fixture = StoreFixture::current();
+    fixture.insert_session(SESSION, None);
+    fixture.insert_usage(&UsageRow::new(SESSION).set("created_at", "'2026-09-21T00:30:00+10:00'"));
+    let reader = SourceReader::open(&fixture.binding()).unwrap();
+    assert_eq!(
+        read_session(&reader, SESSION).unwrap().requests[0]
+            .recorded_at
+            .as_deref(),
+        Some("2026-09-20T14:30:00.000Z")
+    );
+}

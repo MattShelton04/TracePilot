@@ -52,6 +52,8 @@ pub struct RequestPerformanceReport {
     /// False when no source is bound or the enrichment tables are absent —
     /// which is not the same as a filter matching no requests.
     pub available: bool,
+    pub stale: bool,
+    pub last_success_at: Option<String>,
     pub overall: Option<RequestPerformance>,
     pub by_model: Vec<ModelRequestPerformance>,
     /// Sessions represented, so a distribution dominated by one long session
@@ -63,6 +65,8 @@ impl RequestPerformanceReport {
     pub(super) fn unavailable() -> Self {
         Self {
             available: false,
+            stale: false,
+            last_success_at: None,
             overall: None,
             by_model: Vec::new(),
             session_count: 0,
@@ -85,6 +89,8 @@ pub(super) fn query_request_performance(
         // measurement, so none is returned.
         return Ok(RequestPerformanceReport {
             available: true,
+            stale: false,
+            last_success_at: None,
             overall: None,
             by_model: Vec::new(),
             session_count: 0,
@@ -115,6 +121,8 @@ pub(super) fn query_request_performance(
 
     Ok(RequestPerformanceReport {
         available: true,
+        stale: false,
+        last_success_at: None,
         overall: Some(overall),
         by_model,
         session_count,
@@ -136,7 +144,7 @@ fn load_rows(
         params.push(Box::new(from.clone()));
     }
     if let Some(to) = &filter.to_date {
-        clauses.push("u.recorded_at <= ?".to_string());
+        clauses.push("u.recorded_at < date(?, '+1 day')".to_string());
         params.push(Box::new(to.clone()));
     }
     if let Some(repository) = &filter.repository {
@@ -166,17 +174,17 @@ fn load_rows(
         "SELECT u.source_row_id, u.session_id, u.model, u.input_tokens, u.output_tokens, \
                 u.cache_read_tokens, u.cache_write_tokens, u.duration_ms, \
                 u.time_to_first_token_ms, u.output_ttft_ms, u.inter_token_latency_ms, \
-                u.initiator, u.recorded_at \
+                u.initiator, u.recorded_at, u.invalid_fields \
          FROM session_request_usage u WHERE {} \
          ORDER BY u.recorded_at ASC, u.source_row_id ASC LIMIT ?",
         clauses.join(" AND ")
     );
     params.push(Box::new(
-        i64::try_from(MAX_PERFORMANCE_ROWS).unwrap_or(i64::MAX),
+        i64::try_from(MAX_PERFORMANCE_ROWS + 1).unwrap_or(i64::MAX),
     ));
 
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt
+    let rows: Vec<StoredRequest> = stmt
         .query_map(
             params_from_iter(params.iter().map(|param| param.as_ref())),
             |row| {
@@ -209,13 +217,24 @@ fn load_rows(
                     billing_items_status: String::new(),
                     billing_check: String::new(),
                     recorded_at: row.get(12)?,
-                    invalid_fields: Vec::new(),
+                    invalid_fields: row
+                        .get::<_, Option<String>>(13)?
+                        .unwrap_or_default()
+                        .split(',')
+                        .filter(|field| !field.is_empty())
+                        .map(str::to_string)
+                        .collect(),
                     row_fingerprint: String::new(),
                     billing_items: Vec::new(),
                 })
             },
         )?
         .collect::<rusqlite::Result<_>>()?;
+    if rows.len() > MAX_PERFORMANCE_ROWS {
+        return Err(crate::error::IndexerError::QueryLimit(
+            "More than 100,000 requests match; narrow the date range or repository".to_string(),
+        ));
+    }
     Ok(rows)
 }
 

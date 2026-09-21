@@ -47,8 +47,23 @@ impl IndexDb {
         if !self.has_session_store_enrichment() {
             return Ok(request_performance::RequestPerformanceReport::unavailable());
         }
+        let _snapshot = self.conn.unchecked_transaction()?;
         let generation = self.active_generation()?;
-        request_performance::query_request_performance(&self.conn, generation.as_deref(), filter)
+        let mut report = request_performance::query_request_performance(
+            &self.conn,
+            generation.as_deref(),
+            filter,
+        )?;
+        if let Some(source) = self.session_store_status()? {
+            report.stale = source.availability != "ready"
+                || self.conn.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM session_store_coverage WHERE freshness = 'stale')",
+                    [],
+                    |row| row.get::<_, bool>(0),
+                )?;
+            report.last_success_at = source.last_success_at;
+        }
+        Ok(report)
     }
 
     /// Per-agent request figures for one session, own totals only.

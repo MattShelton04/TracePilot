@@ -37,9 +37,17 @@ impl<'a> RequestRow<'a> {
             request_multiplier: request.request_multiplier.map(|value| value.to_string()),
             content_filter_triggered: request.content_filter_triggered.map(i64::from),
             billing_items_status: serde_plain(&request.billing_items_status),
-            billing_check: billing::check(&request.billing_items, request.total_nano_aiu)
-                .as_str()
-                .to_string(),
+            billing_check: if matches!(
+                request.billing_items_status,
+                tracepilot_core::session_store::BillingItemsStatus::Partial
+                    | tracepilot_core::session_store::BillingItemsStatus::Invalid
+            ) {
+                "incomputable".to_string()
+            } else {
+                billing::check(&request.billing_items, request.total_nano_aiu)
+                    .as_str()
+                    .to_string()
+            },
             invalid_fields: (!request.invalid_fields.is_empty())
                 .then(|| request.invalid_fields.join(",")),
         }

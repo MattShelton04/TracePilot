@@ -4,7 +4,7 @@
 //! would put rows from a rebuilt store beside rows from the one it replaced,
 //! which share row IDs and mean different requests.
 
-use rusqlite::{Row, ToSql, params_from_iter};
+use rusqlite::{OptionalExtension, Row, ToSql, params_from_iter};
 use tracepilot_core::utils::sqlite::table_exists;
 
 use crate::Result;
@@ -66,7 +66,7 @@ impl IndexDb {
                     })
                 },
             )
-            .ok();
+            .optional()?;
         let Some(mut status) = status else {
             return Ok(None);
         };
@@ -86,16 +86,20 @@ impl IndexDb {
     /// Sorted by recorded time then row ID: timestamps repeat, and a sort
     /// that is not total makes a cursor skip or repeat rows across pages.
     pub fn list_request_usage(&self, filter: &RequestLedgerFilter) -> Result<RequestLedgerPage> {
+        let _snapshot = self.conn.unchecked_transaction()?;
         if !self.has_session_store_enrichment() {
             return Ok(RequestLedgerPage::unavailable());
         }
         let Some(generation) = self.active_generation()? else {
             return Ok(RequestLedgerPage::unavailable());
         };
+        let revision = self
+            .session_store_status()?
+            .map_or(0, |source| source.revision);
         // A cursor from a superseded generation cannot be continued: its row
         // IDs address different requests now.
         if let Some(cursor) = &filter.after
-            && cursor.generation != generation
+            && (cursor.generation != generation || cursor.revision != revision)
         {
             return Ok(RequestLedgerPage::stale_cursor(generation));
         }
@@ -125,6 +129,7 @@ impl IndexDb {
         let next_cursor = has_more.then(|| {
             rows.last().map(|request| RequestCursor {
                 generation: generation.clone(),
+                revision,
                 recorded_at: request.recorded_at.clone(),
                 source_row_id: request.source_row_id,
             })
@@ -241,7 +246,7 @@ impl IndexDb {
                     })
                 },
             )
-            .ok())
+            .optional()?)
     }
 
     /// The generation currently published by the bound source.
@@ -252,12 +257,12 @@ impl IndexDb {
         Ok(self
             .conn
             .query_row(
-                "SELECT generation FROM session_store_sources \
+                "SELECT generation FROM session_store_sources WHERE last_success_at IS NOT NULL \
                  ORDER BY last_attempt_at DESC LIMIT 1",
                 [],
                 |row| row.get::<_, String>(0),
             )
-            .ok())
+            .optional()?)
     }
 
     fn build_request_filter(
@@ -311,15 +316,17 @@ impl IndexDb {
             params.push(Box::new(from.clone()));
         }
         if let Some(to) = &filter.to_date {
-            clauses.push("u.recorded_at <= ?".to_string());
+            clauses.push("u.recorded_at < date(?, '+1 day')".to_string());
             params.push(Box::new(to.clone()));
         }
         if let Some(cursor) = &filter.after {
-            clauses.push(
-                "(u.recorded_at > ? OR (u.recorded_at IS ? AND u.source_row_id > ?))".to_string(),
-            );
-            params.push(Box::new(cursor.recorded_at.clone()));
-            params.push(Box::new(cursor.recorded_at.clone()));
+            if let Some(timestamp) = &cursor.recorded_at {
+                clauses.push("(u.recorded_at IS NULL OR u.recorded_at > ? OR (u.recorded_at = ? AND u.source_row_id > ?))".to_string());
+                params.push(Box::new(timestamp.clone()));
+                params.push(Box::new(timestamp.clone()));
+            } else {
+                clauses.push("(u.recorded_at IS NULL AND u.source_row_id > ?)".to_string());
+            }
             params.push(Box::new(cursor.source_row_id));
         }
         (format!("WHERE {}", clauses.join(" AND ")), params)
