@@ -1,7 +1,11 @@
 # Copilot session-store enrichment for TracePilot
 
-Status: **Proposed design** — investigated 2026-09-20. No application integration is
-implemented by this document.
+Status: **Delivered (phases 1–5)** — investigated 2026-09-20, implemented
+2026-09-21. Phase 6 remains deliberately unstarted; see §12.
+
+The design below is kept as written, because it is the record of what the
+evidence supported and why each rule exists. Where the implementation made a
+choice the design left open, §12 names it.
 
 This extends the [initial research](../research/copilot-session-store-db.md) with a
 fresh read-only inspection of the local `~/.copilot/session-store.db`, its related
@@ -744,16 +748,41 @@ working on a machine that has no Copilot session store.
 
 | Phase | Work | Exit criteria |
 |---|---|---|
-| 1. Adapter and evidence model | Path helper, source binding, per-column capabilities, normalized requests/refs, typed status, read budgets | Synthetic old/new/absent/malformed/WAL fixtures work; no source mutation; all 25 observed usage columns accounted for |
-| 2. Index lifecycle and minimal UI | Schema, isolated refresh pass, per-session replacement, generation/revision handling, setting, request ledger and billing drawer | Request data updates without JSONL changes; missing/busy source preserves baseline; disabling purges cache; charge calculations reproduce synthetic fixtures |
-| 3. Linked work | Ref resolution, overview chips, typed qualifiers and consistent search/facets | Repo collisions and Enterprise hosts handled; unresolved refs stay searchable; qualifier-only queries work |
-| 4. Attribution and cache | Exact agent links, conservative turn mapping, reconciliation, predicted-vs-observed cache display | Compaction double counting prevented; concurrent workers do not attach to root cache windows; ambiguity remains visible |
-| 5. Aggregate performance | Agents Usage and Model Comparison distributions, coverage and filters | Accurate quantiles, missing-value handling and identical filter populations; own/branch totals do not overlap |
-| 6. Optional extensions | Structured checkpoint fallback, store-only discovery, export extension, schema analyzer | Separate design/fixtures for each; no new dependency on empty Forge/context tables |
+| Phase | Status | Where it lives |
+|---|---|---|
+| 1. Adapter and evidence model | **Delivered** | `crates/tracepilot-core/src/session_store/` — source binding, per-column capabilities, exact decimal/rational billing arithmetic, normalized requests and refs, typed status, read budgets |
+| 2. Index lifecycle and minimal UI | **Delivered** | Migration 020, `index_db/enrichment/`, `indexing/enrichment.rs`, the `sessionStoreEnrichment` setting, and the Model requests section with its billing drawer |
+| 3. Linked work | **Delivered** | `work_ref.rs`, `session_work_refs`, the Related work panel, and `pr:` / `issue:` / `commit:` search qualifiers |
+| 4. Attribution and cache | **Delivered** | `index_db/enrichment/attribution.rs` and `prompt_cache/observation.rs` |
+| 5. Aggregate performance | **Delivered** | `analytics_queries/request_performance.rs`, plus the Model Comparison and Agents Usage surfaces |
+| 6. Optional extensions | **Not started, by design** | Structured checkpoint fallback, store-only discovery, the versioned export section and the schema analyzer each need their own design and fixtures |
 
 Do not block the useful session ledger on perfect turn mapping. Likewise, refs
 can ship without latency analytics, and checkpoint structure can improve older
 sessions without depending on the store at all.
+
+### Choices the implementation made
+
+Where §4.2 left the turn-mapping ladder open, only its first two rungs were
+built: exact agent/tool linkage, and a compaction request matched to a
+`session.compaction_complete` event on identical recorded counters. Rungs
+three and four — mapping a source turn to a root user event by timestamp and
+content — were **not** built. 85 of 383 local rows have no matching source
+turn at all, and the exploratory text match produced several different index
+offsets, so there was no rule that would have been safe. Unjoined requests
+stay visible in the ledger, which §4.2 states is the acceptable outcome.
+
+Cache observations (§5.2) attach only to the first root request inside a
+window's resume interval, with the model agreeing and no timestamp tie.
+Subagent and compaction requests are excluded outright. `CacheConfidence`
+gained no `Observed` variant, as §5.2 requires.
+
+Cross-session request performance (§5.3) is exposed as its own command with
+its own repository/date filters rather than being folded into the existing
+aggregate metrics, so the two populations can never be confused.
+
+Exports (§11) are unchanged and explicitly exclude enrichment; the reason is
+recorded at `crates/tracepilot-export/src/builder/session.rs`.
 
 For schema watch, extend the existing CLI version analyzer with DDL extraction
 from installed native runtime packages, producing capability diffs. Binary string
