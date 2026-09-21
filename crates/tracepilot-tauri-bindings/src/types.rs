@@ -46,6 +46,10 @@ pub struct ContextTimelineResponse {
 #[serde(rename_all = "camelCase")]
 pub struct PromptCacheResponse {
     pub timeline: tracepilot_core::prompt_cache::PromptCacheTimeline,
+    /// What the resuming request recorded, where the optional session store
+    /// could supply it. Empty is the normal state: it means no reliable
+    /// association was found, not that no reuse happened.
+    pub observations: Vec<tracepilot_core::prompt_cache::CacheObservation>,
     pub events_file_size: u64,
     pub events_file_mtime: Option<i64>,
 }

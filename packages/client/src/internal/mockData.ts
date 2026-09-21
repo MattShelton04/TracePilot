@@ -18,6 +18,7 @@ import { createDefaultConfig } from "@tracepilot/types";
 import type { GitInfo, UpdateCheckResult } from "../generated/bindings.js";
 
 import type { ContextSnippet, FtsHealthInfo } from "../search.js";
+import { sessionStoreMocks } from "./sessionStoreMocks.js";
 
 const MOCK_EVENTS_MTIME = 1_735_728_400_000;
 
@@ -288,46 +289,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_session_checkpoints: mocks.MOCK_CHECKPOINTS,
     get_session_plan: { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
     get_shutdown_metrics: mocks.MOCK_SHUTDOWN_METRICS,
-    get_session_prompt_cache: {
-      timeline: mocks.MOCK_PROMPT_CACHE,
-      eventsFileSize: 1024,
-      eventsFileMtime: MOCK_EVENTS_MTIME,
-    } as PromptCacheResponse,
-    get_session_store_status: {
-      enabled: true,
-      resolvedPath: "~/.copilot/session-store.db",
-      source: mocks.MOCK_STORE_SOURCE,
-    },
-    get_session_request_usage: {
-      enabled: true,
-      page: {
-        requests: mocks.MOCK_REQUEST_LEDGER,
-        nextCursor: null,
-        generation: "mock-generation",
-        available: true,
-        cursorExpired: false,
-      },
-      coverage: mocks.MOCK_STORE_COVERAGE,
-    },
-    get_session_work_refs: {
-      enabled: true,
-      available: true,
-      refs: mocks.MOCK_WORK_REFS,
-      sourceAvailability: "ready",
-    },
-    get_request_performance: {
-      enabled: true,
-      available: true,
-      performance: mocks.MOCK_REQUEST_PERFORMANCE,
-      coverage: mocks.MOCK_STORE_COVERAGE,
-    },
-    refresh_session_enrichment: {
-      availability: "ready",
-      refreshed: 1,
-      unchanged: 0,
-      skipped: 0,
-      detail: null,
-    },
+    ...sessionStoreMocks(mocks, MOCK_EVENTS_MTIME),
     context_capture_list: [],
     context_capture_preflight: {
       sourceSessionId: mockSessionId,

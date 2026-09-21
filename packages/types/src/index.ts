@@ -229,7 +229,9 @@ export {
 } from "./pricing.js";
 // ── promptCache.js ─────────────────────────────────────────────────
 export type {
+  CacheComparison,
   CacheConfidence,
+  CacheObservation,
   CacheWindow,
   CacheWindowOutcome,
   ModelCacheTtl,
