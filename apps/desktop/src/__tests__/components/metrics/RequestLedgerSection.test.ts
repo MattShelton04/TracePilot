@@ -240,7 +240,7 @@ describe("MetricsRequestLedgerSection", () => {
     const wrapper = await mountExpanded();
     const summary = wrapper.get('[data-testid="request-ledger-reconciliation-summary"]');
     expect(summary.text()).toContain("Different accounting scope");
-    expect(summary.text()).toContain("excludingCompaction");
+    expect(summary.text()).toContain("requests excluding compaction");
   });
 
   it("opens a drawer with the exact recorded charge and both first-token metrics", async () => {

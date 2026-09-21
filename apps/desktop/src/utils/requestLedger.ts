@@ -194,6 +194,23 @@ export const RECONCILIATION_LABELS: Record<ReconciliationStatus, string> = {
   mismatch: "Mismatch",
 };
 
+export function accountingScopeLabel(scope: string | null): string {
+  if (scope === "allRequests") return "all recorded requests";
+  if (scope === "excludingCompaction") return "requests excluding compaction";
+  return "an unrecorded accounting scope";
+}
+
+export function reconciliationMetricLabel(metric: string): string {
+  const labels: Record<string, string> = {
+    requests: "request count",
+    inputTokens: "input tokens",
+    outputTokens: "output tokens",
+    cacheReadTokens: "cache reads",
+    nanoAiu: "AI credits",
+  };
+  return labels[metric] ?? metric;
+}
+
 export const BILLING_STATUS_LABELS: Record<BillingItemsStatus, string> = {
   complete: "Complete",
   absent: "Not recorded",

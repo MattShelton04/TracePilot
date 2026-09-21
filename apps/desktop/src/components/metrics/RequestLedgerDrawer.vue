@@ -11,6 +11,7 @@ import type { SessionCoverageRow, StoredRequest } from "@tracepilot/types";
 import { Badge, Drawer } from "@tracepilot/ui";
 import { computed } from "vue";
 import {
+  accountingScopeLabel,
   BILLING_CHECK_LABELS,
   BILLING_STATUS_LABELS,
   billingCheckTone,
@@ -21,6 +22,7 @@ import {
   NOT_RECORDED,
   NOT_RECORDED_HINT,
   RECONCILIATION_LABELS,
+  reconciliationMetricLabel,
   textCell,
 } from "@/utils/requestLedger";
 
@@ -150,7 +152,6 @@ const groups = computed(() => [
     rows: timings.value,
     note: "First observable output includes reasoning and tool-call output, so its gap from time to first token is not reasoning duration.",
   },
-  { title: "Charge", rows: charge.value, note: null as string | null },
   {
     title: "Attribution",
     rows: attribution.value,
@@ -171,8 +172,8 @@ const reconciliation = computed(() => {
   return {
     status: RECONCILIATION_LABELS[c.reconciliationStatus],
     // A status without its scope is not a claim a reader can act on.
-    scope: c.reconciliationScope,
-    metrics: c.reconciliationMetrics,
+    scope: accountingScopeLabel(c.reconciliationScope),
+    metrics: c.reconciliationMetrics.map(reconciliationMetricLabel),
     differences: c.reconciliationDifferences,
   };
 });
@@ -190,20 +191,15 @@ function batchLabel(size: number | null): string {
     @update:visible="emit('update:visible', $event)"
   >
     <div v-if="request" class="ledger-drawer" data-testid="request-ledger-drawer">
-      <section v-for="group in groups" :key="group.title">
-        <h3 class="ledger-drawer__heading">{{ group.title }}</h3>
-        <dl class="ledger-drawer__list">
-          <template v-for="entry in group.rows" :key="entry.label">
+      <section>
+        <h3 class="ledger-drawer__heading">Recorded charge</h3>
+        <p class="ledger-drawer__note">{{ request.model }} · {{ request.recordedAt }}</p>
+        <dl class="ledger-drawer__list ledger-drawer__charge">
+          <template v-for="entry in charge" :key="entry.label">
             <dt :title="entry.hint">{{ entry.label }}</dt>
-            <dd v-if="entry.recorded">{{ entry.text }}</dd>
-            <dd v-else class="ledger-drawer__missing" :title="NOT_RECORDED_HINT">—</dd>
+            <dd>{{ entry.text }}</dd>
           </template>
         </dl>
-        <p v-if="group.note" class="ledger-drawer__note">{{ group.note }}</p>
-      </section>
-
-      <section>
-        <h3 class="ledger-drawer__heading">Billing</h3>
         <div class="ledger-drawer__badges">
           <Badge variant="neutral">Items: {{ BILLING_STATUS_LABELS[request.billingItemsStatus] }}</Badge>
           <Badge :variant="billingCheckTone(request.billingCheck)">
@@ -216,8 +212,8 @@ function batchLabel(size: number | null): string {
               <th>Token type</th>
               <th style="text-align: right">Count</th>
               <th style="text-align: right">Batch</th>
-              <th style="text-align: right">Rate</th>
-              <th>Billing model</th>
+              <th style="text-align: right">Rate (nano AIU)</th>
+              <th v-if="billingItems.some(item => item.billingModel)">Billing model</th>
             </tr>
           </thead>
           <tbody>
@@ -228,7 +224,7 @@ function batchLabel(size: number | null): string {
               <td style="text-align: right" class="ledger-drawer__exact">
                 {{ formatCostPerBatch(item.costPerBatch) }}
               </td>
-              <td>{{ item.billingModel ?? NOT_RECORDED }}</td>
+              <td v-if="billingItems.some(entry => entry.billingModel)">{{ item.billingModel ?? NOT_RECORDED }}</td>
             </tr>
           </tbody>
         </table>
@@ -236,9 +232,22 @@ function batchLabel(size: number | null): string {
           No itemised billing was recorded for this request.
         </p>
         <p class="ledger-drawer__note">
-          Rates are the exact recorded per-batch values, shown as recorded.
+          Each entry charges count × rate ÷ batch size. The request multiplier is already included in the recorded charge.
         </p>
       </section>
+
+      <component :is="group.title === 'Attribution' ? 'details' : 'section'" v-for="group in groups" :key="group.title">
+        <summary v-if="group.title === 'Attribution'" class="ledger-drawer__heading">Source details</summary>
+        <h3 v-else class="ledger-drawer__heading">{{ group.title }}</h3>
+        <dl class="ledger-drawer__list">
+          <template v-for="entry in group.rows" :key="entry.label">
+            <dt :title="entry.hint">{{ entry.label }}</dt>
+            <dd v-if="entry.recorded">{{ entry.text }}</dd>
+            <dd v-else class="ledger-drawer__missing" :title="NOT_RECORDED_HINT">—</dd>
+          </template>
+        </dl>
+        <p v-if="group.note" class="ledger-drawer__note">{{ group.note }}</p>
+      </component>
 
       <section v-if="invalidFields.length" data-testid="request-ledger-invalid-fields">
         <h3 class="ledger-drawer__heading">Unusable source values</h3>
@@ -330,6 +339,9 @@ function batchLabel(size: number | null): string {
 }
 .ledger-drawer__billing {
   width: 100%;
+}
+.ledger-drawer__charge {
+  margin: 12px 0;
 }
 .ledger-drawer__exact {
   font-variant-numeric: tabular-nums;

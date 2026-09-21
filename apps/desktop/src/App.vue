@@ -22,7 +22,6 @@ import { useWindowLifecycle } from "@/composables/useWindowLifecycle";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
-import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { openExternal } from "@/utils/openExternal";
 
@@ -52,11 +51,7 @@ const { phase, expectedSessionCount, onSetupSaved, onSetupComplete, onIndexingCo
 // requests while TracePilot is idle — so the main window re-reads it
 // periodically. Only the main window sweeps: the pass is process-wide, and a
 // popup viewer duplicating it would just lose the gate race.
-const preferences = usePreferencesStore();
-const sessionStoreSweep = useSessionStoreSweep(
-  () => isMain() && phase.value === "app",
-  () => preferences.isFeatureEnabled("sessionStoreEnrichment"),
-);
+const sessionStoreSweep = useSessionStoreSweep(() => isMain() && phase.value === "app");
 void sessionStoreSweep.setup();
 
 const {

@@ -8,7 +8,7 @@
  */
 import type { StoreAvailability } from "@tracepilot/types";
 import { ErrorAlert, SectionPanel, SkeletonLoader, StatusPill, Tooltip } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useSessionWorkRefs } from "@/composables/useSessionWorkRefs";
 import { openExternal } from "@/utils/openExternal";
 
@@ -16,6 +16,15 @@ const props = defineProps<{ sessionId: string | null | undefined }>();
 
 const { enabled, loading, loaded, error, rows, sourceAvailable, sourceAvailability, retry } =
   useSessionWorkRefs(() => props.sessionId);
+
+const expanded = ref(false);
+const visibleRows = computed(() => (expanded.value ? rows.value : rows.value.slice(0, 8)));
+watch(
+  () => props.sessionId,
+  () => {
+    expanded.value = false;
+  },
+);
 
 // An absent store is the expected state on a Copilot CLI that predates it, so
 // each state gets its own sentence rather than a generic failure.
@@ -45,6 +54,10 @@ function openRef(href: string | null) {
       opened, reviewed, merged or completed that work.
     </p>
 
+    <p v-if="sourceAvailable && sourceAvailability && sourceAvailability !== 'ready'" class="related-work-message">
+      Showing cached references. {{ availabilityDetail }}
+    </p>
+
     <ErrorAlert
       v-if="error"
       :message="`Related work: ${error}`"
@@ -64,7 +77,7 @@ function openRef(href: string | null) {
     </p>
     <ul v-else class="related-work-list">
       <li
-        v-for="row in rows"
+        v-for="row in visibleRows"
         :key="row.identity"
         class="related-work-row"
         :data-resolution="row.resolution"
@@ -101,6 +114,9 @@ function openRef(href: string | null) {
         </Tooltip>
       </li>
     </ul>
+    <button v-if="rows.length > 8" type="button" class="btn btn-secondary btn-sm mt-3" :aria-expanded="expanded" @click="expanded = !expanded">
+      {{ expanded ? "Show fewer references" : `Show all ${rows.length} references` }}
+    </button>
   </SectionPanel>
 </template>
 

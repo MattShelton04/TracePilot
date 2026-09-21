@@ -5,7 +5,7 @@ import { logWarn } from "@/utils/logger";
 export const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 
 /** The main window refreshes after bootstrap and periodically while open. */
-export function useSessionStoreSweep(ready: () => boolean, enabled: () => boolean) {
+export function useSessionStoreSweep(ready: () => boolean) {
   let timer: ReturnType<typeof setInterval> | null = null;
   let inFlight = false;
   let disposed = false;
@@ -24,7 +24,9 @@ export function useSessionStoreSweep(ready: () => boolean, enabled: () => boolea
     }
   }
 
-  const stopWatch = watch([ready, enabled], () => void sweep());
+  // Settings persists a toggle before refreshing. Starting a second sweep
+  // from the flag watcher would race that save and occupy the indexing gate.
+  const stopWatch = watch(ready, () => void sweep());
   function setup() {
     if (timer !== null || disposed) return;
     void sweep();

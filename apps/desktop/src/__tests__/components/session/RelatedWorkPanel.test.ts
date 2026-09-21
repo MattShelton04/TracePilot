@@ -86,6 +86,19 @@ it("reloads visible references when enrichment finishes", async () => {
   wrapper.unmount();
 });
 
+it("keeps long reference lists compact and expands on demand", async () => {
+  respond({
+    refs: Array.from({ length: 12 }, (_, index) =>
+      ref({ identity: String(index), normalizedValue: String(index + 1) }),
+    ),
+  });
+  const wrapper = await mountPanel();
+  expect(wrapper.findAll("li")).toHaveLength(8);
+  await wrapper.get("button").trigger("click");
+  expect(wrapper.findAll("li")).toHaveLength(12);
+  wrapper.unmount();
+});
+
 it("ignores a previous session response that arrives after navigation", async () => {
   let finishOld: ((value: SessionWorkRefsResponse) => void) | undefined;
   getSessionWorkRefs.mockImplementationOnce(

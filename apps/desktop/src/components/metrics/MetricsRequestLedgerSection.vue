@@ -27,8 +27,10 @@ import type { RequestLedgerFilterState } from "@/composables/session/useRequestL
 import { useRequestLedger } from "@/composables/session/useRequestLedger";
 import {
   AVAILABILITY_LABELS,
+  accountingScopeLabel,
   formatExactCredits,
   RECONCILIATION_LABELS,
+  reconciliationMetricLabel,
 } from "@/utils/requestLedger";
 
 const props = defineProps<{
@@ -75,8 +77,8 @@ const coverageSummary = computed(() => {
     reconciliation: coverage.reconciliationStatus
       ? {
           label: RECONCILIATION_LABELS[coverage.reconciliationStatus],
-          scope: coverage.reconciliationScope,
-          metrics: coverage.reconciliationMetrics,
+          scope: accountingScopeLabel(coverage.reconciliationScope),
+          metrics: coverage.reconciliationMetrics.map(reconciliationMetricLabel),
         }
       : null,
   };

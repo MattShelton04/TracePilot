@@ -746,8 +746,6 @@ artifacts unless a sanitized provenance representation is requested.
 Each phase should be independently reviewable and ship with the baseline still
 working on a machine that has no Copilot session store.
 
-| Phase | Work | Exit criteria |
-|---|---|---|
 | Phase | Status | Where it lives |
 |---|---|---|
 | 1. Adapter and evidence model | **Delivered** | `crates/tracepilot-core/src/session_store/` — source binding, per-column capabilities, exact decimal/rational billing arithmetic, normalized requests and refs, typed status, read budgets |
@@ -828,9 +826,45 @@ start the real Windows Tauri app with `pnpm app:start` against isolated syntheti
 data, attach using its printed Playwright CLI command, and verify 1440×960 first,
 then 960×640 and 2560×1440. Frontend-only mocks do not prove source access or fallback.
 
-The current work is documentation/research only: no app execution or integration
-test result is claimed. Query plans and integrity checks were run on the research
-snapshot; latency budgets above still need measurement on large synthetic stores.
+### Branch review and native validation (2026-09-21)
+
+The branch adds exactly one index migration, `020_session_store_enrichment.sql`.
+It was consolidated in place before release; databases that already ran an earlier
+local revision of 020 must rebuild their disposable TracePilot index. The Copilot
+source database is never migrated. Tests cover a populated version-19 upgrade,
+repeat migration application, foreign-key integrity, session deletion, and event-log
+changes invalidating derived links while preserving request evidence.
+
+The review corrected partial refresh publication, cancellation rollback, source
+switching, same-size rewrites and cursor invalidation, NULL timestamp pagination,
+inclusive end-date filtering, missing-field coverage, partial billing totals, and
+reference identity collisions between sessions. SQLite progress handlers interrupt
+expensive reads; exceeding row limits fails the refresh instead of publishing a
+truncated population. Numeric JSON billing rates preserve their decimal digits.
+
+Frontend views now reload when enrichment finishes and reject late responses from
+previous sessions. The Models page displays observations independently of shutdown
+totals. Settings saves the preference before refreshing; its toggle no longer
+competes with a second background refresh. Billing leads the request drawer, source
+diagnostics are collapsible, accounting labels are readable, and long reference
+lists expand on demand.
+
+Native Windows Tauri validation used an ignored, isolated backup of the real source
+and 25 real session logs: all 383 requests across 18 sessions, plus 103 references
+across two other sessions. Source and indexed charge totals matched using decimal
+arithmetic. Request duration, TTFT, first observable output, and inter-token latency
+had 383, 351, 187, and 346 valid samples respectively. Screenshots were inspected at
+1440×960, 960×640, and 2560×1440; the minimum viewport keeps additional timing columns
+inside a focusable scrolling table. Ledger pagination and itemized billing were
+checked through real IPC. Disabling removed all cached enrichment while retaining
+25 baseline sessions; re-enabling restored the 383 requests and 103 references.
+
+Observed debug-build sweeps over this snapshot took roughly 0.8–1.3 seconds.
+This is a local measurement, not a production or large-store latency guarantee.
+The full Rust workspace test suite (excluding the desktop executable), Clippy with
+warnings denied, frontend tests, type checks, lint, design-system checks, file-size
+limits, and documentation-link checks are the release validation commands. No
+private logs, database copies, or screenshots are committed.
 
 ## 14. Remaining uncertainties and explicit non-goals
 
