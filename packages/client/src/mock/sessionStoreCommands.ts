@@ -8,7 +8,7 @@ import type {
   SessionWorkRefsResponse,
 } from "@tracepilot/types";
 
-type Mocks = typeof import("../mock/index.js");
+type Mocks = typeof import("./index.js");
 
 /**
  * Mock responses for the session-store enrichment commands.

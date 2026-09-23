@@ -10,7 +10,7 @@ import type {
 // Shaped after a real 1.0.86 session: a root request that reused most of its
 // prefix, a subagent request, and a compaction whose flat cache-write counter
 // disagrees with its billing entries. The disagreement is deliberate — it is
-// the case the drawer has to show rather than silently reconcile.
+// the case the request detail has to show rather than silently reconcile.
 
 const MOCK_RECORDED_AT = "2026-09-20T10:14:52.317Z";
 

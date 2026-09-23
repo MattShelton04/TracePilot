@@ -15,9 +15,8 @@ import type {
 import { createDefaultConfig } from "@tracepilot/types";
 
 import type { GitInfo, UpdateCheckResult } from "../generated/bindings.js";
-
+import { sessionStoreMocks } from "../mock/sessionStoreCommands.js";
 import type { ContextSnippet, FtsHealthInfo } from "../search.js";
-import { sessionStoreMocks } from "./sessionStoreMocks.js";
 
 const MOCK_EVENTS_MTIME = 1_735_728_400_000;
 
