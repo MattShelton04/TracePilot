@@ -102,7 +102,9 @@ describe("ModelObservedPerformance", () => {
     const unavailable = wrapper.get('[data-testid="observed-unavailable"]');
     expect(unavailable.text()).toContain("No session store could be read");
     expect(unavailable.text()).toContain("says nothing about how many requests were made");
-    expect(wrapper.find('[data-testid="observed-row-overall"]').exists()).toBe(false);
+    expect(
+      wrapper.find('[data-testid="observed-latency-table"] .observed__row--overall').exists(),
+    ).toBe(false);
   });
 
   it("separates an empty population from an unavailable source", async () => {
@@ -126,7 +128,9 @@ describe("ModelObservedPerformance", () => {
     performanceCall.mockResolvedValue(respond({}));
     const wrapper = await render();
 
-    const overall = wrapper.get('[data-testid="observed-row-overall"]').text();
+    const overall = wrapper
+      .get('[data-testid="observed-latency-table"] .observed__row--overall')
+      .text();
     expect(overall).toContain("p95 —");
     expect(overall).not.toContain("p95 0ms");
     expect(wrapper.get('[data-testid="observed-p95-reason"]').text()).toContain(
@@ -138,7 +142,9 @@ describe("ModelObservedPerformance", () => {
     performanceCall.mockResolvedValue(respond({}));
     const wrapper = await render();
 
-    const overall = wrapper.get('[data-testid="observed-row-overall"]').text();
+    const overall = wrapper
+      .get('[data-testid="observed-latency-table"] .observed__row--overall')
+      .text();
     expect(overall).toContain("40 valid");
     expect(overall).toContain("38 valid · 2 not recorded");
     expect(overall).toContain("3 valid · 36 not recorded · 1 invalid");
@@ -198,6 +204,50 @@ describe("ModelObservedPerformance", () => {
     expect(performanceCall).toHaveBeenLastCalledWith(
       expect.objectContaining({ repository: "octo/tracepilot" }),
     );
+  });
+
+  it("sorts the models beneath a pinned all-models row, missing figures last", async () => {
+    performanceCall.mockResolvedValue(
+      respond({
+        byModel: [
+          { model: "alpha", performance: performance({ requestCount: 5 }) },
+          {
+            model: "beta",
+            performance: performance({
+              requestCount: 90,
+              durationMs: distribution({ median: 900 }),
+            }),
+          },
+          {
+            model: "gamma",
+            performance: performance({
+              requestCount: 20,
+              durationMs: distribution({
+                median: null,
+                coverage: { valid: 0, missing: 20, invalid: 0 },
+              }),
+            }),
+          },
+        ],
+      }),
+    );
+    const wrapper = await render();
+    const table = () => wrapper.get('[data-testid="observed-latency-table"]');
+    const order = () =>
+      table()
+        .findAll("tbody tr")
+        .map((row) => row.find("td").text());
+
+    // Largest samples first by default.
+    expect(order()).toEqual(["All models", "beta", "gamma", "alpha"]);
+
+    await table().get('button[aria-label="Sort by API duration"]').trigger("click");
+    expect(order()).toEqual(["All models", "alpha", "beta", "gamma"]);
+    await table().get('button[aria-label="Sort by API duration"]').trigger("click");
+    expect(order()).toEqual(["All models", "beta", "alpha", "gamma"]);
+
+    await table().get('button[aria-label="Sort by Model"]').trigger("click");
+    expect(order()).toEqual(["All models", "alpha", "beta", "gamma"]);
   });
 
   it("reads nothing and renders nothing while the feature is off", async () => {

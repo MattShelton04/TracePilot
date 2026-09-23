@@ -9,9 +9,8 @@
  * session's reconciliation verdict with the scope that verdict used.
  */
 import type { SessionCoverageRow, StoredRequest } from "@tracepilot/types";
-import { Badge, formatDate } from "@tracepilot/ui";
-import { X } from "lucide-vue-next";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { Badge, DataTable, type DataTableColumn, formatDate } from "@tracepilot/ui";
+import { computed } from "vue";
 import {
   BILLING_CHECK_LABELS,
   BILLING_STATUS_LABELS,
@@ -33,19 +32,7 @@ const props = defineProps<{
   coverage: SessionCoverageRow | null;
 }>();
 
-const emit = defineEmits<{
-  close: [];
-  "filter-agent": [agentId: string];
-}>();
-
-// A row low in the table opens its detail below the fold; bring it far
-// enough into view to be noticed without jumping past the row.
-const root = ref<HTMLElement | null>(null);
-function reveal(): void {
-  void nextTick(() => root.value?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }));
-}
-onMounted(reveal);
-watch(() => props.request, reveal);
+const emit = defineEmits<{ "filter-agent": [agentId: string] }>();
 
 interface DetailRow {
   label: string;
@@ -192,6 +179,29 @@ const reconciliation = computed(() => {
   };
 });
 
+const billingColumns = computed<DataTableColumn[]>(() => [
+  { key: "tokenType", label: "Token type" },
+  { key: "count", label: "Count", align: "right" },
+  { key: "rate", label: "Rate", align: "right" },
+  { key: "charge", label: "Charge", align: "right" },
+  ...(billingItems.value.some((item) => item.billingModel)
+    ? [{ key: "billingModel", label: "Billing model" }]
+    : []),
+]);
+
+const billingRows = computed(() =>
+  billingItems.value.map((item) => ({
+    key: item.ordinal,
+    tokenType: item.tokenType,
+    count: counterCell(item.tokenCount).text,
+    rate: formatNanoAiu(item.costPerBatch),
+    batch: batchLabel(item.batchSize),
+    rateTitle: `${formatCostPerBatch(item.costPerBatch)} nano AIU ${batchLabel(item.batchSize)} tokens, exactly as recorded`,
+    charge: formatExactCredits(itemChargeNanoAiu(item)),
+    billingModel: item.billingModel ?? NOT_RECORDED,
+  })),
+);
+
 function batchLabel(size: number | null): string {
   if (size == null) return NOT_RECORDED;
   if (size >= 1_000_000 && size % 1_000_000 === 0) return `per ${size / 1_000_000}M`;
@@ -202,31 +212,10 @@ function batchLabel(size: number | null): string {
 
 <template>
   <section
-    ref="root"
     class="ledger-detail"
     data-testid="request-ledger-detail"
     aria-label="Recorded request details"
-    @keydown.esc="emit('close')"
   >
-    <header class="ledger-detail__header">
-      <div>
-        <h3 class="ledger-detail__title">Recorded request</h3>
-        <p class="ledger-detail__note">
-          {{ request.model }}<template v-if="request.recordedAt">
-            · <time :datetime="request.recordedAt" :title="request.recordedAt">{{
-              formatDate(request.recordedAt)
-            }}</time></template>
-        </p>
-      </div>
-      <button
-        type="button"
-        class="ledger-detail__close"
-        aria-label="Close request details"
-        @click="emit('close')"
-      >
-        <X :size="16" aria-hidden="true" />
-      </button>
-    </header>
     <div class="ledger-detail__body">
       <section class="ledger-detail__billing-col">
         <h4 class="ledger-detail__heading">Recorded charge</h4>
@@ -242,35 +231,18 @@ function batchLabel(size: number | null): string {
             {{ BILLING_CHECK_LABELS[request.billingCheck] }}
           </Badge>
         </div>
-        <table v-if="billingItems.length" class="data-table ledger-detail__billing">
-          <thead>
-            <tr>
-              <th>Token type</th>
-              <th style="text-align: right">Count</th>
-              <th style="text-align: right">Rate</th>
-              <th style="text-align: right">Charge</th>
-              <th v-if="billingItems.some(item => item.billingModel)">Billing model</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in billingItems" :key="item.ordinal">
-              <td>{{ item.tokenType }}</td>
-              <td style="text-align: right">{{ counterCell(item.tokenCount).text }}</td>
-              <td
-                style="text-align: right"
-                class="ledger-detail__exact"
-                :title="`${formatCostPerBatch(item.costPerBatch)} nano AIU ${batchLabel(item.batchSize)} tokens, exactly as recorded`"
-              >
-                {{ formatNanoAiu(item.costPerBatch) }}
-                <span class="ledger-detail__batch">{{ batchLabel(item.batchSize) }}</span>
-              </td>
-              <td style="text-align: right" class="ledger-detail__exact">
-                {{ formatExactCredits(itemChargeNanoAiu(item)) }}
-              </td>
-              <td v-if="billingItems.some(entry => entry.billingModel)">{{ item.billingModel ?? NOT_RECORDED }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <DataTable
+          v-if="billingItems.length"
+          class="ledger-detail__billing"
+          :columns="billingColumns"
+          :rows="billingRows"
+          row-key="key"
+        >
+          <template #cell-rate="{ row }">
+            <span :title="row.rateTitle as string">{{ row.rate }}</span>
+            <span class="ledger-detail__batch">{{ row.batch }}</span>
+          </template>
+        </DataTable>
         <p v-else class="ledger-detail__note">
           No itemised billing was recorded for this request.
         </p>
@@ -337,40 +309,8 @@ function batchLabel(size: number | null): string {
 
 <style scoped>
 .ledger-detail {
-  /* Clear the session's sticky action bar, which wraps to two rows when narrow. */
-  scroll-margin-top: 150px;
-  margin-top: 12px;
-  padding: 16px 20px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--canvas-subtle);
-}
-.ledger-detail__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.ledger-detail__title {
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.ledger-detail__close {
-  display: inline-flex;
-  padding: 4px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-}
-.ledger-detail__close:hover,
-.ledger-detail__close:focus-visible {
-  border-color: var(--border-default);
-  color: var(--text-primary);
+  padding: 4px 0;
+  white-space: normal;
 }
 /* Charge and billing on the left, the request's facts on the right; one
    column when the ledger is narrow. */
@@ -424,26 +364,17 @@ function batchLabel(size: number | null): string {
   gap: 8px;
   margin-bottom: 8px;
 }
-.ledger-detail__billing {
-  width: 100%;
+.ledger-detail__billing :deep(td) {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .ledger-detail__charge {
   margin: 12px 0;
-}
-.ledger-detail__exact {
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
 }
 .ledger-detail__batch {
   margin-left: 4px;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
-}
-.ledger-detail__billing th,
-.ledger-detail__billing td {
-  padding: 6px 12px;
-  font-size: 0.8125rem;
-  white-space: nowrap;
 }
 .ledger-detail__note {
   max-width: 60ch;

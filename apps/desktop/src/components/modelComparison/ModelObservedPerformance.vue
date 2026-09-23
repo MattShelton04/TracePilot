@@ -8,13 +8,23 @@
  * observations of individual API calls over a different population, and
  * merging them would invite an average of one to be read as the other.
  */
-import { Badge, ErrorAlert, SectionPanel, StatCard, Tooltip } from "@tracepilot/ui";
+import {
+  Badge,
+  DataTable,
+  type DataTableColumn,
+  ErrorAlert,
+  SectionPanel,
+  StatCard,
+  Tooltip,
+} from "@tracepilot/ui";
 import { Info } from "lucide-vue-next";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useObservedRequestPerformance } from "@/composables/useObservedRequestPerformance";
 import {
   buildPerformanceRow,
+  type CacheReuseFigure,
   LATENCY_METRICS,
+  type LatencyMetricView,
   OBSERVATIONAL_NOTE,
   type PerformanceRowView,
   POPULATION_NOTE,
@@ -24,24 +34,123 @@ const perf = useObservedRequestPerformance();
 
 const ALL_MODELS = "All models";
 
+type SortDirection = "ascending" | "descending";
+type SortValue = (row: PerformanceRowView) => number | string | null;
+
+/** Every sortable column's value; a missing figure sorts last either way. */
+const SORT_VALUES: Record<string, SortValue> = {
+  label: (row) => row.label,
+  requestCount: (row) => row.requestCount,
+  sessionCount: (row) => row.sessionCount,
+  requestWeighted: (row) => row.cache.requestWeighted.ratio,
+  tokenWeighted: (row) => row.cache.tokenWeighted.ratio,
+  ...Object.fromEntries(
+    LATENCY_METRICS.map((meta, index) => [
+      meta.key,
+      (row: PerformanceRowView) => row.metrics[index]?.medianMs ?? null,
+    ]),
+  ),
+};
+
+function compare(
+  a: PerformanceRowView,
+  b: PerformanceRowView,
+  key: string,
+  direction: SortDirection,
+): number {
+  const left = SORT_VALUES[key]?.(a) ?? null;
+  const right = SORT_VALUES[key]?.(b) ?? null;
+  if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
+  const order =
+    typeof left === "string" ? left.localeCompare(String(right)) : left - (right as number);
+  return direction === "ascending" ? order : -order;
+}
+
 /**
- * The overall row first, then one per model with the largest samples on top:
- * a model with three requests says far less than one with hundreds.
+ * One sort per table. The default puts the largest samples on top: a model
+ * with three requests says far less than one with hundreds.
  */
-const rows = computed<PerformanceRowView[]>(() => {
-  const result: PerformanceRowView[] = [];
-  if (perf.overall.value) {
-    result.push(buildPerformanceRow(null, ALL_MODELS, perf.overall.value));
+function useSort() {
+  const key = ref("requestCount");
+  const direction = ref<SortDirection>("descending");
+  function toggle(next: string): void {
+    if (key.value === next) {
+      direction.value = direction.value === "ascending" ? "descending" : "ascending";
+    } else {
+      key.value = next;
+      direction.value = next === "label" ? "ascending" : "descending";
+    }
   }
-  const models = [...perf.byModel.value].sort(
-    (a, b) =>
-      b.performance.requestCount - a.performance.requestCount || a.model.localeCompare(b.model),
+  return { key, direction, toggle };
+}
+
+const modelRows = computed(() =>
+  perf.byModel.value.map((entry) =>
+    buildPerformanceRow(entry.model, entry.model, entry.performance),
+  ),
+);
+
+/** The all-models row stays first; sorting orders the models beneath it. */
+function sortedRows(sort: ReturnType<typeof useSort>): PerformanceRowView[] {
+  const models = [...modelRows.value].sort(
+    (a, b) => compare(a, b, sort.key.value, sort.direction.value) || a.label.localeCompare(b.label),
   );
-  for (const entry of models) {
-    result.push(buildPerformanceRow(entry.model, entry.model, entry.performance));
-  }
-  return result;
-});
+  const overall = perf.overall.value;
+  return overall ? [buildPerformanceRow(null, ALL_MODELS, overall), ...models] : models;
+}
+
+const latencySort = useSort();
+const cacheSort = useSort();
+const rows = computed(() => sortedRows(latencySort));
+const latencyRows = computed(() => rows.value.map(tableRow));
+const cacheRows = computed(() => sortedRows(cacheSort).map(tableRow));
+
+const LATENCY_COLUMNS: DataTableColumn[] = [
+  { key: "label", label: "Model", sortable: true },
+  { key: "requestCount", label: "Requests", align: "right", sortable: true },
+  { key: "sessionCount", label: "Sessions", align: "right", sortable: true },
+  ...LATENCY_METRICS.map((metric) => ({
+    key: metric.key,
+    label: metric.label,
+    title: `${metric.note} Sorts by median.`,
+    align: "right" as const,
+    sortable: true,
+  })),
+];
+
+const CACHE_COLUMNS: DataTableColumn[] = [
+  { key: "label", label: "Model", sortable: true },
+  {
+    key: "requestWeighted",
+    label: "Requests recording any reuse",
+    title: "Request-weighted: the share of requests that recorded at least one cache read.",
+    align: "right",
+    sortable: true,
+  },
+  {
+    key: "tokenWeighted",
+    label: "Cache reads / input tokens",
+    title: "Token-weighted: cache-read tokens as a share of input tokens.",
+    align: "right",
+    sortable: true,
+  },
+];
+
+const CACHE_KEYS = ["requestWeighted", "tokenWeighted"];
+
+/** A `DataTable` row: the view itself, with each figure under its column key. */
+function tableRow(row: PerformanceRowView): Record<string, unknown> {
+  return {
+    ...row,
+    ...Object.fromEntries(row.metrics.map((metric) => [metric.key, metric])),
+    requestWeighted: row.cache.requestWeighted,
+    tokenWeighted: row.cache.tokenWeighted,
+  };
+}
+
+function overallClass(row: Record<string, unknown>): string | undefined {
+  return row.model === null ? "observed__row--overall" : undefined;
+}
 
 const hasSuppressedP95 = computed(() =>
   rows.value.some((row) => row.metrics.some((metric) => metric.p95Absence === "belowThreshold")),
@@ -127,49 +236,40 @@ const inconsistentTotal = computed(() =>
 
       <p class="observed__note">{{ POPULATION_NOTE }}</p>
 
-      <div class="observed__table" tabindex="0" role="region" aria-label="Recorded latency by model">
-        <table class="data-table observed__latencies">
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th style="text-align: right">Requests</th>
-              <th style="text-align: right">Sessions</th>
-              <th v-for="metric in LATENCY_METRICS" :key="metric.key" style="text-align: right">
-                <Tooltip :text="metric.note">
-                  <span>{{ metric.label }}</span>
-                </Tooltip>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in rows"
-              :key="row.label"
-              :class="{ 'observed__row--overall': row.model === null }"
-              :data-testid="row.model === null ? 'observed-row-overall' : 'observed-row-model'"
-            >
-              <td>{{ row.label }}</td>
-              <td style="text-align: right"><span class="tabular">{{ row.requestCount }}</span></td>
-              <td style="text-align: right"><span class="tabular">{{ row.sessionCount }}</span></td>
-              <td v-for="metric in row.metrics" :key="metric.key" style="text-align: right">
-                <div class="observed__metric">
-                  <span class="tabular observed__median">{{ metric.median }}</span>
-                  <span
-                    class="tabular observed__p95"
-                    :class="{ 'observed__suppressed': metric.p95Absence !== null }"
-                    :title="
-                      metric.p95Absence === 'belowThreshold'
-                        ? 'p95 requires at least 20 valid samples.'
-                        : undefined
-                    "
-                  >p95 {{ metric.p95Absence ? '—' : metric.p95 }}</span>
-                  <span class="observed__coverage">{{ metric.coverageText }}</span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        class="observed__latencies"
+        :columns="LATENCY_COLUMNS"
+        :rows="latencyRows"
+        row-key="label"
+        :row-class="overallClass"
+        :sort-key="latencySort.key.value"
+        :sort-direction="latencySort.direction.value"
+        style="overflow-x: auto"
+        data-testid="observed-latency-table"
+        @sort="latencySort.toggle"
+      >
+        <template #cell-requestCount="{ value }">
+          <span class="tabular">{{ value }}</span>
+        </template>
+        <template #cell-sessionCount="{ value }">
+          <span class="tabular">{{ value }}</span>
+        </template>
+        <template v-for="meta in LATENCY_METRICS" :key="meta.key" #[`cell-${meta.key}`]="{ value }">
+          <div class="observed__metric">
+            <span class="tabular observed__median">{{ (value as LatencyMetricView).median }}</span>
+            <span
+              class="tabular observed__p95"
+              :class="{ observed__suppressed: (value as LatencyMetricView).p95Absence !== null }"
+              :title="
+                (value as LatencyMetricView).p95Absence === 'belowThreshold'
+                  ? 'p95 requires at least 20 valid samples.'
+                  : undefined
+              "
+            >p95 {{ (value as LatencyMetricView).p95Absence ? '—' : (value as LatencyMetricView).p95 }}</span>
+            <span class="observed__coverage">{{ (value as LatencyMetricView).coverageText }}</span>
+          </div>
+        </template>
+      </DataTable>
 
       <p v-if="hasSuppressedP95" class="observed__muted" data-testid="observed-p95-reason">
         p95 requires at least 20 valid samples. A dash means the percentile is unavailable.
@@ -179,44 +279,23 @@ const inconsistentTotal = computed(() =>
       <p class="observed__note">
         Request share counts calls with any reuse; token share measures how much input was reused.
       </p>
-      <div class="observed__table">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th style="text-align: right">
-                <Tooltip text="Request-weighted: the share of requests that recorded at least one cache read.">
-                  <span>Requests recording any reuse</span>
-                </Tooltip>
-              </th>
-              <th style="text-align: right">
-                <Tooltip text="Token-weighted: cache-read tokens as a share of input tokens.">
-                  <span>Cache reads / input tokens</span>
-                </Tooltip>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in rows"
-              :key="`cache-${row.label}`"
-              :class="{ 'observed__row--overall': row.model === null }"
-            >
-              <td>{{ row.label }}</td>
-              <td style="text-align: right">
-                <span class="tabular" :title="row.cache.requestWeighted.detail">
-                  {{ row.cache.requestWeighted.value }}
-                </span>
-              </td>
-              <td style="text-align: right">
-                <span class="tabular" :title="row.cache.tokenWeighted.detail">
-                  {{ row.cache.tokenWeighted.value }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        :columns="CACHE_COLUMNS"
+        :rows="cacheRows"
+        row-key="label"
+        :row-class="overallClass"
+        :sort-key="cacheSort.key.value"
+        :sort-direction="cacheSort.direction.value"
+        style="overflow-x: auto"
+        data-testid="observed-cache-table"
+        @sort="cacheSort.toggle"
+      >
+        <template v-for="key in CACHE_KEYS" :key="key" #[`cell-${key}`]="{ value }">
+          <span class="tabular" :title="(value as CacheReuseFigure).detail">
+            {{ (value as CacheReuseFigure).value }}
+          </span>
+        </template>
+      </DataTable>
       <p v-if="inconsistentTotal > 0" class="observed__attention" data-testid="observed-inconsistent">
         {{ inconsistentTotal }} request(s) recorded more cache reads than input tokens and are
         excluded from these figures rather than clamped.
@@ -247,12 +326,7 @@ const inconsistentTotal = computed(() =>
   gap: 12px;
   margin-bottom: 12px;
 }
-.observed__table {
-  overflow-x: auto;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-}
-.observed__latencies {
+.observed__latencies :deep(table) {
   min-width: 1000px;
 }
 .observed__median {
@@ -286,7 +360,7 @@ const inconsistentTotal = computed(() =>
 .observed__suppressed {
   color: var(--text-tertiary);
 }
-.observed__row--overall td {
+:deep(.observed__row--overall) td {
   background: var(--canvas-subtle);
   font-weight: 600;
 }

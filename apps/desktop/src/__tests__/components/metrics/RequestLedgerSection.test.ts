@@ -387,7 +387,7 @@ describe("MetricsRequestLedgerSection", () => {
     expect(sync.get(".ledger__stale").text()).toContain("could not be read");
   });
 
-  it("opens an inline detail with the exact recorded charge and both first-token metrics", async () => {
+  it("expands a row with the exact recorded charge and both first-token metrics", async () => {
     const wrapper = await mountExpanded();
     await wrapper.get('[data-testid="request-ledger-table"] tbody button').trigger("click");
     await flushPromises();
@@ -404,21 +404,20 @@ describe("MetricsRequestLedgerSection", () => {
     expect(wrapper.find('[data-testid="request-ledger-agent-action"]').exists()).toBe(false);
   });
 
-  it("closes the detail from its row, its close button, or a filter change", async () => {
+  it("expands a row in place and closes it from the row or when the row leaves", async () => {
     const wrapper = await mountExpanded();
     const toggle = wrapper.get('[data-testid="request-ledger-table"] tbody button');
     await toggle.trigger("click");
     expect(toggle.attributes("aria-expanded")).toBe("true");
+    // The detail is the table row directly beneath the request it explains.
+    const rows = wrapper.findAll('[data-testid="request-ledger-table"] tbody tr');
+    expect(rows[1].find('[data-testid="request-ledger-detail"]').exists()).toBe(true);
     await toggle.trigger("click");
     expect(wrapper.find('[data-testid="request-ledger-detail"]').exists()).toBe(false);
 
     await wrapper.get('[data-testid="request-ledger-table"] tbody tr').trigger("click");
-    await wrapper
-      .get('[data-testid="request-ledger-detail"] button[aria-label="Close request details"]')
-      .trigger("click");
-    expect(wrapper.find('[data-testid="request-ledger-detail"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="request-ledger-detail"]').exists()).toBe(true);
 
-    await toggle.trigger("click");
     usage.mockResolvedValue(respond(makePage({ requests: [makeRequest({ sourceRowId: 9999 })] })));
     await wrapper.findComponent({ name: "RequestLedgerFilters" }).vm.$emit("clear");
     await flushPromises();

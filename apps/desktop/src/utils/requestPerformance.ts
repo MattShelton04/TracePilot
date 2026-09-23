@@ -100,6 +100,8 @@ export interface LatencyMetricView {
   label: string;
   note: string;
   median: string;
+  /** The median itself, for sorting; `null` when nothing was recorded. */
+  medianMs: number | null;
   p95: string;
   /** Set when `p95` is a reason rather than a figure. */
   p95Absence: P95Absence;
@@ -121,6 +123,7 @@ export function buildLatencyMetric(
     label: meta.label,
     note: meta.note,
     median: latencyText(distribution.median),
+    medianMs: distribution.median,
     p95: absence === null ? latencyText(distribution.p95) : absenceText(absence),
     p95Absence: absence,
     coverage: distribution.coverage,
@@ -143,6 +146,8 @@ function percent(ratio: number | null): string {
 export interface CacheReuseFigure {
   label: string;
   value: string;
+  /** The share itself, for sorting; `null` when it cannot be computed. */
+  ratio: number | null;
   detail: string;
 }
 
@@ -169,6 +174,7 @@ export function buildCacheReuse(cache: CacheReuse): CacheReuseView {
     requestWeighted: {
       label: "Requests recording any reuse",
       value: percent(requestRatio),
+      ratio: requestRatio,
       detail:
         `${formatNumberFull(cache.requestsReportingReuse)} of ` +
         `${formatNumberFull(cache.requestsWithCounter)} requests with usable input and cache-read ` +
@@ -177,6 +183,7 @@ export function buildCacheReuse(cache: CacheReuse): CacheReuseView {
     tokenWeighted: {
       label: "Cache reads as a share of input tokens",
       value: percent(cache.tokenWeightedRatio),
+      ratio: cache.tokenWeightedRatio,
       detail:
         `${formatNumberFull(cache.cacheReadTokens)} cache-read tokens over ` +
         `${formatNumberFull(cache.inputTokens)} input tokens. This weights every token ` +

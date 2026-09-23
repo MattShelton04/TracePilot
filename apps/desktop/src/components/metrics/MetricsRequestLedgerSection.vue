@@ -12,7 +12,6 @@
  * they were charged, how long they took, how much input the cache served —
  * over every recorded request, not the page on screen.
  */
-import type { StoredRequest } from "@tracepilot/types";
 import {
   ActionButton,
   Badge,
@@ -64,8 +63,8 @@ function toggle(): void {
   expanded.value = !expanded.value;
 }
 const bodyId = useId();
-const selected = ref<StoredRequest | null>(null);
-const selectedKey = computed(() => (selected.value ? requestKey(selected.value) : null));
+/** Rows showing their detail, as the prompt-cache table does. */
+const expandedKeys = ref<string[]>([]);
 
 const ledger = useRequestLedger(
   () => props.sessionId,
@@ -74,16 +73,16 @@ const ledger = useRequestLedger(
 watch(
   () => props.sessionId,
   () => {
-    selected.value = null;
+    expandedKeys.value = [];
   },
 );
-// The detail belongs to a row on screen: it follows that row through a live
-// reload and closes when paging or filtering takes the row away.
+// A detail belongs to a row on screen: it stays open through a live reload
+// and closes when paging or filtering takes the row away.
 watch(
   () => ledger.requests.value,
   (requests) => {
-    const key = selectedKey.value;
-    if (key) selected.value = requests.find((request) => requestKey(request) === key) ?? null;
+    const present = new Set(requests.map(requestKey));
+    expandedKeys.value = expandedKeys.value.filter((key) => present.has(key));
   },
 );
 
@@ -178,8 +177,9 @@ const unavailableDetail = computed(() => {
   return [label, path].filter(Boolean).join(" · ") || null;
 });
 
-function toggleDetails(request: StoredRequest): void {
-  selected.value = requestKey(request) === selectedKey.value ? null : request;
+function toggleDetails(key: string): void {
+  const keys = expandedKeys.value;
+  expandedKeys.value = keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key];
 }
 
 function updateFilters(patch: Partial<RequestLedgerFilterState>): void {
@@ -188,7 +188,6 @@ function updateFilters(patch: Partial<RequestLedgerFilterState>): void {
 }
 
 function filterToAgent(agentId: string): void {
-  selected.value = null;
   void ledger.setAgentFilter(agentId);
 }
 </script>
@@ -342,17 +341,17 @@ function filterToAgent(agentId: string): void {
           <template v-else>
             <RequestLedgerTable
               :requests="ledger.requests.value"
-              :selected-key="selectedKey"
-              @select="toggleDetails"
-            />
-
-            <RequestLedgerDetail
-              v-if="selected"
-              :request="selected"
-              :coverage="ledger.coverage.value"
-              @close="selected = null"
-              @filter-agent="filterToAgent"
-            />
+              :expanded-keys="expandedKeys"
+              @toggle="toggleDetails"
+            >
+              <template #expanded="{ request }">
+                <RequestLedgerDetail
+                  :request="request"
+                  :coverage="ledger.coverage.value"
+                  @filter-agent="filterToAgent"
+                />
+              </template>
+            </RequestLedgerTable>
 
             <div
               v-if="ledger.hasNextPage.value || ledger.hasPreviousPage.value"
