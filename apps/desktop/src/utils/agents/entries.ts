@@ -7,7 +7,7 @@ import type {
   SubagentOverride,
   SubagentSettings,
 } from "@tracepilot/types";
-import { KNOWN_BUILTIN_AGENTS } from "./agentMeta";
+import { EMBEDDED_AGENT_IDENTITY, KNOWN_BUILTIN_AGENTS } from "./agentMeta";
 import { type AgentUsageRange, rangeStart } from "./range";
 
 /**
@@ -164,11 +164,14 @@ export function buildAgentEntries(
   for (const [key, stats] of usageByName) {
     if (claimed.has(key)) continue;
     const embedded = KNOWN_BUILTIN_AGENTS.has(key);
+    // A known built-in is described by its curated identity, never by what
+    // one run was asked to do.
+    const identity = embedded ? EMBEDDED_AGENT_IDENTITY[key] : undefined;
     entries.push({
       key: `name:${key}`,
       name: stats.name,
-      displayName: stats.displayName,
-      description: stats.description ?? "",
+      displayName: identity ? identity.displayName : stats.displayName,
+      description: identity ? identity.description : (stats.description ?? ""),
       kind: embedded ? "embedded" : "unresolved",
       scope: embedded ? "builtin" : "unresolved",
       definition: null,

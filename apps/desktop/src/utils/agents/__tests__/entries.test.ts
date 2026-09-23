@@ -48,6 +48,18 @@ describe("buildAgentEntries", () => {
     expect(entries.find((e) => e.name === "old-helper")?.kind).toBe("unresolved");
   });
 
+  it("describes an embedded built-in by its identity, not by its latest run", () => {
+    const run = { ...usage("general-purpose"), displayName: "inner-worker", description: "Sum" };
+    const orphan = { ...usage("old-helper"), displayName: "Helper", description: "Helps" };
+    const entries = buildAgentEntries(null, summary([run, orphan]), "30d", NOW);
+
+    const embedded = entries.find((e) => e.name === "general-purpose");
+    expect(embedded?.displayName).toBe("General Purpose Agent");
+    expect(embedded?.description).toContain("Full-capability agent");
+    const unresolved = entries.find((e) => e.name === "old-helper");
+    expect(unresolved?.description).toBe("Helps");
+  });
+
   it("matches usage by file stem and applies overrides and disabled lists case-insensitively", () => {
     const reviewer = definition("Team Reviewer", { fileStem: "reviewer" });
     const entries = buildAgentEntries(

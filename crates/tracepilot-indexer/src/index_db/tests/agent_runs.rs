@@ -159,6 +159,10 @@ fn indexing_stores_runs_once_and_summarizes_them() {
     assert_eq!(explore.top_models[0].label, "gpt-5.4-mini");
     assert_eq!(explore.own_nano_aiu, Some(400));
     assert_eq!(explore.daily_runs.len(), 1);
+    assert_eq!(
+        explore.display_name, None,
+        "per-call names that differ between runs do not name the agent"
+    );
 
     let review = summary
         .agents
@@ -166,6 +170,7 @@ fn indexing_stores_runs_once_and_summarizes_them() {
         .find(|a| a.name == "code-review")
         .unwrap();
     assert_eq!(review.failed, 1);
+    assert_eq!(review.display_name.as_deref(), Some("nested"));
     assert_eq!(
         review.own_nano_aiu, None,
         "no ledger coverage is unknown, not zero"

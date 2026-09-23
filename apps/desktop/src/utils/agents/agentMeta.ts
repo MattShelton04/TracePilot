@@ -67,3 +67,23 @@ export const KNOWN_BUILTIN_AGENTS: ReadonlySet<string> = new Set([
   "security-review",
   "task",
 ]);
+
+export interface EmbeddedAgentIdentity {
+  displayName: string;
+  description: string;
+}
+
+/**
+ * How the CLI describes built-ins that have no definition file. Newer CLIs
+ * report the launching call's `name` and `description` for these agents, so
+ * session evidence describes one run rather than the agent; this copy does not
+ * change from run to run.
+ */
+export const EMBEDDED_AGENT_IDENTITY: Readonly<Record<string, EmbeddedAgentIdentity>> =
+  Object.freeze({
+    "general-purpose": {
+      displayName: "General Purpose Agent",
+      description:
+        "Full-capability agent running in a subprocess. Use for complex multi-step tasks requiring the complete toolset and high-quality reasoning. Runs in a separate context window to keep your main conversation clean.",
+    },
+  });
