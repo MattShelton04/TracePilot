@@ -83,6 +83,7 @@ export interface TracePilotConfig {
     configInjector: boolean;
     promptCacheInsights: boolean;
     agents: boolean;
+    sessionStoreEnrichment: boolean;
   };
   logging: {
     level: string;

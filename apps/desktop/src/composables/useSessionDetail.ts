@@ -317,6 +317,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     shutdownMetrics: sections.metricsSection.data,
     incidents: sections.incidentsSection.data,
     promptCache: sections.promptCacheSection.data,
+    promptCacheObservations: sections.promptCacheObservations,
     loading,
     error,
     loaded,

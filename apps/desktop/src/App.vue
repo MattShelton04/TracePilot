@@ -16,6 +16,7 @@ import UpdateInstructionsModal from "@/components/UpdateInstructionsModal.vue";
 import WhatsNewModal from "@/components/WhatsNewModal.vue";
 import { useBootstrapPhase } from "@/composables/useBootstrapPhase";
 import { useBreadcrumbs } from "@/composables/useBreadcrumbs";
+import { useSessionStoreSweep } from "@/composables/useSessionStoreSweep";
 import { useWhatsNew } from "@/composables/useWhatsNew";
 import { useWindowLifecycle } from "@/composables/useWindowLifecycle";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -45,6 +46,13 @@ useWindowLifecycle({
 
 const { phase, expectedSessionCount, onSetupSaved, onSetupComplete, onIndexingComplete } =
   useBootstrapPhase();
+
+// The Copilot session store changes on its own schedule — the CLI records
+// requests while TracePilot is idle — so the main window re-reads it
+// periodically. Only the main window sweeps: the pass is process-wide, and a
+// popup viewer duplicating it would just lose the gate race.
+const sessionStoreSweep = useSessionStoreSweep(() => isMain() && phase.value === "app");
+void sessionStoreSweep.setup();
 
 const {
   showWhatsNew,

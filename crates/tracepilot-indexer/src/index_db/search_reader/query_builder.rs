@@ -4,6 +4,7 @@
 //! `query_content`, `query_count`, `facet_dimension`, and `totals_query`.
 
 use rusqlite::types::ToSql;
+use tracepilot_core::session_store::WorkRefKind;
 use tracepilot_core::utils::sqlite::build_in_placeholders;
 
 use super::SearchFilters;
@@ -14,7 +15,7 @@ use super::SearchFilters;
 /// ```ignore
 /// let (sql, params) = SearchQueryBuilder::new("SELECT * FROM ...", true)
 ///     .with_fts_match("error message")
-///     .with_filters(&filters)
+///     .with_filters(&filters, true)
 ///     .with_sort(Some("newest"))
 ///     .with_pagination(50, 0)
 ///     .build();
@@ -98,13 +99,33 @@ impl SearchQueryBuilder {
         self
     }
 
-    /// Add standard search filters (content types, repositories, tools, dates, session ID).
-    pub(super) fn with_filters(mut self, filters: &SearchFilters) -> Self {
+    /// Add standard search filters (content types, repositories, tools, dates,
+    /// session ID, linked-work references).
+    ///
+    /// `work_refs_available` reports whether `session_work_refs` exists on this
+    /// connection. It is a parameter rather than a probe because the builder
+    /// has no connection; see `IndexDb::work_refs_available`.
+    pub(super) fn with_filters(
+        mut self,
+        filters: &SearchFilters,
+        work_refs_available: bool,
+    ) -> Self {
         // Use helper methods for IN-filters
         self = self.add_in_filter("sc.content_type", &filters.content_types);
         self = self.add_not_in_filter("sc.content_type", &filters.exclude_content_types);
         self = self.add_in_filter("s.repository", &filters.repositories);
         self = self.add_in_filter("sc.tool_name", &filters.tool_names);
+
+        // Linked-work qualifiers. Each kind is its own clause so `repo:x pr:1`
+        // and `pr:1 issue:2` intersect, while repeated values of one kind union.
+        self = self.add_work_ref_filter(
+            &WorkRefKind::PullRequest,
+            &filters.pull_requests,
+            work_refs_available,
+        );
+        self = self.add_work_ref_filter(&WorkRefKind::Issue, &filters.issues, work_refs_available);
+        self =
+            self.add_work_ref_filter(&WorkRefKind::GitRef, &filters.git_refs, work_refs_available);
 
         // Build equality filter for session_id
         if let Some(ref sid) = filters.session_id {
@@ -124,6 +145,49 @@ impl SearchQueryBuilder {
             self.params.push(Box::new(to_unix));
         }
 
+        self
+    }
+
+    /// Add an EXISTS filter over `session_work_refs` for one reference kind.
+    ///
+    /// Values are normalized exactly as `tracepilot_core::session_store` wrote
+    /// the stored column, so a typed `#123` matches the stored `123`. A value
+    /// that cannot normalize — a non-numeric `pr:` for instance — can never
+    /// match a row, and an absent table means this connection has no source to
+    /// answer from; both degrade to "no results for this qualifier" rather than
+    /// an error, because the caller reports an unavailable source separately.
+    fn add_work_ref_filter(
+        mut self,
+        kind: &WorkRefKind,
+        values: &[String],
+        available: bool,
+    ) -> Self {
+        if values.is_empty() {
+            return self;
+        }
+
+        let normalized: Vec<String> = values
+            .iter()
+            .filter_map(|value| normalize_work_ref_value(kind, value))
+            .collect();
+        if normalized.is_empty() || !available {
+            self.where_clauses.push("1=0".to_string());
+            return self;
+        }
+
+        let mut clause = String::from("(");
+        for (i, value) in normalized.iter().enumerate() {
+            if i > 0 {
+                clause.push_str(" OR ");
+            }
+            clause.push_str(WORK_REF_EXISTS);
+            // Params are pushed with the clause: `build` emits WHERE clauses in
+            // insertion order, and the placeholders are positional.
+            self.params.push(Box::new(kind.as_str().to_string()));
+            self.params.push(Box::new(value.clone()));
+        }
+        clause.push(')');
+        self.where_clauses.push(clause);
         self
     }
 
@@ -233,6 +297,27 @@ impl SearchQueryBuilder {
 
         (sql, self.params)
     }
+}
+
+/// Correlated existence test for one linked-work reference.
+const WORK_REF_EXISTS: &str = "EXISTS (SELECT 1 FROM session_work_refs wr \
+    WHERE wr.session_id = sc.session_id AND wr.kind = ? AND wr.normalized_value = ? \
+    AND wr.generation = (SELECT CASE WHEN last_success_at IS NOT NULL THEN generation END \
+        FROM session_store_sources ORDER BY last_attempt_at DESC LIMIT 1))";
+
+/// Normalize one typed qualifier value into the stored `normalized_value`
+/// form using the same rules as the source adapter.
+fn normalize_work_ref_value(kind: &WorkRefKind, value: &str) -> Option<String> {
+    let reference = tracepilot_core::session_store::WorkRef::normalize(
+        "",
+        None,
+        kind.qualifier()?,
+        value,
+        None,
+        None,
+        None,
+    );
+    (!reference.normalized_value.is_empty()).then_some(reference.normalized_value)
 }
 
 /// Build the FROM clause for search queries.

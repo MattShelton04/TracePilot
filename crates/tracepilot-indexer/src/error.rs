@@ -9,6 +9,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum IndexerError {
+    #[error("{0}")]
+    QueryLimit(String),
+
     /// Failed to open index database.
     #[error("Failed to open index database: {path}")]
     DatabaseOpen {

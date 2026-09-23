@@ -132,7 +132,7 @@ impl Default for TracePilotConfig {
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 11;
+    pub const CURRENT_VERSION: u32 = 12;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -218,6 +218,13 @@ impl TracePilotConfig {
         if self.version < 11 {
             self.version = 11;
             tracing::info!("Migrated config from v10 → v11 (session cache size setting)");
+        }
+
+        // Migration from v11 → v12: added the session-store enrichment flag,
+        // which defaults on so existing installs pick the source up.
+        if self.version < 12 {
+            self.version = 12;
+            tracing::info!("Migrated config from v11 → v12 (session store enrichment flag)");
         }
 
         self.performance.normalize();

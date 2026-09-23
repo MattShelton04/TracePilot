@@ -162,9 +162,14 @@ mod tests {
             root.join("tracepilot/config.toml")
         );
         assert_eq!(index_db, root.join("tracepilot/index.db"));
+        // The optional Copilot session store follows the same boundary, so an
+        // isolated run can never reach the real user's store.
+        let session_store = copilot.session_store_db();
+        assert_eq!(session_store, root.join("copilot/session-store.db"));
         for path in [
             copilot.home(),
             session_state.as_path(),
+            session_store.as_path(),
             tracepilot.root(),
             index_db.as_path(),
         ] {

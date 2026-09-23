@@ -16,6 +16,7 @@ import {
 } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
+import RelatedWorkPanel from "@/components/session/RelatedWorkPanel.vue";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -203,6 +204,9 @@ function retryLoadSection(section: string) {
         </dl>
       </SectionPanel>
     </div>
+
+    <!-- Related work (session-store enrichment; self-gating on the feature) -->
+    <RelatedWorkPanel :session-id="store.sessionId" :host-type="detail?.hostType" />
 
     <!-- Incidents -->
     <div class="card mb-6">

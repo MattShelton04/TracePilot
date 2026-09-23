@@ -4,6 +4,7 @@
  * isolate the Map-based LRU logic.
  */
 import type {
+  CacheObservation,
   CheckpointEntry,
   ConversationTurn,
   PromptCacheTimeline,
@@ -26,6 +27,8 @@ export interface CachedSession {
   incidents: SessionIncident[];
   todos: TodosResponse | null;
   promptCache?: PromptCacheTimeline | null;
+  /** Cached alongside the timeline so a restored session keeps both halves. */
+  promptCacheObservations?: CacheObservation[];
   loadedSections: Set<string>;
 }
 

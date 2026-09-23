@@ -46,6 +46,10 @@ pub struct ContextTimelineResponse {
 #[serde(rename_all = "camelCase")]
 pub struct PromptCacheResponse {
     pub timeline: tracepilot_core::prompt_cache::PromptCacheTimeline,
+    /// What the resuming request recorded, where the optional session store
+    /// could supply it. Empty is the normal state: it means no reliable
+    /// association was found, not that no reuse happened.
+    pub observations: Vec<tracepilot_core::prompt_cache::CacheObservation>,
     pub events_file_size: u64,
     pub events_file_mtime: Option<i64>,
 }
@@ -313,4 +317,182 @@ pub struct ImportSessionsResult {
     pub imported_count: usize,
     pub skipped_count: usize,
     pub warnings: Vec<String>,
+}
+
+// ── Session-store enrichment ──────────────────────────────────────
+//
+// Each response carries `enabled` and an availability separately from its
+// data, because "the user turned this off", "the source is not installed"
+// and "the source recorded nothing for this session" must not render the
+// same way. `enabled` reflects the stored preference, which a missing store
+// never rewrites — the CLI may be installed or updated later.
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionStoreStatusResponse {
+    pub enabled: bool,
+    /// Where the store would be, whether or not it exists. Shown in Settings
+    /// so a user can see which Copilot home is bound.
+    pub resolved_path: Option<String>,
+    pub source: Option<tracepilot_indexer::index_db::StoreSourceStatus>,
+    /// Set while the latest refresh failed. The source row keeps describing
+    /// the last good sweep, so this is the only place such a failure shows.
+    pub last_refresh_error: Option<RefreshFailure>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionRequestUsageResponse {
+    pub enabled: bool,
+    pub page: tracepilot_indexer::index_db::RequestLedgerPage,
+    pub coverage: Option<tracepilot_indexer::index_db::SessionCoverageRow>,
+    /// Totals over every request the filters match, and the session's full
+    /// set of filter values. `None` when the ledger is unavailable.
+    pub summary: Option<tracepilot_indexer::index_db::RequestLedgerSummary>,
+}
+
+impl SessionRequestUsageResponse {
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            page: tracepilot_indexer::index_db::RequestLedgerPage {
+                requests: Vec::new(),
+                next_cursor: None,
+                generation: None,
+                available: false,
+                cursor_expired: false,
+            },
+            coverage: None,
+            summary: None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionWorkRefsResponse {
+    pub enabled: bool,
+    /// Whether a source was available to search at all. When false, the UI
+    /// says the reference source is unavailable rather than implying that no
+    /// such work exists.
+    pub available: bool,
+    pub refs: Vec<tracepilot_indexer::index_db::StoredWorkRef>,
+    pub source_availability: Option<String>,
+}
+
+impl SessionWorkRefsResponse {
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            available: false,
+            refs: Vec::new(),
+            source_availability: None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestPerformanceResponse {
+    pub enabled: bool,
+    pub available: bool,
+    pub performance: Option<tracepilot_core::session_store::RequestPerformance>,
+    pub coverage: Option<tracepilot_indexer::index_db::SessionCoverageRow>,
+}
+
+impl RequestPerformanceResponse {
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            available: false,
+            performance: None,
+            coverage: None,
+        }
+    }
+
+    /// Summarise a population of stored requests.
+    ///
+    /// An empty population yields `available: false` rather than a
+    /// distribution of zeros, which would read as a measurement.
+    pub fn from_requests(
+        requests: &[tracepilot_indexer::index_db::StoredRequest],
+        coverage: Option<tracepilot_indexer::index_db::SessionCoverageRow>,
+    ) -> Self {
+        if requests.is_empty() {
+            return Self {
+                enabled: true,
+                available: false,
+                performance: None,
+                coverage,
+            };
+        }
+        let core: Vec<_> = requests.iter().map(|request| request.to_core()).collect();
+        Self {
+            enabled: true,
+            available: true,
+            performance: Some(tracepilot_core::session_store::request_performance(&core)),
+            coverage,
+        }
+    }
+}
+
+/// The latest enrichment refresh failure, kept until a refresh succeeds.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshFailure {
+    pub at: String,
+    pub message: String,
+}
+
+/// Outcome of an explicit enrichment refresh.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnrichmentRefreshResponse {
+    /// disabled | missing | ready | busy | unreadable | incompatible.
+    pub availability: String,
+    pub refreshed: usize,
+    pub unchanged: usize,
+    pub skipped: usize,
+    pub detail: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelRequestPerformanceResponse {
+    pub enabled: bool,
+    pub report: tracepilot_indexer::index_db::RequestPerformanceReport,
+}
+
+impl ModelRequestPerformanceResponse {
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            report: tracepilot_indexer::index_db::RequestPerformanceReport {
+                available: false,
+                stale: false,
+                last_success_at: None,
+                overall: None,
+                by_model: Vec::new(),
+                session_count: 0,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRequestRollupResponse {
+    pub enabled: bool,
+    pub available: bool,
+    pub rollups: Vec<tracepilot_indexer::index_db::AgentRequestRollup>,
+}
+
+impl AgentRequestRollupResponse {
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            available: false,
+            rollups: Vec::new(),
+        }
+    }
 }

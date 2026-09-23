@@ -52,6 +52,7 @@
 //! | [`models`] | Domain types: events, summaries, conversations |
 //! | [`parsing`] | Event parsing pipeline, diagnostics, workspace/DB parsers |
 //! | [`session`] | Session discovery (scan, resolve, filter) |
+//! | [`session_store`] | Read-only enrichment from the Copilot CLI session store |
 //! | [`summary`] | Session summary orchestration |
 //! | [`turns`] | Turn reconstruction state machine |
 
@@ -67,6 +68,7 @@ pub mod parsing;
 pub mod paths;
 pub mod prompt_cache;
 pub mod session;
+pub mod session_store;
 pub mod skill_invocations;
 pub mod summary;
 pub mod tokens;

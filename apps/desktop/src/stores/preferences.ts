@@ -27,7 +27,7 @@ import {
 } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { watch } from "vue";
+import { nextTick, watch } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { createAlertsSlice } from "@/stores/preferences/alerts";
 import { createFeatureFlagsSlice } from "@/stores/preferences/featureFlags";
@@ -116,7 +116,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
     }
   }
 
-  // ── Build config from reactive state ───────────────────────
   function buildConfig(): TracePilotConfig {
     const base = backendConfig ?? createDefaultConfig();
     return {
@@ -162,33 +161,40 @@ export const usePreferencesStore = defineStore("preferences", () => {
     };
   }
 
-  // ── Debounced persist to backend ───────────────────────────
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   const saveGuard = useAsyncGuard();
+
+  async function persistConfig(token: number) {
+    const freshConfig = await getConfig();
+    if (!saveGuard.isValid(token)) return;
+    backendConfig = freshConfig;
+    const config = buildConfig();
+    await saveConfig(config);
+    if (saveGuard.isValid(token)) backendConfig = config;
+  }
 
   function scheduleSave() {
     if (!hydrated) return;
     if (saveTimer) clearTimeout(saveTimer);
     const token = saveGuard.start();
-    saveTimer = setTimeout(async () => {
-      try {
-        // Re-read latest config from backend to avoid overwriting changes
-        // made by other components (e.g. SettingsDataStorage paths/autoIndex)
-        const freshConfig = await getConfig();
-        if (!saveGuard.isValid(token)) return;
-        backendConfig = freshConfig;
-        const config = buildConfig();
-        await saveConfig(config);
-        if (!saveGuard.isValid(token)) return;
-        backendConfig = config;
-      } catch (e) {
-        if (!saveGuard.isValid(token)) return;
-        logWarn("[preferences] Failed to persist config:", e);
-      }
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      void persistConfig(token).catch((error) => {
+        if (saveGuard.isValid(token)) logWarn("[preferences] Failed to persist config:", error);
+      });
     }, 300);
   }
 
-  // ── Hydrate from backend on store creation ─────────────────
+  /** Await persistence before an IPC command that depends on a new setting. */
+  async function persistNow() {
+    await hydratePromise;
+    await nextTick();
+    if (!hydrated) throw new Error("Preferences are not ready to save");
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = null;
+    await persistConfig(saveGuard.start());
+  }
+
   let hydrateResolve: () => void;
   const hydratePromise = new Promise<void>((resolve) => {
     hydrateResolve = resolve;
@@ -287,8 +293,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     applyTheme: () => applyTheme(ui.theme.value),
     /** Resolves when config has been loaded from backend. Await before reading config-backed values at startup. */
     whenReady: hydratePromise,
-    /** Re-run hydration after the setup wizard creates config.toml.
-     *  This arms the auto-save watcher so subsequent preference changes persist. */
+    persistNow,
+    /** Reload after setup creates config.toml and enable automatic persistence. */
     hydrate,
   };
 });

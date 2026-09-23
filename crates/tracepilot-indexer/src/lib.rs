@@ -15,6 +15,9 @@ pub use index_db::SessionIndexInfo;
 pub use index_db::search_reader::sanitize_fts_query;
 pub use index_db::{SearchFacets, SearchFilters, SearchResult, SearchStats};
 
+pub use indexing::enrichment::{
+    EnrichmentOutcome, EnrichmentProgress, default_source_binding, refresh_session_store_enrichment,
+};
 pub use indexing::{
     IndexingProgress, SearchIndexingProgress, default_index_db_path, rebuild_search_content,
     reindex_all, reindex_all_with_progress, reindex_all_with_rich_progress, reindex_incremental,

@@ -49,6 +49,12 @@ export interface SearchFilters {
   excludeContentTypes?: string[];
   repositories?: string[];
   toolNames?: string[];
+  /** `pr:` values — sessions that mentioned the pull request, not that merged it. */
+  pullRequests?: string[];
+  /** `issue:` values. */
+  issues?: string[];
+  /** `commit:` values. These are Git refs, only some of which are commit SHAs. */
+  gitRefs?: string[];
   sessionId?: string;
   dateFromUnix?: number;
   dateToUnix?: number;

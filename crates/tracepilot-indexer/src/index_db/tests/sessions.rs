@@ -29,8 +29,9 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v1, 19);
-    assert_eq!(count1, 18);
+    assert_eq!(v1, 20);
+    // One fewer row than the version number: the plan has no migration 12.
+    assert_eq!(count1, 19);
     drop(db1);
 
     let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -38,7 +39,7 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(count2, 18);
+    assert_eq!(count2, 19);
 }
 
 #[test]

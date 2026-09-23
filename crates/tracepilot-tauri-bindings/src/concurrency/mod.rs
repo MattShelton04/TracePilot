@@ -30,6 +30,13 @@ pub const SESSION_REINDEX_PERMITS: usize = 1;
 /// standalone search-index rebuild command).
 pub const SEARCH_CONTENT_PERMITS: usize = 1;
 
+/// Permits for the "session-store enrichment" gate.
+///
+/// A gate of its own rather than sharing the search one: enrichment reads an
+/// external file on its own schedule, and making it queue behind search
+/// content would mean a long Phase 2 silently skipped every sweep.
+pub const ENRICHMENT_PERMITS: usize = 1;
+
 /// Named collection of the indexing concurrency gates.
 ///
 /// Stored once in Tauri managed state as `Arc<IndexingSemaphores>`; IPC
@@ -38,6 +45,7 @@ pub const SEARCH_CONTENT_PERMITS: usize = 1;
 pub struct IndexingSemaphores {
     sessions: Arc<Semaphore>,
     search: Arc<Semaphore>,
+    enrichment: Arc<Semaphore>,
 }
 
 impl IndexingSemaphores {
@@ -46,11 +54,13 @@ impl IndexingSemaphores {
         tracing::debug!(
             sessions_permits = SESSION_REINDEX_PERMITS,
             search_permits = SEARCH_CONTENT_PERMITS,
+            enrichment_permits = ENRICHMENT_PERMITS,
             "initializing indexing semaphores"
         );
         Self {
             sessions: Arc::new(Semaphore::new(SESSION_REINDEX_PERMITS)),
             search: Arc::new(Semaphore::new(SEARCH_CONTENT_PERMITS)),
+            enrichment: Arc::new(Semaphore::new(ENRICHMENT_PERMITS)),
         }
     }
 
@@ -77,6 +87,11 @@ impl IndexingSemaphores {
         self.search.available_permits()
     }
 
+    /// Remaining permits on the enrichment gate.
+    pub fn enrichment_available(&self) -> usize {
+        self.enrichment.available_permits()
+    }
+
     /// Try to acquire the session-reindex gate without blocking.
     /// Returns an owned permit so it can outlive the handler frame.
     pub fn try_acquire_sessions(&self) -> Result<OwnedSemaphorePermit, TryAcquireError> {
@@ -87,6 +102,22 @@ impl IndexingSemaphores {
     pub fn try_acquire_search(&self) -> Result<OwnedSemaphorePermit, TryAcquireError> {
         acquire_traced("search", &self.search)
     }
+
+    /// Try to acquire the session-store enrichment gate without blocking.
+    pub fn try_acquire_enrichment(&self) -> Result<EnrichmentPermit, TryAcquireError> {
+        let sessions = acquire_traced("sessions", &self.sessions)?;
+        let enrichment = acquire_traced("enrichment", &self.enrichment)?;
+        Ok(EnrichmentPermit {
+            _sessions: sessions,
+            _enrichment: enrichment,
+        })
+    }
+}
+
+/// Prevent a full index rebuild or baseline rewrite during an enrichment sweep.
+pub struct EnrichmentPermit {
+    _sessions: OwnedSemaphorePermit,
+    _enrichment: OwnedSemaphorePermit,
 }
 
 impl Default for IndexingSemaphores {

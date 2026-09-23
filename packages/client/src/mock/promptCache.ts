@@ -1,4 +1,4 @@
-import type { PromptCacheTimeline } from "@tracepilot/types";
+import type { CacheObservation, PromptCacheTimeline } from "@tracepilot/types";
 
 const MINUTE_MS = 60_000;
 const mockIso = (offsetMinutes: number) =>
@@ -88,3 +88,33 @@ export const MOCK_PROMPT_CACHE: PromptCacheTimeline = {
     medianIdleSeconds: 2820,
   },
 };
+
+// Recorded reuse for two of the three windows. The expired one disagrees
+// with its prediction on purpose: that pairing is the case the UI exists to
+// show, and neither figure is rewritten to match the other. The pending
+// window has no observation at all, which is the ordinary outcome when no
+// reliable association exists.
+export const MOCK_CACHE_OBSERVATIONS: CacheObservation[] = [
+  {
+    windowIndex: 0,
+    sourceRowId: 4021,
+    model: "gpt-5.6-luna",
+    recordedAt: mockIso(-86),
+    cacheReadTokens: 147_200,
+    cacheWriteTokens: 0,
+    inputTokens: 148_934,
+    attribution: "validated",
+    comparison: "agrees",
+  },
+  {
+    windowIndex: 1,
+    sourceRowId: 4023,
+    model: "gpt-5.6-luna",
+    recordedAt: mockIso(-40),
+    cacheReadTokens: 12_480,
+    cacheWriteTokens: 0,
+    inputTokens: 96_210,
+    attribution: "validated",
+    comparison: "differs",
+  },
+];
