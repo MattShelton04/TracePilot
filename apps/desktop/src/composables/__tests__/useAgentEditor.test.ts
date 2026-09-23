@@ -2,6 +2,7 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useToast } from "@tracepilot/ui";
 import { defineComponent, reactive } from "vue";
 
 const mocks = vi.hoisted(() => ({
@@ -241,5 +242,39 @@ describe("useAgentEditor", () => {
     expect(editor.ctx.rawDraft).toContain("Newer draft");
     expect(editor.ctx.dirty).toBe(true);
     expect(mocks.agentsGet).toHaveBeenCalledTimes(1);
+  });
+
+  describe("applyOverride", () => {
+    beforeEach(() => useToast().clear());
+
+    it("writes the override, then the disabled flag, and confirms both with a toast", async () => {
+      const store = storeMock.value as Record<string, ReturnType<typeof vi.fn>>;
+      store.setOverride.mockResolvedValue(true);
+      store.setDisabled.mockResolvedValue(true);
+      const editor = mountEditor();
+      await flushPromises();
+
+      const value = { model: "gpt-5.5", effortLevel: null, contextTier: null };
+      expect(await editor.ctx.applyOverride(value, true)).toBe(true);
+
+      expect(store.setOverride).toHaveBeenCalledWith("reviewer", value);
+      expect(store.setDisabled).toHaveBeenCalledWith("reviewer", true);
+      const [toast] = useToast().toasts.value;
+      expect(toast).toMatchObject({ type: "success", title: "Override saved for reviewer" });
+      expect(toast.message).toContain("model gpt-5.5");
+      expect(editor.ctx.activeTab).toBe("effective");
+    });
+
+    it("stops after a failed write, without a toast or a disabled change", async () => {
+      const store = storeMock.value as Record<string, ReturnType<typeof vi.fn>>;
+      store.setOverride.mockResolvedValue(false);
+      const editor = mountEditor();
+      await flushPromises();
+
+      expect(await editor.ctx.applyOverride(null, true)).toBe(false);
+      expect(store.setDisabled).not.toHaveBeenCalled();
+      expect(useToast().toasts.value).toHaveLength(0);
+      expect(editor.ctx.activeTab).toBe("preview");
+    });
   });
 });

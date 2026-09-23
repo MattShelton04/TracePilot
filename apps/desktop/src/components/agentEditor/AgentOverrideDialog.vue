@@ -58,7 +58,7 @@ watch(visible, (open) => {
 async function apply() {
   saving.value = true;
   const hasValue = Boolean(model.value || effort.value || contextTier.value);
-  const applied = await ctx.setOverride(
+  const applied = await ctx.applyOverride(
     hasValue
       ? {
           model: model.value || null,
@@ -66,20 +66,18 @@ async function apply() {
           contextTier: contextTier.value || null,
         }
       : null,
+    disabled.value,
   );
-  const enabled =
-    applied && (disabled.value === ctx.disabled || (await ctx.setDisabled(disabled.value)));
   saving.value = false;
-  if (enabled) visible.value = false;
+  if (applied) visible.value = false;
   else error.value = ctx.store.error ?? "Could not apply the override. Please try again.";
 }
 
 async function reset() {
   saving.value = true;
-  const applied = await ctx.setOverride(null);
-  const enabled = applied && (!ctx.disabled || (await ctx.setDisabled(false)));
+  const removed = await ctx.removeOverride();
   saving.value = false;
-  if (enabled) visible.value = false;
+  if (removed) visible.value = false;
   else error.value = ctx.store.error ?? "Could not remove the override. Please try again.";
 }
 </script>

@@ -5,7 +5,13 @@ import type {
   AgentUsageDetail,
   SubagentOverride,
 } from "@tracepilot/types";
-import { toErrorMessage, useAsyncGuard, useConfirmDialog, useResizeHandle } from "@tracepilot/ui";
+import {
+  toErrorMessage,
+  useAsyncGuard,
+  useConfirmDialog,
+  useResizeHandle,
+  useToast,
+} from "@tracepilot/ui";
 import {
   computed,
   type InjectionKey,
@@ -23,6 +29,7 @@ import { pushRoute } from "@/router/navigation";
 import { useAgentsStore } from "@/stores/agents";
 import { resolveEffectiveConfig } from "@/utils/agents/effective";
 import { findOverride, isDisabled } from "@/utils/agents/entries";
+import { describeOverrideChange } from "@/utils/agents/overrideSummary";
 import { rangeBounds } from "@/utils/agents/range";
 
 /** `name:<agent>` ids belong to agents seen in sessions with no definition. */
@@ -42,6 +49,7 @@ export function useAgentEditor() {
   const router = useRouter();
   const store = useAgentsStore();
   const { confirm: showConfirm } = useConfirmDialog();
+  const { success: toastSuccess } = useToast();
   const definitionGuard = useAsyncGuard();
   const usageGuard = useAsyncGuard();
   let draftVersion = 0;
@@ -290,12 +298,34 @@ export function useAgentEditor() {
     }
   }
 
-  async function setOverride(value: SubagentOverride | null) {
-    return store.setOverride(agentType.value, value);
+  /**
+   * Write the `/subagents` override (or remove it with `null`), then the
+   * disabled flag. A failure leaves `store.error` set for the dialog; a
+   * success is confirmed with a toast and the effective config it produced.
+   */
+  async function applyOverride(value: SubagentOverride | null, nextDisabled: boolean) {
+    const type = agentType.value;
+    const previous = override.value;
+    const wasDisabled = disabled.value;
+    const applied =
+      (await store.setOverride(type, value)) &&
+      (nextDisabled === wasDisabled || (await store.setDisabled(type, nextDisabled)));
+    if (!applied) return false;
+    const summary = describeOverrideChange({
+      agentType: type,
+      previous,
+      next: value,
+      wasDisabled,
+      disabled: nextDisabled,
+      settingsPath: settings.value?.settingsPath,
+    });
+    toastSuccess(summary.message, { title: summary.title });
+    activeTab.value = "effective";
+    return true;
   }
 
-  async function setDisabled(next: boolean) {
-    return store.setDisabled(agentType.value, next);
+  function removeOverride() {
+    return applyOverride(null, false);
   }
 
   function goBack() {
@@ -348,8 +378,8 @@ export function useAgentEditor() {
     save,
     discard,
     remove,
-    setOverride,
-    setDisabled,
+    applyOverride,
+    removeOverride,
     goBack,
   });
 }
