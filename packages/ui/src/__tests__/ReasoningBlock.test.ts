@@ -8,14 +8,17 @@ describe("ReasoningBlock", () => {
     const wrapper = mount(ReasoningBlock, {
       props: { reasoning: [content], expanded: false },
     });
-    expect(wrapper.get(".reasoning-summary").text()).toBe("Checking compatibility");
-    expect(wrapper.get(".reasoning-summary").attributes("title")).toBe("Checking compatibility");
+    const summary = "Checking compatibility, Next step";
+    expect(wrapper.get(".reasoning-summary").text()).toBe(summary);
+    expect(wrapper.get(".reasoning-summary").attributes("title")).toBe(summary);
     expect(wrapper.find(".reasoning-content").exists()).toBe(false);
     await wrapper.setProps({ expanded: true });
-    expect(wrapper.get(".reasoning-summary").text()).toBe("Checking compatibility");
-    expect(wrapper.get(".reasoning-content").text()).toBe(
-      "Full reasoning.\n\n**Next step**\nMore.",
-    );
+    expect(wrapper.get(".reasoning-summary").text()).toBe(summary);
+    const body = wrapper.get(".reasoning-content");
+    expect(body.text()).toContain("Full reasoning.");
+    expect(body.text()).not.toContain("**");
+    expect(body.text()).not.toContain("Checking compatibility");
+    expect(body.findAll(".reasoning-text__heading").map((h) => h.text())).toEqual(["Next step"]);
     expect(wrapper.props("reasoning")).toEqual([content]);
   });
 
