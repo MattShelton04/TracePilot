@@ -14,9 +14,12 @@ import { computed, ref } from "vue";
 import { useSessionStoreEvents } from "@/composables/useSessionStoreEvents";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logWarn } from "@/utils/logger";
-import { toWorkRefRows } from "@/utils/workRefs";
+import { toWorkRefRows, type WorkRefContext } from "@/utils/workRefs";
 
-export function useSessionWorkRefs(getSessionId: () => string | null | undefined) {
+export function useSessionWorkRefs(
+  getSessionId: () => string | null | undefined,
+  getContext: () => WorkRefContext = () => ({ sessionHost: null }),
+) {
   const preferences = usePreferencesStore();
   const enabled = computed(() => preferences.isFeatureEnabled("sessionStoreEnrichment"));
 
@@ -55,7 +58,7 @@ export function useSessionWorkRefs(getSessionId: () => string | null | undefined
     },
   });
 
-  const rows = computed(() => toWorkRefRows(response.value?.refs ?? []));
+  const rows = computed(() => toWorkRefRows(response.value?.refs ?? [], getContext()));
 
   /** False only when a source could not be consulted at all. */
   const sourceAvailable = computed(() => response.value?.available ?? false);

@@ -206,7 +206,7 @@ function retryLoadSection(section: string) {
     </div>
 
     <!-- Related work (session-store enrichment; self-gating on the feature) -->
-    <RelatedWorkPanel :session-id="store.sessionId" />
+    <RelatedWorkPanel :session-id="store.sessionId" :host-type="detail?.hostType" />
 
     <!-- Incidents -->
     <div class="card mb-6">

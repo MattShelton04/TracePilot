@@ -1,21 +1,27 @@
 <script setup lang="ts">
 /**
- * Related work — pull requests, issues and Git refs mentioned in a session.
+ * Related work — pull requests, issues, commits and branches mentioned in a
+ * session, as recorded by the Copilot CLI.
  *
  * Every value here is untrusted source text. It is rendered through normal
  * interpolation (never `v-html`) and only ever opened through `openExternal`,
  * which re-validates the URL before handing it to the system browser.
  *
- * References are grouped by kind as compact chips. What most of them share —
- * a repository assumed from the session rather than named by the reference —
- * is said once for the panel instead of as a warning on every row; each chip
- * keeps its raw value and resolution in its tooltip.
+ * References are compact chips grouped by kind. A chip with a link opens it;
+ * every chip has a menu (right-click, or a click when there is no link) to
+ * copy it or find the other sessions that mention it. Bare numbers link into
+ * the session's own repository, which the panel says once rather than on
+ * every chip.
  */
 import type { StoreAvailability } from "@tracepilot/types";
-import { ErrorAlert, SectionPanel } from "@tracepilot/ui";
+import { ErrorAlert, SectionPanel, useClipboard, useToast } from "@tracepilot/ui";
 import { ExternalLink } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
+import { useRouter } from "vue-router";
+import WorkRefMenu from "@/components/session/WorkRefMenu.vue";
 import { useSessionWorkRefs } from "@/composables/useSessionWorkRefs";
+import { ROUTE_NAMES } from "@/config/routes";
+import { pushRoute } from "@/router/navigation";
 import { openExternal } from "@/utils/openExternal";
 import {
   groupWorkRefRows,
@@ -28,10 +34,15 @@ import {
 /** Chips shown per group before it asks to be expanded: about two rows. */
 const COLLAPSED_PER_GROUP = 40;
 
-const props = defineProps<{ sessionId: string | null | undefined }>();
+const props = defineProps<{
+  sessionId: string | null | undefined;
+  /** TracePilot's host type for the session; `github` allows bare numbers to link. */
+  hostType?: string | null;
+}>();
 
 const { enabled, error, rows, sourceAvailability, retry } = useSessionWorkRefs(
   () => props.sessionId,
+  () => ({ sessionHost: props.hostType === "github" ? "github.com" : null }),
 );
 
 /** Kinds whose full list the reader asked for. */
@@ -40,6 +51,7 @@ watch(
   () => props.sessionId,
   () => {
     expanded.value = new Set();
+    menu.value = null;
   },
 );
 
@@ -57,6 +69,7 @@ function toggle(group: WorkRefGroup) {
 }
 
 const contextRepository = computed(() => sharedContextRepository(rows.value));
+const linksInferred = computed(() => rows.value.some((row) => row.linkInferred));
 
 /** The repository a chip must name: its own, or context the panel did not state. */
 function chipRepository(row: WorkRefRow): string | null {
@@ -80,8 +93,47 @@ const availabilityDetail = computed(() =>
   sourceAvailability.value ? AVAILABILITY_DETAIL[sourceAvailability.value] : "",
 );
 
-function openRef(href: string | null) {
-  if (href) void openExternal(href);
+// ── Actions ────────────────────────────────────────────────────────
+const router = useRouter();
+const toast = useToast();
+const { copy } = useClipboard();
+const menu = ref<{ row: WorkRefRow; position: { x: number; y: number } } | null>(null);
+
+function openMenu(row: WorkRefRow, event: MouseEvent) {
+  // A keyboard-invoked context menu reports no pointer position; anchor it
+  // under the chip instead.
+  const target = event.currentTarget as HTMLElement | null;
+  const rect = target?.getBoundingClientRect();
+  const fromPointer = event.clientX !== 0 || event.clientY !== 0;
+  menu.value = {
+    row,
+    position:
+      fromPointer || !rect
+        ? { x: event.clientX, y: event.clientY }
+        : { x: rect.left, y: rect.bottom + 4 },
+  };
+}
+
+function activate(row: WorkRefRow, event: MouseEvent) {
+  if (row.href) void openExternal(row.href);
+  else openMenu(row, event);
+}
+
+async function copyText(text: string, label: string) {
+  if (await copy(text)) toast.success(`Copied ${label}`);
+  else toast.error("Could not copy to the clipboard");
+}
+
+function runAction(action: "open" | "copyLink" | "copyReference" | "search") {
+  const row = menu.value?.row;
+  menu.value = null;
+  if (!row) return;
+  if (action === "open" && row.href) void openExternal(row.href);
+  if (action === "copyLink" && row.href) void copyText(row.href, "link");
+  if (action === "copyReference") void copyText(row.copyText, row.copyText);
+  if (action === "search" && row.searchQuery) {
+    void pushRoute(router, ROUTE_NAMES.search, { query: { q: row.searchQuery } });
+  }
 }
 </script>
 
@@ -93,10 +145,9 @@ function openRef(href: string | null) {
     and Settings reports the source's availability.
   -->
   <SectionPanel v-if="enabled && (rows.length > 0 || error)" title="Related work" class="mb-6">
-    <!-- Stated once for the whole list, not repeated per row. -->
     <p class="related-work-note">
-      References found in this session. Finding a reference is not proof that the session
-      opened, reviewed, merged or completed that work.
+      Mentioned in this session, which is not proof the session worked on them. Right-click a
+      reference to copy it or find other sessions that mention it.
     </p>
 
     <p v-if="sourceAvailability && sourceAvailability !== 'ready'" class="related-work-message">
@@ -113,11 +164,11 @@ function openRef(href: string | null) {
     />
     <template v-else>
       <p v-if="contextRepository" class="related-work-context">
-        References without a repository of their own are placed in this session's repository,
+        Numbers without a repository of their own are taken to be in this session's repository,
         <span
-          class="ref-repo-unverified"
-          title="Taken from this session, not from the references. A reference to another repository would make it wrong, so these are not links."
-        >{{ contextRepository }} (unverified)</span>.
+          class="ref-repo-inferred"
+          title="Taken from this session, not from the references. A mention of another repository would open the wrong page."
+        >{{ contextRepository }}</span><template v-if="!linksInferred">; the session's host is not known, so they are not linked</template>.
       </p>
 
       <div class="related-work-list">
@@ -137,16 +188,19 @@ function openRef(href: string | null) {
               class="related-work-row"
               :class="{ 'related-work-row--sha': row.shaCandidate }"
               :data-resolution="row.resolution"
-              :title="workRefTooltip(row)"
             >
-              <span v-if="chipRepository(row)" class="ref-repo">{{ chipRepository(row) }}</span>
-              <a
-                v-if="row.presentation === 'link' && row.href"
-                class="ref-link"
-                href="#"
-                @click.prevent="openRef(row.href)"
-              >{{ row.displayValue }}<ExternalLink :size="11" aria-hidden="true" /></a>
-              <span v-else class="ref-plain">{{ row.displayValue }}</span>
+              <button
+                type="button"
+                class="ref-chip"
+                :class="{ 'ref-chip--link': row.href }"
+                :title="workRefTooltip(row)"
+                @click="activate(row, $event)"
+                @contextmenu.prevent="openMenu(row, $event)"
+              >
+                <span v-if="chipRepository(row)" class="ref-repo">{{ chipRepository(row) }}</span>
+                <span class="ref-value">{{ row.displayValue }}</span>
+                <ExternalLink v-if="row.href" :size="11" aria-hidden="true" />
+              </button>
             </li>
             <li v-if="group.rows.length > COLLAPSED_PER_GROUP">
               <button
@@ -159,12 +213,19 @@ function openRef(href: string | null) {
               </button>
             </li>
           </ul>
-          <p v-if="group.hasShaCandidate" class="ref-note">
-            Candidate commits — these values look like SHAs; no commit was verified.
-          </p>
         </section>
       </div>
     </template>
+
+    <WorkRefMenu
+      :row="menu?.row ?? null"
+      :position="menu?.position ?? { x: 0, y: 0 }"
+      @open="runAction('open')"
+      @copy-link="runAction('copyLink')"
+      @copy-reference="runAction('copyReference')"
+      @search="runAction('search')"
+      @dismiss="menu = null"
+    />
   </SectionPanel>
 </template>
 
@@ -222,6 +283,11 @@ function openRef(href: string | null) {
 
 .related-work-row {
   display: inline-flex;
+  max-width: 100%;
+}
+
+.ref-chip {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   max-width: 100%;
@@ -229,45 +295,54 @@ function openRef(href: string | null) {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   background: var(--canvas-subtle);
+  color: var(--text-primary);
+  font: inherit;
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   line-height: 1.6;
-  cursor: default;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
 }
 
-.related-work-row--sha {
+.ref-chip:hover,
+.ref-chip:focus-visible {
+  border-color: var(--border-emphasis);
+}
+
+.ref-chip:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 1px;
+}
+
+.ref-chip--link {
+  color: var(--accent-fg);
+}
+
+.ref-chip--link:hover .ref-value,
+.ref-chip--link:focus-visible .ref-value {
+  text-decoration: underline;
+}
+
+.ref-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.related-work-row--sha .ref-chip {
   font-family: var(--font-mono);
   font-size: 0.75rem;
 }
 
 /* No repository at all: a searchable label, visibly quieter than the rest. */
-.related-work-row[data-resolution="unresolved"] {
+.related-work-row[data-resolution="unresolved"] .ref-chip {
   border-style: dashed;
   background: transparent;
 }
 
-.related-work-row[data-resolution="explicit"] {
+.related-work-row[data-resolution="explicit"] .ref-chip {
   border-color: var(--accent-muted);
   background: var(--accent-subtle);
-}
-
-.ref-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  color: var(--accent-fg);
-  text-decoration: none;
-}
-
-.ref-link:hover,
-.ref-link:focus-visible {
-  text-decoration: underline;
-}
-
-.ref-plain {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  color: var(--text-primary);
 }
 
 .ref-repo {
@@ -291,13 +366,7 @@ function openRef(href: string | null) {
   border-color: var(--border-default);
 }
 
-.ref-note {
-  margin: 6px 0 0;
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-
-.ref-repo-unverified {
+.ref-repo-inferred {
   border-bottom: 1px dashed var(--border-default);
   color: var(--text-primary);
   cursor: help;

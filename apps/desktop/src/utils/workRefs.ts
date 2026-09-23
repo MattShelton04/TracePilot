@@ -2,17 +2,18 @@
  * Presentation model for linked-work references read from the Copilot CLI's
  * own session store.
  *
- * A reference is evidence that a value was *mentioned* in a session. It is not
- * evidence that the work exists, that the session opened it, or that the
- * repository the number belongs to is the session's repository. The rules here
- * exist so the UI cannot quietly upgrade a guess into a link:
+ * A reference is evidence that a value was *mentioned* in a session, not that
+ * the session worked on it. How a reference may link:
  *
- *   - only `resolution: "explicit"` may produce a navigable URL;
- *   - a host is only ever taken from the reference itself, never defaulted to
- *     github.com, because the same `#123` on GitHub Enterprise points at a
- *     different issue;
- *   - `kind: "gitRef"` is a Git ref. `shaShaped` says the text looks like a
- *     SHA, which is not the same as a commit that exists.
+ *   - an explicit reference links to the host and repository it named;
+ *   - a bare `#123` links into the session's own repository, the way GitHub
+ *     itself reads `#123` inside a repository, but only when TracePilot knows
+ *     the session is on github.com. The host is never assumed: the same number
+ *     on GitHub Enterprise is a different issue, so those stay unlinked. The
+ *     link is marked as inferred, since a mention of another repository would
+ *     make it wrong;
+ *   - `kind: "gitRef"` is a Git ref. Only a SHA-shaped one links, as a commit;
+ *     branch names and expressions such as `HEAD~1` stay plain.
  */
 
 import type { StoredWorkRef, WorkRefResolution } from "@tracepilot/types";
@@ -21,12 +22,21 @@ import { parseExternalUrl } from "@/utils/openExternal";
 
 /** How a row may be acted on. */
 export type WorkRefPresentation =
-  /** Verified enough to open externally. */
+  /** Opens externally; `linkInferred` says whether the repository was assumed. */
   | "link"
-  /** Repository shown as unverified context; deliberately not clickable. */
+  /** Has a repository but no safe link, e.g. a branch name or an unknown host. */
   | "context"
   /** Searchable text only. */
   | "label";
+
+/** What the session itself says about where its repository lives. */
+export interface WorkRefContext {
+  /**
+   * The host a bare reference may be linked on: `github.com` for a session
+   * TracePilot recorded as GitHub-hosted, otherwise `null`.
+   */
+  sessionHost: string | null;
+}
 
 export interface WorkRefRow {
   identity: string;
@@ -40,6 +50,14 @@ export interface WorkRefRow {
   presentation: WorkRefPresentation;
   /** Present only when `presentation === "link"`. */
   href: string | null;
+  /** True when the link's repository came from the session, not the reference. */
+  linkInferred: boolean;
+  /** What "copy" puts on the clipboard: `owner/name#123`, a SHA or a ref name. */
+  copyText: string;
+  /** A session-search query finding every session that mentions this, or `null`. */
+  searchQuery: string | null;
+  /** Grouping key: `commit` and `branch` split the Git refs apart. */
+  group: string;
   repository: string | null;
   /** False when the repository came from the session rather than the ref. */
   repositoryVerified: boolean;
@@ -71,9 +89,9 @@ const RESOLUTION_TONES: Record<WorkRefResolution, StatusPillTone> = {
 };
 
 const RESOLUTION_HINTS: Record<WorkRefResolution, string> = {
-  explicit: "The reference itself named the host and repository, so it can be opened.",
+  explicit: "The reference itself named the host and repository.",
   sessionContext:
-    "The repository was taken from this session, not from the reference. A mention of another repository would make it wrong, so it is shown as context rather than a link.",
+    "The repository was taken from this session, not from the reference; a mention of another repository would make it wrong.",
   unresolved:
     "No repository could be determined for this reference. It is kept as a searchable label.",
 };
@@ -97,32 +115,54 @@ function usableRepository(repository: string | null): string | null {
   return /^[\w.-]+\/[\w.-]+$/.test(repository) ? repository : null;
 }
 
+/** The URL path segment and value for a reference, or `null` when it has none. */
+function linkTarget(ref: StoredWorkRef): string | null {
+  if (ref.kind === "gitRef") return ref.shaShaped ? `commit/${ref.normalizedValue}` : null;
+  const segment = ref.kind === "pullRequest" ? "pull" : ref.kind === "issue" ? "issues" : null;
+  const number = positiveNumber(ref.normalizedValue);
+  return segment && number ? `${segment}/${number}` : null;
+}
+
 /**
  * The URL to open, or `null` when none can be justified.
  *
  * A reference that already carries an absolute HTTP(S) URL is preferred: it is
- * the reference's own evidence. Otherwise a URL is only assembled when the ref
- * itself supplied both host and repository and the value is a valid number.
+ * the reference's own evidence. Otherwise a URL is assembled from the host and
+ * repository the reference named, or, for a bare reference, from the session's
+ * own repository on a host the session is known to use.
  */
-function resolveHref(ref: StoredWorkRef): string | null {
-  if (ref.resolution !== "explicit") return null;
-
-  const fromRaw = parseExternalUrl(ref.rawValue);
-  if (fromRaw) return fromRaw.href;
-
-  const host = usableHost(ref.resolvedHost);
-  const repository = usableRepository(ref.resolvedRepository);
-  if (!host || !repository) return null;
-
-  const segment = ref.kind === "pullRequest" ? "pull" : ref.kind === "issue" ? "issues" : null;
-  if (!segment) return null;
-
-  const number = positiveNumber(ref.normalizedValue);
-  if (!number) return null;
+function resolveHref(ref: StoredWorkRef, context: WorkRefContext): string | null {
+  let host: string | null = null;
+  let repository: string | null = null;
+  if (ref.resolution === "explicit") {
+    const fromRaw = parseExternalUrl(ref.rawValue);
+    if (fromRaw) return fromRaw.href;
+    host = usableHost(ref.resolvedHost);
+    repository = usableRepository(ref.resolvedRepository);
+  } else if (ref.resolution === "sessionContext") {
+    host = usableHost(context.sessionHost);
+    repository = usableRepository(ref.candidateRepository ?? ref.resolvedRepository);
+  }
+  const target = linkTarget(ref);
+  if (!host || !repository || !target) return null;
 
   // Re-parsed rather than trusted: the pieces are source data, and
   // `parseExternalUrl` is the same guard every other external link uses.
-  return parseExternalUrl(`https://${host}/${repository}/${segment}/${number}`)?.href ?? null;
+  return parseExternalUrl(`https://${host}/${repository}/${target}`)?.href ?? null;
+}
+
+const SEARCH_QUALIFIERS: Record<string, string> = {
+  pullRequest: "pr",
+  issue: "issue",
+  gitRef: "commit",
+};
+
+/** `pr:123`, `issue:4` or `commit:<ref>`, quoted when the value has spaces. */
+function searchQuery(ref: StoredWorkRef): string | null {
+  const qualifier = SEARCH_QUALIFIERS[ref.kind];
+  const value = positiveNumber(ref.normalizedValue) ?? ref.normalizedValue;
+  if (!qualifier || !value || value.includes('"')) return null;
+  return /\s/.test(value) ? `${qualifier}:"${value}"` : `${qualifier}:${value}`;
 }
 
 function displayValue(ref: StoredWorkRef): string {
@@ -133,22 +173,31 @@ function displayValue(ref: StoredWorkRef): string {
   return ref.normalizedValue || ref.rawValue;
 }
 
-export function toWorkRefRow(ref: StoredWorkRef): WorkRefRow {
-  const href = resolveHref(ref);
+const NO_CONTEXT: WorkRefContext = { sessionHost: null };
+
+export function toWorkRefRow(ref: StoredWorkRef, context: WorkRefContext = NO_CONTEXT): WorkRefRow {
+  const href = resolveHref(ref, context);
   const explicitRepository = usableRepository(ref.resolvedRepository);
   const verified = ref.resolution === "explicit" && explicitRepository !== null;
+  const repository = verified
+    ? explicitRepository
+    : usableRepository(ref.candidateRepository ?? ref.resolvedRepository);
+  const value = displayValue(ref);
 
   return {
     identity: ref.identity,
     kind: ref.kind,
     kindLabel: KIND_LABELS[ref.kind] ?? ref.kind,
-    displayValue: displayValue(ref),
+    displayValue: value,
     rawValue: ref.rawValue,
     presentation: href ? "link" : ref.resolution === "unresolved" ? "label" : "context",
     href,
-    repository: verified
-      ? explicitRepository
-      : usableRepository(ref.candidateRepository ?? ref.resolvedRepository),
+    linkInferred: href !== null && !verified,
+    // `owner/name#123` is GitHub's own cross-repository shorthand.
+    copyText: repository && value.startsWith("#") ? `${repository}${value}` : value,
+    searchQuery: searchQuery(ref),
+    group: ref.kind === "gitRef" ? (ref.shaShaped ? "commit" : "branch") : ref.kind,
+    repository,
     repositoryVerified: verified,
     host: ref.resolution === "explicit" ? usableHost(ref.resolvedHost) : null,
     shaCandidate: ref.kind === "gitRef" && ref.shaShaped,
@@ -159,23 +208,26 @@ export function toWorkRefRow(ref: StoredWorkRef): WorkRefRow {
   };
 }
 
-export function toWorkRefRows(refs: readonly StoredWorkRef[]): WorkRefRow[] {
-  return refs.map(toWorkRefRow);
+export function toWorkRefRows(
+  refs: readonly StoredWorkRef[],
+  context: WorkRefContext = NO_CONTEXT,
+): WorkRefRow[] {
+  return refs.map((ref) => toWorkRefRow(ref, context));
 }
 
 export interface WorkRefGroup {
+  /** The group key: a kind, or `commit`/`branch` for the two sides of Git refs. */
   kind: string;
   label: string;
   rows: WorkRefRow[];
-  /** Whether any value in the group merely looks like a commit SHA. */
-  hasShaCandidate: boolean;
 }
 
-const GROUP_ORDER = ["pullRequest", "issue", "gitRef"];
+const GROUP_ORDER = ["pullRequest", "issue", "commit", "branch"];
 const GROUP_LABELS: Record<string, string> = {
   pullRequest: "Pull requests",
   issue: "Issues",
-  gitRef: "Git refs",
+  commit: "Commits",
+  branch: "Branches and other refs",
 };
 
 function numericValue(row: WorkRefRow): number | null {
@@ -193,15 +245,16 @@ function compareRows(a: WorkRefRow, b: WorkRefRow): number {
 }
 
 /**
- * Rows grouped by kind — pull requests, issues, Git refs, then anything the
- * source added later — with numbers in numeric order inside each group.
+ * Rows grouped by kind — pull requests, issues, commits, branches and other
+ * Git refs, then anything the source added later — with numbers in numeric
+ * order inside each group.
  */
 export function groupWorkRefRows(rows: readonly WorkRefRow[]): WorkRefGroup[] {
   const byKind = new Map<string, WorkRefRow[]>();
   for (const row of rows) {
-    const list = byKind.get(row.kind) ?? [];
+    const list = byKind.get(row.group) ?? [];
     list.push(row);
-    byKind.set(row.kind, list);
+    byKind.set(row.group, list);
   }
   const rank = (kind: string) => {
     const index = GROUP_ORDER.indexOf(kind);
@@ -213,7 +266,6 @@ export function groupWorkRefRows(rows: readonly WorkRefRow[]): WorkRefGroup[] {
       kind,
       label: GROUP_LABELS[kind] ?? list[0]?.kindLabel ?? kind,
       rows: [...list].sort(compareRows),
-      hasShaCandidate: list.some((row) => row.shaCandidate),
     }));
 }
 
@@ -235,10 +287,11 @@ export function sharedContextRepository(rows: readonly WorkRefRow[]): string | n
 export function workRefTooltip(row: WorkRefRow): string {
   const parts = [`${row.kindLabel}: ${row.rawValue}`];
   if (row.repository) {
-    parts.push(row.repositoryVerified ? row.repository : `${row.repository} (unverified)`);
+    parts.push(row.repositoryVerified ? row.repository : `${row.repository} (from this session)`);
   }
   if (row.host) parts.push(row.host);
-  if (row.shaCandidate) parts.push("Looks like a commit SHA; no commit was verified.");
-  parts.push(row.resolutionHint);
+  if (row.shaCandidate) parts.push("Looks like a commit SHA; it may not exist on the remote.");
+  if (row.resolution !== "unresolved") parts.push(row.resolutionHint);
+  parts.push(row.href ? "Click to open · right-click for more" : "Click for actions");
   return parts.join("\n");
 }

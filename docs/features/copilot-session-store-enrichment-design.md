@@ -395,9 +395,12 @@ Rules for resolution:
 
 - Prefer explicit repository/host evidence from a URL or the repository registry.
   A session's repository is a candidate context; cross-repository references can
-  make it wrong. Do not silently treat every bare `#123` as a verified link.
+  make it wrong. A bare `#123` links into the session's repository, as GitHub
+  reads `#123` inside a repository, and the panel states that repository once as
+  inferred rather than presenting the link as verified.
 - Support GitHub Enterprise via known host metadata. A `host_type` value is not
-  a hostname. Do not universally prepend `https://github.com`.
+  a hostname, so only TracePilot's own `github` host type maps to github.com;
+  any other or absent host leaves bare numbers unlinked.
 - Validate positive PR/issue numbers and recognized HTTP(S) host/path forms before
   creating links. Unresolved values remain useful searchable labels.
 - Only 59/85 commit values are 7–40 hexadecimal characters; **26 are other refs**.
@@ -899,7 +902,13 @@ Found against the live app with real data:
   cache reuse; billing items show rates in credits with a computed per-item
   charge; multi-day pages show dates.
 - **Related work** is grouped chips, states an assumed repository once, and is
-  shown only when there are references or an error.
+  shown only when there are references or an error. Read-only chips were not
+  useful on real data (every local reference is a bare number, so nothing
+  linked), so chips are now actionable: a click opens the reference (bare
+  numbers and SHA-shaped refs link into the session's repository on
+  github.com), and a menu copies the link or `owner/name#123` and runs the
+  `pr:`/`issue:`/`commit:` search for other sessions mentioning it. Git refs are
+  split into Commits and Branches and other refs, since 26 of 85 are not SHAs.
 - **Layout.** The ledger, its billing items and the Models page's observed
   tables are built on the shared `DataTable`, which gained expandable rows
   (the prompt-cache table's chevron-and-detail-row pattern) for this. A ledger

@@ -26,6 +26,13 @@ vi.mock("@/stores/preferences", () => ({
   }),
 }));
 
+const pushRoute = vi.hoisted(() => vi.fn());
+vi.mock("@/router/navigation", () => ({ pushRoute }));
+vi.mock("vue-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("vue-router")>()),
+  useRouter: () => ({}),
+}));
+
 // Only the side-effecting half is replaced: `parseExternalUrl` is the real
 // validation the component relies on to decide what may become a link.
 vi.mock("@/utils/openExternal", async (importOriginal) => {
@@ -62,16 +69,41 @@ function respond(response: Partial<SessionWorkRefsResponse>) {
   });
 }
 
-async function mountPanel() {
-  const wrapper = mount(RelatedWorkPanel, { props: { sessionId: "session-a" } });
+async function mountPanel(hostType: string | null = null) {
+  const wrapper = mount(RelatedWorkPanel, {
+    props: { sessionId: "session-a", hostType },
+    attachTo: document.body,
+  });
   await flushPromises();
   return wrapper;
 }
+
+/** A bare PR number the store placed in the session's repository. */
+function contextPr(value: string, overrides: Partial<StoredWorkRef> = {}): StoredWorkRef {
+  return ref({
+    identity: value,
+    rawValue: `#${value}`,
+    normalizedValue: value,
+    candidateRepository: "owner/project",
+    resolvedRepository: "owner/project",
+    resolution: "sessionContext",
+    ...overrides,
+  });
+}
+
+const writeText = vi.fn(async (_text: string) => {});
 
 beforeEach(() => {
   enrichmentEnabled = true;
   getSessionWorkRefs.mockReset();
   openExternal.mockReset();
+  pushRoute.mockReset();
+  writeText.mockClear();
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    value: { writeText },
+    configurable: true,
+  });
+  document.body.innerHTML = "";
   respond({});
 });
 
@@ -106,28 +138,33 @@ it("groups by kind in numeric order and states a shared repository once", async 
   respond({
     refs: [
       ref({ identity: "g", kind: "gitRef", rawValue: "main", normalizedValue: "main" }),
-      ...["110", "9", "25"].map((value) =>
-        ref({
-          identity: value,
-          rawValue: `#${value}`,
-          normalizedValue: value,
-          candidateRepository: "owner/project",
-          resolvedRepository: "owner/project",
-          resolution: "sessionContext",
-        }),
-      ),
+      ref({
+        identity: "s",
+        kind: "gitRef",
+        rawValue: "c598b556",
+        normalizedValue: "c598b556",
+        shaShaped: true,
+      }),
+      ...["110", "9", "25"].map((value) => contextPr(value)),
     ],
   });
   const wrapper = await mountPanel();
 
-  const kinds = wrapper
-    .findAll(".related-work-group")
-    .map((group) => group.attributes("data-kind"));
-  expect(kinds).toEqual(["pullRequest", "gitRef"]);
+  const groups = wrapper.findAll(".related-work-group");
+  expect(groups.map((group) => group.attributes("data-kind"))).toEqual([
+    "pullRequest",
+    "commit",
+    "branch",
+  ]);
+  expect(groups.map((group) => group.get(".ref-kind").text())).toEqual([
+    "Pull requests 3",
+    "Commits 1",
+    "Branches and other refs 1",
+  ]);
   const prs = wrapper.findAll('[data-kind="pullRequest"] .related-work-row');
   expect(prs.map((chip) => chip.text())).toEqual(["#9", "#25", "#110"]);
   // The assumed repository is one sentence, not a warning on every chip.
-  expect(wrapper.findAll(".ref-repo-unverified")).toHaveLength(1);
+  expect(wrapper.findAll(".ref-repo-inferred")).toHaveLength(1);
   expect(wrapper.find(".related-work-row .ref-repo").exists()).toBe(false);
   wrapper.unmount();
 });
@@ -181,7 +218,7 @@ describe("RelatedWorkPanel", () => {
     expect(wrapper.findAll(".related-work-row")).toHaveLength(2);
   });
 
-  it("opens an explicit reference through the validated external-link path", async () => {
+  it("opens an explicit reference on the host it named", async () => {
     respond({
       refs: [
         ref({
@@ -196,65 +233,75 @@ describe("RelatedWorkPanel", () => {
         }),
       ],
     });
-    const wrapper = await mountPanel();
+    const wrapper = await mountPanel("github");
 
-    const row = wrapper.get('[data-resolution="explicit"]');
-    expect(wrapper.get('[data-kind="pullRequest"] .ref-kind').text()).toContain("Pull requests");
-    expect(row.text()).toContain("owner/project");
-    expect(row.text()).toContain("#844");
-    expect(row.attributes("title")).toMatch(/named the host and repository/);
-
-    const link = row.get("a.ref-link");
-    await link.trigger("click");
-    // The recorded host is used verbatim; github.com is never assumed.
+    const chip = wrapper.get('[data-resolution="explicit"] .ref-chip');
+    expect(chip.text()).toContain("owner/project");
+    expect(chip.text()).toContain("#844");
+    expect(chip.attributes("title")).toMatch(/named the host and repository/);
+    await chip.trigger("click");
     expect(openExternal).toHaveBeenCalledWith("https://github.example.com/owner/project/pull/844");
+    wrapper.unmount();
   });
 
-  it("builds a link from the reference's own host, never a default one", async () => {
-    respond({
-      refs: [
-        ref({
-          identity: "issue",
-          kind: "issue",
-          rawValue: "GHE-512",
-          normalizedValue: "512",
-          resolvedHost: "ghe.corp.example",
-          resolvedRepository: "owner/project",
-          resolution: "explicit",
-        }),
-      ],
+  it("links a bare number into the session's repository on github.com", async () => {
+    respond({ refs: [contextPr("512", { kind: "issue" })] });
+    const wrapper = await mountPanel("github");
+
+    const chip = wrapper.get(".ref-chip");
+    expect(chip.classes()).toContain("ref-chip--link");
+    expect(chip.attributes("title")).toContain("owner/project (from this session)");
+    await chip.trigger("click");
+    expect(openExternal).toHaveBeenCalledWith("https://github.com/owner/project/issues/512");
+    wrapper.unmount();
+  });
+
+  it("never assumes a host for a bare number when the session's host is unknown", async () => {
+    respond({ refs: [contextPr("512")] });
+    const wrapper = await mountPanel(null);
+
+    const chip = wrapper.get(".ref-chip");
+    expect(chip.classes()).not.toContain("ref-chip--link");
+    expect(wrapper.get(".related-work-context").text()).toContain("not linked");
+    // With nothing to open, a click offers the other actions instead.
+    await chip.trigger("click");
+    expect(openExternal).not.toHaveBeenCalled();
+    const menu = document.body.querySelector('[data-testid="work-ref-menu"]');
+    expect(menu?.textContent).toContain("Copy owner/project#512");
+    expect(menu?.textContent).not.toContain("Open in browser");
+    wrapper.unmount();
+  });
+
+  it("copies the link or the reference, and finds other sessions, from the menu", async () => {
+    respond({ refs: [contextPr("405")] });
+    const wrapper = await mountPanel("github");
+    const chip = wrapper.get(".ref-chip");
+    const item = (label: string) =>
+      [...document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((button) =>
+        button.textContent?.includes(label),
+      );
+
+    await chip.trigger("contextmenu");
+    item("Copy link")?.click();
+    await flushPromises();
+    expect(writeText).toHaveBeenLastCalledWith("https://github.com/owner/project/pull/405");
+
+    await chip.trigger("contextmenu");
+    item("Copy owner/project#405")?.click();
+    await flushPromises();
+    expect(writeText).toHaveBeenLastCalledWith("owner/project#405");
+
+    await chip.trigger("contextmenu");
+    item("Find sessions mentioning #405")?.click();
+    await flushPromises();
+    expect(pushRoute).toHaveBeenCalledWith(expect.anything(), "search", {
+      query: { q: "pr:405" },
     });
-    const wrapper = await mountPanel();
-
-    await wrapper.get("a.ref-link").trigger("click");
-    expect(openExternal).toHaveBeenCalledWith("https://ghe.corp.example/owner/project/issues/512");
-    expect(openExternal).not.toHaveBeenCalledWith(expect.stringContaining("github.com"));
+    expect(document.body.querySelector('[data-testid="work-ref-menu"]')).toBeNull();
+    wrapper.unmount();
   });
 
-  it("shows a session-context repository as unverified context, not a link", async () => {
-    respond({
-      refs: [
-        ref({
-          identity: "ctx",
-          kind: "issue",
-          rawValue: "#512",
-          normalizedValue: "512",
-          resolvedHost: null,
-          resolvedRepository: "owner/project",
-          candidateRepository: "owner/project",
-          resolution: "sessionContext",
-        }),
-      ],
-    });
-    const wrapper = await mountPanel();
-
-    const row = wrapper.get('[data-resolution="sessionContext"]');
-    expect(row.find("a.ref-link").exists()).toBe(false);
-    expect(wrapper.get(".ref-repo-unverified").text()).toBe("owner/project (unverified)");
-    expect(row.attributes("title")).toContain("owner/project (unverified)");
-  });
-
-  it("keeps an unresolved reference as a searchable label with no repository", async () => {
+  it("keeps an unresolved reference as a plain label with no repository", async () => {
     respond({
       refs: [
         ref({
@@ -266,56 +313,31 @@ describe("RelatedWorkPanel", () => {
         }),
       ],
     });
-    const wrapper = await mountPanel();
+    const wrapper = await mountPanel("github");
 
-    const row = wrapper.get('[data-resolution="unresolved"]');
-    expect(row.find("a.ref-link").exists()).toBe(false);
-    expect(row.find(".ref-repo").exists()).toBe(false);
-    expect(row.get(".ref-plain").text()).toBe("#7");
-    expect(row.attributes("title")).toMatch(/No repository could be determined/);
+    const chip = wrapper.get('[data-resolution="unresolved"] .ref-chip');
+    expect(chip.classes()).not.toContain("ref-chip--link");
+    expect(chip.find(".ref-repo").exists()).toBe(false);
+    expect(chip.get(".ref-value").text()).toBe("#7");
+    wrapper.unmount();
   });
 
-  it("labels a git ref as a git ref and never as a commit when it is not SHA-shaped", async () => {
+  it("links a SHA-shaped ref as a commit but never a branch name", async () => {
     respond({
       refs: [
-        ref({
-          identity: "branch",
-          kind: "gitRef",
-          rawValue: "feat/session-store-enrichment",
-          normalizedValue: "feat/session-store-enrichment",
-          candidateRepository: "owner/project",
-          resolution: "sessionContext",
-          shaShaped: false,
-        }),
+        contextPr("c598b556", { identity: "sha", kind: "gitRef", shaShaped: true }),
+        contextPr("feat/x", { identity: "branch", kind: "gitRef", shaShaped: false }),
       ],
     });
-    const wrapper = await mountPanel();
+    const wrapper = await mountPanel("github");
 
-    const row = wrapper.get(".related-work-row");
-    expect(wrapper.get('[data-kind="gitRef"] .ref-kind').text()).toContain("Git refs");
-    expect(row.get(".ref-plain").text()).toBe("feat/session-store-enrichment");
-    expect(wrapper.find(".ref-note").exists()).toBe(false);
-    expect(row.text()).not.toMatch(/commit/i);
-  });
-
-  it("calls a SHA-shaped git ref a candidate commit, not a verified one", async () => {
-    respond({
-      refs: [
-        ref({
-          identity: "sha",
-          kind: "gitRef",
-          rawValue: "c598b556",
-          normalizedValue: "c598b556",
-          resolution: "unresolved",
-          shaShaped: true,
-        }),
-      ],
-    });
-    const wrapper = await mountPanel();
-
-    const note = wrapper.get(".ref-note").text();
-    expect(note).toMatch(/candidate commit/i);
-    expect(note).toMatch(/no commit was verified/i);
+    await wrapper.get('[data-kind="commit"] .ref-chip').trigger("click");
+    expect(openExternal).toHaveBeenCalledWith("https://github.com/owner/project/commit/c598b556");
+    const branch = wrapper.get('[data-kind="branch"] .ref-chip');
+    expect(branch.classes()).not.toContain("ref-chip--link");
+    expect(branch.text()).toBe("feat/x");
+    expect(branch.attributes("title")).not.toMatch(/commit SHA/);
+    wrapper.unmount();
   });
 
   it("offers no navigation to a turn, because the source counter has no mapping", async () => {
@@ -325,7 +347,7 @@ describe("RelatedWorkPanel", () => {
     const wrapper = await mountPanel();
 
     expect(wrapper.text()).not.toMatch(/turn/i);
-    expect(wrapper.findAll("button")).toHaveLength(0);
+    wrapper.unmount();
   });
 
   it("stays out of the overview when there is nothing to show", async () => {
