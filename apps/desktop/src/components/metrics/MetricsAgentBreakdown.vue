@@ -125,9 +125,14 @@ const columns = (
 // Not sortable: credits here are exact decimal strings, and comparing them
 // would mean parsing a nano-AIU total that routinely exceeds 2^53.
 const REQUEST_COLUMNS = [
-  { key: "storeRequests", label: "Model requests", align: "right" as const, sortable: false },
-  { key: "storeCredits", label: "Request credits", align: "right" as const, sortable: false },
-  { key: "storeCacheRatio", label: "Request cache read", align: "right" as const, sortable: false },
+  { key: "storeRequests", label: "Observed requests", align: "right" as const, sortable: false },
+  { key: "storeCredits", label: "Observed credits", align: "right" as const, sortable: false },
+  {
+    key: "storeCacheRatio",
+    label: "Observed cache reuse",
+    align: "right" as const,
+    sortable: false,
+  },
 ];
 const tableColumns = computed(() =>
   showRequests.value ? [...columns, ...REQUEST_COLUMNS] : columns,
@@ -190,8 +195,9 @@ const snapshotDate = computed(() =>
     <p v-if="coverage.attributed != null" class="text-xs text-[var(--text-secondary)] mt-4">Attributed credits: {{ formatAiCredits(coverage.attributed) }}{{ coverage.complete ? '' : ' (partial)' }}<span v-if="coverage.remainder != null"> · Not attributed to an agent: {{ formatAiCredits(coverage.remainder) }}</span></p>
     <p v-if="coverage.exceedsTotal" class="text-xs text-[var(--attention-fg)] mt-3">Agent credits exceed the recorded session total.</p>
     <template v-if="requests.enabled.value">
-      <p v-if="showRequests" class="text-xs text-[var(--text-secondary)] mt-4" data-testid="agent-requests-note">Model request, credit and cache-read columns come from the Copilot session store and are counted per request. They are a separate figure from the shutdown totals beside them, which are unchanged.</p>
-      <p v-if="showRequests && attribution.unattributedRequests > 0" class="text-xs text-[var(--attention-fg)] mt-2" data-testid="agent-requests-unattributed">Not attributed to an agent run: {{ attribution.unattributedRequests }} recorded request(s)<span v-if="attribution.unmatched && attribution.unmatched.unparsedCredits === 0"> · {{ formatExactCredits(attribution.unmatched.nanoAiu) }}</span>. This work happened; the breakdown above does not say where.</p>
+      <p v-if="showRequests" class="text-xs text-[var(--text-secondary)] mt-4" data-testid="agent-requests-note">Observed columns come from the Copilot session store and are counted per recorded request. They are a separate figure from the shutdown totals beside them, which are unchanged.</p>
+      <!-- Requests without an agent ID are usually the main agent's own, but the store does not say so; only runs named yet unmatched are unexplained. -->
+      <p v-if="showRequests && attribution.unattributedRequests > 0" class="text-xs mt-2" :class="attribution.unmatchedRollups > 0 ? 'text-[var(--attention-fg)]' : 'text-[var(--text-tertiary)]'" data-testid="agent-requests-unattributed">Not attributed to an agent run: {{ attribution.unattributedRequests }} recorded request(s)<span v-if="attribution.unmatched && attribution.unmatched.unparsedCredits === 0"> · {{ formatExactCredits(attribution.unmatched.nanoAiu) }}</span>. These recorded no agent to join on — typically the main agent's own requests, though the store does not confirm it — so the rows above leave them out.</p>
       <p v-if="showRequests && attribution.unmatchedRollups > 0" class="text-xs text-[var(--attention-fg)] mt-2" data-testid="agent-requests-unmatched">{{ attribution.unmatchedRollups }} recorded run(s) have no matching row in this breakdown and are not included in the columns above.</p>
       <p v-if="requests.loaded.value && !requests.available.value" class="text-xs text-[var(--text-tertiary)] mt-4" data-testid="agent-requests-unavailable">No session store could be read, so per-request figures are unavailable for these agents. The shutdown totals above are unaffected.</p>
     </template>

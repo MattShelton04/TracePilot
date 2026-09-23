@@ -240,6 +240,7 @@ function rowCredits(window: CacheWindow) {
                       class="prompt-cache__tag"
                       :class="{ 'prompt-cache__tag--differs': observationViews.get(window.index)?.tone === 'warning' }"
                       data-testid="prompt-cache-observation-tag"
+                      :title="`What the resuming request recorded in the session store, compared with this prediction. ${observationViews.get(window.index)?.pairing ?? ''}`"
                     >{{ observationViews.get(window.index)?.comparisonLabel }}</span>
                   </span>
                 </td>

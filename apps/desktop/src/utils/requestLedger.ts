@@ -12,6 +12,7 @@ import type {
   BillingCheck,
   BillingItemsStatus,
   ReconciliationStatus,
+  SessionCoverageRow,
   StoreAvailability,
   StoredRequest,
 } from "@tracepilot/types";
@@ -110,36 +111,31 @@ export function formatNanoAiu(raw: string | null | undefined): string {
   return formatExactCredits(parseExactDecimal(raw));
 }
 
-/** What a page of rows charged, and how much of the page is behind that sum. */
-export interface CreditSum {
-  total: ExactDecimal | null;
-  /** Rows that recorded a usable charge. */
-  counted: number;
-  /** Rows with no recorded charge at all. */
-  missing: number;
-  /** Rows whose recorded charge could not be parsed; excluded from the sum. */
-  unparsed: number;
-}
+/** Fraction digits kept when a batch size does not divide a charge evenly. */
+const ITEM_CHARGE_EXTRA_PLACES = 6;
 
-export function sumNanoAiu(requests: readonly StoredRequest[]): CreditSum {
-  let total: ExactDecimal | null = null;
-  let counted = 0;
-  let missing = 0;
-  let unparsed = 0;
-  for (const request of requests) {
-    if (request.totalNanoAiu == null) {
-      missing += 1;
-      continue;
-    }
-    const parsed = parseExactDecimal(request.totalNanoAiu);
-    if (!parsed) {
-      unparsed += 1;
-      continue;
-    }
-    total = total ? addExact(total, parsed) : parsed;
-    counted += 1;
+/**
+ * One billing entry's charge in nano AI units: `count × rate ÷ batch`.
+ *
+ * Computed in scaled integers; a division that does not terminate is
+ * truncated six places below the rate's own precision, far beneath anything
+ * displayed. `null` when an input is missing or the batch size is unusable.
+ */
+export function itemChargeNanoAiu(item: {
+  tokenCount: number | null;
+  batchSize: number | null;
+  costPerBatch: string | null;
+}): ExactDecimal | null {
+  const rate = parseExactDecimal(item.costPerBatch);
+  if (!rate || item.tokenCount == null || item.batchSize == null || item.batchSize <= 0) {
+    return null;
   }
-  return { total, counted, missing, unparsed };
+  if (!Number.isSafeInteger(item.tokenCount) || !Number.isSafeInteger(item.batchSize)) return null;
+  const scaled = rate.units * BigInt(item.tokenCount) * 10n ** BigInt(ITEM_CHARGE_EXTRA_PLACES);
+  return {
+    units: scaled / BigInt(item.batchSize),
+    scale: rate.scale + ITEM_CHARGE_EXTRA_PLACES,
+  };
 }
 
 /** The exact recorded per-batch rate, shown verbatim in the drawer. */
@@ -163,11 +159,11 @@ export function counterCell(value: number | null | undefined): CounterCell {
 
 export function millisecondCell(value: number | null | undefined): CounterCell {
   if (value == null) return { text: NOT_RECORDED, recorded: false };
-  const rounded = Math.round(value * 10) / 10;
-  return {
-    text: rounded >= 1000 ? `${(rounded / 1000).toFixed(2)}s` : `${rounded}ms`,
-    recorded: true,
-  };
+  // Precision follows magnitude: a tenth of a millisecond matters for an
+  // inter-token latency of a few ms and is noise on a first token at 900ms.
+  if (value >= 999.5) return { text: `${(value / 1000).toFixed(2)}s`, recorded: true };
+  const rounded = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
+  return { text: `${rounded}ms`, recorded: true };
 }
 
 export function textCell(value: string | null | undefined): CounterCell {
@@ -209,6 +205,60 @@ export function reconciliationMetricLabel(metric: string): string {
     nanoAiu: "AI credits",
   };
   return labels[metric] ?? metric;
+}
+
+/** Written by the index when a session's event log moves past its evidence. */
+const EVENT_LOG_CHANGED = "event log changed";
+
+type ReconciliationFields = Pick<
+  SessionCoverageRow,
+  | "reconciliationStatus"
+  | "reconciliationScope"
+  | "reconciliationMetrics"
+  | "reconciliationDifferences"
+>;
+
+/**
+ * One plain sentence comparing recorded requests with the shutdown totals.
+ *
+ * "Not verified over an unrecorded accounting scope" says nothing a reader can
+ * use, so an uncompared session says why instead: usually that it is still
+ * running and has moved on since its requests were read.
+ */
+export function reconciliationSentence(coverage: ReconciliationFields | null): string | null {
+  const status = coverage?.reconciliationStatus;
+  if (!coverage || !status) return null;
+  if (status === "unverified") {
+    const reason = coverage.reconciliationDifferences ?? "";
+    if (reason.includes(EVENT_LOG_CHANGED)) {
+      return "Not yet compared with the shutdown totals: the session has changed since its requests were read.";
+    }
+    if (reason.includes("no shutdown snapshot")) {
+      return "Not compared: the session has no shutdown totals yet.";
+    }
+    return reason
+      ? `Not compared with the shutdown totals (${reason}).`
+      : "Not compared with the shutdown totals.";
+  }
+  const metrics = coverage.reconciliationMetrics.map(reconciliationMetricLabel);
+  const compared = metrics.length ? ` (compared ${metrics.join(", ")})` : "";
+  return `${RECONCILIATION_LABELS[status]} against the shutdown totals, over ${accountingScopeLabel(coverage.reconciliationScope)}${compared}.`;
+}
+
+/**
+ * Why cached evidence is marked stale, in the reader's terms. A live session
+ * goes stale every time it writes an event, which is routine; only a source
+ * that could not be read deserves attention.
+ */
+export function staleNote(
+  coverage: Pick<SessionCoverageRow, "freshness" | "availability"> | null,
+  sourceAvailability: StoreAvailability | null,
+): { text: string; attention: boolean } | null {
+  if (coverage?.freshness !== "stale") return null;
+  const availability = sourceAvailability ?? coverage.availability;
+  return availability === "ready"
+    ? { text: "the session has changed since; it refreshes automatically", attention: false }
+    : { text: "cached; the store could not be read on the latest refresh", attention: true };
 }
 
 export const BILLING_STATUS_LABELS: Record<BillingItemsStatus, string> = {

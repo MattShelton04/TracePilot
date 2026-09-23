@@ -866,6 +866,44 @@ warnings denied, frontend tests, type checks, lint, design-system checks, file-s
 limits, and documentation-link checks are the release validation commands. No
 private logs, database copies, or screenshots are committed.
 
+### Second review (2026-09-23)
+
+Found against the live app with real data:
+
+- **Refresh cadence.** Every successful session reindex started a full sweep,
+  and auto-refresh can reindex every few seconds; a two-second debug sweep
+  holding the sessions gate starved the reindexes it followed. The automatic
+  pass now runs at most every 30 seconds (explicit refreshes are unthrottled),
+  and `enrichment-finished` is published only when a sweep changed visible data
+  or availability.
+- **Revisions and cursors.** Rewriting coverage stamped the source's current
+  revision on every session, so an idle sweep moved every session's revision;
+  cursors also keyed on the global revision. An unchanged session now keeps
+  its revision and ledger cursors use the session's own, so another session's
+  new evidence no longer sends a reader back to page one.
+- **Failure visibility.** A sweep that fails while writing the index leaves the
+  source row "available" with an old success time. The last refresh failure is
+  now returned by `get_session_store_status` and shown in Settings.
+- **In-progress sessions.** `refresh_session_enrichment` accepts a session ID;
+  while an open session is running, the detail view refreshes just that
+  session at most every 15 seconds. A scoped refresh falls back to a full
+  sweep when the source generation changed. Routine staleness from a live log
+  is described as such rather than as a failed read; sessions without shutdown
+  totals are not "compared" with totals they lack, and the Metrics tab points at
+  the recorded requests instead of saying metrics only exist after shutdown.
+- **Ledger.** The response carries a session-wide summary: the exact credit
+  total over every request the filters match (flagged when partial) and every
+  filter value the session recorded, replacing a per-page sum and
+  options drawn from pages already seen. The header adds median duration and
+  cache reuse; billing items show rates in credits with a computed per-item
+  charge; multi-day pages show dates.
+- **Related work** is grouped chips, states an assumed repository once, and is
+  shown only when there are references or an error.
+
+Local indexes that ran the pre-consolidation 020 must still be rebuilt, as
+noted above: their `session_work_refs` key omits `session_id`, and every sweep
+fails with a unique-constraint error (now visible in Settings).
+
 ## 14. Remaining uncertainties and explicit non-goals
 
 - Per-request persistence coverage and rebuild retention across every CLI version

@@ -8,21 +8,21 @@
  * session's reconciliation verdict with the scope that verdict used.
  */
 import type { SessionCoverageRow, StoredRequest } from "@tracepilot/types";
-import { Badge, Drawer } from "@tracepilot/ui";
+import { Badge, Drawer, formatDate } from "@tracepilot/ui";
 import { computed } from "vue";
 import {
-  accountingScopeLabel,
   BILLING_CHECK_LABELS,
   BILLING_STATUS_LABELS,
   billingCheckTone,
   counterCell,
   formatCostPerBatch,
+  formatExactCredits,
   formatNanoAiu,
+  itemChargeNanoAiu,
   millisecondCell,
   NOT_RECORDED,
   NOT_RECORDED_HINT,
-  RECONCILIATION_LABELS,
-  reconciliationMetricLabel,
+  reconciliationSentence,
   textCell,
 } from "@/utils/requestLedger";
 
@@ -52,7 +52,11 @@ const identity = computed<DetailRow[]>(() => {
   const r = props.request;
   if (!r) return [];
   return [
-    row("Recorded at", textCell(r.recordedAt)),
+    row(
+      "Recorded at",
+      textCell(r.recordedAt ? formatDate(r.recordedAt) : null),
+      r.recordedAt ?? undefined,
+    ),
     row("Model", textCell(r.model)),
     row(
       "Initiator",
@@ -166,20 +170,23 @@ const groups = computed(() => [
 
 const billingItems = computed(() => props.request?.billingItems ?? []);
 const invalidFields = computed(() => props.request?.invalidFields ?? []);
+/** The session's verdict; the figures behind it only when they disagree. */
 const reconciliation = computed(() => {
-  const c = props.coverage;
-  if (!c?.reconciliationStatus) return null;
+  const sentence = reconciliationSentence(props.coverage);
+  if (!sentence) return null;
+  const status = props.coverage?.reconciliationStatus;
+  const disagrees = status === "mismatch" || status === "partial";
   return {
-    status: RECONCILIATION_LABELS[c.reconciliationStatus],
-    // A status without its scope is not a claim a reader can act on.
-    scope: accountingScopeLabel(c.reconciliationScope),
-    metrics: c.reconciliationMetrics.map(reconciliationMetricLabel),
-    differences: c.reconciliationDifferences,
+    sentence,
+    differences: disagrees ? (props.coverage?.reconciliationDifferences ?? null) : null,
   };
 });
 
 function batchLabel(size: number | null): string {
-  return size == null ? NOT_RECORDED : `per ${size.toLocaleString("en-US")}`;
+  if (size == null) return NOT_RECORDED;
+  if (size >= 1_000_000 && size % 1_000_000 === 0) return `per ${size / 1_000_000}M`;
+  if (size >= 1_000 && size % 1_000 === 0) return `per ${size / 1_000}K`;
+  return `per ${size.toLocaleString("en-US")}`;
 }
 </script>
 
@@ -193,7 +200,12 @@ function batchLabel(size: number | null): string {
     <div v-if="request" class="ledger-drawer" data-testid="request-ledger-drawer">
       <section>
         <h3 class="ledger-drawer__heading">Recorded charge</h3>
-        <p class="ledger-drawer__note">{{ request.model }} · {{ request.recordedAt }}</p>
+        <p class="ledger-drawer__note">
+          {{ request.model }}<template v-if="request.recordedAt">
+            · <time :datetime="request.recordedAt" :title="request.recordedAt">{{
+              formatDate(request.recordedAt)
+            }}</time></template>
+        </p>
         <dl class="ledger-drawer__list ledger-drawer__charge">
           <template v-for="entry in charge" :key="entry.label">
             <dt :title="entry.hint">{{ entry.label }}</dt>
@@ -211,8 +223,8 @@ function batchLabel(size: number | null): string {
             <tr>
               <th>Token type</th>
               <th style="text-align: right">Count</th>
-              <th style="text-align: right">Batch</th>
-              <th style="text-align: right">Rate (nano AIU)</th>
+              <th style="text-align: right">Rate</th>
+              <th style="text-align: right">Charge</th>
               <th v-if="billingItems.some(item => item.billingModel)">Billing model</th>
             </tr>
           </thead>
@@ -220,9 +232,16 @@ function batchLabel(size: number | null): string {
             <tr v-for="item in billingItems" :key="item.ordinal">
               <td>{{ item.tokenType }}</td>
               <td style="text-align: right">{{ counterCell(item.tokenCount).text }}</td>
-              <td style="text-align: right">{{ batchLabel(item.batchSize) }}</td>
+              <td
+                style="text-align: right"
+                class="ledger-drawer__exact"
+                :title="`${formatCostPerBatch(item.costPerBatch)} nano AIU ${batchLabel(item.batchSize)} tokens, exactly as recorded`"
+              >
+                {{ formatNanoAiu(item.costPerBatch) }}
+                <span class="ledger-drawer__batch">{{ batchLabel(item.batchSize) }}</span>
+              </td>
               <td style="text-align: right" class="ledger-drawer__exact">
-                {{ formatCostPerBatch(item.costPerBatch) }}
+                {{ formatExactCredits(itemChargeNanoAiu(item)) }}
               </td>
               <td v-if="billingItems.some(entry => entry.billingModel)">{{ item.billingModel ?? NOT_RECORDED }}</td>
             </tr>
@@ -258,14 +277,8 @@ function batchLabel(size: number | null): string {
       </section>
 
       <section v-if="reconciliation" data-testid="request-ledger-reconciliation">
-        <h3 class="ledger-drawer__heading">Reconciliation</h3>
-        <p class="ledger-drawer__note">
-          {{ reconciliation.status }}, over
-          {{ reconciliation.scope ?? "an unrecorded accounting scope" }}.
-          <template v-if="reconciliation.metrics.length">
-            Compared: {{ reconciliation.metrics.join(", ") }}.
-          </template>
-        </p>
+        <h3 class="ledger-drawer__heading">Session reconciliation</h3>
+        <p class="ledger-drawer__note">{{ reconciliation.sentence }}</p>
         <p v-if="reconciliation.differences" class="ledger-drawer__note">
           Differences: {{ reconciliation.differences }}
         </p>
@@ -346,6 +359,11 @@ function batchLabel(size: number | null): string {
 .ledger-drawer__exact {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+}
+.ledger-drawer__batch {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
 }
 .ledger-drawer__note {
   max-width: 60ch;

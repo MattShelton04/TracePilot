@@ -7,7 +7,7 @@
  * source can supply, and a way to retry reading it.
  */
 import { getSessionStoreStatus, refreshSessionEnrichment } from "@tracepilot/client";
-import type { StoreAvailability, StoreSourceStatus } from "@tracepilot/types";
+import type { RefreshFailure, StoreAvailability, StoreSourceStatus } from "@tracepilot/types";
 import {
   ActionButton,
   FormSwitch,
@@ -29,6 +29,8 @@ const preferences = usePreferencesStore();
 
 const resolvedPath = ref<string | null>(null);
 const source = ref<StoreSourceStatus | null>(null);
+/** A readable store can still fail to refresh; its status row would not say so. */
+const lastRefreshError = ref<RefreshFailure | null>(null);
 const statusError = ref<string | null>(null);
 const refreshing = ref(false);
 const refreshResult = ref<string | null>(null);
@@ -106,6 +108,7 @@ async function loadStatus() {
     const status = await getSessionStoreStatus();
     resolvedPath.value = status.resolvedPath;
     source.value = status.source;
+    lastRefreshError.value = status.lastRefreshError;
     statusError.value = null;
   } catch (e) {
     // The status panel is diagnostic; a failure here must not block Settings.
@@ -199,6 +202,14 @@ async function handleToggle() {
         <div v-if="source?.statusDetail" class="setting-description">{{ source.statusDetail }}</div>
         <div v-if="statusError" class="setting-description setting-result-danger">
           The status could not be read: {{ statusError }}
+        </div>
+        <div
+          v-if="isEnabled && lastRefreshError"
+          class="setting-description setting-result-danger"
+          data-testid="store-refresh-failure"
+        >
+          The latest refresh failed ({{ formatDate(lastRefreshError.at) }}):
+          {{ lastRefreshError.message }}. Views show data as of the last successful refresh.
         </div>
       </div>
 

@@ -86,16 +86,49 @@ it("reloads visible references when enrichment finishes", async () => {
   wrapper.unmount();
 });
 
-it("keeps long reference lists compact and expands on demand", async () => {
+it("keeps a long group compact and expands it in place", async () => {
   respond({
-    refs: Array.from({ length: 12 }, (_, index) =>
+    refs: Array.from({ length: 45 }, (_, index) =>
       ref({ identity: String(index), normalizedValue: String(index + 1) }),
     ),
   });
   const wrapper = await mountPanel();
-  expect(wrapper.findAll("li")).toHaveLength(8);
-  await wrapper.get("button").trigger("click");
-  expect(wrapper.findAll("li")).toHaveLength(12);
+  expect(wrapper.findAll(".related-work-row")).toHaveLength(40);
+  const more = wrapper.get("button.ref-more");
+  expect(more.text()).toBe("+5 more");
+  await more.trigger("click");
+  expect(wrapper.findAll(".related-work-row")).toHaveLength(45);
+  expect(wrapper.get("button.ref-more").attributes("aria-expanded")).toBe("true");
+  wrapper.unmount();
+});
+
+it("groups by kind in numeric order and states a shared repository once", async () => {
+  respond({
+    refs: [
+      ref({ identity: "g", kind: "gitRef", rawValue: "main", normalizedValue: "main" }),
+      ...["110", "9", "25"].map((value) =>
+        ref({
+          identity: value,
+          rawValue: `#${value}`,
+          normalizedValue: value,
+          candidateRepository: "owner/project",
+          resolvedRepository: "owner/project",
+          resolution: "sessionContext",
+        }),
+      ),
+    ],
+  });
+  const wrapper = await mountPanel();
+
+  const kinds = wrapper
+    .findAll(".related-work-group")
+    .map((group) => group.attributes("data-kind"));
+  expect(kinds).toEqual(["pullRequest", "gitRef"]);
+  const prs = wrapper.findAll('[data-kind="pullRequest"] .related-work-row');
+  expect(prs.map((chip) => chip.text())).toEqual(["#9", "#25", "#110"]);
+  // The assumed repository is one sentence, not a warning on every chip.
+  expect(wrapper.findAll(".ref-repo-unverified")).toHaveLength(1);
+  expect(wrapper.find(".related-work-row .ref-repo").exists()).toBe(false);
   wrapper.unmount();
 });
 
@@ -166,9 +199,10 @@ describe("RelatedWorkPanel", () => {
     const wrapper = await mountPanel();
 
     const row = wrapper.get('[data-resolution="explicit"]');
-    expect(row.text()).toContain("Pull request");
+    expect(wrapper.get('[data-kind="pullRequest"] .ref-kind').text()).toContain("Pull requests");
+    expect(row.text()).toContain("owner/project");
     expect(row.text()).toContain("#844");
-    expect(row.text()).toContain("Explicit reference");
+    expect(row.attributes("title")).toMatch(/named the host and repository/);
 
     const link = row.get("a.ref-link");
     await link.trigger("click");
@@ -216,8 +250,8 @@ describe("RelatedWorkPanel", () => {
 
     const row = wrapper.get('[data-resolution="sessionContext"]');
     expect(row.find("a.ref-link").exists()).toBe(false);
-    expect(row.get(".ref-repo-unverified").text()).toBe("owner/project (unverified)");
-    expect(row.text()).toContain("Unverified repository");
+    expect(wrapper.get(".ref-repo-unverified").text()).toBe("owner/project (unverified)");
+    expect(row.attributes("title")).toContain("owner/project (unverified)");
   });
 
   it("keeps an unresolved reference as a searchable label with no repository", async () => {
@@ -238,7 +272,7 @@ describe("RelatedWorkPanel", () => {
     expect(row.find("a.ref-link").exists()).toBe(false);
     expect(row.find(".ref-repo").exists()).toBe(false);
     expect(row.get(".ref-plain").text()).toBe("#7");
-    expect(row.text()).toContain("Unresolved");
+    expect(row.attributes("title")).toMatch(/No repository could be determined/);
   });
 
   it("labels a git ref as a git ref and never as a commit when it is not SHA-shaped", async () => {
@@ -258,9 +292,9 @@ describe("RelatedWorkPanel", () => {
     const wrapper = await mountPanel();
 
     const row = wrapper.get(".related-work-row");
-    expect(row.get(".ref-kind").text()).toBe("Git ref");
+    expect(wrapper.get('[data-kind="gitRef"] .ref-kind').text()).toContain("Git refs");
     expect(row.get(".ref-plain").text()).toBe("feat/session-store-enrichment");
-    expect(row.find(".ref-note").exists()).toBe(false);
+    expect(wrapper.find(".ref-note").exists()).toBe(false);
     expect(row.text()).not.toMatch(/commit/i);
   });
 
@@ -294,22 +328,29 @@ describe("RelatedWorkPanel", () => {
     expect(wrapper.findAll("button")).toHaveLength(0);
   });
 
-  it("says the source is unavailable rather than that there is no linked work", async () => {
-    respond({ available: false, refs: [], sourceAvailability: "missing" });
-    const wrapper = await mountPanel();
-
-    const message = wrapper.get(".related-work-unavailable").text();
-    expect(message).toMatch(/source is unavailable/i);
-    expect(message).toMatch(/not the same as this session having no linked work/i);
-    expect(message).toMatch(/No Copilot session store was found/i);
-    expect(wrapper.find(".related-work-list").exists()).toBe(false);
+  it("stays out of the overview when there is nothing to show", async () => {
+    // Neither absence claims that no such work exists; Settings reports the
+    // source's availability.
+    for (const response of [
+      { available: false, refs: [], sourceAvailability: "missing" as const },
+      { available: true, refs: [], sourceAvailability: "ready" as const },
+    ]) {
+      respond(response);
+      const wrapper = await mountPanel();
+      expect(wrapper.text()).toBe("");
+      wrapper.unmount();
+    }
   });
 
-  it("distinguishes an available source that recorded nothing", async () => {
-    respond({ available: true, refs: [], sourceAvailability: "ready" });
+  it("marks cached references when the store could not be read", async () => {
+    respond({ available: true, refs: [ref()], sourceAvailability: "busy" });
     const wrapper = await mountPanel();
+    expect(wrapper.get(".related-work-message").text()).toMatch(/Showing cached references/);
+  });
 
-    expect(wrapper.find(".related-work-unavailable").exists()).toBe(false);
-    expect(wrapper.get(".related-work-message").text()).toMatch(/recorded no references/i);
+  it("surfaces a failed read in place", async () => {
+    getSessionWorkRefs.mockRejectedValue(new Error("index locked"));
+    const wrapper = await mountPanel();
+    expect(wrapper.text()).toContain("index locked");
   });
 });

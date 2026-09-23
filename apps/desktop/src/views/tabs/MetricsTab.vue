@@ -55,6 +55,20 @@ function retryLoadTurns() {
 }
 
 const metrics = computed(() => store.shutdownMetrics);
+
+/** Loaded and absent: typically a session still in progress. */
+const withoutShutdownMetrics = computed(
+  () => store.loaded.has("metrics") && !metrics.value && !store.metricsError,
+);
+
+// Shutdown metrics arrive when a session shuts down. Until then, recorded
+// requests are the only figures there are, so the page points at them
+// rather than implying there is nothing to see.
+const emptyDescription = computed(() =>
+  requestLedgerEnabled.value
+    ? "No shutdown metrics yet: they are written when the session shuts down. Model requests recorded so far are listed below."
+    : "No shutdown metrics available for this session. Metrics are only generated after the first session shutdown.",
+);
 const turns = computed(() => store.turns);
 const { allSubagents } = useCrossTurnSubagents(turns);
 const {
@@ -93,7 +107,7 @@ const {
       @retry="retryLoadMetrics"
     />
 
-    <EmptyState v-if="!metrics && !store.metricsError" description="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
+    <EmptyState v-if="!metrics && !store.metricsError" :description="emptyDescription" />
 
     <template v-if="promptCacheEnabled">
       <ErrorAlert
@@ -150,8 +164,10 @@ const {
     <MetricsRequestLedgerSection
       v-if="requestLedgerEnabled"
       :key="store.sessionId ?? undefined"
+      class="mt-6"
       :session-id="store.sessionId"
       :has-shutdown-totals="Boolean(metrics)"
+      :default-expanded="withoutShutdownMetrics"
     />
 
     <SubagentPanel :subagent="selectedSubagent" :is-open="isPanelOpen" :current-index="selectedIndex" :total-count="allSubagents.length" :has-prev="hasPrev" :has-next="hasNext" :top-offset="panelTopPx" @close="closePanel" @prev="navigatePrev" @next="navigateNext" @select-subagent="selectSubagent" />

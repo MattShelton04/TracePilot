@@ -53,11 +53,16 @@ function source(overrides: Partial<StoreSourceStatus> = {}): StoreSourceStatus {
   };
 }
 
-function statusFor(availability: StoreAvailability, overrides: Partial<StoreSourceStatus> = {}) {
+function statusFor(
+  availability: StoreAvailability,
+  overrides: Partial<StoreSourceStatus> = {},
+  lastRefreshError: { at: string; message: string } | null = null,
+) {
   getSessionStoreStatus.mockResolvedValue({
     enabled: true,
     resolvedPath: "/home/user/.copilot/session-store.db",
     source: availability === "missing" ? null : source({ availability, ...overrides }),
+    lastRefreshError,
   });
 }
 
@@ -183,5 +188,15 @@ describe("SettingsSessionStore", () => {
 
     expect(wrapper.get(".store-refresh-result").text()).toContain("source locked");
     expect(wrapper.get(".store-path").text()).toBe("/home/user/.copilot/session-store.db");
+  });
+
+  it("says when background refreshes are failing behind an available store", async () => {
+    statusFor("ready", {}, { at: "2026-09-23T08:54:16Z", message: "UNIQUE constraint failed" });
+    const wrapper = await mountPanel();
+
+    const failure = wrapper.get('[data-testid="store-refresh-failure"]');
+    expect(failure.text()).toContain("latest refresh failed");
+    expect(failure.text()).toContain("UNIQUE constraint failed");
+    expect(failure.text()).toContain("last successful refresh");
   });
 });

@@ -52,9 +52,9 @@ function describeReads(observation: CacheObservation): string {
 }
 
 const COMPARISON_LABELS = {
-  agrees: "Consistent",
-  differs: "Disagrees",
-  notComparable: "Not comparable",
+  agrees: "Recorded: agrees",
+  differs: "Recorded: differs",
+  notComparable: "Recorded: not comparable",
 } as const;
 
 function comparisonNote(observation: CacheObservation): string {

@@ -64,11 +64,6 @@ export function useSessionWorkRefs(getSessionId: () => string | null | undefined
     () => response.value?.sourceAvailability ?? null,
   );
 
-  /** True when the source answered and recorded no references for this session. */
-  const emptyForSession = computed(
-    () => response.value !== null && sourceAvailable.value && rows.value.length === 0,
-  );
-
   function retry() {
     error.value = null;
     void load();
@@ -81,7 +76,6 @@ export function useSessionWorkRefs(getSessionId: () => string | null | undefined
     rows,
     sourceAvailable,
     sourceAvailability,
-    emptyForSession,
     loaded: computed(() => response.value !== null),
     retry,
   };

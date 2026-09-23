@@ -7,7 +7,7 @@
  * labelled em dash so it never reads as a recorded zero.
  */
 import type { StoredRequest } from "@tracepilot/types";
-import { DataTable, formatTime } from "@tracepilot/ui";
+import { DataTable, formatDate, formatTime } from "@tracepilot/ui";
 import { computed } from "vue";
 import {
   agentLabel,
@@ -53,11 +53,27 @@ interface LedgerRow extends Record<string, unknown> {
   finish: CounterCell;
 }
 
+/**
+ * A resumed session can span days; bare times would then appear to run
+ * backwards across midnight, so the date joins them whenever the page spans
+ * more than one day.
+ */
+const spansDays = computed(
+  () =>
+    new Set(
+      props.requests
+        .filter((request) => request.recordedAt)
+        .map((request) => new Date(request.recordedAt as string).toDateString()),
+    ).size > 1,
+);
+
 const rows = computed<LedgerRow[]>(() =>
   props.requests.map((request) => ({
     key: requestKey(request),
     request,
-    recorded: request.recordedAt ? formatTime(request.recordedAt) : "",
+    recorded: request.recordedAt
+      ? (spansDays.value ? formatDate : formatTime)(request.recordedAt)
+      : "",
     model: request.model,
     agent: request.agentId ? { text: agentLabel(request), recorded: true } : textCell(null),
     input: counterCell(request.inputTokens),

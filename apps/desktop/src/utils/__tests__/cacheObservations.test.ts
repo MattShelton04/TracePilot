@@ -57,7 +57,7 @@ describe("buildObservationView", () => {
       observation({ comparison: "differs" }),
     );
 
-    expect(view.comparisonLabel).toBe("Disagrees");
+    expect(view.comparisonLabel).toBe("Recorded: differs");
     expect(view.tone).toBe("warning");
     expect(view.comparisonNote).toContain("says more than either figure alone");
     expect(view.comparisonNote).toContain("left as it was recorded");
@@ -69,7 +69,7 @@ describe("buildObservationView", () => {
       observation({ comparison: "agrees", cacheReadTokens: 0 }),
     );
 
-    expect(view.comparisonLabel).toBe("Consistent");
+    expect(view.comparisonLabel).toBe("Recorded: agrees");
     expect(view.tone).toBe("neutral");
     expect(view.comparisonNote).toContain("Consistent, not proven");
     expect(view.comparisonNote).toContain("no reuse was recorded");

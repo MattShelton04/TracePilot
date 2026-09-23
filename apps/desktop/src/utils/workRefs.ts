@@ -30,6 +30,8 @@ export type WorkRefPresentation =
 
 export interface WorkRefRow {
   identity: string;
+  /** The source kind, e.g. `pullRequest`; used for grouping. */
+  kind: string;
   kindLabel: string;
   /** Short identifier shown first, e.g. `#844` or a branch name. */
   displayValue: string;
@@ -138,6 +140,7 @@ export function toWorkRefRow(ref: StoredWorkRef): WorkRefRow {
 
   return {
     identity: ref.identity,
+    kind: ref.kind,
     kindLabel: KIND_LABELS[ref.kind] ?? ref.kind,
     displayValue: displayValue(ref),
     rawValue: ref.rawValue,
@@ -158,4 +161,84 @@ export function toWorkRefRow(ref: StoredWorkRef): WorkRefRow {
 
 export function toWorkRefRows(refs: readonly StoredWorkRef[]): WorkRefRow[] {
   return refs.map(toWorkRefRow);
+}
+
+export interface WorkRefGroup {
+  kind: string;
+  label: string;
+  rows: WorkRefRow[];
+  /** Whether any value in the group merely looks like a commit SHA. */
+  hasShaCandidate: boolean;
+}
+
+const GROUP_ORDER = ["pullRequest", "issue", "gitRef"];
+const GROUP_LABELS: Record<string, string> = {
+  pullRequest: "Pull requests",
+  issue: "Issues",
+  gitRef: "Git refs",
+};
+
+function numericValue(row: WorkRefRow): number | null {
+  const match = /^#([1-9]\d*)$/.exec(row.displayValue);
+  return match ? Number(match[1]) : null;
+}
+
+function compareRows(a: WorkRefRow, b: WorkRefRow): number {
+  const left = numericValue(a);
+  const right = numericValue(b);
+  if (left !== null && right !== null) return left - right;
+  if (left !== null) return -1;
+  if (right !== null) return 1;
+  return a.displayValue.localeCompare(b.displayValue);
+}
+
+/**
+ * Rows grouped by kind — pull requests, issues, Git refs, then anything the
+ * source added later — with numbers in numeric order inside each group.
+ */
+export function groupWorkRefRows(rows: readonly WorkRefRow[]): WorkRefGroup[] {
+  const byKind = new Map<string, WorkRefRow[]>();
+  for (const row of rows) {
+    const list = byKind.get(row.kind) ?? [];
+    list.push(row);
+    byKind.set(row.kind, list);
+  }
+  const rank = (kind: string) => {
+    const index = GROUP_ORDER.indexOf(kind);
+    return index === -1 ? GROUP_ORDER.length : index;
+  };
+  return [...byKind.entries()]
+    .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
+    .map(([kind, list]) => ({
+      kind,
+      label: GROUP_LABELS[kind] ?? list[0]?.kindLabel ?? kind,
+      rows: [...list].sort(compareRows),
+      hasShaCandidate: list.some((row) => row.shaCandidate),
+    }));
+}
+
+/**
+ * The one repository every unverified reference was placed in, if there is
+ * exactly one. Stating it once for the panel replaces a warning on every row;
+ * when references disagree, each row names its own instead.
+ */
+export function sharedContextRepository(rows: readonly WorkRefRow[]): string | null {
+  const repositories = new Set(
+    rows
+      .filter((row) => !row.repositoryVerified && row.repository)
+      .map((row) => row.repository as string),
+  );
+  return repositories.size === 1 ? [...repositories][0] : null;
+}
+
+/** Everything a chip leaves out, for its tooltip. */
+export function workRefTooltip(row: WorkRefRow): string {
+  const parts = [`${row.kindLabel}: ${row.rawValue}`];
+  if (row.repository) {
+    parts.push(row.repositoryVerified ? row.repository : `${row.repository} (unverified)`);
+  }
+  if (row.host) parts.push(row.host);
+  if (row.shaCandidate) parts.push("Looks like a commit SHA; no commit was verified.");
+  parts.push(row.resolutionHint);
+  return parts.join("\n");
 }

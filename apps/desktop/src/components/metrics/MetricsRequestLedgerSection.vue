@@ -7,6 +7,10 @@
  * from the session's shutdown totals: the two count different things, and
  * with no shutdown written yet there is no session total to infer. The
  * section is collapsed until asked for, and only then does it read the store.
+ *
+ * The header answers the session-level questions — how many requests, what
+ * they were charged, how long they took, how much input the cache served —
+ * over every recorded request, not the page on screen.
  */
 import type { StoredRequest } from "@tracepilot/types";
 import {
@@ -24,22 +28,40 @@ import RequestLedgerDrawer from "@/components/metrics/RequestLedgerDrawer.vue";
 import RequestLedgerFilters from "@/components/metrics/RequestLedgerFilters.vue";
 import RequestLedgerTable from "@/components/metrics/RequestLedgerTable.vue";
 import type { RequestLedgerFilterState } from "@/composables/session/useRequestLedger";
-import { useRequestLedger } from "@/composables/session/useRequestLedger";
+import { REQUEST_LEDGER_PAGE_SIZE, useRequestLedger } from "@/composables/session/useRequestLedger";
 import {
   AVAILABILITY_LABELS,
-  accountingScopeLabel,
-  formatExactCredits,
-  RECONCILIATION_LABELS,
-  reconciliationMetricLabel,
+  formatNanoAiu,
+  NOT_RECORDED,
+  reconciliationSentence,
+  staleNote,
 } from "@/utils/requestLedger";
+import { buildCacheReuse, buildLatencyMetrics } from "@/utils/requestPerformance";
 
 const props = defineProps<{
   sessionId: string | null;
   /** Whether shutdown totals are on screen, so this section can name itself apart. */
   hasShutdownTotals?: boolean;
+  /**
+   * Open without being asked, once: when there are no shutdown metrics the
+   * recorded requests are the only figures the session has.
+   */
+  defaultExpanded?: boolean;
 }>();
 
 const expanded = ref(false);
+const toggledByUser = ref(false);
+watch(
+  () => props.defaultExpanded,
+  (open) => {
+    if (open && !toggledByUser.value) expanded.value = true;
+  },
+  { immediate: true },
+);
+function toggle(): void {
+  toggledByUser.value = true;
+  expanded.value = !expanded.value;
+}
 const bodyId = useId();
 const selected = ref<StoredRequest | null>(null);
 const drawerOpen = ref(false);
@@ -56,50 +78,90 @@ watch(
   },
 );
 
+const filtered = computed(() => ledger.activeFilterCount.value > 0);
+
 /** With no shutdown there is no final total — only what has been recorded. */
 const requestCountLabel = computed(() =>
   props.hasShutdownTotals ? "Recorded requests" : "Recorded requests so far",
 );
 
-const coverageSummary = computed(() => {
-  const coverage = ledger.coverage.value;
-  if (!coverage) return null;
+const requestCount = computed(() => {
+  const total = ledger.coverage.value?.requestRows ?? null;
+  const matched = ledger.summary.value?.requestCount ?? null;
+  if (filtered.value && matched != null && total != null) return `${matched} of ${total}`;
+  return total ?? matched ?? ledger.requests.value.length;
+});
+
+const pageCount = computed(() => {
+  const matched = ledger.summary.value?.requestCount;
+  return matched ? Math.ceil(matched / REQUEST_LEDGER_PAGE_SIZE) : null;
+});
+
+/** The exact recorded charge over every matching request, flagged if partial. */
+const credits = computed(() => {
+  const summary = ledger.summary.value;
+  if (!summary) return { text: NOT_RECORDED, label: "Recorded credits", detail: "" };
+  const excluded = summary.unchargedRequests + summary.unreadableCharges;
+  const parts = [
+    `${summary.chargedRequests} of ${summary.requestCount} requests recorded a charge`,
+  ];
+  if (summary.unchargedRequests > 0) parts.push(`${summary.unchargedRequests} recorded none`);
+  if (summary.unreadableCharges > 0) {
+    parts.push(`${summary.unreadableCharges} recorded an unreadable charge and are excluded`);
+  }
+  const scope = filtered.value ? "Requests matching the filters" : "Every recorded request";
   return {
-    rows: coverage.requestRows,
-    rejected: coverage.requestRowsRejected,
-    billingInvalid: coverage.billingInvalid,
-    billingPartial: coverage.billingPartial,
-    billingAbsent: coverage.billingAbsent,
-    missingColumns: coverage.missingColumns,
-    readAt: coverage.readAt,
-    freshness: coverage.freshness,
-    availability: coverage.availability,
-    reconciliation: coverage.reconciliationStatus
-      ? {
-          label: RECONCILIATION_LABELS[coverage.reconciliationStatus],
-          scope: accountingScopeLabel(coverage.reconciliationScope),
-          metrics: coverage.reconciliationMetrics.map(reconciliationMetricLabel),
-        }
-      : null,
+    text: formatNanoAiu(summary.totalNanoAiu),
+    label: excluded > 0 ? "Recorded credits (partial)" : "Recorded credits",
+    detail: `${scope}: ${parts.join("; ")}. The recorded charge, not a repricing.`,
   };
 });
 
-const creditSummary = computed(() => {
-  const sum = ledger.pageCredits.value;
-  const parts = [
-    `${sum.counted} of ${ledger.requests.value.length} rows on this page recorded a charge`,
-  ];
-  if (sum.unparsed > 0)
-    parts.push(`${sum.unparsed} recorded an unreadable charge and are excluded`);
-  if (ledger.hasNextPage.value || ledger.hasPreviousPage.value) {
-    parts.push("later pages are not included");
-  }
-  return { text: formatExactCredits(sum.total), detail: `${parts.join("; ")}.` };
+/** Whole-session timing and reuse; they do not follow the filters. */
+const timing = computed(() => {
+  const performance = ledger.performance.value;
+  if (!performance || performance.durationMs.coverage.valid === 0) return null;
+  const metric = buildLatencyMetrics(performance).find((entry) => entry.key === "durationMs");
+  if (!metric) return null;
+  const p95 = metric.p95Absence ? "p95 needs 20 samples" : `p95 ${metric.p95}`;
+  return {
+    text: metric.median,
+    detail: `${p95} · ${metric.coverageText}. ${metric.note} Whole session; filters do not apply.`,
+  };
+});
+
+const reuse = computed(() => {
+  const performance = ledger.performance.value;
+  if (!performance || performance.cache.requestsWithCounter === 0) return null;
+  const view = buildCacheReuse(performance.cache);
+  return {
+    text: view.tokenWeighted.value,
+    detail: `${view.tokenWeighted.detail} ${view.requestWeighted.value} of requests recorded any reuse. Whole session; filters do not apply.`,
+  };
+});
+
+const coverage = computed(() => ledger.coverage.value);
+
+/**
+ * Only said when there is something to compare against: a running session
+ * with no shutdown yet would otherwise read "not compared" on every visit.
+ */
+const reconciliation = computed(() =>
+  props.hasShutdownTotals ? reconciliationSentence(coverage.value) : null,
+);
+
+const stale = computed(() => staleNote(coverage.value, ledger.source.value?.availability ?? null));
+
+const incomplete = computed(() => {
+  const c = coverage.value;
+  return (
+    c !== null && (c.requestRowsRejected > 0 || c.billingInvalid > 0 || c.missingColumns.length > 0)
+  );
 });
 
 /** The store may be bound and readable while this session has no rows in it. */
 const unavailableDetail = computed(() => {
-  const availability = ledger.source.value?.availability ?? ledger.coverage.value?.availability;
+  const availability = ledger.source.value?.availability ?? coverage.value?.availability;
   const path = ledger.source.value?.dbPath;
   const label = availability ? AVAILABILITY_LABELS[availability] : null;
   return [label, path].filter(Boolean).join(" · ") || null;
@@ -128,7 +190,7 @@ function filterToAgent(agentId: string): void {
       class="ledger__toggle"
       :aria-expanded="expanded"
       :aria-controls="bodyId"
-      @click="expanded = !expanded"
+      @click="toggle"
     >
       <ExpandChevron :expanded="expanded" />
       <span class="ledger__title">Model requests</span>
@@ -150,11 +212,13 @@ function filterToAgent(agentId: string): void {
       <Banner
         v-if="ledger.cursorReset.value"
         tone="warning"
+        dismissible
         class="mb-4"
         data-testid="request-ledger-cursor-reset"
+        @dismiss="ledger.dismissCursorReset()"
       >
-        The session store was replaced while paging, so these pages would have come
-        from two different versions of it. The ledger restarted at the first page.
+        This session's recorded requests changed while paging, so the ledger restarted at
+        the first page rather than mixing two versions of them.
       </Banner>
 
       <p v-if="ledger.loading.value && !ledger.loaded.value" class="ledger__note">
@@ -175,70 +239,72 @@ function filterToAgent(agentId: string): void {
         <template v-else>
           <div class="ledger__stats">
             <StatCard
-              :value="coverageSummary ? coverageSummary.rows : ledger.requests.value.length"
+              :value="requestCount"
               :label="requestCountLabel"
               tooltip="Requests recorded in the session store. Shutdown totals are a separate figure and count different work."
               mini
             />
             <StatCard
-              :value="creditSummary.text"
-              label="Credits on this page"
-              :tooltip="creditSummary.detail"
+              :value="credits.text"
+              :label="credits.label"
+              :tooltip="credits.detail"
+              mini
+              data-testid="request-ledger-credits"
+            />
+            <StatCard
+              v-if="timing"
+              :value="timing.text"
+              label="Median duration"
+              :tooltip="timing.detail"
               mini
             />
             <StatCard
-              v-if="coverageSummary"
-              :value="formatRelativeTime(coverageSummary.readAt)"
-              label="Last synchronized"
-              :tooltip="formatDate(coverageSummary.readAt)"
-              mini
-            />
-            <StatCard
-              v-if="coverageSummary"
-              :value="`${coverageSummary.rows} kept · ${coverageSummary.rejected} rejected`"
-              label="Row coverage"
-              tooltip="Rows read from the store against rows that could not be used."
+              v-if="reuse"
+              :value="reuse.text"
+              label="Cache reads / input"
+              :tooltip="reuse.detail"
               mini
             />
           </div>
 
+          <p v-if="coverage" class="ledger__meta" data-testid="request-ledger-sync">
+            Read from the session store
+            <time :datetime="coverage.readAt" :title="formatDate(coverage.readAt)">
+              {{ formatRelativeTime(coverage.readAt) }}
+            </time>
+            <span v-if="stale" :class="{ ledger__stale: stale.attention }">
+              · {{ stale.text }}
+            </span>
+          </p>
+
           <p v-if="hasShutdownTotals" class="ledger__note">
             These are observed requests from the session store. The session totals
             above come from the shutdown record and are not the same figure.
+            <span v-if="reconciliation" data-testid="request-ledger-reconciliation-summary">
+              {{ reconciliation }}
+            </span>
           </p>
 
           <Banner
-            v-if="coverageSummary && (coverageSummary.rejected > 0 || coverageSummary.billingInvalid > 0 || coverageSummary.missingColumns.length > 0)"
+            v-if="incomplete && coverage"
             tone="warning"
             class="mb-4"
             data-testid="request-ledger-partial-coverage"
           >
             This ledger is incomplete, so any sum below is partial:
-            <template v-if="coverageSummary.rejected > 0">
-              {{ coverageSummary.rejected }} request rows were rejected.
+            <template v-if="coverage.requestRowsRejected > 0">
+              {{ coverage.requestRowsRejected }} request rows were rejected.
             </template>
-            <template v-if="coverageSummary.billingInvalid > 0">
-              {{ coverageSummary.billingInvalid }} requests had invalid billing items.
+            <template v-if="coverage.billingInvalid > 0">
+              {{ coverage.billingInvalid }} requests had invalid billing items.
             </template>
-            <template v-if="coverageSummary.billingPartial > 0">
-              {{ coverageSummary.billingPartial }} had partial billing items.
+            <template v-if="coverage.billingPartial > 0">
+              {{ coverage.billingPartial }} had partial billing items.
             </template>
-            <template v-if="coverageSummary.missingColumns.length > 0">
-              Missing source columns: {{ coverageSummary.missingColumns.join(", ") }}.
+            <template v-if="coverage.missingColumns.length > 0">
+              Missing source columns: {{ coverage.missingColumns.join(", ") }}.
             </template>
           </Banner>
-
-          <p
-            v-if="coverageSummary?.reconciliation"
-            class="ledger__note"
-            data-testid="request-ledger-reconciliation-summary"
-          >
-            Against the shutdown totals: {{ coverageSummary.reconciliation.label }},
-            over {{ coverageSummary.reconciliation.scope ?? "an unrecorded accounting scope" }}.
-            <template v-if="coverageSummary.reconciliation.metrics.length">
-              Compared: {{ coverageSummary.reconciliation.metrics.join(", ") }}.
-            </template>
-          </p>
 
           <RequestLedgerFilters
             :filters="ledger.filters"
@@ -263,7 +329,10 @@ function filterToAgent(agentId: string): void {
           <template v-else>
             <RequestLedgerTable :requests="ledger.requests.value" @select="openDetails" />
 
-            <div class="ledger__pager">
+            <div
+              v-if="ledger.hasNextPage.value || ledger.hasPreviousPage.value"
+              class="ledger__pager"
+            >
               <ActionButton
                 size="sm"
                 :disabled="!ledger.hasPreviousPage.value || ledger.loading.value"
@@ -271,7 +340,10 @@ function filterToAgent(agentId: string): void {
               >
                 Previous
               </ActionButton>
-              <span class="ledger__note">Page {{ ledger.pageNumber.value }}</span>
+              <span class="ledger__note">
+                Page {{ ledger.pageNumber.value
+                }}<template v-if="pageCount"> of {{ pageCount }}</template>
+              </span>
               <ActionButton
                 size="sm"
                 :disabled="!ledger.hasNextPage.value || ledger.loading.value"
@@ -324,12 +396,21 @@ function filterToAgent(agentId: string): void {
 }
 .ledger__stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+.ledger__meta {
+  margin: 0 0 12px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.ledger__stale {
+  color: var(--attention-fg);
 }
 .ledger__note {
-  max-width: 72ch;
+  max-width: 80ch;
   margin: 0 0 12px;
   font-size: 0.75rem;
   color: var(--text-tertiary);

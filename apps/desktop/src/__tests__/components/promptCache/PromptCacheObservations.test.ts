@@ -71,7 +71,7 @@ describe("MetricsPromptCacheSection observations", () => {
     const wrapper = render([observation({ windowIndex: 0, comparison: "differs" })]);
 
     const tag = wrapper.get('[data-testid="prompt-cache-observation-tag"]');
-    expect(tag.text()).toBe("Disagrees");
+    expect(tag.text()).toBe("Recorded: differs");
     expect(tag.classes()).toContain("prompt-cache__tag--differs");
 
     await wrapper.findAll("button[aria-expanded]")[0]?.trigger("click");

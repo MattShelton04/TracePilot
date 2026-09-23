@@ -2,11 +2,10 @@
 /**
  * Filter bar for the recorded request ledger.
  *
- * Options are the values seen in the pages loaded so far — the source exposes
- * no distinct-value query — so the bar says as much rather than implying it
- * lists everything the session recorded.
+ * Options are every value the session recorded, not only those on the page
+ * on screen, so a filter can reach requests on later pages.
  */
-import { ActionButton, FilterSelect, Select } from "@tracepilot/ui";
+import { ActionButton, FilterSelect } from "@tracepilot/ui";
 import type {
   CacheReuseFilter,
   RequestLedgerFilterOptions,
@@ -25,11 +24,22 @@ const emit = defineEmits<{
   clear: [];
 }>();
 
-const CACHE_REUSE_OPTIONS: Array<{ value: CacheReuseFilter; label: string }> = [
-  { value: "any", label: "Cache reuse: any" },
-  { value: "recorded", label: "Recorded reuse" },
-  { value: "none", label: "Recorded no reuse" },
-];
+/** Labels for the two reuse populations; `any` is the placeholder. */
+const CACHE_REUSE_LABELS: Record<Exclude<CacheReuseFilter, "any">, string> = {
+  recorded: "Recorded reuse",
+  none: "Recorded no reuse",
+};
+const CACHE_REUSE_OPTIONS = Object.values(CACHE_REUSE_LABELS);
+
+function cacheReuseLabel(value: CacheReuseFilter): string | null {
+  return value === "any" ? null : CACHE_REUSE_LABELS[value];
+}
+
+function cacheReuseValue(label: string | null): CacheReuseFilter {
+  if (label === CACHE_REUSE_LABELS.recorded) return "recorded";
+  if (label === CACHE_REUSE_LABELS.none) return "none";
+  return "any";
+}
 
 function patch<K extends keyof RequestLedgerFilterState>(
   key: K,
@@ -76,23 +86,17 @@ function patch<K extends keyof RequestLedgerFilterState>(
       :disabled="disabled"
       @update:model-value="patch('finishReason', $event)"
     />
-    <div class="ledger-filters__reuse">
-      <Select
-        :model-value="filters.cacheReuse"
-        :options="CACHE_REUSE_OPTIONS"
-        size="sm"
-        aria-label="Recorded cache reuse"
-        :disabled="disabled"
-        @update:model-value="patch('cacheReuse', $event as CacheReuseFilter)"
-      />
-    </div>
+    <FilterSelect
+      :model-value="cacheReuseLabel(filters.cacheReuse)"
+      :options="CACHE_REUSE_OPTIONS"
+      placeholder="Cache reuse: any"
+      title="Requests that never recorded a cache counter are in neither reuse population."
+      :disabled="disabled"
+      @update:model-value="patch('cacheReuse', cacheReuseValue($event))"
+    />
     <ActionButton v-if="activeCount > 0" size="sm" :disabled="disabled" @click="emit('clear')">
       Clear filters
     </ActionButton>
-    <p class="ledger-filters__note">
-      Options come from the requests loaded so far. Requests that never recorded a
-      cache counter are in neither reuse population.
-    </p>
   </div>
 </template>
 
@@ -103,15 +107,5 @@ function patch<K extends keyof RequestLedgerFilterState>(
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-}
-.ledger-filters__reuse {
-  width: 180px;
-}
-.ledger-filters__note {
-  flex-basis: 100%;
-  max-width: 68ch;
-  margin: 0;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
 }
 </style>

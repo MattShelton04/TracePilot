@@ -4,7 +4,13 @@ import {
   getSessionStoreStatus,
 } from "@tracepilot/client";
 import { setupPinia } from "@tracepilot/test-utils";
-import type { RequestLedgerPage, SessionCoverageRow, StoredRequest } from "@tracepilot/types";
+import type {
+  RequestLedgerPage,
+  RequestLedgerSummary,
+  RequestPerformance,
+  SessionCoverageRow,
+  StoredRequest,
+} from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import MetricsRequestLedgerSection from "@/components/metrics/MetricsRequestLedgerSection.vue";
@@ -106,8 +112,57 @@ function makeCoverage(overrides: Partial<SessionCoverageRow> = {}): SessionCover
   };
 }
 
-function respond(page = makePage(), coverage: SessionCoverageRow | null = makeCoverage()) {
-  return { enabled: true, page, coverage };
+function makeSummary(overrides: Partial<RequestLedgerSummary> = {}): RequestLedgerSummary {
+  return {
+    requestCount: 1,
+    totalNanoAiu: "9007199254740993",
+    chargedRequests: 1,
+    unchargedRequests: 0,
+    unreadableCharges: 0,
+    facets: {
+      models: ["gpt-5.6-luna"],
+      agentIds: [],
+      initiators: ["user"],
+      reasoningEfforts: ["high"],
+      finishReasons: ["tool_calls"],
+    },
+    ...overrides,
+  };
+}
+
+function respond(
+  page = makePage(),
+  coverage: SessionCoverageRow | null = makeCoverage(),
+  summary: RequestLedgerSummary | null = makeSummary(),
+) {
+  return { enabled: true, page, coverage, summary };
+}
+
+const distribution = (median: number | null, valid: number) => ({
+  median,
+  p95: null,
+  min: median,
+  max: median,
+  coverage: { valid, missing: 0, invalid: 0 },
+});
+
+function makePerformance(): RequestPerformance {
+  return {
+    requestCount: 12,
+    sessionCount: 1,
+    durationMs: distribution(4845, 12),
+    timeToFirstTokenMs: distribution(3306.5, 12),
+    outputTtftMs: distribution(null, 0),
+    interTokenLatencyMs: distribution(6.52, 12),
+    cache: {
+      requestsReportingReuse: 11,
+      requestsWithCounter: 12,
+      tokenWeightedRatio: 0.9,
+      cacheReadTokens: 900,
+      inputTokens: 1000,
+      inconsistentRows: 0,
+    },
+  };
 }
 
 async function mountExpanded(hasShutdownTotals = false) {
@@ -132,7 +187,12 @@ beforeEach(() => {
     performance: null,
     coverage: null,
   });
-  status.mockResolvedValue({ enabled: true, resolvedPath: null, source: null });
+  status.mockResolvedValue({
+    enabled: true,
+    resolvedPath: null,
+    source: null,
+    lastRefreshError: null,
+  });
 });
 
 describe("MetricsRequestLedgerSection", () => {
@@ -191,7 +251,7 @@ describe("MetricsRequestLedgerSection", () => {
     usage
       .mockResolvedValueOnce(respond(makePage({ nextCursor: "c2" })))
       .mockResolvedValueOnce(respond(makePage({ requests: [], cursorExpired: true })))
-      .mockResolvedValueOnce(respond(makePage()));
+      .mockResolvedValueOnce(respond(makePage({ nextCursor: "c2" })));
     const wrapper = await mountExpanded();
 
     await wrapper
@@ -201,7 +261,7 @@ describe("MetricsRequestLedgerSection", () => {
     await flushPromises();
 
     const banner = wrapper.get('[data-testid="request-ledger-cursor-reset"]');
-    expect(banner.text()).toContain("replaced while paging");
+    expect(banner.text()).toContain("changed while paging");
     expect(wrapper.text()).toContain("Page 1");
   });
 
@@ -223,7 +283,54 @@ describe("MetricsRequestLedgerSection", () => {
     expect(banner.text()).toContain("3 request rows were rejected");
     expect(banner.text()).toContain("2 requests had invalid billing items");
     expect(banner.text()).toContain("output_ttft_ms");
-    expect(wrapper.text()).toContain("Credits on this page");
+  });
+
+  it("totals credits over the whole session and flags a partial sum", async () => {
+    usage.mockResolvedValue(
+      respond(
+        makePage(),
+        makeCoverage({ requestRows: 3 }),
+        makeSummary({
+          requestCount: 3,
+          totalNanoAiu: "2500000000",
+          chargedRequests: 2,
+          unchargedRequests: 1,
+        }),
+      ),
+    );
+    const wrapper = await mountExpanded();
+
+    const card = wrapper.get('[data-testid="request-ledger-credits"]');
+    expect(card.text()).toContain("2.5 AIC");
+    expect(card.text()).toContain("Recorded credits (partial)");
+  });
+
+  it("offers every recorded filter value, not only those on the page", async () => {
+    usage.mockResolvedValue(
+      respond(
+        makePage(),
+        makeCoverage(),
+        makeSummary({ facets: { ...makeSummary().facets, agentIds: ["later-page-agent"] } }),
+      ),
+    );
+    const wrapper = await mountExpanded();
+    expect(wrapper.get('[data-testid="request-ledger-filters"]').text()).toContain(
+      "later-page-agent",
+    );
+  });
+
+  it("shows the session's median duration and cache reuse beside the counts", async () => {
+    performance.mockResolvedValue({
+      enabled: true,
+      available: true,
+      performance: makePerformance(),
+      coverage: null,
+    });
+    const wrapper = await mountExpanded();
+    expect(wrapper.text()).toContain("Median duration");
+    expect(wrapper.text()).toContain("4.84s");
+    expect(wrapper.text()).toContain("Cache reads / input");
+    expect(wrapper.text()).toContain("90%");
   });
 
   it("names recorded requests apart from the shutdown totals", async () => {
@@ -237,10 +344,44 @@ describe("MetricsRequestLedgerSection", () => {
   });
 
   it("reports the reconciliation verdict together with its scope", async () => {
-    const wrapper = await mountExpanded();
+    const wrapper = await mountExpanded(true);
     const summary = wrapper.get('[data-testid="request-ledger-reconciliation-summary"]');
     expect(summary.text()).toContain("Different accounting scope");
     expect(summary.text()).toContain("requests excluding compaction");
+  });
+
+  it("does not compare an in-progress session with shutdown totals it lacks", async () => {
+    usage.mockResolvedValue(
+      respond(
+        makePage(),
+        makeCoverage({
+          freshness: "stale",
+          reconciliationStatus: "unverified",
+          reconciliationScope: null,
+          reconciliationMetrics: [],
+          reconciliationDifferences: "no shutdown snapshot",
+        }),
+      ),
+    );
+    const wrapper = await mountExpanded(false);
+
+    expect(wrapper.text()).toContain("Recorded requests so far");
+    expect(wrapper.find('[data-testid="request-ledger-reconciliation-summary"]').exists()).toBe(
+      false,
+    );
+    // A live session going stale is routine, not a failed read.
+    const sync = wrapper.get('[data-testid="request-ledger-sync"]');
+    expect(sync.text()).toContain("refreshes automatically");
+    expect(sync.find(".ledger__stale").exists()).toBe(false);
+  });
+
+  it("flags cached rows when the store could not be read", async () => {
+    usage.mockResolvedValue(
+      respond(makePage(), makeCoverage({ freshness: "stale", availability: "busy" })),
+    );
+    const wrapper = await mountExpanded();
+    const sync = wrapper.get('[data-testid="request-ledger-sync"]');
+    expect(sync.get(".ledger__stale").text()).toContain("could not be read");
   });
 
   it("opens a drawer with the exact recorded charge and both first-token metrics", async () => {
@@ -251,7 +392,9 @@ describe("MetricsRequestLedgerSection", () => {
     const drawer = wrapper.get('[data-testid="request-ledger-drawer"]');
     // The exact string, not a float round-trip of it.
     expect(drawer.text()).toContain("9007199254740993");
-    expect(drawer.text()).toContain("1250000.0000001");
+    // The rate reads in credits; the exact recorded value stays one hover away.
+    expect(drawer.text()).toContain("0.001 AIC");
+    expect(drawer.find('[title*="1250000.0000001"]').exists()).toBe(true);
     expect(drawer.text()).toContain("Time to first token");
     expect(drawer.text()).toContain("First observable output");
     expect(drawer.text()).toContain("not a TracePilot turn index");

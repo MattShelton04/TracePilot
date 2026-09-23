@@ -106,9 +106,9 @@ describe("MetricsAgentBreakdown request columns", () => {
 
     const headers = wrapper.findAll("th").map((th) => th.text());
     expect(headers).toContain("Recorded credits");
-    expect(headers).toContain("Model requests");
-    expect(headers).toContain("Request credits");
-    expect(headers).toContain("Request cache read");
+    expect(headers).toContain("Observed requests");
+    expect(headers).toContain("Observed credits");
+    expect(headers).toContain("Observed cache reuse");
 
     const mainRow = wrapper.findAll("tbody tr")[0].text();
     // The shutdown figure (6 AIC) and the recorded-request figure both stand.
@@ -157,7 +157,7 @@ describe("MetricsAgentBreakdown request columns", () => {
     const note = wrapper.get('[data-testid="agent-requests-unattributed"]').text();
     expect(note).toContain("Not attributed to an agent run: 2 recorded request(s)");
     expect(note).toContain("4.47 AIC");
-    expect(note).toContain("the breakdown above does not say where");
+    expect(note).toContain("typically the main agent's own requests");
     // The main agent still shows only its own three requests.
     expect(wrapper.findAll("tbody tr")[0].text()).toContain("3");
   });
@@ -168,7 +168,7 @@ describe("MetricsAgentBreakdown request columns", () => {
     expect(wrapper.get('[data-testid="agent-requests-unavailable"]').text()).toContain(
       "No session store could be read",
     );
-    expect(wrapper.findAll("th").map((th) => th.text())).not.toContain("Model requests");
+    expect(wrapper.findAll("th").map((th) => th.text())).not.toContain("Observed requests");
     // The shutdown-based breakdown is untouched.
     expect(wrapper.get('[data-testid="agent-usage-table"]').text()).toContain("6 AIC");
   });

@@ -5,26 +5,65 @@
  * Every value here is untrusted source text. It is rendered through normal
  * interpolation (never `v-html`) and only ever opened through `openExternal`,
  * which re-validates the URL before handing it to the system browser.
+ *
+ * References are grouped by kind as compact chips. What most of them share —
+ * a repository assumed from the session rather than named by the reference —
+ * is said once for the panel instead of as a warning on every row; each chip
+ * keeps its raw value and resolution in its tooltip.
  */
 import type { StoreAvailability } from "@tracepilot/types";
-import { ErrorAlert, SectionPanel, SkeletonLoader, StatusPill, Tooltip } from "@tracepilot/ui";
+import { ErrorAlert, SectionPanel } from "@tracepilot/ui";
+import { ExternalLink } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import { useSessionWorkRefs } from "@/composables/useSessionWorkRefs";
 import { openExternal } from "@/utils/openExternal";
+import {
+  groupWorkRefRows,
+  sharedContextRepository,
+  type WorkRefGroup,
+  type WorkRefRow,
+  workRefTooltip,
+} from "@/utils/workRefs";
+
+/** Chips shown per group before it asks to be expanded: about two rows. */
+const COLLAPSED_PER_GROUP = 40;
 
 const props = defineProps<{ sessionId: string | null | undefined }>();
 
-const { enabled, loading, loaded, error, rows, sourceAvailable, sourceAvailability, retry } =
-  useSessionWorkRefs(() => props.sessionId);
+const { enabled, error, rows, sourceAvailability, retry } = useSessionWorkRefs(
+  () => props.sessionId,
+);
 
-const expanded = ref(false);
-const visibleRows = computed(() => (expanded.value ? rows.value : rows.value.slice(0, 8)));
+/** Kinds whose full list the reader asked for. */
+const expanded = ref(new Set<string>());
 watch(
   () => props.sessionId,
   () => {
-    expanded.value = false;
+    expanded.value = new Set();
   },
 );
+
+const groups = computed(() => groupWorkRefRows(rows.value));
+function visible(group: WorkRefGroup): WorkRefRow[] {
+  return expanded.value.has(group.kind) ? group.rows : group.rows.slice(0, COLLAPSED_PER_GROUP);
+}
+function hiddenCount(group: WorkRefGroup): number {
+  return group.rows.length - visible(group).length;
+}
+function toggle(group: WorkRefGroup) {
+  const next = new Set(expanded.value);
+  if (!next.delete(group.kind)) next.add(group.kind);
+  expanded.value = next;
+}
+
+const contextRepository = computed(() => sharedContextRepository(rows.value));
+
+/** The repository a chip must name: its own, or context the panel did not state. */
+function chipRepository(row: WorkRefRow): string | null {
+  if (!row.repository) return null;
+  if (!row.repositoryVerified && row.repository === contextRepository.value) return null;
+  return row.repository;
+}
 
 // An absent store is the expected state on a Copilot CLI that predates it, so
 // each state gets its own sentence rather than a generic failure.
@@ -47,14 +86,20 @@ function openRef(href: string | null) {
 </script>
 
 <template>
-  <SectionPanel v-if="enabled" title="Related work" class="mb-6">
+  <!--
+    Shown only with something to show. Most sessions mention no PR, issue or
+    ref, and a machine without a store has none to read: a panel saying so on
+    every overview is noise. Neither absence claims the work does not exist,
+    and Settings reports the source's availability.
+  -->
+  <SectionPanel v-if="enabled && (rows.length > 0 || error)" title="Related work" class="mb-6">
     <!-- Stated once for the whole list, not repeated per row. -->
     <p class="related-work-note">
       References found in this session. Finding a reference is not proof that the session
       opened, reviewed, merged or completed that work.
     </p>
 
-    <p v-if="sourceAvailable && sourceAvailability && sourceAvailability !== 'ready'" class="related-work-message">
+    <p v-if="sourceAvailability && sourceAvailability !== 'ready'" class="related-work-message">
       Showing cached references. {{ availabilityDetail }}
     </p>
 
@@ -66,57 +111,60 @@ function openRef(href: string | null) {
       :retryable="true"
       @retry="retry"
     />
-    <SkeletonLoader v-else-if="loading && !loaded" :count="2" />
-    <p v-else-if="!sourceAvailable" class="related-work-message related-work-unavailable">
-      The reference source is unavailable, so no references could be read for this session.
-      That is not the same as this session having no linked work.
-      <span v-if="availabilityDetail"> {{ availabilityDetail }}</span>
-    </p>
-    <p v-else-if="rows.length === 0" class="related-work-message">
-      The reference source was read and recorded no references for this session.
-    </p>
-    <ul v-else class="related-work-list">
-      <li
-        v-for="row in visibleRows"
-        :key="row.identity"
-        class="related-work-row"
-        :data-resolution="row.resolution"
-      >
-        <span class="ref-kind">{{ row.kindLabel }}</span>
+    <template v-else>
+      <p v-if="contextRepository" class="related-work-context">
+        References without a repository of their own are placed in this session's repository,
+        <span
+          class="ref-repo-unverified"
+          title="Taken from this session, not from the references. A reference to another repository would make it wrong, so these are not links."
+        >{{ contextRepository }} (unverified)</span>.
+      </p>
 
-        <span class="ref-value" :title="row.rawValue">
-          <a
-            v-if="row.presentation === 'link' && row.href"
-            class="ref-link"
-            href="#"
-            @click.prevent="openRef(row.href)"
-          >{{ row.displayValue }}</a>
-          <span v-else class="ref-plain">{{ row.displayValue }}</span>
-        </span>
-
-        <span v-if="row.shaCandidate" class="ref-note">
-          Candidate commit — the text looks like a SHA; no commit was verified
-        </span>
-
-        <span v-if="row.repository" class="ref-repo">
-          <template v-if="row.repositoryVerified">{{ row.repository }}</template>
-          <Tooltip
-            v-else
-            text="Repository context guessed from this session's own repository. A reference to another repository would make it wrong, so it is not a link."
-          >
-            <span class="ref-repo-unverified">{{ row.repository }} (unverified)</span>
-          </Tooltip>
-        </span>
-        <span v-if="row.host" class="ref-host">{{ row.host }}</span>
-
-        <Tooltip :text="row.resolutionHint" position="left">
-          <StatusPill :tone="row.resolutionTone" :label="row.resolutionLabel" size="xs" />
-        </Tooltip>
-      </li>
-    </ul>
-    <button v-if="rows.length > 8" type="button" class="btn btn-secondary btn-sm mt-3" :aria-expanded="expanded" @click="expanded = !expanded">
-      {{ expanded ? "Show fewer references" : `Show all ${rows.length} references` }}
-    </button>
+      <div class="related-work-list">
+        <section
+          v-for="group in groups"
+          :key="group.kind"
+          class="related-work-group"
+          :data-kind="group.kind"
+        >
+          <h4 class="ref-kind">
+            {{ group.label }} <span class="ref-count">{{ group.rows.length }}</span>
+          </h4>
+          <ul class="ref-chips">
+            <li
+              v-for="row in visible(group)"
+              :key="row.identity"
+              class="related-work-row"
+              :class="{ 'related-work-row--sha': row.shaCandidate }"
+              :data-resolution="row.resolution"
+              :title="workRefTooltip(row)"
+            >
+              <span v-if="chipRepository(row)" class="ref-repo">{{ chipRepository(row) }}</span>
+              <a
+                v-if="row.presentation === 'link' && row.href"
+                class="ref-link"
+                href="#"
+                @click.prevent="openRef(row.href)"
+              >{{ row.displayValue }}<ExternalLink :size="11" aria-hidden="true" /></a>
+              <span v-else class="ref-plain">{{ row.displayValue }}</span>
+            </li>
+            <li v-if="group.rows.length > COLLAPSED_PER_GROUP">
+              <button
+                type="button"
+                class="ref-more"
+                :aria-expanded="expanded.has(group.kind)"
+                @click="toggle(group)"
+              >
+                {{ hiddenCount(group) > 0 ? `+${hiddenCount(group)} more` : "Show fewer" }}
+              </button>
+            </li>
+          </ul>
+          <p v-if="group.hasShaCandidate" class="ref-note">
+            Candidate commits — these values look like SHAs; no commit was verified.
+          </p>
+        </section>
+      </div>
+    </template>
   </SectionPanel>
 </template>
 
@@ -128,79 +176,130 @@ function openRef(href: string | null) {
   margin: 0 0 12px 0;
 }
 
-.related-work-message {
+.related-work-message,
+.related-work-context {
   font-size: 0.8125rem;
   color: var(--text-secondary);
   line-height: 1.5;
   margin: 0;
 }
 
-.related-work-unavailable {
-  color: var(--warning-fg);
+.related-work-context {
+  margin-bottom: 14px;
 }
 
 .related-work-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.related-work-row {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.related-work-row:last-child {
-  border-bottom: none;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .ref-kind {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 6px;
   font-size: 0.6875rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-tertiary);
-  min-width: 88px;
 }
 
-.ref-value {
+.ref-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.ref-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.related-work-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 1px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-subtle);
   font-size: 0.8125rem;
-  font-weight: 500;
-  min-width: 0;
-  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  cursor: default;
+}
+
+.related-work-row--sha {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+/* No repository at all: a searchable label, visibly quieter than the rest. */
+.related-work-row[data-resolution="unresolved"] {
+  border-style: dashed;
+  background: transparent;
+}
+
+.related-work-row[data-resolution="explicit"] {
+  border-color: var(--accent-muted);
+  background: var(--accent-subtle);
 }
 
 .ref-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   color: var(--accent-fg);
+  text-decoration: none;
+}
+
+.ref-link:hover,
+.ref-link:focus-visible {
   text-decoration: underline;
 }
 
 .ref-plain {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--text-primary);
 }
 
+.ref-repo {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.ref-more {
+  padding: 1px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--accent-fg);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  cursor: pointer;
+}
+
+.ref-more:hover,
+.ref-more:focus-visible {
+  border-color: var(--border-default);
+}
+
 .ref-note {
+  margin: 6px 0 0;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
 }
 
-.ref-repo,
-.ref-host {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
 .ref-repo-unverified {
-  border-bottom: 1px dashed var(--border);
-  color: var(--text-tertiary);
+  border-bottom: 1px dashed var(--border-default);
+  color: var(--text-primary);
   cursor: help;
-}
-
-/* Pushes the resolution pill to the end of the row. */
-.related-work-row > :last-child {
-  margin-left: auto;
 }
 </style>

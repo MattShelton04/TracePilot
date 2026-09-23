@@ -4,13 +4,17 @@ import {
   getSessionStoreStatus,
 } from "@tracepilot/client";
 import { setupPinia } from "@tracepilot/test-utils";
-import type { RequestLedgerPage, SessionCoverageRow, StoredRequest } from "@tracepilot/types";
+import type {
+  RequestLedgerPage,
+  RequestLedgerSummary,
+  SessionCoverageRow,
+  StoredRequest,
+} from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type EffectScope, effectScope, ref } from "vue";
 import { useRequestLedger as createRequestLedger } from "@/composables/session/useRequestLedger";
 import { usePreferencesStore } from "@/stores/preferences";
-import { formatExactCredits } from "@/utils/requestLedger";
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../mocks/client");
@@ -20,6 +24,14 @@ vi.mock("@tracepilot/client", async () => {
     getSessionStoreStatus: vi.fn(),
   });
 });
+
+const events = vi.hoisted(() => ({ finished: () => {} }));
+vi.mock("@/lib/tauri", () => ({
+  tauriListen: vi.fn(async (_event: string, handler: () => void) => {
+    events.finished = handler;
+    return () => {};
+  }),
+}));
 
 const scopes: EffectScope[] = [];
 function useRequestLedger(...args: Parameters<typeof createRequestLedger>) {
@@ -108,8 +120,24 @@ function makeCoverage(overrides: Partial<SessionCoverageRow> = {}): SessionCover
   };
 }
 
-function respond(page: RequestLedgerPage, coverage: SessionCoverageRow | null = makeCoverage()) {
-  return { enabled: true, page, coverage };
+function makeSummary(overrides: Partial<RequestLedgerSummary> = {}): RequestLedgerSummary {
+  return {
+    requestCount: 1,
+    totalNanoAiu: "1000000000",
+    chargedRequests: 1,
+    unchargedRequests: 0,
+    unreadableCharges: 0,
+    facets: { models: [], agentIds: [], initiators: [], reasoningEfforts: [], finishReasons: [] },
+    ...overrides,
+  };
+}
+
+function respond(
+  page: RequestLedgerPage,
+  coverage: SessionCoverageRow | null = makeCoverage(),
+  summary: RequestLedgerSummary | null = makeSummary(),
+) {
+  return { enabled: true, page, coverage, summary };
 }
 
 beforeEach(() => {
@@ -123,20 +151,23 @@ beforeEach(() => {
     performance: null,
     coverage: null,
   });
-  status.mockResolvedValue({ enabled: true, resolvedPath: null, source: null });
+  status.mockResolvedValue({
+    enabled: true,
+    resolvedPath: null,
+    source: null,
+    lastRefreshError: null,
+  });
 });
 
 describe("useRequestLedger", () => {
-  it("loads the first page and keeps the credit sum exact beyond float precision", async () => {
-    // Both totals exceed Number.MAX_SAFE_INTEGER; Number() would round them.
+  it("loads the first page and keeps the session total as its exact decimal string", async () => {
+    // Beyond Number.MAX_SAFE_INTEGER: it must arrive and stay a string.
+    const summary = makeSummary({ requestCount: 2, totalNanoAiu: "18014398509481986" });
     usage.mockResolvedValue(
       respond(
-        makePage({
-          requests: [
-            makeRequest({ totalNanoAiu: "9007199254740993" }),
-            makeRequest({ sourceRowId: 2, totalNanoAiu: "9007199254740993" }),
-          ],
-        }),
+        makePage({ requests: [makeRequest(), makeRequest({ sourceRowId: 2 })] }),
+        makeCoverage(),
+        summary,
       ),
     );
 
@@ -144,31 +175,23 @@ describe("useRequestLedger", () => {
     await flushPromises();
 
     expect(ledger.requests.value).toHaveLength(2);
-    expect(ledger.pageCredits.value.total).toEqual({ units: 18014398509481986n, scale: 0 });
-    // The same sum through `Number()` loses the last two nano units.
-    expect(BigInt(Number("9007199254740993") * 2)).not.toBe(18014398509481986n);
-    expect(formatExactCredits(ledger.pageCredits.value.total)).toBe("18,014,399 AIC");
-    expect(ledger.pageCredits.value.counted).toBe(2);
+    expect(ledger.summary.value?.totalNanoAiu).toBe("18014398509481986");
   });
 
-  it("counts rows with no recorded charge apart from rows that recorded one", async () => {
-    usage.mockResolvedValue(
-      respond(
-        makePage({
-          requests: [
-            makeRequest({ totalNanoAiu: null }),
-            makeRequest({ sourceRowId: 2, totalNanoAiu: "not-a-number" }),
-            makeRequest({ sourceRowId: 3, totalNanoAiu: "500000000" }),
-          ],
-        }),
-      ),
-    );
-
+  it("stays on the page on screen when a refresh finishes", async () => {
+    usage
+      .mockResolvedValueOnce(respond(makePage({ nextCursor: "c2" })))
+      .mockResolvedValue(respond(makePage({ requests: [makeRequest({ sourceRowId: 2 })] })));
     const ledger = useRequestLedger(() => "s1");
     await flushPromises();
+    await ledger.nextPage();
+    expect(ledger.pageNumber.value).toBe(2);
 
-    expect(ledger.pageCredits.value).toMatchObject({ counted: 1, missing: 1, unparsed: 1 });
-    expect(formatExactCredits(ledger.pageCredits.value.total)).toBe("0.5 AIC");
+    events.finished();
+    await flushPromises();
+
+    expect(usage.mock.calls.at(-1)?.[1]).toMatchObject({ cursor: "c2" });
+    expect(ledger.pageNumber.value).toBe(2);
   });
 
   it("separates an unavailable source from an empty page", async () => {
@@ -246,14 +269,19 @@ describe("useRequestLedger", () => {
     expect(ledger.activeFilterCount.value).toBe(2);
   });
 
-  it("offers filter options from the pages seen so far", async () => {
+  it("offers every filter value the session recorded, not only this page's", async () => {
     usage.mockResolvedValue(
       respond(
-        makePage({
-          requests: [
-            makeRequest({ agentId: "agent-a", initiator: "user" }),
-            makeRequest({ sourceRowId: 2, agentId: null, initiator: "sub-agent" }),
-          ],
+        makePage({ requests: [makeRequest({ agentId: null, initiator: "user" })] }),
+        makeCoverage(),
+        makeSummary({
+          facets: {
+            models: ["gpt-5.6-luna"],
+            agentIds: ["agent-a"],
+            initiators: ["sub-agent", "user"],
+            reasoningEfforts: [],
+            finishReasons: [],
+          },
         }),
       ),
     );

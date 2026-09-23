@@ -16,6 +16,7 @@ import {
 } from "@tracepilot/client";
 import type {
   RequestLedgerPage,
+  RequestLedgerSummary,
   RequestPerformance,
   RequestUsageFilters,
   SessionCoverageRow,
@@ -27,7 +28,6 @@ import { useAsyncGuard } from "@tracepilot/ui";
 import { computed, reactive, ref, watch } from "vue";
 import { useSessionStoreEvents } from "@/composables/useSessionStoreEvents";
 import { usePreferencesStore } from "@/stores/preferences";
-import { sumNanoAiu } from "@/utils/requestLedger";
 
 export const REQUEST_LEDGER_PAGE_SIZE = 25;
 
@@ -43,13 +43,15 @@ export interface RequestLedgerFilterState {
   cacheReuse: CacheReuseFilter;
 }
 
-export interface RequestLedgerFilterOptions {
-  models: string[];
-  agentIds: string[];
-  initiators: string[];
-  reasoningEfforts: string[];
-  finishReasons: string[];
-}
+export type RequestLedgerFilterOptions = RequestLedgerSummary["facets"];
+
+const NO_OPTIONS: RequestLedgerFilterOptions = {
+  models: [],
+  agentIds: [],
+  initiators: [],
+  reasoningEfforts: [],
+  finishReasons: [],
+};
 
 function emptyFilters(): RequestLedgerFilterState {
   return {
@@ -84,6 +86,8 @@ export function useRequestLedger(
 
   const page = ref<RequestLedgerPage | null>(null);
   const coverage = ref<SessionCoverageRow | null>(null);
+  /** Totals over every request the filters match, and every filter value. */
+  const summary = ref<RequestLedgerSummary | null>(null);
   const source = ref<StoreSourceStatus | null>(null);
   const performance = ref<RequestPerformance | null>(null);
   const loading = ref(false);
@@ -93,13 +97,6 @@ export function useRequestLedger(
   const cursorReset = ref(false);
 
   const filters = reactive<RequestLedgerFilterState>(emptyFilters());
-  const seen = reactive({
-    models: new Set<string>(),
-    agentIds: new Set<string>(),
-    initiators: new Set<string>(),
-    reasoningEfforts: new Set<string>(),
-    finishReasons: new Set<string>(),
-  });
 
   /** `history[i]` is the cursor that loaded page `i`; page one has none. */
   const history = ref<(string | null)[]>([null]);
@@ -113,8 +110,6 @@ export function useRequestLedger(
   const hasNextPage = computed(() => Boolean(page.value?.nextCursor));
   const hasPreviousPage = computed(() => pageIndex.value > 0);
   const pageNumber = computed(() => pageIndex.value + 1);
-  /** Only the rows on screen: never presented as the session's total charge. */
-  const pageCredits = computed(() => sumNanoAiu(requests.value));
   const activeFilterCount = computed(
     () =>
       (filters.model ? 1 : 0) +
@@ -125,29 +120,17 @@ export function useRequestLedger(
       (filters.cacheReuse === "any" ? 0 : 1),
   );
 
-  const filterOptions = computed<RequestLedgerFilterOptions>(() => ({
-    models: [...seen.models].sort(),
-    agentIds: [...seen.agentIds].sort(),
-    initiators: [...seen.initiators].sort(),
-    reasoningEfforts: [...seen.reasoningEfforts].sort(),
-    finishReasons: [...seen.finishReasons].sort(),
-  }));
-
-  function rememberOptions(rows: readonly StoredRequest[]): void {
-    for (const row of rows) {
-      if (row.model) seen.models.add(row.model);
-      if (row.agentId) seen.agentIds.add(row.agentId);
-      if (row.initiator) seen.initiators.add(row.initiator);
-      if (row.reasoningEffort) seen.reasoningEfforts.add(row.reasoningEffort);
-      if (row.finishReason) seen.finishReasons.add(row.finishReason);
-    }
-  }
+  /** The whole session's values, so a filter can reach rows on later pages. */
+  const filterOptions = computed<RequestLedgerFilterOptions>(
+    () => summary.value?.facets ?? NO_OPTIONS,
+  );
 
   function resetSession(): void {
     guard.invalidate();
     contextGuard.invalidate();
     page.value = null;
     coverage.value = null;
+    summary.value = null;
     source.value = null;
     performance.value = null;
     error.value = null;
@@ -155,11 +138,6 @@ export function useRequestLedger(
     cursorReset.value = false;
     history.value = [null];
     pageIndex.value = 0;
-    seen.models.clear();
-    seen.agentIds.clear();
-    seen.initiators.clear();
-    seen.reasoningEfforts.clear();
-    seen.finishReasons.clear();
     Object.assign(filters, emptyFilters());
   }
 
@@ -188,11 +166,11 @@ export function useRequestLedger(
 
       page.value = response.page;
       coverage.value = response.coverage;
+      summary.value = response.summary;
       pageIndex.value = index;
       const next = history.value.slice(0, index + 1);
       next[index] = cursor;
       history.value = next;
-      rememberOptions(response.page.requests);
       loaded.value = true;
     } catch (e) {
       if (guard.isValid(token)) error.value = toErrorMessage(e);
@@ -217,6 +195,15 @@ export function useRequestLedger(
 
   async function load(): Promise<void> {
     await Promise.all([fetchPage(null, 0), fetchContext()]);
+  }
+
+  /**
+   * Re-read the page on screen after a refresh. A cursor the refresh
+   * invalidated falls back to page one through the expired-cursor path.
+   */
+  async function reload(): Promise<void> {
+    const index = pageIndex.value;
+    await Promise.all([fetchPage(history.value[index] ?? null, index), fetchContext()]);
   }
 
   async function nextPage(): Promise<void> {
@@ -261,7 +248,7 @@ export function useRequestLedger(
   );
 
   useSessionStoreEvents(() => {
-    if (isActive() && enabled.value) return load();
+    if (isActive() && enabled.value) return loaded.value ? reload() : load();
     loaded.value = false;
   });
 
@@ -277,6 +264,7 @@ export function useRequestLedger(
     page,
     requests,
     coverage,
+    summary,
     source,
     performance,
     available,
@@ -285,7 +273,6 @@ export function useRequestLedger(
     filters,
     filterOptions,
     activeFilterCount,
-    pageCredits,
     pageNumber,
     hasNextPage,
     hasPreviousPage,

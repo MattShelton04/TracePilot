@@ -24,13 +24,20 @@ const perf = useObservedRequestPerformance();
 
 const ALL_MODELS = "All models";
 
-/** The overall row first, then one per model, so a shape is easy to compare. */
+/**
+ * The overall row first, then one per model with the largest samples on top:
+ * a model with three requests says far less than one with hundreds.
+ */
 const rows = computed<PerformanceRowView[]>(() => {
   const result: PerformanceRowView[] = [];
   if (perf.overall.value) {
     result.push(buildPerformanceRow(null, ALL_MODELS, perf.overall.value));
   }
-  for (const entry of perf.byModel.value) {
+  const models = [...perf.byModel.value].sort(
+    (a, b) =>
+      b.performance.requestCount - a.performance.requestCount || a.model.localeCompare(b.model),
+  );
+  for (const entry of models) {
     result.push(buildPerformanceRow(entry.model, entry.model, entry.performance));
   }
   return result;
@@ -148,7 +155,7 @@ const inconsistentTotal = computed(() =>
                 <div class="observed__metric">
                   <span class="tabular observed__median">{{ metric.median }}</span>
                   <span
-                    class="tabular"
+                    class="tabular observed__p95"
                     :class="{ 'observed__suppressed': metric.p95Absence !== null }"
                     :title="
                       metric.p95Absence === 'belowThreshold'
@@ -265,7 +272,13 @@ const inconsistentTotal = computed(() =>
   align-items: flex-end;
   gap: 2px;
 }
+.observed__p95 {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
 .observed__coverage {
+  font-weight: 400;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   white-space: nowrap;
