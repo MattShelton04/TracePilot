@@ -242,9 +242,12 @@ describe("MetricsRequestLedgerSection", () => {
     const wrapper = await mountExpanded();
 
     expect(wrapper.get('[data-testid="request-ledger-empty"]').text()).toContain(
-      "No requests recorded for this session",
+      "no model requests recorded for this session",
     );
     expect(wrapper.find('[data-testid="request-ledger-unavailable"]').exists()).toBe(false);
+    // Zero-valued cards and an empty filter bar would only restate the sentence.
+    expect(wrapper.find('[data-testid="request-ledger-credits"]').exists()).toBe(false);
+    expect(wrapper.findComponent({ name: "RequestLedgerFilters" }).exists()).toBe(false);
   });
 
   it("restarts and explains itself when the cursor outlives its source", async () => {
@@ -384,12 +387,12 @@ describe("MetricsRequestLedgerSection", () => {
     expect(sync.get(".ledger__stale").text()).toContain("could not be read");
   });
 
-  it("opens a drawer with the exact recorded charge and both first-token metrics", async () => {
+  it("opens an inline detail with the exact recorded charge and both first-token metrics", async () => {
     const wrapper = await mountExpanded();
     await wrapper.get('[data-testid="request-ledger-table"] tbody button').trigger("click");
     await flushPromises();
 
-    const drawer = wrapper.get('[data-testid="request-ledger-drawer"]');
+    const drawer = wrapper.get('[data-testid="request-ledger-detail"]');
     // The exact string, not a float round-trip of it.
     expect(drawer.text()).toContain("9007199254740993");
     // The rate reads in credits; the exact recorded value stays one hover away.
@@ -399,6 +402,27 @@ describe("MetricsRequestLedgerSection", () => {
     expect(drawer.text()).toContain("First observable output");
     expect(drawer.text()).toContain("not a TracePilot turn index");
     expect(wrapper.find('[data-testid="request-ledger-agent-action"]').exists()).toBe(false);
+  });
+
+  it("closes the detail from its row, its close button, or a filter change", async () => {
+    const wrapper = await mountExpanded();
+    const toggle = wrapper.get('[data-testid="request-ledger-table"] tbody button');
+    await toggle.trigger("click");
+    expect(toggle.attributes("aria-expanded")).toBe("true");
+    await toggle.trigger("click");
+    expect(wrapper.find('[data-testid="request-ledger-detail"]').exists()).toBe(false);
+
+    await wrapper.get('[data-testid="request-ledger-table"] tbody tr').trigger("click");
+    await wrapper
+      .get('[data-testid="request-ledger-detail"] button[aria-label="Close request details"]')
+      .trigger("click");
+    expect(wrapper.find('[data-testid="request-ledger-detail"]').exists()).toBe(false);
+
+    await toggle.trigger("click");
+    usage.mockResolvedValue(respond(makePage({ requests: [makeRequest({ sourceRowId: 9999 })] })));
+    await wrapper.findComponent({ name: "RequestLedgerFilters" }).vm.$emit("clear");
+    await flushPromises();
+    expect(wrapper.find('[data-testid="request-ledger-detail"]').exists()).toBe(false);
   });
 
   it("offers the agent action only when an agent was recorded", async () => {

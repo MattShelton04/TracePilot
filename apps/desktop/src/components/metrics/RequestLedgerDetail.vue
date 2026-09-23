@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * Detail drawer for one recorded request.
+ * Detail panel for one recorded request, shown inside the ledger under the
+ * table rather than as an overlay, so the row it explains stays in view.
  *
  * Everything the table drops lands here, plus the values a reader needs to
  * judge the row: the exact recorded charge as a string, the itemised billing
@@ -8,8 +9,9 @@
  * session's reconciliation verdict with the scope that verdict used.
  */
 import type { SessionCoverageRow, StoredRequest } from "@tracepilot/types";
-import { Badge, Drawer, formatDate } from "@tracepilot/ui";
-import { computed } from "vue";
+import { Badge, formatDate } from "@tracepilot/ui";
+import { X } from "lucide-vue-next";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import {
   BILLING_CHECK_LABELS,
   BILLING_STATUS_LABELS,
@@ -27,15 +29,23 @@ import {
 } from "@/utils/requestLedger";
 
 const props = defineProps<{
-  request: StoredRequest | null;
+  request: StoredRequest;
   coverage: SessionCoverageRow | null;
-  visible: boolean;
 }>();
 
 const emit = defineEmits<{
-  "update:visible": [value: boolean];
+  close: [];
   "filter-agent": [agentId: string];
 }>();
+
+// A row low in the table opens its detail below the fold; bring it far
+// enough into view to be noticed without jumping past the row.
+const root = ref<HTMLElement | null>(null);
+function reveal(): void {
+  void nextTick(() => root.value?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }));
+}
+onMounted(reveal);
+watch(() => props.request, reveal);
 
 interface DetailRow {
   label: string;
@@ -191,34 +201,48 @@ function batchLabel(size: number | null): string {
 </script>
 
 <template>
-  <Drawer
-    :visible="visible"
-    width="520px"
-    title="Recorded request"
-    @update:visible="emit('update:visible', $event)"
+  <section
+    ref="root"
+    class="ledger-detail"
+    data-testid="request-ledger-detail"
+    aria-label="Recorded request details"
+    @keydown.esc="emit('close')"
   >
-    <div v-if="request" class="ledger-drawer" data-testid="request-ledger-drawer">
-      <section>
-        <h3 class="ledger-drawer__heading">Recorded charge</h3>
-        <p class="ledger-drawer__note">
+    <header class="ledger-detail__header">
+      <div>
+        <h3 class="ledger-detail__title">Recorded request</h3>
+        <p class="ledger-detail__note">
           {{ request.model }}<template v-if="request.recordedAt">
             · <time :datetime="request.recordedAt" :title="request.recordedAt">{{
               formatDate(request.recordedAt)
             }}</time></template>
         </p>
-        <dl class="ledger-drawer__list ledger-drawer__charge">
+      </div>
+      <button
+        type="button"
+        class="ledger-detail__close"
+        aria-label="Close request details"
+        @click="emit('close')"
+      >
+        <X :size="16" aria-hidden="true" />
+      </button>
+    </header>
+    <div class="ledger-detail__body">
+      <section class="ledger-detail__billing-col">
+        <h4 class="ledger-detail__heading">Recorded charge</h4>
+        <dl class="ledger-detail__list ledger-detail__charge">
           <template v-for="entry in charge" :key="entry.label">
             <dt :title="entry.hint">{{ entry.label }}</dt>
             <dd>{{ entry.text }}</dd>
           </template>
         </dl>
-        <div class="ledger-drawer__badges">
+        <div class="ledger-detail__badges">
           <Badge variant="neutral">Items: {{ BILLING_STATUS_LABELS[request.billingItemsStatus] }}</Badge>
           <Badge :variant="billingCheckTone(request.billingCheck)">
             {{ BILLING_CHECK_LABELS[request.billingCheck] }}
           </Badge>
         </div>
-        <table v-if="billingItems.length" class="data-table ledger-drawer__billing">
+        <table v-if="billingItems.length" class="data-table ledger-detail__billing">
           <thead>
             <tr>
               <th>Token type</th>
@@ -234,58 +258,59 @@ function batchLabel(size: number | null): string {
               <td style="text-align: right">{{ counterCell(item.tokenCount).text }}</td>
               <td
                 style="text-align: right"
-                class="ledger-drawer__exact"
+                class="ledger-detail__exact"
                 :title="`${formatCostPerBatch(item.costPerBatch)} nano AIU ${batchLabel(item.batchSize)} tokens, exactly as recorded`"
               >
                 {{ formatNanoAiu(item.costPerBatch) }}
-                <span class="ledger-drawer__batch">{{ batchLabel(item.batchSize) }}</span>
+                <span class="ledger-detail__batch">{{ batchLabel(item.batchSize) }}</span>
               </td>
-              <td style="text-align: right" class="ledger-drawer__exact">
+              <td style="text-align: right" class="ledger-detail__exact">
                 {{ formatExactCredits(itemChargeNanoAiu(item)) }}
               </td>
               <td v-if="billingItems.some(entry => entry.billingModel)">{{ item.billingModel ?? NOT_RECORDED }}</td>
             </tr>
           </tbody>
         </table>
-        <p v-else class="ledger-drawer__note">
+        <p v-else class="ledger-detail__note">
           No itemised billing was recorded for this request.
         </p>
-        <p class="ledger-drawer__note">
+        <p class="ledger-detail__note">
           Each entry charges count × rate ÷ batch size. The request multiplier is already included in the recorded charge.
         </p>
       </section>
 
+      <div class="ledger-detail__facts">
       <component :is="group.title === 'Attribution' ? 'details' : 'section'" v-for="group in groups" :key="group.title">
-        <summary v-if="group.title === 'Attribution'" class="ledger-drawer__heading">Source details</summary>
-        <h3 v-else class="ledger-drawer__heading">{{ group.title }}</h3>
-        <dl class="ledger-drawer__list">
+        <summary v-if="group.title === 'Attribution'" class="ledger-detail__heading">Source details</summary>
+        <h4 v-else class="ledger-detail__heading">{{ group.title }}</h4>
+        <dl class="ledger-detail__list">
           <template v-for="entry in group.rows" :key="entry.label">
             <dt :title="entry.hint">{{ entry.label }}</dt>
             <dd v-if="entry.recorded">{{ entry.text }}</dd>
-            <dd v-else class="ledger-drawer__missing" :title="NOT_RECORDED_HINT">—</dd>
+            <dd v-else class="ledger-detail__missing" :title="NOT_RECORDED_HINT">—</dd>
           </template>
         </dl>
-        <p v-if="group.note" class="ledger-drawer__note">{{ group.note }}</p>
+        <p v-if="group.note" class="ledger-detail__note">{{ group.note }}</p>
       </component>
 
       <section v-if="invalidFields.length" data-testid="request-ledger-invalid-fields">
-        <h3 class="ledger-drawer__heading">Unusable source values</h3>
-        <p class="ledger-drawer__note">
+        <h4 class="ledger-detail__heading">Unusable source values</h4>
+        <p class="ledger-detail__note">
           These columns could not be read on this row, so any total that uses them
           is incomplete: {{ invalidFields.join(", ") }}.
         </p>
       </section>
 
       <section v-if="reconciliation" data-testid="request-ledger-reconciliation">
-        <h3 class="ledger-drawer__heading">Session reconciliation</h3>
-        <p class="ledger-drawer__note">{{ reconciliation.sentence }}</p>
-        <p v-if="reconciliation.differences" class="ledger-drawer__note">
+        <h4 class="ledger-detail__heading">Session reconciliation</h4>
+        <p class="ledger-detail__note">{{ reconciliation.sentence }}</p>
+        <p v-if="reconciliation.differences" class="ledger-detail__note">
           Differences: {{ reconciliation.differences }}
         </p>
       </section>
 
       <section>
-        <h3 class="ledger-drawer__heading">Linked work</h3>
+        <h4 class="ledger-detail__heading">Linked work</h4>
         <button
           v-if="request.agentId"
           type="button"
@@ -295,7 +320,7 @@ function batchLabel(size: number | null): string {
         >
           Show this agent's requests
         </button>
-        <p class="ledger-drawer__note">
+        <p class="ledger-detail__note">
           <template v-if="request.agentId">
             This request is attached to agent {{ request.agentId }}. No mapping to a
             TracePilot turn is recorded, so there is no turn to jump to.
@@ -305,18 +330,66 @@ function batchLabel(size: number | null): string {
           </template>
         </p>
       </section>
+      </div>
     </div>
-  </Drawer>
+  </section>
 </template>
 
 <style scoped>
-.ledger-drawer {
+.ledger-detail {
+  /* Clear the session's sticky action bar, which wraps to two rows when narrow. */
+  scroll-margin-top: 150px;
+  margin-top: 12px;
+  padding: 16px 20px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-subtle);
+}
+.ledger-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.ledger-detail__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.ledger-detail__close {
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.ledger-detail__close:hover,
+.ledger-detail__close:focus-visible {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+/* Charge and billing on the left, the request's facts on the right; one
+   column when the ledger is narrow. */
+.ledger-detail__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 24px;
+}
+.ledger-detail__facts {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 16px 20px;
+  gap: 16px;
 }
-.ledger-drawer__heading {
+@media (max-width: 1199px) {
+  .ledger-detail__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ledger-detail__heading {
   margin: 0 0 8px;
   font-size: 0.75rem;
   font-weight: 700;
@@ -324,48 +397,55 @@ function batchLabel(size: number | null): string {
   letter-spacing: 0.05em;
   color: var(--text-tertiary);
 }
-.ledger-drawer__list {
+.ledger-detail__list {
   display: grid;
-  grid-template-columns: minmax(120px, max-content) 1fr;
+  /* One label width for every group, so the values line up down the panel. */
+  grid-template-columns: 11rem minmax(0, 1fr);
   gap: 4px 12px;
   margin: 0;
   font-size: 0.8125rem;
 }
-.ledger-drawer__list dt {
+.ledger-detail__list dt {
   color: var(--text-tertiary);
 }
-.ledger-drawer__list dd {
+.ledger-detail__list dd {
   margin: 0;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.ledger-drawer__missing {
+.ledger-detail__missing {
   color: var(--text-tertiary);
   cursor: help;
 }
-.ledger-drawer__badges {
+.ledger-detail__badges {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
 }
-.ledger-drawer__billing {
+.ledger-detail__billing {
   width: 100%;
 }
-.ledger-drawer__charge {
+.ledger-detail__charge {
   margin: 12px 0;
 }
-.ledger-drawer__exact {
+.ledger-detail__exact {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.ledger-drawer__batch {
-  display: block;
+.ledger-detail__batch {
+  margin-left: 4px;
   font-size: 0.6875rem;
   color: var(--text-tertiary);
 }
-.ledger-drawer__note {
+.ledger-detail__billing th,
+.ledger-detail__billing td {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.ledger-detail__note {
   max-width: 60ch;
   margin: 8px 0 0;
   font-size: 0.75rem;

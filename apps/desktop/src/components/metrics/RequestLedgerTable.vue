@@ -3,11 +3,16 @@
  * The recorded-request table.
  *
  * Columns are dropped by viewport width, never values: everything hidden here
- * stays reachable in the row's detail drawer. A missing counter renders as a
+ * stays reachable in the row's detail panel. A missing counter renders as a
  * labelled em dash so it never reads as a recorded zero.
+ *
+ * The rows scroll inside a bounded region under a sticky header, so a long
+ * page never pushes the detail panel and pager off screen. A plain table
+ * rather than `DataTable`, which neither selects rows nor scrolls its body.
  */
 import type { StoredRequest } from "@tracepilot/types";
-import { DataTable, formatDate, formatTime } from "@tracepilot/ui";
+import { formatDate, formatTime } from "@tracepilot/ui";
+import { ChevronDown } from "lucide-vue-next";
 import { computed } from "vue";
 import {
   agentLabel,
@@ -20,37 +25,32 @@ import {
   textCell,
 } from "@/utils/requestLedger";
 
-const props = defineProps<{ requests: StoredRequest[] }>();
+const props = defineProps<{ requests: StoredRequest[]; selectedKey?: string | null }>();
 const emit = defineEmits<{ select: [request: StoredRequest] }>();
 
-/** `md` appears from 1200px, `xl` from 1800px; both live in the drawer too. */
+/** `md` appears from 1200px, `xl` from 1800px; both live in the detail panel too. */
 const COLUMNS = [
   { key: "recorded", label: "Recorded" },
   { key: "model", label: "Model" },
   { key: "agent", label: "Agent", class: "ledger-col--md" },
-  { key: "input", label: "Input", align: "right" as const },
-  { key: "output", label: "Output", align: "right" as const },
-  { key: "cacheRead", label: "Cache reads", align: "right" as const, class: "ledger-col--md" },
-  { key: "credits", label: "AI credits", align: "right" as const },
-  { key: "duration", label: "Duration", align: "right" as const },
-  { key: "firstOutput", label: "First output", align: "right" as const, class: "ledger-col--xl" },
+  { key: "input", label: "Input", numeric: true },
+  { key: "output", label: "Output", numeric: true },
+  { key: "cacheRead", label: "Cache reads", numeric: true, class: "ledger-col--md" },
+  { key: "credits", label: "AI credits", numeric: true },
+  { key: "duration", label: "Duration", numeric: true },
+  { key: "firstOutput", label: "First output", numeric: true, class: "ledger-col--xl" },
   { key: "finish", label: "Completion", class: "ledger-col--md" },
-  { key: "details", label: "Details", class: "ledger-col--action" },
-];
+] as const;
 
-interface LedgerRow extends Record<string, unknown> {
+type CellKey = Exclude<(typeof COLUMNS)[number]["key"], "recorded" | "model" | "credits">;
+
+interface LedgerRow {
   key: string;
   request: StoredRequest;
   recorded: string;
   model: string;
-  agent: CounterCell;
-  input: CounterCell;
-  output: CounterCell;
-  cacheRead: CounterCell;
   credits: string;
-  duration: CounterCell;
-  firstOutput: CounterCell;
-  finish: CounterCell;
+  cells: Record<CellKey, CounterCell>;
 }
 
 /**
@@ -75,26 +75,18 @@ const rows = computed<LedgerRow[]>(() =>
       ? (spansDays.value ? formatDate : formatTime)(request.recordedAt)
       : "",
     model: request.model,
-    agent: request.agentId ? { text: agentLabel(request), recorded: true } : textCell(null),
-    input: counterCell(request.inputTokens),
-    output: counterCell(request.outputTokens),
-    cacheRead: counterCell(request.cacheReadTokens),
     credits: formatNanoAiu(request.totalNanoAiu),
-    duration: millisecondCell(request.durationMs),
-    firstOutput: millisecondCell(request.outputTtftMs),
-    finish: textCell(request.finishReason),
+    cells: {
+      agent: request.agentId ? { text: agentLabel(request), recorded: true } : textCell(null),
+      input: counterCell(request.inputTokens),
+      output: counterCell(request.outputTokens),
+      cacheRead: counterCell(request.cacheReadTokens),
+      duration: millisecondCell(request.durationMs),
+      firstOutput: millisecondCell(request.outputTtftMs),
+      finish: textCell(request.finishReason),
+    },
   })),
 );
-
-const CELL_KEYS = [
-  "agent",
-  "input",
-  "output",
-  "cacheRead",
-  "duration",
-  "firstOutput",
-  "finish",
-] as const;
 
 function rowLabel(row: LedgerRow): string {
   return `Details for the ${row.model} request recorded at ${row.recorded || "an unrecorded time"}`;
@@ -102,61 +94,156 @@ function rowLabel(row: LedgerRow): string {
 </script>
 
 <template>
-  <div class="ledger-table" data-testid="request-ledger-table">
-    <DataTable :columns="COLUMNS" :rows="rows" empty-message="No requests recorded for this session.">
-      <template #cell-recorded="{ row }">
-        <span class="ledger-num">{{ (row as LedgerRow).recorded || "—" }}</span>
-      </template>
-      <template v-for="key in CELL_KEYS" :key="key" #[`cell-${key}`]="{ value }">
-        <span v-if="(value as CounterCell).recorded" class="ledger-num">
-          {{ (value as CounterCell).text }}
-        </span>
-        <span v-else class="ledger-missing" :title="NOT_RECORDED_HINT" aria-label="Not recorded">—</span>
-      </template>
-      <template #cell-credits="{ value }">
-        <span class="ledger-num">{{ value }}</span>
-      </template>
-      <template #cell-details="{ row }">
-        <button
-          type="button"
-          class="btn btn-secondary btn-sm"
-          :aria-label="rowLabel(row as LedgerRow)"
-          @click="emit('select', (row as LedgerRow).request)"
+  <div
+    class="ledger-table"
+    data-testid="request-ledger-table"
+    tabindex="0"
+    role="region"
+    aria-label="Recorded requests"
+  >
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th
+            v-for="column in COLUMNS"
+            :key="column.key"
+            :class="['class' in column ? column.class : '', { 'ledger-num-col': 'numeric' in column }]"
+          >
+            {{ column.label }}
+          </th>
+          <th class="ledger-col--action"><span class="ledger-visually-hidden">Details</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          v-for="row in rows"
+          :key="row.key"
+          class="ledger-row"
+          :class="{ 'ledger-row--selected': row.key === selectedKey }"
+          @click="emit('select', row.request)"
         >
-          Details
-        </button>
-      </template>
-    </DataTable>
+          <td><span class="ledger-num">{{ row.recorded || "—" }}</span></td>
+          <td>{{ row.model }}</td>
+          <template v-for="column in COLUMNS" :key="column.key">
+            <td
+              v-if="column.key in row.cells"
+              :class="['class' in column ? column.class : '', { 'ledger-num-col': 'numeric' in column }]"
+            >
+              <span v-if="row.cells[column.key as CellKey].recorded" class="ledger-num">
+                {{ row.cells[column.key as CellKey].text }}
+              </span>
+              <span v-else class="ledger-missing" :title="NOT_RECORDED_HINT" aria-label="Not recorded">—</span>
+            </td>
+            <td v-else-if="column.key === 'credits'" class="ledger-num-col">
+              <span class="ledger-num">{{ row.credits }}</span>
+            </td>
+          </template>
+          <td class="ledger-col--action">
+            <button
+              type="button"
+              class="ledger-row-toggle"
+              :aria-label="rowLabel(row)"
+              :aria-expanded="row.key === selectedKey"
+              @click.stop="emit('select', row.request)"
+            >
+              <ChevronDown :size="14" aria-hidden="true" />
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
 <style scoped>
 .ledger-table {
-  overflow-x: auto;
+  max-height: min(60vh, 520px);
+  overflow: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+.ledger-table:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
+}
+.ledger-table table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.ledger-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--canvas-subtle);
+}
+.ledger-table th,
+.ledger-table td {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.ledger-row {
+  cursor: pointer;
+}
+.ledger-row:hover td {
+  background: var(--canvas-subtle);
+}
+.ledger-row--selected td {
+  background: var(--accent-subtle);
+}
+.ledger-num-col {
+  text-align: right;
+}
+.ledger-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .ledger-num {
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 .ledger-missing {
   color: var(--text-tertiary);
   cursor: help;
 }
-.ledger-table :deep(.ledger-col--action) {
+.ledger-col--action {
   width: 1%;
-  white-space: nowrap;
+  padding-right: 8px;
 }
-.ledger-table :deep(.ledger-col--md),
-.ledger-table :deep(.ledger-col--xl) {
+.ledger-row-toggle {
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.ledger-row-toggle:hover,
+.ledger-row-toggle:focus-visible {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.ledger-row-toggle[aria-expanded="true"] {
+  transform: rotate(180deg);
+  color: var(--accent-fg);
+}
+.ledger-col--md,
+.ledger-col--xl {
   display: none;
 }
 @media (min-width: 1200px) {
-  .ledger-table :deep(.ledger-col--md) {
+  .ledger-col--md {
     display: table-cell;
   }
 }
 @media (min-width: 1800px) {
-  .ledger-table :deep(.ledger-col--xl) {
+  .ledger-col--xl {
     display: table-cell;
   }
 }

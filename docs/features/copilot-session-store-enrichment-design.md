@@ -314,8 +314,9 @@ Add a collapsible **Model requests** section with:
 - Filters for model, agent, initiator, effort, finish reason and recorded reuse.
 - A paginated table: recorded time, model, agent, input/output, cache reads,
   credits, duration, first output and completion reason.
-- A detail drawer containing itemized billing, both TTFT metrics, ITL, raw source
-  values, attribution evidence and any reconciliation discrepancy.
+- An inline detail panel under the table (not an overlay, so the row stays in
+  view) containing itemized billing, both TTFT metrics, ITL, raw source values,
+  attribution evidence and any reconciliation discrepancy.
 - “Go to agent/turn” only when a supported mapping exists.
 
 Show session shutdown totals and observed request totals as separately named
@@ -324,7 +325,8 @@ session total. A resumed session may have newer request rows than its last
 shutdown; compare only compatible intervals and keep the later tail separate.
 
 At 1440×960, keep the useful columns visible and put secondary timings in the
-drawer. At 960×640, reduce columns and preserve access to all fields in the drawer.
+detail panel. At 960×640, reduce columns and preserve access to all fields in the
+detail panel.
 At 2560×1440, allow more columns without widening prose indefinitely. Use the
 existing UI components, formatting and feature-flag conventions.
 
@@ -899,6 +901,12 @@ Found against the live app with real data:
   charge; multi-day pages show dates.
 - **Related work** is grouped chips, states an assumed repository once, and is
   shown only when there are references or an error.
+- **Layout.** The ledger's rows scroll under a sticky header in a bounded
+  region, and a row opens its detail inline beneath the table rather than in a
+  slide-over; the detail follows its row through a live reload and closes when
+  paging or filtering removes it. A session with no recorded requests shows one
+  sentence instead of zero-valued cards and an empty filter bar. The setting
+  sits in an Experimental group with a single status row.
 
 Local indexes that ran the pre-consolidation 020 must still be rebuilt, as
 noted above: their `session_work_refs` key omits `session_id`, and every sweep

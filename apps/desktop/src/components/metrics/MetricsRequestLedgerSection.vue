@@ -24,7 +24,7 @@ import {
   StatCard,
 } from "@tracepilot/ui";
 import { computed, ref, useId, watch } from "vue";
-import RequestLedgerDrawer from "@/components/metrics/RequestLedgerDrawer.vue";
+import RequestLedgerDetail from "@/components/metrics/RequestLedgerDetail.vue";
 import RequestLedgerFilters from "@/components/metrics/RequestLedgerFilters.vue";
 import RequestLedgerTable from "@/components/metrics/RequestLedgerTable.vue";
 import type { RequestLedgerFilterState } from "@/composables/session/useRequestLedger";
@@ -34,6 +34,7 @@ import {
   formatNanoAiu,
   NOT_RECORDED,
   reconciliationSentence,
+  requestKey,
   staleNote,
 } from "@/utils/requestLedger";
 import { buildCacheReuse, buildLatencyMetrics } from "@/utils/requestPerformance";
@@ -64,7 +65,7 @@ function toggle(): void {
 }
 const bodyId = useId();
 const selected = ref<StoredRequest | null>(null);
-const drawerOpen = ref(false);
+const selectedKey = computed(() => (selected.value ? requestKey(selected.value) : null));
 
 const ledger = useRequestLedger(
   () => props.sessionId,
@@ -74,11 +75,21 @@ watch(
   () => props.sessionId,
   () => {
     selected.value = null;
-    drawerOpen.value = false;
+  },
+);
+// The detail belongs to a row on screen: it follows that row through a live
+// reload and closes when paging or filtering takes the row away.
+watch(
+  () => ledger.requests.value,
+  (requests) => {
+    const key = selectedKey.value;
+    if (key) selected.value = requests.find((request) => requestKey(request) === key) ?? null;
   },
 );
 
 const filtered = computed(() => ledger.activeFilterCount.value > 0);
+/** Nothing recorded at all: zero-valued cards and filters would only be noise. */
+const recordedNone = computed(() => ledger.isEmpty.value && !filtered.value);
 
 /** With no shutdown there is no final total — only what has been recorded. */
 const requestCountLabel = computed(() =>
@@ -167,9 +178,8 @@ const unavailableDetail = computed(() => {
   return [label, path].filter(Boolean).join(" · ") || null;
 });
 
-function openDetails(request: StoredRequest): void {
-  selected.value = request;
-  drawerOpen.value = true;
+function toggleDetails(request: StoredRequest): void {
+  selected.value = requestKey(request) === selectedKey.value ? null : request;
 }
 
 function updateFilters(patch: Partial<RequestLedgerFilterState>): void {
@@ -178,7 +188,7 @@ function updateFilters(patch: Partial<RequestLedgerFilterState>): void {
 }
 
 function filterToAgent(agentId: string): void {
-  drawerOpen.value = false;
+  selected.value = null;
   void ledger.setAgentFilter(agentId);
 }
 </script>
@@ -237,7 +247,7 @@ function filterToAgent(agentId: string): void {
         </p>
 
         <template v-else>
-          <div class="ledger__stats">
+          <div v-if="!recordedNone" class="ledger__stats">
             <StatCard
               :value="requestCount"
               :label="requestCountLabel"
@@ -277,7 +287,7 @@ function filterToAgent(agentId: string): void {
             </span>
           </p>
 
-          <p v-if="hasShutdownTotals" class="ledger__note">
+          <p v-if="hasShutdownTotals && !recordedNone" class="ledger__note">
             These are observed requests from the session store. The session totals
             above come from the shutdown record and are not the same figure.
             <span v-if="reconciliation" data-testid="request-ledger-reconciliation-summary">
@@ -307,6 +317,7 @@ function filterToAgent(agentId: string): void {
           </Banner>
 
           <RequestLedgerFilters
+            v-if="!recordedNone"
             :filters="ledger.filters"
             :options="ledger.filterOptions.value"
             :active-count="ledger.activeFilterCount.value"
@@ -323,11 +334,25 @@ function filterToAgent(agentId: string): void {
             <template v-if="ledger.activeFilterCount.value > 0">
               No recorded requests match these filters.
             </template>
-            <template v-else>No requests recorded for this session.</template>
+            <template v-else>
+              The session store has no model requests recorded for this session.
+            </template>
           </p>
 
           <template v-else>
-            <RequestLedgerTable :requests="ledger.requests.value" @select="openDetails" />
+            <RequestLedgerTable
+              :requests="ledger.requests.value"
+              :selected-key="selectedKey"
+              @select="toggleDetails"
+            />
+
+            <RequestLedgerDetail
+              v-if="selected"
+              :request="selected"
+              :coverage="ledger.coverage.value"
+              @close="selected = null"
+              @filter-agent="filterToAgent"
+            />
 
             <div
               v-if="ledger.hasNextPage.value || ledger.hasPreviousPage.value"
@@ -356,13 +381,6 @@ function filterToAgent(agentId: string): void {
         </template>
       </template>
     </div>
-
-    <RequestLedgerDrawer
-      v-model:visible="drawerOpen"
-      :request="selected"
-      :coverage="ledger.coverage.value"
-      @filter-agent="filterToAgent"
-    />
   </section>
 </template>
 

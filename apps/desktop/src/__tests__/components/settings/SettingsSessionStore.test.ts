@@ -102,13 +102,12 @@ describe("SettingsSessionStore", () => {
     const wrapper = await mountPanel();
 
     const text = wrapper.text();
-    expect(text).toMatch(/use this source when available/i);
-    expect(text).toMatch(/a missing store never switches it off/i);
-    expect(text).toMatch(/removes the cached enrichment/i);
-    expect(text).toMatch(/session files are never modified/i);
+    expect(text).toMatch(/read-only/i);
+    expect(text).toMatch(/turning this off removes what TracePilot\s+cached/i);
+    expect(text).toMatch(/Experimental/);
     expect(
       wrapper
-        .get('[role="switch"][aria-label="Use the Copilot session store when available"]')
+        .get('[role="switch"][aria-label="Use the Copilot session store"]')
         .attributes("aria-checked"),
     ).toBe("true");
   });
@@ -117,7 +116,7 @@ describe("SettingsSessionStore", () => {
     const wrapper = await mountPanel();
 
     await wrapper
-      .get('[role="switch"][aria-label="Use the Copilot session store when available"]')
+      .get('[role="switch"][aria-label="Use the Copilot session store"]')
       .trigger("click");
     await flushPromises();
 
@@ -147,7 +146,7 @@ describe("SettingsSessionStore", () => {
 
     expect(wrapper.get(".store-availability-pill").text()).toBe("Not installed");
     const text = wrapper.text();
-    expect(text).toMatch(/versions before the store never create one/i);
+    expect(text).toMatch(/older Copilot CLI versions do not create one/i);
     expect(text).toMatch(/setting stays on/i);
     expect(text).not.toMatch(/error|failed/i);
     // The path is still shown: it is where the store would be, not a claim it exists.
@@ -161,7 +160,7 @@ describe("SettingsSessionStore", () => {
     const wrapper = await mountPanel();
 
     expect(wrapper.get(".store-availability-pill").text()).toBe("Busy");
-    expect(wrapper.text()).toMatch(/cached enrichment is kept/i);
+    expect(wrapper.text()).toMatch(/cached data is kept/i);
     expect(wrapper.text()).toContain("Locked by another reader");
   });
 
