@@ -302,3 +302,160 @@ fn the_same_work_reference_survives_in_two_sessions() {
     assert_eq!(db.list_session_work_refs(OTHER).unwrap().len(), 1);
     assert_eq!(count(&db, "session_work_refs"), 2);
 }
+
+#[test]
+fn a_change_to_another_session_keeps_this_sessions_cursor() {
+    const OTHER: &str = "c0ffee00-1111-2222-3333-444455558888";
+    let source = SourceFixture::new();
+    source.seed(SESSION, 2, &[]);
+    source.seed(OTHER, 1, &[]);
+    let binding = source.binding();
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    for id in [SESSION, OTHER] {
+        let dir = write_raw_session(&binding.session_state_dir, id, "owner/name");
+        db.upsert_session(&dir).unwrap();
+    }
+    let sweep = || {
+        refresh_bound_source(&db, &binding, &binding.session_state_dir, |_| {}, || false).unwrap();
+    };
+    sweep();
+    let first_page = |db: &IndexDb| {
+        db.list_request_usage(&RequestLedgerFilter {
+            session_id: Some(SESSION.to_string()),
+            limit: Some(1),
+            ..Default::default()
+        })
+        .unwrap()
+    };
+    let second_page = |db: &IndexDb, after| {
+        db.list_request_usage(&RequestLedgerFilter {
+            session_id: Some(SESSION.to_string()),
+            after,
+            ..Default::default()
+        })
+        .unwrap()
+    };
+    let mutate = |session: &str| {
+        Connection::open(&source.db_path)
+            .unwrap()
+            .execute(
+                "UPDATE assistant_usage_events SET output_tokens = output_tokens + 1 \
+                 WHERE session_id = ?1",
+                [session],
+            )
+            .unwrap();
+    };
+
+    // Another session's new evidence moves the source revision, not ours.
+    let first = first_page(&db);
+    let revision = || {
+        db.session_store_coverage(SESSION)
+            .unwrap()
+            .unwrap()
+            .revision
+    };
+    let before = revision();
+    sweep();
+    assert_eq!(revision(), before, "an idle sweep is not new evidence");
+    mutate(OTHER);
+    sweep();
+    assert_eq!(revision(), before);
+    let next = second_page(&db, first.next_cursor);
+    assert!(!next.cursor_expired);
+    assert_eq!(next.requests.len(), 1);
+
+    // Our own rows changing still restarts the ledger.
+    let first = first_page(&db);
+    mutate(SESSION);
+    sweep();
+    assert!(second_page(&db, first.next_cursor).cursor_expired);
+}
+
+#[test]
+fn the_summary_covers_every_matching_request_and_every_filter_value() {
+    let source = SourceFixture::new();
+    source.seed(SESSION, 3, &[]);
+    Connection::open(&source.db_path)
+        .unwrap()
+        .execute_batch(
+            "UPDATE assistant_usage_events SET model = 'gpt-5-mini', agent_id = 'worker', \
+                    total_nano_aiu = 250 WHERE id = 3;
+             UPDATE assistant_usage_events SET total_nano_aiu = NULL WHERE id = 2;",
+        )
+        .unwrap();
+    let (_tmp, db, _, _) = indexed(&source);
+
+    let paged = RequestLedgerFilter {
+        session_id: Some(SESSION.to_string()),
+        limit: Some(1),
+        ..Default::default()
+    };
+    let summary = db.request_ledger_summary(&paged).unwrap().unwrap();
+    // One page on screen; the totals are the whole session's.
+    assert_eq!(summary.request_count, 3);
+    assert_eq!(summary.total_nano_aiu.as_deref(), Some("1000250"));
+    assert_eq!(summary.charged_requests, 2);
+    assert_eq!(summary.uncharged_requests, 1);
+    assert_eq!(summary.facets.models, ["gpt-5-mini", "gpt-5.6-luna"]);
+    assert_eq!(summary.facets.agent_ids, ["worker"]);
+
+    // A filter narrows the totals but never the options it was chosen from.
+    let filtered = db
+        .request_ledger_summary(&RequestLedgerFilter {
+            models: vec!["gpt-5-mini".to_string()],
+            ..paged
+        })
+        .unwrap()
+        .unwrap();
+    assert_eq!(filtered.request_count, 1);
+    assert_eq!(filtered.total_nano_aiu.as_deref(), Some("250"));
+    assert_eq!(filtered.facets.models.len(), 2);
+}
+
+#[test]
+fn a_live_session_refresh_touches_only_that_session_within_a_generation() {
+    use crate::indexing::enrichment::refresh_bound_source_scoped;
+    const OTHER: &str = "c0ffee00-1111-2222-3333-444455559999";
+    let source = SourceFixture::new();
+    source.seed(SESSION, 1, &[]);
+    source.seed(OTHER, 1, &[]);
+    let binding = source.binding();
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    for id in [SESSION, OTHER] {
+        let dir = write_raw_session(&binding.session_state_dir, id, "owner/name");
+        db.upsert_session(&dir).unwrap();
+    }
+    let scoped = |only: Option<&str>| {
+        refresh_bound_source_scoped(
+            &db,
+            &binding,
+            &binding.session_state_dir,
+            only,
+            |_| {},
+            || false,
+        )
+        .unwrap()
+    };
+    scoped(None);
+
+    // Both sessions change in place; only the live one is re-read.
+    Connection::open(&source.db_path)
+        .unwrap()
+        .execute("UPDATE assistant_usage_events SET output_tokens = 7", [])
+        .unwrap();
+    let outcome = scoped(Some(SESSION));
+    assert_eq!(outcome.refreshed, 1);
+    assert_eq!(outcome.refreshed + outcome.unchanged + outcome.skipped, 1);
+    let output = |id: &str| db.all_session_requests(id).unwrap()[0].output_tokens;
+    assert_eq!(output(SESSION), Some(7));
+    assert_eq!(output(OTHER), Some(200));
+
+    // A new row changes the generation: the scoped request becomes a full
+    // sweep, so no session is left behind in the superseded generation.
+    source.seed(OTHER, 1, &[]);
+    let outcome = scoped(Some(SESSION));
+    assert_eq!(outcome.refreshed + outcome.unchanged + outcome.skipped, 2);
+    assert_eq!(db.all_session_requests(OTHER).unwrap().len(), 2);
+}

@@ -56,16 +56,22 @@ impl EnrichmentOutcome {
     }
 }
 
-/// Refresh enrichment for every eligible session.
+/// Refresh enrichment for every eligible session, or for `only_session`.
 ///
 /// `session_state_dir` is the directory whose sessions are candidates; a
 /// session is eligible only when the bound source owns that directory, so an
 /// isolated or imported root never picks up the personal store's telemetry.
+///
+/// `only_session` keeps an open, in-progress session current without paying
+/// for a full sweep. It is honoured only while the source generation is the
+/// one already published: a replaced store is swept in full, or one session
+/// would be rewritten into a generation its neighbours are not in.
 #[tracing::instrument(skip_all)]
 pub fn refresh_session_store_enrichment(
     session_state_dir: &Path,
     index_db_path: &Path,
     enabled: bool,
+    only_session: Option<&str>,
     on_progress: impl FnMut(&EnrichmentProgress),
     is_cancelled: impl Fn() -> bool,
 ) -> Result<EnrichmentOutcome> {
@@ -98,13 +104,40 @@ pub fn refresh_session_store_enrichment(
         ));
     }
 
-    refresh_bound_source(&db, &binding, session_state_dir, on_progress, is_cancelled)
+    refresh_bound_source_scoped(
+        &db,
+        &binding,
+        session_state_dir,
+        only_session,
+        on_progress,
+        is_cancelled,
+    )
 }
 
+/// A full sweep of a bound source; the tests' entry point.
+#[cfg(test)]
 pub(crate) fn refresh_bound_source(
     db: &IndexDb,
     binding: &SourceBinding,
     session_state_dir: &Path,
+    on_progress: impl FnMut(&EnrichmentProgress),
+    is_cancelled: impl Fn() -> bool,
+) -> Result<EnrichmentOutcome> {
+    refresh_bound_source_scoped(
+        db,
+        binding,
+        session_state_dir,
+        None,
+        on_progress,
+        is_cancelled,
+    )
+}
+
+pub(crate) fn refresh_bound_source_scoped(
+    db: &IndexDb,
+    binding: &SourceBinding,
+    session_state_dir: &Path,
+    only_session: Option<&str>,
     mut on_progress: impl FnMut(&EnrichmentProgress),
     is_cancelled: impl Fn() -> bool,
 ) -> Result<EnrichmentOutcome> {
@@ -121,6 +154,10 @@ pub(crate) fn refresh_bound_source(
         Err(error) => return Ok(record_failure(db, binding, &error)),
     };
 
+    // Read before the upsert below publishes this generation.
+    let published = db.active_generation()?;
+    let only_session = only_session.filter(|_| published.as_deref() == Some(generation.as_str()));
+
     let source =
         index_db::enrichment::StoreSourceRow::ready(binding, &generation, reader.capabilities());
     // Readers see either the previous complete sweep or the next complete
@@ -129,7 +166,10 @@ pub(crate) fn refresh_bound_source(
     let transaction = db.conn.unchecked_transaction()?;
     db.upsert_store_source(&source, true)?;
 
-    let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
+    let mut sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
+    if let Some(id) = only_session {
+        sessions.retain(|session| session.id.as_str() == id);
+    }
     let total = sessions.len();
     let mut outcome = EnrichmentOutcome {
         availability: SourceAvailability::Ready,

@@ -335,6 +335,9 @@ pub struct SessionStoreStatusResponse {
     /// so a user can see which Copilot home is bound.
     pub resolved_path: Option<String>,
     pub source: Option<tracepilot_indexer::index_db::StoreSourceStatus>,
+    /// Set while the latest refresh failed. The source row keeps describing
+    /// the last good sweep, so this is the only place such a failure shows.
+    pub last_refresh_error: Option<RefreshFailure>,
 }
 
 #[derive(Debug, Serialize)]
@@ -343,6 +346,9 @@ pub struct SessionRequestUsageResponse {
     pub enabled: bool,
     pub page: tracepilot_indexer::index_db::RequestLedgerPage,
     pub coverage: Option<tracepilot_indexer::index_db::SessionCoverageRow>,
+    /// Totals over every request the filters match, and the session's full
+    /// set of filter values. `None` when the ledger is unavailable.
+    pub summary: Option<tracepilot_indexer::index_db::RequestLedgerSummary>,
 }
 
 impl SessionRequestUsageResponse {
@@ -357,6 +363,7 @@ impl SessionRequestUsageResponse {
                 cursor_expired: false,
             },
             coverage: None,
+            summary: None,
         }
     }
 }
@@ -427,6 +434,14 @@ impl RequestPerformanceResponse {
             coverage,
         }
     }
+}
+
+/// The latest enrichment refresh failure, kept until a refresh succeeds.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshFailure {
+    pub at: String,
+    pub message: String,
 }
 
 /// Outcome of an explicit enrichment refresh.

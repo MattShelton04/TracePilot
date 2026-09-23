@@ -18,12 +18,13 @@ mod lifecycle;
 mod model;
 mod reader;
 mod rows;
+mod summary;
 mod types;
 mod writer;
 
 pub use model::{
-    RequestLedgerPage, SessionCoverageRow, StoreSourceStatus, StoredBillingItem, StoredRequest,
-    StoredWorkRef,
+    RequestLedgerFacets, RequestLedgerPage, RequestLedgerSummary, SessionCoverageRow,
+    StoreSourceStatus, StoredBillingItem, StoredRequest, StoredWorkRef,
 };
 pub use types::{DEFAULT_REQUEST_PAGE, MAX_REQUEST_PAGE, RequestCursor, RequestLedgerFilter};
 

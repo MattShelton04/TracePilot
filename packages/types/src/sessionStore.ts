@@ -234,18 +234,59 @@ export interface RequestPerformance {
   cache: CacheReuse;
 }
 
+/** The latest refresh failure, kept until a refresh succeeds. */
+export interface RefreshFailure {
+  at: string;
+  message: string;
+}
+
 export interface SessionStoreStatusResponse {
   /** The stored preference. A missing store never rewrites it to false. */
   enabled: boolean;
   /** Where the store would be, whether or not it exists. */
   resolvedPath: string | null;
   source: StoreSourceStatus | null;
+  /**
+   * Set while the latest refresh failed. `source` keeps describing the last
+   * good sweep, so this is the only place such a failure shows.
+   */
+  lastRefreshError: RefreshFailure | null;
+}
+
+/**
+ * Every distinct value a session's ledger can be filtered by — read from the
+ * whole session, not the page on screen.
+ */
+export interface RequestLedgerFacets {
+  models: string[];
+  agentIds: string[];
+  initiators: string[];
+  reasoningEfforts: string[];
+  finishReasons: string[];
+}
+
+/** Figures over every request the ledger filters match, not one page. */
+export interface RequestLedgerSummary {
+  requestCount: number;
+  /**
+   * Exact decimal sum of the readable recorded charges; `null` when none
+   * recorded one. Complete only when `unchargedRequests` and
+   * `unreadableCharges` are both zero.
+   */
+  totalNanoAiu: string | null;
+  chargedRequests: number;
+  unchargedRequests: number;
+  unreadableCharges: number;
+  /** Unfiltered, so the options stay put while a filter narrows the rows. */
+  facets: RequestLedgerFacets;
 }
 
 export interface SessionRequestUsageResponse {
   enabled: boolean;
   page: RequestLedgerPage;
   coverage: SessionCoverageRow | null;
+  /** `null` when the ledger is unavailable or the cursor expired. */
+  summary: RequestLedgerSummary | null;
 }
 
 export interface SessionWorkRefsResponse {

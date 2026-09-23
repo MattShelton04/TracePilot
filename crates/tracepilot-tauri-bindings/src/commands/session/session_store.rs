@@ -62,6 +62,7 @@ pub async fn get_session_store_status(
             enabled,
             resolved_path,
             source: status,
+            last_refresh_error: crate::commands::search::enrichment::last_refresh_failure(),
         })
     })
 }
@@ -96,7 +97,7 @@ pub async fn get_session_request_usage(
         };
 
         let db = IndexDb::open_readonly(&index_path)?;
-        let page = db.list_request_usage(&RequestLedgerFilter {
+        let filter = RequestLedgerFilter {
             session_id: Some(session_id.clone()),
             models: filters.models,
             agent_ids: filters.agent_ids,
@@ -110,13 +111,22 @@ pub async fn get_session_request_usage(
             to_date: filters.to_date,
             limit,
             after,
-        })?;
+        };
+        let page = db.list_request_usage(&filter)?;
+        // Skipped for an expired cursor: the caller discards that response
+        // and asks again from the first page.
+        let summary = if page.cursor_expired {
+            None
+        } else {
+            db.request_ledger_summary(&filter)?
+        };
         let coverage = db.session_store_coverage(&session_id)?;
 
         Ok::<_, BindingsError>(SessionRequestUsageResponse {
             enabled: true,
             page,
             coverage,
+            summary,
         })
     })
 }

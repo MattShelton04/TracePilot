@@ -8,7 +8,7 @@
 
 mod cache;
 mod content;
-mod enrichment;
+pub(crate) mod enrichment;
 mod maintenance;
 mod references;
 mod reindex;

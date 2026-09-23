@@ -93,11 +93,11 @@ impl IndexDb {
         let Some(generation) = self.request_generation()? else {
             return Ok(RequestLedgerPage::unavailable());
         };
-        let revision = self
-            .session_store_status()?
-            .map_or(0, |source| source.revision);
+        let revision = self.ledger_revision(filter.session_id.as_deref())?;
         // A cursor from a superseded generation cannot be continued: its row
-        // IDs address different requests now.
+        // IDs address different requests now. Neither can one whose session
+        // was rewritten since, but a change to some other session is no
+        // reason to send this one back to its first page.
         if let Some(cursor) = &filter.after
             && (cursor.generation != generation || cursor.revision != revision)
         {
@@ -143,6 +143,19 @@ impl IndexDb {
             available: true,
             cursor_expired: false,
         })
+    }
+
+    /// The revision a ledger cursor is valid for: the session's own when the
+    /// ledger is one session's, else the source's.
+    fn ledger_revision(&self, session_id: Option<&str>) -> Result<i64> {
+        if let Some(session_id) = session_id
+            && let Some(coverage) = self.session_store_coverage(session_id)?
+        {
+            return Ok(coverage.revision);
+        }
+        Ok(self
+            .session_store_status()?
+            .map_or(0, |source| source.revision))
     }
 
     /// Every request for one session, for aggregates that need the whole
@@ -284,7 +297,7 @@ impl IndexDb {
             .flatten())
     }
 
-    fn build_request_filter(
+    pub(super) fn build_request_filter(
         &self,
         filter: &RequestLedgerFilter,
         generation: &str,

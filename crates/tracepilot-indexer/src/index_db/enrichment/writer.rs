@@ -79,6 +79,7 @@ impl IndexDb {
             return Ok(false);
         }
         let previous = self.enrichment_digest(write.session_id)?;
+        let previous_revision = self.session_coverage_revision(write.session_id)?;
 
         self.conn.execute_batch("SAVEPOINT replace_enrichment")?;
         let result = (|| -> Result<()> {
@@ -95,6 +96,14 @@ impl IndexDb {
                 let changed = self.enrichment_digest(write.session_id)? != previous;
                 if changed {
                     self.bump_enrichment_revision(write.source_id, write.session_id)?;
+                } else if let Some(revision) = previous_revision {
+                    // The rewrite stamped the source's current revision; an
+                    // unchanged session keeps the one its evidence last
+                    // changed at, or every sweep would expire its cursors.
+                    self.conn.execute(
+                        "UPDATE session_store_coverage SET revision = ?2 WHERE session_id = ?1",
+                        params![write.session_id, revision],
+                    )?;
                 }
                 self.conn.execute_batch("RELEASE replace_enrichment")?;
                 Ok(changed)
@@ -109,6 +118,14 @@ impl IndexDb {
                 Err(error)
             }
         }
+    }
+
+    fn session_coverage_revision(&self, session_id: &str) -> Result<Option<i64>> {
+        Ok(self.conn.query_row(
+            "SELECT MAX(revision) FROM session_store_coverage WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )?)
     }
 
     fn session_row_exists(&self, session_id: &str) -> Result<bool> {

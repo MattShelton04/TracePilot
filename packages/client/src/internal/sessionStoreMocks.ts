@@ -26,6 +26,7 @@ export function sessionStoreMocks(mocks: Mocks, eventsFileMtime: number): Record
     enabled: true,
     resolvedPath: "~/.copilot/session-store.db",
     source: mocks.MOCK_STORE_SOURCE,
+    lastRefreshError: null,
   };
   const usage: SessionRequestUsageResponse = {
     enabled: true,
@@ -37,6 +38,7 @@ export function sessionStoreMocks(mocks: Mocks, eventsFileMtime: number): Record
       cursorExpired: false,
     },
     coverage: mocks.MOCK_STORE_COVERAGE,
+    summary: mocks.MOCK_LEDGER_SUMMARY,
   };
   const workRefs: SessionWorkRefsResponse = {
     enabled: true,

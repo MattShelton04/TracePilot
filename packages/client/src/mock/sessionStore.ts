@@ -1,4 +1,5 @@
 import type {
+  RequestLedgerSummary,
   RequestPerformance,
   SessionCoverageRow,
   StoredRequest,
@@ -203,6 +204,22 @@ export const MOCK_REQUEST_LEDGER: StoredRequest[] = [
 
 // One explicit URL reference, one bare number that only the session's own
 // repository can place, and a "commit" value that is a branch name.
+/** The session-wide totals behind `MOCK_REQUEST_LEDGER`. */
+export const MOCK_LEDGER_SUMMARY: RequestLedgerSummary = {
+  requestCount: 3,
+  totalNanoAiu: "4579167500",
+  chargedRequests: 3,
+  unchargedRequests: 0,
+  unreadableCharges: 0,
+  facets: {
+    models: ["gpt-5.6-luna"],
+    agentIds: ["agent-explore-01"],
+    initiators: ["compaction", "sub-agent", "user"],
+    reasoningEfforts: ["high", "medium", "none"],
+    finishReasons: ["stop", "tool_calls"],
+  },
+};
+
 export const MOCK_WORK_REFS: StoredWorkRef[] = [
   {
     identity: "pullRequest|github.com|owner/project|844",

@@ -13,6 +13,7 @@ export {
 export { MOCK_EXPORT_RESULT } from "./export.js";
 export { MOCK_CACHE_OBSERVATIONS, MOCK_PROMPT_CACHE } from "./promptCache.js";
 export {
+  MOCK_LEDGER_SUMMARY,
   MOCK_REQUEST_LEDGER,
   MOCK_REQUEST_PERFORMANCE,
   MOCK_STORE_COVERAGE,

@@ -106,6 +106,39 @@ impl RequestLedgerPage {
     }
 }
 
+/// Every distinct value a session's ledger can be filtered by.
+///
+/// Read from the whole session rather than the page on screen, so a filter
+/// can offer an agent whose requests happen to sit on a later page.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestLedgerFacets {
+    pub models: Vec<String>,
+    pub agent_ids: Vec<String>,
+    pub initiators: Vec<String>,
+    pub reasoning_efforts: Vec<String>,
+    pub finish_reasons: Vec<String>,
+}
+
+/// Figures over every request a ledger filter matches, not one page.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestLedgerSummary {
+    /// Requests matching the filter.
+    pub request_count: i64,
+    /// Exact decimal sum of the readable recorded charges, or `None` when
+    /// no matching request recorded one. Complete only when
+    /// `uncharged_requests` and `unreadable_charges` are both zero.
+    pub total_nano_aiu: Option<String>,
+    pub charged_requests: i64,
+    /// Requests with no recorded charge at all.
+    pub uncharged_requests: i64,
+    /// Requests whose recorded charge could not be read as a decimal.
+    pub unreadable_charges: i64,
+    /// Unfiltered: the options stay put while a filter narrows the rows.
+    pub facets: RequestLedgerFacets,
+}
+
 /// One cached linked-work reference.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -57,13 +57,19 @@ export async function getRequestPerformance(
 }
 
 /**
- * Re-read the store for every eligible session.
+ * Re-read the store for every eligible session, or only `sessionId` — used to
+ * keep an open, in-progress session current without a full sweep.
  *
  * Also the path that purges cached rows when the feature is switched off, so
  * disabling stops retention rather than merely hiding data.
  */
-export async function refreshSessionEnrichment(): Promise<EnrichmentRefreshResponse> {
-  return invoke<EnrichmentRefreshResponse>("refresh_session_enrichment");
+export async function refreshSessionEnrichment(
+  sessionId?: string,
+): Promise<EnrichmentRefreshResponse> {
+  return invoke<EnrichmentRefreshResponse>(
+    "refresh_session_enrichment",
+    sessionId ? { sessionId } : undefined,
+  );
 }
 
 /**

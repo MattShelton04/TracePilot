@@ -35,8 +35,9 @@ pub use analytics_queries::request_performance::{
     AgentRequestRollup, ModelRequestPerformance, RequestPerformanceFilter, RequestPerformanceReport,
 };
 pub use enrichment::{
-    RequestCursor, RequestLedgerFilter, RequestLedgerPage, SessionCoverageRow, StoreSourceStatus,
-    StoredBillingItem, StoredRequest, StoredWorkRef,
+    RequestCursor, RequestLedgerFacets, RequestLedgerFilter, RequestLedgerPage,
+    RequestLedgerSummary, SessionCoverageRow, StoreSourceStatus, StoredBillingItem, StoredRequest,
+    StoredWorkRef,
 };
 pub use search_reader::{
     ContextSnippet, FtsHealthInfo, SearchFacets, SearchFilters, SearchResult, SearchStats,
