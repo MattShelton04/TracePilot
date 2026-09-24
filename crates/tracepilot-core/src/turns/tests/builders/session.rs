@@ -189,6 +189,9 @@ impl SessionWarningBuilder {
 pub struct ModelChangeBuilder {
     previous_model: Option<String>,
     new_model: Option<String>,
+    previous_reasoning_effort: Option<String>,
+    reasoning_effort: Option<String>,
+    source: Option<String>,
 }
 
 impl ModelChangeBuilder {
@@ -196,6 +199,9 @@ impl ModelChangeBuilder {
         Self {
             previous_model: None,
             new_model: None,
+            previous_reasoning_effort: None,
+            reasoning_effort: None,
+            source: None,
         }
     }
 
@@ -209,14 +215,24 @@ impl ModelChangeBuilder {
         self
     }
 
+    pub fn effort(mut self, previous: impl Into<String>, new: impl Into<String>) -> Self {
+        self.previous_reasoning_effort = Some(previous.into());
+        self.reasoning_effort = Some(new.into());
+        self
+    }
+
+    pub fn source(mut self, source: impl Into<String>) -> Self {
+        self.source = Some(source.into());
+        self
+    }
+
     fn build_data(self) -> ModelChangeData {
         ModelChangeData {
             previous_model: self.previous_model,
             new_model: self.new_model,
-            previous_reasoning_effort: None,
-            reasoning_effort: None,
-            context_tier: None,
-            cause: None,
+            previous_reasoning_effort: self.previous_reasoning_effort,
+            reasoning_effort: self.reasoning_effort,
+            source: self.source,
             ..Default::default()
         }
     }

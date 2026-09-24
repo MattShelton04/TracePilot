@@ -19,6 +19,7 @@ import type {
   CacheWindow,
   ConversationTurn,
   SessionEventSeverity,
+  TurnSessionEvent,
   TurnToolCall,
 } from "@tracepilot/types";
 import {
@@ -99,6 +100,16 @@ function severityVariant(severity: SessionEventSeverity): "danger" | "warning" |
   return "neutral";
 }
 
+function sessionEventIconName(event: TurnSessionEvent): string {
+  if (
+    event.eventType === "session.model_change" ||
+    event.eventType === "session.auto_mode_resolved"
+  ) {
+    return "cpu";
+  }
+  return severityIconName(event.severity);
+}
+
 function severityIconName(severity: SessionEventSeverity): string {
   if (severity === "error") return "circle-alert";
   if (severity === "warning") return "triangle-alert";
@@ -113,6 +124,8 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   "session.truncation": "Truncation",
   "session.plan_changed": "Plan",
   "session.mode_changed": "Mode",
+  "session.model_change": "Model",
+  "session.auto_mode_resolved": "Auto mode",
 };
 
 function eventTypeLabel(eventType: string): string {
@@ -230,7 +243,7 @@ function onRetryFullResult(toolCallId: string) {
         <div v-if="turn.sessionEvents?.length" class="session-events-list compact">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
-              <component :is="resolveLucideIcon(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+              <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
             <span class="session-event-summary">{{ se.summary }}</span>
@@ -314,7 +327,7 @@ function onRetryFullResult(toolCallId: string) {
         <div v-if="turn.sessionEvents?.length" class="session-events-list">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
-              <component :is="resolveLucideIcon(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+              <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
             <span class="session-event-summary">{{ se.summary }}</span>

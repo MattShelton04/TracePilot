@@ -58,6 +58,8 @@ pub struct TurnReconstructor {
     pub(crate) explicit_turn_models: HashMap<usize, String>,
     /// Tracks the most recent session-level model, so new turns inherit it.
     pub(crate) session_model: Option<String>,
+    /// The model auto mode last chose, so repeated choices are shown once.
+    pub(crate) auto_model_choice: Option<String>,
     /// Session events buffered while no turn is active.
     /// Flushed into the next real turn when one is opened.
     pub(crate) pending_session_events: Vec<TurnSessionEvent>,
@@ -102,6 +104,7 @@ impl TurnReconstructor {
             authoritative_subagent_models: std::collections::HashSet::new(),
             explicit_turn_models: HashMap::new(),
             session_model: None,
+            auto_model_choice: None,
             pending_session_events: Vec::new(),
             pending_system_messages: Vec::new(),
             pending_system_messages_ts: None,
@@ -209,7 +212,13 @@ impl TurnReconstructor {
                 self.handle_assistant_turn_end(event, data);
             }
             (SessionEventType::SessionModelChange, TypedEventData::ModelChange(data)) => {
-                self.handle_session_model_change(data);
+                self.handle_session_model_change(event, data);
+            }
+            (
+                SessionEventType::SessionAutoModeResolved,
+                TypedEventData::SessionAutoModeResolved(data),
+            ) => {
+                self.handle_auto_mode_resolved(event, data);
             }
             (SessionEventType::Abort, TypedEventData::Abort(_data)) => {
                 self.finalize_current_turn(false, event.raw.timestamp);
