@@ -14,6 +14,7 @@ $oldExecutable = $env:TRACEPILOT_E2E_EXECUTABLE
 $oldGenerator = $env:TRACEPILOT_E2E_GENERATOR
 $exitCode = 1
 $installed = $false
+$frontendBuild = $null
 
 function Write-Report {
     [IO.File]::WriteAllText($reportPath, ($report | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
@@ -44,9 +45,23 @@ try {
         throw 'An existing TracePilot E2E installation is registered. Uninstall it before running this suite.'
     }
     if (-not $SkipBuild) {
+        # The frontend bundle and the fixture generator are independent, so the
+        # bundle builds while Cargo compiles the generator. Tauri's
+        # beforeBuildCommand is disabled below because dist/ is already built.
+        # Type checking is `pnpm typecheck`'s job (CI runs it separately).
+        $frontendLog = Join-Path $results 'frontend-build.log'
+        $frontendErrorLog = Join-Path $results 'frontend-build.err.log'
+        $frontendBuild = Start-Process -FilePath 'node' -ArgumentList @('node_modules/vite/bin/vite.js', 'build') `
+            -WorkingDirectory (Join-Path $repo 'apps/desktop') -NoNewWindow -PassThru `
+            -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendErrorLog
+        $null = $frontendBuild.Handle # Retain the handle so Windows PowerShell can read ExitCode after exit.
         & cargo build --locked --release -p tracepilot-bench --example e2e_fixture
         if ($LASTEXITCODE -ne 0) { throw 'Fixture generator build failed.' }
-        $tauriArgs = @('tauri', 'build', '--features', 'automation-devtools')
+        $frontendBuild.WaitForExit()
+        Get-Content -LiteralPath $frontendLog, $frontendErrorLog | Write-Host
+        if ($frontendBuild.ExitCode -ne 0) { throw "Frontend build exited with $($frontendBuild.ExitCode)." }
+        $tauriArgs = @('tauri', 'build', '--features', 'automation-devtools',
+            '--config', (Join-Path $repo 'tests/e2e/tauri.prebuilt-frontend.conf.json'))
         if ($Install) { $tauriArgs += @('--bundles', 'nsis', '--config', (Join-Path $repo 'tests/e2e/tauri.e2e.conf.json')) }
         else { $tauriArgs += '--no-bundle' }
         & pnpm @tauriArgs
@@ -92,6 +107,8 @@ try {
     $report.error = $_.ToString()
     Write-Error $_ -ErrorAction Continue
 } finally {
+    # Only reached early when the fixture build fails; this exact process was started above.
+    if ($frontendBuild -and -not $frontendBuild.HasExited) { $frontendBuild.Kill() }
     try {
         $uninstaller = Join-Path $installDir 'uninstall.exe'
         if ($Install -and (Test-Path -LiteralPath $uninstaller)) {

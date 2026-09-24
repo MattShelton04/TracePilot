@@ -116,15 +116,35 @@ jobs:
         continue-on-error: true
         run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
 
-  desktop_e2e:
-    name: desktop integration (Windows installer)
+  # The app.ps1 lifecycle contracts need Windows but not a native build, so they
+  # run beside the installer job instead of ahead of its build.
+  automation_contracts:
+    name: automation contracts (Windows)
     runs-on: windows-2025
-    timeout-minutes: 45
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-node-pnpm
       - name: Native automation lifecycle contracts
         run: pnpm test:automation
+
+  desktop_e2e:
+    name: desktop integration (Windows installer)
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      # rust-cache keeps dependencies only, so every run recompiles the
+      # workspace crates. With the shipping profile (codegen-units=1, thin LTO)
+      # that took 6.5-10 minutes, mostly single-threaded LLVM work. This job
+      # checks packaging, installation and native behaviour rather than shipping
+      # codegen, so it uses Cargo's default release parallelism while keeping
+      # opt-level 2 and strip. Set at job level so the rust-cache key includes
+      # these values. Release builds are unaffected.
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+      CARGO_PROFILE_RELEASE_LTO: "off"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-node-pnpm
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: e2e-release
@@ -235,7 +255,7 @@ jobs:
   required:
     name: required
     if: always()
-    needs: [frontend_build, frontend_test, desktop_test, desktop_e2e, rust, policy, security]
+    needs: [frontend_build, frontend_test, desktop_test, automation_contracts, desktop_e2e, rust, policy, security]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -245,12 +265,13 @@ jobs:
           FRONTEND_BUILD: ${{ needs.frontend_build.result }}
           FRONTEND_TEST: ${{ needs.frontend_test.result }}
           DESKTOP_TEST: ${{ needs.desktop_test.result }}
+          AUTOMATION_CONTRACTS: ${{ needs.automation_contracts.result }}
           DESKTOP_E2E: ${{ needs.desktop_e2e.result }}
           RUST: ${{ needs.rust.result }}
           POLICY: ${{ needs.policy.result }}
           SECURITY: ${{ needs.security.result }}
         run: |
-          for result in "$FRONTEND_BUILD" "$FRONTEND_TEST" "$DESKTOP_TEST" "$DESKTOP_E2E" "$RUST" "$POLICY" "$SECURITY"; do
+          for result in "$FRONTEND_BUILD" "$FRONTEND_TEST" "$DESKTOP_TEST" "$AUTOMATION_CONTRACTS" "$DESKTOP_E2E" "$RUST" "$POLICY" "$SECURITY"; do
             if [ "$result" != "success" ]; then
               echo "::error::A required CI job finished with result: $result"
               exit 1
