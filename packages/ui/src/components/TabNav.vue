@@ -71,7 +71,7 @@ function revealTab(index: number) {
 }
 
 function revealCurrentTab() {
-  const focused = tabRefs.value.indexOf(document.activeElement as HTMLButtonElement);
+  const focused = tabRefs.value.findIndex((tab) => tab === document.activeElement);
   revealTab(
     focused >= 0 ? focused : props.tabs.findIndex((tab) => tab.routeName === activeTab.value),
   );

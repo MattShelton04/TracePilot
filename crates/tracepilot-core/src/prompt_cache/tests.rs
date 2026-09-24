@@ -105,5 +105,4 @@ pub(super) fn build(events: &[TypedEvent]) -> PromptCacheTimeline {
 }
 
 mod changes;
-mod observations;
 mod windows;

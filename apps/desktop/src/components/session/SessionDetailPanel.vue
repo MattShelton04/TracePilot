@@ -32,7 +32,6 @@ import type { Router } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
-import { useLiveSessionEnrichment } from "@/composables/useLiveSessionEnrichment";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
@@ -99,14 +98,9 @@ async function checkRunning() {
   }
 }
 
-const liveEnrichment = useLiveSessionEnrichment();
-
 const { refreshing, refresh } = useAutoRefresh({
   onRefresh: async () => {
     await Promise.all([props.store.refreshAll(), checkRunning()]);
-    // A running session's recorded requests arrive in the session store, not
-    // its event log; keep them current without holding up this refresh.
-    if (isSessionActive.value) void liveEnrichment.nudge(props.sessionId);
   },
   enabled: computed(() => prefs.autoRefreshEnabled && (props.refreshEnabled ?? true)),
   intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),

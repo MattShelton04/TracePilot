@@ -32,7 +32,6 @@ export function buildCachedSessionSnapshot(
     incidents: ctx.sections.incidentsSection.data.value,
     todos: ctx.sections.todosSection.data.value,
     promptCache: ctx.sections.promptCacheSection.data.value,
-    promptCacheObservations: ctx.sections.promptCacheObservations.value,
     loadedSections: new Set(ctx.loaded.value),
   } satisfies CachedSession;
 }
@@ -67,6 +66,5 @@ export function restoreFromCachedSession(ctx: SnapshotContext, cached: CachedSes
   ctx.sections.incidentsSection.data.value = cached.incidents;
   ctx.sections.todosSection.data.value = cached.todos;
   ctx.sections.promptCacheSection.data.value = cached.promptCache ?? null;
-  ctx.sections.promptCacheObservations.value = cached.promptCacheObservations ?? [];
   ctx.loaded.value = new Set(cached.loadedSections);
 }

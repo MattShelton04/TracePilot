@@ -79,19 +79,6 @@ pub async fn reindex_sessions(
         );
     }
 
-    // Enrichment: an independent pass on its own gate. It reads an external
-    // file, so it must not queue behind Phase 2 and must not affect `result`.
-    if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
-        let cfg3 = read_config(&state);
-        super::enrichment::spawn_enrichment_pass(
-            gates.inner().clone(),
-            cfg3.session_state_dir(),
-            cfg3.index_db_path(),
-            cfg3.features.session_store_enrichment,
-            app.clone(),
-        );
-    }
-
     result?
 }
 
@@ -148,19 +135,6 @@ pub async fn reindex_sessions_full(
             |sdir, ipath, on_progress| {
                 tracepilot_indexer::rebuild_search_content(sdir, ipath, on_progress, || false)
             },
-        );
-    }
-
-    // Enrichment: an independent pass on its own gate. It reads an external
-    // file, so it must not queue behind Phase 2 and must not affect `result`.
-    if result.as_ref().map(|r| r.is_ok()).unwrap_or(false) {
-        let cfg3 = read_config(&state);
-        super::enrichment::spawn_enrichment_pass(
-            gates.inner().clone(),
-            cfg3.session_state_dir(),
-            cfg3.index_db_path(),
-            cfg3.features.session_store_enrichment,
-            app.clone(),
         );
     }
 

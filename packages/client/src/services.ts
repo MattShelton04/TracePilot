@@ -11,5 +11,4 @@ export * from "./maint.js";
 export * from "./orchestration.js";
 export * from "./sdk.js";
 export * from "./search.js";
-export * from "./sessionStore.js";
 export * from "./sessions.js";

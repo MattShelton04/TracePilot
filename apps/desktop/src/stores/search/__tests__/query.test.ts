@@ -9,9 +9,6 @@ const baseParsed: ParsedQualifiers = {
   tool: null,
   session: null,
   sort: null,
-  pr: null,
-  issue: null,
-  commit: null,
 };
 
 describe("stores/search/query – mergeSearchInputs", () => {
@@ -87,9 +84,6 @@ describe("stores/search/query – mergeSearchInputs", () => {
         tool: "qualtool",
         session: "qual-session",
         sort: "oldest",
-        pr: null,
-        issue: null,
-        commit: null,
       },
       {
         contentTypes: [],
@@ -104,37 +98,6 @@ describe("stores/search/query – mergeSearchInputs", () => {
     expect(merged.toolName).toBe("qualtool");
     expect(merged.sessionId).toBe("qual-session");
     expect(merged.sortBy).toBe("oldest");
-  });
-
-  it("carries the linked-work qualifiers through", () => {
-    const merged = mergeSearchInputs(
-      { ...baseParsed, pr: "123", issue: "42", commit: "9f1c2ab" },
-      {
-        contentTypes: [],
-        repository: null,
-        toolName: null,
-        sessionId: null,
-        sortBy: "relevance",
-        isBrowseMode: true,
-      },
-    );
-    expect(merged.pullRequest).toBe("123");
-    expect(merged.issue).toBe("42");
-    expect(merged.gitRef).toBe("9f1c2ab");
-  });
-
-  it("leaves the linked-work qualifiers null when none were typed", () => {
-    const merged = mergeSearchInputs(baseParsed, {
-      contentTypes: [],
-      repository: "org/repo",
-      toolName: null,
-      sessionId: null,
-      sortBy: "relevance",
-      isBrowseMode: true,
-    });
-    expect(merged.pullRequest).toBeNull();
-    expect(merged.issue).toBeNull();
-    expect(merged.gitRef).toBeNull();
   });
 
   it("returns parsed.cleanQuery verbatim (including empty string for browse)", () => {

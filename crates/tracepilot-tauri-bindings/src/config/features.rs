@@ -29,14 +29,6 @@ pub struct FeaturesConfig {
     /// Agents explorer: agent definitions, overrides and cross-session usage.
     #[serde(default = "default_true")]
     pub agents: bool,
-    /// Use the Copilot CLI's session store as an extra source of evidence:
-    /// per-request billing, timings, cache counters and linked work.
-    ///
-    /// The preference means "use this source when available". A missing store
-    /// must never rewrite it to false — the user may install or update the
-    /// CLI later, and the store would then be silently ignored.
-    #[serde(default = "default_true")]
-    pub session_store_enrichment: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -52,7 +44,6 @@ impl Default for FeaturesConfig {
             config_injector: false,
             prompt_cache_insights: true,
             agents: true,
-            session_store_enrichment: true,
         }
     }
 }

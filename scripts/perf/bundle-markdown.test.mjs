@@ -27,7 +27,7 @@ test("summary and signed changes precede a closed breakdown with valid Markdown 
 test("untrusted names cannot inject HTML or table rows, and huge inventories fit comments", () => {
   const value = report();
   value.assets = Array.from({ length: 2000 }, () => ({
-    file: `<script>|\`\n${"x".repeat(280)}`,
+    file: "<script>|`\n" + "x".repeat(280),
     bytes: 1,
     gzipBytes: 1,
   }));

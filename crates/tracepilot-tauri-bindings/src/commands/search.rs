@@ -8,7 +8,6 @@
 
 mod cache;
 mod content;
-pub(crate) mod enrichment;
 mod maintenance;
 mod references;
 mod reindex;
@@ -17,7 +16,6 @@ mod sessions;
 #[allow(unused_imports)]
 pub use cache::invalidate_facets_cache;
 pub use content::*;
-pub use enrichment::*;
 pub use maintenance::*;
 pub use references::*;
 pub use reindex::*;

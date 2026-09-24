@@ -30,9 +30,6 @@ export async function searchContent(
     excludeContentTypes: filters?.excludeContentTypes,
     repositories: filters?.repositories,
     toolNames: filters?.toolNames,
-    pullRequests: filters?.pullRequests,
-    issues: filters?.issues,
-    gitRefs: filters?.gitRefs,
     sessionId: filters?.sessionId,
     dateFromUnix: filters?.dateFromUnix,
     dateToUnix: filters?.dateToUnix,
@@ -51,9 +48,6 @@ export async function getSearchFacets(
     | "excludeContentTypes"
     | "repositories"
     | "toolNames"
-    | "pullRequests"
-    | "issues"
-    | "gitRefs"
     | "sessionId"
     | "dateFromUnix"
     | "dateToUnix"
@@ -65,9 +59,6 @@ export async function getSearchFacets(
     excludeContentTypes: filters?.excludeContentTypes,
     repositories: filters?.repositories,
     toolNames: filters?.toolNames,
-    pullRequests: filters?.pullRequests,
-    issues: filters?.issues,
-    gitRefs: filters?.gitRefs,
     sessionId: filters?.sessionId,
     dateFromUnix: filters?.dateFromUnix,
     dateToUnix: filters?.dateToUnix,

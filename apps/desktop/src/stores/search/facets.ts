@@ -15,9 +15,6 @@ export interface FacetOverrides {
   repo?: string | null;
   tool?: string | null;
   session?: string | null;
-  pullRequest?: string | null;
-  issue?: string | null;
-  gitRef?: string | null;
 }
 
 /**
@@ -58,11 +55,6 @@ export function createFacetsSlice(q: QuerySlice) {
       const repo = overrides?.repo ?? q.repository.value;
       const tool = overrides?.tool ?? q.toolName.value;
       const session = overrides?.session !== undefined ? overrides.session : q.sessionId.value;
-      // Linked-work qualifiers live only in the query text, so an override is
-      // their whole story — there is no filter ref to fall back to.
-      const pullRequest = overrides?.pullRequest ?? null;
-      const issue = overrides?.issue ?? null;
-      const gitRef = overrides?.gitRef ?? null;
 
       // Skip re-fetch for unfiltered browse-mode calls when results are already fresh.
       // Filter-scoped fetches (after a search) always run to reflect the current query.
@@ -73,9 +65,6 @@ export function createFacetsSlice(q: QuerySlice) {
         !repo &&
         !tool &&
         !session &&
-        !pullRequest &&
-        !issue &&
-        !gitRef &&
         !dateFromUnix &&
         !dateToUnix;
       if (isUnfiltered && facets.value && Date.now() - facetsLastFetchedAt < FACETS_CACHE_TTL_MS) {
@@ -88,9 +77,6 @@ export function createFacetsSlice(q: QuerySlice) {
           q.excludeContentTypes.value.length > 0 ? q.excludeContentTypes.value : undefined,
         repositories: repo ? [repo] : undefined,
         toolNames: tool ? [tool] : undefined,
-        pullRequests: pullRequest ? [pullRequest] : undefined,
-        issues: issue ? [issue] : undefined,
-        gitRefs: gitRef ? [gitRef] : undefined,
         sessionId: session ?? undefined,
         dateFromUnix,
         dateToUnix,
