@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { CacheWindow } from "@tracepilot/types";
+import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
 import { type CurrentObjective, ObjectiveBanner } from "@tracepilot/ui";
 import { ref } from "vue";
+import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
 import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
@@ -20,10 +21,13 @@ const props = withDefaults(
     objective?: CurrentObjective | null;
     /** Prompt-cache windows keyed by the turn they resumed. */
     cacheWindows?: Map<number, CacheWindow>;
+    /** Prompt-cache timeline, for the live countdown after the last turn. */
+    cacheTimeline?: PromptCacheTimeline | null;
   }>(),
   {
     objective: null,
     cacheWindows: () => new Map(),
+    cacheTimeline: null,
   },
 );
 
@@ -149,6 +153,8 @@ defineExpose({ revealEvent });
                 @select-subagent="panel.selectSubagent"
               />
             </template>
+
+            <CacheLiveDivider :timeline="props.cacheTimeline" />
           </div>
         </div>
       </div>

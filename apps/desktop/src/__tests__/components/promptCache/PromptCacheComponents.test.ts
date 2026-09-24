@@ -2,6 +2,7 @@ import { setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AnalyticsPromptCachePanel from "@/components/analytics/AnalyticsPromptCachePanel.vue";
+import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import MetricsPromptCacheSection from "@/components/metrics/MetricsPromptCacheSection.vue";
 import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
@@ -51,6 +52,75 @@ describe("PromptCacheHeaderChip", () => {
       props: { timeline: makeTimeline([{ ...pending, confidence: "estimated" }]) },
     });
     expect(wrapper.find('[data-testid="prompt-cache-chip"]').exists()).toBe(false);
+  });
+});
+
+describe("CacheLiveDivider", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-12T00:12:18.000Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const pending = makeWindow({
+    outcome: "pending",
+    resumeAt: null,
+    idleSeconds: null,
+    expiresAt: "2026-09-12T00:30:00.000Z",
+  });
+
+  it("says what the countdown is as the cache goes warm → expiring → expired", async () => {
+    const wrapper = mount(CacheLiveDivider, {
+      props: { timeline: makeTimeline([pending]) },
+      attachTo: document.body,
+    });
+    const divider = () => wrapper.get('[data-testid="cache-live-divider"]');
+    expect(divider().text()).toContain("Cache warm");
+    expect(divider().text()).toContain("17:42 left before the prompt cache expires");
+    expect(divider().classes()).toContain("cache-live--warm");
+    expect(divider().attributes("aria-label")).toContain("gpt-5.6-luna · TTL 30m");
+
+    await vi.advanceTimersByTimeAsync(13 * 60_000);
+    expect(divider().text()).toContain("Cache expiring");
+    expect(divider().text()).toContain("4:42 left before the prompt cache expires");
+    expect(divider().classes()).toContain("cache-live--attention");
+
+    await vi.advanceTimersByTimeAsync(17 * 60_000);
+    expect(divider().text()).toContain("Cache expired");
+    expect(divider().text()).toContain(
+      "Expired 12m ago · the next prompt re-sends the full context",
+    );
+    expect(divider().classes()).toContain("cache-live--cold");
+    wrapper.unmount();
+  });
+
+  it("disappears once the next prompt resumes the window", async () => {
+    const wrapper = mount(CacheLiveDivider, {
+      props: { timeline: makeTimeline([pending]) },
+    });
+    expect(wrapper.find('[data-testid="cache-live-divider"]').exists()).toBe(true);
+
+    await wrapper.setProps({
+      timeline: makeTimeline([
+        { ...pending, outcome: "warm", resumeAt: "2026-09-12T00:20:00.000Z", idleSeconds: 480 },
+      ]),
+    });
+    expect(wrapper.find('[data-testid="cache-live-divider"]').exists()).toBe(false);
+  });
+
+  it("stays hidden without a timeline or for estimated expiries", () => {
+    expect(
+      mount(CacheLiveDivider, { props: { timeline: null } })
+        .find('[data-testid="cache-live-divider"]')
+        .exists(),
+    ).toBe(false);
+    expect(
+      mount(CacheLiveDivider, {
+        props: { timeline: makeTimeline([{ ...pending, confidence: "estimated" }]) },
+      })
+        .find('[data-testid="cache-live-divider"]')
+        .exists(),
+    ).toBe(false);
   });
 });
 

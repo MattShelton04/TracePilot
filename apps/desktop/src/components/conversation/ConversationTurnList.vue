@@ -18,6 +18,7 @@
 import type {
   CacheWindow,
   ConversationTurn,
+  PromptCacheTimeline,
   SessionEventSeverity,
   TurnSessionEvent,
   TurnToolCall,
@@ -40,6 +41,7 @@ import {
   truncateText,
 } from "@tracepilot/ui";
 import { Coins, User } from "lucide-vue-next";
+import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 
 interface ToggleSetLike<T> {
@@ -61,6 +63,8 @@ const props = defineProps<{
   richEnabledFor: (toolName: string) => boolean;
   /** Prompt-cache windows keyed by the turn they resumed (compact view). */
   cacheWindows?: ReadonlyMap<number, CacheWindow>;
+  /** Prompt-cache timeline, for the live countdown after the last turn (compact view). */
+  cacheTimeline?: PromptCacheTimeline | null;
 }>();
 
 const emit = defineEmits<{
@@ -252,6 +256,7 @@ function onRetryFullResult(toolCallId: string) {
       </div>
       </div>
     </template>
+    <CacheLiveDivider :timeline="cacheTimeline ?? null" />
   </div>
 
   <!-- ═══════════════ TIMELINE VIEW ═══════════════ -->
