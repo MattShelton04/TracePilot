@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderBundleMarkdown, sizeDelta, validateBundleReport } from "./bundle-markdown.mjs";
+import {
+  chunkChanges,
+  renderBundleMarkdown,
+  sizeDelta,
+  validateBundleReport,
+} from "./bundle-markdown.mjs";
 
 const report = (size = 2) => ({
   schemaVersion: 2,
@@ -17,6 +22,7 @@ test("summary and signed changes precede a closed breakdown with valid Markdown 
   assert.match(summary, /\+1.0 KiB \(\+50.0%\)/);
   assert.match(summary, /Gzipped/);
   assert.equal(summary.includes("| File |"), false);
+  assert.match(summary, /\| assets\/app.js \| 2.0 \| 3.0 \| \+1.0 \|/);
   assert.match(detail, /<summary>.*<\/summary>\n\n\| Metric/);
   assert.ok(body.endsWith("\n</details>\n"));
   assert.equal(sizeDelta(1, 2), "-1.0 KiB (-50.0%)");
@@ -48,4 +54,32 @@ test("invalid artifact shapes, sizes and oversized inventories are rejected", ()
   }
   for (const size of [NaN, Infinity, -1, "10"])
     assert.throws(() => validateBundleReport(report(size)));
+});
+test("chunk changes pair hashed names, sum same-name chunks and mark new or removed chunks", () => {
+  const head = report(),
+    base = report();
+  head.assets = [
+    { file: "assets/index-AAAAAAAA.js", bytes: 3000, gzipBytes: 900 },
+    { file: "assets/index-BBBBBBBB.js", bytes: 1000, gzipBytes: 300 },
+    { file: "assets/Agents-CCCC_-DD.js", bytes: 4096, gzipBytes: 1000 },
+    { file: "assets/same-EEEEEEEE.css", bytes: 500, gzipBytes: 100 },
+  ];
+  base.assets = [
+    { file: "assets/index-ZZZZZZZZ.js", bytes: 2000, gzipBytes: 700 },
+    { file: "assets/Old-YYYYYYYY.js", bytes: 2048, gzipBytes: 500 },
+    { file: "assets/same-XXXXXXXX.css", bytes: 500, gzipBytes: 100 },
+  ];
+  assert.deepEqual(
+    chunkChanges(head, base).map(({ name, delta, files }) => [name, delta, files]),
+    [
+      ["assets/Agents.js", 4096, 1],
+      ["assets/Old.js", -2048, 1],
+      ["assets/index.js", 2000, 2],
+    ],
+  );
+  const body = renderBundleMarkdown(head, base);
+  assert.match(body, /assets\/Agents.js · new \| — \| 4.0 \| \+4.0 \|/);
+  assert.match(body, /assets\/Old.js · removed \| 2.0 \| — \| -2.0 \|/);
+  assert.match(body, /assets\/index.js \(2 files\)/);
+  assert.equal(body.includes("same.css |"), false);
 });
