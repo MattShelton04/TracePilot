@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { getModelsByTier } from "@tracepilot/types";
 import { Banner, EmptyState } from "@tracepilot/ui";
 import { FileText, X } from "lucide-vue-next";
 import { computed, useId } from "vue";
 import { useConfigInjectorContext } from "@/composables/useConfigInjector";
+import ModelOptions from "./ModelOptions.vue";
 
 const {
   store,
@@ -22,9 +22,6 @@ const {
   handleSaveGlobalConfig,
 } = useConfigInjectorContext();
 
-const PREMIUM_MODELS = getModelsByTier("premium").map((m) => m.id);
-const STANDARD_MODELS = getModelsByTier("standard").map((m) => m.id);
-const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
 const formId = useId();
 
 // Memoize the change counter so it isn't recomputed (two array filters) on every
@@ -63,15 +60,7 @@ const diffChangeCount = computed(
           <label :for="`${formId}-model`" class="form-label">Default Model</label>
           <select :id="`${formId}-model`" v-model="editModel" class="form-input">
             <option value="">— select —</option>
-            <optgroup label="Premium">
-              <option v-for="m in PREMIUM_MODELS" :key="m" :value="m">{{ m }}</option>
-            </optgroup>
-            <optgroup label="Standard">
-              <option v-for="m in STANDARD_MODELS" :key="m" :value="m">{{ m }}</option>
-            </optgroup>
-            <optgroup label="Fast / Cheap">
-              <option v-for="m in FAST_MODELS" :key="m" :value="m">{{ m }}</option>
-            </optgroup>
+            <ModelOptions :current="editModel" />
           </select>
         </div>
 

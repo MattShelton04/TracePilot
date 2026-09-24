@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AgentDefinition } from "@tracepilot/types";
-import { getAllModelIds, getModelsByTier, getModelTier, getTierLabel } from "@tracepilot/types";
+import { getAllModelIds, getModelTier, getTierLabel } from "@tracepilot/types";
 import {
   EmptyState,
   LUCIDE_ICON_COMPONENTS,
@@ -15,6 +15,7 @@ import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
 import { agentMeta } from "@/utils/agents/agentMeta";
+import ModelOptions from "./ModelOptions.vue";
 
 const ctx = useConfigInjectorContext();
 const router = useRouter();
@@ -45,9 +46,6 @@ const {
 
 const ALL_MODELS = getAllModelIds();
 const instanceId = useId();
-const PREMIUM_MODELS = getModelsByTier("premium").map((m) => m.id);
-const STANDARD_MODELS = getModelsByTier("standard").map((m) => m.id);
-const FAST_MODELS = getModelsByTier("fast").map((m) => m.id);
 
 // Default the batch picker to GPT-5.4 — neutral, non-"premium-upgrade"
 // framing. Users can pick any other model from the dropdown.
@@ -71,7 +69,7 @@ function agentIcon(name: string): unknown {
 
 const uniqueModelCount = computed(() => new Set(store.agents.map((a) => a.model)).size);
 const premiumAgentCount = computed(
-  () => store.agents.filter((a: AgentDefinition) => PREMIUM_MODELS.includes(a.model)).length,
+  () => store.agents.filter((a: AgentDefinition) => getModelTier(a.model) === "premium").length,
 );
 </script>
 
@@ -170,15 +168,7 @@ const premiumAgentCount = computed(
             :aria-label="`Model for ${agent.name}`"
             @change="onAgentModelSelect(agent)"
           >
-            <optgroup label="Premium">
-              <option v-for="m in PREMIUM_MODELS" :key="m" :value="m">{{ m }}</option>
-            </optgroup>
-            <optgroup label="Standard">
-              <option v-for="m in STANDARD_MODELS" :key="m" :value="m">{{ m }}</option>
-            </optgroup>
-            <optgroup label="Fast / Cheap">
-              <option v-for="m in FAST_MODELS" :key="m" :value="m">{{ m }}</option>
-            </optgroup>
+            <ModelOptions :current="agentModels[agent.filePath]" />
           </select>
           <Transition name="banner">
             <span v-if="autoSavedAgent === agent.filePath" class="auto-saved-hint">(auto-saved)</span>
@@ -198,15 +188,7 @@ const premiumAgentCount = computed(
         :disabled="store.saving || batchApplying"
         aria-label="Batch target model"
       >
-        <optgroup label="Premium">
-          <option v-for="m in PREMIUM_MODELS" :key="m" :value="m">{{ m }}</option>
-        </optgroup>
-        <optgroup label="Standard">
-          <option v-for="m in STANDARD_MODELS" :key="m" :value="m">{{ m }}</option>
-        </optgroup>
-        <optgroup label="Fast / Cheap">
-          <option v-for="m in FAST_MODELS" :key="m" :value="m">{{ m }}</option>
-        </optgroup>
+        <ModelOptions :current="batchTargetModel" />
       </select>
       <button
         class="btn btn-sm"
