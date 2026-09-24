@@ -6,8 +6,8 @@ import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:
 import { join } from "node:path";
 import { renderHistory } from "./gallery-template.mjs";
 import { historyEntry, retainedHistory } from "./history.mjs";
-import { decodePng } from "./png.mjs";
 import { classifyPixels } from "./pixels.mjs";
+import { decodePng } from "./png.mjs";
 import {
   analyzePair,
   groupSharedChanges,
