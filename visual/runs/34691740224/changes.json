@@ -1,0 +1,1666 @@
+{
+  "schema": 1,
+  "baseSha": null,
+  "headSha": null,
+  "viewport": {
+    "width": 1440,
+    "height": 960,
+    "theme": "dark",
+    "scale": 1
+  },
+  "summary": {
+    "changed": 23,
+    "unchanged": 10,
+    "subtle": 0,
+    "incomplete": 0,
+    "baseUnavailable": 0,
+    "total": 33
+  },
+  "views": [
+    {
+      "id": "sessions",
+      "route": "/",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 11250,
+      "percent": 0.8138020833333334,
+      "areas": [
+        {
+          "x": 621,
+          "y": 93,
+          "width": 490,
+          "height": 36,
+          "pixels": 11250
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/2972f1345c52cda6094549b943ba8f5f05d7441ee7fa2cffff0e464a4fedf5e4.png",
+        "after": "../../img/c0718aa66def4211f38f92c2990439cc9c38592e2a8049114b8713937ab51765.png",
+        "difference": "../../img/1eb0e21010c5636b1002601601ebb11ed0cc3e71e50c1cabced50456cce4482e.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 589,
+              "y": 11,
+              "width": 554,
+              "height": 200
+            },
+            "before": "../../img/db023ecaf56a342d6a2ee177e93c8ad2253607eff8c67646f89ea02b7cc53a3a.png",
+            "after": "../../img/a50042a8b1a398069cd8acdebb1d3fc39f4af70ed5021f7a55ce0a669870d673.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-overview",
+      "route": "/session/sess-auth-refactor/overview",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 3216,
+      "percent": 0.2326388888888889,
+      "areas": [
+        {
+          "x": 889,
+          "y": 242,
+          "width": 523,
+          "height": 26,
+          "pixels": 830
+        },
+        {
+          "x": 268,
+          "y": 242,
+          "width": 198,
+          "height": 23,
+          "pixels": 680
+        },
+        {
+          "x": 494,
+          "y": 242,
+          "width": 71,
+          "height": 11,
+          "pixels": 419
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
+          "height": 13,
+          "pixels": 358
+        },
+        {
+          "x": 658,
+          "y": 242,
+          "width": 47,
+          "height": 11,
+          "pixels": 333
+        },
+        {
+          "x": 733,
+          "y": 242,
+          "width": 50,
+          "height": 11,
+          "pixels": 329
+        },
+        {
+          "x": 591,
+          "y": 242,
+          "width": 39,
+          "height": 11,
+          "pixels": 256
+        },
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/194fdc585f92f8a080a8c9bb448f97232eeeaa409216609ee8e23fea529b73b7.png",
+        "after": "../../img/f5a480d2b5367322b9eb8b5a79cb0ffa363f8da8697f5278ce6eafa82eeefc43.png",
+        "difference": "../../img/a4b41bc4fb96b1380061ad35ff5b3c8a183b80e0e498449fe6ac0d6f4ecef256.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 853,
+              "y": 155,
+              "width": 587,
+              "height": 200
+            },
+            "before": "../../img/a8d74fe1c2d5c4c61ad6a84891e6687807c732bd9e0ec6b84227296ba799c2ee.png",
+            "after": "../../img/7b739049ec0d2935a1bbebc945134a0c1c09e5fb5a2fd773df27ce3f7f08ad39.png"
+          },
+          {
+            "rect": {
+              "x": 127,
+              "y": 154,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/a353cb4acc65b1f016b0a66af5c14916d2528b34235b0e03f197177fa80ac339.png",
+            "after": "../../img/4b5ea51818eba48c38c9df058c21ab6e3f6088b4a840f062a7c58b41d91bfcae.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-conversation",
+      "route": "/session/sess-auth-refactor/conversation",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 3039,
+      "percent": 0.21983506944444445,
+      "areas": [
+        {
+          "x": 282,
+          "y": 242,
+          "width": 283,
+          "height": 23,
+          "pixels": 922
+        },
+        {
+          "x": 889,
+          "y": 242,
+          "width": 523,
+          "height": 26,
+          "pixels": 830
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
+          "height": 13,
+          "pixels": 358
+        },
+        {
+          "x": 658,
+          "y": 242,
+          "width": 47,
+          "height": 11,
+          "pixels": 333
+        },
+        {
+          "x": 733,
+          "y": 242,
+          "width": 50,
+          "height": 11,
+          "pixels": 329
+        },
+        {
+          "x": 591,
+          "y": 242,
+          "width": 39,
+          "height": 11,
+          "pixels": 256
+        },
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/07d616f3622d59cc88385000a729ca9b83c570c3435b4798028582a158745e64.png",
+        "after": "../../img/bf02c1fd710207c1acc9612e4491e88553ddcf2b82ef3adc46574075ab29fac1.png",
+        "difference": "../../img/d8d2332a2ad346104d57ac84424905e5d816306fc6cb333770836ac43e3f5c43.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 184,
+              "y": 154,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/a0d64af200258b966fdfa27671af8f2e5d327296b81ce48c28aa7eb12e581789.png",
+            "after": "../../img/674e83ea84679506197da55b9ca54d71b80399e545e34247b0fc1f60b5fbeaf4.png"
+          },
+          {
+            "rect": {
+              "x": 853,
+              "y": 155,
+              "width": 587,
+              "height": 200
+            },
+            "before": "../../img/0c3d4e40c8dfe561006bad42e992d52b82a4339014b1d7140cf86a9680f9c9a3.png",
+            "after": "../../img/a647471d3bf4bd2dbb74db286cd9ed9d60d508aa5a1e93508d0f7675c9e1d896.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-events",
+      "route": "/session/sess-auth-refactor/events",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 3197,
+      "percent": 0.2312644675925926,
+      "areas": [
+        {
+          "x": 369,
+          "y": 242,
+          "width": 261,
+          "height": 23,
+          "pixels": 947
+        },
+        {
+          "x": 889,
+          "y": 242,
+          "width": 523,
+          "height": 26,
+          "pixels": 830
+        },
+        {
+          "x": 282,
+          "y": 242,
+          "width": 59,
+          "height": 11,
+          "pixels": 376
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
+          "height": 13,
+          "pixels": 358
+        },
+        {
+          "x": 658,
+          "y": 242,
+          "width": 47,
+          "height": 11,
+          "pixels": 333
+        },
+        {
+          "x": 733,
+          "y": 242,
+          "width": 50,
+          "height": 11,
+          "pixels": 329
+        },
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        },
+        {
+          "x": 268,
+          "y": 488,
+          "width": 8,
+          "height": 8,
+          "pixels": 11
+        },
+        {
+          "x": 268,
+          "y": 348,
+          "width": 1,
+          "height": 2,
+          "pixels": 2
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/8381d16ccce11eca10082312d6f835da886061c7125d0a78f43d5b06dc4756d7.png",
+        "after": "../../img/13447eccdba462bbc99c2e3cb92f4b4b4abe2f0969bc8abb5f8ea4b21a4907cd.png",
+        "difference": "../../img/09674800b9c9d5cdaaa62a41d3e8bd37a5b085afd461cb4e00616ee5410f0dd8.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 260,
+              "y": 154,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/76c0410f4ecdc5667250a79bc96af4ebcba0055455cb731821ca18299c5fe2d4.png",
+            "after": "../../img/a37e21f7611fd48273f9fa45a5d574c94744bdc91bbe8c602b69748e48eafd5f.png"
+          },
+          {
+            "rect": {
+              "x": 853,
+              "y": 155,
+              "width": 587,
+              "height": 200
+            },
+            "before": "../../img/68a3e0b4e2944317e9586fa5144c5b73a3f510f9e4ee573b727224d3ca26d829.png",
+            "after": "../../img/74ebf4ecb1939a23e3051e8eb1069c24af2c096c276a22b46dd029d0c0ff4ab7.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-todos",
+      "route": "/session/sess-auth-refactor/todos",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 3304,
+      "percent": 0.23900462962962962,
+      "areas": [
+        {
+          "x": 889,
+          "y": 242,
+          "width": 523,
+          "height": 26,
+          "pixels": 830
+        },
+        {
+          "x": 494,
+          "y": 242,
+          "width": 211,
+          "height": 23,
+          "pixels": 820
+        },
+        {
+          "x": 369,
+          "y": 242,
+          "width": 97,
+          "height": 11,
+          "pixels": 591
+        },
+        {
+          "x": 282,
+          "y": 242,
+          "width": 59,
+          "height": 11,
+          "pixels": 376
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
+          "height": 13,
+          "pixels": 358
+        },
+        {
+          "x": 733,
+          "y": 242,
+          "width": 50,
+          "height": 11,
+          "pixels": 329
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c83eb40be0170cc1808a7627e30f9b84d3d4efbcc3a00c2720ab0cd02f0a7ce5.png",
+        "after": "../../img/0745b258a4e0c39d125d7ff3bd032fad80f7a92ca16a7b26ffeb5cece56de41d.png",
+        "difference": "../../img/a2a7771b4fd55f509d5b81104c4242e3f4d24d30b266e6c8e46f5c2b0302ccd2.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 853,
+              "y": 155,
+              "width": 587,
+              "height": 200
+            },
+            "before": "../../img/c59e9abff5b6d4fbda902dbdb96b6b1ac067bdb6d18ff15faecb8f622bd66464.png",
+            "after": "../../img/088dddf0748ad5d274cdd5871f5e2c139aa71eafde2a6b060e29ab27673511a6.png"
+          },
+          {
+            "rect": {
+              "x": 360,
+              "y": 154,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/4e2773bb8eab3cfc4fb9383643d57cc31cfb3e28ae5f7934e40beea1464a3b3b.png",
+            "after": "../../img/3339f91d451c90dd1052bec34249ac2d9ee542c98a751c771e5586296b174ef9.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-metrics",
+      "route": "/session/sess-auth-refactor/metrics",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 3236,
+      "percent": 0.23408564814814814,
+      "areas": [
+        {
+          "x": 889,
+          "y": 242,
+          "width": 523,
+          "height": 26,
+          "pixels": 830
+        },
+        {
+          "x": 591,
+          "y": 242,
+          "width": 192,
+          "height": 23,
+          "pixels": 662
+        },
+        {
+          "x": 369,
+          "y": 242,
+          "width": 97,
+          "height": 11,
+          "pixels": 591
+        },
+        {
+          "x": 494,
+          "y": 242,
+          "width": 71,
+          "height": 11,
+          "pixels": 419
+        },
+        {
+          "x": 282,
+          "y": 242,
+          "width": 59,
+          "height": 11,
+          "pixels": 376
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
+          "height": 13,
+          "pixels": 358
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/89bd261a926090e4f9ac4a36298e1bb309925a92d15872b1bd520ebb33168175.png",
+        "after": "../../img/f1c07193fa02469b1cdd2aa99cd944a8134ecbecd9dafd7bfbade98b418e74f7.png",
+        "difference": "../../img/475028205e836a6f65aac441e64fcf6f4a760a7000837406f0075e906f0ab727.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 853,
+              "y": 155,
+              "width": 587,
+              "height": 200
+            },
+            "before": "../../img/0fc6370c5cab9b3b4c9b513c30ad6fee9351f423714bc57875046ff0cc598dc7.png",
+            "after": "../../img/4b949952aa56e6828349113b098d9242a3ca31f4679717043b1beda77d83b164.png"
+          },
+          {
+            "rect": {
+              "x": 447,
+              "y": 154,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/564747c6bdae36b8de1aa2207d06750110752845d0824af851af5fae0a56f88b.png",
+            "after": "../../img/3f055b08edf219ee819f3692017795bad1fd34934f1e521a5932db94a4a9ac5d.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-context",
+      "route": "/session/sess-auth-refactor/context",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 3242,
+      "percent": 0.23451967592592593,
+      "areas": [
+        {
+          "x": 889,
+          "y": 242,
+          "width": 523,
+          "height": 26,
+          "pixels": 830
+        },
+        {
+          "x": 658,
+          "y": 242,
+          "width": 205,
+          "height": 23,
+          "pixels": 770
+        },
+        {
+          "x": 369,
+          "y": 242,
+          "width": 97,
+          "height": 11,
+          "pixels": 591
+        },
+        {
+          "x": 494,
+          "y": 242,
+          "width": 71,
+          "height": 11,
+          "pixels": 419
+        },
+        {
+          "x": 282,
+          "y": 242,
+          "width": 59,
+          "height": 11,
+          "pixels": 376
+        },
+        {
+          "x": 591,
+          "y": 242,
+          "width": 39,
+          "height": 11,
+          "pixels": 256
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/5665795b5b256bfc5040735ddcac9fd3ddaf86a25790ead062d7cb4bb3d1f2a9.png",
+        "after": "../../img/fa295fcb7dc5f79fe323425ea67aa85787d088df54a1d082442660e9dcf52a0f.png",
+        "difference": "../../img/f8c118f05548f99e4bebc20fa3caec28f0645afe9f4ecb91f3815558e8c77cc1.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 853,
+              "y": 155,
+              "width": 587,
+              "height": 200
+            },
+            "before": "../../img/f874115bed04cfa2d2a763f3e964a3629ed2bebcb7821a932f92840d491e2071.png",
+            "after": "../../img/fee613e47cdfc7ca67fa50f24557c49386030504476795a8d082156f4f2f2be1.png"
+          },
+          {
+            "rect": {
+              "x": 521,
+              "y": 154,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/aa510b75aca2504a265c0c07d7c4e3afc17cdf59110801ba5edb7aab339c3716.png",
+            "after": "../../img/cec00e5e32b6da76f72774f3982aa17db9e4a9bed64f40ffd1790cfd51a4f488.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-explorer",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 3227,
+      "percent": 0.23343460648148148,
+      "areas": [
+        {
+          "x": 733,
+          "y": 242,
+          "width": 679,
+          "height": 26,
+          "pixels": 1241
+        },
+        {
+          "x": 369,
+          "y": 242,
+          "width": 97,
+          "height": 11,
+          "pixels": 591
+        },
+        {
+          "x": 494,
+          "y": 242,
+          "width": 71,
+          "height": 11,
+          "pixels": 419
+        },
+        {
+          "x": 282,
+          "y": 242,
+          "width": 59,
+          "height": 11,
+          "pixels": 376
+        },
+        {
+          "x": 658,
+          "y": 242,
+          "width": 47,
+          "height": 11,
+          "pixels": 333
+        },
+        {
+          "x": 591,
+          "y": 242,
+          "width": 39,
+          "height": 11,
+          "pixels": 256
+        },
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/b5eb3ef5b707947eed6f047c8ae4a48e62435dc1c41664ff91a096c9f1d732f5.png",
+        "after": "../../img/769fd61b3dfe39e7757da91f1cd2fe07f7056640c7cb319c32dffc27de9ca6e1.png",
+        "difference": "../../img/b3d4f560698acfefb1bc3d271ef08dca61d157ce898fa3d5a48d8413f9a7c87d.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 697,
+              "y": 155,
+              "width": 743,
+              "height": 200
+            },
+            "before": "../../img/554c354f6f5ce67904ac4bac06310081d1c6050993166552aca9a247c5a6f2a7.png",
+            "after": "../../img/0c8066563665411a89e0c2d47cb9a780f445c175d0789ab0a4cd30ae5d5cff22.png"
+          },
+          {
+            "rect": {
+              "x": 178,
+              "y": 148,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/5d4e7a6cb8f3d9e0f99239145c71da3a91bc984dfca8565a5066d04e4f379f99.png",
+            "after": "../../img/9498c970896356985eea14ce4eea5c1c9277637a7d05848787ad9565fdc848ee.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-timeline",
+      "route": "/session/sess-auth-refactor/timeline",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 3196,
+      "percent": 0.23119212962962962,
+      "areas": [
+        {
+          "x": 810,
+          "y": 242,
+          "width": 602,
+          "height": 26,
+          "pixels": 892
+        },
+        {
+          "x": 369,
+          "y": 242,
+          "width": 97,
+          "height": 11,
+          "pixels": 591
+        },
+        {
+          "x": 494,
+          "y": 242,
+          "width": 71,
+          "height": 11,
+          "pixels": 419
+        },
+        {
+          "x": 282,
+          "y": 242,
+          "width": 59,
+          "height": 11,
+          "pixels": 376
+        },
+        {
+          "x": 658,
+          "y": 242,
+          "width": 47,
+          "height": 11,
+          "pixels": 333
+        },
+        {
+          "x": 733,
+          "y": 242,
+          "width": 50,
+          "height": 11,
+          "pixels": 329
+        },
+        {
+          "x": 591,
+          "y": 242,
+          "width": 39,
+          "height": 11,
+          "pixels": 256
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c6d935b475c88bdf14e1060d4f4310328b5ad1ab89e1be132e4e363d48e47649.png",
+        "after": "../../img/6cd099bda97b9d9b8a8ac140eef6b4e97ba12f59733550d71229a8212044694c.png",
+        "difference": "../../img/eb239527eb548b6dbccae300a88486b1fc464a34ccf2efc024f0262e745267fa.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 774,
+              "y": 155,
+              "width": 666,
+              "height": 200
+            },
+            "before": "../../img/5b0ffd7af9b14a16b194b263bd885679c66025d6c6aa741fad6c88d59721d91a.png",
+            "after": "../../img/bf9f38723f57a49d82742332b68f2a74f7c864816d7ea85eec6de4988eba2212.png"
+          },
+          {
+            "rect": {
+              "x": 178,
+              "y": 148,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/96fcda5f758f53bc6d87a081f99453b47cc21bd3fc1a70de271daa5fd7c92d21.png",
+            "after": "../../img/b64cdf300b07ea26491627bcae069653fb9c0fb7a61b0f6f8b88471e73465a03.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-explorer-file",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "synthetic plan.md selected in the file reader",
+      "change": "changed",
+      "changedPixels": 3227,
+      "percent": 0.23343460648148148,
+      "areas": [
+        {
+          "x": 733,
+          "y": 242,
+          "width": 679,
+          "height": 26,
+          "pixels": 1241
+        },
+        {
+          "x": 369,
+          "y": 242,
+          "width": 97,
+          "height": 11,
+          "pixels": 591
+        },
+        {
+          "x": 494,
+          "y": 242,
+          "width": 71,
+          "height": 11,
+          "pixels": 419
+        },
+        {
+          "x": 282,
+          "y": 242,
+          "width": 59,
+          "height": 11,
+          "pixels": 376
+        },
+        {
+          "x": 658,
+          "y": 242,
+          "width": 47,
+          "height": 11,
+          "pixels": 333
+        },
+        {
+          "x": 591,
+          "y": 242,
+          "width": 39,
+          "height": 11,
+          "pixels": 256
+        },
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": "session-explorer",
+      "images": {
+        "before": "../../img/20ceb01f7e9d5293d84703e4ba32ffabeecb1352097811f61afd0f0a756c0724.png",
+        "after": "../../img/7fb53a8985e1da57e0af6ce7b0c909d62506904c330a610b304cd690f4d63558.png",
+        "difference": "../../img/70fadea0cca7467002581f3d5a2cf90934e3adb430ea0172ec0bc1790d774eb4.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 697,
+              "y": 155,
+              "width": 743,
+              "height": 200
+            },
+            "before": "../../img/71c415e833cb6375c57692477b21c7e301b664d6521b27b00dc58f3103a4faa9.png",
+            "after": "../../img/151ac8cf642bc8dd5d968d1c210842242a6d9e4463c99aa93abe9af29510e303.png"
+          },
+          {
+            "rect": {
+              "x": 178,
+              "y": 148,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/33c01d223614b8d9b332ea306142dc7525a4b5c1069d797cddef3d7b09bcf7d7.png",
+            "after": "../../img/111d23f9dd5914ce0a839f6f301c3416b7e1cbbbb971b9a9ccdd33ed3f8910e4.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "search",
+      "route": "/search",
+      "state": "empty search prompt; indexed fixtures",
+      "change": "changed",
+      "changedPixels": 32140,
+      "percent": 2.3249421296296298,
+      "areas": [
+        {
+          "x": 285,
+          "y": 390,
+          "width": 224,
+          "height": 373,
+          "pixels": 32140
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/fd979ba8e0064dd18860223848b5f3723748f98c41ef116a178fbe8b0b4ee5d8.png",
+        "after": "../../img/f4671a9332d1748c727c573428456a574029a42d6902f31282bbd06655aae0c4.png",
+        "difference": "../../img/4ec98efd0e610cac64203de259ea6ba965c382967bf85129df9bdeccc75c487c.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 157,
+              "y": 358,
+              "width": 480,
+              "height": 437
+            },
+            "before": "../../img/af741f5268ea5e3dd17a71e8b4429c6476b3c9344ca39fd7399522242d11f3a6.png",
+            "after": "../../img/9cd7e7779a6e59fc0dd2d5ea6fbe2d7df34e2878514755dae9b060865c5e0267.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "search-results",
+      "route": "/search?q=auth",
+      "state": "populated search results",
+      "change": "changed",
+      "changedPixels": 32140,
+      "percent": 2.3249421296296298,
+      "areas": [
+        {
+          "x": 285,
+          "y": 390,
+          "width": 224,
+          "height": 373,
+          "pixels": 32140
+        }
+      ],
+      "sameAreasAs": "search",
+      "images": {
+        "before": "../../img/e8e3c223cdc8f3c0c670b95de01b6eac80cfc23df3c6c8cd893b8e1d38d75cd9.png",
+        "after": "../../img/f31d73c0bbc20ce1a31b258e68245fa3769ea39b1130eb94213c314be0aa4852.png",
+        "difference": "../../img/0beb53d31b867cb81f15d7680db707a9e49fb0a0702d74a0a08c3cc14b398ad9.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 157,
+              "y": 358,
+              "width": 480,
+              "height": 437
+            },
+            "before": "../../img/5054a76ab9a3ee1bddafe2dd21cfecccb2b779befca451c046f38523ea6d7661.png",
+            "after": "../../img/ef79d40433dddca97035e95fc104c07d93914edc439caa82296ee9fb4b36826c.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "analytics",
+      "route": "/analytics",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 732,
+      "percent": 0.05295138888888889,
+      "areas": [
+        {
+          "x": 931,
+          "y": 567,
+          "width": 58,
+          "height": 16,
+          "pixels": 732
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/8236855b164b0785e0de765abbe2e0f6dd37af3fe80bff0d7cac38cc08532a63.png",
+        "after": "../../img/c215bf809a38f25c8fec3510108f9f45ef0d3b47dc57690e0e8c50a3b2edc78b.png",
+        "difference": "../../img/cd7e21ddf58b005c1c9d142a84c04056138956458885cd0f3cf1a320c0e9e67e.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 720,
+              "y": 475,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/c20adeddd5628715806f88a85895bf087d306723353eff2cf3848d478950811e.png",
+            "after": "../../img/36bab36ce7310ecade4323e05d6aa239682c036f3f5c72a48b67f26a571a9243.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "tools",
+      "route": "/tools",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c4d84ffa355f88c9a4d79b33156fdb1eb270501124523f945615d1ffa2db64dc.png",
+        "after": "../../img/c4d84ffa355f88c9a4d79b33156fdb1eb270501124523f945615d1ffa2db64dc.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "code",
+      "route": "/code",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 348938,
+      "percent": 25.24146412037037,
+      "areas": [
+        {
+          "x": 268,
+          "y": 335,
+          "width": 1144,
+          "height": 625,
+          "pixels": 348234
+        },
+        {
+          "x": 285,
+          "y": 268,
+          "width": 95,
+          "height": 12,
+          "pixels": 704
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9305ca2ca52c5872053e99346d58c65775906ee0cc32b315a8181351eb0c3d6c.png",
+        "after": "../../img/634bfa8e182137516d501e27e4feba2fae1f7d18b79b4de2ea662929c448b940.png",
+        "difference": "../../img/bbfb6f986d932614fbcf63155db1ad334895db54615e2a64e3cb1bab7d5b919e.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 93,
+              "y": 174,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/f6a6b54fb5a2977ac694649cfe6258a9995de24f455f46c029e39754b305efbe.png",
+            "after": "../../img/f3db35e8e25f6fef3214a3b489f5a6ba99d89a092854da8792d4c9ddc17ecf64.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "model-comparison",
+      "route": "/models",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/cdeb99e14bc84de4f309b4676fd7e0d70c3d95fec792ad049b0d59c84f0b0a9c.png",
+        "after": "../../img/cdeb99e14bc84de4f309b4676fd7e0d70c3d95fec792ad049b0d59c84f0b0a9c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "compare",
+      "route": "/compare",
+      "state": "session picker",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/84de9422413e402998d47c151c6230f91a48cf52c6cbd25736416a7740610ce9.png",
+        "after": "../../img/84de9422413e402998d47c151c6230f91a48cf52c6cbd25736416a7740610ce9.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "compare-populated",
+      "route": "/compare",
+      "state": "two synthetic sessions compared; zero file-count baseline",
+      "change": "changed",
+      "changedPixels": 970,
+      "percent": 0.07016782407407407,
+      "areas": [
+        {
+          "x": 1253,
+          "y": 796,
+          "width": 66,
+          "height": 10,
+          "pixels": 536
+        },
+        {
+          "x": 1258,
+          "y": 756,
+          "width": 55,
+          "height": 10,
+          "pixels": 434
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c7c20e3f8a1182a0ef2a436e1401280d25dc4a2f2f7e0f4feb6d1409888704a6.png",
+        "after": "../../img/d92fadb822d9bcbbd5f3b735a55b71cb638a90717a5158daa1b01f12673e567e.png",
+        "difference": "../../img/0bbcfa8b48d123b50edf8bc28ad58b8a2739331874e6a366220c51a878315712.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 701,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/a42740bb920ff6c015acede739944ec455a7ba79ab9135aa9fdfeab621fba286.png",
+            "after": "../../img/5c020004a8188796066398114eb32560fd1065466a2bbdcf3bd9928cae7f853c.png"
+          },
+          {
+            "rect": {
+              "x": 960,
+              "y": 661,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/c12097b1780a0484a15cb1259c85573587dd442bb37a82686a5e1908e8655358.png",
+            "after": "../../img/c52dd258c9717d53c78f4a4093f12774f1b4611842b95da47b166f370d5395e9.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "replay",
+      "route": "/replay/sess-auth-refactor",
+      "state": "Experimental · explicitly enabled; populated paused replay",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c62009661d3f78d41914b4a8bcf416402e68dd28b7309dc723fa6d8090b237ac.png",
+        "after": "../../img/c62009661d3f78d41914b4a8bcf416402e68dd28b7309dc723fa6d8090b237ac.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "export",
+      "route": "/export",
+      "state": "Experimental · explicitly enabled; session picker",
+      "change": "changed",
+      "changedPixels": 2358,
+      "percent": 0.17057291666666666,
+      "areas": [
+        {
+          "x": 1338,
+          "y": 76,
+          "width": 74,
+          "height": 32,
+          "pixels": 2358
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/a5d06901c704462cad4d0af0c7610b0b0ec19ad992fcf003eb2fd2563cbf12ea.png",
+        "after": "../../img/de345724cba3e67ebb4564eeb9993f535b170c2d1bdfcdc0b72f7ab69203e528.png",
+        "difference": "../../img/5a7f40c2279022880062314f5acae548dcea9d9d5666d6cd15883b640163e57d.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 0,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/1e3f831ee8e29131cfe5b13b5ee4ac1fa1e6233525cc0e8422e9e6e541027d37.png",
+            "after": "../../img/0b139748f7289286a0e8e5e8c75ae1d36ec378c6f985d00d70e3489753deee3d.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "export-preview",
+      "route": "/export?sessionId=sess-auth-refactor&preset=minimal-team-log",
+      "state": "Experimental · explicitly enabled; selected session and populated Markdown preview",
+      "change": "changed",
+      "changedPixels": 4439,
+      "percent": 0.3211082175925926,
+      "areas": [
+        {
+          "x": 1338,
+          "y": 76,
+          "width": 74,
+          "height": 32,
+          "pixels": 2358
+        },
+        {
+          "x": 276,
+          "y": 331,
+          "width": 344,
+          "height": 35,
+          "pixels": 2081
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/520b5409fce276212954c07e2edba8b38aeacdc7adf689f0cd01742ab123b1bb.png",
+        "after": "../../img/c8c91c01b93e621df078cdac8c6511c18119d469c5100f5f7dd75e2300f26bd8.png",
+        "difference": "../../img/b8b27b0d3d07675b868de2dc3bbdaf6327ee21c7fb5a5750a0fffd22a6a3e132.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 0,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/64c572fe1a277cb0c17292b52e48baa7447dfe5c69b8533866b59faae9059708.png",
+            "after": "../../img/1a647ca1565e68377b0da1bd6ff8822d1b11cd1cb8d0ef025109ea02cba3fd07.png"
+          },
+          {
+            "rect": {
+              "x": 208,
+              "y": 249,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/774b20230b1092271f130d221f1a4bbb5dad4dc5eb02d7f92e1cbd01139c54c2.png",
+            "after": "../../img/9173511f7c36a565ed5bc49a255dc6d1259d497fd202966e2983de727bdd92b8.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "settings",
+      "route": "/settings",
+      "state": "configured defaults",
+      "change": "changed",
+      "changedPixels": 73395,
+      "percent": 5.309244791666667,
+      "areas": [
+        {
+          "x": 268,
+          "y": 492,
+          "width": 1144,
+          "height": 468,
+          "pixels": 73371
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/bdf72508bc29a80f6a9518490373e34b84be6078accf8c5df63efc653de2d408.png",
+        "after": "../../img/5d1db3a9fa51ad5fbf1b7ce10d335f3edca720da86203685ab0dc7ce36086447.png",
+        "difference": "../../img/9e9585e4a62f724f99220bd41c8d037cfaa0c199809bc5b5650a378d949d143f.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 232,
+              "y": 428,
+              "width": 1208,
+              "height": 532
+            },
+            "before": "../../img/3d328d5cda28b226451569c2306e712e70eaa98e5b3a00b52543bbe96b79beca.png",
+            "after": "../../img/cdb5b31412a2dd4a09beba55f48d716bf12c817d2926a5e32f97d24a70692b3b.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "settings-pricing",
+      "route": "/settings",
+      "state": "configured pricing",
+      "change": "changed",
+      "changedPixels": 71550,
+      "percent": 5.17578125,
+      "areas": [
+        {
+          "x": 268,
+          "y": 48,
+          "width": 1144,
+          "height": 424,
+          "pixels": 69207
+        },
+        {
+          "x": 680,
+          "y": 707,
+          "width": 410,
+          "height": 12,
+          "pixels": 2343
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/5f249b598122b768195b727ea3deaa76867b387b3e2fc3fd7e5327c63b8cd12f.png",
+        "after": "../../img/f7e4ddbb3a11b44092236927499afaf9e96683fb389f874a67e2e6a8599a2c06.png",
+        "difference": "../../img/5f43e593d25be8a013330d6cc5a4abf00f8515f416b52bfe217fd06a5fc7ba54.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 232,
+              "y": 16,
+              "width": 1208,
+              "height": 488
+            },
+            "before": "../../img/caeae1a221b1df1564408e8f8fd2fcfbc065200fe63738dcbbb194a3b5146162.png",
+            "after": "../../img/df986bf59e0420dee6ba557b23686ef0e26c10ede0fa3277c4e12d8984a818be.png"
+          },
+          {
+            "rect": {
+              "x": 645,
+              "y": 613,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d0e19e0157b2f673c98cfc51173be8bb8c2684bf3ae4ded34b67dc4ee210adcf.png",
+            "after": "../../img/975f4960b35d5d17db8cbae9a19f82358397a6c25cb81a43118e1fd0587b4ec1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "orchestration",
+      "route": "/orchestration",
+      "state": "SDK disabled; fixture sessions",
+      "change": "changed",
+      "changedPixels": 73611,
+      "percent": 5.324869791666667,
+      "areas": [
+        {
+          "x": 268,
+          "y": 382,
+          "width": 1144,
+          "height": 368,
+          "pixels": 73610
+        },
+        {
+          "x": 267,
+          "y": 23,
+          "width": 1,
+          "height": 1,
+          "pixels": 1
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/af57742309fe79de04a2079ac05500bf36070ec0bddf798ff2e81594e9208e58.png",
+        "after": "../../img/b990e1df4cbe96f92cf29fc71ad0f6f176934ee2ce666cc52942b964e453b35c.png",
+        "difference": "../../img/0d933234983a49d55ed68f3a612a00b3f913b94e08e00909c480474de267840c.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 232,
+              "y": 350,
+              "width": 1208,
+              "height": 432
+            },
+            "before": "../../img/dca452bbca4bc0ab1ea1cc1b392fbd0b7879e627863b64e992fd2c9b46bdc1ec.png",
+            "after": "../../img/b2b6ab2f1b23b3fd900f51394b78ea257dc1d64644920183771725e0d5c59896.png"
+          },
+          {
+            "rect": {
+              "x": 28,
+              "y": 0,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/c88ae633413edea59f1179868b6e3868fd4209a697e425c5b188647fb5648216.png",
+            "after": "../../img/bfd21740a71fefd66854bc1b3737b45fb92affa1d06997276dd52781a6e9ac56.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "worktree-manager",
+      "route": "/orchestration/worktrees",
+      "state": "populated fixture repositories",
+      "change": "changed",
+      "changedPixels": 115947,
+      "percent": 8.387369791666666,
+      "areas": [
+        {
+          "x": 520,
+          "y": 170,
+          "width": 920,
+          "height": 78,
+          "pixels": 23561
+        },
+        {
+          "x": 520,
+          "y": 572,
+          "width": 285,
+          "height": 89,
+          "pixels": 6086
+        },
+        {
+          "x": 538,
+          "y": 454,
+          "width": 267,
+          "height": 30,
+          "pixels": 3078
+        },
+        {
+          "x": 538,
+          "y": 513,
+          "width": 267,
+          "height": 30,
+          "pixels": 3076
+        },
+        {
+          "x": 528,
+          "y": 336,
+          "width": 235,
+          "height": 30,
+          "pixels": 2705
+        },
+        {
+          "x": 528,
+          "y": 395,
+          "width": 235,
+          "height": 30,
+          "pixels": 2705
+        },
+        {
+          "x": 824,
+          "y": 396,
+          "width": 263,
+          "height": 25,
+          "pixels": 2693
+        },
+        {
+          "x": 824,
+          "y": 337,
+          "width": 263,
+          "height": 25,
+          "pixels": 2692
+        },
+        {
+          "x": 528,
+          "y": 814,
+          "width": 246,
+          "height": 30,
+          "pixels": 2606
+        },
+        {
+          "x": 528,
+          "y": 873,
+          "width": 246,
+          "height": 30,
+          "pixels": 2606
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/6bcf6608362495d6ebdbf13af3b623103a7c79392748b8863430de273ce79036.png",
+        "after": "../../img/4df387ffaba6edfd40c66bd27a8224fe835ad7a7f041bac81e2ab283275e0670.png",
+        "difference": "../../img/6a7ef6349cf09a8f09fbc31e68b681909c2638f3107b4b5eda56bfb100644975.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 456,
+              "y": 109,
+              "width": 984,
+              "height": 200
+            },
+            "before": "../../img/c5e15a834d9873bccb01538875d753397702d301e90e4c08397f7257ed50897d.png",
+            "after": "../../img/805cf01546537b2f0a27e0d011768f2767efbca4062a0ca5b78fc412d9b63dc4.png"
+          },
+          {
+            "rect": {
+              "x": 423,
+              "y": 517,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/96938d838ab2facd6de71f4693a326d673f6c9e121cf78a9b7cfdfd594f74727.png",
+            "after": "../../img/a033f0cb7b1776b5fd22ef71b64493ed59e63e57750755dd8bfdedc9fbf157a7.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-launcher",
+      "route": "/orchestration/launcher",
+      "state": "launch form; no process launched",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/66c266afa16a09fd7bfc0022de8a7ea20ae5e21a5701a1cf5d6a626e9dc7b680.png",
+        "after": "../../img/66c266afa16a09fd7bfc0022de8a7ea20ae5e21a5701a1cf5d6a626e9dc7b680.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "config-injector",
+      "route": "/orchestration/config",
+      "state": "Experimental · explicitly enabled; fixture configuration",
+      "change": "changed",
+      "changedPixels": 1812,
+      "percent": 0.1310763888888889,
+      "areas": [
+        {
+          "x": 296,
+          "y": 268,
+          "width": 226,
+          "height": 23,
+          "pixels": 736
+        },
+        {
+          "x": 550,
+          "y": 268,
+          "width": 80,
+          "height": 11,
+          "pixels": 532
+        },
+        {
+          "x": 657,
+          "y": 268,
+          "width": 68,
+          "height": 13,
+          "pixels": 417
+        },
+        {
+          "x": 994,
+          "y": 293,
+          "width": 127,
+          "height": 1,
+          "pixels": 127
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c13912bcedc87b80ab549566728d2c67af3c68a90c2a1bff7f045fca558cc5ba.png",
+        "after": "../../img/ac0640bd390f0ba5339faffec5db74088a403cd63e5d79a0dd034b5345983c09.png",
+        "difference": "../../img/b1a9bce4d666e26161db2a2adf78ffb9b85e1fc4b5c3ebc59db782b10290a759.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 169,
+              "y": 180,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/4cd32ef2a01babab1bea361655ad2c24415528f742ff57008ce5d39e2e895574.png",
+            "after": "../../img/53fdffd48917e0d2260342145ca39251ae672c90564f5dffd80d34a94855a7ff.png"
+          },
+          {
+            "rect": {
+              "x": 350,
+              "y": 174,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/bb8b1c3cd5cc26a7c27920772ccd12a6151462103af8810b523c3a158ae0f85e.png",
+            "after": "../../img/18ff2729e268d907d86535fe92a0cc41b3d2b8cabefb4e6f9093ab80e800944f.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "mcp-manager",
+      "route": "/mcp",
+      "state": "Experimental · explicitly enabled; populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/030038b1557bfc1e2100b66cbe56f3dd7f46b63349de46d64d157bfe36acebc3.png",
+        "after": "../../img/030038b1557bfc1e2100b66cbe56f3dd7f46b63349de46d64d157bfe36acebc3.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "mcp-server-detail",
+      "route": "/mcp/visual-files",
+      "state": "Experimental · explicitly enabled; configured; no network health check",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ecbac6b3527df81c0be3179aa380a15f1efdce30f7fd8055cf61ced45ecdbae4.png",
+        "after": "../../img/ecbac6b3527df81c0be3179aa380a15f1efdce30f7fd8055cf61ced45ecdbae4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skills-manager",
+      "route": "/skills",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e32d4f3ee4dd70e3ee3f2bcd750ab084ee7a45ddd53222238a94d889a6238708.png",
+        "after": "../../img/e32d4f3ee4dd70e3ee3f2bcd750ab084ee7a45ddd53222238a94d889a6238708.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skill-editor",
+      "route": "/skills/visual-review",
+      "state": "populated synthetic skill",
+      "change": "changed",
+      "changedPixels": 433,
+      "percent": 0.031322337962962965,
+      "areas": [
+        {
+          "x": 518,
+          "y": 942,
+          "width": 68,
+          "height": 10,
+          "pixels": 433
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/5fe58f4098e199b3cb9c8cb5eca2bb2189b0ab20f5cf9120fa1283cc90f74c06.png",
+        "after": "../../img/5c27e37c42cc5f43c293596b21da685c0856401ff6def08d8c29153025befe55.png",
+        "difference": "../../img/96dd54834643f478efd4bb42d03c05bb7b33b6b94e656e3aaba784cb0ddc73e9.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 312,
+              "y": 760,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/a17402082e682ea0d8fc535ac3ff7ab5e478ca313e1731d55bf03044e1257323.png",
+            "after": "../../img/a14719a1993d43187a0c74a528ace332efaf95316d4f7142c552e7dc1f9f9e8f.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "cli-context",
+      "route": "/cli-context",
+      "state": "Experimental · explicitly enabled; no captured external context",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/50c719c5392dbd7b90b8db10c4a3857847b7a24f97bd12db3f8e6462709cc366.png",
+        "after": "../../img/50c719c5392dbd7b90b8db10c4a3857847b7a24f97bd12db3f8e6462709cc366.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "not-found",
+      "route": "/visual-route-does-not-exist",
+      "state": "not found",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/75e440c952207863c596100fd315306b2538ed87614c45cdf3db44251de1007e.png",
+        "after": "../../img/75e440c952207863c596100fd315306b2538ed87614c45cdf3db44251de1007e.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    }
+  ]
+}

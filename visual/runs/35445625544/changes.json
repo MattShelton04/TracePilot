@@ -1,0 +1,736 @@
+{
+  "schema": 1,
+  "baseSha": null,
+  "headSha": null,
+  "viewport": {
+    "width": 1440,
+    "height": 960,
+    "theme": "dark",
+    "scale": 1
+  },
+  "summary": {
+    "changed": 0,
+    "unchanged": 0,
+    "subtle": 0,
+    "incomplete": 0,
+    "baseUnavailable": 33,
+    "total": 33
+  },
+  "views": [
+    {
+      "id": "sessions",
+      "route": "/",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c4692d7de735090483ccfc5a3e5df9828c1b1fd3271fdefdc519d4fddf5a1e53.png",
+        "after": "../../img/56bc09a77c23b7a1433aa979bbab67b058a1496c2117e2f046cc145684c76a9d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('[data-testid=\"session-card\"]').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "session-overview",
+      "route": "/session/sess-auth-refactor/overview",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/2bb330dc66cbe8ad37b2895c859b1179a29231d65d8a8bdc8a91cd3a0579c6ba.png",
+        "after": "../../img/f5a480d2b5367322b9eb8b5a79cb0ffa363f8da8697f5278ce6eafa82eeefc43.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "session-conversation",
+      "route": "/session/sess-auth-refactor/conversation",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/2381bf0cdc7e3defd286fc57fb662e4ff0a1bfe04f7c9f61804fc2e85779f6b4.png",
+        "after": "../../img/2339270ee54f519c39bd8e605723087a00838e72a3dae145c7a7a667a70f727d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "session-events",
+      "route": "/session/sess-auth-refactor/events",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f2f30c080cefbb803b752e7751ceb2b2d5d71b8b24b52663c1418b5e7e38833f.png",
+        "after": "../../img/1cfee96931f5a1b70050edf3304d068d1ddffa8530633ea70a2f821a0138f3ad.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "session-todos",
+      "route": "/session/sess-auth-refactor/todos",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/73d400bc28bfce1c81cb66087cf608313c8d8fb9ccc460933614b6bd8081af08.png",
+        "after": "../../img/0745b258a4e0c39d125d7ff3bd032fad80f7a92ca16a7b26ffeb5cece56de41d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "session-metrics",
+      "route": "/session/sess-auth-refactor/metrics",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/03d0a3476ebe9f68abf63073e327890b692c6eb192478fba185847fcec911b7d.png",
+        "after": "../../img/f1c07193fa02469b1cdd2aa99cd944a8134ecbecd9dafd7bfbade98b418e74f7.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "session-context",
+      "route": "/session/sess-auth-refactor/context",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/6c5c33ef6bec5e225219965a604c396136a4d8e0708e2d783a4843e69541d9d0.png",
+        "after": "../../img/0ece7e992df6d52f06eaf26ba422d96224a595ce156b22b76486d9a0b8d64055.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "session-explorer",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/84dcac2c54a246735dce785ee16fec101ee43c7bcecf6ae2ab6cc24739ea7537.png",
+        "after": "../../img/bbe8b355b8cf909e4625e6ba2f156eca42b6cfa195f94c297e7d89bb5008deaa.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.fb-tree').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "session-timeline",
+      "route": "/session/sess-auth-refactor/timeline",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0c9f023b5c5e375e2588692ba7f3a2ee118049c59767a726d3cc120fd1ec3b2f.png",
+        "after": "../../img/6cd099bda97b9d9b8a8ac140eef6b4e97ba12f59733550d71229a8212044694c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-title').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "session-explorer-file",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "synthetic plan.md selected in the file reader",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/84dcac2c54a246735dce785ee16fec101ee43c7bcecf6ae2ab6cc24739ea7537.png",
+        "after": "../../img/7fb53a8985e1da57e0af6ce7b0c909d62506904c330a610b304cd690f4d63558.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.fb-tree').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "search",
+      "route": "/search",
+      "state": "empty search prompt; indexed fixtures",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/78c54c5ce06b5c5e920a9227348a13d5e058c29dbea9b4c7bcca114172ec3480.png",
+        "after": "../../img/f4671a9332d1748c727c573428456a574029a42d6902f31282bbd06655aae0c4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: fts_health"
+      ]
+    },
+    {
+      "id": "search-results",
+      "route": "/search?q=auth",
+      "state": "populated search results",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/dfce2f8112bff9d8d3cfb7cb1f26d498107eaa1984c1c43146a04f236abf3e2e.png",
+        "after": "../../img/f31d73c0bbc20ce1a31b258e68245fa3769ea39b1130eb94213c314be0aa4852.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: fts_health"
+      ]
+    },
+    {
+      "id": "analytics",
+      "route": "/analytics",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/67123c9917a6d1ce3eeda6c5fc8cf02efaadcc94d14073f9776d00655e9ec5bf.png",
+        "after": "../../img/c215bf809a38f25c8fec3510108f9f45ef0d3b47dc57690e0e8c50a3b2edc78b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: get_analytics"
+      ]
+    },
+    {
+      "id": "tools",
+      "route": "/tools",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/7eafba3b6cfc6c6fd3818ea71494a405eda396f5da7e2b39462131708aa5ad87.png",
+        "after": "../../img/c4d84ffa355f88c9a4d79b33156fdb1eb270501124523f945615d1ffa2db64dc.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: get_tool_analysis"
+      ]
+    },
+    {
+      "id": "code",
+      "route": "/code",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/70f269b27f7447b4374e2b7b3ba501d4848e0dc10d19501bf6f0adae6ac938a8.png",
+        "after": "../../img/634bfa8e182137516d501e27e4feba2fae1f7d18b79b4de2ea662929c448b940.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: get_code_impact"
+      ]
+    },
+    {
+      "id": "model-comparison",
+      "route": "/models",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/2df370b428f3dc71686c47867da5a14bda44c77dde187f50b2b53f4e6f0fca58.png",
+        "after": "../../img/cdeb99e14bc84de4f309b4676fd7e0d70c3d95fec792ad049b0d59c84f0b0a9c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: get_analytics"
+      ]
+    },
+    {
+      "id": "compare",
+      "route": "/compare",
+      "state": "session picker",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/da403e356297d1bc0b93db9934bd2384dbb51da5ae77da00ab21ee77e1a14a0d.png",
+        "after": "../../img/84de9422413e402998d47c151c6230f91a48cf52c6cbd25736416a7740610ce9.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: list_sessions"
+      ]
+    },
+    {
+      "id": "compare-populated",
+      "route": "/compare",
+      "state": "two synthetic sessions compared; zero file-count baseline",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/aae1170c999c708d23bdd674792d7e2263718eb2df5be9e774fffe5da48e388d.png",
+        "after": "../../img/d92fadb822d9bcbbd5f3b735a55b71cb638a90717a5158daa1b01f12673e567e.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.selectOption: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByLabel('Select Session A')\n    - locator resolved to <select class=\"comp-select\" aria-label=\"Select Session A\">…</select>\n  - attempting select option action\n    2 × waiting for element to be visible and enabled\n      - did not find some options\n    - retrying select option action\n    - waiting 20ms\n    2 × waiting for element to be visible and enabled\n      - did not find some options\n    - retrying select option acti"
+      ]
+    },
+    {
+      "id": "replay",
+      "route": "/replay/sess-auth-refactor",
+      "state": "Experimental · explicitly enabled; populated paused replay",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9e09f049b19dc2aafd40c962e61f10255402910210505cf8f7d3382f4cd89a38.png",
+        "after": "../../img/c62009661d3f78d41914b4a8bcf416402e68dd28b7309dc723fa6d8090b237ac.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('h1').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "export",
+      "route": "/export",
+      "state": "Experimental · explicitly enabled; session picker",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/981c268631dc6aff5478743174f1a175793a7e3580ed82d68e06250a44a28fa3.png",
+        "after": "../../img/de345724cba3e67ebb4564eeb9993f535b170c2d1bdfcdc0b72f7ab69203e528.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: list_sessions"
+      ]
+    },
+    {
+      "id": "export-preview",
+      "route": "/export?sessionId=sess-auth-refactor&preset=minimal-team-log",
+      "state": "Experimental · explicitly enabled; selected session and populated Markdown preview",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/05fd4d2450345ee46bbe4f130204db3523b7c23bac82e4070516c9f97774c9fb.png",
+        "after": "../../img/c8c91c01b93e621df078cdac8c6511c18119d469c5100f5f7dd75e2300f26bd8.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: get_session_sections",
+        "base: Missing fixture: get_session_sections"
+      ]
+    },
+    {
+      "id": "settings",
+      "route": "/settings",
+      "state": "configured defaults",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/18a68337399bd1692df0b8a9833567455a0bd1104bd78bdb0624d8c5e6eb839a.png",
+        "after": "../../img/5d1db3a9fa51ad5fbf1b7ce10d335f3edca720da86203685ab0dc7ce36086447.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: get_log_path",
+        "base: Missing fixture: get_git_info",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: context_capture_storage_stats"
+      ]
+    },
+    {
+      "id": "settings-pricing",
+      "route": "/settings",
+      "state": "configured pricing",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/79feede42d3698f23d6a01faa55561c65b69987ec3a7d53beeece9a9b5a90513.png",
+        "after": "../../img/f7e4ddbb3a11b44092236927499afaf9e96683fb389f874a67e2e6a8599a2c06.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions",
+        "base: Missing fixture: get_log_path",
+        "base: Missing fixture: get_git_info",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: context_capture_storage_stats"
+      ]
+    },
+    {
+      "id": "orchestration",
+      "route": "/orchestration",
+      "state": "SDK disabled; fixture sessions",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/8a446baeeac12553b30db66151b15a4436da77cca84cfad54238c248a04110e9.png",
+        "after": "../../img/b990e1df4cbe96f92cf29fc71ad0f6f176934ee2ce666cc52942b964e453b35c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('h1').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "worktree-manager",
+      "route": "/orchestration/worktrees",
+      "state": "populated fixture repositories",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0f6e9e162854a1d35563521f0e8f0a035967de3a82b7e269cb3143ec158dfe9f.png",
+        "after": "../../img/4df387ffaba6edfd40c66bd27a8224fe835ad7a7f041bac81e2ab283275e0670.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions"
+      ]
+    },
+    {
+      "id": "session-launcher",
+      "route": "/orchestration/launcher",
+      "state": "launch form; no process launched",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/5017426d1919a3d82c3d9f4a855faa60ab938a2845e4fd8c5d39c9bbf413648a.png",
+        "after": "../../img/66c266afa16a09fd7bfc0022de8a7ea20ae5e21a5701a1cf5d6a626e9dc7b680.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions"
+      ]
+    },
+    {
+      "id": "config-injector",
+      "route": "/orchestration/config",
+      "state": "Experimental · explicitly enabled; fixture configuration",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9e09f049b19dc2aafd40c962e61f10255402910210505cf8f7d3382f4cd89a38.png",
+        "after": "../../img/ac0640bd390f0ba5339faffec5db74088a403cd63e5d79a0dd034b5345983c09.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('h1').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "mcp-manager",
+      "route": "/mcp",
+      "state": "Experimental · explicitly enabled; populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9e09f049b19dc2aafd40c962e61f10255402910210505cf8f7d3382f4cd89a38.png",
+        "after": "../../img/030038b1557bfc1e2100b66cbe56f3dd7f46b63349de46d64d157bfe36acebc3.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.mcp-server-card, .server-card').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "mcp-server-detail",
+      "route": "/mcp/visual-files",
+      "state": "Experimental · explicitly enabled; configured; no network health check",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9e09f049b19dc2aafd40c962e61f10255402910210505cf8f7d3382f4cd89a38.png",
+        "after": "../../img/ecbac6b3527df81c0be3179aa380a15f1efdce30f7fd8055cf61ced45ecdbae4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.detail-server-name').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "skills-manager",
+      "route": "/skills",
+      "state": "populated",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/86313d21d6d799b110003dcdc6c4c8124f1ed3a64286d603a7559eeb0e3e08e7.png",
+        "after": "../../img/e32d4f3ee4dd70e3ee3f2bcd750ab084ee7a45ddd53222238a94d889a6238708.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions"
+      ]
+    },
+    {
+      "id": "skill-editor",
+      "route": "/skills/visual-review",
+      "state": "populated synthetic skill",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0eaed953bf8cc17963bb01d2864c17912bfba358ad7b2ba84a8579a1b867b83b.png",
+        "after": "../../img/5c27e37c42cc5f43c293596b21da685c0856401ff6def08d8c29153025befe55.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions"
+      ]
+    },
+    {
+      "id": "cli-context",
+      "route": "/cli-context",
+      "state": "Experimental · explicitly enabled; no captured external context",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9e09f049b19dc2aafd40c962e61f10255402910210505cf8f7d3382f4cd89a38.png",
+        "after": "../../img/50c719c5392dbd7b90b8db10c4a3857847b7a24f97bd12db3f8e6462709cc366.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('h1').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "not-found",
+      "route": "/visual-route-does-not-exist",
+      "state": "not found",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/004e67329ca532c91797c0522bf999a282c61fda6074ac31900a6cbd936d6baf.png",
+        "after": "../../img/75e440c952207863c596100fd315306b2538ed87614c45cdf3db44251de1007e.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: get_config",
+        "base: Missing fixture: list_sessions"
+      ]
+    }
+  ]
+}

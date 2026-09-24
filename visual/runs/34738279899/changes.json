@@ -1,0 +1,669 @@
+{
+  "schema": 1,
+  "baseSha": null,
+  "headSha": null,
+  "viewport": {
+    "width": 1440,
+    "height": 960,
+    "theme": "dark",
+    "scale": 1
+  },
+  "summary": {
+    "changed": 0,
+    "unchanged": 23,
+    "subtle": 10,
+    "incomplete": 0,
+    "baseUnavailable": 0,
+    "total": 33
+  },
+  "views": [
+    {
+      "id": "sessions",
+      "route": "/",
+      "state": "populated",
+      "change": "subtle",
+      "changedPixels": 6,
+      "percent": 0.00043402777777777775,
+      "areas": [
+        {
+          "x": 600,
+          "y": 95,
+          "width": 4,
+          "height": 3,
+          "pixels": 3
+        },
+        {
+          "x": 600,
+          "y": 124,
+          "width": 3,
+          "height": 3,
+          "pixels": 3
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/56bc09a77c23b7a1433aa979bbab67b058a1496c2117e2f046cc145684c76a9d.png",
+        "after": "../../img/c0718aa66def4211f38f92c2990439cc9c38592e2a8049114b8713937ab51765.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-overview",
+      "route": "/session/sess-auth-refactor/overview",
+      "state": "populated",
+      "change": "subtle",
+      "changedPixels": 11,
+      "percent": 0.0007957175925925925,
+      "areas": [
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f5a480d2b5367322b9eb8b5a79cb0ffa363f8da8697f5278ce6eafa82eeefc43.png",
+        "after": "../../img/4bfd5aa2e7c863176f109c54f4c3adf5aaee0b5e844559befda15f712832ff48.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-conversation",
+      "route": "/session/sess-auth-refactor/conversation",
+      "state": "populated",
+      "change": "subtle",
+      "changedPixels": 11,
+      "percent": 0.0007957175925925925,
+      "areas": [
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/2339270ee54f519c39bd8e605723087a00838e72a3dae145c7a7a667a70f727d.png",
+        "after": "../../img/bf02c1fd710207c1acc9612e4491e88553ddcf2b82ef3adc46574075ab29fac1.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-events",
+      "route": "/session/sess-auth-refactor/events",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/1cfee96931f5a1b70050edf3304d068d1ddffa8530633ea70a2f821a0138f3ad.png",
+        "after": "../../img/1cfee96931f5a1b70050edf3304d068d1ddffa8530633ea70a2f821a0138f3ad.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-todos",
+      "route": "/session/sess-auth-refactor/todos",
+      "state": "populated",
+      "change": "subtle",
+      "changedPixels": 11,
+      "percent": 0.0007957175925925925,
+      "areas": [
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/b74977a8688d146a84373c9992cd39fbfec68c09538552047b7d674f92b5dd5f.png",
+        "after": "../../img/0745b258a4e0c39d125d7ff3bd032fad80f7a92ca16a7b26ffeb5cece56de41d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-metrics",
+      "route": "/session/sess-auth-refactor/metrics",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f1c07193fa02469b1cdd2aa99cd944a8134ecbecd9dafd7bfbade98b418e74f7.png",
+        "after": "../../img/f1c07193fa02469b1cdd2aa99cd944a8134ecbecd9dafd7bfbade98b418e74f7.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-context",
+      "route": "/session/sess-auth-refactor/context",
+      "state": "populated",
+      "change": "subtle",
+      "changedPixels": 11,
+      "percent": 0.0007957175925925925,
+      "areas": [
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0ece7e992df6d52f06eaf26ba422d96224a595ce156b22b76486d9a0b8d64055.png",
+        "after": "../../img/fa295fcb7dc5f79fe323425ea67aa85787d088df54a1d082442660e9dcf52a0f.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-explorer",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "populated",
+      "change": "subtle",
+      "changedPixels": 11,
+      "percent": 0.0007957175925925925,
+      "areas": [
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/769fd61b3dfe39e7757da91f1cd2fe07f7056640c7cb319c32dffc27de9ca6e1.png",
+        "after": "../../img/bbe8b355b8cf909e4625e6ba2f156eca42b6cfa195f94c297e7d89bb5008deaa.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-timeline",
+      "route": "/session/sess-auth-refactor/timeline",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/6cd099bda97b9d9b8a8ac140eef6b4e97ba12f59733550d71229a8212044694c.png",
+        "after": "../../img/6cd099bda97b9d9b8a8ac140eef6b4e97ba12f59733550d71229a8212044694c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-explorer-file",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "synthetic plan.md selected in the file reader",
+      "change": "subtle",
+      "changedPixels": 11,
+      "percent": 0.0007957175925925925,
+      "areas": [
+        {
+          "x": 20,
+          "y": 22,
+          "width": 19,
+          "height": 3,
+          "pixels": 11
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/7fb53a8985e1da57e0af6ce7b0c909d62506904c330a610b304cd690f4d63558.png",
+        "after": "../../img/59c92dfd21b5aa6338d0d04848de363b6a62b2a5f983f35bd77394ac2793c824.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "search",
+      "route": "/search",
+      "state": "empty search prompt; indexed fixtures",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f4671a9332d1748c727c573428456a574029a42d6902f31282bbd06655aae0c4.png",
+        "after": "../../img/f4671a9332d1748c727c573428456a574029a42d6902f31282bbd06655aae0c4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "search-results",
+      "route": "/search?q=auth",
+      "state": "populated search results",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f31d73c0bbc20ce1a31b258e68245fa3769ea39b1130eb94213c314be0aa4852.png",
+        "after": "../../img/f31d73c0bbc20ce1a31b258e68245fa3769ea39b1130eb94213c314be0aa4852.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "analytics",
+      "route": "/analytics",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c215bf809a38f25c8fec3510108f9f45ef0d3b47dc57690e0e8c50a3b2edc78b.png",
+        "after": "../../img/c215bf809a38f25c8fec3510108f9f45ef0d3b47dc57690e0e8c50a3b2edc78b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "tools",
+      "route": "/tools",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c4d84ffa355f88c9a4d79b33156fdb1eb270501124523f945615d1ffa2db64dc.png",
+        "after": "../../img/c4d84ffa355f88c9a4d79b33156fdb1eb270501124523f945615d1ffa2db64dc.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "code",
+      "route": "/code",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/634bfa8e182137516d501e27e4feba2fae1f7d18b79b4de2ea662929c448b940.png",
+        "after": "../../img/634bfa8e182137516d501e27e4feba2fae1f7d18b79b4de2ea662929c448b940.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "model-comparison",
+      "route": "/models",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/cdeb99e14bc84de4f309b4676fd7e0d70c3d95fec792ad049b0d59c84f0b0a9c.png",
+        "after": "../../img/cdeb99e14bc84de4f309b4676fd7e0d70c3d95fec792ad049b0d59c84f0b0a9c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "compare",
+      "route": "/compare",
+      "state": "session picker",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/84de9422413e402998d47c151c6230f91a48cf52c6cbd25736416a7740610ce9.png",
+        "after": "../../img/84de9422413e402998d47c151c6230f91a48cf52c6cbd25736416a7740610ce9.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "compare-populated",
+      "route": "/compare",
+      "state": "two synthetic sessions compared; zero file-count baseline",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/d92fadb822d9bcbbd5f3b735a55b71cb638a90717a5158daa1b01f12673e567e.png",
+        "after": "../../img/d92fadb822d9bcbbd5f3b735a55b71cb638a90717a5158daa1b01f12673e567e.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "replay",
+      "route": "/replay/sess-auth-refactor",
+      "state": "Experimental · explicitly enabled; populated paused replay",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c62009661d3f78d41914b4a8bcf416402e68dd28b7309dc723fa6d8090b237ac.png",
+        "after": "../../img/c62009661d3f78d41914b4a8bcf416402e68dd28b7309dc723fa6d8090b237ac.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "export",
+      "route": "/export",
+      "state": "Experimental · explicitly enabled; session picker",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/de345724cba3e67ebb4564eeb9993f535b170c2d1bdfcdc0b72f7ab69203e528.png",
+        "after": "../../img/de345724cba3e67ebb4564eeb9993f535b170c2d1bdfcdc0b72f7ab69203e528.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "export-preview",
+      "route": "/export?sessionId=sess-auth-refactor&preset=minimal-team-log",
+      "state": "Experimental · explicitly enabled; selected session and populated Markdown preview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c8c91c01b93e621df078cdac8c6511c18119d469c5100f5f7dd75e2300f26bd8.png",
+        "after": "../../img/c8c91c01b93e621df078cdac8c6511c18119d469c5100f5f7dd75e2300f26bd8.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "settings",
+      "route": "/settings",
+      "state": "configured defaults",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/5d1db3a9fa51ad5fbf1b7ce10d335f3edca720da86203685ab0dc7ce36086447.png",
+        "after": "../../img/5d1db3a9fa51ad5fbf1b7ce10d335f3edca720da86203685ab0dc7ce36086447.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "settings-pricing",
+      "route": "/settings",
+      "state": "configured pricing",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f7e4ddbb3a11b44092236927499afaf9e96683fb389f874a67e2e6a8599a2c06.png",
+        "after": "../../img/f7e4ddbb3a11b44092236927499afaf9e96683fb389f874a67e2e6a8599a2c06.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "orchestration",
+      "route": "/orchestration",
+      "state": "SDK disabled; fixture sessions",
+      "change": "subtle",
+      "changedPixels": 1,
+      "percent": 0.00007233796296296296,
+      "areas": [
+        {
+          "x": 267,
+          "y": 23,
+          "width": 1,
+          "height": 1,
+          "pixels": 1
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/6563d23058d744a3ff8894482aa87b48ca94de5a25b14f143f0086a8800879df.png",
+        "after": "../../img/b990e1df4cbe96f92cf29fc71ad0f6f176934ee2ce666cc52942b964e453b35c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "worktree-manager",
+      "route": "/orchestration/worktrees",
+      "state": "populated fixture repositories",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/4df387ffaba6edfd40c66bd27a8224fe835ad7a7f041bac81e2ab283275e0670.png",
+        "after": "../../img/4df387ffaba6edfd40c66bd27a8224fe835ad7a7f041bac81e2ab283275e0670.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-launcher",
+      "route": "/orchestration/launcher",
+      "state": "launch form; no process launched",
+      "change": "subtle",
+      "changedPixels": 2,
+      "percent": 0.00014467592592592592,
+      "areas": [
+        {
+          "x": 267,
+          "y": 367,
+          "width": 1,
+          "height": 2,
+          "pixels": 2
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/8636ee7c204faf56ce3ffc7a250f20e3812ed726b9526e2602ee9c137c30c0d2.png",
+        "after": "../../img/d92eb02081e1ecaeb37c1d94866e9a927bfcbc1ed2ed04098facbde0f55e2bc5.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "config-injector",
+      "route": "/orchestration/config",
+      "state": "Experimental · explicitly enabled; fixture configuration",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ac0640bd390f0ba5339faffec5db74088a403cd63e5d79a0dd034b5345983c09.png",
+        "after": "../../img/ac0640bd390f0ba5339faffec5db74088a403cd63e5d79a0dd034b5345983c09.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "mcp-manager",
+      "route": "/mcp",
+      "state": "Experimental · explicitly enabled; populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/030038b1557bfc1e2100b66cbe56f3dd7f46b63349de46d64d157bfe36acebc3.png",
+        "after": "../../img/030038b1557bfc1e2100b66cbe56f3dd7f46b63349de46d64d157bfe36acebc3.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "mcp-server-detail",
+      "route": "/mcp/visual-files",
+      "state": "Experimental · explicitly enabled; configured; no network health check",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ecbac6b3527df81c0be3179aa380a15f1efdce30f7fd8055cf61ced45ecdbae4.png",
+        "after": "../../img/ecbac6b3527df81c0be3179aa380a15f1efdce30f7fd8055cf61ced45ecdbae4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skills-manager",
+      "route": "/skills",
+      "state": "populated",
+      "change": "subtle",
+      "changedPixels": 2,
+      "percent": 0.00014467592592592592,
+      "areas": [
+        {
+          "x": 535,
+          "y": 277,
+          "width": 2,
+          "height": 1,
+          "pixels": 2
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e32d4f3ee4dd70e3ee3f2bcd750ab084ee7a45ddd53222238a94d889a6238708.png",
+        "after": "../../img/d0e7acacb40c6b7d8d9d859f1f519efd26fea2b74e628e18b099557a489b23cd.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skill-editor",
+      "route": "/skills/visual-review",
+      "state": "populated synthetic skill",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/5c27e37c42cc5f43c293596b21da685c0856401ff6def08d8c29153025befe55.png",
+        "after": "../../img/5c27e37c42cc5f43c293596b21da685c0856401ff6def08d8c29153025befe55.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "cli-context",
+      "route": "/cli-context",
+      "state": "Experimental · explicitly enabled; no captured external context",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/50c719c5392dbd7b90b8db10c4a3857847b7a24f97bd12db3f8e6462709cc366.png",
+        "after": "../../img/50c719c5392dbd7b90b8db10c4a3857847b7a24f97bd12db3f8e6462709cc366.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "not-found",
+      "route": "/visual-route-does-not-exist",
+      "state": "not found",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/75e440c952207863c596100fd315306b2538ed87614c45cdf3db44251de1007e.png",
+        "after": "../../img/75e440c952207863c596100fd315306b2538ed87614c45cdf3db44251de1007e.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    }
+  ]
+}
