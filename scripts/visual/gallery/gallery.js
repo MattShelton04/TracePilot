@@ -1,10 +1,30 @@
 (() => {
   const report = JSON.parse(document.getElementById("report-data").textContent);
   const $ = (id) => document.getElementById(id);
-  const imageVersion = `?attempt=${report.metadata.attempt}`;
+  // Content-addressed names: identical screenshots share one cached URL. Only
+  // hash-named PNGs under one of the two known roots are ever requested.
+  const imageRoot = report.metadata.imageRoot === "../../img/" ? "../../img/" : "img/";
+  const imagePattern = /^[a-f0-9]{64}\.png$/;
+  const imageUrl = (name) => {
+    if (typeof name !== "string" || !imagePattern.test(name)) return "";
+    return imageRoot + name;
+  };
   const modes = ["side", "toggle", "wipe", "overlay", "difference"];
-  const rows = report.rows,
+  // Review order: changes first, then limitations, subtle and identical views.
+  const groups = [
+    ["changed", "Review changes"],
+    ["incomplete", "Incomplete"],
+    ["base unavailable", "Base unavailable"],
+    ["subtle", "Subtle differences"],
+    ["unchanged", "Identical"],
+  ];
+  const rank = (row) => {
+    const index = groups.findIndex(([status]) => status === row.change);
+    return index < 0 ? groups.length : index;
+  };
+  const rows = [...report.rows].sort((a, b) => rank(a) - rank(b)),
     byId = new Map(rows.map((row) => [row.id, row]));
+  const headings = new Map();
   const params = new URLSearchParams(location.hash.slice(1));
   let selected =
     byId.get(params.get("view")) ??
@@ -49,10 +69,22 @@
       buttons.get(row.id).hidden = !matches;
       if (matches) visible++;
     }
+    for (const [status, heading] of headings)
+      heading.hidden = !rows.some((row) => row.change === status && !buttons.get(row.id).hidden);
     $("visible-count").textContent = `${visible} of ${rows.length} views`;
     $("empty-filter").hidden = visible > 0;
   }
   for (const row of rows) {
+    if (!headings.has(row.change)) {
+      const [, label] = groups.find(([status]) => status === row.change) ?? [
+        row.change,
+        row.change,
+      ];
+      const count = rows.filter((other) => other.change === row.change).length;
+      const heading = text("h3", `${label} · ${count}`, `view-group ${row.change}`);
+      headings.set(row.change, heading);
+      $("view-list").append(heading);
+    }
     const button = text("button", "", "view-link");
     button.type = "button";
     button.setAttribute("aria-label", `${row.id}, ${row.change}`);
@@ -60,8 +92,8 @@
     thumb.className = "view-thumb";
     thumb.alt = "";
     thumb.loading = "lazy";
-    if (row.headHash || row.baseHash)
-      thumb.src = `${row.headHash ? "head" : "base"}-${row.id}.png${imageVersion}`;
+    const preview = row.review?.difference ?? row.headImage ?? row.baseImage;
+    if (preview) thumb.src = imageUrl(preview);
     else thumb.hidden = true;
     const label = text("span", "");
     label.append(
@@ -262,7 +294,7 @@
         node.firstChild.style.opacity = ".48";
         if (analysis.heatFile) {
           const heat = new Image();
-          heat.src = `${analysis.heatFile}${imageVersion}`;
+          heat.src = imageUrl(analysis.heatFile);
           heat.alt = "Changed pixels shown in pink";
           node.append(heat);
         }
@@ -359,7 +391,7 @@
         );
       if (result.heatFile) {
         const heat = new Image();
-        heat.src = `${result.heatFile}${imageVersion}`;
+        heat.src = imageUrl(result.heatFile);
         await heat.decode();
       }
       if (token !== generation) return;
@@ -370,9 +402,9 @@
     }
   }
   async function load(side, row) {
-    if (!row[`${side}Hash`]) return null;
+    if (!row[`${side}Image`]) return null;
     const image = new Image();
-    image.src = `${side}-${row.id}.png${imageVersion}`;
+    image.src = imageUrl(row[`${side}Image`]);
     await image.decode();
     if (image.naturalWidth !== 1440 || image.naturalHeight !== 960)
       throw new Error(`${side} image has unexpected dimensions`);

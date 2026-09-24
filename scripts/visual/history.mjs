@@ -13,9 +13,19 @@ export function historyEntry(value) {
     summary[key] = Number.isSafeInteger(value.summary?.[key])
       ? Math.min(128, Math.max(0, value.summary[key]))
       : 0;
+  const idPattern = /^[a-z][a-z0-9-]{0,63}$/,
+    imagePattern = /^[a-f0-9]{64}\.png$/;
+  // Bounded view → value maps; anything else from the Pages tree is dropped.
+  const map = (source, accept) =>
+    Object.fromEntries(
+      Object.entries(source && typeof source === "object" ? source : {})
+        .filter(([id, item]) => idPattern.test(id) && accept(item))
+        .slice(0, 128),
+    );
   return {
     id: value.id,
     sha: value.sha,
+    base: /^[a-f0-9]{40}$/.test(value.base) ? value.base : null,
     pr: value.pr ?? null,
     attempt: Number.isSafeInteger(value.attempt) && value.attempt > 0 ? value.attempt : 1,
     title: String(value.title ?? "Visual comparison").slice(0, 300),
@@ -31,6 +41,11 @@ export function historyEntry(value) {
           ),
         ].slice(0, 128)
       : [],
+    images: map(value.images, (name) => imagePattern.test(name)),
+    changes: map(value.changes, (status) =>
+      ["changed", "subtle", "incomplete", "base unavailable"].includes(status),
+    ),
+    previews: map(value.previews, (name) => imagePattern.test(name)),
   };
 }
 

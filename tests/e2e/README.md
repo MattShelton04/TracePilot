@@ -18,6 +18,12 @@ pnpm test:e2e -Install    # Build NSIS, install, test the installed exe, uninsta
 pnpm test:e2e -Install -SkipBuild # Repeat with the existing installer
 ```
 
+A full run builds the Vite bundle concurrently with the fixture generator, then
+runs `tauri build` with `tauri.prebuilt-frontend.conf.json` so the bundle is not
+rebuilt. It does not repeat `vue-tsc`; run `pnpm typecheck` for that. CI's
+installer job compiles with `codegen-units=16` and no LTO (still `opt-level=2`)
+because it checks packaging and native behaviour, not shipping codegen.
+
 `-Install` builds a separate **TracePilot E2E** package with a distinct application
 identifier/executable name and updater artifact generation disabled. It retains the shipping NSIS
 configuration and opts into the existing `automation-devtools` feature for CDP.

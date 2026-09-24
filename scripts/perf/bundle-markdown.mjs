@@ -31,6 +31,67 @@ export function sizeDelta(actual, baseline) {
   return `${signed(delta)} KiB (${percent})`;
 }
 
+// Vite appends an 8-character content hash; strip it to pair base/head chunks.
+export const chunkName = (file) => file.replace(/-[\w-]{8}(?=\.(?:js|css)$)/, "");
+
+/** Per-chunk size changes, largest absolute change first; same-name chunks are summed. */
+export function chunkChanges(report, baseline) {
+  const totals = (assets) => {
+    const map = new Map();
+    for (const asset of assets) {
+      const name = chunkName(asset.file);
+      const entry = map.get(name) ?? { bytes: 0, gzipBytes: 0, files: 0 };
+      entry.bytes += asset.bytes;
+      entry.gzipBytes += asset.gzipBytes;
+      entry.files++;
+      map.set(name, entry);
+    }
+    return map;
+  };
+  const head = totals(report.assets),
+    base = totals(baseline.assets);
+  const changes = [];
+  for (const name of new Set([...head.keys(), ...base.keys()])) {
+    const after = head.get(name),
+      before = base.get(name);
+    const delta = (after?.bytes ?? 0) - (before?.bytes ?? 0);
+    if (Math.abs(delta) < 52) continue; // below 0.05 KiB rounds to 0.0 in the table
+    changes.push({
+      name,
+      files: Math.max(after?.files ?? 0, before?.files ?? 0),
+      before: before?.bytes,
+      after: after?.bytes,
+      delta,
+      gzipDelta: (after?.gzipBytes ?? 0) - (before?.gzipBytes ?? 0),
+    });
+  }
+  return changes.sort(
+    (a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.name.localeCompare(b.name),
+  );
+}
+
+function changeLines(report, baseline) {
+  const changes = chunkChanges(report, baseline);
+  if (!changes.length) return ["No chunk changed by 0.1 KiB or more.", ""];
+  const signed = (bytes) => `${bytes > 0 ? "+" : ""}${(bytes / 1024).toFixed(1)}`;
+  const size = (bytes) => (bytes === undefined ? "—" : (bytes / 1024).toFixed(1));
+  const lines = [
+    `**Changes vs base** · ${changes.length} ${changes.length === 1 ? "chunk" : "chunks"} changed, largest first (content hashes removed from names).`,
+    "",
+    "| Chunk | Base (KiB) | Head (KiB) | Δ (KiB) | Δ gzip (KiB) |",
+    "| --- | ---: | ---: | ---: | ---: |",
+  ];
+  for (const change of changes.slice(0, 15)) {
+    const label = `${escapeCell(change.name)}${change.files > 1 ? ` (${change.files} files)` : ""}${change.before === undefined ? " · new" : change.after === undefined ? " · removed" : ""}`;
+    lines.push(
+      `| ${label} | ${size(change.before)} | ${size(change.after)} | ${signed(change.delta)} | ${signed(change.gzipDelta)} |`,
+    );
+  }
+  if (changes.length > 15) lines.push("", `${changes.length - 15} smaller chunk changes omitted.`);
+  lines.push("");
+  return lines;
+}
+
 export function renderBundleMarkdown(report, baseline) {
   validateBundleReport(report);
   if (baseline) validateBundleReport(baseline);
@@ -52,6 +113,7 @@ export function renderBundleMarkdown(report, baseline) {
     "",
     `${exceeded ? `${exceeded} advisory threshold${exceeded === 1 ? "" : "s"} exceeded.` : "All advisory thresholds met."} Sizes cover generated JS/CSS; gzip is the sum of individually compressed files.`,
     "",
+    ...(baseline ? changeLines(report, baseline) : []),
     "<details>",
     "<summary>Bundle breakdown and advisory thresholds</summary>",
     "",
@@ -61,7 +123,7 @@ export function renderBundleMarkdown(report, baseline) {
     `| Largest chunk | ${largest.actual.toFixed(1)} KiB | ${largest.budget} KiB |`,
     `| Initial HTML JS/CSS assets | ${initial.actual} | ${initial.budget} |`,
     "",
-    "Files sorted by uncompressed size. Full data and treemap are retained in the run artifacts.",
+    "Largest files by uncompressed size. Full data and treemap are retained in the run artifacts.",
     "",
     "| File | Size (KiB) | Gzipped (KiB) |",
     "| --- | ---: | ---: |",
@@ -74,7 +136,7 @@ export function renderBundleMarkdown(report, baseline) {
   for (const asset of assets) {
     const row = `| ${escapeCell(asset.file)} | ${(asset.bytes / 1024).toFixed(1)} | ${(asset.gzipBytes / 1024).toFixed(1)} |`;
     bytes += Buffer.byteLength(row) + 1;
-    if (bytes > 48_000) break;
+    if (bytes > 48_000 || shown >= 25) break;
     lines.push(row);
     shown++;
   }

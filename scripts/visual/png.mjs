@@ -56,5 +56,9 @@ export function decodePng(bytes) {
 }
 
 export function encodeHeat(data) {
-  return PNG.sync.write({ width: 1440, height: 960, data: Buffer.from(data) });
+  return encodePng(1440, 960, data);
+}
+
+export function encodePng(width, height, data) {
+  return PNG.sync.write({ width, height, data: Buffer.from(data) });
 }

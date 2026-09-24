@@ -1,3 +1,13 @@
+// Chromium re-rasterizes only invalidated tiles by default, so blurred shadows
+// (for example the sidebar brand glow) could differ by 1/255 between fresh
+// contexts. Measured locally: 14 of 56 repeated pairs differed without these
+// flags, 0 of 56 with them. Skia's CPU-specific SIMD paths are also disabled
+// because hosted runners do not share one CPU model.
+export const chromiumArgs = [
+  "--disable-partial-raster",
+  "--disable-skia-runtime-opts",
+  "--force-color-profile=srgb",
+];
 /** Missing historical views are comparison limitations, not head regressions. */
 export function captureExitCode(reports, revision = "head") {
   if (revision !== "base" && revision !== "head") {

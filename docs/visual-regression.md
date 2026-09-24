@@ -23,6 +23,9 @@ required for applicable product fixes.
 ## PR and main comparisons
 
 - PRs targeting `main` compare the PR's **merge base against its exact head**.
+  Every push re-compares the whole PR, never just the commits since the previous
+  run. The base tip is the first parent of GitHub's generated merge commit, so a
+  stale event `base.sha` cannot attribute `main` commits merged into the PR to it.
   Updates made independently on `main` therefore do not appear as PR changes.
 - Pushes to `main` compare the previous tip against the new tip. This produces
   a screenshot history after merges.
@@ -76,9 +79,15 @@ mark a capture incomplete. These controls remove nondeterministic clocks and ani
 without masking product regions.
 It then requires two consecutive byte-identical screenshots, with at most five
 attempts. A view that never settles fails explicitly. Attempt counts are retained.
-This catches changing frames but cannot guarantee identical rasterization across
-fresh browser contexts; tiny persistent edge differences are handled by the
-explicit subtle category rather than silently marked identical.
+
+Chromium launches with `--disable-partial-raster`, `--disable-skia-runtime-opts`
+and an sRGB color profile ([`capture-policy.mjs`](../scripts/visual/capture-policy.mjs)).
+Without them, the blurred sidebar brand glow re-rasterized differently between
+fresh contexts (1/255 in a 19×3 area), and single high-contrast seam pixels
+appeared on hosted runners. That noise flipped PR reports between "1 review
+change" and "0" on pushes that did not touch the frontend. Measured locally,
+14 of 56 repeated capture pairs differed before; 0 of 111 across all 37 views
+after. Any remaining differences are still reported, never masked.
 
 ## Gallery and comments
 
@@ -130,21 +139,59 @@ When Pages uses the existing `gh-pages` branch root, reports are published under
 [the visual history](https://mattshelton04.github.io/TracePilot/visual/).
 Everything outside `visual/`, including the existing `dev/` workbench, is
 preserved. The current site retains the latest 20 main reports and 20 PR reports;
-older commits remain in Git history and can be archived separately if storage
-growth becomes material. The history explorer shows the selected view's after
-screenshot for each retained commit, with main/PR and commit/date filters. Each
-card opens that run's before/after viewer. Historical fixture/browser changes can
-affect comparisons across runs; each individual run still uses a matched pair.
-Old gallery URLs expire from the current site when their retained report is pruned.
-An older rerun reserves a slot in its main/PR group during publication, so pruning
-cannot immediately delete the gallery being linked by that report.
+older commits remain in Git history.
 
-Each completed capture attempt posts a **new bot comment**, identifying the head,
-base (when recorded), capture run and attempt. Earlier comments and discussions
-remain intact. Duplicate workflow deliveries are idempotent, and the publisher
-checks for a current open PR and current capture attempt immediately before posting.
-Changed screenshot pairs remain inside collapsed details blocks, bounded below
-GitHub's comment limit, with a full-gallery link for additional views.
+Every PNG (screenshots, heatmaps, difference images and close-ups) is stored once
+as `visual/img/<sha256>.png` and referenced by all runs that render the same
+pixels. PR pushes share their merge-base screenshots and main runs share their
+predecessor's head, so per-run copies were mostly duplicates: on a copy of the
+site at the time of the change, `visual/` shrank from 424 MB to 89 MB.
+Content-addressed URLs never change, so browsers and GitHub's image proxy cache
+them across runs. Pruning a run deletes images no retained run references.
+Reports published before the store were migrated once, recomputing their metrics
+and review images from their retained PNGs. A `.nojekyll` marker skips Jekyll,
+because the site is prebuilt. Each run also publishes `changes.json`: exact
+metrics, changed areas, limitations and image URLs for every view, intended
+for agents and scripts.
+
+The history page has three tabs:
+
+- **Pull requests**: the latest report per PR with difference thumbnails of its
+  changed views; earlier pushes are folded under each card.
+- **Main**: each merge compared with the previous main commit.
+- **View timeline**: for one view, only the runs where its pixels differ from
+  the previous listed run, with identical stretches collapsed.
+
+Historical fixture/browser changes can affect comparisons across runs; each
+individual run still uses a matched pair. Old gallery URLs expire when their
+retained report is pruned. An older rerun reserves a slot in its main/PR group
+during publication, so pruning cannot immediately delete the gallery being
+linked by that report. In each gallery, the sidebar lists review changes first,
+then limitations, subtle and identical views.
+
+Each PR has **one bot comment per report** (visual and bundle), edited in place
+by every completed capture attempt. It identifies the whole-PR base and head,
+capture run and attempt. Duplicate workflow deliveries are idempotent, and the
+publisher checks for a current open PR and current capture attempt immediately
+before editing.
+
+For each changed view, the comment shows:
+
+- A **difference image**: the after screenshot dimmed, changed pixels tinted
+  pink, and changed areas outlined at full brightness. It shows where a change
+  is, even when GitHub scales the image down.
+- A **1:1 before/after close-up** of the largest changed area. A full
+  1440×960 screenshot shrinks to ~440px in a comment column, where small text
+  changes are illegible; a native-resolution crop is readable by reviewers and
+  by agents that read images.
+- Exact changed-pixel counts, percentage and area coordinates.
+
+The largest three changes are expanded; others are collapsed. Views whose
+significant (above 8/255) changed areas coincide are folded into one entry,
+because a shared component usually changes the same area across many views.
+Subtle views are listed in a collapsed block with their pixel counts. The
+comment stays bounded below GitHub's comment limit, with a full-gallery link
+for omitted views.
 
 Missing baselines and incomplete head captures prominently say **Comparison
 incomplete**. Diagnostic error-page screenshots stay in capture artifacts and
