@@ -52,6 +52,13 @@ export interface SessionDetail {
   updatedAt?: string | null;
   eventCount?: number | null;
   turnCount?: number | null;
+  /**
+   * The model the session was last on, derived from its events so running,
+   * crashed and resumed sessions have one. `auto` while auto mode has not
+   * named a concrete model. `shutdownMetrics.currentModel` stays the recorded
+   * value at the last shutdown.
+   */
+  currentModel?: string | null;
   hasPlan: boolean;
   hasCheckpoints: boolean;
   checkpointCount?: number | null;

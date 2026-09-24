@@ -33,10 +33,12 @@ pub(crate) fn summary_to_list_item(
         updated_at: summary.updated_at.map(|d| d.to_rfc3339()),
         event_count: summary.event_count,
         turn_count: summary.turn_count,
-        current_model: summary
-            .shutdown_metrics
-            .as_ref()
-            .and_then(|metrics| metrics.current_model.clone()),
+        current_model: summary.current_model.or_else(|| {
+            summary
+                .shutdown_metrics
+                .as_ref()
+                .and_then(|metrics| metrics.current_model.clone())
+        }),
         copilot_version: None,
         is_running,
         error_count: None,

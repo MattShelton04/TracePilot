@@ -23,10 +23,12 @@ pub(crate) fn extract_session_analytics(
     let mut model_rows: Vec<ModelMetricsRow> = Vec::new();
     let mut session_segment_rows: Vec<SessionSegmentRow> = Vec::new();
 
-    let current_model = summary
-        .shutdown_metrics
-        .as_ref()
-        .and_then(|m| m.current_model.clone());
+    let current_model = summary.current_model.clone().or_else(|| {
+        summary
+            .shutdown_metrics
+            .as_ref()
+            .and_then(|m| m.current_model.clone())
+    });
     let total_premium_requests = summary
         .shutdown_metrics
         .as_ref()

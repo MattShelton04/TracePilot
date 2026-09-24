@@ -7,6 +7,7 @@ import AgentTreeView from "@/components/timeline/AgentTreeView.vue";
 import NestedSwimlanesView from "@/components/timeline/NestedSwimlanesView.vue";
 import TurnWaterfallView from "@/components/timeline/TurnWaterfallView.vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { sessionModel } from "@/utils/sessionModel";
 
 const store = useSessionDetailContext();
 
@@ -58,8 +59,8 @@ const viewModes = [
             {{ store.detail?.id?.slice(0, 8) }}…{{ store.detail?.id?.slice(-7) }}
           </code>
         </span>
-        <span v-if="store.shutdownMetrics?.currentModel" class="badge badge-accent">
-          {{ store.shutdownMetrics.currentModel }}
+        <span v-if="sessionModel(store.detail)" class="badge badge-accent">
+          {{ sessionModel(store.detail) }}
         </span>
         <span class="session-info-pill">
           <span class="pill-label">Turns</span>

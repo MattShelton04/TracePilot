@@ -11,7 +11,7 @@ use super::outcome::{AGENT_RESUME_SOURCE, break_causes, classify, prefix_changes
 use super::parse_timestamp;
 use super::state::{Checkpoint, ModelExpiry, Resume, WindowDraft};
 use crate::models::event_types::{ModelCacheState, SessionEventType};
-use crate::parsing::events::{TypedEvent, TypedEventData};
+use crate::parsing::events::{TypedEvent, TypedEventData, is_auto_model};
 
 /// Tolerance before an expiry that precedes its own checkpoint is taken to
 /// contradict the reported TTL.
@@ -442,14 +442,10 @@ fn lenient_u64(value: &Value) -> Option<u64> {
 }
 
 /// `auto` is Copilot's model picker, not a model; `session.auto_mode_resolved`
-/// names the model it chose.
-const AUTO_MODEL: &str = "auto";
-
+/// names the model it chose. Unlike the session's selected model, the cache
+/// stays with the last concrete model until another one is used.
 fn set_model(target: &mut Option<String>, value: &Option<String>) {
-    if value
-        .as_deref()
-        .is_some_and(|model| !model.eq_ignore_ascii_case(AUTO_MODEL))
-    {
+    if value.as_deref().is_some_and(|model| !is_auto_model(model)) {
         set_if_some(target, value);
     }
 }

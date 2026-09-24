@@ -8,7 +8,7 @@ use crate::models::event_types::{
     SessionModeChangedData, SessionResumeData, SessionStartData, SessionTruncationData,
     SessionWarningData, SkillInvokedData,
 };
-use crate::parsing::events::TypedEvent;
+use crate::parsing::events::{TypedEvent, is_auto_model};
 use serde_json::Value;
 
 use super::state::SessionEventBuild;
@@ -33,7 +33,7 @@ impl TurnReconstructor {
                 summary,
             );
         }
-        if data.new_model.as_deref() != Some(AUTO_MODEL) {
+        if !data.new_model.as_deref().is_some_and(is_auto_model) {
             self.auto_model_choice = None;
         }
         if let Some(ref model) = data.new_model {
@@ -65,7 +65,7 @@ impl TurnReconstructor {
             );
         }
         if let Some(turn) = self.current_turn.as_mut()
-            && matches!(turn.model.as_deref(), None | Some(AUTO_MODEL))
+            && turn.model.as_deref().is_none_or(is_auto_model)
         {
             turn.model = Some(chosen.clone());
         }
@@ -406,9 +406,6 @@ fn json_field_str<'a>(value: Option<&'a Value>, field: &str) -> Option<&'a str> 
         .and_then(|object| object.get(field))
         .and_then(Value::as_str)
 }
-
-/// The model id Copilot CLI records while auto mode is choosing per prompt.
-const AUTO_MODEL: &str = "auto";
 
 /// A readable summary of a model or effort switch, or `None` when nothing a
 /// reader would notice changed. `known_model` is the model the session was on

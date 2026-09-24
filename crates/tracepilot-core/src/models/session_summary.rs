@@ -34,6 +34,11 @@ pub struct SessionSummary {
     pub has_checkpoints: bool,
     pub checkpoint_count: Option<usize>,
     pub turn_count: Option<usize>,
+    /// The model the session was last on, derived from its events so running,
+    /// crashed and resumed sessions have one. `auto` while auto mode has not
+    /// named a concrete model.
+    #[serde(default)]
+    pub current_model: Option<String>,
 
     // From shutdown event (if available)
     pub shutdown_metrics: Option<ShutdownMetrics>,
@@ -113,6 +118,7 @@ mod tests {
             has_checkpoints: false,
             checkpoint_count: None,
             turn_count: None,
+            current_model: None,
             shutdown_metrics: None,
         }
     }

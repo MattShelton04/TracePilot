@@ -20,9 +20,11 @@
 //! - [`raw`] — [`RawEvent`] envelope and line-oriented JSONL parsing.
 //! - [`typed`] — [`TypedEvent`]/[`TypedEventData`] enums and typed deserialization.
 //! - [`aggregate`] — Session-level extraction helpers (shutdown merge, session start).
+//! - [`session_model`] — The model the session is on, followed through its events.
 
 mod aggregate;
 mod raw;
+mod session_model;
 #[cfg(test)]
 mod tests;
 mod typed;
@@ -30,6 +32,7 @@ mod types;
 
 pub use aggregate::{extract_combined_shutdown_data, extract_session_start};
 pub use raw::{RawEvent, events_to_jsonl};
+pub use session_model::{AUTO_MODEL, SessionModelTracker, current_session_model, is_auto_model};
 pub use typed::{
     ParsedEvents, TypedEvent, TypedEventData, parse_typed_events, parse_typed_events_if_exists,
 };
