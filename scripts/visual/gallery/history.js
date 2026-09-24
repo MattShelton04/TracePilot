@@ -1,5 +1,12 @@
 (() => {
-  const { entries, repo } = JSON.parse(document.getElementById("report-data").textContent);
+  const data = JSON.parse(document.getElementById("report-data").textContent);
+  const entries = Array.isArray(data.entries) ? data.entries : [];
+  const repo =
+    typeof data.repo === "string" && /^[\w.-]+\/[\w.-]+$/.test(data.repo) ? data.repo : null;
+  // The publisher validates entries; URLs are still built only from checked parts.
+  const imagePattern = /^[a-f0-9]{64}\.png$/,
+    viewPattern = /^[a-z][a-z0-9-]{0,63}$/;
+  const safeView = (view) => (typeof view === "string" && viewPattern.test(view) ? view : "");
   const $ = (id) => document.getElementById(id);
   const element = (tag, text, className) => {
     const node = document.createElement(tag);
@@ -12,9 +19,15 @@
     node.href = href;
     return node;
   };
-  const runUrl = (entry, view, mode) =>
-    `runs/${entry.id}/index.html?attempt=${entry.attempt}${view ? `#view=${encodeURIComponent(view)}${mode ? `&mode=${mode}` : ""}` : ""}`;
-  const imageUrl = (name) => `img/${name}`;
+  const runUrl = (entry, view, mode) => {
+    const id = safeView(view);
+    const hash = id ? `#view=${id}${mode === "difference" ? "&mode=difference" : ""}` : "";
+    return `runs/${Number(entry.id)}/index.html?attempt=${Number(entry.attempt) || 1}${hash}`;
+  };
+  const imageUrl = (name) => {
+    if (typeof name !== "string" || !imagePattern.test(name)) return "";
+    return `img/${name}`;
+  };
   const date = (value) => {
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime())
@@ -98,7 +111,7 @@
       const title = element("h2");
       title.append(
         repo
-          ? link(`https://github.com/${repo}/pull/${pr}`, `PR #${pr}`)
+          ? link(`https://github.com/${repo}/pull/${Number(pr)}`, `PR #${pr}`)
           : element("span", `PR #${pr}`),
       );
       heading.append(title, element("span", `${sha(latest)} · ${date(latest.created)}`, "meta"));
@@ -244,7 +257,12 @@
       $(`tab-${id}`).tabIndex = id === tab ? 0 : -1;
       $(`panel-${id}`).hidden = id !== tab;
     }
-    const shown = { prs: renderPrs, main: renderMain, timeline: renderTimeline }[tab](query);
+    const shown =
+      tab === "timeline"
+        ? renderTimeline(query)
+        : tab === "main"
+          ? renderMain(query)
+          : renderPrs(query);
     $("history-empty").hidden = shown > 0;
     const state = new URLSearchParams({ tab });
     if (tab === "timeline") {

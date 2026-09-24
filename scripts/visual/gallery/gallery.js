@@ -1,8 +1,14 @@
 (() => {
   const report = JSON.parse(document.getElementById("report-data").textContent);
   const $ = (id) => document.getElementById(id);
-  // Content-addressed names: identical screenshots share one cached URL.
-  const imageUrl = (name) => `${report.metadata.imageRoot}${name}`;
+  // Content-addressed names: identical screenshots share one cached URL. Only
+  // hash-named PNGs under one of the two known roots are ever requested.
+  const imageRoot = report.metadata.imageRoot === "../../img/" ? "../../img/" : "img/";
+  const imagePattern = /^[a-f0-9]{64}\.png$/;
+  const imageUrl = (name) => {
+    if (typeof name !== "string" || !imagePattern.test(name)) return "";
+    return imageRoot + name;
+  };
   const modes = ["side", "toggle", "wipe", "overlay", "difference"];
   // Review order: changes first, then limitations, subtle and identical views.
   const groups = [
