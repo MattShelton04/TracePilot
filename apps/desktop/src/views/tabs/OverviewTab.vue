@@ -20,6 +20,7 @@ import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { usePreferencesStore } from "@/stores/preferences";
 import { formatObjectResult } from "@/utils/formatResult";
+import { sessionModel } from "@/utils/sessionModel";
 
 const store = useSessionDetailContext();
 
@@ -34,6 +35,7 @@ useSessionTabLoader(
 );
 
 const detail = computed(() => store.detail);
+const currentModel = computed(() => sessionModel(detail.value));
 const metrics = computed(() => store.shutdownMetrics);
 const incidents = computed(() => store.incidents);
 const prefs = usePreferencesStore();
@@ -45,7 +47,7 @@ const sessionInfoItems = computed(() => {
     { label: "Session ID", value: d?.id ?? "—" },
     { label: "Repository", value: d?.repository ?? "—" },
     { label: "Branch", value: d?.branch ?? "—" },
-    { label: "Model", value: metrics.value?.currentModel ?? "—" },
+    { label: "Model", value: currentModel.value ?? "—" },
     { label: "Host", value: d?.hostType ?? "—" },
     { label: "Duration", value: formatDuration(metrics.value?.totalApiDurationMs) },
     { label: "Created", value: formatDate(d?.createdAt) },
@@ -187,7 +189,7 @@ function retryLoadSection(section: string) {
           <dd>{{ formatDuration(metrics?.totalApiDurationMs) }}</dd>
           <dt>Current Model</dt>
           <dd>
-            <Badge v-if="metrics?.currentModel" variant="done">{{ metrics.currentModel }}</Badge>
+            <Badge v-if="currentModel" variant="done">{{ currentModel }}</Badge>
             <span v-else>—</span>
           </dd>
           <dt>Shutdown Type</dt>

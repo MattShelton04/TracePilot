@@ -37,6 +37,7 @@ import { useWindowRole } from "@/composables/useWindowRole";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logError } from "@/utils/logger";
+import { sessionModel } from "@/utils/sessionModel";
 
 const props = defineProps<{
   store: SessionDetailContext;
@@ -148,7 +149,7 @@ const tabs = computed(() => {
   });
 });
 
-const currentModel = computed(() => props.store.detail?.shutdownMetrics?.currentModel ?? "");
+const currentModel = computed(() => sessionModel(props.store.detail) ?? "");
 
 function onSubTabChange(tab: string) {
   emit("update:activeSubTab", tab);

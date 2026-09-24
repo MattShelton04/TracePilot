@@ -84,4 +84,27 @@ describe("SessionEventRow", () => {
     expect(wrapper.text()).toContain("session.error");
     expect(wrapper.text()).toContain("Boom");
   });
+
+  it("labels model switches and auto-mode choices", () => {
+    const change = mount(SessionEventRow, {
+      props: {
+        event: evt({
+          eventType: "session.model_change",
+          summary: "Model changed gpt-5.6-luna → auto",
+        }),
+      },
+    });
+    expect(change.find(".cv-session-event-type").text()).toBe("model");
+    expect(change.text()).toContain("Model changed gpt-5.6-luna → auto");
+
+    const resolved = mount(SessionEventRow, {
+      props: {
+        event: evt({
+          eventType: "session.auto_mode_resolved",
+          summary: "Auto mode chose gpt-5.6-luna",
+        }),
+      },
+    });
+    expect(resolved.find(".cv-session-event-type").text()).toBe("auto mode");
+  });
 });

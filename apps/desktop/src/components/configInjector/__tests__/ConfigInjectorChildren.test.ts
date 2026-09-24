@@ -203,6 +203,19 @@ describe("ConfigInjectorAgentsTab", () => {
     expect(document.activeElement).toBe(toggle.element);
     wrapper.unmount();
   });
+
+  it("keeps an agent's unregistered model visible and selected", () => {
+    const agent = makeAgent({ model: "copilot-search-a" });
+    const ctx = makeCtx();
+    ctx.store.agents = [agent];
+    ctx.agentModels.value = { [agent.filePath]: agent.model };
+    const wrapper = mount(wrap(ConfigInjectorAgentsTab, ctx));
+    const select = wrapper.get<HTMLSelectElement>(".model-select");
+    expect(select.element.value).toBe("copilot-search-a");
+    expect(select.find('optgroup[label="Other"]').text()).toBe("copilot-search-a");
+    // Registered models need no extra group.
+    expect(wrapper.get(".batch-model-select").find('optgroup[label="Other"]').exists()).toBe(false);
+  });
 });
 
 describe("ConfigInjectorGlobalTab", () => {

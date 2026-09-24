@@ -7,6 +7,7 @@ import {
   useSessionComparisonContext,
 } from "@/composables/useSessionComparison";
 import { sessionDurationMs } from "@/composables/useSessionMetrics";
+import { sessionModel } from "@/utils/sessionModel";
 
 const comp = useSessionComparisonContext();
 </script>
@@ -86,7 +87,7 @@ const comp = useSessionComparisonContext();
       <div class="session-name">{{ sessionLabel(comp.dataA.detail) }}</div>
       <div class="summary-meta">
         <Badge v-if="comp.dataA.detail?.repository" variant="accent">{{ comp.dataA.detail.repository }}</Badge>
-        <Badge v-if="comp.dataA.metrics?.currentModel" variant="accent">{{ comp.dataA.metrics.currentModel }}</Badge>
+        <Badge v-if="sessionModel(comp.dataA.detail)" variant="accent">{{ sessionModel(comp.dataA.detail) }}</Badge>
         <Badge :variant="exitBadgeVariant(comp.dataA.metrics)">{{ exitLabel(comp.dataA.metrics) }}</Badge>
         <Badge variant="neutral">{{ formatDuration(sessionDurationMs(comp.dataA.detail)) || '—' }}</Badge>
         <Badge variant="neutral">{{ comp.dataA.turns.length }} turns</Badge>
@@ -98,7 +99,7 @@ const comp = useSessionComparisonContext();
       <div class="session-name">{{ sessionLabel(comp.dataB.detail) }}</div>
       <div class="summary-meta">
         <Badge v-if="comp.dataB.detail?.repository" variant="accent">{{ comp.dataB.detail.repository }}</Badge>
-        <Badge v-if="comp.dataB.metrics?.currentModel" variant="accent">{{ comp.dataB.metrics.currentModel }}</Badge>
+        <Badge v-if="sessionModel(comp.dataB.detail)" variant="accent">{{ sessionModel(comp.dataB.detail) }}</Badge>
         <Badge :variant="exitBadgeVariant(comp.dataB.metrics)">{{ exitLabel(comp.dataB.metrics) }}</Badge>
         <Badge variant="neutral">{{ formatDuration(sessionDurationMs(comp.dataB.detail)) || '—' }}</Badge>
         <Badge variant="neutral">{{ comp.dataB.turns.length }} turns</Badge>

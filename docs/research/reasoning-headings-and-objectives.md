@@ -23,9 +23,11 @@ The initial count recognizes a leading `**heading**` followed by whitespace/end.
 The UI uses the stricter standalone-line form, a 160-character limit, and no nested
 Markdown. It does not guess a title from ordinary prose. Newer observed headings
 are 7–48 characters long. Twenty-eight newer messages have multiple bold headings;
-the preview uses the first heading of each message. When expanded, that opening
-heading stays in the header and is omitted from the display body. Later headings
-and body indentation remain intact; stored reasoning and search content are unchanged.
+a message must open with a heading, and then the preview lists every standalone
+heading in it, comma-separated (blocks are still separated by `·`). Headings inside
+code fences do not count. When expanded, the opening heading stays in the header and
+is omitted from the display body; later headings render as section labels. Body
+indentation remains intact; stored reasoning and search content are unchanged.
 
 The audit counted nonempty `assistant.message.data.reasoningText` and standalone
 `assistant.reasoning.data.content` separately. The latter has zero instances in

@@ -2,6 +2,7 @@ import { setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AnalyticsPromptCachePanel from "@/components/analytics/AnalyticsPromptCachePanel.vue";
+import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import MetricsPromptCacheSection from "@/components/metrics/MetricsPromptCacheSection.vue";
 import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
@@ -51,6 +52,75 @@ describe("PromptCacheHeaderChip", () => {
       props: { timeline: makeTimeline([{ ...pending, confidence: "estimated" }]) },
     });
     expect(wrapper.find('[data-testid="prompt-cache-chip"]').exists()).toBe(false);
+  });
+});
+
+describe("CacheLiveDivider", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-12T00:12:18.000Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const pending = makeWindow({
+    outcome: "pending",
+    resumeAt: null,
+    idleSeconds: null,
+    expiresAt: "2026-09-12T00:30:00.000Z",
+  });
+
+  it("says what the countdown is as the cache goes warm → expiring → expired", async () => {
+    const wrapper = mount(CacheLiveDivider, {
+      props: { timeline: makeTimeline([pending]) },
+      attachTo: document.body,
+    });
+    const divider = () => wrapper.get('[data-testid="cache-live-divider"]');
+    expect(divider().text()).toContain("Cache warm");
+    expect(divider().text()).toContain("17:42 left before the prompt cache expires");
+    expect(divider().classes()).toContain("cache-live--warm");
+    expect(divider().attributes("aria-label")).toContain("gpt-5.6-luna · TTL 30m");
+
+    await vi.advanceTimersByTimeAsync(13 * 60_000);
+    expect(divider().text()).toContain("Cache expiring");
+    expect(divider().text()).toContain("4:42 left before the prompt cache expires");
+    expect(divider().classes()).toContain("cache-live--attention");
+
+    await vi.advanceTimersByTimeAsync(17 * 60_000);
+    expect(divider().text()).toContain("Cache expired");
+    expect(divider().text()).toContain(
+      "Expired 12m ago · the next prompt re-sends the full context",
+    );
+    expect(divider().classes()).toContain("cache-live--cold");
+    wrapper.unmount();
+  });
+
+  it("disappears once the next prompt resumes the window", async () => {
+    const wrapper = mount(CacheLiveDivider, {
+      props: { timeline: makeTimeline([pending]) },
+    });
+    expect(wrapper.find('[data-testid="cache-live-divider"]').exists()).toBe(true);
+
+    await wrapper.setProps({
+      timeline: makeTimeline([
+        { ...pending, outcome: "warm", resumeAt: "2026-09-12T00:20:00.000Z", idleSeconds: 480 },
+      ]),
+    });
+    expect(wrapper.find('[data-testid="cache-live-divider"]').exists()).toBe(false);
+  });
+
+  it("stays hidden without a timeline or for estimated expiries", () => {
+    expect(
+      mount(CacheLiveDivider, { props: { timeline: null } })
+        .find('[data-testid="cache-live-divider"]')
+        .exists(),
+    ).toBe(false);
+    expect(
+      mount(CacheLiveDivider, {
+        props: { timeline: makeTimeline([{ ...pending, confidence: "estimated" }]) },
+      })
+        .find('[data-testid="cache-live-divider"]')
+        .exists(),
+    ).toBe(false);
   });
 });
 
@@ -146,11 +216,90 @@ describe("MetricsPromptCacheSection", () => {
     });
     expect(card("Agent wakes")?.text()).toContain("3");
 
-    await wrapper.findAll("button[aria-expanded]")[1]?.trigger("click");
+    await wrapper.findAll(".prompt-cache__toggle")[1]?.trigger("click");
     const detail = wrapper.get('[data-testid="prompt-cache-detail"]');
     expect(detail.text()).toContain("History rewritten at message 1");
     expect(detail.text()).toContain("about 54K tokens");
     expect(detail.text()).not.toContain("Prefix");
+  });
+
+  function manyWindows(count: number) {
+    return Array.from({ length: count }, (_, index) =>
+      makeWindow({
+        index,
+        // Every fourth window missed the cache.
+        outcome: index % 4 === 3 ? "expired" : "warm",
+      }),
+    );
+  }
+
+  it("collapses long tables behind a disclosure and pages them", async () => {
+    const wrapper = mount(MetricsPromptCacheSection, {
+      props: { timeline: makeTimeline(manyWindows(45)) },
+    });
+    // Summary stats stay visible while the table is collapsed.
+    expect(wrapper.findAll(".stat-card").length).toBeGreaterThan(0);
+    expect(wrapper.find("table").exists()).toBe(false);
+    const disclosure = wrapper.get('[data-testid="prompt-cache-disclosure"]');
+    expect(disclosure.text()).toBe("Show 45 idle windows");
+    expect(disclosure.attributes("aria-expanded")).toBe("false");
+
+    await disclosure.trigger("click");
+    expect(disclosure.text()).toBe("Hide 45 idle windows");
+    expect(wrapper.findAll(".prompt-cache__row")).toHaveLength(20);
+    expect(wrapper.text()).toContain("1 / 3");
+
+    const next = wrapper.findAll("button").find((b) => b.text() === "Next");
+    await next?.trigger("click");
+    await next?.trigger("click");
+    expect(wrapper.findAll(".prompt-cache__row")).toHaveLength(5);
+    expect(wrapper.text()).toContain("3 / 3");
+  });
+
+  it("narrows to misses and prefix changes, back on the first page", async () => {
+    const windows = manyWindows(45);
+    windows[0] = makeWindow({
+      index: 0,
+      prefixChanges: [{ kind: "tools", summary: "Tools changed", details: [] }],
+    });
+    const wrapper = mount(MetricsPromptCacheSection, {
+      props: { timeline: makeTimeline(windows) },
+    });
+    await wrapper.get('[data-testid="prompt-cache-disclosure"]').trigger("click");
+    await wrapper
+      .findAll("button")
+      .find((b) => b.text() === "Next")
+      ?.trigger("click");
+
+    const filter = wrapper.get('[data-testid="prompt-cache-notable-filter"]');
+    // 11 expired windows plus the warm one with a prefix change.
+    expect(filter.element.parentElement?.textContent).toContain("(12)");
+    await filter.setValue(true);
+    expect(wrapper.findAll(".prompt-cache__row")).toHaveLength(12);
+    expect(wrapper.text()).not.toContain("1 / ");
+  });
+
+  it("shows a warm prediction with break causes as a break, recorded or likely", () => {
+    const tools = [{ kind: "tools" as const, summary: "+2 tools", details: [] }];
+    const wrapper = mount(MetricsPromptCacheSection, {
+      props: {
+        timeline: makeTimeline([
+          makeWindow({ prefixChanges: tools, observedResume: { cacheRead: 0, hit: false } }),
+          makeWindow({ index: 1, prefixChanges: tools }),
+          makeWindow({ index: 2 }),
+        ]),
+      },
+    });
+    const outcomes = wrapper.findAll(".prompt-cache__outcome").map((cell) => cell.text());
+    expect(outcomes).toEqual(["Cache break", "Likely cache break", "Warm"]);
+  });
+
+  it("opens short tables by default and offers no filter when it would hide nothing", () => {
+    const wrapper = mount(MetricsPromptCacheSection, {
+      props: { timeline: makeTimeline([makeWindow(), makeWindow({ index: 1 })]) },
+    });
+    expect(wrapper.findAll(".prompt-cache__row")).toHaveLength(2);
+    expect(wrapper.find('[data-testid="prompt-cache-notable-filter"]').exists()).toBe(false);
   });
 
   it("hides estimates for older CLI versions until requested", async () => {

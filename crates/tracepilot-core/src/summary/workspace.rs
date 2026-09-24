@@ -44,6 +44,7 @@ fn summary_from_workspace(ws: WorkspaceMetadata) -> SessionSummary {
         has_checkpoints: false,
         checkpoint_count: None,
         turn_count: None,
+        current_model: None,
         shutdown_metrics: None,
     }
 }
@@ -81,6 +82,7 @@ fn minimal_summary_from_dir(session_dir: &Path) -> Result<SessionSummary> {
         has_checkpoints: false,
         checkpoint_count: None,
         turn_count: None,
+        current_model: None,
         shutdown_metrics: None,
     })
 }

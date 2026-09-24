@@ -547,3 +547,36 @@ fn test_cascade_deletes_child_tables() {
         .unwrap();
     assert_eq!(tool_count_after, 0, "child rows should cascade delete");
 }
+
+#[test]
+fn test_current_model_is_recorded_without_a_shutdown() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let session = write_session(
+        tmp.path(),
+        "d4444444-4444-4444-4444-444444444444",
+        "Running session",
+        "org/repo-d",
+        "main",
+        "hi",
+        "hello",
+    );
+    // A session still running (or one that crashed) has no shutdown event.
+    fs::write(
+        session.join("events.jsonl"),
+        concat!(
+            r#"{"type":"session.start","data":{"selectedModel":"gpt-5.4"},"id":"evt-0","timestamp":"2026-03-10T07:14:50.000Z","parentId":null}"#,
+            "\n",
+            r#"{"type":"session.model_change","data":{"previousModel":"gpt-5.4","newModel":"claude-sonnet-4.6"},"id":"evt-1","timestamp":"2026-03-10T07:14:51.000Z","parentId":"evt-0"}"#,
+            "\n",
+            r#"{"type":"user.message","data":{"content":"hi","interactionId":"int-1"},"id":"evt-2","timestamp":"2026-03-10T07:14:52.000Z","parentId":"evt-1"}"#,
+            "\n",
+        ),
+    )
+    .unwrap();
+    db.upsert_session(&session).unwrap();
+
+    let rows = db.search_sessions("Running").unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].current_model.as_deref(), Some("claude-sonnet-4.6"));
+}

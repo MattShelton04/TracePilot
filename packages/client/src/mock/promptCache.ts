@@ -28,6 +28,7 @@ export const MOCK_PROMPT_CACHE: PromptCacheTimeline = {
       resumeSource: null,
       prefixTokens: 21_000,
       interactionNanoAiu: 800_000_000,
+      observedResume: null,
       prefixChanges: [],
     },
     {
@@ -46,6 +47,7 @@ export const MOCK_PROMPT_CACHE: PromptCacheTimeline = {
       resumeSource: null,
       prefixTokens: 54_000,
       interactionNanoAiu: 1_200_000_000,
+      observedResume: null,
       prefixChanges: [
         { kind: "tools", summary: "+1 tool", details: ["+ web_fetch"] },
         {
@@ -71,6 +73,7 @@ export const MOCK_PROMPT_CACHE: PromptCacheTimeline = {
       resumeSource: null,
       prefixTokens: 58_000,
       interactionNanoAiu: null,
+      observedResume: null,
       prefixChanges: [],
     },
   ],

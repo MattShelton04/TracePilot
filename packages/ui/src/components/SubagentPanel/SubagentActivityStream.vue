@@ -12,7 +12,8 @@ import {
   getAgentIcon,
   inferAgentTypeFromToolCall,
 } from "../../utils/agentTypes";
-import { getReasoningBody, getReasoningSummary } from "../../utils/reasoning";
+import { getReasoningSummary } from "../../utils/reasoning";
+import ReasoningText from "../ReasoningText.vue";
 import ToolCallItem from "../ToolCallItem.vue";
 import type { SubagentActivityItem, SubagentActivityPillType } from "./types";
 
@@ -123,7 +124,7 @@ function richEnabled(toolName: string): boolean {
           <div
             v-if="isReasoningExpanded(item.key)"
             class="sap-reasoning-content"
-          >{{ getReasoningBody(item.content) }}</div>
+          ><ReasoningText :content="item.content" /></div>
         </div>
 
         <div

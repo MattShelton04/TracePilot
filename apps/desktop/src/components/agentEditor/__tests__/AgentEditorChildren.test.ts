@@ -175,13 +175,12 @@ describe("AgentUsageTab", () => {
 });
 
 describe("AgentOverrideDialog", () => {
-  it("keeps a failed write open, shows its error, and does not apply the disable change", async () => {
-    const setDisabled = vi.fn();
+  function mountDialog(applyOverride: ReturnType<typeof vi.fn>) {
     const ctx = makeCtx({
       agentType: "reviewer",
       store: { error: "Settings are read-only" },
-      setOverride: vi.fn().mockResolvedValue(false),
-      setDisabled,
+      applyOverride,
+      removeOverride: vi.fn(),
     } as unknown as Partial<AgentEditorContext>);
     const wrapper = mount(
       defineComponent({
@@ -192,14 +191,31 @@ describe("AgentOverrideDialog", () => {
       }),
       { global: { stubs: { Teleport: true } } },
     );
+    return wrapper;
+  }
+
+  async function toggleDisabledAndApply(wrapper: ReturnType<typeof mountDialog>) {
     await wrapper.get('[role="switch"]').trigger("click");
     await wrapper
       .findAll("button")
       .find((button) => button.text() === "Apply")!
       .trigger("click");
     await flushPromises();
+  }
+
+  it("keeps a failed write open and shows its error", async () => {
+    const applyOverride = vi.fn().mockResolvedValue(false);
+    const wrapper = mountDialog(applyOverride);
+    await toggleDisabledAndApply(wrapper);
+    expect(applyOverride).toHaveBeenCalledWith(null, true);
     expect(wrapper.get('[role="alert"]').text()).toBe("Settings are read-only");
-    expect(setDisabled).not.toHaveBeenCalled();
     expect(wrapper.getComponent(AgentOverrideDialog).emitted("update:visible")).toBeUndefined();
+  });
+
+  it("closes once the override is applied", async () => {
+    const wrapper = mountDialog(vi.fn().mockResolvedValue(true));
+    await toggleDisabledAndApply(wrapper);
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+    expect(wrapper.getComponent(AgentOverrideDialog).emitted("update:visible")).toEqual([[false]]);
   });
 });

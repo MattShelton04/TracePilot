@@ -64,6 +64,7 @@ pub(super) fn make_input(
             has_checkpoints: false,
             checkpoint_count: None,
             turn_count: Some(turns as usize),
+            current_model: None,
             shutdown_metrics: Some(ShutdownMetrics {
                 shutdown_type: Some("normal".to_string()),
                 total_premium_requests: Some(turns as f64),

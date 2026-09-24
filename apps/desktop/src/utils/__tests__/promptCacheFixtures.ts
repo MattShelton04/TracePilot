@@ -18,6 +18,7 @@ export function makeWindow(overrides: Partial<CacheWindow> = {}): CacheWindow {
     resumeSource: null,
     prefixTokens: 54_000,
     interactionNanoAiu: 1_000_000_000,
+    observedResume: null,
     prefixChanges: [],
     ...overrides,
   };

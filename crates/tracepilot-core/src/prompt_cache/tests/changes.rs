@@ -124,9 +124,11 @@ fn compaction_while_idle_explains_the_history_rewrite() {
     assert_eq!(changes[0].details, vec!["compaction"]);
 }
 
-#[test]
-fn history_rewrite_without_a_known_cause_is_still_reported() {
-    let events = vec![
+/// Idle at message 3, then a multi-call interaction whose recent messages the
+/// CLI re-rendered. Mirrors a real session where the resume request still read
+/// all but one cache block of the idle prefix.
+fn rewrite_of_recent_messages(after_messages: u64, after_hashes: &[&str]) -> Vec<TypedEvent> {
+    vec![
         start(MODEL),
         user("00:00:01", "i1"),
         checkpoint(
@@ -145,14 +147,31 @@ fn history_rewrite_without_a_known_cause_is_still_reported() {
             Some(baseline(
                 "high",
                 default_tools(),
-                5,
-                &["a", "B", "C", "d", "e"],
+                after_messages,
+                after_hashes,
             )),
         ),
-    ];
-    let changes = &build(&events).windows[0].prefix_changes;
+    ]
+}
+
+#[test]
+fn unexplained_history_rewrite_is_not_a_likely_break() {
+    let timeline = build(&rewrite_of_recent_messages(5, &["a", "B", "C", "d", "e"]));
+    let window = &timeline.windows[0];
+    assert_eq!(window.outcome, CacheWindowOutcome::Warm);
+    assert!(window.prefix_changes.is_empty());
+    // The resume request is not the checkpoint's (agent-initiated) request.
+    assert_eq!(window.observed_resume, None);
+    assert_eq!(timeline.summary.likely_breaks, 0);
+}
+
+#[test]
+fn a_shrinking_conversation_is_still_a_rewrite() {
+    let timeline = build(&rewrite_of_recent_messages(2, &["a", "x"]));
+    let changes = &timeline.windows[0].prefix_changes;
+    assert_eq!(changes.len(), 1);
+    assert_eq!(changes[0].kind, PrefixChangeKind::History);
     assert_eq!(changes[0].summary, "History rewritten at message 1");
-    assert!(changes[0].details.is_empty());
 }
 
 #[test]

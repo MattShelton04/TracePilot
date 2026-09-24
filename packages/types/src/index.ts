@@ -235,6 +235,7 @@ export type {
   ModelCacheTtl,
   ModelTokens,
   ObservedCacheTtl,
+  ObservedResume,
   PrefixChange,
   PrefixChangeCount,
   PrefixChangeKind,

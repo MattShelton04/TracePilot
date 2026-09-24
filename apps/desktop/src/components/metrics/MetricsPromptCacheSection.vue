@@ -1,15 +1,26 @@
 <script setup lang="ts">
 /**
- * Prompt-cache section of the Metrics tab: every idle window with its idle
- * time against the cache TTL, the outcome and likely cache-break causes.
- * Rows expand to the full details. Older CLI versions do not record cache
- * timing, so their estimate is only shown on request.
+ * Prompt-cache section of the Metrics tab: summary stats, then every idle
+ * window with its idle time against the cache TTL, the outcome and likely
+ * cache-break causes. Long sessions have many windows, so the table is a
+ * paged disclosure (open by default when short) that can be narrowed to
+ * misses and prefix changes. Rows expand to the full details. Older CLI
+ * versions do not record cache timing, so their estimate is only shown on
+ * request.
  */
 import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
 import { calculateObservedAiCredits, formatNumber, formatTime } from "@tracepilot/types";
-import { Badge, formatAiCredits, SectionPanel, StatCard, Tooltip } from "@tracepilot/ui";
+import {
+  Badge,
+  ExpandChevron,
+  formatAiCredits,
+  SectionPanel,
+  StatCard,
+  Tooltip,
+} from "@tracepilot/ui";
 import { ChevronRight, Info } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed, ref, useId } from "vue";
+import { useClientPager } from "@/composables/useClientPager";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
 import {
   AGENT_RESUME_SOURCE,
@@ -18,7 +29,9 @@ import {
   formatApproxTokens,
   formatIdle,
   idleFractionOfTtl,
+  isNotableWindow,
   OUTCOME_LABELS,
+  resumeChipLabel,
   windowDetailRows,
 } from "@/utils/promptCache";
 
@@ -37,6 +50,31 @@ const visibleWindows = computed(() =>
     isTurnGaps.value ? showEstimate.value && w.confidence === "estimated" : true,
   ),
 );
+/** Short tables start open; the user's choice wins once made. */
+const OPEN_BY_DEFAULT_MAX = 10;
+const PAGE_SIZE = 20;
+const tableChoice = ref<boolean | null>(null);
+const tableId = useId();
+const tableOpen = computed(
+  () => tableChoice.value ?? visibleWindows.value.length <= OPEN_BY_DEFAULT_MAX,
+);
+const onlyNotable = ref(false);
+const notableCount = computed(() => visibleWindows.value.filter(isNotableWindow).length);
+// The filter only helps when it would hide something and leave something.
+const canFilter = computed(
+  () => notableCount.value > 0 && notableCount.value < visibleWindows.value.length,
+);
+const tableWindows = computed(() =>
+  onlyNotable.value && canFilter.value
+    ? visibleWindows.value.filter(isNotableWindow)
+    : visibleWindows.value,
+);
+const { page, pageCount, pageRows } = useClientPager(tableWindows, PAGE_SIZE, [onlyNotable]);
+const windowCountLabel = computed(() => {
+  const count = visibleWindows.value.length;
+  return `${count} idle window${count === 1 ? "" : "s"}`;
+});
+
 const summary = computed(() => props.timeline.summary);
 const afterExpiry = computed(() => summary.value.expired + summary.value.modelChanged);
 const extraCredits = computed(() => totalMissCredits(visibleWindows.value));
@@ -63,6 +101,14 @@ function meterPercent(window: CacheWindow): number | null {
   return fraction == null ? null : Math.min(fraction, METER_SPAN) / METER_SPAN;
 }
 const TTL_MARKER = `${(1 / METER_SPAN) * 100}%`;
+
+/** A warm prediction with a likely or recorded break reads as a break. */
+function outcomeBadge(window: CacheWindow) {
+  if (window.outcome === "warm" && window.prefixChanges.length > 0) {
+    return { label: resumeChipLabel(window), variant: "warning" as const };
+  }
+  return { label: OUTCOME_LABELS[window.outcome], variant: OUTCOME_VARIANTS[window.outcome] };
+}
 
 function toggle(index: number) {
   const next = new Set(expanded.value);
@@ -159,7 +205,25 @@ function rowCredits(window: CacheWindow) {
         />
       </div>
 
-      <div class="prompt-cache__table">
+      <div class="prompt-cache__table-bar">
+        <button
+          type="button"
+          class="prompt-cache__disclosure"
+          :aria-expanded="tableOpen"
+          :aria-controls="tableId"
+          data-testid="prompt-cache-disclosure"
+          @click="tableChoice = !tableOpen"
+        >
+          <ExpandChevron :expanded="tableOpen" />
+          {{ tableOpen ? "Hide" : "Show" }} {{ windowCountLabel }}
+        </button>
+        <label v-if="tableOpen && canFilter" class="prompt-cache__filter">
+          <input v-model="onlyNotable" type="checkbox" data-testid="prompt-cache-notable-filter" />
+          Only misses &amp; prefix changes ({{ notableCount }})
+        </label>
+      </div>
+
+      <div v-if="tableOpen" :id="tableId" class="prompt-cache__table">
         <table class="data-table">
           <thead>
             <tr>
@@ -172,7 +236,7 @@ function rowCredits(window: CacheWindow) {
             </tr>
           </thead>
           <tbody>
-            <template v-for="window in visibleWindows" :key="window.index">
+            <template v-for="window in pageRows" :key="window.index">
               <tr class="prompt-cache__row" @click="toggle(window.index)">
                 <td>
                   <button
@@ -207,8 +271,8 @@ function rowCredits(window: CacheWindow) {
                 </td>
                 <td>
                   <span class="prompt-cache__outcome">
-                    <Badge :variant="OUTCOME_VARIANTS[window.outcome]">
-                      {{ OUTCOME_LABELS[window.outcome] }}
+                    <Badge :variant="outcomeBadge(window).variant">
+                      {{ outcomeBadge(window).label }}
                     </Badge>
                     <span v-if="window.resumeSource === AGENT_RESUME_SOURCE" class="prompt-cache__tag">Agent</span>
                     <span v-if="window.confidence === 'estimated' && !isTurnGaps" class="prompt-cache__tag">Estimated</span>
@@ -252,7 +316,12 @@ function rowCredits(window: CacheWindow) {
           </tbody>
         </table>
       </div>
-      <p class="text-xs text-[var(--text-tertiary)] mt-2">
+      <div v-if="tableOpen && pageCount > 1" class="flex items-center gap-4 mt-2 text-xs">
+        <button class="btn btn-secondary" :disabled="page === 0" @click="page--">Previous</button>
+        <span>{{ page + 1 }} / {{ pageCount }}</span>
+        <button class="btn btn-secondary" :disabled="page + 1 >= pageCount" @click="page++">Next</button>
+      </div>
+      <p v-if="tableOpen" class="text-xs text-[var(--text-tertiary)] mt-2">
         The marker is the cache expiry. Causes are likely, not confirmed.
       </p>
     </template>
@@ -273,6 +342,43 @@ function rowCredits(window: CacheWindow) {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   margin-bottom: 12px;
+}
+.prompt-cache__table-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+.prompt-cache__disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.prompt-cache__disclosure:hover {
+  color: var(--text-primary);
+}
+.prompt-cache__disclosure:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
+}
+.prompt-cache__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 .prompt-cache__table {
   overflow-x: auto;

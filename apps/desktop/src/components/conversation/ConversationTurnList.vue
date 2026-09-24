@@ -18,7 +18,9 @@
 import type {
   CacheWindow,
   ConversationTurn,
+  PromptCacheTimeline,
   SessionEventSeverity,
+  TurnSessionEvent,
   TurnToolCall,
 } from "@tracepilot/types";
 import {
@@ -39,6 +41,7 @@ import {
   truncateText,
 } from "@tracepilot/ui";
 import { Coins, User } from "lucide-vue-next";
+import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 
 interface ToggleSetLike<T> {
@@ -60,6 +63,8 @@ const props = defineProps<{
   richEnabledFor: (toolName: string) => boolean;
   /** Prompt-cache windows keyed by the turn they resumed (compact view). */
   cacheWindows?: ReadonlyMap<number, CacheWindow>;
+  /** Prompt-cache timeline, for the live countdown after the last turn (compact view). */
+  cacheTimeline?: PromptCacheTimeline | null;
 }>();
 
 const emit = defineEmits<{
@@ -99,6 +104,16 @@ function severityVariant(severity: SessionEventSeverity): "danger" | "warning" |
   return "neutral";
 }
 
+function sessionEventIconName(event: TurnSessionEvent): string {
+  if (
+    event.eventType === "session.model_change" ||
+    event.eventType === "session.auto_mode_resolved"
+  ) {
+    return "cpu";
+  }
+  return severityIconName(event.severity);
+}
+
 function severityIconName(severity: SessionEventSeverity): string {
   if (severity === "error") return "circle-alert";
   if (severity === "warning") return "triangle-alert";
@@ -113,6 +128,8 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   "session.truncation": "Truncation",
   "session.plan_changed": "Plan",
   "session.mode_changed": "Mode",
+  "session.model_change": "Model",
+  "session.auto_mode_resolved": "Auto mode",
 };
 
 function eventTypeLabel(eventType: string): string {
@@ -230,7 +247,7 @@ function onRetryFullResult(toolCallId: string) {
         <div v-if="turn.sessionEvents?.length" class="session-events-list compact">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
-              <component :is="resolveLucideIcon(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+              <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
             <span class="session-event-summary">{{ se.summary }}</span>
@@ -239,6 +256,7 @@ function onRetryFullResult(toolCallId: string) {
       </div>
       </div>
     </template>
+    <CacheLiveDivider :timeline="cacheTimeline ?? null" />
   </div>
 
   <!-- ═══════════════ TIMELINE VIEW ═══════════════ -->
@@ -314,7 +332,7 @@ function onRetryFullResult(toolCallId: string) {
         <div v-if="turn.sessionEvents?.length" class="session-events-list">
           <div v-for="(se, seIdx) in turn.sessionEvents" :key="seIdx" class="session-event-row" :class="`session-event-${se.severity}`">
             <Badge :variant="severityVariant(se.severity)" size="sm">
-              <component :is="resolveLucideIcon(severityIconName(se.severity))" :size="12" :stroke-width="1.5" aria-hidden="true" />
+              <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
             <span class="session-event-summary">{{ se.summary }}</span>

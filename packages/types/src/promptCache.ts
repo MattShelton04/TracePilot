@@ -41,6 +41,17 @@ export interface PrefixChange {
 }
 
 /** The period between the agent going idle and the next main-agent request. */
+/**
+ * What the CLI recorded about the request that resumed a window; only present
+ * when the resumed interaction made a single model call.
+ */
+export interface ObservedResume {
+  /** Tokens the resume request read from the prompt cache. */
+  cacheRead: number;
+  /** Whether it read most of the idle prefix; `null` when the prefix is unknown. */
+  hit: boolean | null;
+}
+
 export interface CacheWindow {
   index: number;
   idleStart: string;
@@ -65,6 +76,8 @@ export interface CacheWindow {
   prefixTokens: number | null;
   /** Usage of the interaction that followed the resume, in nano AI units. */
   interactionNanoAiu: number | null;
+  /** Recorded cache use of the resume request: evidence, apart from the prediction. */
+  observedResume: ObservedResume | null;
   prefixChanges: PrefixChange[];
 }
 

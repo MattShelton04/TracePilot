@@ -54,6 +54,20 @@ pub(super) fn is_mismatch(row: &RunRow) -> bool {
     }
 }
 
+/// The value every run that reported one agrees on, else `None`.
+///
+/// Newer CLIs report the launching call's `name` and `description` for
+/// agents such as `general-purpose`, so they change with every run and do
+/// not describe the agent itself.
+pub(super) fn consistent(
+    rows: &[&RunRow],
+    field: fn(&RunRow) -> Option<&String>,
+) -> Option<String> {
+    let mut values = rows.iter().filter_map(|row| field(row));
+    let first = values.next()?;
+    values.all(|value| value == first).then(|| first.clone())
+}
+
 /// Aggregate one agent. `rows` are that agent's runs, newest first, and may
 /// include the trend window before the range (`in_range == false`).
 pub(super) fn agent_stats(rows: &[&RunRow]) -> AgentUsageStats {
@@ -64,8 +78,8 @@ pub(super) fn agent_stats(rows: &[&RunRow]) -> AgentUsageStats {
     let mut stats = AgentUsageStats {
         name: latest.map(|r| r.agent_name.clone()).unwrap_or_default(),
         agent_type: latest_with(|r| r.agent_type.as_ref()),
-        display_name: latest_with(|r| r.display_name.as_ref()),
-        description: latest_with(|r| r.description.as_ref()),
+        display_name: consistent(&current, |r| r.display_name.as_ref()),
+        description: consistent(&current, |r| r.description.as_ref()),
         runs: current.len() as u64,
         sessions: current
             .iter()

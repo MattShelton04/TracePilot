@@ -49,7 +49,8 @@ pub struct AgentUsageStats {
     /// Most recently seen spelling of the agent name.
     pub name: String,
     pub agent_type: Option<String>,
-    /// Latest display name / description reported by a run.
+    /// Display name / description, only when every run in range reported the
+    /// same value: per-call names and descriptions describe a run, not the agent.
     pub display_name: Option<String>,
     pub description: Option<String>,
     pub runs: u64,

@@ -57,7 +57,7 @@ const {
   retryFullResult: handleRetryResult,
 } = useToolResultLoader(() => store.sessionId);
 
-const { windowsByTurn: cacheWindows } = usePromptCache(store);
+const { windowsByTurn: cacheWindows, timeline: cacheTimeline } = usePromptCache(store);
 
 // Shared derived data from turns
 const { getSections, getArgsSummary, findToolCallIndex, totalToolCalls, totalDurationMs } =
@@ -226,6 +226,7 @@ function richEnabledFor(toolName: string): boolean {
       ref="chatViewRef"
       :objective="sessionObjective"
       :cache-windows="cacheWindows"
+      :cache-timeline="cacheTimeline"
       @message-sent="handleChatSteeringMessage"
       @reveal-objective="revealObjective"
     />
@@ -236,6 +237,7 @@ function richEnabledFor(toolName: string): boolean {
       :turns="store.turns"
       :view-mode="activeView"
       :cache-windows="cacheWindows"
+      :cache-timeline="cacheTimeline"
       :get-sections="getSections"
       :get-args-summary="getArgsSummary"
       :find-tool-call-index="findToolCallIndex"

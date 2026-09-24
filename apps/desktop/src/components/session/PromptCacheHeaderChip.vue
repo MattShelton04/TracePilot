@@ -5,46 +5,13 @@
  * between refreshes; hidden unless the CLI recorded the expiry.
  */
 import type { PromptCacheTimeline } from "@tracepilot/types";
-import { formatTime } from "@tracepilot/types";
 import { Tooltip } from "@tracepilot/ui";
 import { Timer } from "lucide-vue-next";
-import { computed } from "vue";
-import { useLiveClock } from "@/composables/useLiveClock";
-import { findLiveWindow, formatCountdown, formatIdle, liveCacheStatus } from "@/utils/promptCache";
+import { useLiveCacheStatus } from "@/composables/useLiveCacheStatus";
 
 const props = defineProps<{ timeline: PromptCacheTimeline | null }>();
 
-const { now } = useLiveClock(1000);
-const liveWindow = computed(() => findLiveWindow(props.timeline));
-const status = computed(() =>
-  liveWindow.value?.expiresAt
-    ? liveCacheStatus(liveWindow.value.expiresAt, now.value.getTime())
-    : null,
-);
-
-const label = computed(() => {
-  const current = status.value;
-  if (!current) return "";
-  if (current.state === "expired") {
-    return `Cache expired ${formatIdle(-current.remainingMs / 1000)} ago`;
-  }
-  const countdown = formatCountdown(current.remainingMs);
-  return current.state === "expiring"
-    ? `Cache expiring · ${countdown}`
-    : `Cache warm · ${countdown}`;
-});
-
-const tooltip = computed(() => {
-  const current = liveWindow.value;
-  if (!current) return "";
-  return [
-    current.model ?? "Unknown model",
-    current.ttlSeconds ? `TTL ${formatIdle(current.ttlSeconds)}` : null,
-    current.expiresAt ? `expires ${formatTime(current.expiresAt)}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-});
+const { status, label, tooltip } = useLiveCacheStatus(() => props.timeline);
 </script>
 
 <template>

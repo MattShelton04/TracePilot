@@ -8,7 +8,14 @@
  */
 import type { SessionEventSeverity, TurnSessionEvent } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/ui";
-import { AlertTriangle, ClipboardList, FileArchive, Info, type LucideIcon } from "lucide-vue-next";
+import {
+  AlertTriangle,
+  ClipboardList,
+  Cpu,
+  FileArchive,
+  Info,
+  type LucideIcon,
+} from "lucide-vue-next";
 import { computed } from "vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import SkillInvocationEventRow from "./SkillInvocationEventRow.vue";
@@ -28,6 +35,13 @@ function severityClass(severity: SessionEventSeverity | undefined): string {
   return "info";
 }
 
+const MODEL_EVENT_TYPES = new Set(["session.model_change", "session.auto_mode_resolved"]);
+
+function eventIcon(event: TurnSessionEvent): LucideIcon {
+  if (MODEL_EVENT_TYPES.has(event.eventType)) return Cpu;
+  return severityIcon(event.severity);
+}
+
 function severityIcon(severity: SessionEventSeverity | undefined): LucideIcon {
   if (severity === "error") return AlertTriangle;
   if (severity === "warning") return AlertTriangle;
@@ -45,6 +59,8 @@ function eventLabel(eventType: string): string {
     "permission.requested": "permission requested",
     "permission.completed": "permission result",
     "external_tool.requested": "external tool",
+    "session.model_change": "model",
+    "session.auto_mode_resolved": "auto mode",
   };
   return labels[eventType] ?? eventType;
 }
@@ -81,7 +97,7 @@ function eventLabel(eventType: string): string {
     :class="['cv-session-event', severityClass(event.severity)]"
   >
     <span class="cv-session-event-icon" :aria-label="severityAria(event.severity)">
-      <component :is="severityIcon(event.severity)" :size="14" />
+      <component :is="eventIcon(event)" :size="14" />
     </span>
     <span class="cv-session-event-type">{{ eventLabel(event.eventType) }}</span>
     <span class="cv-session-event-summary">{{ event.summary }}</span>

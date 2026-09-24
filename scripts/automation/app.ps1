@@ -97,7 +97,10 @@ function Get-Sha256([string]$Path) {
 
 function Get-OwnedProcess($Record) {
     $process = Get-Process -Id $Record.pid -ErrorAction SilentlyContinue
-    if ($process -and $process.StartTime.ToUniversalTime().Ticks.ToString() -eq $Record.started -and
+    # A reused PID can belong to a protected process whose StartTime is
+    # unreadable; that process is not ours.
+    if ($process -and $process.StartTime -and
+        $process.StartTime.ToUniversalTime().Ticks.ToString() -eq $Record.started -and
         $process.Path -eq $Record.executable) { return $process }
     return $null
 }

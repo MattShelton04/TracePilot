@@ -4,11 +4,11 @@ use crate::models::conversation::SessionEventSeverity;
 use crate::models::conversation::SkillInvocationEvent;
 use crate::models::event_types::{
     CompactionCompleteData, ExternalToolRequestedData, ModelChangeData, PermissionCompletedData,
-    PermissionRequestedData, PlanChangedData, SessionErrorData, SessionModeChangedData,
-    SessionResumeData, SessionStartData, SessionTruncationData, SessionWarningData,
-    SkillInvokedData,
+    PermissionRequestedData, PlanChangedData, SessionAutoModeResolvedData, SessionErrorData,
+    SessionModeChangedData, SessionResumeData, SessionStartData, SessionTruncationData,
+    SessionWarningData, SkillInvokedData,
 };
-use crate::parsing::events::TypedEvent;
+use crate::parsing::events::{TypedEvent, is_auto_model};
 use serde_json::Value;
 
 use super::state::SessionEventBuild;
@@ -16,7 +16,26 @@ use super::{PendingSkillInvocation, TurnReconstructor};
 
 impl TurnReconstructor {
     // Model change: update session-level model; set turn model if not already set
-    pub(super) fn handle_session_model_change(&mut self, data: &ModelChangeData) {
+    pub(super) fn handle_session_model_change(
+        &mut self,
+        event: &TypedEvent,
+        data: &ModelChangeData,
+    ) {
+        let known_model = data
+            .previous_model
+            .as_deref()
+            .or(self.session_model.as_deref());
+        if let Some(summary) = describe_model_change(data, known_model) {
+            self.push_session_event(
+                "session.model_change",
+                event.raw.timestamp,
+                SessionEventSeverity::Info,
+                summary,
+            );
+        }
+        if !data.new_model.as_deref().is_some_and(is_auto_model) {
+            self.auto_model_choice = None;
+        }
         if let Some(ref model) = data.new_model {
             self.session_model = Some(model.clone());
         }
@@ -25,6 +44,33 @@ impl TurnReconstructor {
         {
             turn.model = data.new_model.clone();
         }
+    }
+
+    /// Auto mode picks a concrete model before each prompt. The choice becomes
+    /// the session model, and is shown only when it differs from the last one.
+    pub(super) fn handle_auto_mode_resolved(
+        &mut self,
+        event: &TypedEvent,
+        data: &SessionAutoModeResolvedData,
+    ) {
+        let Some(chosen) = data.chosen_model.clone() else {
+            return;
+        };
+        if self.auto_model_choice.as_deref() != Some(chosen.as_str()) {
+            self.push_session_event(
+                "session.auto_mode_resolved",
+                event.raw.timestamp,
+                SessionEventSeverity::Info,
+                format!("Auto mode chose {chosen}"),
+            );
+        }
+        if let Some(turn) = self.current_turn.as_mut()
+            && turn.model.as_deref().is_none_or(is_auto_model)
+        {
+            turn.model = Some(chosen.clone());
+        }
+        self.auto_model_choice = Some(chosen.clone());
+        self.session_model = Some(chosen);
     }
 
     pub(super) fn handle_session_error(&mut self, event: &TypedEvent, data: &SessionErrorData) {
@@ -359,4 +405,36 @@ fn json_field_str<'a>(value: Option<&'a Value>, field: &str) -> Option<&'a str> 
         .and_then(Value::as_object)
         .and_then(|object| object.get(field))
         .and_then(Value::as_str)
+}
+
+/// A readable summary of a model or effort switch, or `None` when nothing a
+/// reader would notice changed. `known_model` is the model the session was on
+/// before this event, from the event itself or from earlier events.
+///
+/// Every 1.0.83+ session opens with a `startup` event that restates the
+/// selected model, and older CLIs open with one that has no previous model.
+/// Both are the initial selection, not a change.
+fn describe_model_change(data: &ModelChangeData, known_model: Option<&str>) -> Option<String> {
+    if data.source.as_deref() == Some("startup") {
+        return None;
+    }
+    let known_model = known_model?;
+    let model = data
+        .new_model
+        .as_deref()
+        .filter(|to| *to != known_model)
+        .map(|to| format!("Model changed {known_model} → {to}"));
+    let effort = match (
+        data.previous_reasoning_effort.as_deref(),
+        data.reasoning_effort.as_deref(),
+    ) {
+        (Some(from), Some(to)) if from != to => Some(format!("effort {from} → {to}")),
+        _ => None,
+    };
+    match (model, effort) {
+        (Some(model), Some(effort)) => Some(format!("{model} · {effort}")),
+        (Some(model), None) => Some(model),
+        (None, Some(effort)) => Some(format!("Reasoning {effort}")),
+        (None, None) => None,
+    }
 }
