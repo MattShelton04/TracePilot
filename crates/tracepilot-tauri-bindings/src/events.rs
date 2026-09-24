@@ -22,9 +22,3 @@ pub const CONTEXT_CAPTURE_PROGRESS: &str = "context-capture-progress";
 pub const SEARCH_INDEXING_STARTED: &str = "search-indexing-started";
 pub const SEARCH_INDEXING_PROGRESS: &str = "search-indexing-progress";
 pub const SEARCH_INDEXING_FINISHED: &str = "search-indexing-finished";
-
-/// Progress of a session-store enrichment sweep (`{current, total}`).
-pub const ENRICHMENT_PROGRESS: &str = "enrichment-progress";
-/// End of a sweep (`{availability, refreshed}`). Carries the availability so
-/// the UI can distinguish a missing source from a completed refresh.
-pub const ENRICHMENT_FINISHED: &str = "enrichment-finished";

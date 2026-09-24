@@ -14,14 +14,6 @@ use tracepilot_core::parsing::workspace::parse_workspace_yaml;
 use tracepilot_core::turns::reconstruct_turns;
 
 /// Build a single [`PortableSession`] from a session directory.
-///
-/// Deliberately reads only the session directory. Session-store enrichment —
-/// recorded request billing, timings and extracted work references — is
-/// **not** included: it lives in TracePilot's index rather than the session,
-/// the existing redaction and export rules were not written with those fields
-/// in mind, and the global Copilot store must never be bundled with one
-/// session's export. A later versioned optional section can add normalised
-/// request data with its own provenance, redaction and import support.
 pub(super) fn build_portable_session(
     session_dir: &Path,
     options: &ExportOptions,

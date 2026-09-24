@@ -29,7 +29,6 @@ pub const GITHUB_DIR_NAME: &str = ".github";
 pub const COPILOT_SETTINGS_FILE: &str = "settings.json";
 pub const COPILOT_CONFIG_FILE: &str = "config.json";
 pub const COPILOT_MCP_CONFIG_FILE: &str = "mcp-config.json";
-pub const COPILOT_SESSION_STORE_DB_FILE: &str = "session-store.db";
 
 pub const TRACEPILOT_CONFIG_FILE: &str = "config.toml";
 pub const TRACEPILOT_INDEX_DB_FILE: &str = "index.db";
@@ -95,12 +94,6 @@ impl CopilotPaths {
 
     pub fn session_state_dir(&self) -> PathBuf {
         self.home.join(SESSION_STATE_DIR_NAME)
-    }
-
-    /// The CLI's cross-session store (`<COPILOT_HOME>/session-store.db`).
-    /// Optional: it only exists for CLI 1.0.40 and newer.
-    pub fn session_store_db(&self) -> PathBuf {
-        self.home.join(COPILOT_SESSION_STORE_DB_FILE)
     }
 
     pub fn global_skills_dir(&self) -> PathBuf {
@@ -384,10 +377,6 @@ mod tests {
             Path::new("/home/alice/.copilot/mcp-config.json")
         );
         assert_eq!(paths.pkg_dir(), Path::new("/home/alice/.copilot/pkg"));
-        assert_eq!(
-            paths.session_store_db(),
-            Path::new("/home/alice/.copilot/session-store.db")
-        );
     }
 
     #[test]

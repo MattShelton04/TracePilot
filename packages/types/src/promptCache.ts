@@ -101,51 +101,8 @@ export interface PromptCacheTimeline {
   summary: PromptCacheSummary;
 }
 
-/**
- * Whether a recorded observation lines up with a window's prediction.
- *
- * `agrees` is consistency, not proof: zero recorded cache reads support "no
- * reuse was recorded", never "the whole prefix had expired".
- */
-export type CacheComparison = "agrees" | "differs" | "notComparable";
-
-/**
- * What the request that resumed a window actually recorded, from the optional
- * Copilot session store.
- *
- * This sits *beside* the window's `confidence` and `outcome`, which are
- * unchanged. An expiry prediction and an observed reuse count answer
- * different questions, and a later request reusing some tokens is not
- * evidence that the earlier prediction was wrong — the prefix may have been
- * rebuilt, or only part of it may have survived.
- */
-export interface CacheObservation {
-  /** The `CacheWindow.index` this belongs to. */
-  windowIndex: number;
-  /** Source row identity. Not a provider request ID. */
-  sourceRowId: number;
-  model: string;
-  recordedAt: string | null;
-  /** `null` means the counter was absent, not that there was no reuse. */
-  cacheReadTokens: number | null;
-  cacheWriteTokens: number | null;
-  inputTokens: number | null;
-  /**
-   * Never `exact`: no identifier links a window and a request, so the pair is
-   * matched on order, interval and model, and only when unambiguous.
-   */
-  attribution: "exact" | "validated" | "ambiguous" | "unavailable";
-  comparison: CacheComparison;
-}
-
 export interface PromptCacheResponse {
   timeline: PromptCacheTimeline;
-  /**
-   * Recorded reuse for the requests that resumed each window. Empty is the
-   * normal state: it means no reliable association was found, not that no
-   * reuse happened.
-   */
-  observations: CacheObservation[];
   eventsFileSize: number;
   eventsFileMtime?: number | null;
 }

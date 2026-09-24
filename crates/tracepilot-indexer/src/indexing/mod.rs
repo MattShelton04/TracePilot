@@ -3,7 +3,6 @@
 
 use std::path::PathBuf;
 
-pub mod enrichment;
 pub mod progress;
 pub mod reindex;
 pub mod search;

@@ -4,7 +4,7 @@ use super::columns::ensure_search_columns;
 use super::sql::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
     MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_13, MIGRATION_14, MIGRATION_15,
-    MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19, MIGRATION_20,
+    MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19,
 };
 use tracepilot_core::utils::migrator::{Migration, MigrationPlan};
 
@@ -117,12 +117,6 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
         sql: MIGRATION_19,
         pre_hook: None,
     },
-    Migration {
-        version: 20,
-        name: "session store enrichment",
-        sql: MIGRATION_20,
-        pre_hook: None,
-    },
 ];
 
 pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
@@ -140,48 +134,6 @@ mod tests {
         INDEX_DB_PLAN
             .validate()
             .expect("INDEX_DB_PLAN versions must be strictly monotonically increasing");
-    }
-
-    #[test]
-    fn enrichment_is_one_atomic_upgrade_from_version_19() {
-        use tracepilot_core::utils::migrator::MigrationPlan;
-        let mut conn = Connection::open_in_memory().unwrap();
-        conn.pragma_update(None, "foreign_keys", true).unwrap();
-        let previous = MigrationPlan {
-            migrations: &super::INDEX_DB_MIGRATIONS[..super::INDEX_DB_MIGRATIONS.len() - 1],
-        };
-        run_migrations(&mut conn, None, &previous, &MigratorOptions::default()).unwrap();
-        conn.execute("INSERT INTO sessions(id, path, summary) VALUES ('existing', '/session', 'Keep this session')", []).unwrap();
-        run_migrations(&mut conn, None, &INDEX_DB_PLAN, &MigratorOptions::default()).unwrap();
-        run_migrations(&mut conn, None, &INDEX_DB_PLAN, &MigratorOptions::default()).unwrap();
-        assert_eq!(
-            conn.query_row(
-                "SELECT COUNT(*) FROM schema_version WHERE version > 19",
-                [],
-                |r| r.get::<_, i64>(0)
-            )
-            .unwrap(),
-            1
-        );
-        assert_eq!(
-            conn.query_row(
-                "SELECT summary FROM sessions WHERE id = 'existing'",
-                [],
-                |r| r.get::<_, String>(0)
-            )
-            .unwrap(),
-            "Keep this session"
-        );
-        assert_eq!(
-            conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| r
-                .get::<_, i64>(
-                0
-            ))
-            .unwrap(),
-            0
-        );
-        // Request children cannot survive without the request they explain.
-        assert!(conn.execute("INSERT INTO session_request_links(source_id, generation, source_row_id, session_id, join_method, join_status) VALUES ('missing', 'g', 1, 'existing', 'none', 'unavailable')", []).is_err());
     }
 
     #[test]

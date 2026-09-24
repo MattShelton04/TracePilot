@@ -10,7 +10,7 @@ import type { TracePilotConfig } from "./config.js";
 import { DEFAULT_FAVOURITE_MODELS } from "./models.js";
 
 /** Current config schema version. */
-export const CONFIG_VERSION = 12;
+export const CONFIG_VERSION = 11;
 
 /** Default cost per premium request (USD). */
 export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
@@ -55,7 +55,6 @@ export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
   configInjector: false,
   promptCacheInsights: true,
   agents: true,
-  sessionStoreEnrichment: true,
 };
 
 /**

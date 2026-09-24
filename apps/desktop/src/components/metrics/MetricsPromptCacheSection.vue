@@ -11,13 +11,6 @@ import { Badge, formatAiCredits, SectionPanel, StatCard, Tooltip } from "@tracep
 import { ChevronRight, Info } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
-import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
-import { usePreferencesStore } from "@/stores/preferences";
-import {
-  buildObservationView,
-  type ObservationView,
-  observationsByWindow,
-} from "@/utils/cacheObservations";
 import {
   AGENT_RESUME_SOURCE,
   CONFIDENCE_EXPLANATIONS,
@@ -32,22 +25,6 @@ import {
 const props = defineProps<{ timeline: PromptCacheTimeline }>();
 
 const { windowMissCredits, totalMissCredits } = usePromptCacheCost();
-
-// What the resuming requests actually recorded, from the optional session
-// store. It sits beside each window's prediction: an observation never
-// rewrites an outcome or a confidence, because the two are different claims.
-const prefs = usePreferencesStore();
-const sessionDetail = useSessionDetailContext();
-const observationViews = computed<Map<number, ObservationView>>(() => {
-  if (!prefs.isFeatureEnabled("sessionStoreEnrichment")) return new Map();
-  const byIndex = observationsByWindow(sessionDetail.promptCacheObservations ?? []);
-  const views = new Map<number, ObservationView>();
-  for (const window of props.timeline.windows) {
-    const observation = byIndex.get(window.index);
-    if (observation) views.set(window.index, buildObservationView(window, observation));
-  }
-  return views;
-});
 
 const showEstimate = ref(false);
 const expanded = ref(new Set<number>());
@@ -235,13 +212,6 @@ function rowCredits(window: CacheWindow) {
                     </Badge>
                     <span v-if="window.resumeSource === AGENT_RESUME_SOURCE" class="prompt-cache__tag">Agent</span>
                     <span v-if="window.confidence === 'estimated' && !isTurnGaps" class="prompt-cache__tag">Estimated</span>
-                    <span
-                      v-if="observationViews.get(window.index)"
-                      class="prompt-cache__tag"
-                      :class="{ 'prompt-cache__tag--differs': observationViews.get(window.index)?.tone === 'warning' }"
-                      data-testid="prompt-cache-observation-tag"
-                      :title="`What the resuming request recorded in the session store, compared with this prediction. ${observationViews.get(window.index)?.pairing ?? ''}`"
-                    >{{ observationViews.get(window.index)?.comparisonLabel }}</span>
                   </span>
                 </td>
                 <td>
@@ -275,21 +245,6 @@ function rowCredits(window: CacheWindow) {
                         </span>
                       </li>
                     </ul>
-                  </div>
-                  <div
-                    v-if="observationViews.get(window.index)"
-                    class="prompt-cache__observation"
-                    :class="{ 'prompt-cache__observation--differs': observationViews.get(window.index)?.tone === 'warning' }"
-                    data-testid="prompt-cache-observation"
-                  >
-                    <p class="prompt-cache__observation-pairing">{{ observationViews.get(window.index)?.pairing }}</p>
-                    <dl>
-                      <template v-for="row in observationViews.get(window.index)?.rows ?? []" :key="row.label">
-                        <dt>{{ row.label }}</dt>
-                        <dd>{{ row.value }}</dd>
-                      </template>
-                    </dl>
-                    <p class="prompt-cache__observation-note">{{ observationViews.get(window.index)?.comparisonNote }}</p>
                   </div>
                 </td>
               </tr>
@@ -450,42 +405,6 @@ function rowCredits(window: CacheWindow) {
   display: block;
   color: var(--text-tertiary);
   overflow-wrap: anywhere;
-}
-.prompt-cache__observation {
-  margin-top: 12px;
-  padding: 8px 12px;
-  border-left: 2px solid var(--border-default);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-.prompt-cache__observation--differs {
-  border-left-color: var(--attention-fg);
-}
-.prompt-cache__observation-pairing {
-  margin: 0 0 6px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.prompt-cache__observation dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 12px;
-  margin: 0 0 6px;
-}
-.prompt-cache__observation dt {
-  color: var(--text-tertiary);
-}
-.prompt-cache__observation dd {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-}
-.prompt-cache__observation-note {
-  margin: 0;
-  color: var(--text-tertiary);
-}
-.prompt-cache__tag--differs {
-  color: var(--attention-fg);
-  font-weight: 600;
 }
 .tabular {
   font-variant-numeric: tabular-nums;

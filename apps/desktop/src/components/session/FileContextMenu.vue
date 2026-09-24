@@ -81,7 +81,7 @@ const { placement, onKeydown } = useContextMenu({
 
 .file-context-menu {
   position: fixed;
-  z-index: var(--z-modal);
+  z-index: calc(var(--z-overlay) + 1);
   min-width: min(160px, calc(100vw - 16px));
   max-width: calc(100vw - 16px);
   max-height: calc(100vh - 16px);

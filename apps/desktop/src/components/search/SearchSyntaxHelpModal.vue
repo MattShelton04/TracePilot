@@ -42,21 +42,10 @@ useOverlayFocus({ active: () => props.visible, panel: panelRef, onEscape: () => 
               <div class="syntax-row"><code>sort:newest</code><span>Sort by newest, oldest, or relevance</span></div>
             </section>
             <section class="syntax-section">
-              <h4>Linked Work</h4>
-              <p class="syntax-note">
-                These match references a session mentioned — not proof that it opened, merged or
-                closed that work. Without a <code>repo:</code> they span every repository.
-              </p>
-              <div class="syntax-row"><code>pr:123</code><span>Sessions mentioning pull request 123</span></div>
-              <div class="syntax-row"><code>issue:42</code><span>Sessions mentioning issue 42</span></div>
-              <div class="syntax-row"><code>commit:9f1c2ab</code><span>Sessions mentioning a Git ref — a commit SHA, branch or tag</span></div>
-            </section>
-            <section class="syntax-section">
               <h4>Examples</h4>
               <div class="syntax-row"><code>type:error "rate limit"</code><span>Find rate limit errors</span></div>
               <div class="syntax-row"><code>tool:grep migration</code><span>Grep results about migrations</span></div>
               <div class="syntax-row"><code>"TODO" type:tool_result</code><span>Find TODOs in tool outputs</span></div>
-              <div class="syntax-row"><code>repo:owner/project pr:123</code><span>PR 123 in one repository</span></div>
             </section>
           </div>
         </div>
@@ -126,18 +115,6 @@ useOverlayFocus({ active: () => props.visible, panel: panelRef, onEscape: () => 
   letter-spacing: 0.05em;
   color: var(--text-secondary);
   margin: 0 0 8px 0;
-}
-.syntax-note {
-  margin: 0 0 8px 0;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: var(--text-tertiary);
-}
-.syntax-note code {
-  background: var(--canvas-subtle);
-  padding: 1px 4px;
-  border-radius: var(--radius-sm);
-  color: var(--accent-fg);
 }
 .syntax-row {
   display: flex;

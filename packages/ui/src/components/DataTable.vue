@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from "lucide-vue-next";
-import { computed } from "vue";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-vue-next";
 
 export interface DataTableColumn {
   key: string;
@@ -8,43 +7,17 @@ export interface DataTableColumn {
   align?: "left" | "center" | "right";
   class?: string;
   sortable?: boolean;
-  /** Header tooltip, for a column whose label needs its definition. */
-  title?: string;
 }
 
-const props = defineProps<{
+defineProps<{
   columns: DataTableColumn[];
   rows: Record<string, unknown>[];
   emptyMessage?: string;
   sortKey?: string | null;
   sortDirection?: "ascending" | "descending";
-  /** The row field that identifies a row; the row index when omitted. */
-  rowKey?: string;
-  /**
-   * Keys of the rows showing their `expanded` slot. Passing it makes rows
-   * expandable: a leading chevron column, a click anywhere on the row, and a
-   * full-width detail row beneath it. The parent owns the state.
-   */
-  expandedKeys?: readonly string[];
-  /** Accessible name for a row's expand toggle. */
-  expandLabel?: (row: Record<string, unknown>) => string;
-  /** Classes for a row, e.g. to set apart a pinned total. */
-  rowClass?: (row: Record<string, unknown>) => string | Record<string, boolean> | undefined;
 }>();
 
-const emit = defineEmits<{ sort: [key: string]; toggle: [key: string] }>();
-
-const expandable = computed(() => props.expandedKeys !== undefined);
-const expandedSet = computed(() => new Set(props.expandedKeys ?? []));
-const span = computed(() => props.columns.length + (expandable.value ? 1 : 0));
-
-function keyOf(row: Record<string, unknown>, index: number): string {
-  return props.rowKey ? String(row[props.rowKey]) : String(index);
-}
-
-function onRowClick(row: Record<string, unknown>, index: number): void {
-  if (expandable.value) emit("toggle", keyOf(row, index));
-}
+defineEmits<{ sort: [key: string] }>();
 </script>
 
 <template>
@@ -52,14 +25,12 @@ function onRowClick(row: Record<string, unknown>, index: number): void {
     <table class="data-table">
       <thead>
         <tr>
-          <th v-if="expandable" class="data-table-toggle-col"><span class="sr-only">Details</span></th>
           <th
             v-for="col in columns"
             :key="col.key"
             :aria-sort="col.sortable ? (sortKey === col.key ? sortDirection : 'none') : undefined"
             :class="col.class"
             :style="{ textAlign: col.align ?? 'left' }"
-            :title="col.title"
           >
             <button
               v-if="col.sortable"
@@ -80,48 +51,23 @@ function onRowClick(row: Record<string, unknown>, index: number): void {
         </tr>
       </thead>
       <tbody>
-        <template v-for="(row, idx) in rows" :key="keyOf(row, idx)">
-          <tr
-            :class="[
-              rowClass?.(row),
-              {
-                'data-table-row--expandable': expandable,
-                'data-table-row--expanded': expandedSet.has(keyOf(row, idx)),
-              },
-            ]"
-            @click="onRowClick(row, idx)"
+        <tr
+          v-for="(row, idx) in rows"
+          :key="idx"
+        >
+          <td
+            v-for="col in columns"
+            :key="col.key"
+            :class="col.class"
+            :style="{ textAlign: col.align }"
           >
-            <td v-if="expandable" class="data-table-toggle-col">
-              <button
-                type="button"
-                class="data-table-toggle"
-                :aria-expanded="expandedSet.has(keyOf(row, idx))"
-                :aria-label="expandLabel?.(row) ?? 'Details'"
-                @click.stop="$emit('toggle', keyOf(row, idx))"
-              >
-                <ChevronRight :size="14" aria-hidden="true" />
-              </button>
-            </td>
-            <td
-              v-for="col in columns"
-              :key="col.key"
-              :class="col.class"
-              :style="{ textAlign: col.align }"
-            >
-              <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
-                {{ row[col.key] ?? "" }}
-              </slot>
-            </td>
-          </tr>
-          <tr v-if="expandable && expandedSet.has(keyOf(row, idx))" class="data-table-expanded">
-            <td />
-            <td :colspan="columns.length">
-              <slot name="expanded" :row="row" />
-            </td>
-          </tr>
-        </template>
+            <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
+              {{ row[col.key] ?? "" }}
+            </slot>
+          </td>
+        </tr>
         <tr v-if="rows.length === 0">
-          <td :colspan="span" class="px-5 py-8 text-center" style="color: var(--text-secondary);">
+          <td :colspan="columns.length" class="px-5 py-8 text-center" style="color: var(--text-secondary);">
             {{ emptyMessage || "No data." }}
           </td>
         </tr>
@@ -149,19 +95,4 @@ function onRowClick(row: Record<string, unknown>, index: number): void {
 .data-table-sort svg { flex-shrink: 0; }
 .data-table-sort:hover, .data-table-sort--active { color: var(--accent-fg); }
 .data-table-sort:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 4px; }
-
-.data-table-toggle-col { width: 32px; }
-.data-table-row--expandable { cursor: pointer; }
-.data-table-toggle {
-  display: inline-flex;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-}
-.data-table-toggle:focus-visible { outline: 2px solid var(--accent-emphasis); outline-offset: 2px; }
-.data-table-toggle svg { transition: transform 0.15s ease; }
-.data-table-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
-.data-table-expanded td { background: var(--canvas-subtle); cursor: auto; }
 </style>

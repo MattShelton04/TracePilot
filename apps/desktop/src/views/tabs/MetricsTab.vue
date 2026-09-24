@@ -7,7 +7,6 @@ import MetricsCacheBreakdown from "@/components/metrics/MetricsCacheBreakdown.vu
 import MetricsCodeChanges from "@/components/metrics/MetricsCodeChanges.vue";
 import MetricsModelTable from "@/components/metrics/MetricsModelTable.vue";
 import MetricsPromptCacheSection from "@/components/metrics/MetricsPromptCacheSection.vue";
-import MetricsRequestLedgerSection from "@/components/metrics/MetricsRequestLedgerSection.vue";
 import MetricsSessionActivity from "@/components/metrics/MetricsSessionActivity.vue";
 import MetricsStatCards from "@/components/metrics/MetricsStatCards.vue";
 import MetricsTokenBudget from "@/components/metrics/MetricsTokenBudget.vue";
@@ -40,10 +39,6 @@ const {
   retry: retryPromptCache,
 } = usePromptCache(store);
 
-// Recorded requests exist whether or not a shutdown record does, so the
-// ledger renders outside the shutdown-metrics block.
-const requestLedgerEnabled = computed(() => prefs.isFeatureEnabled("sessionStoreEnrichment"));
-
 function retryLoadMetrics() {
   store.loaded.delete("metrics");
   store.loadShutdownMetrics();
@@ -55,20 +50,6 @@ function retryLoadTurns() {
 }
 
 const metrics = computed(() => store.shutdownMetrics);
-
-/** Loaded and absent: typically a session still in progress. */
-const withoutShutdownMetrics = computed(
-  () => store.loaded.has("metrics") && !metrics.value && !store.metricsError,
-);
-
-// Shutdown metrics arrive when a session shuts down. Until then, recorded
-// requests are the only figures there are, so the page points at them
-// rather than implying there is nothing to see.
-const emptyDescription = computed(() =>
-  requestLedgerEnabled.value
-    ? "No shutdown metrics yet: they are written when the session shuts down. Model requests recorded so far are listed below."
-    : "No shutdown metrics available for this session. Metrics are only generated after the first session shutdown.",
-);
 const turns = computed(() => store.turns);
 const { allSubagents } = useCrossTurnSubagents(turns);
 const {
@@ -107,7 +88,7 @@ const {
       @retry="retryLoadMetrics"
     />
 
-    <EmptyState v-if="!metrics && !store.metricsError" :description="emptyDescription" />
+    <EmptyState v-if="!metrics && !store.metricsError" description="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
 
     <template v-if="promptCacheEnabled">
       <ErrorAlert
@@ -160,16 +141,6 @@ const {
         <Badge variant="done">{{ metrics.currentModel }}</Badge>
       </div>
     </template>
-
-    <MetricsRequestLedgerSection
-      v-if="requestLedgerEnabled"
-      :key="store.sessionId ?? undefined"
-      class="mt-6"
-      :session-id="store.sessionId"
-      :has-shutdown-totals="Boolean(metrics)"
-      :default-expanded="withoutShutdownMetrics"
-    />
-
     <SubagentPanel :subagent="selectedSubagent" :is-open="isPanelOpen" :current-index="selectedIndex" :total-count="allSubagents.length" :has-prev="hasPrev" :has-next="hasNext" :top-offset="panelTopPx" @close="closePanel" @prev="navigatePrev" @next="navigateNext" @select-subagent="selectSubagent" />
   </div>
 </template>

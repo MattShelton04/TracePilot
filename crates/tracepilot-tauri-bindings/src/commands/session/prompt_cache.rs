@@ -22,7 +22,6 @@ pub async fn get_session_prompt_cache(
     let config = read_config(&state);
     let session_state_dir = config.session_state_dir();
     let index_path = config.index_db_path();
-    let enrichment_enabled = config.features.session_store_enrichment;
     let event_cache = event_cache.inner().clone();
 
     blocking_cmd!({
@@ -46,18 +45,8 @@ pub async fn get_session_prompt_cache(
                     .map(|(_, ttl)| *ttl)
             });
 
-        // Observations sit beside the predictions rather than changing them.
-        // An unavailable store simply leaves the list empty, which is how the
-        // baseline cache view keeps working on a machine without one.
-        let observations = if enrichment_enabled {
-            load_cache_observations(&index_path, &session_id, &timeline)
-        } else {
-            Vec::new()
-        };
-
         Ok::<_, BindingsError>(PromptCacheResponse {
             timeline,
-            observations,
             events_file_size,
             events_file_mtime: system_time_to_unix_millis(events_file_mtime),
         })
@@ -76,41 +65,6 @@ fn load_ttl_registry(index_path: &Path) -> Vec<(String, u64)> {
             .collect(),
         Err(error) => {
             tracing::debug!(%error, "Prompt-cache TTL registry unavailable");
-            Vec::new()
-        }
-    }
-}
-
-/// Recorded cache reuse for the requests that resumed each window.
-///
-/// Read from the enrichment cache, never from the Copilot store directly:
-/// the UI layer must not open that file, and a stale or absent cache is a
-/// missing overlay rather than a failed request.
-fn load_cache_observations(
-    index_path: &Path,
-    session_id: &str,
-    timeline: &tracepilot_core::prompt_cache::PromptCacheTimeline,
-) -> Vec<tracepilot_core::prompt_cache::CacheObservation> {
-    if timeline.windows.is_empty() {
-        return Vec::new();
-    }
-    let requests =
-        tracepilot_indexer::index_db::IndexDb::open_readonly(index_path).and_then(|db| {
-            if db
-                .session_store_coverage(session_id)?
-                .is_none_or(|coverage| coverage.freshness != "current")
-            {
-                return Ok(Vec::new());
-            }
-            db.all_session_requests(session_id)
-        });
-    match requests {
-        Ok(requests) => {
-            let core: Vec<_> = requests.iter().map(|request| request.to_core()).collect();
-            tracepilot_core::prompt_cache::attach_observations(&timeline.windows, &core)
-        }
-        Err(error) => {
-            tracing::debug!(%error, "Cache observations unavailable");
             Vec::new()
         }
     }

@@ -1,9 +1,6 @@
 import type { SearchContentType } from "@tracepilot/types";
 
-/**
- * Qualifier syntax: extract `type:`, `repo:`, `tool:`, `session:`, `sort:`,
- * `pr:`, `issue:` and `commit:` from query.
- */
+/** Qualifier syntax: extract `type:`, `repo:`, `tool:`, `session:`, `sort:` from query. */
 export interface ParsedQualifiers {
   cleanQuery: string;
   types: SearchContentType[];
@@ -11,21 +8,14 @@ export interface ParsedQualifiers {
   tool: string | null;
   session: string | null;
   sort: "relevance" | "newest" | "oldest" | null;
-  /** Pull-request number a session must mention. */
-  pr: string | null;
-  /** Issue number a session must mention. */
-  issue: string | null;
-  /** Git ref a session must mention — a commit SHA only some of the time. */
-  commit: string | null;
 }
 
-const QUALIFIER_RE = /\b(type|repo|tool|session|sort|pr|issue|commit):(?:"([^"]+)"|(\S+))/gi;
+const QUALIFIER_RE = /\b(type|repo|tool|session|sort):(?:"([^"]+)"|(\S+))/gi;
 
 /**
  * Parse inline qualifier syntax from a search query string.
  *
- * Recognised qualifiers: `type:`, `repo:`, `tool:`, `session:`, `sort:`,
- * `pr:`, `issue:`, `commit:`.
+ * Recognised qualifiers: `type:`, `repo:`, `tool:`, `session:`, `sort:`.
  * Quoted values are supported (e.g. `repo:"my org/repo"`).
  * Returns the cleaned query (qualifiers stripped) alongside extracted values.
  */
@@ -37,9 +27,6 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
     tool: null,
     session: null,
     sort: null,
-    pr: null,
-    issue: null,
-    commit: null,
   };
 
   const consumed: [number, number][] = [];
@@ -66,15 +53,6 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
         if (["relevance", "newest", "oldest"].includes(val)) {
           result.sort = val as "relevance" | "newest" | "oldest";
         }
-        break;
-      case "pr":
-        result.pr = val;
-        break;
-      case "issue":
-        result.issue = val;
-        break;
-      case "commit":
-        result.commit = val;
         break;
     }
   }

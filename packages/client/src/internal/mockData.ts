@@ -6,6 +6,7 @@ import type {
   FreshnessResponse,
   ImportPreviewResult,
   ImportResult,
+  PromptCacheResponse,
   SearchFacetsResponse,
   SearchResultsResponse,
   SearchStatsResponse,
@@ -15,7 +16,7 @@ import type {
 import { createDefaultConfig } from "@tracepilot/types";
 
 import type { GitInfo, UpdateCheckResult } from "../generated/bindings.js";
-import { sessionStoreMocks } from "../mock/sessionStoreCommands.js";
+
 import type { ContextSnippet, FtsHealthInfo } from "../search.js";
 
 const MOCK_EVENTS_MTIME = 1_735_728_400_000;
@@ -287,7 +288,11 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_session_checkpoints: mocks.MOCK_CHECKPOINTS,
     get_session_plan: { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
     get_shutdown_metrics: mocks.MOCK_SHUTDOWN_METRICS,
-    ...sessionStoreMocks(mocks, MOCK_EVENTS_MTIME),
+    get_session_prompt_cache: {
+      timeline: mocks.MOCK_PROMPT_CACHE,
+      eventsFileSize: 1024,
+      eventsFileMtime: MOCK_EVENTS_MTIME,
+    } as PromptCacheResponse,
     context_capture_list: [],
     context_capture_preflight: {
       sourceSessionId: mockSessionId,

@@ -1,7 +1,6 @@
 //! `IndexDb` search and facet query methods that execute against the FTS index.
 
 use rusqlite::params_from_iter;
-use tracepilot_core::utils::sqlite::table_exists;
 
 use super::query_builder::SearchQueryBuilder;
 use super::sanitize::{map_search_result, sanitize_fts_query};
@@ -41,7 +40,7 @@ impl IndexDb {
 
         let (sql, params) = SearchQueryBuilder::new(&base_select, is_fts)
             .with_optional_fts_match(sanitized.as_deref())
-            .with_filters(filters, self.work_refs_available(filters))
+            .with_filters(filters)
             .with_sort(filters.sort_by.as_deref())
             .with_pagination(limit, offset)
             .build();
@@ -66,7 +65,7 @@ impl IndexDb {
 
         let (sql, params) = SearchQueryBuilder::new("SELECT COUNT(*)", is_fts)
             .with_optional_fts_match(sanitized.as_deref())
-            .with_filters(filters, self.work_refs_available(filters))
+            .with_filters(filters)
             .build();
 
         let count: i64 = self.conn.query_row(
@@ -132,18 +131,6 @@ impl IndexDb {
 
     // ── Private helpers ─────────────────────────────────────────────
 
-    /// Whether the linked-work qualifiers can be answered on this connection.
-    ///
-    /// `session_work_refs` arrives with migration 20 and `open_readonly`
-    /// deliberately skips migrations, so an older handle can lack the table
-    /// entirely. The probe lives here rather than in the builder because this
-    /// is the type that owns the connection, and routing every query through
-    /// one answer keeps rows, counts and facets degrading together. A search
-    /// with no such qualifier never pays for the lookup.
-    fn work_refs_available(&self, filters: &SearchFilters) -> bool {
-        !filters.has_work_ref_filters() || table_exists(&self.conn, "session_work_refs")
-    }
-
     /// Run a single facet-dimension query (content_type, repository, or tool_name).
     fn facet_dimension(
         &self,
@@ -164,7 +151,7 @@ impl IndexDb {
         }
 
         builder = builder
-            .with_filters(filters, self.work_refs_available(filters))
+            .with_filters(filters)
             .with_group_by(column, Some("ORDER BY COUNT(*) DESC"));
 
         if let Some(n) = limit {
@@ -195,7 +182,7 @@ impl IndexDb {
         let (sql, params) =
             SearchQueryBuilder::new("SELECT COUNT(*), COUNT(DISTINCT sc.session_id)", is_fts)
                 .with_optional_fts_match(sanitized_query)
-                .with_filters(filters, self.work_refs_available(filters))
+                .with_filters(filters)
                 .build();
 
         Ok(self.conn.query_row(

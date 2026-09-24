@@ -10,9 +10,6 @@ describe("parseQualifiers", () => {
     expect(result.tool).toBeNull();
     expect(result.session).toBeNull();
     expect(result.sort).toBeNull();
-    expect(result.pr).toBeNull();
-    expect(result.issue).toBeNull();
-    expect(result.commit).toBeNull();
   });
 
   it("extracts type qualifier", () => {
@@ -68,29 +65,6 @@ describe("parseQualifiers", () => {
     expect(result.repo).toBe("myapp");
     expect(result.tool).toBe("grep");
     expect(result.sort).toBe("newest");
-  });
-
-  it("extracts pr, issue and commit qualifiers", () => {
-    const result = parseQualifiers("pr:123 issue:42 commit:9f1c2ab login fix");
-    expect(result.cleanQuery).toBe("login fix");
-    expect(result.pr).toBe("123");
-    expect(result.issue).toBe("42");
-    expect(result.commit).toBe("9f1c2ab");
-  });
-
-  it("keeps a hash-prefixed pr value verbatim for the backend to normalize", () => {
-    expect(parseQualifiers("pr:#123").pr).toBe("#123");
-  });
-
-  it("accepts a commit value that is a branch name, not a SHA", () => {
-    expect(parseQualifiers('commit:"feature/login fix"').commit).toBe("feature/login fix");
-  });
-
-  it("combines repo with pr to scope a number to one repository", () => {
-    const result = parseQualifiers("repo:owner/project pr:123");
-    expect(result.cleanQuery).toBe("");
-    expect(result.repo).toBe("owner/project");
-    expect(result.pr).toBe("123");
   });
 
   it("handles query with only qualifiers (no text)", () => {

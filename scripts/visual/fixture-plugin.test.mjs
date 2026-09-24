@@ -26,24 +26,3 @@ test("head fixture imports resolve even when the newly added file is absent from
     assert.equal(plugin.resolveId(source, index), undefined);
   assert.equal(fixtureModule(resolve(root, "other/mock/index.ts"), index, client), null);
 });
-
-test("every relative runtime import of the fixture corpus stays inside it", async () => {
-  // A fixture helper outside `mock/` or `internal/mockData` would load from the
-  // base checkout, where a file new on the head branch does not exist yet.
-  const client = resolve(import.meta.dirname, "../../packages/client/src");
-  const { readdir } = await import("node:fs/promises");
-  const files = [
-    join(client, "internal/mockData.ts"),
-    ...(await readdir(join(client, "mock"))).map((name) => join(client, "mock", name)),
-  ].filter((file) => file.endsWith(".ts"));
-  const valueImport = /^import\s+(?!type\b)[^;]*?from\s+"(\.[^"]+)";/gms;
-  for (const file of files) {
-    const text = await readFile(file, "utf8");
-    for (const [, source] of text.matchAll(valueImport)) {
-      assert.ok(
-        fixtureModule(source, file, client),
-        `${file} imports ${source}, which the visual harness would load from the base revision`,
-      );
-    }
-  }
-});

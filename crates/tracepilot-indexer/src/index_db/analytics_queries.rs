@@ -13,7 +13,6 @@ mod code_impact;
 mod dashboard;
 mod day_bucket;
 mod prompt_cache;
-pub mod request_performance;
 mod skills;
 mod tool_analysis;
 
@@ -33,53 +32,6 @@ impl IndexDb {
     /// sessions. Used to estimate cache windows for older sessions.
     pub fn query_observed_cache_ttls(&self) -> Result<Vec<ModelCacheTtl>> {
         prompt_cache::query_observed_ttls(&self.conn, None)
-    }
-
-    /// Observed request performance across sessions, overall and per model.
-    ///
-    /// Requests are selected by their own recorded time, not by their
-    /// session's creation date, so a long-running session's history is not
-    /// piled onto the day it began.
-    pub fn query_request_performance(
-        &self,
-        filter: &request_performance::RequestPerformanceFilter,
-    ) -> Result<request_performance::RequestPerformanceReport> {
-        if !self.has_session_store_enrichment() {
-            return Ok(request_performance::RequestPerformanceReport::unavailable());
-        }
-        let _snapshot = self.conn.unchecked_transaction()?;
-        let generation = self.request_generation()?;
-        let mut report = request_performance::query_request_performance(
-            &self.conn,
-            generation.as_deref(),
-            filter,
-        )?;
-        if let Some(source) = self.session_store_status()? {
-            report.stale = source.availability != "ready"
-                || self.conn.query_row(
-                    "SELECT EXISTS(SELECT 1 FROM session_store_coverage WHERE freshness = 'stale')",
-                    [],
-                    |row| row.get::<_, bool>(0),
-                )?;
-            report.last_success_at = source.last_success_at;
-        }
-        Ok(report)
-    }
-
-    /// Per-agent request figures for one session, own totals only.
-    pub fn query_agent_request_rollups(
-        &self,
-        session_id: &str,
-    ) -> Result<Vec<request_performance::AgentRequestRollup>> {
-        if !self.has_session_store_enrichment() {
-            return Ok(Vec::new());
-        }
-        let generation = self.request_generation()?;
-        request_performance::query_agent_request_rollups(
-            &self.conn,
-            generation.as_deref(),
-            session_id,
-        )
     }
 
     /// Cross-session usage for every agent seen in the index.
