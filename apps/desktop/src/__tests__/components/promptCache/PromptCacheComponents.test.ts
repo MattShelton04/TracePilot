@@ -216,11 +216,75 @@ describe("MetricsPromptCacheSection", () => {
     });
     expect(card("Agent wakes")?.text()).toContain("3");
 
-    await wrapper.findAll("button[aria-expanded]")[1]?.trigger("click");
+    await wrapper.findAll(".prompt-cache__toggle")[1]?.trigger("click");
     const detail = wrapper.get('[data-testid="prompt-cache-detail"]');
     expect(detail.text()).toContain("History rewritten at message 1");
     expect(detail.text()).toContain("about 54K tokens");
     expect(detail.text()).not.toContain("Prefix");
+  });
+
+  function manyWindows(count: number) {
+    return Array.from({ length: count }, (_, index) =>
+      makeWindow({
+        index,
+        // Every fourth window missed the cache.
+        outcome: index % 4 === 3 ? "expired" : "warm",
+      }),
+    );
+  }
+
+  it("collapses long tables behind a disclosure and pages them", async () => {
+    const wrapper = mount(MetricsPromptCacheSection, {
+      props: { timeline: makeTimeline(manyWindows(45)) },
+    });
+    // Summary stats stay visible while the table is collapsed.
+    expect(wrapper.findAll(".stat-card").length).toBeGreaterThan(0);
+    expect(wrapper.find("table").exists()).toBe(false);
+    const disclosure = wrapper.get('[data-testid="prompt-cache-disclosure"]');
+    expect(disclosure.text()).toBe("Show 45 idle windows");
+    expect(disclosure.attributes("aria-expanded")).toBe("false");
+
+    await disclosure.trigger("click");
+    expect(disclosure.text()).toBe("Hide 45 idle windows");
+    expect(wrapper.findAll(".prompt-cache__row")).toHaveLength(20);
+    expect(wrapper.text()).toContain("1 / 3");
+
+    const next = wrapper.findAll("button").find((b) => b.text() === "Next");
+    await next?.trigger("click");
+    await next?.trigger("click");
+    expect(wrapper.findAll(".prompt-cache__row")).toHaveLength(5);
+    expect(wrapper.text()).toContain("3 / 3");
+  });
+
+  it("narrows to misses and prefix changes, back on the first page", async () => {
+    const windows = manyWindows(45);
+    windows[0] = makeWindow({
+      index: 0,
+      prefixChanges: [{ kind: "tools", summary: "Tools changed", details: [] }],
+    });
+    const wrapper = mount(MetricsPromptCacheSection, {
+      props: { timeline: makeTimeline(windows) },
+    });
+    await wrapper.get('[data-testid="prompt-cache-disclosure"]').trigger("click");
+    await wrapper
+      .findAll("button")
+      .find((b) => b.text() === "Next")
+      ?.trigger("click");
+
+    const filter = wrapper.get('[data-testid="prompt-cache-notable-filter"]');
+    // 11 expired windows plus the warm one with a prefix change.
+    expect(filter.element.parentElement?.textContent).toContain("(12)");
+    await filter.setValue(true);
+    expect(wrapper.findAll(".prompt-cache__row")).toHaveLength(12);
+    expect(wrapper.text()).not.toContain("1 / ");
+  });
+
+  it("opens short tables by default and offers no filter when it would hide nothing", () => {
+    const wrapper = mount(MetricsPromptCacheSection, {
+      props: { timeline: makeTimeline([makeWindow(), makeWindow({ index: 1 })]) },
+    });
+    expect(wrapper.findAll(".prompt-cache__row")).toHaveLength(2);
+    expect(wrapper.find('[data-testid="prompt-cache-notable-filter"]').exists()).toBe(false);
   });
 
   it("hides estimates for older CLI versions until requested", async () => {

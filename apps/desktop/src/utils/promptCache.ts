@@ -126,6 +126,15 @@ export function liveCacheStatus(expiresAt: string, nowMs: number): LiveCacheStat
   return { state, remainingMs };
 }
 
+/** Windows worth a closer look: the cache was missed, or its prefix changed. */
+export function isNotableWindow(window: CacheWindow): boolean {
+  return (
+    window.outcome === "expired" ||
+    window.outcome === "modelChanged" ||
+    window.prefixChanges.length > 0
+  );
+}
+
 /** Windows worth marking in the conversation: resumed, with a timing claim. */
 export function isMarkableWindow(window: CacheWindow): boolean {
   return (

@@ -6,6 +6,7 @@ import {
   formatCountdown,
   formatIdle,
   idleFractionOfTtl,
+  isNotableWindow,
   liveCacheStatus,
   mapWindowsToTurns,
   resumeChipLabel,
@@ -183,5 +184,19 @@ describe("copy", () => {
     expect(estimated.Timing).toBe("Estimated");
     expect(estimated["Resumed by"]).toBe("Agent");
     expect(estimated["Re-sent"]).toBe("about 54K tokens");
+  });
+});
+
+describe("isNotableWindow", () => {
+  it("flags misses and prefix changes only", () => {
+    expect(isNotableWindow(makeWindow())).toBe(false);
+    expect(isNotableWindow(makeWindow({ outcome: "expired" }))).toBe(true);
+    expect(isNotableWindow(makeWindow({ outcome: "modelChanged" }))).toBe(true);
+    expect(
+      isNotableWindow(
+        makeWindow({ prefixChanges: [{ kind: "tools", summary: "Tools changed", details: [] }] }),
+      ),
+    ).toBe(true);
+    expect(isNotableWindow(makeWindow({ outcome: "pending", resumeAt: null }))).toBe(false);
   });
 });

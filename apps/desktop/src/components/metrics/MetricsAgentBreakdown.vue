@@ -10,7 +10,8 @@ import {
   Tooltip,
 } from "@tracepilot/ui";
 import { Info } from "lucide-vue-next";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
+import { useClientPager } from "@/composables/useClientPager";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { usePreferencesStore } from "@/stores/preferences";
 import { agentUsageCoverage, buildAgentUsageRows } from "@/utils/agentUsageRows";
@@ -23,7 +24,6 @@ const descendants = ref(false);
 type SortKey = "name" | "credits" | "share" | "total" | "requests" | "tools" | "apiMs";
 const sortKey = ref<SortKey | null>(null);
 const sortDirection = ref<"ascending" | "descending">("descending");
-const page = ref(0);
 const selectedId = ref<string | null>("main");
 const rows = computed(() => buildAgentUsageRows(props.metrics, props.turns));
 const coverage = computed(() => agentUsageCoverage(props.metrics));
@@ -58,14 +58,11 @@ const displayRows = computed(() => {
   }
   return result;
 });
-const pageCount = computed(() => Math.max(1, Math.ceil(displayRows.value.length / 50)));
-watch([sortKey, sortDirection, descendants], () => {
-  page.value = 0;
-});
-watch(pageCount, (count) => {
-  page.value = Math.min(page.value, count - 1);
-});
-const visibleRows = computed(() => displayRows.value.slice(page.value * 50, (page.value + 1) * 50));
+const {
+  page,
+  pageCount,
+  pageRows: visibleRows,
+} = useClientPager(displayRows, 50, [sortKey, sortDirection, descendants]);
 const selected = computed(() => rows.value.find((row) => row.id === selectedId.value));
 const selectedMetrics = computed<ShutdownMetrics>(() => ({ modelMetrics: selected.value?.models }));
 const detail = useMetricsTabData(selectedMetrics, usePreferencesStore(), true);
