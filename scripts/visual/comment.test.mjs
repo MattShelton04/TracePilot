@@ -71,7 +71,7 @@ test("incomplete baselines do not claim no changes", () => {
   assert.equal(body.includes("No larger"), false);
 });
 
-test("visual reports append once per capture attempt", async () => {
+test("visual reports create one sticky comment per PR", async () => {
   const writes = [];
   const api = async (path, options) => {
     if (options) {
@@ -82,6 +82,6 @@ test("visual reports append once per capture attempt", async () => {
     if (path === "/actions/runs/123") return run;
     return [own(12)];
   };
-  assert.equal(await postComment({ api, pr: 7, run, body: "report" }), "created");
-  assert.deepEqual(writes, [["/issues/7/comments", "POST"]]);
+  assert.equal(await postComment({ api, pr: 7, run, body: "report" }), "updated");
+  assert.deepEqual(writes, [["/issues/comments/12", "PATCH"]]);
 });

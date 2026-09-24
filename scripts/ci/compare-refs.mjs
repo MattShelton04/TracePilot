@@ -9,6 +9,13 @@ export function comparisonRefs(event, eventName, sha, git) {
   assert(/^[a-f0-9]{40}$/.test(head), "Invalid head SHA");
   if (eventName === "pull_request") {
     assert(/^[a-f0-9]{40}$/.test(base), "Invalid base SHA");
+    // Compare the whole PR, never an incremental push. The event's base.sha can
+    // predate newer default-branch commits merged into the PR, which would
+    // attribute those commits to the PR. The generated merge commit's first
+    // parent is the base tip GitHub merged against, so prefer it when its second
+    // parent is this exact head.
+    const [tip, merged] = git(["rev-list", "--parents", "-n", "1", sha]).split(" ").slice(1);
+    if (merged === head && /^[a-f0-9]{40}$/.test(tip)) base = tip;
     base = git(["merge-base", base, head]);
   } else if (!base || /^0+$/.test(base)) {
     // Manual runs and initial pushes compare against the first parent, never self.

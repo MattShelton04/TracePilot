@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { captureExitCode, stableScreenshot } from "./capture-policy.mjs";
+import { captureExitCode, chromiumArgs, stableScreenshot } from "./capture-policy.mjs";
 import { fixtureCorpusPlugin } from "./fixture-plugin.mjs";
 import { fixedTime, selectCases, viewport } from "./manifest.mjs";
 
@@ -16,7 +16,9 @@ const output = resolve(args.out ?? ".tracepilot/visual");
 const shard = args.shard ?? "1/1";
 const revision = args.revision ?? "head";
 captureExitCode([], revision); // Validate before starting the browser or Vite.
-const selected = selectCases(shard).filter((item) => !args.case || item.id === args.case);
+const selected = selectCases(shard).filter(
+  (item) => !args.case || args.case.split(",").includes(item.id),
+);
 if (!selected.length) throw new Error("No visual cases selected");
 const app = resolve(root, "apps/desktop");
 const requireApp = createRequire(resolve(app, "package.json"));
@@ -30,7 +32,9 @@ const fixtureFile = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures.m
 const fixtureImport = `/@fs/${fixtureFile.replaceAll("\\", "/")}`;
 const harnessRoot = resolve(dirname(fixtureFile), "../..");
 const commit = (cwd) =>
-  execFileSync("git", ["-C", cwd, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  execFileSync("git", ["-C", cwd, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).trim();
 const revisionSha = commit(root);
 const harnessSha = commit(harnessRoot);
 if (process.env.VISUAL_REVISION_SHA && process.env.VISUAL_REVISION_SHA !== revisionSha)
@@ -70,7 +74,10 @@ try {
   await server.listen();
   const address = server.httpServer.address();
   const baseUrl = `http://127.0.0.1:${address.port}`;
-  browser = await chromium.launch(args.channel ? { channel: args.channel } : {});
+  browser = await chromium.launch({
+    ...(args.channel ? { channel: args.channel } : {}),
+    args: chromiumArgs,
+  });
   for (const item of selected) {
     const context = await browser.newContext({
       viewport,
@@ -173,7 +180,10 @@ try {
       result.errors.push(String(error.message).slice(0, 500));
       // Failure captures are diagnostic, never accepted as a visual baseline.
       await page
-        .screenshot({ path: resolve(output, `${item.id}.png`), animations: "disabled" })
+        .screenshot({
+          path: resolve(output, `${item.id}.png`),
+          animations: "disabled",
+        })
         .catch(() => {});
     }
     result.durationMs = Math.round(performance.now() - caseStarted);

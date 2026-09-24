@@ -52,4 +52,13 @@ const marker = `<!-- tracepilot-bundle-report:run=${run.id};attempt=${run.run_at
 const commit = (sha) => `[${sha.slice(0, 8)}](https://github.com/${repo}/commit/${sha})`;
 const body = `${marker}\n${renderBundleMarkdown(head, base)}\nBase ${commit(base.metadata.sha)} → head ${commit(head.metadata.sha)} · [Build and artifacts](https://github.com/${repo}/actions/runs/${run.id}/attempts/${run.run_attempt})\n`;
 if (process.env.GITHUB_STEP_SUMMARY) await writeFile(process.env.GITHUB_STEP_SUMMARY, body);
-console.log(await postReportComment({ api, pr: pr.number, run, body, marker }));
+console.log(
+  await postReportComment({
+    api,
+    pr: pr.number,
+    run,
+    body,
+    marker,
+    family: "<!-- tracepilot-bundle-report:",
+  }),
+);

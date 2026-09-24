@@ -5,26 +5,40 @@ import { comparisonRefs } from "./compare-refs.mjs";
 const head = "a".repeat(40),
   base = "b".repeat(40),
   ancestor = "c".repeat(40);
-test("later PR revisions always compare against the merge base, not their own head", () => {
+const merge = "e".repeat(40),
+  tip = "f".repeat(40);
+test("later PR revisions always compare the whole PR against the merge base, not their own head", () => {
   const calls = [];
   for (const sha of [head, "d".repeat(40)]) {
     assert.deepEqual(
       comparisonRefs(
         { pull_request: { head: { sha }, base: { sha: base } } },
         "pull_request",
-        "e".repeat(40),
+        merge,
         (args) => {
           calls.push(args);
-          return ancestor;
+          return args[0] === "rev-list" ? `${merge} ${tip} ${sha}` : ancestor;
         },
       ),
       { base: ancestor, head: sha },
     );
   }
   assert.deepEqual(calls, [
-    ["merge-base", base, head],
-    ["merge-base", base, "d".repeat(40)],
+    ["rev-list", "--parents", "-n", "1", merge],
+    ["merge-base", tip, head],
+    ["rev-list", "--parents", "-n", "1", merge],
+    ["merge-base", tip, "d".repeat(40)],
   ]);
+});
+test("a stale event base SHA is only used when the merge commit does not merge this head", () => {
+  const calls = [];
+  const git = (args) => {
+    calls.push(args);
+    return args[0] === "rev-list" ? `${merge} ${tip} ${"9".repeat(40)}` : ancestor;
+  };
+  const event = { pull_request: { head: { sha: head }, base: { sha: base } } };
+  assert.deepEqual(comparisonRefs(event, "pull_request", merge, git), { base: ancestor, head });
+  assert.deepEqual(calls.at(-1), ["merge-base", base, head]);
 });
 test("pushes use before; manual and initial pushes use first parent; self-comparisons fail", () => {
   const git = (args) => {

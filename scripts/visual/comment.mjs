@@ -53,8 +53,8 @@ export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRu
   return body;
 }
 
-/** Preserve previous revision comments; duplicate deliveries do not post twice. */
+/** One sticky report per PR; duplicate deliveries do not edit it twice. */
 export async function postComment({ api, pr, run, body }) {
   const marker = `<!-- tracepilot-visual-report:run=${run.id};attempt=${run.run_attempt ?? 1};sha=${run.head_sha} -->`;
-  return postReportComment({ api, pr, run, body, marker });
+  return postReportComment({ api, pr, run, body, marker, family: commentMarker });
 }
