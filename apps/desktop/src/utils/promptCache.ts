@@ -13,7 +13,7 @@ import type {
   PrefixChangeKind,
   PromptCacheTimeline,
 } from "@tracepilot/types";
-import { formatNumber, formatTime } from "@tracepilot/types";
+import { formatNumber, formatNumberFull, formatTime } from "@tracepilot/types";
 
 /** `CacheWindow.resumeSource` when the agent woke itself without a prompt. */
 export const AGENT_RESUME_SOURCE = "agent";
@@ -199,11 +199,24 @@ export function describeResume(window: CacheWindow): string {
   }
 }
 
+/**
+ * A warm-predicted window whose prefix changed and whose resume request the
+ * CLI recorded missing the cache. Without that record the break is only likely.
+ */
+export function isRecordedBreak(window: CacheWindow): boolean {
+  return (
+    window.outcome === "warm" &&
+    window.prefixChanges.length > 0 &&
+    window.observedResume?.hit === false
+  );
+}
+
 /** Short chip label for a resumed window. */
 export function resumeChipLabel(window: CacheWindow): string {
   switch (window.outcome) {
     case "warm":
-      return window.prefixChanges.length > 0 ? "Likely cache break" : "Cache warm";
+      if (window.prefixChanges.length === 0) return "Cache warm";
+      return isRecordedBreak(window) ? "Cache break" : "Likely cache break";
     case "expired":
       return "Cache expired";
     case "modelChanged":
@@ -261,6 +274,15 @@ export function windowDetailRows(window: CacheWindow): WindowDetailRow[] {
   }
   if ((window.outcome === "expired" || window.outcome === "modelChanged") && window.prefixTokens) {
     rows.push({ label: "Re-sent", value: formatApproxTokens(window.prefixTokens) });
+  }
+  if (window.observedResume) {
+    const read = formatNumberFull(window.observedResume.cacheRead);
+    rows.push({
+      label: "Read from cache",
+      value: window.prefixTokens
+        ? `${read} of ${formatNumberFull(window.prefixTokens)} tokens (recorded)`
+        : `${read} tokens (recorded)`,
+    });
   }
   return rows;
 }

@@ -7,6 +7,7 @@ import {
   formatIdle,
   idleFractionOfTtl,
   isNotableWindow,
+  isRecordedBreak,
   liveCacheStatus,
   mapWindowsToTurns,
   resumeChipLabel,
@@ -165,6 +166,39 @@ describe("copy", () => {
     ).toBe("Likely cache break");
     expect(resumeChipLabel(makeWindow({ outcome: "expired" }))).toBe("Cache expired");
     expect(resumeChipLabel(makeWindow({ outcome: "modelChanged" }))).toBe("Model changed");
+  });
+
+  it("says a break was recorded only when the resume request missed the cache", () => {
+    const tools = [{ kind: "tools" as const, summary: "+2 tools", details: [] }];
+    const recorded = makeWindow({
+      prefixChanges: tools,
+      observedResume: { cacheRead: 0, hit: false },
+    });
+    expect(isRecordedBreak(recorded)).toBe(true);
+    expect(resumeChipLabel(recorded)).toBe("Cache break");
+
+    // No record of the resume request: the break stays a prediction.
+    const unrecorded = makeWindow({ prefixChanges: tools });
+    expect(isRecordedBreak(unrecorded)).toBe(false);
+    expect(resumeChipLabel(unrecorded)).toBe("Likely cache break");
+
+    // A size-less prefix cannot confirm a miss.
+    const unknown = makeWindow({
+      prefixChanges: tools,
+      observedResume: { cacheRead: 0, hit: null },
+    });
+    expect(resumeChipLabel(unknown)).toBe("Likely cache break");
+  });
+
+  it("lists the recorded cache read beside the prefix", () => {
+    const rows = windowDetailRows(
+      makeWindow({ observedResume: { cacheRead: 17_920, hit: true }, prefixTokens: 18_048 }),
+    );
+    expect(rows).toContainEqual({
+      label: "Read from cache",
+      value: "17,920 of 18,048 tokens (recorded)",
+    });
+    expect(windowDetailRows(makeWindow()).some((r) => r.label === "Read from cache")).toBe(false);
   });
 
   it("labels only estimates and lists re-sent tokens after a miss", () => {

@@ -31,6 +31,7 @@ import {
   idleFractionOfTtl,
   isNotableWindow,
   OUTCOME_LABELS,
+  resumeChipLabel,
   windowDetailRows,
 } from "@/utils/promptCache";
 
@@ -100,6 +101,14 @@ function meterPercent(window: CacheWindow): number | null {
   return fraction == null ? null : Math.min(fraction, METER_SPAN) / METER_SPAN;
 }
 const TTL_MARKER = `${(1 / METER_SPAN) * 100}%`;
+
+/** A warm prediction with a likely or recorded break reads as a break. */
+function outcomeBadge(window: CacheWindow) {
+  if (window.outcome === "warm" && window.prefixChanges.length > 0) {
+    return { label: resumeChipLabel(window), variant: "warning" as const };
+  }
+  return { label: OUTCOME_LABELS[window.outcome], variant: OUTCOME_VARIANTS[window.outcome] };
+}
 
 function toggle(index: number) {
   const next = new Set(expanded.value);
@@ -262,8 +271,8 @@ function rowCredits(window: CacheWindow) {
                 </td>
                 <td>
                   <span class="prompt-cache__outcome">
-                    <Badge :variant="OUTCOME_VARIANTS[window.outcome]">
-                      {{ OUTCOME_LABELS[window.outcome] }}
+                    <Badge :variant="outcomeBadge(window).variant">
+                      {{ outcomeBadge(window).label }}
                     </Badge>
                     <span v-if="window.resumeSource === AGENT_RESUME_SOURCE" class="prompt-cache__tag">Agent</span>
                     <span v-if="window.confidence === 'estimated' && !isTurnGaps" class="prompt-cache__tag">Estimated</span>

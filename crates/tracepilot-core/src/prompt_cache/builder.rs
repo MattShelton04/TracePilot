@@ -7,7 +7,9 @@ use serde_json::Value;
 
 use super::baseline::{CacheBaseline, MAIN_CONVERSATION, parse_baselines};
 use super::model::{CacheWindow, ObservedCacheTtl, PromptCacheSource, PromptCacheTimeline};
-use super::outcome::{AGENT_RESUME_SOURCE, break_causes, classify, prefix_changes, summarize};
+use super::outcome::{
+    AGENT_RESUME_SOURCE, break_causes, classify, observe_resume, prefix_changes, summarize,
+};
 use super::parse_timestamp;
 use super::state::{Checkpoint, ModelExpiry, Resume, WindowDraft};
 use crate::models::event_types::{ModelCacheState, SessionEventType};
@@ -357,11 +359,11 @@ impl Walker {
         let resume_at = draft.resume.as_ref().map(|r| r.at);
         let start_baseline = start.and_then(|c| c.active_baseline(draft.idle_model.as_deref()));
         let resume_baseline = next.and_then(|c| c.active_baseline(model.as_deref()));
+        let observed_resume = observe_resume(start_baseline, resume_baseline);
         let changes = break_causes(
             classification.outcome,
-            prefix_changes(draft, start_baseline, next),
-            start_baseline,
-            resume_baseline,
+            prefix_changes(draft, start_baseline, next, observed_resume),
+            observed_resume,
         );
 
         CacheWindow {
@@ -384,6 +386,7 @@ impl Walker {
             interaction_nano_aiu: start
                 .zip(next)
                 .and_then(|(s, n)| Some(n.total_nano_aiu?.saturating_sub(s.total_nano_aiu?))),
+            observed_resume,
             prefix_changes: changes,
         }
     }

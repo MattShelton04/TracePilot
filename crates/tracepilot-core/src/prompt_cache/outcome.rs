@@ -5,8 +5,8 @@ use chrono::{DateTime, Duration, Utc};
 use super::baseline::CacheBaseline;
 use super::changes::{diff_baselines, effort_change, model_change, rewrite_event_change};
 use super::model::{
-    CacheConfidence, CacheWindow, CacheWindowOutcome, PrefixChange, PrefixChangeKind,
-    PromptCacheSummary,
+    CacheConfidence, CacheWindow, CacheWindowOutcome, ObservedResume, PrefixChange,
+    PrefixChangeKind, PromptCacheSummary,
 };
 use super::state::{Checkpoint, WindowDraft};
 
@@ -114,6 +114,7 @@ pub(super) fn prefix_changes(
     draft: &WindowDraft,
     start_baseline: Option<&CacheBaseline>,
     next: Option<&Checkpoint>,
+    observed: Option<ObservedResume>,
 ) -> Vec<PrefixChange> {
     let resume_model = draft.resume.as_ref().and_then(|r| r.model.as_deref());
     let next_baseline = next.and_then(|c| c.active_baseline(resume_model));
@@ -124,6 +125,19 @@ pub(super) fn prefix_changes(
             // A rewrite whose only known causes came after the resume (e.g. a
             // compaction during the next interaction) cannot have broken it.
             if draft.idle_rewrite_causes.is_empty() && !next.rewrite_causes.is_empty() {
+                changes.retain(|change| change.kind != PrefixChangeKind::History);
+            }
+            // Without a rewrite event or a shorter conversation, differing
+            // history is the CLI re-rendering its most recent messages, which
+            // were not all cached yet: in real sessions the resume request
+            // still read (almost) the whole idle prefix. Only a recorded miss
+            // makes it a plausible cause.
+            let shrank = next_baseline
+                .message_count
+                .zip(prev.message_count)
+                .is_some_and(|(after, before)| after < before);
+            let recorded_miss = observed.is_some_and(|o| o.hit == Some(false));
+            if draft.idle_rewrite_causes.is_empty() && !shrank && !recorded_miss {
                 changes.retain(|change| change.kind != PrefixChangeKind::History);
             }
             changes
@@ -168,12 +182,11 @@ const OBSERVED_HIT_SHARE: f64 = 0.9;
 pub(super) fn break_causes(
     outcome: CacheWindowOutcome,
     mut changes: Vec<PrefixChange>,
-    idle_baseline: Option<&CacheBaseline>,
-    resume_baseline: Option<&CacheBaseline>,
+    observed: Option<ObservedResume>,
 ) -> Vec<PrefixChange> {
     match outcome {
         CacheWindowOutcome::Warm | CacheWindowOutcome::Unknown => {
-            if observed_hit(idle_baseline, resume_baseline) {
+            if observed.is_some_and(|o| o.hit == Some(true)) {
                 changes.clear();
             }
             changes
@@ -186,25 +199,24 @@ pub(super) fn break_causes(
     }
 }
 
-/// Whether the resume request read most of the idle prefix from cache.
-fn observed_hit(idle: Option<&CacheBaseline>, resume: Option<&CacheBaseline>) -> bool {
-    let (Some(idle), Some(resume)) = (idle, resume) else {
-        return false;
-    };
+/// The CLI's record of the resume request, and whether it read most of the
+/// idle prefix from cache.
+pub(super) fn observe_resume(
+    idle: Option<&CacheBaseline>,
+    resume: Option<&CacheBaseline>,
+) -> Option<ObservedResume> {
+    let resume = resume?;
     // A checkpoint keeps the interaction's last request. Follow-up requests
     // are agent-initiated, so a user-initiated one is the resume request.
     if resume.initiator.as_deref() != Some("user") {
-        return false;
+        return None;
     }
-    match (
-        idle.frontier_tokens.or(idle.prompt_tokens),
-        resume.cache_read,
-    ) {
-        (Some(prefix), Some(read)) if prefix > 0 => {
-            read as f64 >= prefix as f64 * OBSERVED_HIT_SHARE
-        }
-        _ => false,
-    }
+    let cache_read = resume.cache_read?;
+    let hit = idle
+        .and_then(|idle| idle.frontier_tokens.or(idle.prompt_tokens))
+        .filter(|prefix| *prefix > 0)
+        .map(|prefix| cache_read as f64 >= prefix as f64 * OBSERVED_HIT_SHARE);
+    Some(ObservedResume { cache_read, hit })
 }
 
 pub(super) fn summarize(windows: &[CacheWindow]) -> PromptCacheSummary {

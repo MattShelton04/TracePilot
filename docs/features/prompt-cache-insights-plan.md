@@ -202,7 +202,7 @@ Compare consecutive baselines for the **same conversation and model**:
 | Tools added/removed | set difference on `name` | "+2 tools / −1 tool". Show names only when `safe == true`, otherwise "custom tool". |
 | Tool redefined | same name, different `schema_hash` | "Tool definition changed" |
 | System prompt | segment hash differs | "System prompt: instructions changed" (segment names) |
-| History rewrite | first differing `conversation.points[i].hash` where `i < prev.message_count` | "History rewritten at message i". The cause is taken from any `session.compaction_complete` / `session.truncation` / `session.context_cleared` in between. |
+| History rewrite | first differing `conversation.points[i].hash` where `i < prev.message_count`, or a shorter conversation | "History rewritten at message i". The cause is taken from any `session.compaction_complete` / `session.truncation` / `session.context_cleared` in between. Without such a cause or a shorter conversation it counts only when the resume request was recorded missing the cache (see "Cause accuracy"). |
 | Cache config | `cache_config` differs | "Cache configuration changed" |
 
 A prefix change means "this would have broken the cache". It is not proof that a miss
@@ -364,7 +364,8 @@ What shipped, and where it deliberately differs from the plan above.
 - **Prefix changes compare the baseline before the idle window with the one after the
   resumed interaction.** A history rewrite whose only known causes happened after the
   resume (e.g. a compaction during the next interaction) is dropped, since it cannot have
-  broken that resume; a rewrite with no known cause is kept. When either fingerprint is
+  broken that resume; a rewrite with no known cause is kept only as the section on cause
+  accuracy describes. When either fingerprint is
   missing, model and effort changes come from `session.model_change`, and history rewrites
   from compaction, truncation or context-clear events seen while idle.
 - **`cache_config.incremental_input` is ignored.** In every real baseline it equals
@@ -409,4 +410,14 @@ What shipped, and where it deliberately differs from the plan above.
   - when the checkpoint after a resume holds the resume request itself (initiator
     `user`, so a single-request interaction) and it read at least 90% of the idle prefix
     from cache, nothing is listed. For example, a history change near the end of the
-    conversation re-sends only the tail.
+    conversation re-sends only the tail;
+  - a history rewrite with no rewrite event and no shorter conversation is listed only
+    when that recorded resume request read less than 90%. Otherwise it is the CLI
+    re-rendering its most recent messages, which were not all cached yet: in every such
+    local case the resume request read the whole cached prefix, give or take one
+    128-token block (e.g. 17,920 of an 18,048-token frontier, and 7,319 of 7,480).
+    Tool and system-prompt changes were real breaks wherever a record existed
+    (0 tokens read), so they stay listed without one.
+  - A listed change with a recorded miss is labelled "Cache break"; without a record it
+    stays "Likely cache break". The detail card shows the recorded read beside the
+    prefix.

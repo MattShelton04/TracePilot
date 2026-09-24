@@ -27,8 +27,8 @@ pub use baseline::{
 pub use builder::build_prompt_cache_timeline;
 pub use changes::{REDACTED_TOOL, diff_baselines};
 pub use model::{
-    CacheConfidence, CacheWindow, CacheWindowOutcome, ObservedCacheTtl, PrefixChange,
-    PrefixChangeKind, PromptCacheSource, PromptCacheSummary, PromptCacheTimeline,
+    CacheConfidence, CacheWindow, CacheWindowOutcome, ObservedCacheTtl, ObservedResume,
+    PrefixChange, PrefixChangeKind, PromptCacheSource, PromptCacheSummary, PromptCacheTimeline,
 };
 pub use outcome::AGENT_RESUME_SOURCE;
 

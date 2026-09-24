@@ -279,6 +279,21 @@ describe("MetricsPromptCacheSection", () => {
     expect(wrapper.text()).not.toContain("1 / ");
   });
 
+  it("shows a warm prediction with break causes as a break, recorded or likely", () => {
+    const tools = [{ kind: "tools" as const, summary: "+2 tools", details: [] }];
+    const wrapper = mount(MetricsPromptCacheSection, {
+      props: {
+        timeline: makeTimeline([
+          makeWindow({ prefixChanges: tools, observedResume: { cacheRead: 0, hit: false } }),
+          makeWindow({ index: 1, prefixChanges: tools }),
+          makeWindow({ index: 2 }),
+        ]),
+      },
+    });
+    const outcomes = wrapper.findAll(".prompt-cache__outcome").map((cell) => cell.text());
+    expect(outcomes).toEqual(["Cache break", "Likely cache break", "Warm"]);
+  });
+
   it("opens short tables by default and offers no filter when it would hide nothing", () => {
     const wrapper = mount(MetricsPromptCacheSection, {
       props: { timeline: makeTimeline([makeWindow(), makeWindow({ index: 1 })]) },

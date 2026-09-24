@@ -110,6 +110,19 @@ pub struct PrefixChange {
     pub details: Vec<String>,
 }
 
+/// What the CLI recorded about the request that resumed a window. Only
+/// available when the checkpoint after the resume kept that request, i.e. the
+/// resumed interaction made a single model call.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ObservedResume {
+    /// Tokens the resume request read from the prompt cache.
+    pub cache_read: u64,
+    /// Whether it read most of the idle prefix; `None` when the prefix size
+    /// is unknown.
+    pub hit: Option<bool>,
+}
+
 /// The period between the agent going idle and the next main-agent prompt.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -143,6 +156,9 @@ pub struct CacheWindow {
     pub prefix_tokens: Option<u64>,
     /// Usage of the interaction that followed the resume (nano AI units).
     pub interaction_nano_aiu: Option<u64>,
+    /// The recorded cache use of the resume request, when there is one. It is
+    /// evidence, kept apart from the predicted outcome.
+    pub observed_resume: Option<ObservedResume>,
     pub prefix_changes: Vec<PrefixChange>,
 }
 

@@ -523,8 +523,24 @@ fn an_observed_cache_hit_is_not_a_break() {
     let hit = &build(&resume(19_000)).windows[0];
     assert_eq!(hit.outcome, CacheWindowOutcome::Warm);
     assert!(hit.prefix_changes.is_empty());
+    assert_eq!(
+        hit.observed_resume,
+        Some(ObservedResume {
+            cache_read: 19_000,
+            hit: Some(true)
+        })
+    );
 
+    // A recorded miss keeps the rewrite as its likely cause, even without a
+    // rewrite event.
     let miss = &build(&resume(1_000)).windows[0];
     let kinds: Vec<_> = miss.prefix_changes.iter().map(|c| c.kind).collect();
     assert_eq!(kinds, vec![PrefixChangeKind::History]);
+    assert_eq!(
+        miss.observed_resume,
+        Some(ObservedResume {
+            cache_read: 1_000,
+            hit: Some(false)
+        })
+    );
 }

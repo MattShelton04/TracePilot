@@ -5,7 +5,8 @@
 ///
 /// v14: derive `current_model` from the event log, so running, crashed and
 /// resumed sessions record the model they are on, not only the model at the
-/// last shutdown.
+/// last shutdown. Also stop listing an unexplained history re-render as a
+/// prompt-cache break cause unless the resume request recorded a miss.
 ///
 /// v13: preserve repeated skill tool calls when only some have an invocation
 /// event, and retain subagent attribution for fallback invocations.
