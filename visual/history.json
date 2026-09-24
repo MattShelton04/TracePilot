@@ -3,13 +3,13 @@
     "id": 35997282273,
     "sha": "9cf2179e6f47c5b33019b6d268eee08392c72b87",
     "pr": 848,
-    "attempt": 1,
+    "attempt": 2,
     "title": "PR #848 · 9cf2179e · fixture visual comparison",
     "created": "2026-09-24T12:09:21.000Z",
     "summary": {
       "changed": 0,
-      "unchanged": 36,
-      "subtle": 1,
+      "unchanged": 37,
+      "subtle": 0,
       "incomplete": 0,
       "baseUnavailable": 0,
       "total": 37
