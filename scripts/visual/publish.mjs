@@ -1,12 +1,11 @@
 // Trusted workflow_run publisher: no PR dependency install, PR checkout, artifact
 // script execution, or untrusted HTML publication. Only bounded PNG/JSON data.
 import { execFileSync } from "node:child_process";
-import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildComment, postComment } from "./comment.mjs";
-import { renderHistory } from "./gallery-template.mjs";
-import { historyEntry, retainedHistory } from "./history.mjs";
+import { updateSite } from "./pages-store.mjs";
 import { buildReport } from "./report.mjs";
 
 const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, "utf8"));
@@ -87,7 +86,7 @@ if (run.event === "pull_request") {
   process.exit(0);
 }
 const title = `${pr ? `PR #${pr.number}` : "Main"} · ${run.head_sha.slice(0, 8)} · fixture visual comparison`;
-const { rows, summary, metadata } = await buildReport({
+const { rows, summary, metadata, files } = await buildReport({
   baseDir: join(workspace, "base"),
   headDir: join(workspace, "head"),
   output,
@@ -108,48 +107,21 @@ try {
   execFileSync("git", ["fetch", "--depth=1", "origin", "gh-pages"], { stdio: "inherit" });
   const tree = join(workspace, "pages");
   execFileSync("git", ["worktree", "add", "--detach", tree, "FETCH_HEAD"], { stdio: "inherit" });
-  const visual = join(tree, "visual");
-  const runs = join(visual, "runs");
-  await mkdir(runs, { recursive: true });
-  // run.id is a validated positive integer; this target stays inside visual/runs.
-  await rm(join(runs, String(run.id)), { recursive: true, force: true });
-  await cp(output, join(runs, String(run.id)), { recursive: true });
-  await writeFile(
-    join(runs, String(run.id), "entry.json"),
-    JSON.stringify({
+  await updateSite({
+    tree,
+    repo,
+    run: {
       id: run.id,
       sha: run.head_sha,
       pr: pr?.number ?? null,
-      title,
       created: run.created_at,
       attempt: run.run_attempt ?? 1,
-      summary,
-      views: rows.filter((row) => row.headHash).map((row) => row.id),
-    }),
-  );
-  const entries = [];
-  for (const id of await readdir(runs)) {
-    if (!/^\d+$/.test(id)) continue;
-    try {
-      const bytes = await readFile(join(runs, id, "entry.json"));
-      if (bytes.length > 100_000) continue;
-      const entry = historyEntry(JSON.parse(bytes.toString("utf8")));
-      if (entry && String(entry.id) === id) entries.push(entry);
-    } catch {
-      /* older incomplete run */
-    }
-  }
-  // Bound the current site to 20 main and 20 PR runs, reserving the current
-  // publication when it reruns an older ID. Git history remains available.
-  const kept = retainedHistory(entries, run.id);
-  const keptIds = new Set(kept.map((entry) => entry.id));
-  for (const entry of entries) {
-    if (!keptIds.has(entry.id) && /^\d+$/.test(String(entry.id)))
-      await rm(join(runs, String(entry.id)), { recursive: true });
-  }
-  await writeFile(join(visual, "index.html"), await renderHistory(kept));
-  await writeFile(join(visual, "history.json"), JSON.stringify(kept, null, 2));
-  execFileSync("git", ["-C", tree, "add", "--", "visual"], { stdio: "inherit" });
+    },
+    report: { output, title, rows, summary, metadata, files },
+  });
+  execFileSync("git", ["-C", tree, "add", "--all", "--", "visual", ".nojekyll"], {
+    stdio: "inherit",
+  });
   const hasChanges = execFileSync("git", ["-C", tree, "diff", "--cached", "--name-only"], {
     encoding: "utf8",
   }).trim();

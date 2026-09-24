@@ -149,7 +149,18 @@ test("reports changed captures, missing bases, failures and escaped artifact dia
     const comparison = report.rows.find((x) => x.id === "sessions").analyses;
     assert.equal(comparison[0].changed, 1);
     assert.deepEqual(comparison[0].regions, [{ x: 0, y: 0, width: 1, height: 1, pixels: 1 }]);
-    const heat = decodePng(await readFile(join(output, comparison[0].heatFile)));
+    const heat = decodePng(await readFile(join(output, "img", comparison[0].heatFile)));
+    // Identical screenshots share one content-addressed file.
+    const analytics = report.rows.find((x) => x.id === "analytics");
+    assert.match(analytics.baseImage, /^[a-f0-9]{64}\.png$/);
+    assert.equal(analytics.baseImage, analytics.headImage);
+    assert.equal(report.files.includes(analytics.baseImage), true);
+    const changes = JSON.parse(await readFile(join(output, "changes.json"), "utf8"));
+    assert.equal(changes.views.find((x) => x.id === "sessions").changedPixels, 1);
+    assert.equal(
+      changes.views.find((x) => x.id === "analytics").images.after,
+      `img/${analytics.headImage}`,
+    );
     assert.deepEqual([...heat.subarray(0, 4)], [255, 69, 112, 210]);
     assert.equal(comparison[8].changed, 0);
     assert.equal(comparison[8].heatFile, null);

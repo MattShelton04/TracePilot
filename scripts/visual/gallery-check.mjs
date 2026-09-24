@@ -171,6 +171,10 @@ try {
       false,
     );
   }
+  // Review changes are listed first, under their own heading.
+  const firstGroup = await page.locator(".view-group").first().innerText();
+  if (report.rows.some((item) => item.change === "changed"))
+    assert.match(firstGroup, /Review changes/i);
   assert.equal(await page.evaluate(() => window.canvasReads), 0);
   assert.deepEqual(errors, []);
   await page.goto(`${pathToFileURL(join(root, "index.html")).href}#view=${row.id}&mode=difference`);
@@ -181,7 +185,7 @@ try {
   assert.equal(await page.evaluate(() => window.canvasReads), 0);
   assert.deepEqual(errors, []);
   // A lost overlay is an explicit failure, never a successful empty comparison.
-  await page.route("**/diff-*.png*", (route) => route.abort());
+  await page.route(`**/img/${row.analyses[0].heatFile}`, (route) => route.abort());
   await page.goto(url);
   await page.waitForFunction(() =>
     document.querySelector("#pixel-metric").textContent.includes("Pixel analysis unavailable"),
