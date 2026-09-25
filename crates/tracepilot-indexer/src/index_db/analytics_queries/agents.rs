@@ -71,6 +71,10 @@ pub(super) struct RunRow {
     pub duration_ms: Option<u64>,
     pub own_nano_aiu: Option<u64>,
     pub follow_up_count: u64,
+    pub messages_sent: u64,
+    pub messages_received: u64,
+    pub peer_messages: u64,
+    pub queued_messages: u64,
     pub depth: u32,
     pub peak_siblings: u32,
     pub parent_agent_name: Option<String>,
@@ -125,7 +129,8 @@ pub(super) fn load_runs(
                 r.model_override_reason, r.configured_matches_actual, r.multi_turn,
                 r.total_tool_calls, r.total_tokens, r.duration_ms, r.own_nano_aiu,
                 r.follow_up_count, r.depth, r.peak_siblings, r.parent_agent_name,
-                r.turn_index, r.event_index
+                r.turn_index, r.event_index, r.messages_sent, r.messages_received,
+                r.peer_messages, r.queued_messages
          FROM session_agent_runs r
          JOIN sessions s ON s.id = r.session_id{clause}
          ORDER BY {TIMESTAMP} DESC, r.session_id, r.run_key"
@@ -164,6 +169,10 @@ pub(super) fn load_runs(
             parent_agent_name: row.get(26)?,
             turn_index: unsigned(row.get(27)?).unwrap_or(0),
             event_index: unsigned(row.get(28)?),
+            messages_sent: unsigned(row.get(29)?).unwrap_or(0),
+            messages_received: unsigned(row.get(30)?).unwrap_or(0),
+            peer_messages: unsigned(row.get(31)?).unwrap_or(0),
+            queued_messages: unsigned(row.get(32)?).unwrap_or(0),
             in_range: true,
         })
     })?;

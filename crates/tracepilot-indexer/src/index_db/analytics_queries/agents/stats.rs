@@ -126,6 +126,13 @@ pub(super) fn agent_stats(rows: &[&RunRow]) -> AgentUsageStats {
         stats.max_depth = stats.max_depth.max(row.depth);
         stats.peak_siblings = stats.peak_siblings.max(row.peak_siblings);
         stats.follow_ups += row.follow_up_count;
+        if row.messages_sent + row.messages_received > 0 {
+            stats.messaging_runs += 1;
+        }
+        stats.messages_sent += row.messages_sent;
+        stats.messages_received += row.messages_received;
+        stats.peer_messages += row.peer_messages;
+        stats.queued_messages += row.queued_messages;
         if row.multi_turn == Some(true) {
             stats.multi_turn_runs += 1;
         }

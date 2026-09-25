@@ -96,6 +96,19 @@ pub struct AgentRun {
     pub own_nano_aiu: Option<u64>,
     /// Successful `write_agent` follow-up messages sent to this run.
     pub follow_up_count: u32,
+    /// `write_agent` calls this run made (a broadcast counts once).
+    #[serde(default)]
+    pub messages_sent: u32,
+    /// Messages delivered to this run after its launch prompt (1.0.78+).
+    #[serde(default)]
+    pub messages_received: u32,
+    /// Deliveries to or from agents outside this run's own line (siblings,
+    /// cousins): neither its ancestors nor its descendants.
+    #[serde(default)]
+    pub peer_messages: u32,
+    /// Messages delivered while this run was busy, so they waited.
+    #[serde(default)]
+    pub queued_messages: u32,
     /// Most siblings (same parent, this run included) running at once while
     /// this run was active.
     pub peak_siblings: u32,

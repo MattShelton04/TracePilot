@@ -79,6 +79,19 @@ pub struct AgentUsageStats {
     pub max_depth: u32,
     pub peak_siblings: u32,
     pub follow_ups: u64,
+    /// Inter-agent messaging (1.0.78+): runs that sent or received a message,
+    /// `write_agent` calls made, messages delivered, deliveries to or from
+    /// agents outside the run's own line, and deliveries that queued.
+    #[serde(default)]
+    pub messaging_runs: u64,
+    #[serde(default)]
+    pub messages_sent: u64,
+    #[serde(default)]
+    pub messages_received: u64,
+    #[serde(default)]
+    pub peer_messages: u64,
+    #[serde(default)]
+    pub queued_messages: u64,
     pub multi_turn_runs: u64,
     pub daily_runs: Vec<AgentDayCount>,
 }

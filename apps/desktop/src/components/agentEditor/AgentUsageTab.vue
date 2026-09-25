@@ -238,6 +238,34 @@ const modelsOpen = computed(() => (stats.value?.mismatchRuns ?? 0) > 0);
         />
       </section>
 
+      <section v-if="stats.messagingRuns > 0" class="usage-detail__section">
+        <h4 class="usage-detail__title">
+          Communication
+          <span class="usage-detail__denominator">
+            {{ formatNumber(stats.messagingRuns) }} of {{ formatNumber(stats.runs) }} runs exchanged messages
+          </span>
+        </h4>
+        <p class="usage-detail__help">Messages sent count write_agent calls; a broadcast counts once. Received and queued count deliveries to this agent.</p>
+        <dl class="usage-detail__summary agent-usage__communication">
+          <div title="write_agent calls made by this agent's runs, including broadcasts">
+            <dt>Sent</dt>
+            <dd>{{ formatNumber(stats.messagesSent) }}</dd>
+          </div>
+          <div title="Messages delivered to this agent after its launch prompt">
+            <dt>Received</dt>
+            <dd>{{ formatNumber(stats.messagesReceived) }}</dd>
+          </div>
+          <div title="Message deliveries between agents in different branches, counted for the sender and recipient">
+            <dt>Peer</dt>
+            <dd>{{ formatNumber(stats.peerMessages) }}</dd>
+          </div>
+          <div title="Messages that waited while this agent was busy">
+            <dt>Queued</dt>
+            <dd>{{ formatNumber(stats.queuedMessages) }}</dd>
+          </div>
+        </dl>
+      </section>
+
       <details class="usage-detail__more" :open="modelsOpen">
         <summary>Models</summary>
         <div class="usage-detail__more-body">

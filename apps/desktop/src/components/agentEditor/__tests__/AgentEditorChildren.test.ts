@@ -5,7 +5,7 @@ import {
 } from "@tracepilot/client/mock";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Component, defineComponent, h, provide, reactive } from "vue";
+import { type Component, defineComponent, h, nextTick, provide, reactive } from "vue";
 import { type AgentEditorContext, AgentEditorKey } from "@/composables/useAgentEditor";
 import { resolveEffectiveConfig } from "@/utils/agents/effective";
 import AgentEffectiveTab from "../AgentEffectiveTab.vue";
@@ -148,6 +148,41 @@ describe("AgentPreviewTab", () => {
 });
 
 describe("AgentUsageTab", () => {
+  it("shows communication counts only for agents with message activity", async () => {
+    const stats = agentUsage("reviewer", {
+      runs: 6,
+      messagingRuns: 2,
+      messagesSent: 3,
+      messagesReceived: 4,
+      peerMessages: 2,
+      queuedMessages: 1,
+    });
+    const ctx = makeCtx({
+      usage: {
+        stats,
+        recentRuns: [],
+        dispatch: [],
+        failureReasons: [],
+        invokedBy: [],
+        depths: [],
+        parallelism: [],
+        repositories: [],
+      },
+      store: { range: "30d" },
+    } as unknown as Partial<AgentEditorContext>);
+    const wrapper = mount(host(AgentUsageTab, ctx));
+    const communication = wrapper.get(".agent-usage__communication");
+    expect(communication.text()).toContain("Sent3");
+    expect(communication.text()).toContain("Received4");
+    expect(communication.text()).toContain("Peer2");
+    expect(communication.text()).toContain("Queued1");
+    expect(wrapper.text()).toContain("2 of 6 runs exchanged messages");
+
+    ctx.usage!.stats.messagingRuns = 0;
+    await nextTick();
+    expect(wrapper.find(".agent-usage__communication").exists()).toBe(false);
+  });
+
   it("keeps metric coverage and missing values visible in the timing section", () => {
     const stats = agentUsage("reviewer", { runs: 100 });
     stats.durationMs = { ...stats.durationMs, count: 27, p50: 1_000 };
