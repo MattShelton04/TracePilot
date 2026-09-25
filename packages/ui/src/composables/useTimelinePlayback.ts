@@ -1,5 +1,12 @@
 import { type MaybeRefOrGetter, onScopeDispose, ref, toValue, watch } from "vue";
 
+/** Optional mapping from the drawn axis to a stable clock (for collapsed idle gaps). */
+export interface TimelinePlaybackAxis {
+  durationMs: number;
+  toAnchor(visualMs: number): number;
+  fromAnchor(anchorMs: number): number;
+}
+
 export interface TimelinePlaybackOptions {
   /** Seconds a full run takes at 1× speed, whatever the session's length. */
   fullRunSeconds?: number;
@@ -14,13 +21,17 @@ export interface TimelinePlaybackOptions {
  * user plays or scrubs.
  */
 export function useTimelinePlayback(
-  durationMs: MaybeRefOrGetter<number>,
+  axis: MaybeRefOrGetter<number | TimelinePlaybackAxis>,
   options: TimelinePlaybackOptions = {},
 ) {
   const fullRunMs = (options.fullRunSeconds ?? 20) * 1000;
-  const positionMs = ref(toValue(durationMs));
+  const durationOf = (value: number | TimelinePlaybackAxis) =>
+    typeof value === "number" ? value : value.durationMs;
+  const duration = () => durationOf(toValue(axis));
+  const positionMs = ref(duration());
   const playing = ref(false);
   const speed = ref(1);
+  let followingEnd = true;
   let frame = 0;
   let lastFrameAt = 0;
 
@@ -30,14 +41,12 @@ export function useTimelinePlayback(
   }
 
   function step(now: number) {
-    const duration = toValue(durationMs);
+    const end = duration();
     const elapsed = now - lastFrameAt;
     lastFrameAt = now;
-    positionMs.value = Math.min(
-      duration,
-      positionMs.value + (elapsed * speed.value * duration) / fullRunMs,
-    );
-    if (positionMs.value >= duration) {
+    positionMs.value = Math.min(end, positionMs.value + (elapsed * speed.value * end) / fullRunMs);
+    if (positionMs.value >= end) {
+      followingEnd = true;
       pause();
       return;
     }
@@ -45,9 +54,10 @@ export function useTimelinePlayback(
   }
 
   function play() {
-    const duration = toValue(durationMs);
-    if (duration <= 0) return;
-    if (positionMs.value >= duration) positionMs.value = 0;
+    const end = duration();
+    if (end <= 0) return;
+    if (positionMs.value >= end) positionMs.value = 0;
+    followingEnd = false;
     playing.value = true;
     lastFrameAt = performance.now();
     stopFrames();
@@ -65,15 +75,25 @@ export function useTimelinePlayback(
   }
 
   function seek(ms: number) {
-    positionMs.value = Math.min(Math.max(0, ms), toValue(durationMs));
+    const end = duration();
+    positionMs.value = Math.min(Math.max(0, ms), end);
+    followingEnd = positionMs.value >= end;
   }
 
   watch(
-    () => toValue(durationMs),
-    (duration) => {
-      if (!playing.value) positionMs.value = duration;
-      else positionMs.value = Math.min(positionMs.value, duration);
+    () => toValue(axis),
+    (next, previous) => {
+      const end = durationOf(next);
+      if (followingEnd) {
+        positionMs.value = end;
+        return;
+      }
+      const anchor =
+        typeof previous === "number" ? positionMs.value : previous.toAnchor(positionMs.value);
+      const mapped = typeof next === "number" ? anchor : next.fromAnchor(anchor);
+      positionMs.value = Math.min(Math.max(0, mapped), end);
     },
+    { flush: "sync" },
   );
 
   onScopeDispose(stopFrames);

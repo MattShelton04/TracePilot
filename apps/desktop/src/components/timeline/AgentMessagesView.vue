@@ -63,7 +63,17 @@ const diagramOptions = [
   { value: "graph", label: "Graph" },
 ];
 
-const playback = useTimelinePlayback(() => scale.value?.durationMs ?? 0);
+const playback = useTimelinePlayback(() => {
+  const t = timeline.value;
+  const s = scale.value;
+  return t && s
+    ? {
+        durationMs: s.durationMs,
+        toAnchor: (visualMs: number) => t.originMs + s.toReal(visualMs),
+        fromAnchor: (epochMs: number) => s.toVisual(epochMs - t.originMs),
+      }
+    : 0;
+});
 watch(diagram, () => playback.pause());
 
 // Drop a selection the filters have hidden.

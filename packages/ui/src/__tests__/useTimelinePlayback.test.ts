@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope, nextTick, ref } from "vue";
-import { useTimelinePlayback } from "../composables/useTimelinePlayback";
+import { type TimelinePlaybackAxis, useTimelinePlayback } from "../composables/useTimelinePlayback";
 
 // Drive animation frames by hand: each `frame(ms)` advances the clock and runs queued callbacks.
 let now = 0;
@@ -65,7 +65,7 @@ describe("useTimelinePlayback", () => {
     expect(playback.playing.value).toBe(false);
   });
 
-  it("pauses, seeks within bounds and follows a changing duration", async () => {
+  it("keeps a scrubbed position when new events extend the session", async () => {
     const { playback, duration } = setup();
     playback.play();
     frame(1_000);
@@ -74,11 +74,61 @@ describe("useTimelinePlayback", () => {
     expect(playback.positionMs.value).toBeCloseTo(6_000);
     playback.seek(-5);
     expect(playback.positionMs.value).toBe(0);
-    playback.seek(90_000);
-    expect(playback.positionMs.value).toBe(60_000);
+    duration.value = 90_000;
+    await nextTick();
+    expect(playback.positionMs.value).toBe(0);
+    playback.seek(18_000);
+    duration.value = 120_000;
+    await nextTick();
+    expect(playback.positionMs.value).toBe(18_000);
+    playback.seek(200_000);
+    expect(playback.positionMs.value).toBe(120_000);
     duration.value = 30_000;
     await nextTick();
     expect(playback.positionMs.value).toBe(30_000);
+  });
+
+  it("follows new events while resting at the end", async () => {
+    const { playback, duration } = setup();
+    duration.value = 90_000;
+    await nextTick();
+    expect(playback.positionMs.value).toBe(90_000);
+    playback.seek(45_000);
+    playback.seek(90_000);
+    duration.value = 120_000;
+    await nextTick();
+    expect(playback.positionMs.value).toBe(120_000);
+  });
+
+  it("preserves the real timestamp when an idle-gap scale changes", async () => {
+    const axis = ref<TimelinePlaybackAxis>({
+      durationMs: 100,
+      toAnchor: (v) => v * 10,
+      fromAnchor: (ms) => ms / 10,
+    });
+    const scope = effectScope();
+    const playback = scope.run(() => useTimelinePlayback(axis));
+    if (!playback) throw new Error("no playback");
+    playback.seek(50); // Real timestamp 500.
+
+    axis.value = {
+      durationMs: 100,
+      toAnchor: (v) => v * 20,
+      fromAnchor: (ms) => ms / 20,
+    };
+    await nextTick();
+    expect(playback.positionMs.value).toBe(25);
+
+    playback.play();
+    axis.value = {
+      durationMs: 200,
+      toAnchor: (v) => v * 5,
+      fromAnchor: (ms) => ms / 5,
+    };
+    await nextTick();
+    expect(playback.positionMs.value).toBe(100);
+    expect(playback.playing.value).toBe(true);
+    scope.stop();
   });
 
   it("stops animating when its scope is disposed", () => {

@@ -174,4 +174,42 @@ describe("AgentMessagesView", () => {
     expect(wrapper.find("#comms-graph-scrubber").exists()).toBe(true);
     expect(wrapper.findAll(".graph-node")).toHaveLength(3);
   });
+
+  it("keeps the selected exchange and scrubbed time when a running turn gains a message", async () => {
+    store.turns = messagingSession().map((turn) => ({ ...turn, isComplete: false }));
+    const wrapper = mountView();
+    const graph = wrapper.findAll(".comms-toolbar button").find((b) => b.text() === "Graph");
+    await graph?.trigger("click");
+    await wrapper.findAll(".comms-log-row")[2]?.trigger("click");
+    await wrapper.find("#comms-graph-scrubber").setValue("9000");
+    expect(wrapper.find(".graph-clock").text()).toBe("9.0s / 30s");
+
+    const [turn] = messagingSession();
+    if (!turn) throw new Error("missing turn");
+    store.turns = [
+      {
+        ...turn,
+        isComplete: false,
+        endTimestamp: at(40),
+        toolCalls: [
+          ...turn.toolCalls,
+          tool({
+            toolName: "write_agent",
+            toolCallId: "new-main-msg",
+            startedAt: at(35),
+            eventIndex: 5,
+            arguments: { agent_id: ALPHA_ID, message: "New work arrived" },
+          }),
+        ],
+      },
+    ];
+    await nextTick();
+
+    expect(wrapper.find(".comms-summary").text()).toContain("2 messages");
+    expect(wrapper.find(".graph-clock").text()).toBe("9.0s / 40s");
+    expect(wrapper.find(".comms-log-row--selected").attributes("data-comm-id")).toBe(
+      "message:alpha-msg",
+    );
+    expect(wrapper.findAll(".comms-log-row")).toHaveLength(4);
+  });
 });

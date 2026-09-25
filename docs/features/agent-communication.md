@@ -18,6 +18,16 @@ and log together. Selecting an exchange in either place highlights it in both.
 Large sessions can pack agents that never overlap into shared sequence columns
 and lanes; **Pack agents** toggles that layout.
 
+## In-progress sessions
+
+Auto-refresh merges newly parsed events into the open session. Existing turns
+keep their identity when unchanged; delayed subagent deliveries and completed
+agent-control calls in older turns are checked again. The message log updates
+without clearing its filters or the selected exchange. In Graph mode, an
+untouched playhead follows the end as events arrive. After scrubbing or pausing
+at an earlier point, refresh keeps that real timestamp even if a newly recorded
+event changes the compressed idle-gap scale.
+
 ## Data and counting
 
 `packages/ui/src/utils/agentComms/` builds one agent directory and communication

@@ -6,7 +6,12 @@
  * meaningfully changed between refreshes. Extracted from useSessionDetail so
  * they can be unit-tested in isolation.
  */
-import type { AttributedMessage, ConversationTurn, TurnToolCall } from "@tracepilot/types";
+import type {
+  AgentMessage,
+  AttributedMessage,
+  ConversationTurn,
+  TurnToolCall,
+} from "@tracepilot/types";
 
 /** FNV-1a-ish 32-bit text hash (unsigned). */
 export function hashText(value: string): number {
@@ -63,9 +68,25 @@ export function toolCallFingerprint(tc: TurnToolCall): string {
   ].join("|");
 }
 
+function agentMessageFingerprint(message: AgentMessage): string {
+  return [
+    message.messageId ?? "",
+    message.eventIndex ?? "",
+    message.recipientToolCallId,
+    message.senderAgentId ?? "",
+    message.senderToolCallId ?? "",
+    message.delivery ?? "",
+    message.isLaunch ? "1" : "0",
+    message.timestamp ?? "",
+    message.content.length,
+    hashText(message.content),
+  ].join("|");
+}
+
 export function turnFingerprint(turn: ConversationTurn): string {
   const reasoning = turn.reasoningTexts ?? [];
   const sessionEvents = turn.sessionEvents ?? [];
+  const agentMessages = turn.agentMessages ?? [];
   return [
     turn.turnIndex,
     turn.eventIndex ?? "",
@@ -91,13 +112,15 @@ export function turnFingerprint(turn: ConversationTurn): string {
       .join(","),
     turn.toolCalls.length,
     turn.toolCalls.map(toolCallFingerprint).join(","),
+    agentMessages.length,
+    agentMessages.map(agentMessageFingerprint).join(","),
   ].join("||");
 }
 
 /**
  * Determine which turn indexes deserve a deep fingerprint comparison on the
- * next merge: always the last turn, plus every turn containing a subagent.
- * Completed workers can receive follow-ups, and delayed logs can enrich them.
+ * next merge: always the last turn, plus turns with agent traffic. Completed
+ * workers can receive follow-ups, and delayed deliveries can enrich old turns.
  */
 export function computeDeepCompareIndexes(turnList: ConversationTurn[]): Set<number> {
   const indexes = new Set<number>();
@@ -105,7 +128,16 @@ export function computeDeepCompareIndexes(turnList: ConversationTurn[]): Set<num
     indexes.add(turnList.length - 1);
   }
   for (let i = 0; i < turnList.length; i++) {
-    if (turnList[i]?.toolCalls.some((tc) => tc.isSubagent)) {
+    if (
+      turnList[i]?.agentMessages?.length ||
+      turnList[i]?.toolCalls.some(
+        (tc) =>
+          tc.isSubagent ||
+          tc.toolName === "write_agent" ||
+          tc.toolName === "read_agent" ||
+          tc.toolName === "list_agents",
+      )
+    ) {
       indexes.add(i);
     }
   }
