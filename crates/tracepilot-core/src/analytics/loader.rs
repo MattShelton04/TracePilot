@@ -1,8 +1,12 @@
 //! Session data loader for analytics aggregation.
 //!
-//! Provides two loading tiers:
-//! - `load_session_summaries` — fast, loads only workspace.yaml (for analytics/code-impact)
-//! - `load_full_sessions` — slower, also reconstructs turns (for tool analysis)
+//! Provides two loading tiers, both of which parse every `events.jsonl`:
+//! - `load_session_summaries` — keeps only summaries (for code impact)
+//! - `load_full_sessions` — also keeps reconstructed turns (for analytics and
+//!   tool analysis), so peak memory scales with the whole corpus
+//!
+//! These are fallbacks for when the index database is unavailable; callers
+//! should serialise them.
 
 use std::path::Path;
 
@@ -15,8 +19,8 @@ use super::types::SessionAnalyticsInput;
 
 /// Load session summaries only (no turn reconstruction).
 ///
-/// PERF: I/O bound — reads workspace.yaml for each discovered session.
-/// Fast path for `compute_analytics()` and `compute_code_impact()`.
+/// PERF: parses workspace.yaml *and* events.jsonl for each discovered session
+/// (the summary includes event-derived counts). Used by `compute_code_impact()`.
 /// Skips sessions that fail to parse, logging a warning.
 #[instrument(skip_all, fields(dir = %sessions_dir.display()))]
 pub fn load_session_summaries(sessions_dir: &Path) -> crate::Result<Vec<SessionAnalyticsInput>> {
@@ -77,15 +81,13 @@ pub fn load_full_sessions(sessions_dir: &Path) -> crate::Result<Vec<SessionAnaly
 /// Uses `load_session_summary_with_events` to parse events once, then reuses
 /// the parsed events for turn reconstruction (avoiding a double parse).
 fn load_single_full_session(session: &DiscoveredSession) -> crate::Result<SessionAnalyticsInput> {
+    // Summary enrichment already reconstructs turns; reuse them instead of
+    // reconstructing a second time, and drop the raw events immediately.
     let result = load_session_summary_with_events(&session.path)?;
-    let summary = result.summary;
-
-    let turns = result
-        .typed_events
-        .as_ref()
-        .map(|events| crate::turns::reconstruct_turns(events));
-
-    Ok(SessionAnalyticsInput { summary, turns })
+    Ok(SessionAnalyticsInput {
+        summary: result.summary,
+        turns: result.turns,
+    })
 }
 
 /// Load summaries with optional date range and repository filtering.
