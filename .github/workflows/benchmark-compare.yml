@@ -14,6 +14,10 @@ name: Benchmark Comparison
 #      disk-scan fallback, which Criterion cannot measure.
 # Results are advisory annotations and a job summary; the job fails only when
 # the tooling itself fails.
+#
+# The probe lane runs on every PR that touches Rust (~5 min). The Criterion
+# lane runs two full benchmark suites (~25 min), so it is opt-in: add the
+# `benchmark:criterion` label to a PR, or run this workflow manually.
 
 on:
   workflow_dispatch:
@@ -22,8 +26,14 @@ on:
         description: Base revision to compare against
         required: false
         default: origin/main
+      criterion:
+        description: Also run the Criterion base-vs-head comparison (~25 min)
+        type: boolean
+        default: true
   pull_request:
     branches: [main]
+    # `labeled` lets adding the Criterion label start a run.
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - 'crates/**'
       - 'Cargo.toml'
@@ -43,6 +53,8 @@ concurrency:
 jobs:
   compare:
     name: Compare base and head performance
+    # Ignore label events other than the Criterion opt-in.
+    if: github.event.action != 'labeled' || github.event.label.name == 'benchmark:criterion'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -53,6 +65,7 @@ jobs:
       # Shorter windows keep two full runs within budget; the confidence
       # interval (not the point estimate) decides verdicts.
       CRITERION_ARGS: --noplot --warm-up-time 1 --measurement-time 3
+      RUN_CRITERION: ${{ (github.event_name == 'workflow_dispatch' && inputs.criterion) || contains(github.event.pull_request.labels.*.name, 'benchmark:criterion') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -107,12 +120,15 @@ jobs:
           cat probe-compare.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Criterion baseline (base revision)
+        if: env.RUN_CRITERION == 'true'
         run: (cd "$BASE_DIR" && cargo bench -p tracepilot-bench --bench '*' -- --save-baseline pr-base $CRITERION_ARGS)
 
       - name: Criterion comparison (head revision)
+        if: env.RUN_CRITERION == 'true'
         run: cargo bench -p tracepilot-bench --bench '*' -- --baseline-lenient pr-base $CRITERION_ARGS
 
       - name: Summarise Criterion comparison
+        if: env.RUN_CRITERION == 'true'
         run: |
           node scripts/perf/criterion-compare.mjs \
             --criterion="$CARGO_TARGET_DIR/criterion" \

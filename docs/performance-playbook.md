@@ -231,7 +231,7 @@ Performance coverage:
 |-------|-------------|
 | **Bundle analysis** | Relevant PRs: builds frontend, reports advisory size thresholds, retains size tables as artifacts and job summaries |
 | **Criterion benchmarks** | Nightly/manual Linux runs: validates populated fixtures and required results; timing thresholds are advisory |
-| **Base vs head comparison** | PRs touching Rust: `benchmark-compare.yml` measures the PR's base and head on one runner. Criterion saves a base baseline and compares head against it; `index_probe` alternates base/head builds over a generated corpus for wall time and peak RSS. Advisory annotations plus a job summary |
+| **Base vs head comparison** | PRs touching Rust: `benchmark-compare.yml` measures the PR's base and head on one runner. `index_probe` alternates base/head builds over a generated corpus for wall time and peak RSS (~5 min, every run). The Criterion comparison (~25 min) is opt-in: add the `benchmark:criterion` label or run the workflow manually. Advisory annotations plus a job summary |
 | **Native desktop** | Manual Windows release measurements with isolated data, including conversation scroll frame times; see the [performance mission report](reports/performance-mission.md) |
 | **Typecheck + tests** | Standard correctness checks; see the [testing guide](testing.md) |
 
