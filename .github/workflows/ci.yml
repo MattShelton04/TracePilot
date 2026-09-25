@@ -212,6 +212,11 @@ jobs:
       - name: File size budgets
         run: node scripts/check-file-sizes.mjs
 
+      - name: Documentation links and ADRs
+        run: |
+          node scripts/check-doc-links.mjs
+          node scripts/check-adr.mjs
+
       - name: Performance reporting contracts
         run: |
           node --test scripts/perf/*.test.mjs scripts/ci/*.test.mjs

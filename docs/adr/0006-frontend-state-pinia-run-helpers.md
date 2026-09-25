@@ -88,6 +88,15 @@ store author had in mind.
 - A component that calls `invoke(...)` directly is a bug — it
   should go through `@tracepilot/client`.
 
+## Subsequent implementation
+
+The analytics store later adopted `useCachedFetch` from `@tracepilot/ui` for
+its three read actions. That helper owns request deduplication, cache state,
+and stale-response protection there. Search and sessions retain their own
+request lifecycles. Review the store's chosen helper and its tests when
+checking a new async action; the blanket `runAction` guidance above describes
+the original Wave 95 decision, not every current read path.
+
 ## References
 
 - `apps/desktop/src/stores/sessions.ts` — canonical reference for
@@ -100,4 +109,5 @@ store author had in mind.
   `toErrorMessage` implementations.
 - `packages/client/` — typed IPC wrappers used from stores.
 - ADR-0002 — IPC contract.
-- `docs/store-refactoring-plan.md` — Wave 95 background.
+- `packages/ui/src/composables/useCachedFetch.ts` and
+  `apps/desktop/src/stores/analytics.ts` — later analytics fetch pattern.

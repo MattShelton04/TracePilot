@@ -44,6 +44,5 @@ None. This package is intentionally leaf-level.
 See ADR [0001 — Tauri + Vue + Rust workspace](../../docs/adr/0001-tauri-vue-rust-workspace.md)
 for the overall monorepo layout this config is scoped to.
 
-> Future improvement: the `tech-debt-master-plan-2026-04.md` w129 entry
-> tracks a decision on whether to keep a single `base.json` or split into
-> `base`, `library`, and `app` variants. Revisit before expanding this folder.
+> Before expanding this folder, decide whether a single `base.json` still
+> serves its consumers or whether separate library and app variants are needed.

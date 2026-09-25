@@ -16,8 +16,8 @@
 //! `apps/desktop/src/utils/backendErrors.ts`; `message` is always a
 //! human-readable fallback that `toErrorMessage()` picks up automatically.
 //!
-//! See ADR `docs/adr/0005-structured-ipc-errors.md` (pending) for the
-//! migration plan away from stringified errors.
+//! The implementation is documented here and in the frontend helpers; no
+//! separate ADR currently covers this migration.
 
 mod bindings;
 mod code;

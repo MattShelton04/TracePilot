@@ -4,9 +4,16 @@
 
 Before this work, every analytics request loaded ALL sessions from disk — parsing `workspace.yaml` and `events.jsonl` for every session, reconstructing turns, and computing aggregates in memory. This was O(n) in total session count on every page load.
 
-Now, per-session metrics are computed **once during indexing** and stored in SQLite. Analytics queries aggregate pre-computed data via SQL — instant regardless of session count.
+Now, per-session metrics are computed during indexing and stored in SQLite.
+Changed sessions are recomputed during reindexing. The normal analytics path
+aggregates persisted rows with SQL instead of parsing session files on each
+request; the Tauri commands retain a disk-scan fallback.
 
 ## Schema (Migration 3)
+
+This section records Migration 3. Later migrations extend these tables; see
+the [migration source](../../crates/tracepilot-indexer/src/index_db/migrations/sql.rs)
+for the current schema.
 
 ### Sessions table additions
 
@@ -20,6 +27,7 @@ ALTER TABLE sessions ADD COLUMN duration_ms INTEGER;
 ALTER TABLE sessions ADD COLUMN events_mtime TEXT;
 ALTER TABLE sessions ADD COLUMN events_size INTEGER;
 ALTER TABLE sessions ADD COLUMN analytics_version INTEGER DEFAULT 1;
+ALTER TABLE sessions ADD COLUMN health_score REAL;
 ```
 
 ### Child tables
@@ -118,6 +126,7 @@ A session can be resumed at any time. Three signals trigger re-indexing:
 - **analytics_version < CURRENT_ANALYTICS_VERSION** → extraction logic changed, force re-extract
 
 ```rust
+// Simplified sketch; see session_writer.rs for the current signature and logic.
 pub fn needs_reindex(&self, session_id: &str, session_path: &Path) -> bool {
     // Compare stored vs current: workspace_mtime, events_mtime, events_size, analytics_version
     stored_ws_mtime != current_ws_mtime
@@ -131,13 +140,14 @@ Checking both mtime **and** file size for events.jsonl guards against filesystem
 
 ## Performance Characteristics
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Analytics request cost | O(n) disk reads (n = total sessions) | O(1) SQL query against pre-computed aggregates |
-| Indexing cost | — | One-time per session (or per session change) |
-| Dashboard load (100 sessions) | ~2-3s | ~10-50ms |
-| Tool analysis (100 sessions) | ~5-8s | ~10-50ms |
-| Expected speedup | — | **50-500×** for analytics dashboard |
+The SQL path avoids reparsing session files for each analytics request. Query
+cost still depends on the selected rows, indexes, and workload; it is not
+constant time. Indexing pays the per-session extraction cost when a session
+is first seen or changes. The disk-scan fallback has different performance
+characteristics. The original proposal's latency and speedup estimates were
+not recorded with a reproducible workload, so they are not used as current
+performance targets. For measured native results and limitations, see the
+[performance mission](../reports/performance-mission.md).
 
 ## Extensibility
 

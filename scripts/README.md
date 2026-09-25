@@ -1,40 +1,72 @@
-# `scripts/`
+# Developer commands and script index
 
-Helper scripts invoked by developers and CI. Everything here is either a
-cross-platform Node/Python script or a paired PowerShell + POSIX shell shim.
-Keep this index in sync when scripts are added, renamed, or removed.
+Run commands from the repository root. The root `package.json` and `justfile`
+are the supported entry points for common work; scripts below cover narrower
+manual tasks and CI contracts. `pnpm start` runs `pnpm install` before launching
+Tauri. Direct script invocations generally expect dependencies to be present.
 
-## Index
+## Common commands
 
-| Script | Purpose |
+| Purpose | Command | Platform and status | Prerequisites / effects |
+| --- | --- | --- | --- |
+| Install workspace dependencies | `pnpm install` or `just install` | All; manual | Node 22, pnpm 10; changes local dependency installation. |
+| Launch the real desktop app | `pnpm app:start` | Windows; manual diagnostic | Rust, Tauri/WebView2, pnpm dependencies; starts owned processes and uses the configured session/index data unless an isolated data root is supplied. See [automation](../docs/app-automation.md). |
+| Launch frontend mock UI | `pnpm app:ui` | Windows launcher; manual diagnostic | Starts Vite with mock IPC; cannot verify native behavior. |
+| Stop or inspect owned app process | `pnpm app:stop`, `pnpm app:status` | Windows; manual | Uses the automation launcher's recorded process identity. |
+| Run workspace checks | `just ci`, `just check-docs`, `pnpm typecheck`, `pnpm test` | All; manual/CI | `just ci` mirrors local gates; see [testing](../docs/testing.md) for hosted differences. |
+| Run native integration | `pnpm test:e2e` locally; `pnpm test:e2e -Install` in CI | Windows; manual and installer CI | Builds and tests against synthetic isolated data; `-Install` also exercises the installer. See [E2E README](../tests/e2e/README.md). |
+
+`just --list` shows the maintained recipes. It wraps existing pnpm, cargo, and
+Node commands; it is not a second implementation of those tasks.
+
+## Repository policy checks
+
+| Entry point | Purpose | Status / effects |
+| --- | --- | --- |
+| `node scripts/check-doc-links.mjs` | Check relative Markdown file targets across repository docs; accepts explicit paths for staged checks. | Local `just check-docs` and lefthook; CI policy. Read-only. It does not validate anchors or paths written only in code spans. |
+| `node scripts/check-adr.mjs` | Check ADR headings, dates, status, and index membership. | Local `just check-docs` and lefthook; CI policy. Read-only. |
+| `node scripts/check-workflow-actions.mjs` | Check pinned action SHAs and comments. | CI policy; `--verify-remote` uses GitHub API in CI. Read-only without that flag. |
+| `node scripts/check-file-sizes.mjs` | Enforce source line budgets. | CI and lefthook. Read-only. |
+| `node scripts/check-catalog-drift.mjs` | Check pnpm catalogue references. | `just ci`; read-only. |
+| `node scripts/check-csp.mjs` | Guard Tauri CSP. | `just ci` and lefthook; read-only. |
+| `node scripts/check-public-api.mjs` | Compare orchestrator exports with its checked-in API baseline. | `just ci` and lefthook; read-only unless explicitly passed `--update`. |
+| `node scripts/check-no-hex-colors.mjs`, `check-no-emoji-in-templates.mjs`, `check-no-backdrop-filter.mjs`, `check-z-index-tokens.mjs` | Guard desktop design tokens and component rules. | Lefthook and package scripts; read-only. Each supports `--staged`. |
+| `node scripts/check-spacing-grid.mjs` | Report off-grid spacing. | Advisory pre-push check; exits successfully while issues are reported. |
+| `node scripts/check-commit-msg.mjs <message-file>` | Validate Conventional Commit subject. | Lefthook `commit-msg`; read-only. |
+
+## Manual build and analysis helpers
+
+| Entry point | Purpose | Platform / prerequisites / effects |
+| --- | --- | --- |
+| `pwsh -File scripts/build.ps1` | Run `cargo build --workspace` and `pnpm -r build`. | PowerShell; writes build outputs. It is not a release installer command. |
+| `pwsh -File scripts/clean.ps1` | Remove selected build caches or outputs. | PowerShell; destructive to generated files. Review `-Frontend`, `-Full`, and `-Deep` before use. |
+| `pwsh -File scripts/bump-version.ps1 -Version X.Y.Z` | Synchronise workspace versions and lockfiles. | PowerShell; requires pnpm and cargo-edit; modifies manifests and lockfiles. See [current release steps](../README.md#versioning-and-releases). |
+| `pwsh -File scripts/bench.ps1` | Run Criterion benchmarks, optionally saving/comparing a baseline. | PowerShell, Rust; writes `target/criterion/`. Use synthetic fixtures. |
+| `just bench-flamegraph <bench>` or `pwsh -File scripts/bench-flamegraph.ps1 <bench>` | Profile a selected benchmark. | Opt-in profiler (`cargo flamegraph` and platform support); writes profiling output. |
+| `pwsh -File scripts/pgo-build.ps1` or `bash scripts/pgo-build.sh` | Profile-guided Rust build. | PowerShell/POSIX; Rust LLVM tools; runs benchmarks and writes profiles/build outputs. |
+| `python scripts/validate-session-versions.py --session-dir <isolated-dir>` | Heuristic report of event fields/anomalies in session JSONL by Copilot version. | Manual; defaults to the user's live Copilot session directory when `--session-dir` is omitted. It is distinct from `pnpm cli versions ...` schema analysis, and does not enforce a fixture support manifest. |
+
+## Grouped tooling and tests
+
+| Group | Role / invocation | Effects and output |
+| --- | --- | --- |
+| `scripts/automation/` | Native lifecycle and readiness behind `pnpm app:*`; `pnpm test:automation` runs isolated contract tests. | Launch state and owned processes; see [automation guide](../docs/app-automation.md). |
+| `scripts/e2e/` | `test.ps1` is the native integration entry point; `launch.ps1`/`stop.ps1` are compatibility wrappers; `connect.mjs`, smoke/perf diagnostics, README capture, and fixture helpers are internal or opt-in. | Diagnostics/screenshots under ignored `scripts/e2e/screenshots/`; README capture deliberately updates selected `docs/images/`. See [testing guide](../docs/testing.md). |
+| `scripts/visual/` | Synthetic frontend capture, report, policy tests, and trusted publisher. Run focused tests with `node --test scripts/visual/*.test.mjs` and `python scripts/visual/extract_test.py`. | Own npm lockfile/dependencies via `npm ci --prefix scripts/visual --ignore-scripts`; local captures under `.tracepilot/visual/`. Publishing is a CI workflow action, not a local diagnostic. See [visual regression](../docs/visual-regression.md). |
+| `scripts/perf/` | Performance/bundle probes and comparison contracts. Focused tests: `node --test scripts/perf/*.test.mjs`. | Some probes launch a native app or read selected data and write ignored `.tracepilot/perf/`; review the particular command first. See [performance playbook](../docs/performance-playbook.md). |
+| `scripts/ci/` | Imported PR reference/comment helpers for visual and bundle workflows, with `*.test.mjs` contract tests. | `node --test scripts/ci/*.test.mjs` is read-only; workflow callers may post comments. |
+
+The tests and imported helpers in these groups are not standalone user commands.
+Keep externally documented wrapper paths and the visual publisher's isolated
+dependency/trust boundary when changing this directory.
+
+## Audit-only helpers
+
+These have recorded one-off use, but no current package, Just, or CI command
+invokes them automatically:
+
+| Helper | Evidence and current status |
 | --- | --- |
-| `bench.ps1` | Run the `tracepilot-bench` Criterion suite locally (Windows). |
-| `build.ps1` | Full release build of the desktop app + Rust workspace (Windows). |
-| `bump-version.ps1` | Synchronise the Cargo workspace/lockfile and root/pnpm workspace package versions. Tauri inherits the Cargo version; third-party fixtures and non-workspace packages are excluded. |
-| `check-file-sizes.mjs` | File-size gate enforced by lefthook/CI. Fails on new per-file LOC-cap violations; see top-of-file allowlist. |
-| `clean.ps1` | Remove build artefacts (`target/`, `dist/`, `node_modules/.cache`, etc.). |
-| `dev.ps1` | Launch `pnpm tauri dev` with sensible local defaults (Windows). |
-| `pgo-build.ps1` / `pgo-build.sh` | Two-phase profile-guided optimisation build of the Rust workspace. |
-| `validate-session-versions.py` | Verify `supported-copilot-versions.json` covers the Copilot CLI session schema fixtures under `packages/test-utils/fixtures/`. |
-| `automation/` | Development lifecycle and native readiness checks behind `pnpm app:start`, `app:ui`, `app:status`, and `app:stop`. Interaction uses the upstream Playwright CLI; see [automation](../docs/app-automation.md). |
-| `e2e/test.ps1` | Build and run the native integration suite; `-Install` also installs/uninstalls the isolated NSIS package. See [native integration tests](../tests/e2e/README.md). |
-| Other `e2e/` scripts | Optional diagnostics for the running Tauri app: shared `connect.mjs`, `smoke-test.mjs`, `perf-profile.mjs`, and README media capture. See [testing](../docs/testing.md). |
-
-## Conventions
-
-- **Windows-first** — PowerShell scripts are the canonical form; any POSIX `.sh`
-  counterpart is expected to mirror behaviour, not extend it.
-- **No implicit installs** — scripts assume `pnpm install` has already been run.
-  `package.json#scripts.start` deliberately does NOT chain `pnpm install` (see
-  Plan §6.3 / Wave 48).
-- **Node scripts use `.mjs`** and rely only on Node ≥ 20 built-ins unless a dep
-  is already in the root `devDependencies`.
-
-## Deferred
-
-A `justfile` mirroring the `.ps1` scripts and a Node/TS port of
-`validate-session-versions.py` are tracked under Plan §6.3 and remain out
-of scope for the current wave. The `tracepilot-app-automation` skill and
-Playwright CLI remain the interactive path. The native integration suite in
-`tests/e2e/` is the repeatable CI gate; older smoke/perf scripts remain optional
-diagnostics (see [testing](../docs/testing.md)).
+| `scripts/e2e/native-dialog-gateway.mjs` | Used for picker-result substitution in the dated [usability audit](../docs/reports/usability-audit-2026-09-12/validation.md); it does not exercise the OS dialog. Its focused contract suite is `node --test scripts/e2e/native-dialog-gateway.test.mjs`. |
+| `scripts/e2e/copilot-compat.mjs` and `usability-fixtures.mjs` | The former is cited as an isolated-session example; the latter generated the dated usability audit's synthetic corpus. Neither is a routine CI gate. The fixture generator has imported helpers and tests. |
+| `scripts/perf/private-snapshot.mjs` | Used to select the private corpus described in the [performance mission](../docs/reports/performance-mission.md). It has no current workflow caller, writes ignored private copies, and does not itself create the fixture manifest required by `scripts/perf/indexing.mjs`. |

@@ -1,5 +1,10 @@
 # TracePilot Design System — Variant C
 
+> **Status:** Historical Variant C design reference. For current app tokens,
+> use [`packages/ui/src/styles/tokens.css`](../../packages/ui/src/styles/tokens.css)
+> and the [design-system master](../../design-system/MASTER.md). The prototype
+> CSS below remains a reference for the retained HTML prototypes.
+
 > A modern, dark-first design language for the TracePilot desktop application.
 > Hybrid of Linear/Raycast visual polish with GitHub Primer information density.
 
@@ -34,8 +39,8 @@ The result is a design that feels premium and modern while maintaining the infor
 
 ### Source Files
 
-- **Production CSS:** `apps/desktop/src/styles.css`
-- **Design reference:** `docs/design/prototypes/shared/design-system-c.css`
+- **Production token source:** `packages/ui/src/styles/tokens.css`, imported by `apps/desktop/src/styles.css`
+- **Historical prototype CSS:** `docs/design/prototypes/shared/design-system-c.css`
 
 ---
 

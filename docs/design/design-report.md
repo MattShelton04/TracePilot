@@ -1,8 +1,13 @@
 # TracePilot Frontend Redesign — Design Report
 
+> **Historical prototype evaluation.** Its asset inventory and implementation
+> recommendations describe the design study at that time. Current design
+> authority is [MASTER](../../design-system/MASTER.md) and production
+> [tokens.css](../../packages/ui/src/styles/tokens.css).
+
 ## Executive Summary
 
-This document presents **two complete design variants** for the TracePilot desktop application, covering all 15 pages (6 existing + 9 future). Both variants were prototyped as self-contained HTML/CSS/JS files with realistic mock data and can be reviewed in any browser.
+This document compares design variants explored for the TracePilot desktop application, covering the 15-page inventory at the time (6 existing + 9 planned). The original A/B variant prototypes are no longer in this repository; the design decisions and screenshots remain as historical evidence.
 
 **Variant A: "Primer Evolved"** — Refines the existing GitHub Primer foundation with better polish, spacing, and visual hierarchy. Familiar to developers who use GitHub daily.
 
@@ -12,7 +17,10 @@ This document presents **two complete design variants** for the TracePilot deskt
 
 ## Page Inventory
 
-> **Note:** HTML prototypes for all three variants were removed during docs cleanup. The design decisions below remain authoritative. See `screenshots/final/` for production visual references.
+> **Note:** The A/B/C variant HTML prototypes were removed during an earlier
+> docs cleanup. Other feature prototypes remain under `prototypes/`. See
+> `screenshots/final/` for historical visual references and current code for
+> shipped styling.
 
 | # | Page | Phase |
 |---|------|-------|
@@ -225,11 +233,11 @@ Both variants are designed for resizable desktop (800px–4K):
 ```
 docs/design/
 ├── design-report.md              ← This document
-├── design-system.md              ← Production design system reference
+├── design-system.md              ← Historical Variant C design reference
 ├── prototype-design-process.md   ← Guide for creating future prototypes
 └── prototypes/
     ├── shared/
-    │   ├── design-system-c.css   ← Production Hybrid tokens
+    │   ├── design-system-c.css   ← Prototype Hybrid tokens
     │   └── shared.js             ← Mock data, utilities, sidebar generator
     └── setup-window/
         └── design-report.md      ← Setup window design decisions

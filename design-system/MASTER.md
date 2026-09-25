@@ -128,24 +128,21 @@ A single workhorse sans for UI and a precision monospace for data.
 
 | Role | Family | Source |
 |---|---|---|
-| UI / Headings / Body | **Inter** | Google Fonts |
-| Mono / Data / Code / IDs | **JetBrains Mono** | Google Fonts |
+| UI / Headings / Body | **Inter Variable** | Bundled through `@fontsource-variable/inter` in the desktop app |
+| Mono / Data / Code / IDs | **JetBrains Mono**, then system monospace | Font stack in `packages/ui/src/styles/tokens.css`; no bundled JetBrains Mono asset |
 
-Both ship with the `tnum` (tabular numerals) feature — **always enable** for any numeric column, timer, or counter.
+Use tabular numerals for numeric columns, timers, and counters.
 
-### 3.2 Google Fonts Import
+### 3.2 Production font source
 
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-:root {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-  font-feature-settings: 'cv11', 'ss01', 'tnum';
-}
+/* apps/desktop/src/styles.css */
+@import "@fontsource-variable/inter";
+@import "@tracepilot/ui/tokens.css";
 ```
 
-> Share link: <https://fonts.google.com/share?selection.family=Inter:wght@400;500;600;700|JetBrains+Mono:wght@400;500;600>
+The token file defines the font stacks. Prototype HTML may load fonts from
+Google Fonts; it is not the production import path.
 
 ### 3.3 Type Scale
 
@@ -189,10 +186,11 @@ Dark UI prefers **borders + tonal shifts** over shadows. Use shadow only for tru
 
 | Token | Value | Use |
 |---|---|---|
-| `radius.sm` | 4px  | Pills, badges, inputs |
-| `radius.md` | 6px  | Buttons, cards, panels |
-| `radius.lg` | 10px | Modals, command palette |
-| `radius.full` | 9999px | Avatars, status dots |
+| `--radius-sm` | 6px | Pills, badges, inputs |
+| `--radius-md` | 8px | Buttons, cards, panels |
+| `--radius-lg` | 10px | Larger panels |
+| `--radius-xl` | 12px | Modals, command palette |
+| `--radius-full` | 9999px | Avatars, status dots |
 
 ### 4.3 Spacing (4px grid)
 
@@ -250,9 +248,9 @@ Run through this before any UI is considered "done."
 - [ ] Only Inter + JetBrains Mono — no third family
 - [ ] Lucide icons only, 16px or 20px, 1.5px stroke
 - [ ] No emoji used as UI iconography
-- [ ] Brand accent (`#3DB8FF`) appears only on primary action / focus / active selection
+- [ ] Indigo brand accent (`--accent-fg` / `--accent-emphasis`) appears only on primary action / focus / active selection
 - [ ] Tabular numerals enabled on every numeric column, timer, counter
-- [ ] All radii from `{4, 6, 10, 9999}`; spacing on 4px grid
+- [ ] All radii use `--radius-*` tokens; spacing stays on the 4px grid
 - [ ] No drop shadows on inline surfaces; shadow only on `elev.3+` overlays
 
 ### Color & Contrast
