@@ -32,8 +32,17 @@ const props = defineProps<{
   totalCount: number;
   hasPrev: boolean;
   hasNext: boolean;
-  topOffset: number;
+  /**
+   * Fixed top position in px. A getter keeps the reactive read inside this
+   * panel, so a scroll-driven offset re-renders only the panel rather than the
+   * (potentially huge) conversation that hosts it.
+   */
+  topOffset: number | (() => number);
 }>();
+
+const topPx = computed(() =>
+  typeof props.topOffset === "function" ? props.topOffset() : props.topOffset,
+);
 
 const emit = defineEmits<{
   close: [];
@@ -83,7 +92,7 @@ watch(
     <div
       v-if="isOpen && view"
       class="cv-panel"
-      :style="{ top: `${topOffset}px` }"
+      :style="{ top: `${topPx}px` }"
       role="dialog"
       aria-label="Subagent detail panel"
       @keydown.esc="emit('close')"

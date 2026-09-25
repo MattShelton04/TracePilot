@@ -1,6 +1,6 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
-import { segmentToolCalls } from "./chatViewUtils";
+import { chunkTurns, segmentToolCalls } from "./chatViewUtils";
 
 function makeToolCall(overrides: Partial<TurnToolCall>): TurnToolCall {
   return {
@@ -49,5 +49,27 @@ describe("segmentToolCalls", () => {
     expect(segments[1].items).toHaveLength(1);
     expect(segments[1].items[0]?.type).toBe("tool");
     expect(segments[1].items[0]?.toolCall.toolName).toBe("powershell");
+  });
+});
+
+describe("chunkTurns", () => {
+  const turns = Array.from({ length: 23 }, (_, i) => ({ turnIndex: i + 5 }));
+
+  it("splits turns into fixed-size chunks keyed by first turn index", () => {
+    const chunks = chunkTurns(turns, 10);
+    expect(chunks.map((c) => c.turns.length)).toEqual([10, 10, 3]);
+    expect(chunks.map((c) => c.key)).toEqual([5, 15, 25]);
+    expect(chunks.map((c) => c.start)).toEqual([0, 10, 20]);
+    expect(chunks.flatMap((c) => c.turns)).toEqual(turns);
+  });
+
+  it("keeps existing chunk keys stable when turns are appended", () => {
+    const before = chunkTurns(turns.slice(0, 12), 10).map((c) => c.key);
+    const after = chunkTurns(turns, 10).map((c) => c.key);
+    expect(after.slice(0, before.length)).toEqual(before);
+  });
+
+  it("returns no chunks for an empty conversation", () => {
+    expect(chunkTurns([], 10)).toEqual([]);
   });
 });
