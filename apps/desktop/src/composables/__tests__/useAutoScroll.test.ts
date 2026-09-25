@@ -404,11 +404,13 @@ describe("useAutoScroll", () => {
       result.scrollToBottom();
       expect(result.isLockedToBottom.value).toBe(true);
 
-      // New message arrives mid-animation — content grows, instant scroll fires
+      // New message arrives mid-animation — content grows. No instant scroll:
+      // that would cancel the smooth animation, which is continued on scrollend.
+      state.scrollSpy.mockClear();
       state.setScrollHeight(1100);
       watchSrc.value = 2;
-      await flushPromises(); // data watcher → nextTick → scrollTo({top:1100, instant})
-      state.scrollSpy.mockClear();
+      await flushPromises();
+      expect(state.scrollSpy).not.toHaveBeenCalled();
 
       // Scroll event while still mid-page (smooth scroll not done, guard still active)
       state.setScrollTop(400); // distFromBottom = 1100 - 400 - 500 = 200 → not at target
@@ -430,6 +432,78 @@ describe("useAutoScroll", () => {
       expect(state.scrollSpy).toHaveBeenCalledWith(
         expect.objectContaining({ top: 1200, behavior: "auto" }),
       );
+      unmount();
+    });
+  });
+
+  describe("smooth jump through lazily rendered content", () => {
+    // Long conversations render off-screen turns on demand, so the content
+    // grows while a smooth jump-to-bottom animates.
+    async function startJump() {
+      const state = makeScrollEl({ scrollHeight: 10_000, clientHeight: 500, scrollTop: 0 });
+      const containerRef = ref<HTMLElement | null>(state.el);
+      const observers: ResizeObserverCallback[] = [];
+      vi.stubGlobal(
+        "ResizeObserver",
+        class {
+          constructor(cb: ResizeObserverCallback) {
+            observers.push(cb);
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      const watchSrc = ref(1);
+      const mounted = withSetup(() =>
+        useAutoScroll({ containerRef, watchSource: () => watchSrc.value }),
+      );
+      await flushPromises();
+      watchSrc.value = 2; // first data received
+      await flushPromises();
+      // The jump's smooth animation is still under way: keep scrollTo inert.
+      state.scrollSpy.mockImplementation(() => {});
+      mounted.result.scrollToBottom();
+      state.scrollSpy.mockClear();
+      const grow = (h: number) => {
+        state.setScrollHeight(h);
+        for (const cb of observers) cb([], {} as ResizeObserver);
+      };
+      return { state, grow, ...mounted };
+    }
+
+    it("does not cancel the animation with an instant scroll when content grows", async () => {
+      const { state, grow, unmount } = await startJump();
+      grow(14_000);
+      expect(state.scrollSpy).not.toHaveBeenCalled();
+      unmount();
+    });
+
+    it("continues smoothly to the new bottom when the animation ends short of it", async () => {
+      const { state, grow, unmount } = await startJump();
+      grow(14_000);
+      state.setScrollTop(9_500); // the first leg's (stale) target
+      state.el.dispatchEvent(new Event("scrollend"));
+      expect(state.scrollSpy).toHaveBeenCalledWith({ top: 14_000, behavior: "smooth" });
+      unmount();
+    });
+
+    it("stops steering once the user scrolls during the jump", async () => {
+      const { state, grow, unmount } = await startJump();
+      state.el.dispatchEvent(new Event("wheel"));
+      grow(14_000);
+      state.setScrollTop(3_000);
+      state.el.dispatchEvent(new Event("scrollend"));
+      expect(state.scrollSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ behavior: "smooth" }),
+      );
+      unmount();
+    });
+
+    it("falls back to an instant snap if scrollend never arrives", async () => {
+      const { state, grow, unmount } = await startJump();
+      grow(14_000);
+      vi.advanceTimersByTime(2_600);
+      expect(state.scrollSpy).toHaveBeenCalledWith({ top: 14_000, behavior: "auto" });
       unmount();
     });
   });
