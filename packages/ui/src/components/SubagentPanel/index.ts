@@ -1,7 +1,7 @@
 // Public exports for the consolidated subagent panel.
 
 export type { SubagentActivityInput } from "./activities";
-export { buildSubagentActivities } from "./activities";
+export { buildSubagentActivities, hasFollowUpMessages } from "./activities";
 export { default as SubagentPanel } from "./SubagentPanel.vue";
 export { default as SubagentPanelHeader } from "./SubagentPanelHeader.vue";
 export { default as SubagentPanelNav } from "./SubagentPanelNav.vue";

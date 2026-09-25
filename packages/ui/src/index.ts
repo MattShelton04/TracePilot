@@ -125,6 +125,7 @@ export type {
 // ── Subagent panel (shared, single body) ─────────
 export {
   buildSubagentActivities,
+  hasFollowUpMessages,
   SubagentPanel,
   SubagentPanelHeader,
   SubagentPanelNav,

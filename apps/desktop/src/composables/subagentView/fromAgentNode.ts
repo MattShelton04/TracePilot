@@ -1,12 +1,15 @@
 // Adapter: AgentNode (agent-tree builder output) → SubagentView.
 // Thin shape mapper; common derivations live in buildSubagentView.
-import type { SubagentView } from "@tracepilot/ui";
+import type { SubagentActivityInput, SubagentView } from "@tracepilot/ui";
 import type { AgentNode } from "@/utils/agentTreeBuilder";
 import { buildSubagentView } from "./buildSubagentView";
 
 export function fromAgentNode(
   node: AgentNode,
-  opts?: { parallelGroupLabel?: string },
+  opts?: {
+    parallelGroupLabel?: string;
+    communications?: SubagentActivityInput["communications"];
+  },
 ): SubagentView {
   return buildSubagentView({
     id: node.id,
@@ -17,6 +20,7 @@ export function fromAgentNode(
     messages: node.messages,
     reasoning: node.reasoning,
     childTools: node.toolCalls,
+    communications: opts?.communications,
     status: node.status,
     model: node.model,
     requestedModel: node.requestedModel,

@@ -38,9 +38,10 @@ export function provideAgentOpener(openAgent: (key: string) => void): void {
 export function useAgentDirectory() {
   const context = inject(AGENT_DIRECTORY_KEY, null);
   const directory = computed(() => context?.directory.value ?? null);
+  const communications = computed(() => context?.communications?.value ?? []);
   const byToolCall = computed(() => {
     const map = new Map<string, AgentCommunication>();
-    for (const c of context?.communications?.value ?? []) {
+    for (const c of communications.value) {
       if (c.toolCallId) map.set(c.toolCallId, c);
     }
     return map;
@@ -63,5 +64,5 @@ export function useAgentDirectory() {
     return toolCallId ? byToolCall.value.get(toolCallId) : undefined;
   }
 
-  return { directory, resolve, canOpen, open, communicationFor };
+  return { directory, communications, resolve, canOpen, open, communicationFor };
 }

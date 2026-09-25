@@ -157,7 +157,7 @@ watch(
 
     <SubagentCollapsibleBlock
       v-if="view.output"
-      label="Output"
+      :label="view.outputLabel ?? 'Output'"
       :content="view.output"
       :threshold="600"
       :expanded="outputExpanded"

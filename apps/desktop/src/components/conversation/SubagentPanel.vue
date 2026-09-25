@@ -9,6 +9,7 @@
 // panel background next to the header.
 
 import {
+  communicationsFor,
   formatDuration,
   formatLiveDuration,
   getAgentColor,
@@ -16,6 +17,7 @@ import {
   SubagentPanel,
   SubagentPanelHeader,
   SubagentPanelNav,
+  useAgentDirectory,
 } from "@tracepilot/ui";
 import { computed, nextTick, ref, watch } from "vue";
 import { fromSubagentFullData } from "@/composables/subagentView";
@@ -59,7 +61,16 @@ const store = useSessionDetailContext();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
   useToolResultLoader(() => store.sessionId);
 
-const view = computed(() => (props.subagent ? fromSubagentFullData(props.subagent) : null));
+const { communications } = useAgentDirectory();
+
+const view = computed(() =>
+  props.subagent
+    ? fromSubagentFullData(
+        props.subagent,
+        communicationsFor(communications.value, props.subagent.agentId),
+      )
+    : null,
+);
 
 const agentColor = computed(() => (view.value ? getAgentColor(view.value.type) : ""));
 const agentIcon = computed(() => (view.value ? getAgentIcon(view.value.type) : ""));

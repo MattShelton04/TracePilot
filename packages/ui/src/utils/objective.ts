@@ -124,7 +124,7 @@ export function getSubagentObjective(
   const records: IntentRecord[] = [];
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i];
-    if (a.kind === "reasoning") continue;
+    if (a.kind === "reasoning" || a.kind === "message" || a.kind === "response") continue;
     if (a.kind !== "pill" || a.type !== "intent") {
       pushToolObjective(records, a.toolCall, i);
       continue;

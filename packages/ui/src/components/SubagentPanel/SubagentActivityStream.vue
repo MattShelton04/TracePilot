@@ -13,8 +13,10 @@ import {
   inferAgentTypeFromToolCall,
 } from "../../utils/agentTypes";
 import { getReasoningSummary } from "../../utils/reasoning";
+import MarkdownContent from "../MarkdownContent.vue";
 import ReasoningText from "../ReasoningText.vue";
 import ToolCallItem from "../ToolCallItem.vue";
+import SubagentMessageItem from "./SubagentMessageItem.vue";
 import type { SubagentActivityItem, SubagentActivityPillType } from "./types";
 
 type ToolActivityItem = Extract<SubagentActivityItem, { kind: "tool" }>;
@@ -168,6 +170,19 @@ function richEnabled(toolName: string): boolean {
           </slot>
         </div>
 
+        <SubagentMessageItem
+          v-else-if="item.kind === 'message'"
+          :direction="item.direction"
+          :communication="item.communication"
+          :delivery="item.delivery"
+          :render-markdown="renderMarkdown"
+        />
+
+        <div v-else-if="item.kind === 'response'" class="sap-response">
+          <div class="sap-response-label">Response</div>
+          <MarkdownContent :content="item.content" :render="renderMarkdown" />
+        </div>
+
         <button
           v-else-if="item.kind === 'nested-subagent'"
           type="button"
@@ -228,5 +243,7 @@ function richEnabled(toolName: string): boolean {
 .sap-nested-status.completed { color: var(--success-fg, #3fb950); }
 .sap-nested-status.failed { color: var(--danger-fg, #f85149); }
 .sap-nested-status.in-progress { color: var(--warning-fg, #d29922); }
+.sap-response { padding: 6px 10px 6px 12px; border-left: 2px solid var(--border-default); font-size: 0.8125rem; color: var(--text-primary); }
+.sap-response-label { font-size: 0.625rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
 .sap-nested-desc { padding: 4px 12px 8px 15px; font-size: 0.6875rem; color: var(--text-secondary); line-height: 1.4; }
 </style>
