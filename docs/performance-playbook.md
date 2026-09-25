@@ -233,6 +233,7 @@ Performance coverage:
 | **Criterion benchmarks** | Nightly/manual Linux runs: validates populated fixtures and required results; timing thresholds are advisory |
 | **Base vs head comparison** | PRs touching Rust: `benchmark-compare.yml` measures the PR's base and head on one runner. Criterion saves a base baseline and compares head against it; `index_probe` alternates base/head builds over a generated corpus for wall time and peak RSS. Advisory annotations plus a job summary |
 | **Native desktop** | Manual Windows release measurements with isolated data, including conversation scroll frame times; see the [performance mission report](reports/performance-mission.md) |
+| **Typecheck + tests** | Standard correctness checks; see the [testing guide](testing.md) |
 
 Run the same backend comparison locally with two separately built probes:
 
@@ -244,7 +245,6 @@ node scripts/perf/probe-compare.mjs --base=<base index_probe> --head=<head index
 Build each probe into its own `CARGO_TARGET_DIR`. Cargo does not re-copy an
 up-to-date example into `target/release/examples`, so a shared directory can
 silently hand back the other revision's binary.
-| **Typecheck + tests** | Standard correctness checks; see the [testing guide](testing.md) |
 
 Measurement jobs have read-only repository permissions. They do not publish to
 Pages or comment on PRs. See the [performance index](perf/index.md) for artifact
