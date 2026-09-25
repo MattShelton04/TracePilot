@@ -24,6 +24,7 @@ export {
 // ── Components ─────────────────────────────────────────────────────
 export { default as ActionButton } from "./components/ActionButton.vue";
 export { default as AgentBadge } from "./components/AgentBadge.vue";
+export { default as AgentChip } from "./components/agentComms/AgentChip.vue";
 export { default as Badge } from "./components/Badge.vue";
 export type { BannerProps, BannerTone } from "./components/Banner.vue";
 export { default as Banner } from "./components/Banner.vue";
@@ -232,6 +233,11 @@ export type {
   TimelineNavigationReturn,
 } from "./composables/useTimelineNavigation";
 export { useTimelineNavigation } from "./composables/useTimelineNavigation";
+export type {
+  TimelinePlayback,
+  TimelinePlaybackOptions,
+} from "./composables/useTimelinePlayback";
+export { useTimelinePlayback } from "./composables/useTimelinePlayback";
 export type { Toast, ToastOptions } from "./composables/useToast";
 export { useToast } from "./composables/useToast";
 export { useToggleSet } from "./composables/useToggleSet";
@@ -254,6 +260,14 @@ export type {
   AgentDirectory,
   AgentDirectoryEntry,
   AgentRuntimeStatus,
+  CommsEdgeKind,
+  CommsFilter,
+  CommsTimeBreak,
+  CommsTimeline,
+  CommsTimelineAgent,
+  CommsTimelineDelivery,
+  CommsTimelineEvent,
+  CommsTimeScale,
   ListAgentsResult,
   ListedAgent,
   ReadAgentResult,
@@ -264,8 +278,14 @@ export {
   agentToolSummary,
   buildAgentCommunications,
   buildAgentDirectory,
+  buildCommsTimeline,
+  buildTimeScale,
   communicationsFor,
+  DEFAULT_COMMS_FILTER,
+  filterCommsEvents,
+  formatTimelineOffset,
   MAIN_AGENT_KEY,
+  packAgentLanes,
   parseListAgentsResult,
   parseReadAgentResult,
   parseWriteAgentResult,

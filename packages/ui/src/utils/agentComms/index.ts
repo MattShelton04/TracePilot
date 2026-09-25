@@ -31,3 +31,19 @@ export {
   writeAgentTarget,
 } from "./parsers";
 export { agentToolSummary, formatAgentAge, proseHint } from "./summary";
+export {
+  buildCommsTimeline,
+  buildTimeScale,
+  type CommsEdgeKind,
+  type CommsFilter,
+  type CommsTimeBreak,
+  type CommsTimeline,
+  type CommsTimelineAgent,
+  type CommsTimelineDelivery,
+  type CommsTimelineEvent,
+  type CommsTimeScale,
+  DEFAULT_COMMS_FILTER,
+  filterCommsEvents,
+  formatTimelineOffset,
+  packAgentLanes,
+} from "./timeline";
