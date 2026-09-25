@@ -26,6 +26,8 @@ This index lists current user/developer documentation. Stale generated tech-debt
 | [Prompt-Cache Insights](features/prompt-cache-insights-plan.md) | Proposed plan for showing cache expiry, resume markers and prefix-change causes from `session.usage_checkpoint`. |
 | [Skills Analytics](features/skills-analytics-design.md) | Proposed per-skill usage analytics, flags and a Usage tab for the Skills manager. |
 | [Agents Explorer](features/agents-explorer-design.md) | Delivered Agents page for built-in and custom agents, sharing the definition editor, with cross-session run analytics. |
+| [Agent Communication](features/agent-communication.md) | Timeline Messages modes, communication evidence and Agents usage counters. |
+| [Session Replay Communication](features/session-replay-design.md) | Design and implementation guide for adding exchange playback to Session Replay. |
 | [Incremental Analytics](architecture/incremental-analytics.md) | Analytics pipeline and incremental computation strategy. |
 | [Design System](design/design-system.md) | Colour tokens, typography, spacing, and component patterns. |
 | [Tool-Call Rendering](design/tool-call-rendering.md) | How tool calls/results are visualised in the session viewer. |
