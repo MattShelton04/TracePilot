@@ -1,9 +1,12 @@
 # Multi-Window & Alerting — Implementation Plan
 
-> **Status:** Implementation Plan (RFC) — **Amended post-review**  
+> **Status:** Historical implementation RFC, amended post-review. Session tabs,
+> pop-out windows, and alert UI have since landed in part; check current code
+> and tests before treating any phase below as open work.
 > **Date:** 2026-04-13  
 > **Prerequisite:** [Multi-Window Architecture](./multi-window-architecture.md) · [Alerting Design](./session-alerting-notifications.md)  
-> **Reviews:** [Consolidated Feedback](./reviews/consolidated-plan-review.md) · [Opus](./reviews/opus-plan-review.md) · [GPT](./reviews/gpt-plan-review.md) · [Codex](./reviews/codex-plan-review.md) · [Sonnet](./reviews/sonnet-plan-review.md)
+> **Review provenance:** The review summaries are incorporated in §10; the
+> separate review files are not in this repository.
 
 ---
 
@@ -681,7 +684,8 @@ Default: all `false`. Enabled incrementally via Settings → Experimental.
 ## 10. Post-Review Amendments
 
 > Applied after consolidated review from Opus 4.6, GPT 5.4, Codex 5.3, and Sonnet 4.6.  
-> See [consolidated review](./reviews/consolidated-plan-review.md) for full cross-reviewer synthesis.
+> The separate consolidated review file is not in this repository; this
+> section retains the amendments that were incorporated into the plan.
 
 ### Amendment 1: Phase 1.0 — Session Detail Composable (CRITICAL)
 

@@ -1,4 +1,4 @@
-# ADR 0002 — Tauri capability scoping: main vs viewer
+# ADR 0011 — Tauri capability scoping: main vs viewer
 
 - **Status:** Accepted
 - **Date:** 2026-04

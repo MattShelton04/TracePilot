@@ -9,7 +9,7 @@ tooling, scripts, and CI status for each.
 | Layer | Tool | Location | Runs by default? |
 | --- | --- | --- | --- |
 | Unit / integration (JS/TS) | Vitest | `apps/**`, `packages/**` (`*.spec.ts`, `*.test.ts`) | ✅ `pnpm test` |
-| Unit / integration (Rust) | `cargo test` | `crates/**` | ✅ `cargo test` |
+| Unit / integration (Rust) | `cargo test` | `crates/**` | ✅ `cargo test --workspace --exclude tracepilot-desktop` |
 | Component visual regression | Playwright CT | `packages/ui/src/__vrt__/*.vrt.spec.ts` | ❌ on-demand only |
 | Desktop frontend visual comparison | Chromium + synthetic backend fixtures | `scripts/visual/`, `visual-*.yml` workflows | ✅ relevant PRs and main pushes |
 | Desktop integration (installed Tauri app) | Playwright Test + native WebView2/CDP | `tests/e2e/`, `scripts/e2e/test.ps1` | ✅ Windows installer job on PRs and main |
@@ -119,9 +119,10 @@ sampling windows and are diagnostic, not a substitute for user-flow assertions.
 Clear IPC timing buffers before measuring. Disconnect Playwright in `finally`
 and stop owned processes with `pnpm app:stop` when finished.
 
-Desktop E2E remains opt-in and is not wired into CI. It requires Windows,
-WebView2, the Rust toolchain, Node 22, and pnpm 10. Frontend-only exploration is
-portable via `pnpm dev` and the CLI. WebView2 CDP does not apply to macOS/Linux.
+Local desktop E2E is opt-in; the Windows installer job runs `pnpm test:e2e -Install`
+on PRs and main in CI. The suite requires Windows, WebView2, the Rust toolchain,
+Node 22, and pnpm 10. Frontend-only exploration is portable via `pnpm dev` and
+the CLI. WebView2 CDP does not apply to macOS/Linux.
 
 ## Cross-references
 

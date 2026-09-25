@@ -1,6 +1,9 @@
 # TracePilot Loading Screen Design
 
-> Design report for the loading/transition screen shown between the Setup Wizard's "Launch TracePilot" button and the main application.
+> Historical design exploration for the loading/transition screen. The app now
+> has a loading sequence; see the current implementation and
+> [performance evidence](reports/performance-mission.md) before using the
+> proposed flow and timings below.
 
 ## Problem Statement
 
@@ -53,7 +56,11 @@ finishSetup() →
 
 ## Prototypes
 
-> **Note:** HTML prototypes were removed during docs cleanup. The design descriptions below document the five explored approaches. The design system tokens are preserved in `docs/design/prototypes/shared/`.
+> **Historical proposal:** The eleven approaches below are text descriptions;
+> their named loading-screen HTML files are not in this repository. The
+> surviving `docs/design/prototypes/shared/design-system-c.css` belongs to
+> other design prototypes, while current app tokens live in
+> `packages/ui/src/styles/tokens.css`.
 
 ### Prototype A: "Pulse & Stats"
 

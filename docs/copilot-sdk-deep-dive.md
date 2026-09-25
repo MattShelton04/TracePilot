@@ -1555,11 +1555,10 @@ export const analyticsTools = [
 
 ## Part 8: Consolidated Review Feedback & Improvements
 
-> This section consolidates feedback from 4 independent model reviews:
-> - **Claude Opus 4.6** — See [sdk-review-opus.md](reviews/sdk-review-opus.md)
-> - **GPT 5.4** — See [sdk-review-gpt54.md](reviews/sdk-review-gpt54.md)
-> - **GPT 5.3 Codex** — See [sdk-review-codex53.md](reviews/sdk-review-codex53.md)
-> - **Gemini 3 Pro** — See [sdk-review-gemini.md](reviews/sdk-review-gemini.md)
+> Historical research snapshot. This section records the document's summary
+> of four model reviews (Claude Opus 4.6, GPT 5.4, GPT 5.3 Codex, and Gemini
+> 3 Pro). The separate review files are not in this repository; use the
+> findings below as historical context and verify guidance against current code.
 
 ### 8.1 Unanimous Consensus
 

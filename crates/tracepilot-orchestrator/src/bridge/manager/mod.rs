@@ -53,8 +53,8 @@ pub type SharedBridgeManager = Arc<RwLock<BridgeManager>>;
 /// as a snapshot via [`BridgeManager::metrics_snapshot`] so debug UI can
 /// surface broadcast-channel lag without taking any lock on the manager.
 ///
-/// See [`docs/tech-debt-plan-revised-2026-04.md`](../../../../docs/tech-debt-plan-revised-2026-04.md)
-/// Phase 1A.6 — "Status broadcast channel sizing".
+/// These counters support diagnosis of status-broadcast sizing and dropped
+/// events without locking the manager.
 #[derive(Debug, Default)]
 pub struct BridgeMetrics {
     /// Number of SDK events successfully forwarded onto the `BridgeEvent`
