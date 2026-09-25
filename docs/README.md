@@ -34,7 +34,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [Tool-Call Rendering](design/tool-call-rendering.md) | How tool calls/results are visualised in the session viewer. |
 | [Adding Tool Renderers](design/adding-tool-renderers.md) | Guide for adding new tool-specific renderers. |
 | [Timeline Redesign](design/timeline-redesign.md) | Historical session timeline redesign notes. |
-| [Loading Screen](loading-screen-design.md) | Historical loading-screen proposal; named HTML prototypes are absent. |
+| [Loading Screen Design History](loading-screen-design.md) | Orbital concept selection, current implementation, and open design review item. |
 | [Logo](design/logo.md) | Logo and branding assets. |
 | [Multi-Window Architecture](multi-window-architecture.md) | Multi-window design notes; compare with current implementation. |
 | [Session Alerting](session-alerting-notifications.md) | Alerting and notification design notes; compare with current implementation. |
@@ -50,7 +50,6 @@ some older reports and plans, which remain recoverable from Git history.
 | [Specta Migration](specta-migration-guide.md) | Specta / tauri-specta migration guide. |
 | [Syntax Highlighting](syntax-highlighting.md) | Current syntax-highlighting behavior and tradeoffs. |
 | [Bespoke Syntax Highlighting Analysis](syntax-highlighting-bespoke-analysis.md) | Analysis behind bespoke syntax-highlighting choices. |
-| [Store Refactoring](store-refactoring-plan.md) | Historical Pinia refactoring plan; verify remaining work in code. |
 
 ## Proposals, research, and historical evidence
 
@@ -69,10 +68,9 @@ some older reports and plans, which remain recoverable from Git history.
 | [Prompt-Cache Insights](features/prompt-cache-insights-plan.md) | Proposed cache-expiry and resume analysis. |
 | [Skills Analytics](features/skills-analytics-design.md) | Feature design; compare delivered behavior with current code. |
 | [Agents Explorer](features/agents-explorer-design.md) | Delivered feature design and decision record. |
-| [Analytics Persistence](research/analytics-persistence.md) | Persisting analytics data to disk. |
 | [Copilot CLI Evolution](research/copilot-cli-evolution-risks.md) | Risk analysis of Copilot CLI schema changes. |
 | [Copilot Session Store](research/copilot-session-store-db.md) | What the CLI's `session-store.db` contains, who has it, and how TracePilot could safely read it. |
-| [Optimisation Plan](research/optimization-plan.md) | Performance optimisation research notes. |
+| [Incremental Analytics Delivery](research/optimization-plan.md) | Dated implementation record and one remaining fallback limitation; use the architecture reference for current design. |
 | [VS Code Support](research/vscode-session-support-feasibility.md) | Feasibility of supporting VS Code Copilot sessions. |
 | [Pricing Model](pricing-model.md) | Dated pricing reference; verify rates before using estimates. |
 | [Performance Evidence](reports/performance-mission.md) | Native measurements, methods, and limitations; retain alongside its JSON evidence. |
