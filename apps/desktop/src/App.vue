@@ -43,8 +43,7 @@ useWindowLifecycle({
   },
 });
 
-const { phase, expectedSessionCount, onSetupSaved, onSetupComplete, onIndexingComplete } =
-  useBootstrapPhase();
+const { phase, expectedSessionCount, onSetupSaved, onIndexingComplete } = useBootstrapPhase();
 
 const {
   showWhatsNew,
@@ -123,7 +122,6 @@ const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
   <SetupWizard
     v-if="phase === 'setup'"
     @setup-saved="onSetupSaved"
-    @setup-complete="onSetupComplete"
   />
   <IndexingLoadingScreen
     v-else-if="phase === 'indexing'"

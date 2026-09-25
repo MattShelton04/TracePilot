@@ -30,7 +30,6 @@ import { logError } from "@/utils/logger";
 const { appVersion } = useAppVersion();
 
 const emit = defineEmits<{
-  "setup-complete": [];
   "setup-saved": [sessionCount: number];
 }>();
 
@@ -206,8 +205,9 @@ async function finishSetup(useDefaults = false) {
     await saveConfig(config);
     if (disposed) return;
     completed.value = true;
-    if (useDefaults) emit("setup-complete");
-    else emit("setup-saved", checked?.sessionCount ?? 0);
+    // Skip takes the same indexing screen as the full flow; it has not
+    // validated the directory, so the session count is unknown (0).
+    emit("setup-saved", checked?.sessionCount ?? 0);
   } catch (e) {
     setupError.value = toErrorMessage(e);
     logError("[setup] Setup save failed:", e);

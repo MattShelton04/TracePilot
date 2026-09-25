@@ -306,8 +306,8 @@ describe("SetupWizard", () => {
       },
       general: { setupComplete: true },
     });
-    expect(wrapper.emitted("setup-complete")).toEqual([[]]);
-    expect(wrapper.emitted("setup-saved")).toBeUndefined();
+    // Skip shows the same indexing screen as the full flow.
+    expect(wrapper.emitted("setup-saved")).toEqual([[0]]);
   });
 
   it("waits for backend defaults before allowing Skip", async () => {
@@ -353,6 +353,6 @@ describe("SetupWizard", () => {
     await wrapper.get(".skip-link").trigger("click");
     await flushPromises();
     expect(saveConfig).toHaveBeenCalledTimes(2);
-    expect(wrapper.emitted("setup-complete")).toEqual([[]]);
+    expect(wrapper.emitted("setup-saved")).toEqual([[0]]);
   });
 });
