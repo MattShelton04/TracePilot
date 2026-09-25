@@ -59,6 +59,7 @@ fn session_events_serialization_round_trip() {
             skill_invocation: None,
         }],
         system_messages: Vec::new(),
+        agent_messages: Vec::new(),
     };
 
     let json = serde_json::to_value(&turn).unwrap();

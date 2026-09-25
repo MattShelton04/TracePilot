@@ -71,6 +71,7 @@ export type {
 } from "./context-capture.js";
 // ── conversation.js ────────────────────────────────────────────────
 export type {
+  AgentMessage,
   AttributedMessage,
   ConversationTurn,
   EventsResponse,

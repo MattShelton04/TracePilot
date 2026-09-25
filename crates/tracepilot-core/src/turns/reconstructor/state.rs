@@ -306,6 +306,7 @@ pub(crate) fn new_turn(
         attachments,
         session_events: Vec::new(),
         system_messages: Vec::new(),
+        agent_messages: Vec::new(),
     }
 }
 

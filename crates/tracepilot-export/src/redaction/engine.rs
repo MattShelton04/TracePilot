@@ -135,6 +135,9 @@ fn redact_turn(
     for msg in &mut turn.reasoning_texts {
         redact_string(&mut msg.content, patterns, stats);
     }
+    for msg in &mut turn.agent_messages {
+        redact_string(&mut msg.content, patterns, stats);
+    }
 
     for tc in &mut turn.tool_calls {
         redact_opt_string(&mut tc.result_content, patterns, stats);
