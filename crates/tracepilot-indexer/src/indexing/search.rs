@@ -8,6 +8,25 @@ use crate::Result;
 use crate::index_db;
 use crate::indexing::progress::SearchIndexingProgress;
 
+/// Minimum number of stale sessions before the bulk path is considered.
+const BULK_MIN_SESSIONS: usize = 10;
+
+/// Choose between the bulk path (drop triggers → insert → rebuild FTS) and
+/// per-session upserts (FTS maintained by triggers).
+///
+/// The bulk path rebuilds the *entire* FTS index, so its cost scales with the
+/// whole index rather than with the changed rows. Measured on a 590-session /
+/// 605k-row index: triggers sustain ~18k rows/s while the bulk rebuild runs at
+/// ~108k rows of *total* index per second, so bulk only wins once the new rows
+/// exceed roughly a sixth of the index. 10 small changed sessions took 5.8 s
+/// in bulk mode versus 0.18 s via triggers; 30 very large ones (~40% of the
+/// rows) remained faster in bulk mode. Bulk also covers the first index,
+/// rebuilds and extractor upgrades, where `existing_rows` is 0 or the new rows
+/// replace most of the index.
+fn use_bulk_write(stale_sessions: usize, new_rows: usize, existing_rows: usize) -> bool {
+    stale_sessions >= BULK_MIN_SESSIONS && new_rows.saturating_mul(5) >= existing_rows
+}
+
 /// Index search content for sessions that need it (Phase 2 — background).
 ///
 /// This should be called AFTER Phase 1 (main reindex) completes.
@@ -96,15 +115,15 @@ pub fn reindex_search_content(
     }
 
     // Step 3: Write search content to DB.
-    // Use bulk write (drop triggers → insert → FTS rebuild) when many sessions
-    // need indexing — ~5x faster than per-row trigger updates. Fall back to
-    // per-session upsert for small incremental updates where the FTS rebuild
-    // cost would outweigh the trigger savings.
-    const BULK_THRESHOLD: usize = 10;
     let mut indexed = 0;
     let prepared_count = prepared.len();
+    let new_rows: usize = prepared
+        .iter()
+        .filter_map(|(_, content)| content.as_ref().map(Vec::len))
+        .sum();
+    let existing_rows = db.search_content_row_count().unwrap_or(0);
 
-    if prepared_count >= BULK_THRESHOLD {
+    if use_bulk_write(prepared_count, new_rows, existing_rows) {
         // Bulk path: collect all valid rows, write without triggers, rebuild FTS
         let bulk_data: Vec<(
             tracepilot_core::ids::SessionId,
@@ -240,4 +259,23 @@ pub fn rebuild_search_content(
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::use_bulk_write;
+
+    #[test]
+    fn bulk_write_only_when_new_rows_are_a_large_share_of_the_index() {
+        // First index / rebuild: nothing (or little) to keep.
+        assert!(use_bulk_write(590, 605_000, 0));
+        assert!(use_bulk_write(10, 5_000, 0));
+        // Routine incremental passes on a large index use triggers.
+        assert!(!use_bulk_write(10, 1_200, 605_000));
+        assert!(!use_bulk_write(40, 4_000, 605_000));
+        // Many very large sessions: bulk rebuild is cheaper.
+        assert!(use_bulk_write(30, 250_000, 605_000));
+        // Fewer than the minimum session count never bulk-rebuilds.
+        assert!(!use_bulk_write(9, 100_000, 0));
+    }
 }

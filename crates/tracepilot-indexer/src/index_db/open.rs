@@ -7,6 +7,9 @@ use crate::{Result, error::IndexerError};
 use rusqlite::Connection;
 use std::path::Path;
 
+/// Page cache (negative = KiB) and in-memory temp storage for the writer.
+const WRITER_PRAGMAS: &str = "PRAGMA cache_size=-65536; PRAGMA temp_store=MEMORY;";
+
 impl IndexDb {
     /// Open or create the index database, running migrations as needed.
     pub fn open_or_create(path: &Path) -> Result<Self> {
@@ -18,6 +21,14 @@ impl IndexDb {
         // Performance and correctness pragmas (shared with orchestrator).
         tracepilot_core::utils::sqlite::configure_connection(&conn)
             .map_err(|e| IndexerError::database_config("Failed to set database pragmas", e))?;
+
+        // Writer-only tuning. Search indexing inserts hundreds of thousands of
+        // rows into a table with several secondary indexes plus FTS5; with
+        // SQLite's default ~2 MiB page cache most index pages are evicted and
+        // re-read between inserts. At most one writer connection is active
+        // (indexing gates), so a larger cache is a bounded cost.
+        conn.execute_batch(WRITER_PRAGMAS)
+            .map_err(|e| IndexerError::database_config("Failed to set writer pragmas", e))?;
 
         // Enable incremental auto_vacuum so freed pages can be reclaimed on
         // demand via `PRAGMA incremental_vacuum(N)` without a full VACUUM.

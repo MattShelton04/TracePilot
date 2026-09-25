@@ -8,6 +8,14 @@ use crate::index_db::IndexDb;
 use crate::index_db::row_helpers::context_snippet_from_row;
 
 impl IndexDb {
+    /// Number of rows in the search content table.
+    pub fn search_content_row_count(&self) -> Result<usize> {
+        let rows: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM search_content", [], |row| row.get(0))?;
+        Ok(usize::try_from(rows).unwrap_or(0))
+    }
+
     /// Get statistics about the search index.
     pub fn search_stats(&self) -> Result<SearchStats> {
         let total_rows: i64 =
