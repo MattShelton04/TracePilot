@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": null,
-  "headSha": null,
+  "baseSha": "202fff8f81545fff04d3676215a4f91961d15c4e",
+  "headSha": "b9b0be61554b5fc5510ebee147fb91064e119d38",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,9 +9,9 @@
     "scale": 1
   },
   "summary": {
-    "changed": 9,
-    "unchanged": 26,
-    "subtle": 2,
+    "changed": 2,
+    "unchanged": 34,
+    "subtle": 1,
     "incomplete": 0,
     "baseUnavailable": 0,
     "total": 37
@@ -21,16 +21,115 @@
       "id": "sessions",
       "route": "/",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 1178,
+      "percent": 0.08521412037037036,
+      "areas": [
+        {
+          "x": 675,
+          "y": 235,
+          "width": 299,
+          "height": 28,
+          "pixels": 437
+        },
+        {
+          "x": 1061,
+          "y": 235,
+          "width": 269,
+          "height": 7,
+          "pixels": 323
+        },
+        {
+          "x": 289,
+          "y": 222,
+          "width": 234,
+          "height": 20,
+          "pixels": 294
+        },
+        {
+          "x": 388,
+          "y": 311,
+          "width": 14,
+          "height": 14,
+          "pixels": 26
+        },
+        {
+          "x": 347,
+          "y": 314,
+          "width": 12,
+          "height": 9,
+          "pixels": 13
+        },
+        {
+          "x": 730,
+          "y": 314,
+          "width": 12,
+          "height": 9,
+          "pixels": 13
+        },
+        {
+          "x": 1110,
+          "y": 314,
+          "width": 12,
+          "height": 9,
+          "pixels": 13
+        },
+        {
+          "x": 427,
+          "y": 313,
+          "width": 12,
+          "height": 10,
+          "pixels": 9
+        },
+        {
+          "x": 292,
+          "y": 313,
+          "width": 8,
+          "height": 9,
+          "pixels": 7
+        },
+        {
+          "x": 678,
+          "y": 313,
+          "width": 8,
+          "height": 9,
+          "pixels": 7
+        },
+        {
+          "x": 1064,
+          "y": 313,
+          "width": 8,
+          "height": 9,
+          "pixels": 7
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/02206fa3e5b251186a3e9b08fa40564f2068163351f4b371ec3d1e389fe9b272.png",
-        "after": "../../img/02206fa3e5b251186a3e9b08fa40564f2068163351f4b371ec3d1e389fe9b272.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/c350f2ea088cb780b936bc3e2fe4c0e8aea5b67ca134eb926fc1e803bc705a32.png",
+        "difference": "../../img/e053a31d141a7c0443c239220fd4ac1d681b3a4e099c6f0a936313b8a3f1132c.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 585,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/0a55c43eacbf2b677f10ad0eef8431fce93689600f7f6b35e56d5fb25c2b4239.png",
+            "after": "../../img/c1ccc0ebda77cf631f260b65526fadea8dfb433cdbb5cf6b3960867586fc1066.png"
+          },
+          {
+            "rect": {
+              "x": 956,
+              "y": 139,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/1e9995b36062dc6ac53bdc0feb69186377537f6d8d68dff59f3a0cbbb22908d4.png",
+            "after": "../../img/5f3fcf702eff93ba06c229c3bba5842fac0737e6ac4cc1c4ffa090a44760372f.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -38,35 +137,16 @@
       "id": "session-overview",
       "route": "/session/sess-auth-refactor/overview",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 4406,
-      "percent": 0.3187210648148148,
-      "areas": [
-        {
-          "x": 1131,
-          "y": 162,
-          "width": 162,
-          "height": 28,
-          "pixels": 4406
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/9e9e3a32ebc411dacb227b518a7c15fcb42ecc2dcb2d0b2582fee6c05fd41eb6.png",
-        "after": "../../img/b5a9281dfaa7a2d833547b05d1cfcf11d420ed54f7278d505abc3ad9f38b088c.png",
-        "difference": "../../img/728e6dda16055e2c2b5cfaf28ee4aaa1f1ed40f66bc64bcd20e1fef6cd3e3df4.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 76,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4fde2e38f38a661f6c515c526344a89c8a98dd196fb71c4a08ea414d921c5aea.png",
-            "after": "../../img/80533218701674418d3fb5770a73449d07553d42f1fb6f7ac1d3c42914c6f876.png"
-          }
-        ]
+        "before": "../../img/0874f103de59f2b385b9aad0013bc52caa47cd217555805aaa3c2792af839a0d.png",
+        "after": "../../img/0874f103de59f2b385b9aad0013bc52caa47cd217555805aaa3c2792af839a0d.png",
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -75,49 +155,32 @@
       "route": "/session/sess-auth-refactor/conversation",
       "state": "populated",
       "change": "changed",
-      "changedPixels": 4417,
-      "percent": 0.3195167824074074,
+      "changedPixels": 4282,
+      "percent": 0.3097511574074074,
       "areas": [
         {
-          "x": 1131,
-          "y": 162,
-          "width": 162,
-          "height": 28,
-          "pixels": 4406
-        },
-        {
-          "x": 20,
-          "y": 22,
-          "width": 19,
-          "height": 3,
-          "pixels": 11
+          "x": 319,
+          "y": 797,
+          "width": 1045,
+          "height": 55,
+          "pixels": 4282
         }
       ],
-      "sameAreasAs": "session-overview",
+      "sameAreasAs": null,
       "images": {
-        "before": "../../img/9159350570fcea8e9aaba086c7ac8f6f55385869bb8bb8597608dc46e4ea1aad.png",
-        "after": "../../img/71184f8dd26f296f3ee178a460da3a30312df7dfff5d0eb6fb011df41ea41c3e.png",
-        "difference": "../../img/f1024829c2b5b19cbd938b6bd11ac9160573affc01575e5d1fa737532bbefcb8.png",
+        "before": "../../img/d07d22f440b09997a8afd6f4064681008dd78a487f1a6010c6c0c0c55b5a34d8.png",
+        "after": "../../img/202dbee6c942fed2a46e663deabd5e45d1235f9e422aeb3e3d960319dbcf9ddc.png",
+        "difference": "../../img/e376e0985908b890e185c86251b52b92df9ef733400cc8bf2ded4560d275c9e3.png",
         "closeUps": [
           {
             "rect": {
-              "x": 960,
-              "y": 76,
-              "width": 480,
+              "x": 287,
+              "y": 725,
+              "width": 1109,
               "height": 200
             },
-            "before": "../../img/4fde2e38f38a661f6c515c526344a89c8a98dd196fb71c4a08ea414d921c5aea.png",
-            "after": "../../img/80533218701674418d3fb5770a73449d07553d42f1fb6f7ac1d3c42914c6f876.png"
-          },
-          {
-            "rect": {
-              "x": 0,
-              "y": 0,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/df3a0310ede31c7d79f8f381a4766563743cd56d50dff70bf128376a8077cda7.png",
-            "after": "../../img/c136be5478356d4dd2bd5040afa64055d6ea2ddd3918e18a01fb974ca1575142.png"
+            "before": "../../img/c8c8de4af35fdc932082637c16dca60f291a32c23bef8c04f05f785c507516ec.png",
+            "after": "../../img/4b388bca7fe5d450ef01c4b82ef1077fd1549d94d9426cb5f87343c5e9e8be6b.png"
           }
         ]
       },
@@ -127,35 +190,16 @@
       "id": "session-events",
       "route": "/session/sess-auth-refactor/events",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 4406,
-      "percent": 0.3187210648148148,
-      "areas": [
-        {
-          "x": 1131,
-          "y": 162,
-          "width": 162,
-          "height": 28,
-          "pixels": 4406
-        }
-      ],
-      "sameAreasAs": "session-overview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
       "images": {
-        "before": "../../img/145c07d86c49891baa726fde592bccd212d1793bbc0682111419bbd8479ff6cd.png",
+        "before": "../../img/1acbeaa67a0442bb06f4a97c1bc14904955859840c5d2493492758673c3be8a4.png",
         "after": "../../img/1acbeaa67a0442bb06f4a97c1bc14904955859840c5d2493492758673c3be8a4.png",
-        "difference": "../../img/262f01b3e03f5c938230e0899dfaf1fcf493ec020f805c55f9a14552d4824eb6.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 76,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4fde2e38f38a661f6c515c526344a89c8a98dd196fb71c4a08ea414d921c5aea.png",
-            "after": "../../img/80533218701674418d3fb5770a73449d07553d42f1fb6f7ac1d3c42914c6f876.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -163,35 +207,16 @@
       "id": "session-todos",
       "route": "/session/sess-auth-refactor/todos",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 4406,
-      "percent": 0.3187210648148148,
-      "areas": [
-        {
-          "x": 1131,
-          "y": 162,
-          "width": 162,
-          "height": 28,
-          "pixels": 4406
-        }
-      ],
-      "sameAreasAs": "session-overview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
       "images": {
-        "before": "../../img/7786fef0e270d007e9817e25096b0d9f1c29047bdbe9277415cb2b4e5522677d.png",
+        "before": "../../img/19bd58d475c8e72b8fc892ca84303b5ebc7d247d25238cfdc256fb1975783da4.png",
         "after": "../../img/19bd58d475c8e72b8fc892ca84303b5ebc7d247d25238cfdc256fb1975783da4.png",
-        "difference": "../../img/985d9e44cbdd4168f3aaf90f3eaca7ab9a760251c1da8b957eec5680fddf3f99.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 76,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4fde2e38f38a661f6c515c526344a89c8a98dd196fb71c4a08ea414d921c5aea.png",
-            "after": "../../img/80533218701674418d3fb5770a73449d07553d42f1fb6f7ac1d3c42914c6f876.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -199,35 +224,16 @@
       "id": "session-metrics",
       "route": "/session/sess-auth-refactor/metrics",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 4406,
-      "percent": 0.3187210648148148,
-      "areas": [
-        {
-          "x": 1131,
-          "y": 162,
-          "width": 162,
-          "height": 28,
-          "pixels": 4406
-        }
-      ],
-      "sameAreasAs": "session-overview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
       "images": {
-        "before": "../../img/944401ba13cdd2c7fda3c4371c9f86d18c2e0cfacccb44bdf1bff9809ee4edbe.png",
-        "after": "../../img/dca0c96a59f94d5ab6557b6613e1960364e8262afa0e2825cff4d5b6cba56df1.png",
-        "difference": "../../img/4b506694c8d1ad399096f5af34c6d9ed003451fe7e238fb5bfeb30f0b2353a6c.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 76,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4fde2e38f38a661f6c515c526344a89c8a98dd196fb71c4a08ea414d921c5aea.png",
-            "after": "../../img/80533218701674418d3fb5770a73449d07553d42f1fb6f7ac1d3c42914c6f876.png"
-          }
-        ]
+        "before": "../../img/0579d62dd15d9e57105c347c92e6195a9e93134003ab6c6ab9fca3ed09d6fdb3.png",
+        "after": "../../img/0579d62dd15d9e57105c347c92e6195a9e93134003ab6c6ab9fca3ed09d6fdb3.png",
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -235,35 +241,16 @@
       "id": "session-context",
       "route": "/session/sess-auth-refactor/context",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 4406,
-      "percent": 0.3187210648148148,
-      "areas": [
-        {
-          "x": 1131,
-          "y": 162,
-          "width": 162,
-          "height": 28,
-          "pixels": 4406
-        }
-      ],
-      "sameAreasAs": "session-overview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
       "images": {
-        "before": "../../img/9e892857ef7b60a7feb8507d6a59a9aa9005af1621b3d00f31797599ee5f2d85.png",
-        "after": "../../img/b9067460705bc34d793464376a66c2829aab88da1a515f52607074b98c656de1.png",
-        "difference": "../../img/44c8a07de96c60a795675e8ca34c7a181601915a917ea72f1f2e9d37a62ec1a9.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 76,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4fde2e38f38a661f6c515c526344a89c8a98dd196fb71c4a08ea414d921c5aea.png",
-            "after": "../../img/80533218701674418d3fb5770a73449d07553d42f1fb6f7ac1d3c42914c6f876.png"
-          }
-        ]
+        "before": "../../img/c76f1743eda7fae5ef4ce382d5e3185dd40b6f4ff8f1dd3dd24254c96880cc95.png",
+        "after": "../../img/c76f1743eda7fae5ef4ce382d5e3185dd40b6f4ff8f1dd3dd24254c96880cc95.png",
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -271,35 +258,16 @@
       "id": "session-explorer",
       "route": "/session/sess-auth-refactor/explorer",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 4406,
-      "percent": 0.3187210648148148,
-      "areas": [
-        {
-          "x": 1131,
-          "y": 162,
-          "width": 162,
-          "height": 28,
-          "pixels": 4406
-        }
-      ],
-      "sameAreasAs": "session-overview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
       "images": {
-        "before": "../../img/90715f2895bdec6c2982caf516e0dbbac6a277e6754b25e5248456e7d98e1f57.png",
-        "after": "../../img/17db2c0ae2d9ebd3d9fd92eb90ee100a2194e2ffdba0e9915101b071d971db36.png",
-        "difference": "../../img/5f90977d8d24da210b94ff59a8360b8a7fdba7a14bda39caa141d22225abbd04.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 76,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4fde2e38f38a661f6c515c526344a89c8a98dd196fb71c4a08ea414d921c5aea.png",
-            "after": "../../img/80533218701674418d3fb5770a73449d07553d42f1fb6f7ac1d3c42914c6f876.png"
-          }
-        ]
+        "before": "../../img/238c5540ac1e1565b9f3719bac011a8e601069e99ac1fcdf846f935894b344d5.png",
+        "after": "../../img/238c5540ac1e1565b9f3719bac011a8e601069e99ac1fcdf846f935894b344d5.png",
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -307,35 +275,16 @@
       "id": "session-timeline",
       "route": "/session/sess-auth-refactor/timeline",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 4406,
-      "percent": 0.3187210648148148,
-      "areas": [
-        {
-          "x": 1131,
-          "y": 162,
-          "width": 162,
-          "height": 28,
-          "pixels": 4406
-        }
-      ],
-      "sameAreasAs": "session-overview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
       "images": {
-        "before": "../../img/06ab56b76a76b56ff08da003c48b7b599c26c533f9b332d7ede1ddf4e46f0483.png",
-        "after": "../../img/b362a1be3e850a357ea3477d77c0cef1bda2a69449f862944a373ff78d24d283.png",
-        "difference": "../../img/c7699f44e2b36ae78877eaac0d61e1adc650c90012d0503bed910d6cc774e181.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 76,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4fde2e38f38a661f6c515c526344a89c8a98dd196fb71c4a08ea414d921c5aea.png",
-            "after": "../../img/80533218701674418d3fb5770a73449d07553d42f1fb6f7ac1d3c42914c6f876.png"
-          }
-        ]
+        "before": "../../img/cc1e896c3305acd2425a8e4cd3298ef54d46f54b3e2f08e358f933cf5e4f8360.png",
+        "after": "../../img/cc1e896c3305acd2425a8e4cd3298ef54d46f54b3e2f08e358f933cf5e4f8360.png",
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -343,52 +292,16 @@
       "id": "session-explorer-file",
       "route": "/session/sess-auth-refactor/explorer",
       "state": "synthetic plan.md selected in the file reader",
-      "change": "changed",
-      "changedPixels": 4417,
-      "percent": 0.3195167824074074,
-      "areas": [
-        {
-          "x": 1131,
-          "y": 162,
-          "width": 162,
-          "height": 28,
-          "pixels": 4406
-        },
-        {
-          "x": 20,
-          "y": 22,
-          "width": 19,
-          "height": 3,
-          "pixels": 11
-        }
-      ],
-      "sameAreasAs": "session-overview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
       "images": {
-        "before": "../../img/31f1321d78439839564dbc26985b099d1a11c6e0b25346bc29f3e58534e269ad.png",
-        "after": "../../img/2c414235f08e86e10b60aaf8c57a183b611e0c2d87b55cc2ec78d18b394ef1a7.png",
-        "difference": "../../img/9385d5d2636d3586ce4950dd620a6aa2d73e9dace3f20d6d852e0de5ae6effa8.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 76,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4fde2e38f38a661f6c515c526344a89c8a98dd196fb71c4a08ea414d921c5aea.png",
-            "after": "../../img/80533218701674418d3fb5770a73449d07553d42f1fb6f7ac1d3c42914c6f876.png"
-          },
-          {
-            "rect": {
-              "x": 0,
-              "y": 0,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/df3a0310ede31c7d79f8f381a4766563743cd56d50dff70bf128376a8077cda7.png",
-            "after": "../../img/c136be5478356d4dd2bd5040afa64055d6ea2ddd3918e18a01fb974ca1575142.png"
-          }
-        ]
+        "before": "../../img/58902a7973c05313ae4938401a2e43da991784d531a18073c17c0dbcfd3c44cc.png",
+        "after": "../../img/58902a7973c05313ae4938401a2e43da991784d531a18073c17c0dbcfd3c44cc.png",
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -487,8 +400,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/09f8048397863729f62632846cfead2abb1a25a07abc8f1f8f44f7df0280adbd.png",
-        "after": "../../img/09f8048397863729f62632846cfead2abb1a25a07abc8f1f8f44f7df0280adbd.png",
+        "before": "../../img/a9ba2a1dc9631f4e117d23f309d20c49dd3bea0dde2fc92dcaba66faf0ef8e89.png",
+        "after": "../../img/a9ba2a1dc9631f4e117d23f309d20c49dd3bea0dde2fc92dcaba66faf0ef8e89.png",
         "difference": null,
         "closeUps": []
       },
@@ -521,8 +434,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/350571989ecfa7d364062034a35ba30df154c6db7b1fc2d490bd72f4eeef48fc.png",
-        "after": "../../img/350571989ecfa7d364062034a35ba30df154c6db7b1fc2d490bd72f4eeef48fc.png",
+        "before": "../../img/1e94f6e021275ab24ca1a4d4061b9c59e2c218a88b0c04d1092ad1c718af2599.png",
+        "after": "../../img/1e94f6e021275ab24ca1a4d4061b9c59e2c218a88b0c04d1092ad1c718af2599.png",
         "difference": null,
         "closeUps": []
       },
@@ -572,8 +485,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/6fe26a096e3705220c4de9040baea1f9902a6f0fbf28bf97dc11259079695793.png",
-        "after": "../../img/6fe26a096e3705220c4de9040baea1f9902a6f0fbf28bf97dc11259079695793.png",
+        "before": "../../img/e7fea45d332b8c66355a56874fb1d09d97cd1aa2fe9eca113f1ba8a1593291d6.png",
+        "after": "../../img/e7fea45d332b8c66355a56874fb1d09d97cd1aa2fe9eca113f1ba8a1593291d6.png",
         "difference": null,
         "closeUps": []
       },
@@ -606,8 +519,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/d3ae3b9fd38001d6e72b96f811017811cd4e9e27e37f6c3d3fbaf8629eae27fd.png",
-        "after": "../../img/d3ae3b9fd38001d6e72b96f811017811cd4e9e27e37f6c3d3fbaf8629eae27fd.png",
+        "before": "../../img/0d35d600e6336dab20fc90c9facf95e9225a89a8a8539a9a0e50f2eac7ce6442.png",
+        "after": "../../img/0d35d600e6336dab20fc90c9facf95e9225a89a8a8539a9a0e50f2eac7ce6442.png",
         "difference": null,
         "closeUps": []
       },
@@ -623,8 +536,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/80c3521d9942c67ca805664f139b01955d598cb0537b2f8877297aaa56a6a70e.png",
-        "after": "../../img/80c3521d9942c67ca805664f139b01955d598cb0537b2f8877297aaa56a6a70e.png",
+        "before": "../../img/0dbf9b301559d9e70dd37f2bfa91b3643e0a2ca878a7f8a9f079a3d5fa834a97.png",
+        "after": "../../img/0dbf9b301559d9e70dd37f2bfa91b3643e0a2ca878a7f8a9f079a3d5fa834a97.png",
         "difference": null,
         "closeUps": []
       },
@@ -651,28 +564,13 @@
       "id": "session-launcher",
       "route": "/orchestration/launcher",
       "state": "launch form; no process launched",
-      "change": "subtle",
-      "changedPixels": 4,
-      "percent": 0.00028935185185185184,
-      "areas": [
-        {
-          "x": 267,
-          "y": 325,
-          "width": 1,
-          "height": 2,
-          "pixels": 2
-        },
-        {
-          "x": 267,
-          "y": 367,
-          "width": 1,
-          "height": 2,
-          "pixels": 2
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/17b420a95b062d050f8ecf2de194f1599fb3164b531fb6c61a56f2c1902ea366.png",
+        "before": "../../img/e0f309c2ca3abbe2cd18ce1685ad8c1d471fd332fc2245aa3920e92b1f1558b3.png",
         "after": "../../img/e0f309c2ca3abbe2cd18ce1685ad8c1d471fd332fc2245aa3920e92b1f1558b3.png",
         "difference": null,
         "closeUps": []
@@ -683,14 +581,22 @@
       "id": "config-injector",
       "route": "/orchestration/config",
       "state": "Experimental · explicitly enabled; fixture configuration",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "subtle",
+      "changedPixels": 44,
+      "percent": 0.00318287037037037,
+      "areas": [
+        {
+          "x": 309,
+          "y": 212,
+          "width": 16,
+          "height": 14,
+          "pixels": 44
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/7cd52d20a61fdfba43521655c41a29a2f3b9696058c4b57ad81746a228316a9f.png",
-        "after": "../../img/7cd52d20a61fdfba43521655c41a29a2f3b9696058c4b57ad81746a228316a9f.png",
+        "after": "../../img/4346c74a15d9d88594ddc14c19aaf3aded198381a2b37331ed2e387df114772d.png",
         "difference": null,
         "closeUps": []
       },
@@ -740,8 +646,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/1a50f8631bb69fdf6e5be3ddf58940d60ed43ea437a9dea9d8be940f7b59abf8.png",
-        "after": "../../img/1a50f8631bb69fdf6e5be3ddf58940d60ed43ea437a9dea9d8be940f7b59abf8.png",
+        "before": "../../img/657bd46fd234ea8ba595f7db256f5bb552942f145ac8c8361e4bb0fc6731fd47.png",
+        "after": "../../img/657bd46fd234ea8ba595f7db256f5bb552942f145ac8c8361e4bb0fc6731fd47.png",
         "difference": null,
         "closeUps": []
       },
@@ -791,8 +697,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/64694cf1d7d4c67822800762296cd3a45c2f9981daaa5de823100594a545190b.png",
-        "after": "../../img/64694cf1d7d4c67822800762296cd3a45c2f9981daaa5de823100594a545190b.png",
+        "before": "../../img/9f7b70f99230a21803ec19b5ca3cf793dd2a6138eac495f1743b7107c3fb06a7.png",
+        "after": "../../img/9f7b70f99230a21803ec19b5ca3cf793dd2a6138eac495f1743b7107c3fb06a7.png",
         "difference": null,
         "closeUps": []
       },
@@ -842,8 +748,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/c6fee2c5b553bcb44a6902dc4022c3a480a83472ddbc173ccf17dbb75e54aa44.png",
-        "after": "../../img/c6fee2c5b553bcb44a6902dc4022c3a480a83472ddbc173ccf17dbb75e54aa44.png",
+        "before": "../../img/c100f2b696f32c0ab6c3f197dea98046ee6b5e07be37506ba578424ca45b3432.png",
+        "after": "../../img/c100f2b696f32c0ab6c3f197dea98046ee6b5e07be37506ba578424ca45b3432.png",
         "difference": null,
         "closeUps": []
       },
@@ -853,22 +759,14 @@
       "id": "not-found",
       "route": "/visual-route-does-not-exist",
       "state": "not found",
-      "change": "subtle",
-      "changedPixels": 11,
-      "percent": 0.0007957175925925925,
-      "areas": [
-        {
-          "x": 20,
-          "y": 22,
-          "width": 19,
-          "height": 3,
-          "pixels": 11
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/3b5ffd08b54d99e163b32cb5bdd429284d649a066726ec4204da489125d81a07.png",
-        "after": "../../img/541cf4ab1d22841e41d511dd4c00394e75d3552dd90dfc6595f73c19b1f18f1c.png",
+        "after": "../../img/3b5ffd08b54d99e163b32cb5bdd429284d649a066726ec4204da489125d81a07.png",
         "difference": null,
         "closeUps": []
       },
