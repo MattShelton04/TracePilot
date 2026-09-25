@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EmptyState } from "@tracepilot/ui";
+import { EmptyState, provideAgentOpener } from "@tracepilot/ui";
 import { Bot } from "lucide-vue-next";
 import AgentTreeCanvas from "@/components/agentTree/AgentTreeCanvas.vue";
 import AgentTreeDetailPanel from "@/components/agentTree/AgentTreeDetailPanel.vue";
@@ -10,7 +10,12 @@ import "@/styles/features/agent-tree.css";
 const ctx = useAgentTree();
 provideAgentTree(ctx);
 
-const { rootRef, agentTurns } = ctx;
+const { rootRef, agentTurns, selectedNodeId, selectNode } = ctx;
+
+// Agent chips in tool renderers select that agent in the tree.
+provideAgentOpener((key) => {
+  if (selectedNodeId.value !== key) selectNode(key);
+});
 </script>
 
 <template>

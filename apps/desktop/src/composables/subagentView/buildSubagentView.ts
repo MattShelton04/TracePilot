@@ -3,8 +3,8 @@
 // derivation (status, model substitution, activities, joined output, intent
 // summary) lives in exactly one place.
 import { getToolArgs, type TurnToolCall, toolArgString } from "@tracepilot/types";
-import type { SubagentType, SubagentView } from "@tracepilot/ui";
-import { buildSubagentActivities } from "@tracepilot/ui";
+import type { SubagentActivityInput, SubagentType, SubagentView } from "@tracepilot/ui";
+import { buildSubagentActivities, hasFollowUpMessages } from "@tracepilot/ui";
 
 export interface SubagentViewInput {
   id: string;
@@ -14,11 +14,13 @@ export interface SubagentViewInput {
   /** Parent tool call (absent only for the synthetic main-agent root in unified mode). */
   toolCall?: TurnToolCall;
   /** Final assistant messages (full content) joined into the Output section. */
-  messages: { content: string }[];
+  messages: { content: string; eventIndex?: number }[];
   /** Reasoning blocks attributable to this subagent, with eventIndex preserved. */
   reasoning: { content: string; agentDisplayName?: string; eventIndex?: number }[];
   /** Direct child tool calls (for the activity stream). */
   childTools: TurnToolCall[];
+  /** Messages exchanged with other agents (see `communicationsFor`). */
+  communications?: SubagentActivityInput["communications"];
 
   // Status / metadata fields that hosts may compute from richer sources.
   status: SubagentView["status"];
@@ -56,12 +58,15 @@ export function buildSubagentView(input: SubagentViewInput): SubagentView {
     parentId: input.id,
     childTools: input.childTools,
     childReasoning: input.reasoning,
+    communications: input.communications,
+    childMessages: input.messages,
   });
 
-  const joined = input.messages
-    .map((m) => m.content)
-    .filter((c) => c && c.trim().length > 0)
-    .join("\n\n");
+  // A multi-turn agent streams each reply after the message that prompted it,
+  // so Output holds only its latest reply rather than every turn joined.
+  const multiTurn = hasFollowUpMessages(input.communications);
+  const replies = input.messages.map((m) => m.content).filter((c) => c && c.trim().length > 0);
+  const joined = multiTurn ? replies[replies.length - 1] : replies.join("\n\n");
   const output = joined || tc?.resultContent || undefined;
 
   return {
@@ -85,6 +90,7 @@ export function buildSubagentView(input: SubagentViewInput): SubagentView {
     parallelGroupLabel: input.parallelGroupLabel,
     prompt,
     output,
+    outputLabel: multiTurn ? "Latest response" : undefined,
     error: tc?.error || undefined,
     activities,
     toolCallRef: tc,

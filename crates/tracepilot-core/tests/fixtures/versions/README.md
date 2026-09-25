@@ -36,3 +36,9 @@ It covers a warm resume with a new tool, an expired resume after a compaction
 (a history rewrite, alongside a per-request `incremental_input` flip that must
 not count as a cache change), and a model switch while idle. Hashes,
 IDs and tool lists are synthetic or truncated; it contains no user content.
+
+`v1_0_88_agent_messaging.jsonl` is a synthetic conversation covering
+`write_agent` in both directions between two siblings, main-agent follow-ups,
+and a delivery queued while a recipient was busy. It exercises the sender ID,
+recipient launch call, delivery state and message ID recorded on child
+`user.message` events. All content and identifiers are synthetic.

@@ -178,6 +178,40 @@ fn indexing_stores_runs_once_and_summarizes_them() {
 }
 
 #[test]
+fn messaging_survives_indexing_and_appears_in_agent_usage() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tracepilot-core/tests/fixtures/versions/v1_0_88_agent_messaging.jsonl");
+    let events = fs::read_to_string(fixture).unwrap();
+    let session = write_raw_session(
+        tmp.path(),
+        "d9999999-9999-9999-9999-999999999999",
+        "org/messaging",
+        &events.lines().map(str::to_string).collect::<Vec<_>>(),
+    );
+
+    db.upsert_session(&session).unwrap();
+    let summary = db.query_agent_usage_summary(None, None, None).unwrap();
+    let agent = summary
+        .agents
+        .iter()
+        .find(|agent| agent.name == "general-purpose")
+        .unwrap();
+    assert_eq!(agent.runs, 2);
+    assert_eq!(agent.messaging_runs, 2);
+    assert_eq!(agent.messages_sent, 2);
+    assert_eq!(agent.messages_received, 4);
+    assert_eq!(agent.peer_messages, 4);
+    assert_eq!(agent.queued_messages, 1);
+
+    let detail = db
+        .query_agent_usage_detail("general-purpose", None, None, None)
+        .unwrap();
+    assert_eq!(detail.stats.messages_received, 4);
+}
+
+#[test]
 fn detail_keeps_models_beyond_the_managers_top_three() {
     let tmp = tempfile::tempdir().unwrap();
     let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();

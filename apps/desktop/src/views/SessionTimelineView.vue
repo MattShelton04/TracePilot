@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { BtnGroup, EmptyState, formatNumberFull, LoadingOverlay, PageHeader } from "@tracepilot/ui";
 import { BarChart3 } from "lucide-vue-next";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
+import AgentMessagesView from "@/components/timeline/AgentMessagesView.vue";
 import AgentTreeView from "@/components/timeline/AgentTreeView.vue";
 import NestedSwimlanesView from "@/components/timeline/NestedSwimlanesView.vue";
 import TurnWaterfallView from "@/components/timeline/TurnWaterfallView.vue";
+import { provideSessionAgentDirectory } from "@/composables/useSessionAgentDirectory";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { sessionModel } from "@/utils/sessionModel";
 
 const store = useSessionDetailContext();
+const { directory } = provideSessionAgentDirectory(store);
 
 // Load turns when component mounts (if not already loaded)
 watch(
@@ -23,11 +26,19 @@ watch(
 // ── View mode toggle ─────────────────────────────────────────
 const activeView = ref("agent-tree");
 
-const viewModes = [
+// Messages needs at least one subagent to have anything to show.
+const hasSubagents = computed(() => (directory.value?.entries.length ?? 0) > 1);
+
+const viewModes = computed(() => [
   { value: "swimlanes", label: "Swimlanes" },
   { value: "waterfall", label: "Waterfall" },
   { value: "agent-tree", label: "Agent Tree" },
-];
+  ...(hasSubagents.value ? [{ value: "messages", label: "Messages" }] : []),
+]);
+
+watch(hasSubagents, (has) => {
+  if (!has && activeView.value === "messages") activeView.value = "agent-tree";
+});
 </script>
 
 <template>
@@ -77,6 +88,7 @@ const viewModes = [
         <NestedSwimlanesView v-if="activeView === 'swimlanes'" />
         <TurnWaterfallView v-else-if="activeView === 'waterfall'" />
         <AgentTreeView v-else-if="activeView === 'agent-tree'" />
+        <AgentMessagesView v-else-if="activeView === 'messages'" />
       </ErrorBoundary>
     </template>
     </LoadingOverlay>

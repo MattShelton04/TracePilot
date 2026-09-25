@@ -1,3 +1,4 @@
+import type { AgentMessage } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, isReactive, nextTick, ref, watch } from "vue";
@@ -21,6 +22,7 @@ type Turn = {
     isSubagent?: boolean;
     isComplete?: boolean;
   }>;
+  agentMessages?: AgentMessage[];
   isComplete?: boolean;
 };
 
@@ -150,6 +152,34 @@ describe("useSessionTurnsRefresh", () => {
     expect(refresh.turns.value[0].toolCalls[0].isSubagent).toBe(true);
     expect(refresh.turns.value[0].toolCalls[0].isComplete).toBe(false);
     expect(refresh.turnsVersion.value).toBeGreaterThan(before);
+  });
+
+  it("merges a delayed delivery into an older turn and refreshes its queue state", () => {
+    const { refresh } = setup();
+    const delivery: AgentMessage = {
+      messageId: "msg-1",
+      content: "Please send your findings",
+      recipientToolCallId: "launch-alpha",
+      senderAgentId: "beta",
+      delivery: "queued",
+      isLaunch: false,
+      eventIndex: 21,
+    };
+    refresh.replaceTurns([mkTurn(0), mkTurn(1), mkTurn(2)] as never);
+    const oldTurn = refresh.turns.value[0];
+
+    refresh.mergeTurns([mkTurn(0, { agentMessages: [delivery] }), mkTurn(1), mkTurn(2)] as never);
+    expect(refresh.turns.value[0]).not.toBe(oldTurn);
+    expect(refresh.turns.value[0]?.agentMessages).toEqual([delivery]);
+    const version = refresh.turnsVersion.value;
+
+    refresh.mergeTurns([
+      mkTurn(0, { agentMessages: [{ ...delivery, delivery: "idle" }] }),
+      mkTurn(1),
+      mkTurn(2),
+    ] as never);
+    expect(refresh.turns.value[0]?.agentMessages?.[0]?.delivery).toBe("idle");
+    expect(refresh.turnsVersion.value).toBeGreaterThan(version);
   });
 
   it("refreshTurns short-circuits when freshness matches cached fingerprint", async () => {

@@ -75,6 +75,9 @@ fn collapse_subagent_internals(turn: &mut ConversationTurn, subagent_ids: &HashS
             .as_ref()
             .is_none_or(|pid| !subagent_ids.contains(pid))
     });
+
+    // Every delivered message belongs to a subagent's own conversation
+    turn.agent_messages.clear();
 }
 
 /// Strip verbose fields from tool calls, keeping only name, status, and summaries.
@@ -228,6 +231,7 @@ mod tests {
             attachments: None,
             session_events: vec![],
             system_messages: vec![],
+            agent_messages: vec![],
         }
     }
 

@@ -227,6 +227,8 @@ function emitRetry() {
 }
 
 .rs__name {
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 500;
   line-height: 18px;

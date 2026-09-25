@@ -16,6 +16,8 @@ export type RichRenderableToolName =
   | "sql"
   | "task"
   | "read_agent"
+  | "write_agent"
+  | "list_agents"
   | "ask_user"
   | "web_search"
   | "web_fetch"

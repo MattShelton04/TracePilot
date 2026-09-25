@@ -167,6 +167,16 @@ export interface AgentUsageStats {
   maxDepth: number;
   peakSiblings: number;
   followUps: number;
+  /** Runs that sent or received an inter-agent message (1.0.78+). */
+  messagingRuns: number;
+  /** `write_agent` calls the agent's runs made (a broadcast counts once). */
+  messagesSent: number;
+  /** Messages delivered to the agent's runs after their launch prompt. */
+  messagesReceived: number;
+  /** Deliveries to or from agents outside a run's own line, such as siblings. */
+  peerMessages: number;
+  /** Deliveries that waited because the run was busy. */
+  queuedMessages: number;
   multiTurnRuns: number;
   dailyRuns: AgentDayCount[];
 }

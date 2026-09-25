@@ -96,9 +96,19 @@ export function useSubagentCompletions(
   function completionLabel(toolCallId: string): string {
     const sa = subagentMap.value.get(toolCallId);
     if (sa) {
-      const agentType = inferAgentTypeFromToolCall(sa.toolCall);
-      const label = agentType.charAt(0).toUpperCase() + agentType.slice(1);
-      return `${label} agent ${sa.toolCall.cancelled ? "cancelled" : sa.toolCall.success === false ? "failed" : sa.toolCall.agentStatus === "idle" ? "idle" : "completed"}`;
+      const tc = sa.toolCall;
+      const outcome = tc.cancelled
+        ? "cancelled"
+        : tc.success === false
+          ? "failed"
+          : tc.agentStatus === "idle"
+            ? "idle"
+            : "completed";
+      // Prefer the name the agent was launched with ("test-scout idle").
+      const name = getToolArgs(tc).name;
+      if (typeof name === "string" && name.trim()) return `${name.trim()} ${outcome}`;
+      const agentType = inferAgentTypeFromToolCall(tc);
+      return `${agentType.charAt(0).toUpperCase() + agentType.slice(1)} agent ${outcome}`;
     }
     return "Agent completed";
   }

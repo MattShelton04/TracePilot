@@ -13,8 +13,10 @@ import {
   inferAgentTypeFromToolCall,
 } from "../../utils/agentTypes";
 import { getReasoningSummary } from "../../utils/reasoning";
+import MarkdownContent from "../MarkdownContent.vue";
 import ReasoningText from "../ReasoningText.vue";
 import ToolCallItem from "../ToolCallItem.vue";
+import SubagentMessageItem from "./SubagentMessageItem.vue";
 import type { SubagentActivityItem, SubagentActivityPillType } from "./types";
 
 type ToolActivityItem = Extract<SubagentActivityItem, { kind: "tool" }>;
@@ -80,9 +82,7 @@ function reasoningPreview(content: string): string {
 }
 
 function pillIcon(type: SubagentActivityPillType): string {
-  if (type === "intent") return "📋";
-  if (type === "memory") return "💾";
-  return "⏳";
+  return type === "intent" ? "📋" : "💾";
 }
 
 function nestedSubagentDesc(tc: TurnToolCall): string {
@@ -168,6 +168,19 @@ function richEnabled(toolName: string): boolean {
           </slot>
         </div>
 
+        <SubagentMessageItem
+          v-else-if="item.kind === 'message'"
+          :direction="item.direction"
+          :communication="item.communication"
+          :delivery="item.delivery"
+          :render-markdown="renderMarkdown"
+        />
+
+        <div v-else-if="item.kind === 'response'" class="sap-response">
+          <div class="sap-response-label">Response</div>
+          <MarkdownContent :content="item.content" :render="renderMarkdown" />
+        </div>
+
         <button
           v-else-if="item.kind === 'nested-subagent'"
           type="button"
@@ -217,7 +230,6 @@ function richEnabled(toolName: string): boolean {
 .sap-pill-check { font-size: 10px; flex-shrink: 0; opacity: 0.7; }
 .sap-pill--intent { color: var(--accent-fg); background: var(--accent-subtle); }
 .sap-pill--memory { color: var(--done-fg); background: var(--done-subtle); }
-.sap-pill--read_agent { color: var(--success-fg); background: var(--success-subtle); }
 .sap-nested-subagent { display: block; width: 100%; text-align: left; border: none; padding: 0; cursor: pointer; border-radius: var(--radius-md, 8px); background: var(--canvas-inset, #010409); overflow: hidden; margin: 2px 0; transition: background var(--transition-fast); }
 .sap-nested-subagent:hover { background: var(--neutral-subtle); }
 .sap-nested-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-left: 3px solid var(--accent-fg); font-size: 0.75rem; font-weight: 600; color: var(--text-primary); }
@@ -228,5 +240,7 @@ function richEnabled(toolName: string): boolean {
 .sap-nested-status.completed { color: var(--success-fg, #3fb950); }
 .sap-nested-status.failed { color: var(--danger-fg, #f85149); }
 .sap-nested-status.in-progress { color: var(--warning-fg, #d29922); }
+.sap-response { margin: 2px 0; padding: 4px 11px 4px 10px; border-left: 3px solid var(--border-default); font-size: 0.8125rem; color: var(--text-primary); }
+.sap-response-label { font-size: 0.625rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
 .sap-nested-desc { padding: 4px 12px 8px 15px; font-size: 0.6875rem; color: var(--text-secondary); line-height: 1.4; }
 </style>

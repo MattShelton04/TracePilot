@@ -122,6 +122,7 @@ fn redacts_conversation_content() {
         attachments: None,
         session_events: vec![],
         system_messages: vec![],
+        agent_messages: vec![],
     }]);
     let mut archive = test_archive(session);
 
@@ -229,6 +230,7 @@ fn redacts_attachments() {
         })]),
         session_events: vec![],
         system_messages: vec![],
+        agent_messages: vec![],
     }]);
     let mut archive = test_archive(session);
 

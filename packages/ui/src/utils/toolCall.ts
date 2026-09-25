@@ -14,6 +14,9 @@ const TOOL_ICONS: Record<string, LucideName> = {
   glob: "folder-search",
   powershell: "terminal",
   task: "bot",
+  write_agent: "send",
+  read_agent: "inbox",
+  list_agents: "users",
   report_intent: "target",
   ask_user: "message-circle",
   store_memory: "brain",
@@ -73,6 +76,20 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
     const candidate = a.agent_id ?? a.agent_name ?? a.name;
     if (candidate) return String(candidate);
   }
+  if (toolName === "write_agent") {
+    const target =
+      typeof a.agent_id === "string"
+        ? a.agent_id
+        : Array.isArray(a.agent_ids)
+          ? `${a.agent_ids.length} agents`
+          : typeof a.scope === "string"
+            ? `all ${a.scope}`
+            : "";
+    const line = typeof a.message === "string" ? a.message.replace(/\s+/g, " ").trim() : "";
+    const message = line.length > 100 ? `${line.slice(0, 100)}…` : line;
+    return [target && `→ ${target}`, message].filter(Boolean).join(" · ");
+  }
+  if (toolName === "list_agents" && a.scope) return `scope: ${a.scope}`;
   if (toolName === "report_intent" && a.intent) return String(a.intent);
   if (toolName === "sql" && a.description) return String(a.description);
   if (toolName === "store_memory" && a.fact) {

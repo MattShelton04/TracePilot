@@ -17,7 +17,6 @@ use super::model::{AgentRun, AgentRunExtraction, AgentRunOutcome, AgentRunSource
 pub fn extract_agent_runs(events: &[TypedEvent], turns: &[ConversationTurn]) -> AgentRunExtraction {
     let side = SideData::collect(events);
     let ledger = extract_agent_usage(events);
-
     let calls: Vec<(usize, &TurnToolCall)> = turns
         .iter()
         .flat_map(|turn| turn.tool_calls.iter().map(move |tc| (turn.turn_index, tc)))
@@ -32,6 +31,7 @@ pub fn extract_agent_runs(events: &[TypedEvent], turns: &[ConversationTurn]) -> 
 
     link_parents(&mut runs, &calls);
     count_follow_ups(&mut runs, &calls, turns, &side);
+    count_messages(&mut runs, turns);
     compute_peak_siblings(&mut runs);
 
     AgentRunExtraction {
@@ -137,6 +137,10 @@ fn build_run(
         duration_ms,
         own_nano_aiu,
         follow_up_count: 0,
+        messages_sent: 0,
+        messages_received: 0,
+        peer_messages: 0,
+        queued_messages: 0,
         peak_siblings: 1,
         turn_index,
         event_index: tc.event_index,
@@ -229,6 +233,78 @@ fn count_follow_ups(
             .or_else(|| arg_str(write, "agent_id"));
         if let Some(&index) = target.and_then(|target| by_handle.get(target)) {
             runs[index].follow_up_count += 1;
+        }
+    }
+}
+
+/// Count each run's inter-agent messaging: `write_agent` calls it made, and
+/// messages delivered to it (with who sent them and whether they queued).
+fn count_messages(runs: &mut [AgentRun], turns: &[ConversationTurn]) {
+    // Owned keys: the counts below mutate `runs`.
+    let by_key: HashMap<String, usize> = runs
+        .iter()
+        .enumerate()
+        .filter_map(|(index, run)| run.tool_call_id.clone().map(|key| (key, index)))
+        .collect();
+    let parents: Vec<Option<usize>> = runs
+        .iter()
+        .map(|run| {
+            run.parent_run_key
+                .as_deref()
+                .and_then(|key| by_key.get(key).copied())
+        })
+        .collect();
+    let run_count = runs.len();
+    // True when `ancestor` launched `index`, directly or through descendants.
+    let descends = |mut index: usize, ancestor: usize| {
+        let mut hops = 0;
+        while let Some(parent) = parents[index] {
+            if parent == ancestor {
+                return true;
+            }
+            index = parent;
+            hops += 1;
+            if hops > run_count {
+                break;
+            }
+        }
+        false
+    };
+
+    for turn in turns {
+        for tc in &turn.tool_calls {
+            if tc.tool_name != "write_agent" || tc.success == Some(false) {
+                continue;
+            }
+            if let Some(&sender) = tc
+                .parent_tool_call_id
+                .as_deref()
+                .and_then(|k| by_key.get(k))
+            {
+                runs[sender].messages_sent += 1;
+            }
+        }
+        for message in turn.agent_messages.iter().filter(|m| !m.is_launch) {
+            let Some(&recipient) = by_key.get(message.recipient_tool_call_id.as_str()) else {
+                continue;
+            };
+            runs[recipient].messages_received += 1;
+            if message.delivery.as_deref() == Some("queued") {
+                runs[recipient].queued_messages += 1;
+            }
+            // Messages from the main agent are never peer messages.
+            let sender = message
+                .sender_tool_call_id
+                .as_deref()
+                .and_then(|key| by_key.get(key).copied());
+            if let Some(sender) = sender
+                && sender != recipient
+                && !descends(recipient, sender)
+                && !descends(sender, recipient)
+            {
+                runs[recipient].peer_messages += 1;
+                runs[sender].peer_messages += 1;
+            }
         }
     }
 }

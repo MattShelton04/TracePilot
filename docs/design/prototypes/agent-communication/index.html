@@ -1,0 +1,750 @@
+<title>Agent Messaging Views</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* TracePilot tokens (packages/ui/src/styles/tokens.css), light palette first. */
+  :root {
+    --canvas-default: #ffffff;
+    --canvas-subtle: #f4f4f5;
+    --canvas-inset: #fafafa;
+    --border-default: rgba(0, 0, 0, 0.1);
+    --border-muted: rgba(0, 0, 0, 0.06);
+    --text-primary: #18181b;
+    --text-secondary: #52525b;
+    --text-tertiary: #71717a;
+    --accent-fg: #6366f1;
+    --accent-subtle: rgba(99, 102, 241, 0.08);
+    --attention-fg: #ea580c;
+    --attention-subtle: rgba(234, 88, 12, 0.08);
+    --done-fg: #7c3aed;
+    --done-subtle: rgba(139, 92, 246, 0.08);
+    --success-fg: #059669;
+    --neutral-subtle: rgba(113, 113, 122, 0.08);
+    --grid: rgba(0, 0, 0, 0.05);
+    --agent-main: #4f46e5;
+    --agent-explore: #0891b2;
+    --agent-general-purpose: #7c3aed;
+    --agent-code-review: #db2777;
+    --agent-task: #d97706;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --canvas-default: #09090b;
+      --canvas-subtle: #111113;
+      --canvas-inset: #0a0a0c;
+      --border-default: rgba(255, 255, 255, 0.1);
+      --border-muted: rgba(255, 255, 255, 0.06);
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-tertiary: #71717a;
+      --accent-fg: #818cf8;
+      --accent-subtle: rgba(99, 102, 241, 0.12);
+      --attention-fg: #fb923c;
+      --attention-subtle: rgba(251, 146, 60, 0.12);
+      --done-fg: #a78bfa;
+      --done-subtle: rgba(139, 92, 246, 0.12);
+      --success-fg: #34d399;
+      --neutral-subtle: rgba(113, 113, 122, 0.14);
+      --grid: rgba(255, 255, 255, 0.05);
+      --agent-main: #6366f1;
+      --agent-explore: #22d3ee;
+      --agent-general-purpose: #a78bfa;
+      --agent-code-review: #f472b6;
+      --agent-task: #fbbf24;
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --canvas-default: #09090b;
+    --canvas-subtle: #111113;
+    --canvas-inset: #0a0a0c;
+    --border-default: rgba(255, 255, 255, 0.1);
+    --border-muted: rgba(255, 255, 255, 0.06);
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #71717a;
+    --accent-fg: #818cf8;
+    --accent-subtle: rgba(99, 102, 241, 0.12);
+    --attention-fg: #fb923c;
+    --attention-subtle: rgba(251, 146, 60, 0.12);
+    --done-fg: #a78bfa;
+    --done-subtle: rgba(139, 92, 246, 0.12);
+    --success-fg: #34d399;
+    --neutral-subtle: rgba(113, 113, 122, 0.14);
+    --grid: rgba(255, 255, 255, 0.05);
+    --agent-main: #6366f1;
+    --agent-explore: #22d3ee;
+    --agent-general-purpose: #a78bfa;
+    --agent-code-review: #f472b6;
+    --agent-task: #fbbf24;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  body {
+    background: var(--canvas-default);
+    color: var(--text-primary);
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 32px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  header.intro { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--accent-fg);
+  }
+  h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+  h2 { margin: 0; font-size: 18px; font-weight: 600; text-wrap: balance; }
+  p { margin: 0; }
+  .lede { color: var(--text-secondary); max-width: 72ch; }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.92em; }
+
+  .controls {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    padding: 10px 14px; border: 1px solid var(--border-default); border-radius: 10px;
+    background: var(--canvas-subtle);
+  }
+  .seg { display: inline-flex; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; }
+  .seg button {
+    border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: 13px;
+    padding: 5px 12px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent-subtle); color: var(--accent-fg); font-weight: 600; }
+  .seg button:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 1px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-secondary); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 18px; height: 0; border-top: 2px solid; display: inline-block; }
+  .swatch.dashed { border-top-style: dashed; }
+  .dataset-note { font-size: 12px; color: var(--text-tertiary); }
+
+  section.option {
+    display: flex; flex-direction: column; gap: 14px;
+    padding-top: 22px; border-top: 1px solid var(--border-default);
+  }
+  .option-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+  .option-tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; background: var(--neutral-subtle); color: var(--text-secondary);
+  }
+  .option-where { font-size: 12px; color: var(--text-tertiary); }
+  .option-desc { color: var(--text-secondary); max-width: 80ch; }
+  .viz {
+    border: 1px solid var(--border-default); border-radius: 10px; background: var(--canvas-inset);
+    overflow-x: auto; position: relative;
+  }
+  .viz svg { display: block; }
+  .tradeoffs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .tradeoffs div { font-size: 13px; color: var(--text-secondary); }
+  .tradeoffs h3 { margin: 0 0 4px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+  .tradeoffs ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+
+  svg text { font-family: "Inter", "Segoe UI", system-ui, sans-serif; }
+  .axis-label { fill: var(--text-tertiary); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .agent-label { fill: var(--text-primary); font-size: 12px; font-weight: 600; }
+  .agent-sub { fill: var(--text-tertiary); font-size: 10px; }
+  .msg-label { fill: var(--text-secondary); font-size: 10.5px; }
+  .edge { cursor: pointer; }
+  .edge:hover .edge-line, .edge.active .edge-line { stroke-width: 3; }
+  .hit { stroke: transparent; stroke-width: 12; fill: none; }
+
+  .tooltip {
+    position: fixed; z-index: 20; max-width: 340px; pointer-events: none;
+    padding: 8px 10px; border: 1px solid var(--border-default); border-radius: 8px;
+    background: var(--canvas-subtle); box-shadow: var(--shadow); font-size: 12px; color: var(--text-primary);
+  }
+  .tooltip .tt-route { font-weight: 600; margin-bottom: 2px; }
+  .tooltip .tt-meta { color: var(--text-tertiary); font-size: 11px; margin-bottom: 4px; }
+
+  /* Option C */
+  .graph-wrap { display: flex; flex-direction: column; }
+  .scrub { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--border-muted); flex-wrap: wrap; }
+  .scrub button {
+    border: 1px solid var(--border-default); background: var(--canvas-default); color: var(--text-primary);
+    font: inherit; font-size: 12px; padding: 4px 12px; border-radius: 6px; cursor: pointer; min-width: 64px;
+  }
+  .scrub input[type="range"] { flex: 1 1 200px; accent-color: var(--accent-fg); }
+  .scrub .clock { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-secondary); min-width: 110px; }
+  .pulse { animation: pulse 1.2s ease-out; }
+  @keyframes pulse { 0% { stroke-width: 6; opacity: 1; } 100% { stroke-width: 2; opacity: 0.9; } }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+  /* Option D */
+  .log-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border-muted); }
+  .chip-btn {
+    border: 1px solid var(--border-default); border-radius: 999px; background: transparent; color: var(--text-secondary);
+    font: inherit; font-size: 12px; padding: 2px 10px; cursor: pointer;
+  }
+  .chip-btn[aria-pressed="true"] { border-color: var(--accent-fg); color: var(--accent-fg); background: var(--accent-subtle); }
+  table.log { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 12.5px; }
+  table.log th {
+    text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--text-tertiary); padding: 8px 12px; border-bottom: 1px solid var(--border-default);
+  }
+  table.log td { padding: 7px 12px; border-bottom: 1px solid var(--border-muted); vertical-align: top; }
+  table.log td.t { font-variant-numeric: tabular-nums; color: var(--text-tertiary); white-space: nowrap; }
+  table.log td.msg { color: var(--text-secondary); max-width: 420px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 0 7px; border-radius: 999px;
+    border: 1px solid var(--border-default); font-size: 11.5px; font-weight: 500; white-space: nowrap;
+  }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .kind { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; }
+  .kind.launch { background: var(--neutral-subtle); color: var(--text-secondary); }
+  .kind.down { background: var(--accent-subtle); color: var(--accent-fg); }
+  .kind.peer { background: var(--attention-subtle); color: var(--attention-fg); }
+  .kind.read { background: var(--done-subtle); color: var(--done-fg); }
+  .queued { color: var(--attention-fg); font-weight: 600; }
+
+  .recommend {
+    display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border-radius: 10px;
+    border: 1px solid var(--accent-fg); background: var(--accent-subtle);
+  }
+  .recommend ol { margin: 0; padding-left: 20px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; }
+  .recommend strong { color: var(--text-primary); }
+</style>
+
+<div class="page">
+  <header class="intro">
+    <div class="eyebrow">TracePilot · Timeline prototype</div>
+    <h1>Agent messaging views</h1>
+    <p class="lede">
+      Four ways to show inter-agent communication over time: launches, <code>write_agent</code> messages
+      (including sibling-to-sibling and broadcasts), and <code>read_agent</code> results flowing back.
+      Every view reads the same communication log the app now builds from a session. Hover any message for its text,
+      route and delivery.
+    </p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Prototype controls">
+    <div class="seg" role="group" aria-label="Dataset">
+      <button type="button" id="ds-probe" aria-pressed="true">Sibling probe (real, 27 s)</button>
+      <button type="button" id="ds-fleet" aria-pressed="false">Review fleet (example, 7 min)</button>
+    </div>
+    <div class="legend" aria-label="Legend">
+      <span><i class="swatch" style="border-color: var(--text-tertiary)"></i>Launch</span>
+      <span><i class="swatch" style="border-color: var(--accent-fg)"></i>Parent → child</span>
+      <span><i class="swatch" style="border-color: var(--attention-fg)"></i>Peer (sibling)</span>
+      <span><i class="swatch dashed" style="border-color: var(--done-fg)"></i>Read back</span>
+    </div>
+    <span class="dataset-note" id="ds-note"></span>
+  </div>
+
+  <section class="option" aria-labelledby="opt-a">
+    <div class="option-head">
+      <span class="option-tag">Option A</span>
+      <h2 id="opt-a">Sequence diagram</h2>
+      <span class="option-where">New Timeline mode: “Messages”</span>
+    </div>
+    <p class="option-desc">
+      One lifeline per agent, time running down. Bars show when an agent was working. A slanted arrow means the message
+      waited: it was sent at the top of the arrow and delivered at the tip, so queued messages to busy agents stand out.
+    </p>
+    <div class="viz" id="viz-a"></div>
+    <div class="tradeoffs">
+      <div><h3>Strengths</h3><ul><li>Exact order of every exchange, the way protocols are usually drawn</li><li>Delivery delay and queueing are visible as slope</li><li>Broadcasts read as a fan from one point</li></ul></div>
+      <div><h3>Limits</h3><ul><li>Wide with many agents (scrolls horizontally past ~8)</li><li>Long idle stretches waste vertical space unless compressed</li></ul></div>
+    </div>
+  </section>
+
+  <section class="option" aria-labelledby="opt-b">
+    <div class="option-head">
+      <span class="option-tag">Option B</span>
+      <h2 id="opt-b">Swimlanes with message arcs</h2>
+      <span class="option-where">Overlay on the existing Swimlanes view</span>
+    </div>
+    <p class="option-desc">
+      Agents as rows (indented by nesting) on a shared time axis, with each exchange drawn as an arc from the sender’s
+      row to the recipient’s. Keeps the familiar left-to-right timeline and shows messages in the context of real durations.
+    </p>
+    <div class="viz" id="viz-b"></div>
+    <div class="tradeoffs">
+      <div><h3>Strengths</h3><ul><li>Real durations, so long-running workers look long</li><li>Scales to many agents vertically</li><li>Could be a toggle on the existing Swimlanes view</li></ul></div>
+      <div><h3>Limits</h3><ul><li>Bursts of messages overlap at session scale and need zooming</li><li>Message text only fits in tooltips</li></ul></div>
+    </div>
+  </section>
+
+  <section class="option" aria-labelledby="opt-c">
+    <div class="option-head">
+      <span class="option-tag">Option C</span>
+      <h2 id="opt-c">Communication graph with scrubber</h2>
+      <span class="option-where">Agent Tree overlay, and the base for a replay</span>
+    </div>
+    <p class="option-desc">
+      The agent hierarchy as a graph, with message traffic drawn between agents. Edge weight counts messages; peer edges
+      cut across the tree. Drag or play the scrubber to watch the conversation build up and agents go idle.
+    </p>
+    <div class="viz graph-wrap" id="viz-c">
+      <div id="viz-c-svg"></div>
+      <div class="scrub">
+        <button type="button" id="c-play">Play</button>
+        <input type="range" id="c-range" min="0" max="1000" value="1000" aria-label="Time">
+        <span class="clock" id="c-clock"></span>
+      </div>
+    </div>
+    <div class="tradeoffs">
+      <div><h3>Strengths</h3><ul><li>Who talks to whom at a glance, even with large fleets</li><li>Reuses the Agent Tree layout people already know</li><li>Scrubbing doubles as a preview of a session replay</li></ul></div>
+      <div><h3>Limits</h3><ul><li>Exact ordering needs the scrubber or a hover</li><li>Aggregated edges hide individual message timing</li></ul></div>
+    </div>
+  </section>
+
+  <section class="option" aria-labelledby="opt-d">
+    <div class="option-head">
+      <span class="option-tag">Option D</span>
+      <h2 id="opt-d">Message log</h2>
+      <span class="option-where">Table in the Timeline tab or a session “Messages” panel</span>
+    </div>
+    <p class="option-desc">
+      Every exchange as a row: when, who to whom, what kind, how it was delivered and what it said. The plainest view,
+      and the one that reads best when message text matters more than shape.
+    </p>
+    <div class="viz" id="viz-d">
+      <div class="log-filters" role="group" aria-label="Filter messages">
+        <button type="button" class="chip-btn" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" class="chip-btn" data-filter="messages" aria-pressed="false">Messages only</button>
+        <button type="button" class="chip-btn" data-filter="peer" aria-pressed="false">Peer</button>
+        <button type="button" class="chip-btn" data-filter="read" aria-pressed="false">Reads</button>
+      </div>
+      <div id="viz-d-table"></div>
+    </div>
+    <div class="tradeoffs">
+      <div><h3>Strengths</h3><ul><li>Full message text, searchable and filterable</li><li>Cheapest to build and to keep accessible</li></ul></div>
+      <div><h3>Limits</h3><ul><li>No sense of concurrency or duration</li><li>Hard to spot patterns such as one agent flooding another</li></ul></div>
+    </div>
+  </section>
+
+  <aside class="recommend" aria-labelledby="rec">
+    <h2 id="rec">Suggested direction</h2>
+    <ol>
+      <li><strong>Option A</strong> as a new <em>Messages</em> mode in the Timeline tab: it answers “what did the agents say to each other, in what order, and did anything wait?” better than the others.</li>
+      <li>The <strong>Option D</strong> log beneath it, sharing the same selection, for reading and filtering message text.</li>
+      <li><strong>Option C</strong>’s peer edges later on the Agent Tree, and its scrubber as the starting point for the replay design.</li>
+    </ol>
+  </aside>
+</div>
+
+<div class="tooltip" id="tooltip" hidden></div>
+
+<script>
+(() => {
+  // ── Data: the communication log shape produced by buildAgentCommunications ──
+  const DATASETS = {
+    probe: {
+      note: "Recorded from a Copilot CLI 1.0.88 session: two siblings message each other, then the main agent broadcasts.",
+      duration: 27,
+      agents: [
+        { key: "main", name: "Main agent", type: "main", depth: 0, spans: [[0, 26.8]] },
+        { key: "alpha", name: "alpha", type: "general-purpose", parent: "main", depth: 1, spans: [[5.9, 13.5], [17.6, 25.4]] },
+        { key: "beta", name: "beta", type: "general-purpose", parent: "main", depth: 1, spans: [[5.9, 10.0], [14.4, 17.1], [18.6, 19.8]] },
+      ],
+      comms: [
+        { kind: "launch", from: "main", to: ["alpha"], at: 5.0, delivered: { alpha: 5.95 }, text: "You are alpha. Use list_agents with scope siblings to find your sibling named beta, then send beta a question." },
+        { kind: "launch", from: "main", to: ["beta"], at: 5.0, delivered: { beta: 5.95 }, text: "You are beta. Wait for a message from your sibling alpha and reply directly to alpha's agent id." },
+        { kind: "message", relation: "peer", from: "alpha", to: ["beta"], at: 10.1, delivered: { beta: 14.4 }, text: "alpha asks: what is 6*7?" },
+        { kind: "read", from: "alpha", to: ["main"], at: 13.5, text: "Beta answered: 42." },
+        { kind: "message", relation: "peer", from: "beta", to: ["alpha"], at: 16.1, delivered: { alpha: 17.6 }, text: "6 * 7 = 42." },
+        { kind: "read", from: "beta", to: ["main"], at: 17.2, text: "(no text response: beta replied with write_agent)" },
+        { kind: "message", relation: "down", scope: "children", from: "main", to: ["alpha", "beta"], at: 18.6, delivered: { beta: 18.6, alpha: 21.3 }, queued: ["alpha"], text: "Final check: reply with the single word DONE." },
+        { kind: "read", from: "alpha", to: ["main"], at: 25.5, text: "DONE" },
+        { kind: "read", from: "beta", to: ["main"], at: 25.5, text: "DONE" },
+      ],
+    },
+    fleet: {
+      note: "Illustrative example, not a recorded session: a PR review fleet with a nested worker, peer hand-offs and two broadcasts.",
+      duration: 430,
+      agents: [
+        { key: "main", name: "Main agent", type: "main", depth: 0, spans: [[0, 425]] },
+        { key: "map", name: "map-codebase", type: "explore", parent: "main", depth: 1, spans: [[4, 40]] },
+        { key: "sec", name: "security-review", type: "code-review", parent: "main", depth: 1, spans: [[6, 228], [300, 378]] },
+        { key: "perf", name: "perf-review", type: "code-review", parent: "main", depth: 1, spans: [[6, 212], [300, 370]] },
+        { key: "tests", name: "tests-writer", type: "general-purpose", parent: "main", depth: 1, spans: [[6, 140], [205, 372]] },
+        { key: "fix", name: "fixture-builder", type: "general-purpose", parent: "tests", depth: 2, spans: [[92, 176], [300, 350]] },
+      ],
+      comms: [
+        { kind: "launch", from: "main", to: ["map"], at: 3, delivered: { map: 4 }, text: "Map the modules touched by PR #412 and list their owners." },
+        { kind: "launch", from: "main", to: ["sec"], at: 5, delivered: { sec: 6 }, text: "Review PR #412 for security issues." },
+        { kind: "launch", from: "main", to: ["perf"], at: 5, delivered: { perf: 6 }, text: "Review PR #412 for performance regressions." },
+        { kind: "launch", from: "main", to: ["tests"], at: 5, delivered: { tests: 6 }, text: "Write regression tests for PR #412." },
+        { kind: "read", from: "map", to: ["main"], at: 41, text: "7 modules; indexer and session list carry most of the change." },
+        { kind: "message", relation: "peer", from: "sec", to: ["perf"], at: 62, delivered: { perf: 63 }, text: "Found an N+1 query in the session list loader. Is it in your perf pass?" },
+        { kind: "message", relation: "peer", from: "perf", to: ["sec"], at: 76, delivered: { sec: 78 }, text: "Yes, I'm covering it. Leave it out of the security notes." },
+        { kind: "launch", from: "tests", to: ["fix"], at: 90, delivered: { fix: 92 }, text: "Build JSONL fixtures for the indexer regression tests." },
+        { kind: "message", relation: "down", from: "main", to: ["tests"], at: 150, delivered: { tests: 205 }, queued: ["tests"], text: "Prioritise the indexer regression tests." },
+        { kind: "read", from: "fix", to: ["tests"], at: 178, text: "Fixtures written: 4 sessions, 2 malformed." },
+        { kind: "message", relation: "peer", scope: "siblings", from: "sec", to: ["map", "perf", "tests"], at: 200, delivered: { map: 201, perf: 201, tests: 206 }, queued: ["tests"], text: "Heads-up: the auth token is logged in debug output (redaction.rs:88)." },
+        { kind: "read", from: "perf", to: ["main"], at: 242, poll: true, text: "Still running after waiting 30s." },
+        { kind: "message", relation: "down", scope: "children", from: "main", to: ["map", "sec", "perf", "tests", "fix"], at: 300, delivered: { sec: 300, perf: 300, tests: 300, fix: 300 }, text: "Wrap up within 2 minutes and report findings." },
+        { kind: "message", relation: "down", from: "tests", to: ["fix"], at: 330, delivered: { fix: 331 }, text: "Also add a malformed-JSONL case." },
+        { kind: "read", from: "sec", to: ["main"], at: 380, text: "2 findings: token logging (high), permissive CORS in dev server (low)." },
+        { kind: "read", from: "perf", to: ["main"], at: 381, text: "N+1 in session list loader; fix suggested with a batched query." },
+        { kind: "read", from: "tests", to: ["main"], at: 382, text: "9 tests added; all passing." },
+      ],
+    },
+  };
+
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const agentColor = (type) => css(`--agent-${type}`) || css("--agent-main");
+  const relationOf = (c) => (c.kind === "launch" ? "launch" : c.kind === "read" ? "read" : c.relation);
+  const RELATION_VAR = { launch: "--text-tertiary", down: "--accent-fg", peer: "--attention-fg", read: "--done-fg" };
+  const edgeColor = (c) => css(RELATION_VAR[relationOf(c)]);
+  const fmt = (s, total) => (total > 90 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : `${s.toFixed(1)} s`);
+
+  function el(name, attrs = {}, parent) {
+    const node = document.createElementNS(SVG_NS, name);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    if (parent) parent.appendChild(node);
+    return node;
+  }
+  function text(parent, x, y, content, cls, anchor = "start") {
+    const t = el("text", { x, y, class: cls, "text-anchor": anchor }, parent);
+    t.textContent = content;
+    return t;
+  }
+  function clip(s, n) { return s.length > n ? `${s.slice(0, n - 1)}…` : s; }
+  function markers(svg) {
+    const defs = el("defs", {}, svg);
+    for (const rel of Object.keys(RELATION_VAR)) {
+      const m = el("marker", { id: `arrow-${rel}`, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+      el("path", { d: "M0,0 L10,5 L0,10 z", fill: css(RELATION_VAR[rel]) }, m);
+    }
+  }
+
+  // ── Tooltip ──
+  const tooltip = document.getElementById("tooltip");
+  function describe(c, ds) {
+    const name = (k) => ds.agents.find((a) => a.key === k)?.name ?? k;
+    const to = c.scope ? `all ${c.scope} (${c.to.map(name).join(", ")})` : c.to.map(name).join(", ");
+    const kind = c.kind === "read" ? (c.poll ? "Read (still running)" : "Read back") : c.kind === "launch" ? "Launch prompt" : c.relation === "peer" ? "Peer message" : "Message";
+    const waits = Object.entries(c.delivered ?? {})
+      .filter(([, t]) => t - c.at >= 0.5)
+      .map(([k, t]) => `${name(k)} after ${fmt(t - c.at, ds.duration)}${c.queued?.includes(k) ? " (queued, busy)" : ""}`);
+    return { route: `${name(c.from)} → ${to}`, meta: [kind, `at ${fmt(c.at, ds.duration)}`, ...(waits.length ? [`delivered to ${waits.join(", ")}`] : [])].join(" · "), body: c.text };
+  }
+  function bindTip(node, c, ds) {
+    node.addEventListener("pointerenter", () => {
+      const d = describe(c, ds);
+      tooltip.innerHTML = "";
+      for (const [cls, value] of [["tt-route", d.route], ["tt-meta", d.meta], ["", d.body]]) {
+        const div = document.createElement("div");
+        if (cls) div.className = cls;
+        div.textContent = value;
+        tooltip.appendChild(div);
+      }
+      tooltip.hidden = false;
+    });
+    node.addEventListener("pointermove", (e) => {
+      const x = Math.min(e.clientX + 14, window.innerWidth - 360);
+      tooltip.style.left = `${Math.max(8, x)}px`;
+      tooltip.style.top = `${e.clientY + 14}px`;
+    });
+    node.addEventListener("pointerleave", () => { tooltip.hidden = true; });
+  }
+
+  // ── Option A: sequence diagram ──
+  function renderSequence(ds) {
+    const host = document.getElementById("viz-a");
+    host.innerHTML = "";
+    const colW = 150, left = 70, top = 64, bottom = 24;
+    const height = Math.max(420, Math.min(760, ds.comms.length * 34 + 80));
+    const width = left + ds.agents.length * colW;
+    const y = (t) => top + (t / ds.duration) * (height - top - bottom);
+    const x = (key) => left + ds.agents.findIndex((a) => a.key === key) * colW + colW / 2;
+    const svg = el("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Sequence diagram of agent messages" }, host);
+    markers(svg);
+    const ticks = ds.duration > 90 ? 60 : 5;
+    for (let t = 0; t <= ds.duration; t += ticks) {
+      el("line", { x1: left - 8, x2: width, y1: y(t), y2: y(t), stroke: css("--grid") }, svg);
+      text(svg, left - 12, y(t) + 3, fmt(t, ds.duration), "axis-label", "end");
+    }
+    for (const a of ds.agents) {
+      const cx = x(a.key);
+      el("circle", { cx: cx - 36, cy: 22, r: 4, fill: agentColor(a.type) }, svg);
+      text(svg, cx - 28, 26, clip(a.name, 16), "agent-label");
+      text(svg, cx - 28, 40, a.type === "main" ? "main" : a.type, "agent-sub");
+      el("line", { x1: cx, x2: cx, y1: top - 10, y2: height - bottom, stroke: css("--border-default"), "stroke-dasharray": "3 4" }, svg);
+      for (const [s, e] of a.spans) {
+        el("rect", { x: cx - 5, y: y(s), width: 10, height: Math.max(2, y(e) - y(s)), rx: 3, fill: agentColor(a.type), opacity: 0.35 }, svg);
+      }
+    }
+    for (const c of ds.comms) {
+      const g = el("g", { class: "edge" }, svg);
+      const rel = relationOf(c);
+      const color = edgeColor(c);
+      const fromX = x(c.from);
+      c.to.forEach((to, i) => {
+        const deliveredAt = c.delivered?.[to] ?? c.at;
+        const toX = x(to) + (x(to) > fromX ? -6 : 6);
+        el("path", { class: "hit", d: `M${fromX},${y(c.at)} L${toX},${y(deliveredAt)}` }, g);
+        el("path", {
+          class: "edge-line", d: `M${fromX},${y(c.at)} L${toX},${y(deliveredAt)}`, fill: "none", stroke: color,
+          "stroke-width": 1.8, "stroke-dasharray": rel === "read" ? "5 4" : c.poll ? "2 4" : "none", "marker-end": `url(#arrow-${rel})`,
+          opacity: c.poll ? 0.6 : 1,
+        }, g);
+        if (i === 0 && c.to.length === 1 && Math.abs(toX - fromX) > 90) {
+          const lx = (fromX + toX) / 2;
+          text(g, lx, y(c.at) - 5, clip(c.text, Math.floor(Math.abs(toX - fromX) / 6.2)), "msg-label", "middle");
+        }
+      });
+      if (c.to.length > 1) {
+        el("circle", { cx: fromX, cy: y(c.at), r: 3.5, fill: color }, g);
+        text(g, fromX + (x(c.to[0]) > fromX ? 8 : -8), y(c.at) - 6, `all ${c.scope ?? "recipients"}`, "msg-label", x(c.to[0]) > fromX ? "start" : "end");
+      }
+      bindTip(g, c, ds);
+    }
+  }
+
+  // ── Option B: swimlanes with arcs ──
+  function renderSwimlanes(ds) {
+    const host = document.getElementById("viz-b");
+    host.innerHTML = "";
+    const labelW = 170, rowH = 46, top = 30, right = 24;
+    const width = Math.max(760, host.clientWidth || 900);
+    const height = top + ds.agents.length * rowH + 16;
+    const x = (t) => labelW + (t / ds.duration) * (width - labelW - right);
+    const rowY = (key) => top + ds.agents.findIndex((a) => a.key === key) * rowH + rowH / 2;
+    const svg = el("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Swimlanes with message arcs" }, host);
+    markers(svg);
+    const ticks = ds.duration > 90 ? 60 : 5;
+    for (let t = 0; t <= ds.duration; t += ticks) {
+      el("line", { x1: x(t), x2: x(t), y1: top - 6, y2: height - 8, stroke: css("--grid") }, svg);
+      text(svg, x(t), top - 12, fmt(t, ds.duration), "axis-label", "middle");
+    }
+    for (const a of ds.agents) {
+      const cy = rowY(a.key);
+      const indent = 14 + a.depth * 14;
+      el("circle", { cx: indent, cy, r: 4, fill: agentColor(a.type) }, svg);
+      text(svg, indent + 10, cy + 4, clip(a.name, 18), "agent-label");
+      el("line", { x1: labelW, x2: width - right, y1: cy, y2: cy, stroke: css("--border-muted") }, svg);
+      for (const [s, e] of a.spans) {
+        el("rect", { x: x(s), y: cy - 8, width: Math.max(2, x(e) - x(s)), height: 16, rx: 4, fill: agentColor(a.type), opacity: 0.3 }, svg);
+      }
+    }
+    for (const c of ds.comms) {
+      const g = el("g", { class: "edge" }, svg);
+      const rel = relationOf(c);
+      for (const to of c.to) {
+        const x1 = x(c.at), y1 = rowY(c.from);
+        const x2 = x(c.delivered?.[to] ?? c.at + ds.duration * 0.004), y2 = rowY(to);
+        const bend = Math.max(18, Math.abs(y2 - y1) * 0.35);
+        const d = `M${x1},${y1} C${x1 + bend},${y1} ${x2 - bend},${y2} ${x2},${y2 + (y2 > y1 ? -8 : 8)}`;
+        el("path", { class: "hit", d }, g);
+        el("path", {
+          class: "edge-line", d, fill: "none", stroke: edgeColor(c), "stroke-width": 1.6,
+          "stroke-dasharray": rel === "read" ? "5 4" : c.poll ? "2 4" : "none", "marker-end": `url(#arrow-${rel})`, opacity: c.poll ? 0.6 : 0.95,
+        }, g);
+      }
+      el("circle", { cx: x(c.at), cy: rowY(c.from), r: 3, fill: edgeColor(c) }, g);
+      bindTip(g, c, ds);
+    }
+  }
+
+  // ── Option C: graph + scrubber ──
+  let playTimer = null;
+  function layoutTree(ds, width) {
+    const byDepth = new Map();
+    for (const a of ds.agents) {
+      if (!byDepth.has(a.depth)) byDepth.set(a.depth, []);
+      byDepth.get(a.depth).push(a);
+    }
+    const pos = new Map();
+    for (const [depth, row] of byDepth) {
+      row.forEach((a, i) => pos.set(a.key, { x: ((i + 1) / (row.length + 1)) * width, y: 60 + depth * 130 }));
+    }
+    // Nested agents sit under their parent.
+    for (const a of ds.agents) {
+      if (a.depth > 1 && pos.has(a.parent)) pos.get(a.key).x = pos.get(a.parent).x;
+    }
+    return pos;
+  }
+  function renderGraph(ds) {
+    const host = document.getElementById("viz-c-svg");
+    host.innerHTML = "";
+    const width = Math.max(720, document.getElementById("viz-c").clientWidth || 900);
+    const depthMax = Math.max(...ds.agents.map((a) => a.depth));
+    const height = 120 + depthMax * 130 + 40;
+    const pos = layoutTree(ds, width);
+    const svg = el("svg", { width, height, viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Agent communication graph" }, host);
+    markers(svg);
+    for (const a of ds.agents) {
+      if (!a.parent) continue;
+      const p = pos.get(a.parent), q = pos.get(a.key);
+      el("line", { x1: p.x, y1: p.y + 22, x2: q.x, y2: q.y - 22, stroke: css("--border-default"), "stroke-width": 1 }, svg);
+    }
+    const edgeLayer = el("g", {}, svg);
+    const nodeLayer = el("g", {}, svg);
+    const nodes = new Map();
+    for (const a of ds.agents) {
+      const p = pos.get(a.key);
+      const g = el("g", {}, nodeLayer);
+      const ring = el("circle", { cx: p.x, cy: p.y, r: 22, fill: css("--canvas-default"), stroke: agentColor(a.type), "stroke-width": 2 }, g);
+      const core = el("circle", { cx: p.x, cy: p.y, r: 8, fill: agentColor(a.type) }, g);
+      text(g, p.x, p.y + 40, clip(a.name, 18), "agent-label", "middle");
+      const status = text(g, p.x, p.y + 54, "", "agent-sub", "middle");
+      nodes.set(a.key, { a, ring, core, status });
+    }
+    const range = document.getElementById("c-range");
+    const clock = document.getElementById("c-clock");
+    let lastT = -1;
+    function draw(t) {
+      edgeLayer.innerHTML = "";
+      const pairs = new Map();
+      for (const c of ds.comms) {
+        if (c.at > t) continue;
+        for (const to of c.to) {
+          const key = `${c.from}>${to}>${relationOf(c)}`;
+          if (!pairs.has(key)) pairs.set(key, { from: c.from, to, list: [] });
+          pairs.get(key).list.push(c);
+        }
+      }
+      for (const { from, to, list } of pairs.values()) {
+        const c = list[list.length - 1];
+        const p = pos.get(from), q = pos.get(to);
+        const rel = relationOf(c);
+        const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+        const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
+        const bend = rel === "peer" ? -60 : rel === "read" ? 26 : -18;
+        const cx = mx + (-dy / len) * bend, cy = my + (dx / len) * bend;
+        const shrink = (px, py, tx, ty) => { const l = Math.hypot(tx - px, ty - py) || 1; return [px + ((tx - px) / l) * 26, py + ((ty - py) / l) * 26]; };
+        const [sx, sy] = shrink(p.x, p.y, cx, cy);
+        const [ex, ey] = shrink(q.x, q.y, cx, cy);
+        const g = el("g", { class: "edge" }, edgeLayer);
+        const d = `M${sx},${sy} Q${cx},${cy} ${ex},${ey}`;
+        el("path", { class: "hit", d }, g);
+        const recent = list.some((m) => m.at > lastT && m.at <= t) && lastT >= 0;
+        el("path", {
+          class: `edge-line${recent ? " pulse" : ""}`, d, fill: "none", stroke: edgeColor(c), "stroke-width": Math.min(6, 1.5 + list.length),
+          "stroke-dasharray": rel === "read" ? "5 4" : "none", "marker-end": `url(#arrow-${rel})`,
+        }, g);
+        if (list.length > 1) {
+          el("circle", { cx, cy, r: 9, fill: css("--canvas-subtle"), stroke: edgeColor(c) }, g);
+          text(g, cx, cy + 3.5, String(list.length), "msg-label", "middle");
+        }
+        bindTip(g, c, ds);
+      }
+      for (const { a, ring, core, status } of nodes.values()) {
+        const active = a.spans.some(([s, e]) => t >= s && t <= e);
+        const started = a.spans.length && t >= a.spans[0][0];
+        core.setAttribute("opacity", active ? 1 : started ? 0.35 : 0.12);
+        ring.setAttribute("stroke-dasharray", active ? "none" : "3 3");
+        status.textContent = !started ? "not started" : active ? "working" : "idle";
+      }
+      clock.textContent = `${fmt(t, ds.duration)} of ${fmt(ds.duration, ds.duration)}`;
+      lastT = t;
+    }
+    range.oninput = () => draw((Number(range.value) / 1000) * ds.duration);
+    draw((Number(range.value) / 1000) * ds.duration);
+    const play = document.getElementById("c-play");
+    play.textContent = "Play";
+    play.onclick = () => {
+      if (playTimer) { clearInterval(playTimer); playTimer = null; play.textContent = "Play"; return; }
+      if (Number(range.value) >= 1000) range.value = "0";
+      play.textContent = "Pause";
+      playTimer = setInterval(() => {
+        const next = Math.min(1000, Number(range.value) + 6);
+        range.value = String(next);
+        draw((next / 1000) * ds.duration);
+        if (next >= 1000) { clearInterval(playTimer); playTimer = null; play.textContent = "Replay"; }
+      }, 40);
+    };
+  }
+
+  // ── Option D: message log ──
+  let logFilter = "all";
+  function renderLog(ds) {
+    const host = document.getElementById("viz-d-table");
+    host.innerHTML = "";
+    const table = document.createElement("table");
+    table.className = "log";
+    table.innerHTML = "<thead><tr><th>Time</th><th>From</th><th>To</th><th>Kind</th><th>Delivery</th><th>Message</th></tr></thead>";
+    const body = document.createElement("tbody");
+    const agent = (k) => ds.agents.find((a) => a.key === k);
+    const chip = (k) => {
+      const a = agent(k);
+      const span = document.createElement("span");
+      span.className = "chip";
+      const dot = document.createElement("i");
+      dot.style.background = agentColor(a?.type ?? "main");
+      span.append(dot, document.createTextNode(a?.name ?? k));
+      return span;
+    };
+    const rows = ds.comms.filter((c) =>
+      logFilter === "all" ? true : logFilter === "messages" ? c.kind === "message" : logFilter === "peer" ? c.relation === "peer" : c.kind === "read");
+    for (const c of rows) {
+      const tr = document.createElement("tr");
+      const td = (cls) => { const cell = document.createElement("td"); if (cls) cell.className = cls; tr.appendChild(cell); return cell; };
+      td("t").textContent = fmt(c.at, ds.duration);
+      td().appendChild(chip(c.from));
+      const toCell = td();
+      if (c.scope) { const s = document.createElement("span"); s.className = "kind launch"; s.textContent = `all ${c.scope}`; toCell.append(s, " "); }
+      else c.to.forEach((k) => { toCell.append(chip(k), " "); });
+      const rel = relationOf(c);
+      const kind = document.createElement("span");
+      kind.className = `kind ${rel}`;
+      kind.textContent = rel === "down" ? "to child" : rel === "read" ? (c.poll ? "poll" : "read") : rel;
+      td().appendChild(kind);
+      const delivery = td("t");
+      const waits = Object.entries(c.delivered ?? {}).filter(([, t]) => t - c.at >= 0.5);
+      if (c.kind === "read") delivery.textContent = "returned";
+      else if (!waits.length) delivery.textContent = "immediate";
+      else waits.forEach(([k, t]) => {
+        const line = document.createElement("div");
+        const q = c.queued?.includes(k);
+        line.textContent = `${agent(k)?.name}: +${fmt(t - c.at, ds.duration)}${q ? " queued" : ""}`;
+        if (q) line.className = "queued";
+        delivery.appendChild(line);
+      });
+      td("msg").textContent = c.text;
+      body.appendChild(tr);
+    }
+    table.appendChild(body);
+    host.appendChild(table);
+  }
+  document.querySelectorAll("[data-filter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      logFilter = btn.dataset.filter;
+      document.querySelectorAll("[data-filter]").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+      renderLog(DATASETS[current]);
+    });
+  });
+
+  // ── Wiring ──
+  let current = "probe";
+  function renderAll() {
+    const ds = DATASETS[current];
+    document.getElementById("ds-note").textContent = ds.note;
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+    document.getElementById("c-range").value = "1000";
+    renderSequence(ds);
+    renderSwimlanes(ds);
+    renderGraph(ds);
+    renderLog(ds);
+  }
+  for (const [id, key] of [["ds-probe", "probe"], ["ds-fleet", "fleet"]]) {
+    document.getElementById(id).addEventListener("click", () => {
+      current = key;
+      document.getElementById("ds-probe").setAttribute("aria-pressed", String(key === "probe"));
+      document.getElementById("ds-fleet").setAttribute("aria-pressed", String(key === "fleet"));
+      renderAll();
+    });
+  }
+  // Re-render on theme changes so SVG colours follow the tokens.
+  new MutationObserver(renderAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+  let resizeTimer;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderAll, 150); });
+  renderAll();
+})();
+</script>

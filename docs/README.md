@@ -23,6 +23,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [On-Disk Paths](on-disk-paths.md) | Filesystem locations used by TracePilot. |
 | [Performance Playbook](performance-playbook.md) | Current performance investigation and profiling guidance. |
 | [Exact Context Capture Guide](exact-context-capture.md) | Enable, run, inspect, store, and delete isolated model-request snapshots. |
+| [Agent Communication](features/agent-communication.md) | Timeline Messages modes, communication evidence, live refresh, and Agents usage counters. |
 
 ## Architecture and design references
 
@@ -68,6 +69,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [Prompt-Cache Insights](features/prompt-cache-insights-plan.md) | Proposed cache-expiry and resume analysis. |
 | [Skills Analytics](features/skills-analytics-design.md) | Feature design; compare delivered behavior with current code. |
 | [Agents Explorer](features/agents-explorer-design.md) | Delivered feature design and decision record. |
+| [Session Replay Communication](features/session-replay-design.md) | Design and implementation guide for adding exchange playback to Session Replay. |
 | [Copilot CLI Evolution](research/copilot-cli-evolution-risks.md) | Risk analysis of Copilot CLI schema changes. |
 | [Copilot Session Store](research/copilot-session-store-db.md) | What the CLI's `session-store.db` contains, who has it, and how TracePilot could safely read it. |
 | [Incremental Analytics Delivery](research/optimization-plan.md) | Dated implementation record and one remaining fallback limitation; use the architecture reference for current design. |

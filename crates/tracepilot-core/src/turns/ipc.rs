@@ -54,6 +54,30 @@ pub fn compute_args_summary(tool_name: &str, args: &serde_json::Value) -> String
                 return id;
             }
         }
+        "write_agent" => {
+            let target = get_str("agent_id")
+                .or_else(|| {
+                    let count = obj.get("agent_ids")?.as_array()?.len();
+                    Some(format!("{count} agents"))
+                })
+                .or_else(|| get_str("scope").map(|scope| format!("all {scope}")));
+            let message = get_str("message").map(|m| {
+                let line = m.split_whitespace().collect::<Vec<_>>().join(" ");
+                crate::utils::truncate_utf8_with_marker(&line, 100, Some("…"))
+            });
+            let parts: Vec<String> = [target.map(|t| format!("→ {t}")), message]
+                .into_iter()
+                .flatten()
+                .collect();
+            if !parts.is_empty() {
+                return parts.join(" · ");
+            }
+        }
+        "list_agents" => {
+            if let Some(scope) = get_str("scope") {
+                return format!("scope: {scope}");
+            }
+        }
         "report_intent" => {
             if let Some(i) = get_str("intent") {
                 return i;
@@ -100,5 +124,36 @@ pub fn prepare_turns_for_ipc(turns: &mut [ConversationTurn]) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute_args_summary;
+    use serde_json::json;
+
+    #[test]
+    fn summarizes_agent_messages_by_target() {
+        let direct = json!({ "agent_id": "beta", "message": "what is\n 6*7?" });
+        assert_eq!(
+            compute_args_summary("write_agent", &direct),
+            "→ beta · what is 6*7?"
+        );
+        let multi = json!({ "agent_ids": ["a", "b"], "message": "go" });
+        assert_eq!(
+            compute_args_summary("write_agent", &multi),
+            "→ 2 agents · go"
+        );
+        let scoped = json!({ "scope": "children", "message": "done?" });
+        assert_eq!(
+            compute_args_summary("write_agent", &scoped),
+            "→ all children · done?"
+        );
+        let scope = json!({ "scope": "siblings" });
+        assert_eq!(
+            compute_args_summary("list_agents", &scope),
+            "scope: siblings"
+        );
+        assert_eq!(compute_args_summary("list_agents", &json!({})), "");
     }
 }

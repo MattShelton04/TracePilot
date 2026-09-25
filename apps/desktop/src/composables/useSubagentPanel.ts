@@ -38,6 +38,12 @@ export function useSubagentPanel(
     isPanelOpen.value = true;
   }
 
+  /** Show an agent without toggling the panel closed when it is already shown. */
+  function openSubagent(agentId: string) {
+    selectedAgentId.value = agentId;
+    isPanelOpen.value = true;
+  }
+
   function closePanel() {
     selectedAgentId.value = null;
     isPanelOpen.value = false;
@@ -77,6 +83,7 @@ export function useSubagentPanel(
     hasPrev,
     hasNext,
     selectSubagent,
+    openSubagent,
     closePanel,
     navigatePrev,
     navigateNext,

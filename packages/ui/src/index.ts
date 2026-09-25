@@ -24,6 +24,7 @@ export {
 // ── Components ─────────────────────────────────────────────────────
 export { default as ActionButton } from "./components/ActionButton.vue";
 export { default as AgentBadge } from "./components/AgentBadge.vue";
+export { default as AgentChip } from "./components/agentComms/AgentChip.vue";
 export { default as Badge } from "./components/Badge.vue";
 export type { BannerProps, BannerTone } from "./components/Banner.vue";
 export { default as Banner } from "./components/Banner.vue";
@@ -125,6 +126,7 @@ export type {
 // ── Subagent panel (shared, single body) ─────────
 export {
   buildSubagentActivities,
+  hasFollowUpMessages,
   SubagentPanel,
   SubagentPanelHeader,
   SubagentPanelNav,
@@ -148,6 +150,12 @@ export {
   useExternalLinkHandler,
 } from "./composables/externalLinks";
 export { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "./composables/liveToolPartialOutput";
+export type { AgentDirectoryContext } from "./composables/useAgentDirectory";
+export {
+  provideAgentDirectory,
+  provideAgentOpener,
+  useAgentDirectory,
+} from "./composables/useAgentDirectory";
 export type {
   UseAsyncDataOptions,
   UseAsyncDataReturn,
@@ -225,6 +233,11 @@ export type {
   TimelineNavigationReturn,
 } from "./composables/useTimelineNavigation";
 export { useTimelineNavigation } from "./composables/useTimelineNavigation";
+export type {
+  TimelinePlayback,
+  TimelinePlaybackOptions,
+} from "./composables/useTimelinePlayback";
+export { useTimelinePlayback } from "./composables/useTimelinePlayback";
 export type { Toast, ToastOptions } from "./composables/useToast";
 export { useToast } from "./composables/useToast";
 export { useToggleSet } from "./composables/useToggleSet";
@@ -238,6 +251,47 @@ export {
 export type { LucideName } from "./icons/templateCatalogue";
 export { TEMPLATE_ICON_CATALOGUE } from "./icons/templateCatalogue";
 // ── Utilities ──────────────────────────────────────────────────────
+export type {
+  AgentCommDelivery,
+  AgentCommKind,
+  AgentCommRelation,
+  AgentCommStats,
+  AgentCommunication,
+  AgentDirectory,
+  AgentDirectoryEntry,
+  AgentRuntimeStatus,
+  CommsEdgeKind,
+  CommsFilter,
+  CommsTimeBreak,
+  CommsTimeline,
+  CommsTimelineAgent,
+  CommsTimelineDelivery,
+  CommsTimelineEvent,
+  CommsTimeScale,
+  ListAgentsResult,
+  ListedAgent,
+  ReadAgentResult,
+  ReadAgentTurn,
+  WriteAgentResult,
+} from "./utils/agentComms";
+export {
+  agentToolSummary,
+  buildAgentCommunications,
+  buildAgentDirectory,
+  buildCommsTimeline,
+  buildTimeScale,
+  communicationsFor,
+  DEFAULT_COMMS_FILTER,
+  filterCommsEvents,
+  formatTimelineOffset,
+  MAIN_AGENT_KEY,
+  packAgentLanes,
+  parseListAgentsResult,
+  parseReadAgentResult,
+  parseWriteAgentResult,
+  summarizeAgentCommunications,
+  writeAgentTarget,
+} from "./utils/agentComms";
 export type { AgentSection, SubagentContent } from "./utils/agentGrouping";
 export {
   buildSubagentContentIndex,

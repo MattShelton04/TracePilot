@@ -14,6 +14,29 @@ export interface AttributedMessage {
   eventIndex?: number;
 }
 
+/**
+ * A message delivered to a subagent (Copilot CLI 1.0.78+): its launch prompt,
+ * a follow-up from the agent that launched it, or a message from another agent
+ * such as a sibling.
+ */
+export interface AgentMessage {
+  content: string;
+  /** Launching tool call of the subagent that received the message. */
+  recipientToolCallId: string;
+  /** Runtime ID of the sender. The main agent sends as the session ID. */
+  senderAgentId?: string;
+  /** Launching tool call of the sending subagent; absent when the main agent
+   *  (or an agent this log does not describe) sent the message. */
+  senderToolCallId?: string;
+  /** `idle` started a new turn immediately; `queued` waited for a busy recipient. */
+  delivery?: string;
+  /** The first message the subagent received: its task prompt. */
+  isLaunch: boolean;
+  messageId?: string;
+  timestamp?: string;
+  eventIndex?: number;
+}
+
 /** A conversation turn */
 export interface ConversationTurn {
   turnIndex: number;
@@ -44,6 +67,8 @@ export interface ConversationTurn {
    *  In auto-model-selection sessions (CLI v1.0.32+), one entry appears per turn.
    *  May also appear after context compaction in other session modes. */
   systemMessages?: string[];
+  /** Messages delivered to subagents launched in this turn, in log order. */
+  agentMessages?: AgentMessage[];
 }
 
 /** Severity level for session events embedded in a conversation turn. */

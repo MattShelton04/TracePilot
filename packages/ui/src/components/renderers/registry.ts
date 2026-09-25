@@ -98,6 +98,23 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     hideArgsWithRichResult: true,
     autoExpandArgs: true,
   },
+  read_agent: {
+    label: "Read Agent (Status + Transcript)",
+    resultComponent: defineAsyncComponent(() => import("./ReadAgentRenderer.vue")),
+    hideArgsWithRichResult: true,
+  },
+  write_agent: {
+    label: "Write Agent (Message + Delivery)",
+    resultComponent: defineAsyncComponent(() => import("./WriteAgentRenderer.vue")),
+    argsComponent: defineAsyncComponent(() => import("./WriteAgentArgsRenderer.vue")),
+    hideArgsWithRichResult: true,
+    autoExpandArgs: true,
+  },
+  list_agents: {
+    label: "List Agents (Roster)",
+    resultComponent: defineAsyncComponent(() => import("./ListAgentsRenderer.vue")),
+    hideArgsWithRichResult: true,
+  },
   apply_patch: {
     label: "Apply Patch (Diff View)",
     resultComponent: defineAsyncComponent(() => import("./ApplyPatchRenderer.vue")),

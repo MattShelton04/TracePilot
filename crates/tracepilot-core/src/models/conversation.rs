@@ -23,6 +23,38 @@ pub struct AttributedMessage {
     pub event_index: Option<usize>,
 }
 
+/// A message delivered to a subagent (Copilot CLI 1.0.78+ `user.message` events
+/// scoped by `agentId`): its launch prompt, a follow-up from the agent that
+/// launched it, or a message from another agent such as a sibling.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentMessage {
+    pub content: String,
+    /// Launching tool call of the subagent that received the message.
+    pub recipient_tool_call_id: String,
+    /// Runtime ID of the sender, from `source: "agent-<id>"`. The main agent
+    /// sends as the session ID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_agent_id: Option<String>,
+    /// Launching tool call of the sending subagent. `None` when the main agent
+    /// (or an agent this log does not describe) sent the message.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_tool_call_id: Option<String>,
+    /// `idle` when the message started a new turn immediately, `queued` when
+    /// the recipient was busy and processed it later.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery: Option<String>,
+    /// The first message the subagent received: its task prompt.
+    #[serde(default)]
+    pub is_launch: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_index: Option<usize>,
+}
+
 /// Severity level for session events embedded in a conversation turn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -143,6 +175,9 @@ pub struct ConversationTurn {
     /// May also appear after context compaction in other session modes.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub system_messages: Vec<String>,
+    /// Messages delivered to subagents launched in this turn, in log order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agent_messages: Vec<AgentMessage>,
 }
 
 /// A tool call within a conversation turn.

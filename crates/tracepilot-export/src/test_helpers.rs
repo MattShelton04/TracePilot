@@ -98,6 +98,7 @@ pub fn simple_turn(
         attachments: None,
         session_events: vec![],
         system_messages: vec![],
+        agent_messages: vec![],
     }
 }
 

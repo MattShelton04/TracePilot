@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Host wrapper: inline detail panel skin around the shared <SubagentPanel />.
 // Reads the agent-tree context for selection, prefs, and tool-result loader.
-import { SubagentPanel } from "@tracepilot/ui";
+import { communicationsFor, SubagentPanel, useAgentDirectory } from "@tracepilot/ui";
 import { computed } from "vue";
 import SubagentToolRow from "@/components/conversation/SubagentToolRow.vue";
 import { fromAgentNode } from "@/composables/subagentView";
@@ -9,9 +9,13 @@ import { useAgentTreeContext } from "@/composables/useAgentTree";
 
 const ctx = useAgentTreeContext();
 
-const view = computed(() =>
-  ctx.selectedNode.value ? fromAgentNode(ctx.selectedNode.value) : null,
-);
+const { communications } = useAgentDirectory();
+
+const view = computed(() => {
+  const node = ctx.selectedNode.value;
+  if (!node) return null;
+  return fromAgentNode(node, { communications: communicationsFor(communications.value, node.id) });
+});
 const liveMs = computed(() =>
   ctx.selectedNode.value ? ctx.liveDuration(ctx.selectedNode.value) : undefined,
 );

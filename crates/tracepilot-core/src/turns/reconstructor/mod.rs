@@ -17,6 +17,7 @@ use super::postprocess::{
 };
 
 mod agent_control;
+mod agent_messages;
 mod messages;
 mod ownership;
 mod session_events;
@@ -54,6 +55,8 @@ pub struct TurnReconstructor {
     pub(crate) started_subagents: std::collections::HashSet<String>,
     /// After write_agent, initial-invocation terminal events cannot settle the queue.
     pub(crate) followup_agents: std::collections::HashSet<String>,
+    /// Subagents that have received a message; the first one is the launch prompt.
+    pub(crate) messaged_agents: std::collections::HashSet<String>,
     pub(crate) authoritative_subagent_models: std::collections::HashSet<String>,
     pub(crate) explicit_turn_models: HashMap<usize, String>,
     /// Tracks the most recent session-level model, so new turns inherit it.
@@ -101,6 +104,7 @@ impl TurnReconstructor {
             agent_owners: HashMap::new(),
             started_subagents: std::collections::HashSet::new(),
             followup_agents: std::collections::HashSet::new(),
+            messaged_agents: std::collections::HashSet::new(),
             authoritative_subagent_models: std::collections::HashSet::new(),
             explicit_turn_models: HashMap::new(),
             session_model: None,
@@ -115,13 +119,19 @@ impl TurnReconstructor {
     /// Process a single event, advancing the state machine.
     pub fn process(&mut self, event: &TypedEvent, event_index: usize) {
         self.register_agent_owner(event);
-        // A subagent has its own conversation loop. Its boundaries and system
-        // prompt must never close, replace or seed the main conversation turn.
+        // A subagent has its own conversation loop. Its prompts, boundaries and
+        // system prompt must never close, replace or seed the main conversation
+        // turn; its prompts are recorded as messages delivered to that agent.
+        if event.raw.agent_id.is_some()
+            && let TypedEventData::UserMessage(data) = &event.typed_data
+        {
+            self.handle_agent_inbound_message(event, event_index, data);
+            return;
+        }
         if event.raw.agent_id.is_some()
             && matches!(
                 event.typed_data,
-                TypedEventData::UserMessage(_)
-                    | TypedEventData::TurnStart(_)
+                TypedEventData::TurnStart(_)
                     | TypedEventData::TurnEnd(_)
                     | TypedEventData::SystemMessage(_)
                     | TypedEventData::ModelChange(_)

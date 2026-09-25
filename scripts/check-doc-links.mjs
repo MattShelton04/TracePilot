@@ -18,7 +18,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
@@ -42,9 +42,7 @@ const GENERATED_DIRS = new Set([
   "blob-report",
   "playwright-report",
 ]);
-const IGNORED_SOURCE_DIRS = new Set([
-  "scripts/e2e/screenshots",
-]);
+const IGNORED_SOURCE_DIRS = new Set(["scripts/e2e/screenshots"]);
 
 function sourceTreeDocsFallback() {
   const found = [];

@@ -1,0 +1,311 @@
+/* ============================
+   AGENT MESSAGES (Timeline → Messages)
+   Shared by the sequence, lanes and graph diagrams and the message log.
+   ============================ */
+
+/* Edge colour per exchange kind; SVG strokes and log badges read --edge. */
+.edge--launch {
+  --edge: var(--neutral-fg);
+}
+.edge--down {
+  --edge: var(--accent-fg);
+}
+.edge--up {
+  --edge: var(--done-fg);
+}
+.edge--peer {
+  --edge: var(--attention-fg);
+}
+.edge--read {
+  --edge: var(--done-fg);
+}
+
+.comms-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────── */
+.comms-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.comms-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.comms-toolbar-spacer {
+  flex: 1 1 auto;
+}
+.comms-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.comms-toggle[aria-pressed="true"] {
+  border-color: var(--accent-muted);
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+.comms-toggle:focus-visible,
+.comms-edge:focus-visible,
+.comms-agent-head:focus-visible,
+.comms-log-row:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+}
+.comms-toggle-count {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.comms-search {
+  width: 220px;
+  max-width: 100%;
+}
+
+/* ── Summary + legend ────────────────────────────────────── */
+.comms-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.comms-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.comms-stat strong {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.comms-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+}
+.comms-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.comms-legend-swatch {
+  width: 18px;
+  height: 0;
+  border-top: 2px solid var(--edge);
+}
+.comms-legend-swatch--dashed {
+  border-top-style: dashed;
+}
+
+/* ── Diagram frame ───────────────────────────────────────── */
+.comms-frame {
+  position: relative;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--canvas-subtle);
+  overflow: hidden;
+}
+.comms-scroll {
+  max-height: min(70vh, 720px);
+  overflow: auto;
+}
+.comms-svg {
+  display: block;
+}
+.comms-svg text {
+  fill: var(--text-secondary);
+  font-family: inherit;
+}
+.comms-svg .comms-axis-label {
+  fill: var(--text-tertiary);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.comms-grid {
+  stroke: var(--border-muted);
+}
+.comms-lifeline {
+  stroke: var(--border-default);
+  stroke-dasharray: 3 4;
+}
+.comms-lifespan {
+  opacity: 0.28;
+}
+.comms-activity {
+  stroke-width: 1;
+  opacity: 0.7;
+}
+.comms-svg .comms-msg-label {
+  fill: var(--text-secondary);
+  font-size: 10.5px;
+}
+
+/* Edges: a wide transparent hit path under the visible line. */
+.comms-edge {
+  cursor: pointer;
+  outline: none;
+}
+.comms-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+}
+.comms-edge-line {
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 1.6;
+  transition:
+    opacity var(--transition-fast, 120ms) ease,
+    stroke-width var(--transition-fast, 120ms) ease;
+}
+.comms-edge-dot {
+  fill: var(--edge);
+}
+.comms-arrowhead {
+  fill: var(--edge);
+}
+.comms-dimmed .comms-edge:not(.comms-edge--selected) .comms-edge-line,
+.comms-dimmed .comms-edge:not(.comms-edge--selected) .comms-edge-dot {
+  opacity: 0.28;
+}
+.comms-edge:hover .comms-edge-line,
+.comms-edge--selected .comms-edge-line {
+  stroke-width: 2.6;
+}
+.comms-edge--failed .comms-edge-line {
+  stroke: var(--danger-fg);
+}
+
+/* ── Message log ─────────────────────────────────────────── */
+.comms-log {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--canvas-subtle);
+  overflow: hidden;
+}
+.comms-log-scroll {
+  max-height: 460px;
+  overflow: auto;
+}
+.comms-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.comms-log-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--canvas-raised);
+  color: var(--text-tertiary);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.comms-log-row {
+  cursor: pointer;
+}
+.comms-log-row td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-muted);
+  vertical-align: top;
+}
+.comms-log-row:hover td {
+  background: var(--canvas-raised);
+}
+.comms-log-row--selected td {
+  background: var(--accent-subtle);
+}
+.comms-log-row--future td {
+  opacity: 0.4;
+}
+.comms-log-time {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.comms-log-agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.comms-kind {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--edge) 14%, transparent);
+  color: var(--edge);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.comms-scope {
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+}
+.comms-log-delivery {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.comms-log-delivery .queued {
+  color: var(--attention-fg);
+}
+.comms-log-delivery .failed {
+  color: var(--danger-fg);
+}
+.comms-log-message {
+  width: 55%;
+  min-width: 240px;
+  color: var(--text-secondary);
+}
+.comms-log-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.comms-log-full {
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.comms-empty {
+  padding: 32px 16px;
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comms-edge-line {
+    transition: none;
+  }
+}

@@ -43,9 +43,7 @@ const activeComponent = computed<Component | null>(() => {
 
 const parsedArgs = computed(() => getToolArgs(props.tc));
 
-const useMarkdownFallback = computed(
-  () => props.richEnabled && ["read_agent", "task"].includes(props.tc.toolName),
-);
+const useMarkdownFallback = computed(() => props.richEnabled && props.tc.toolName === "task");
 </script>
 
 <template>

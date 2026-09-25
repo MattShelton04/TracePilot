@@ -21,6 +21,10 @@ struct AgentRunRow<'a> {
     duration_ms: Option<i64>,
     own_nano_aiu: Option<i64>,
     follow_up_count: i64,
+    messages_sent: i64,
+    messages_received: i64,
+    peer_messages: i64,
+    queued_messages: i64,
     peak_siblings: i64,
     turn_index: i64,
     event_index: Option<i64>,
@@ -46,6 +50,10 @@ impl<'a> AgentRunRow<'a> {
             duration_ms: run.duration_ms.map(to_i64),
             own_nano_aiu: run.own_nano_aiu.map(to_i64),
             follow_up_count: i64::from(run.follow_up_count),
+            messages_sent: i64::from(run.messages_sent),
+            messages_received: i64::from(run.messages_received),
+            peer_messages: i64::from(run.peer_messages),
+            queued_messages: i64::from(run.queued_messages),
             peak_siblings: i64::from(run.peak_siblings),
             turn_index: to_i64(run.turn_index as u64),
             event_index: run.event_index.map(|i| to_i64(i as u64)),
@@ -76,12 +84,13 @@ pub(super) fn write_agent_rows(
          context_tier, multi_turn, first_dispatched_model, explicit_model_override, \
          model_override_reason, configured_model_preference, configured_matches_actual, \
          total_tool_calls, total_tokens, duration_ms, own_nano_aiu, follow_up_count, \
+         messages_sent, messages_received, peer_messages, queued_messages, \
          peak_siblings, turn_index, event_index, source) VALUES",
-        36,
+        40,
         &rows,
         |row, params| {
             let run = row.run;
-            let values: [&dyn ToSql; 36] = [
+            let values: [&dyn ToSql; 40] = [
                 &session_id,
                 &run.run_key,
                 &run.tool_call_id,
@@ -114,6 +123,10 @@ pub(super) fn write_agent_rows(
                 &row.duration_ms,
                 &row.own_nano_aiu,
                 &row.follow_up_count,
+                &row.messages_sent,
+                &row.messages_received,
+                &row.peer_messages,
+                &row.queued_messages,
                 &row.peak_siblings,
                 &row.turn_index,
                 &row.event_index,
