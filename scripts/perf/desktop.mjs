@@ -217,6 +217,43 @@ try {
       writeFileSync(join(out, "conversation.cpuprofile"), JSON.stringify(profile));
     }
     if (iteration === 0) await page.screenshot({ path: join(out, "conversation.png") });
+    // Scroll smoothness: advance 40 px per animation frame from the top of the
+    // conversation. The duration grows with every dropped frame (≈4 s at
+    // 60 Hz); per-frame statistics are kept on the sample.
+    let scrollFrames = null;
+    await sample(
+      "conversation-scroll",
+      async () => {
+        scrollFrames = await page.evaluate(async () => {
+          const scroller = document.querySelector(".page-content");
+          if (!scroller) throw new Error("Conversation scroller is missing");
+          scroller.scrollTop = 0;
+          await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+          const deltas = [];
+          let last = performance.now();
+          for (let i = 0; i < 240; i++) {
+            scroller.scrollTop += 40;
+            await new Promise((done) => requestAnimationFrame(done));
+            const now = performance.now();
+            deltas.push(now - last);
+            last = now;
+          }
+          deltas.sort((a, b) => a - b);
+          return {
+            frames: deltas.length,
+            p50Ms: deltas[Math.floor(deltas.length * 0.5)],
+            p95Ms: deltas[Math.floor(deltas.length * 0.95)],
+            maxMs: deltas[deltas.length - 1],
+            over33Ms: deltas.filter((d) => d > 33.4).length,
+          };
+        });
+      },
+      iteration,
+    );
+    report.samples.at(-1).scrollFrames = scrollFrames;
+    console.log(
+      `  scroll frames: p50 ${scrollFrames.p50Ms.toFixed(1)} ms, p95 ${scrollFrames.p95Ms.toFixed(1)} ms, max ${scrollFrames.maxMs.toFixed(1)} ms, >33 ms ${scrollFrames.over33Ms}/${scrollFrames.frames}`,
+    );
     await sample(
       "analytics",
       async () => {

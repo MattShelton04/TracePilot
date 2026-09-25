@@ -43,3 +43,24 @@ test("does not compare incompatible fixtures, renderer slowdown or failed runs",
 test("missing operations cannot silently pass", () => {
   assert.equal(compare(run(), { ...run(), samples: [] }).status, "missing result");
 });
+test("optional scroll operation is compared only when both runs measured it", () => {
+  const withScroll = (duration) => {
+    const r = run(duration);
+    r.samples.push(
+      ...[0, 1, 2, 3].map((iteration) => ({
+        name: "conversation-scroll",
+        iteration,
+        durationMs: duration * 40 + iteration,
+      })),
+    );
+    return r;
+  };
+  const both = compare(withScroll(100), withScroll(50));
+  assert.equal(both.rows.find((row) => row.name === "conversation-scroll").status, "improvement");
+  const older = compare(run(), withScroll(100));
+  assert.equal(older.status, "compared");
+  assert.equal(
+    older.rows.some((row) => row.name === "conversation-scroll"),
+    false,
+  );
+});

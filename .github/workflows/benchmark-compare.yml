@@ -1,0 +1,135 @@
+name: Benchmark Comparison
+
+# Same-runner base-vs-head performance comparison for backend changes.
+#
+# Absolute timings from shared runners vary too much between machines to be a
+# regression signal, so both revisions are measured on this one runner, back
+# to back:
+#   1. Criterion: the base revision saves a baseline, the head revision is
+#      compared against it (`--baseline-lenient`); verdicts need the whole
+#      confidence interval of the mean change beyond +/-10%.
+#   2. index_probe: base and head builds alternate (ABBA) over a generated
+#      1,000-session corpus, reporting wall time and peak memory for the
+#      indexing pipeline, incremental search passes and the analytics
+#      disk-scan fallback, which Criterion cannot measure.
+# Results are advisory annotations and a job summary; the job fails only when
+# the tooling itself fails.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Base revision to compare against
+        required: false
+        default: origin/main
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'scripts/perf/criterion-compare*'
+      - 'scripts/perf/probe-compare*'
+      - '.github/actions/setup-rust/**'
+      - '.github/workflows/benchmark-compare.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-compare-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    name: Compare base and head performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # One target directory so Criterion's saved baseline is visible to the head run.
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      BASE_REF: ${{ github.event.pull_request.base.sha || inputs.base || 'origin/main' }}
+      BASE_DIR: ${{ github.workspace }}/../base
+      # Shorter windows keep two full runs within budget; the confidence
+      # interval (not the point estimate) decides verdicts.
+      CRITERION_ARGS: --noplot --warm-up-time 1 --measurement-time 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: benchmark-release
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+
+      - name: Verify comparison tooling
+        run: node --test scripts/perf/criterion-compare.test.mjs scripts/perf/probe-compare.test.mjs
+
+      - name: Check out base revision
+        run: |
+          git worktree add "$BASE_DIR" "$BASE_REF"
+          echo "Base: $(git -C "$BASE_DIR" rev-parse HEAD)  Head: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          # The probe uses only public library APIs, so head's copy also builds
+          # against base (it may not exist there yet).
+          cp crates/tracepilot-bench/examples/index_probe.rs "$BASE_DIR/crates/tracepilot-bench/examples/"
+
+      - name: Build probes and generate corpus
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          # Each probe builds into its own target directory. Cargo does not
+          # re-copy an up-to-date example into release/examples, so a shared
+          # (or cache-restored) directory can hand back the other revision's
+          # binary without any error.
+          (cd "$BASE_DIR" && CARGO_TARGET_DIR="$RUNNER_TEMP/target-base" cargo build --release -p tracepilot-bench --example index_probe)
+          CARGO_TARGET_DIR="$RUNNER_TEMP/target-head" cargo build --release -p tracepilot-bench --example index_probe
+          cp "$RUNNER_TEMP/target-base/release/examples/index_probe" "$RUNNER_TEMP/bin/index_probe-base"
+          cp "$RUNNER_TEMP/target-head/release/examples/index_probe" "$RUNNER_TEMP/bin/index_probe-head"
+          cargo run --release -p tracepilot-bench --example performance_probe -- \
+            generate --root "$RUNNER_TEMP/corpus" --scale large
+
+      - name: Compare backend phases (wall time and peak memory)
+        run: |
+          node scripts/perf/probe-compare.mjs \
+            --base="$RUNNER_TEMP/bin/index_probe-base" \
+            --head="$RUNNER_TEMP/bin/index_probe-head" \
+            --sessions="$RUNNER_TEMP/corpus/copilot/session-state" \
+            --work="$RUNNER_TEMP/probe-work" \
+            --repeats=6 \
+            --corpus="the 1,000-session 'large' synthetic corpus" \
+            --output=probe-compare.json \
+            --summary=probe-compare.md
+          cat probe-compare.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Criterion baseline (base revision)
+        run: (cd "$BASE_DIR" && cargo bench -p tracepilot-bench --benches -- --save-baseline pr-base $CRITERION_ARGS)
+
+      - name: Criterion comparison (head revision)
+        run: cargo bench -p tracepilot-bench --benches -- --baseline-lenient pr-base $CRITERION_ARGS
+
+      - name: Summarise Criterion comparison
+        run: |
+          node scripts/perf/criterion-compare.mjs \
+            --criterion="$CARGO_TARGET_DIR/criterion" \
+            --baseline=pr-base \
+            --output=benchmark-compare.json \
+            --summary=benchmark-compare.md
+          cat benchmark-compare.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload comparison results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-compare-${{ github.run_number }}
+          path: |
+            probe-compare.json
+            probe-compare.md
+            benchmark-compare.json
+            benchmark-compare.md
+          if-no-files-found: warn
+          retention-days: 30

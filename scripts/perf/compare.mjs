@@ -77,11 +77,16 @@ export function compare(base, head) {
     }
   }
   const names = ["session-list", "conversation", "analytics", "search"];
-  const rows = names.map((name) => {
-    const values = (run) =>
-      run.samples.filter((s) => s.name === name && s.iteration > 0).map((s) => s.durationMs);
-    const a = values(base);
-    const b = values(head);
+  // Added in later harness runs; compared only when both runs measured it.
+  const optionalNames = ["conversation-scroll"];
+  const values = (run, name) =>
+    run.samples.filter((s) => s.name === name && s.iteration > 0).map((s) => s.durationMs);
+  const measuredOptional = optionalNames.filter(
+    (name) => values(base, name).length > 0 && values(head, name).length > 0,
+  );
+  const rows = [...names, ...measuredOptional].map((name) => {
+    const a = values(base, name);
+    const b = values(head, name);
     if (a.length < 3 || b.length < 3 || [...a, ...b].some((v) => !Number.isFinite(v) || v <= 0)) {
       return {
         name,
