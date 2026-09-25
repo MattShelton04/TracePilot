@@ -14,7 +14,12 @@
 //!   factory reset) can stop an in-flight search pass, and a search pass
 //!   requested while another is running is re-run afterwards instead of
 //!   being silently dropped.
+//! - **On-demand build claims** — index readers start at most one build per
+//!   index path, so an index that stays empty (no sessions yet) or cannot be
+//!   built is not rebuilt on every read.
 
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
@@ -33,6 +38,8 @@ pub struct IndexJobState {
     search_cancel: AtomicBool,
     /// A search pass was requested while another was running.
     search_rerun: AtomicBool,
+    /// Index paths a reader has already tried to build on demand.
+    on_demand_builds: Mutex<HashSet<PathBuf>>,
 }
 
 impl IndexJobState {
@@ -44,6 +51,7 @@ impl IndexJobState {
             initial_build,
             search_cancel: AtomicBool::new(false),
             search_rerun: AtomicBool::new(false),
+            on_demand_builds: Mutex::new(HashSet::new()),
         }
     }
 
@@ -71,6 +79,17 @@ impl IndexJobState {
     pub fn completed_since(&self, ticket: u64) -> Option<(usize, usize)> {
         let last = self.last_completed.lock().ok()?;
         last.filter(|(seq, _)| *seq > ticket).map(|(_, r)| r)
+    }
+
+    /// Claim the one reader-triggered build allowed for `index_path`.
+    ///
+    /// Returns `false` if a reader already tried. Explicit reindex commands
+    /// do not use this and always run.
+    pub fn claim_on_demand_build(&self, index_path: &Path) -> bool {
+        self.on_demand_builds
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .insert(index_path.to_path_buf())
     }
 
     // ── Initial build ──────────────────────────────────────────────
@@ -142,6 +161,14 @@ mod tests {
         let second = state.begin_job();
         state.complete_job(second, (0, 10));
         assert_eq!(state.completed_since(ticket), Some((0, 10)));
+    }
+
+    #[test]
+    fn on_demand_build_is_claimed_once_per_path() {
+        let state = IndexJobState::new();
+        assert!(state.claim_on_demand_build(Path::new("a/index.db")));
+        assert!(!state.claim_on_demand_build(Path::new("a/index.db")));
+        assert!(state.claim_on_demand_build(Path::new("b/index.db")));
     }
 
     #[test]

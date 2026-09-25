@@ -143,6 +143,14 @@ pub(crate) async fn ensure_index_ready(
     if !cfg.general.setup_complete {
         return false;
     }
+    // Every finished build makes the UI refetch, so an index that stays empty
+    // (no sessions yet) or cannot be built would otherwise be rebuilt on every
+    // read, forever. Readers get one build per index path; later readers only
+    // wait for a build already running, then use whatever it produced.
+    if !gates.jobs().claim_on_demand_build(&index_path) {
+        drop(gates.acquire_sessions().await);
+        return index_populated(index_path).await;
+    }
     if let Err(e) = run_incremental_reindex(state, gates, app).await {
         tracing::warn!(error = %e, "On-demand index build failed");
         return false;
