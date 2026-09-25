@@ -107,10 +107,10 @@ jobs:
           cat probe-compare.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Criterion baseline (base revision)
-        run: (cd "$BASE_DIR" && cargo bench -p tracepilot-bench --benches -- --save-baseline pr-base $CRITERION_ARGS)
+        run: (cd "$BASE_DIR" && cargo bench -p tracepilot-bench --bench '*' -- --save-baseline pr-base $CRITERION_ARGS)
 
       - name: Criterion comparison (head revision)
-        run: cargo bench -p tracepilot-bench --benches -- --baseline-lenient pr-base $CRITERION_ARGS
+        run: cargo bench -p tracepilot-bench --bench '*' -- --baseline-lenient pr-base $CRITERION_ARGS
 
       - name: Summarise Criterion comparison
         run: |
