@@ -71,10 +71,19 @@ describe("useSessionTurnsRefresh", () => {
     expect(refresh.turns.value).toEqual([]);
   });
 
-  it("keeps turn payloads unproxied and still notifies on in-place merges", async () => {
+  it("keeps turn payloads unproxied and publishes a new array on merges", async () => {
     const { refresh } = setup();
     refresh.replaceTurns([mkTurn(0)] as never);
     expect(isReactive(refresh.turns.value[0])).toBe(false);
+
+    // Views receive turns as a prop / via computeds, which only update when
+    // the array reference changes.
+    const before = refresh.turns.value;
+    const unchangedTurn = before[0];
+    refresh.mergeTurns([mkTurn(0), mkTurn(1)] as never);
+    expect(refresh.turns.value).not.toBe(before);
+    expect(refresh.turns.value[0]).toBe(unchangedTurn);
+    refresh.replaceTurns([mkTurn(0)] as never);
 
     const count = computed(() => refresh.turns.value.length);
     const seen: number[] = [];

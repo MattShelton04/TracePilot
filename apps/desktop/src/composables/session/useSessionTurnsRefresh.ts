@@ -6,7 +6,7 @@
 import { checkSessionFreshness, getSessionTurns } from "@tracepilot/client";
 import type { ConversationTurn } from "@tracepilot/types";
 import { type AsyncGuard, type AsyncGuardToken, toErrorMessage } from "@tracepilot/ui";
-import { type Ref, ref, shallowRef, triggerRef } from "vue";
+import { type Ref, ref, shallowRef } from "vue";
 import { buildSectionLoader } from "@/stores/helpers/asyncSections";
 import { logError, logWarn } from "@/utils/logger";
 import {
@@ -30,7 +30,7 @@ export function useSessionTurnsRefresh(opts: UseSessionTurnsRefreshOptions) {
   // shallowRef: turn payloads are immutable server data (tens of MB for long
   // sessions). Deep reactivity would wrap every nested tool call and message
   // in a proxy as components read them. Wholesale replacement assigns
-  // `.value`; the in-place merge below calls `triggerRef` explicitly.
+  // `.value`, and so does the merge below (with a new array).
   const turns = shallowRef<ConversationTurn[]>([]);
   const turnsVersion = ref(0);
   const turnsError = ref<string | null>(null);
@@ -55,7 +55,10 @@ export function useSessionTurnsRefresh(opts: UseSessionTurnsRefreshOptions) {
   }
 
   function mergeTurns(incoming: ConversationTurn[]) {
-    const existing = turns.value;
+    // Merge into a copy: consumers receive the list as a prop or through
+    // computeds, which only update when the array reference changes. Unchanged
+    // turn objects keep their identity, so their components still skip updates.
+    const existing = turns.value.slice();
 
     if (existing.length === 0 || incoming.length < existing.length) {
       replaceTurns(incoming);
@@ -120,7 +123,7 @@ export function useSessionTurnsRefresh(opts: UseSessionTurnsRefreshOptions) {
     deepCompareTurnIndexes = computeDeepCompareIndexes(incoming);
 
     if (changed) {
-      triggerRef(turns);
+      turns.value = existing;
       bumpTurnsVersion();
     }
   }
