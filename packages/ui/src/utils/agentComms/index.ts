@@ -30,4 +30,4 @@ export {
   type WriteAgentTarget,
   writeAgentTarget,
 } from "./parsers";
-export { agentToolSummary } from "./summary";
+export { agentToolSummary, formatAgentAge, proseHint } from "./summary";

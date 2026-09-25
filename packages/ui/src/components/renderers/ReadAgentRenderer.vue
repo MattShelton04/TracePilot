@@ -10,10 +10,15 @@
  * output directly. Unrecognized output falls back to Markdown.
  */
 import type { TurnToolCall } from "@tracepilot/types";
-import { formatDuration, toolArgString } from "@tracepilot/types";
+import { toolArgString } from "@tracepilot/types";
 import { CornerDownRight, Inbox } from "lucide-vue-next";
 import { computed, ref } from "vue";
-import { MAIN_AGENT_KEY, parseReadAgentResult } from "../../utils/agentComms";
+import {
+  formatAgentAge,
+  MAIN_AGENT_KEY,
+  parseReadAgentResult,
+  proseHint,
+} from "../../utils/agentComms";
 import AgentChip from "../agentComms/AgentChip.vue";
 import AgentStatusPill from "../agentComms/AgentStatusPill.vue";
 import MarkdownContent from "../MarkdownContent.vue";
@@ -54,7 +59,7 @@ const meta = computed(() => {
   if (r.agentType) items.push(r.agentType);
   if (r.model) items.push(r.model);
   const seconds = r.durationSeconds ?? r.elapsedSeconds;
-  if (seconds != null) items.push(formatDuration(seconds * 1000));
+  if (seconds != null) items.push(formatAgentAge(seconds));
   if (r.totalTurns != null) items.push(`${r.totalTurns} ${r.totalTurns === 1 ? "turn" : "turns"}`);
   if (r.toolCallsCompleted != null) items.push(`${r.toolCallsCompleted} tool calls`);
   return items;
@@ -85,7 +90,7 @@ const shellStatus = computed(() => {
   <RendererShell
     tool-name="Read agent"
     :status="shellStatus"
-    :primary-hint="readOptions.join(' · ') || undefined"
+    :primary-hint="proseHint(readOptions.join(' · '))"
     :copy-text="content"
   >
     <template #icon><Inbox :size="16" /></template>

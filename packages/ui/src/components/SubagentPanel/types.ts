@@ -13,7 +13,7 @@ export type SubagentType =
   | "rubber-duck"
   | "task";
 
-export type SubagentActivityPillType = "intent" | "memory" | "read_agent";
+export type SubagentActivityPillType = "intent" | "memory";
 
 export type SubagentActivityItem =
   | { kind: "reasoning"; key: string; sortKey: number; content: string; agentName?: string }

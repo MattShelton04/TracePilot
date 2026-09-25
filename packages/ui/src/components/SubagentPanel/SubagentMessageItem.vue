@@ -25,17 +25,6 @@ const COLLAPSE_THRESHOLD = 480;
 const expanded = ref(false);
 const collapsible = computed(() => props.communication.content.length > COLLAPSE_THRESHOLD);
 
-const relationLabel = computed(() => {
-  switch (props.communication.relation) {
-    case "peer":
-      return "peer";
-    case "up":
-      return "to parent";
-    default:
-      return props.direction === "in" ? "from parent" : "to child";
-  }
-});
-
 const queuedCount = computed(
   () => props.communication.deliveries.filter((d) => d.delivery === "queued").length,
 );
@@ -63,7 +52,7 @@ const time = computed(() =>
         <span v-if="communication.scope" class="sap-msg-scope">all {{ communication.scope }}</span>
         <AgentChip v-for="key in communication.toKeys" :key="key" :identifier="key" />
       </template>
-      <span class="sap-msg-relation">{{ relationLabel }}</span>
+      <span v-if="communication.relation === 'peer'" class="sap-msg-relation" title="Between agents in different branches, such as siblings">peer</span>
       <span v-if="direction === 'in' && delivery?.delivery === 'queued'" class="sap-msg-badge" title="Arrived while this agent was busy; processed after its current work">
         queued
       </span>
@@ -103,10 +92,6 @@ const time = computed(() =>
 }
 .sap-msg--out {
   --sap-msg-accent: var(--accent-fg);
-  margin-left: 16px;
-}
-.sap-msg--in {
-  margin-right: 16px;
 }
 .sap-msg--peer {
   --sap-msg-accent: var(--attention-fg);

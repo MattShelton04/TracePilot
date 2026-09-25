@@ -7,7 +7,8 @@ import type { AgentCommunication } from "../../utils/agentComms";
 import { formatArgsSummary } from "../../utils/toolCall";
 import type { SubagentActivityItem, SubagentActivityPillType } from "./types";
 
-const PILL_TOOLS = new Set(["report_intent", "store_memory", "read_agent"]);
+// read_agent stays a tool row so its reply opens in the rich renderer.
+const PILL_TOOLS = new Set(["report_intent", "store_memory"]);
 
 export interface SubagentActivityInput {
   parentId: string;
@@ -128,11 +129,7 @@ function pushToolActivity(
   }
   if (PILL_TOOLS.has(tc.toolName)) {
     const pillType: SubagentActivityPillType =
-      tc.toolName === "report_intent"
-        ? "intent"
-        : tc.toolName === "store_memory"
-          ? "memory"
-          : "read_agent";
+      tc.toolName === "report_intent" ? "intent" : "memory";
     const label = formatArgsSummary(tc.arguments, tc.toolName) || tc.toolName;
     items.push({
       kind: "pill",

@@ -8,10 +8,9 @@
  * scope in the header.
  */
 import type { TurnToolCall } from "@tracepilot/types";
-import { formatDuration } from "@tracepilot/types";
 import { Users } from "lucide-vue-next";
 import { computed } from "vue";
-import { parseListAgentsResult } from "../../utils/agentComms";
+import { formatAgentAge, parseListAgentsResult, proseHint } from "../../utils/agentComms";
 import AgentChip from "../agentComms/AgentChip.vue";
 import AgentStatusPill from "../agentComms/AgentStatusPill.vue";
 import MarkdownContent from "../MarkdownContent.vue";
@@ -32,8 +31,8 @@ const roster = computed(() => parseListAgentsResult(props.content));
 const hint = computed(() => {
   const r = roster.value;
   if (!r) return undefined;
-  const scope = r.scope && r.scope !== "default" ? `scope: ${r.scope} · ` : "";
-  return `${scope}${r.total} ${r.total === 1 ? "agent" : "agents"}`;
+  const scope = r.scope && r.scope !== "default" ? `${r.scope} · ` : "";
+  return proseHint(`${scope}${r.total} ${r.total === 1 ? "agent" : "agents"}`);
 });
 </script>
 
@@ -62,7 +61,7 @@ const hint = computed(() => {
             <span class="la-meta">
               <span v-if="agent.agentType">{{ agent.agentType }}</span>
               <span v-if="agent.model">{{ agent.model }}</span>
-              <span v-if="agent.elapsedSeconds != null">{{ formatDuration(agent.elapsedSeconds * 1000) }}</span>
+              <span v-if="agent.elapsedSeconds != null">{{ formatAgentAge(agent.elapsedSeconds) }}</span>
             </span>
           </li>
         </ul>
@@ -105,18 +104,21 @@ const hint = computed(() => {
 .la-agents {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .la-agent {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   min-width: 0;
-  padding: 3px 0;
+  padding: 5px 0;
   font-size: 0.75rem;
+}
+.la-agent + .la-agent {
+  border-top: 1px solid var(--border-muted);
 }
 .la-relation {
   flex-shrink: 0;
@@ -130,7 +132,7 @@ const hint = computed(() => {
   text-transform: uppercase;
 }
 .la-description {
-  flex: 1;
+  flex: 1 1 160px;
   min-width: 0;
   overflow: hidden;
   color: var(--text-secondary);

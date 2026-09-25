@@ -16,6 +16,7 @@ import {
   type AgentRuntimeStatus,
   MAIN_AGENT_KEY,
   parseWriteAgentResult,
+  proseHint,
   writeAgentTarget,
 } from "../../utils/agentComms";
 import AgentChip from "../agentComms/AgentChip.vue";
@@ -100,7 +101,7 @@ const hint = computed(() => {
   <RendererShell
     tool-name="Agent message"
     :status="status"
-    :primary-hint="hint"
+    :primary-hint="proseHint(hint)"
     :copy-text="message || content"
   >
     <template #icon><Send :size="16" /></template>

@@ -215,9 +215,7 @@ describe("getSubagentObjective", () => {
         },
       },
       {
-        kind: "pill",
-        type: "read_agent",
-        label: "worker",
+        kind: "tool",
         key: "read",
         sortKey: 2,
         toolCall: {

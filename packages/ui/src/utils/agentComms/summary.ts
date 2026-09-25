@@ -48,3 +48,20 @@ export function agentToolSummary(
   }
   return null;
 }
+
+/**
+ * Renderer header hints truncate from the left (`direction: rtl`) to keep the
+ * end of file paths visible. Left-to-right marks keep prose such as
+ * "2 agents" in reading order under that direction.
+ */
+export function proseHint(text: string | undefined): string | undefined {
+  return text ? `\u200E${text}\u200E` : undefined;
+}
+
+/** Agent ages from the CLI are whole seconds: "0s", "42s", "3m 05s", "1h 02m". */
+export function formatAgentAge(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
+  return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}m`;
+}

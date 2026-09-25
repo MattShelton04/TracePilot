@@ -211,6 +211,6 @@ describe("ListAgentsRenderer", () => {
     expect(groups[0].text()).toContain("beta");
     expect(groups[0].text()).toContain("sibling");
     expect(groups[1].text()).toContain("Idle");
-    expect(wrapper.text()).toContain("scope: siblings · 2 agents");
+    expect(wrapper.text()).toContain("siblings · 2 agents");
   });
 });
