@@ -3,6 +3,11 @@
 > **Status**: Revised — initial draft 2026-03-18, updated after multi-model peer review (Claude Opus 4.6, GPT-5.4, GPT-5.3-Codex, Gemini 3 Pro)
 > **Scope**: Covers versioning strategy, changelog/update notes, release handling, code signing, auto-update detection, and integration with the existing monorepo.
 
+> **Historical proposal:** The "Current State" below describes the March 2026
+> baseline, not today's release setup. TracePilot now has a changelog,
+> installer releases, and `.github/workflows/release.yml`. For current steps,
+> use [Versioning and releases](../README.md#versioning-and-releases).
+
 ---
 
 ## Table of Contents
@@ -56,7 +61,9 @@ The version `0.1.0` is hardcoded in **13+ separate locations** with no synchroni
 | `apps/desktop/src/components/layout/AppSidebar.vue` | Hardcoded badge | `v0.1.0` |
 | `apps/desktop/src/views/SettingsView.vue` | `const appVersion` | `'0.1.0'` |
 
-There is no `CHANGELOG.md`, no git version tags, no `.github/workflows/` directory, and no update detection code of any kind. The `scripts/dev.ps1` file references a `scripts/release.ps1` that does not yet exist.
+At the time of this draft there was no `CHANGELOG.md`, version tag, release
+workflow, or update detection code. Those statements are historical and do
+not describe the current checkout.
 
 **Separate versioning concerns** (distinct from the app version — do not conflate):
 - `config.version: 1` in `~/.copilot/tracepilot/config.toml` — the *config schema* version in `TracePilotConfig`, for config file migration

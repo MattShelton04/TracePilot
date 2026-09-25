@@ -5,8 +5,8 @@ Shared test-only helpers and fixtures for the TracePilot Rust workspace.
 
 Promoting shared helpers here keeps `#[cfg(test)]` modules across crates from
 drifting and lets integration tests reuse the same builders as unit tests.
-Background: `docs/tech-debt-plan-revised-2026-04.md` §3-safety.5 and wave
-w127 of `docs/tech-debt-master-plan-2026-04.md`.
+These shared fixture builders keep unit and integration tests aligned across
+crates.
 
 ## Public API
 
@@ -39,9 +39,8 @@ dev-deps don't leak into release builds of downstream crates.
 - `src/lib.rs` — crate-level docs + `pub mod fixtures;`.
 - `src/fixtures.rs` — fixture builders (session directories, YAML/JSONL helpers).
 
-Future consolidations tracked in the tech-debt plan may add analytics /
-export builder modules behind cargo features so downstream crates opt in only
-to what they use.
+Future analytics or export builders should remain opt-in through cargo features
+if they are shared here.
 
 ## Related ADRs
 

@@ -1,4 +1,4 @@
-# ADR 0001 — Supported platforms
+# ADR 0010 — Supported platforms
 
 **Status:** Accepted
 **Date:** 2026-04
@@ -30,6 +30,13 @@ Implications:
 - CI cost roughly triples for the main check job.
 - macOS signing/notarisation becomes a real requirement for artefact distribution — deferred to Phase 6.1.
 - `cmd.exe`-specific dev scripts must be ported to pnpm-level commands — Phase 6.3.
+
+## Implementation status (2026-09-25)
+
+The support tiers above record the accepted direction, but the planned
+cross-platform release coverage has not landed. Current release assets are
+Windows-only; CI runs Rust tests on Windows and Linux, with macOS disabled.
+The public README therefore describes Windows as the currently tested target.
 
 ## References
 

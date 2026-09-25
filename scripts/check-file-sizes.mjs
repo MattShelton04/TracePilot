@@ -16,7 +16,7 @@
  *   node scripts/check-file-sizes.mjs             # check (CI)
  *   node scripts/check-file-sizes.mjs --list      # print current violations
  *
- * See: docs/archive/2026-04/tech-debt-plan-revised-2026-04.md § Phase 0.11
+ * Existing exceptions and their review notes are listed in ALLOWLIST below.
  */
 
 import { execSync } from "node:child_process";
@@ -132,7 +132,5 @@ console.error("  1. Split the file (preferred).");
 console.error(
   "  2. Add the path to ALLOWLIST in scripts/check-file-sizes.mjs with a TODO and owner.",
 );
-console.error(
-  "\nSee docs/archive/2026-04/tech-debt-plan-revised-2026-04.md § Phase 4 for decomposition targets.",
-);
+console.error("\nReview the existing ALLOWLIST notes before changing a budget or exception.");
 process.exit(1);

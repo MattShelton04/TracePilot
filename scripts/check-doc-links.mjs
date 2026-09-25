@@ -2,7 +2,7 @@
 /**
  * Doc-link lint for TracePilot.
  *
- * Walks every `docs/**\/*.md` and `**\/README.md` tracked by git, extracts
+ * Walks repository Markdown (including newly created files), extracts
  * relative markdown links (inline `[text](target)` and reference-style
  * `[id]: target`), and verifies that every target resolves on disk.
  *
@@ -17,37 +17,74 @@
  * Exits 1 on any broken link.
  */
 
-import { execSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, resolve, sep } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
 
-// Files intentionally skipped by the checker. Keep short and commented.
-//   - docs/multi-window-implementation-plan.md, docs/copilot-sdk-deep-dive.md:
-//     reference an unchecked-in `reviews/` subdir (pre-existing; tracked
-//     separately — remove once those review docs land or the refs are
-//     excised). Added during FU-04 so the live-doc gate can still be useful.
-const SKIP_PREFIXES = [];
-const SKIP_FILES = new Set([
-  "docs/multi-window-implementation-plan.md",
-  "docs/copilot-sdk-deep-dive.md",
+// Used only when this environment disallows child processes. Normal runs use
+// Git's ignore rules to include new docs without scanning ignored local data.
+const GENERATED_DIRS = new Set([
+  ".git",
+  ".agent",
+  ".jules",
+  ".playwright-cli",
+  ".pnpm-store",
+  ".tracepilot",
+  ".vscode",
+  ".idea",
+  ".cache",
+  "node_modules",
+  "target",
+  "dist",
+  "test-results",
+  "blob-report",
+  "playwright-report",
 ]);
+const IGNORED_SOURCE_DIRS = new Set(["scripts/e2e/screenshots"]);
 
-function gitDocs() {
-  const out = execSync("git ls-files", { encoding: "utf8", cwd: REPO_ROOT });
-  return out
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .filter((f) => f.endsWith(".md"))
-    .filter((f) => f.startsWith("docs/") || f.endsWith("/README.md") || f === "README.md")
-    .filter((f) => !f.startsWith("node_modules/") && !f.startsWith("target/"))
-    .filter((f) => !SKIP_PREFIXES.some((p) => f.startsWith(p)))
-    .filter((f) => !SKIP_FILES.has(f));
+function sourceTreeDocsFallback() {
+  const found = [];
+  const visit = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        const child = join(dir, entry.name);
+        const rel = relative(REPO_ROOT, child).replaceAll("\\", "/");
+        if (!GENERATED_DIRS.has(entry.name) && !IGNORED_SOURCE_DIRS.has(rel)) visit(child);
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        const rel = relative(REPO_ROOT, join(dir, entry.name)).replaceAll("\\", "/");
+        if (!rel.startsWith("docs/perf/results/") || entry.name === "README.md") {
+          found.push(rel);
+        }
+      }
+    }
+  };
+  visit(REPO_ROOT);
+  return found.sort();
+}
+
+function repoDocs() {
+  try {
+    return execFileSync(
+      "git",
+      ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.md"],
+      { cwd: REPO_ROOT, encoding: "utf8" },
+    )
+      .split("\0")
+      .filter(Boolean)
+      .filter((file) => existsSync(resolve(REPO_ROOT, file)))
+      .sort();
+  } catch (error) {
+    if (error.code !== "EPERM" && error.code !== "EACCES") throw error;
+    // Restricted sandboxes may block Git subprocesses. Keep the doc check
+    // useful there while excluding known dependency, build, and session dirs.
+    return sourceTreeDocsFallback();
+  }
 }
 
 const argFiles = process.argv.slice(2).filter((a) => !a.startsWith("-"));
-const files = (argFiles.length ? argFiles : gitDocs()).map((f) =>
+const files = (argFiles.length ? argFiles : repoDocs()).map((f) =>
   f.replaceAll("\\", "/").replace(/^\.\//, ""),
 );
 

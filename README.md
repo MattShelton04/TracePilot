@@ -249,6 +249,8 @@ If you use [`just`](https://github.com/casey/just), `just --list` shows wrappers
 
 See [running-app automation](docs/app-automation.md) for browser-style interaction
 with the real Tauri backend, screenshots, traces, and frontend-only exploration.
+The [documentation index](docs/README.md) and [script command index](scripts/README.md)
+cover the remaining guides and supported developer commands.
 
 ### Versioning and releases
 

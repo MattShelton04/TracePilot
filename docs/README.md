@@ -1,15 +1,21 @@
 # TracePilot Documentation
 
-> Developer documentation index for TracePilot — a desktop app for visualising and analysing GitHub Copilot CLI sessions.
+> Navigation for TracePilot's current guides, code-coupled references, and
+> retained historical research.
 
-This index lists current user/developer documentation. Stale generated tech-debt reports, historical audit reports, and one-off implementation plans were removed in the 2026-05-01 documentation cleanup; use git history if you need those artefacts.
+Use the current guides for commands and behavior. Plans, prototypes, and dated
+reports record decisions or evidence from their time; check the current code
+before following their implementation steps. The 2026-05-01 cleanup removed
+some older reports and plans, which remain recoverable from Git history.
 
 ## Start here
 
 | Document | Description |
 |----------|-------------|
 | [Testing Guide](testing.md) | Canonical testing layers, commands, VRT/E2E scope, and caveats. |
+| [Script and Command Index](../scripts/README.md) | Supported commands, diagnostics, CI helpers, prerequisites, and side effects. |
 | [Running-App Automation](app-automation.md) | Playwright agent CLI for the real Tauri app and frontend-only UI server. |
+| [Visual Regression](visual-regression.md) | Synthetic frontend comparisons, CI publisher, and interpretation limits. |
 | [Architecture Overview](architecture/overview.md) | Crate/package structure, data flow, and major boundaries. |
 | [ADRs](adr/README.md) | Accepted architecture decisions and decision-writing conventions. |
 | [Data Integration](data-integration-guide.md) | How session data flows from disk to the UI. |
@@ -17,26 +23,22 @@ This index lists current user/developer documentation. Stale generated tech-debt
 | [On-Disk Paths](on-disk-paths.md) | Filesystem locations used by TracePilot. |
 | [Performance Playbook](performance-playbook.md) | Current performance investigation and profiling guidance. |
 | [Exact Context Capture Guide](exact-context-capture.md) | Enable, run, inspect, store, and delete isolated model-request snapshots. |
+| [Agent Communication](features/agent-communication.md) | Timeline Messages modes, communication evidence, live refresh, and Agents usage counters. |
 
-## Architecture and design
+## Architecture and design references
 
 | Document | Description |
 |----------|-------------|
-| [Exact Context Capture](features/exact-context-capture-plan.md) | Feasibility research and phased implementation plan for isolated model-request snapshots. |
-| [Prompt-Cache Insights](features/prompt-cache-insights-plan.md) | Proposed plan for showing cache expiry, resume markers and prefix-change causes from `session.usage_checkpoint`. |
-| [Skills Analytics](features/skills-analytics-design.md) | Proposed per-skill usage analytics, flags and a Usage tab for the Skills manager. |
-| [Agents Explorer](features/agents-explorer-design.md) | Delivered Agents page for built-in and custom agents, sharing the definition editor, with cross-session run analytics. |
-| [Agent Communication](features/agent-communication.md) | Timeline Messages modes, communication evidence and Agents usage counters. |
-| [Session Replay Communication](features/session-replay-design.md) | Design and implementation guide for adding exchange playback to Session Replay. |
 | [Incremental Analytics](architecture/incremental-analytics.md) | Analytics pipeline and incremental computation strategy. |
-| [Design System](design/design-system.md) | Colour tokens, typography, spacing, and component patterns. |
+| [Design System Master](../design-system/MASTER.md) | Current design intent; production tokens live in `packages/ui/src/styles/tokens.css`. |
+| [Variant C Design Reference](design/design-system.md) | Historical design and component patterns used by retained prototypes. |
 | [Tool-Call Rendering](design/tool-call-rendering.md) | How tool calls/results are visualised in the session viewer. |
 | [Adding Tool Renderers](design/adding-tool-renderers.md) | Guide for adding new tool-specific renderers. |
-| [Timeline Redesign](design/timeline-redesign.md) | Session timeline component redesign notes. |
-| [Loading Screen](loading-screen-design.md) | Loading/skeleton screen design. |
+| [Timeline Redesign](design/timeline-redesign.md) | Historical session timeline redesign notes. |
+| [Loading Screen Design History](loading-screen-design.md) | Orbital concept selection, current implementation, and open design review item. |
 | [Logo](design/logo.md) | Logo and branding assets. |
-| [Multi-Window Architecture](multi-window-architecture.md) | Design notes for multi-window behavior. |
-| [Session Alerting](session-alerting-notifications.md) | Alerting and notification design notes. |
+| [Multi-Window Architecture](multi-window-architecture.md) | Multi-window design notes; compare with current implementation. |
+| [Session Alerting](session-alerting-notifications.md) | Alerting and notification design notes; compare with current implementation. |
 | [Common Frontend Components](common-frontend-components.md) | Shared Vue component catalogue. |
 
 ## Guides and references
@@ -45,30 +47,37 @@ This index lists current user/developer documentation. Stale generated tech-debt
 |----------|-------------|
 | [Git Worktree Guide](git-worktree-guide.md) | Working with git worktrees in TracePilot. |
 | [Version Analysis](version-analysis-implementation-guide.md) | Implementing Copilot schema version analysis. |
-| [Version Report Naming](reports/versions/README.md) | Naming convention for newly generated Copilot version reports. |
-| [Versioning & Release](versioning-updates-release-strategy.md) | Versioning strategy and release process. |
+| [Versioning & Release Proposal](versioning-updates-release-strategy.md) | Historical strategy draft; use the root README for the current release process. |
 | [Specta Migration](specta-migration-guide.md) | Specta / tauri-specta migration guide. |
 | [Syntax Highlighting](syntax-highlighting.md) | Current syntax-highlighting behavior and tradeoffs. |
 | [Bespoke Syntax Highlighting Analysis](syntax-highlighting-bespoke-analysis.md) | Analysis behind bespoke syntax-highlighting choices. |
-| [Store Refactoring](store-refactoring-plan.md) | Pinia store architecture and refactoring notes. |
 
-## Research and migration notes
+## Proposals, research, and historical evidence
 
 | Document | Description |
 |----------|-------------|
 | [Copilot CLI Integration](copilot-cli-integration-report.md) | How TracePilot integrates with Copilot CLI. |
-| [Copilot SDK Deep Dive](copilot-sdk-deep-dive.md) | Analysis of the Copilot SDK internals. |
+| [Copilot SDK Deep Dive](copilot-sdk-deep-dive.md) | Historical analysis of SDK internals and summarized reviews; verify against current SDK. |
 | [Copilot SDK Data Flow](copilot-sdk-data-flow.md) | SDK data-flow and architecture notes. |
 | [Copilot SDK Evaluation](copilot-sdk-integration-evaluation.md) | SDK integration evaluation. |
 | [Copilot SDK Usage](copilot-sdk-usage.md) | SDK usage guide. |
 | [Copilot SDK RPC Bug](copilot-sdk-rpc-method-bug.md) | JSON-RPC method-name bug note. |
-| [Tantivy Search Index](tantivy-search-index.md) | Reference for the unmerged Tantivy search-index approach. |
-| [Search Index Migration](search-index-migration/README.md) | Search-index migration architecture, benchmarks, and retrospective. |
-| [Analytics Persistence](research/analytics-persistence.md) | Persisting analytics data to disk. |
+| [Tantivy Search Index](tantivy-search-index.md) | Historical reference for the unmerged search-index approach. |
+| [Search Index Migration](search-index-migration/README.md) | Shelved migration, benchmarks, and failure lessons; not an active implementation guide. |
+| [Multi-Window Implementation RFC](multi-window-implementation-plan.md) | Historical amended plan; several parts have since landed. |
+| [Exact Context Capture Plan](features/exact-context-capture-plan.md) | Feasibility research and phased plan; use the current guide above for operation. |
+| [Prompt-Cache Insights](features/prompt-cache-insights-plan.md) | Proposed cache-expiry and resume analysis. |
+| [Skills Analytics](features/skills-analytics-design.md) | Feature design; compare delivered behavior with current code. |
+| [Agents Explorer](features/agents-explorer-design.md) | Delivered feature design and decision record. |
+| [Session Replay Communication](features/session-replay-design.md) | Design and implementation guide for adding exchange playback to Session Replay. |
 | [Copilot CLI Evolution](research/copilot-cli-evolution-risks.md) | Risk analysis of Copilot CLI schema changes. |
 | [Copilot Session Store](research/copilot-session-store-db.md) | What the CLI's `session-store.db` contains, who has it, and how TracePilot could safely read it. |
-| [Optimisation Plan](research/optimization-plan.md) | Performance optimisation research notes. |
+| [Incremental Analytics Delivery](research/optimization-plan.md) | Dated implementation record and one remaining fallback limitation; use the architecture reference for current design. |
 | [VS Code Support](research/vscode-session-support-feasibility.md) | Feasibility of supporting VS Code Copilot sessions. |
+| [Pricing Model](pricing-model.md) | Dated pricing reference; verify rates before using estimates. |
+| [Performance Evidence](reports/performance-mission.md) | Native measurements, methods, and limitations; retain alongside its JSON evidence. |
+| [Usability Audit](reports/usability-audit-2026-09-12/findings.md) | Dated findings with linked coverage, validation, and screenshots. |
+| [Version Reports](reports/versions/README.md) | Dated Copilot CLI schema/corpus reports and generation guidance. |
 
 ## Other assets
 

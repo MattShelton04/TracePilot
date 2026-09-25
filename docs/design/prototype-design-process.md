@@ -3,6 +3,10 @@
 > A guide to how TracePilot UI prototypes were created, organized, and evaluated.
 > Use this process to create future prototypes with consistent design language.
 
+> **Historical process reference:** Its Variant C CSS belongs to the retained
+> HTML prototypes. Production Vue components use
+> `packages/ui/src/styles/tokens.css` and `design-system/MASTER.md`.
+
 ## Overview
 
 TracePilot prototypes are **self-contained HTML/CSS/JS files** that can be previewed in any browser without a build step. Each prototype contains its own markup, styles, and mock data, while sharing design tokens and utility code via centralized shared resources.
@@ -16,7 +20,7 @@ This approach was used to rapidly explore and compare multiple design directions
 ```
 docs/design/prototypes/
 ├── shared/                     # Shared design system files
-│   ├── design-system-c.css     # Variant C tokens ("Hybrid") ← PRODUCTION
+│   ├── design-system-c.css     # Historical Variant C prototype CSS
 │   └── shared.js               # Theme toggle, tab switching, mock data
 ├── setup-window/               # Setup wizard design report
 │   └── design-report.md        # Design decisions for setup window
@@ -98,7 +102,7 @@ Provides to all prototype HTML pages:
 - **Mock session data** — 3+ realistic session objects with IDs, repos, metrics
 - **DOM initialization** — Auto-runs on `DOMContentLoaded`
 
-### `shared/design-system-c.css` — Design Tokens (Production)
+### `shared/design-system-c.css` — Prototype design tokens
 
 Provides ~650+ lines of CSS including:
 - Color tokens (canvas, border, text, semantic colors)
@@ -155,7 +159,9 @@ Provides to all prototype HTML pages:
 
 ### 2. Always Use Variant C Design Tokens
 
-Reference the production design system: `shared/design-system-c.css`
+Reference `shared/design-system-c.css` when working on the retained HTML
+prototypes. For production Vue components, use
+`packages/ui/src/styles/tokens.css` and `design-system/MASTER.md`.
 
 Key tokens to use:
 ```css

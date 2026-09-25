@@ -17,7 +17,6 @@ use super::model::{AgentRun, AgentRunExtraction, AgentRunOutcome, AgentRunSource
 pub fn extract_agent_runs(events: &[TypedEvent], turns: &[ConversationTurn]) -> AgentRunExtraction {
     let side = SideData::collect(events);
     let ledger = extract_agent_usage(events);
-
     let calls: Vec<(usize, &TurnToolCall)> = turns
         .iter()
         .flat_map(|turn| turn.tool_calls.iter().map(move |tc| (turn.turn_index, tc)))

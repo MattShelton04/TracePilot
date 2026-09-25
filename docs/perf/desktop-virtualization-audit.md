@@ -2,6 +2,14 @@
 
 Audit follow-up for `w5-3` from the outstanding follow-up implementation plan.
 
+> **Historical audit:** This predates the [native performance mission](../reports/performance-mission.md),
+> which exercised an 800-turn / 20,000-event synthetic conversation and measured
+> full-DOM layout and scroll work as a remaining cost. The earlier thresholds
+> and defer recommendations below are investigation context, not the latest
+> performance conclusion. The later mission still did not approve speculative
+> whole-conversation virtualization because selection, find, copy, and scroll
+> behavior need validation.
+
 This document is the **audit only**. Per the usability watchlist, the default
 posture is **NOT to virtualize** unless we can measure a concrete UX win at
 worst-case row counts; virtualization tends to hurt scroll feel, accessibility,

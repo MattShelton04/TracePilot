@@ -1,4 +1,4 @@
-# ADR 0004 — Database migration policy
+# ADR 0013 — Database migration policy
 
 Status: Accepted
 Date: 2026-04

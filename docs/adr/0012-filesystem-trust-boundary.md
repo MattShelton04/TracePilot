@@ -1,4 +1,4 @@
-# ADR 0003 — Filesystem trust boundary for user-supplied paths
+# ADR 0012 — Filesystem trust boundary for user-supplied paths
 
 Status: Accepted
 Date: 2026-04
