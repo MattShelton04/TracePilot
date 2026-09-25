@@ -6,10 +6,13 @@
 //!
 //! This eliminates ~40% code duplication across the three analytics commands.
 
+use crate::commands::search::ensure_index_ready;
+use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{open_index_db, read_config};
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracepilot_indexer::index_db::IndexDb;
 
 /// Result type alias for analytics operations.
@@ -59,19 +62,28 @@ impl AnalyticsQueryParams {
 /// Context extracted from SharedConfig for analytics queries.
 ///
 /// This avoids passing the full SharedConfig into the spawn_blocking closure.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AnalyticsContext {
     pub index_path: PathBuf,
     pub session_state_dir: PathBuf,
+    /// Serialises disk-scan fallbacks. `None` in unit tests.
+    pub gates: Option<Arc<IndexingSemaphores>>,
 }
 
 impl AnalyticsContext {
-    /// Extract analytics context from the Tauri shared config.
-    pub fn from_state(state: &tauri::State<'_, SharedConfig>) -> Self {
+    /// Make sure the index is ready (building it once, shared by all
+    /// concurrent callers), then extract the query context.
+    pub async fn prepare(
+        state: &tauri::State<'_, SharedConfig>,
+        gates: &tauri::State<'_, Arc<IndexingSemaphores>>,
+        app: &tauri::AppHandle,
+    ) -> Self {
+        ensure_index_ready(state, gates.inner(), app).await;
         let cfg = read_config(state);
         Self {
             index_path: cfg.index_db_path(),
             session_state_dir: cfg.session_state_dir(),
+            gates: Some(Arc::clone(gates.inner())),
         }
     }
 }
@@ -126,27 +138,40 @@ where
     SqlFn: FnOnce(&IndexDb, &AnalyticsQueryParams) -> Result<T> + Send + 'static,
     FallbackFn: FnOnce(&PathBuf, &AnalyticsQueryParams) -> Result<T> + Send + 'static,
 {
+    let params_for_fallback = params.clone();
     let query_name = query_name.to_string();
+    let index_path = ctx.index_path.clone();
 
-    tokio::task::spawn_blocking(move || {
-        // Phase 1: Try SQL fast path
-        if let Some(opened) = open_index_db(&ctx.index_path) {
-            match sql_fn(&opened.db, &params) {
-                Ok(result) => return Ok(result),
-                Err(e) => {
-                    tracing::warn!(
-                        "{} SQL fast path failed, falling back to disk scan: {}",
-                        query_name,
-                        e
-                    );
-                }
+    // Phase 1: SQL fast path. Normally the only path: `AnalyticsContext::prepare`
+    // has already built the index if it was missing.
+    let sql = tokio::task::spawn_blocking(move || {
+        let opened = open_index_db(&index_path)?;
+        match sql_fn(&opened.db, &params) {
+            Ok(result) => Some(Ok(result)),
+            Err(e) => {
+                tracing::warn!(
+                    "{} SQL fast path failed, falling back to disk scan: {}",
+                    query_name,
+                    e
+                );
+                Some(Err(params))
             }
         }
-
-        // Phase 2: Fallback to disk scan
-        fallback_fn(&ctx.session_state_dir, &params)
     })
-    .await?
+    .await?;
+    let params = match sql {
+        Some(Ok(result)) => return Ok(result),
+        Some(Err(params)) => params,
+        None => params_for_fallback,
+    };
+
+    // Phase 2: disk-scan fallback, one at a time — each scan parses the whole
+    // corpus and concurrent scans multiply peak memory.
+    let _scan = match &ctx.gates {
+        Some(gates) => Some(gates.acquire_disk_scan().await),
+        None => None,
+    };
+    tokio::task::spawn_blocking(move || fallback_fn(&ctx.session_state_dir, &params)).await?
 }
 
 #[cfg(test)]
@@ -201,6 +226,7 @@ mod tests {
         let ctx = AnalyticsContext {
             index_path: PathBuf::from("/tmp/index.db"),
             session_state_dir: PathBuf::from("/tmp/sessions"),
+            gates: None,
         };
 
         assert_eq!(ctx.index_path, Path::new("/tmp/index.db"));

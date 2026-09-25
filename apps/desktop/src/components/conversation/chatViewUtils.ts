@@ -132,3 +132,33 @@ export function getCollapsedToolNames(items: ToolGroupItem[], maxVisible: number
   }
   return Array.from(names).slice(0, 6);
 }
+
+// ─── Render chunks ────────────────────────────────────────────────
+
+/**
+ * Turns per `content-visibility: auto` render chunk. The browser checks every
+ * such container on every frame, so one container per turn (thousands in long
+ * sessions) costs ~10 ms/frame while scrolling. Chunks keep that negligible
+ * and stay small enough to lay out quickly when they scroll into view.
+ */
+export const TURNS_PER_RENDER_CHUNK = 10;
+
+export interface TurnChunk<T> {
+  /** Stable key: the first turn's index. */
+  key: number;
+  /** Position of the chunk's first turn in the full list. */
+  start: number;
+  turns: T[];
+}
+
+export function chunkTurns<T extends { turnIndex: number }>(
+  turns: readonly T[],
+  size = TURNS_PER_RENDER_CHUNK,
+): TurnChunk<T>[] {
+  const chunks: TurnChunk<T>[] = [];
+  for (let start = 0; start < turns.length; start += size) {
+    const slice = turns.slice(start, start + size);
+    chunks.push({ key: slice[0].turnIndex, start, turns: slice });
+  }
+  return chunks;
+}

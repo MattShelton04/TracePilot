@@ -231,8 +231,20 @@ Performance coverage:
 |-------|-------------|
 | **Bundle analysis** | Relevant PRs: builds frontend, reports advisory size thresholds, retains size tables as artifacts and job summaries |
 | **Criterion benchmarks** | Nightly/manual Linux runs: validates populated fixtures and required results; timing thresholds are advisory |
-| **Native desktop** | Manual Windows release measurements with isolated data; see the [performance mission report](reports/performance-mission.md) |
+| **Base vs head comparison** | PRs touching Rust: `benchmark-compare.yml` measures the PR's base and head on one runner. `index_probe` alternates base/head builds over a generated corpus for wall time and peak RSS (~5 min, every run). The Criterion comparison (~25 min) is opt-in: add the `benchmark:criterion` label or run the workflow manually. Advisory annotations plus a job summary |
+| **Native desktop** | Manual Windows release measurements with isolated data, including conversation scroll frame times; see the [performance mission report](reports/performance-mission.md) |
 | **Typecheck + tests** | Standard correctness checks; see the [testing guide](testing.md) |
+
+Run the same backend comparison locally with two separately built probes:
+
+```sh
+node scripts/perf/probe-compare.mjs --base=<base index_probe> --head=<head index_probe> \
+  --sessions=<corpus>/copilot/session-state --work=<scratch dir> --repeats=4
+```
+
+Build each probe into its own `CARGO_TARGET_DIR`. Cargo does not re-copy an
+up-to-date example into `target/release/examples`, so a shared directory can
+silently hand back the other revision's binary.
 
 Measurement jobs have read-only repository permissions. They do not publish to
 Pages or comment on PRs. See the [performance index](perf/index.md) for artifact

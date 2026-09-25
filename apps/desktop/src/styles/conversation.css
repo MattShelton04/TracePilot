@@ -382,8 +382,24 @@
   position: relative;
   padding-bottom: 24px;
 }
-.timeline-turn:last-child {
+.turn-chunk:last-child > .timeline-turn:last-child {
   padding-bottom: 0;
+}
+/*
+ * Long conversations render turns in chunks that skip layout/paint while
+ * off-screen (turns stay in the DOM for find, selection and deep links).
+ * The clip margin covers the timeline marker and connector drawn left of
+ * each turn (left: -32px). Compact chunks keep the list's 20px rhythm.
+ */
+.turn-chunk {
+  display: flex;
+  flex-direction: column;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2000px;
+  overflow-clip-margin: 40px;
+}
+.turn-group > .turn-chunk {
+  gap: 20px;
 }
 .timeline-connector {
   position: absolute;

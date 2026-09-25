@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
 import { type CurrentObjective, ObjectiveBanner } from "@tracepilot/ui";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
@@ -12,6 +12,7 @@ import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
 import { useChatViewModeData } from "@/composables/useChatViewModeData";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useRenderBudget } from "@/composables/useRenderBudget";
+import { chunkTurns } from "./chatViewUtils";
 import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 import SubagentPanel from "./SubagentPanel.vue";
 import SystemMessagePanel from "./SystemMessagePanel.vue";
@@ -68,8 +69,14 @@ const {
   revealEvent,
 } = useChatViewModeData(cvRootEl);
 
+// Turns render in chunks, each a `content-visibility: auto` container.
+const turnChunks = computed(() => chunkTurns(turns.value));
+
 // ─── Panel top offset (fixed position below sticky action bar) ────
-const { panelTopPx } = useChatViewPanelOffset(cvRootEl);
+// Only tracked while the panel is open, and read through a getter inside the
+// panel: a per-scroll value read here would re-render every turn each frame.
+const { panelTopPx } = useChatViewPanelOffset(cvRootEl, () => panel.isPanelOpen.value);
+const panelTop = () => panelTopPx.value;
 
 /** When a steering message is sent, force-refresh turns to pick up new events faster. */
 function handleSteeringMessage(_prompt: string) {
@@ -89,9 +96,10 @@ defineExpose({ revealEvent });
       <div class="cv-scroll" ref="scrollEl">
         <div class="cv-content">
           <div class="cv-stream">
-            <template v-for="(turn, ti) in turns" :key="turn.turnIndex">
+            <div v-for="chunk in turnChunks" :key="chunk.key" class="cv-chunk">
+            <template v-for="(turn, ci) in chunk.turns" :key="turn.turnIndex">
               <!-- Gap indicator -->
-              <GapIndicator v-if="showGap(turn, ti)" :count="gapCount(turn, ti)" />
+              <GapIndicator v-if="showGap(turn, chunk.start + ci)" :count="gapCount(turn, chunk.start + ci)" />
 
               <!-- System message(s) — one per turn in auto-model sessions (CLI v1.0.32+) -->
               <SystemMessagePanel
@@ -153,6 +161,7 @@ defineExpose({ revealEvent });
                 @select-subagent="panel.selectSubagent"
               />
             </template>
+            </div>
 
             <CacheLiveDivider :timeline="props.cacheTimeline" />
           </div>
@@ -181,7 +190,7 @@ defineExpose({ revealEvent });
       :total-count="allSubagents.length"
       :has-prev="panel.hasPrev.value"
       :has-next="panel.hasNext.value"
-      :top-offset="panelTopPx"
+      :top-offset="panelTop"
       @close="panel.closePanel"
       @prev="panel.navigatePrev"
       @next="panel.navigateNext"
@@ -240,6 +249,23 @@ defineExpose({ revealEvent });
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+/*
+ * Skip layout and paint for off-screen chunks of turns. Long conversations
+ * mount thousands of turns; without this every frame lays out, paints and
+ * hit-tests the entire history. Turns stay in the DOM, so find-in-page,
+ * selection, copy and deep-link scrolling are unaffected. `auto` makes the
+ * browser remember each chunk's real height once it has been rendered.
+ * The clip margin keeps the hover turn label (left: -2px) and focus rings
+ * visible despite the paint containment this implies.
+ */
+.cv-chunk {
+  display: flex;
+  flex-direction: column;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2400px;
+  overflow-clip-margin: 8px;
 }
 
 .cv-bottom-stack {

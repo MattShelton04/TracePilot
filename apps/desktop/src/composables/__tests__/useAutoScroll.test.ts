@@ -404,11 +404,13 @@ describe("useAutoScroll", () => {
       result.scrollToBottom();
       expect(result.isLockedToBottom.value).toBe(true);
 
-      // New message arrives mid-animation — content grows, instant scroll fires
+      // New message arrives mid-animation — content grows. No instant scroll:
+      // that would cancel the smooth animation, which is continued on scrollend.
+      state.scrollSpy.mockClear();
       state.setScrollHeight(1100);
       watchSrc.value = 2;
-      await flushPromises(); // data watcher → nextTick → scrollTo({top:1100, instant})
-      state.scrollSpy.mockClear();
+      await flushPromises();
+      expect(state.scrollSpy).not.toHaveBeenCalled();
 
       // Scroll event while still mid-page (smooth scroll not done, guard still active)
       state.setScrollTop(400); // distFromBottom = 1100 - 400 - 500 = 200 → not at target

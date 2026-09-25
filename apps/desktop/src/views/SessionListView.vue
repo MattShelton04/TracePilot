@@ -266,9 +266,23 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           <LoadingSpinner size="lg" />
           <div class="loading-text">
             <div class="text-sm font-medium text-[var(--text-primary)]">Loading sessions…</div>
-            <div class="text-xs text-[var(--text-tertiary)] mt-1">Fetching your recent Copilot sessions.</div>
+            <div class="text-xs text-[var(--text-tertiary)] mt-1">
+              {{ indexingProgress ? "Building the session index. This only happens once." : "Fetching your recent Copilot sessions." }}
+            </div>
           </div>
         </div>
+        <!-- The first list request waits for the initial index build; show its progress. -->
+        <template v-if="indexingProgress && indexingProgress.total > 0">
+          <ProgressBar
+            :percent="indexingProgress.current / indexingProgress.total * 100"
+            color="accent"
+            class="mt-4"
+            style="max-width: 400px; margin-inline: auto;"
+          />
+          <div class="text-xs text-[var(--text-tertiary)] mt-1" style="text-align: center;">
+            {{ indexingProgress.current }} / {{ indexingProgress.total }} sessions
+          </div>
+        </template>
       </div>
 
       <!-- Session cards grid -->
@@ -296,6 +310,16 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
 </template>
 
 <style scoped>
+/*
+ * Skip layout/paint for off-screen session cards (hundreds for long-time
+ * users). Cards stay mounted, so filtering, keyboard focus and find work as
+ * before; `auto` remembers each card's measured height once rendered.
+ */
+.grid-cards > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 180px;
+}
+
 /* --- Enhanced Toolbar --- */
 .enhanced-toolbar {
   display: flex;

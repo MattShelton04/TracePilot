@@ -1,21 +1,36 @@
 //! `list_sessions` command — index-DB fast path with filesystem fallback.
 
 use crate::blocking_cmd;
+use crate::commands::search::ensure_index_ready;
+use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{indexed_session_to_list_item, load_summary_list_item, read_config};
 use crate::types::SessionListItem;
+use std::sync::Arc;
 
 #[tauri::command]
 #[specta::specta]
 #[tracing::instrument(skip_all)]
 pub async fn list_sessions(
     state: tauri::State<'_, SharedConfig>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
+    app: tauri::AppHandle,
     limit: Option<u32>,
     repo: Option<String>,
     branch: Option<String>,
     hide_empty: Option<bool>,
 ) -> CmdResult<Vec<SessionListItem>> {
+    // Build the index on first use (shared with any concurrent reader) instead
+    // of parsing every session's full event log for a one-off list.
+    let index_ready = ensure_index_ready(&state, gates.inner(), &app).await;
+    // Whole-corpus scans only run when the index cannot be used; serialise them.
+    let _scan = if index_ready {
+        None
+    } else {
+        Some(gates.acquire_disk_scan().await)
+    };
+
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let session_state_dir = cfg.session_state_dir();

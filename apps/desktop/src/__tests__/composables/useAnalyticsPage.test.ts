@@ -91,7 +91,7 @@ describe("useAnalyticsPage", () => {
     expect(fetchSpy).toHaveBeenCalledWith();
   });
 
-  it("calls the named fetch method with force:true when selectedRepo changes", async () => {
+  it("refetches (using the per-filter cache) when selectedRepo changes", async () => {
     const store = useAnalyticsStore();
     const fetchSpy = vi.spyOn(store, "fetchToolAnalysis").mockResolvedValue(undefined);
 
@@ -100,10 +100,10 @@ describe("useAnalyticsPage", () => {
     store.setRepo("my-repo");
     await nextTick();
 
-    expect(fetchSpy).toHaveBeenCalledWith({ force: true });
+    expect(fetchSpy).toHaveBeenCalledWith();
   });
 
-  it("calls the named fetch method with force:true when dateRange changes", async () => {
+  it("refetches (using the per-filter cache) when dateRange changes", async () => {
     const store = useAnalyticsStore();
     const fetchSpy = vi.spyOn(store, "fetchCodeImpact").mockResolvedValue(undefined);
 
@@ -112,6 +112,18 @@ describe("useAnalyticsPage", () => {
     store.setTimeRange("7d");
     await nextTick();
 
-    expect(fetchSpy).toHaveBeenCalledWith({ force: true });
+    expect(fetchSpy).toHaveBeenCalledWith();
+  });
+
+  it("refetches once when a reindex bumps dataRevision", async () => {
+    const store = useAnalyticsStore();
+    const fetchSpy = vi.spyOn(store, "fetchAnalytics").mockResolvedValue(undefined);
+
+    useAnalyticsPage("fetchAnalytics");
+
+    store.dataRevision += 1;
+    await nextTick();
+
+    expect(fetchSpy).toHaveBeenCalledOnce();
   });
 });

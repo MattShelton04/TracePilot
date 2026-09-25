@@ -66,14 +66,6 @@ export function useBootstrapPhase() {
     // after it registers its event listeners (prevents race condition).
   }
 
-  function onSetupComplete() {
-    phase.value = "app";
-    // Config.toml now exists — arm the auto-save watcher
-    prefsStore.hydrate();
-    sessionsStore.fetchSessions();
-    initAlertSystem();
-  }
-
   async function onIndexingComplete() {
     // Mark setup as fully complete so interrupted indexing won't restart setup
     try {
@@ -139,7 +131,6 @@ export function useBootstrapPhase() {
     phase,
     expectedSessionCount,
     onSetupSaved,
-    onSetupComplete,
     onIndexingComplete,
   };
 }

@@ -41,8 +41,10 @@ import {
   truncateText,
 } from "@tracepilot/ui";
 import { Coins, User } from "lucide-vue-next";
+import { computed } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
+import { chunkTurns } from "@/components/conversation/chatViewUtils";
 
 interface ToggleSetLike<T> {
   has: (value: T) => boolean;
@@ -66,6 +68,9 @@ const props = defineProps<{
   /** Prompt-cache timeline, for the live countdown after the last turn (compact view). */
   cacheTimeline?: PromptCacheTimeline | null;
 }>();
+
+// Turns render in `content-visibility: auto` chunks (see conversation.css).
+const turnChunks = computed(() => chunkTurns(props.turns));
 
 const emit = defineEmits<{
   (e: "load-full-result", toolCallId: string): void;
@@ -148,7 +153,8 @@ function onRetryFullResult(toolCallId: string) {
 <template>
   <!-- ═══════════════ COMPACT VIEW ═══════════════ -->
   <div v-if="viewMode === 'compact'" class="turn-group">
-    <template v-for="turn in turns" :key="turn.turnIndex">
+    <div v-for="chunk in turnChunks" :key="chunk.key" class="turn-chunk">
+    <template v-for="turn in chunk.turns" :key="turn.turnIndex">
       <CacheResumeDivider v-if="cacheWindows?.get(turn.turnIndex)" :window="cacheWindows.get(turn.turnIndex)!" />
       <div v-if="turn.userMessage" :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined" :data-turn-idx="turn.eventIndex == null ? turn.turnIndex : undefined" class="compact-turn-user">
         <span class="compact-turn-label-prefix user"><User :size="14" aria-hidden="true" /> User</span>
@@ -256,13 +262,15 @@ function onRetryFullResult(toolCallId: string) {
       </div>
       </div>
     </template>
+    </div>
     <CacheLiveDivider :timeline="cacheTimeline ?? null" />
   </div>
 
   <!-- ═══════════════ TIMELINE VIEW ═══════════════ -->
   <div v-else-if="viewMode === 'timeline'" class="timeline-view">
-    <div v-for="(turn, turnIdx) in turns" :key="turn.turnIndex" :data-turn-idx="turn.turnIndex" class="timeline-turn">
-      <div v-if="turnIdx < turns.length - 1" class="timeline-connector" />
+    <div v-for="chunk in turnChunks" :key="chunk.key" class="turn-chunk">
+    <div v-for="(turn, ci) in chunk.turns" :key="turn.turnIndex" :data-turn-idx="turn.turnIndex" class="timeline-turn">
+      <div v-if="chunk.start + ci < turns.length - 1" class="timeline-connector" />
       <div class="timeline-marker">{{ turn.turnIndex }}</div>
 
       <div class="timeline-turn-body">
@@ -340,6 +348,7 @@ function onRetryFullResult(toolCallId: string) {
           </div>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </template>
