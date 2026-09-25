@@ -46,7 +46,7 @@ some older reports and plans, which remain recoverable from Git history.
 |----------|-------------|
 | [Git Worktree Guide](git-worktree-guide.md) | Working with git worktrees in TracePilot. |
 | [Version Analysis](version-analysis-implementation-guide.md) | Implementing Copilot schema version analysis. |
-| [Versioning & Release](versioning-updates-release-strategy.md) | Versioning strategy and release process. |
+| [Versioning & Release Proposal](versioning-updates-release-strategy.md) | Historical strategy draft; use the root README for the current release process. |
 | [Specta Migration](specta-migration-guide.md) | Specta / tauri-specta migration guide. |
 | [Syntax Highlighting](syntax-highlighting.md) | Current syntax-highlighting behavior and tradeoffs. |
 | [Bespoke Syntax Highlighting Analysis](syntax-highlighting-bespoke-analysis.md) | Analysis behind bespoke syntax-highlighting choices. |

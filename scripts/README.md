@@ -38,10 +38,9 @@ Node commands; it is not a second implementation of those tasks.
 
 | Entry point | Purpose | Platform / prerequisites / effects |
 | --- | --- | --- |
-| `pwsh -File scripts/dev.ps1` | Print a quick command menu. | PowerShell; read-only. |
 | `pwsh -File scripts/build.ps1` | Run `cargo build --workspace` and `pnpm -r build`. | PowerShell; writes build outputs. It is not a release installer command. |
 | `pwsh -File scripts/clean.ps1` | Remove selected build caches or outputs. | PowerShell; destructive to generated files. Review `-Frontend`, `-Full`, and `-Deep` before use. |
-| `pwsh -File scripts/bump-version.ps1 -Version X.Y.Z` | Synchronise workspace versions and lockfiles. | PowerShell; requires pnpm and cargo-edit; modifies manifests and lockfiles. See [release guidance](../docs/versioning-updates-release-strategy.md). |
+| `pwsh -File scripts/bump-version.ps1 -Version X.Y.Z` | Synchronise workspace versions and lockfiles. | PowerShell; requires pnpm and cargo-edit; modifies manifests and lockfiles. See [current release steps](../README.md#versioning-and-releases). |
 | `pwsh -File scripts/bench.ps1` | Run Criterion benchmarks, optionally saving/comparing a baseline. | PowerShell, Rust; writes `target/criterion/`. Use synthetic fixtures. |
 | `just bench-flamegraph <bench>` or `pwsh -File scripts/bench-flamegraph.ps1 <bench>` | Profile a selected benchmark. | Opt-in profiler (`cargo flamegraph` and platform support); writes profiling output. |
 | `pwsh -File scripts/pgo-build.ps1` or `bash scripts/pgo-build.sh` | Profile-guided Rust build. | PowerShell/POSIX; Rust LLVM tools; runs benchmarks and writes profiles/build outputs. |
@@ -60,3 +59,14 @@ Node commands; it is not a second implementation of those tasks.
 The tests and imported helpers in these groups are not standalone user commands.
 Keep externally documented wrapper paths and the visual publisher's isolated
 dependency/trust boundary when changing this directory.
+
+## Audit-only helpers
+
+These have recorded one-off use, but no current package, Just, or CI command
+invokes them automatically:
+
+| Helper | Evidence and current status |
+| --- | --- |
+| `scripts/e2e/native-dialog-gateway.mjs` | Used for picker-result substitution in the dated [usability audit](../docs/reports/usability-audit-2026-09-12/validation.md); it does not exercise the OS dialog. Its focused contract suite is `node --test scripts/e2e/native-dialog-gateway.test.mjs`. |
+| `scripts/e2e/copilot-compat.mjs` and `usability-fixtures.mjs` | The former is cited as an isolated-session example; the latter generated the dated usability audit's synthetic corpus. Neither is a routine CI gate. The fixture generator has imported helpers and tests. |
+| `scripts/perf/private-snapshot.mjs` | Used to select the private corpus described in the [performance mission](../docs/reports/performance-mission.md). It has no current workflow caller, writes ignored private copies, and does not itself create the fixture manifest required by `scripts/perf/indexing.mjs`. |
