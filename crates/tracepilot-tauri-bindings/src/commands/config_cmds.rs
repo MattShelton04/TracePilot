@@ -102,10 +102,11 @@ pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirR
 #[specta::specta]
 pub async fn factory_reset(
     state: tauri::State<'_, SharedConfig>,
+    gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
     turn_cache: tauri::State<'_, TurnCache>,
     event_cache: tauri::State<'_, EventCache>,
 ) -> CmdResult<()> {
-    services::config::factory_reset(&state).await?;
+    services::config::factory_reset(&state, &gates).await?;
     clear_session_caches(&turn_cache, &event_cache);
     resize_session_caches(
         &turn_cache,

@@ -9,20 +9,24 @@
 use crate::commands::analytics_executor::{
     AnalyticsContext, AnalyticsQueryParams, execute_analytics_query,
 };
+use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
+use std::sync::Arc;
 
 #[tauri::command]
 #[tracing::instrument(skip_all)]
 pub async fn get_analytics(
     state: tauri::State<'_, SharedConfig>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
+    app: tauri::AppHandle,
     from_date: Option<String>,
     to_date: Option<String>,
     repo: Option<String>,
     hide_empty: Option<bool>,
 ) -> CmdResult<tracepilot_core::analytics::AnalyticsData> {
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
-    let ctx = AnalyticsContext::from_state(&state);
+    let ctx = AnalyticsContext::prepare(&state, &gates, &app).await;
     let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty);
 
     execute_analytics_query(
@@ -54,13 +58,15 @@ pub async fn get_analytics(
 #[tracing::instrument(skip_all)]
 pub async fn get_tool_analysis(
     state: tauri::State<'_, SharedConfig>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
+    app: tauri::AppHandle,
     from_date: Option<String>,
     to_date: Option<String>,
     repo: Option<String>,
     hide_empty: Option<bool>,
 ) -> CmdResult<tracepilot_core::analytics::ToolAnalysisData> {
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
-    let ctx = AnalyticsContext::from_state(&state);
+    let ctx = AnalyticsContext::prepare(&state, &gates, &app).await;
     let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty);
 
     execute_analytics_query(
@@ -92,13 +98,15 @@ pub async fn get_tool_analysis(
 #[tracing::instrument(skip_all)]
 pub async fn get_code_impact(
     state: tauri::State<'_, SharedConfig>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
+    app: tauri::AppHandle,
     from_date: Option<String>,
     to_date: Option<String>,
     repo: Option<String>,
     hide_empty: Option<bool>,
 ) -> CmdResult<tracepilot_core::analytics::CodeImpactData> {
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
-    let ctx = AnalyticsContext::from_state(&state);
+    let ctx = AnalyticsContext::prepare(&state, &gates, &app).await;
     let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty);
 
     execute_analytics_query(

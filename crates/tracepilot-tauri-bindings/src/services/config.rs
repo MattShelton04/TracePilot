@@ -61,9 +61,7 @@ pub(crate) async fn save_config(
         let sessions = gates
             .try_acquire_sessions()
             .map_err(|_| BindingsError::AlreadyIndexing)?;
-        let search = gates
-            .try_acquire_search()
-            .map_err(|_| BindingsError::AlreadyIndexing)?;
+        let search = gates.cancel_and_acquire_search().await;
         Some(IndexingMovePermits {
             _sessions: sessions,
             _search: search,
@@ -91,12 +89,20 @@ pub(crate) async fn save_config(
 
 /// Orchestrate `factory_reset`: remove index DB files and the config file on a
 /// blocking worker, then clear the in-memory `SharedConfig`.
-pub(crate) async fn factory_reset(shared_config: &SharedConfig) -> CmdResult<()> {
+pub(crate) async fn factory_reset(
+    shared_config: &SharedConfig,
+    gates: &IndexingSemaphores,
+) -> CmdResult<()> {
+    // Never delete the database under a running indexer: wait for the session
+    // job, stop any search pass, and hold both gates until files are removed.
+    let sessions_permit = gates.acquire_sessions().await;
+    let search_permit = gates.cancel_and_acquire_search().await;
     let cfg = read_config(shared_config);
     let index_path = cfg.index_db_path();
     let config_path = config::config_file_path();
 
     tokio::task::spawn_blocking(move || {
+        let _permits = (sessions_permit, search_permit);
         if let Err(e) = delete_index_db_files(&index_path) {
             tracing::warn!(error = %e, "factory_reset: failed to remove index DB files");
         }
