@@ -6,10 +6,12 @@ import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import AgentTreeView from "@/components/timeline/AgentTreeView.vue";
 import NestedSwimlanesView from "@/components/timeline/NestedSwimlanesView.vue";
 import TurnWaterfallView from "@/components/timeline/TurnWaterfallView.vue";
+import { provideSessionAgentDirectory } from "@/composables/useSessionAgentDirectory";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { sessionModel } from "@/utils/sessionModel";
 
 const store = useSessionDetailContext();
+provideSessionAgentDirectory(store);
 
 // Load turns when component mounts (if not already loaded)
 watch(

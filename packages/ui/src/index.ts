@@ -148,6 +148,12 @@ export {
   useExternalLinkHandler,
 } from "./composables/externalLinks";
 export { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "./composables/liveToolPartialOutput";
+export type { AgentDirectoryContext } from "./composables/useAgentDirectory";
+export {
+  provideAgentDirectory,
+  provideAgentOpener,
+  useAgentDirectory,
+} from "./composables/useAgentDirectory";
 export type {
   UseAsyncDataOptions,
   UseAsyncDataReturn,
@@ -238,6 +244,33 @@ export {
 export type { LucideName } from "./icons/templateCatalogue";
 export { TEMPLATE_ICON_CATALOGUE } from "./icons/templateCatalogue";
 // ── Utilities ──────────────────────────────────────────────────────
+export type {
+  AgentCommDelivery,
+  AgentCommKind,
+  AgentCommRelation,
+  AgentCommStats,
+  AgentCommunication,
+  AgentDirectory,
+  AgentDirectoryEntry,
+  AgentRuntimeStatus,
+  ListAgentsResult,
+  ListedAgent,
+  ReadAgentResult,
+  ReadAgentTurn,
+  WriteAgentResult,
+} from "./utils/agentComms";
+export {
+  agentToolSummary,
+  buildAgentCommunications,
+  buildAgentDirectory,
+  communicationsFor,
+  MAIN_AGENT_KEY,
+  parseListAgentsResult,
+  parseReadAgentResult,
+  parseWriteAgentResult,
+  summarizeAgentCommunications,
+  writeAgentTarget,
+} from "./utils/agentComms";
 export type { AgentSection, SubagentContent } from "./utils/agentGrouping";
 export {
   buildSubagentContentIndex,

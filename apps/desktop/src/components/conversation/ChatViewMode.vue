@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
-import { type CurrentObjective, ObjectiveBanner } from "@tracepilot/ui";
+import { type CurrentObjective, ObjectiveBanner, provideAgentOpener } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
@@ -68,6 +68,9 @@ const {
   gapCount,
   revealEvent,
 } = useChatViewModeData(cvRootEl);
+
+// Agent chips in tool renderers open that agent in the slide-out panel.
+provideAgentOpener((key) => panel.openSubagent(key));
 
 // Turns render in chunks, each a `content-visibility: auto` container.
 const turnChunks = computed(() => chunkTurns(turns.value));

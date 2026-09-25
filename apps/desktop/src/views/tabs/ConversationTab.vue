@@ -31,6 +31,7 @@ import ConversationViewSwitcher, {
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { useConversationDeepLinkScroll } from "@/composables/useConversationDeepLinkScroll";
 import { usePromptCache } from "@/composables/usePromptCache";
+import { provideSessionAgentDirectory } from "@/composables/useSessionAgentDirectory";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -41,6 +42,7 @@ const { isViewer } = useWindowRole();
 // We provide an empty-query stub to avoid property-access crashes.
 const route: Pick<RouteLocationNormalizedLoaded, "query"> = isViewer() ? { query: {} } : useRoute();
 const store = useSessionDetailContext();
+provideSessionAgentDirectory(store);
 const preferences = usePreferencesStore();
 const expandedToolDetails = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();

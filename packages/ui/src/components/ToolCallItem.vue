@@ -2,7 +2,9 @@
 import type { TurnSessionEvent, TurnToolCall } from "@tracepilot/types";
 import { formatDuration } from "@tracepilot/types";
 import { computed, nextTick, ref, watch } from "vue";
+import { useAgentDirectory } from "../composables/useAgentDirectory";
 import { resolveLucideIcon } from "../icons/lucideRegistry";
+import { agentToolSummary } from "../utils/agentComms";
 import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
 import ExpandChevron from "./ExpandChevron.vue";
 import ToolCallDetail from "./ToolCallDetail.vue";
@@ -39,8 +41,14 @@ const emit = defineEmits<{
   "retry-full-result": [toolCallId: string];
 }>();
 
+const { directory: agentDirectory } = useAgentDirectory();
+
+// Agent-control tools name the agents they address instead of raw runtime IDs.
 const summary = computed(
-  () => props.argsSummary ?? formatArgsSummary(props.tc.arguments, props.tc.toolName),
+  () =>
+    agentToolSummary(props.tc, agentDirectory.value) ??
+    props.argsSummary ??
+    formatArgsSummary(props.tc.arguments, props.tc.toolName),
 );
 
 // ── Permission pill (paired permission.* events, when provided) ───

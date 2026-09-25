@@ -126,6 +126,23 @@ describe("formatArgsSummary", () => {
     expect(formatArgsSummary({ agent_name: "name", name: "fallback" }, "read_agent")).toBe("name");
   });
 
+  it("formats 'write_agent' with its target and message", () => {
+    expect(formatArgsSummary({ agent_id: "beta", message: "what is\n 6*7?" }, "write_agent")).toBe(
+      "→ beta · what is 6*7?",
+    );
+    expect(formatArgsSummary({ agent_ids: ["a", "b"], message: "go" }, "write_agent")).toBe(
+      "→ 2 agents · go",
+    );
+    expect(formatArgsSummary({ scope: "children", message: "x".repeat(120) }, "write_agent")).toBe(
+      `→ all children · ${"x".repeat(100)}…`,
+    );
+  });
+
+  it("formats 'list_agents' with its scope", () => {
+    expect(formatArgsSummary({ scope: "siblings" }, "list_agents")).toBe("scope: siblings");
+    expect(formatArgsSummary({}, "list_agents")).toBe("");
+  });
+
   it("formats 'report_intent' with intent", () => {
     expect(formatArgsSummary({ intent: "user_intent" }, "report_intent")).toBe("user_intent");
   });
