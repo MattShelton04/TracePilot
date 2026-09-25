@@ -77,14 +77,17 @@ export function buildAgentDirectory(
       const args = getToolArgs(tc);
       const entry: AgentDirectoryEntry = {
         key: tc.toolCallId,
-        name: tc.agentDisplayName || toolArgString(args, "name") || tc.toolName || "Subagent",
+        // The launch name ("explore-project-structure") beats the type-level
+        // display name ("Explore Agent") that every agent of a type shares.
+        name: toolArgString(args, "name") || tc.agentDisplayName || tc.toolName || "Subagent",
         type: inferAgentTypeFromToolCall(tc),
         status: agentStatusFromToolCall(tc),
         isMain: false,
         agentId: tc.agentId ?? launchResultAgentId(tc),
         parentKey: tc.parentToolCallId ?? MAIN_AGENT_KEY,
         depth: 1,
-        description: tc.agentDescription || toolArgString(args, "description") || undefined,
+        // The task's description, not the agent type's boilerplate one.
+        description: toolArgString(args, "description") || tc.agentDescription || undefined,
         model: tc.model || undefined,
         startedAt: tc.startedAt,
         completedAt: tc.completedAt,
