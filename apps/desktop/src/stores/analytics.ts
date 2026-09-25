@@ -1,8 +1,9 @@
-import { getAnalytics, getCodeImpact, getToolAnalysis } from "@tracepilot/client";
+import { getAnalytics, getCodeImpact, getToolAnalysis, IPC_EVENTS } from "@tracepilot/client";
 import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
 import { useCachedFetch } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
+import { safeListen } from "@/utils/tauriEvents";
 import { usePreferencesStore } from "./preferences";
 import { useSessionsStore } from "./sessions";
 
@@ -156,6 +157,21 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     },
   );
 
+  // Cached results describe the index at the time they were fetched. When a
+  // session reindex finishes, drop them and bump `dataRevision` so mounted
+  // analytics pages refetch once, instead of showing stale (or, right after
+  // first-run indexing, partial) numbers until the filters change.
+  const dataRevision = ref(0);
+  let indexListenerStarted = false;
+  async function watchIndexUpdates() {
+    if (indexListenerStarted) return;
+    indexListenerStarted = true;
+    await safeListen(IPC_EVENTS.INDEXING_FINISHED, () => {
+      for (const f of allFetchers) f.clearCache();
+      dataRevision.value += 1;
+    });
+  }
+
   return {
     // State - use fetcher refs directly
     analytics: analyticsFetcher.data,
@@ -173,6 +189,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     customFromDate,
     customToDate,
     dateRange,
+    dataRevision,
 
     // Actions
     fetchAnalytics,
@@ -182,6 +199,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     refreshAll,
     setRepo,
     setTimeRange,
+    watchIndexUpdates,
     $reset,
   };
 });
