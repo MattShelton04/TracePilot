@@ -259,18 +259,22 @@ The settings panel (visible when the feature is enabled) provides:
 
 ## Verified Capabilities
 
-The following has been tested end-to-end via CDP against the live Tauri webview:
+Verified on 2026-09-26 against Copilot CLI 1.0.88 with `github-copilot-sdk`
+1.0.14 (protocol v3), both in the real desktop app (isolated data root, via the
+[running-app automation workflow](app-automation.md)) and with the opt-in
+smoke tests in `crates/tracepilot-orchestrator/tests/live_copilot_bridge.rs`:
 
 | Capability | Status | Notes |
 |---|---|---|
-| SDK Connection | ✅ Working | Spawns CLI subprocess, connects via stdio JSON-RPC |
-| Session Discovery | ✅ Working | Finds all 236+ sessions from `~/.copilot/session-state/` |
-| Session Resume | ✅ Working | Can resume any existing session by ID |
-| Model Listing | ✅ Working | 14 models including Claude Sonnet 4.6, GPT-5.4, etc. |
-| Auth Status | ✅ Working | Returns GitHub auth info |
-| Steering Panel UI | ✅ Working | Visible in Conversation tab with Ask/Plan/Auto modes |
-| Status Indicator | ✅ Working | Green dot in sidebar when connected |
-| Quota API | ⚠️ Expected | `account.get_quota` returns -32601 (silently handled) |
+| Stdio connection | ✅ Working | Spawns the installed `copilot --server --stdio` |
+| TCP attach | ✅ Working | Detect finds a running `copilot --ui-server`; Connect attaches over `Transport::External` |
+| Foreground session | ✅ Working | Returns the session the terminal TUI is showing |
+| Attach to a terminal session | ✅ Working | Handler-less resume; live events forwarded (including prompts typed in the TUI) |
+| Permission prompts | ✅ Stay in terminal | An attached session reports `waiting_for_permission`; the TUI answers it |
+| Send / abort / detach | ✅ Working | Detach (`session.detach`) never writes `session.shutdown` |
+| Auth status | ✅ Working | Returns GitHub auth info |
+| Model listing | ✅ Working | Returns what the CLI reports (one `auto`-routed model on the test account) |
+| Quota | ✅ Working | `account.getQuota` snapshots (previously `-32601` with the community SDK) |
 
 ## Rust API Reference
 

@@ -25,7 +25,7 @@ const ctx = useSdkSteeringContext();
     <button
       v-if="ctx.isLinked"
       class="cb-btn-stop cb-btn-destroy"
-      title="Shutdown — stop the CLI subprocess for this session"
+      title="Shutdown — detach TracePilot from this session without ending it"
       @click="ctx.handleShutdownSession"
     >
       Shutdown

@@ -219,7 +219,10 @@ model:
 - **Settings:** replace the stdio/TCP connection panel with a "Live sessions"
   section (enable, discovered servers, manual `host:port` and token entry, and
   diagnostics). Remove the manual "Detect UI server / Connect" flow from the
-  main path.
+  main path. (Observed 2026-09-26: the current Stdio/TCP toggle flips back to
+  Stdio while disconnected unless a CLI URL is already saved.)
+- Rename *Unlink* / *Shutdown*: since Phase 1 both only detach, so the UI
+  should offer a single **Detach** action.
 - Validate at 1440×960, 960×640, and 2560×1440 with the running-app automation
   workflow, and add VRT scenarios for the live states.
 
