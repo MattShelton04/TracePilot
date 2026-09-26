@@ -35,6 +35,7 @@ mod subagent_lifecycle;
 mod system_messages;
 mod tool_execution;
 mod turn_reconstruction;
+mod web_search_results;
 
 // Test utilities
 pub(super) mod builders;
