@@ -38,9 +38,16 @@ Active Connections
   UDP    0.0.0.0:5353           *:*                                    77
 ";
     let map = parse_netstat(output);
-    assert_eq!(map.get(&10552), Some(&vec![54618, 61000]));
-    assert_eq!(map.get(&1200), Some(&vec![135]));
-    assert_eq!(map.get(&4), Some(&vec![445]));
+    assert_eq!(
+        map.get(&10552),
+        Some(&vec![
+            "127.0.0.1:54618".to_string(),
+            "[::1]:61000".to_string()
+        ])
+    );
+    assert_eq!(map.get(&1200), Some(&vec!["127.0.0.1:135".to_string()]));
+    // An IPv6-only listener is reached over IPv6.
+    assert_eq!(map.get(&4), Some(&vec!["[::1]:445".to_string()]));
     assert!(
         !map.contains_key(&900),
         "non-loopback listeners are ignored"
@@ -50,15 +57,22 @@ Active Connections
 
 #[test]
 fn parses_lsof_field_output() {
-    let output = "p311\nf12\nn127.0.0.1:54618\nf13\nn[::1]:54619\np400\nf3\nn10.0.0.2:22\n";
+    let output = "p311\nf13\nn[::1]:54619\nf12\nn127.0.0.1:54618\np400\nf3\nn10.0.0.2:22\n";
     let map = parse_lsof(output);
-    assert_eq!(map.get(&311), Some(&vec![54618, 54619]));
+    // IPv4 first, even when listed second.
+    assert_eq!(
+        map.get(&311),
+        Some(&vec![
+            "127.0.0.1:54618".to_string(),
+            "[::1]:54619".to_string()
+        ])
+    );
     assert!(!map.contains_key(&400));
 }
 
 #[test]
 fn classifies_hosting_states() {
-    let listening = HashMap::from([(10552_u32, vec![54618_u16])]);
+    let listening = PortMap::from([(10552_u32, vec!["127.0.0.1:54618".to_string()])]);
 
     let attachable = classify("s1", &[3, 10552], true, &listening, None);
     assert_eq!(attachable.state, LiveHostState::Attachable);
@@ -105,7 +119,8 @@ async fn locate_sessions_rejects_path_like_ids_and_reports_idle() {
         dir.path(),
         &["idle-session".to_string(), "../escape".to_string()],
     )
-    .await;
+    .await
+    .expect("no lock holders, so no probe is needed");
     assert_eq!(hosts.len(), 2);
     assert!(hosts.iter().all(|h| h.state == LiveHostState::Idle));
 }
@@ -127,7 +142,7 @@ fn hold_file_liveness_follows_open_handles() {
 #[test]
 fn a_stale_or_dead_holder_is_never_attachable() {
     // A crashed CLI's PID reused by an unrelated loopback listener.
-    let listening = HashMap::from([(4242, vec![5000])]);
+    let listening = PortMap::from([(4242, vec!["127.0.0.1:5000".to_string()])]);
     let stale = classify("s", &[4242], false, &listening, None);
     assert_eq!(stale.state, LiveHostState::Idle);
     let alive = HashSet::from([1]);

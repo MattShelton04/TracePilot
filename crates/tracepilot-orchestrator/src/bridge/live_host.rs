@@ -14,7 +14,8 @@
 //! Locating is read-only: it never connects to a server or writes to a
 //! session. The listening-port table comes from one bounded, hidden system
 //! probe (`netstat` on Windows, `lsof` elsewhere) and is cached briefly so a
-//! session list can ask about many sessions at once.
+//! session list can ask about many sessions at once. When that probe fails,
+//! locating fails too, rather than reporting every terminal as gone.
 
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -49,7 +50,8 @@ pub struct LiveSessionHost {
     pub state: LiveHostState,
     /// PID of the CLI process that holds the session, when known.
     pub pid: Option<u32>,
-    /// `127.0.0.1:<port>` of the hosting server when attachable.
+    /// `127.0.0.1:<port>` (or `[::1]:<port>` for an IPv6-only listener) of
+    /// the hosting server when attachable.
     pub address: Option<String>,
     /// Whether TracePilot is currently attached to this session.
     pub attached: bool,
@@ -85,7 +87,7 @@ pub(crate) fn classify(
     session_id: &str,
     holder_pids: &[u32],
     has_live_lock: bool,
-    listening: &HashMap<u32, Vec<u16>>,
+    listening: &PortMap,
     alive: Option<&HashSet<u32>>,
 ) -> LiveSessionHost {
     // A stale lock, or a holder that has exited, never makes a session
@@ -93,12 +95,12 @@ pub(crate) fn classify(
     // listener.
     let is_live_holder = |pid: &u32| has_live_lock && alive.is_none_or(|alive| alive.contains(pid));
     for pid in holder_pids.iter().filter(|pid| is_live_holder(pid)) {
-        if let Some(port) = listening.get(pid).and_then(|ports| ports.first()) {
+        if let Some(address) = listening.get(pid).and_then(|addresses| addresses.first()) {
             return LiveSessionHost {
                 session_id: session_id.to_string(),
                 state: LiveHostState::Attachable,
                 pid: Some(*pid),
-                address: Some(format!("127.0.0.1:{port}")),
+                address: Some(address.clone()),
                 attached: false,
             };
         }
@@ -128,13 +130,25 @@ pub(crate) fn classify(
     }
 }
 
+/// The listening-socket probe failed, so hosting state is unknown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocateError;
+
+impl std::fmt::Display for LocateError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("could not list listening ports to find live terminals")
+    }
+}
+
 /// Locate the hosting state of each session in `session_ids`.
 ///
 /// Unknown or malformed session IDs resolve to [`LiveHostState::Idle`].
+/// Fails only when some session has a lock holder and the listening-socket
+/// probe failed: guessing then would report every live terminal as gone.
 pub async fn locate_sessions(
     session_state_dir: &Path,
     session_ids: &[String],
-) -> Vec<LiveSessionHost> {
+) -> Result<Vec<LiveSessionHost>, LocateError> {
     let candidates: Vec<(String, Vec<u32>, bool)> = session_ids
         .iter()
         .map(|id| {
@@ -149,7 +163,7 @@ pub async fn locate_sessions(
         .collect();
 
     let listening = if candidates.iter().any(|(_, pids, _)| !pids.is_empty()) {
-        listening_ports().await
+        listening_ports().await.ok_or(LocateError)?
     } else {
         HashMap::new()
     };
@@ -167,10 +181,10 @@ pub async fn locate_sessions(
         alive_holders(session_state_dir, &needs_liveness).await
     };
 
-    candidates
+    Ok(candidates
         .iter()
         .map(|(id, pids, live)| classify(id, pids, *live, &listening, alive.as_ref()))
-        .collect()
+        .collect())
 }
 
 /// Session IDs are directory names; refuse anything that could escape the
@@ -183,25 +197,27 @@ fn is_plain_session_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-/// Loopback listening ports keyed by owning PID.
-type PortMap = HashMap<u32, Vec<u16>>;
+/// Connectable loopback addresses of listening sockets (`127.0.0.1:<port>`
+/// first, then `[::1]:<port>`), keyed by owning PID.
+pub(crate) type PortMap = HashMap<u32, Vec<String>>;
 
 static PORT_CACHE: Mutex<Option<(Instant, PortMap)>> = Mutex::new(None);
 
-/// Loopback TCP listening ports keyed by owning PID (cached for
-/// [`PORT_CACHE_TTL`]).
-pub async fn listening_ports() -> HashMap<u32, Vec<u16>> {
+/// Loopback TCP listeners keyed by owning PID, or `None` when the probe
+/// failed. Successful probes are cached for [`PORT_CACHE_TTL`]; failures are
+/// not, so the next poll tries again.
+pub async fn listening_ports() -> Option<PortMap> {
     if let Ok(guard) = PORT_CACHE.lock()
         && let Some((at, map)) = guard.as_ref()
         && at.elapsed() < PORT_CACHE_TTL
     {
-        return map.clone();
+        return Some(map.clone());
     }
-    let map = probe_listening_ports().await;
+    let map = probe_listening_ports().await?;
     if let Ok(mut guard) = PORT_CACHE.lock() {
         *guard = Some((Instant::now(), map.clone()));
     }
-    map
+    Some(map)
 }
 
 /// Lock-holder PIDs that are still running, or `None` when liveness cannot be
@@ -290,38 +306,53 @@ pub(crate) fn parse_ps_pids(output: &str) -> HashSet<u32> {
         .collect()
 }
 
+/// `netstat -ano`, without `-p TCP`, which would leave out IPv6 sockets.
 #[cfg(windows)]
-async fn probe_listening_ports() -> HashMap<u32, Vec<u16>> {
+async fn probe_listening_ports() -> Option<PortMap> {
     let mut cmd = crate::process::hidden_command("netstat");
-    cmd.args(["-ano", "-p", "TCP"]);
+    cmd.arg("-ano");
     match crate::process::run_async_with_limits(cmd, PROBE_TIMEOUT, PROBE_MAX_BYTES).await {
-        Ok((stdout, _, _)) => parse_netstat(&String::from_utf8_lossy(&stdout)),
+        Ok((stdout, _, status)) if status.success() => {
+            Some(parse_netstat(&String::from_utf8_lossy(&stdout)))
+        }
+        Ok((_, _, status)) => {
+            tracing::debug!(%status, "netstat probe failed");
+            None
+        }
         Err(e) => {
             tracing::debug!(error = %e, "netstat probe failed");
-            HashMap::new()
+            None
         }
     }
 }
 
+/// `lsof` exits 1 when nothing is listening, which is an empty table rather
+/// than a failure.
 #[cfg(not(windows))]
-async fn probe_listening_ports() -> HashMap<u32, Vec<u16>> {
+async fn probe_listening_ports() -> Option<PortMap> {
     let mut cmd = tokio::process::Command::new("lsof");
     cmd.args(["-nP", "-iTCP", "-sTCP:LISTEN", "-Fpn"]);
     match crate::process::run_async_with_limits(cmd, PROBE_TIMEOUT, PROBE_MAX_BYTES).await {
-        Ok((stdout, _, _)) => parse_lsof(&String::from_utf8_lossy(&stdout)),
+        Ok((stdout, _, status)) if status.success() || status.code() == Some(1) => {
+            Some(parse_lsof(&String::from_utf8_lossy(&stdout)))
+        }
+        Ok((_, _, status)) => {
+            tracing::debug!(%status, "lsof probe failed");
+            None
+        }
         Err(e) => {
             tracing::debug!(error = %e, "lsof probe failed");
-            HashMap::new()
+            None
         }
     }
 }
 
-/// Parse `netstat -ano -p TCP`. The state column is localised on Windows, so a
+/// Parse `netstat -ano`. The state column is localised on Windows, so a
 /// listening socket is recognised by its unspecified foreign address
 /// (`0.0.0.0:0` / `[::]:0`) instead of the word `LISTENING`.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) fn parse_netstat(output: &str) -> HashMap<u32, Vec<u16>> {
-    let mut map: HashMap<u32, Vec<u16>> = HashMap::new();
+pub(crate) fn parse_netstat(output: &str) -> PortMap {
+    let mut map = PortMap::new();
     for line in output.lines() {
         let cols: Vec<&str> = line.split_whitespace().collect();
         if cols.len() < 5 || !cols[0].eq_ignore_ascii_case("TCP") {
@@ -331,43 +362,41 @@ pub(crate) fn parse_netstat(output: &str) -> HashMap<u32, Vec<u16>> {
         if !(foreign.ends_with(":0")) {
             continue;
         }
-        let Some((host, port)) = split_host_port(local) else {
+        let Some(address) = split_host_port(local).and_then(connect_address) else {
             continue;
         };
-        if !is_loopback_or_any(host) {
-            continue;
-        }
         let Ok(pid) = cols[cols.len() - 1].parse::<u32>() else {
             continue;
         };
-        push_port(&mut map, pid, port);
+        push_address(&mut map, pid, address);
     }
     map
 }
 
 /// Parse `lsof -nP -iTCP -sTCP:LISTEN -Fpn` field output.
 #[cfg_attr(windows, allow(dead_code))]
-pub(crate) fn parse_lsof(output: &str) -> HashMap<u32, Vec<u16>> {
-    let mut map: HashMap<u32, Vec<u16>> = HashMap::new();
+pub(crate) fn parse_lsof(output: &str) -> PortMap {
+    let mut map = PortMap::new();
     let mut pid: Option<u32> = None;
     for line in output.lines() {
         if let Some(p) = line.strip_prefix('p') {
             pid = p.parse().ok();
         } else if let Some(name) = line.strip_prefix('n')
             && let Some(pid) = pid
-            && let Some((host, port)) = split_host_port(name)
-            && is_loopback_or_any(host)
+            && let Some(address) = split_host_port(name).and_then(connect_address)
         {
-            push_port(&mut map, pid, port);
+            push_address(&mut map, pid, address);
         }
     }
     map
 }
 
-fn push_port(map: &mut HashMap<u32, Vec<u16>>, pid: u32, port: u16) {
-    let ports = map.entry(pid).or_default();
-    if !ports.contains(&port) {
-        ports.push(port);
+/// Add `address` once, keeping IPv4 addresses ahead of IPv6 ones.
+fn push_address(map: &mut PortMap, pid: u32, address: String) {
+    let addresses = map.entry(pid).or_default();
+    if !addresses.contains(&address) {
+        addresses.push(address);
+        addresses.sort_by_key(|a| a.starts_with('['));
     }
 }
 
@@ -377,11 +406,14 @@ fn split_host_port(addr: &str) -> Option<(&str, u16)> {
     (port != 0).then_some((host.trim_start_matches('[').trim_end_matches(']'), port))
 }
 
-fn is_loopback_or_any(host: &str) -> bool {
-    matches!(
-        host,
-        "127.0.0.1" | "::1" | "0.0.0.0" | "::" | "*" | "localhost"
-    )
+/// The loopback address to connect to for a listener on `host:port`, or
+/// `None` when it does not accept loopback connections.
+fn connect_address((host, port): (&str, u16)) -> Option<String> {
+    match host {
+        "127.0.0.1" | "0.0.0.0" | "*" | "localhost" => Some(format!("127.0.0.1:{port}")),
+        "::1" | "::" => Some(format!("[::1]:{port}")),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

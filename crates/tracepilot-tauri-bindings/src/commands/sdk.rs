@@ -110,7 +110,9 @@ pub async fn sdk_resume_session(
     // attach and refuse the rest.
     let already_tracked = bridge.read().await.is_tracked(&session_id);
     if !already_tracked {
-        let host = locate_one(&config, &session_id).await;
+        // A failed probe refuses: resuming a session a terminal still holds
+        // would fork it (F9).
+        let host = locate_one(&config, &session_id).await?;
         match host.state {
             LiveHostState::Attachable => {
                 let address = host.address.unwrap_or_default();
@@ -137,7 +139,8 @@ pub async fn sdk_resume_session(
 /// Hosting state of each requested session: attachable (served by a
 /// `--ui-server` terminal), running (plain terminal), or idle. Also drops any
 /// attachment whose terminal has gone away, so polling this keeps the live
-/// view honest.
+/// view honest. When hosting state cannot be read, this fails and leaves
+/// every attachment alone; the next poll tries again.
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err, fields(count = session_ids.len()))]
 pub async fn sdk_live_hosts(
@@ -154,7 +157,9 @@ pub async fn sdk_live_hosts(
         }
     }
     let session_state_dir = read_config(&config).session_state_dir();
-    let mut hosts = locate_sessions(&session_state_dir, &query).await;
+    let mut hosts = locate_sessions(&session_state_dir, &query)
+        .await
+        .map_err(BridgeError::from)?;
 
     let mut mgr = bridge.write().await;
     mgr.reconcile_attachments(&hosts).await;
@@ -172,7 +177,7 @@ pub async fn sdk_attach_session(
     config: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<BridgeSessionInfo> {
-    let host = locate_one(&config, &session_id).await;
+    let host = locate_one(&config, &session_id).await?;
     let Some(address) = host
         .address
         .filter(|_| host.state == LiveHostState::Attachable)
@@ -189,10 +194,13 @@ pub async fn sdk_attach_session(
         .map_err(Into::into)
 }
 
-async fn locate_one(config: &SharedConfig, session_id: &str) -> LiveSessionHost {
+async fn locate_one(
+    config: &SharedConfig,
+    session_id: &str,
+) -> Result<LiveSessionHost, BridgeError> {
     let session_state_dir = read_config(config).session_state_dir();
-    locate_sessions(&session_state_dir, &[session_id.to_string()])
-        .await
+    let host = locate_sessions(&session_state_dir, &[session_id.to_string()])
+        .await?
         .pop()
         .unwrap_or(LiveSessionHost {
             session_id: session_id.to_string(),
@@ -200,7 +208,8 @@ async fn locate_one(config: &SharedConfig, session_id: &str) -> LiveSessionHost 
             pid: None,
             address: None,
             attached: false,
-        })
+        });
+    Ok(host)
 }
 
 fn not_attachable_message(session_id: &str) -> String {

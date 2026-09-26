@@ -62,6 +62,17 @@ pub enum BridgeError {
     /// fork the session's history (live attach plan, F9).
     #[error("{0}")]
     NotAttachable(String),
+
+    /// Hosting state could not be read (the listening-port probe failed), so
+    /// nothing was attached, detached, or resumed.
+    #[error("Couldn't check which terminals are live: {0}")]
+    LiveHostLookup(String),
+}
+
+impl From<live_host::LocateError> for BridgeError {
+    fn from(err: live_host::LocateError) -> Self {
+        Self::LiveHostLookup(err.to_string())
+    }
 }
 
 impl BridgeError {

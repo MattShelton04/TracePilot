@@ -143,7 +143,10 @@ describe("useLiveConversationTurn", () => {
 
     expect(api.liveConversationTurn.value).not.toBeNull();
 
-    // Persisted turn lands with the same prefix → live turn should be hidden.
+    // The final event completes the message; then the saved turn lands.
+    live.value = {
+      s1: makeLiveTurn({ assistantText: "hello world", assistantFinalized: true, updatedAt: "t2" }),
+    };
     persisted.value = [
       makePersistedTurn({
         turnIndex: 1,
@@ -176,7 +179,7 @@ describe("useLiveConversationTurn", () => {
       }),
     ]);
     const live = ref<Record<string, SdkLiveTurn>>({
-      s1: makeLiveTurn({ assistantText: "Found 3 matches." }),
+      s1: makeLiveTurn({ assistantText: "Found 3 matches.", assistantFinalized: true }),
     });
     const scope = effectScope();
     let api!: ReturnType<typeof useLiveConversationTurn>;
@@ -193,6 +196,41 @@ describe("useLiveConversationTurn", () => {
     expect(api.liveConversationTurn.value).toBeNull();
     live.value = { s1: makeLiveTurn({ assistantText: "Next call streaming" }) };
     expect(api.liveConversationTurn.value?.turnIndex).toBe(3);
+
+    scope.stop();
+  });
+
+  it("keeps short in-progress text visible even when an earlier message contains it", () => {
+    const persisted = ref<ConversationTurn[]>([
+      makePersistedTurn({
+        turnIndex: 2,
+        assistantMessages: [{ content: "I checked the files. Let me summarise them now." }],
+      }),
+    ]);
+    const live = ref<Record<string, SdkLiveTurn>>({
+      s1: makeLiveTurn({ assistantText: "Let me" }),
+    });
+    const scope = effectScope();
+    let api!: ReturnType<typeof useLiveConversationTurn>;
+    scope.run(() => {
+      api = useLiveConversationTurn({
+        sessionId: () => "s1",
+        persistedTurns: () => persisted.value,
+        liveTurnsBySessionId: () => live.value,
+        sessionStatesById: () => ({}),
+        clearLiveTurn: () => {},
+      });
+    });
+
+    expect(api.liveConversationTurn.value?.assistantMessages[0]?.content).toBe("Let me");
+
+    // Long streamed text found verbatim is saved even before the final event.
+    const long = "I checked the files. Let me summarise them now.".padEnd(90, " and more");
+    persisted.value = [
+      makePersistedTurn({ turnIndex: 2, assistantMessages: [{ content: `${long} Done.` }] }),
+    ];
+    live.value = { s1: makeLiveTurn({ assistantText: long }) };
+    expect(api.liveConversationTurn.value).toBeNull();
 
     scope.stop();
   });

@@ -3,6 +3,23 @@ import { type ComputedRef, computed, watch } from "vue";
 import type { SdkLiveTurn } from "@/stores/sdk/liveTurns";
 import { normalizeToolPartialOutput } from "@/utils/normalizeToolPartialOutput";
 
+/**
+ * Streamed text this long is specific enough that finding it verbatim in the
+ * saved turn means it was saved, even before its final event arrives.
+ */
+const MIN_UNFINALIZED_MATCH = 80;
+
+/**
+ * Whether streamed `text` is already in the saved `persisted` text. Short
+ * in-progress text ("I", "Let me") also occurs in earlier messages of the
+ * same turn, so it only counts once the message is final or long enough.
+ */
+function isSaved(text: string, finalized: boolean, persisted: string): boolean {
+  if (!text) return true;
+  if (!finalized && text.length < MIN_UNFINALIZED_MATCH) return false;
+  return persisted.includes(text);
+}
+
 export interface UseLiveConversationTurnOptions {
   /** Active session id (null/undefined when no session is loaded). */
   sessionId: () => string | null | undefined;
@@ -56,8 +73,8 @@ export function useLiveConversationTurn(
     // `includes`, not `startsWith`: one persisted turn spans several model
     // calls (text → tool → more text), while the live text only covers the
     // current call, so it lands in the middle or end of the saved turn.
-    const assistantSuperseded = liveText ? persistedAssistant.includes(liveText) : true;
-    const reasoningSuperseded = liveReasoning ? persistedReasoning.includes(liveReasoning) : true;
+    const assistantSuperseded = isSaved(liveText, live.assistantFinalized, persistedAssistant);
+    const reasoningSuperseded = isSaved(liveReasoning, live.reasoningFinalized, persistedReasoning);
     if (assistantSuperseded && reasoningSuperseded) return null;
 
     return {
