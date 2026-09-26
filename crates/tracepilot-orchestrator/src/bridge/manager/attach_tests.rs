@@ -47,6 +47,13 @@ async fn attach_resumes_as_observer_on_the_hosting_endpoint() {
         mgr.get_session_state("tui-session").map(|s| s.status),
         Some(SessionRuntimeStatus::Idle)
     );
+    // Renderer hydration must keep the session identified as live.
+    let hydrated = mgr.hydrate().sessions;
+    assert!(
+        hydrated
+            .iter()
+            .any(|s| s.session_id == "tui-session" && s.is_remote)
+    );
 }
 
 #[tokio::test]

@@ -182,7 +182,11 @@ export function useSdkSteeringState(options: UseSdkSteeringOptions): SdkSteering
     return id.length > 12 ? `${id.slice(0, 8)}…` : id;
   });
 
-  const inlineError = computed(() => sessionError.value ?? sdk.lastError ?? null);
+  // A live attachment has its own endpoint, so the main bridge's connection
+  // errors say nothing about it; only this session's errors are shown.
+  const inlineError = computed(
+    () => sessionError.value ?? (isLive.value ? null : sdk.lastError) ?? null,
+  );
 
   // w1: Reset resolved ID when session changes (see top-of-file ordering note).
   watch(sessionIdRef, () => {

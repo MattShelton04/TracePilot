@@ -330,6 +330,24 @@ describe("SdkSteeringLiveState", () => {
     expect(wrapper.find(".cb-live-context").attributes("title")).toContain("25%");
   });
 
+  it("hides an idle snapshot left behind after detaching", () => {
+    const idle = makeLiveState({ status: "idle" });
+    const detached = mountWithCtx(SdkSteeringLiveState, makeCtx({ liveState: idle }));
+    expect(detached.find(".cb-live").exists()).toBe(false);
+    const linked = mountWithCtx(
+      SdkSteeringLiveState,
+      makeCtx({ isLinked: true, liveState: idle } as never),
+    );
+    expect(linked.find(".cb-live").exists()).toBe(true);
+    const failed = mountWithCtx(
+      SdkSteeringLiveState,
+      makeCtx({
+        liveState: makeLiveState({ status: "shutdown", lastError: "Live connection closed" }),
+      }),
+    );
+    expect(failed.text()).toContain("Live connection closed");
+  });
+
   it("titles the panel for terminal sessions", () => {
     const ctx = makeCtx({ isLive: true, liveState: makeLiveState() } as never);
     const wrapper = mountWithCtx(SdkSteeringLiveState, ctx);

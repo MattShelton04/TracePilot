@@ -396,3 +396,27 @@ describe("useSdkSteering — live attach", () => {
     expect(sdkMock.refreshLiveHosts).toHaveBeenLastCalledWith(["sess-A"]);
   });
 });
+
+describe("useSdkSteering — inline errors for live sessions", () => {
+  it("does not show main-bridge errors on a live attachment", async () => {
+    sdkMock.liveHostsById["sess-A"] = {
+      sessionId: "sess-A",
+      state: "attachable",
+      pid: 1,
+      address: "127.0.0.1:5000",
+      attached: true,
+    };
+    sdkMock.sessions = [{ sessionId: "sess-A", isActive: true, isRemote: true } as never];
+    const { ctx } = mountHarness();
+    await ctx.attachLive();
+    sdkMock.lastError = "Connection failed: refused";
+    expect(ctx.isLive).toBe(true);
+    expect(ctx.inlineError).toBeNull();
+  });
+
+  it("still shows main-bridge errors when steering through the bridge", () => {
+    sdkMock.lastError = "Connection failed: refused";
+    const { ctx } = mountHarness();
+    expect(ctx.inlineError).toBe("Connection failed: refused");
+  });
+});

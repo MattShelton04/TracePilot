@@ -56,7 +56,14 @@ const hasDiagnostics = computed(
   () => !!live.value?.lastError || (live.value?.reducerWarnings.length ?? 0) > 0,
 );
 const warningCount = computed(() => live.value?.reducerWarnings.length ?? 0);
-const showPanel = computed(() => !!live.value);
+/**
+ * After a detach the last snapshot stays in the store. Keep showing it when it
+ * explains something (an error, shutdown reason or diagnostics), but not when
+ * it would only say "Idle" next to the attach card.
+ */
+const showPanel = computed(
+  () => !!live.value && (ctx.isLinked || live.value.status !== "idle" || hasDiagnostics.value),
+);
 
 function requestTitle(request: PendingRequestSummary, fallback: string): string {
   return request.summary?.trim() || requestDetail(request) || fallback;
