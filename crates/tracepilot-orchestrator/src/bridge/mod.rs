@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 pub use discovery::{DetectedUiServer, detect_ui_servers};
 pub use live_host::{LiveHostState, LiveSessionHost, locate_sessions};
 pub use live_state::{SessionLiveState, SessionRuntimeStatus};
-pub use manager::{BridgeManager, CopilotSdkEnabledReader};
+pub use manager::{BridgeManager, CopilotHomeReader, CopilotSdkEnabledReader};
 
 // ─── Error Types ──────────────────────────────────────────────────
 

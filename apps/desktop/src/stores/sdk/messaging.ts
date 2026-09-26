@@ -27,6 +27,7 @@ import type {
   BridgeSessionConfig,
   BridgeSessionInfo,
   BridgeSessionMode,
+  SessionLiveState,
 } from "@tracepilot/types";
 import { runMutation, toErrorMessage } from "@tracepilot/ui";
 import { computed, type Ref, ref } from "vue";
@@ -38,6 +39,8 @@ export interface MessagingDeps {
   activeSessions: Ref<number>;
   lastError: Ref<string | null>;
   recentEvents: Ref<BridgeEvent[]>;
+  /** Live-state snapshots by session; Detach removes the session's entry. */
+  sessionStatesById?: Ref<Record<string, SessionLiveState>>;
 }
 
 export function createMessagingSlice(deps: MessagingDeps) {
@@ -194,6 +197,12 @@ export function createMessagingSlice(deps: MessagingDeps) {
     try {
       await sdkUnlinkSession(sessionId);
       markSessionInactive(sessionId);
+      // The backend drops the slot without a final snapshot (nothing ended),
+      // so the last one would otherwise linger as a stale status panel.
+      if (deps.sessionStatesById && sessionId in deps.sessionStatesById.value) {
+        const { [sessionId]: _dropped, ...rest } = deps.sessionStatesById.value;
+        deps.sessionStatesById.value = rest;
+      }
       liveTurns.clearLiveTurn(sessionId);
       markSending(sessionId, false);
       lastError.value = null;

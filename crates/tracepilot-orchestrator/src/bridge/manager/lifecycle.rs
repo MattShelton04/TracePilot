@@ -53,7 +53,8 @@ impl BridgeManager {
             "SDK bridge connect: starting"
         );
 
-        let client = match start_client(&config).await {
+        let copilot_home = self.copilot_home_reader.as_ref().and_then(|read| read());
+        let client = match start_client(&config, copilot_home.as_deref()).await {
             Ok(client) => client,
             Err(e) => {
                 self.state = BridgeConnectionState::Error;

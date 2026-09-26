@@ -150,6 +150,21 @@ describe("createMessagingSlice session cache isolation", () => {
     expect(activeSessions.value).toBe(1);
   });
 
+  it("unlinkSession drops the session's last live snapshot", async () => {
+    const sessionStatesById = shallowRef({ "sdk-A": {}, "sdk-B": {} } as never);
+    const slice = createMessagingSlice({
+      sessions: ref([makeSession("sdk-A", true), makeSession("sdk-B", true)]),
+      activeSessions: ref(2),
+      lastError: ref<string | null>(null),
+      recentEvents: shallowRef([]),
+      sessionStatesById,
+    });
+
+    await slice.unlinkSession("sdk-A");
+
+    expect(Object.keys(sessionStatesById.value)).toEqual(["sdk-B"]);
+  });
+
   it("setSessionMode optimistically patches only the targeted session mode", async () => {
     const { slice, sessions } = makeSlice([makeSession("sdk-A", true), makeSession("sdk-B", true)]);
 

@@ -122,7 +122,9 @@ impl BridgeManager {
         // remain steerable (documented on `BridgeError::DisabledByPreference`).
         if self.sessions.contains_key(session_id) {
             debug!("Session {} already resumed — returning cached", session_id);
-            self.mark_live_session_status(session_id, SessionRuntimeStatus::Running, None);
+            if self.get_session_state(session_id).is_none() {
+                self.mark_live_session_status(session_id, SessionRuntimeStatus::Idle, None);
+            }
             return Ok(BridgeSessionInfo {
                 session_id: session_id.to_string(),
                 model: model.map(String::from),
@@ -147,7 +149,8 @@ impl BridgeManager {
         let session = Arc::new(session);
         info!("Session {} resumed successfully", sid);
         self.spawn_event_forwarder(&sid, &session);
-        self.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
+        // A resumed session waits for input; turn events move it to Running.
+        self.mark_live_session_status(&sid, SessionRuntimeStatus::Idle, None);
         self.sessions.insert(sid.clone(), session);
 
         // In TCP (--ui-server) mode, also set this as the foreground session so the

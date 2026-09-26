@@ -30,8 +30,8 @@ pub mod specta_exports;
 use concurrency::IndexingSemaphores;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
-use tracepilot_orchestrator::bridge::CopilotSdkEnabledReader;
 use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
+use tracepilot_orchestrator::bridge::{CopilotHomeReader, CopilotSdkEnabledReader};
 use types::{EventCache, TurnCache};
 
 /// Build the Tauri plugin that registers all IPC commands.
@@ -83,6 +83,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             // or the RwLock is poisoned — never panics.
             {
                 let shared_config = app.state::<crate::config::SharedConfig>().inner().clone();
+                let home_config = shared_config.clone();
                 let reader: CopilotSdkEnabledReader = Arc::new(move || {
                     shared_config
                         .read()
@@ -90,10 +91,20 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                         .and_then(|g| g.as_ref().map(|c| c.features.copilot_sdk))
                         .unwrap_or(false)
                 });
+                // The private CLI must read the sessions TracePilot shows,
+                // including from a custom Copilot home.
+                let home_reader: CopilotHomeReader = Arc::new(move || {
+                    home_config
+                        .read()
+                        .ok()
+                        .and_then(|g| g.as_ref().map(|c| c.copilot_home()))
+                        .filter(|home| !home.as_os_str().is_empty())
+                });
                 let bridge_for_pref = shared_bridge.clone();
                 tauri::async_runtime::block_on(async move {
                     let mut bridge = bridge_for_pref.write().await;
                     bridge.set_preference_reader(reader);
+                    bridge.set_copilot_home_reader(home_reader);
                 });
             }
 

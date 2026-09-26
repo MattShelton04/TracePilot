@@ -152,8 +152,10 @@ Bridge → Advanced → Connection for other sessions* picks where it goes:
 
 - **Private CLI** (default, recommended): TracePilot starts your installed
   `copilot` (found on PATH or via `COPILOT_CLI_PATH`) over stdio and stops it
-  on exit. Sessions running in a terminal are never resumed here: they are
-  attached where they run, or refused with a restart hint (F9).
+  on exit, with `COPILOT_HOME` set to TracePilot's configured Copilot home so
+  it sees the same sessions. Sessions running in a terminal are never resumed
+  here: they are attached where they run, or refused with a restart hint (F9).
+  Detach releases the private CLI's lock on the session.
 - **CLI server**: connect to an existing `copilot --ui-server` or
   `copilot --server --port N`. **Detect** lists running servers, **Launch**
   starts one, or enter its address in **CLI URL**. The address is saved, so if
@@ -236,12 +238,16 @@ sessions automatically* to attach only on demand.
 
 When the terminal closes (Ctrl+C, closing the window, or a crash), the next
 host check (every 5 s while the session is open) drops the attachment and the
-panel says **Stopped watching** with the reason. **Detach** still works in that
-window: the detach request is bounded to 2 s, so a dead connection cannot hang
-the bridge. Starting the terminal again (`copilot --resume <id> --ui-server`)
-is a new host, so the open view attaches to it again; a terminal that is still
-loading the session is retried for a few seconds instead of failing with
-"session not found".
+panel says **Stopped watching** with the reason. If a check itself fails (for
+example `netstat` times out), attachments are left alone until one succeeds.
+**Detach** also works right after a terminal dies: the detach request is
+bounded to 2 s, so a dead connection cannot hang the bridge. Starting the
+terminal again (`copilot --resume <id> --ui-server`) is a new host, so the open
+view attaches to it again; a terminal still loading the session is retried for
+a few seconds instead of failing with "session not found".
+
+Disconnecting the bridge in Settings keeps terminal attachments, since they
+never used its connection; turning the SDK feature off drops them.
 
 While attached, streamed text and running tool output are shown straight from
 the live stream; every durable event (messages, tool start/complete, turn end,

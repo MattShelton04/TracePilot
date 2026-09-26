@@ -47,6 +47,7 @@ export const useSdkStore = defineStore("sdk", () => {
     activeSessions: connection.activeSessions,
     lastError: connection.lastError,
     recentEvents: connection.recentEvents,
+    sessionStatesById: connection.sessionStatesById,
   });
   const liveHosts = createLiveHostsSlice({
     sessions: connection.sessions,

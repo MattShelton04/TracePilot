@@ -235,12 +235,14 @@ impl BridgeManager {
             log_level: None,
             github_token: None,
         };
-        let client =
-            tokio::time::timeout(ENDPOINT_CONNECT_TIMEOUT, sdk_client::start_client(&config))
-                .await
-                .map_err(|_| {
-                    BridgeError::Timeout(format!("connecting to Copilot CLI server at {address}"))
-                })??;
+        let client = tokio::time::timeout(
+            ENDPOINT_CONNECT_TIMEOUT,
+            sdk_client::start_client(&config, None),
+        )
+        .await
+        .map_err(|_| {
+            BridgeError::Timeout(format!("connecting to Copilot CLI server at {address}"))
+        })??;
         info!("Connected to live endpoint {}", address);
         self.endpoints.insert(address.to_string(), client.clone());
         Ok(client)
