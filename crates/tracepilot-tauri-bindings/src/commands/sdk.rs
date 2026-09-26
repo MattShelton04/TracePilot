@@ -205,7 +205,9 @@ async fn locate_one(config: &SharedConfig, session_id: &str) -> LiveSessionHost 
 
 fn not_attachable_message(session_id: &str) -> String {
     format!(
-        "This session is open in a terminal that was started without --ui-server, so          TracePilot can't join it. Exit it and run `copilot --resume {session_id} --ui-server`          to watch it live."
+        "This session is open in a terminal that was started without --ui-server, so \
+         TracePilot can't join it. Exit it and run `copilot --resume {session_id} --ui-server` \
+         to watch it live."
     )
 }
 

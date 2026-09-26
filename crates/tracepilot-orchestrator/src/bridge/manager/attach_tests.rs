@@ -57,6 +57,34 @@ async fn attach_resumes_as_observer_on_the_hosting_endpoint() {
 }
 
 #[tokio::test]
+async fn attach_waits_for_a_terminal_that_is_still_loading_the_session() {
+    let (mut mgr, _events, fake) = manager_with_endpoint();
+    // A freshly started terminal serves its port before the session loads.
+    fake.fail_times("session.resume", "Session not found: tui-session", 2);
+
+    let info = mgr.attach_session("tui-session", ADDRESS).await.unwrap();
+
+    assert!(info.is_remote);
+    let resumes = fake
+        .methods()
+        .into_iter()
+        .filter(|m| m == "session.resume")
+        .count();
+    assert_eq!(resumes, 3);
+}
+
+#[tokio::test]
+async fn attach_does_not_retry_other_resume_failures() {
+    let (mut mgr, _events, fake) = manager_with_endpoint();
+    fake.fail("session.resume", "boom");
+
+    assert!(mgr.attach_session("tui-session", ADDRESS).await.is_err());
+
+    assert_eq!(fake.methods(), vec!["session.resume".to_string()]);
+    assert!(mgr.endpoints.is_empty());
+}
+
+#[tokio::test]
 async fn attach_is_idempotent_and_never_resumes_twice() {
     let (mut mgr, _events, fake) = manager_with_endpoint();
     mgr.attach_session("tui-session", ADDRESS).await.unwrap();
@@ -108,6 +136,23 @@ async fn detaching_the_last_session_closes_the_endpoint_client() {
         .filter(|m| m == "session.detach")
         .collect();
     assert_eq!(detached.len(), 2);
+}
+
+#[tokio::test]
+async fn detach_is_bounded_when_the_terminal_died() {
+    let (mut mgr, _events, fake) = manager_with_endpoint();
+    mgr.attach_session("s", ADDRESS).await.unwrap();
+    // A closed or Ctrl+C'd terminal never answers the detach request.
+    fake.stall("session.detach");
+
+    tokio::time::timeout(Duration::from_secs(5), mgr.unlink_session("s"))
+        .await
+        .expect("detach must not wedge the manager");
+
+    assert!(!mgr.is_tracked("s"));
+    assert!(mgr.attached_session_ids().is_empty());
+    assert!(mgr.endpoints.is_empty());
+    assert!(mgr.get_session_state("s").is_none());
 }
 
 #[tokio::test]

@@ -9,9 +9,10 @@ export const LIVE_HOST_POLL_MS = 5000;
  * Keeps `sdk.liveHostsById` fresh for the open session and auto-attaches when
  * it becomes attachable (Live sessions → auto-attach preference).
  *
- * Auto-attach runs at most once per session per view and never after the
- * user detached, because every attach appends one `session.resume` event to
- * the session's history.
+ * Auto-attach runs at most once per hosting terminal (session, PID and
+ * address) per view, and never after the user detached, because every attach
+ * appends one `session.resume` event to the session's history. A terminal
+ * that is closed and started again is a new host, so it is attached again.
  */
 export function useLiveHostWatcher(state: SdkSteeringState, actions: SdkSteeringActions) {
   const { sdk, prefs, sessionIdRef, isEnabled, liveHost, hasActiveSdkHandle, userUnlinked } = state;
@@ -28,10 +29,12 @@ export function useLiveHostWatcher(state: SdkSteeringState, actions: SdkSteering
 
   function maybeAutoAttach() {
     const sid = sessionIdRef.value;
-    if (!sid || autoAttempted.has(sid)) return;
+    const host = liveHost.value;
+    if (!sid || host?.state !== "attachable") return;
     if (!prefs.liveAutoAttach || userUnlinked.value || hasActiveSdkHandle.value) return;
-    if (liveHost.value?.state !== "attachable") return;
-    autoAttempted.add(sid);
+    const hostKey = `${sid}@${host.pid ?? "?"}/${host.address ?? "?"}`;
+    if (autoAttempted.has(hostKey)) return;
+    autoAttempted.add(hostKey);
     void actions.attachLive();
   }
 

@@ -82,8 +82,14 @@ Further research against Copilot CLI 1.0.88 established:
 
 7. **Auto-attach behind a preference.** Opening an attachable session
    attaches automatically when `live.autoAttach` is on (the default). This
-   happens at most once per session per view, and never after the user
-   pressed Detach in that view.
+   happens at most once per hosting terminal (session, PID and address) per
+   view, and never after the user pressed Detach in that view. A terminal
+   that is closed and started again is a new host and is attached again. A
+   freshly started terminal can hold the lock and serve its port before it
+   has loaded the session, so "session not found" from a hosting endpoint is
+   retried for a few seconds. Detach and every other teardown RPC to an
+   endpoint are time-bounded, because a request written after the terminal
+   died is never answered and teardown holds the manager's write lock.
 
 8. **Live overlay versus persisted history.** Ephemeral data never reaches
    `events.jsonl`, so it is shown only from the live state:

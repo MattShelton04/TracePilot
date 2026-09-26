@@ -56,6 +56,7 @@ vi.mock("@/utils/logger", () => ({
 }));
 
 // Import after mocks
+import { LIVE_HOST_POLL_MS } from "../sdkSteering/liveHost";
 import { SdkSteeringKey, useSdkSteering } from "../useSdkSteering";
 
 function makeLiveState(
@@ -370,6 +371,27 @@ describe("useSdkSteering — live attach", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(sdkMock.attachSession).toHaveBeenCalledTimes(1);
     wrapper.unmount();
+    sdkMock.refreshLiveHosts.mockImplementation(async () => {});
+  });
+
+  it("auto-attaches again only when a new terminal hosts the session", async () => {
+    vi.useFakeTimers();
+    prefsMock.liveAutoAttach = true;
+    let host = attachableHost();
+    sdkMock.attachSession.mockResolvedValueOnce(null).mockResolvedValueOnce(null); // attach fails
+    sdkMock.refreshLiveHosts.mockImplementation(async () => {
+      sdkMock.liveHostsById["sess-A"] = host;
+    });
+    const { wrapper } = mountHarness();
+    await vi.advanceTimersByTimeAsync(LIVE_HOST_POLL_MS * 2);
+    expect(sdkMock.attachSession).toHaveBeenCalledTimes(1);
+
+    host = { ...attachableHost(), pid: 77, address: "127.0.0.1:6000" }; // terminal restarted
+    await vi.advanceTimersByTimeAsync(LIVE_HOST_POLL_MS);
+    expect(sdkMock.attachSession).toHaveBeenCalledTimes(2);
+
+    wrapper.unmount();
+    vi.useRealTimers();
     sdkMock.refreshLiveHosts.mockImplementation(async () => {});
   });
 

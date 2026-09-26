@@ -5,14 +5,11 @@
 
 use super::BridgeManager;
 use super::sdk_client::{requested_connection_mode, start_client};
+use super::session_tasks::DETACH_TIMEOUT;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError};
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tracing::{debug, info, warn};
-
-/// Upper bound for the best-effort `session.detach` sent to each tracked
-/// session during disconnect. A dead transport must not wedge shutdown.
-const DETACH_TIMEOUT: Duration = Duration::from_secs(2);
 
 impl BridgeManager {
     fn is_same_connection_config(&self, config: &BridgeConnectConfig) -> bool {

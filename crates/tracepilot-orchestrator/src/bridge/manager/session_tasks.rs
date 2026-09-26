@@ -17,10 +17,17 @@ use github_copilot_sdk::{
 };
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{debug, info, warn};
 
 /// Client name reported to the CLI for sessions TracePilot creates or joins.
 pub(super) const CLIENT_NAME: &str = "tracepilot";
+
+/// Upper bound for the best-effort `session.detach`. The SDK's JSON-RPC layer
+/// has no request timeout, so a request written after the peer died (a
+/// terminal closed or Ctrl+C'd) can wait forever, and detach runs under the
+/// manager's write lock.
+pub(super) const DETACH_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Resume `session_id` on `client` as a handler-less observer (F3): no
 /// permission, elicitation, user-input, or exit-plan handlers, and `streaming`
@@ -273,7 +280,12 @@ impl BridgeManager {
                 );
             }
         }
-        let result = session.disconnect().await.map_err(BridgeError::sdk);
+        let result = match tokio::time::timeout(DETACH_TIMEOUT, session.disconnect()).await {
+            Ok(result) => result.map_err(BridgeError::sdk),
+            Err(_) => Err(BridgeError::Timeout(format!(
+                "detaching session {session_id}"
+            ))),
+        };
         self.release_endpoint_for(session_id).await;
         Some(result)
     }

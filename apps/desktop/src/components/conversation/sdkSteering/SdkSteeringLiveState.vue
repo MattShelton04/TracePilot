@@ -17,7 +17,7 @@ const statusMeta: Record<SessionRuntimeStatus, { label: string; tone: string }> 
   waiting_for_input: { label: "Waiting for input", tone: "waiting" },
   waiting_for_permission: { label: "Waiting for permission", tone: "waiting" },
   error: { label: "Error", tone: "error" },
-  shutdown: { label: "Shutdown", tone: "muted" },
+  shutdown: { label: "Ended", tone: "muted" },
   unknown: { label: "Unknown", tone: "muted" },
 };
 
@@ -34,7 +34,15 @@ const visibleTools = computed(() =>
   (live.value?.tools ?? []).filter((tool) => tool.status !== "complete"),
 );
 const usageRows = computed(() => formatUsageRows(live.value?.usage ?? null));
-const title = computed(() => (ctx.isLive ? "Live from terminal" : "Live SDK stream"));
+/**
+ * The watched session went away while attached (its terminal closed, or the
+ * stream dropped): the backend leaves one terminal snapshot with the reason.
+ */
+const ended = computed(() => !ctx.isLinked && live.value?.status === "shutdown");
+const title = computed(() => {
+  if (ended.value) return "Stopped watching";
+  return ctx.isLive ? "Live from terminal" : "Live SDK stream";
+});
 const context = computed(() => {
   const used = live.value?.contextTokens;
   const limit = live.value?.contextLimit;
@@ -234,6 +242,11 @@ function isScalarUsageValue(value: unknown): boolean {
       </div>
     </header>
 
+    <p v-if="ended" class="cb-live-ended" data-testid="live-ended">
+      {{ live.lastError ?? "The live connection closed." }}
+    </p>
+
+    <template v-else>
     <div v-if="live.pendingUserInput || live.pendingPermission" class="cb-live-notices">
       <article v-if="live.pendingUserInput" class="cb-live-request cb-live-request--input">
         <div class="cb-live-request-mark">?</div>
@@ -290,7 +303,9 @@ function isScalarUsageValue(value: unknown): boolean {
       </span>
     </div>
 
-    <details v-if="hasDiagnostics" class="cb-live-diagnostics">
+    </template>
+
+    <details v-if="hasDiagnostics && !ended" class="cb-live-diagnostics">
       <summary>
         <span v-if="live.lastError">SDK stream issue</span>
         <span v-else>Parser notes</span>
@@ -305,6 +320,14 @@ function isScalarUsageValue(value: unknown): boolean {
 </template>
 
 <style scoped>
+.cb-live-ended {
+  margin: 0;
+  padding: 0 2px;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
 .cb-live-tool-tail {
   margin-top: 4px;
   overflow: hidden;

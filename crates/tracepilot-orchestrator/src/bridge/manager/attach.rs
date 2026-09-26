@@ -10,12 +10,13 @@
 
 use super::BridgeManager;
 use super::sdk_client;
+use super::sdk_client::SdkSession;
 use super::session_tasks::resume_observer;
 use crate::bridge::live_host::{LiveHostState, LiveSessionHost};
 use crate::bridge::live_state::SessionRuntimeStatus;
 use crate::bridge::{BridgeConnectConfig, BridgeError, BridgeSessionInfo};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
 /// Upper bound for connecting to a hosting endpoint. A lock-holder PID that
@@ -24,12 +25,18 @@ const ENDPOINT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// Upper bound for the observer resume. The SDK's JSON-RPC layer has no
 /// request timeout, and this runs under the manager's write lock.
 const ATTACH_RESUME_TIMEOUT: Duration = Duration::from_secs(15);
-/// Upper bound for the best-effort detach when an endpoint has gone away.
-const STALE_DETACH_TIMEOUT: Duration = Duration::from_secs(2);
+/// A terminal that just started holds the session lock and listens on its
+/// port shortly before it has loaded the session, so an early resume reports
+/// "session not found". Retry for this long before giving up.
+const HOST_WARMUP_WINDOW: Duration = Duration::from_secs(8);
+const HOST_WARMUP_RETRY: Duration = Duration::from_millis(400);
+/// Upper bound for closing an endpoint client whose peer may be gone.
+const ENDPOINT_STOP_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Error recorded on the live state when the hosting terminal stops serving
 /// the session (it exited, or switched to another session).
-pub(crate) const HOST_GONE_MESSAGE: &str = "The terminal hosting this session is no longer live";
+pub(crate) const HOST_GONE_MESSAGE: &str =
+    "The terminal running this session closed, or switched to another session.";
 
 impl BridgeManager {
     /// Attach to `session_id`, hosted by the CLI server at `address`
@@ -54,16 +61,14 @@ impl BridgeManager {
         self.check_preference_enabled()?;
 
         let client = self.endpoint_client(address).await?;
-        let resumed = tokio::time::timeout(
-            ATTACH_RESUME_TIMEOUT,
-            resume_observer(&client, session_id, None, None),
-        )
-        .await
-        .unwrap_or_else(|_| {
-            Err(BridgeError::Timeout(format!(
-                "resuming session {session_id} on {address}"
-            )))
-        });
+        let resumed =
+            tokio::time::timeout(ATTACH_RESUME_TIMEOUT, resume_on_host(&client, session_id))
+                .await
+                .unwrap_or_else(|_| {
+                    Err(BridgeError::Timeout(format!(
+                        "resuming session {session_id} on {address}"
+                    )))
+                });
         let session = match resumed {
             Ok(session) => session,
             Err(e) => {
@@ -151,20 +156,12 @@ impl BridgeManager {
         finished
     }
 
-    /// Detach from a session whose host went away: best-effort `detach` with
-    /// a short timeout, one terminal snapshot carrying `reason`, then untrack.
+    /// Detach from a session whose host went away: bounded best-effort
+    /// `detach`, one terminal snapshot carrying `reason`, then untrack.
     async fn drop_attachment(&mut self, session_id: &str, reason: &str) {
-        if let Ok(Some(Err(e))) =
-            tokio::time::timeout(STALE_DETACH_TIMEOUT, self.detach_tracked(session_id)).await
-        {
+        if let Some(Err(e)) = self.detach_tracked(session_id).await {
             debug!("Detach from stale host for {} failed: {}", session_id, e);
         }
-        // `detach_tracked` may have timed out before releasing the endpoint.
-        self.sessions.remove(session_id);
-        if let Some(handle) = self.event_tasks.remove(session_id) {
-            handle.abort();
-        }
-        self.release_endpoint_for(session_id).await;
         self.mark_existing_session_status(
             session_id,
             SessionRuntimeStatus::Shutdown,
@@ -186,7 +183,7 @@ impl BridgeManager {
             return;
         }
         if let Some(client) = self.endpoints.remove(address) {
-            match tokio::time::timeout(STALE_DETACH_TIMEOUT, client.stop()).await {
+            match tokio::time::timeout(ENDPOINT_STOP_TIMEOUT, client.stop()).await {
                 Ok(Ok(())) => debug!("Closed live endpoint {}", address),
                 Ok(Err(e)) => debug!("Closing live endpoint {} reported: {}", address, e),
                 Err(_) => {
@@ -229,6 +226,29 @@ impl BridgeManager {
         self.endpoints.insert(address.to_string(), client.clone());
         Ok(client)
     }
+}
+
+/// Observer resume on a hosting endpoint, retrying while the host warms up.
+async fn resume_on_host(
+    client: &github_copilot_sdk::Client,
+    session_id: &str,
+) -> Result<SdkSession, BridgeError> {
+    let started = Instant::now();
+    loop {
+        match resume_observer(client, session_id, None, None).await {
+            Err(BridgeError::Sdk(message))
+                if is_session_not_found(&message) && started.elapsed() < HOST_WARMUP_WINDOW =>
+            {
+                debug!("Host has not loaded {} yet; retrying", session_id);
+                tokio::time::sleep(HOST_WARMUP_RETRY).await;
+            }
+            result => return result,
+        }
+    }
+}
+
+fn is_session_not_found(message: &str) -> bool {
+    message.to_ascii_lowercase().contains("session not found")
 }
 
 fn attached_info(session_id: &str, is_remote: bool) -> BridgeSessionInfo {

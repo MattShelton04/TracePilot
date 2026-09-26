@@ -348,6 +348,18 @@ describe("SdkSteeringLiveState", () => {
     expect(failed.text()).toContain("Live connection closed");
   });
 
+  it("says plainly why watching stopped when the terminal goes away", () => {
+    const reason = "The terminal running this session closed, or switched to another session.";
+    const ended = makeLiveState({ status: "shutdown", lastError: reason });
+    ended.tools = [{ toolName: "powershell", status: "running" } as never];
+    const wrapper = mountWithCtx(SdkSteeringLiveState, makeCtx({ liveState: ended }));
+    expect(wrapper.text()).toContain("Stopped watching");
+    expect(wrapper.get('[data-testid="live-ended"]').text()).toBe(reason);
+    // Stale in-flight tools and the diagnostics disclosure are not shown.
+    expect(wrapper.find(".cb-live-tools").exists()).toBe(false);
+    expect(wrapper.find(".cb-live-diagnostics").exists()).toBe(false);
+  });
+
   it("titles the panel for terminal sessions", () => {
     const ctx = makeCtx({ isLive: true, liveState: makeLiveState() } as never);
     const wrapper = mountWithCtx(SdkSteeringLiveState, ctx);
