@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": null,
-  "headSha": null,
+  "baseSha": "c25f5af7e2fad2baf259dbf41cca6e889fbc01f6",
+  "headSha": "e6bb02725feba3186117b67c3b5ae4a7b162c5ca",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,9 +9,9 @@
     "scale": 1
   },
   "summary": {
-    "changed": 1,
-    "unchanged": 32,
-    "subtle": 4,
+    "changed": 0,
+    "unchanged": 37,
+    "subtle": 0,
     "incomplete": 0,
     "baseUnavailable": 0,
     "total": 37
@@ -21,29 +21,14 @@
       "id": "sessions",
       "route": "/",
       "state": "populated",
-      "change": "subtle",
-      "changedPixels": 6,
-      "percent": 0.00043402777777777775,
-      "areas": [
-        {
-          "x": 600,
-          "y": 95,
-          "width": 4,
-          "height": 3,
-          "pixels": 3
-        },
-        {
-          "x": 600,
-          "y": 124,
-          "width": 3,
-          "height": 3,
-          "pixels": 3
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/02206fa3e5b251186a3e9b08fa40564f2068163351f4b371ec3d1e389fe9b272.png",
-        "after": "../../img/6b7276492a34f53e546e056ea963b1a97ee0cd42ed50dec715218e776cbf21b2.png",
+        "before": "../../img/c350f2ea088cb780b936bc3e2fe4c0e8aea5b67ca134eb926fc1e803bc705a32.png",
+        "after": "../../img/c350f2ea088cb780b936bc3e2fe4c0e8aea5b67ca134eb926fc1e803bc705a32.png",
         "difference": null,
         "closeUps": []
       },
@@ -53,35 +38,16 @@
       "id": "session-overview",
       "route": "/session/sess-auth-refactor/overview",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 193074,
-      "percent": 13.96657986111111,
-      "areas": [
-        {
-          "x": 268,
-          "y": 722,
-          "width": 1144,
-          "height": 238,
-          "pixels": 193074
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/b5a9281dfaa7a2d833547b05d1cfcf11d420ed54f7278d505abc3ad9f38b088c.png",
-        "after": "../../img/fbc5f70d621526587dcc4593d62382c63a4f35a26adb1b34d90fe856497bad7d.png",
-        "difference": "../../img/466ed709ed60dc2b7eb630b5c49e0e2e64fcdb923f6c877681c9caac143c9c7d.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 232,
-              "y": 658,
-              "width": 1208,
-              "height": 302
-            },
-            "before": "../../img/3c0b81910866928cce0d633631b7d6e91a0895c5da5045e3107fe1e4fe4678d4.png",
-            "after": "../../img/f1d12510cc5e88a8473d752264481b666bd753fbe79d1dbd75c71c18f9bdb3ab.png"
-          }
-        ]
+        "before": "../../img/0874f103de59f2b385b9aad0013bc52caa47cd217555805aaa3c2792af839a0d.png",
+        "after": "../../img/0874f103de59f2b385b9aad0013bc52caa47cd217555805aaa3c2792af839a0d.png",
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -95,8 +61,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/d07d22f440b09997a8afd6f4064681008dd78a487f1a6010c6c0c0c55b5a34d8.png",
-        "after": "../../img/d07d22f440b09997a8afd6f4064681008dd78a487f1a6010c6c0c0c55b5a34d8.png",
+        "before": "../../img/202dbee6c942fed2a46e663deabd5e45d1235f9e422aeb3e3d960319dbcf9ddc.png",
+        "after": "../../img/202dbee6c942fed2a46e663deabd5e45d1235f9e422aeb3e3d960319dbcf9ddc.png",
         "difference": null,
         "closeUps": []
       },
@@ -140,21 +106,13 @@
       "id": "session-metrics",
       "route": "/session/sess-auth-refactor/metrics",
       "state": "populated",
-      "change": "subtle",
-      "changedPixels": 11,
-      "percent": 0.0007957175925925925,
-      "areas": [
-        {
-          "x": 20,
-          "y": 22,
-          "width": 19,
-          "height": 3,
-          "pixels": 11
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/dca0c96a59f94d5ab6557b6613e1960364e8262afa0e2825cff4d5b6cba56df1.png",
+        "before": "../../img/0579d62dd15d9e57105c347c92e6195a9e93134003ab6c6ab9fca3ed09d6fdb3.png",
         "after": "../../img/0579d62dd15d9e57105c347c92e6195a9e93134003ab6c6ab9fca3ed09d6fdb3.png",
         "difference": null,
         "closeUps": []
@@ -165,21 +123,13 @@
       "id": "session-context",
       "route": "/session/sess-auth-refactor/context",
       "state": "populated",
-      "change": "subtle",
-      "changedPixels": 11,
-      "percent": 0.0007957175925925925,
-      "areas": [
-        {
-          "x": 20,
-          "y": 22,
-          "width": 19,
-          "height": 3,
-          "pixels": 11
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/b9067460705bc34d793464376a66c2829aab88da1a515f52607074b98c656de1.png",
+        "before": "../../img/c76f1743eda7fae5ef4ce382d5e3185dd40b6f4ff8f1dd3dd24254c96880cc95.png",
         "after": "../../img/c76f1743eda7fae5ef4ce382d5e3185dd40b6f4ff8f1dd3dd24254c96880cc95.png",
         "difference": null,
         "closeUps": []
@@ -196,8 +146,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/17db2c0ae2d9ebd3d9fd92eb90ee100a2194e2ffdba0e9915101b071d971db36.png",
-        "after": "../../img/17db2c0ae2d9ebd3d9fd92eb90ee100a2194e2ffdba0e9915101b071d971db36.png",
+        "before": "../../img/238c5540ac1e1565b9f3719bac011a8e601069e99ac1fcdf846f935894b344d5.png",
+        "after": "../../img/238c5540ac1e1565b9f3719bac011a8e601069e99ac1fcdf846f935894b344d5.png",
         "difference": null,
         "closeUps": []
       },
@@ -213,8 +163,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/b362a1be3e850a357ea3477d77c0cef1bda2a69449f862944a373ff78d24d283.png",
-        "after": "../../img/b362a1be3e850a357ea3477d77c0cef1bda2a69449f862944a373ff78d24d283.png",
+        "before": "../../img/0dc530db43dfe18bd178bfb04b37d80aaed3a200b94d82a7bda393a86bbbaf78.png",
+        "after": "../../img/0dc530db43dfe18bd178bfb04b37d80aaed3a200b94d82a7bda393a86bbbaf78.png",
         "difference": null,
         "closeUps": []
       },
@@ -224,22 +174,14 @@
       "id": "session-explorer-file",
       "route": "/session/sess-auth-refactor/explorer",
       "state": "synthetic plan.md selected in the file reader",
-      "change": "subtle",
-      "changedPixels": 11,
-      "percent": 0.0007957175925925925,
-      "areas": [
-        {
-          "x": 20,
-          "y": 22,
-          "width": 19,
-          "height": 3,
-          "pixels": 11
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/58902a7973c05313ae4938401a2e43da991784d531a18073c17c0dbcfd3c44cc.png",
-        "after": "../../img/2c414235f08e86e10b60aaf8c57a183b611e0c2d87b55cc2ec78d18b394ef1a7.png",
+        "after": "../../img/58902a7973c05313ae4938401a2e43da991784d531a18073c17c0dbcfd3c44cc.png",
         "difference": null,
         "closeUps": []
       },
@@ -340,8 +282,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/09f8048397863729f62632846cfead2abb1a25a07abc8f1f8f44f7df0280adbd.png",
-        "after": "../../img/09f8048397863729f62632846cfead2abb1a25a07abc8f1f8f44f7df0280adbd.png",
+        "before": "../../img/a9ba2a1dc9631f4e117d23f309d20c49dd3bea0dde2fc92dcaba66faf0ef8e89.png",
+        "after": "../../img/a9ba2a1dc9631f4e117d23f309d20c49dd3bea0dde2fc92dcaba66faf0ef8e89.png",
         "difference": null,
         "closeUps": []
       },
@@ -374,8 +316,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/350571989ecfa7d364062034a35ba30df154c6db7b1fc2d490bd72f4eeef48fc.png",
-        "after": "../../img/350571989ecfa7d364062034a35ba30df154c6db7b1fc2d490bd72f4eeef48fc.png",
+        "before": "../../img/1e94f6e021275ab24ca1a4d4061b9c59e2c218a88b0c04d1092ad1c718af2599.png",
+        "after": "../../img/1e94f6e021275ab24ca1a4d4061b9c59e2c218a88b0c04d1092ad1c718af2599.png",
         "difference": null,
         "closeUps": []
       },
@@ -425,8 +367,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/6fe26a096e3705220c4de9040baea1f9902a6f0fbf28bf97dc11259079695793.png",
-        "after": "../../img/6fe26a096e3705220c4de9040baea1f9902a6f0fbf28bf97dc11259079695793.png",
+        "before": "../../img/e7fea45d332b8c66355a56874fb1d09d97cd1aa2fe9eca113f1ba8a1593291d6.png",
+        "after": "../../img/e7fea45d332b8c66355a56874fb1d09d97cd1aa2fe9eca113f1ba8a1593291d6.png",
         "difference": null,
         "closeUps": []
       },
@@ -459,8 +401,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/d3ae3b9fd38001d6e72b96f811017811cd4e9e27e37f6c3d3fbaf8629eae27fd.png",
-        "after": "../../img/d3ae3b9fd38001d6e72b96f811017811cd4e9e27e37f6c3d3fbaf8629eae27fd.png",
+        "before": "../../img/0d35d600e6336dab20fc90c9facf95e9225a89a8a8539a9a0e50f2eac7ce6442.png",
+        "after": "../../img/0d35d600e6336dab20fc90c9facf95e9225a89a8a8539a9a0e50f2eac7ce6442.png",
         "difference": null,
         "closeUps": []
       },
@@ -476,8 +418,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/80c3521d9942c67ca805664f139b01955d598cb0537b2f8877297aaa56a6a70e.png",
-        "after": "../../img/80c3521d9942c67ca805664f139b01955d598cb0537b2f8877297aaa56a6a70e.png",
+        "before": "../../img/0dbf9b301559d9e70dd37f2bfa91b3643e0a2ca878a7f8a9f079a3d5fa834a97.png",
+        "after": "../../img/0dbf9b301559d9e70dd37f2bfa91b3643e0a2ca878a7f8a9f079a3d5fa834a97.png",
         "difference": null,
         "closeUps": []
       },
@@ -510,8 +452,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/17b420a95b062d050f8ecf2de194f1599fb3164b531fb6c61a56f2c1902ea366.png",
-        "after": "../../img/17b420a95b062d050f8ecf2de194f1599fb3164b531fb6c61a56f2c1902ea366.png",
+        "before": "../../img/e0f309c2ca3abbe2cd18ce1685ad8c1d471fd332fc2245aa3920e92b1f1558b3.png",
+        "after": "../../img/e0f309c2ca3abbe2cd18ce1685ad8c1d471fd332fc2245aa3920e92b1f1558b3.png",
         "difference": null,
         "closeUps": []
       },
@@ -578,8 +520,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/1a50f8631bb69fdf6e5be3ddf58940d60ed43ea437a9dea9d8be940f7b59abf8.png",
-        "after": "../../img/1a50f8631bb69fdf6e5be3ddf58940d60ed43ea437a9dea9d8be940f7b59abf8.png",
+        "before": "../../img/657bd46fd234ea8ba595f7db256f5bb552942f145ac8c8361e4bb0fc6731fd47.png",
+        "after": "../../img/657bd46fd234ea8ba595f7db256f5bb552942f145ac8c8361e4bb0fc6731fd47.png",
         "difference": null,
         "closeUps": []
       },
@@ -629,8 +571,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/64694cf1d7d4c67822800762296cd3a45c2f9981daaa5de823100594a545190b.png",
-        "after": "../../img/64694cf1d7d4c67822800762296cd3a45c2f9981daaa5de823100594a545190b.png",
+        "before": "../../img/9f7b70f99230a21803ec19b5ca3cf793dd2a6138eac495f1743b7107c3fb06a7.png",
+        "after": "../../img/9f7b70f99230a21803ec19b5ca3cf793dd2a6138eac495f1743b7107c3fb06a7.png",
         "difference": null,
         "closeUps": []
       },
@@ -680,8 +622,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/c6fee2c5b553bcb44a6902dc4022c3a480a83472ddbc173ccf17dbb75e54aa44.png",
-        "after": "../../img/c6fee2c5b553bcb44a6902dc4022c3a480a83472ddbc173ccf17dbb75e54aa44.png",
+        "before": "../../img/c100f2b696f32c0ab6c3f197dea98046ee6b5e07be37506ba578424ca45b3432.png",
+        "after": "../../img/c100f2b696f32c0ab6c3f197dea98046ee6b5e07be37506ba578424ca45b3432.png",
         "difference": null,
         "closeUps": []
       },
