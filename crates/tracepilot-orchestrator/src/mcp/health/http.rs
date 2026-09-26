@@ -52,7 +52,10 @@ pub(super) async fn check_http_server(
         }
     });
 
+    // Pin rustls: `github-copilot-sdk` enables reqwest's native-tls feature,
+    // which would otherwise become the default backend (ADR-0015).
     let client = reqwest::Client::builder()
+        .use_rustls_tls()
         .timeout(std::time::Duration::from_secs(15))
         .redirect(redirect_policy)
         .build();

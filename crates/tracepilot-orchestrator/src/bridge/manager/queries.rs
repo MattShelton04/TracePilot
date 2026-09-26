@@ -55,23 +55,38 @@ impl BridgeManager {
     }
 
     /// Get quota information.
+    ///
+    /// The CLI reports one snapshot per quota type (for example
+    /// `premium_interactions`). Unlimited entitlements have no limit or
+    /// remaining count.
     pub async fn get_quota(&self) -> Result<BridgeQuota, BridgeError> {
         let client = self.require_client()?;
-        let result = client.get_quota().await.map_err(BridgeError::sdk)?;
+        let result = client
+            .rpc()
+            .account()
+            .get_quota()
+            .await
+            .map_err(BridgeError::sdk)?;
 
-        Ok(BridgeQuota {
-            quotas: result
-                .quotas
-                .into_iter()
-                .map(|q| BridgeQuotaSnapshot {
-                    quota_type: q.quota_type,
-                    limit: q.limit,
-                    used: q.used,
-                    remaining: q.remaining,
-                    resets_at: q.resets_at,
-                })
-                .collect(),
-        })
+        let mut quotas: Vec<BridgeQuotaSnapshot> = result
+            .quota_snapshots
+            .into_iter()
+            .map(|(quota_type, q)| {
+                let used = u64::try_from(q.used_requests).ok();
+                let limit = (!q.is_unlimited_entitlement)
+                    .then(|| u64::try_from(q.entitlement_requests).ok())
+                    .flatten();
+                BridgeQuotaSnapshot {
+                    quota_type,
+                    limit,
+                    used,
+                    remaining: limit.zip(used).map(|(l, u)| l.saturating_sub(u)),
+                    resets_at: q.reset_date,
+                }
+            })
+            .collect();
+        quotas.sort_by(|a, b| a.quota_type.cmp(&b.quota_type));
+        Ok(BridgeQuota { quotas })
     }
 
     /// Get authentication status.

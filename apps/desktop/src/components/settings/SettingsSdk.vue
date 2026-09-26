@@ -82,10 +82,11 @@ async function openSession(rowId: string): Promise<void> {
       <div class="sdk-subsection-title">SDK Sessions & Processes</div>
 
       <div class="sdk-lifecycle-note">
-        <strong>Unlink</strong> removes TracePilot's steering handle and keeps the SDK-owned
-        session alive. <strong>Shutdown</strong> asks the SDK/CLI to stop that session. The
-        bridge itself is one process/transport; stdio child PIDs are owned by the SDK, while
-        TCP <code>--ui-server</code> PIDs appear under detected servers.
+        <strong>Unlink</strong> and <strong>Shutdown</strong> both detach TracePilot from the
+        session; neither ends it or writes to its history. Shutdown also marks it stopped in
+        TracePilot's live view. The bridge itself is one process/transport; stdio child PIDs
+        are owned by the SDK, while TCP <code>--ui-server</code> PIDs appear under detected
+        servers.
       </div>
 
       <div v-if="hasSessionRows" class="sdk-session-list" data-testid="sdk-session-list">

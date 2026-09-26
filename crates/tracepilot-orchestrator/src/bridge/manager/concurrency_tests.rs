@@ -13,18 +13,11 @@
 //! `tokio::time::timeout` only as a hang-bound). No `tokio::sleep`s.
 
 use super::BridgeManager;
+use super::fake_cli::fake_session;
 use crate::bridge::live_state::SessionRuntimeStatus;
 use crate::bridge::{BridgeConnectionState, BridgeEvent};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-
-fn stub_session(id: &str) -> Arc<copilot_sdk::Session> {
-    Arc::new(copilot_sdk::Session::new(
-        id.to_string(),
-        None,
-        |_method, _params| Box::pin(async { Ok(serde_json::Value::Null) }),
-    ))
-}
 
 /// Forever-pending tokio task that signals via a `Drop` guard. The flag
 /// flips inside `Drop`, which `unlink_session` / `disconnect` must observe
@@ -53,7 +46,8 @@ async fn unlink_session_awaits_forwarder_abort_via_drop_guard() {
 
     let (handle, flag) = spawn_drop_guard_task();
     mgr.event_tasks.insert(sid.clone(), handle);
-    mgr.sessions.insert(sid.clone(), stub_session(&sid));
+    let (session, _fake) = fake_session(&sid).await;
+    mgr.sessions.insert(sid.clone(), session);
     mgr.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
     assert!(mgr.get_session_state(&sid).is_some());
 
@@ -76,7 +70,8 @@ async fn unlinked_session_slot_is_not_resurrected_by_teardown_mark() {
 
     let (handle, _flag) = spawn_drop_guard_task();
     mgr.event_tasks.insert(sid.clone(), handle);
-    mgr.sessions.insert(sid.clone(), stub_session(&sid));
+    let (session, _fake) = fake_session(&sid).await;
+    mgr.sessions.insert(sid.clone(), session);
     mgr.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
 
     mgr.unlink_session(&sid).await;
@@ -117,14 +112,18 @@ async fn unlinked_session_slot_is_not_resurrected_by_teardown_mark() {
 #[tokio::test]
 async fn disconnect_completes_promptly_and_clears_all_state() {
     let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let mut fakes: Vec<super::fake_cli::FakeCli> = Vec::new();
 
     for i in 0..2 {
         let sid = format!("sess-disc-{i}");
         let (handle, _flag) = spawn_drop_guard_task();
         mgr.event_tasks.insert(sid.clone(), handle);
-        mgr.sessions.insert(sid.clone(), stub_session(&sid));
+        let (session, fake) = fake_session(&sid).await;
+        fakes.push(fake);
+        mgr.sessions.insert(sid.clone(), session);
         mgr.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
     }
+    assert_eq!(fakes.len(), 2);
     assert_eq!(mgr.event_tasks.len(), 2);
     assert_eq!(mgr.sessions.len(), 2);
     assert_eq!(mgr.list_session_states().len(), 2);
@@ -144,4 +143,11 @@ async fn disconnect_completes_promptly_and_clears_all_state() {
         "live-state must be cleared on disconnect"
     );
     assert_eq!(mgr.connection_state(), BridgeConnectionState::Disconnected);
+    for fake in &fakes {
+        assert_eq!(
+            fake.methods(),
+            vec!["session.detach".to_string()],
+            "disconnect must detach each tracked session exactly once"
+        );
+    }
 }

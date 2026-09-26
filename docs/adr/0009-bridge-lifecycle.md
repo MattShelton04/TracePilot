@@ -1,7 +1,10 @@
 # ADR-0009 — Copilot bridge lifecycle
 
 - **Date:** 2026-04-19
-- **Status:** Accepted
+- **Status:** Accepted, amended by [ADR-0015](0015-official-copilot-sdk.md):
+  the raw JSON-RPC workaround (`raw_rpc.rs`) is gone, and `destroy_session`
+  now detaches via `Session::disconnect()` instead of writing
+  `session.shutdown`
 
 ## Context
 

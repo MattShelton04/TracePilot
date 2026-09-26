@@ -1,7 +1,9 @@
 # ADR-0007 — Copilot SDK always compiled in, gated at runtime by user preference
 
 - **Date:** 2026-04-18
-- **Status:** Accepted
+- **Status:** Accepted (the SDK crate itself was replaced by the official
+  `github-copilot-sdk` in [ADR-0015](0015-official-copilot-sdk.md); the
+  always-on + runtime-preference decision is unchanged)
 - **Supersedes:** Portions of ADR-0001 that described `copilot-sdk` as an
   optional Cargo feature.
 

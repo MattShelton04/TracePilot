@@ -21,9 +21,9 @@ Foundational architecture (0001–0006):
 | [0004](0004-background-process-discipline.md) | Background process discipline (Windows `CREATE_NO_WINDOW`, `hidden_command`) | Accepted |
 | [0005](0005-error-model-thiserror-per-crate.md) | Error model — `thiserror` enums per crate, no `anyhow` in production code | Accepted |
 | [0006](0006-frontend-state-pinia-run-helpers.md) | Frontend state — Pinia stores with `runAction` / `runMutation`, no direct mutations | Accepted |
-| [0007](0007-copilot-sdk-always-on.md) | Copilot SDK always compiled in, gated at runtime by user preference | Accepted |
+| [0007](0007-copilot-sdk-always-on.md) | Copilot SDK always compiled in, gated at runtime by user preference | Accepted (crate replaced by 0015) |
 | [0008](0008-mcp-server-hosting-model.md) | MCP server hosting model (configuration ownership, SSRF policy, on-demand probes) | Accepted |
-| [0009](0009-bridge-lifecycle.md) | Copilot bridge lifecycle (connection state machine, session cache, `DisabledByPreference` guard) | Accepted |
+| [0009](0009-bridge-lifecycle.md) | Copilot bridge lifecycle (connection state machine, session cache, `DisabledByPreference` guard) | Accepted, amended by 0015 |
 
 Policy ADRs (0010–0013):
 
@@ -34,6 +34,7 @@ Policy ADRs (0010–0013):
 | [0012](0012-filesystem-trust-boundary.md) | Filesystem trust boundary + path-jail policy | Accepted |
 | [0013](0013-db-migration-policy.md) | DB migration policy (IndexDb / TaskDb / SessionDb) | Accepted |
 | [0014](0014-bounded-loopback-context-capture.md) | Bounded loopback server for exact context capture | Accepted |
+| [0015](0015-official-copilot-sdk.md) | Official Copilot Rust SDK, driven against the user's installed CLI | Accepted |
 
 > **Numbering note.** Policy ADRs originally occupied 0001–0004. They
 > were renumbered to 0010+ during Wave 115 so the foundational

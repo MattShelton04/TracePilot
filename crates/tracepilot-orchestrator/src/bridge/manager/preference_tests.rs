@@ -2,21 +2,11 @@
 //! stay under the 500-LOC per-file cap enforced by
 //! `scripts/check-file-sizes.mjs`.
 
+use super::fake_cli::fake_session;
 use super::*;
 use crate::bridge::{
     BridgeConnectConfig, BridgeError, BridgeSessionConfig, CopilotSdkEnabledReader,
 };
-
-/// Minimal tracked session used by the cached-resume test. Kept local to
-/// this module so the file stands alone (see the sibling `tests.rs` for
-/// the richer stub helpers used by lifecycle tests).
-fn stub_tracked_session(id: &str) -> std::sync::Arc<copilot_sdk::Session> {
-    std::sync::Arc::new(copilot_sdk::Session::new(
-        id.to_string(),
-        None,
-        |_method, _params| Box::pin(async { Ok(serde_json::Value::Null) }),
-    ))
-}
 
 #[tokio::test]
 async fn connect_disabled_by_preference_returns_error() {
@@ -103,7 +93,8 @@ async fn resume_session_cached_bypasses_preference_guard() {
     mgr.set_preference_reader(reader);
 
     let sid = "sess-prior".to_string();
-    mgr.sessions.insert(sid.clone(), stub_tracked_session(&sid));
+    let (session, _fake) = fake_session(&sid).await;
+    mgr.sessions.insert(sid.clone(), session);
 
     let info = mgr
         .resume_session(&sid, Some("/work"), Some("gpt-5"))

@@ -56,12 +56,12 @@ some older reports and plans, which remain recoverable from Git history.
 
 | Document | Description |
 |----------|-------------|
+| [Copilot Live Attach Plan](features/copilot-live-attach-plan.md) | Official Rust SDK migration, verified attach findings, and the phased live-session roadmap. |
 | [Copilot CLI Integration](copilot-cli-integration-report.md) | How TracePilot integrates with Copilot CLI. |
-| [Copilot SDK Deep Dive](copilot-sdk-deep-dive.md) | Historical analysis of SDK internals and summarized reviews; verify against current SDK. |
-| [Copilot SDK Data Flow](copilot-sdk-data-flow.md) | SDK data-flow and architecture notes. |
-| [Copilot SDK Evaluation](copilot-sdk-integration-evaluation.md) | SDK integration evaluation. |
+| [Copilot SDK Deep Dive](copilot-sdk-deep-dive.md) | Historical analysis of the retired community SDK; superseded by ADR-0015. |
+| [Copilot SDK Data Flow](copilot-sdk-data-flow.md) | SDK data-flow notes from the community-SDK era; see the live attach plan for verified behavior. |
+| [Copilot SDK Evaluation](copilot-sdk-integration-evaluation.md) | Historical evaluation of the retired community SDK. |
 | [Copilot SDK Usage](copilot-sdk-usage.md) | SDK usage guide. |
-| [Copilot SDK RPC Bug](copilot-sdk-rpc-method-bug.md) | JSON-RPC method-name bug note. |
 | [Tantivy Search Index](tantivy-search-index.md) | Historical reference for the unmerged search-index approach. |
 | [Search Index Migration](search-index-migration/README.md) | Shelved migration, benchmarks, and failure lessons; not an active implementation guide. |
 | [Multi-Window Implementation RFC](multi-window-implementation-plan.md) | Historical amended plan; several parts have since landed. |
