@@ -218,7 +218,7 @@ async function openSession(rowId: string): Promise<void> {
 }
 
 .sdk-session-item:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: 2px solid var(--accent-fg);
   outline-offset: 2px;
 }
 

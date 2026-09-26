@@ -336,7 +336,7 @@ async function handleVersionClick() {
         >
           v{{ appVersion }}
         </button>
-        <SdkStatusIndicator />
+        <SdkStatusIndicator :compact="isCollapsed" />
         <button
           v-if="prefsStore.alertsEnabled"
           class="alert-bell-btn"
