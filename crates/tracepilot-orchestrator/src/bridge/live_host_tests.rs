@@ -123,3 +123,17 @@ fn hold_file_liveness_follows_open_handles() {
     assert_eq!(hold_file_held(&hold), Some(false));
     assert_eq!(hold_file_held(&dir.path().join("missing.hold")), None);
 }
+
+#[test]
+fn a_stale_or_dead_holder_is_never_attachable() {
+    // A crashed CLI's PID reused by an unrelated loopback listener.
+    let listening = HashMap::from([(4242, vec![5000])]);
+    let stale = classify("s", &[4242], false, &listening, None);
+    assert_eq!(stale.state, LiveHostState::Idle);
+    let alive = HashSet::from([1]);
+    let dead = classify("s", &[4242], true, &listening, Some(&alive));
+    assert_eq!(dead.state, LiveHostState::Idle);
+    let live = HashSet::from([4242]);
+    let ok = classify("s", &[4242], true, &listening, Some(&live));
+    assert_eq!(ok.state, LiveHostState::Attachable);
+}

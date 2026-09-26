@@ -88,7 +88,11 @@ pub(crate) fn classify(
     listening: &HashMap<u32, Vec<u16>>,
     alive: Option<&HashSet<u32>>,
 ) -> LiveSessionHost {
-    for pid in holder_pids {
+    // A stale lock, or a holder that has exited, never makes a session
+    // attachable: its PID may since have been reused by an unrelated
+    // listener.
+    let is_live_holder = |pid: &u32| has_live_lock && alive.is_none_or(|alive| alive.contains(pid));
+    for pid in holder_pids.iter().filter(|pid| is_live_holder(pid)) {
         if let Some(port) = listening.get(pid).and_then(|ports| ports.first()) {
             return LiveSessionHost {
                 session_id: session_id.to_string(),
@@ -150,11 +154,11 @@ pub async fn locate_sessions(
         HashMap::new()
     };
 
-    // Only sessions that look running without a listener need a liveness
-    // check, to tell a plain terminal session from a crashed CLI's lock.
+    // Every live lock is checked, including listening holders: a crashed
+    // CLI's PID can be reused by an unrelated listener.
     let needs_liveness: Vec<(&String, &Vec<u32>)> = candidates
         .iter()
-        .filter(|(_, pids, live)| *live && !pids.iter().any(|pid| listening.contains_key(pid)))
+        .filter(|(_, _, live)| *live)
         .map(|(id, pids, _)| (id, pids))
         .collect();
     let alive = if needs_liveness.is_empty() {

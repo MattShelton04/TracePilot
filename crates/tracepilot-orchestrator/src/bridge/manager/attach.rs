@@ -21,6 +21,9 @@ use tracing::{debug, info, warn};
 /// Upper bound for connecting to a hosting endpoint. A lock-holder PID that
 /// was reused by an unrelated listener must fail fast rather than hang.
 const ENDPOINT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+/// Upper bound for the observer resume. The SDK's JSON-RPC layer has no
+/// request timeout, and this runs under the manager's write lock.
+const ATTACH_RESUME_TIMEOUT: Duration = Duration::from_secs(15);
 /// Upper bound for the best-effort detach when an endpoint has gone away.
 const STALE_DETACH_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -51,7 +54,17 @@ impl BridgeManager {
         self.check_preference_enabled()?;
 
         let client = self.endpoint_client(address).await?;
-        let session = match resume_observer(&client, session_id, None, None).await {
+        let resumed = tokio::time::timeout(
+            ATTACH_RESUME_TIMEOUT,
+            resume_observer(&client, session_id, None, None),
+        )
+        .await
+        .unwrap_or_else(|_| {
+            Err(BridgeError::Timeout(format!(
+                "resuming session {session_id} on {address}"
+            )))
+        });
+        let session = match resumed {
             Ok(session) => session,
             Err(e) => {
                 self.stop_endpoint_if_unused(address).await;
