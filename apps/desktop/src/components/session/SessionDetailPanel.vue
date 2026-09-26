@@ -79,6 +79,7 @@ const sdk = useSdkStore();
 useLivePersistedSync({
   sessionId: () => props.sessionId,
   refresh: () => props.store.refreshAll(),
+  enabled: () => props.refreshEnabled ?? true,
 });
 /** Header badge: "Live" when TracePilot is attached or can attach (ADR-0016). */
 const liveBadge = computed(() => {

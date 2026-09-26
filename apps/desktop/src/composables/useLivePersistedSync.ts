@@ -1,5 +1,5 @@
 import type { BridgeEvent } from "@tracepilot/types";
-import { onScopeDispose } from "vue";
+import { onScopeDispose, watch } from "vue";
 import { useSdkStore } from "@/stores/sdk";
 
 /**
@@ -30,6 +30,11 @@ export const LIVE_REFRESH_MAX_WAIT_MS = 2000;
 export interface UseLivePersistedSyncOptions {
   sessionId: () => string | null | undefined;
   refresh: () => unknown;
+  /**
+   * When false (e.g. the tab is hidden), durable events don't refresh; one
+   * catch-up refresh runs when it turns true again. Defaults to enabled.
+   */
+  enabled?: () => boolean;
 }
 
 /**
@@ -45,6 +50,8 @@ export function useLivePersistedSync(options: UseLivePersistedSyncOptions) {
   const sdk = useSdkStore();
   let timer: ReturnType<typeof setTimeout> | null = null;
   let firstPendingAt: number | null = null;
+  let missed = false;
+  const isEnabled = () => options.enabled?.() ?? true;
 
   function flush() {
     timer = null;
@@ -67,12 +74,21 @@ export function useLivePersistedSync(options: UseLivePersistedSyncOptions) {
   function onEvent(event: BridgeEvent) {
     const sid = options.sessionId();
     if (!sid || event.sessionId !== sid) return;
-    if (DURABLE_REFRESH_EVENTS.has(event.eventType)) schedule();
+    if (!DURABLE_REFRESH_EVENTS.has(event.eventType)) return;
+    if (isEnabled()) schedule();
+    else missed = true;
   }
 
   const unsubscribe = sdk.onBridgeEvent(onEvent);
+  const stopWatch = watch(isEnabled, (enabled) => {
+    if (enabled && missed) {
+      missed = false;
+      schedule();
+    }
+  });
   onScopeDispose(() => {
     unsubscribe();
+    stopWatch();
     if (timer) clearTimeout(timer);
   });
 

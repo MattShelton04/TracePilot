@@ -1,6 +1,6 @@
 import type { BridgeEvent } from "@tracepilot/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { effectScope } from "vue";
+import { effectScope, nextTick, ref } from "vue";
 
 const handlers = new Set<(event: BridgeEvent) => void>();
 const sdkMock = {
@@ -47,6 +47,25 @@ afterEach(() => {
 });
 
 describe("useLivePersistedSync", () => {
+  it("holds refreshes while disabled and catches up once when re-enabled", async () => {
+    const refresh = vi.fn();
+    const visible = ref(false);
+    const scope = effectScope();
+    scope.run(() =>
+      useLivePersistedSync({ sessionId: () => "s1", refresh, enabled: () => visible.value }),
+    );
+    emit("assistant.message");
+    emit("session.idle");
+    vi.advanceTimersByTime(LIVE_REFRESH_MAX_WAIT_MS);
+    expect(refresh).not.toHaveBeenCalled();
+
+    visible.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(LIVE_REFRESH_DEBOUNCE_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    scope.stop();
+  });
+
   it("refreshes once after a burst of durable events", () => {
     const { refresh } = setup();
     emit("tool.execution_start");

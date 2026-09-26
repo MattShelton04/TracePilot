@@ -268,3 +268,34 @@ fn consecutive_resumes_collapse_into_one_row() {
     assert_eq!(resumes[0].summary, "Session resumed 3× (model: gpt-5.4)");
     assert_eq!(turns[0].model.as_deref(), Some("gpt-5.4"));
 }
+
+#[test]
+fn resumes_separated_by_conversation_stay_separate_rows() {
+    let events = vec![
+        user_msg("Hello")
+            .interaction_id("int-1")
+            .id("ev-1")
+            .timestamp("2025-01-01T00:00:00Z")
+            .build_event(),
+        resume_event("r1", "2025-01-01T00:00:01Z", "auto"),
+        asst_msg("Working on it")
+            .id("ev-2")
+            .timestamp("2025-01-01T00:00:02Z")
+            .build_event(),
+        resume_event("r2", "2025-01-01T00:00:03Z", "auto"),
+    ];
+    let turns = reconstruct_turns(&events);
+    let resumes: Vec<_> = turns
+        .iter()
+        .flat_map(|t| t.session_events.iter())
+        .filter(|e| e.event_type == "session.resume")
+        .map(|e| e.summary.as_str())
+        .collect();
+    assert_eq!(
+        resumes,
+        vec![
+            "Session resumed (model: auto)",
+            "Session resumed (model: auto)"
+        ]
+    );
+}

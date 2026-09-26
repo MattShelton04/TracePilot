@@ -117,8 +117,9 @@ Further research against Copilot CLI 1.0.88 established:
   no setup: replies, reasoning, tool output, status, and context usage.
 - Any number of terminals can be watched at once, each on its own client.
 - TracePilot can no longer fork a live terminal session by linking it.
-- Locating a session never spawns a process on Windows, and the port table
-  is shared across sessions. A 500-session request takes about 3 ms after
+- Locating spawns at most one `netstat -ano` per 2 s on Windows (holder
+  liveness is a file-open probe), and the port table is shared across
+  sessions. A 500-session request takes about 3 ms after
   the first port probe.
 - The persisted view stays authoritative; the overlay only fills the gap
   until the durable events are indexed.

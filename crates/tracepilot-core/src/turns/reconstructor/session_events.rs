@@ -229,12 +229,16 @@ impl TurnReconstructor {
         }
         // Every client that joins a session appends a `session.resume` (a
         // TracePilot live attach does too), so back-to-back resumes collapse
-        // into one row with a count instead of stacking up.
+        // into one row with a count instead of stacking up. Bookkeeping
+        // events in between (permissions, model diagnostics) don't count;
+        // any conversation does.
+        let collapse = std::mem::replace(&mut self.resume_row_open, true);
         let target = match &mut self.current_turn {
             Some(turn) => &mut turn.session_events,
             None => &mut self.pending_session_events,
         };
-        if let Some(last) = target.last_mut()
+        if collapse
+            && let Some(last) = target.last_mut()
             && last.event_type == "session.resume"
         {
             last.summary = resume_summary(

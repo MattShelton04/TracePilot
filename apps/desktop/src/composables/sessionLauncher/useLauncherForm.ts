@@ -98,6 +98,8 @@ export function useLauncherForm(options: UseLauncherFormOptions) {
     baseBranch.value = tpl.config.baseBranch ?? "";
     autoApprove.value = tpl.config.autoApprove;
     headless.value = tpl.config.headless;
+    // Templates always store `uiServer` (false unless ticked), so false can't
+    // mean "opted out"; the live-sessions preference still applies.
     uiServer.value = (tpl.config.uiServer ?? false) || attachableByDefault();
     templateApplied = true;
     reasoningEffort.value = (tpl.config.reasoningEffort as ReasoningEffort) ?? "medium";
