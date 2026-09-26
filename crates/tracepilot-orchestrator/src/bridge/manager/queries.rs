@@ -21,7 +21,9 @@ impl BridgeManager {
                 mode: None,
                 is_active: true,
                 resume_error: None,
-                is_remote: false,
+                // Attached through a terminal's own server (ADR-0016). Must
+                // survive renderer hydration so the UI keeps the live view.
+                is_remote: self.session_endpoints.contains_key(session_id),
             })
             .collect()
     }

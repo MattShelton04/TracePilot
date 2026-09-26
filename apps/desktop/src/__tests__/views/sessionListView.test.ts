@@ -26,6 +26,9 @@ vi.mock("@/composables/useIndexingEvents", () => ({
 }));
 vi.mock("@/composables/usePerfMonitor", () => ({ usePerfMonitor: vi.fn() }));
 vi.mock("@/composables/useRenderBudget", () => ({ useRenderBudget: vi.fn() }));
+vi.mock("@/composables/useLiveSessionBadges", () => ({
+  useLiveSessionBadges: () => ({ liveBadge: () => null }),
+}));
 vi.mock("@/utils/sessionPrefetch", () => ({ prefetchRecentSessions: vi.fn() }));
 vi.mock("@tracepilot/ui", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tracepilot/ui")>()),

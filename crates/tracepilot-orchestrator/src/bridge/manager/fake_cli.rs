@@ -10,7 +10,7 @@
 use super::sdk_client::SdkSession;
 use github_copilot_sdk::{Client, ResumeSessionConfig, SessionId};
 use serde_json::{Value, json};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
@@ -23,6 +23,9 @@ pub(super) const FAKE_MESSAGE_ID: &str = "message-1";
 struct Script {
     calls: Vec<(String, Value)>,
     errors: HashMap<String, String>,
+    stalled: HashSet<String>,
+    /// Errors answered for the next N requests of a method, then cleared.
+    transient: HashMap<String, (String, usize)>,
 }
 
 /// Handle to the fake peer. Dropping it stops the peer's writer, which the
@@ -72,7 +75,20 @@ impl FakeCli {
                 let reply = {
                     let mut script = reader_script.lock().unwrap();
                     script.calls.push((method.clone(), params.clone()));
-                    match script.errors.get(&method) {
+                    if script.stalled.contains(&method) {
+                        continue;
+                    }
+                    let transient =
+                        script
+                            .transient
+                            .get_mut(&method)
+                            .and_then(|(message, left)| {
+                                (*left > 0).then(|| {
+                                    *left -= 1;
+                                    message.clone()
+                                })
+                            });
+                    match transient.as_ref().or(script.errors.get(&method)) {
                         Some(message) => json!({
                             "jsonrpc": "2.0", "id": id,
                             "error": { "code": -32000, "message": message },
@@ -125,6 +141,25 @@ impl FakeCli {
             .unwrap()
             .errors
             .insert(method.to_string(), message.to_string());
+    }
+
+    /// Answer the next `times` `method` requests with a JSON-RPC error.
+    pub(super) fn fail_times(&self, method: &str, message: &str, times: usize) {
+        self.script
+            .lock()
+            .unwrap()
+            .transient
+            .insert(method.to_string(), (message.to_string(), times));
+    }
+
+    /// Never answer future `method` requests, like a peer that died after
+    /// the request was written.
+    pub(super) fn stall(&self, method: &str) {
+        self.script
+            .lock()
+            .unwrap()
+            .stalled
+            .insert(method.to_string());
     }
 
     /// Push a `session.event` notification for `session_id`.

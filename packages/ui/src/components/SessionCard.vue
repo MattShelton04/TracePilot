@@ -3,8 +3,13 @@ import type { SessionListItem } from "@tracepilot/types";
 import { formatRelativeTime } from "@tracepilot/types";
 import Badge from "./Badge.vue";
 
-defineProps<{
+const props = defineProps<{
   session: SessionListItem;
+  /**
+   * Live attach state (ADR-0016): `attachable` when the session runs in a
+   * `--ui-server` terminal TracePilot can stream, `watching` when attached.
+   */
+  live?: "attachable" | "watching" | null;
 }>();
 
 const emit = defineEmits<{
@@ -13,6 +18,18 @@ const emit = defineEmits<{
 
 function isActive(session: SessionListItem): boolean {
   return session.isRunning === true;
+}
+
+function activeLabel(): string {
+  if (props.live === "watching") return "Watching";
+  if (props.live === "attachable") return "Live";
+  return "Active";
+}
+
+function activeTitle(): string {
+  if (props.live === "watching") return "TracePilot is streaming this session live";
+  if (props.live === "attachable") return "Running in a terminal TracePilot can stream live";
+  return "Session is currently active";
 }
 </script>
 
@@ -28,14 +45,14 @@ function isActive(session: SessionListItem): boolean {
   >
     <Transition name="active-pop">
       <span v-if="isActive(session)" class="active-pop-wrapper active-badge-topright">
-        <Badge variant="success" class="active-badge">Active</Badge>
+        <Badge variant="success" class="active-badge" :title="activeTitle()">{{ activeLabel() }}</Badge>
       </span>
     </Transition>
     
     <div class="card-header-new">
       <Transition name="active-pop">
         <span v-if="isActive(session)" class="active-pop-wrapper">
-          <span class="active-dot" title="Session is currently active" />
+          <span class="active-dot" :title="activeTitle()" />
         </span>
       </Transition>
       <h3 class="card-title-new">{{ session.summary || 'Untitled Session' }}</h3>

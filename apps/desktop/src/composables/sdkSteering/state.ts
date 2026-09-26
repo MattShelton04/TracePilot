@@ -1,4 +1,4 @@
-import type { BridgeSessionMode, SessionLiveState } from "@tracepilot/types";
+import type { BridgeSessionMode, LiveSessionHost, SessionLiveState } from "@tracepilot/types";
 import type { ComputedRef, Ref } from "vue";
 import { computed, ref, watch } from "vue";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
@@ -57,6 +57,8 @@ export interface SdkSteeringState {
   sentMessages: Ref<SentMessage[]>;
   sessionError: Ref<string | null>;
   resuming: Ref<boolean>;
+  /** True while a live attach (`sdk_attach_session`) is in flight. */
+  attaching: Ref<boolean>;
   resolvedSessionId: Ref<string | null>;
 
   // Computeds
@@ -66,6 +68,10 @@ export interface SdkSteeringState {
   linkedSession: ComputedRef<ReturnType<typeof useSdkStore>["sessions"][number] | null>;
   hasActiveSdkHandle: ComputedRef<boolean>;
   isLinked: ComputedRef<boolean>;
+  /** How the current session is hosted (live attach), when known. */
+  liveHost: ComputedRef<LiveSessionHost | null>;
+  /** Linked through a live attachment to the session's own terminal. */
+  isLive: ComputedRef<boolean>;
   currentMode: ComputedRef<BridgeSessionMode>;
   inferredModel: ComputedRef<string | null>;
   currentModel: ComputedRef<string | null>;
@@ -98,6 +104,7 @@ export function useSdkSteeringState(options: UseSdkSteeringOptions): SdkSteering
   // ─── Session linking state ───────────────────────────────────
   const sessionError = ref<string | null>(null);
   const resuming = ref(false);
+  const attaching = ref(false);
   /** The actual session ID used by the SDK (may differ from props.sessionId after resume). */
   const resolvedSessionId = ref<string | null>(null);
 
@@ -112,12 +119,29 @@ export function useSdkSteeringState(options: UseSdkSteeringOptions): SdkSteering
     return sdk.sessions.find((s) => s.sessionId === sid) ?? null;
   });
 
-  /** Panel is visible whenever SDK is connected and feature is on (even if session isn't linked yet). */
-  const isVisible = computed(() => isEnabled.value && sdk.isConnected && !!sessionIdRef.value);
+  const liveHost = computed((): LiveSessionHost | null => {
+    const sid = sessionIdRef.value;
+    return sid ? (sdk.liveHostsById[sid] ?? null) : null;
+  });
 
   /** Whether the session is actively linked AND the user wants to steer it. */
   const hasActiveSdkHandle = computed(() => linkedSession.value?.isActive === true);
   const isLinked = computed(() => hasActiveSdkHandle.value && !userUnlinked.value);
+  const isLive = computed(() => isLinked.value && linkedSession.value?.isRemote === true);
+
+  /**
+   * Panel is visible when the feature is on and there is something to show:
+   * a bridge connection, a linked session, or a session open in a terminal
+   * (attachable or not). Idle sessions without a connection show nothing.
+   */
+  const isVisible = computed(
+    () =>
+      isEnabled.value &&
+      !!sessionIdRef.value &&
+      (sdk.isConnected ||
+        hasActiveSdkHandle.value ||
+        (liveHost.value !== null && liveHost.value.state !== "idle")),
+  );
 
   const modes: { value: BridgeSessionMode; label: string; icon: string }[] = [
     { value: "interactive", label: "Ask", icon: "message-circle" },
@@ -158,7 +182,11 @@ export function useSdkSteeringState(options: UseSdkSteeringOptions): SdkSteering
     return id.length > 12 ? `${id.slice(0, 8)}…` : id;
   });
 
-  const inlineError = computed(() => sessionError.value ?? sdk.lastError ?? null);
+  // A live attachment has its own endpoint, so the main bridge's connection
+  // errors say nothing about it; only this session's errors are shown.
+  const inlineError = computed(
+    () => sessionError.value ?? (isLive.value ? null : sdk.lastError) ?? null,
+  );
 
   // w1: Reset resolved ID when session changes (see top-of-file ordering note).
   watch(sessionIdRef, () => {
@@ -187,6 +215,7 @@ export function useSdkSteeringState(options: UseSdkSteeringOptions): SdkSteering
     sentMessages,
     sessionError,
     resuming,
+    attaching,
     resolvedSessionId,
     effectiveSessionId,
     isEnabled,
@@ -194,6 +223,8 @@ export function useSdkSteeringState(options: UseSdkSteeringOptions): SdkSteering
     linkedSession,
     hasActiveSdkHandle,
     isLinked,
+    liveHost,
+    isLive,
     currentMode,
     inferredModel,
     currentModel,

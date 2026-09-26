@@ -2,9 +2,11 @@
 
 TracePilot integrates the official [GitHub Copilot SDK for Rust](https://github.com/github/copilot-sdk/tree/main/rust) (`github-copilot-sdk`, [ADR-0015](adr/0015-official-copilot-sdk.md)) to enable **real-time session steering**, programmatic event streaming, and direct communication with the Copilot CLI — all from the desktop UI.
 
-> **Roadmap:** the integration is being redesigned around attaching to running
-> terminal sessions. See the [Copilot live attach plan](features/copilot-live-attach-plan.md)
-> for verified CLI behavior and the phased plan.
+> **Live attach:** sessions running in a `copilot --ui-server` terminal are
+> streamed live when you open them; see [Live Attach](#live-attach) and
+> [ADR-0016](adr/0016-live-attach-to-terminal-sessions.md). The
+> [Copilot live attach plan](features/copilot-live-attach-plan.md) records the
+> verified CLI behaviour and the remaining roadmap.
 
 > **Status:** Experimental. Enable via Settings → Additional Features → Copilot SDK Bridge.
 
@@ -17,6 +19,7 @@ TracePilot integrates the official [GitHub Copilot SDK for Rust](https://github.
 - [Feature Gating](#feature-gating)
 - [Setup & Prerequisites](#setup--prerequisites)
 - [Connecting](#connecting)
+- [Live Attach](#live-attach)
 - [Session Steering](#session-steering)
 - [SDK Settings](#sdk-settings)
 - [Rust API Reference](#rust-api-reference)
@@ -132,75 +135,54 @@ the bridge implementation at compile time, yielding a stub that returned
 
 ## Setup & Prerequisites
 
-1. **Copilot CLI** must be installed and authenticated (`gh auth login`)
-2. **Stdio mode (default)**: The SDK spawns a new CLI subprocess (your installed `copilot`, found on PATH or via `COPILOT_CLI_PATH`) via stdio JSON-RPC. This subprocess can see sessions from `~/.copilot/session-state/` and resume them. Good for creating new sessions, but isolated from your terminal: resuming a session that is running elsewhere yields a private copy that receives none of the terminal's live activity.
-3. **TCP mode (recommended for steering)**: Connect to a running CLI server to steer sessions in real-time alongside the terminal. Three options:
-   - Run `copilot --ui-server` in a terminal → auto-detect in TracePilot
-   - Run `copilot --server --port 3333` → enter `127.0.0.1:3333` in CLI URL field
-   - TracePilot auto-detects `--ui-server` instances via the "Detect UI Server" button
+1. **Copilot CLI** must be installed and authenticated (`gh auth login`).
+2. Enable **Settings → Additional Features → Copilot SDK Bridge**.
 
-### Auto-Connect
+That is all you need to watch terminal sessions: sessions running in a
+`copilot --ui-server` terminal are joined directly over loopback TCP, one
+connection per terminal, whatever the bridge's own connection is set to (see
+[Live Attach](#live-attach)).
 
-When the `copilotSdk` experimental feature is enabled, TracePilot **automatically connects** to the SDK on app startup. You don't need to manually click "Connect". The auto-connect:
-- Uses the saved CLI URL if one was configured (TCP mode) or spawns a subprocess (stdio mode)
-- Authenticates with your GitHub account
-- Discovers all sessions from `~/.copilot/session-state/`
-- Fetches available models
+### The bridge's own connection
 
-The connection status is visible in the sidebar (green dot = connected) and in Settings → SDK Bridge.
+The bridge also keeps one connection of its own, used for sessions that no
+terminal is running (linking them to steer), new SDK sessions, models, quota
+and sign-in. It connects automatically on startup. *Settings → Copilot SDK
+Bridge → Advanced → Connection for other sessions* picks where it goes:
 
-### Connection Modes
+- **Private CLI** (default, recommended): TracePilot starts your installed
+  `copilot` (found on PATH or via `COPILOT_CLI_PATH`) over stdio and stops it
+  on exit, with `COPILOT_HOME` set to TracePilot's configured Copilot home so
+  it sees the same sessions. Sessions running in a terminal are never resumed
+  here: they are attached where they run, or refused with a restart hint (F9).
+  Detach releases the private CLI's lock on the session.
+- **CLI server**: connect to an existing `copilot --ui-server` or
+  `copilot --server --port N`. **Detect** lists running servers, **Launch**
+  starts one, or enter its address in **CLI URL**. The address is saved, so if
+  that server is closed the next start fails; the status row then says nothing
+  is listening there and offers **Use private CLI**.
 
-#### Stdio Mode (default — no CLI URL set)
+Terminal attach does not depend on this choice, which is why the private CLI
+stays the default: a saved CLI server disappears whenever its terminal closes.
 
-1. The SDK locates the `copilot` binary on your PATH
-2. It spawns it as a subprocess using stdio-based JSON-RPC
-3. The subprocess discovers all existing sessions from `~/.copilot/session-state/`
-4. You can then resume any session for real-time steering
-5. ⚠️ This subprocess is **isolated** from your terminal CLI — two processes may write to the same `events.jsonl`
+### Settings layout
 
-#### TCP Mode (recommended — CLI URL set)
+*Settings → Copilot SDK Bridge* shows, top to bottom:
 
-1. Run `copilot --ui-server` in a terminal (starts a background JSON-RPC server on a random port)
-2. In TracePilot Settings → SDK Bridge, click **Detect UI Server** — it finds running instances automatically
-3. Or manually enter the address (e.g. `127.0.0.1:60381`)
-4. **Both TracePilot and the terminal share the same server** — no concurrent write risk
-5. `getForeground` / `setForeground` APIs enable session tracking
-
-#### Auto-Detection
-
-TracePilot can detect running `copilot --ui-server` or `copilot --server` processes on the local machine:
-
-- **Windows**: Uses `Get-CimInstance Win32_Process` + `Get-NetTCPConnection` via PowerShell
-- **macOS**: Uses `ps` + `lsof` to find processes and listening ports
-- **Linux**: Uses `ps` + `ss` for port discovery
-
-Click "Detect UI Server" in Settings or use "Detect & Connect" for one-click discovery + connection.
-
-### Building
-
-The SDK is compiled into every build — there is no opt-out flag (ADR-0007).
-To disable at runtime, toggle **Settings → Additional Features → Copilot SDK Bridge** off.
-
-```bash
-cargo build
-```
+1. **Status**: connection, CLI version, sign-in, model and session counts,
+   with **Connect** / **Disconnect**.
+2. **Terminal sessions**: *Watch terminal sessions automatically* and *Start
+   terminals watchable*.
+3. **Sessions in TracePilot**: sessions being watched (**Live**) or steered
+   (**Steering**); click one to open it.
+4. **Advanced**: the connection target above, SDK log level, **Run
+   Diagnostics** (connect → auth → models → sessions → resume, step by step),
+   raw store state and bridge metrics.
 
 ## Connecting
 
-### Automatic (Recommended)
-
-When the `copilotSdk` feature is enabled, TracePilot **auto-connects on startup**. No manual action needed.
-
-### From the Settings Panel
-
-1. Go to **Settings → Copilot SDK Bridge**
-2. Optionally enter a CLI URL (leave empty to spawn a new subprocess)
-3. Click **Connect**
-
-### Diagnostics
-
-If the SDK doesn't seem to work, go to **Settings → SDK Diagnostics** and click **Run Diagnostics**. This runs a step-by-step test of: connect → auth → models → sessions → resume, logging each step. The **Raw State** section shows all current SDK store values.
+The bridge connects automatically on startup while the feature is enabled;
+**Connect** / **Disconnect** in the Status row control it by hand.
 
 ### Programmatically (Rust)
 
@@ -223,6 +205,55 @@ const status = await sdkConnect({ cliUrl: "ws://localhost:19836" });
 console.log(status.state); // "connected"
 ```
 
+## Live Attach
+
+TracePilot can watch a Copilot CLI session that is running in a terminal, as it
+runs, if that terminal was started with `--ui-server`:
+
+- **Sessions TracePilot starts** (launcher, "Resume in Terminal") get
+  `--ui-server` automatically while *Settings → SDK → Start terminals
+  watchable* is on (the default).
+- **Terminals you start yourself** need `copilot --ui-server` (or
+  `copilot --resume <id> --ui-server`). The flag is read only at startup, so
+  there is no way to turn it on inside a running session; exit and resume
+  with it instead. A shell alias such as `alias copilot='copilot --ui-server'`
+  makes it the default.
+
+How it looks:
+
+| Session state | Session list | Session view |
+|---|---|---|
+| Attachable (`--ui-server`) | **Live** badge | Attaches automatically (or **Watch live**), then streams replies, reasoning, tool output, status and context usage |
+| Attached | **Watching** badge | "Live · terminal · pid N" label with **Detach** |
+| Running without a server | **Active** badge | Restart command with a copy button; the view refreshes from disk |
+| Idle | — | History; linking resumes it through TracePilot's own CLI |
+
+Attaching joins the terminal's own CLI as an observer: prompts, permission
+requests and questions stay in the terminal, and TracePilot never loads a
+second copy of the session. Each attach appends one `session.resume` event to
+the session (shown once as "Session resumed N×"), so TracePilot auto-attaches at
+most once per terminal (session, PID and address) per view and never
+re-attaches after **Detach**. Detaching writes nothing. Turn off *Watch terminal
+sessions automatically* to attach only on demand.
+
+When the terminal closes (Ctrl+C, closing the window, or a crash), the next
+host check (every 5 s while the session is open) drops the attachment and the
+panel says **Stopped watching** with the reason. If a check itself fails (for
+example `netstat` times out), attachments are left alone until one succeeds.
+**Detach** also works right after a terminal dies: the detach request is
+bounded to 2 s, so a dead connection cannot hang the bridge. Starting the
+terminal again (`copilot --resume <id> --ui-server`) is a new host, so the open
+view attaches to it again; a terminal still loading the session is retried for
+a few seconds instead of failing with "session not found".
+
+Disconnecting the bridge in Settings keeps terminal attachments, since they
+never used its connection; turning the SDK feature off drops them.
+
+While attached, streamed text and running tool output are shown straight from
+the live stream; every durable event (messages, tool start/complete, turn end,
+idle, errors) refreshes the saved conversation within about 400 ms, and the
+saved version replaces the live one without duplicates.
+
 ## Session Steering
 
 Once connected, you can steer an active session from the **Conversation tab**:
@@ -233,7 +264,7 @@ Once connected, you can steer an active session from the **Conversation tab**:
 4. Use the mode buttons (Ask / Plan / Auto) to switch session mode
 5. Use the model dropdown to hot-switch models
 6. Click **Abort** to gracefully abort a running turn
-7. Click **Stop** (in the session label) to unlink/destroy the SDK session
+7. Click **Detach** (in the session label) to stop following the session; it keeps running and nothing is written to it
 
 ### Steering API
 
@@ -249,13 +280,8 @@ await sdkSetSessionMode("session-id", "plan");
 
 ## SDK Settings
 
-The settings panel (visible when the feature is enabled) provides:
-
-- **CLI URL** — TCP URL for an existing ACP server (leave blank to spawn a new CLI subprocess)
-- **Log Level** — SDK logging verbosity
-- **Connection status** — State, CLI version, active sessions
-- **Authentication** — GitHub auth status, login, host
-- **Quota** — Real-time usage/limits display (note: `account.get_quota` may not be supported by all CLI versions)
+See [Settings layout](#settings-layout). Quota comes from `account.getQuota`,
+which older CLI versions may not support.
 
 ## Verified Capabilities
 
@@ -298,6 +324,8 @@ smoke tests in `crates/tracepilot-orchestrator/tests/live_copilot_bridge.rs`:
 | `get_auth_status()` | Get authentication status |
 | `list_models()` | List available models |
 | `get_foreground_session()` | Get foreground session ID |
+| `attach_session(id, address)` | Join a `--ui-server` terminal's session as an observer (one client per endpoint) |
+| `reconcile_attachments(hosts)` | Drop attachments whose terminal exited or moved |
 | `set_foreground_session(id)` | Set foreground session |
 
 ### Bridge Events
@@ -340,6 +368,10 @@ sdkSetSessionModel(sessionId: string, model: string, reasoningEffort?: string): 
 sdkListSessions(): Promise<BridgeSessionInfo[]>
 sdkGetForegroundSession(): Promise<string | null>
 sdkSetForegroundSession(sessionId: string): Promise<void>
+
+// Live attach (ADR-0016)
+sdkLiveHosts(sessionIds: string[]): Promise<LiveSessionHost[]>  // attachable | running | idle
+sdkAttachSession(sessionId: string): Promise<BridgeSessionInfo>
 
 // Quota & Auth
 sdkGetQuota(): Promise<BridgeQuota>
@@ -415,7 +447,7 @@ cd apps/desktop && npx vue-tsc --noEmit
 ### Manual Testing
 
 1. Enable the feature flag: Settings → Additional Features → **Copilot SDK Bridge**
-2. In Settings → Copilot SDK Bridge, click **Connect** (leave CLI URL empty to spawn a subprocess)
+2. In Settings → Copilot SDK Bridge, check **Status** says *Connected · private CLI* (click **Connect** if not)
 3. Open a session in the Conversation tab
 4. The steering panel should appear at the bottom of the Chat view
 5. The session auto-resumes when the steering panel activates
@@ -453,9 +485,9 @@ pnpm app:stop
 | 0 active sessions | Sessions start as inactive. They become active when you open a session in conversation view (auto-resume). |
 | Can't send messages | Ensure (1) SDK connected (green dot in sidebar), (2) session is in Conversation view, (3) steering panel is visible. |
 | Sent message stuck on "sending" | This was a reactivity bug — now fixed. Messages auto-dismiss after 4s (success) or 8s (error). |
-| Want to stop steering | Click the **Stop** button next to the session ID in the steering panel. This detaches TracePilot (`session.detach`); it never shuts down the session. |
+| Want to stop steering | Click **Detach** next to the session ID in the steering panel. This detaches TracePilot (`session.detach`); it never shuts down the session. |
 | Tools are denied in an SDK-launched session | SDK launches only approve tool permissions when **Auto-approve** is enabled in the launcher. Interactive approval is planned. |
-| Use **Diagnostics** | Go to Settings → SDK Bridge → Run Diagnostics for step-by-step connection test and raw state dump. |
+| Use **Diagnostics** | Go to Settings → Copilot SDK Bridge → Advanced → Run Diagnostics for step-by-step connection test and raw state dump. |
 
 ---
 

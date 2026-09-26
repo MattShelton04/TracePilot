@@ -27,7 +27,22 @@ export function useLauncherForm(options: UseLauncherFormOptions) {
   const createWorktree = ref(false);
   const autoApprove = ref(false);
   const headless = ref(false);
-  const uiServer = ref(false);
+  /**
+   * Live sessions default: terminals start with `--ui-server` so TracePilot
+   * can attach to them (see Settings → Live sessions).
+   */
+  const attachableByDefault = () =>
+    prefsStore.isFeatureEnabled("copilotSdk") && prefsStore.liveLaunchAttachable;
+  const initialUiServer = attachableByDefault();
+  const uiServer = ref(initialUiServer);
+  let templateApplied = false;
+  // Preferences may hydrate after the form is created; adopt the default
+  // unless a template or the user already changed the toggle.
+  void Promise.resolve(prefsStore.whenReady).then(() => {
+    if (!templateApplied && uiServer.value === initialUiServer) {
+      uiServer.value = attachableByDefault();
+    }
+  });
   const reasoningEffort = ref<ReasoningEffort>("medium");
   const prompt = ref("");
   const customInstructions = ref("");
@@ -83,7 +98,10 @@ export function useLauncherForm(options: UseLauncherFormOptions) {
     baseBranch.value = tpl.config.baseBranch ?? "";
     autoApprove.value = tpl.config.autoApprove;
     headless.value = tpl.config.headless;
-    uiServer.value = tpl.config.uiServer ?? false;
+    // Templates always store `uiServer` (false unless ticked), so false can't
+    // mean "opted out"; the live-sessions preference still applies.
+    uiServer.value = (tpl.config.uiServer ?? false) || attachableByDefault();
+    templateApplied = true;
     reasoningEffort.value = (tpl.config.reasoningEffort as ReasoningEffort) ?? "medium";
     prompt.value = tpl.config.prompt ?? "";
     customInstructions.value = tpl.config.customInstructions ?? "";

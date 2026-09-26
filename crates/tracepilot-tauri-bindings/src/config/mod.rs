@@ -13,6 +13,7 @@
 //! - [`FeaturesConfig`] — feature-flag booleans exposed to the frontend.
 //! - [`LoggingConfig`] — log-level wiring.
 //! - [`AlertsConfig`] — notification/toast/sound preferences.
+//! - [`LiveConfig`] — live session attach preferences.
 //! - [`PerformanceConfig`] — bounded runtime cache retention.
 //!
 //! Wire-format rule: every sub-config must carry `#[serde(default)]` on its
@@ -31,6 +32,7 @@ mod defaults;
 mod features;
 mod general;
 mod isolation;
+mod live;
 mod logging;
 mod paths;
 mod performance;
@@ -46,6 +48,7 @@ mod tests;
 pub use alerts::AlertsConfig;
 pub use features::FeaturesConfig;
 pub use general::GeneralConfig;
+pub use live::LiveConfig;
 pub use logging::LoggingConfig;
 pub use paths::PathsConfig;
 pub use performance::{
@@ -93,6 +96,8 @@ pub struct TracePilotConfig {
     pub alerts: AlertsConfig,
     #[serde(default)]
     pub performance: PerformanceConfig,
+    #[serde(default)]
+    pub live: LiveConfig,
 }
 
 impl Default for TracePilotConfig {
@@ -126,6 +131,7 @@ impl Default for TracePilotConfig {
             logging: LoggingConfig::default(),
             alerts: AlertsConfig::default(),
             performance: PerformanceConfig::default(),
+            live: LiveConfig::default(),
         }
     }
 }

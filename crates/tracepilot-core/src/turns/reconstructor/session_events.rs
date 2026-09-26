@@ -227,14 +227,31 @@ impl TurnReconstructor {
         if let Some(ref model) = data.selected_model {
             self.session_model = Some(model.clone());
         }
+        // Every client that joins a session appends a `session.resume` (a
+        // TracePilot live attach does too), so back-to-back resumes collapse
+        // into one row with a count instead of stacking up. Bookkeeping
+        // events in between (permissions, model diagnostics) don't count;
+        // any conversation does.
+        let collapse = std::mem::replace(&mut self.resume_row_open, true);
+        let target = match &mut self.current_turn {
+            Some(turn) => &mut turn.session_events,
+            None => &mut self.pending_session_events,
+        };
+        if collapse
+            && let Some(last) = target.last_mut()
+            && last.event_type == "session.resume"
+        {
+            last.summary = resume_summary(
+                resume_count(&last.summary) + 1,
+                data.selected_model.as_deref(),
+            );
+            return;
+        }
         self.push_session_event(
             "session.resume",
             event.raw.timestamp,
             SessionEventSeverity::Info,
-            data.selected_model
-                .as_deref()
-                .map(|m| format!("Session resumed (model: {m})"))
-                .unwrap_or_else(|| "Session resumed".to_string()),
+            resume_summary(1, data.selected_model.as_deref()),
         );
     }
 
@@ -398,6 +415,28 @@ impl TurnReconstructor {
             summary,
         );
     }
+}
+
+/// `Session resumed`, `Session resumed 3×`, each with an optional model.
+pub(super) fn resume_summary(count: u32, model: Option<&str>) -> String {
+    let times = if count > 1 {
+        format!(" {count}×")
+    } else {
+        String::new()
+    };
+    match model {
+        Some(m) => format!("Session resumed{times} (model: {m})"),
+        None => format!("Session resumed{times}"),
+    }
+}
+
+/// The count encoded by [`resume_summary`].
+fn resume_count(summary: &str) -> u32 {
+    summary
+        .strip_prefix("Session resumed ")
+        .and_then(|rest| rest.split('×').next())
+        .and_then(|n| n.parse().ok())
+        .unwrap_or(1)
 }
 
 fn json_field_str<'a>(value: Option<&'a Value>, field: &str) -> Option<&'a str> {

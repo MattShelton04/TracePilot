@@ -5,14 +5,11 @@
 
 use super::BridgeManager;
 use super::sdk_client::{requested_connection_mode, start_client};
+use super::session_tasks::DETACH_TIMEOUT;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError};
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tracing::{debug, info, warn};
-
-/// Upper bound for the best-effort `session.detach` sent to each tracked
-/// session during disconnect. A dead transport must not wedge shutdown.
-const DETACH_TIMEOUT: Duration = Duration::from_secs(2);
 
 impl BridgeManager {
     fn is_same_connection_config(&self, config: &BridgeConnectConfig) -> bool {
@@ -56,7 +53,8 @@ impl BridgeManager {
             "SDK bridge connect: starting"
         );
 
-        let client = match start_client(&config).await {
+        let copilot_home = self.copilot_home_reader.as_ref().and_then(|read| read());
+        let client = match start_client(&config, copilot_home.as_deref()).await {
             Ok(client) => client,
             Err(e) => {
                 self.state = BridgeConnectionState::Error;
@@ -95,7 +93,27 @@ impl BridgeManager {
     /// "all sessions gone" signal; emitting per-session terminal events
     /// here would just duplicate that information.
     pub async fn disconnect(&mut self) -> Result<(), BridgeError> {
-        for (id, session) in &self.sessions {
+        self.teardown(false).await
+    }
+
+    /// Disconnect the bridge's own connection but keep live terminal
+    /// attachments (ADR-0016): they run on their own endpoint clients and
+    /// never needed this one. Used by the Settings "Disconnect" button.
+    pub async fn disconnect_keep_live(&mut self) -> Result<(), BridgeError> {
+        self.teardown(true).await
+    }
+
+    async fn teardown(&mut self, keep_live: bool) -> Result<(), BridgeError> {
+        let doomed: Vec<String> = self
+            .sessions
+            .keys()
+            .filter(|id| !keep_live || !self.session_endpoints.contains_key(*id))
+            .cloned()
+            .collect();
+        for id in &doomed {
+            let Some(session) = self.sessions.get(id) else {
+                continue;
+            };
             match tokio::time::timeout(DETACH_TIMEOUT, session.disconnect()).await {
                 Ok(Ok(())) => debug!("Detached session {} during disconnect", id),
                 Ok(Err(e)) => debug!("Best-effort detach of {} failed: {}", id, e),
@@ -108,19 +126,28 @@ impl BridgeManager {
         {
             warn!("SDK stop reported errors: {}", errors);
         }
-
-        self.sessions.clear();
-
-        for (id, handle) in self.event_tasks.drain() {
-            handle.abort();
-            if let Err(e) = handle.await
-                && !e.is_cancelled()
-            {
-                warn!("event forwarder for {} failed to join cleanly: {}", id, e);
-            }
+        // Live attach endpoints: their sessions were detached above, so this
+        // only closes TracePilot's connections; the terminals keep running.
+        if !keep_live {
+            self.stop_all_endpoints().await;
         }
 
-        self.live_state.clear();
+        for id in &doomed {
+            self.sessions.remove(id);
+            if let Some(handle) = self.event_tasks.remove(id) {
+                handle.abort();
+                if let Err(e) = handle.await
+                    && !e.is_cancelled()
+                {
+                    warn!("event forwarder for {} failed to join cleanly: {}", id, e);
+                }
+            }
+            self.live_state.remove(id);
+        }
+        if !keep_live {
+            // Defensive: also clears stray slots from an earlier partial teardown.
+            self.live_state.clear();
+        }
 
         self.state = BridgeConnectionState::Disconnected;
         self.error_message = None;

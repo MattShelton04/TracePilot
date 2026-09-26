@@ -45,6 +45,8 @@ function looksLikeUnhandledMethod(value: unknown): boolean {
 
 export interface SdkSteeringActions {
   linkSession: () => Promise<boolean>;
+  attachLive: () => Promise<boolean>;
+  handleDetach: () => Promise<void>;
   handleSend: () => Promise<void>;
   handleModeChange: (mode: BridgeSessionMode) => Promise<void>;
   handleAbort: () => Promise<void>;
@@ -74,9 +76,11 @@ export function useSdkSteeringActions(state: SdkSteeringState): SdkSteeringActio
     sentMessages,
     sessionError,
     resuming,
+    attaching,
     resolvedSessionId,
     effectiveSessionId,
     isLinked,
+    liveHost,
   } = state;
 
   let sentIdCounter = 0;
@@ -144,6 +148,8 @@ export function useSdkSteeringActions(state: SdkSteeringState): SdkSteeringActio
    * the user's terminal CLI, so it should only be done intentionally.
    */
   async function linkSession(): Promise<boolean> {
+    // A session open in a `--ui-server` terminal is joined where it runs.
+    if (liveHost.value?.state === "attachable") return attachLive();
     const sid = sessionIdRef.value;
     if (!sid || !sdk.isConnected) return false;
     // Already linked — no-op
@@ -188,6 +194,50 @@ export function useSdkSteeringActions(state: SdkSteeringState): SdkSteeringActio
     } finally {
       resuming.value = false;
     }
+  }
+
+  /**
+   * Attach to the terminal that hosts this session (live attach). Joins as
+   * an observer: prompts and permissions stay in the terminal. Idempotent in
+   * the backend, which resumes at most once while the session stays attached.
+   */
+  async function attachLive(): Promise<boolean> {
+    const sid = sessionIdRef.value;
+    if (!sid || attaching.value) return false;
+    attaching.value = true;
+    sessionError.value = null;
+    try {
+      const result = await sdk.attachSession(sid);
+      if (!result) {
+        sessionError.value = friendlyError(sdk.lastError ?? "Could not attach to this session");
+        return false;
+      }
+      resolvedSessionId.value = result.sessionId;
+      userLinked.value = true;
+      userUnlinked.value = false;
+      logInfo("[sdk] Watching session live:", result.sessionId);
+      return true;
+    } finally {
+      attaching.value = false;
+    }
+  }
+
+  /**
+   * Detach TracePilot from the session. The session keeps running wherever it
+   * is hosted; nothing is written to its history. Auto-attach stays off for
+   * this view until the user attaches again.
+   */
+  async function handleDetach() {
+    const sid = effectiveSessionId.value;
+    if (!sid) return;
+    sessionError.value = null;
+    await sdk.unlinkSession(sid);
+    userLinked.value = false;
+    userUnlinked.value = true;
+    resolvedSessionId.value = null;
+    sentMessages.value = [];
+    logInfo("[sdk] Detached from session:", sid);
+    void sdk.refreshLiveHosts([sid]);
   }
 
   async function handleSend() {
@@ -312,6 +362,8 @@ export function useSdkSteeringActions(state: SdkSteeringState): SdkSteeringActio
 
   return {
     linkSession,
+    attachLive,
+    handleDetach,
     handleSend,
     handleModeChange,
     handleAbort,

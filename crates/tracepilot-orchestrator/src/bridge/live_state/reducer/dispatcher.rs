@@ -23,8 +23,15 @@ pub fn apply_event(state: &mut SessionLiveState, event: &BridgeEvent) {
         "assistant.reasoning_delta" => append_delta(state, event, TextKind::Reasoning),
         "assistant.message" => apply_full_text(state, event, TextKind::Assistant),
         "assistant.reasoning" => apply_full_text(state, event, TextKind::Reasoning),
-        "assistant.usage" | "session.usage_info" => state.usage = Some(event.data.clone()),
-        "session.idle" | "assistant.turn_end" => state.status = SessionRuntimeStatus::Idle,
+        "assistant.usage" => state.usage = Some(event.data.clone()),
+        "session.usage_info" => {
+            let tokens = |key: &str| event.data.get(key).and_then(serde_json::Value::as_u64);
+            state.context_tokens = tokens("currentTokens").or(state.context_tokens);
+            state.context_limit = tokens("tokenLimit").or(state.context_limit);
+        }
+        "session.idle" | "assistant.idle" | "assistant.turn_end" => {
+            state.status = SessionRuntimeStatus::Idle;
+        }
         "session.shutdown" => state.status = SessionRuntimeStatus::Shutdown,
         "session.error" => record_error(state, event),
         "permission.requested" | "external_tool.requested" => {

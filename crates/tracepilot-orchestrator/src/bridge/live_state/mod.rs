@@ -53,7 +53,12 @@ pub struct SessionLiveState {
     pub assistant_text: String,
     pub reasoning_text: String,
     pub tools: Vec<ToolProgressSummary>,
+    /// Latest per-call usage (`assistant.usage`: tokens, duration, model).
     pub usage: Option<serde_json::Value>,
+    /// Context-window tokens in use, from `session.usage_info`.
+    pub context_tokens: Option<u64>,
+    /// Context-window size, from `session.usage_info`.
+    pub context_limit: Option<u64>,
     pub pending_permission: Option<PendingRequestSummary>,
     pub pending_user_input: Option<PendingRequestSummary>,
     pub last_event_id: Option<String>,
@@ -100,6 +105,8 @@ impl SessionLiveState {
             reasoning_text: String::new(),
             tools: Vec::new(),
             usage: None,
+            context_tokens: None,
+            context_limit: None,
             pending_permission: None,
             pending_user_input: None,
             last_event_id: None,

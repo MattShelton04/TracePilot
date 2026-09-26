@@ -124,8 +124,8 @@ function toggleUiServer() {
 
         <div class="toggle-row toggle-row-last">
           <div class="toggle-info">
-            <span class="toggle-label">Launch with --ui-server</span>
-            <span class="toggle-desc">Expose terminal-launched sessions to TracePilot's TCP SDK bridge</span>
+            <span class="toggle-label">Watchable live (--ui-server)</span>
+            <span class="toggle-desc">Lets TracePilot attach and stream this terminal session as it runs</span>
           </div>
           <button
             class="toggle-switch"

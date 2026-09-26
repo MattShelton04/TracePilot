@@ -75,6 +75,9 @@ pub struct TurnReconstructor {
     /// Skill invocations awaiting synthetic `<skill-context>`
     /// `user.message` that should be folded instead of rendered as user input.
     pub(crate) pending_skill_invocations: HashMap<String, PendingSkillInvocation>,
+    /// A `session.resume` row can absorb the next resume: no user, assistant
+    /// or tool event has happened since it was recorded.
+    pub(crate) resume_row_open: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -113,12 +116,20 @@ impl TurnReconstructor {
             pending_system_messages: Vec::new(),
             pending_system_messages_ts: None,
             pending_skill_invocations: HashMap::new(),
+            resume_row_open: false,
         }
     }
 
     /// Process a single event, advancing the state machine.
     pub fn process(&mut self, event: &TypedEvent, event_index: usize) {
         self.register_agent_owner(event);
+        let kind = event.raw.event_type.as_str();
+        if ["user.", "assistant.", "tool.", "subagent."]
+            .iter()
+            .any(|prefix| kind.starts_with(prefix))
+        {
+            self.resume_row_open = false;
+        }
         // A subagent has its own conversation loop. Its prompts, boundaries and
         // system prompt must never close, replace or seed the main conversation
         // turn; its prompts are recorded as messages delivered to that agent.

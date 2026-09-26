@@ -27,7 +27,11 @@ pub async fn resume_session_in_terminal(
     crate::validators::validate_cli_command(&cli)?;
 
     // Resolve the session's original working directory from workspace.yaml
-    let session_state_dir = read_config(&state).session_state_dir();
+    let config = read_config(&state);
+    let session_state_dir = config.session_state_dir();
+    // Live sessions (ADR-0016): start the resumed terminal with `--ui-server`
+    // so TracePilot can attach to it and stream it live.
+    let attachable = config.features.copilot_sdk && config.live.launch_attachable;
     let sid = session_id.clone();
     let session_cwd = tokio::task::spawn_blocking(move || {
         let session_path = tracepilot_core::session::discovery::resolve_session_path_direct(
@@ -59,7 +63,7 @@ pub async fn resume_session_in_terminal(
         .or_else(|| tracepilot_core::utils::home_dir_opt().filter(|p| p.is_dir()))
         .unwrap_or_else(|| std::path::PathBuf::from("."));
 
-    let cmd = format!("{} --resume {}", cli, session_id);
+    let cmd = resume_command(&cli, &session_id, attachable);
 
     #[cfg(windows)]
     {
@@ -86,4 +90,31 @@ pub async fn resume_session_in_terminal(
     }
 
     Ok(())
+}
+
+/// The CLI command that resumes `session_id`, optionally as an attachable
+/// `--ui-server` terminal.
+fn resume_command(cli: &str, session_id: &str, attachable: bool) -> String {
+    if attachable {
+        format!("{cli} --resume {session_id} --ui-server")
+    } else {
+        format!("{cli} --resume {session_id}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resume_command;
+
+    #[test]
+    fn resume_command_adds_ui_server_only_when_attachable() {
+        assert_eq!(
+            resume_command("copilot", "abc", false),
+            "copilot --resume abc"
+        );
+        assert_eq!(
+            resume_command("copilot", "abc", true),
+            "copilot --resume abc --ui-server"
+        );
+    }
 }

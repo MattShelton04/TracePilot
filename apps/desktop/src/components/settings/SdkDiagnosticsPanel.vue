@@ -2,7 +2,8 @@
 /**
  * SdkDiagnosticsPanel — collapsible "Advanced" section for the SDK settings.
  *
- * Renders the SDK log-level selector, the multi-step probe runner, the probe
+ * Renders the parent's default slot first (the connection target), then the
+ * SDK log-level selector, the multi-step probe runner, the probe
  * log preview, the copy-to-clipboard action, and the raw-state dump.
  * State + the probe action are sourced from {@link useSdkDiagnostics}; the
  * log-level binding comes from the parent's connection-health composable.
@@ -52,6 +53,9 @@ function runProbe(): void {
 
   <div :id="advancedId" v-show="showAdvanced">
   <template v-if="showAdvanced">
+    <!-- Connection target (SdkServersPanel), supplied by the parent -->
+    <slot />
+
     <!-- Log level -->
     <div class="setting-row">
       <div class="setting-info">

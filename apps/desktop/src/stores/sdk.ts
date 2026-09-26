@@ -25,6 +25,7 @@ import { useWindowRole } from "@/composables/useWindowRole";
 import { MAX_SDK_EVENTS } from "@/config/tuning";
 import { usePreferencesStore } from "@/stores/preferences";
 import { createConnectionSlice } from "@/stores/sdk/connection";
+import { createLiveHostsSlice } from "@/stores/sdk/liveHosts";
 import { createMessagingSlice } from "@/stores/sdk/messaging";
 import { createSettingsSlice } from "@/stores/sdk/settings";
 import { logInfo, logWarn } from "@/utils/logger";
@@ -46,6 +47,14 @@ export const useSdkStore = defineStore("sdk", () => {
     activeSessions: connection.activeSessions,
     lastError: connection.lastError,
     recentEvents: connection.recentEvents,
+    sessionStatesById: connection.sessionStatesById,
+  });
+  const liveHosts = createLiveHostsSlice({
+    sessions: connection.sessions,
+    lastError: connection.lastError,
+    upsertSession: messaging.upsertSession,
+    markSessionInactive: messaging.markSessionInactive,
+    clearLiveTurn: messaging.clearLiveTurn,
   });
   messagingRefs.foregroundSessionIdResetter = () => {
     messaging.foregroundSessionId.value = null;
@@ -53,6 +62,13 @@ export const useSdkStore = defineStore("sdk", () => {
 
   // ─── Event Listeners ──────────────────────────────────────────────
   let listenersInitialized = false;
+  /** In-process subscribers to raw bridge events (see `onBridgeEvent`). */
+  const bridgeEventHandlers = new Set<(event: BridgeEvent) => void>();
+  /** Subscribe to every forwarded bridge event; returns an unsubscribe. */
+  function onBridgeEvent(handler: (event: BridgeEvent) => void): () => void {
+    bridgeEventHandlers.add(handler);
+    return () => bridgeEventHandlers.delete(handler);
+  }
   const unlisteners: UnlistenFn[] = [];
 
   async function initEventListeners() {
@@ -62,11 +78,19 @@ export const useSdkStore = defineStore("sdk", () => {
     try {
       unlisteners.push(
         await safeListen<BridgeEvent>(IPC_EVENTS.SDK_BRIDGE_EVENT, (event) => {
-          // Live-streaming deltas only render in TCP mode. Stdio sends only the
-          // final `assistant.message`, so accumulating it would duplicate the
-          // persisted turn (placeholder + final render at the same time).
-          if (connection.isTcpMode.value) {
+          // Live-streaming deltas render for sessions joined over TCP: the
+          // legacy TCP connection or a live attachment to a `--ui-server`
+          // terminal. Stdio sends only the final `assistant.message`, so
+          // accumulating it would duplicate the persisted turn.
+          if (connection.isTcpMode.value || liveHosts.isAttached(event.payload.sessionId)) {
             messaging.applyBridgeEvent(event.payload);
+          }
+          for (const handler of bridgeEventHandlers) {
+            try {
+              handler(event.payload);
+            } catch (e) {
+              logWarn("[sdk] bridge event handler failed", e);
+            }
           }
           const current = connection.recentEvents.value;
           const next = [...current, event.payload];
@@ -130,21 +154,23 @@ export const useSdkStore = defineStore("sdk", () => {
     }, 100);
   }
 
-  async function disconnect() {
+  async function disconnect(options?: { keepLive?: boolean }) {
     if (!isMain()) {
       logInfo("[sdk] Ignoring disconnect request from non-main window");
       return;
     }
-    await connection.disconnect();
+    await connection.disconnect(options);
   }
 
   // Disconnect SDK when the feature toggle is turned off.
   watch(
     () => prefs.isFeatureEnabled("copilotSdk"),
     (enabled) => {
-      if (isMain() && !enabled && connection.connectionState.value !== "disconnected") {
-        logInfo("[sdk] Feature toggle disabled — disconnecting SDK bridge");
-        disconnect();
+      const busy =
+        connection.connectionState.value !== "disconnected" || connection.sessions.value.length > 0;
+      if (isMain() && !enabled && busy) {
+        logInfo("[sdk] Feature toggle disabled — disconnecting SDK bridge and live sessions");
+        disconnect({ keepLive: false });
       }
     },
   );
@@ -223,6 +249,13 @@ export const useSdkStore = defineStore("sdk", () => {
     setSessionModel: messaging.setSessionModel,
     fetchForegroundSession: messaging.fetchForegroundSession,
     setForegroundSession: messaging.setForegroundSession,
+
+    // Live attach
+    liveHostsById: liveHosts.liveHostsById,
+    isAttached: liveHosts.isAttached,
+    refreshLiveHosts: liveHosts.refreshLiveHosts,
+    attachSession: liveHosts.attachSession,
+    onBridgeEvent,
 
     cleanup,
   };

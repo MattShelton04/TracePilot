@@ -3,7 +3,7 @@ import type { BridgeConnectConfig } from "@tracepilot/types";
 import { runMutation, toErrorMessage } from "@tracepilot/ui";
 import { logInfo, logWarn } from "@/utils/logger";
 import type { ConnectionContext } from "./context";
-import { applyStatus } from "./statusHydration";
+import { applyStatus, countActiveSessions } from "./statusHydration";
 
 function isDisabledByPreferenceError(msg: string | null | undefined): boolean {
   if (!msg) return false;
@@ -45,16 +45,25 @@ export function createLifecycleActions(
     }
   }
 
-  async function disconnect() {
+  /**
+   * Disconnect the bridge. By default sessions attached to `--ui-server`
+   * terminals stay attached, because they never used this connection;
+   * `keepLive: false` drops them too (the SDK feature was turned off).
+   */
+  async function disconnect({ keepLive = true }: { keepLive?: boolean } = {}) {
     await runMutation(context.lastError, async () => {
-      await sdkDisconnect();
+      await sdkDisconnect({ keepLive });
+      const kept = keepLive ? context.sessions.value.filter((s) => s.isRemote) : [];
+      const keptIds = new Set(kept.map((s) => s.sessionId));
       context.connectionState.value = "disconnected";
       context.connectionMode.value = null;
-      context.sessions.value = [];
-      context.sessionStatesById.value = {};
+      context.sessions.value = kept;
+      context.sessionStatesById.value = Object.fromEntries(
+        Object.entries(context.sessionStatesById.value).filter(([id]) => keptIds.has(id)),
+      );
       context.bridgeMetrics.value = null;
       context.deps.onDisconnect?.();
-      context.activeSessions.value = 0;
+      context.activeSessions.value = countActiveSessions(kept);
     });
   }
 

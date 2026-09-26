@@ -11,6 +11,8 @@ const sdk = vi.hoisted(() => ({
   connectionState: "connected",
   sessions: [],
   sessionStatesById: {},
+  liveHostsById: {},
+  refreshLiveHosts: vi.fn(async () => {}),
   models: Array.from({ length: 14 }, (_, i) => ({
     id: `audit-model-${i + 1}`,
     name: `Audit model ${i + 1}`,

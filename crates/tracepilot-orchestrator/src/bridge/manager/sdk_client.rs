@@ -161,9 +161,25 @@ pub(crate) fn client_options(
     Ok(options)
 }
 
+/// Point a spawned (stdio) CLI at `copilot_home`, the directory TracePilot
+/// reads sessions from; otherwise it would use its own default and fail to
+/// find them. External servers already run with their own home.
+pub(crate) fn use_copilot_home(options: &mut ClientOptions, copilot_home: Option<&Path>) {
+    if let (Transport::Stdio, Some(home)) = (&options.transport, copilot_home) {
+        options.env.push((
+            tracepilot_core::paths::COPILOT_HOME_ENV.into(),
+            home.as_os_str().to_owned(),
+        ));
+    }
+}
+
 /// Start an SDK client for `config` against the user's installed CLI.
-pub(crate) async fn start_client(config: &BridgeConnectConfig) -> Result<Client, BridgeError> {
-    let options = client_options(config, resolve_cli_program())?;
+pub(crate) async fn start_client(
+    config: &BridgeConnectConfig,
+    copilot_home: Option<&Path>,
+) -> Result<Client, BridgeError> {
+    let mut options = client_options(config, resolve_cli_program())?;
+    use_copilot_home(&mut options, copilot_home);
     Client::start(options)
         .await
         .map_err(|e| BridgeError::ConnectionFailed(e.to_string()))
@@ -248,6 +264,21 @@ mod tests {
         assert_eq!(options.use_logged_in_user, Some(true));
         assert!(options.github_token.is_none());
         assert!(matches!(options.log_level, Some(LogLevel::Debug)));
+    }
+
+    #[test]
+    fn only_a_spawned_cli_is_pointed_at_the_configured_copilot_home() {
+        let home = Path::new("D:\\copilot-home");
+        let mut stdio = client_options(&cfg(None), Some(PathBuf::from("copilot"))).unwrap();
+        use_copilot_home(&mut stdio, Some(home));
+        assert_eq!(
+            stdio.env,
+            vec![("COPILOT_HOME".into(), home.as_os_str().to_owned())]
+        );
+
+        let mut external = client_options(&cfg(Some("127.0.0.1:60496")), None).unwrap();
+        use_copilot_home(&mut external, Some(home));
+        assert!(external.env.is_empty());
     }
 
     #[test]

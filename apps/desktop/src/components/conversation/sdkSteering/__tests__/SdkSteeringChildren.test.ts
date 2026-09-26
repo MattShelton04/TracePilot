@@ -47,6 +47,9 @@ function makeCtx(overrides: Partial<SdkSteeringContext> = {}): SdkSteeringContex
     sessionError: null,
     resuming: false,
     resolvedSessionId: null,
+    attaching: false,
+    liveHost: null,
+    isLive: false,
     isEnabled: true,
     isVisible: true,
     isLinked: false,
@@ -72,6 +75,8 @@ function makeCtx(overrides: Partial<SdkSteeringContext> = {}): SdkSteeringContex
     handleAbort: vi.fn(),
     handleUnlinkSession: vi.fn(),
     handleShutdownSession: vi.fn(),
+    handleDetach: vi.fn(),
+    attachLive: vi.fn(),
     handleKeydown: vi.fn(),
     handleConnect: vi.fn(),
     clearError: vi.fn(),
@@ -124,13 +129,39 @@ describe("SdkSteeringSessionLabel", () => {
     expect(wrapper.find(".cb-btn-destroy").exists()).toBe(false);
   });
 
-  it("invokes unlink and shutdown handlers when linked", async () => {
+  it("offers a single Detach action when linked", async () => {
     const ctx = makeCtx({ isLinked: true } as never);
     const wrapper = mountWithCtx(SdkSteeringSessionLabel, ctx);
-    await wrapper.find(".cb-btn-unlink").trigger("click");
-    expect(ctx.handleUnlinkSession).toHaveBeenCalled();
-    await wrapper.find(".cb-btn-destroy").trigger("click");
-    expect(ctx.handleShutdownSession).toHaveBeenCalled();
+    expect(wrapper.text()).toContain("Steering");
+    expect(wrapper.find(".cb-btn-unlink").exists()).toBe(false);
+    await wrapper.find(".cb-btn-detach").trigger("click");
+    expect(ctx.handleDetach).toHaveBeenCalled();
+  });
+
+  it("shows the live terminal tag when attached to a terminal", () => {
+    const ctx = makeCtx({
+      isLinked: true,
+      isLive: true,
+      liveHost: {
+        sessionId: "sess-1",
+        state: "attachable",
+        pid: 4242,
+        address: "127.0.0.1:5000",
+        attached: true,
+      },
+    } as never);
+    const wrapper = mountWithCtx(SdkSteeringSessionLabel, ctx);
+    expect(wrapper.find(".cb-session-label.is-live").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Live");
+    expect(wrapper.text()).toContain("terminal · pid 4242");
+  });
+
+  it("hides while the live-attach card is showing", () => {
+    const ctx = makeCtx({
+      liveHost: { sessionId: "sess-1", state: "running", pid: 7, address: null, attached: false },
+    } as never);
+    const wrapper = mountWithCtx(SdkSteeringSessionLabel, ctx);
+    expect(wrapper.find(".cb-session-label").exists()).toBe(false);
   });
 });
 
@@ -196,6 +227,8 @@ function makeLiveState(overrides: Partial<SessionLiveState> = {}): SessionLiveSt
     lastEventType: "assistant.message_delta",
     lastEventTimestamp: "2026-04-27T00:00:00Z",
     lastError: null,
+    contextTokens: null,
+    contextLimit: null,
     reducerWarnings: [],
     ...overrides,
   };
@@ -227,6 +260,8 @@ describe("SdkSteeringLiveState", () => {
           requestedAt: "2026-04-27T00:00:02Z",
         },
         lastError: "Reducer saw a terminal error",
+        contextTokens: null,
+        contextLimit: null,
         reducerWarnings: ["Unknown event shape"],
       }),
     });
@@ -245,7 +280,7 @@ describe("SdkSteeringLiveState", () => {
     expect(wrapper.text()).toContain("Unknown event shape");
   });
 
-  it("renders tool progress, partial output, and token usage", () => {
+  it("renders running tools with an output ticker, context and token usage", () => {
     const ctx = makeCtx({
       liveState: makeLiveState({
         assistantText: "",
@@ -257,19 +292,77 @@ describe("SdkSteeringLiveState", () => {
             status: "running",
             message: "Editing SdkSteeringLiveState.vue",
             progress: 0.42,
-            partialResult: { content: "patched 2 files" },
+            partialResult: "patched 1 file\npatched 2 files\n",
             updatedAt: "2026-04-27T00:00:03Z",
           },
+          {
+            toolCallId: "tool-0",
+            toolName: "view_done",
+            status: "complete",
+            message: null,
+            progress: null,
+            partialResult: "finished output",
+            updatedAt: "2026-04-27T00:00:02Z",
+          },
         ],
-        usage: { inputTokens: 1200, outputTokens: 345, reasoningTokens: 67 },
+        usage: {
+          model: "gpt-5",
+          inputTokens: 1200,
+          outputTokens: 345,
+          reasoningTokens: 67,
+          duration: 1500,
+        },
+        contextTokens: 50_000,
+        contextLimit: 200_000,
       }),
     });
     const wrapper = mountWithCtx(SdkSteeringLiveState, ctx);
     expect(wrapper.text()).toContain("apply_patch");
     expect(wrapper.text()).toContain("Editing SdkSteeringLiveState.vue");
-    expect(wrapper.text()).toContain("patched 2 files");
-    expect(wrapper.text()).toContain("Input Tokens");
+    // Finished tools render in the conversation, not in the panel.
+    expect(wrapper.text()).not.toContain("view_done");
+    // Only the latest output line is echoed; the full stream is in the tool card.
+    expect(wrapper.find(".cb-live-tool-tail").text()).toBe("patched 2 files");
+    expect(wrapper.text()).not.toContain("patched 1 file");
     expect(wrapper.text()).toContain("1,200");
-    expect(wrapper.text()).toContain("Reasoning Tokens");
+    expect(wrapper.text()).toContain("Reasoning");
+    expect(wrapper.text()).toContain("1.5s");
+    expect(wrapper.find(".cb-live-context").attributes("title")).toContain("25%");
+  });
+
+  it("hides an idle snapshot left behind after detaching", () => {
+    const idle = makeLiveState({ status: "idle" });
+    const detached = mountWithCtx(SdkSteeringLiveState, makeCtx({ liveState: idle }));
+    expect(detached.find(".cb-live").exists()).toBe(false);
+    const linked = mountWithCtx(
+      SdkSteeringLiveState,
+      makeCtx({ isLinked: true, liveState: idle } as never),
+    );
+    expect(linked.find(".cb-live").exists()).toBe(true);
+    const failed = mountWithCtx(
+      SdkSteeringLiveState,
+      makeCtx({
+        liveState: makeLiveState({ status: "shutdown", lastError: "Live connection closed" }),
+      }),
+    );
+    expect(failed.text()).toContain("Live connection closed");
+  });
+
+  it("says plainly why watching stopped when the terminal goes away", () => {
+    const reason = "The terminal running this session closed, or switched to another session.";
+    const ended = makeLiveState({ status: "shutdown", lastError: reason });
+    ended.tools = [{ toolName: "powershell", status: "running" } as never];
+    const wrapper = mountWithCtx(SdkSteeringLiveState, makeCtx({ liveState: ended }));
+    expect(wrapper.text()).toContain("Stopped watching");
+    expect(wrapper.get('[data-testid="live-ended"]').text()).toBe(reason);
+    // Stale in-flight tools and the diagnostics disclosure are not shown.
+    expect(wrapper.find(".cb-live-tools").exists()).toBe(false);
+    expect(wrapper.find(".cb-live-diagnostics").exists()).toBe(false);
+  });
+
+  it("titles the panel for terminal sessions", () => {
+    const ctx = makeCtx({ isLive: true, liveState: makeLiveState() } as never);
+    const wrapper = mountWithCtx(SdkSteeringLiveState, ctx);
+    expect(wrapper.text()).toContain("Live from terminal");
   });
 });

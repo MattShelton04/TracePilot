@@ -59,7 +59,12 @@ export interface SessionLiveState {
   assistantText: string;
   reasoningText: string;
   tools: ToolProgressSummary[];
+  /** Latest per-call usage (`assistant.usage`). */
   usage: unknown | null;
+  /** Context-window tokens in use (`session.usage_info`). */
+  contextTokens: number | null;
+  /** Context-window size (`session.usage_info`). */
+  contextLimit: number | null;
   pendingPermission: PendingRequestSummary | null;
   pendingUserInput: PendingRequestSummary | null;
   lastEventId: string | null;
@@ -178,4 +183,24 @@ export interface DetectedUiServer {
   port: number;
   /** e.g. "127.0.0.1:60381" — ready to use as `cliUrl`. */
   address: string;
+}
+
+/**
+ * How a session is hosted right now (live attach, ADR-0016):
+ * - `attachable`: open in a `copilot --ui-server` terminal TracePilot can join;
+ * - `running`: open in a terminal without `--ui-server` (not joinable);
+ * - `idle`: not open anywhere.
+ */
+export type LiveHostState = "attachable" | "running" | "idle";
+
+/** Hosting information for one session (`sdk_live_hosts`). */
+export interface LiveSessionHost {
+  sessionId: string;
+  state: LiveHostState;
+  /** PID of the CLI process holding the session, when known. */
+  pid: number | null;
+  /** `127.0.0.1:<port>` of the hosting server when attachable. */
+  address: string | null;
+  /** Whether TracePilot is attached to this session. */
+  attached: boolean;
 }

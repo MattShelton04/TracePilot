@@ -23,6 +23,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::{RwLock, broadcast};
 
+mod attach;
+mod forwarder;
 mod lifecycle;
 mod queries;
 pub(crate) mod sdk_client;
@@ -30,6 +32,8 @@ mod session_model;
 mod session_tasks;
 mod ui_server;
 
+#[cfg(test)]
+mod attach_tests;
 #[cfg(test)]
 mod concurrency_tests;
 #[cfg(test)]
@@ -114,6 +118,10 @@ pub struct BridgeMetricsSnapshot {
 /// i.e. the guard is a no-op. Real runtime callers MUST wire one up.
 pub type CopilotSdkEnabledReader = Arc<dyn Fn() -> bool + Send + Sync>;
 
+/// Reads the Copilot home TracePilot is configured to use, handed to the
+/// private CLI as `COPILOT_HOME`. `None` leaves the CLI's own default.
+pub type CopilotHomeReader = Arc<dyn Fn() -> Option<std::path::PathBuf> + Send + Sync>;
+
 /// Manages the lifecycle of the Copilot SDK client connection.
 pub struct BridgeManager {
     pub(super) state: BridgeConnectionState,
@@ -135,10 +143,17 @@ pub struct BridgeManager {
 
     /// Runtime feature-preference reader. See [`CopilotSdkEnabledReader`].
     pub(super) pref_reader: Option<CopilotSdkEnabledReader>,
+    /// Configured Copilot home for the private CLI. See [`CopilotHomeReader`].
+    pub(super) copilot_home_reader: Option<CopilotHomeReader>,
 
     pub(super) client: Option<github_copilot_sdk::Client>,
     pub(super) sessions: HashMap<String, Arc<SdkSession>>,
     pub(super) event_tasks: HashMap<String, tokio::task::JoinHandle<()>>,
+    /// Live attach clients keyed by endpoint address (`127.0.0.1:<port>`),
+    /// one per hosting `--ui-server` (see [`attach`]).
+    pub(super) endpoints: HashMap<String, github_copilot_sdk::Client>,
+    /// Attached session ID → endpoint address that hosts it.
+    pub(super) session_endpoints: HashMap<String, String>,
 }
 
 impl BridgeManager {
@@ -169,9 +184,12 @@ impl BridgeManager {
             metrics: Arc::new(BridgeMetrics::default()),
             live_state: Arc::new(LiveStateStore::new()),
             pref_reader: None,
+            copilot_home_reader: None,
             client: None,
             sessions: HashMap::new(),
             event_tasks: HashMap::new(),
+            endpoints: HashMap::new(),
+            session_endpoints: HashMap::new(),
         };
         (manager, rx, status_rx)
     }
@@ -182,6 +200,11 @@ impl BridgeManager {
     /// the Tauri plugin setup. It replaces any previously-set reader.
     pub fn set_preference_reader(&mut self, reader: CopilotSdkEnabledReader) {
         self.pref_reader = Some(reader);
+    }
+
+    /// Install the Copilot home reader. See [`CopilotHomeReader`].
+    pub fn set_copilot_home_reader(&mut self, reader: CopilotHomeReader) {
+        self.copilot_home_reader = Some(reader);
     }
 
     /// Current value of the runtime `FeaturesConfig.copilot_sdk` preference.

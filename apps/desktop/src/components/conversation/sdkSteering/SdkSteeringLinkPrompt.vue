@@ -46,8 +46,8 @@ watch(
         {{ ctx.hasActiveSdkHandle
           ? 'This session is already linked in the SDK bridge. Resume steering without starting another SDK process.'
           : ctx.sdk.connectionMode === 'tcp'
-            ? 'Attach to this session on the shared server. You can steer alongside the terminal CLI.'
-            : 'This spawns a separate CLI subprocess. For simultaneous terminal use, connect via --ui-server (TCP mode) in Settings instead.' }}
+            ? 'Opens this session on the connected CLI server so you can steer it from here.'
+            : 'Opens this session in TracePilot’s private CLI so you can steer it from here. Sessions running in a --ui-server terminal are watched live instead.' }}
       </div>
     </div>
     <div class="cb-link-actions">

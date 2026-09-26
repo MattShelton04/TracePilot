@@ -54,6 +54,8 @@ vi.mock("@tracepilot/client", async () => {
           lastEventType: "assistant.message_delta",
           lastEventTimestamp: "2026-04-27T00:00:00Z",
           lastError: null,
+          contextTokens: null,
+          contextLimit: null,
           reducerWarnings: [],
         },
       ],
@@ -145,6 +147,8 @@ describe("useSdkStore lifecycle hydration", () => {
         lastEventType: "session.idle",
         lastEventTimestamp: "2026-04-27T00:00:01Z",
         lastError: null,
+        contextTokens: null,
+        contextLimit: null,
         reducerWarnings: [],
       },
     });

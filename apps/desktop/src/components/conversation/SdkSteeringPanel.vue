@@ -2,9 +2,9 @@
 /**
  * SdkSteeringPanel — Command Bar style steering for active SDK sessions.
  *
- * Floating bar at the bottom of ChatViewMode when the SDK bridge is
- * connected and the current session is linked. Sends messages, switches
- * mode/model, and aborts. Model is inferred from existing chat turns
+ * Floating bar at the bottom of ChatViewMode. When the session runs in a
+ * `--ui-server` terminal it offers (or auto-starts) live attach; once linked
+ * it sends messages, switches mode/model, and aborts. Model is inferred from existing chat turns
  * when SDK session data doesn't provide one.
  *
  * Decomposed in Wave 38: state + all IPC-triggering actions live in
@@ -16,6 +16,7 @@ import { SdkSteeringKey, useSdkSteering } from "@/composables/useSdkSteering";
 import SdkSteeringCommandBar from "./sdkSteering/SdkSteeringCommandBar.vue";
 import SdkSteeringDisconnectedCard from "./sdkSteering/SdkSteeringDisconnectedCard.vue";
 import SdkSteeringLinkPrompt from "./sdkSteering/SdkSteeringLinkPrompt.vue";
+import SdkSteeringLiveAttach from "./sdkSteering/SdkSteeringLiveAttach.vue";
 import SdkSteeringLiveState from "./sdkSteering/SdkSteeringLiveState.vue";
 import SdkSteeringSentLog from "./sdkSteering/SdkSteeringSentLog.vue";
 import SdkSteeringSessionLabel from "./sdkSteering/SdkSteeringSessionLabel.vue";
@@ -61,8 +62,9 @@ provide(SdkSteeringKey, ctx);
       </button>
     </div>
 
-    <SdkSteeringLinkPrompt v-if="!ctx.isLinked" />
-    <SdkSteeringCommandBar v-else />
+    <SdkSteeringCommandBar v-if="ctx.isLinked" />
+    <SdkSteeringLiveAttach v-else-if="ctx.liveHost && ctx.liveHost.state !== 'idle'" />
+    <SdkSteeringLinkPrompt v-else />
   </div>
 
   <!-- SDK connected but session not linked -->

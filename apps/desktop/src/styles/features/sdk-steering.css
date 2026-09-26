@@ -121,11 +121,18 @@
 }
 
 /* ─── Session label ────────────────────────────── */
+/* Floats over the conversation, so it carries its own surface. */
 .cb-session-label {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 0 6px 5px;
+  margin-bottom: 5px;
+  padding: 3px 5px 3px 9px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background: var(--canvas-overlay);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   font-size: 0.6875rem;
   color: var(--text-tertiary);
   font-weight: 500;
@@ -172,17 +179,6 @@
   border-color: var(--danger-muted);
   color: var(--danger-fg);
   background: rgba(251, 113, 133, 0.06);
-}
-.cb-btn-unlink {
-  margin-left: auto;
-}
-.cb-btn-destroy {
-  margin-left: 0;
-}
-.cb-btn-destroy:hover {
-  border-color: var(--danger-emphasis);
-  color: var(--danger-fg);
-  background: rgba(251, 113, 133, 0.12);
 }
 
 /* ─── Link prompt (shown before steering) ─────── */

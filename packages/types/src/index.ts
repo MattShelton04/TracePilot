@@ -265,6 +265,8 @@ export type {
   BridgeSessionMode,
   BridgeStatus,
   DetectedUiServer,
+  LiveHostState,
+  LiveSessionHost,
   PendingRequestSummary,
   SessionLiveState,
   SessionRuntimeStatus,
