@@ -20,12 +20,27 @@ test("metrics stress fixture includes cumulative shutdowns, real checkpoint shap
   assert(fixture.promptCache.summary.warm > 1000);
   assert(fixture.promptCache.summary.expired > 100);
   assert(fixture.promptCache.summary.agentResumes > 100);
-  for (const kind of ["effort", "systemPrompt", "toolDefinition", "history"])
+  for (const kind of ["effort", "systemPrompt", "toolDefinition"])
     assert(
       fixture.promptCache.windows.some((window) =>
         window.prefixChanges.some((change) => change.kind === kind),
       ),
     );
+  // Confirmed against the real Rust get_session_prompt_cache response.
+  assert.equal(fixture.promptCache.summary.warm, 1807);
+  assert.equal(fixture.promptCache.summary.expired, 451);
+  assert.equal(fixture.promptCache.summary.agentResumes, 142);
+  assert.equal(
+    fixture.promptCache.windows.filter(
+      (window) => window.outcome === "expired" || window.prefixChanges.length > 0,
+    ).length,
+    1838,
+  );
+  assert(
+    fixture.promptCache.windows
+      .filter((window) => window.outcome === "expired")
+      .every((window) => window.prefixChanges.length === 0),
+  );
   assert.equal(fixture.promptCache.windows.at(-1).outcome, "sessionEnded");
   const ids = new Set();
   for (const [index, event] of fixture.events.entries()) {

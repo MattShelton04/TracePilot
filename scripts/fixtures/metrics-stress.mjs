@@ -137,30 +137,30 @@ export function buildMetricsStressSession({
       requests++;
       checkpoint(requests);
       const prefixChanges = [];
+      // Mirror the native parser's evidence rules, including the resumed
+      // session's high effort and the absence of a proven history rewrite.
       if (requests % 4 === 0)
         prefixChanges.push({
           kind: "effort",
-          summary: "Reasoning effort changed",
-          details: ["high ↔ medium"],
-        });
-      if (requests % 7 === 0)
-        prefixChanges.push({
-          kind: "systemPrompt",
-          summary: "Environment context changed",
-          details: ["environment_context"],
+          summary: `Effort ${index % 8 < 4 ? "high → medium" : "medium → high"}`,
+          details: [],
         });
       if (requests % 11 === 0)
         prefixChanges.push({
           kind: "toolDefinition",
-          summary: "Tool schema changed",
+          summary: "Tool definition changed",
           details: ["powershell"],
         });
-      if (requests % 13 === 0)
+      if (requests % 7 === 0)
         prefixChanges.push({
-          kind: "history",
-          summary: "Conversation history changed",
-          details: ["Earlier messages were rewritten"],
+          kind: "systemPrompt",
+          summary: "System prompt changed: environment context",
+          details: ["environment_context"],
         });
+      if (requests % 4 !== 0 && index % 8 >= 4)
+        prefixChanges.push({ kind: "effort", summary: "Effort medium → high", details: [] });
+      // Once the cache has expired there is no remaining prefix to break.
+      if (idleSeconds >= 300) prefixChanges.length = 0;
       windows.push({
         index,
         idleStart: iso(idleStart),
