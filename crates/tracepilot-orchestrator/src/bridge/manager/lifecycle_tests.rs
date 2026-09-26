@@ -1,13 +1,6 @@
+use super::fake_cli::fake_session;
 use super::*;
 use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
-
-fn stub_session(id: &str) -> std::sync::Arc<copilot_sdk::Session> {
-    std::sync::Arc::new(copilot_sdk::Session::new(
-        id.to_string(),
-        None,
-        |_method, _params| Box::pin(async { Ok(serde_json::Value::Null) }),
-    ))
-}
 
 #[tokio::test]
 async fn connect_is_idempotent_for_same_config_and_preserves_sessions() {
@@ -18,7 +11,8 @@ async fn connect_is_idempotent_for_same_config_and_preserves_sessions() {
     mgr.connection_mode = Some(ConnectionMode::Tcp);
     mgr.cli_url = Some("127.0.0.1:60123".to_string());
     mgr.connection_cwd = Some("C:\\work".to_string());
-    mgr.sessions.insert(sid.clone(), stub_session(&sid));
+    let (session, _fake) = fake_session(&sid).await;
+    mgr.sessions.insert(sid.clone(), session);
 
     mgr.connect(BridgeConnectConfig {
         cli_url: Some("127.0.0.1:60123".to_string()),
@@ -42,7 +36,8 @@ async fn connect_rejects_different_config_while_connected() {
     mgr.connection_mode = Some(ConnectionMode::Tcp);
     mgr.cli_url = Some("127.0.0.1:60123".to_string());
     mgr.connection_cwd = Some("C:\\work".to_string());
-    mgr.sessions.insert(sid.clone(), stub_session(&sid));
+    let (session, _fake) = fake_session(&sid).await;
+    mgr.sessions.insert(sid.clone(), session);
 
     let err = mgr
         .connect(BridgeConnectConfig {

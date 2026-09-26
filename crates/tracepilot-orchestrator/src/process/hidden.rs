@@ -60,32 +60,37 @@ pub fn hidden_std_command(program: &str) -> Command {
 /// Use this helper instead of inlining `Command::new("where"/"which")`
 /// so that all probes share the same hidden-window + flag semantics.
 pub fn find_executable(name: &str) -> Option<PathBuf> {
+    find_executables(name).into_iter().next()
+}
+
+/// Probe the system `PATH` for every executable matching `name`, in PATH
+/// order.
+///
+/// On Windows `where.exe` lists every match, which matters for npm-style
+/// installs where an extensionless shell shim precedes the spawnable
+/// `.cmd` / `.exe`. On other platforms `which` reports only the first
+/// match. Returns an empty list if the probe fails.
+pub fn find_executables(name: &str) -> Vec<PathBuf> {
     #[cfg(windows)]
-    {
+    let output = {
         let mut cmd = hidden_std_command("where");
         cmd.arg(name);
-        let output = cmd.output().ok()?;
-        if !output.status.success() {
-            return None;
-        }
-        String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .next()
-            .map(|s| PathBuf::from(s.trim()))
-            .filter(|p| !p.as_os_str().is_empty())
-    }
+        cmd.output()
+    };
     #[cfg(not(windows))]
-    {
-        let output = Command::new("which").arg(name).output().ok()?;
-        if !output.status.success() {
-            return None;
-        }
-        String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .next()
-            .map(|s| PathBuf::from(s.trim()))
-            .filter(|p| !p.as_os_str().is_empty())
+    let output = Command::new("which").arg(name).output();
+
+    let Ok(output) = output else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
     }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|s| PathBuf::from(s.trim()))
+        .filter(|p| !p.as_os_str().is_empty())
+        .collect()
 }
 
 // ─── run_hidden family ──────────────────────────────────────────────

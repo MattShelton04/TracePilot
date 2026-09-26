@@ -17,18 +17,18 @@ impl BridgeManager {
     /// Get the foreground session ID from a `copilot --ui-server` instance.
     pub async fn get_foreground_session(&self) -> Result<Option<String>, BridgeError> {
         let client = self.require_client()?;
-        let resp = client
+        let session_id = client
             .get_foreground_session_id()
             .await
             .map_err(BridgeError::sdk)?;
-        Ok(resp.session_id)
+        Ok(session_id.map(|id| id.to_string()))
     }
 
     /// Set the foreground session ID (switches which session the TUI displays).
     pub async fn set_foreground_session(&self, session_id: &str) -> Result<(), BridgeError> {
         let client = self.require_client()?;
         client
-            .set_foreground_session_id(session_id)
+            .set_foreground_session_id(&github_copilot_sdk::SessionId::new(session_id))
             .await
             .map_err(BridgeError::sdk)?;
         Ok(())

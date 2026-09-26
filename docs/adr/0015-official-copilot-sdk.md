@@ -84,7 +84,9 @@ verified against CLI 1.0.88 that:
   is a deliberate change that must be smoke-tested against a current CLI.
 - `native-tls` (SChannel on Windows, OpenSSL elsewhere) enters the dependency
   graph through the SDK's HTTP and WebSocket forwarding code, next to the
-  workspace's `rustls` stack.
+  workspace's `rustls` stack. Because Cargo unifies reqwest features,
+  native-tls would become the default backend for TracePilot's own reqwest
+  clients, so outbound HTTPS clients call `use_rustls_tls()` explicitly.
 - Without a bundled CLI, SDK features that depend on the bundled runtime
   (in-process transport, `install_bundled_cli`) are unavailable. TracePilot
   does not need them.

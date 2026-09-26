@@ -4,8 +4,8 @@ description = "Orchestration capabilities: worktrees, session launching, config 
 version.workspace = true
 edition.workspace = true
 
-# The `copilot-sdk` git dependency is always compiled in — see
-# ADR-0007. Availability at runtime is gated by the
+# The official `github-copilot-sdk` crate is always compiled in — see
+# ADR-0007 and ADR-0015. Availability at runtime is gated by the
 # `FeaturesConfig.copilot_sdk` user preference via a reader threaded
 # into `BridgeManager`; when the preference is off, bridge start
 # methods return `BridgeError::DisabledByPreference`.
@@ -35,7 +35,7 @@ once_cell = "1"
 sha2 = { workspace = true }
 url = "2"
 
-copilot-sdk = { workspace = true }
+github-copilot-sdk = { workspace = true }
 
 # Phase 1B.1 codegen pilot: derive `specta::Type` on `BridgeMetricsSnapshot`
 # so tauri-specta can emit a TS mirror. Zero runtime cost.

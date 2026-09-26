@@ -7,16 +7,17 @@
 //! When the preference is off, those methods return
 //! [`BridgeError::DisabledByPreference`] instead of touching the SDK.
 //!
-//! This module was split into a directory module in Wave 44 of the tech-debt
-//! effort (see `docs/tech-debt-plan-revised-2026-04.md` §3). The struct
-//! definition, constructor, and small accessor/helper methods live here;
-//! lifecycle, session steering, client queries, raw JSON-RPC framing, and
-//! the `--ui-server` helpers are each in their own submodule. Every submodule
+//! The SDK is the official `github-copilot-sdk` crate (ADR-0015), driven
+//! against the user's installed CLI; client construction lives in
+//! [`sdk_client`]. The struct definition, constructor, and small
+//! accessor/helper methods live here; lifecycle, session steering, client
+//! queries, and the `--ui-server` helpers are each in their own submodule. Every submodule
 //! contributes an `impl BridgeManager` block so the public API remains a single
 //! flat surface from the caller's point of view.
 
 use super::live_state::{LiveStateStore, SessionLiveState, SessionRuntimeStatus};
 use super::{BridgeConnectionState, BridgeError, BridgeEvent, BridgeStatus, ConnectionMode};
+use sdk_client::SdkSession;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -24,13 +25,15 @@ use tokio::sync::{RwLock, broadcast};
 
 mod lifecycle;
 mod queries;
-mod raw_rpc;
+pub(crate) mod sdk_client;
 mod session_model;
 mod session_tasks;
 mod ui_server;
 
 #[cfg(test)]
 mod concurrency_tests;
+#[cfg(test)]
+mod fake_cli;
 #[cfg(test)]
 mod lifecycle_tests;
 #[cfg(test)]
@@ -117,8 +120,8 @@ pub struct BridgeManager {
     pub(super) error_message: Option<String>,
     /// Tracks how we connected: stdio subprocess vs TCP `--ui-server`.
     pub(super) connection_mode: Option<ConnectionMode>,
-    /// TCP server URL when in TCP mode — used for raw JSON-RPC calls
-    /// that bypass the SDK (workaround for upstream method name bugs).
+    /// TCP server URL when in TCP mode. Stored to make renderer re-hydration
+    /// reconnect attempts idempotent.
     pub(super) cli_url: Option<String>,
     /// Working directory used for the active connection. Stored to make
     /// renderer re-hydration reconnect attempts idempotent without retaining
@@ -133,8 +136,8 @@ pub struct BridgeManager {
     /// Runtime feature-preference reader. See [`CopilotSdkEnabledReader`].
     pub(super) pref_reader: Option<CopilotSdkEnabledReader>,
 
-    pub(super) client: Option<copilot_sdk::Client>,
-    pub(super) sessions: HashMap<String, Arc<copilot_sdk::Session>>,
+    pub(super) client: Option<github_copilot_sdk::Client>,
+    pub(super) sessions: HashMap<String, Arc<SdkSession>>,
     pub(super) event_tasks: HashMap<String, tokio::task::JoinHandle<()>>,
 }
 
@@ -326,14 +329,14 @@ impl BridgeManager {
         Some(state)
     }
 
-    pub(super) fn require_client(&self) -> Result<&copilot_sdk::Client, BridgeError> {
+    pub(super) fn require_client(&self) -> Result<&github_copilot_sdk::Client, BridgeError> {
         self.client.as_ref().ok_or(BridgeError::NotConnected)
     }
 
     pub(super) fn require_session(
         &self,
         session_id: &str,
-    ) -> Result<&Arc<copilot_sdk::Session>, BridgeError> {
+    ) -> Result<&Arc<SdkSession>, BridgeError> {
         self.sessions
             .get(session_id)
             .ok_or_else(|| BridgeError::SessionNotFound(session_id.to_string()))

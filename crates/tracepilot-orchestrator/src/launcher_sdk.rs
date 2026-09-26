@@ -12,13 +12,16 @@ pub(crate) async fn launch_sdk_session(
     let (work_dir, worktree_path) = prepare_sdk_workspace(config)?;
     let work_dir_string = work_dir.display().to_string();
     let session = bridge
-        .create_launcher_session(BridgeSessionConfig {
-            model: config.model.clone(),
-            working_directory: Some(work_dir_string.clone()),
-            system_message: None,
-            reasoning_effort: config.reasoning_effort.clone(),
-            agent: None,
-        })
+        .create_launcher_session(
+            BridgeSessionConfig {
+                model: config.model.clone(),
+                working_directory: Some(work_dir_string.clone()),
+                system_message: None,
+                reasoning_effort: config.reasoning_effort.clone(),
+                agent: None,
+            },
+            config.auto_approve,
+        )
         .await
         .map_err(|e| OrchestratorError::launch_ctx("Copilot SDK launch failed", e))?;
     send_initial_prompt_if_present(bridge, &session.session_id, config.prompt.as_deref()).await?;

@@ -1,76 +1,84 @@
 //! Session-oriented Tauri-facing helpers on [`BridgeManager`]: create, resume,
-//! destroy, steering (send/abort/set-mode/set-model), and the SDK event
-//! forwarder that feeds the bridge's broadcast channel.
+//! detach, steering (send/abort/set-mode), and the SDK event forwarder that
+//! feeds the bridge's broadcast channel.
 
 use super::BridgeManager;
+use super::sdk_client::SdkSession;
 use crate::bridge::live_state::SessionRuntimeStatus;
 use crate::bridge::{
     BridgeError, BridgeEvent, BridgeMessagePayload, BridgeSessionConfig, BridgeSessionInfo,
     BridgeSessionMode,
 };
 
+use github_copilot_sdk::rpc::ModeSetRequest;
+use github_copilot_sdk::session_events::SessionMode;
+use github_copilot_sdk::subscription::RecvErrorKind;
+use github_copilot_sdk::{
+    DeliveryMode, MessageOptions, ResumeSessionConfig, SessionConfig, SessionId,
+    SystemMessageConfig,
+};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use tracing::{debug, info, warn};
 
+/// Client name reported to the CLI for sessions TracePilot creates or joins.
+const CLIENT_NAME: &str = "tracepilot";
+
 impl BridgeManager {
     /// Create a new Copilot session via the SDK.
+    ///
+    /// No permission handler is installed, so tool permission requests are
+    /// denied by the runtime unless another connected client answers them.
     pub async fn create_session(
         &mut self,
         config: BridgeSessionConfig,
     ) -> Result<BridgeSessionInfo, BridgeError> {
-        self.create_session_inner(config).await
+        self.create_session_inner(config, false).await
     }
 
     /// Create a new Copilot session owned by TracePilot's launcher.
+    ///
+    /// When `auto_approve` is set the session approves every permission
+    /// request (mirroring `copilot --allow-all-tools`). Otherwise permission
+    /// requests are denied — there is no interactive handler yet (see the
+    /// live attach plan, Phase 3).
     pub async fn create_launcher_session(
         &mut self,
         config: BridgeSessionConfig,
+        auto_approve: bool,
     ) -> Result<BridgeSessionInfo, BridgeError> {
-        self.create_session_inner(config).await
+        self.create_session_inner(config, auto_approve).await
     }
 
     async fn create_session_inner(
         &mut self,
         config: BridgeSessionConfig,
+        auto_approve: bool,
     ) -> Result<BridgeSessionInfo, BridgeError> {
         self.check_preference_enabled()?;
         let client = self.require_client()?;
 
-        let mut session_config = copilot_sdk::SessionConfig {
-            model: config.model.clone(),
-            working_directory: config.working_directory.clone(),
-            reasoning_effort: config.reasoning_effort.clone(),
-            agent: config.agent.clone(),
-            client_name: Some("tracepilot".to_string()),
-            ..copilot_sdk::SessionConfig::default()
-        };
-
-        if let Some(msg) = &config.system_message {
-            session_config.system_message = Some(copilot_sdk::SystemMessageConfig {
-                content: Some(msg.clone()),
-                mode: Some(copilot_sdk::SystemMessageMode::Append),
-            });
-        }
-
         let session = client
-            .create_session(session_config)
+            .create_session(sdk_session_config(&config, auto_approve))
             .await
             .map_err(BridgeError::sdk)?;
 
-        Ok(self.track_created_session(session, config))
+        Ok(self.track_created_session(Arc::new(session), config))
     }
 
-    /// Resume an existing session by ID (for `--ui-server` mode steering).
-    /// Attaches to the session, starts event forwarding, and caches the handle
-    /// so subsequent steering calls (send_message, abort, etc.) work.
+    /// Resume an existing session by ID and start forwarding its events.
     ///
-    /// **Important**: The SDK subprocess loads the session from disk and validates
-    /// `events.jsonl` with its own schema. If the CLI version that wrote the
-    /// session differs from the current CLI version, schema validation may fail
-    /// ("Session file is corrupted at line N") even though the JSON is valid.
-    /// This is NOT actual file corruption — it's a schema version mismatch.
-    /// TracePilot's own parsers handle these differences gracefully.
+    /// Against a `--ui-server` (TCP mode) this joins the live session hosted by
+    /// the user's terminal. No permission, elicitation, or user-input handlers
+    /// are installed, so prompts stay with the terminal and TracePilot acts as
+    /// an observer that can optionally steer. `streaming` is left unset: the
+    /// owning client already chose it, and deltas are broadcast to every
+    /// attached client.
+    ///
+    /// Every successful resume appends one `session.resume` event to the
+    /// session's `events.jsonl`, so tracked sessions return the cached handle
+    /// instead of resuming again.
     pub async fn resume_session(
         &mut self,
         session_id: &str,
@@ -101,35 +109,27 @@ impl BridgeManager {
         );
         let client = self.require_client()?;
 
-        let mut resume_config = copilot_sdk::ResumeSessionConfig::default();
-        if let Some(cwd) = working_directory {
-            resume_config.working_directory = Some(cwd.to_string());
-        }
-        if let Some(m) = model {
-            resume_config.model = Some(m.to_string());
-        }
+        let mut resume_config = ResumeSessionConfig::new(SessionId::new(session_id));
+        resume_config.working_directory = working_directory.map(PathBuf::from);
+        resume_config.model = model.map(String::from);
+        resume_config.client_name = Some(CLIENT_NAME.to_string());
 
-        let session = client
-            .resume_session(session_id, resume_config)
-            .await
-            .map_err(|e| {
-                let msg = e.to_string();
-                if msg.contains("corrupted") {
-                    warn!(
-                        "Session {} has schema validation issues (CLI version mismatch): {}",
-                        session_id, msg
-                    );
-                } else {
-                    warn!("Failed to resume session {}: {}", session_id, msg);
-                }
-                BridgeError::Sdk(msg)
-            })?;
+        let session = client.resume_session(resume_config).await.map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("corrupted") {
+                warn!(
+                    "Session {} has schema validation issues (CLI version mismatch): {}",
+                    session_id, msg
+                );
+            } else {
+                warn!("Failed to resume session {}: {}", session_id, msg);
+            }
+            BridgeError::Sdk(msg)
+        })?;
 
-        let sid = session.session_id().to_string();
-        info!(
-            "Session {} resumed successfully (returned ID: {})",
-            session_id, sid
-        );
+        let sid = session.id().to_string();
+        let session = Arc::new(session);
+        info!("Session {} resumed successfully", sid);
         self.spawn_event_forwarder(&sid, &session);
         self.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
         self.sessions.insert(sid.clone(), session);
@@ -139,8 +139,11 @@ impl BridgeManager {
         if self.connection_mode == Some(crate::bridge::ConnectionMode::Tcp)
             && let Some(client) = &self.client
         {
-            match client.set_foreground_session_id(&sid).await {
-                Ok(_) => info!("Set foreground session to {} (--ui-server)", sid),
+            match client
+                .set_foreground_session_id(&SessionId::new(&sid))
+                .await
+            {
+                Ok(()) => info!("Set foreground session to {} (--ui-server)", sid),
                 Err(e) => debug!("set_foreground_session best-effort failed: {}", e),
             }
         }
@@ -157,6 +160,10 @@ impl BridgeManager {
     }
 
     /// Send a message to an existing SDK session (steering).
+    ///
+    /// `payload.mode` selects the delivery mode: `"immediate"` interrupts the
+    /// current turn, `"enqueue"` (the runtime default) queues behind it. Other
+    /// values are ignored; use [`Self::set_session_mode`] for agent modes.
     pub async fn send_message(
         &self,
         session_id: &str,
@@ -164,14 +171,13 @@ impl BridgeManager {
     ) -> Result<String, BridgeError> {
         let session = self.require_session(session_id)?;
 
-        let opts = copilot_sdk::MessageOptions {
-            prompt: payload.prompt,
-            // Always send empty array (not None/null) to match CLI's schema expectations.
-            // The CLI writes `"attachments": []` — if we omit it, the subprocess writes
-            // `"attachments": null` which fails Zod validation on subsequent resume.
-            attachments: Some(vec![]),
-            mode: payload.mode,
-        };
+        let mut opts = MessageOptions::new(payload.prompt);
+        match payload.mode.as_deref() {
+            None => {}
+            Some("immediate") => opts = opts.with_mode(DeliveryMode::Immediate),
+            Some("enqueue") => opts = opts.with_mode(DeliveryMode::Enqueue),
+            Some(other) => debug!("Ignoring unsupported message delivery mode '{}'", other),
+        }
 
         session.send(opts).await.map_err(BridgeError::sdk)
     }
@@ -182,70 +188,68 @@ impl BridgeManager {
         session.abort().await.map_err(BridgeError::sdk)
     }
 
-    /// Unlink a session from the bridge WITHOUT destroying it on the SDK side.
-    /// The session stays alive in the subprocess — no `session.shutdown` event is written.
-    /// This allows safe re-linking without triggering Zod re-validation.
+    /// Detach a session from the bridge, keeping it alive on the CLI side.
     ///
     /// Teardown order (per DEEP-01 rubber-duck invariants):
-    ///   1. Drop the SDK session handle so the broadcast `Sender` it owns
-    ///      starts draining once all forwarder receivers stop.
-    ///   2. `abort()` the forwarder task and `await` its `JoinHandle` — only
-    ///      then is it guaranteed no further `apply_event` calls can fire.
+    ///   1. Take the SDK session out of the map and `abort()` + `await` the
+    ///      forwarder task — only then is it guaranteed no further
+    ///      `apply_event` calls can fire.
+    ///   2. Best-effort `Session::disconnect()` (`session.detach`), which
+    ///      releases this client's attachment without touching the session's
+    ///      on-disk history.
     ///   3. `live_state.remove(...)` clears the per-session slot. Because the
     ///      forwarder is provably dead, no late event can resurrect it via
     ///      `apply_event`'s create-on-first-touch branch.
     ///
-    /// The legacy "remove → mark_status(Unknown)" pattern was unsound: the
-    /// old `mark_status` had insert-or-create semantics and would silently
-    /// re-create the slot. There is no terminal broadcast on the unlink
-    /// path because the session is intentionally NOT shut down — the SDK
-    /// process keeps it alive for re-linking.
+    /// There is no terminal broadcast on the unlink path: the session was not
+    /// shut down and can be re-linked later.
     pub async fn unlink_session(&mut self, session_id: &str) {
-        if self.sessions.remove(session_id).is_some() {
-            if let Some(handle) = self.event_tasks.remove(session_id) {
-                handle.abort();
-                if let Err(e) = handle.await
-                    && !e.is_cancelled()
-                {
-                    warn!(
-                        "event forwarder for {} failed to join cleanly: {}",
-                        session_id, e
-                    );
+        match self.detach_tracked(session_id).await {
+            Some(result) => {
+                if let Err(e) = result {
+                    debug!("Best-effort detach of {} failed: {}", session_id, e);
                 }
+                info!("Unlinked session {} (kept alive in CLI)", session_id);
             }
-            self.live_state.remove(session_id);
-            info!("Unlinked session {} (kept alive in subprocess)", session_id);
-        } else {
-            debug!("unlink_session: {} not in local session map", session_id);
-            // Defensive: if the live-state slot somehow exists without a
-            // tracked session (e.g. previous partial teardown), clear it.
-            self.live_state.remove(session_id);
+            None => debug!("unlink_session: {} not in local session map", session_id),
         }
+        // Defensive: also clears a stray slot left by an earlier partial teardown.
+        self.live_state.remove(session_id);
     }
 
-    /// Destroy a resumed session, releasing its resources.
-    /// Removes it from the local session map and cancels the event forwarder.
-    /// This writes a `session.shutdown` event to events.jsonl.
+    /// Stop tracking a session and release the SDK attachment.
     ///
-    /// Teardown follows the **deterministic-synthetic** path (DEEP-05):
-    ///   1. Take the SDK session out of the local map and abort+await the
-    ///      forwarder *before* calling `session.destroy()`. This guarantees
-    ///      that any `session.shutdown` event the SDK emits cannot race the
-    ///      reducer — no surviving forwarder is left to consume it.
-    ///   2. Drive `session.destroy()` for the SDK-side cleanup (writes the
-    ///      shutdown event to events.jsonl on disk).
-    ///   3. Synthesize one terminal `Shutdown` snapshot via
-    ///      [`mark_existing_session_status`] so live-state subscribers see
-    ///      a deterministic terminal frame even though the real shutdown
-    ///      event no longer flows through the (now-stopped) forwarder.
-    ///   4. `live_state.remove(...)` clears the slot.
-    ///
-    /// Rationale: matches DEEP-05's intent (deterministic, easy-to-test
-    /// teardown) and preserves the existing wire contract that downstream
-    /// consumers see a Shutdown emission per destroyed session.
+    /// With the official SDK this detaches (`Session::disconnect()`); it never
+    /// writes `session.shutdown` into the session's history (ADR-0015). The
+    /// difference from [`Self::unlink_session`] is the deterministic terminal
+    /// frame (DEEP-05): after detaching, one synthetic `Shutdown` live-state
+    /// snapshot is broadcast so subscribers see the session leave, then the
+    /// slot is removed. The session is untracked even when the detach RPC
+    /// fails; that error is still returned to the caller.
     pub async fn destroy_session(&mut self, session_id: &str) -> Result<(), BridgeError> {
-        let session = self.sessions.remove(session_id);
+        match self.detach_tracked(session_id).await {
+            Some(result) => {
+                self.mark_existing_session_status(session_id, SessionRuntimeStatus::Shutdown, None);
+                self.live_state.remove(session_id);
+                result?;
+                info!("Detached session {}", session_id);
+            }
+            None => {
+                debug!(
+                    "destroy_session: {} not in local session map, skipping",
+                    session_id
+                );
+                // Defensive cleanup if a stray live-state slot exists.
+                self.live_state.remove(session_id);
+            }
+        }
+        Ok(())
+    }
 
+    /// Remove a tracked session, stop its forwarder, and detach it from the
+    /// CLI. Returns `None` when the session was not tracked.
+    async fn detach_tracked(&mut self, session_id: &str) -> Option<Result<(), BridgeError>> {
+        let session = self.sessions.remove(session_id)?;
         if let Some(handle) = self.event_tasks.remove(session_id) {
             handle.abort();
             if let Err(e) = handle.await
@@ -257,21 +261,7 @@ impl BridgeManager {
                 );
             }
         }
-
-        if let Some(session) = session {
-            session.destroy().await.map_err(BridgeError::sdk)?;
-            self.mark_existing_session_status(session_id, SessionRuntimeStatus::Shutdown, None);
-            self.live_state.remove(session_id);
-            info!("Destroyed session {}", session_id);
-        } else {
-            debug!(
-                "destroy_session: {} not in local session map, skipping",
-                session_id
-            );
-            // Defensive cleanup if a stray live-state slot exists.
-            self.live_state.remove(session_id);
-        }
-        Ok(())
+        Some(session.disconnect().await.map_err(BridgeError::sdk))
     }
 
     /// Change the session mode (interactive / plan / autopilot).
@@ -281,20 +271,29 @@ impl BridgeManager {
         mode: BridgeSessionMode,
     ) -> Result<(), BridgeError> {
         let session = self.require_session(session_id)?;
-        let sdk_mode = match mode {
-            BridgeSessionMode::Interactive => copilot_sdk::SessionMode::Interactive,
-            BridgeSessionMode::Plan => copilot_sdk::SessionMode::Plan,
-            BridgeSessionMode::Autopilot => copilot_sdk::SessionMode::Autopilot,
+        let request = ModeSetRequest {
+            mode: match mode {
+                BridgeSessionMode::Interactive => SessionMode::Interactive,
+                BridgeSessionMode::Plan => SessionMode::Plan,
+                BridgeSessionMode::Autopilot => SessionMode::Autopilot,
+            },
+            ..ModeSetRequest::default()
         };
-        session.set_mode(sdk_mode).await.map_err(BridgeError::sdk)
+        let result = session
+            .rpc()
+            .mode()
+            .set(request)
+            .await
+            .map_err(BridgeError::sdk)?;
+        info!(
+            "session.mode.set for {}: status={}, applied={:?}",
+            session_id, result.status, result.mode_applied
+        );
+        Ok(())
     }
 
     /// Spawn a tokio task that reads SDK events and forwards them as BridgeEvents.
-    pub(super) fn spawn_event_forwarder(
-        &mut self,
-        session_id: &str,
-        session: &Arc<copilot_sdk::Session>,
-    ) {
+    pub(super) fn spawn_event_forwarder(&mut self, session_id: &str, session: &Arc<SdkSession>) {
         let tx = self.event_tx.clone();
         let state_tx = self.state_tx.clone();
         let live_state = Arc::clone(&self.live_state);
@@ -309,16 +308,12 @@ impl BridgeManager {
                         Ok(event) => {
                             let bridge_event = BridgeEvent {
                                 session_id: sid.clone(),
-                                event_type: event.event_type.clone(),
-                                timestamp: event.timestamp.clone(),
-                                id: Some(event.id.clone()),
-                                parent_id: event.parent_id.clone(),
+                                event_type: event.event_type,
+                                timestamp: event.timestamp,
+                                id: Some(event.id),
+                                parent_id: event.parent_id,
                                 ephemeral: event.ephemeral.unwrap_or(false),
-                                // The SDK's `SessionEventData` enum is externally tagged, so
-                                // `to_value(&event.data)` produces `{"AssistantMessageDelta": {...}}`.
-                                // Flatten the single-variant wrapper so frontend reducers (and our
-                                // live-state reducer) can read fields like `deltaContent` directly.
-                                data: flatten_event_data(&event.data),
+                                data: event.data,
                             };
                             let state = live_state.apply_event(&bridge_event);
                             if state_tx.send(state).is_err() {
@@ -330,17 +325,26 @@ impl BridgeManager {
                                 debug!("No bridge event receivers for {}", sid);
                             }
                         }
-                        Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                            debug!("SDK event channel closed for session {}", sid);
-                            break;
-                        }
-                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                            warn!("Bridge event receiver lagged by {} for session {}", n, sid);
-                            metrics
-                                .events_dropped_due_to_lag
-                                .fetch_add(n, Ordering::Relaxed);
-                            metrics.lag_occurrences.fetch_add(1, Ordering::Relaxed);
-                        }
+                        Err(e) => match e.kind() {
+                            RecvErrorKind::Closed => {
+                                debug!("SDK event channel closed for session {}", sid);
+                                break;
+                            }
+                            RecvErrorKind::Lagged(lagged) => {
+                                let n = lagged.skipped();
+                                warn!("Bridge event receiver lagged by {} for session {}", n, sid);
+                                metrics
+                                    .events_dropped_due_to_lag
+                                    .fetch_add(n, Ordering::Relaxed);
+                                metrics.lag_occurrences.fetch_add(1, Ordering::Relaxed);
+                            }
+                            // `RecvErrorKind` is non-exhaustive; treat unknown
+                            // kinds as terminal rather than risk a hot loop.
+                            other => {
+                                warn!("SDK event stream for {} ended: {:?}", sid, other);
+                                break;
+                            }
+                        },
                     }
                 }
             },
@@ -352,10 +356,10 @@ impl BridgeManager {
 
     pub(super) fn track_created_session(
         &mut self,
-        session: Arc<copilot_sdk::Session>,
+        session: Arc<SdkSession>,
         config: BridgeSessionConfig,
     ) -> BridgeSessionInfo {
-        let session_id = session.session_id().to_string();
+        let session_id = session.id().to_string();
 
         self.spawn_event_forwarder(&session_id, &session);
         self.mark_live_session_status(&session_id, SessionRuntimeStatus::Running, None);
@@ -374,61 +378,23 @@ impl BridgeManager {
     }
 }
 
-/// Flatten the externally-tagged `SessionEventData` enum into its inner payload.
-///
-/// `SessionEventData::AssistantMessageDelta(data)` serializes by default as
-/// `{"AssistantMessageDelta": {"messageId": "...", "deltaContent": "..."}}`.
-/// Both our live-state reducer and frontend stores expect the inner object's
-/// fields at the top level (e.g. `event.data.deltaContent`), so we strip the
-/// single-key wrapper here. Non-object payloads or `Unknown(Value::Null)` are
-/// passed through unchanged.
-fn flatten_event_data(data: &copilot_sdk::SessionEventData) -> serde_json::Value {
-    let value = serde_json::to_value(data).unwrap_or(serde_json::Value::Null);
-    match value {
-        serde_json::Value::Object(map) if map.len() == 1 => map
-            .into_iter()
-            .next()
-            .map(|(_, inner)| inner)
-            .unwrap_or(serde_json::Value::Null),
-        other => other,
-    }
-}
-
-#[cfg(test)]
-mod flatten_tests {
-    use super::flatten_event_data;
-    use copilot_sdk::{AssistantMessageDeltaData, AssistantTurnStartData, SessionEventData};
-
-    #[test]
-    fn flattens_assistant_message_delta() {
-        let data = SessionEventData::AssistantMessageDelta(AssistantMessageDeltaData {
-            message_id: "m1".into(),
-            delta_content: "hello".into(),
-            total_response_size_bytes: None,
-            parent_tool_call_id: None,
-        });
-        let v = flatten_event_data(&data);
-        assert_eq!(
-            v.get("deltaContent").and_then(|v| v.as_str()),
-            Some("hello")
+/// Translate a bridge create request into an SDK session config.
+fn sdk_session_config(config: &BridgeSessionConfig, auto_approve: bool) -> SessionConfig {
+    let mut session_config = SessionConfig::default();
+    session_config.model = config.model.clone();
+    session_config.working_directory = config.working_directory.as_ref().map(PathBuf::from);
+    session_config.reasoning_effort = config.reasoning_effort.clone();
+    session_config.agent = config.agent.clone();
+    session_config.client_name = Some(CLIENT_NAME.to_string());
+    if let Some(msg) = &config.system_message {
+        session_config.system_message = Some(
+            SystemMessageConfig::new()
+                .with_mode("append")
+                .with_content(msg.clone()),
         );
-        assert_eq!(v.get("messageId").and_then(|v| v.as_str()), Some("m1"));
-        assert!(v.get("AssistantMessageDelta").is_none());
     }
-
-    #[test]
-    fn flattens_assistant_turn_start() {
-        let data = SessionEventData::AssistantTurnStart(AssistantTurnStartData {
-            turn_id: "t1".into(),
-        });
-        let v = flatten_event_data(&data);
-        assert_eq!(v.get("turnId").and_then(|v| v.as_str()), Some("t1"));
+    if auto_approve {
+        session_config = session_config.approve_all_permissions();
     }
-
-    #[test]
-    fn passes_through_unknown_null() {
-        let data = SessionEventData::Unknown(serde_json::Value::Null);
-        let v = flatten_event_data(&data);
-        assert!(v.is_null());
-    }
+    session_config
 }

@@ -1,0 +1,8 @@
+# Workspace-wide Cargo configuration.
+
+[env]
+# `github-copilot-sdk` (ADR-0015) downloads and caches a Copilot CLI runtime
+# from its build script unless told not to. TracePilot always drives the
+# user's installed `copilot` via `CliProgram::Path`, so builds must never
+# fetch or embed CLI artifacts.
+COPILOT_SKIP_CLI_DOWNLOAD = "1"

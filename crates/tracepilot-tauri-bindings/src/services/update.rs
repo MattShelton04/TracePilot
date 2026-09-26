@@ -16,7 +16,10 @@ use crate::types::UpdateCheckResult;
 pub(crate) async fn check_for_updates_with_reqwest() -> CmdResult<UpdateCheckResult> {
     let current_str = env!("CARGO_PKG_VERSION");
 
+    // Pin rustls: `github-copilot-sdk` enables reqwest's native-tls feature,
+    // which would otherwise become the default backend (ADR-0015).
     let client = reqwest::Client::builder()
+        .use_rustls_tls()
         .user_agent(format!("TracePilot/{current_str}"))
         .timeout(std::time::Duration::from_secs(8))
         .build()?;

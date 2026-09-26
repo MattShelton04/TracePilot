@@ -1,6 +1,10 @@
 # Copilot SDK Integration Guide
 
-TracePilot integrates the community [Copilot SDK for Rust](https://github.com/copilot-community-sdk/copilot-sdk-rust) to enable **real-time session steering**, programmatic event streaming, and direct communication with the Copilot CLI — all from the desktop UI.
+TracePilot integrates the official [GitHub Copilot SDK for Rust](https://github.com/github/copilot-sdk/tree/main/rust) (`github-copilot-sdk`, [ADR-0015](adr/0015-official-copilot-sdk.md)) to enable **real-time session steering**, programmatic event streaming, and direct communication with the Copilot CLI — all from the desktop UI.
+
+> **Roadmap:** the integration is being redesigned around attaching to running
+> terminal sessions. See the [Copilot live attach plan](features/copilot-live-attach-plan.md)
+> for verified CLI behavior and the phased plan.
 
 > **Status:** Experimental. Enable via Settings → Additional Features → Copilot SDK Bridge.
 
@@ -58,7 +62,7 @@ TracePilot integrates the community [Copilot SDK for Rust](https://github.com/co
 │  └──────────────┬──────────────────────────────┘ │
 │                 │  (always compiled — ADR-0007)  │
 │  ┌──────────────┴──────────────────────────────┐ │
-│  │  copilot-sdk crate (community Rust SDK)     │ │
+│  │  github-copilot-sdk (official Rust SDK)     │ │
 │  │  → Client → Session → EventSubscription     │ │
 │  └─────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────┘
@@ -76,7 +80,8 @@ TracePilot integrates the community [Copilot SDK for Rust](https://github.com/co
 | Layer | File | Purpose |
 |---|---|---|
 | Rust types | `crates/tracepilot-orchestrator/src/bridge/mod.rs` | Bridge types, errors, event structs |
-| Rust logic | `crates/tracepilot-orchestrator/src/bridge/manager.rs` | BridgeManager — connects SDK, manages sessions |
+| Rust logic | `crates/tracepilot-orchestrator/src/bridge/manager/` | BridgeManager — connects SDK, manages sessions |
+| SDK client | `crates/tracepilot-orchestrator/src/bridge/manager/sdk_client.rs` | CLI resolution, CLI URL parsing, `ClientOptions` |
 | Discovery | `crates/tracepilot-orchestrator/src/bridge/discovery.rs` | Auto-detect `--ui-server` instances |
 | Tauri IPC | `crates/tracepilot-tauri-bindings/src/commands/sdk.rs` | 19 Tauri commands wrapping BridgeManager |
 | TS types | `packages/types/src/sdk.ts` | TypeScript mirrors of Rust bridge types |
@@ -128,7 +133,7 @@ the bridge implementation at compile time, yielding a stub that returned
 ## Setup & Prerequisites
 
 1. **Copilot CLI** must be installed and authenticated (`gh auth login`)
-2. **Stdio mode (default)**: The SDK spawns a new CLI subprocess via stdio JSON-RPC. This subprocess can see sessions from `~/.copilot/session-state/` and resume them for steering. Good for creating new sessions, but isolated from your terminal.
+2. **Stdio mode (default)**: The SDK spawns a new CLI subprocess (your installed `copilot`, found on PATH or via `COPILOT_CLI_PATH`) via stdio JSON-RPC. This subprocess can see sessions from `~/.copilot/session-state/` and resume them. Good for creating new sessions, but isolated from your terminal: resuming a session that is running elsewhere yields a private copy that receives none of the terminal's live activity.
 3. **TCP mode (recommended for steering)**: Connect to a running CLI server to steer sessions in real-time alongside the terminal. Three options:
    - Run `copilot --ui-server` in a terminal → auto-detect in TracePilot
    - Run `copilot --server --port 3333` → enter `127.0.0.1:3333` in CLI URL field
@@ -281,7 +286,7 @@ The following has been tested end-to-end via CDP against the live Tauri webview:
 | `resume_session(id)` | Resume an existing session (e.g. from `--ui-server`) |
 | `send_message(id, payload)` | Send a steering message (returns turn ID) |
 | `abort_session(id)` | Abort a running session |
-| `destroy_session(id)` | Stop and unlink a resumed session |
+| `destroy_session(id)` | Detach a resumed session (`session.detach`; never shuts it down) |
 | `set_session_mode(id, mode)` | Switch session mode |
 | `set_session_model(id, model, effort?)` | Switch session model with optional reasoning effort |
 | `list_sessions()` | List all SDK sessions |
@@ -437,22 +442,24 @@ pnpm app:stop
 | Auth errors | Run `gh auth login` to authenticate |
 | Connection drops | Check CLI subprocess is still running; try reconnecting |
 | Models list empty | Ensure connected and authenticated |
-| Quota warning `-32601` | Expected — `account.get_quota` is not supported by current CLI versions. Silently ignored. |
+| Quota unavailable | Quota comes from `account.getQuota`; some CLI versions or accounts return an error, which the UI ignores. |
 | "Session not found" | The session auto-resumes when you open it. If it fails, the session may not exist in `~/.copilot/session-state/`. |
 | "Session data is corrupted" | **Not actual corruption.** The CLI subprocess's schema validation rejected the session data. This happens when the session was written by a different CLI version. TracePilot can still *observe* the session normally — only steering is affected. Update your CLI or start a new session. See [Data Flow doc](copilot-sdk-data-flow.md#the-corruption-problem) for details. |
 | Steering sends but no response | The resumed SDK session ID may differ from the input ID. TracePilot tracks this automatically via `resolvedSessionId`. |
 | 0 active sessions | Sessions start as inactive. They become active when you open a session in conversation view (auto-resume). |
 | Can't send messages | Ensure (1) SDK connected (green dot in sidebar), (2) session is in Conversation view, (3) steering panel is visible. |
 | Sent message stuck on "sending" | This was a reactivity bug — now fixed. Messages auto-dismiss after 4s (success) or 8s (error). |
-| Want to stop steering | Click the **Stop** button next to the session ID in the steering panel to unlink. |
+| Want to stop steering | Click the **Stop** button next to the session ID in the steering panel. This detaches TracePilot (`session.detach`); it never shuts down the session. |
+| Tools are denied in an SDK-launched session | SDK launches only approve tool permissions when **Auto-approve** is enabled in the launcher. Interactive approval is planned. |
 | Use **Diagnostics** | Go to Settings → SDK Bridge → Run Diagnostics for step-by-step connection test and raw state dump. |
 
 ---
 
 ## SDK Crate Details
 
-- **Crate:** `copilot-sdk` (community)
-- **Repository:** [copilot-community-sdk/copilot-sdk-rust](https://github.com/copilot-community-sdk/copilot-sdk-rust)
-- **Pinned revision:** `2946ba1` (v0.1.17, full feature parity with official SDKs)
+- **Crate:** [`github-copilot-sdk`](https://crates.io/crates/github-copilot-sdk) (official)
+- **Repository:** [github/copilot-sdk](https://github.com/github/copilot-sdk) (`rust/`)
+- **Version:** exact pin `=1.0.14` (`default-features = false`; no bundled CLI)
 - **License:** MIT
-- **Dependency type:** Git (not published on crates.io)
+- **Dependency type:** crates.io
+- **Build:** `.cargo/config.toml` sets `COPILOT_SKIP_CLI_DOWNLOAD=1` so builds never download a CLI.

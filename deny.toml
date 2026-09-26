@@ -31,8 +31,4 @@ confidence-threshold = 0.9
 [sources]
 unknown-registry = "warn"
 unknown-git = "warn"
-allow-git = [
-    # Community Copilot SDK — pinned to a specific SHA in workspace Cargo.toml.
-    # Replace with a crates.io release when available.
-    "https://github.com/copilot-community-sdk/copilot-sdk-rust.git",
-]
+allow-git = []

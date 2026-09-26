@@ -1,32 +1,30 @@
 //! Connection lifecycle for [`BridgeManager`] — `connect` / `disconnect` for
 //! both stdio (SDK spawns a private CLI subprocess) and TCP (SDK attaches to
-//! an existing `copilot --ui-server`) modes.
+//! an existing `copilot --ui-server`) modes. Client construction lives in
+//! [`super::sdk_client`].
 
 use super::BridgeManager;
-use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError, ConnectionMode};
+use super::sdk_client::{requested_connection_mode, start_client};
+use crate::bridge::{BridgeConnectConfig, BridgeConnectionState, BridgeError};
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
-impl BridgeManager {
-    fn requested_connection_mode(config: &BridgeConnectConfig) -> ConnectionMode {
-        if config.cli_url.is_some() {
-            ConnectionMode::Tcp
-        } else {
-            ConnectionMode::Stdio
-        }
-    }
+/// Upper bound for the best-effort `session.detach` sent to each tracked
+/// session during disconnect. A dead transport must not wedge shutdown.
+const DETACH_TIMEOUT: Duration = Duration::from_secs(2);
 
+impl BridgeManager {
     fn is_same_connection_config(&self, config: &BridgeConnectConfig) -> bool {
-        self.connection_mode == Some(Self::requested_connection_mode(config))
+        self.connection_mode == Some(requested_connection_mode(config))
             && self.cli_url.as_deref() == config.cli_url.as_deref()
             && self.connection_cwd.as_deref() == config.cwd.as_deref()
     }
 
     /// Connect to the Copilot CLI via the SDK.
     ///
-    /// If `config.cli_url` is set, connects to an existing `copilot --ui-server`.
-    /// Otherwise, spawns a new CLI process via stdio.
+    /// If `config.cli_url` is set, attaches to an existing `copilot --ui-server`
+    /// over TCP. Otherwise, spawns a private CLI process via stdio.
     pub async fn connect(&mut self, config: BridgeConnectConfig) -> Result<(), BridgeError> {
         if self.state == BridgeConnectionState::Connected {
             if self.is_same_connection_config(&config) {
@@ -43,15 +41,14 @@ impl BridgeManager {
         self.error_message = None;
 
         // Track connection identity for idempotent renderer hydration.
-        self.connection_mode = Some(Self::requested_connection_mode(&config));
+        let mode = requested_connection_mode(&config);
+        self.connection_mode = Some(mode);
         self.cli_url = config.cli_url.clone();
         self.connection_cwd = config.cwd.clone();
 
-        // DEEP-03: capture connect-path timing so operators can tell whether
-        // a slow start was the SDK builder vs. `client.start()`. Reported
-        // alongside the existing "connected" info log on success.
+        // DEEP-03: capture connect-path timing so operators can see slow
+        // starts (CLI spawn + protocol handshake) in the logs.
         let connect_started_at = Instant::now();
-        let mode = self.connection_mode.expect("set above");
         debug!(
             mode = %mode,
             has_cli_url = config.cli_url.is_some(),
@@ -59,54 +56,25 @@ impl BridgeManager {
             "SDK bridge connect: starting"
         );
 
-        let mut builder = copilot_sdk::Client::builder();
-
-        if let Some(url) = &config.cli_url {
-            builder = builder.cli_url(url.as_str());
-            // Don't set use_logged_in_user when connecting to an external server
-            // — the SDK rejects that combination.
-        } else {
-            builder = builder.use_logged_in_user(true);
-        }
-        if let Some(cwd) = &config.cwd {
-            builder = builder.cwd(cwd.as_str());
-        }
-        if let Some(token) = &config.github_token {
-            builder = builder.github_token(token.as_str());
-        }
-        if let Some(level) = &config.log_level {
-            let sdk_level = match level.to_lowercase().as_str() {
-                "error" => copilot_sdk::LogLevel::Error,
-                "warn" => copilot_sdk::LogLevel::Warn,
-                "debug" => copilot_sdk::LogLevel::Debug,
-                _ => copilot_sdk::LogLevel::Info,
-            };
-            builder = builder.log_level(sdk_level);
-        }
-
-        let client = builder.build().map_err(|e| {
-            self.state = BridgeConnectionState::Error;
-            self.error_message = Some(e.to_string());
-            BridgeError::ConnectionFailed(e.to_string())
-        })?;
-        let build_ms = connect_started_at.elapsed().as_millis() as u64;
-
-        client.start().await.map_err(|e| {
-            self.state = BridgeConnectionState::Error;
-            self.error_message = Some(e.to_string());
-            BridgeError::ConnectionFailed(e.to_string())
-        })?;
+        let client = match start_client(&config).await {
+            Ok(client) => client,
+            Err(e) => {
+                self.state = BridgeConnectionState::Error;
+                self.error_message = Some(e.to_string());
+                self.emit_status_change();
+                return Err(e);
+            }
+        };
         let total_ms = connect_started_at.elapsed().as_millis() as u64;
-        let start_ms = total_ms.saturating_sub(build_ms);
+        let protocol_version = client.protocol_version();
 
         self.client = Some(client);
         self.state = BridgeConnectionState::Connected;
         self.emit_status_change();
         info!(
             mode = %mode,
-            build_ms,
-            start_ms,
             total_ms,
+            protocol_version = ?protocol_version,
             "Copilot SDK bridge connected"
         );
         Ok(())
@@ -114,34 +82,33 @@ impl BridgeManager {
 
     /// Disconnect from the Copilot CLI, stopping all sessions.
     ///
-    /// Order is critical (DEEP-06): `client.stop()` does NOT close the SDK
-    /// `Session` broadcast channels by itself — the bridge holds
-    /// `Arc<copilot_sdk::Session>` clones, so the SDK senders stay alive
-    /// until those `Arc`s drop. The forwarder loop only exits naturally on
-    /// `RecvError::Closed`, so relying on natural drain after `stop()` would
-    /// hang.
-    ///
-    /// Therefore: `client.stop()` → drain `sessions` (drops the `Arc`s) →
-    /// `abort() + await` every forwarder handle → clear `live_state`. The
-    /// abort+await pair is what makes the teardown deterministic, not the
-    /// natural-exit path.
+    /// Order matters (DEEP-06): every tracked session is detached first with a
+    /// bounded, best-effort `Session::disconnect()` so attached `--ui-server`
+    /// sessions are released cleanly (this never writes to the session's
+    /// history). Then `client.stop()` closes the transport (and ends the
+    /// private CLI in stdio mode), the session handles are dropped, and every
+    /// forwarder is aborted and awaited. The abort+await pair is what makes
+    /// teardown deterministic, not the natural-exit path.
     ///
     /// Live-state is cleared silently — no per-session terminal broadcast.
     /// The renderer treats a `Disconnected` `BridgeStatus` as the canonical
     /// "all sessions gone" signal; emitting per-session terminal events
     /// here would just duplicate that information.
     pub async fn disconnect(&mut self) -> Result<(), BridgeError> {
-        if let Some(client) = self.client.take() {
-            let errors = client.stop().await;
-            if !errors.is_empty() {
-                warn!("SDK stop reported {} errors", errors.len());
+        for (id, session) in &self.sessions {
+            match tokio::time::timeout(DETACH_TIMEOUT, session.disconnect()).await {
+                Ok(Ok(())) => debug!("Detached session {} during disconnect", id),
+                Ok(Err(e)) => debug!("Best-effort detach of {} failed: {}", id, e),
+                Err(_) => debug!("Best-effort detach of {} timed out", id),
             }
         }
 
-        // Drop SDK session handles before draining forwarders so each
-        // session's broadcast `Sender` count goes to zero — any in-flight
-        // recv on the forwarder side will see `RecvError::Closed`. The
-        // explicit abort+await below remains the authoritative teardown.
+        if let Some(client) = self.client.take()
+            && let Err(errors) = client.stop().await
+        {
+            warn!("SDK stop reported errors: {}", errors);
+        }
+
         self.sessions.clear();
 
         for (id, handle) in self.event_tasks.drain() {
