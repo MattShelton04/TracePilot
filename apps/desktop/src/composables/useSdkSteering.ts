@@ -1,6 +1,7 @@
 import type { InjectionKey } from "vue";
 import { inject, reactive } from "vue";
 import { useSdkSteeringActions } from "./sdkSteering/actions";
+import { useLiveHostWatcher } from "./sdkSteering/liveHost";
 import { useModelPicker } from "./sdkSteering/modelPicker";
 import { type SdkSteeringState, useSdkSteeringState } from "./sdkSteering/state";
 
@@ -22,6 +23,12 @@ import type { UseSdkSteeringOptions } from "./sdkSteering/state";
  * Public surface (the `reactive(...)` object below) is unchanged — the
  * children under `./sdkSteering/` and `SdkSteeringPanel.vue` consume it
  * via `provide`/`inject` (`SdkSteeringKey` + `useSdkSteeringContext`).
+ *
+ * ── Live attach (ADR-0016) ──────────────────────────────────────────
+ *   `sdkSteering/liveHost.ts` polls `sdk_live_hosts` for the open session
+ *   and, when it runs in a `--ui-server` terminal and the Live sessions
+ *   "auto-attach" preference is on, calls `attachLive()` once per view.
+ *   Attaching joins the terminal's own CLI, so it cannot fork the session.
  *
  * ── User-triggered IPC calls (inventory) ───────────────────────────
  *   1. `linkSession()`        → `sdk.resumeSession(sid, cwd, model)`
@@ -51,6 +58,7 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
   const state: SdkSteeringState = useSdkSteeringState(options);
   const modelPicker = useModelPicker(state.showModelPicker);
   const actions = useSdkSteeringActions(state);
+  useLiveHostWatcher(state, actions);
 
   return reactive({
     // stores (exposed for templates)
@@ -65,11 +73,14 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     sentMessages: state.sentMessages,
     sessionError: state.sessionError,
     resuming: state.resuming,
+    attaching: state.attaching,
     resolvedSessionId: state.resolvedSessionId,
     // computed
     isEnabled: state.isEnabled,
     isVisible: state.isVisible,
     isLinked: state.isLinked,
+    liveHost: state.liveHost,
+    isLive: state.isLive,
     hasActiveSdkHandle: state.hasActiveSdkHandle,
     linkedSession: state.linkedSession,
     effectiveSessionId: state.effectiveSessionId,
@@ -85,6 +96,8 @@ export function useSdkSteering(options: UseSdkSteeringOptions) {
     modes: state.modes,
     // actions
     linkSession: actions.linkSession,
+    attachLive: actions.attachLive,
+    handleDetach: actions.handleDetach,
     handleSend: actions.handleSend,
     handleModeChange: actions.handleModeChange,
     handleAbort: actions.handleAbort,

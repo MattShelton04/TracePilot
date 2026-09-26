@@ -35,6 +35,8 @@ export const hydratedBridgeState = {
       lastEventType: null,
       lastEventTimestamp: null,
       lastError: null,
+      contextTokens: null,
+      contextLimit: null,
       reducerWarnings: [],
     },
   ],

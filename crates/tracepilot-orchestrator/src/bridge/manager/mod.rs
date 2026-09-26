@@ -23,6 +23,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::{RwLock, broadcast};
 
+mod attach;
+mod forwarder;
 mod lifecycle;
 mod queries;
 pub(crate) mod sdk_client;
@@ -30,6 +32,8 @@ mod session_model;
 mod session_tasks;
 mod ui_server;
 
+#[cfg(test)]
+mod attach_tests;
 #[cfg(test)]
 mod concurrency_tests;
 #[cfg(test)]
@@ -139,6 +143,11 @@ pub struct BridgeManager {
     pub(super) client: Option<github_copilot_sdk::Client>,
     pub(super) sessions: HashMap<String, Arc<SdkSession>>,
     pub(super) event_tasks: HashMap<String, tokio::task::JoinHandle<()>>,
+    /// Live attach clients keyed by endpoint address (`127.0.0.1:<port>`),
+    /// one per hosting `--ui-server` (see [`attach`]).
+    pub(super) endpoints: HashMap<String, github_copilot_sdk::Client>,
+    /// Attached session ID → endpoint address that hosts it.
+    pub(super) session_endpoints: HashMap<String, String>,
 }
 
 impl BridgeManager {
@@ -172,6 +181,8 @@ impl BridgeManager {
             client: None,
             sessions: HashMap::new(),
             event_tasks: HashMap::new(),
+            endpoints: HashMap::new(),
+            session_endpoints: HashMap::new(),
         };
         (manager, rx, status_rx)
     }

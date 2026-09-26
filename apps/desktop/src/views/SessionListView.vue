@@ -19,6 +19,7 @@ import { useRouter } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
+import { useLiveSessionBadges } from "@/composables/useLiveSessionBadges";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -36,6 +37,7 @@ useRenderBudget({ key: "render.sessionListViewMs", budgetMs: 120, label: "Sessio
 const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
 const tabStore = useSessionTabsStore();
+const { liveBadge } = useLiveSessionBadges(computed(() => store.filteredSessions));
 const { refreshing, refresh } = useAutoRefresh({
   // Auto-refresh bypasses the ensureIndex throttle so new sessions that land
   // on disk between navigations are picked up without requiring Ctrl+R.
@@ -292,6 +294,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           :key="session.id"
           data-testid="session-card"
           :session="session"
+          :live="liveBadge(session.id)"
           @select="openSession($event, session.id, session.summary || 'Untitled Session')"
         />
       </div>

@@ -258,6 +258,8 @@ export function createMessagingSlice(deps: MessagingDeps) {
     setSessionModel,
     fetchForegroundSession,
     setForegroundSession,
+    upsertSession,
+    markSessionInactive,
   };
 }
 

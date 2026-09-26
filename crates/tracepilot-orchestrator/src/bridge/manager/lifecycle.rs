@@ -108,6 +108,9 @@ impl BridgeManager {
         {
             warn!("SDK stop reported errors: {}", errors);
         }
+        // Live attach endpoints: their sessions were detached above, so this
+        // only closes TracePilot's connections; the terminals keep running.
+        self.stop_all_endpoints().await;
 
         self.sessions.clear();
 

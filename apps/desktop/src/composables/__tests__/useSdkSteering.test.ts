@@ -1,4 +1,4 @@
-import type { SessionLiveState } from "@tracepilot/types";
+import type { LiveSessionHost, SessionLiveState } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, reactive, ref } from "vue";
@@ -26,12 +26,19 @@ const sdkMock = {
   abortSession: vi.fn(async () => {}),
   destroySession: vi.fn(async () => {}),
   connect: vi.fn(async () => {}),
+  liveHostsById: {} as Record<string, LiveSessionHost>,
+  refreshLiveHosts: vi.fn(async (_ids: string[]) => {}),
+  attachSession: vi.fn(
+    async (_sid: string) => ({ sessionId: "sess-A" }) as { sessionId: string } | null,
+  ),
+  unlinkSession: vi.fn(async (_sid: string) => {}),
 };
 
 vi.mock("@/stores/sdk", () => ({ useSdkStore: () => sdkMock }));
 
 const prefsMock = {
   isFeatureEnabled: vi.fn((_: string) => true),
+  liveAutoAttach: false,
 };
 vi.mock("@/stores/preferences", () => ({ usePreferencesStore: () => prefsMock }));
 
@@ -69,6 +76,8 @@ function makeLiveState(
     lastEventType: null,
     lastEventTimestamp: null,
     lastError: null,
+    contextTokens: null,
+    contextLimit: null,
     reducerWarnings: [],
     ...overrides,
   };
@@ -112,6 +121,8 @@ beforeEach(() => {
   sdkMock.sessionStatesById = reactive<Record<string, SessionLiveState>>({});
   sdkMock.sessions = [];
   sdkMock.models = [];
+  sdkMock.liveHostsById = reactive<Record<string, LiveSessionHost>>({});
+  prefsMock.liveAutoAttach = false;
   detailMock.turns = [];
 });
 
@@ -322,5 +333,66 @@ describe("useSdkSteering — live state selection", () => {
     expect(panelA.ctx.liveState?.assistantText).toBe("alpha done");
     expect(panelB.ctx.liveState?.status).toBe("waiting_for_permission");
     expect(panelB.ctx.liveState?.assistantText).toBe("bravo waiting");
+  });
+});
+
+describe("useSdkSteering — live attach", () => {
+  function attachableHost(sessionId = "sess-A"): LiveSessionHost {
+    return { sessionId, state: "attachable", pid: 42, address: "127.0.0.1:5000", attached: false };
+  }
+
+  it("linkSession attaches to an attachable terminal instead of resuming", async () => {
+    sdkMock.liveHostsById["sess-A"] = attachableHost();
+    const { ctx } = mountHarness();
+    const ok = await ctx.linkSession();
+    expect(ok).toBe(true);
+    expect(sdkMock.attachSession).toHaveBeenCalledWith("sess-A");
+    expect(sdkMock.resumeSession).not.toHaveBeenCalled();
+    expect(ctx.userLinked).toBe(true);
+  });
+
+  it("surfaces a friendly error when attach fails", async () => {
+    sdkMock.liveHostsById["sess-A"] = attachableHost();
+    sdkMock.attachSession.mockResolvedValueOnce(null);
+    sdkMock.lastError = "host went away";
+    const { ctx } = mountHarness();
+    expect(await ctx.attachLive()).toBe(false);
+    expect(ctx.sessionError).toBeTruthy();
+    expect(ctx.attaching).toBe(false);
+  });
+
+  it("auto-attaches once when the preference is on", async () => {
+    prefsMock.liveAutoAttach = true;
+    sdkMock.refreshLiveHosts.mockImplementation(async () => {
+      sdkMock.liveHostsById["sess-A"] = attachableHost();
+    });
+    const { wrapper } = mountHarness();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sdkMock.attachSession).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+    sdkMock.refreshLiveHosts.mockImplementation(async () => {});
+  });
+
+  it("does not auto-attach when the preference is off", async () => {
+    sdkMock.refreshLiveHosts.mockImplementation(async () => {
+      sdkMock.liveHostsById["sess-A"] = attachableHost();
+    });
+    const { wrapper } = mountHarness();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sdkMock.refreshLiveHosts).toHaveBeenCalledWith(["sess-A"]);
+    expect(sdkMock.attachSession).not.toHaveBeenCalled();
+    wrapper.unmount();
+    sdkMock.refreshLiveHosts.mockImplementation(async () => {});
+  });
+
+  it("handleDetach unlinks, blocks auto-attach and re-checks the host", async () => {
+    sdkMock.liveHostsById["sess-A"] = attachableHost();
+    const { ctx } = mountHarness();
+    await ctx.attachLive();
+    await ctx.handleDetach();
+    expect(sdkMock.unlinkSession).toHaveBeenCalledWith("sess-A");
+    expect(ctx.userLinked).toBe(false);
+    expect(ctx.userUnlinked).toBe(true);
+    expect(sdkMock.refreshLiveHosts).toHaveBeenLastCalledWith(["sess-A"]);
   });
 });

@@ -46,6 +46,8 @@ function makeLiveState(partial: Partial<SessionLiveState> = {}): SessionLiveStat
     lastEventType: null,
     lastEventTimestamp: null,
     lastError: null,
+    contextTokens: null,
+    contextLimit: null,
     reducerWarnings: [],
     ...partial,
   };
@@ -156,6 +158,41 @@ describe("useLiveConversationTurn", () => {
     // Watcher fires after a microtask tick.
     await Promise.resolve();
     expect(cleared).toEqual(["s1"]);
+
+    scope.stop();
+  });
+
+  it("hides the live turn when its text lands mid-way through a multi-call persisted turn", () => {
+    // One persisted turn covers several model calls (text → tool → text);
+    // the live overlay only holds the latest call's text.
+    const persisted = ref<ConversationTurn[]>([
+      makePersistedTurn({
+        turnIndex: 2,
+        assistantMessages: [
+          { content: "Let me check the files." },
+          { content: "Found 3 matches." },
+          { content: "All done." },
+        ],
+      }),
+    ]);
+    const live = ref<Record<string, SdkLiveTurn>>({
+      s1: makeLiveTurn({ assistantText: "Found 3 matches." }),
+    });
+    const scope = effectScope();
+    let api!: ReturnType<typeof useLiveConversationTurn>;
+    scope.run(() => {
+      api = useLiveConversationTurn({
+        sessionId: () => "s1",
+        persistedTurns: () => persisted.value,
+        liveTurnsBySessionId: () => live.value,
+        sessionStatesById: () => ({}),
+        clearLiveTurn: () => {},
+      });
+    });
+
+    expect(api.liveConversationTurn.value).toBeNull();
+    live.value = { s1: makeLiveTurn({ assistantText: "Next call streaming" }) };
+    expect(api.liveConversationTurn.value?.turnIndex).toBe(3);
 
     scope.stop();
   });

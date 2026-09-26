@@ -1,6 +1,6 @@
 use super::*;
 use crate::bridge::BridgeEvent;
-use serde_json::json;
+use serde_json::{Value, json};
 
 fn event_at(event_type: &str, timestamp: &str, data: serde_json::Value) -> BridgeEvent {
     BridgeEvent {
@@ -178,4 +178,50 @@ fn previous_turn_delta_is_isolated_after_rotation() {
     });
     assert_eq!(state.assistant_text, "second");
     assert_eq!(state.current_turn_id.as_deref(), Some("turn-2"));
+}
+
+fn event(event_type: &str, data: Value) -> BridgeEvent {
+    event_at(event_type, "2026-09-26T00:00:00.000Z", data)
+}
+
+/// Copilot CLI 1.0.8x reports shell results as `{ content, detailedContent }`;
+/// the live preview keeps the text so it hands over to the persisted result
+/// without switching to a JSON dump.
+#[test]
+fn tool_complete_object_result_keeps_text() {
+    let store = LiveStateStore::new();
+    store.apply_event(&event(
+        "tool.execution_partial_result",
+        json!({"toolCallId": "t1", "partialOutput": "tick 1\n"}),
+    ));
+    let state = store.apply_event(&event(
+        "tool.execution_complete",
+        json!({"toolCallId": "t1", "success": true,
+               "result": {"content": "short", "detailedContent": "tick 1\ntick 2\n"}}),
+    ));
+    assert_eq!(
+        state.tools[0]
+            .partial_result
+            .as_ref()
+            .and_then(Value::as_str),
+        Some("tick 1\ntick 2\n")
+    );
+}
+
+/// `session.usage_info` feeds the context meter and no longer overwrites the
+/// per-call `assistant.usage` payload.
+#[test]
+fn usage_info_updates_context_without_clobbering_call_usage() {
+    let store = LiveStateStore::new();
+    store.apply_event(&event("assistant.usage", json!({"inputTokens": 10})));
+    let state = store.apply_event(&event(
+        "session.usage_info",
+        json!({"currentTokens": 18941, "tokenLimit": 200000}),
+    ));
+    assert_eq!(state.context_tokens, Some(18941));
+    assert_eq!(state.context_limit, Some(200000));
+    assert_eq!(state.usage, Some(json!({"inputTokens": 10})));
+
+    let idle = store.apply_event(&event("assistant.idle", json!({})));
+    assert_eq!(idle.status, SessionRuntimeStatus::Idle);
 }

@@ -27,7 +27,7 @@ import {
 } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { watch } from "vue";
+import { ref, watch } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { createAlertsSlice } from "@/stores/preferences/alerts";
 import { createFeatureFlagsSlice } from "@/stores/preferences/featureFlags";
@@ -56,6 +56,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const ui = createUiSlice();
   const pricing = createPricingSlice();
   const alerts = createAlertsSlice();
+  /** Live sessions: attach automatically to attachable sessions on open. */
+  const liveAutoAttach = ref(true);
+  /** Live sessions: launch/resume terminals with `--ui-server`. */
+  const liveLaunchAttachable = ref(true);
   const flags = createFeatureFlagsSlice();
 
   // Hydration gate — prevents reactive watches from persisting default values
@@ -101,6 +105,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     ui.sessionCacheSize.value = clampSessionCacheSize(
       config.performance?.sessionCacheSize ?? DEFAULT_SESSION_CACHE_SIZE,
     );
+    liveAutoAttach.value = config.live?.autoAttach ?? true;
+    liveLaunchAttachable.value = config.live?.launchAttachable ?? true;
 
     // Alert settings
     if (config.alerts) {
@@ -158,6 +164,10 @@ export const usePreferencesStore = defineStore("preferences", () => {
       },
       performance: {
         sessionCacheSize: clampSessionCacheSize(ui.sessionCacheSize.value),
+      },
+      live: {
+        autoAttach: liveAutoAttach.value,
+        launchAttachable: liveLaunchAttachable.value,
       },
     };
   }
@@ -274,6 +284,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
       alerts.alertsOnSessionError,
       alerts.alertsCooldownSeconds,
       ui.sessionCacheSize,
+      liveAutoAttach,
+      liveLaunchAttachable,
     ],
     scheduleSave,
     { deep: true },
@@ -284,6 +296,8 @@ export const usePreferencesStore = defineStore("preferences", () => {
     ...pricing,
     ...alerts,
     ...flags,
+    liveAutoAttach,
+    liveLaunchAttachable,
     applyTheme: () => applyTheme(ui.theme.value),
     /** Resolves when config has been loaded from backend. Await before reading config-backed values at startup. */
     whenReady: hydratePromise,

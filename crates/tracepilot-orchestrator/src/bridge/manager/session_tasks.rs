@@ -6,24 +6,49 @@ use super::BridgeManager;
 use super::sdk_client::SdkSession;
 use crate::bridge::live_state::SessionRuntimeStatus;
 use crate::bridge::{
-    BridgeError, BridgeEvent, BridgeMessagePayload, BridgeSessionConfig, BridgeSessionInfo,
-    BridgeSessionMode,
+    BridgeError, BridgeMessagePayload, BridgeSessionConfig, BridgeSessionInfo, BridgeSessionMode,
 };
 
 use github_copilot_sdk::rpc::ModeSetRequest;
 use github_copilot_sdk::session_events::SessionMode;
-use github_copilot_sdk::subscription::RecvErrorKind;
 use github_copilot_sdk::{
     DeliveryMode, MessageOptions, ResumeSessionConfig, SessionConfig, SessionId,
     SystemMessageConfig,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 use tracing::{debug, info, warn};
 
 /// Client name reported to the CLI for sessions TracePilot creates or joins.
-const CLIENT_NAME: &str = "tracepilot";
+pub(super) const CLIENT_NAME: &str = "tracepilot";
+
+/// Resume `session_id` on `client` as a handler-less observer (F3): no
+/// permission, elicitation, user-input, or exit-plan handlers, and `streaming`
+/// left to the owning client (F5). Appends one `session.resume` event (F8).
+pub(super) async fn resume_observer(
+    client: &github_copilot_sdk::Client,
+    session_id: &str,
+    working_directory: Option<&str>,
+    model: Option<&str>,
+) -> Result<SdkSession, BridgeError> {
+    let mut resume_config = ResumeSessionConfig::new(SessionId::new(session_id));
+    resume_config.working_directory = working_directory.map(PathBuf::from);
+    resume_config.model = model.map(String::from);
+    resume_config.client_name = Some(CLIENT_NAME.to_string());
+
+    client.resume_session(resume_config).await.map_err(|e| {
+        let msg = e.to_string();
+        if msg.contains("corrupted") {
+            warn!(
+                "Session {} has schema validation issues (CLI version mismatch): {}",
+                session_id, msg
+            );
+        } else {
+            warn!("Failed to resume session {}: {}", session_id, msg);
+        }
+        BridgeError::Sdk(msg)
+    })
+}
 
 impl BridgeManager {
     /// Create a new Copilot session via the SDK.
@@ -98,7 +123,7 @@ impl BridgeManager {
                 mode: None,
                 is_active: true,
                 resume_error: None,
-                is_remote: false,
+                is_remote: self.session_endpoints.contains_key(session_id),
             });
         }
 
@@ -109,23 +134,7 @@ impl BridgeManager {
         );
         let client = self.require_client()?;
 
-        let mut resume_config = ResumeSessionConfig::new(SessionId::new(session_id));
-        resume_config.working_directory = working_directory.map(PathBuf::from);
-        resume_config.model = model.map(String::from);
-        resume_config.client_name = Some(CLIENT_NAME.to_string());
-
-        let session = client.resume_session(resume_config).await.map_err(|e| {
-            let msg = e.to_string();
-            if msg.contains("corrupted") {
-                warn!(
-                    "Session {} has schema validation issues (CLI version mismatch): {}",
-                    session_id, msg
-                );
-            } else {
-                warn!("Failed to resume session {}: {}", session_id, msg);
-            }
-            BridgeError::Sdk(msg)
-        })?;
+        let session = resume_observer(client, session_id, working_directory, model).await?;
 
         let sid = session.id().to_string();
         let session = Arc::new(session);
@@ -248,7 +257,10 @@ impl BridgeManager {
 
     /// Remove a tracked session, stop its forwarder, and detach it from the
     /// CLI. Returns `None` when the session was not tracked.
-    async fn detach_tracked(&mut self, session_id: &str) -> Option<Result<(), BridgeError>> {
+    pub(super) async fn detach_tracked(
+        &mut self,
+        session_id: &str,
+    ) -> Option<Result<(), BridgeError>> {
         let session = self.sessions.remove(session_id)?;
         if let Some(handle) = self.event_tasks.remove(session_id) {
             handle.abort();
@@ -261,7 +273,9 @@ impl BridgeManager {
                 );
             }
         }
-        Some(session.disconnect().await.map_err(BridgeError::sdk))
+        let result = session.disconnect().await.map_err(BridgeError::sdk);
+        self.release_endpoint_for(session_id).await;
+        Some(result)
     }
 
     /// Change the session mode (interactive / plan / autopilot).
@@ -292,65 +306,18 @@ impl BridgeManager {
         Ok(())
     }
 
-    /// Spawn a tokio task that reads SDK events and forwards them as BridgeEvents.
+    /// Spawn the per-session forwarder task (see [`super::forwarder`]).
     pub(super) fn spawn_event_forwarder(&mut self, session_id: &str, session: &Arc<SdkSession>) {
-        let tx = self.event_tx.clone();
-        let state_tx = self.state_tx.clone();
-        let live_state = Arc::clone(&self.live_state);
-        let metrics = Arc::clone(&self.metrics);
-        let sid = session_id.to_string();
-        let mut events = session.subscribe();
-
+        let channels = super::forwarder::ForwarderChannels {
+            event_tx: self.event_tx.clone(),
+            state_tx: self.state_tx.clone(),
+            live_state: Arc::clone(&self.live_state),
+            metrics: Arc::clone(&self.metrics),
+        };
         let handle = tokio::spawn(tracing::Instrument::instrument(
-            async move {
-                loop {
-                    match events.recv().await {
-                        Ok(event) => {
-                            let bridge_event = BridgeEvent {
-                                session_id: sid.clone(),
-                                event_type: event.event_type,
-                                timestamp: event.timestamp,
-                                id: Some(event.id),
-                                parent_id: event.parent_id,
-                                ephemeral: event.ephemeral.unwrap_or(false),
-                                data: event.data,
-                            };
-                            let state = live_state.apply_event(&bridge_event);
-                            if state_tx.send(state).is_err() {
-                                debug!("No SDK session-state receivers for {}", sid);
-                            }
-                            if tx.send(bridge_event).is_ok() {
-                                metrics.events_forwarded.fetch_add(1, Ordering::Relaxed);
-                            } else {
-                                debug!("No bridge event receivers for {}", sid);
-                            }
-                        }
-                        Err(e) => match e.kind() {
-                            RecvErrorKind::Closed => {
-                                debug!("SDK event channel closed for session {}", sid);
-                                break;
-                            }
-                            RecvErrorKind::Lagged(lagged) => {
-                                let n = lagged.skipped();
-                                warn!("Bridge event receiver lagged by {} for session {}", n, sid);
-                                metrics
-                                    .events_dropped_due_to_lag
-                                    .fetch_add(n, Ordering::Relaxed);
-                                metrics.lag_occurrences.fetch_add(1, Ordering::Relaxed);
-                            }
-                            // `RecvErrorKind` is non-exhaustive; treat unknown
-                            // kinds as terminal rather than risk a hot loop.
-                            other => {
-                                warn!("SDK event stream for {} ended: {:?}", sid, other);
-                                break;
-                            }
-                        },
-                    }
-                }
-            },
+            super::forwarder::run(session_id.to_string(), session.subscribe(), channels),
             tracing::info_span!("sdk_event_forwarder", session_id = %session_id),
         ));
-
         self.event_tasks.insert(session_id.to_string(), handle);
     }
 

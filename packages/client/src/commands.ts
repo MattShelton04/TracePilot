@@ -186,6 +186,8 @@ export const IPC_COMMANDS = [
   "sdk_launch_ui_server",
   "sdk_stop_ui_server",
   "sdk_bridge_metrics",
+  "sdk_live_hosts",
+  "sdk_attach_session",
   // Window management
   "open_session_window",
   "close_session_window",

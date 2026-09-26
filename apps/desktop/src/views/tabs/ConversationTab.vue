@@ -36,6 +36,7 @@ import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
 
 const { isViewer } = useWindowRole();
 // useRoute() returns undefined when no router is installed (child windows).
@@ -44,6 +45,26 @@ const route: Pick<RouteLocationNormalizedLoaded, "query"> = isViewer() ? { query
 const store = useSessionDetailContext();
 provideSessionAgentDirectory(store);
 const preferences = usePreferencesStore();
+const sdk = useSdkStore();
+
+/**
+ * Live sessions (ADR-0016): a session open in a terminal can stream its first
+ * turn before anything is saved, so the chat view (and its live panel) stays
+ * mounted even with zero persisted turns.
+ */
+const liveCapable = computed(() => {
+  const sid = store.sessionId;
+  if (!sid || !preferences.isFeatureEnabled("copilotSdk")) return false;
+  const host = sdk.liveHostsById[sid];
+  return sdk.isAttached(sid) || (host != null && host.state !== "idle");
+});
+watch(
+  () => store.sessionId,
+  (sid) => {
+    if (sid && preferences.isFeatureEnabled("copilotSdk")) void sdk.refreshLiveHosts([sid]);
+  },
+  { immediate: true },
+);
 const expandedToolDetails = useToggleSet<string>();
 const expandedReasoning = useToggleSet<string>();
 const activeView = ref<ConversationViewMode>("chat");
@@ -220,7 +241,10 @@ function richEnabledFor(toolName: string): boolean {
     <!-- View mode toggle -->
     <ConversationViewSwitcher v-model="activeView" />
 
-    <EmptyState v-if="store.turns.length === 0 && !store.turnsError" description="No conversation turns found." />
+    <EmptyState
+      v-if="store.turns.length === 0 && !store.turnsError && !(activeView === 'chat' && liveCapable)"
+      description="No conversation turns found."
+    />
 
     <!-- ═══════════════ CHAT VIEW ═══════════════ -->
     <ChatViewMode

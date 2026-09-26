@@ -1,0 +1,231 @@
+//! Live attach (ADR-0016): join sessions hosted by `copilot --ui-server`
+//! terminals over loopback TCP, one SDK client per hosting endpoint.
+//!
+//! Attachments live beside the legacy single-connection bridge (`connect`):
+//! they share the session map, event forwarder, live-state store, and steering
+//! calls, but each attached session remembers the endpoint that hosts it. An
+//! endpoint's client is started on first attach and stopped when its last
+//! session detaches. Stopping an external client only closes TracePilot's
+//! connection; the terminal keeps running.
+
+use super::BridgeManager;
+use super::sdk_client;
+use super::session_tasks::resume_observer;
+use crate::bridge::live_host::{LiveHostState, LiveSessionHost};
+use crate::bridge::live_state::SessionRuntimeStatus;
+use crate::bridge::{BridgeConnectConfig, BridgeError, BridgeSessionInfo};
+use std::sync::Arc;
+use std::time::Duration;
+use tracing::{debug, info, warn};
+
+/// Upper bound for connecting to a hosting endpoint. A lock-holder PID that
+/// was reused by an unrelated listener must fail fast rather than hang.
+const ENDPOINT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+/// Upper bound for the best-effort detach when an endpoint has gone away.
+const STALE_DETACH_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Error recorded on the live state when the hosting terminal stops serving
+/// the session (it exited, or switched to another session).
+pub(crate) const HOST_GONE_MESSAGE: &str = "The terminal hosting this session is no longer live";
+
+impl BridgeManager {
+    /// Attach to `session_id`, hosted by the CLI server at `address`
+    /// (`127.0.0.1:<port>`, from [`crate::bridge::locate_sessions`]).
+    ///
+    /// Idempotent: an already-tracked session returns its info without a
+    /// second resume, because every resume writes a `session.resume` event
+    /// into the session's history (F8).
+    pub async fn attach_session(
+        &mut self,
+        session_id: &str,
+        address: &str,
+    ) -> Result<BridgeSessionInfo, BridgeError> {
+        self.prune_finished_sessions().await;
+        if self.sessions.contains_key(session_id) {
+            debug!("attach_session: {} already tracked", session_id);
+            return Ok(attached_info(
+                session_id,
+                self.session_endpoints.contains_key(session_id),
+            ));
+        }
+        self.check_preference_enabled()?;
+
+        let client = self.endpoint_client(address).await?;
+        let session = match resume_observer(&client, session_id, None, None).await {
+            Ok(session) => session,
+            Err(e) => {
+                self.stop_endpoint_if_unused(address).await;
+                return Err(e);
+            }
+        };
+        let session = Arc::new(session);
+        info!("Attached to session {} via {}", session_id, address);
+
+        self.spawn_event_forwarder(session_id, &session);
+        self.mark_live_session_status(session_id, SessionRuntimeStatus::Idle, None);
+        self.sessions.insert(session_id.to_string(), session);
+        self.session_endpoints
+            .insert(session_id.to_string(), address.to_string());
+        self.emit_status_change();
+        Ok(attached_info(session_id, true))
+    }
+
+    /// Whether `session_id` is tracked (created, resumed, or attached).
+    pub fn is_tracked(&self, session_id: &str) -> bool {
+        self.sessions.contains_key(session_id)
+    }
+
+    /// IDs of sessions joined through [`Self::attach_session`], sorted.
+    pub fn attached_session_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = self.session_endpoints.keys().cloned().collect();
+        ids.sort();
+        ids
+    }
+
+    /// Set [`LiveSessionHost::attached`] from the current attachments.
+    pub fn mark_attached(&self, hosts: &mut [LiveSessionHost]) {
+        for host in hosts {
+            host.attached = self.session_endpoints.contains_key(&host.session_id);
+        }
+    }
+
+    /// Drop attachments whose hosting endpoint no longer serves the session,
+    /// given freshly located hosts. The session keeps running wherever it is;
+    /// TracePilot just stops observing it. Returns the IDs that were dropped.
+    pub async fn reconcile_attachments(&mut self, hosts: &[LiveSessionHost]) -> Vec<String> {
+        let mut dropped = Vec::new();
+        for host in hosts {
+            let Some(address) = self.session_endpoints.get(&host.session_id) else {
+                continue;
+            };
+            let still_hosted = host.state == LiveHostState::Attachable
+                && host.address.as_deref() == Some(address.as_str());
+            if still_hosted {
+                continue;
+            }
+            info!(
+                "Hosting endpoint for {} is gone ({:?}); detaching",
+                host.session_id, host.state
+            );
+            self.drop_attachment(&host.session_id, HOST_GONE_MESSAGE)
+                .await;
+            dropped.push(host.session_id.clone());
+        }
+        let pruned = self.prune_finished_sessions().await;
+        dropped.extend(pruned);
+        if !dropped.is_empty() {
+            self.emit_status_change();
+        }
+        dropped
+    }
+
+    /// Untrack sessions whose event stream ended on its own (the forwarder
+    /// already published a terminal live-state snapshot). Returns their IDs.
+    pub(super) async fn prune_finished_sessions(&mut self) -> Vec<String> {
+        let finished: Vec<String> = self
+            .event_tasks
+            .iter()
+            .filter(|(_, handle)| handle.is_finished())
+            .map(|(id, _)| id.clone())
+            .collect();
+        for session_id in &finished {
+            debug!("Pruning session {} (event stream ended)", session_id);
+            self.event_tasks.remove(session_id);
+            self.sessions.remove(session_id);
+            self.release_endpoint_for(session_id).await;
+            self.live_state.remove(session_id);
+        }
+        finished
+    }
+
+    /// Detach from a session whose host went away: best-effort `detach` with
+    /// a short timeout, one terminal snapshot carrying `reason`, then untrack.
+    async fn drop_attachment(&mut self, session_id: &str, reason: &str) {
+        if let Ok(Some(Err(e))) =
+            tokio::time::timeout(STALE_DETACH_TIMEOUT, self.detach_tracked(session_id)).await
+        {
+            debug!("Detach from stale host for {} failed: {}", session_id, e);
+        }
+        // `detach_tracked` may have timed out before releasing the endpoint.
+        self.sessions.remove(session_id);
+        if let Some(handle) = self.event_tasks.remove(session_id) {
+            handle.abort();
+        }
+        self.release_endpoint_for(session_id).await;
+        self.mark_existing_session_status(
+            session_id,
+            SessionRuntimeStatus::Shutdown,
+            Some(reason.to_string()),
+        );
+        self.live_state.remove(session_id);
+    }
+
+    /// Forget which endpoint hosts `session_id`, stopping that endpoint's
+    /// client when no other attached session uses it.
+    pub(super) async fn release_endpoint_for(&mut self, session_id: &str) {
+        if let Some(address) = self.session_endpoints.remove(session_id) {
+            self.stop_endpoint_if_unused(&address).await;
+        }
+    }
+
+    async fn stop_endpoint_if_unused(&mut self, address: &str) {
+        if self.session_endpoints.values().any(|a| a == address) {
+            return;
+        }
+        if let Some(client) = self.endpoints.remove(address) {
+            match tokio::time::timeout(STALE_DETACH_TIMEOUT, client.stop()).await {
+                Ok(Ok(())) => debug!("Closed live endpoint {}", address),
+                Ok(Err(e)) => debug!("Closing live endpoint {} reported: {}", address, e),
+                Err(_) => {
+                    warn!("Timed out closing live endpoint {}", address);
+                    client.force_stop();
+                }
+            }
+        }
+    }
+
+    /// Stop every endpoint client (used by `disconnect`).
+    pub(super) async fn stop_all_endpoints(&mut self) {
+        self.session_endpoints.clear();
+        let addresses: Vec<String> = self.endpoints.keys().cloned().collect();
+        for address in addresses {
+            self.stop_endpoint_if_unused(&address).await;
+        }
+    }
+
+    async fn endpoint_client(
+        &mut self,
+        address: &str,
+    ) -> Result<github_copilot_sdk::Client, BridgeError> {
+        if let Some(client) = self.endpoints.get(address) {
+            return Ok(client.clone());
+        }
+        let config = BridgeConnectConfig {
+            cli_url: Some(address.to_string()),
+            cwd: None,
+            log_level: None,
+            github_token: None,
+        };
+        let client =
+            tokio::time::timeout(ENDPOINT_CONNECT_TIMEOUT, sdk_client::start_client(&config))
+                .await
+                .map_err(|_| {
+                    BridgeError::Timeout(format!("connecting to Copilot CLI server at {address}"))
+                })??;
+        info!("Connected to live endpoint {}", address);
+        self.endpoints.insert(address.to_string(), client.clone());
+        Ok(client)
+    }
+}
+
+fn attached_info(session_id: &str, is_remote: bool) -> BridgeSessionInfo {
+    BridgeSessionInfo {
+        session_id: session_id.to_string(),
+        model: None,
+        working_directory: None,
+        mode: None,
+        is_active: true,
+        resume_error: None,
+        is_remote,
+    }
+}

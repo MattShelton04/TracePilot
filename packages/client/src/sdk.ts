@@ -13,6 +13,7 @@ import type {
   BridgeSessionMode,
   BridgeStatus,
   DetectedUiServer,
+  LiveSessionHost,
   SessionLiveState,
 } from "@tracepilot/types";
 import { createInvoke } from "./invoke.js";
@@ -130,6 +131,18 @@ export async function sdkListModels(): Promise<BridgeModelInfo[]> {
 // ─── UI Server Detection ──────────────────────────────────────────
 
 /** Detect running `copilot --ui-server` processes on the local machine. */
+// ─── Live attach ──────────────────────────────────────────────────
+
+/** Hosting state for each session (also drops attachments whose terminal closed). */
+export async function sdkLiveHosts(sessionIds: string[]): Promise<LiveSessionHost[]> {
+  return invoke<LiveSessionHost[]>("sdk_live_hosts", { sessionIds });
+}
+
+/** Attach to a session running in a `copilot --ui-server` terminal. */
+export async function sdkAttachSession(sessionId: string): Promise<BridgeSessionInfo> {
+  return invoke<BridgeSessionInfo>("sdk_attach_session", { sessionId });
+}
+
 export async function sdkDetectUiServer(): Promise<DetectedUiServer[]> {
   return invoke<DetectedUiServer[]>("sdk_detect_ui_server");
 }

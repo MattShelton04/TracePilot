@@ -63,7 +63,7 @@ pub(super) fn upsert_tool(
         existing.message = summary.message.or_else(|| existing.message.clone());
         existing.progress = summary.progress.or(existing.progress);
         if let Some(result) = final_result {
-            existing.partial_result = Some(compact_partial_result(result));
+            existing.partial_result = Some(compact_partial_result(&result_text(result)));
         } else if let Some(incoming) = partial_payload {
             existing.partial_result = Some(merge_partial_result(
                 existing.partial_result.as_ref(),
@@ -75,7 +75,7 @@ pub(super) fn upsert_tool(
     }
     let mut summary = summary;
     if let Some(result) = final_result {
-        summary.partial_result = Some(compact_partial_result(result));
+        summary.partial_result = Some(compact_partial_result(&result_text(result)));
     } else if let Some(incoming) = partial_payload {
         summary.partial_result = Some(merge_partial_result(None, incoming));
     }
@@ -84,6 +84,23 @@ pub(super) fn upsert_tool(
         let overflow = state.tools.len() - MAX_TOOLS;
         state.tools.drain(0..overflow);
     }
+}
+
+/// The renderable text of a `tool.execution_complete` result. Copilot CLI
+/// reports shell results as `{ content, detailedContent }`; keeping the text
+/// (rather than the JSON object) lets the live preview hand over to the
+/// persisted result without a visible jump.
+pub(super) fn result_text(result: &Value) -> Value {
+    if let Some(obj) = result.as_object() {
+        for key in ["detailedContent", "content"] {
+            if let Some(text) = obj.get(key).and_then(Value::as_str)
+                && !text.is_empty()
+            {
+                return Value::String(text.to_string());
+            }
+        }
+    }
+    result.clone()
 }
 
 /// Merge a streamed partial-output payload into the previous one.

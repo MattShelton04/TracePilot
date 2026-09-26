@@ -114,6 +114,16 @@ export interface TracePilotConfig {
      */
     sessionCacheSize: number;
   };
+  /** Live session preferences (Copilot SDK live attach). */
+  live: {
+    /**
+     * Attach automatically when a session view opens on a session running in
+     * an attachable (`--ui-server`) terminal.
+     */
+    autoAttach: boolean;
+    /** Start terminals TracePilot launches or resumes with `--ui-server`. */
+    launchAttachable: boolean;
+  };
 }
 
 /** A single entry in the release manifest used by the What's New modal. */

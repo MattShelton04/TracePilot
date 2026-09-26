@@ -69,6 +69,8 @@ function makeState(overrides: Partial<SessionLiveState> = {}): SessionLiveState 
     lastEventType: "session.running",
     lastEventTimestamp: "2026-04-27T00:00:00Z",
     lastError: null,
+    contextTokens: null,
+    contextLimit: null,
     reducerWarnings: [],
     ...overrides,
   };

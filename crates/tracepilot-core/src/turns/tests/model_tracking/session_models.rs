@@ -232,3 +232,39 @@ fn session_model_change_persists_across_turns() {
         "turn should inherit session_model from prior model change"
     );
 }
+
+fn resume_event(id: &str, ts: &str, model: &str) -> TypedEvent {
+    make_event(
+        SessionEventType::SessionResume,
+        TypedEventData::SessionResume(SessionResumeData {
+            selected_model: Some(model.to_string()),
+            ..Default::default()
+        }),
+        id,
+        ts,
+        None,
+    )
+}
+
+#[test]
+fn consecutive_resumes_collapse_into_one_row() {
+    let events = vec![
+        resume_event("r1", "2025-01-01T00:00:00Z", "auto"),
+        resume_event("r2", "2025-01-01T00:00:05Z", "auto"),
+        resume_event("r3", "2025-01-01T00:00:09Z", "gpt-5.4"),
+        user_msg("Hello again")
+            .interaction_id("int-2")
+            .id("ev-2")
+            .timestamp("2025-01-01T00:00:10Z")
+            .build_event(),
+    ];
+    let turns = reconstruct_turns(&events);
+    let resumes: Vec<_> = turns[0]
+        .session_events
+        .iter()
+        .filter(|e| e.event_type == "session.resume")
+        .collect();
+    assert_eq!(resumes.len(), 1);
+    assert_eq!(resumes[0].summary, "Session resumed 3× (model: gpt-5.4)");
+    assert_eq!(turns[0].model.as_deref(), Some("gpt-5.4"));
+}

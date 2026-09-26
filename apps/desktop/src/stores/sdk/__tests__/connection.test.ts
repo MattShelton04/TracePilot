@@ -151,6 +151,8 @@ describe("createConnectionSlice", () => {
       lastEventType: "assistant.message_delta",
       lastEventTimestamp: "2026-04-27T00:00:00Z",
       lastError: null,
+      contextTokens: null,
+      contextLimit: null,
       reducerWarnings: [],
     });
     slice.applySessionState({
@@ -173,6 +175,8 @@ describe("createConnectionSlice", () => {
       lastEventType: "ask_user.requested",
       lastEventTimestamp: "2026-04-27T00:00:01Z",
       lastError: null,
+      contextTokens: null,
+      contextLimit: null,
       reducerWarnings: [],
     });
     slice.applySessionState({
@@ -189,6 +193,8 @@ describe("createConnectionSlice", () => {
       lastEventType: "session.idle",
       lastEventTimestamp: "2026-04-27T00:00:02Z",
       lastError: null,
+      contextTokens: null,
+      contextLimit: null,
       reducerWarnings: [],
     });
 

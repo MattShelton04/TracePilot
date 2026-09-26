@@ -32,10 +32,12 @@ import type { Router } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
+import { useLivePersistedSync } from "@/composables/useLivePersistedSync";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSdkStore } from "@/stores/sdk";
 import { logError } from "@/utils/logger";
 import { sessionModel } from "@/utils/sessionModel";
 
@@ -73,6 +75,23 @@ const resolvedSessionId = computed(() => props.store.detail?.id ?? props.session
 const { copy, copied } = useClipboard();
 
 const isSessionActive = ref(false);
+const sdk = useSdkStore();
+useLivePersistedSync({
+  sessionId: () => props.sessionId,
+  refresh: () => props.store.refreshAll(),
+});
+/** Header badge: "Live" when TracePilot is attached or can attach (ADR-0016). */
+const liveBadge = computed(() => {
+  const sid = props.sessionId;
+  const host = sid ? sdk.liveHostsById[sid] : undefined;
+  if (sid && (sdk.isAttached(sid) || host?.attached)) {
+    return { label: "Live", title: "TracePilot is streaming this session live" };
+  }
+  if (host?.state === "attachable") {
+    return { label: "Live", title: "Running in a terminal TracePilot can stream live" };
+  }
+  return { label: "Active", title: "Session is currently active" };
+});
 const confirmingCopy = ref(false);
 const confirmingResume = ref(false);
 
@@ -209,13 +228,15 @@ watch(isSessionActive, (active) => {
       <h1 class="detail-title">
         <Transition name="active-indicator">
           <span v-if="isSessionActive" class="active-indicator-group">
-            <span class="active-dot" title="Session is currently active" />
+            <span class="active-dot" :title="liveBadge.title" />
           </span>
         </Transition>
         {{ store.detail.summary || 'Untitled Session' }}
         <Transition name="active-indicator">
           <span v-if="isSessionActive" class="active-indicator-group">
-            <Badge variant="success" class="active-badge-inline">● Active</Badge>
+            <Badge variant="success" class="active-badge-inline" :title="liveBadge.title">
+              ● {{ liveBadge.label }}
+            </Badge>
           </span>
         </Transition>
       </h1>

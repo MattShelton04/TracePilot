@@ -10,12 +10,14 @@
 //! doesn't lose work in progress.
 
 mod discovery;
+pub mod live_host;
 pub mod live_state;
 pub mod manager;
 
 use serde::{Deserialize, Serialize};
 
 pub use discovery::{DetectedUiServer, detect_ui_servers};
+pub use live_host::{LiveHostState, LiveSessionHost, locate_sessions};
 pub use live_state::{SessionLiveState, SessionRuntimeStatus};
 pub use manager::{BridgeManager, CopilotSdkEnabledReader};
 
@@ -54,6 +56,12 @@ pub enum BridgeError {
 
     #[error("Timeout: {0}")]
     Timeout(String),
+    /// The session is held by a Copilot CLI process TracePilot cannot join
+    /// (a terminal started without `--ui-server`), or nothing hosts it.
+    /// Joining through a separate CLI would observe an isolated copy and
+    /// fork the session's history (live attach plan, F9).
+    #[error("{0}")]
+    NotAttachable(String),
 }
 
 impl BridgeError {

@@ -366,6 +366,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::sdk::sdk_launch_ui_server,
             commands::sdk::sdk_stop_ui_server,
             commands::sdk::sdk_bridge_metrics,
+            commands::sdk::sdk_live_hosts,
+            commands::sdk::sdk_attach_session,
             // Window management commands (2)
             commands::window::open_session_window,
             commands::window::close_session_window,

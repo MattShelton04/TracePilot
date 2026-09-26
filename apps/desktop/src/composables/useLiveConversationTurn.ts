@@ -51,16 +51,13 @@ export function useLiveConversationTurn(
     // post-render race when auto-refresh and streaming overlap.
     const persisted = opts.persistedTurns();
     const last = persisted[persisted.length - 1];
-    const persistedAssistant = (last?.assistantMessages ?? [])
-      .map((m) => m.content)
-      .join("")
-      .trim();
-    const persistedReasoning = (last?.reasoningTexts ?? [])
-      .map((r) => r.content)
-      .join("")
-      .trim();
-    const assistantSuperseded = liveText ? persistedAssistant.startsWith(liveText) : true;
-    const reasoningSuperseded = liveReasoning ? persistedReasoning.startsWith(liveReasoning) : true;
+    const persistedAssistant = (last?.assistantMessages ?? []).map((m) => m.content).join("\n");
+    const persistedReasoning = (last?.reasoningTexts ?? []).map((r) => r.content).join("\n");
+    // `includes`, not `startsWith`: one persisted turn spans several model
+    // calls (text → tool → more text), while the live text only covers the
+    // current call, so it lands in the middle or end of the saved turn.
+    const assistantSuperseded = liveText ? persistedAssistant.includes(liveText) : true;
+    const reasoningSuperseded = liveReasoning ? persistedReasoning.includes(liveReasoning) : true;
     if (assistantSuperseded && reasoningSuperseded) return null;
 
     return {

@@ -81,6 +81,7 @@ export function createDefaultConfig(
     logging: Partial<TracePilotConfig["logging"]>;
     alerts: Partial<TracePilotConfig["alerts"]>;
     performance: Partial<TracePilotConfig["performance"]>;
+    live: Partial<TracePilotConfig["live"]>;
   }>,
 ): TracePilotConfig {
   return {
@@ -144,6 +145,11 @@ export function createDefaultConfig(
     performance: {
       sessionCacheSize: DEFAULT_SESSION_CACHE_SIZE,
       ...overrides?.performance,
+    },
+    live: {
+      autoAttach: true,
+      launchAttachable: true,
+      ...overrides?.live,
     },
   };
 }
