@@ -2,7 +2,7 @@
 
 The **Desktop Visual Capture** workflow renders the actual Vue application with
 synthetic backend fixtures at **1440×960 CSS pixels**, dark theme and 100% UI
-scale. Its 33 cases capture every named route, all eight session detail tabs,
+scale. Its cases capture every named route, all eight session detail tabs,
 populated search, a selected Explorer file, a completed session comparison,
 a populated Markdown export preview, and a second Settings position.
 The [case manifest](../scripts/visual/manifest.mjs)
@@ -298,6 +298,51 @@ its file-entry contract and checking console/error-boundary output closed that
 false-positive gap. Repeated captures exposed a sidebar opacity transition;
 disabling screenshot animation/transition timing made all 33 captures
 byte-identical across repeated runs.
+
+## Rich-tool and Metrics iteration
+
+The shared corpus in [`scripts/fixtures/`](../scripts/fixtures/session-fixtures.mjs)
+feeds both native JSONL sessions and focused browser cases. Rich-tool samples
+reconstruct formats from versioned CLI fixtures and renderer parser tests, with
+synthetic paths, text and URLs. The inventory covers every registered result and
+argument renderer, plus unregistered fallback tools, failed output, pending
+arguments and structured `ask_user` responses. A registry coverage test fails
+when a new renderer lacks a sample. The `web_search` case crosses the backend
+preview boundary and asserts both final source cards appear without manual loading.
+
+Capture an offline searchable gallery for rapid iteration:
+
+```powershell
+node scripts/visual/capture.mjs --group=rich-tools --gallery --channel=msedge --out=.tracepilot/visual/rich-tools
+node scripts/visual/capture.mjs --group=metrics --gallery --channel=msedge --out=.tracepilot/visual/metrics
+```
+
+Open the generated `index.html`, edit a renderer, and repeat the command. The
+gallery shows one capture and requires no baseline or extra commit. It is a
+local review aid; trusted CI comparison/publication continues to use its existing
+artifact checks. Omit `--channel=msedge` to use the installed pinned Chromium.
+Use `--case=rich-tool-web-search` for one case, or
+`--viewport=960x640` / `--viewport=2560x1440` for other desktop sizes. Store each
+size in a separate output directory. CI keeps the standard 1440×960 size;
+its trusted paired reporter does not accept arbitrary viewport dimensions.
+
+The Metrics group captures the top, Code Changes, latest Session Activity, and
+expanded Prompt Cache of the 3,000-file/120-shutdown/2,401-window fixture.
+The worktree case also asserts all header/body columns align at all three
+desktop sizes, including selected active and stale rows. This catches generated
+table cells from row pseudo-elements that DOM-only tests miss.
+
+Run fixture and harness checks together:
+
+```sh
+node --test scripts/fixtures/*.test.mjs scripts/visual/*.test.mjs
+```
+
+For native inspection, use the same generator with `app:start -DataRoot` as
+described in [testing](testing.md#rich-tools-and-session-metrics-stress-data).
+The native gallery contains all tool calls in one session; focused browser
+captures isolate each scenario for readable diffs. Full native parsing and
+visible interaction checks remain necessary when changing transport contracts.
 
 ## First hosted validation
 

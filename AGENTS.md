@@ -10,6 +10,16 @@ Prioritize the default 1440×960 desktop viewport, then the 960×640 minimum and
 larger 2560×1440 viewport. See [automation](docs/app-automation.md) and
 [testing](docs/testing.md) for lifecycle, diagnostics, and validation commands.
 
+For rich tools and large Session Metrics, generate the shared synthetic corpus
+with `node scripts/fixtures/session-fixtures.mjs`, then launch with
+`pnpm app:start -DataRoot <absolute-path-to-.tracepilot/tool-metrics-fixtures>`.
+The generator preserves config/index data and refuses edited fixtures; use a
+fresh `--root` after changing fixture contracts. Focused visual captures use
+`node scripts/visual/capture.mjs --group=rich-tools` or `--group=metrics`
+(`--channel=msedge` on Windows). See [visual regression](docs/visual-regression.md)
+for cases, viewport options, and iteration. Keep renderer registry coverage in
+`scripts/fixtures/session-fixtures.test.mjs` current when adding tools.
+
 # Repository notes
 
 Keep session scratch files, logs, and one-off audit reports outside tracked
