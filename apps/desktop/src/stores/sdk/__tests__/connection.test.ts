@@ -118,6 +118,26 @@ describe("createConnectionSlice", () => {
     expect(deps.onDisconnect).toHaveBeenCalledOnce();
   });
 
+  it("disconnect keeps terminal attachments unless told to drop them", async () => {
+    const slice = createConnectionSlice(makeDeps());
+    slice.connectionState.value = "connected";
+    slice.sessions.value = [
+      { sessionId: "live", isActive: true, isRemote: true },
+      { sessionId: "steer", isActive: true, isRemote: false },
+    ] as never;
+    slice.sessionStatesById.value = { live: {}, steer: {} } as never;
+
+    await slice.disconnect();
+    expect(client.sdkDisconnect).toHaveBeenLastCalledWith({ keepLive: true });
+    expect(slice.sessions.value.map((s) => s.sessionId)).toEqual(["live"]);
+    expect(Object.keys(slice.sessionStatesById.value)).toEqual(["live"]);
+    expect(slice.activeSessions.value).toBe(1);
+
+    await slice.disconnect({ keepLive: false });
+    expect(client.sdkDisconnect).toHaveBeenLastCalledWith({ keepLive: false });
+    expect(slice.sessions.value).toHaveLength(0);
+  });
+
   it("hydrate applies backend status and tracked sessions without connecting", async () => {
     (client.sdkHydrate as ReturnType<typeof vi.fn>).mockResolvedValueOnce(hydratedBridgeState);
     const slice = createConnectionSlice(makeDeps());

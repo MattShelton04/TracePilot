@@ -107,18 +107,37 @@ impl BridgeManager {
         }
     }
 
+    /// Attached sessions that `hosts` shows are no longer served where
+    /// TracePilot joined them.
+    pub fn stale_attachments(&self, hosts: &[LiveSessionHost]) -> Vec<String> {
+        hosts
+            .iter()
+            .filter(|host| self.is_stale(host))
+            .map(|host| host.session_id.clone())
+            .collect()
+    }
+
+    /// Whether any event stream ended on its own and awaits pruning.
+    pub fn has_finished_sessions(&self) -> bool {
+        self.event_tasks.values().any(|handle| handle.is_finished())
+    }
+
+    fn is_stale(&self, host: &LiveSessionHost) -> bool {
+        self.session_endpoints
+            .get(&host.session_id)
+            .is_some_and(|address| {
+                host.state != LiveHostState::Attachable
+                    || host.address.as_deref() != Some(address.as_str())
+            })
+    }
+
     /// Drop attachments whose hosting endpoint no longer serves the session,
     /// given freshly located hosts. The session keeps running wherever it is;
     /// TracePilot just stops observing it. Returns the IDs that were dropped.
     pub async fn reconcile_attachments(&mut self, hosts: &[LiveSessionHost]) -> Vec<String> {
         let mut dropped = Vec::new();
         for host in hosts {
-            let Some(address) = self.session_endpoints.get(&host.session_id) else {
-                continue;
-            };
-            let still_hosted = host.state == LiveHostState::Attachable
-                && host.address.as_deref() == Some(address.as_str());
-            if still_hosted {
+            if !self.is_stale(host) {
                 continue;
             }
             info!(

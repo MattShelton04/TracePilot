@@ -26,8 +26,12 @@ export async function sdkConnect(config: BridgeConnectConfig): Promise<BridgeSta
   return invoke<BridgeStatus>("sdk_connect", { config });
 }
 
-export async function sdkDisconnect(): Promise<void> {
-  return invoke<void>("sdk_disconnect");
+/**
+ * Disconnect the SDK bridge. With `keepLive`, sessions attached to
+ * `--ui-server` terminals stay attached (they don't use this connection).
+ */
+export async function sdkDisconnect(options: { keepLive?: boolean } = {}): Promise<void> {
+  return invoke<void>("sdk_disconnect", { keepLive: options.keepLive ?? false });
 }
 
 export async function sdkStatus(): Promise<BridgeStatus> {

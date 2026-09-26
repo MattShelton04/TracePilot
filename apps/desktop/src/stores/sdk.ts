@@ -153,21 +153,23 @@ export const useSdkStore = defineStore("sdk", () => {
     }, 100);
   }
 
-  async function disconnect() {
+  async function disconnect(options?: { keepLive?: boolean }) {
     if (!isMain()) {
       logInfo("[sdk] Ignoring disconnect request from non-main window");
       return;
     }
-    await connection.disconnect();
+    await connection.disconnect(options);
   }
 
   // Disconnect SDK when the feature toggle is turned off.
   watch(
     () => prefs.isFeatureEnabled("copilotSdk"),
     (enabled) => {
-      if (isMain() && !enabled && connection.connectionState.value !== "disconnected") {
-        logInfo("[sdk] Feature toggle disabled — disconnecting SDK bridge");
-        disconnect();
+      const busy =
+        connection.connectionState.value !== "disconnected" || connection.sessions.value.length > 0;
+      if (isMain() && !enabled && busy) {
+        logInfo("[sdk] Feature toggle disabled — disconnecting SDK bridge and live sessions");
+        disconnect({ keepLive: false });
       }
     },
   );

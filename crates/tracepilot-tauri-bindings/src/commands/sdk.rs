@@ -37,9 +37,14 @@ pub async fn sdk_connect(
 #[tracing::instrument(skip(bridge), err)]
 pub async fn sdk_disconnect(
     bridge: tauri::State<'_, SharedBridgeManager>,
+    keep_live: Option<bool>,
 ) -> CmdResult<BridgeStatus> {
     let mut mgr = bridge.write().await;
-    mgr.disconnect().await?;
+    if keep_live.unwrap_or(false) {
+        mgr.disconnect_keep_live().await?;
+    } else {
+        mgr.disconnect().await?;
+    }
     Ok(mgr.status())
 }
 
@@ -161,9 +166,25 @@ pub async fn sdk_live_hosts(
         .await
         .map_err(BridgeError::from)?;
 
-    let mut mgr = bridge.write().await;
-    mgr.reconcile_attachments(&hosts).await;
-    mgr.mark_attached(&mut hosts);
+    // Polls normally only read; the write lock is taken when an attachment
+    // must be dropped. Those hosts are located again under the lock, so an
+    // attach made while this poll was locating is never dropped by it.
+    let (stale, prune) = {
+        let mgr = bridge.read().await;
+        (mgr.stale_attachments(&hosts), mgr.has_finished_sessions())
+    };
+    if !stale.is_empty() || prune {
+        let mut mgr = bridge.write().await;
+        let fresh = if stale.is_empty() {
+            Vec::new()
+        } else {
+            locate_sessions(&session_state_dir, &stale)
+                .await
+                .map_err(BridgeError::from)?
+        };
+        mgr.reconcile_attachments(&fresh).await;
+    }
+    bridge.read().await.mark_attached(&mut hosts);
     hosts.retain(|h| requested.contains(&h.session_id));
     Ok(hosts)
 }

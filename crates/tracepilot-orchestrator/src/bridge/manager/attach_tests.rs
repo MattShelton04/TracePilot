@@ -156,6 +156,21 @@ async fn detach_is_bounded_when_the_terminal_died() {
 }
 
 #[tokio::test]
+async fn disconnecting_the_bridge_can_keep_terminal_attachments() {
+    let (mut mgr, _events, _fake) = manager_with_endpoint();
+    mgr.attach_session("s", ADDRESS).await.unwrap();
+
+    mgr.disconnect_keep_live().await.unwrap();
+    assert!(mgr.is_tracked("s"));
+    assert!(mgr.endpoints.contains_key(ADDRESS));
+    assert!(mgr.get_session_state("s").is_some());
+
+    mgr.disconnect().await.unwrap();
+    assert!(!mgr.is_tracked("s"));
+    assert!(mgr.endpoints.is_empty());
+}
+
+#[tokio::test]
 async fn reconcile_drops_attachments_whose_host_went_away() {
     let (mut mgr, _events, _fake) = manager_with_endpoint();
     let mut states = mgr.subscribe_session_state();
@@ -196,6 +211,22 @@ async fn reconcile_drops_attachment_when_the_session_moved_endpoint() {
 
     assert_eq!(dropped, vec!["s".to_string()]);
     assert!(mgr.endpoints.is_empty());
+}
+
+#[tokio::test]
+async fn stale_attachments_names_only_attached_sessions_that_moved_or_ended() {
+    let (mut mgr, _events, _fake) = manager_with_endpoint();
+    mgr.attach_session("live", ADDRESS).await.unwrap();
+    mgr.attach_session("gone", ADDRESS).await.unwrap();
+
+    let stale = mgr.stale_attachments(&[
+        host("live", LiveHostState::Attachable, Some(ADDRESS)),
+        host("gone", LiveHostState::Idle, None),
+        host("never-attached", LiveHostState::Idle, None),
+    ]);
+
+    assert_eq!(stale, vec!["gone".to_string()]);
+    assert!(!mgr.has_finished_sessions());
 }
 
 #[tokio::test]
