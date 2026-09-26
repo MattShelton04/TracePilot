@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * SdkServersPanel — TCP server discovery + manual CLI URL section.
+ * SdkServersPanel — where the bridge's own connection goes (Advanced).
  *
- * Visible only when the user's selected mode is TCP (or a CLI URL is set).
- * Lists detected `copilot --ui-server` instances with switch / stop affordances
- * and exposes the manual CLI URL input.
+ * Terminal sessions are always joined where they run (ADR-0016), so this only
+ * picks where TracePilot opens sessions that no terminal is running, and new
+ * SDK sessions: a private CLI it starts (default), or an existing
+ * `copilot --ui-server`. The server list and manual URL show for the latter.
  */
-import { ActionButton, FormInput } from "@tracepilot/ui";
+import { ActionButton, BtnGroup, FormInput } from "@tracepilot/ui";
 import { Rocket, Search } from "lucide-vue-next";
 import { useId } from "vue";
 import type { UseSdkConnectionHealth } from "@/composables/useSdkConnectionHealth";
@@ -18,6 +19,11 @@ defineProps<{
 
 const sdk = useSdkStore();
 const cliUrlId = useId();
+
+const modeOptions = [
+  { value: "stdio", label: "Private CLI" },
+  { value: "tcp", label: "CLI server" },
+];
 
 async function handleDetect(): Promise<void> {
   await sdk.detectUiServer();
@@ -33,115 +39,116 @@ async function handleStopServer(pid: number): Promise<void> {
 </script>
 
 <template>
-  <div class="sdk-divider" />
-  <div class="sdk-subsection-title">TCP Servers</div>
-
-  <!-- Server discovery -->
   <div class="setting-row">
     <div class="setting-info">
-      <div class="setting-label">Server Discovery</div>
+      <div class="setting-label">Connection for other sessions</div>
       <div class="setting-description">
-        Scan for running <code>copilot --ui-server</code> instances, or launch a new one.
+        Where TracePilot opens sessions no terminal is running, and new SDK sessions.
+        {{ health.selectedMode.value === 'stdio'
+          ? 'A private CLI that TracePilot starts and stops (recommended).'
+          : 'An existing copilot --ui-server; its sessions show in that terminal too.' }}
+        Terminal sessions are always joined where they run.
       </div>
     </div>
-    <div class="sdk-mode-actions">
-      <ActionButton size="sm" :disabled="sdk.detecting" @click="handleDetect">
-        <template v-if="sdk.detecting">Scanning…</template>
-        <template v-else><Search :size="14" aria-hidden="true" /> Detect</template>
-      </ActionButton>
-      <ActionButton size="sm" :disabled="sdk.launching" @click="handleLaunchServer">
-        <template v-if="sdk.launching">Starting…</template>
-        <template v-else><Rocket :size="14" aria-hidden="true" /> Launch</template>
-      </ActionButton>
-    </div>
+    <BtnGroup
+      :options="modeOptions"
+      :model-value="health.selectedMode.value"
+      @update:model-value="health.handleModeChange"
+    />
   </div>
 
-  <!-- Detected servers list -->
-  <div
-    v-if="sdk.detectedServers.length > 0 || sdk.lastDetectMessage"
-    class="setting-row setting-row-stacked"
-  >
-    <div v-if="sdk.detectedServers.length > 0" class="sdk-detected-list">
-      <div
-        v-for="server in sdk.detectedServers"
-        :key="server.pid"
-        class="sdk-detected-item"
-        :class="{ 'sdk-detected-item--active': health.isActiveServer(server.address) }"
-      >
-        <button
-          class="sdk-detected-connect"
-          :disabled="health.isActiveServer(server.address)"
-          @click="health.handleConnectToServer(server.address)"
+  <template v-if="health.isTcpSelected.value">
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">CLI servers</div>
+        <div class="setting-description">
+          Find running <code>copilot --ui-server</code> instances, or start one.
+        </div>
+      </div>
+      <div class="sdk-mode-actions">
+        <ActionButton size="sm" :disabled="sdk.detecting" @click="handleDetect">
+          <template v-if="sdk.detecting">Scanning…</template>
+          <template v-else><Search :size="14" aria-hidden="true" /> Detect</template>
+        </ActionButton>
+        <ActionButton size="sm" :disabled="sdk.launching" @click="handleLaunchServer">
+          <template v-if="sdk.launching">Starting…</template>
+          <template v-else><Rocket :size="14" aria-hidden="true" /> Launch</template>
+        </ActionButton>
+      </div>
+    </div>
+
+    <div
+      v-if="sdk.detectedServers.length > 0 || sdk.lastDetectMessage"
+      class="setting-row setting-row-stacked"
+    >
+      <div v-if="sdk.detectedServers.length > 0" class="sdk-detected-list">
+        <div
+          v-for="server in sdk.detectedServers"
+          :key="server.pid"
+          class="sdk-detected-item"
+          :class="{ 'sdk-detected-item--active': health.isActiveServer(server.address) }"
         >
-          <span class="sdk-detected-addr">{{ server.address }}</span>
-        </button>
-        <span class="sdk-detected-meta">
-          <span class="sdk-detected-pid">PID {{ server.pid }}</span>
-          <span v-if="health.isActiveServer(server.address)" class="sdk-detected-badge">● Connected</span>
           <button
-            class="sdk-stop-server"
-            :disabled="sdk.stoppingServerPid === server.pid"
-            title="Stop this copilot --ui-server process"
-            @click.stop="handleStopServer(server.pid)"
+            class="sdk-detected-connect"
+            :disabled="health.isActiveServer(server.address)"
+            :title="`Connect to ${server.address}`"
+            @click="health.handleConnectToServer(server.address)"
           >
-            {{ sdk.stoppingServerPid === server.pid ? "Stopping…" : "Stop" }}
+            <span class="sdk-detected-addr">{{ server.address }}</span>
           </button>
-        </span>
+          <span class="sdk-detected-meta">
+            <span class="sdk-detected-pid">PID {{ server.pid }}</span>
+            <span v-if="health.isActiveServer(server.address)" class="sdk-detected-badge">● Connected</span>
+            <button
+              class="sdk-stop-server"
+              :disabled="sdk.stoppingServerPid === server.pid"
+              title="Stop this copilot --ui-server process"
+              @click.stop="handleStopServer(server.pid)"
+            >
+              {{ sdk.stoppingServerPid === server.pid ? "Stopping…" : "Stop" }}
+            </button>
+          </span>
+        </div>
+      </div>
+      <div v-else-if="sdk.lastDetectMessage" class="sdk-detect-msg">
+        {{ sdk.lastDetectMessage }}
       </div>
     </div>
-    <div v-else-if="sdk.lastDetectMessage" class="sdk-detect-msg">
-      {{ sdk.lastDetectMessage }}
-    </div>
-  </div>
 
-  <!-- Manual CLI URL -->
-  <div class="setting-row">
-    <div class="setting-info">
-      <label :for="cliUrlId" class="setting-label">CLI URL</label>
-      <div :id="`${cliUrlId}-hint`" class="setting-description">
-        Detected automatically, or enter manually (e.g. <code>127.0.0.1:3333</code>)
+    <div class="setting-row">
+      <div class="setting-info">
+        <label :for="cliUrlId" class="setting-label">CLI URL</label>
+        <div :id="`${cliUrlId}-hint`" class="setting-description">
+          Filled in when you pick a server above, or enter one (e.g. <code>127.0.0.1:3333</code>)
+        </div>
+      </div>
+      <div class="sdk-url-row">
+        <FormInput
+          :id="cliUrlId"
+          v-model="health.cliUrl.value"
+          :aria-describedby="`${cliUrlId}-hint`"
+          type="text"
+          placeholder="127.0.0.1:port"
+          class="input-medium"
+          :disabled="sdk.isConnected"
+        />
+        <ActionButton
+          v-if="health.cliUrl.value && !sdk.isConnected"
+          size="sm"
+          class="btn-ghost"
+          title="Clear URL"
+          @click="sdk.updateSettings('', sdk.savedLogLevel)"
+        >
+          ✕
+        </ActionButton>
       </div>
     </div>
-    <div class="sdk-url-row">
-      <FormInput
-        :id="cliUrlId"
-        v-model="health.cliUrl.value"
-        :aria-describedby="`${cliUrlId}-hint`"
-        type="text"
-        placeholder="127.0.0.1:port"
-        class="input-medium"
-        :disabled="sdk.isConnected"
-      />
-      <ActionButton
-        v-if="health.cliUrl.value && !sdk.isConnected"
-        size="sm"
-        class="btn-ghost"
-        title="Clear URL"
-        @click="sdk.updateSettings('', sdk.savedLogLevel)"
-      >
-        ✕
-      </ActionButton>
-    </div>
-  </div>
+  </template>
 </template>
 
 <style scoped>
 :deep(.setting-row) {
   border-bottom: none !important;
-}
-
-.sdk-divider {
-  height: 1px;
-  background: var(--border-muted);
-  margin: 4px 12px;
-}
-.sdk-subsection-title {
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 6px 12px 2px;
 }
 
 .sdk-mode-actions {

@@ -1,50 +1,84 @@
 <script setup lang="ts">
 /**
- * SdkConnectionPanel — top section of the SDK settings page.
+ * SdkConnectionPanel — status row at the top of the SDK settings page.
  *
- * Renders the status row (connect/disconnect/refresh), mode selector,
- * authentication line, and last-error banner. All connection-control state
- * is driven by the parent's {@link useSdkConnectionHealth} composable.
+ * One line of health (connection, CLI version, sign-in, models) with the
+ * connect/disconnect action, plus the last error. Choosing *where* the bridge
+ * connects lives under Advanced ({@link SdkServersPanel}), because terminal
+ * sessions are joined directly and need no connection setup.
  */
-import { ActionButton, BtnGroup } from "@tracepilot/ui";
+import { ActionButton } from "@tracepilot/ui";
+import { computed } from "vue";
 import type { UseSdkConnectionHealth } from "@/composables/useSdkConnectionHealth";
 import { useSdkStore } from "@/stores/sdk";
 
-defineProps<{
+const props = defineProps<{
   health: UseSdkConnectionHealth;
   sessionCountLabel: string;
 }>();
 
 const sdk = useSdkStore();
 
-const modeOptions = [
-  { value: "stdio", label: "📦 Stdio" },
-  { value: "tcp", label: "🌐 TCP" },
-];
+const details = computed(() => {
+  if (!sdk.isConnected) return [];
+  const parts: string[] = [];
+  const auth = sdk.authStatus;
+  if (auth?.isAuthenticated) parts.push(auth.login ? `signed in as ${auth.login}` : "signed in");
+  else if (auth) parts.push("not signed in");
+  const models = sdk.models.length;
+  if (models) parts.push(`${models} model${models === 1 ? "" : "s"}`);
+  parts.push(props.sessionCountLabel);
+  return parts;
+});
+
+/** A saved CLI server that is gone (its terminal closed) is the usual failure. */
+const savedServerGone = computed(
+  () =>
+    !sdk.isConnected &&
+    !!props.health.cliUrl.value &&
+    /actively refused|connection refused|os error (10061|111)\b/i.test(sdk.lastError ?? ""),
+);
+
+const errorText = computed(() =>
+  savedServerGone.value
+    ? `Nothing is listening at ${props.health.cliUrl.value}; the CLI server was probably closed.`
+    : sdk.lastError,
+);
+
+async function usePrivateCli(): Promise<void> {
+  props.health.handleModeChange("stdio");
+  await props.health.handleConnect();
+}
 </script>
 
 <template>
-  <!-- Status row -->
   <div class="setting-row">
     <div class="setting-info">
       <div class="setting-label">
-        Connection
+        Status
         <span :class="['sdk-dot', `sdk-dot--${sdk.connectionState}`]" />
       </div>
-      <div class="setting-description">
+      <div class="setting-description" data-testid="sdk-status-line">
         {{ health.connectionLabel.value }}
-        <template v-if="sdk.isConnected">
-          <span class="sdk-stat"> · {{ sessionCountLabel }}</span>
-          <span class="sdk-stat"> · {{ sdk.models.length }} models</span>
+        <span v-for="part in details" :key="part" class="sdk-stat"> · {{ part }}</span>
+        <template v-if="!sdk.isConnected && !sdk.isConnecting">
+          — terminal sessions can still be watched live; steering other sessions needs a
+          connection.
         </template>
-        <template v-if="health.tcpConnectError.value">
-          <span class="sdk-stat sdk-stat--error"> · {{ health.tcpConnectError.value }}</span>
-        </template>
+        <span v-if="health.tcpConnectError.value" class="sdk-stat sdk-stat--error">
+          · {{ health.tcpConnectError.value }}
+        </span>
       </div>
     </div>
     <div class="setting-actions">
-      <ActionButton v-if="sdk.isConnected" size="sm" @click="health.refreshAll">
-        Refresh
+      <ActionButton
+        v-if="savedServerGone"
+        size="sm"
+        :disabled="sdk.isConnecting"
+        data-testid="sdk-use-private-cli"
+        @click="usePrivateCli"
+      >
+        Use private CLI
       </ActionButton>
       <ActionButton
         v-if="!sdk.isConnected"
@@ -52,54 +86,18 @@ const modeOptions = [
         :disabled="sdk.isConnecting"
         @click="health.handleConnect"
       >
-        {{ sdk.isConnecting ? "Connecting…" : "Connect" }}
+        {{ sdk.isConnecting ? "Connecting…" : savedServerGone ? "Retry" : "Connect" }}
       </ActionButton>
-      <ActionButton
-        v-if="sdk.isConnected"
-        size="sm"
-        class="btn-danger"
-        @click="health.handleDisconnect"
-      >
+      <ActionButton v-else size="sm" class="btn-danger" @click="health.handleDisconnect">
         Disconnect
       </ActionButton>
     </div>
   </div>
 
-  <!-- Mode selector -->
-  <div class="setting-row">
-    <div class="setting-info">
-      <div class="setting-label">Mode</div>
-      <div class="setting-description">
-        {{ health.selectedMode.value === 'stdio'
-          ? 'Spawns an isolated CLI subprocess — no shared state with your terminal.'
-          : 'Connects to a running CLI server — steer sessions started in your terminal.' }}
-      </div>
-    </div>
-    <BtnGroup
-      :options="modeOptions"
-      :model-value="health.selectedMode.value"
-      @update:model-value="health.handleModeChange"
-    />
-  </div>
-
-  <!-- Auth (when connected) -->
-  <div v-if="sdk.isConnected && sdk.authStatus" class="setting-row">
-    <div class="setting-info">
-      <div class="setting-label">Authentication</div>
-      <div class="setting-description">
-        <span :class="sdk.authStatus.isAuthenticated ? 'sdk-val-ok' : 'sdk-val-err'">
-          {{ sdk.authStatus.isAuthenticated ? "Authenticated" : "Not authenticated" }}
-        </span>
-        <template v-if="sdk.authStatus.login"> · {{ sdk.authStatus.login }}</template>
-      </div>
-    </div>
-  </div>
-
-  <!-- Error -->
   <div v-if="sdk.lastError" class="setting-row">
     <div class="setting-info">
       <div class="setting-label setting-label-danger">Last error</div>
-      <div class="setting-description setting-result-danger">{{ sdk.lastError }}</div>
+      <div class="setting-description setting-result-danger">{{ errorText }}</div>
     </div>
   </div>
 </template>
@@ -128,7 +126,4 @@ const modeOptions = [
 .sdk-stat--error {
   color: var(--danger-fg);
 }
-
-.sdk-val-ok { color: var(--success-fg); font-weight: 500; }
-.sdk-val-err { color: var(--danger-fg); font-weight: 500; }
 </style>

@@ -2,8 +2,10 @@
 /**
  * SettingsSdk — SDK bridge configuration panel.
  *
- * Thin layout shell: composes the three sub-panels and renders the SDK
- * Sessions/Processes section inline. Connection-control state and the 10-second
+ * Thin layout shell: bridge status first, then the terminal-session
+ * preferences (the common case, which needs no connection setup), the
+ * sessions TracePilot is watching or steering, and an Advanced section that
+ * holds the connection target and diagnostics. Connection-control state and the 10-second
  * status poll live in {@link useSdkConnectionHealth}; the diagnostics probe
  * lives in {@link useSdkDiagnostics}.
  */
@@ -34,8 +36,8 @@ function shortId(id: string): string {
 
 const sessionCountLabel = computed(() => {
   const active = sdk.sessions.length;
-  if (active === 0) return "No tracked sessions";
-  return `${active} tracked session${active === 1 ? "" : "s"}`;
+  if (active === 0) return "no sessions open";
+  return `${active} session${active === 1 ? "" : "s"} open`;
 });
 
 const sessionRows = computed(() => {
@@ -54,7 +56,7 @@ const sessionRows = computed(() => {
         cwd: session.workingDirectory ?? null,
         liveStatus: live?.status ?? "tracked",
         isActive: session.isActive,
-        isForeground: sdk.foregroundSessionId === session.sessionId,
+        isLive: session.isRemote,
       };
     })
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
@@ -77,19 +79,17 @@ async function openSession(rowId: string): Promise<void> {
     <SectionPanel>
       <SdkConnectionPanel :health="health" :session-count-label="sessionCountLabel" />
 
-      <SdkServersPanel v-if="health.isTcpSelected.value" :health="health" />
-
-      <!-- ─── Live terminal sessions (ADR-0016) ─────── -->
+      <!-- ─── Terminal sessions (ADR-0016) ─────── -->
       <div class="sdk-divider" />
-      <div class="sdk-subsection-title">Live terminal sessions</div>
+      <div class="sdk-subsection-title">Terminal sessions</div>
 
       <div class="setting-row">
         <div>
           <div class="setting-label">Watch terminal sessions automatically</div>
           <div class="setting-description">
-            When you open a session running in a <code>copilot --ui-server</code> terminal,
-            attach and stream it live. Each attach adds one "Session resumed" entry to its
-            history.
+            Opening a session that runs in a <code>copilot --ui-server</code> terminal streams it
+            live — no connection setup needed. Each attach adds one "Session resumed" entry to
+            its history.
           </div>
         </div>
         <FormSwitch
@@ -103,8 +103,8 @@ async function openSession(rowId: string): Promise<void> {
         <div>
           <div class="setting-label">Start terminals watchable</div>
           <div class="setting-description">
-            Add <code>--ui-server</code> when TracePilot launches a session or resumes one in a
-            terminal, so it can be watched live. The flag only takes effect at startup.
+            Add <code>--ui-server</code> when TracePilot launches or resumes a session in a
+            terminal. The flag only takes effect when the CLI starts.
           </div>
         </div>
         <FormSwitch
@@ -114,16 +114,9 @@ async function openSession(rowId: string): Promise<void> {
         />
       </div>
 
-      <!-- ─── SDK Sessions / process visibility ─────── -->
+      <!-- ─── Sessions TracePilot is watching or steering ─────── -->
       <div class="sdk-divider" />
-      <div class="sdk-subsection-title">SDK Sessions & Processes</div>
-
-      <div class="sdk-lifecycle-note">
-        <strong>Detach</strong> stops TracePilot following a session; it never ends the session
-        or writes to its history. The bridge itself is one process/transport; stdio child PIDs
-        are owned by the SDK, while TCP <code>--ui-server</code> PIDs appear under detected
-        servers.
-      </div>
+      <div class="sdk-subsection-title">Sessions in TracePilot</div>
 
       <div v-if="hasSessionRows" class="sdk-session-list" data-testid="sdk-session-list">
         <button
@@ -138,23 +131,31 @@ async function openSession(rowId: string): Promise<void> {
             <span class="sdk-session-dot sdk-session-dot--active" />
             <span class="sdk-session-title">{{ row.title }}</span>
             <span class="sdk-session-id" :title="row.id">{{ row.shortId }}</span>
-            <span v-if="row.isForeground" class="sdk-session-badge">Foreground</span>
+            <span class="sdk-session-badge" :class="{ 'sdk-session-badge--live': row.isLive }">
+              {{ row.isLive ? "Live" : "Steering" }}
+            </span>
           </div>
           <div class="sdk-session-meta">
-            <span>Status: {{ row.liveStatus.replaceAll('_', ' ') }}</span>
-            <span v-if="row.model">Model: {{ row.model }}</span>
-            <span v-if="row.cwd" :title="row.cwd">cwd: {{ row.cwd }}</span>
-            <span class="sdk-session-open">Open conversation →</span>
+            <span>{{ row.liveStatus.replaceAll('_', ' ') }}</span>
+            <span v-if="row.model">{{ row.model }}</span>
+            <span v-if="row.cwd" :title="row.cwd">{{ row.cwd }}</span>
+            <span class="sdk-session-open">Open →</span>
           </div>
         </button>
+        <div class="sdk-hint">
+          Detach from a session's conversation view. Detaching never ends the session or writes
+          to its history.
+        </div>
       </div>
 
       <div v-else class="sdk-empty-state" data-testid="sdk-session-list-empty">
-        No SDK sessions are active in this bridge process. Connect the bridge, link a session, or
-        launch a headless SDK session to populate this list.
+        TracePilot isn't watching or steering any session. Open a session running in a terminal
+        to watch it live.
       </div>
 
-      <SdkDiagnosticsPanel :health="health" :diagnostics="diagnostics" />
+      <SdkDiagnosticsPanel :health="health" :diagnostics="diagnostics">
+        <SdkServersPanel :health="health" />
+      </SdkDiagnosticsPanel>
     </SectionPanel>
   </div>
 </template>
@@ -178,21 +179,11 @@ async function openSession(rowId: string): Promise<void> {
   padding: 6px 12px 2px;
 }
 
-.sdk-lifecycle-note {
-  margin: 6px 12px 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(135deg, rgba(99, 102, 241, 0.08), transparent 55%),
-    var(--canvas-subtle);
+.sdk-hint {
+  padding: 2px 2px 0;
   color: var(--text-tertiary);
-  font-size: 0.75rem;
-  line-height: 1.55;
-}
-
-.sdk-lifecycle-note strong {
-  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  line-height: 1.5;
 }
 
 .sdk-session-list {
@@ -270,6 +261,7 @@ async function openSession(rowId: string): Promise<void> {
 }
 
 .sdk-session-badge {
+  margin-left: auto;
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--accent-muted);
@@ -280,9 +272,9 @@ async function openSession(rowId: string): Promise<void> {
   letter-spacing: 0.04em;
 }
 
-.sdk-session-badge--muted {
-  background: var(--neutral-subtle);
-  color: var(--text-tertiary);
+.sdk-session-badge--live {
+  background: var(--success-subtle);
+  color: var(--success-fg);
 }
 
 .sdk-session-meta {

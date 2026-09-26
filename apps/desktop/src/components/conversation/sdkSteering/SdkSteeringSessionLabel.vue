@@ -12,7 +12,7 @@ const visible = computed(
 const hostTag = computed(() => {
   if (ctx.isLive) return ctx.liveHost?.pid ? `terminal · pid ${ctx.liveHost.pid}` : "terminal";
   if (!ctx.sdk.connectionMode) return null;
-  return ctx.sdk.connectionMode === "tcp" ? "TCP" : "stdio";
+  return ctx.sdk.connectionMode === "tcp" ? "CLI server" : "private CLI";
 });
 </script>
 

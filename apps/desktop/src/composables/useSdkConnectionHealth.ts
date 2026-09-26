@@ -41,7 +41,7 @@ export interface UseSdkConnectionHealth {
   cliUrl: WritableComputedRef<string>;
   /** Writable proxy onto `sdk.savedLogLevel`. */
   logLevel: WritableComputedRef<string>;
-  /** Human-readable status line (e.g. `"Connected · TCP · 127.0.0.1:3333 · CLI 0.42"`). */
+  /** Human-readable status (e.g. `"Connected · CLI server 127.0.0.1:3333 0.42"`). */
   connectionLabel: ComputedRef<string>;
   /** True while the user's selected mode is TCP, or whenever a CLI URL is set. */
   isTcpSelected: ComputedRef<boolean>;
@@ -80,12 +80,12 @@ export function useSdkConnectionHealth(): UseSdkConnectionHealth {
 
   const connectionLabel = computed(() => {
     if (sdk.isConnecting) return "Connecting…";
-    if (!sdk.isConnected) return "Disconnected";
-    const parts = ["Connected"];
-    if (sdk.connectionMode === "tcp") parts.push(`TCP · ${cliUrl.value || "?"}`);
-    else parts.push("Stdio");
-    if (sdk.cliVersion) parts[1] += ` · CLI ${sdk.cliVersion}`;
-    return parts.join(" · ");
+    if (!sdk.isConnected)
+      return cliUrl.value ? `Not connected to ${cliUrl.value}` : "Not connected";
+    const target =
+      sdk.connectionMode === "tcp" ? `CLI server ${cliUrl.value || "?"}` : "private CLI";
+    const version = sdk.cliVersion ? ` ${sdk.cliVersion}` : "";
+    return `Connected · ${target}${version}`;
   });
 
   const isTcpSelected = computed(() => selectedMode.value === "tcp" || !!cliUrl.value);

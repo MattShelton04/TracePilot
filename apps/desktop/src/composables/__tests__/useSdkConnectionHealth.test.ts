@@ -104,9 +104,11 @@ describe("useSdkConnectionHealth", () => {
     mocks.sdk.savedCliUrl = "127.0.0.1:1234";
     mocks.sdk.cliVersion = "0.42";
     ({ health } = mountWithComposable());
-    expect(health.connectionLabel.value).toContain("Connected");
-    expect(health.connectionLabel.value).toContain("TCP");
-    expect(health.connectionLabel.value).toContain("CLI 0.42");
+    expect(health.connectionLabel.value).toBe("Connected · CLI server 127.0.0.1:1234 0.42");
+
+    mocks.sdk.connectionMode = "stdio";
+    ({ health } = mountWithComposable());
+    expect(health.connectionLabel.value).toBe("Connected · private CLI 0.42");
   });
 
   it("handleModeChange to stdio clears the URL and disconnects when in TCP", () => {

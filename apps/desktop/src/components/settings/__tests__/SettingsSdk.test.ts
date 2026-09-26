@@ -110,9 +110,24 @@ describe("SettingsSdk", () => {
     mocks.enabled.value = true;
     const wrapper = mountPanel();
     await nextTick();
-    expect(wrapper.text()).toContain("Live terminal sessions");
+    expect(wrapper.text()).toContain("Terminal sessions");
     expect(wrapper.find('[data-testid="live-auto-attach-switch"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="live-launch-attachable-switch"]').exists()).toBe(true);
+    // The connection target is an Advanced detail, not a top-level choice.
+    expect(wrapper.text()).not.toContain("Connection for other sessions");
+  });
+
+  it("labels watched terminal sessions Live and linked ones Steering", async () => {
+    mocks.enabled.value = true;
+    mocks.sdk.sessions = [
+      { sessionId: "live-session-1", isActive: true, isRemote: true },
+      { sessionId: "steer-session-2", isActive: true, isRemote: false },
+    ] as never;
+    const wrapper = mountPanel();
+    await nextTick();
+    const badges = wrapper.findAll(".sdk-session-badge").map((b) => b.text());
+    expect(badges).toEqual(["Live", "Steering"]);
+    mocks.sdk.sessions = [];
   });
 
   it("does not refresh SDK client data while the feature is disabled", async () => {

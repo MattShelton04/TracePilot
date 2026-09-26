@@ -53,18 +53,23 @@ describe("SdkServersPanel", () => {
     });
   });
 
-  it("renders without throwing and shows the discovery title", () => {
-    const wrapper = mount(SdkServersPanel, {
-      props: { health: makeHealth() },
-      global: {
-        stubs: {
-          ActionButton: { template: "<button><slot /></button>" },
-          FormInput: { template: "<input />" },
-        },
-      },
-    });
-    expect(wrapper.text()).toContain("TCP Servers");
-    expect(wrapper.text()).toContain("Server Discovery");
+  it("offers the connection target, with server tools only for a CLI server", () => {
+    const stubs = {
+      ActionButton: { template: "<button><slot /></button>" },
+      BtnGroup: { template: "<div data-testid='mode' />" },
+      FormInput: { template: "<input />" },
+    };
+    const health = makeHealth();
+    const wrapper = mount(SdkServersPanel, { props: { health }, global: { stubs } });
+    expect(wrapper.text()).toContain("Connection for other sessions");
+    expect(wrapper.find("[data-testid='mode']").exists()).toBe(true);
+    expect(wrapper.text()).toContain("CLI servers");
+
+    const stdio = { ...health, isTcpSelected: computed(() => false) };
+    const plain = mount(SdkServersPanel, { props: { health: stdio }, global: { stubs } });
+    expect(plain.text()).toContain("Connection for other sessions");
+    expect(plain.text()).not.toContain("CLI servers");
+    expect(plain.find("input").exists()).toBe(false);
   });
 
   it("lists detected servers", () => {
@@ -77,6 +82,7 @@ describe("SdkServersPanel", () => {
       global: {
         stubs: {
           ActionButton: { template: "<button><slot /></button>" },
+          BtnGroup: { template: "<div />" },
           FormInput: { template: "<input />" },
         },
       },
@@ -87,7 +93,10 @@ describe("SdkServersPanel", () => {
   });
 
   it("associates the visible CLI URL label and hint with the actual input", () => {
-    const wrapper = mount(SdkServersPanel, { props: { health: makeHealth() } });
+    const wrapper = mount(SdkServersPanel, {
+      props: { health: makeHealth() },
+      global: { stubs: { BtnGroup: { template: "<div />" } } },
+    });
     const input = wrapper.get<HTMLInputElement>("input");
     expect(input.element.labels?.[0]?.textContent).toBe("CLI URL");
     expect(wrapper.get(`[id="${input.attributes("aria-describedby")}"]`).text()).toContain(
