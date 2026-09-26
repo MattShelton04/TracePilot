@@ -56,7 +56,7 @@ async function handleClick() {
   align-items: center;
   gap: 0.35rem;
   padding: 0.15rem 0.5rem;
-  border: 1px solid var(--border-secondary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
@@ -66,7 +66,7 @@ async function handleClick() {
 }
 
 .sdk-status-indicator:hover {
-  background: var(--bg-hover);
+  background: var(--neutral-subtle);
   color: var(--text-primary);
 }
 
@@ -82,16 +82,16 @@ async function handleClick() {
 }
 
 .sdk-dot--connecting {
-  background: var(--status-warning);
+  background: var(--warning-fg);
   animation: sdk-pulse 1.2s ease-in-out infinite;
 }
 
 .sdk-dot--connected {
-  background: var(--status-success);
+  background: var(--success-fg);
 }
 
 .sdk-dot--error {
-  background: var(--status-error);
+  background: var(--danger-fg);
 }
 
 .sdk-status-label {
