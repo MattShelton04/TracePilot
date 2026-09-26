@@ -90,7 +90,8 @@ const {
       @retry="retryLoadMetrics"
     />
 
-    <EmptyState v-if="!metrics && !store.metricsError" description="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
+    <p v-if="!metrics && !store.loaded.has('metrics') && !store.metricsError" role="status" class="text-sm text-[var(--text-tertiary)] mb-4">Loading session metrics…</p>
+    <EmptyState v-else-if="!metrics && !store.metricsError" description="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
 
     <template v-if="promptCacheEnabled">
       <ErrorAlert

@@ -3,7 +3,7 @@
  * load-once / refresh / guard-token boilerplate that repeats for every async section.
  */
 import { type AsyncGuard, type AsyncGuardToken, toErrorMessage } from "@tracepilot/ui";
-import { type Ref, ref } from "vue";
+import { type Ref, ref, shallowRef } from "vue";
 import { logError, logWarn } from "@/utils/logger";
 
 export interface AsyncSectionState<T> {
@@ -48,9 +48,12 @@ function getLogFunction(level: "error" | "warn" | undefined) {
   return level === "warn" ? logWarn : logError;
 }
 
-export function createAsyncSection<T>(initialData: T): AsyncSectionState<T> {
+export function createAsyncSection<T>(
+  initialData: T,
+  options: { shallow?: boolean } = {},
+): AsyncSectionState<T> {
   return {
-    data: ref<T>(initialData) as Ref<T>,
+    data: (options.shallow ? shallowRef(initialData) : ref<T>(initialData)) as Ref<T>,
     error: ref<string | null>(null),
   };
 }

@@ -39,8 +39,20 @@ export function usePromptCacheCost() {
   /** Sum over windows; null when none of the misses could be priced. */
   function totalMissCredits(windows: readonly CacheWindow[]): number | null {
     let total: number | null = null;
+    // Price identical model/prefix pairs once per calculation. Keep token sizes
+    // separate because summing prefixes first could cross a context-price tier.
+    const prices = new Map<string, Map<number, number | null>>();
     for (const window of windows) {
-      const credits = windowMissCredits(window);
+      if (!isCacheMiss(window) || !window.model || !window.prefixTokens) continue;
+      let modelPrices = prices.get(window.model);
+      if (!modelPrices) {
+        modelPrices = new Map();
+        prices.set(window.model, modelPrices);
+      }
+      if (!modelPrices.has(window.prefixTokens)) {
+        modelPrices.set(window.prefixTokens, missCredits(window.model, window.prefixTokens));
+      }
+      const credits = modelPrices.get(window.prefixTokens);
       if (credits != null) total = (total ?? 0) + credits;
     }
     return total;

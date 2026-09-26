@@ -46,9 +46,11 @@ const hasEstimate = computed(() =>
   props.timeline.windows.some((w) => w.confidence === "estimated"),
 );
 const visibleWindows = computed(() =>
-  props.timeline.windows.filter((w) =>
-    isTurnGaps.value ? showEstimate.value && w.confidence === "estimated" : true,
-  ),
+  isTurnGaps.value
+    ? showEstimate.value
+      ? props.timeline.windows.filter((w) => w.confidence === "estimated")
+      : []
+    : props.timeline.windows,
 );
 /** Short tables start open; the user's choice wins once made. */
 const OPEN_BY_DEFAULT_MAX = 10;

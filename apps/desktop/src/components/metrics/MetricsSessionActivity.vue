@@ -17,6 +17,8 @@ import {
   formatTime,
   SectionPanel,
 } from "@tracepilot/ui";
+import { computed } from "vue";
+import { useClientPager } from "@/composables/useClientPager";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const props = defineProps<{
@@ -24,6 +26,24 @@ const props = defineProps<{
 }>();
 
 const prefs = usePreferencesStore();
+const segments = computed(() => props.metrics.sessionSegments ?? []);
+const PAGE_SIZE = 6;
+const { page, pageCount, pageRows } = useClientPager(segments, PAGE_SIZE);
+// Price and sort only the visible page, once per data/pricing change. Previously
+// template expressions repeated this work several times for every shutdown.
+const visibleSegments = computed(() =>
+  pageRows.value.map((seg, offset) => ({
+    seg,
+    index: page.value * PAGE_SIZE + offset,
+    duration: segmentDurationMs(seg),
+    credits: segmentAiCredits(seg),
+    models: sortedSegmentModels(seg.modelMetrics).map(([name, metric]) => ({
+      name,
+      metric,
+      credits: modelAiCredits(name, metric),
+    })),
+  })),
+);
 
 function sortedSegmentModels(
   modelMetrics?: Record<string, ModelMetricDetail> | null,
@@ -44,6 +64,8 @@ function segmentDurationMs(seg: SessionSegment): number | null {
 }
 
 function modelAiCredits(name: string, metric: ModelMetricDetail): AiCreditUsage {
+  const observed = resolveAiCreditUsage(metric.totalNanoAiu);
+  if (observed.source === "observed") return observed;
   const usage = metric.usage;
   const hasTokenUsage =
     (usage?.inputTokens ?? 0) +
@@ -73,6 +95,8 @@ function modelAiCredits(name: string, metric: ModelMetricDetail): AiCreditUsage 
 }
 
 function segmentAiCredits(segment: SessionSegment): AiCreditUsage {
+  const observed = resolveAiCreditUsage(segment.totalNanoAiu);
+  if (observed.source === "observed") return observed;
   const models = Object.entries(segment.modelMetrics ?? {});
   const hasTokenUsage = models.some(
     ([, metric]) =>
@@ -123,9 +147,15 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
 
 <template>
   <SectionPanel v-if="metrics.sessionSegments?.length" title="Session Activity" class="mb-6">
-    <div class="activity-horizontal">
+    <nav v-if="pageCount > 1" class="activity-pagination" aria-label="Session activity pages">
+      <span class="text-xs text-[var(--text-tertiary)]">{{ page * PAGE_SIZE + 1 }}–{{ Math.min((page + 1) * PAGE_SIZE, segments.length) }} of {{ segments.length }} activities</span>
+      <button class="btn btn-secondary" :disabled="page === 0" @click="page--">Previous activities</button>
+      <button class="btn btn-secondary" :disabled="page + 1 >= pageCount" @click="page++">Next activities</button>
+      <button class="btn btn-secondary" :disabled="page + 1 >= pageCount" @click="page = pageCount - 1">Latest activities</button>
+    </nav>
+    <div class="activity-horizontal" tabindex="0" role="region" aria-label="Session activity">
       <div
-        v-for="(seg, idx) in metrics.sessionSegments"
+        v-for="{ seg, index: idx, duration, credits, models } in visibleSegments"
         :key="idx"
         class="activity-tile"
       >
@@ -135,7 +165,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
             <span class="activity-date">{{ formatShortDate(seg.startTimestamp) }}</span>
             <span class="activity-timestamp">
               {{ formatTime(seg.startTimestamp) }} → {{ formatTime(seg.endTimestamp) }}
-              <span v-if="segmentDurationMs(seg)" class="activity-duration">· {{ formatDuration(segmentDurationMs(seg)) }}</span>
+              <span v-if="duration" class="activity-duration">· {{ formatDuration(duration) }}</span>
             </span>
           </div>
           <Badge v-if="idx === metrics.sessionSegments.length - 1" variant="success" size="sm">Latest</Badge>
@@ -155,7 +185,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
 
         <div v-if="seg.tokens > 0" class="activity-details">
           <div
-            v-for="[name, m] in sortedSegmentModels(seg.modelMetrics)"
+            v-for="{ name, metric: m, credits: modelCredits } in models"
             :key="name"
             class="model-row"
           >
@@ -166,26 +196,26 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
             <div class="row-costs">
               <span
                 class="cost-pill blue-text"
-                :title="sourceLabel(modelAiCredits(name as string, m).source)"
+                :title="sourceLabel(modelCredits.source)"
               >
-                {{ formatAiCredits(modelAiCredits(name as string, m).credits) }}
+                {{ formatAiCredits(modelCredits.credits) }}
               </span>
               <span
-                v-if="modelAiCredits(name as string, m).usdEquivalent != null"
+                v-if="modelCredits.usdEquivalent != null"
                 class="cost-equivalent"
               >
-                {{ formatCost(modelAiCredits(name as string, m).usdEquivalent) }}
+                {{ formatCost(modelCredits.usdEquivalent) }}
               </span>
             </div>
           </div>
         </div>
 
         <div v-if="seg.tokens > 0" class="activity-tile-costs">
-          <span class="cost-pill blue-text" :title="sourceLabel(segmentAiCredits(seg).source)">
-            {{ formatAiCredits(segmentAiCredits(seg).credits) }}
+          <span class="cost-pill blue-text" :title="sourceLabel(credits.source)">
+            {{ formatAiCredits(credits.credits) }}
           </span>
-          <span v-if="segmentAiCredits(seg).usdEquivalent != null" class="cost-equivalent">
-            {{ formatCost(segmentAiCredits(seg).usdEquivalent) }}
+          <span v-if="credits.usdEquivalent != null" class="cost-equivalent">
+            {{ formatCost(credits.usdEquivalent) }}
           </span>
         </div>
         <div class="activity-tile-footer">
@@ -198,7 +228,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
             <span class="val">{{ formatNumber(seg.totalRequests) }}</span>
           </div>
           <div
-            v-if="segmentAiCredits(seg).source === 'unavailable' && seg.premiumRequests > 0"
+            v-if="credits.source === 'unavailable' && seg.premiumRequests > 0"
             class="footer-metric"
             title="Legacy sessions only; premium requests are not converted to AIC"
           >
@@ -212,6 +242,13 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
 </template>
 
 <style scoped>
+.activity-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
 .activity-horizontal {
   display: flex;
   gap: 12px;
@@ -329,6 +366,8 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
   gap: 6px;
   flex-grow: 1;
   margin-bottom: 12px;
+  max-height: 240px;
+  overflow-y: auto;
 }
 
 .model-row {

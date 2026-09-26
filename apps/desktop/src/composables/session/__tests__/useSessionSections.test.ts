@@ -1,6 +1,6 @@
 import { useAsyncGuard } from "@tracepilot/ui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { isReactive, ref } from "vue";
 
 const mockGetSessionTodos = vi.fn();
 const mockGetSessionCheckpoints = vi.fn();
@@ -53,6 +53,20 @@ describe("useSessionSections", () => {
     expect(mockGetSessionPromptCache).toHaveBeenCalledWith("sess-1");
     expect(sections.promptCacheSection.data.value).toEqual(timeline);
     expect(loaded.value.has("promptCache")).toBe(true);
+    expect(isReactive(sections.promptCacheSection.data.value)).toBe(false);
+  });
+
+  it("replaces immutable metrics snapshots without proxying their large arrays", async () => {
+    const { sections, loaded, guard } = setup();
+    const snapshot = { codeChanges: { filesModified: ["src/first.ts"] } };
+    mockGetShutdownMetrics.mockResolvedValue(snapshot);
+    await sections.metricsDef.load();
+    expect(sections.metricsSection.data.value).toBe(snapshot);
+    expect(isReactive(sections.metricsSection.data.value?.codeChanges)).toBe(false);
+    mockGetShutdownMetrics.mockResolvedValue({ codeChanges: { filesModified: ["src/new.ts"] } });
+    expect(loaded.value.has("metrics")).toBe(true);
+    await Promise.all(sections.refreshLoaded("sess-1", guard.current()));
+    expect(sections.metricsSection.data.value?.codeChanges?.filesModified).toEqual(["src/new.ts"]);
   });
 
   it("stores per-section error on failure", async () => {
