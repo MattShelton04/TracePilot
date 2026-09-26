@@ -51,7 +51,7 @@ fn build_full_result_map(events: &[TypedEvent]) -> HashMap<String, String> {
 }
 
 /// Extract the full result text from a tool execution result value.
-/// Mirrors the core `extract_result_preview` logic but without truncation.
+/// Mirrors the core `extract_result_content` logic but without truncating any tool.
 fn extract_full_result(result: &serde_json::Value) -> Option<String> {
     match result {
         serde_json::Value::String(s) if !s.trim().is_empty() => Some(s.clone()),
