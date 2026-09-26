@@ -28,7 +28,7 @@ const { page, pageCount, pageRows } = useClientPager(filteredFiles, PAGE_SIZE, [
     </div>
     <template v-if="files.length">
       <div class="files-toolbar">
-        <input v-model="query" type="search" class="input" aria-label="Filter modified files" placeholder="Filter files by path…" />
+        <input v-model="query" type="search" class="form-input" aria-label="Filter modified files" placeholder="Filter files by path…" />
         <span class="text-xs text-[var(--text-tertiary)]">{{ filteredFiles.length }} of {{ files.length }} files</span>
       </div>
       <div class="files-list" tabindex="0" role="region" aria-label="Modified files">
