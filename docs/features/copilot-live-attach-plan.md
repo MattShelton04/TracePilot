@@ -1,13 +1,18 @@
 # Copilot Live Attach — Official SDK Migration and Integration Redesign
 
-Status: in progress. Phase 1 (official SDK swap) is implemented on the
-`feat/official-copilot-sdk` branch; later phases are proposed.
+Status: in progress.
+
+- Phase 1, the official SDK swap, shipped in #852.
+- Live attach is implemented on `feat/live-attach`: the core of Phase 2,
+  Phase 3's attachable-by-default launches, and the first Phase 4 UI.
+- The remaining items stay open below.
 
 Research date: 2026-09-26. Verified against Copilot CLI **1.0.88** and
 `github-copilot-sdk` **1.0.14** (crates.io), JSON-RPC protocol **v3**, on
 Windows 11.
 
-Decision record: [ADR-0015](../adr/0015-official-copilot-sdk.md).
+Decision records: [ADR-0015](../adr/0015-official-copilot-sdk.md) (SDK) and
+[ADR-0016](../adr/0016-live-attach-to-terminal-sessions.md) (live attach).
 
 ## Goal
 
@@ -69,6 +74,32 @@ listener. Event captures stayed outside the repository.
 | F16 | Default features (`bundled-cli`) download and embed a full CLI at build time. Without them, `build.rs` still downloads a runtime package unless `COPILOT_SKIP_CLI_DOWNLOAD` is set. | `default-features = false` + `COPILOT_SKIP_CLI_DOWNLOAD=1` via `.cargo/config.toml`; TracePilot always drives the user's installed CLI. |
 | F17 | `SessionEvent.data` is plain JSON; `session.model.switchTo` uses the correct method name; `destroy()` is a deprecated alias of `disconnect()`. | Delete the flatten shim, the raw RPC client, and the "destroy writes shutdown" semantics. |
 | F18 | `Client::from_streams(reader, writer, cwd)` is public. | Unit tests can drive the real SDK against an in-memory scripted JSON-RPC peer instead of fabricated sessions. |
+| F19 | `--ui-server` is a hidden startup flag. The embedded server is enabled only from it; no environment variable, config key, or slash command starts it in a running CLI. `copilot --resume <id> --ui-server` restarts a session attachably with its history intact. | Make TracePilot's own launches attachable by default. For other terminals, show the restart command. |
+| F20 | A plain `--ui-server` does not publish to `~/.copilot/servers`, even with `--experimental`. Publishing is gated by an internal sessions-sidebar flag and managed servers (refines F12). | Locate hosts from `inuse.<pid>.lock` plus a PID → loopback-port probe. The registry is not used. |
+| F21 | A running CLI holds `inuse.<pid>.hold` open. On Windows an exclusive, read-only open fails with sharing violation 32 while the PID lives and succeeds after it exits. Stale `.lock` files outlive crashed CLIs. | Liveness costs one file open per holder, no `tasklist`; that took about 500 ms. Other platforms use one `ps` listing. |
+| F22 | The `session.resume` event written by an attach has no client name or other marker. | History cannot tell observer attaches apart from other resumes. Collapse consecutive resumes into one row in the conversation view. |
+
+### Live and persisted data in one view
+
+An attached session is shown from two sources at once. The rules are in
+ADR-0016, decision 8:
+
+| Data | Source | Lifetime |
+|---|---|---|
+| Streaming assistant and reasoning text | Live overlay turn | Shown until the refreshed persisted turn contains the text. The check is containment, not prefix, because one saved turn spans several model calls. |
+| Running tool output | Live state, rendered inside the persisted tool card | Shown until the card's `tool.execution_complete` result is indexed. The steering panel shows only a one-line ticker. |
+| Status, context window, usage | Live state panel | Ephemeral; cleared on detach. |
+| Messages, tool calls and results, subagents | Persisted history | A durable event triggers a refresh with a 400 ms debounce, at most 2 s apart. Terminal prompts appear in about 1.5 s. |
+
+Verified end to end in the desktop app:
+- a prompt sent from TracePilot streamed text and returned to Idle;
+- a prompt sent by another SDK client appeared in the persisted view within
+  about 1.5 s;
+- a PowerShell tick loop streamed into its tool card, and the persisted
+  result replaced the live output without a duplicate.
+
+This was checked against three terminals: attachable, plain, and
+attachable with `--allow-all`.
 
 ### Session hosting states
 
@@ -123,7 +154,7 @@ Principles:
 Each phase is independently shippable and keeps `main` releasable. Check boxes
 track delivery.
 
-### Phase 1 — Swap to the official SDK (behaviour parity) ✅ this PR
+### Phase 1 — Swap to the official SDK (behaviour parity) ✅ #852
 
 - [x] Research and record findings (this document, ADR-0015).
 - [x] Replace the `copilot-sdk` git dependency with
@@ -152,43 +183,51 @@ unchanged in this phase, so the frontend needs no changes.
 
 ### Phase 2 — Live attach backend
 
-- [ ] `SessionLocator`: read `inuse.<pid>.lock`, the `~/.copilot/servers`
-      registry (F12), and fall back to PID → listening-port probing (reusing
-      `discovery.rs`, now keyed by PID). Produce a `HostingState` per session
-      (see table above) with a bounded refresh cadence.
-- [ ] `ConnectionRegistry`: one SDK `Client` per endpoint instead of the single
-      `BridgeManager` client. Per-endpoint health, `is_transport_failure()`
-      detection, and capped exponential reconnect. The `copilotSdk` preference
-      guard (ADR-0007) moves to the registry.
-- [ ] Attachments with explicit roles (`Observer`, `Owner`); attach resumes once
-      and subscribes; detach disconnects. Idempotent under concurrent callers.
-- [ ] Refuse steering through a private stdio connection when another live PID
-      holds the session (F9). Surface a typed error the UI can explain.
+- [x] Session locator (`bridge/live_host.rs`):
+      - reads `inuse.<pid>.lock`, checks hold-file liveness (F21), and
+        probes PID → loopback port;
+      - reports `attachable`, `running`, or `idle` per session through
+        `sdk_live_hosts`;
+      - does not use the registry (F20).
+- [x] One SDK `Client` per endpoint (`BridgeManager.endpoints`), closed when
+      its last attached session detaches. Still to do: per-endpoint health
+      and reconnect with backoff. Today a dropped endpoint shows the session
+      as ended, and the next poll re-attaches.
+- [x] Attach resumes once as an observer and detach disconnects. Attach is
+      idempotent and coalesced per session. Reconciliation drops an
+      attachment when its host exits or moves. There are no explicit
+      `Owner` roles yet.
+- [x] `sdk_resume_session` refuses `running` sessions with `NotAttachable`
+      (F9) and attaches to `attachable` ones.
 - [ ] Per-endpoint `subscribe_lifecycle()` for cheap activity indicators (F10).
 - [ ] Connection-token support end to end (config, discovery, registry) (F13).
-- [ ] Reducer update for the 1.0.8x event set: `assistant.message_start`,
-      `assistant.streaming_delta`, `assistant.tool_call_delta` (tool arguments
-      streaming in), `assistant.idle`, `session.usage_info`,
-      `session.background_tasks_changed`, `pending_messages.modified`,
-      `session.title_changed`; tail-preserving truncation for cumulative
-      `partialOutput` (F6); `agentId` routing for subagents.
-- [ ] Coalesce high-frequency deltas before IPC (target ≤ 30 snapshots/s per
-      session) and add metrics for the coalescer.
-- [ ] New IPC surface (Specta-typed): `live_list_hosting_states`,
-      `live_attach`, `live_detach`, `live_session_snapshot`, and a
-      `live-state` event. Keep the old `sdk_*` commands as thin adapters until
-      Phase 4 removes their callers.
+- [ ] Reducer update for the 1.0.8x event set.
+      - Done: `assistant.idle`, `session.idle`, and turn end set Idle;
+        `session.usage_info` feeds the context meter; `assistant.usage`;
+        tool results are kept as text.
+      - Still open: `assistant.message_start`, `assistant.streaming_delta`,
+        `assistant.tool_call_delta`, `session.background_tasks_changed`,
+        `pending_messages.modified`, `session.title_changed`, tail-preserving
+        truncation (F6), and `agentId` routing.
+- [x] Coalesce high-frequency live-state snapshots before IPC. The limit is
+      20 per second per session, with a trailing flush. `model.*` and
+      `system.message` payloads are trimmed before they cross IPC. Metrics
+      are still to do.
+- [x] New IPC commands `sdk_live_hosts` and `sdk_attach_session`. Detach
+      reuses `sdk_unlink_session`, and live state keeps the existing
+      `sdk-bridge-event` stream. Renaming the surface to `live_*` waits for
+      Phase 5.
 - [ ] Opt-in live smoke test (`#[ignore]`, env-gated) that launches a real
       `copilot --ui-server` and asserts F4/F6/F8.
 
 ### Phase 3 — Make sessions attachable by default
 
-- [ ] Terminal launches from TracePilot add `--ui-server` and a generated
-      `COPILOT_CONNECTION_TOKEN`, remembered by TracePilot, so every session it
-      launches is attachable (the launcher already has a `ui_server` flag).
-- [ ] "Relaunch attachable" helper for *Running, not attachable* sessions: show
-      the exact `copilot --resume <id> --ui-server` command rather than killing
-      the user's process.
+- [x] Launches and "Resume in Terminal" add `--ui-server` by default
+      (`live.launchAttachable`, a Settings → SDK toggle). Still to do: a
+      generated `COPILOT_CONNECTION_TOKEN` (F13).
+- [x] Help for *Running, not attachable* sessions: the session view shows
+      the exact `copilot --resume <id> --ui-server` command with a copy
+      button, and never kills the user's process.
 - [ ] Owned (headless) sessions: replace approve-all with a real permission /
       user-input / elicitation handler that raises a TracePilot prompt and
       times out to *deny* (via the SDK handler traits).
@@ -223,6 +262,23 @@ model:
   Stdio while disconnected unless a CLI URL is already saved.)
 - Rename *Unlink* / *Shutdown*: since Phase 1 both only detach, so the UI
   should offer a single **Detach** action.
+
+Delivered on `feat/live-attach`:
+- Live and Watching badges in the session list, and a Live badge in the
+  session header.
+- Auto-attach, controlled by `live.autoAttach`.
+- A "Watch live" card for attachable sessions, and a restart-command card
+  for plain terminals.
+- A "Live · terminal · pid" label with a single **Detach** action.
+- A context-window meter, running tools only, and a one-line output
+  ticker.
+- Live tool output inside the conversation's tool cards.
+- A Live terminal sessions section in Settings → SDK.
+
+Still open:
+- Removing the connect/detect flow from the main path.
+- Queued messages and background tasks.
+- VRT scenarios for the live states.
 - Validate at 1440×960, 960×640, and 2560×1440 with the running-app automation
   workflow, and add VRT scenarios for the live states.
 
@@ -248,12 +304,11 @@ model:
 
 ## Open questions
 
-1. Should TracePilot-launched terminals use `--ui-server` by default (Phase 3)?
-   This plan recommends **yes**, because it is the only way to attach to them.
-2. Should attaching be automatic when a session view opens, or always explicit?
-   This plan recommends automatic for attachable sessions, behind a
-   preference, because attaching is cheap but does write one `session.resume`
-   event (F8).
+1. ~~Should TracePilot-launched terminals use `--ui-server` by default?~~
+   Resolved: yes, behind `live.launchAttachable` (ADR-0016).
+2. ~~Should attaching be automatic when a session view opens?~~ Resolved:
+   yes, behind `live.autoAttach`, at most once per view and never after
+   Detach (ADR-0016).
 3. Is it acceptable for Phase 2 to keep the `copilotSdk` experimental toggle as
    the master switch, renamed to "Live sessions"?
 

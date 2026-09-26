@@ -35,6 +35,7 @@ Policy ADRs (0010–0013):
 | [0013](0013-db-migration-policy.md) | DB migration policy (IndexDb / TaskDb / SessionDb) | Accepted |
 | [0014](0014-bounded-loopback-context-capture.md) | Bounded loopback server for exact context capture | Accepted |
 | [0015](0015-official-copilot-sdk.md) | Official Copilot Rust SDK, driven against the user's installed CLI | Accepted |
+| [0016](0016-live-attach-to-terminal-sessions.md) | Live attach to Copilot CLI terminal sessions (hosting detection, per-endpoint clients, live vs persisted view) | Accepted |
 
 > **Numbering note.** Policy ADRs originally occupied 0001–0004. They
 > were renumbered to 0010+ during Wave 115 so the foundational

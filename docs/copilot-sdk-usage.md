@@ -2,9 +2,11 @@
 
 TracePilot integrates the official [GitHub Copilot SDK for Rust](https://github.com/github/copilot-sdk/tree/main/rust) (`github-copilot-sdk`, [ADR-0015](adr/0015-official-copilot-sdk.md)) to enable **real-time session steering**, programmatic event streaming, and direct communication with the Copilot CLI — all from the desktop UI.
 
-> **Roadmap:** the integration is being redesigned around attaching to running
-> terminal sessions. See the [Copilot live attach plan](features/copilot-live-attach-plan.md)
-> for verified CLI behavior and the phased plan.
+> **Live attach:** sessions running in a `copilot --ui-server` terminal are
+> streamed live when you open them; see [Live Attach](#live-attach) and
+> [ADR-0016](adr/0016-live-attach-to-terminal-sessions.md). The
+> [Copilot live attach plan](features/copilot-live-attach-plan.md) records the
+> verified CLI behaviour and the remaining roadmap.
 
 > **Status:** Experimental. Enable via Settings → Additional Features → Copilot SDK Bridge.
 
@@ -17,6 +19,7 @@ TracePilot integrates the official [GitHub Copilot SDK for Rust](https://github.
 - [Feature Gating](#feature-gating)
 - [Setup & Prerequisites](#setup--prerequisites)
 - [Connecting](#connecting)
+- [Live Attach](#live-attach)
 - [Session Steering](#session-steering)
 - [SDK Settings](#sdk-settings)
 - [Rust API Reference](#rust-api-reference)
@@ -223,6 +226,42 @@ const status = await sdkConnect({ cliUrl: "ws://localhost:19836" });
 console.log(status.state); // "connected"
 ```
 
+## Live Attach
+
+TracePilot can watch a Copilot CLI session that is running in a terminal, as it
+runs, if that terminal was started with `--ui-server`:
+
+- **Sessions TracePilot starts** (launcher, "Resume in Terminal") get
+  `--ui-server` automatically while *Settings → SDK → Start terminals
+  watchable* is on (the default).
+- **Terminals you start yourself** need `copilot --ui-server` (or
+  `copilot --resume <id> --ui-server`). The flag is read only at startup, so
+  there is no way to turn it on inside a running session; exit and resume
+  with it instead. A shell alias such as `alias copilot='copilot --ui-server'`
+  makes it the default.
+
+How it looks:
+
+| Session state | Session list | Session view |
+|---|---|---|
+| Attachable (`--ui-server`) | **Live** badge | Attaches automatically (or **Watch live**), then streams replies, reasoning, tool output, status and context usage |
+| Attached | **Watching** badge | "Live · terminal · pid N" label with **Detach** |
+| Running without a server | **Active** badge | Restart command with a copy button; the view refreshes from disk |
+| Idle | — | History; linking resumes it through TracePilot's own CLI |
+
+Attaching joins the terminal's own CLI as an observer: prompts, permission
+requests and questions stay in the terminal, and TracePilot never loads a
+second copy of the session. Each attach appends one `session.resume` event to
+the session (shown once as "Session resumed N×"), so TracePilot attaches at most
+once per session per view and never re-attaches after **Detach**. Detaching
+writes nothing. Turn off *Watch terminal sessions automatically* to attach only
+on demand.
+
+While attached, streamed text and running tool output are shown straight from
+the live stream; every durable event (messages, tool start/complete, turn end,
+idle, errors) refreshes the saved conversation within about 400 ms, and the
+saved version replaces the live one without duplicates.
+
 ## Session Steering
 
 Once connected, you can steer an active session from the **Conversation tab**:
@@ -233,7 +272,7 @@ Once connected, you can steer an active session from the **Conversation tab**:
 4. Use the mode buttons (Ask / Plan / Auto) to switch session mode
 5. Use the model dropdown to hot-switch models
 6. Click **Abort** to gracefully abort a running turn
-7. Click **Stop** (in the session label) to unlink/destroy the SDK session
+7. Click **Detach** (in the session label) to stop following the session; it keeps running and nothing is written to it
 
 ### Steering API
 
@@ -298,6 +337,8 @@ smoke tests in `crates/tracepilot-orchestrator/tests/live_copilot_bridge.rs`:
 | `get_auth_status()` | Get authentication status |
 | `list_models()` | List available models |
 | `get_foreground_session()` | Get foreground session ID |
+| `attach_session(id, address)` | Join a `--ui-server` terminal's session as an observer (one client per endpoint) |
+| `reconcile_attachments(hosts)` | Drop attachments whose terminal exited or moved |
 | `set_foreground_session(id)` | Set foreground session |
 
 ### Bridge Events
@@ -340,6 +381,10 @@ sdkSetSessionModel(sessionId: string, model: string, reasoningEffort?: string): 
 sdkListSessions(): Promise<BridgeSessionInfo[]>
 sdkGetForegroundSession(): Promise<string | null>
 sdkSetForegroundSession(sessionId: string): Promise<void>
+
+// Live attach (ADR-0016)
+sdkLiveHosts(sessionIds: string[]): Promise<LiveSessionHost[]>  // attachable | running | idle
+sdkAttachSession(sessionId: string): Promise<BridgeSessionInfo>
 
 // Quota & Auth
 sdkGetQuota(): Promise<BridgeQuota>

@@ -7,7 +7,7 @@
  * status poll live in {@link useSdkConnectionHealth}; the diagnostics probe
  * lives in {@link useSdkDiagnostics}.
  */
-import { SectionPanel } from "@tracepilot/ui";
+import { FormSwitch, SectionPanel } from "@tracepilot/ui";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import SdkConnectionPanel from "@/components/settings/SdkConnectionPanel.vue";
@@ -16,10 +16,12 @@ import SdkServersPanel from "@/components/settings/SdkServersPanel.vue";
 import { useSdkConnectionHealth } from "@/composables/useSdkConnectionHealth";
 import { useSdkDiagnostics } from "@/composables/useSdkDiagnostics";
 import { ROUTE_NAMES } from "@/config/routes";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
 import { useSessionsStore } from "@/stores/sessions";
 
 const sdk = useSdkStore();
+const prefs = usePreferencesStore();
 const sessionsStore = useSessionsStore();
 const router = useRouter();
 
@@ -77,14 +79,48 @@ async function openSession(rowId: string): Promise<void> {
 
       <SdkServersPanel v-if="health.isTcpSelected.value" :health="health" />
 
+      <!-- ─── Live terminal sessions (ADR-0016) ─────── -->
+      <div class="sdk-divider" />
+      <div class="sdk-subsection-title">Live terminal sessions</div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Watch terminal sessions automatically</div>
+          <div class="setting-description">
+            When you open a session running in a <code>copilot --ui-server</code> terminal,
+            attach and stream it live. Each attach adds one "Session resumed" entry to its
+            history.
+          </div>
+        </div>
+        <FormSwitch
+          v-model="prefs.liveAutoAttach"
+          aria-label="Watch terminal sessions automatically"
+          data-testid="live-auto-attach-switch"
+        />
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Start terminals watchable</div>
+          <div class="setting-description">
+            Add <code>--ui-server</code> when TracePilot launches a session or resumes one in a
+            terminal, so it can be watched live. The flag only takes effect at startup.
+          </div>
+        </div>
+        <FormSwitch
+          v-model="prefs.liveLaunchAttachable"
+          aria-label="Start terminals watchable"
+          data-testid="live-launch-attachable-switch"
+        />
+      </div>
+
       <!-- ─── SDK Sessions / process visibility ─────── -->
       <div class="sdk-divider" />
       <div class="sdk-subsection-title">SDK Sessions & Processes</div>
 
       <div class="sdk-lifecycle-note">
-        <strong>Unlink</strong> and <strong>Shutdown</strong> both detach TracePilot from the
-        session; neither ends it or writes to its history. Shutdown also marks it stopped in
-        TracePilot's live view. The bridge itself is one process/transport; stdio child PIDs
+        <strong>Detach</strong> stops TracePilot following a session; it never ends the session
+        or writes to its history. The bridge itself is one process/transport; stdio child PIDs
         are owned by the SDK, while TCP <code>--ui-server</code> PIDs appear under detected
         servers.
       </div>

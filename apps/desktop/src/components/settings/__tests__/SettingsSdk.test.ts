@@ -39,13 +39,16 @@ const mocks = vi.hoisted(() => {
     launchUiServer: vi.fn(),
     stopUiServer: vi.fn(),
   };
-  return { enabled, sdk };
+  const prefs = {
+    isFeatureEnabled: (flag: string) => flag === "copilotSdk" && enabled.value,
+    liveAutoAttach: true,
+    liveLaunchAttachable: true,
+  };
+  return { enabled, sdk, prefs };
 });
 
 vi.mock("@/stores/preferences", () => ({
-  usePreferencesStore: () => ({
-    isFeatureEnabled: (flag: string) => flag === "copilotSdk" && mocks.enabled.value,
-  }),
+  usePreferencesStore: () => mocks.prefs,
 }));
 
 vi.mock("@/stores/sdk", () => ({
@@ -101,6 +104,15 @@ describe("SettingsSdk", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("shows live terminal session preferences", async () => {
+    mocks.enabled.value = true;
+    const wrapper = mountPanel();
+    await nextTick();
+    expect(wrapper.text()).toContain("Live terminal sessions");
+    expect(wrapper.find('[data-testid="live-auto-attach-switch"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="live-launch-attachable-switch"]').exists()).toBe(true);
   });
 
   it("does not refresh SDK client data while the feature is disabled", async () => {
