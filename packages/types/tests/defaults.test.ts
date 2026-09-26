@@ -74,6 +74,10 @@ describe("createDefaultConfig", () => {
     performance: {
       sessionCacheSize: DEFAULT_SESSION_CACHE_SIZE,
     },
+    live: {
+      autoAttach: true,
+      launchAttachable: true,
+    },
   };
 
   it("should return identical defaults for no args and empty object", () => {
