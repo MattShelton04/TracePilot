@@ -1,5 +1,5 @@
-import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
-import { onMounted, ref } from "vue";
+import { checkConfigExists, getConfig } from "@tracepilot/client";
+import { effectScope, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { registerNotificationClickHandler } from "@/composables/useAlertDispatcher";
 import { useAlertWatcher } from "@/composables/useAlertWatcher";
@@ -25,14 +25,17 @@ export function useBootstrapPhase() {
 
   const phase = ref<AppPhase>("loading");
   const expectedSessionCount = ref(0);
+  // Capture ownership during setup: Vue loses the active scope after an await.
+  // This child scope stops with the component, even before alerts have started.
+  const bootstrapScope = effectScope();
   let alertInitDone = false;
 
   /** Idempotent: start alert watcher + notification handler (main only) */
   function initAlertSystem() {
-    if (!isMain() || alertInitDone) return;
+    if (!bootstrapScope.active || !isMain() || alertInitDone) return;
 
     try {
-      useAlertWatcher(router);
+      bootstrapScope.run(() => useAlertWatcher(router));
       registerNotificationClickHandler(async (sessionId) => {
         await pushRoute(router, ROUTE_NAMES.sessionConversation, {
           params: { id: sessionId },
@@ -52,11 +55,13 @@ export function useBootstrapPhase() {
     const previous = prefsStore.lastSeenVersion;
     if (previous && previous !== current) {
       await openWhatsNew(previous, current);
+      if (!bootstrapScope.active) return;
     }
     prefsStore.lastSeenVersion = current;
   }
 
   function onSetupSaved(sessionCount: number) {
+    if (!bootstrapScope.active) return;
     expectedSessionCount.value = sessionCount;
     phase.value = "indexing";
     // Config.toml now exists — re-hydrate preferences so the auto-save watcher
@@ -67,14 +72,14 @@ export function useBootstrapPhase() {
   }
 
   async function onIndexingComplete() {
+    if (!bootstrapScope.active) return;
     // Mark setup as fully complete so interrupted indexing won't restart setup
     try {
-      const cfg = await getConfig();
-      cfg.general.setupComplete = true;
-      await saveConfig(cfg);
+      await prefsStore.updateConfigFields({ general: { setupComplete: true } });
     } catch (e) {
       logError("[app] Failed to save setupComplete flag:", e);
     }
+    if (!bootstrapScope.active) return;
     phase.value = "app";
     sessionsStore.fetchSessions();
     initAlertSystem();
@@ -83,16 +88,20 @@ export function useBootstrapPhase() {
   onMounted(async () => {
     // Resolve window role before any role-gated logic
     await resolveWindowRole();
+    if (!bootstrapScope.active) return;
 
     // Initialize app version from Tauri runtime (or 'dev' in browser mode)
     await initAppVersion();
+    if (!bootstrapScope.active) return;
 
     try {
       const exists = await checkConfigExists();
+      if (!bootstrapScope.active) return;
       if (exists) {
         // Check if setup was completed — if not, the user interrupted the
         // setup wizard during indexing.  Restart the entire setup flow.
         const cfg = await getConfig();
+        if (!bootstrapScope.active) return;
         if (!cfg.general.setupComplete) {
           phase.value = "setup";
           return;
@@ -100,17 +109,20 @@ export function useBootstrapPhase() {
 
         phase.value = "app";
         await sessionsStore.fetchSessions();
+        if (!bootstrapScope.active) return;
         // Signal that the app is fully initialized for automation (CDP / Playwright).
         // Placed here (not main.ts) so it fires only after config + setup checks pass.
         (window as unknown as Record<string, unknown>).__TRACEPILOT_READY__ = true;
         // Wait for preferences to load from config.toml before using config-backed values
         await prefsStore.whenReady;
+        if (!bootstrapScope.active) return;
 
-        // Start alert watcher + window lifecycle (main window only, idempotent)
+        // Start alert watchers in their component-owned scope (main window only).
         initAlertSystem();
 
         // Post-load hooks: version change detection + update check
         await checkVersionChange();
+        if (!bootstrapScope.active) return;
         if (prefsStore.checkForUpdates) {
           runUpdateCheck();
         }
@@ -118,10 +130,10 @@ export function useBootstrapPhase() {
         phase.value = "setup";
       }
     } catch {
+      if (!bootstrapScope.active) return;
       phase.value = "app";
       sessionsStore.fetchSessions();
-      // Even on config-read failure, the main window must still own its
-      // listeners — otherwise the close-cascade + popup cleanup never arms.
+      // Keep live SDK alerts available even when reading config fails.
       initAlertSystem();
       (window as unknown as Record<string, unknown>).__TRACEPILOT_READY__ = true;
     }

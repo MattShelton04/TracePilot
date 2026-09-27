@@ -11,3 +11,6 @@ publish = false
 # the relevant internal crate directly; feature-gated internal deps are
 # added here when those migrations land.
 tempfile = { workspace = true }
+
+[lints]
+workspace = true

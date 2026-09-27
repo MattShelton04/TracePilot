@@ -7,6 +7,28 @@ async function* toAsync<T>(items: T[]): AsyncIterable<T> {
 }
 
 describe("reconstructTurns", () => {
+  it("matches concurrent same-name tools by call ID and retains repeated prompts", async () => {
+    const fixture = new URL(
+      "../../../../../crates/tracepilot-core/tests/fixtures/versions/cli_turn_parity.jsonl",
+      import.meta.url,
+    );
+    const events = readFileSync(fixture, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const turns = await reconstructTurns(toAsync(events));
+
+    expect(turns).toHaveLength(2);
+    expect(turns.map((turn) => turn.userMessage)).toEqual([
+      "Please inspect this.",
+      "Please inspect this.",
+    ]);
+    expect(turns[0].tools).toEqual([
+      { name: "view", success: false },
+      { name: "view", success: true },
+    ]);
+  });
+
   it("keeps modern child turns out of the main CLI conversation", async () => {
     const fixture = new URL(
       "../../../../../crates/tracepilot-core/tests/fixtures/versions/v1_0_83_multiturn.jsonl",

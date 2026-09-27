@@ -55,9 +55,14 @@ export async function reconstructTurns(events: AsyncIterable<RawEvent>): Promise
   const turns: TurnInfo[] = [];
   let currentTurn: TurnInfo | null = null;
   let pendingUserMessage: string | undefined;
-  let lastAssignedUserMessage: string | undefined;
-  // Track pending tool calls by toolCallId so we can match names on completion
-  const pendingTools = new Map<string, string>(); // toolCallId → toolName
+  // Keep the exact entry: concurrent calls can use the same tool name.
+  const pendingTools = new Map<string, { turn: TurnInfo; index: number }>();
+
+  function takeUserMessage(): string | undefined {
+    const message = pendingUserMessage;
+    pendingUserMessage = undefined;
+    return message;
+  }
 
   function ensureCurrentTurn(data: RawEvent | undefined, timestamp?: string): TurnInfo {
     if (!currentTurn) {
@@ -65,10 +70,8 @@ export async function reconstructTurns(events: AsyncIterable<RawEvent>): Promise
         turnId: (data?.turnId as string) ?? String(turns.length),
         tools: [],
         startTime: timestamp,
-        userMessage:
-          pendingUserMessage !== lastAssignedUserMessage ? pendingUserMessage : undefined,
+        userMessage: takeUserMessage(),
       };
-      if (pendingUserMessage) lastAssignedUserMessage = pendingUserMessage;
     }
     return currentTurn;
   }
@@ -91,15 +94,11 @@ export async function reconstructTurns(events: AsyncIterable<RawEvent>): Promise
     }
 
     if (type === "assistant.turn_start") {
-      const userMsg =
-        pendingUserMessage !== lastAssignedUserMessage ? pendingUserMessage : undefined;
-      if (pendingUserMessage) lastAssignedUserMessage = pendingUserMessage;
-
       currentTurn = {
         turnId: (data?.turnId as string) ?? String(turns.length),
         tools: [],
         startTime: timestamp,
-        userMessage: userMsg,
+        userMessage: takeUserMessage(),
       };
     }
 
@@ -118,35 +117,23 @@ export async function reconstructTurns(events: AsyncIterable<RawEvent>): Promise
       const toolCallId = data?.toolCallId as string | undefined;
       const model = data?.model as string | undefined;
       if (model && !turn.model) turn.model = model;
-      // Record the tool name keyed by toolCallId for later matching
-      if (toolName && toolCallId) {
-        pendingTools.set(toolCallId, toolName);
-      }
-      // Also add the tool entry now (will be updated on completion)
+      // Add the entry first, then remember its exact location for completion.
       if (toolName && toolName !== "report_intent") {
         turn.tools.push({ name: toolName, success: true });
+        if (toolCallId) pendingTools.set(toolCallId, { turn, index: turn.tools.length - 1 });
       }
     }
 
     if (type === "tool.execution_complete") {
-      const turn = ensureCurrentTurn(data, timestamp);
+      const toolCallId = data?.toolCallId as string | undefined;
+      const pending = toolCallId ? pendingTools.get(toolCallId) : undefined;
+      const turn = pending?.turn ?? ensureCurrentTurn(data, timestamp);
       const model = data?.model as string | undefined;
       if (model && !turn.model) turn.model = model;
-      const toolCallId = data?.toolCallId as string | undefined;
       const success = data?.success as boolean | undefined;
 
-      // Find the matching tool entry and update its success status
       if (toolCallId) {
-        const toolName = pendingTools.get(toolCallId);
-        if (toolName && toolName !== "report_intent") {
-          // Find the last tool entry with this name and update success
-          for (let j = turn.tools.length - 1; j >= 0; j--) {
-            if (turn.tools[j].name === toolName) {
-              if (success === false) turn.tools[j].success = false;
-              break;
-            }
-          }
-        }
+        if (pending && success === false) pending.turn.tools[pending.index].success = false;
         pendingTools.delete(toolCallId);
       }
     }

@@ -1,3 +1,5 @@
+// Assertions in tests should fail immediately on invalid fixtures.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! Phase 1B.1 pilot: thin shim over [`tracepilot_tauri_bindings::specta_exports::export`].
 //!
 //! Run via `pnpm gen:bindings` (or
@@ -21,6 +23,8 @@ use std::path::PathBuf;
 
 use tracepilot_tauri_bindings::IPC_COMMAND_NAMES;
 
+// This developer command reports the generated artifact paths on stdout.
+#[allow(clippy::print_stdout)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Resolve output paths relative to the crate manifest so `cargo run` from
     // the repo root, a crate dir, or an IDE all work identically.
@@ -42,6 +46,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let manifest_path = generated_dir.join("ipc-commands.json");
     write_ipc_command_manifest(&manifest_path)?;
     println!("wrote {}", manifest_path.display());
+
+    let contracts_path = generated_dir.join("../../../types/src/generated/contracts.ts");
+    tracepilot_tauri_bindings::specta_exports::export_contracts(&contracts_path)?;
+    println!("wrote {}", contracts_path.display());
 
     Ok(())
 }

@@ -1,3 +1,5 @@
+// Assertions in tests should fail immediately on invalid fixtures.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 // Pull the IPC command list from the single source of truth maintained in the
 // `tracepilot-tauri-bindings` crate. Keeps the Tauri allowlist, the JSON
 // manifest consumed by `commandContract.test.ts`, and the runtime
@@ -5,7 +7,7 @@
 // full contract).
 include!("../../../crates/tracepilot-tauri-bindings/src/ipc_command_names.rs");
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     tauri_build::try_build(
         tauri_build::Attributes::new().plugin(
             "tracepilot",
@@ -13,6 +15,6 @@ fn main() {
                 .commands(IPC_COMMAND_NAMES)
                 .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
         ),
-    )
-    .expect("failed to build TracePilot desktop app");
+    )?;
+    Ok(())
 }

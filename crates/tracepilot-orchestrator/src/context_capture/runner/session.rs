@@ -210,8 +210,10 @@ pub(super) async fn run_capture(
         )));
     }
     let parsed = parse_context_request(request.protocol, &captured.body, &nonce)?;
-    let raw_body = String::from_utf8(captured.body).map_err(|_| {
-        OrchestratorError::ContextCapture("The captured JSON request was not valid UTF-8.".into())
+    let raw_body = String::from_utf8(captured.body).map_err(|error| {
+        OrchestratorError::ContextCapture(format!(
+            "The captured JSON request was not valid UTF-8: {error}"
+        ))
     })?;
     let final_fingerprint = source_fingerprint(
         &tracepilot_core::paths::SessionPaths::from_root(session_path).events_jsonl(),

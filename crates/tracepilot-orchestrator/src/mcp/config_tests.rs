@@ -6,31 +6,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
-fn with_temp_home<F: FnOnce()>(f: F) {
-    let _guard = crate::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+fn with_temp_home<F: FnOnce(&std::path::Path)>(f: F) {
     let tmp = TempDir::new().unwrap();
-    std::fs::create_dir_all(tmp.path().join(".copilot")).unwrap();
-    let old_home = std::env::var("HOME").ok();
-    let old_userprofile = std::env::var("USERPROFILE").ok();
-    // SAFETY: Environment mutation is serialized across the entire crate via
-    // crate::TEST_ENV_LOCK, matching the Rust 2024 requirements for set_var/remove_var.
-    unsafe {
-        std::env::set_var("HOME", tmp.path());
-        std::env::set_var("USERPROFILE", tmp.path());
-    }
-    f();
-    unsafe {
-        match old_home {
-            Some(v) => std::env::set_var("HOME", v),
-            None => std::env::remove_var("HOME"),
-        }
-        match old_userprofile {
-            Some(v) => std::env::set_var("USERPROFILE", v),
-            None => std::env::remove_var("USERPROFILE"),
-        }
-    }
+    f(tmp.path());
 }
 
 fn setup_test_config(dir: &TempDir) -> PathBuf {
@@ -117,7 +95,7 @@ fn server_config_preserves_env_vars() {
 
 #[test]
 fn add_server_rejects_invalid_http_headers() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         let server = McpServerConfig {
             command: None,
             args: vec![],
@@ -131,7 +109,7 @@ fn add_server_rejects_invalid_http_headers() {
             enabled: true,
         };
 
-        let err = add_server("remote-test", server).unwrap_err();
+        let err = add_server_in(home, "remote-test", server).unwrap_err();
         let msg = err.to_string();
 
         assert!(matches!(err, McpError::Config(_)));
@@ -142,7 +120,7 @@ fn add_server_rejects_invalid_http_headers() {
 
 #[test]
 fn add_server_rejects_reserved_session_header() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         let server = McpServerConfig {
             command: None,
             args: vec![],
@@ -156,7 +134,7 @@ fn add_server_rejects_reserved_session_header() {
             enabled: true,
         };
 
-        let err = add_server("remote-test", server).unwrap_err();
+        let err = add_server_in(home, "remote-test", server).unwrap_err();
         let msg = err.to_string();
 
         assert!(matches!(err, McpError::Config(_)));
@@ -167,8 +145,8 @@ fn add_server_rejects_reserved_session_header() {
 
 #[test]
 fn update_server_rejects_invalid_http_headers_without_changing_saved_config() {
-    with_temp_home(|| {
-        let path = mcp_config_path().unwrap();
+    with_temp_home(|home| {
+        let path = mcp_config_path_in(home).unwrap();
         let initial = McpConfigFile {
             mcp_servers: HashMap::from([(
                 "remote-test".into(),
@@ -204,13 +182,13 @@ fn update_server_rejects_invalid_http_headers_without_changing_saved_config() {
             enabled: true,
         };
 
-        let err = update_server("remote-test", updated).unwrap_err();
+        let err = update_server_in(home, "remote-test", updated).unwrap_err();
         let msg = err.to_string();
         assert!(matches!(err, McpError::Config(_)));
         assert!(msg.contains("Invalid HTTP header value"));
         assert!(msg.contains("Authorization"));
 
-        let reloaded = load_config().unwrap();
+        let reloaded = load_config_in(home).unwrap();
         let saved = reloaded.mcp_servers.get("remote-test").unwrap();
         assert_eq!(
             saved.headers.get("Authorization").map(String::as_str),
@@ -221,7 +199,7 @@ fn update_server_rejects_invalid_http_headers_without_changing_saved_config() {
 
 #[test]
 fn add_server_rejects_case_duplicate_headers() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         let server = McpServerConfig {
             command: None,
             args: vec![],
@@ -238,7 +216,7 @@ fn add_server_rejects_case_duplicate_headers() {
             enabled: true,
         };
 
-        let err = add_server("remote-test", server).unwrap_err();
+        let err = add_server_in(home, "remote-test", server).unwrap_err();
         let msg = err.to_string();
 
         assert!(matches!(err, McpError::Config(_)));

@@ -56,9 +56,9 @@ impl IndexingJobGuard {
         state: &SharedIndexingState,
         session_id: SessionId,
     ) -> Result<Self, BindingsError> {
-        let mut guard = state
-            .lock()
-            .map_err(|_| BindingsError::Internal("indexing-state mutex poisoned".to_string()))?;
+        let mut guard = state.lock().map_err(|_poisoned| {
+            BindingsError::Internal("indexing-state mutex poisoned".to_string())
+        })?;
         if guard.contains(&session_id) {
             return Err(BindingsError::AlreadyIndexingSession { session_id });
         }

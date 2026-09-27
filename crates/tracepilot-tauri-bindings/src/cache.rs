@@ -23,8 +23,7 @@ pub(crate) fn resize_session_lru<V>(cache: &mut LruCache<String, V>, cap: usize)
 }
 
 fn nonzero_capacity(cap: usize) -> NonZeroUsize {
-    NonZeroUsize::new(cap)
-        .unwrap_or_else(|| NonZeroUsize::new(1).expect("1 is a valid NonZeroUsize"))
+    NonZeroUsize::new(cap).unwrap_or(NonZeroUsize::MIN)
 }
 
 #[cfg(test)]

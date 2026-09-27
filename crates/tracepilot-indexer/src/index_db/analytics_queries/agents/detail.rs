@@ -85,7 +85,7 @@ pub(in crate::index_db) fn build_detail(rows: &[RunRow]) -> AgentUsageDetail {
             },
         )
         .collect();
-    dispatch.sort_by(|a, b| b.runs.cmp(&a.runs));
+    dispatch.sort_by_key(|entry| std::cmp::Reverse(entry.runs));
     dispatch.truncate(TOP_ENTRIES);
 
     let mut invoked_by: Vec<AgentParentCount> = parents
@@ -95,10 +95,10 @@ pub(in crate::index_db) fn build_detail(rows: &[RunRow]) -> AgentUsageDetail {
             runs,
         })
         .collect();
-    invoked_by.sort_by(|a, b| b.runs.cmp(&a.runs));
+    invoked_by.sort_by_key(|entry| std::cmp::Reverse(entry.runs));
 
     let mut failure_reasons: Vec<AgentFailureReason> = failures.into_values().collect();
-    failure_reasons.sort_by(|a, b| b.runs.cmp(&a.runs));
+    failure_reasons.sort_by_key(|entry| std::cmp::Reverse(entry.runs));
     failure_reasons.truncate(TOP_ENTRIES);
 
     let mut stats = agent_stats(&all);

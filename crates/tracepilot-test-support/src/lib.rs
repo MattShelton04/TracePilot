@@ -1,3 +1,5 @@
+// Assertions in tests should fail immediately on invalid fixtures.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! Shared test-only helpers for the TracePilot workspace.
 //!
 //! This crate is consumed from `[dev-dependencies]` only; it centralises

@@ -205,6 +205,30 @@ describe("useSkillsStore", () => {
 
   // ── getSkill ───────────────────────────────────────────────
   describe("getSkill", () => {
+    it("keeps the newer selection when an older response finishes last", async () => {
+      const old = createDeferred<typeof FIXTURE_SKILL>();
+      const newer = { ...FIXTURE_SKILL, directory: "/newer" };
+      mocks.skillsGetSkill.mockReturnValueOnce(old.promise).mockResolvedValueOnce(newer);
+      const store = useSkillsStore();
+      const first = store.getSkill(FIXTURE_SKILL.directory);
+      await store.getSkill(newer.directory);
+      old.resolve(FIXTURE_SKILL);
+      expect(await first).toBeNull();
+      expect(store.selectedSkill?.directory).toBe(newer.directory);
+    });
+
+    it("does not publish a response after the editor selection is disposed", async () => {
+      const old = createDeferred<typeof FIXTURE_SKILL>();
+      mocks.skillsGetSkill.mockReturnValueOnce(old.promise);
+      const store = useSkillsStore();
+      let active = true;
+      const first = store.getSkill(FIXTURE_SKILL.directory, () => active);
+      active = false;
+      old.resolve(FIXTURE_SKILL);
+      expect(await first).toBeNull();
+      expect(store.selectedSkill).toBeNull();
+    });
+
     it("returns skill and sets selectedSkill on success", async () => {
       mocks.skillsGetSkill.mockResolvedValue(FIXTURE_SKILL);
       const store = useSkillsStore();

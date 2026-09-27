@@ -47,43 +47,8 @@ pub fn reindex_all_with_rich_progress(
     // Emit initial progress so UI loading screen initializes immediately
     tracker.emit(&mut on_progress, None);
 
-    // Phase 1: Parse all sessions in parallel (file I/O + JSON, no DB access)
-    let prepared: Vec<_> = sessions
-        .par_iter()
-        .map(|session| {
-            let result = index_db::session_writer::prepare_session_data(&session.path);
-            (session.id.clone(), result)
-        })
-        .collect();
-
-    // Phase 2: Write results to DB sequentially with throttled progress
-    let mut indexed = 0;
-
-    db.with_transaction(|db| {
-        for (session_id, parse_result) in prepared.into_iter() {
-            let info = match parse_result {
-                Ok(data) => match db.write_prepared_session(&data) {
-                    Ok(info) => {
-                        indexed += 1;
-                        tracker.accumulate(&info);
-                        Some(info)
-                    }
-                    Err(e) => {
-                        tracing::warn!(session_id = %session_id, error = %e, "Failed to write session");
-                        None
-                    }
-                },
-                Err(e) => {
-                    tracing::warn!(session_id = %session_id, error = %e, "Failed to parse session");
-                    None
-                }
-            };
-
-            tracker.increment();
-            tracker.emit_if_ready(&mut on_progress, info);
-        }
-        Ok(())
-    })?;
+    let session_refs: Vec<_> = sessions.iter().collect();
+    let indexed = index_batches(&db, &session_refs, &mut tracker, &mut on_progress)?;
 
     // Note: Final 100% emission is guaranteed by is_complete() check in emit_if_ready.
     // For zero sessions, the initial emit above covers it (current=0, total=0).
@@ -165,52 +130,7 @@ pub fn reindex_incremental_with_rich_progress(
     // Note: is_complete() in should_emit() guarantees the last emit_if_ready
     // in the skip loop fires unconditionally, so no explicit final emit needed.
 
-    // Step 2: Parse stale sessions in parallel (no DB access)
-    let prepared: Vec<_> = stale_sessions
-        .par_iter()
-        .map(|session| {
-            let result = index_db::session_writer::prepare_session_data(&session.path);
-            (session.id.clone(), result)
-        })
-        .collect();
-
-    // Step 3: Write results sequentially with progress
-    let mut indexed = 0;
-
-    // Batch size for transaction grouping — amortizes WAL fsyncs while keeping
-    // lock duration reasonable for concurrent readers.
-    const BATCH_SIZE: usize = 100;
-
-    let mut prepared = prepared;
-    while !prepared.is_empty() {
-        let take = prepared.len().min(BATCH_SIZE);
-        let batch: Vec<_> = prepared.drain(..take).collect();
-        db.with_transaction(|db| -> Result<()> {
-            for (session_id, parse_result) in batch {
-                let info = match parse_result {
-                    Ok(data) => match db.write_prepared_session(&data) {
-                        Ok(info) => {
-                            indexed += 1;
-                            tracker.accumulate(&info);
-                            Some(info)
-                        }
-                        Err(e) => {
-                            tracing::warn!(session_id = %session_id, error = %e, "Failed to write session");
-                            None
-                        }
-                    },
-                    Err(e) => {
-                        tracing::warn!(session_id = %session_id, error = %e, "Failed to parse session");
-                        None
-                    }
-                };
-
-                tracker.increment();
-                tracker.emit_if_ready(&mut on_progress, info);
-            }
-            Ok(())
-        })?;
-    }
+    let indexed = index_batches(&db, &stale_sessions, &mut tracker, &mut on_progress)?;
 
     tracing::debug!(
         indexed,
@@ -232,4 +152,47 @@ pub fn reindex_incremental_with_rich_progress(
     }
 
     Ok((indexed, skipped))
+}
+
+/// Preparation and database writes alternate so memory is independent of the
+/// total number of sessions. SQLite transactions are bounded by the same batch.
+fn index_batches(
+    db: &index_db::IndexDb,
+    sessions: &[&tracepilot_core::session::discovery::DiscoveredSession],
+    tracker: &mut ProgressTracker,
+    on_progress: &mut impl FnMut(&IndexingProgress),
+) -> Result<usize> {
+    let mut remaining = sessions;
+    let mut indexed = 0;
+    while !remaining.is_empty() {
+        let batch = super::batches::take_batch(&mut remaining);
+        let prepared: Vec<_> = batch
+            .par_iter()
+            .map(|session| {
+                (
+                    session.id.clone(),
+                    index_db::session_writer::prepare_session_data(&session.path),
+                )
+            })
+            .collect();
+        db.with_transaction(|db| {
+            for (session_id, result) in prepared {
+                let info = match result.and_then(|data| db.write_prepared_session(&data)) {
+                    Ok(info) => {
+                        indexed += 1;
+                        tracker.accumulate(&info);
+                        Some(info)
+                    }
+                    Err(error) => {
+                        tracing::warn!(session_id = %session_id, error = %error, "Session snapshot not indexed; retaining previous data");
+                        None
+                    }
+                };
+                tracker.increment();
+                tracker.emit_if_ready(on_progress, info);
+            }
+            Ok(())
+        })?;
+    }
+    Ok(indexed)
 }

@@ -45,7 +45,7 @@ pub fn create_worktree(request: &CreateWorktreeRequest) -> Result<WorktreeInfo> 
         &[
             "rev-parse",
             "--verify",
-            &format!("refs/heads/{}", &request.branch),
+            &format!("refs/heads/{}", request.branch),
         ],
     )
     .is_ok();

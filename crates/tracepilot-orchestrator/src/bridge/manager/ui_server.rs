@@ -15,23 +15,45 @@ const STOP_MAX_BYTES: u64 = 64 * 1024;
 
 impl BridgeManager {
     /// Get the foreground session ID from a `copilot --ui-server` instance.
-    pub async fn get_foreground_session(&self) -> Result<Option<String>, BridgeError> {
-        let client = self.require_client()?;
-        let session_id = client
-            .get_foreground_session_id()
-            .await
-            .map_err(BridgeError::sdk)?;
-        Ok(session_id.map(|id| id.to_string()))
+    pub fn get_foreground_session(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Option<String>, BridgeError>> + Send + use<> {
+        let client = self.require_client().cloned();
+        let scope = self.connection_scope.clone();
+        async move {
+            scope
+                .run("get_foreground_session", async move {
+                    let client = client?;
+                    let session_id = client
+                        .get_foreground_session_id()
+                        .await
+                        .map_err(BridgeError::sdk)?;
+                    Ok(session_id.map(|id| id.to_string()))
+                })
+                .await
+        }
     }
 
     /// Set the foreground session ID (switches which session the TUI displays).
-    pub async fn set_foreground_session(&self, session_id: &str) -> Result<(), BridgeError> {
-        let client = self.require_client()?;
-        client
-            .set_foreground_session_id(&github_copilot_sdk::SessionId::new(session_id))
-            .await
-            .map_err(BridgeError::sdk)?;
-        Ok(())
+    pub fn set_foreground_session(
+        &self,
+        session_id: &str,
+    ) -> impl std::future::Future<Output = Result<(), BridgeError>> + Send + use<> {
+        let client = self.require_client().cloned();
+        let scope = self.connection_scope.clone();
+        let session_id = session_id.to_string();
+        async move {
+            scope
+                .run("set_foreground_session", async move {
+                    let client = client?;
+                    client
+                        .set_foreground_session_id(&github_copilot_sdk::SessionId::new(session_id))
+                        .await
+                        .map_err(BridgeError::sdk)?;
+                    Ok(())
+                })
+                .await
+        }
     }
 }
 

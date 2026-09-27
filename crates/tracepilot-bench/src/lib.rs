@@ -1,3 +1,5 @@
+// This crate only builds benchmark fixtures: invalid setup must fail the run.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Synthetic data generators and benchmarking utilities for TracePilot.
 //!
 //! Provides deterministic, configurable session fixtures for Criterion benchmarks.

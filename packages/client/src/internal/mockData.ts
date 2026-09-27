@@ -13,11 +13,9 @@ import type {
   SessionSectionsInfo,
   TurnsResponse,
 } from "@tracepilot/types";
-import { createDefaultConfig } from "@tracepilot/types";
-
 import type { GitInfo, UpdateCheckResult } from "../generated/bindings.js";
-
 import type { ContextSnippet, FtsHealthInfo } from "../search.js";
+import { mockConfigCommand } from "./mockConfig.js";
 
 const MOCK_EVENTS_MTIME = 1_735_728_400_000;
 
@@ -243,6 +241,8 @@ export { getMocks };
  * Extracted from the original `packages/client/src/index.ts`.
  */
 export async function getMockData<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (["get_config", "save_config", "update_config"].includes(cmd))
+    return mockConfigCommand(cmd, args) as T;
   const mocks = await getMocks();
   const mockSessionId = typeof args?.sessionId === "string" ? args.sessionId : "mock-id";
 
@@ -368,16 +368,6 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_tool_analysis: mocks.MOCK_TOOL_ANALYSIS,
     get_code_impact: mocks.MOCK_CODE_IMPACT,
     check_config_exists: true,
-    get_config: createDefaultConfig({
-      paths: {
-        sessionStateDir: "~/.copilot/session-state",
-        indexDbPath: "~/.copilot/tracepilot/index.db",
-      },
-      general: {
-        setupComplete: true,
-      },
-    }),
-    save_config: undefined,
     validate_session_dir: { valid: true, sessionCount: 47, error: null },
     get_db_size: 44564480,
     get_session_count: 47,

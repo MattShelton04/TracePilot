@@ -43,8 +43,10 @@ pub fn copy_session_tree(source: &Path, destination: &Path) -> Result<(u64, u64)
         let path = entry.path();
         let metadata = fs::symlink_metadata(path)?;
         reject_unsafe_entry(path, &metadata)?;
-        let relative = path.strip_prefix(source).map_err(|_| {
-            OrchestratorError::ContextCapture("Session copy path escaped its source root.".into())
+        let relative = path.strip_prefix(source).map_err(|error| {
+            OrchestratorError::ContextCapture(format!(
+                "Session copy path escaped its source root: {error}"
+            ))
         })?;
         if relative.as_os_str().is_empty() || is_lock_file(relative) {
             continue;

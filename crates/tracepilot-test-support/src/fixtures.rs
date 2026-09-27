@@ -4,6 +4,9 @@
 //! These helpers used to be duplicated verbatim in both crates; extracting
 //! them here keeps the fixture strings in a single source of truth.
 
+// This module constructs test fixtures; an I/O failure must fail the test at setup.
+#![allow(clippy::expect_used)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 

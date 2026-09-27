@@ -24,6 +24,18 @@ pub struct DiscoveredSession {
 /// Called on every reindex. Scales linearly with session count (~1ms per 100 sessions).
 #[tracing::instrument(skip_all, fields(dir = %base_dir.display()))]
 pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
+    discover_sessions_cancellable(base_dir, &|| false)
+}
+
+/// Scan with cancellation between directory entries. An interrupted scan is
+/// an error, never a partial inventory that a caller might use to prune data.
+pub fn discover_sessions_cancellable(
+    base_dir: &Path,
+    is_cancelled: &impl Fn() -> bool,
+) -> Result<Vec<DiscoveredSession>> {
+    use crate::parsing::snapshot::check_cancelled;
+
+    check_cancelled(is_cancelled)?;
     let mut sessions = Vec::new();
 
     if !base_dir.exists() {
@@ -35,6 +47,7 @@ pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
     })?;
 
     for entry in entries {
+        check_cancelled(is_cancelled)?;
         let entry = entry?;
         let path = entry.path();
 
@@ -64,6 +77,7 @@ pub fn discover_sessions(base_dir: &Path) -> Result<Vec<DiscoveredSession>> {
     }
 
     sessions.sort_by(|a, b| a.id.cmp(&b.id));
+    check_cancelled(is_cancelled)?;
     Ok(sessions)
 }
 
@@ -193,6 +207,22 @@ pub fn resolve_session_path_in(session_id_prefix: &str, base_dir: &Path) -> Resu
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn cancelled_discovery_never_returns_a_partial_inventory() {
+        let tmp = tempfile::tempdir().unwrap();
+        for _ in 0..3 {
+            fs::create_dir(tmp.path().join(uuid::Uuid::new_v4().to_string())).unwrap();
+        }
+        let checks = std::cell::Cell::new(0);
+        let result = discover_sessions_cancellable(tmp.path(), &|| {
+            checks.set(checks.get() + 1);
+            checks.get() >= 3
+        });
+        assert!(result.is_err());
+        assert_eq!(checks.get(), 3);
+        assert_eq!(discover_sessions(tmp.path()).unwrap().len(), 3);
+    }
 
     #[test]
     fn test_discover_sessions_empty_dir() {

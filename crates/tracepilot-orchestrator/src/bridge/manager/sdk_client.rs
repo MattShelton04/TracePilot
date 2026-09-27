@@ -54,7 +54,9 @@ pub(crate) fn parse_cli_url(url: &str) -> Result<(String, u16), BridgeError> {
     if host.is_empty() {
         return Err(invalid("missing host"));
     }
-    let port: u16 = port.parse().map_err(|_| invalid("port must be 1-65535"))?;
+    let port: u16 = port
+        .parse()
+        .map_err(|error| invalid(&format!("port must be 1-65535: {error}")))?;
     if port == 0 {
         return Err(invalid("port must be 1-65535"));
     }
@@ -178,12 +180,59 @@ pub(crate) async fn start_client(
     config: &BridgeConnectConfig,
     copilot_home: Option<&Path>,
 ) -> Result<Client, BridgeError> {
+    if let Some(url) = &config.cli_url {
+        return start_external_client(url).await;
+    }
     let mut options = client_options(config, resolve_cli_program())?;
     use_copilot_home(&mut options, copilot_home);
     Client::start(options)
         .await
         .map_err(|e| BridgeError::ConnectionFailed(e.to_string()))
 }
+
+/// SDK 1.0.14 does not close an external transport when `Client::start` is
+/// dropped during its handshake. Own the client before awaiting that handshake
+/// so cancellation, deadlines, and handshake errors all close its I/O tasks.
+async fn start_external_client(url: &str) -> Result<Client, BridgeError> {
+    let (host, port) = parse_cli_url(url)?;
+    let stream = tokio::net::TcpStream::connect((host.as_str(), port))
+        .await
+        .map_err(|error| BridgeError::ConnectionFailed(error.to_string()))?;
+    let (reader, writer) = stream.into_split();
+    let cwd = std::env::current_dir().unwrap_or_else(|error| {
+        tracing::debug!(%error, "Cannot determine SDK client working directory");
+        PathBuf::from(".")
+    });
+    let client = Client::from_streams(reader, writer, cwd)
+        .map_err(|error| BridgeError::ConnectionFailed(error.to_string()))?;
+    let mut startup = ExternalStartupGuard {
+        client,
+        armed: true,
+    };
+    startup
+        .client
+        .verify_protocol_version()
+        .await
+        .map_err(|error| BridgeError::ConnectionFailed(error.to_string()))?;
+    startup.armed = false;
+    Ok(startup.client.clone())
+}
+
+struct ExternalStartupGuard {
+    client: Client,
+    armed: bool,
+}
+
+impl Drop for ExternalStartupGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            self.client.force_stop();
+        }
+    }
+}
+
+#[cfg(test)]
+mod startup_tests;
 
 #[cfg(test)]
 mod tests {

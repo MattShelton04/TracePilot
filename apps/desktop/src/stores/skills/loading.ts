@@ -1,10 +1,12 @@
 import { skillsGetSkill, skillsListAll } from "@tracepilot/client";
-import { runAction, runMutation } from "@tracepilot/ui";
+import { toErrorMessage } from "@tracepilot/types";
+import { runAction, useAsyncGuard } from "@tracepilot/ui";
 import type { SkillsContext } from "./context";
 
 export function createSkillsLoadingActions(context: SkillsContext) {
   const { skills, diagnostics, selectedSkill, loading, error, currentRepoRoot, loadGuard } =
     context;
+  const selectionGuard = useAsyncGuard();
 
   async function loadSkills(repoRoot?: string) {
     if (repoRoot !== undefined) {
@@ -28,13 +30,20 @@ export function createSkillsLoadingActions(context: SkillsContext) {
     });
   }
 
-  async function getSkill(dir: string) {
+  async function getSkill(dir: string, isCurrent = () => true) {
+    const token = selectionGuard.start();
+    const isValid = () => selectionGuard.isValid(token) && isCurrent();
     selectedSkill.value = null;
-    return runMutation(error, async () => {
+    error.value = null;
+    try {
       const skill = await skillsGetSkill(dir);
+      if (!isValid()) return null;
       selectedSkill.value = skill;
       return skill;
-    });
+    } catch (cause) {
+      if (isValid()) error.value = toErrorMessage(cause);
+      return null;
+    }
   }
 
   return {

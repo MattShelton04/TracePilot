@@ -9,6 +9,7 @@ param(
     [string]$StateDirectory = '',
     [switch]$SkipBuild,
     [ValidateRange(0, 65535)][int]$Port = 0,
+    [ValidateRange(0, 65535)][int]$UiPort = 0,
     [ValidateRange(1, 3600)][int]$TimeoutSeconds = 600
 )
 $ErrorActionPreference = 'Stop'
@@ -23,6 +24,9 @@ $session = "tracepilot-$Mode"
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 if ($Action -eq 'start' -and $SkipBuild -and $Runtime -ne 'production') {
     throw "-SkipBuild is valid only with -Runtime production."
+}
+if ($Action -eq 'start' -and $Runtime -eq 'production' -and $UiPort) {
+    throw '-UiPort is valid only with -Runtime development.'
 }
 if ($Action -eq 'start' -and $Executable) {
     if ($Mode -ne 'desktop' -or $Runtime -ne 'production' -or -not $SkipBuild -or -not $DataRoot) {
@@ -120,8 +124,9 @@ function Stop-OwnedProcesses($State) {
     }
 }
 
-function Get-FreePort([int]$First, [int]$Last) {
+function Get-FreePort([int]$First, [int]$Last, [int]$Exclude = 0) {
     for ($candidate = $First; $candidate -le $Last; $candidate++) {
+        if ($candidate -eq $Exclude) { continue }
         $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $candidate)
         try { $listener.Start(); return $candidate } catch { } finally { $listener.Stop() }
     }
@@ -214,6 +219,9 @@ try {
                 if ($state.runtime -ne $Runtime) {
                     throw "A healthy $Mode instance is tracked with different launch options (runtime=$($state.runtime)). Stop it before changing runtime."
                 }
+                if ($UiPort -and ([Uri]$state.url).Port -ne $UiPort) {
+                    throw "A healthy $Mode instance is tracked with different launch options (UI port=$(([Uri]$state.url).Port)). Stop it before changing UI port."
+                }
                 if ($Mode -eq 'desktop') {
                     $requestedDataRoot = Resolve-DataRoot $DataRoot
                     $endpointPort = ([Uri]$state.endpoint).Port
@@ -244,9 +252,11 @@ try {
         throw "Frontend-only UI mode supports only -Runtime development."
     }
 
-    $uiPort = if ($Runtime -eq 'development' -or $Mode -eq 'ui') { Get-FreePort 1420 1430 } else { 0 }
+    $uiPort = if ($Runtime -eq 'development' -or $Mode -eq 'ui') {
+        if ($UiPort) { Get-FreePort $UiPort $UiPort } else { Get-FreePort 1420 1430 }
+    } else { 0 }
     $cdpPort = if ($Mode -eq 'desktop') {
-        if ($Port) { Get-FreePort $Port $Port } else { Get-FreePort 9222 9232 }
+        if ($Port) { Get-FreePort $Port $Port $uiPort } else { Get-FreePort 9222 9232 $uiPort }
     } else { 0 }
     $resolvedDataRoot = if ($Mode -eq 'desktop') { Resolve-DataRoot $DataRoot } else { $null }
     $resolvedPaths = if ($resolvedDataRoot) { Get-ResolvedPaths $resolvedDataRoot } else { $null }

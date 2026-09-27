@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::defaults::{default_cost_per_premium_request, default_model_prices};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PricingConfig {
     #[serde(default = "default_cost_per_premium_request")]
@@ -25,13 +25,14 @@ impl Default for PricingConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelPriceEntry {
     pub model: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pricing_tier: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<f64>)]
     pub minimum_input_tokens: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,

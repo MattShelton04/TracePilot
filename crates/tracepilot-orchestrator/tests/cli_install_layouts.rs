@@ -1,3 +1,10 @@
+// Fixtures and diagnostic executables fail fast on invalid setup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
 //! Exercise real environment-driven resolution in subprocesses. Environment
 //! mutation in a parallel Rust test process is unsafe and makes fixtures depend
 //! on the developer's installed CLI, so each scenario owns its process and home.

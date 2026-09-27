@@ -135,7 +135,7 @@ pub fn launch_session(config: &LaunchConfig) -> Result<LaunchedSession> {
 /// Launch a Copilot SDK-owned headless session.
 pub async fn launch_sdk_session(
     config: &LaunchConfig,
-    bridge: &mut crate::bridge::BridgeManager,
+    bridge: &crate::bridge::manager::SharedBridgeManager,
 ) -> Result<LaunchedSession> {
     crate::launcher_sdk::launch_sdk_session(config, bridge).await
 }

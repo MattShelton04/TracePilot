@@ -11,6 +11,7 @@ mod content;
 mod maintenance;
 mod references;
 mod reindex;
+mod reindex_lifecycle;
 mod sessions;
 
 #[allow(unused_imports)]

@@ -179,8 +179,8 @@ pub fn read_copilot_config(copilot_home: &Path) -> Result<CopilotConfig> {
 ///   ensure `parse_error` is clear before invoking save.
 /// * Atomic via temp-file + rename.
 pub fn write_copilot_config(copilot_home: &Path, config: &serde_json::Value) -> Result<()> {
-    let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|_| {
-        OrchestratorError::Config("Copilot settings write lock was poisoned".into())
+    let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|error| {
+        OrchestratorError::Config(format!("Copilot settings write lock was poisoned: {error}"))
     })?;
     write_copilot_config_unlocked(copilot_home, config)
 }
@@ -251,8 +251,8 @@ fn update_settings_file(
     settings_path: &Path,
     mutate: impl FnOnce(&mut serde_json::Map<String, serde_json::Value>) -> Result<()>,
 ) -> Result<()> {
-    let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|_| {
-        OrchestratorError::Config("Copilot settings write lock was poisoned".into())
+    let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|error| {
+        OrchestratorError::Config(format!("Copilot settings write lock was poisoned: {error}"))
     })?;
     let mut root = match read_json_file(settings_path).map_err(OrchestratorError::Config)? {
         Some(serde_json::Value::Object(map)) => map,
@@ -274,10 +274,10 @@ pub fn set_local_skill_enabled(repo_root: &Path, name: &str, enabled: bool) -> R
     let path = repo_root.join(".github/copilot/settings.local.json");
     update_settings_file(&path, |root| {
         let mut disabled: Vec<String> = match root.get("disabledSkills") {
-            Some(value) => serde_json::from_value(value.clone()).map_err(|_| {
+            Some(value) => serde_json::from_value(value.clone()).map_err(|error| {
                 OrchestratorError::Config(format!(
-                    "Refusing to update {}: disabledSkills must be an array of strings",
-                    path.display()
+                    "Refusing to update {}: disabledSkills must be an array of strings: {error}",
+                    path.display(),
                 ))
             })?,
             None => Vec::new(),
@@ -295,8 +295,8 @@ pub fn set_local_skill_enabled(repo_root: &Path, name: &str, enabled: bool) -> R
 /// Add or remove one skill from the user-level `disabledSkills` setting.
 /// The read-modify-write is serialized and preserves all unrelated settings.
 pub fn set_skill_enabled(copilot_home: &Path, skill_name: &str, enabled: bool) -> Result<()> {
-    let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|_| {
-        OrchestratorError::Config("Copilot settings write lock was poisoned".into())
+    let _guard = SETTINGS_WRITE_LOCK.lock().map_err(|error| {
+        OrchestratorError::Config(format!("Copilot settings write lock was poisoned: {error}"))
     })?;
     let settings_path = CopilotPaths::from_home(copilot_home).settings_json();
     let settings = read_json_file(&settings_path).map_err(OrchestratorError::Config)?;

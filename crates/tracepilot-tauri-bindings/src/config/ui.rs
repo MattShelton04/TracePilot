@@ -7,7 +7,7 @@ use super::defaults::{
     default_theme, default_true, default_ui_scale,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UiConfig {
     #[serde(default = "default_theme")]

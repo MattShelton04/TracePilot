@@ -41,15 +41,18 @@ fn spawn_drop_guard_task() -> (tokio::task::JoinHandle<()>, Arc<AtomicBool>) {
 
 #[tokio::test]
 async fn unlink_session_awaits_forwarder_abort_via_drop_guard() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let sid = "sess-drop-guard".to_string();
 
     let (handle, flag) = spawn_drop_guard_task();
-    mgr.event_tasks.insert(sid.clone(), handle);
+    mgr.write().await.event_tasks.insert(sid.clone(), handle);
     let (session, _fake) = fake_session(&sid).await;
-    mgr.sessions.insert(sid.clone(), session);
-    mgr.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
-    assert!(mgr.get_session_state(&sid).is_some());
+    mgr.write().await.sessions.insert(sid.clone(), session);
+    mgr.read()
+        .await
+        .mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
+    assert!(mgr.read().await.get_session_state(&sid).is_some());
 
     mgr.unlink_session(&sid).await;
 
@@ -58,38 +61,43 @@ async fn unlink_session_awaits_forwarder_abort_via_drop_guard() {
         "forwarder task drop-guard did not fire — abort was not awaited"
     );
     assert!(
-        mgr.get_session_state(&sid).is_none(),
+        mgr.read().await.get_session_state(&sid).is_none(),
         "live-state slot must be removed after unlink"
     );
 }
 
 #[tokio::test]
 async fn unlinked_session_slot_is_not_resurrected_by_teardown_mark() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let sid = "sess-stale".to_string();
 
     let (handle, _flag) = spawn_drop_guard_task();
-    mgr.event_tasks.insert(sid.clone(), handle);
+    mgr.write().await.event_tasks.insert(sid.clone(), handle);
     let (session, _fake) = fake_session(&sid).await;
-    mgr.sessions.insert(sid.clone(), session);
-    mgr.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
+    mgr.write().await.sessions.insert(sid.clone(), session);
+    mgr.read()
+        .await
+        .mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
 
     mgr.unlink_session(&sid).await;
-    assert!(mgr.get_session_state(&sid).is_none());
+    assert!(mgr.read().await.get_session_state(&sid).is_none());
 
     // The contract for teardown paths: `mark_existing` must NEVER resurrect
     // a removed slot. (`apply_event` is allowed to re-create on first touch
     // per DEEP-01 invariant 6, but invariant 1 — abort+await before remove —
     // ensures no real forwarder can call it after unlink.)
-    let resurrected = mgr
-        .live_state
-        .mark_existing(&sid, SessionRuntimeStatus::Shutdown, None);
+    let resurrected =
+        mgr.read()
+            .await
+            .live_state
+            .mark_existing(&sid, SessionRuntimeStatus::Shutdown, None);
     assert!(
         resurrected.is_none(),
         "mark_existing must return None for a removed session — never resurrect"
     );
     assert!(
-        mgr.get_session_state(&sid).is_none(),
+        mgr.read().await.get_session_state(&sid).is_none(),
         "slot must remain absent after a teardown-path mark_existing call"
     );
 
@@ -105,30 +113,39 @@ async fn unlinked_session_slot_is_not_resurrected_by_teardown_mark() {
         ephemeral: false,
         data: serde_json::json!({}),
     };
-    mgr.live_state.apply_event(&event);
-    assert!(mgr.get_session_state("fresh-session").is_some());
+    mgr.read().await.live_state.apply_event(&event);
+    assert!(
+        mgr.read()
+            .await
+            .get_session_state("fresh-session")
+            .is_some()
+    );
 }
 
 #[tokio::test]
 async fn disconnect_completes_promptly_and_clears_all_state() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let mut fakes: Vec<super::fake_cli::FakeCli> = Vec::new();
 
     for i in 0..2 {
         let sid = format!("sess-disc-{i}");
         let (handle, _flag) = spawn_drop_guard_task();
-        mgr.event_tasks.insert(sid.clone(), handle);
+        mgr.write().await.event_tasks.insert(sid.clone(), handle);
         let (session, fake) = fake_session(&sid).await;
         fakes.push(fake);
-        mgr.sessions.insert(sid.clone(), session);
-        mgr.mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
+        mgr.write().await.sessions.insert(sid.clone(), session);
+        mgr.read()
+            .await
+            .mark_live_session_status(&sid, SessionRuntimeStatus::Running, None);
     }
     assert_eq!(fakes.len(), 2);
-    assert_eq!(mgr.event_tasks.len(), 2);
-    assert_eq!(mgr.sessions.len(), 2);
-    assert_eq!(mgr.list_session_states().len(), 2);
+    assert_eq!(mgr.read().await.event_tasks.len(), 2);
+    assert_eq!(mgr.read().await.sessions.len(), 2);
+    assert_eq!(mgr.read().await.list_session_states().len(), 2);
 
-    let result = tokio::time::timeout(std::time::Duration::from_secs(1), mgr.disconnect()).await;
+    let result =
+        tokio::time::timeout(std::time::Duration::from_secs(1), mgr.disconnect(false)).await;
 
     assert!(
         result.is_ok(),
@@ -136,13 +153,22 @@ async fn disconnect_completes_promptly_and_clears_all_state() {
     );
     result.unwrap().expect("disconnect must report Ok");
 
-    assert!(mgr.event_tasks.is_empty(), "event_tasks must be drained");
-    assert!(mgr.sessions.is_empty(), "sessions must be drained");
     assert!(
-        mgr.list_session_states().is_empty(),
+        mgr.read().await.event_tasks.is_empty(),
+        "event_tasks must be drained"
+    );
+    assert!(
+        mgr.read().await.sessions.is_empty(),
+        "sessions must be drained"
+    );
+    assert!(
+        mgr.read().await.list_session_states().is_empty(),
         "live-state must be cleared on disconnect"
     );
-    assert_eq!(mgr.connection_state(), BridgeConnectionState::Disconnected);
+    assert_eq!(
+        mgr.read().await.connection_state(),
+        BridgeConnectionState::Disconnected
+    );
     for fake in &fakes {
         assert_eq!(
             fake.methods(),

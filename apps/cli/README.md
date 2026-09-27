@@ -8,8 +8,8 @@ backend. Useful for quick terminal lookups, scripting, and CI.
 ```
 tracepilot list                    # List recent sessions
 tracepilot show <session-id>       # Show session details, turns, metrics
-tracepilot search <query>          # FTS search across indexed sessions
-tracepilot index                   # Build / refresh the local search index
+tracepilot search <query>          # Scan session metadata and event text
+tracepilot index                   # Unsupported; exits nonzero with guidance
 tracepilot resume <session-id>     # Print the resume command for a session
 tracepilot versions                # Show Copilot CLI version history
 tracepilot versions report --from 1.0.24 --to 1.0.40 --output docs\reports\versions\report.md
@@ -27,12 +27,14 @@ Run `tracepilot <command> --help` for per-command flags.
 
 ## Workspace dependencies
 
-- `@tracepilot/types` — shared DTO types.
+- `@tracepilot/types` — shared DTOs and event coverage list, bundled into the built CLI.
 
 Runtime deps are kept minimal: `commander`, `chalk`, `better-sqlite3`, and
-`yaml`. The CLI reads Copilot session files directly and queries the same
-SQLite index the desktop app uses (see ADR
-[0003 — SQLite WAL, per-feature databases](../../docs/adr/0003-sqlite-wal-per-feature-databases.md)).
+`yaml`. The CLI reads Copilot session files directly. `search` scans each
+session's `workspace.yaml` and `events.jsonl`, returning at most one hit per
+session. It does not query the desktop SQLite index. The `index` command is
+reserved for future integration and exits with status 1; rebuild the index in
+TracePilot desktop.
 
 ## Layout
 
@@ -51,4 +53,5 @@ pnpm --filter @tracepilot/cli dev -- list
 pnpm --filter @tracepilot/cli dev -- show c86fe369
 pnpm --filter @tracepilot/cli test
 pnpm --filter @tracepilot/cli build          # emits dist/ for the npm bin
+node apps/cli/dist/index.js --help           # smoke-test the built entry
 ```

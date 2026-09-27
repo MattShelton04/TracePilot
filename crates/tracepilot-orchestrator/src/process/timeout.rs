@@ -76,17 +76,17 @@ pub(super) fn execute_with_timeout(
     std::thread::spawn(move || {
         let result = child_for_thread
             .lock()
-            .map_err(|_| OrchestratorError::Launch("mutex poisoned".into()))
+            .map_err(|error| OrchestratorError::Launch(format!("mutex poisoned: {error}")))
             .and_then(|mut c| {
                 c.wait()
                     .map_err(|e| OrchestratorError::launch_ctx("wait failed", e))
             })
             .and_then(|status| {
-                let stdout = stdout_rx.recv().map_err(|_| {
-                    OrchestratorError::Launch("stdout reader thread disconnected".into())
+                let stdout = stdout_rx.recv().map_err(|error| {
+                    OrchestratorError::Launch(format!("stdout reader thread disconnected: {error}"))
                 })??;
-                let stderr = stderr_rx.recv().map_err(|_| {
-                    OrchestratorError::Launch("stderr reader thread disconnected".into())
+                let stderr = stderr_rx.recv().map_err(|error| {
+                    OrchestratorError::Launch(format!("stderr reader thread disconnected: {error}"))
                 })??;
                 Ok((stdout, stderr, status))
             });

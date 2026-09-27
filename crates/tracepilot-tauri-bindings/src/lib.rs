@@ -1,3 +1,5 @@
+// Assertions in tests should fail immediately on invalid fixtures.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! tracepilot-tauri-bindings: Tauri IPC command handlers.
 //!
 //! Thin async wrappers over tracepilot-core/indexer APIs, organised by domain:
@@ -39,6 +41,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("tracepilot")
         .setup(|app, _api| {
             app.manage(Arc::new(IndexingSemaphores::new()));
+            app.manage(config::ConfigCoordinator::default());
             let session_cache_size = app
                 .state::<crate::config::SharedConfig>()
                 .read()
@@ -74,7 +77,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             let (bridge_manager, _bridge_rx, _bridge_status_rx) =
                 tracepilot_orchestrator::bridge::BridgeManager::new();
             let shared_bridge: SharedBridgeManager =
-                Arc::new(tokio::sync::RwLock::new(bridge_manager));
+                SharedBridgeManager::new(bridge_manager);
 
             // Runtime preference guard (ADR-0007): wire the bridge manager to
             // read the user's `FeaturesConfig.copilot_sdk` toggle so start
@@ -241,6 +244,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::config_cmds::check_config_exists,
             commands::config_cmds::get_config,
             commands::config_cmds::save_config,
+            commands::config_cmds::update_config,
             commands::config_cmds::validate_session_dir,
             commands::config_cmds::factory_reset,
             commands::config_cmds::get_agent_definitions,

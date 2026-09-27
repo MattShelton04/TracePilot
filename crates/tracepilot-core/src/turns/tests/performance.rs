@@ -1,3 +1,5 @@
+// These opt-in performance tests report measurements for developers.
+#![allow(clippy::print_stderr)]
 //! Performance regression tests.
 //!
 //! Tests marked with #[ignore] that measure performance characteristics.

@@ -82,13 +82,13 @@ pub(super) fn query_prompt_cache(
         .map(|(kind, count)| PrefixChangeCount { kind, count })
         .collect();
     // Stable sort keeps the alphabetical order for ties.
-    top.sort_by(|a, b| b.count.cmp(&a.count));
+    top.sort_by_key(|entry| std::cmp::Reverse(entry.count));
     analytics.top_change_kinds = top;
     let mut by_model: Vec<ModelTokens> = resent_by_model
         .into_iter()
         .map(|(model, tokens)| ModelTokens { model, tokens })
         .collect();
-    by_model.sort_by(|a, b| b.tokens.cmp(&a.tokens));
+    by_model.sort_by_key(|entry| std::cmp::Reverse(entry.tokens));
     analytics.resent_prefix_tokens_by_model = by_model;
 
     analytics.observed_ttls = query_observed_ttls(conn, Some((where_clause, bind_values)))?;

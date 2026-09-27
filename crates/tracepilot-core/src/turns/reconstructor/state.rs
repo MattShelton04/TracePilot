@@ -104,7 +104,7 @@ impl TurnReconstructor {
         &mut self,
         timestamp: Option<DateTime<Utc>>,
     ) -> &mut ConversationTurn {
-        if self.current_turn.is_none() {
+        self.current_turn.get_or_insert_with(|| {
             let mut turn = new_turn(self.turns.len(), timestamp, None, None, None, None);
             // Inherit session model, same as UserMessage does
             turn.model = self.session_model.clone();
@@ -113,11 +113,8 @@ impl TurnReconstructor {
             // Flush any system messages that arrived before this turn
             turn.system_messages
                 .append(&mut self.pending_system_messages);
-            self.current_turn = Some(turn);
-        }
-        self.current_turn
-            .as_mut()
-            .expect("BUG: current_turn is None after ensure logic set it to Some")
+            turn
+        })
     }
 
     pub(crate) fn finalize_current_turn(

@@ -47,6 +47,7 @@ export const IPC_COMMANDS = [
   "check_config_exists",
   "get_config",
   "save_config",
+  "update_config",
   "validate_session_dir",
   "get_db_size",
   "get_session_count",

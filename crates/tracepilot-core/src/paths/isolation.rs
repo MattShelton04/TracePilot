@@ -109,13 +109,17 @@ fn path_has_root_prefix(root: &Path, candidate: &Path) -> bool {
 fn path_has_root_prefix(root: &Path, candidate: &Path) -> bool {
     let root = root
         .to_string_lossy()
-        .trim_end_matches(['\\', '/'])
+        .replace('/', "\\")
+        .trim_end_matches('\\')
         .to_lowercase();
-    let candidate = candidate.to_string_lossy().to_lowercase();
+    let candidate = candidate
+        .to_string_lossy()
+        .replace('/', "\\")
+        .to_lowercase();
     candidate == root
         || candidate
             .strip_prefix(&root)
-            .is_some_and(|suffix| suffix.starts_with('\\') || suffix.starts_with('/'))
+            .is_some_and(|suffix| suffix.starts_with('\\'))
 }
 
 fn metadata_is_redirect(metadata: &std::fs::Metadata) -> bool {
@@ -204,6 +208,25 @@ mod tests {
             Path::new("relative/index.db")
         ));
         assert!(!path_is_within_data_root(root, &escaped));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn path_boundary_accepts_mixed_windows_separators_but_rejects_siblings() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("maintainability-live");
+        std::fs::create_dir_all(&root).unwrap();
+        let slash_root = root.to_string_lossy().replace('\\', "/");
+        let mixed_candidate =
+            PathBuf::from(format!(r"{slash_root}/copilot-relocated\session-state"));
+        let sibling = PathBuf::from(format!("{slash_root}-sibling/copilot-relocated"));
+
+        assert!(path_is_within_data_root(&root, &mixed_candidate));
+        assert!(path_is_within_data_root(
+            Path::new(&slash_root),
+            &root.join("copilot-relocated")
+        ));
+        assert!(!path_is_within_data_root(&root, &sibling));
     }
 
     #[test]

@@ -13,6 +13,7 @@ import {
   watch,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useSkillAssetPreview } from "@/composables/definitionEditor/useSkillAssetPreview";
 import { useUnsavedChangesGuard } from "@/composables/definitionEditor/useUnsavedChangesGuard";
 import { browseForFile } from "@/composables/useBrowseDirectory";
 import { ROUTE_NAMES } from "@/config/routes";
@@ -44,8 +45,18 @@ export function useSkillEditor() {
   const assetsLoading = ref(false);
   const editorDirty = ref(false);
   const lastSaved = ref<Date | null>(null);
-  const viewingAsset = ref<SkillAsset | null>(null);
-  const viewingContent = ref<string | null>(null);
+
+  const definitionGuard = useAsyncGuard();
+  const assetsGuard = useAsyncGuard();
+  let disposed = false;
+  let draftVersion = 0;
+  watch(
+    rawContent,
+    () => {
+      draftVersion++;
+    },
+    { flush: "sync" },
+  );
 
   const previewFrontmatter = ref<SkillFrontmatter | null>(null);
   const previewBody = ref("");
@@ -82,6 +93,8 @@ export function useSkillEditor() {
     const param = route.params.name;
     return typeof param === "string" ? decodeURIComponent(param) : "";
   });
+  const { viewingAsset, viewingContent, handleViewAsset, handlePreviewClick, closeAssetPreview } =
+    useSkillAssetPreview(skillDir, assets, store.readAsset);
   const isUsageOnly = computed(() => skillDir.value.startsWith("name:"));
   const skillName = computed(() =>
     isUsageOnly.value
@@ -138,17 +151,22 @@ export function useSkillEditor() {
 
   // ─── Lifecycle ────────────────────────────────────────────
   onMounted(async () => {
-    if (skillDir.value) await loadSkill();
-    if (store.skills.length === 0) store.loadSkills();
     document.addEventListener("keydown", handleKeydown);
+    if (skillDir.value) await loadSkill();
+    if (!disposed && store.skills.length === 0) store.loadSkills();
   });
 
   onUnmounted(() => {
     document.removeEventListener("keydown", handleKeydown);
+    disposed = true;
+    definitionGuard.invalidate();
+    assetsGuard.invalidate();
+    usageGuard.invalidate();
   });
 
-  watch(skillDir, async (dir) => {
-    if (dir) await loadSkill();
+  watch(skillDir, async () => {
+    lastSaved.value = null;
+    await loadSkill();
   });
 
   // The skill's own name identifies its usage; the directory does not,
@@ -175,6 +193,13 @@ export function useSkillEditor() {
   }
 
   async function loadSkill() {
+    if (disposed) return;
+    const token = definitionGuard.start();
+    const version = draftVersion;
+    assetsGuard.invalidate();
+    assets.value = [];
+    assetsLoading.value = false;
+    closeAssetPreview();
     if (isUsageOnly.value) {
       store.selectedSkill = null;
       store.clearError();
@@ -185,8 +210,10 @@ export function useSkillEditor() {
       return;
     }
     const directory = skillDir.value;
-    const skill = await store.getSkill(directory);
-    if (skill && skillDir.value === directory) {
+    if (!directory) return;
+    const isCurrent = () => definitionGuard.isValid(token) && skillDir.value === directory;
+    const skill = await store.getSkill(directory, isCurrent);
+    if (skill && isCurrent() && draftVersion === version) {
       rawContent.value = skill.rawContent;
       editorDirty.value = false;
       parseContent(skill.rawContent);
@@ -223,8 +250,12 @@ export function useSkillEditor() {
   }
 
   async function loadAssets() {
+    const token = assetsGuard.start();
+    const directory = skillDir.value;
     assetsLoading.value = true;
-    assets.value = await store.listAssets(skillDir.value);
+    const result = await store.listAssets(directory);
+    if (!assetsGuard.isValid(token) || skillDir.value !== directory) return;
+    assets.value = result;
     assetsLoading.value = false;
   }
 
@@ -277,30 +308,39 @@ export function useSkillEditor() {
 
   // ─── Actions ──────────────────────────────────────────────
   async function handleSave() {
-    if (isReadOnly.value) return;
+    if (isReadOnly.value || saving.value || disposed) return;
+    const directory = skillDir.value;
+    const version = draftVersion;
+    const token = definitionGuard.current();
     saving.value = true;
-    const ok = await store.updateSkillRaw(skillDir.value, rawContent.value);
-    if (ok) {
-      editorDirty.value = false;
+    try {
+      const ok = await store.updateSkillRaw(directory, rawContent.value);
+      if (!ok || !definitionGuard.isValid(token) || skillDir.value !== directory) return;
       lastSaved.value = new Date();
-      await loadSkill();
+      if (draftVersion === version) {
+        editorDirty.value = false;
+        await loadSkill();
+      }
+    } finally {
+      saving.value = false;
     }
-    saving.value = false;
   }
 
   async function handleDelete() {
     if (isReadOnly.value) return;
+    const directory = skillDir.value;
+    const token = definitionGuard.current();
     const { confirmed } = await showConfirm({
       title: "Delete Skill",
       message: "Delete this skill? This cannot be undone.",
       variant: "danger",
       confirmLabel: "Delete",
     });
-    if (!confirmed) return;
+    if (!confirmed || !definitionGuard.isValid(token)) return;
     deleting.value = true;
-    const ok = await store.deleteSkill(skillDir.value);
+    const ok = await store.deleteSkill(directory);
     deleting.value = false;
-    if (ok) {
+    if (ok && definitionGuard.isValid(token)) {
       editorDirty.value = false;
       pushRoute(router, ROUTE_NAMES.skillsManager);
     }
@@ -309,100 +349,50 @@ export function useSkillEditor() {
   async function handleDiscard() {
     if (isReadOnly.value) return;
     if (!editorDirty.value) return;
+    const token = definitionGuard.current();
     const { confirmed } = await showConfirm({
       title: "Discard Changes",
       message: "Discard all unsaved changes?",
       variant: "warning",
       confirmLabel: "Discard",
     });
-    if (!confirmed) return;
+    if (!confirmed || !definitionGuard.isValid(token)) return;
     loadSkill();
   }
 
   async function handleAddAsset() {
     if (isReadOnly.value) return;
+    const token = definitionGuard.current();
     const path = await browseForFile({
       title: "Select asset file to add",
       filters: [{ name: "All Files", extensions: ["*"] }],
     });
-    if (!path) return;
+    if (!path || !definitionGuard.isValid(token)) return;
     const name = path.split(/[\\/]/).pop() || path;
     const ok = await store.copyAssetFrom(skillDir.value, name, path);
-    if (ok) await loadAssets();
+    if (ok && definitionGuard.isValid(token)) await loadAssets();
   }
 
   async function handleNewFile(name: string) {
     if (isReadOnly.value) return;
     if (!name.trim()) return;
+    const token = definitionGuard.current();
     const ok = await store.addAsset(skillDir.value, name.trim(), []);
-    if (ok) await loadAssets();
+    if (ok && definitionGuard.isValid(token)) await loadAssets();
   }
 
   async function handleRemoveAsset(assetPath: string) {
     if (isReadOnly.value) return;
+    const token = definitionGuard.current();
     const { confirmed } = await showConfirm({
       title: "Remove Asset",
       message: `Remove asset "${assetPath}"?`,
       variant: "danger",
       confirmLabel: "Remove",
     });
-    if (!confirmed) return;
+    if (!confirmed || !definitionGuard.isValid(token)) return;
     const ok = await store.removeAsset(skillDir.value, assetPath);
-    if (ok) await loadAssets();
-  }
-
-  async function handleViewAsset(asset: SkillAsset) {
-    viewingAsset.value = asset;
-    viewingContent.value = null;
-    if (!asset.isDirectory) {
-      const content = await store.readAsset(skillDir.value, asset.path);
-      viewingContent.value = content;
-    }
-  }
-
-  /** Open a relative path referenced in the markdown preview as an asset popup. */
-  async function handlePreviewLinkClick(href: string) {
-    // Normalize: strip leading ./
-    const normalized = href.replace(/^\.\//, "");
-
-    // Find matching asset in the loaded assets list
-    const matchingAsset = assets.value.find((asset) => {
-      const path = asset.path.replace(/\\/g, "/");
-      return path === normalized || path.endsWith(`/${normalized}`) || asset.name === normalized;
-    });
-
-    if (matchingAsset) {
-      await handleViewAsset(matchingAsset);
-    } else {
-      // Asset not in the tree — try reading it directly as a relative path
-      viewingAsset.value = {
-        name: normalized.split("/").pop() ?? normalized,
-        path: normalized,
-        isDirectory: false,
-        sizeBytes: 0,
-      };
-      viewingContent.value = null;
-      const content = await store.readAsset(skillDir.value, normalized);
-      viewingContent.value = content;
-    }
-  }
-
-  /** Handle clicks in the preview markdown area for relative links (asset references). */
-  function handlePreviewClick(event: MouseEvent) {
-    const target = event.target as HTMLElement;
-    const anchor = target.closest("a");
-    if (!anchor) return;
-
-    const href = anchor.getAttribute("href");
-    if (!href) return;
-
-    // External/anchor links — handled by MarkdownContent's @open-external emit
-    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("#")) return;
-
-    // Relative links — open as asset preview
-    event.preventDefault();
-    event.stopPropagation();
-    handlePreviewLinkClick(href);
+    if (ok && definitionGuard.isValid(token)) await loadAssets();
   }
 
   function goBack() {
@@ -418,10 +408,6 @@ export function useSkillEditor() {
   // ─── Utilities ────────────────────────────────────────────
   function formatSize(bytes: number): string {
     return formatBytes(bytes);
-  }
-
-  function closeAssetPreview() {
-    viewingAsset.value = null;
   }
 
   return reactive({

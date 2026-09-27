@@ -52,22 +52,23 @@ fn spawn_abort_sentinel() -> (
 }
 #[tokio::test]
 async fn unlink_session_aborts_event_task_detaches_and_clears_maps() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let sid = "sess-unlink".to_string();
     let (session, fake) = fake_session(&sid).await;
 
     let (handle, rx) = spawn_abort_sentinel();
-    mgr.event_tasks.insert(sid.clone(), handle);
-    mgr.sessions.insert(sid.clone(), session);
+    mgr.write().await.event_tasks.insert(sid.clone(), handle);
+    mgr.write().await.sessions.insert(sid.clone(), session);
 
     mgr.unlink_session(&sid).await;
 
     assert!(
-        mgr.sessions.is_empty(),
+        mgr.read().await.sessions.is_empty(),
         "sessions map must be cleared after unlink"
     );
     assert!(
-        mgr.event_tasks.is_empty(),
+        mgr.read().await.event_tasks.is_empty(),
         "event_tasks map must be cleared after unlink"
     );
     assert_eq!(fake.methods(), vec!["session.detach".to_string()]);
@@ -86,19 +87,30 @@ async fn unlink_session_aborts_event_task_detaches_and_clears_maps() {
 }
 #[tokio::test]
 async fn unlink_session_is_noop_when_not_tracked() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
 
     // Insert an unrelated entry to prove nothing else is touched.
     let sid_other = "sess-other".to_string();
     let (session, fake) = fake_session(&sid_other).await;
     let (handle_other, mut rx_other) = spawn_abort_sentinel();
-    mgr.event_tasks.insert(sid_other.clone(), handle_other);
-    mgr.sessions.insert(sid_other.clone(), session);
+    mgr.write()
+        .await
+        .event_tasks
+        .insert(sid_other.clone(), handle_other);
+    mgr.write()
+        .await
+        .sessions
+        .insert(sid_other.clone(), session);
 
     mgr.unlink_session("sess-does-not-exist").await;
 
-    assert_eq!(mgr.sessions.len(), 1, "untracked unlink must not touch map");
-    assert_eq!(mgr.event_tasks.len(), 1);
+    assert_eq!(
+        mgr.read().await.sessions.len(),
+        1,
+        "untracked unlink must not touch map"
+    );
+    assert_eq!(mgr.read().await.event_tasks.len(), 1);
     assert!(fake.methods().is_empty(), "no SDK RPC for untracked unlink");
     // The unrelated task must still be alive (sender not dropped).
     let still_alive =
@@ -107,19 +119,20 @@ async fn unlink_session_is_noop_when_not_tracked() {
 }
 #[tokio::test]
 async fn destroy_session_detaches_without_writing_shutdown() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let sid = "sess-destroy".to_string();
     let (session, fake) = fake_session(&sid).await;
     let (handle, rx) = spawn_abort_sentinel();
-    mgr.event_tasks.insert(sid.clone(), handle);
-    mgr.sessions.insert(sid.clone(), session);
+    mgr.write().await.event_tasks.insert(sid.clone(), handle);
+    mgr.write().await.sessions.insert(sid.clone(), session);
 
     mgr.destroy_session(&sid)
         .await
         .expect("destroy should succeed");
 
-    assert!(mgr.sessions.is_empty());
-    assert!(mgr.event_tasks.is_empty());
+    assert!(mgr.read().await.sessions.is_empty());
+    assert!(mgr.read().await.event_tasks.is_empty());
     // ADR-0015: detaching releases the attachment; it must never drive a
     // destroy/shutdown RPC that would end the user's session.
     assert_eq!(fake.methods(), vec!["session.detach".to_string()]);
@@ -132,12 +145,17 @@ async fn destroy_session_detaches_without_writing_shutdown() {
 }
 #[tokio::test]
 async fn destroy_session_untracks_even_when_detach_fails() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let sid = "sess-detach-fails".to_string();
     let (session, fake) = fake_session(&sid).await;
     fake.fail("session.detach", "server went away");
-    mgr.sessions.insert(sid.clone(), session);
-    mgr.mark_live_session_status(&sid, crate::bridge::SessionRuntimeStatus::Running, None);
+    mgr.write().await.sessions.insert(sid.clone(), session);
+    mgr.read().await.mark_live_session_status(
+        &sid,
+        crate::bridge::SessionRuntimeStatus::Running,
+        None,
+    );
 
     let err = mgr
         .destroy_session(&sid)
@@ -145,29 +163,31 @@ async fn destroy_session_untracks_even_when_detach_fails() {
         .expect_err("detach failure must be reported");
 
     assert!(matches!(err, BridgeError::Sdk(ref m) if m.contains("server went away")));
-    assert!(mgr.sessions.is_empty());
-    assert!(mgr.get_session_state(&sid).is_none());
+    assert!(mgr.read().await.sessions.is_empty());
+    assert!(mgr.read().await.get_session_state(&sid).is_none());
 }
 #[tokio::test]
 async fn destroy_session_is_noop_when_not_tracked() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     // No entries inserted — destroy must silently succeed and not invoke SDK.
     mgr.destroy_session("sess-missing")
         .await
         .expect("destroy of unknown session must be Ok");
-    assert!(mgr.sessions.is_empty());
-    assert!(mgr.event_tasks.is_empty());
+    assert!(mgr.read().await.sessions.is_empty());
+    assert!(mgr.read().await.event_tasks.is_empty());
 }
 #[tokio::test]
 async fn resume_session_is_idempotent_when_already_tracked() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let sid = "sess-resume".to_string();
 
     // Pre-populate the tracked session; `client` stays `None`. The early
     // cached-return branch must fire before any `require_client()` call,
     // otherwise this test would produce `BridgeError::NotConnected`.
     let (session, fake) = fake_session(&sid).await;
-    mgr.sessions.insert(sid.clone(), session);
+    mgr.write().await.sessions.insert(sid.clone(), session);
 
     let info = mgr
         .resume_session(&sid, Some("/tmp/work"), Some("gpt-5"))
@@ -179,7 +199,7 @@ async fn resume_session_is_idempotent_when_already_tracked() {
     assert_eq!(info.working_directory.as_deref(), Some("/tmp/work"));
     assert_eq!(info.model.as_deref(), Some("gpt-5"));
     assert_eq!(
-        mgr.sessions.len(),
+        mgr.read().await.sessions.len(),
         1,
         "idempotent resume must not duplicate sessions"
     );
@@ -190,12 +210,15 @@ async fn resume_session_is_idempotent_when_already_tracked() {
 }
 #[tokio::test]
 async fn abort_session_drives_session_abort_rpc() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let sid = "sess-abort".to_string();
     let (session, fake) = fake_session(&sid).await;
-    mgr.sessions.insert(sid.clone(), session);
+    mgr.write().await.sessions.insert(sid.clone(), session);
 
-    mgr.abort_session(&sid)
+    mgr.read()
+        .await
+        .abort_session(&sid)
         .await
         .expect("abort_session should succeed against the fake peer");
 
@@ -208,7 +231,10 @@ async fn abort_session_drives_session_abort_rpc() {
 #[tokio::test]
 async fn abort_session_unknown_id_returns_session_not_found() {
     let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let err = mgr
+        .read()
+        .await
         .abort_session("sess-missing")
         .await
         .expect_err("abort of unknown session must error");

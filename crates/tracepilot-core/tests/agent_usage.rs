@@ -1,3 +1,10 @@
+// Fixtures and diagnostic executables fail fast on invalid setup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
 use serde_json::{Value, json};
 use std::io::Write;
 use tracepilot_core::parsing::events::{extract_combined_shutdown_data, parse_typed_events};

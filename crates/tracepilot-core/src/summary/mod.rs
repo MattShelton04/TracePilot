@@ -6,6 +6,7 @@
 mod artifacts;
 mod enrichment;
 mod loader;
+mod snapshot;
 #[cfg(test)]
 mod tests;
 mod types;
@@ -14,4 +15,5 @@ mod workspace;
 pub use loader::{
     load_session_summary, load_session_summary_from_events, load_session_summary_with_events,
 };
+pub use snapshot::{SessionFingerprint, load_session_snapshot};
 pub use types::SessionLoadResult;

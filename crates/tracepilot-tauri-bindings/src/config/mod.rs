@@ -28,12 +28,14 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 mod alerts;
+mod coordination;
 mod defaults;
 mod features;
 mod general;
 mod isolation;
 mod live;
 mod logging;
+mod patch;
 mod paths;
 mod performance;
 mod pricing;
@@ -46,10 +48,12 @@ mod persistence_tests;
 mod tests;
 
 pub use alerts::AlertsConfig;
+pub use coordination::ConfigCoordinator;
 pub use features::FeaturesConfig;
 pub use general::GeneralConfig;
 pub use live::LiveConfig;
 pub use logging::LoggingConfig;
+pub use patch::TracePilotConfigPatch;
 pub use paths::PathsConfig;
 pub use performance::{
     DEFAULT_SESSION_CACHE_SIZE, MAX_SESSION_CACHE_SIZE, MIN_SESSION_CACHE_SIZE, PerformanceConfig,
@@ -75,7 +79,7 @@ pub(crate) fn config_backup_file_path(path: &Path) -> PathBuf {
 /// match the TypeScript `TracePilotConfig` type.  The TOML file on disk will
 /// also use camelCase keys — this is intentional so a single struct serves both
 /// serialization targets without a separate DTO layer.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct TracePilotConfig {
     pub version: u32,
@@ -318,7 +322,7 @@ impl TracePilotConfig {
                 let backup_path = config_backup_file_path(path);
                 Self::load_from(&backup_path)
                     .map(|config| (config, true))
-                    .map_err(|_| primary_error)
+                    .map_err(|_backup_error| primary_error)
             }
         }
     }

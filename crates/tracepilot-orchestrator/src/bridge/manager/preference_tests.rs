@@ -10,9 +10,10 @@ use crate::bridge::{
 
 #[tokio::test]
 async fn connect_disabled_by_preference_returns_error() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let reader: CopilotSdkEnabledReader = std::sync::Arc::new(|| false);
-    mgr.set_preference_reader(reader);
+    mgr.write().await.set_preference_reader(reader);
 
     let result = mgr
         .connect(BridgeConnectConfig {
@@ -28,18 +29,19 @@ async fn connect_disabled_by_preference_returns_error() {
     );
 
     // Status must reflect the preference state.
-    let status = mgr.status();
+    let status = mgr.read().await.status();
     assert!(!status.enabled_by_preference);
     assert!(status.sdk_available);
 }
 
 #[tokio::test]
 async fn create_session_disabled_by_preference_has_no_side_effects() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let reader: CopilotSdkEnabledReader = std::sync::Arc::new(|| false);
-    mgr.set_preference_reader(reader);
+    mgr.write().await.set_preference_reader(reader);
 
-    let before = mgr.sessions.len();
+    let before = mgr.read().await.sessions.len();
     let result = mgr
         .create_session(BridgeSessionConfig {
             model: None,
@@ -54,7 +56,7 @@ async fn create_session_disabled_by_preference_has_no_side_effects() {
         "expected DisabledByPreference, got {result:?}"
     );
     assert_eq!(
-        mgr.sessions.len(),
+        mgr.read().await.sessions.len(),
         before,
         "pref-gated create_session must not mutate session map"
     );
@@ -64,9 +66,10 @@ async fn create_session_disabled_by_preference_has_no_side_effects() {
 async fn create_session_enabled_by_preference_proceeds_to_require_client() {
     // With reader=true and no client connected, the guard must *not* fire —
     // we should hit `require_client` and surface NotConnected instead.
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let reader: CopilotSdkEnabledReader = std::sync::Arc::new(|| true);
-    mgr.set_preference_reader(reader);
+    mgr.write().await.set_preference_reader(reader);
 
     let result = mgr
         .create_session(BridgeSessionConfig {
@@ -88,13 +91,14 @@ async fn resume_session_cached_bypasses_preference_guard() {
     // A session already tracked before the user toggled the pref off must
     // remain resolvable by `resume_session` — the cached-return branch runs
     // before the preference check.
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let reader: CopilotSdkEnabledReader = std::sync::Arc::new(|| false);
-    mgr.set_preference_reader(reader);
+    mgr.write().await.set_preference_reader(reader);
 
     let sid = "sess-prior".to_string();
     let (session, _fake) = fake_session(&sid).await;
-    mgr.sessions.insert(sid.clone(), session);
+    mgr.write().await.sessions.insert(sid.clone(), session);
 
     let info = mgr
         .resume_session(&sid, Some("/work"), Some("gpt-5"))
@@ -106,9 +110,10 @@ async fn resume_session_cached_bypasses_preference_guard() {
 
 #[tokio::test]
 async fn resume_session_fresh_disabled_by_preference_returns_error() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let reader: CopilotSdkEnabledReader = std::sync::Arc::new(|| false);
-    mgr.set_preference_reader(reader);
+    mgr.write().await.set_preference_reader(reader);
 
     let result = mgr
         .resume_session("sess-new", Some("/work"), Some("gpt-5"))

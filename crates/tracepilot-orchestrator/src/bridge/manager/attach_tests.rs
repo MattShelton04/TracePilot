@@ -29,7 +29,8 @@ fn host(session_id: &str, state: LiveHostState, address: Option<&str>) -> LiveSe
 
 #[tokio::test]
 async fn attach_resumes_as_observer_on_the_hosting_endpoint() {
-    let (mut mgr, _events, fake) = manager_with_endpoint();
+    let (mgr, _events, fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
 
     let info = mgr
         .attach_session("tui-session", ADDRESS)
@@ -42,13 +43,19 @@ async fn attach_resumes_as_observer_on_the_hosting_endpoint() {
     assert_eq!(params["requestPermission"], false);
     assert!(params.get("workingDirectory").is_none());
     assert!(params.get("model").is_none());
-    assert_eq!(mgr.attached_session_ids(), vec!["tui-session".to_string()]);
     assert_eq!(
-        mgr.get_session_state("tui-session").map(|s| s.status),
+        mgr.read().await.attached_session_ids(),
+        vec!["tui-session".to_string()]
+    );
+    assert_eq!(
+        mgr.read()
+            .await
+            .get_session_state("tui-session")
+            .map(|s| s.status),
         Some(SessionRuntimeStatus::Idle)
     );
     // Renderer hydration must keep the session identified as live.
-    let hydrated = mgr.hydrate().sessions;
+    let hydrated = mgr.read().await.hydrate().sessions;
     assert!(
         hydrated
             .iter()
@@ -58,7 +65,8 @@ async fn attach_resumes_as_observer_on_the_hosting_endpoint() {
 
 #[tokio::test]
 async fn attach_waits_for_a_terminal_that_is_still_loading_the_session() {
-    let (mut mgr, _events, fake) = manager_with_endpoint();
+    let (mgr, _events, fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
     // A freshly started terminal serves its port before the session loads.
     fake.fail_times("session.resume", "Session not found: tui-session", 2);
 
@@ -75,18 +83,20 @@ async fn attach_waits_for_a_terminal_that_is_still_loading_the_session() {
 
 #[tokio::test]
 async fn attach_does_not_retry_other_resume_failures() {
-    let (mut mgr, _events, fake) = manager_with_endpoint();
+    let (mgr, _events, fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
     fake.fail("session.resume", "boom");
 
     assert!(mgr.attach_session("tui-session", ADDRESS).await.is_err());
 
     assert_eq!(fake.methods(), vec!["session.resume".to_string()]);
-    assert!(mgr.endpoints.is_empty());
+    assert!(mgr.read().await.endpoints.is_empty());
 }
 
 #[tokio::test]
 async fn attach_is_idempotent_and_never_resumes_twice() {
-    let (mut mgr, _events, fake) = manager_with_endpoint();
+    let (mgr, _events, fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
     mgr.attach_session("tui-session", ADDRESS).await.unwrap();
     fake.clear_calls();
 
@@ -102,8 +112,9 @@ async fn attach_is_idempotent_and_never_resumes_twice() {
 
 #[tokio::test]
 async fn attach_respects_the_preference_guard() {
-    let (mut mgr, _events, fake) = manager_with_endpoint();
-    mgr.set_preference_reader(Arc::new(|| false));
+    let (mgr, _events, fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
+    mgr.write().await.set_preference_reader(Arc::new(|| false));
 
     let err = mgr
         .attach_session("tui-session", ADDRESS)
@@ -116,20 +127,24 @@ async fn attach_respects_the_preference_guard() {
 
 #[tokio::test]
 async fn detaching_the_last_session_closes_the_endpoint_client() {
-    let (mut mgr, _events, fake) = manager_with_endpoint();
+    let (mgr, _events, fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
     mgr.attach_session("a", ADDRESS).await.unwrap();
     mgr.attach_session("b", ADDRESS).await.unwrap();
 
     mgr.unlink_session("a").await;
     assert!(
-        mgr.endpoints.contains_key(ADDRESS),
+        mgr.read().await.endpoints.contains_key(ADDRESS),
         "endpoint still serves b"
     );
-    assert_eq!(mgr.attached_session_ids(), vec!["b".to_string()]);
+    assert_eq!(
+        mgr.read().await.attached_session_ids(),
+        vec!["b".to_string()]
+    );
 
     mgr.destroy_session("b").await.unwrap();
-    assert!(mgr.endpoints.is_empty());
-    assert!(mgr.attached_session_ids().is_empty());
+    assert!(mgr.read().await.endpoints.is_empty());
+    assert!(mgr.read().await.attached_session_ids().is_empty());
     let detached: Vec<_> = fake
         .methods()
         .into_iter()
@@ -140,7 +155,8 @@ async fn detaching_the_last_session_closes_the_endpoint_client() {
 
 #[tokio::test]
 async fn detach_is_bounded_when_the_terminal_died() {
-    let (mut mgr, _events, fake) = manager_with_endpoint();
+    let (mgr, _events, fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
     mgr.attach_session("s", ADDRESS).await.unwrap();
     // A closed or Ctrl+C'd terminal never answers the detach request.
     fake.stall("session.detach");
@@ -149,96 +165,110 @@ async fn detach_is_bounded_when_the_terminal_died() {
         .await
         .expect("detach must not wedge the manager");
 
-    assert!(!mgr.is_tracked("s"));
-    assert!(mgr.attached_session_ids().is_empty());
-    assert!(mgr.endpoints.is_empty());
-    assert!(mgr.get_session_state("s").is_none());
+    assert!(!mgr.read().await.is_tracked("s"));
+    assert!(mgr.read().await.attached_session_ids().is_empty());
+    assert!(mgr.read().await.endpoints.is_empty());
+    assert!(mgr.read().await.get_session_state("s").is_none());
 }
 
 #[tokio::test]
 async fn disconnecting_the_bridge_can_keep_terminal_attachments() {
-    let (mut mgr, _events, _fake) = manager_with_endpoint();
+    let (mgr, _events, _fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
     mgr.attach_session("s", ADDRESS).await.unwrap();
 
-    mgr.disconnect_keep_live().await.unwrap();
-    assert!(mgr.is_tracked("s"));
-    assert!(mgr.endpoints.contains_key(ADDRESS));
-    assert!(mgr.get_session_state("s").is_some());
+    mgr.disconnect(true).await.unwrap();
+    assert!(mgr.read().await.is_tracked("s"));
+    assert!(mgr.read().await.endpoints.contains_key(ADDRESS));
+    assert!(mgr.read().await.get_session_state("s").is_some());
 
-    mgr.disconnect().await.unwrap();
-    assert!(!mgr.is_tracked("s"));
-    assert!(mgr.endpoints.is_empty());
+    mgr.disconnect(false).await.unwrap();
+    assert!(!mgr.read().await.is_tracked("s"));
+    assert!(mgr.read().await.endpoints.is_empty());
 }
 
 #[tokio::test]
 async fn reconcile_drops_attachments_whose_host_went_away() {
-    let (mut mgr, _events, _fake) = manager_with_endpoint();
-    let mut states = mgr.subscribe_session_state();
+    let (mgr, _events, _fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
+    let mut states = mgr.read().await.subscribe_session_state();
     mgr.attach_session("still-live", ADDRESS).await.unwrap();
     mgr.attach_session("gone", ADDRESS).await.unwrap();
     while states.try_recv().is_ok() {}
 
     let dropped = mgr
-        .reconcile_attachments(&[
-            host("still-live", LiveHostState::Attachable, Some(ADDRESS)),
-            host("gone", LiveHostState::Idle, None),
-            host("never-attached", LiveHostState::Running, None),
-        ])
+        .reconcile_attachments(
+            &[
+                host("still-live", LiveHostState::Attachable, Some(ADDRESS)),
+                host("gone", LiveHostState::Idle, None),
+                host("never-attached", LiveHostState::Running, None),
+            ],
+            mgr.attachment_snapshot().await,
+        )
         .await;
 
     assert_eq!(dropped, vec!["gone".to_string()]);
-    assert_eq!(mgr.attached_session_ids(), vec!["still-live".to_string()]);
-    assert!(mgr.endpoints.contains_key(ADDRESS));
+    assert_eq!(
+        mgr.read().await.attached_session_ids(),
+        vec!["still-live".to_string()]
+    );
+    assert!(mgr.read().await.endpoints.contains_key(ADDRESS));
     let terminal = states.try_recv().expect("terminal snapshot for gone");
     assert_eq!(terminal.session_id, "gone");
     assert_eq!(terminal.status, SessionRuntimeStatus::Shutdown);
     assert_eq!(terminal.last_error.as_deref(), Some(HOST_GONE_MESSAGE));
-    assert!(mgr.get_session_state("gone").is_none());
+    assert!(mgr.read().await.get_session_state("gone").is_none());
 }
 
 #[tokio::test]
 async fn reconcile_drops_attachment_when_the_session_moved_endpoint() {
-    let (mut mgr, _events, _fake) = manager_with_endpoint();
+    let (mgr, _events, _fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
     mgr.attach_session("s", ADDRESS).await.unwrap();
 
     let dropped = mgr
-        .reconcile_attachments(&[host(
-            "s",
-            LiveHostState::Attachable,
-            Some("127.0.0.1:60000"),
-        )])
+        .reconcile_attachments(
+            &[host(
+                "s",
+                LiveHostState::Attachable,
+                Some("127.0.0.1:60000"),
+            )],
+            mgr.attachment_snapshot().await,
+        )
         .await;
 
     assert_eq!(dropped, vec!["s".to_string()]);
-    assert!(mgr.endpoints.is_empty());
+    assert!(mgr.read().await.endpoints.is_empty());
 }
 
 #[tokio::test]
 async fn stale_attachments_names_only_attached_sessions_that_moved_or_ended() {
-    let (mut mgr, _events, _fake) = manager_with_endpoint();
+    let (mgr, _events, _fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
     mgr.attach_session("live", ADDRESS).await.unwrap();
     mgr.attach_session("gone", ADDRESS).await.unwrap();
 
-    let stale = mgr.stale_attachments(&[
+    let stale = mgr.read().await.stale_attachments(&[
         host("live", LiveHostState::Attachable, Some(ADDRESS)),
         host("gone", LiveHostState::Idle, None),
         host("never-attached", LiveHostState::Idle, None),
     ]);
 
     assert_eq!(stale, vec!["gone".to_string()]);
-    assert!(!mgr.has_finished_sessions());
+    assert!(!mgr.read().await.has_finished_sessions());
 }
 
 #[tokio::test]
 async fn mark_attached_flags_tracked_sessions() {
-    let (mut mgr, _events, _fake) = manager_with_endpoint();
+    let (mgr, _events, _fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
     mgr.attach_session("s", ADDRESS).await.unwrap();
     let mut hosts = vec![
         host("s", LiveHostState::Attachable, Some(ADDRESS)),
         host("other", LiveHostState::Attachable, Some(ADDRESS)),
     ];
 
-    mgr.mark_attached(&mut hosts);
+    mgr.read().await.mark_attached(&mut hosts);
 
     assert!(hosts[0].attached);
     assert!(!hosts[1].attached);
@@ -246,8 +276,9 @@ async fn mark_attached_flags_tracked_sessions() {
 
 #[tokio::test]
 async fn forwarder_coalesces_streaming_snapshots_and_trims_diagnostics() {
-    let (mut mgr, mut events, fake) = manager_with_endpoint();
-    let mut states = mgr.subscribe_session_state();
+    let (mgr, mut events, fake) = manager_with_endpoint();
+    let mgr = super::SharedBridgeManager::new(mgr);
+    let mut states = mgr.read().await.subscribe_session_state();
     mgr.attach_session("s", ADDRESS).await.unwrap();
     while states.try_recv().is_ok() {}
 

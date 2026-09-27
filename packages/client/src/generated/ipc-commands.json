@@ -181,5 +181,6 @@
   "skills_usage_summary",
   "toggle_repo_favourite",
   "unlock_worktree",
+  "update_config",
   "validate_session_dir"
 ]

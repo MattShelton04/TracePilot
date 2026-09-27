@@ -39,6 +39,7 @@ zip = { version = "4", default-features = false, features = ["deflate-flate2-zli
 specta = { workspace = true, features = ["derive"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 specta-typescript = { workspace = true }
+specta-serde = { workspace = true }
 
 [dev-dependencies]
 rusqlite = { workspace = true }
@@ -51,3 +52,6 @@ tracing-subscriber = { workspace = true }
 # so the `gen-bindings` codegen binary can load `comctl32.dll` imports
 # dragged in by the `tauri`/`wry` dep graph. No-op on non-Windows.
 embed-manifest = "1"
+
+[lints]
+workspace = true

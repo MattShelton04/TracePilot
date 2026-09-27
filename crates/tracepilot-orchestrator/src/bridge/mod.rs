@@ -54,6 +54,9 @@ pub enum BridgeError {
     #[error("SDK error: {0}")]
     Sdk(String),
 
+    #[error("SDK request cancelled because its connection or session was closed")]
+    Cancelled,
+
     #[error("Timeout: {0}")]
     Timeout(String),
     /// The session is held by a Copilot CLI process TracePilot cannot join

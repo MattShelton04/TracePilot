@@ -3,7 +3,7 @@ import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilo
 import { useCachedFetch } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
-import { safeListen } from "@/utils/tauriEvents";
+import { useScopedEventListener } from "@/composables/useScopedEventListener";
 import { usePreferencesStore } from "./preferences";
 import { useSessionsStore } from "./sessions";
 
@@ -153,7 +153,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   watch(
     () => prefs.hideEmptySessions,
     () => {
-      for (const f of allFetchers) f.clearCache();
+      for (const f of allFetchers) f.invalidate();
     },
   );
 
@@ -162,15 +162,10 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   // analytics pages refetch once, instead of showing stale (or, right after
   // first-run indexing, partial) numbers until the filters change.
   const dataRevision = ref(0);
-  let indexListenerStarted = false;
-  async function watchIndexUpdates() {
-    if (indexListenerStarted) return;
-    indexListenerStarted = true;
-    await safeListen(IPC_EVENTS.INDEXING_FINISHED, () => {
-      for (const f of allFetchers) f.clearCache();
-      dataRevision.value += 1;
-    });
-  }
+  const watchIndexUpdates = useScopedEventListener(IPC_EVENTS.INDEXING_FINISHED, () => {
+    for (const f of allFetchers) f.invalidate();
+    dataRevision.value += 1;
+  });
 
   return {
     // State - use fetcher refs directly

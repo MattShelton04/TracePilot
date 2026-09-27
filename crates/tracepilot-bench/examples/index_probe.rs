@@ -1,3 +1,10 @@
+// Fixtures and diagnostic executables fail fast on invalid setup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
 //! Diagnostic probe for individual backend phases against an existing session
 //! directory. Sessions are only read; the index database path must be a
 //! scratch location owned by the caller.
@@ -9,12 +16,17 @@
 //! Modes: `phase1` (session index), `phase2` (search index), `phase2-stale <n>
 //! [small]` (incremental search pass after marking `n` sessions changed),
 //! `list-fallback`, `analytics-fallback`, `tool-fallback`, `code-fallback`
-//! (index-unavailable disk scans), `analytics-sql`.
+//! (index-unavailable disk scans), `analytics-sql`, `phase2-cancel` (request
+//! cancellation after 50 ms; fail above TRACEPILOT_CANCEL_BUDGET_MS, default 250).
 //!
-//! Prints one JSON line with the wall time and, on Linux, the process peak
-//! resident set size. Run one mode per process so peaks are attributable.
+//! Prints wall time and process peak resident set size on Windows and Linux.
+//! TRACEPILOT_MEMORY_BUDGET_MIB (default 1024) fails an over-budget run.
+//! Run one mode per process so peaks are attributable.
 //! Only public library APIs are used so CI can build this file against the
 //! base revision of a pull request (see `scripts/perf/probe-compare.mjs`).
+
+#[path = "index_probe/limits.rs"]
+mod limits;
 
 use std::path::Path;
 use std::time::Instant;
@@ -29,6 +41,7 @@ fn main() {
     let sessions = Path::new(&args[2]);
     let db = Path::new(&args[3]);
     let start = Instant::now();
+    let mut cancellation = None;
     let detail = match mode {
         "phase1" => {
             let (indexed, skipped) =
@@ -41,6 +54,16 @@ fn main() {
                     .expect("phase2");
             format!("indexed={indexed} skipped={skipped}")
         }
+        "phase2-cancel" => match limits::cancellation_probe(sessions, db) {
+            Ok(metrics) => {
+                cancellation = Some(metrics);
+                "cancelled search indexing".to_string()
+            }
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::exit(1);
+            }
+        },
         "phase2-stale" => {
             // Simulate N changed sessions on an already indexed database.
             let n: usize = args.get(4).and_then(|v| v.parse().ok()).unwrap_or(12);
@@ -125,20 +148,20 @@ fn main() {
             std::process::exit(2);
         }
     };
-    let peak = peak_rss_kib()
-        .map(|kib| kib.to_string())
-        .unwrap_or_else(|| "null".to_string());
+    let elapsed_ms = start.elapsed().as_millis();
+    let peak = limits::peak_rss_kib();
+    let memory_budget = match limits::enforce_memory_budget(peak) {
+        Ok(budget) => budget,
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+    };
     println!(
-        "{{\"mode\":\"{mode}\",\"elapsed_ms\":{},\"peak_rss_kib\":{peak},\"detail\":\"{detail}\"}}",
-        start.elapsed().as_millis()
+        "{}",
+        serde_json::json!({
+            "mode": mode, "elapsed_ms": elapsed_ms, "peak_rss_kib": peak,
+            "memory_budget_mib": memory_budget, "cancellation": cancellation, "detail": detail,
+        })
     );
-}
-
-/// Peak resident set size (VmHWM) on Linux; `None` elsewhere.
-fn peak_rss_kib() -> Option<u64> {
-    let status = std::fs::read_to_string("/proc/self/status").ok()?;
-    status
-        .lines()
-        .find_map(|line| line.strip_prefix("VmHWM:"))
-        .and_then(|value| value.trim().trim_end_matches("kB").trim().parse().ok())
 }

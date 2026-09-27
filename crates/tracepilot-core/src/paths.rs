@@ -212,6 +212,16 @@ impl TracePilotPaths {
         self.root.join(TRACEPILOT_CONTEXT_CAPTURES_DIR)
     }
 
+    /// Durable directory collections to retain when relocating the data root.
+    /// Scratch captures and logs are transient and deliberately excluded.
+    pub fn durable_directories(&self) -> [PathBuf; 3] {
+        [
+            self.backups_dir(),
+            self.templates_dir(),
+            self.context_captures_dir(),
+        ]
+    }
+
     pub fn context_capture_scratch_dir(&self) -> PathBuf {
         self.root.join(TRACEPILOT_CONTEXT_CAPTURE_SCRATCH_DIR)
     }

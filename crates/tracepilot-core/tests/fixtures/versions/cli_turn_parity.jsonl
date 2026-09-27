@@ -1,0 +1,12 @@
+{"type":"session.start","data":{"copilotVersion":"1.0.83","selectedModel":"gpt-5.6-luna"},"id":"event-0","timestamp":"2026-09-12T00:00:00Z","parentId":null}
+{"type":"user.message","data":{"turnId":"0","content":"Please inspect this."},"id":"event-1","timestamp":"2026-09-12T00:00:01Z","parentId":"event-0"}
+{"type":"assistant.turn_start","data":{"turnId":"0"},"id":"event-2","timestamp":"2026-09-12T00:00:02Z","parentId":"event-1"}
+{"type":"tool.execution_start","data":{"turnId":"0","model":"gpt-5.6-luna","toolCallId":"call-a","toolName":"view","arguments":{}},"id":"event-3","timestamp":"2026-09-12T00:00:03Z","parentId":"event-2"}
+{"type":"tool.execution_start","data":{"turnId":"0","model":"gpt-5.6-luna","toolCallId":"call-b","toolName":"view","arguments":{}},"id":"event-4","timestamp":"2026-09-12T00:00:04Z","parentId":"event-3"}
+{"type":"tool.execution_complete","data":{"turnId":"0","model":"gpt-5.6-luna","toolCallId":"call-a","success":false},"id":"event-5","timestamp":"2026-09-12T00:00:05Z","parentId":"event-4"}
+{"type":"tool.execution_complete","data":{"turnId":"0","model":"gpt-5.6-luna","toolCallId":"call-b","success":true},"id":"event-6","timestamp":"2026-09-12T00:00:06Z","parentId":"event-5"}
+{"type":"assistant.turn_end","data":{"turnId":"0"},"id":"event-7","timestamp":"2026-09-12T00:00:07Z","parentId":"event-6"}
+{"type":"user.message","data":{"turnId":"1","content":"Please inspect this."},"id":"event-8","timestamp":"2026-09-12T00:00:08Z","parentId":"event-7"}
+{"type":"assistant.turn_start","data":{"turnId":"1"},"id":"event-9","timestamp":"2026-09-12T00:00:09Z","parentId":"event-8"}
+{"type":"assistant.message","data":{"turnId":"1","model":"gpt-5.6-luna","content":"Done."},"id":"event-10","timestamp":"2026-09-12T00:00:10Z","parentId":"event-9"}
+{"type":"assistant.turn_end","data":{"turnId":"1"},"id":"event-11","timestamp":"2026-09-12T00:00:11Z","parentId":"event-10"}

@@ -1,13 +1,13 @@
 //! SDK/headless session launcher path.
 
-use crate::bridge::{BridgeManager, BridgeMessagePayload, BridgeSessionConfig};
+use crate::bridge::{BridgeMessagePayload, BridgeSessionConfig};
 use crate::error::{OrchestratorError, Result};
 use crate::types::{CreateWorktreeRequest, LaunchConfig, LaunchMode, LaunchedSession};
 use crate::{launcher, worktrees};
 
 pub(crate) async fn launch_sdk_session(
     config: &LaunchConfig,
-    bridge: &mut BridgeManager,
+    bridge: &crate::bridge::manager::SharedBridgeManager,
 ) -> Result<LaunchedSession> {
     let (work_dir, worktree_path) = prepare_sdk_workspace(config)?;
     let work_dir_string = work_dir.display().to_string();
@@ -37,21 +37,21 @@ pub(crate) async fn launch_sdk_session(
 }
 
 async fn send_initial_prompt_if_present(
-    bridge: &BridgeManager,
+    bridge: &crate::bridge::manager::SharedBridgeManager,
     session_id: &str,
     prompt: Option<&str>,
 ) -> Result<()> {
     let Some(prompt) = prompt.filter(|value| !value.trim().is_empty()) else {
         return Ok(());
     };
-    bridge
-        .send_message(
-            session_id,
-            BridgeMessagePayload {
-                prompt: prompt.to_string(),
-                mode: None,
-            },
-        )
+    let request = bridge.read().await.send_message(
+        session_id,
+        BridgeMessagePayload {
+            prompt: prompt.to_string(),
+            mode: None,
+        },
+    );
+    request
         .await
         .map(|_| ())
         .map_err(|e| OrchestratorError::launch_ctx("Copilot SDK initial prompt failed", e))

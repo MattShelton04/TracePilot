@@ -1,3 +1,10 @@
+// Fixtures and diagnostic executables fail fast on invalid setup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
 //! Micro-benchmark: SQLite multi-row INSERT batch size tuning.
 //!
 //! Two benches, reflecting the two real call sites:

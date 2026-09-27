@@ -1,4 +1,4 @@
-import { getConfig, saveConfig } from "@tracepilot/client";
+import { getConfig, updateConfig } from "@tracepilot/client";
 import { setupPinia } from "@tracepilot/test-utils";
 import { createDefaultConfig } from "@tracepilot/types";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
@@ -30,7 +30,7 @@ async function mountSettings(component: Component) {
   const store = usePreferencesStore();
   await store.whenReady;
   await vi.advanceTimersByTimeAsync(350);
-  vi.mocked(saveConfig).mockClear();
+  vi.mocked(updateConfig).mockClear();
   return { store, wrapper: mount(component) };
 }
 
@@ -44,12 +44,12 @@ describe("content width drafts", () => {
       expect(document.documentElement.style.getPropertyValue("--content-max-width")).toBe("1600px");
     }
     await vi.advanceTimersByTimeAsync(350);
-    expect(saveConfig).not.toHaveBeenCalled();
+    expect(updateConfig).not.toHaveBeenCalled();
     await input.trigger("blur");
     expect(store.contentMaxWidth).toBe(2560);
     expect(document.documentElement.style.getPropertyValue("--content-max-width")).toBe("2560px");
     await vi.advanceTimersByTimeAsync(350);
-    expect(vi.mocked(saveConfig).mock.lastCall?.[0].ui.contentMaxWidth).toBe(2560);
+    expect(vi.mocked(updateConfig).mock.lastCall?.[0].ui?.contentMaxWidth).toBe(2560);
   });
 
   it.each([
@@ -67,7 +67,7 @@ describe("content width drafts", () => {
     expect(store.contentMaxWidth).toBe(1600);
     expect(wrapper.get('[role="alert"]').text()).toContain("Previous width restored");
     await vi.advanceTimersByTimeAsync(350);
-    expect(saveConfig).not.toHaveBeenCalled();
+    expect(updateConfig).not.toHaveBeenCalled();
   });
 
   it("supports Enter, Escape, minimum width and the Full preset", async () => {
@@ -89,7 +89,7 @@ describe("content width drafts", () => {
     expect(wrapper.find("#settings-content-width").exists()).toBe(false);
     expect(document.documentElement.style.getPropertyValue("--content-max-width")).toBe("none");
     await vi.advanceTimersByTimeAsync(350);
-    expect(vi.mocked(saveConfig).mock.lastCall?.[0].ui.contentMaxWidth).toBe(0);
+    expect(vi.mocked(updateConfig).mock.lastCall?.[0].ui?.contentMaxWidth).toBe(0);
   });
 
   it("normalizes direct runtime writes before CSS and persistence", async () => {
@@ -99,7 +99,7 @@ describe("content width drafts", () => {
     await nextTick();
     expect(document.documentElement.style.getPropertyValue("--content-max-width")).toBe("400px");
     await vi.advanceTimersByTimeAsync(350);
-    expect(vi.mocked(saveConfig).mock.lastCall?.[0].ui.contentMaxWidth).toBe(400);
+    expect(vi.mocked(updateConfig).mock.lastCall?.[0].ui?.contentMaxWidth).toBe(400);
     store.contentMaxWidth = Number.NaN;
     expect(store.contentMaxWidth).toBe(1600);
   });
@@ -123,7 +123,7 @@ describe("pricing rate drafts", () => {
     await add.trigger("click");
     expect(store.modelWholesalePrices).toHaveLength(count);
     await vi.advanceTimersByTimeAsync(350);
-    expect(saveConfig).not.toHaveBeenCalled();
+    expect(updateConfig).not.toHaveBeenCalled();
   });
 
   it("accepts zero and small decimal custom rates", async () => {
@@ -153,26 +153,37 @@ describe("pricing rate drafts", () => {
       },
     ];
     await vi.advanceTimersByTimeAsync(350);
-    vi.mocked(saveConfig).mockClear();
+    vi.mocked(updateConfig).mockClear();
     const input = wrapper.get<HTMLInputElement>(
       '[aria-label="audit-edit-rate input price per 1M tokens"]',
     );
     for (const value of ["-1", "", "1e309"]) {
       await input.setValue(value);
       await input.trigger("blur");
-      expect(store.modelWholesalePrices[0].inputPerM).toBe(2);
+      expect(
+        store.modelWholesalePrices.find((price) => price.model === "audit-edit-rate")?.inputPerM,
+      ).toBe(2);
       expect(input.attributes("aria-invalid")).toBe("true");
       await vi.advanceTimersByTimeAsync(350);
-      expect(saveConfig).not.toHaveBeenCalled();
+      expect(updateConfig).not.toHaveBeenCalled();
     }
     await input.trigger("keydown", { key: "Escape" });
     expect(input.element.value).toBe("2");
     expect(input.attributes("aria-invalid")).toBe("false");
     await input.setValue("0.12345");
-    expect(store.modelWholesalePrices[0].inputPerM).toBe(2);
+    expect(
+      store.modelWholesalePrices.find((price) => price.model === "audit-edit-rate")?.inputPerM,
+    ).toBe(2);
     await input.trigger("keydown", { key: "Enter" });
-    expect(store.modelWholesalePrices[0].inputPerM).toBe(0.12345);
+    expect(
+      store.modelWholesalePrices.find((price) => price.model === "audit-edit-rate")?.inputPerM,
+    ).toBe(0.12345);
     await vi.advanceTimersByTimeAsync(350);
-    expect(vi.mocked(saveConfig).mock.lastCall?.[0].pricing.models[0].inputPerM).toBe(0.12345);
+    expect(
+      vi
+        .mocked(updateConfig)
+        .mock.lastCall?.[0].pricing?.models?.find((price) => price.model === "audit-edit-rate")
+        ?.inputPerM,
+    ).toBe(0.12345);
   });
 });

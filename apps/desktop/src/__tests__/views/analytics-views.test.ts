@@ -1,6 +1,9 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import AnalyticsDashboardView from "../../views/AnalyticsDashboardView.vue";
+import CodeImpactView from "../../views/CodeImpactView.vue";
+import ToolAnalysisView from "../../views/ToolAnalysisView.vue";
 import { FIXTURE_ANALYTICS, FIXTURE_CODE_IMPACT, FIXTURE_TOOL_ANALYSIS } from "./analyticsFixtures";
 
 // ── Mock client ───────────────────────────────────────────────
@@ -46,20 +49,19 @@ const globalStubs = {
   },
 };
 
-// ── Lazy-load view components so mocks are in place ───────────
+enableAutoUnmount(afterEach);
+
+// Hoisted mocks apply to static imports, keeping first import compilation outside test deadlines.
 async function loadAnalyticsDashboard() {
-  const mod = await import("../../views/AnalyticsDashboardView.vue");
-  return mod.default;
+  return AnalyticsDashboardView;
 }
 
 async function loadToolAnalysis() {
-  const mod = await import("../../views/ToolAnalysisView.vue");
-  return mod.default;
+  return ToolAnalysisView;
 }
 
 async function loadCodeImpact() {
-  const mod = await import("../../views/CodeImpactView.vue");
-  return mod.default;
+  return CodeImpactView;
 }
 
 // ── Tests ─────────────────────────────────────────────────────

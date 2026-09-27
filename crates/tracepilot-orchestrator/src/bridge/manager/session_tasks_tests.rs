@@ -16,14 +16,18 @@ fn launcher_config() -> BridgeSessionConfig {
 
 #[tokio::test]
 async fn track_created_session_records_runtime_handle_only() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
-    mgr.connection_mode = Some(ConnectionMode::Stdio);
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
+    mgr.write().await.connection_mode = Some(ConnectionMode::Stdio);
     let (session, _fake) = fake_session("launcher-session").await;
 
-    let info = mgr.track_created_session(session, launcher_config());
+    let info = mgr
+        .write()
+        .await
+        .track_created_session(session, launcher_config());
 
     assert_eq!(info.session_id, "launcher-session");
-    assert_eq!(mgr.sessions.len(), 1);
+    assert_eq!(mgr.read().await.sessions.len(), 1);
     assert_eq!(info.working_directory.as_deref(), Some("C:\\repo"));
     assert_eq!(info.model.as_deref(), Some("gpt-5.4"));
 }
@@ -31,9 +35,10 @@ async fn track_created_session_records_runtime_handle_only() {
 #[tokio::test]
 async fn create_launcher_session_sends_config_and_permission_policy() {
     for auto_approve in [false, true] {
-        let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+        let (mgr, _rx, _status_rx) = BridgeManager::new();
+        let mgr = super::SharedBridgeManager::new(mgr);
         let (client, fake) = FakeCli::start();
-        mgr.client = Some(client);
+        mgr.write().await.client = Some(client);
 
         let info = mgr
             .create_launcher_session(launcher_config(), auto_approve)
@@ -56,15 +61,16 @@ async fn create_launcher_session_sends_config_and_permission_policy() {
             params["requestPermission"], auto_approve,
             "auto_approve={auto_approve}"
         );
-        assert!(mgr.sessions.contains_key(&info.session_id));
+        assert!(mgr.read().await.sessions.contains_key(&info.session_id));
     }
 }
 
 #[tokio::test]
 async fn resume_session_joins_as_observer_and_forwards_events() {
-    let (mut mgr, mut events_rx, _status_rx) = BridgeManager::new();
+    let (mgr, mut events_rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let (client, fake) = FakeCli::start();
-    mgr.client = Some(client);
+    mgr.write().await.client = Some(client);
 
     let info = mgr
         .resume_session("live-session", Some("C:\\repo"), None)
@@ -113,16 +119,17 @@ async fn resume_session_joins_as_observer_and_forwards_events() {
     assert!(event.ephemeral);
     // Official SDK payloads are already flat JSON — no unwrapping needed.
     assert_eq!(event.data["partialOutput"], "tick 1\n");
-    assert_eq!(mgr.metrics_snapshot().events_forwarded, 1);
-    assert!(mgr.get_session_state("live-session").is_some());
+    assert_eq!(mgr.read().await.metrics_snapshot().events_forwarded, 1);
+    assert!(mgr.read().await.get_session_state("live-session").is_some());
 }
 
 #[tokio::test]
 async fn resume_session_in_tcp_mode_sets_foreground() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let (client, fake) = FakeCli::start();
-    mgr.client = Some(client);
-    mgr.connection_mode = Some(ConnectionMode::Tcp);
+    mgr.write().await.client = Some(client);
+    mgr.write().await.connection_mode = Some(ConnectionMode::Tcp);
 
     mgr.resume_session("tui-session", None, None)
         .await
@@ -136,9 +143,13 @@ async fn resume_session_in_tcp_mode_sets_foreground() {
 
 #[tokio::test]
 async fn send_message_returns_message_id_and_maps_delivery_mode() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let (session, fake) = fake_session("launcher-session").await;
-    mgr.sessions.insert("launcher-session".to_string(), session);
+    mgr.write()
+        .await
+        .sessions
+        .insert("launcher-session".to_string(), session);
 
     for (mode, expected) in [
         (None, None),
@@ -147,6 +158,8 @@ async fn send_message_returns_message_id_and_maps_delivery_mode() {
         (Some("autopilot"), None),
     ] {
         let message_id = mgr
+            .read()
+            .await
             .send_message(
                 "launcher-session",
                 BridgeMessagePayload {
@@ -171,11 +184,17 @@ async fn send_message_returns_message_id_and_maps_delivery_mode() {
 
 #[tokio::test]
 async fn set_session_mode_uses_mode_set_rpc() {
-    let (mut mgr, _rx, _status_rx) = BridgeManager::new();
+    let (mgr, _rx, _status_rx) = BridgeManager::new();
+    let mgr = super::SharedBridgeManager::new(mgr);
     let (session, fake) = fake_session("mode-session").await;
-    mgr.sessions.insert("mode-session".to_string(), session);
+    mgr.write()
+        .await
+        .sessions
+        .insert("mode-session".to_string(), session);
 
-    mgr.set_session_mode("mode-session", BridgeSessionMode::Plan)
+    mgr.read()
+        .await
+        .set_session_mode("mode-session", BridgeSessionMode::Plan)
         .await
         .expect("mode set against fake peer");
 
@@ -187,13 +206,20 @@ async fn set_session_mode_uses_mode_set_rpc() {
 #[tokio::test]
 async fn set_session_model_uses_camel_case_switch_to_in_every_mode() {
     for mode in [ConnectionMode::Stdio, ConnectionMode::Tcp] {
-        let (mut mgr, _rx, _status_rx) = BridgeManager::new();
-        mgr.connection_mode = Some(mode);
-        mgr.cli_url = (mode == ConnectionMode::Tcp).then(|| "127.0.0.1:1".to_string());
+        let (mgr, _rx, _status_rx) = BridgeManager::new();
+        let mgr = super::SharedBridgeManager::new(mgr);
+        mgr.write().await.connection_mode = Some(mode);
+        mgr.write().await.cli_url =
+            (mode == ConnectionMode::Tcp).then(|| "127.0.0.1:1".to_string());
         let (session, fake) = fake_session("model-session").await;
-        mgr.sessions.insert("model-session".to_string(), session);
+        mgr.write()
+            .await
+            .sessions
+            .insert("model-session".to_string(), session);
 
-        mgr.set_session_model("model-session", "gpt-5.4", Some("high".to_string()))
+        mgr.read()
+            .await
+            .set_session_model("model-session", "gpt-5.4", Some("high".to_string()))
             .await
             .expect("model switch against fake peer");
 

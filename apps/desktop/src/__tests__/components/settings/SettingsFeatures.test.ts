@@ -29,9 +29,10 @@ function tooltipTexts(wrapper: ReturnType<typeof mount>): string[] {
 }
 
 describe("settings feature groups", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
     localStorage.clear();
+    await usePreferencesStore().whenReady;
   });
 
   it("shows recommended and experimental features in the requested order", async () => {
@@ -85,9 +86,10 @@ describe("settings feature groups", () => {
 });
 
 describe("recent sessions setting", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
     localStorage.clear();
+    await usePreferencesStore().whenReady;
   });
 
   it("keeps the empty-session explanation in sync with the switch", async () => {
@@ -140,9 +142,10 @@ describe("recent sessions setting", () => {
 });
 
 describe("rich tool rendering settings", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
     localStorage.clear();
+    await usePreferencesStore().whenReady;
   });
 
   it("keeps per-tool overrides collapsed until requested", async () => {

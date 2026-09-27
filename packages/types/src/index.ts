@@ -44,6 +44,7 @@ export type {
   ModelPriceEntry,
   ReleaseManifestEntry,
   TracePilotConfig,
+  TracePilotConfigPatch,
 } from "./config.js";
 export type {
   BenchmarkPreflight,

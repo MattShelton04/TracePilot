@@ -110,7 +110,7 @@ pub fn list_captures(
             }
         }
     }
-    summaries.sort_by(|left, right| right.captured_at.cmp(&left.captured_at));
+    summaries.sort_by_key(|summary| std::cmp::Reverse(summary.captured_at));
     Ok(summaries)
 }
 
@@ -125,8 +125,8 @@ pub fn get_capture(
         TracePilotPaths::from_root(tracepilot_home).context_capture_dir(session_id, capture_id);
     reject_symlink(&capture_dir)?;
     let request_bytes = fs::read(capture_dir.join(REQUEST_FILE))?;
-    let raw_body = String::from_utf8(request_bytes).map_err(|_| {
-        OrchestratorError::ContextCapture("Saved request.json is not valid UTF-8.".into())
+    let raw_body = String::from_utf8(request_bytes).map_err(|error| {
+        OrchestratorError::ContextCapture(format!("Saved request.json is not valid UTF-8: {error}"))
     })?;
     let mut metadata: serde_json::Value =
         serde_json::from_slice(&fs::read(capture_dir.join(MANIFEST_FILE))?)?;
@@ -244,8 +244,8 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
 }
 
 fn validate_uuid(value: &str, kind: &str) -> Result<()> {
-    uuid::Uuid::parse_str(value).map_err(|_| {
-        OrchestratorError::ContextCapture(format!("Invalid {kind} ID for capture storage."))
+    uuid::Uuid::parse_str(value).map_err(|error| {
+        OrchestratorError::ContextCapture(format!("Invalid {kind} ID for capture storage: {error}"))
     })?;
     Ok(())
 }

@@ -2,7 +2,9 @@
 
 use crate::blocking_cmd;
 use crate::concurrency::IndexingSemaphores;
-use crate::config::{self, SharedConfig, TracePilotConfig};
+use crate::config::{
+    self, ConfigCoordinator, SharedConfig, TracePilotConfig, TracePilotConfigPatch,
+};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, validate_path_within, validate_write_path_within};
 use crate::services;
@@ -45,6 +47,7 @@ pub async fn check_config_exists() -> CmdResult<bool> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_config(state: tauri::State<'_, SharedConfig>) -> CmdResult<TracePilotConfig> {
     Ok(read_config(&state))
 }
@@ -53,15 +56,43 @@ pub async fn get_config(state: tauri::State<'_, SharedConfig>) -> CmdResult<Trac
 #[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn save_config(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
     turn_cache: tauri::State<'_, TurnCache>,
     event_cache: tauri::State<'_, EventCache>,
     config: TracePilotConfig,
 ) -> CmdResult<()> {
     let cache_size = config::clamp_session_cache_size(config.performance.session_cache_size);
-    services::config::save_config(&state, std::sync::Arc::clone(&*gates), config).await?;
+    services::config::save_config(&state, std::sync::Arc::clone(&*gates), &coordinator, config)
+        .await?;
     resize_session_caches(&turn_cache, &event_cache, cache_size);
     Ok(())
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err)]
+#[specta::specta]
+pub async fn update_config(
+    state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
+    gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
+    turn_cache: tauri::State<'_, TurnCache>,
+    event_cache: tauri::State<'_, EventCache>,
+    patch: TracePilotConfigPatch,
+) -> CmdResult<TracePilotConfig> {
+    let config = services::config::update_config(
+        &state,
+        std::sync::Arc::clone(&*gates),
+        &coordinator,
+        patch,
+    )
+    .await?;
+    resize_session_caches(
+        &turn_cache,
+        &event_cache,
+        config.performance.session_cache_size,
+    );
+    Ok(config)
 }
 
 #[tauri::command]
@@ -102,11 +133,12 @@ pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirR
 #[specta::specta]
 pub async fn factory_reset(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
     turn_cache: tauri::State<'_, TurnCache>,
     event_cache: tauri::State<'_, EventCache>,
 ) -> CmdResult<()> {
-    services::config::factory_reset(&state, &gates).await?;
+    services::config::factory_reset(&state, &gates, &coordinator).await?;
     clear_session_caches(&turn_cache, &event_cache);
     resize_session_caches(
         &turn_cache,
@@ -200,11 +232,14 @@ pub async fn save_copilot_config(
 #[tauri::command]
 pub async fn create_config_backup(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     file_path: String,
     label: String,
 ) -> CmdResult<tracepilot_orchestrator::BackupEntry> {
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
     blocking_cmd!({
+        let _root_lease = root_lease;
         let home = cfg.copilot_home();
         let validated = validate_path_within(&file_path, &home)?;
         let backup_dir = agent_backup_dir(&cfg);
@@ -253,10 +288,13 @@ pub async fn restore_config_backup(
 #[tauri::command]
 pub async fn delete_config_backup(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     backup_path: String,
 ) -> CmdResult<()> {
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
     blocking_cmd!({
+        let _root_lease = root_lease;
         let backup_dir = agent_backup_dir(&cfg);
         let validated = validate_path_within(&backup_path, &backup_dir)?;
         Ok::<_, crate::error::BindingsError>(
@@ -361,6 +399,7 @@ pub async fn get_migration_diffs(
 #[tauri::command]
 pub async fn migrate_agent_definition(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     file_name: String,
     from_version: String,
     to_version: String,
@@ -368,15 +407,18 @@ pub async fn migrate_agent_definition(
     crate::validators::validate_path_segment(&file_name, "file_name")?;
     crate::validators::validate_path_segment(&from_version, "from_version")?;
     crate::validators::validate_path_segment(&to_version, "to_version")?;
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
     blocking_cmd!({
+        let _root_lease = root_lease;
         let home = cfg.copilot_home();
         Ok::<_, crate::error::BindingsError>(
-            tracepilot_orchestrator::version_manager::migrate_agent(
+            tracepilot_orchestrator::version_manager::migrate_agent_with_backup_dir(
                 &home,
                 &file_name,
                 &from_version,
                 &to_version,
+                &agent_backup_dir(&cfg),
             )?,
         )
     })
@@ -395,51 +437,60 @@ pub async fn list_session_templates(
 #[tauri::command]
 pub async fn save_session_template(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     template: tracepilot_orchestrator::SessionTemplate,
 ) -> CmdResult<()> {
     crate::validators::validate_template_id(&template.id)?;
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
-    blocking_cmd!(tracepilot_orchestrator::templates::save_template_in(
-        &cfg.tracepilot_home(),
-        &template,
-    ))
+    blocking_cmd!({
+        let _root_lease = root_lease;
+        tracepilot_orchestrator::templates::save_template_in(&cfg.tracepilot_home(), &template)
+    })
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn delete_session_template(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     id: String,
 ) -> CmdResult<()> {
     crate::validators::validate_template_id(&id)?;
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
-    blocking_cmd!(tracepilot_orchestrator::templates::delete_template_in(
-        &cfg.tracepilot_home(),
-        &id
-    ))
+    blocking_cmd!({
+        let _root_lease = root_lease;
+        tracepilot_orchestrator::templates::delete_template_in(&cfg.tracepilot_home(), &id)
+    })
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn restore_default_templates(state: tauri::State<'_, SharedConfig>) -> CmdResult<()> {
+pub async fn restore_default_templates(
+    state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
+) -> CmdResult<()> {
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
-    blocking_cmd!(
-        tracepilot_orchestrator::templates::restore_all_default_templates_in(
-            &cfg.tracepilot_home()
-        )
-    )
+    blocking_cmd!({
+        let _root_lease = root_lease;
+        tracepilot_orchestrator::templates::restore_all_default_templates_in(&cfg.tracepilot_home())
+    })
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn increment_template_usage(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     id: String,
 ) -> CmdResult<()> {
     crate::validators::validate_template_id(&id)?;
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
-    blocking_cmd!(tracepilot_orchestrator::templates::increment_usage_in(
-        &cfg.tracepilot_home(),
-        &id
-    ))
+    blocking_cmd!({
+        let _root_lease = root_lease;
+        tracepilot_orchestrator::templates::increment_usage_in(&cfg.tracepilot_home(), &id)
+    })
 }

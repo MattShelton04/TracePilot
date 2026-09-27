@@ -3,7 +3,7 @@
 // sessions. Non-SDK sessions are left to the regular session UI rather than a
 // background polling path.
 
-import { onScopeDispose, watch } from "vue";
+import { getCurrentScope, onScopeDispose, watch } from "vue";
 import type { Router } from "vue-router";
 import {
   checkSdkBridgeMetricsAlerts,
@@ -17,16 +17,21 @@ import { logInfo } from "@/utils/logger";
 // ── Composable entry point ───────────────────────────────────────
 
 /**
- * Start the alert watcher. Call once in App.vue (main window only).
+ * Start the alert watcher once in the main window, inside an active effect scope.
  * @param router — Pass the Router captured during synchronous setup.
  *   `useRouter()` cannot be called here because this runs after `await`
  *   in `onMounted`, where Vue's component instance is no longer active.
- * Automatically cleans up on scope disposal.
+ * Delayed callers must re-enter a scope captured during synchronous setup.
+ * The scope owns all watches and clears their baseline state on disposal.
  */
 export function useAlertWatcher(router: Router) {
+  if (!getCurrentScope()) {
+    throw new Error("useAlertWatcher requires an active effect scope");
+  }
   const sdkStore = useSdkStore();
   const prefs = usePreferencesStore();
   const store = useAlertWatcherStore();
+  onScopeDispose(() => store.$reset());
 
   logInfo(
     `[alert-watcher] Initializing SDK-only alerts — alertsEnabled=${prefs.alertsEnabled}, scope=${prefs.alertsScope}`,
@@ -34,7 +39,7 @@ export function useAlertWatcher(router: Router) {
 
   store.setCapturedRoute(router.currentRoute.value);
   // Keep capturedRoute in sync reactively
-  const stopRouteWatch = watch(
+  watch(
     () => router.currentRoute.value,
     (r) => {
       store.setCapturedRoute(r);
@@ -43,7 +48,7 @@ export function useAlertWatcher(router: Router) {
 
   checkSdkSessionStateAlerts(sdkStore.sessionStatesById, { baselineOnly: true });
 
-  const stopSdkSessionWatch = watch(
+  watch(
     () => [sdkStore.sessionStatesById, sdkStore.sessions, prefs.alertsScope] as const,
     ([statesById]) => {
       checkSdkSessionStateAlerts(statesById);
@@ -51,7 +56,7 @@ export function useAlertWatcher(router: Router) {
     { deep: false },
   );
 
-  const stopSdkMetricsWatch = watch(
+  watch(
     () => sdkStore.bridgeMetrics,
     (metrics) => {
       checkSdkBridgeMetricsAlerts(metrics);
@@ -59,7 +64,7 @@ export function useAlertWatcher(router: Router) {
     { deep: false },
   );
 
-  const stopPrefsWatch = watch(
+  watch(
     () => [
       prefs.alertsEnabled,
       prefs.alertsOnAskUser,
@@ -71,13 +76,4 @@ export function useAlertWatcher(router: Router) {
       checkSdkBridgeMetricsAlerts(sdkStore.bridgeMetrics);
     },
   );
-
-  // Cleanup
-  onScopeDispose(() => {
-    stopRouteWatch();
-    stopSdkSessionWatch();
-    stopSdkMetricsWatch();
-    stopPrefsWatch();
-    store.$reset();
-  });
 }

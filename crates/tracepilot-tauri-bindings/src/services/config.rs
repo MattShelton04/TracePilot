@@ -10,81 +10,139 @@ use std::sync::Arc;
 use tokio::sync::OwnedSemaphorePermit;
 
 use crate::concurrency::IndexingSemaphores;
-use crate::config::{self, SharedConfig, TracePilotConfig};
+use crate::config::{
+    self, ConfigCoordinator, SharedConfig, TracePilotConfig, TracePilotConfigPatch,
+};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{mutex_poisoned, read_config, remove_index_db_files};
 
-/// Service-layer alias for [`crate::helpers::remove_index_db_files`]. Speaks
-/// the verb the docs/refactor brief uses; behaviour is identical.
+/// Remove index database files through the shared filesystem helper.
 pub(crate) fn delete_index_db_files(path: &std::path::Path) -> Result<(), BindingsError> {
     remove_index_db_files(path)
 }
 
-/// RAII pair of indexing permits held for the duration of a TracePilot-home
-/// migration. Both permits must outlive the on-disk copy so reindex jobs
-/// cannot race the move.
-struct IndexingMovePermits {
+/// Hold both indexing permits until a changed source or database path is
+/// published, including any on-disk migration of the data root.
+struct IndexingChangePermits {
     _sessions: OwnedSemaphorePermit,
     _search: OwnedSemaphorePermit,
 }
 
-/// Orchestrate `save_config`:
-///
-/// 1. Read the previous on-disk `tracepilot_home`.
-/// 2. Normalise the incoming config and validate configured roots.
-/// 3. If `tracepilot_home` changed, acquire the sessions + search indexing
-///    permits up-front so we fail fast (`AlreadyIndexing`) instead of starting
-///    a half-done migration.
-/// 4. On a blocking worker, hold the permits, copy the old home into the new
-///    home, save the config to disk, and only then publish the new in-memory
-///    `SharedConfig`.
-///
-/// The blocking closure owns the permits via [`IndexingMovePermits`] so the
-/// invariant "hold both permits until the copy completes" is encoded in a type
-/// rather than relying on `let _ = …` bindings (which drop immediately).
-///
-/// Cancellation: even if the `tauri::command` future is dropped, the
-/// `spawn_blocking` task continues to completion, so the migration cannot be
-/// left half-done.
+enum ConfigMutation {
+    Replace(TracePilotConfig),
+    Patch(TracePilotConfigPatch),
+}
+
 pub(crate) async fn save_config(
     shared_config: &SharedConfig,
     gates: Arc<IndexingSemaphores>,
+    coordinator: &ConfigCoordinator,
     config: TracePilotConfig,
-) -> CmdResult<()> {
-    let old_tracepilot_home = read_config(shared_config).tracepilot_home();
-    let mut cfg = config;
+) -> CmdResult<TracePilotConfig> {
+    mutate_config(
+        shared_config,
+        gates,
+        coordinator,
+        ConfigMutation::Replace(config),
+        TracePilotConfig::save,
+    )
+    .await
+}
+
+pub(crate) async fn update_config(
+    shared_config: &SharedConfig,
+    gates: Arc<IndexingSemaphores>,
+    coordinator: &ConfigCoordinator,
+    patch: TracePilotConfigPatch,
+) -> CmdResult<TracePilotConfig> {
+    mutate_config(
+        shared_config,
+        gates,
+        coordinator,
+        ConfigMutation::Patch(patch),
+        TracePilotConfig::save,
+    )
+    .await
+}
+
+// The ordering guard survives cancellation of the IPC future: once filesystem
+// work starts, that worker retains both mutation and relocation ownership until
+// disk and in-memory state agree. Patches merge only after acquiring the guard.
+async fn mutate_config(
+    shared_config: &SharedConfig,
+    gates: Arc<IndexingSemaphores>,
+    coordinator: &ConfigCoordinator,
+    mutation: ConfigMutation,
+    persist: impl FnOnce(&TracePilotConfig) -> CmdResult<()> + Send + 'static,
+) -> CmdResult<TracePilotConfig> {
+    let mutation_guard = coordinator.mutation().await;
+    let loaded = shared_config
+        .read()
+        .map_err(|_poisoned| mutex_poisoned())?
+        .clone();
+    // A preference write queued behind factory reset belongs to the previous
+    // configuration. Only an explicit setup save may create a new one.
+    if matches!(&mutation, ConfigMutation::Patch(_)) && loaded.is_none() {
+        return Err(BindingsError::Validation(
+            "TracePilot is not configured. Complete setup before updating preferences.".into(),
+        ));
+    }
+    // Missing config (first run or reset) has no previous root to migrate.
+    let old_tracepilot_home = loaded.as_ref().map(TracePilotConfig::tracepilot_home);
+    let old_index_paths = loaded
+        .as_ref()
+        .map(|config| (config.session_state_dir(), config.index_db_path()));
+    let previous = loaded.unwrap_or_default();
+    let mut cfg = match mutation {
+        ConfigMutation::Replace(config) => config,
+        ConfigMutation::Patch(patch) => {
+            let mut config = previous;
+            patch.apply(&mut config);
+            config
+        }
+    };
     cfg.normalize_paths();
     validate_configured_roots(&cfg)?;
     let new_tracepilot_home = cfg.tracepilot_home();
 
-    let move_permits = if old_tracepilot_home != new_tracepilot_home {
+    let root_moved = old_tracepilot_home
+        .as_ref()
+        .is_some_and(|old| old != &new_tracepilot_home);
+    let index_paths_changed =
+        old_index_paths.is_some_and(|old| old != (cfg.session_state_dir(), cfg.index_db_path()));
+    let (index_permits, root_guard) = if index_paths_changed {
         let sessions = gates
             .try_acquire_sessions()
-            .map_err(|_| BindingsError::AlreadyIndexing)?;
+            .map_err(|_busy| BindingsError::AlreadyIndexing)?;
         let search = gates.cancel_and_acquire_search().await;
-        Some(IndexingMovePermits {
-            _sessions: sessions,
-            _search: search,
-        })
+        let root = if root_moved {
+            Some(coordinator.root_write().await)
+        } else {
+            None
+        };
+        gates.jobs().invalidate();
+        (
+            Some(IndexingChangePermits {
+                _sessions: sessions,
+                _search: search,
+            }),
+            root,
+        )
     } else {
-        None
+        (None, None)
     };
-
-    let cfg_for_disk = cfg.clone();
-    let cfg_for_state = cfg;
     let config_state = Arc::clone(shared_config);
-
     tokio::task::spawn_blocking(move || {
-        let _move_permits = move_permits;
-        copy_tracepilot_home_if_moved(&old_tracepilot_home, &new_tracepilot_home)?;
-        cfg_for_disk.save()?;
-
-        let mut config_guard = config_state.write().map_err(|_| mutex_poisoned())?;
-        *config_guard = Some(cfg_for_state);
-        Ok::<_, BindingsError>(())
+        let _guards = (mutation_guard, index_permits, root_guard);
+        if let Some(old_root) = old_tracepilot_home {
+            copy_tracepilot_home_if_moved(&old_root, &new_tracepilot_home)?;
+        }
+        persist(&cfg)?;
+        let mut state = config_state.write().map_err(|_poisoned| mutex_poisoned())?;
+        *state = Some(cfg.clone());
+        Ok(cfg)
     })
-    .await??;
-    Ok(())
+    .await?
 }
 
 /// Orchestrate `factory_reset`: remove index DB files and the config file on a
@@ -92,23 +150,41 @@ pub(crate) async fn save_config(
 pub(crate) async fn factory_reset(
     shared_config: &SharedConfig,
     gates: &IndexingSemaphores,
+    coordinator: &ConfigCoordinator,
 ) -> CmdResult<()> {
+    factory_reset_at(
+        shared_config,
+        gates,
+        coordinator,
+        config::config_file_path(),
+    )
+    .await
+}
+
+async fn factory_reset_at(
+    shared_config: &SharedConfig,
+    gates: &IndexingSemaphores,
+    coordinator: &ConfigCoordinator,
+    config_path: Option<std::path::PathBuf>,
+) -> CmdResult<()> {
+    let mutation_guard = coordinator.mutation().await;
+    let root_guard = coordinator.root_write().await;
     // Never delete the database under a running indexer: wait for the session
     // job, stop any search pass, and hold both gates until files are removed.
     let sessions_permit = gates.acquire_sessions().await;
     let search_permit = gates.cancel_and_acquire_search().await;
+    gates.jobs().invalidate();
     let cfg = read_config(shared_config);
     let index_path = cfg.index_db_path();
-    let config_path = config::config_file_path();
 
+    let config_state = Arc::clone(shared_config);
     tokio::task::spawn_blocking(move || {
-        let _permits = (sessions_permit, search_permit);
-        if let Err(e) = delete_index_db_files(&index_path) {
-            tracing::warn!(error = %e, "factory_reset: failed to remove index DB files");
-        }
+        let _permits = (mutation_guard, root_guard, sessions_permit, search_permit);
+        delete_index_db_files(&index_path)?;
 
         if let Some(ref path) = config_path {
-            for target in [path.clone(), config::config_backup_file_path(path)] {
+            // Keep the main config available if removing its backup fails.
+            for target in [config::config_backup_file_path(path), path.clone()] {
                 match std::fs::remove_file(&target) {
                     Ok(()) => {}
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -118,16 +194,16 @@ pub(crate) async fn factory_reset(
                             error = %e,
                             "factory_reset: failed to remove config file"
                         );
+                        return Err(e.into());
                     }
                 }
             }
         }
+        let mut guard = config_state.write().map_err(|_poisoned| mutex_poisoned())?;
+        *guard = None;
         Ok::<(), BindingsError>(())
     })
     .await??;
-
-    let mut guard = shared_config.write().map_err(|_| mutex_poisoned())?;
-    *guard = None;
     Ok(())
 }
 
@@ -189,7 +265,11 @@ pub(crate) fn copy_tracepilot_home_if_moved(
         &old_paths.repo_registry_json(),
         &new_paths.repo_registry_json(),
     )?;
-    for (src, dst) in tracepilot_data_dirs(&old_paths, &new_paths) {
+    for (src, dst) in old_paths
+        .durable_directories()
+        .into_iter()
+        .zip(new_paths.durable_directories())
+    {
         copy_dir_contents_if_absent(&src, &dst)?;
     }
     Ok(())
@@ -198,6 +278,14 @@ pub(crate) fn copy_tracepilot_home_if_moved(
 fn copy_sqlite_db_if_absent(
     src_db: &std::path::Path,
     dst_db: &std::path::Path,
+) -> Result<(), BindingsError> {
+    copy_sqlite_db_if_absent_with(src_db, dst_db, copy_file_if_absent)
+}
+
+fn copy_sqlite_db_if_absent_with(
+    src_db: &std::path::Path,
+    dst_db: &std::path::Path,
+    mut copy: impl FnMut(&std::path::Path, &std::path::Path) -> Result<(), BindingsError>,
 ) -> Result<(), BindingsError> {
     if !src_db.exists() {
         return Ok(());
@@ -211,7 +299,9 @@ fn copy_sqlite_db_if_absent(
         return Ok(());
     }
 
-    copy_file_if_absent(src_db, dst_db)?;
+    // Publish the main database last: its presence is the completion marker
+    // checked above. If any copy fails, the next attempt replaces sidecars
+    // before publishing the database, so committed WAL data cannot be skipped.
     for (src, dst) in [
         (
             src_db.with_extension("db-wal"),
@@ -226,29 +316,56 @@ fn copy_sqlite_db_if_absent(
             if dst.exists() {
                 std::fs::remove_file(&dst)?;
             }
-            copy_file_if_absent(&src, &dst)?;
+            copy(&src, &dst)?;
+        } else if dst.exists() {
+            // A source checkpoint may remove a sidecar between failed attempts.
+            // Never pair the current main database with that stale retry file.
+            std::fs::remove_file(&dst)?;
         }
     }
+    copy(src_db, dst_db)?;
     Ok(())
 }
 
-fn tracepilot_data_dirs(
-    old_paths: &tracepilot_core::paths::TracePilotPaths,
-    new_paths: &tracepilot_core::paths::TracePilotPaths,
-) -> Vec<(std::path::PathBuf, std::path::PathBuf)> {
-    vec![
-        (old_paths.backups_dir(), new_paths.backups_dir()),
-        (old_paths.templates_dir(), new_paths.templates_dir()),
-    ]
+fn copy_file_if_absent(src: &std::path::Path, dst: &std::path::Path) -> Result<(), BindingsError> {
+    copy_file_if_absent_with(src, dst, |source, target| {
+        std::io::copy(&mut std::fs::File::open(source)?, target)?;
+        Ok(())
+    })
 }
 
-fn copy_file_if_absent(src: &std::path::Path, dst: &std::path::Path) -> Result<(), BindingsError> {
+fn copy_file_if_absent_with(
+    src: &std::path::Path,
+    dst: &std::path::Path,
+    copy: impl FnOnce(&std::path::Path, &mut std::fs::File) -> std::io::Result<()>,
+) -> Result<(), BindingsError> {
     if !src.exists() || dst.exists() {
         return Ok(());
     }
     tracepilot_core::utils::fs::ensure_parent_dir(dst)?;
-    std::fs::copy(src, dst)?;
-    Ok(())
+    let mut temp_path = dst.as_os_str().to_os_string();
+    temp_path.push(format!(".migration-{}", uuid::Uuid::new_v4()));
+    let temp_path = std::path::PathBuf::from(temp_path);
+    let result = (|| -> std::io::Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)?;
+        // Preserve source permissions before staging private capture contents.
+        file.set_permissions(std::fs::metadata(src)?.permissions())?;
+        copy(src, &mut file)?;
+        file.sync_all()?;
+        drop(file);
+        // Only publish a complete file. All application migrations are serialized;
+        // captures hold a root lease. An interrupted worker can leave only a
+        // uniquely named scratch file, never a truncated final destination.
+        if !dst.exists() {
+            std::fs::rename(&temp_path, dst)?;
+        }
+        Ok(())
+    })();
+    let _ = std::fs::remove_file(temp_path);
+    result.map_err(Into::into)
 }
 
 fn copy_dir_contents_if_absent(
@@ -377,3 +494,7 @@ mod tests {
         assert!(original(&missing).is_ok());
     }
 }
+
+#[cfg(test)]
+#[path = "config_mutation_tests.rs"]
+mod mutation_tests;

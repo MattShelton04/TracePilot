@@ -40,3 +40,6 @@ harness = false
 [[bench]]
 name = "ipc_hot_path"
 harness = false
+
+[lints]
+workspace = true

@@ -12,3 +12,5 @@ mod limits;
 mod tests;
 
 pub use extractor::extract_search_content;
+
+pub(crate) use extractor::extract_search_content_cancellable;

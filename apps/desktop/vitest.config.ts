@@ -12,5 +12,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // Large lazy-loaded views otherwise compete with each other's transforms
+    // and native builds, making hydration/import deadlines load-dependent.
+    maxWorkers: 4,
   },
 });

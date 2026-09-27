@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::defaults::default_log_level;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LoggingConfig {
     #[serde(default = "default_log_level")]

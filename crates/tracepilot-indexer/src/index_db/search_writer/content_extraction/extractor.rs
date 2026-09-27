@@ -17,6 +17,14 @@ pub fn extract_search_content(
     session_id: &tracepilot_core::ids::SessionId,
     events: &[TypedEvent],
 ) -> Vec<SearchContentRow> {
+    extract_search_content_cancellable(session_id, events, &|| false).unwrap_or_default()
+}
+
+pub(crate) fn extract_search_content_cancellable(
+    session_id: &tracepilot_core::ids::SessionId,
+    events: &[TypedEvent],
+    is_cancelled: &impl Fn() -> bool,
+) -> Option<Vec<SearchContentRow>> {
     let session_id = session_id.as_str();
     let mut rows = Vec::with_capacity(events.len() / 2);
     let mut turns = TurnReconstructor::with_agent_ownership(events);
@@ -24,6 +32,9 @@ pub fn extract_search_content(
     let mut pending_rows: Vec<SearchContentRow> = Vec::new();
 
     for (event_index, event) in events.iter().enumerate() {
+        if is_cancelled() {
+            return None;
+        }
         let ts_unix = event.raw.timestamp.map(|t| t.timestamp());
         let idx = event_index as i64;
         turns.process(event, event_index);
@@ -235,5 +246,5 @@ pub fn extract_search_content(
 
     // Any session rows still pending (no subsequent turn opened) keep turn_number: None
     rows.append(&mut pending_rows);
-    rows
+    Some(rows)
 }

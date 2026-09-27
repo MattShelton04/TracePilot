@@ -1,4 +1,3 @@
-import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   contextCaptureCancel,
   contextCaptureDelete,
@@ -15,8 +14,8 @@ import type {
   ContextCaptureSnapshot,
   ContextCaptureSummary,
 } from "@tracepilot/types";
-import { onBeforeUnmount, type Ref, ref, watch } from "vue";
-import { safeListen } from "@/utils/tauriEvents";
+import { type Ref, ref, watch } from "vue";
+import { useScopedEventListener } from "@/composables/useScopedEventListener";
 
 const SAVE_DEFAULT_KEY = "tracepilot.contextCapture.saveDefault";
 
@@ -31,7 +30,6 @@ export function useContextCapture(sessionId: Ref<string>) {
   const selectedProtocol = ref<CaptureProtocol>("openAiChatCompletions");
   const storedDefault = localStorage.getItem(SAVE_DEFAULT_KEY);
   const saveSnapshot = ref(storedDefault === "true");
-  let unlisten: UnlistenFn | null = null;
   let requestVersion = 0;
 
   function message(cause: unknown): string {
@@ -42,12 +40,12 @@ export function useContextCapture(sessionId: Ref<string>) {
     return String(cause);
   }
 
-  async function setup() {
-    if (unlisten) return;
-    unlisten = await safeListen<CaptureProgress>(IPC_EVENTS.CONTEXT_CAPTURE_PROGRESS, (event) => {
+  const setup = useScopedEventListener<CaptureProgress>(
+    IPC_EVENTS.CONTEXT_CAPTURE_PROGRESS,
+    (event) => {
       if (event.payload.sessionId === sessionId.value) progress.value = event.payload;
-    });
-  }
+    },
+  );
 
   async function loadList() {
     const version = ++requestVersion;
@@ -132,7 +130,6 @@ export function useContextCapture(sessionId: Ref<string>) {
     },
     { immediate: true },
   );
-  onBeforeUnmount(() => unlisten?.());
 
   return {
     preflight,

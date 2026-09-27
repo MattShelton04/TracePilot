@@ -73,6 +73,18 @@ export type BridgeMetricsSnapshot = {
 	stateLagOccurrences: number,
 };
 
+export type CaptureProgress = {
+	captureId: string,
+	sessionId: string,
+	stage: CaptureStage,
+	message: string,
+	bytesCopied: number | null,
+	totalBytes: number | null,
+	cancellable: boolean,
+};
+
+export type CaptureStage = "preflight" | "copyingSession" | "preparingEnvironment" | "startingListener" | "resumingClone" | "waitingForRequest" | "parsingSnapshot" | "savingSnapshot" | "cleaningUp" | "complete" | "cancelled";
+
 /**
  *  Stable error-code identifiers surfaced to the frontend.
  * 

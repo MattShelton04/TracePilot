@@ -11,7 +11,7 @@ export function fixtureModule(source, importer, targetClient) {
   if (!path.startsWith(root)) return null;
   let relative = path.slice(root.length);
   if (relative === "mock" || relative === "mock/") relative = "mock/index.ts";
-  if (!/^(mock\/[\w/-]+|internal\/mockData)(\.(?:js|ts))?$/.test(relative)) return null;
+  if (!/^(mock\/[\w/-]+|internal\/mock(?:Data|Config))(\.(?:js|ts))?$/.test(relative)) return null;
   relative = /\.(js|ts)$/.test(relative) ? relative.replace(/\.js$/, ".ts") : `${relative}.ts`;
   return { id: `${root}${relative}`, relative };
 }

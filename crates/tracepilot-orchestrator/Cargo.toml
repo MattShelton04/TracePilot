@@ -43,3 +43,6 @@ specta = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+
+[lints]
+workspace = true

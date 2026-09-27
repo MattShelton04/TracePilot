@@ -36,6 +36,9 @@ const MODEL_REGISTRY_JSON: &str = include_str!("../../../packages/types/data/mod
 
 static MODEL_REGISTRY: OnceLock<Vec<Model>> = OnceLock::new();
 
+// The registry is embedded at compile time and checked into this repository.
+// Invalid contents are a broken release artifact, so fail loudly on first use.
+#[allow(clippy::expect_used)]
 pub fn registry() -> &'static [Model] {
     MODEL_REGISTRY
         .get_or_init(|| {

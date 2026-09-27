@@ -5,6 +5,17 @@ use crate::models::session_summary::SessionSummary;
 use crate::parsing::workspace::{WorkspaceMetadata, parse_workspace_yaml};
 use crate::paths::SessionPaths;
 
+/// Missing metadata is supported; unreadable or malformed metadata is not a
+/// complete snapshot and must not overwrite existing analytics.
+pub(super) fn load_workspace_summary_strict(session_dir: &Path) -> Result<SessionSummary> {
+    let path = SessionPaths::from_root(session_dir).workspace_yaml();
+    if crate::parsing::snapshot::FileFingerprint::read(&path)?.is_some() {
+        parse_workspace_yaml(&path).map(summary_from_workspace)
+    } else {
+        minimal_summary_from_dir(session_dir)
+    }
+}
+
 /// Parse `workspace.yaml` when present, otherwise fall back to the directory ID.
 pub(super) fn load_workspace_summary(session_dir: &Path) -> Result<SessionSummary> {
     let session_paths = SessionPaths::from_root(session_dir);

@@ -1,6 +1,7 @@
 //! Raw JSONL line parsing — reads `events.jsonl` into [`RawEvent`] envelopes.
 
 use crate::error::{Result, TracePilotError};
+#[cfg(test)]
 use crate::parsing::EVENTS_JSONL;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -28,6 +29,14 @@ pub struct RawEvent {
 ///
 /// Each event is serialized to a single line. The resulting string does NOT
 /// contain a trailing newline.
+///
+/// # Panics
+/// Panics if a custom serializer supplies an invalid JSON value. Wire event
+/// DTOs and `serde_json::Value` are JSON-compatible by construction.
+#[allow(
+    clippy::expect_used,
+    reason = "JSON-compatible event DTO serialization is an invariant of this convenience API"
+)]
 pub fn events_to_jsonl<T: Serialize>(events: &[T]) -> String {
     let mut s = String::with_capacity(events.len() * 256);
     for (i, e) in events.iter().enumerate() {
@@ -40,53 +49,57 @@ pub fn events_to_jsonl<T: Serialize>(events: &[T]) -> String {
     s
 }
 
-/// Parse all events from an `events.jsonl` file into raw envelopes.
-///
-/// PERF: I/O + CPU bound — reads entire file line-by-line, deserializes each JSON line.
-/// Uses `Vec::with_capacity` based on file size estimate. For large sessions (>1MB),
-/// this is the primary bottleneck (~5ms per 100KB). Consider memory-mapped I/O for >10MB files.
-///
-/// Reads line-by-line, skipping empty lines and logging malformed JSON.
-/// Returns `(events, malformed_line_count)` so the caller can track parse quality.
-#[tracing::instrument(skip_all, fields(path = %path.display()))]
-pub(super) fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
-    if !path.ends_with(EVENTS_JSONL) {
-        tracing::warn!(
-            path = %path.display(),
-            "Parsing event log from file not named {}",
-            EVENTS_JSONL
-        );
-    }
-
+/// Visit envelopes one at a time, checking cancellation every 8 KiB read and
+/// between JSON records. The parser never accumulates a second raw-event vector.
+pub(super) fn visit_events_jsonl(
+    path: &Path,
+    is_cancelled: &impl Fn() -> bool,
+    mut visit: impl FnMut(RawEvent),
+) -> Result<usize> {
     let file = std::fs::File::open(path)
         .map_err(|e| TracePilotError::io_context("Failed to open", path.display(), e))?;
-    // Estimate event count from file size (~1KB per event) to reduce Vec reallocations
-    let estimated_events = file
-        .metadata()
-        .map(|m| m.len() as usize / 1000)
-        .unwrap_or(0);
-    let reader = BufReader::new(file);
-    let mut events = Vec::with_capacity(estimated_events.max(16));
-    let mut malformed = 0usize;
-
-    for (line_num, line) in reader.lines().enumerate() {
-        let line = line.map_err(|e| {
-            TracePilotError::io_context("Failed to read line", format!("{}", line_num + 1), e)
-        })?;
-        let line = line.trim();
-        if line.is_empty() {
+    let mut reader = BufReader::new(file);
+    let mut bytes = Vec::new();
+    let mut malformed = 0;
+    let mut line_number = 0;
+    loop {
+        crate::parsing::snapshot::check_cancelled(is_cancelled)?;
+        let buffer = reader.fill_buf()?;
+        let at_end = buffer.is_empty();
+        let consumed = buffer.iter().position(|byte| *byte == b'\n').map(|i| i + 1);
+        let count = consumed.unwrap_or(buffer.len());
+        bytes.extend_from_slice(&buffer[..count]);
+        reader.consume(count);
+        if consumed.is_none() && !at_end {
             continue;
         }
-
-        match serde_json::from_str::<RawEvent>(line) {
-            Ok(event) => events.push(event),
-            Err(e) => {
-                tracing::warn!(line = line_num + 1, error = %e, "Skipping malformed event line");
-                malformed += 1;
+        line_number += 1;
+        let line = std::str::from_utf8(&bytes)
+            .map_err(|error| {
+                TracePilotError::parse_context("UTF-8 event line", path.display(), error)
+            })?
+            .trim();
+        if !line.is_empty() {
+            match serde_json::from_str::<RawEvent>(line) {
+                Ok(event) => visit(event),
+                Err(error) => {
+                    tracing::warn!(line = line_number, error = %error, "Skipping malformed event line");
+                    malformed += 1;
+                }
             }
         }
+        bytes.clear();
+        if at_end {
+            break;
+        }
     }
+    Ok(malformed)
+}
 
+#[cfg(test)]
+pub(super) fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> {
+    let mut events = Vec::new();
+    let malformed = visit_events_jsonl(path, &|| false, |raw| events.push(raw))?;
     Ok((events, malformed))
 }
 

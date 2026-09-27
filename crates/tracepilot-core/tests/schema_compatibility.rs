@@ -1,3 +1,10 @@
+// Fixtures and diagnostic executables fail fast on invalid setup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
 //! Synthetic payloads derived from official CLI schemas, including optional fields.
 //! These are parser contracts, not reconstructed conversations or private sessions.
 

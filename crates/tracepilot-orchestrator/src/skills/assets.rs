@@ -178,9 +178,12 @@ fn write_asset_file(
     if destination.symlink_metadata().is_ok() {
         return Err(duplicate_asset(asset_name));
     }
+    let parent = destination
+        .parent()
+        .ok_or_else(|| SkillsError::Asset("Invalid asset path".into()))?;
     let mut staged = tempfile::Builder::new()
         .prefix(".tracepilot-asset-")
-        .tempfile_in(destination.parent().expect("validated asset parent"))?;
+        .tempfile_in(parent)?;
     write_contents(staged.as_file_mut())?;
     staged.as_file_mut().flush()?;
     if let Some(permissions) = permissions {

@@ -51,7 +51,7 @@ impl BridgeManager {
     /// The SDK client's `list_sessions()` returns the user's full Copilot CLI
     /// history from disk, which is useful for a future explicit "browse and
     /// resume" picker but wrong for runtime/process visibility.
-    pub async fn list_sessions(&self) -> Result<Vec<BridgeSessionInfo>, BridgeError> {
+    pub fn list_sessions(&self) -> Result<Vec<BridgeSessionInfo>, BridgeError> {
         self.require_client()?;
         Ok(self.tracked_sessions())
     }
@@ -61,78 +61,121 @@ impl BridgeManager {
     /// The CLI reports one snapshot per quota type (for example
     /// `premium_interactions`). Unlimited entitlements have no limit or
     /// remaining count.
-    pub async fn get_quota(&self) -> Result<BridgeQuota, BridgeError> {
-        let client = self.require_client()?;
-        let result = client
-            .rpc()
-            .account()
-            .get_quota()
-            .await
-            .map_err(BridgeError::sdk)?;
+    pub fn get_quota(
+        &self,
+    ) -> impl std::future::Future<Output = Result<BridgeQuota, BridgeError>> + Send + use<> {
+        let client = self.require_client().cloned();
+        let scope = self.connection_scope.clone();
+        async move {
+            scope
+                .run("get_quota", async move {
+                    let client = client?;
+                    let result = client
+                        .rpc()
+                        .account()
+                        .get_quota()
+                        .await
+                        .map_err(BridgeError::sdk)?;
 
-        let mut quotas: Vec<BridgeQuotaSnapshot> = result
-            .quota_snapshots
-            .into_iter()
-            .map(|(quota_type, q)| {
-                let used = u64::try_from(q.used_requests).ok();
-                let limit = (!q.is_unlimited_entitlement)
-                    .then(|| u64::try_from(q.entitlement_requests).ok())
-                    .flatten();
-                BridgeQuotaSnapshot {
-                    quota_type,
-                    limit,
-                    used,
-                    remaining: limit.zip(used).map(|(l, u)| l.saturating_sub(u)),
-                    resets_at: q.reset_date,
-                }
-            })
-            .collect();
-        quotas.sort_by(|a, b| a.quota_type.cmp(&b.quota_type));
-        Ok(BridgeQuota { quotas })
+                    let mut quotas: Vec<BridgeQuotaSnapshot> = result
+                        .quota_snapshots
+                        .into_iter()
+                        .map(|(quota_type, q)| {
+                            let used = u64::try_from(q.used_requests).ok();
+                            let limit = (!q.is_unlimited_entitlement)
+                                .then(|| u64::try_from(q.entitlement_requests).ok())
+                                .flatten();
+                            BridgeQuotaSnapshot {
+                                quota_type,
+                                limit,
+                                used,
+                                remaining: limit.zip(used).map(|(l, u)| l.saturating_sub(u)),
+                                resets_at: q.reset_date,
+                            }
+                        })
+                        .collect();
+                    quotas.sort_by(|a, b| a.quota_type.cmp(&b.quota_type));
+                    Ok(BridgeQuota { quotas })
+                })
+                .await
+        }
     }
 
     /// Get authentication status.
-    pub async fn get_auth_status(&self) -> Result<BridgeAuthStatus, BridgeError> {
-        let client = self.require_client()?;
-        let result = client.get_auth_status().await.map_err(BridgeError::sdk)?;
+    pub fn get_auth_status(
+        &self,
+    ) -> impl std::future::Future<Output = Result<BridgeAuthStatus, BridgeError>> + Send + use<>
+    {
+        let client = self.require_client().cloned();
+        let scope = self.connection_scope.clone();
+        async move {
+            scope
+                .run("get_auth_status", async move {
+                    let client = client?;
+                    let result = client.get_auth_status().await.map_err(BridgeError::sdk)?;
 
-        Ok(BridgeAuthStatus {
-            is_authenticated: result.is_authenticated,
-            auth_type: result.auth_type,
-            host: result.host,
-            login: result.login,
-            status_message: result.status_message,
-        })
+                    Ok(BridgeAuthStatus {
+                        is_authenticated: result.is_authenticated,
+                        auth_type: result.auth_type,
+                        host: result.host,
+                        login: result.login,
+                        status_message: result.status_message,
+                    })
+                })
+                .await
+        }
     }
 
     /// Get SDK / CLI version info.
-    pub async fn get_cli_status(&self) -> Result<BridgeStatus, BridgeError> {
-        let client = self.require_client()?;
-        let result = client.get_status().await.map_err(BridgeError::sdk)?;
+    pub fn get_cli_status(
+        &self,
+    ) -> impl std::future::Future<Output = Result<BridgeStatus, BridgeError>> + Send + use<> {
+        let client = self.require_client().cloned();
+        let scope = self.connection_scope.clone();
+        let status = self.status();
+        async move {
+            scope
+                .run("get_cli_status", async move {
+                    let client = client?;
+                    let result = client.get_status().await.map_err(BridgeError::sdk)?;
 
-        Ok(BridgeStatus {
-            state: self.state,
-            sdk_available: true,
-            enabled_by_preference: self.is_enabled_by_preference(),
-            cli_version: Some(result.version),
-            protocol_version: Some(result.protocol_version),
-            active_sessions: self.sessions.len(),
-            error: self.error_message.clone(),
-            connection_mode: self.connection_mode,
-        })
+                    Ok(BridgeStatus {
+                        state: status.state,
+                        sdk_available: true,
+                        enabled_by_preference: status.enabled_by_preference,
+                        cli_version: Some(result.version),
+                        protocol_version: Some(result.protocol_version),
+                        active_sessions: status.active_sessions,
+                        error: status.error,
+                        connection_mode: status.connection_mode,
+                    })
+                })
+                .await
+        }
     }
 
     /// List available models.
-    pub async fn list_models(&self) -> Result<Vec<BridgeModelInfo>, BridgeError> {
-        let client = self.require_client()?;
-        let models = client.list_models().await.map_err(BridgeError::sdk)?;
+    pub fn list_models(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Vec<BridgeModelInfo>, BridgeError>> + Send + use<>
+    {
+        let client = self.require_client().cloned();
+        let scope = self.connection_scope.clone();
+        async move {
+            scope
+                .run("list_models", async move {
+                    let client = client?;
+                    let models = client.list_models().await.map_err(BridgeError::sdk)?;
 
-        Ok(models
-            .into_iter()
-            .map(|m| BridgeModelInfo {
-                id: m.id,
-                name: Some(m.name),
-            })
-            .collect())
+                    Ok(models
+                        .into_iter()
+                        .map(|m| BridgeModelInfo {
+                            id: m.id,
+                            name: Some(m.name),
+                        })
+                        .collect())
+                })
+                .await
+        }
     }
 }

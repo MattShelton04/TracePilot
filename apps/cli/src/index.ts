@@ -69,8 +69,8 @@ program
 
 program
   .command("index")
-  .description("Rebuild the session search index")
-  .option("--full", "Full reindex (instead of incremental)")
+  .description("Unavailable in the standalone CLI; use TracePilot desktop")
+  .option("--full", "Reserved for a future index integration")
   .action(indexCommand);
 
 // ── versions command group ───────────────────────────────────────────

@@ -1,20 +1,15 @@
 /**
  * Preferences Pinia store.
  *
- * Composition shell that wires four pure slice factories in
- * `stores/preferences/` (ui, pricing, alerts, featureFlags) together with the
- * config.toml-backed hydration / migration / debounced persistence layer.
- *
- * PRESERVED FROM WAVE 2.2:
- *   - Versioned/legacy-key migration from `localStorage`
- *   - Write-through theme cache (instant theme on next launch, no flash)
- *   - All state backed by config.toml via `@tracepilot/client`
- *
- * The exported symbols (`usePreferencesStore`, `ThemeOption`, `BASE_FONT_SIZE_PX`,
- * `ModelWholesalePrice`, `DEFAULT_WHOLESALE_PRICES`) match the legacy surface.
+ * Wires preference slices to config hydration, migration and field-level persistence.
  */
 
-import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
+import {
+  checkConfigExists,
+  getConfig,
+  saveConfig,
+  type TracePilotConfigPatch,
+} from "@tracepilot/client";
 import type { TracePilotConfig } from "@tracepilot/types";
 import {
   clampSessionCacheSize,
@@ -25,14 +20,14 @@ import {
   DEFAULT_SESSION_CACHE_SIZE,
   DEFAULT_UI_SCALE,
 } from "@tracepilot/types";
-import { useAsyncGuard } from "@tracepilot/ui";
 import { defineStore } from "pinia";
-import { watch } from "vue";
+import { onScopeDispose, watch } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { createAlertsSlice } from "@/stores/preferences/alerts";
 import { createFeatureFlagsSlice } from "@/stores/preferences/featureFlags";
 import { createLiveSlice } from "@/stores/preferences/live";
 import { migrateFromLocalStorage } from "@/stores/preferences/migration";
+import { createPreferencePersistence } from "@/stores/preferences/persistence";
 import {
   createPricingSlice,
   DEFAULT_WHOLESALE_PRICES,
@@ -166,30 +161,20 @@ export const usePreferencesStore = defineStore("preferences", () => {
     };
   }
 
-  // ── Debounced persist to backend ───────────────────────────
-  let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  const saveGuard = useAsyncGuard();
+  // ── Backend persistence lifecycle ─────────────────────────
+  const persistence = createPreferencePersistence(
+    buildConfig,
+    (config) => {
+      backendConfig = config;
+      applyConfig(config);
+    },
+    () => hydrated,
+  );
+  onScopeDispose(persistence.dispose);
 
-  function scheduleSave() {
-    if (!hydrated) return;
-    if (saveTimer) clearTimeout(saveTimer);
-    const token = saveGuard.start();
-    saveTimer = setTimeout(async () => {
-      try {
-        // Re-read latest config from backend to avoid overwriting changes
-        // made by other components (e.g. SettingsDataStorage paths/autoIndex)
-        const freshConfig = await getConfig();
-        if (!saveGuard.isValid(token)) return;
-        backendConfig = freshConfig;
-        const config = buildConfig();
-        await saveConfig(config);
-        if (!saveGuard.isValid(token)) return;
-        backendConfig = config;
-      } catch (e) {
-        if (!saveGuard.isValid(token)) return;
-        logWarn("[preferences] Failed to persist config:", e);
-      }
-    }, 300);
+  async function updateConfigFields(patch: TracePilotConfigPatch) {
+    await hydratePromise;
+    return persistence.save(patch);
   }
 
   // ── Hydrate from backend on store creation ─────────────────
@@ -197,8 +182,17 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const hydratePromise = new Promise<void>((resolve) => {
     hydrateResolve = resolve;
   });
+  let hydrationWork: Promise<void> | null = null;
 
-  async function hydrate() {
+  function hydrate(): Promise<void> {
+    if (persistence.isResetting()) return Promise.resolve();
+    hydrationWork ??= hydrateFromBackend().finally(() => {
+      hydrationWork = null;
+    });
+    return hydrationWork;
+  }
+
+  async function hydrateFromBackend() {
     try {
       // If no config file exists (e.g. after factory reset), don't hydrate.
       // This prevents the watcher from recreating config.toml before the
@@ -218,8 +212,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
         // Only clear legacy key after save succeeds
         localStorage.removeItem(STORAGE_KEYS.legacyPrefs);
       }
-      backendConfig = config;
-      applyConfig(config);
+      persistence.accept(config);
     } catch (e) {
       // Outside Tauri (dev mode) — keep defaults
       logWarn("[preferences] Failed to hydrate config (may be outside Tauri environment)", e);
@@ -280,7 +273,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       ui.sessionCacheSize,
       ...Object.values(live),
     ],
-    scheduleSave,
+    persistence.scheduleSave,
     { deep: true },
   );
 
@@ -296,5 +289,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     /** Re-run hydration after the setup wizard creates config.toml.
      *  This arms the auto-save watcher so subsequent preference changes persist. */
     hydrate,
+    updateConfigFields,
+    resetConfig: () => persistence.resetConfig(hydrationWork),
   };
 });

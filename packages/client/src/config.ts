@@ -1,4 +1,6 @@
-import type { TracePilotConfig } from "@tracepilot/types";
+import type { TracePilotConfig, TracePilotConfigPatch } from "@tracepilot/types";
+
+export type { TracePilotConfigPatch } from "@tracepilot/types";
 
 import type { GitInfo, UpdateCheckResult, ValidateSessionDirResult } from "./generated/bindings.js";
 import { invoke } from "./internal/core.js";
@@ -20,6 +22,11 @@ export async function getConfig(): Promise<TracePilotConfig> {
 /** Save TracePilot configuration (creates/updates config.toml). */
 export async function saveConfig(config: TracePilotConfig): Promise<void> {
   return invoke<void>("save_config", { config });
+}
+
+/** Atomically merge changed fields into the current persisted configuration. */
+export async function updateConfig(patch: TracePilotConfigPatch): Promise<TracePilotConfig> {
+  return invoke<TracePilotConfig>("update_config", { patch });
 }
 
 /** Validate a session state directory path. */

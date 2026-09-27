@@ -1,10 +1,13 @@
+// Assertions in tests should fail immediately on invalid fixtures.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 // TracePilot desktop — Tauri entrypoint.
-
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 #[cfg(all(windows, any(debug_assertions, feature = "automation-devtools")))]
 mod automation;
 
+// Fatal startup failures must remain visible before logging is initialized.
+#[allow(clippy::print_stderr)]
 fn main() {
     if let Err(error) = tracepilot_core::paths::isolated_data_root() {
         eprintln!("Fatal: invalid TRACEPILOT_DATA_ROOT: {error}");

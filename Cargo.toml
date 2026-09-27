@@ -59,8 +59,9 @@ image = { version = "0.25.10", default-features = false, features = ["gif", "jpe
 # ── Rust ↔ TS contract codegen (Phase 1B.1 pilot) ────────────────
 # Locked to a compatible trio per tauri-specta release notes. Bump these
 # three together to avoid specta/tauri-specta API drift.
-specta = { version = "=2.0.0-rc.24", default-features = false }
+specta = { version = "=2.0.0-rc.24", default-features = false, features = ["std"] }
 specta-typescript = { version = "=0.0.11" }
+specta-serde = { version = "=0.0.11" }
 tauri-specta = { version = "=2.0.0-rc.24", default-features = false }
 
 # Internal crates

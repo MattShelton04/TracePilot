@@ -158,7 +158,54 @@ pub fn create_multi_session_fixture(
 
 #[cfg(test)]
 mod tests {
-    use super::create_multi_session_fixture;
+    use super::{SessionFixtureBuilder, create_multi_session_fixture};
+
+    #[test]
+    fn zero_turn_fixture_contains_only_session_boundaries_even_with_requested_tools() {
+        for tools in [0, 7] {
+            let events = SessionFixtureBuilder::new()
+                .turn_count(0)
+                .tool_call_count(tools)
+                .build_events();
+            let types: Vec<_> = events
+                .iter()
+                .map(|event| event["type"].as_str().unwrap())
+                .collect();
+            assert_eq!(types, ["session.start", "session.shutdown"]);
+        }
+    }
+
+    #[test]
+    fn fixture_distributes_all_requested_tools_across_turns() {
+        for (tools, expected) in [
+            (8, vec![3, 3, 2]),
+            (2, vec![1, 1, 0, 0]),
+            (0, vec![0, 0]),
+            (5, vec![5]),
+        ] {
+            let events = SessionFixtureBuilder::new()
+                .turn_count(expected.len())
+                .tool_call_count(tools)
+                .build_events();
+            for event_type in ["tool.execution_start", "tool.execution_complete"] {
+                let actual: Vec<_> = (0..expected.len())
+                    .map(|turn| {
+                        events
+                            .iter()
+                            .filter(|event| {
+                                event["type"] == event_type
+                                    && event["data"]["turnId"] == format!("turn-{turn}")
+                            })
+                            .count()
+                    })
+                    .collect();
+                assert_eq!(
+                    actual, expected,
+                    "{event_type} distribution for {tools} tools"
+                );
+            }
+        }
+    }
 
     #[test]
     fn generated_multi_session_fixture_is_discoverable() {

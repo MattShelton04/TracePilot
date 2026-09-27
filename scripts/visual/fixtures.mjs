@@ -301,7 +301,13 @@ export async function visualInvoke(cmd, args, fallback) {
       };
     }
     if (!fallback) throw new Error(`Visual fixture missing: ${cmd}`);
-    const result = structuredClone(await fallback(cmd, args));
+    // Native IPC serializes config mutations before dispatch. Historical UI
+    // revisions can pass Vue proxies that the shared head mock cannot clone.
+    const fallbackArgs =
+      (cmd === "save_config" || cmd === "update_config") && args != null
+        ? JSON.parse(JSON.stringify(args))
+        : args;
+    const result = structuredClone(await fallback(cmd, fallbackArgs));
     if (cmd === "get_session_detail") {
       result.summary =
         args.sessionId === "sess-search-polish" ? "Search preset cleanup" : "Auth plugin refactor";

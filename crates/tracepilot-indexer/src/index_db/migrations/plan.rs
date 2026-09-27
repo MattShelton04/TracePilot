@@ -123,6 +123,13 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
         sql: MIGRATION_20,
         pre_hook: None,
     },
+    Migration {
+        version: 21,
+        name: "independent successful source snapshots",
+        sql: "ALTER TABLE sessions ADD COLUMN source_fingerprint TEXT;
+              ALTER TABLE sessions ADD COLUMN search_source_fingerprint TEXT;",
+        pre_hook: None,
+    },
 ];
 
 pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {

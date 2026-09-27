@@ -10,7 +10,7 @@ vi.mock("@tracepilot/client", async () => {
   return {
     ...(actual as any),
     getConfig: vi.fn(),
-    saveConfig: vi.fn(),
+    updateConfig: vi.fn(),
   };
 });
 
@@ -90,7 +90,10 @@ describe("usePreferencesStore DOM side effects", () => {
 
     const mockConfig = createDefaultConfig();
     vi.mocked(client.getConfig).mockResolvedValue(mockConfig);
-    vi.mocked(client.saveConfig).mockResolvedValue(undefined);
+    vi.mocked(client.updateConfig).mockImplementation(async (patch) => ({
+      ...mockConfig,
+      paths: { ...mockConfig.paths, ...patch.paths },
+    }));
     // checkConfigExists is spread from the actual client which falls through
     // to mock mode — mock it here to return true so hydrate() loads the config.
     const checkConfigSpy = vi.spyOn(client, "checkConfigExists").mockResolvedValue(true);
@@ -99,7 +102,7 @@ describe("usePreferencesStore DOM side effects", () => {
     await store.whenReady;
 
     // Clear any initial save calls from hydration
-    vi.mocked(client.saveConfig).mockClear();
+    vi.mocked(client.updateConfig).mockClear();
     vi.mocked(client.getConfig).mockResolvedValue(createDefaultConfig());
 
     // Change sessionStateDir — should trigger the watcher → scheduleSave
@@ -113,10 +116,10 @@ describe("usePreferencesStore DOM side effects", () => {
     await vi.runAllTimersAsync();
     await nextTick();
 
-    // saveConfig should have been called with the updated sessionStateDir
-    expect(client.saveConfig).toHaveBeenCalled();
-    const savedConfig = vi.mocked(client.saveConfig).mock.calls[0][0];
-    expect(savedConfig.paths.sessionStateDir).toBe("/new/session/dir");
+    // updateConfig should have been called with the updated sessionStateDir
+    expect(client.updateConfig).toHaveBeenCalled();
+    const savedConfig = vi.mocked(client.updateConfig).mock.calls[0][0];
+    expect(savedConfig.paths?.sessionStateDir).toBe("/new/session/dir");
 
     checkConfigSpy.mockRestore();
     vi.useRealTimers();

@@ -22,7 +22,7 @@ fn ranked<I: IntoIterator<Item = String>>(labels: I) -> Vec<SkillLabelCount> {
         .into_iter()
         .map(|(label, uses)| SkillLabelCount { label, uses })
         .collect();
-    ranked.sort_by(|a, b| b.uses.cmp(&a.uses));
+    ranked.sort_by_key(|entry| std::cmp::Reverse(entry.uses));
     ranked
 }
 

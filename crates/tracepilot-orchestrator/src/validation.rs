@@ -104,7 +104,10 @@ pub fn validate_identifier(
     if !rules.skip_char_whitelist {
         // Validate first character if required
         if rules.require_alpha_start {
-            let first = value.bytes().next().unwrap(); // Safe because we checked is_empty
+            let first = value
+                .bytes()
+                .next()
+                .ok_or_else(|| format!("{context} cannot be empty"))?;
             if !first.is_ascii_alphabetic() && first != b'_' {
                 return Err(format!(
                     "{context} must start with a letter or underscore, got: {value}"

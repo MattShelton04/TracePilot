@@ -45,3 +45,6 @@ automation-devtools = ["tauri/devtools"]
 [[bin]]
 name = "tracepilot-desktop"
 path = "src/main.rs"
+
+[lints]
+workspace = true

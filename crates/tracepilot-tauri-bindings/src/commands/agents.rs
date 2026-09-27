@@ -10,7 +10,7 @@ use tracepilot_orchestrator::agents::{
 };
 
 use crate::blocking_cmd;
-use crate::config::{SharedConfig, TracePilotConfig};
+use crate::config::{ConfigCoordinator, SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{open_index_db, read_config};
 
@@ -102,15 +102,18 @@ pub async fn agents_preview(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(state, fields, body), err)]
+#[tracing::instrument(skip(state, coordinator, fields, body), err)]
 pub async fn agents_save(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     path: String,
     fields: AgentFields,
     body: String,
 ) -> CmdResult<AgentWriteResult> {
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
     blocking_cmd!({
+        let _root_lease = root_lease;
         let roots = agent_roots(&cfg, None);
         Ok::<_, BindingsError>(tracepilot_orchestrator::agents::write::save_fields(
             &roots,
@@ -124,14 +127,17 @@ pub async fn agents_save(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(state, content), err)]
+#[tracing::instrument(skip(state, coordinator, content), err)]
 pub async fn agents_save_raw(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     path: String,
     content: String,
 ) -> CmdResult<AgentWriteResult> {
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
     blocking_cmd!({
+        let _root_lease = root_lease;
         let roots = agent_roots(&cfg, None);
         Ok::<_, BindingsError>(tracepilot_orchestrator::agents::write::save_raw(
             &roots,
@@ -168,13 +174,16 @@ pub async fn agents_create(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(state), err)]
+#[tracing::instrument(skip(state, coordinator), err)]
 pub async fn agents_delete(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     path: String,
 ) -> CmdResult<AgentWriteResult> {
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
     blocking_cmd!({
+        let _root_lease = root_lease;
         let roots = agent_roots(&cfg, None);
         Ok::<_, BindingsError>(tracepilot_orchestrator::agents::write::delete(
             &roots,

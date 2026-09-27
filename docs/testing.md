@@ -24,10 +24,16 @@ not verify Rust or native behavior. VRT needs a Chromium download;
 desktop automation attaches to the installed WebView2 runtime and needs a live
 Tauri build, with no separate browser download.
 
+Required CI also enforces Biome, rustfmt, Clippy, repository policies, regenerated
+IPC contract freshness, and dependency audits. RustSec vulnerability findings and
+high/critical production npm advisories fail the security job. Informational
+RustSec notices remain visible without failing it.
+
 ## 1. Unit & integration (Vitest)
 
-- **Run all:** `pnpm test` (≈1662 test cases at the time of writing).
+- **Run all:** `pnpm test`; the runner reports the current test inventory.
 - **Run one package:** `pnpm --filter @tracepilot/desktop test`.
+- Desktop tests cap workers at four; use `--maxWorkers=2` while another native build runs. Tests must await store hydration and deferred imports instead of relying on arbitrary delays.
 - **Watch mode:** `pnpm --filter @tracepilot/desktop test -- --watch`.
 - Tests live next to the code they cover (`*.spec.ts` / `*.test.ts`) or
   under `__tests__/` folders. Fixtures live in
@@ -162,6 +168,28 @@ feed the [frontend visual captures](visual-regression.md#rich-tool-iteration).
 Run `node --test scripts/fixtures/*.test.mjs` for corpus/renderer coverage checks.
 
 Generated JSONL, indexes and screenshots stay in ignored `.tracepilot/` directories.
+
+### Reset and recovery validation
+
+Use an explicit synthetic `-DataRoot` for destructive settings tests. For a
+concurrent checkout, also choose distinct `-Port`, `-UiPort`, and
+`-StateDirectory` values. A separate WebView profile alone does not isolate data.
+
+1. Finish setup and verify sessions, search results, and analytics.
+2. Change a preference and immediately use **Reset Everything**. Confirm setup
+   returns, config and the active index/WAL/SHM files are absent, and original
+   session files retain their hashes. Factory reset removes configuration and
+   the active index; it does not delete source sessions or saved captures.
+3. Finish setup again, rebuild both indexes, and verify the same session/search
+   and analytics totals. Add, edit, and remove a disposable synthetic session;
+   incremental refresh must add/update/remove its search hits and analytics.
+4. Restart the owned app and verify configuration and rebuilt data persist.
+
+Unit regressions separately control races that are hard to schedule through the
+UI: pending preference hydration/saves, reset versus queued indexing, delayed
+search-phase handoff, and source-root changes. SDK tests with a local protocol
+peer cover stalled handshakes/requests, responsive status, deadlines, and
+disconnect cleanup; they do not establish provider-backed conversation behavior.
 
 ## Cross-references
 

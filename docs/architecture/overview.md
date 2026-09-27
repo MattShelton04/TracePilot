@@ -15,12 +15,14 @@ TracePilot/
 │   ├── tracepilot-orchestrator/  # Worktree orchestration, launcher, config
 │   ├── tracepilot-export/        # Session export (Markdown/JSON)
 │   ├── tracepilot-tauri-bindings/# Tauri IPC command bridge
-│   └── tracepilot-bench/         # Benchmarks and synthetic data generators
+│   ├── tracepilot-bench/         # Benchmarks and synthetic data generators
+│   └── tracepilot-test-support/  # Shared test fixtures and helpers
 ├── packages/
 │   ├── ui/               # Shared Vue component library
 │   ├── client/           # TypeScript client for Tauri commands
 │   ├── types/            # Shared TypeScript types
-│   └── config/           # Shared configuration presets
+│   ├── config/           # Shared configuration presets
+│   └── test-utils/       # Shared frontend test helpers
 ├── docs/                 # Documentation (see docs/README.md)
 └── scripts/              # Build and release scripts
 ```
@@ -54,20 +56,23 @@ Manages the lifecycle of Copilot CLI sessions:
 
 ### tracepilot-export
 
-Exports sessions to portable formats (Markdown, JSON) with optional secret redaction. Currently scaffolded.
+Exports sessions to portable Markdown and JSON, with import support, content filters, and optional secret redaction. See the [export crate guide](../../crates/tracepilot-export/README.md) for its implemented API.
 
 ### tracepilot-tauri-bindings
 
-The IPC bridge layer. Exposes 78 Tauri commands that the frontend calls. Responsibilities:
+The IPC bridge layer. Registers desktop Tauri commands, delegates to the other crates, and generates a subset of TypeScript contracts. The [command registry](../../crates/tracepilot-tauri-bindings/src/ipc_command_names.rs) is the executable inventory; [generation scope](../../crates/tracepilot-tauri-bindings/src/specta_exports.rs) and the [migration guide](../specta-migration-guide.md) explain which DTOs are generated. Responsibilities:
 
 - Translates frontend requests into core/indexer/orchestrator calls
-- Manages shared application state (`AppState` with `Mutex`-protected fields)
+- Manages shared application state and concurrency guards
 - Handles configuration (load, save, migrate) via `TracePilotConfig`
-- Provides lock-poison recovery on all `Mutex` accesses
 
 ### tracepilot-bench
 
 Criterion benchmarks and synthetic session generators for performance testing.
+
+### tracepilot-test-support
+
+Reusable synthetic data and fixtures for Rust tests. The desktop Tauri crate is under `apps/desktop/src-tauri` and belongs to the same Cargo workspace.
 
 ## Frontend Packages
 
@@ -99,7 +104,7 @@ Shared Vue component library used by the desktop app. Contains:
 
 ### @tracepilot/client
 
-TypeScript wrapper around `@tauri-apps/api/core.invoke()` that provides typed function signatures for all 78 Tauri commands.
+TypeScript wrapper around `@tauri-apps/api/core.invoke()` with typed command functions. Generated bindings cover the commands listed in [Specta exports](../../crates/tracepilot-tauri-bindings/src/specta_exports.rs); other contracts are maintained by hand until migrated.
 
 ### @tracepilot/types
 
@@ -108,6 +113,10 @@ Shared TypeScript interfaces and types mirroring the Rust data model.
 ### @tracepilot/config
 
 Shared configuration presets (Vite, TypeScript, Vitest base configs).
+
+### @tracepilot/cli
+
+Standalone Node CLI that reads Copilot session files directly. Its `search` command scans session metadata and event text; the desktop SQLite indexer is not linked into this binary. See the [CLI guide](../../apps/cli/README.md) for supported commands.
 
 ## Data Flow
 
@@ -124,7 +133,7 @@ Shared configuration presets (Vite, TypeScript, Vitest base configs).
  tracepilot-orchestrator  ← Launches sessions, manages repos/worktrees
        │
        ▼
- tracepilot-tauri-bindings ← IPC bridge (78 commands)
+ tracepilot-tauri-bindings ← IPC bridge (see command registry)
        │
        ▼
  @tracepilot/client        ← TypeScript invoke wrappers
@@ -135,14 +144,11 @@ Shared configuration presets (Vite, TypeScript, Vitest base configs).
 
 ## Key Design Decisions
 
-### Lock-Poison Recovery
-All `Mutex` accesses in Tauri bindings use `lock().unwrap_or_else(|e| e.into_inner())` to recover from poisoned locks rather than panicking.
-
 ### Two-Phase Indexing
 Session indexing is split into metadata upsert (fast, synchronous) and content extraction (heavier, semaphore-gated) to avoid blocking the UI during bulk operations.
 
 ### Centralised Home Directory
-A single `home_dir_opt()` helper in `tracepilot-core::utils` resolves `USERPROFILE` (Windows) or `HOME` (Unix), used by all crates that need the Copilot home path.
+`tracepilot-core` centralizes session and data-path resolution. See [on-disk paths](../on-disk-paths.md) for the current override order and storage locations.
 
 ### Content Security Policy
 The Tauri webview runs with a restrictive CSP:
@@ -161,20 +167,21 @@ Tauri plugin permissions are set to minimum required (e.g., `dialog:allow-open`,
 
 ## Testing
 
-| Layer | Command | Tests |
-|-------|---------|-------|
-| Rust (all crates) | `cargo test --workspace --exclude tracepilot-desktop --exclude tracepilot-bench` | ~250 |
-| Desktop (Vitest) | `pnpm --filter @tracepilot/desktop test` | ~245 |
-| UI (Vitest) | `pnpm --filter @tracepilot/ui test` | ~450 |
-| Typecheck | `pnpm typecheck` | — |
+| Layer | Command |
+|-------|---------|
+| Rust workspace | `cargo test --workspace --exclude tracepilot-desktop` |
+| Frontend workspace | `pnpm test` |
+| Typecheck and lint | `pnpm typecheck`, `pnpm lint` |
+
+See the [testing guide](../testing.md) and [CI workflow](../../.github/workflows/ci.yml) for current coverage and required gates. Test totals change as suites grow.
 
 ## Build
 
 ```bash
-# Development
-pnpm install
-cargo tauri dev
+# Real Windows desktop development
+pnpm app:start
 
-# Production
-cargo tauri build
+# Frontend and standalone CLI builds
+pnpm build
+pnpm build:cli
 ```
