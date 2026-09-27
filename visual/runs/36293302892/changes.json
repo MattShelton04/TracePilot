@@ -1,0 +1,2775 @@
+{
+  "schema": 1,
+  "baseSha": "3507148c340e89da29358e7f0751214bffc1d102",
+  "headSha": "579fcb7c4fbfd93c22a5a238d5be6b5c4d889bf9",
+  "viewport": {
+    "width": 1440,
+    "height": 960,
+    "theme": "dark",
+    "scale": 1
+  },
+  "summary": {
+    "changed": 54,
+    "unchanged": 34,
+    "subtle": 1,
+    "incomplete": 0,
+    "baseUnavailable": 12,
+    "total": 101
+  },
+  "views": [
+    {
+      "id": "sessions",
+      "group": "overview",
+      "route": "/",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c350f2ea088cb780b936bc3e2fe4c0e8aea5b67ca134eb926fc1e803bc705a32.png",
+        "after": "../../img/c350f2ea088cb780b936bc3e2fe4c0e8aea5b67ca134eb926fc1e803bc705a32.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-overview",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/overview",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0874f103de59f2b385b9aad0013bc52caa47cd217555805aaa3c2792af839a0d.png",
+        "after": "../../img/0874f103de59f2b385b9aad0013bc52caa47cd217555805aaa3c2792af839a0d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-conversation",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/conversation",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 60651,
+      "percent": 4.387369791666667,
+      "areas": [
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38975
+        },
+        {
+          "x": 1247,
+          "y": 585,
+          "width": 149,
+          "height": 375,
+          "pixels": 15328
+        },
+        {
+          "x": 1300,
+          "y": 448,
+          "width": 80,
+          "height": 98,
+          "pixels": 6348
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/202dbee6c942fed2a46e663deabd5e45d1235f9e422aeb3e3d960319dbcf9ddc.png",
+        "after": "../../img/69ca3863cdb47380f88c06cbc499bc53dda6d5f3cae414ce339d73786f48ee20.png",
+        "difference": "../../img/069f5dd45dc5c29e5b0d7ffb691b204c04b14dd4cf6264604ef0e87cbfe91d6b.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/49128b74ef27c07214659762dc41657817fc71e9f79e8366bffa3fdef088b471.png",
+            "after": "../../img/bdb0b923218d5af4f0a858af54485bc512a308c59854c797f9191d9a516d4cf3.png"
+          },
+          {
+            "rect": {
+              "x": 960,
+              "y": 521,
+              "width": 480,
+              "height": 439
+            },
+            "before": "../../img/6d5410f4a316cd99848d5f52aac64915a6f260df60e08d0f623afc9fe9dc9cfb.png",
+            "after": "../../img/049cdead6337ed2ebde46474676b91fe5eef330808f9b287735d8d86373ce6a9.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-events",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/events",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/1acbeaa67a0442bb06f4a97c1bc14904955859840c5d2493492758673c3be8a4.png",
+        "after": "../../img/1acbeaa67a0442bb06f4a97c1bc14904955859840c5d2493492758673c3be8a4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-todos",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/todos",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/19bd58d475c8e72b8fc892ca84303b5ebc7d247d25238cfdc256fb1975783da4.png",
+        "after": "../../img/19bd58d475c8e72b8fc892ca84303b5ebc7d247d25238cfdc256fb1975783da4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-metrics",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/metrics",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0579d62dd15d9e57105c347c92e6195a9e93134003ab6c6ab9fca3ed09d6fdb3.png",
+        "after": "../../img/0579d62dd15d9e57105c347c92e6195a9e93134003ab6c6ab9fca3ed09d6fdb3.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-context",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/context",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c76f1743eda7fae5ef4ce382d5e3185dd40b6f4ff8f1dd3dd24254c96880cc95.png",
+        "after": "../../img/c76f1743eda7fae5ef4ce382d5e3185dd40b6f4ff8f1dd3dd24254c96880cc95.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-explorer",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/238c5540ac1e1565b9f3719bac011a8e601069e99ac1fcdf846f935894b344d5.png",
+        "after": "../../img/238c5540ac1e1565b9f3719bac011a8e601069e99ac1fcdf846f935894b344d5.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-timeline",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/timeline",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0dc530db43dfe18bd178bfb04b37d80aaed3a200b94d82a7bda393a86bbbaf78.png",
+        "after": "../../img/0dc530db43dfe18bd178bfb04b37d80aaed3a200b94d82a7bda393a86bbbaf78.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-explorer-file",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "synthetic plan.md selected in the file reader",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/58902a7973c05313ae4938401a2e43da991784d531a18073c17c0dbcfd3c44cc.png",
+        "after": "../../img/58902a7973c05313ae4938401a2e43da991784d531a18073c17c0dbcfd3c44cc.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "search",
+      "group": "overview",
+      "route": "/search",
+      "state": "empty search prompt; indexed fixtures",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/dad5fb982d8c74a53e3e5e4fb7949ce52339b6b0890586574188d3c0c69e154d.png",
+        "after": "../../img/dad5fb982d8c74a53e3e5e4fb7949ce52339b6b0890586574188d3c0c69e154d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "search-results",
+      "group": "overview",
+      "route": "/search?q=auth",
+      "state": "populated search results",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/8415f441fe648973e7cea53577ed87ecacf76225b1b48fe3ce97d28155a2a08e.png",
+        "after": "../../img/8415f441fe648973e7cea53577ed87ecacf76225b1b48fe3ce97d28155a2a08e.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "analytics",
+      "group": "overview",
+      "route": "/analytics",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/6fbf5dce5e61c3548ccf34a75d61915d8b27a300364c0b4f056d200dbaefacab.png",
+        "after": "../../img/6fbf5dce5e61c3548ccf34a75d61915d8b27a300364c0b4f056d200dbaefacab.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "tools",
+      "group": "overview",
+      "route": "/tools",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/605f30fb5185e96aca81bdc67f00462d0bfd44167502adef7c6d82ecfd924bd7.png",
+        "after": "../../img/605f30fb5185e96aca81bdc67f00462d0bfd44167502adef7c6d82ecfd924bd7.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "code",
+      "group": "overview",
+      "route": "/code",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ed3aaabb38c29455cfacb9b9337d620de39f6c701037434583e98c65bc1d891a.png",
+        "after": "../../img/ed3aaabb38c29455cfacb9b9337d620de39f6c701037434583e98c65bc1d891a.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "model-comparison",
+      "group": "overview",
+      "route": "/models",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/a9ba2a1dc9631f4e117d23f309d20c49dd3bea0dde2fc92dcaba66faf0ef8e89.png",
+        "after": "../../img/a9ba2a1dc9631f4e117d23f309d20c49dd3bea0dde2fc92dcaba66faf0ef8e89.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "compare",
+      "group": "overview",
+      "route": "/compare",
+      "state": "session picker",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/bad8dcb420daf329eaafa4f002256ccdbc5169cde57a127855f6748328652685.png",
+        "after": "../../img/bad8dcb420daf329eaafa4f002256ccdbc5169cde57a127855f6748328652685.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "compare-populated",
+      "group": "overview",
+      "route": "/compare",
+      "state": "two synthetic sessions compared; zero file-count baseline",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/1e94f6e021275ab24ca1a4d4061b9c59e2c218a88b0c04d1092ad1c718af2599.png",
+        "after": "../../img/1e94f6e021275ab24ca1a4d4061b9c59e2c218a88b0c04d1092ad1c718af2599.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "replay",
+      "group": "overview",
+      "route": "/replay/sess-auth-refactor",
+      "state": "Experimental · explicitly enabled; populated paused replay",
+      "change": "changed",
+      "changedPixels": 118831,
+      "percent": 8.595992476851851,
+      "areas": [
+        {
+          "x": 287,
+          "y": 508,
+          "width": 740,
+          "height": 377,
+          "pixels": 118831
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f66b26eb89c50783ee416c52ecb56c64c47e09d05fba9cdfa233df04849dca31.png",
+        "after": "../../img/c25c6097f22ac0598e9dfff491325d097738f6685c5d1af0fa78d6494f0e675a.png",
+        "difference": "../../img/2d186c4514c7b05e62326ba8f970782163782e61b7c3f9a5c6d7f2730f4e0803.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 255,
+              "y": 476,
+              "width": 804,
+              "height": 441
+            },
+            "before": "../../img/ccca34b542b54e811431ed6d5b7b6d6fa0c7ebcae6d5c8cc9b82040503a01136.png",
+            "after": "../../img/d4e590fd8b9f908c5404356bfd6712e220d27e6eb2bf9f508b5ac860d0c779c2.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "export",
+      "group": "overview",
+      "route": "/export",
+      "state": "Experimental · explicitly enabled; session picker",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/fa9b871c3aba63f7ce2b48b55bcef4ee7ffe0bd57b77a9795bbf73219eab539d.png",
+        "after": "../../img/fa9b871c3aba63f7ce2b48b55bcef4ee7ffe0bd57b77a9795bbf73219eab539d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "export-preview",
+      "group": "overview",
+      "route": "/export?sessionId=sess-auth-refactor&preset=minimal-team-log",
+      "state": "Experimental · explicitly enabled; selected session and populated Markdown preview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e7fea45d332b8c66355a56874fb1d09d97cd1aa2fe9eca113f1ba8a1593291d6.png",
+        "after": "../../img/e7fea45d332b8c66355a56874fb1d09d97cd1aa2fe9eca113f1ba8a1593291d6.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "settings",
+      "group": "overview",
+      "route": "/settings",
+      "state": "configured defaults",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/572cbe8b6ec8d43b9bc34f28e529707288be4d8ed3b61e8af722762bbbbf46f2.png",
+        "after": "../../img/572cbe8b6ec8d43b9bc34f28e529707288be4d8ed3b61e8af722762bbbbf46f2.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "settings-pricing",
+      "group": "overview",
+      "route": "/settings",
+      "state": "configured pricing",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/a4bd9e0188ab44f7d7c56af20f88755d646530f622429eb207390a23402eca19.png",
+        "after": "../../img/a4bd9e0188ab44f7d7c56af20f88755d646530f622429eb207390a23402eca19.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "orchestration",
+      "group": "overview",
+      "route": "/orchestration",
+      "state": "SDK disabled; fixture sessions",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0dbf9b301559d9e70dd37f2bfa91b3643e0a2ca878a7f8a9f079a3d5fa834a97.png",
+        "after": "../../img/0dbf9b301559d9e70dd37f2bfa91b3643e0a2ca878a7f8a9f079a3d5fa834a97.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "worktree-manager",
+      "group": "overview",
+      "route": "/orchestration/worktrees",
+      "state": "populated fixture repositories",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/750c2d2a99712c4c4909d331aaba256ff3201f84a6a5b352ee516c3e261e34c8.png",
+        "after": "../../img/750c2d2a99712c4c4909d331aaba256ff3201f84a6a5b352ee516c3e261e34c8.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-launcher",
+      "group": "overview",
+      "route": "/orchestration/launcher",
+      "state": "launch form; no process launched",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e0f309c2ca3abbe2cd18ce1685ad8c1d471fd332fc2245aa3920e92b1f1558b3.png",
+        "after": "../../img/e0f309c2ca3abbe2cd18ce1685ad8c1d471fd332fc2245aa3920e92b1f1558b3.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "config-injector",
+      "group": "overview",
+      "route": "/orchestration/config",
+      "state": "Experimental · explicitly enabled; fixture configuration",
+      "change": "subtle",
+      "changedPixels": 44,
+      "percent": 0.00318287037037037,
+      "areas": [
+        {
+          "x": 309,
+          "y": 212,
+          "width": 16,
+          "height": 14,
+          "pixels": 44
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/4346c74a15d9d88594ddc14c19aaf3aded198381a2b37331ed2e387df114772d.png",
+        "after": "../../img/7cd52d20a61fdfba43521655c41a29a2f3b9696058c4b57ad81746a228316a9f.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "mcp-manager",
+      "group": "overview",
+      "route": "/mcp",
+      "state": "Experimental · explicitly enabled; populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/7321b871f867b5ae15fa11da2e3c453f44229d55cbabbf879ceba5c8d46f7868.png",
+        "after": "../../img/7321b871f867b5ae15fa11da2e3c453f44229d55cbabbf879ceba5c8d46f7868.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "mcp-server-detail",
+      "group": "overview",
+      "route": "/mcp/visual-files",
+      "state": "Experimental · explicitly enabled; configured; no network health check",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e10b02fae92d2c8cae42777f49481bf4a07d60c5e2ad94e36841734b1e9122b4.png",
+        "after": "../../img/e10b02fae92d2c8cae42777f49481bf4a07d60c5e2ad94e36841734b1e9122b4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skills-manager",
+      "group": "overview",
+      "route": "/skills",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/657bd46fd234ea8ba595f7db256f5bb552942f145ac8c8361e4bb0fc6731fd47.png",
+        "after": "../../img/657bd46fd234ea8ba595f7db256f5bb552942f145ac8c8361e4bb0fc6731fd47.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skill-editor",
+      "group": "overview",
+      "route": "/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review",
+      "state": "populated synthetic skill",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/411b8e0a18b5ba8ad7ae03491054ec3f6c4572f28d6bc20db485cc9a89d7bf10.png",
+        "after": "../../img/411b8e0a18b5ba8ad7ae03491054ec3f6c4572f28d6bc20db485cc9a89d7bf10.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skill-usage",
+      "group": "overview",
+      "route": "/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review?tab=usage",
+      "state": "synthetic skill with cross-session usage",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/61550e69ecab6c6822cb6deb99189adfb43d69d287052330e93930b1da2b5e83.png",
+        "after": "../../img/61550e69ecab6c6822cb6deb99189adfb43d69d287052330e93930b1da2b5e83.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "agents-manager",
+      "group": "overview",
+      "route": "/agents",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9f7b70f99230a21803ec19b5ca3cf793dd2a6138eac495f1743b7107c3fb06a7.png",
+        "after": "../../img/9f7b70f99230a21803ec19b5ca3cf793dd2a6138eac495f1743b7107c3fb06a7.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "agent-editor",
+      "group": "overview",
+      "route": "/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md",
+      "state": "populated synthetic personal agent",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/3dd31b94385c57300a0139d80254e7e60e7b416b374b2e3742e6ca3df6ac0c81.png",
+        "after": "../../img/3dd31b94385c57300a0139d80254e7e60e7b416b374b2e3742e6ca3df6ac0c81.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "agent-usage",
+      "group": "overview",
+      "route": "/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml",
+      "state": "agent usage and model breakdown",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e08a99d4d261a541df5eb1a1feb46af93cd87173862d1c67aa05e770675d5545.png",
+        "after": "../../img/e08a99d4d261a541df5eb1a1feb46af93cd87173862d1c67aa05e770675d5545.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "cli-context",
+      "group": "overview",
+      "route": "/cli-context",
+      "state": "Experimental · explicitly enabled; no captured external context",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c100f2b696f32c0ab6c3f197dea98046ee6b5e07be37506ba578424ca45b3432.png",
+        "after": "../../img/c100f2b696f32c0ab6c3f197dea98046ee6b5e07be37506ba578424ca45b3432.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "not-found",
+      "group": "overview",
+      "route": "/visual-route-does-not-exist",
+      "state": "not found",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/3b5ffd08b54d99e163b32cb5bdd429284d649a066726ec4204da489125d81a07.png",
+        "after": "../../img/3b5ffd08b54d99e163b32cb5bdd429284d649a066726ec4204da489125d81a07.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-edit",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · complete result",
+      "change": "changed",
+      "changedPixels": 641775,
+      "percent": 46.42469618055556,
+      "areas": [
+        {
+          "x": 244,
+          "y": 57,
+          "width": 1192,
+          "height": 755,
+          "pixels": 641775
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/052256ac64f4f7eee66915a923d99ac50218d132818b4d9383d2d5db7bd6c714.png",
+        "after": "../../img/7853b3d8297c62f3cd77331d50918aa567bd8ab2bbb3262da2dd7681bd547a7d.png",
+        "difference": "../../img/714897409e7f831c87945e849dfe085340a783dd057c848feee75a5fccb50ec5.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-view",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic view · complete result",
+      "change": "changed",
+      "changedPixels": 196094,
+      "percent": 14.18504050925926,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 356,
+          "pixels": 157161
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/16dab3269c9b2a7b68a06d99768695cdf7707d2bc7e211c07b3aa8895beece2c.png",
+        "after": "../../img/97c869f7e42af60dae15ca42bd3a38dbd296f4a144215dea964bca36cde88c6c.png",
+        "difference": "../../img/f45f6c5108e3fd3e79f75a0535fd921321508df56dfe22a5a955a5ba3750e9dc.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 420
+            },
+            "before": "../../img/79d0b0c6cbe7bbe38c166e12eb84ad8c449d10fd4cf166bc7eeccef9de4c4f91.png",
+            "after": "../../img/bc92ad6403ba2cf3a74bd93b0a1e29df2a72163fcbd530a5b1b855b27d9919a5.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · complete result",
+      "change": "changed",
+      "changedPixels": 415970,
+      "percent": 30.090422453703702,
+      "areas": [
+        {
+          "x": 244,
+          "y": 74,
+          "width": 1192,
+          "height": 738,
+          "pixels": 415970
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/24ce42a25ef3b765b973adb25354726a1cf4fc7a6fa317bd556173e6f81d1869.png",
+        "after": "../../img/d890bd29b901a78e04629c804c0fea36a20397315211360ec8cb9b67c2a9876b.png",
+        "difference": "../../img/7f5c59d2b3053c111f02ae4b176c3f2e978f906c942a6c43350295ce0ae847b7.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-grep",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic grep · complete result",
+      "change": "changed",
+      "changedPixels": 486481,
+      "percent": 35.19104456018518,
+      "areas": [
+        {
+          "x": 244,
+          "y": 49,
+          "width": 1192,
+          "height": 763,
+          "pixels": 486481
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/5d11fa4fa439b3c04cd0d1cc5ad651a28b02f18721bbfab8f7c68838c37a1482.png",
+        "after": "../../img/a7d377248dab65a76e27582800a4a2be3b61519ff2e2f7bafa8f936f420d2a81.png",
+        "difference": "../../img/d153a86e5cea3f206ea0da0f6818c27c8ed9e2a601d50e94b727e6fa76ec64ac.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-rg",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic rg · complete result",
+      "change": "changed",
+      "changedPixels": 368000,
+      "percent": 26.62037037037037,
+      "areas": [
+        {
+          "x": 267,
+          "y": 150,
+          "width": 1145,
+          "height": 662,
+          "pixels": 365148
+        },
+        {
+          "x": 268,
+          "y": 49,
+          "width": 278,
+          "height": 11,
+          "pixels": 2852
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/455caa76a6be0b35fb3a1547a1bd8696d9362d53777fefee545c84eab1955605.png",
+        "after": "../../img/8927679585de0e0a4fa217dee58294b14c96908531e7d17f49c4d2dd031bdf63.png",
+        "difference": "../../img/78cbd37ec902fed5b2faba0a26e9625ff8f86414b9e4f12cc33d230dd836f0ac.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 167,
+              "y": 0,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/43d55caaf7fbee30a0e46ae1b5eb70a159b7ebcca8d582d3204c27e8adf052fc.png",
+            "after": "../../img/4b69d7b6b055179921a82af9063a57ad52654c18ca8267194f79922f973c664f.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-glob",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic glob · complete result",
+      "change": "changed",
+      "changedPixels": 399401,
+      "percent": 28.89185474537037,
+      "areas": [
+        {
+          "x": 267,
+          "y": 49,
+          "width": 1145,
+          "height": 763,
+          "pixels": 399241
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c2cc66e40ef30eb7cc953e87f93db10def65dceaa8b3bea9939fa3e965dbe1d1.png",
+        "after": "../../img/ce479e80a9a730700793294e4bc78c00a22d7083057c4355227227900579cdff.png",
+        "difference": "../../img/3e7888e9c184375628afc7328ba31de66415bc826f552d4ebaf5c75a8f02ad79.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-powershell",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · complete result",
+      "change": "changed",
+      "changedPixels": 590890,
+      "percent": 42.74377893518518,
+      "areas": [
+        {
+          "x": 244,
+          "y": 49,
+          "width": 1192,
+          "height": 763,
+          "pixels": 590890
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/e2feb1f2acd018005152cc642dbeedcc9004df3bb97ad96d9c4fff7af97ded7c.png",
+        "after": "../../img/8b4bc291bf26790d0a8d9f6e17df6eb99c71239cfe74401a50f9db06ee879027.png",
+        "difference": "../../img/523de5343121dcab14f508e46ea4474c86627f45bd98fb149862bd7ae92088bc.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-powershell",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_powershell · complete result",
+      "change": "changed",
+      "changedPixels": 186267,
+      "percent": 13.474175347222221,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 330,
+          "pixels": 147334
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0e1eab4795967f003ffb750406087c6c79d25629989c6a7949f7727115e10e0b.png",
+        "after": "../../img/9ad90faf6603f18ab2f6b4056f73484e6b899af53c2f9aa632e2f1779566a7fe.png",
+        "difference": "../../img/a570e91e239eaa62477e62f6f074d5a775eab0f992df8f8bdacf5aa5671fc988.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 394
+            },
+            "before": "../../img/4faf14dd49185102e17eab444155640b1a03c7a35063218f474f3072a1652bce.png",
+            "after": "../../img/c46ba840d6bcfebca640dcbe0e577f9b476fd122c573ab025b92b151e3d2e49a.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-powershell",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_powershell · complete result",
+      "change": "changed",
+      "changedPixels": 490557,
+      "percent": 35.48589409722222,
+      "areas": [
+        {
+          "x": 244,
+          "y": 54,
+          "width": 1192,
+          "height": 757,
+          "pixels": 490557
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/1b2d7c0150c2dde2162497cc027ab50a664055f13e86cced53d81657fe1ea18a.png",
+        "after": "../../img/a7706ce7498b314b5bbc5d8864d62df69363eef4fe53a8421754d2d8586ef011.png",
+        "difference": "../../img/a553845b5dac3e0743b264f1e1fb8cfd785f3c078fcfb9863ddadd54979b6b4c.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · complete result",
+      "change": "changed",
+      "changedPixels": 570535,
+      "percent": 41.271339699074076,
+      "areas": [
+        {
+          "x": 267,
+          "y": 63,
+          "width": 1145,
+          "height": 749,
+          "pixels": 570535
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/35d5b21ffc0e05a91ca66ba2b43013161c215ffe054629dbf4f9a66a135245c9.png",
+        "after": "../../img/0e3cdf519dc45cc20012a07c61e29551f45ae5cefff1fdbe9c91f1f61ec2a29b.png",
+        "difference": "../../img/ae45e33d970aa6e191121ab3ffcd82c3e86cb7862b1d6f3150c587ac9c46f110.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-search",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_search · complete result",
+      "change": "changed",
+      "changedPixels": 364656,
+      "percent": 26.37847222222222,
+      "areas": [
+        {
+          "x": 300,
+          "y": 77,
+          "width": 1112,
+          "height": 881,
+          "pixels": 364656
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/7a6c60a8c448d0b1342acc7e5af0bca8a8ee96a3a84a57337cf30ef282e4328f.png",
+        "after": "../../img/46dd72d554f77ffdb82bb2d4d224f2382f1575e8c97b2941bb94ef10bb8cf050.png",
+        "difference": "../../img/4bc3efc040e93b40eb61240ec0a2f9555dbc37e164569fe344472502b179e574.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-store-memory",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic store_memory · complete result",
+      "change": "changed",
+      "changedPixels": 411889,
+      "percent": 29.79521122685185,
+      "areas": [
+        {
+          "x": 244,
+          "y": 54,
+          "width": 1192,
+          "height": 758,
+          "pixels": 411889
+        }
+      ],
+      "sameAreasAs": "rich-tool-write-powershell",
+      "images": {
+        "before": "../../img/b5375bc4b17aca1d3019d2b4de11d465cc6afde6cb318d8e6fb4e8cf4da4a543.png",
+        "after": "../../img/e3821aae0e1098b5177469fff4d417c6128427baa5d6f8ce98fb2d4d5c9e66e6.png",
+        "difference": "../../img/98acab47fe72d393d4caf1eb94dba959e5480c1f3250300a5fe061390c58f54c.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-report-intent",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic report_intent · complete result",
+      "change": "changed",
+      "changedPixels": 534925,
+      "percent": 38.69538483796296,
+      "areas": [
+        {
+          "x": 244,
+          "y": 49,
+          "width": 1192,
+          "height": 763,
+          "pixels": 501884
+        },
+        {
+          "x": 247,
+          "y": 877,
+          "width": 462,
+          "height": 74,
+          "pixels": 33041
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/6a0f0752f18a3ea091ab6415608a7c85ecb14a13086f8bd7191d8e2813580ff2.png",
+        "after": "../../img/5f3f8ddb96723b3b5e59b53f4a9b20e9086b03a822b254941ce5f4fea918a3d7.png",
+        "difference": "../../img/6738b99dcd458839f0fbc7fdd014f8d99647273f09e487d4e54743a1decbd681.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 215,
+              "y": 760,
+              "width": 526,
+              "height": 200
+            },
+            "before": "../../img/e746f4ac1d577935bf5d782cbca7b0a978b703b66844640782287e594591a55d.png",
+            "after": "../../img/d8ce2e497e1514485217d5f915f2c67c52fd4c94c3dcc8801518f63d9c2ebd11.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-user",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · complete result",
+      "change": "changed",
+      "changedPixels": 522641,
+      "percent": 37.806785300925924,
+      "areas": [
+        {
+          "x": 244,
+          "y": 49,
+          "width": 1192,
+          "height": 763,
+          "pixels": 522641
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/035cb371cfb0616fbece6f521da77cbdea18186e4fe858783444e3a949544f16.png",
+        "after": "../../img/8770db0ea27cfce7c97ec8eb5fb67c7d74f17ca398c6e8b40edc221b437004e2.png",
+        "difference": "../../img/c7adca0edce8fa6ab663cf97ad26b7fc7bcf1ef061955b6359b32d20c6c9ebc4.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-user-schema",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · complete result",
+      "change": "changed",
+      "changedPixels": 623531,
+      "percent": 45.10496238425926,
+      "areas": [
+        {
+          "x": 267,
+          "y": 49,
+          "width": 1145,
+          "height": 763,
+          "pixels": 623531
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/7efa0ed385ca2448523524704a920690b09e792623bed65b6c6eeb4401efa20b.png",
+        "after": "../../img/0811ca5113bc9d26537eb25a8edfe58b973aec96f05f9eb5628c6f8e027f37a4.png",
+        "difference": "../../img/7eca83ba3124fe9d7cf55a4d18ffb7131a7d3b04dee8df320872a441ae4e46f5.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-agent",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_agent · complete result",
+      "change": "changed",
+      "changedPixels": 397724,
+      "percent": 28.77054398148148,
+      "areas": [
+        {
+          "x": 267,
+          "y": 77,
+          "width": 1145,
+          "height": 735,
+          "pixels": 397724
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/fa3e084a3d8677c71b40e837ceca2f4e4f645498293e59d49b0651c86eea8d15.png",
+        "after": "../../img/f829e16bcdc94ecdf2fc5619383ea8083f3e9e01c5df3f2fd9153e15999caa1c.png",
+        "difference": "../../img/f5c49690815dabda7be8481f298e79e37767aef1223183f9ab53e1853cdd5538.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-agent",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_agent · complete result",
+      "change": "changed",
+      "changedPixels": 524231,
+      "percent": 37.92180266203704,
+      "areas": [
+        {
+          "x": 244,
+          "y": 49,
+          "width": 1192,
+          "height": 763,
+          "pixels": 524231
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/b1400b4bf43d182be6e939acbeb4cb6c76648505126fed3cba8f1ddce05a8337.png",
+        "after": "../../img/f24f472b3896d8af6f5536aa6af5330ca398edd4d493663abf1c13780a2aaff4.png",
+        "difference": "../../img/d125b0f3a5431fea33e971b9c06f1e6ec55bf0f42ced4f302e6220ebcc9b4bd0.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-list-agents",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic list_agents · complete result",
+      "change": "changed",
+      "changedPixels": 537536,
+      "percent": 38.88425925925926,
+      "areas": [
+        {
+          "x": 244,
+          "y": 57,
+          "width": 1192,
+          "height": 755,
+          "pixels": 537536
+        }
+      ],
+      "sameAreasAs": "rich-tool-edit",
+      "images": {
+        "before": "../../img/2925c226429497a01b2763744d9df943d0c1611552f75ca3eaba169382d55e22.png",
+        "after": "../../img/0e5d275fa74d72fd84b2f4cda6d7cd2f6f43bc5729e9ea8c5a6ca3c728925f6b.png",
+        "difference": "../../img/714780bf5b1dad30ad00841f0ed30b66e906a47dbdb1a9f9930755880dc96d33.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-apply-patch",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · complete result",
+      "change": "changed",
+      "changedPixels": 610779,
+      "percent": 44.18250868055556,
+      "areas": [
+        {
+          "x": 267,
+          "y": 49,
+          "width": 1145,
+          "height": 763,
+          "pixels": 607425
+        },
+        {
+          "x": 1360,
+          "y": 884,
+          "width": 64,
+          "height": 64,
+          "pixels": 3354
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/53b8e8e30dfd7ccd7e18e9c8643b6c30f32828795485bfd097e9c58e0e3b719a.png",
+        "after": "../../img/8cf51865b113509c2f0af67ee1cd95f7c660961f69a18ea8e00a2669a884da8a.png",
+        "difference": "../../img/8d4b59ae85dbb698e2cc2e04076a15264f4916138ede85a7080fb925efb22878.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 760,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/33d4a5bd8d32f9fba0f147b71c7b027912877b8e21c3e8724c077ed27ba3412b.png",
+            "after": "../../img/e75a55c569245b02d6a6f6a8a74ef49d313e614535fc23434e7b19a8165357bf.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-fetch-fallback",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_fetch · complete result · Markdown fallback (no registered renderer)",
+      "change": "changed",
+      "changedPixels": 325949,
+      "percent": 23.578486689814813,
+      "areas": [
+        {
+          "x": 244,
+          "y": 63,
+          "width": 1192,
+          "height": 749,
+          "pixels": 325949
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/065552fa1bf8278bf770a0c607c757e2c0d273c4281d0af0c0c12d8171576769.png",
+        "after": "../../img/4a232e7b2053e6e59fe76e7a9ba6db1c66adb66e72afb9b74d988a8f94b26784.png",
+        "difference": "../../img/274ed2a28f8dd562b04a4f9cd8b523e9d5c65a90c2b677767066445315425266.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-task-fallback",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic task · complete result · delegated Markdown fallback (no registered renderer)",
+      "change": "changed",
+      "changedPixels": 125697,
+      "percent": 9.092664930555555,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 285,
+          "pixels": 86764
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/cfe67a8f5be55069f8b05761f659738c41e9969d5f7d6cdecfee3804f66e5510.png",
+        "after": "../../img/53c04096364e118e5b5d30393214068252b4a470765566af5a64b0267c62fb12.png",
+        "difference": "../../img/11e176a28f4cfbb272c0afdc067294db82e133282b8cbd28252c5cae3ec9f809.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 349
+            },
+            "before": "../../img/e3ff7a560c031165b121d2b49232db1478b8204ae1e3ea86b8a333b696212aca.png",
+            "after": "../../img/1fa9a0a367dc3edc7bf1b280954efbc8cfd347460be689ead1bf39ba4de06167.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · error result",
+      "change": "changed",
+      "changedPixels": 571309,
+      "percent": 41.327329282407405,
+      "areas": [
+        {
+          "x": 244,
+          "y": 49,
+          "width": 1192,
+          "height": 763,
+          "pixels": 571309
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/bd79a8bcdc91d60b3179e8fa55c8e5ab20601c07b958fe63ddbdb249392479e2.png",
+        "after": "../../img/baf4a9ee39d2f8e051c8c6462076ec61a8d69a7fef65f52265b1a127646335d4.png",
+        "difference": "../../img/309a44c5f570633566770042c7fceb48820a8ff6d9146bbd21f01abc23e7ea56.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-user-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · pending arguments",
+      "change": "changed",
+      "changedPixels": 464035,
+      "percent": 33.56734664351852,
+      "areas": [
+        {
+          "x": 244,
+          "y": 49,
+          "width": 1192,
+          "height": 763,
+          "pixels": 464035
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/35bf19c61da21cbe16162f29f6ac5345d9e4e356d758f4d9b39de586e761702d.png",
+        "after": "../../img/c36de181c7d3dcbc4884bb3990d76086f11fc0dd4e79c31ba23b40fd688e4884.png",
+        "difference": "../../img/e88f6229584436d5e8204a304cad3896f538b31b7e04701b41b83d8741e43084.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-edit-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · pending arguments",
+      "change": "changed",
+      "changedPixels": 208500,
+      "percent": 15.082465277777779,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 357,
+          "pixels": 169567
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": "rich-tool-view",
+      "images": {
+        "before": "../../img/37dfc5cf169c11b7d0029640b7e560dc1097ad0347e3be12f5e29558c2690365.png",
+        "after": "../../img/aa6715d3deff3da8f2cfeb2a03b5beb35b124a70f583b634ad9119f807a8f64a.png",
+        "difference": "../../img/2235993c9cb032763825f198a79ab8c255bd4c0532723b93290e0d47a6489adb.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 421
+            },
+            "before": "../../img/5f68b009b174ee1425321b742b927a03d591ea9ec2907819983a230577bec3d5.png",
+            "after": "../../img/65de09a17606761dea05f07467956c0590643b583042f2de39fba788a3f9267a.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · pending arguments",
+      "change": "changed",
+      "changedPixels": 135069,
+      "percent": 9.770616319444445,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 308,
+          "pixels": 96136
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/808db0a6ed60e0044bfc95a8f8ea01eeb400dace9c1b070b6cd58ab96f3c78a5.png",
+        "after": "../../img/f16eaa77f64413f5743ef64b60ec412745e365502407b733dd0d618d71406781.png",
+        "difference": "../../img/cb67338de674d8b4a56690a371dfb6491141dae0076beae6c360e27e2f18e095.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 372
+            },
+            "before": "../../img/d17d72bb4e351710d9f48e0aaa9cfbed79bc644b71edf02cf513e07772ee129f.png",
+            "after": "../../img/4b3809c46090251bf026fd188454fb41edbf24ed74a0200e2186b75df55bb7fc.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-agent-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_agent · pending arguments",
+      "change": "changed",
+      "changedPixels": 190562,
+      "percent": 13.784866898148149,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 322,
+          "pixels": 151629
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ad594d4baa4ae2d86a2e4d1f2b109d12c7def11e626ee548d8f4aa93e1b09494.png",
+        "after": "../../img/dc5a2e4163477aafd947f8ea0c3ba2bf378b9486298601d9ba00dc0f3dd1f049.png",
+        "difference": "../../img/31d27ba3c459d9b2a0dafee1fc1dea97ddc54651f245018e1ae6d874758392cb.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 386
+            },
+            "before": "../../img/a192957df0bdaf0bcc5cf37df04014479ab1c8833caae72b604c1694f4e305e9.png",
+            "after": "../../img/978efe75b7bbf8e16d27c805f40135867bf33821b6c13158ad7b1e651a0a3213.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-apply-patch-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · pending arguments",
+      "change": "changed",
+      "changedPixels": 474096,
+      "percent": 34.295138888888886,
+      "areas": [
+        {
+          "x": 267,
+          "y": 59,
+          "width": 1145,
+          "height": 753,
+          "pixels": 474096
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/04d7c9e20058a728bc10c9d57ed0846a468db71d38ad0fbb0189ff277982bd5a.png",
+        "after": "../../img/1c6e34f04289548c40829548e3463856920a2fe08dd77971c458114c408db27b.png",
+        "difference": "../../img/75d412c48c07275c13ebc168d7e7fd4ca3463f99b4de71b040902e3c21c43ac6.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-edit-deletion",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · empty replacement deletes selected excerpt",
+      "change": "changed",
+      "changedPixels": 538077,
+      "percent": 38.92339409722222,
+      "areas": [
+        {
+          "x": 244,
+          "y": 67,
+          "width": 1192,
+          "height": 745,
+          "pixels": 538077
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e3cbe521a741716ae248726804f60aaa51583ae90d1f217e70982844deded85a.png",
+        "after": "../../img/8c536599991389e5be6bd9d00136ba18da54350013c1afb86639532a843d2acc.png",
+        "difference": "../../img/c81e01b127735172fbc4ffbb420fbb5ffc6c4235e63296de6be1c8f43c705805.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-view-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic view · 1024-byte source preview",
+      "change": "changed",
+      "changedPixels": 259558,
+      "percent": 18.77589699074074,
+      "areas": [
+        {
+          "x": 300,
+          "y": 77,
+          "width": 1112,
+          "height": 871,
+          "pixels": 259558
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/18b9c537e3002651db42e376949af04523c991093f7077a227153e9957e340e1.png",
+        "after": "../../img/d0578117384db4c43ba03593c75fcc8578552c7576370c1ba5ec68d11b064779.png",
+        "difference": "../../img/c29f6c0920a73fcf49a3522399df0c217f2871408942f8a3f464af68dadbea6c.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-view-page",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic view · fetched source · final nonoverlapping page",
+      "change": "changed",
+      "changedPixels": 666687,
+      "percent": 48.226779513888886,
+      "areas": [
+        {
+          "x": 267,
+          "y": 55,
+          "width": 1157,
+          "height": 893,
+          "pixels": 666687
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/370336f7fdac9160c5b0c07039f721a9ab722ce887567b496cb1c80fb52b0a64.png",
+        "after": "../../img/a321e0267da3fa183e9d8557837f65c3431451c7b846120733293f4f0c130a26.png",
+        "difference": "../../img/ef30c68d1c590057db610e237224dba4c58bf0b53f6960b981031a300e200f17.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · failed create retains proposed contents",
+      "change": "changed",
+      "changedPixels": 687019,
+      "percent": 49.697554976851855,
+      "areas": [
+        {
+          "x": 244,
+          "y": 57,
+          "width": 1192,
+          "height": 755,
+          "pixels": 687019
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/adf09d4d9b578e2626093694030fecedd6ffc60a95824ec2bf0bd4952421e388.png",
+        "after": "../../img/638ee2efd09f5e022fe65676fcbb797b5a0dadb25a4441155d017da9f0c0850f.png",
+        "difference": "../../img/d5ca237d54d3a58a3572c29f18ddfbc20fd1fc2b77fba469a2c03248263ddc33.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-grep-count",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic grep · count mode and root filenames",
+      "change": "changed",
+      "changedPixels": 131359,
+      "percent": 9.502242476851851,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 349,
+          "pixels": 92426
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e6b1f3fc9f552a4c4256ac082a51ef706df4b69f9ba162e689f6debd77084b59.png",
+        "after": "../../img/d4eda2fa4e0f9bfb07187a2ecea0c41f50546924d32e73d29e1073fa40f35a3f.png",
+        "difference": "../../img/7b9b86f90ebb8e200146648f0c9d261a783fa470530276059a268ca735298dd9.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 413
+            },
+            "before": "../../img/0199329cadce66e9ecd503495f437cf09e5ea00361130e6124d4639f037d52bf.png",
+            "after": "../../img/7c3862eabc5695b15cccc781c57eef31c9d81171d4b778447508d7111ce35cdd.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-grep-long",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic grep · long match and context tails",
+      "change": "changed",
+      "changedPixels": 203593,
+      "percent": 14.727502893518519,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 355,
+          "pixels": 164660
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep-count",
+      "images": {
+        "before": "../../img/602afe4c5ff259efd95e0de99b8bf8f076833ca416bfee6c9c637152e8fb0171.png",
+        "after": "../../img/b79cebe0d1742c3d89934bb4570180caea4c78c3c47cdef720151ef7b3de90c4.png",
+        "difference": "../../img/19f9b031ceff6e9f41ddd650215684737516d1e8c840a2608d4c4bf135225481.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 419
+            },
+            "before": "../../img/0545699bb41ee3f532966429a166a1d26471432aa29efdbf9d99c4b251c4a9f8.png",
+            "after": "../../img/a317a725e9929b225382f101916a8fc5ac961b7727165a1cd666584f9f020164.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-running-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · running invocation before first output",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/46381780a3acc7578e0fbb6bd2d7726309b7d7a58cf61b673d165c4c3500469b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.shell-output').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "rich-tool-shell-empty-completed",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · completed invocation with empty output",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/0ba7b73bef973723d249d64ddd20594c26740c576da3ed9570933df7527ba615.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.shell-output').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "rich-tool-shell-full",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · fetched full terminal output · expanded end",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/b94c23fdfb5fc7009c2b4911b22d773fa765fc5d71de1e6eb2e221f8d197175c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.elementHandle: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Show all output', exact: true })\n"
+      ]
+    },
+    {
+      "id": "rich-tool-sql-mixed",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · heterogeneous columns, null, empty, missing and nested values",
+      "change": "changed",
+      "changedPixels": 599522,
+      "percent": 43.36820023148148,
+      "areas": [
+        {
+          "x": 244,
+          "y": 53,
+          "width": 1192,
+          "height": 759,
+          "pixels": 599522
+        }
+      ],
+      "sameAreasAs": "rich-tool-write-powershell",
+      "images": {
+        "before": "../../img/6347065f6411348a79567773749d85612b8a39caea8708d96d63e287c84dd8a8.png",
+        "after": "../../img/02431ac3e6f5c07072048480fbe81320ceb9b21f11164d4f0d59af22f01efe54.png",
+        "difference": "../../img/2d9ee90fa49933c0226be99c3d85d8a0a0d761d69f1b8bf1d4722ae2aea10ef4.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · truncated JSON preview remains faithful",
+      "change": "changed",
+      "changedPixels": 405361,
+      "percent": 29.32298900462963,
+      "areas": [
+        {
+          "x": 267,
+          "y": 49,
+          "width": 1145,
+          "height": 763,
+          "pixels": 405361
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/999942f91fe2dedd15f04cbfa91c35d67cc608dc1045f2f1fb0bba31b3268df9.png",
+        "after": "../../img/a864e846c1a568d32c4869462212172a1e514f917f7efdf0fa62316a3ca12d02.png",
+        "difference": "../../img/3784ae12e47d30f48ac7cba8a6116140709db699c82d8335006959ad2a3665a2.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql-prose",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · escaped pipes and surrounding response text",
+      "change": "changed",
+      "changedPixels": 525828,
+      "percent": 38.037326388888886,
+      "areas": [
+        {
+          "x": 244,
+          "y": 49,
+          "width": 1192,
+          "height": 763,
+          "pixels": 525828
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/fd3cd5576a88006c8a61fbac40c17fdfe45d8b1c7f3a23955425ba22de5900a5.png",
+        "after": "../../img/f81739b0f25bf0b8ad56b15e3e8b2353cf6fecca26b90d443ed759b78085b9fa.png",
+        "difference": "../../img/52f4a27fba7d324f16ec06c53b762f8fab4c057be2e7db38e428ba247d87de13.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-search-text-array",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_search · text-array envelope with five annotation-only citations",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/4c2a0a890adf6964449ab1d2d93735edc6ebbb1d664f8cb8f1f2f406173d0631.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.ws-source-card').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "rich-tool-memory-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic store_memory · failed memory with citation array",
+      "change": "changed",
+      "changedPixels": 637739,
+      "percent": 46.13274016203704,
+      "areas": [
+        {
+          "x": 244,
+          "y": 57,
+          "width": 1192,
+          "height": 755,
+          "pixels": 637739
+        }
+      ],
+      "sameAreasAs": "rich-tool-edit-deletion",
+      "images": {
+        "before": "../../img/681d080d0ce5309e5a9efd2757f0abee8a5927c93b5468694c251ae7c5188b6b.png",
+        "after": "../../img/4eaf3086cb721d5570c218f089be061d05700421cd921c01e739b3e7b1c92f1e.png",
+        "difference": "../../img/db6a760b51df0e3298b361826a7a17d37405300324a82638d3c09697bc58170b.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-agent-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_agent · partial transcript preview",
+      "change": "changed",
+      "changedPixels": 580228,
+      "percent": 41.972511574074076,
+      "areas": [
+        {
+          "x": 267,
+          "y": 49,
+          "width": 1145,
+          "height": 763,
+          "pixels": 576874
+        },
+        {
+          "x": 1360,
+          "y": 884,
+          "width": 64,
+          "height": 64,
+          "pixels": 3354
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c5b09d1846d206e718d6a1090c8050f28859d638daf9fbdbf74642838644545f.png",
+        "after": "../../img/6b454a911bae6724f2002cf1f873d297998aa6c5d47894bb420dc57e5d7b49f8.png",
+        "difference": "../../img/a68c9b691106ae267ef858271f942a87d684a20435e09786b769acb0bced4dc2.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 760,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/ed2593bccb414470c7bf6644fb4b242a8042186be271d1d809828b6e3be1deb8.png",
+            "after": "../../img/877309f8db8d9637f8550bc163b9d0464741f4ec5b757ca8008a4586ccabd9ae.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-agent-unparsed",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_agent · unknown delivery response remains visible",
+      "change": "changed",
+      "changedPixels": 411976,
+      "percent": 29.80150462962963,
+      "areas": [
+        {
+          "x": 244,
+          "y": 70,
+          "width": 1192,
+          "height": 742,
+          "pixels": 411976
+        }
+      ],
+      "sameAreasAs": "rich-tool-create-error",
+      "images": {
+        "before": "../../img/a5836f6407583cbf8a520e2b0c9d97832dea4731d9f898f4004a4214ad7fc6ed.png",
+        "after": "../../img/7702a9259378652b991f87c672a8295ed3848bc137109eea0ad2f48fa73128c5.png",
+        "difference": "../../img/45535dd8459d61363adb974f087ef141c81edc606933f9f77650990e952b4a0a.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-patch-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · failed patch preserves actual result",
+      "change": "changed",
+      "changedPixels": 707641,
+      "percent": 51.189308449074076,
+      "areas": [
+        {
+          "x": 267,
+          "y": 56,
+          "width": 1145,
+          "height": 756,
+          "pixels": 704287
+        },
+        {
+          "x": 1360,
+          "y": 884,
+          "width": 64,
+          "height": 64,
+          "pixels": 3354
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/cdceb17492a3db0ab74553f0aa100f2927b2afcfa68f33ecee055dac94ba8967.png",
+        "after": "../../img/faf9eb0c610a6852f5858f7b92375fcd0798a8d4526a5bdd20f3618453f08829.png",
+        "difference": "../../img/87f6d9a2ca9b1a185ccf2de27757eb984b7fd4cbe9e4d46831da3d9ee1ff74cf.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 760,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/1636c3664a4078ea6c5bf7dcc19c9ca5c9e90f5d0f3ebd77bf6af66288078137.png",
+            "after": "../../img/412c914a696ee1e2df10ef553b6e5cb829fdfb52feef8855f95f770cf9321ea4.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-fallback-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic fixture_tool · unknown renderer · 1024-byte preview · plain fallback (no registered renderer)",
+      "change": "changed",
+      "changedPixels": 327740,
+      "percent": 23.70804398148148,
+      "areas": [
+        {
+          "x": 267,
+          "y": 49,
+          "width": 1145,
+          "height": 763,
+          "pixels": 327740
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/07f684e5cfa9958fe4f6a8802399f512d5842e7b2a0e884123ff6d0694418776.png",
+        "after": "../../img/f2f0a29ae807f84a3c3edd11fcbcbe3788c5ddf40bd030b5a7925ddb21a804a4.png",
+        "difference": "../../img/85ef0951b772ce089d5fd13f4bf7fa8b8d7b5192461ed55aeccaef8300015135.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-fallback-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic fixture_tool · unknown renderer · completed empty output · plain fallback (no registered renderer)",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/b9d04402580aeef4c9347a7b07685df1597238c4ab412b8aa110425cef405149.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.plain-text-renderer').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "rich-tool-edit-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · failed edit retains proposed source and response",
+      "change": "changed",
+      "changedPixels": 674793,
+      "percent": 48.813151041666664,
+      "areas": [
+        {
+          "x": 244,
+          "y": 57,
+          "width": 1192,
+          "height": 755,
+          "pixels": 674793
+        }
+      ],
+      "sameAreasAs": "rich-tool-apply-patch-pending",
+      "images": {
+        "before": "../../img/5bc5a35c96767a375dba7c4c649a5526b80e2a08923a976d53b56047889fc162.png",
+        "after": "../../img/73bfc4a1c4d0d46d59e41377d520d28ca0b92a07694315877fa15571e6dd7044.png",
+        "difference": "../../img/aabbc57022529a1d0d8208deaa5d84924e389df301836ed1618f336073094e9c.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-view-full",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic view · fetched source · first page",
+      "change": "changed",
+      "changedPixels": 230445,
+      "percent": 16.669921875,
+      "areas": [
+        {
+          "x": 300,
+          "y": 77,
+          "width": 1112,
+          "height": 810,
+          "pixels": 230445
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/94e836684fc435c7224c6e48b0a1068f491f2318a8b17260b4910372b26383e3.png",
+        "after": "../../img/7a1048c9e7b4de17eb451d21aad8b3adff1a337bb2e87b1cbfe6b3c5da648311.png",
+        "difference": "../../img/c69d621bb09c3d222a52ba219303ce391943c7e1e442cb23ddd53b53bc40d042.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · empty file",
+      "change": "changed",
+      "changedPixels": 384963,
+      "percent": 27.84743923611111,
+      "areas": [
+        {
+          "x": 244,
+          "y": 79,
+          "width": 1192,
+          "height": 733,
+          "pixels": 384963
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/b24f1d51ab85c6bb2776539ce29e08908280e533846b5a3d809a24ccc6e8d246.png",
+        "after": "../../img/44c082db42f6d24ba2d163a5ff0c96a92814f0ba9ec61111a668843da255c77c.png",
+        "difference": "../../img/b34e5d34701913c919c44e957ddcdfc853af493581f456c6c22c509a58f90a35.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create-args-long",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · complete pending source parameters",
+      "change": "changed",
+      "changedPixels": 194161,
+      "percent": 14.045211226851851,
+      "areas": [
+        {
+          "x": 268,
+          "y": 55,
+          "width": 1156,
+          "height": 877,
+          "pixels": 194161
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/8a529d4efb2f3064da905c5a2ae90f3485837360121138e180d141f574693a8b.png",
+        "after": "../../img/a88caf1d70d6297099a9c879f902f3bfd4976fe451738a986dec1daebec6acee.png",
+        "difference": "../../img/2ecb9e9830e9e87bcf3ef100a22107abc96afd5682eed61bae7c744877bc4f68.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-grep-no-match",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic grep · no matches",
+      "change": "changed",
+      "changedPixels": 153253,
+      "percent": 11.086009837962964,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 313,
+          "pixels": 114320
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": "rich-tool-create-pending",
+      "images": {
+        "before": "../../img/903ea4037e8ec022d7c4e521eca09dd8b35d002b4d90cce61ff62b37cc1277ef.png",
+        "after": "../../img/59049ce787466bdacc8646bfbc956ed7ce1dd5b71520d6b59c7514a477450414.png",
+        "difference": "../../img/75cacfd20823543c03da2613bd792edf6d5ca25f2bdebe42933392faa3e987b4.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 377
+            },
+            "before": "../../img/2e1159c3cd218b1cee21117032b5fff54781a0f887f14c547aa114ade696431e.png",
+            "after": "../../img/c4ed6003846f90aaf192e9e0db429c89db21cbb2c45425255656a407442f2018.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-glob-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic glob · no matching files",
+      "change": "changed",
+      "changedPixels": 114559,
+      "percent": 8.286964699074074,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 308,
+          "pixels": 75626
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": "rich-tool-create-pending",
+      "images": {
+        "before": "../../img/58621ddfef5e3bf9f5ad54d1e0835ef2def3caad797be2e860ec89a3a6afd3b2.png",
+        "after": "../../img/78953010cd7c01bb174e959b22e8b1fb8b4f4d15b0a46c7e13db985a820ee884.png",
+        "difference": "../../img/d3f0e55f06fa19bbb7fc5d6544e9e2d8caf4faba803452a74903366fc99ce3f0.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 372
+            },
+            "before": "../../img/bed9b30d6980969c5c25f11f22866b5698369e1bd41e49656633c63fc7539f88.png",
+            "after": "../../img/b2118db067d543e253be1a6f44ef0a5262b5c54fa098b6dcf2946e4eced1732f.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-async-running",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · completed async invocation with process still running",
+      "change": "changed",
+      "changedPixels": 234083,
+      "percent": 16.93308738425926,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 358,
+          "pixels": 195150
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": "rich-tool-view",
+      "images": {
+        "before": "../../img/074c77e8804a0fe800dd5933bedde8f8ecca05f10a7947f30a517ffd9d1eb593.png",
+        "after": "../../img/aa04b1dbe2a910f9f63181b8cda7c076fd716c7d131ea1f2d543c61b3ab5847f.png",
+        "difference": "../../img/64ad023797726be54d9d8a3c66004a797790373afe712ec50cd2b37c89b678be.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 422
+            },
+            "before": "../../img/e5a22322c01aa3d78b7ad43b41d0e084ab67d9605e9caea8ce216c2a0adb72cc.png",
+            "after": "../../img/877ede4446f21107df57e8c8da2e5109748d69cfe908bfb90dcacf8dab318fec.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · 1024-byte terminal preview",
+      "change": "changed",
+      "changedPixels": 458407,
+      "percent": 33.16022858796296,
+      "areas": [
+        {
+          "x": 267,
+          "y": 55,
+          "width": 1157,
+          "height": 877,
+          "pixels": 458407
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/57ca61693156dba5310c0da940f63fcccc7a82ff7e38441525740c3531a06bf6.png",
+        "after": "../../img/65e20e80713e710791b4802b644391da556081dc448d4221c53f984a18c14fd2.png",
+        "difference": "../../img/dac15de3716a5603429d7c3d9e9f56e9bd79b02d98e484299db964a1c7e158ed.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-shell-running",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_powershell · read completed while shell runs",
+      "change": "changed",
+      "changedPixels": 181197,
+      "percent": 13.107421875,
+      "areas": [
+        {
+          "x": 300,
+          "y": 443,
+          "width": 1112,
+          "height": 309,
+          "pixels": 142264
+        },
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 64,
+          "pixels": 38933
+        }
+      ],
+      "sameAreasAs": "rich-tool-create-pending",
+      "images": {
+        "before": "../../img/58eb3b25af95ec9429c53128e08f93f2ff0c7e5d93fa6ac7da70c76c2928b7e3.png",
+        "after": "../../img/38c551e2f6a7788d670ba4b6acf126ad52248b0fd97df157ca7244c5380836a4.png",
+        "difference": "../../img/b67ecd1c98d35e23f775b105cbb1d2f77e8196dc2a6a37084916a8c291460860.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 264,
+              "y": 411,
+              "width": 1176,
+              "height": 373
+            },
+            "before": "../../img/d82976511e95c12c856a88045c1a68b95a603dce135e795c096576c3ab1e65bc.png",
+            "after": "../../img/64e5246840fac1d873a121c9f0530442328cca6eb95703c05d22203d4c118c8f.png"
+          },
+          {
+            "rect": {
+              "x": 232,
+              "y": 224,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/0ded7afcb2891d3ecb3e34aff108c781546e23931a5a6be4c3749e14a6627e5b.png",
+            "after": "../../img/81c80df156b7ca803dbd135d20364c146c02146c87256ac3aab4f9a06bb928d1.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · empty query result",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/6744813da4e1ddd7ef25e1a16bc105d4d2d02c6264838ff48e989a09259ad14a.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.sql-empty').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "rich-tool-sql-expanded",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · fetched table · expanded final page",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/51c7965a50d11e96ee29bafe39813f3e4d70e970d20c6d41a7691c51550380ae.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.elementHandle: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Show all rows', exact: true })\n"
+      ]
+    },
+    {
+      "id": "rich-tool-web-search-expanded",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_search · complete search body · expanded end",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/406f5119dc43dd3c0aa62781322f19bf3f4b1373e2dd4283e84cb945307dc0c7.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.elementHandle: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Show all search response', exact: true })\n"
+      ]
+    },
+    {
+      "id": "rich-tool-web-search-unknown",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_search · unknown JSON envelope remains readable",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/20f7026c4e645f6b6b2d7a393cda0daad3d140edbe77c67346406c3527c7faea.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.ws-raw-body').first() to be visible\n"
+      ]
+    },
+    {
+      "id": "rich-tool-ask-schema-unknown",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · schema answers retain unmatched fields",
+      "change": "changed",
+      "changedPixels": 623667,
+      "percent": 45.11480034722222,
+      "areas": [
+        {
+          "x": 267,
+          "y": 49,
+          "width": 1145,
+          "height": 763,
+          "pixels": 623667
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/da37b8ab305f991d6cc8d42f216623e4b83bb5e82669933ac6b6c56bd2bd948b.png",
+        "after": "../../img/038069ddf79d4ea66b7bc220b38b3d21bb779708ec939aafb9464f44c9303765.png",
+        "difference": "../../img/0f000dc9c888bbd99349ae49a286057af2225cd19fe962ddf21618151ca859b6.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-agent-expanded",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_agent · complete seven-turn transcript · expanded end",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/9c7cb38648ec83fa930d757c5df1b8f055623c84a5709392800ed7e16f5a4601.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.elementHandle: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Show all 7-turn agent transcript', exact: true })\n"
+      ]
+    },
+    {
+      "id": "rich-tool-list-agents-long",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic list_agents · full long roster with distinct identifiers",
+      "change": "changed",
+      "changedPixels": 499942,
+      "percent": 36.164785879629626,
+      "areas": [
+        {
+          "x": 267,
+          "y": 49,
+          "width": 1145,
+          "height": 763,
+          "pixels": 499942
+        }
+      ],
+      "sameAreasAs": "rich-tool-grep",
+      "images": {
+        "before": "../../img/5cdd39e7d7b04cf29ed8965110cb2e2dbe3e4e80e13019f7e6fdb8d9149261a1.png",
+        "after": "../../img/462e80190438f135adc6ddb5161ef8fb98a189cc6dcc94e7bf6558966098fcb9.png",
+        "difference": "../../img/62aab052237db06ad26533749b63f5ff7d1479907400b58d69149f0dcd7a1161.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-patch-raw-expanded",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · raw patch disclosure open",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/84b0e912bcad1108ba3fa6d61b1d13d5d4c86853954a707abbbdd41f3de435b5.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: Disclosure did not expand: Show raw patch"
+      ]
+    },
+    {
+      "id": "rich-tool-fallback-full",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic fixture_tool · unknown renderer · fetched expanded end · plain fallback (no registered renderer)",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/662b9e25bd9cf6952448fd9f61c75a18bcf5a812ecea7e8386ff9f435427b71b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.elementHandle: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Show all output', exact: true })\n"
+      ]
+    }
+  ]
+}
