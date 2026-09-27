@@ -320,6 +320,11 @@ The report keeps those sections separate; PR comments and history cards show
 compact counts/links for detailed tools. Generated JSONL, indexes and screenshots
 stay ignored.
 
+The native fixture generator puts 63 scenarios in the main renderer gallery and
+`report_intent` in a dedicated session, so its objective banner does not clutter
+unrelated tools. Browser captures already isolate each case; their 64-case
+inventory and routes remain unchanged.
+
 The rich cases include empty and failed results, all argument renderers, unknown
 payloads, heterogeneous SQL rows, escaped table cells, numbered source excerpts,
 read/write/async PowerShell state, complete agent transcripts and long text.

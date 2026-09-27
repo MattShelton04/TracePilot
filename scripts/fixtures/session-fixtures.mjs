@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildRichToolsSession } from "./rich-tools.mjs";
+import { buildReportIntentSession, buildRichToolsSession } from "./rich-tools.mjs";
 
 const owner = "tracepilot-rich-tool-fixtures-v1";
 const hash = (content) => createHash("sha256").update(content).digest("hex");
@@ -30,7 +30,7 @@ export function generateSessionFixtures(root) {
         `Refusing redirected directory: ${p}`,
       );
   }
-  const sessions = [buildRichToolsSession()];
+  const sessions = [buildRichToolsSession(), buildReportIntentSession()];
   const manifestPath = join(root, "synthetic-fixtures.json");
   const sessionRoot = join(root, "copilot/session-state");
   const files = sessions.flatMap((session) => {

@@ -137,9 +137,12 @@ pnpm app:start -DataRoot "$PWD/.tracepilot/rich-tool-fixtures"
 # Attach with the command printed by startup, finish setup, then Refresh data.
 ```
 
-The library contains **SYNTHETIC · Rich tool renderer gallery**: 64 scenarios
-covering registered renderers, all six argument renderers, fallback, error,
-pending/empty output, long responses and expansion/page states. These
+The library contains **SYNTHETIC · Rich tool renderer gallery** with 63 scenarios
+and **SYNTHETIC · Report intent renderer** with the remaining `report_intent` case.
+Keeping that call separate prevents its session objective banner from appearing
+over unrelated renderer scenarios. All 64 cases cover registered renderers, all
+six argument renderers, fallback, error, pending/empty output, long responses
+and expansion/page states. These
 reconstruct tool contracts with synthetic content, without private recordings.
 PowerShell includes successful asynchronous invocation while its process is
 running and the native `<shellId: 0 completed with exit code 0>` footer. This

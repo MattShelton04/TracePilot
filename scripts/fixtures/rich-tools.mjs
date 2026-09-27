@@ -8,6 +8,7 @@
 import { richToolVariants } from "./rich-tool-variants.mjs";
 
 export const richToolsSessionId = "72510000-0000-4000-8000-000000000001";
+export const reportIntentSessionId = "72510000-0000-4000-8000-000000000004";
 export const fixtureTime = "2026-03-20T10:00:00.000Z";
 const agent = "72510000-0000-4000-8000-000000000002";
 const reviewer = "72510000-0000-4000-8000-000000000003";
@@ -355,10 +356,28 @@ export function richToolTurn(item, index = 0) {
 }
 
 export function buildRichToolsSession() {
+  return buildSession({
+    samples: richToolSamples.filter((item) => item.toolName !== "report_intent"),
+    sessionId: richToolsSessionId,
+    title: "SYNTHETIC · Rich tool renderer gallery",
+    eventNamespace: "4001",
+  });
+}
+
+export function buildReportIntentSession() {
+  return buildSession({
+    samples: richToolSamples.filter((item) => item.toolName === "report_intent"),
+    sessionId: reportIntentSessionId,
+    title: "SYNTHETIC · Report intent renderer",
+    eventNamespace: "4002",
+  });
+}
+
+function buildSession({ samples, sessionId, title, eventNamespace }) {
   const events = [];
   const add = (type, data) => {
     const index = events.length;
-    const id = (i) => `72510000-0000-4001-8000-${String(i).padStart(12, "0")}`;
+    const id = (i) => `72510000-0000-${eventNamespace}-8000-${String(i).padStart(12, "0")}`;
     events.push({
       id: id(index),
       parentId: index ? id(index - 1) : null,
@@ -368,7 +387,7 @@ export function buildRichToolsSession() {
     });
   };
   add("session.start", {
-    sessionId: richToolsSessionId,
+    sessionId,
     version: 3,
     producer: "tracepilot-synthetic",
     copilotVersion: "1.0.88",
@@ -381,7 +400,7 @@ export function buildRichToolsSession() {
       hostType: "github",
     },
   });
-  for (const [index, item] of richToolSamples.entries()) {
+  for (const [index, item] of samples.entries()) {
     const turnId = `turn-${index}`;
     add("user.message", {
       turnId,
@@ -429,7 +448,7 @@ export function buildRichToolsSession() {
     },
     modelMetrics: {
       "gpt-4.1": {
-        requests: { count: richToolSamples.length, cost: 0 },
+        requests: { count: samples.length, cost: 0 },
         usage: {
           inputTokens: 12500,
           outputTokens: 4200,
@@ -440,12 +459,12 @@ export function buildRichToolsSession() {
     },
   });
   return {
-    id: richToolsSessionId,
-    title: "SYNTHETIC · Rich tool renderer gallery",
+    id: sessionId,
+    title,
     events,
     expected: {
-      scenarios: richToolSamples.length,
-      tools: [...new Set(richToolSamples.map((item) => item.toolName))],
+      scenarios: samples.length,
+      tools: [...new Set(samples.map((item) => item.toolName))],
     },
   };
 }
