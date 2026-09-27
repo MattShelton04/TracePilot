@@ -78,7 +78,7 @@ fn list_templates_from_dir(dir: &Path) -> Result<Vec<SessionTemplate>> {
         }
     }
 
-    templates.sort_by(|a, b| b.usage_count.cmp(&a.usage_count));
+    templates.sort_by_key(|template| std::cmp::Reverse(template.usage_count));
     Ok(templates)
 }
 

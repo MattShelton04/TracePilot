@@ -110,7 +110,7 @@ pub fn list_captures(
             }
         }
     }
-    summaries.sort_by(|left, right| right.captured_at.cmp(&left.captured_at));
+    summaries.sort_by_key(|summary| std::cmp::Reverse(summary.captured_at));
     Ok(summaries)
 }
 
