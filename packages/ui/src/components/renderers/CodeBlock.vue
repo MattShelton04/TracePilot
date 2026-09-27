@@ -102,7 +102,13 @@ const pageCount = computed(() => {
 });
 
 function movePage(direction: 1 | -1) {
-  visiblePage.value = Math.max(0, Math.min(pageCount.value - 1, visiblePage.value + direction));
+  void selectPage(visiblePage.value + direction);
+}
+
+async function selectPage(page: number) {
+  visiblePage.value = Math.max(0, Math.min(pageCount.value - 1, page));
+  await nextTick();
+  if (contentElement.value) contentElement.value.scrollTop = 0;
 }
 
 function highlightedLine(line: string, lineNumber: number, offset = 0): string {
@@ -231,10 +237,10 @@ function fileName(path: string): string {
     </div>
       <div v-if="isCollapsed" class="code-block-collapsed">
         <span>
-          Showing lines {{ visibleRange.start + start }}–{{ visibleRange.end + start - 1 }} of
-          {{ lines.length }}
+          Lines {{ visibleRange.start + start }}–{{ visibleRange.end + start - 1 }} ·
+          {{ lines.length }} total lines
         </span>
-        <button type="button" :disabled="visibleRange.start === 0" @click="visiblePage = 0">First</button>
+        <button type="button" :disabled="visibleRange.start === 0" @click="selectPage(0)">First</button>
         <button type="button" :disabled="visibleRange.start === 0" @click="movePage(-1)">Previous</button>
         <button type="button" :disabled="visibleRange.end >= lines.length" @click="movePage(1)">Next</button>
       </div>

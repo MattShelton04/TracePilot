@@ -208,7 +208,7 @@ watch([oldStr, newStr, diffMode], () => {
 
     </div>
 
-    <RendererScrollRegion v-if="oldStr != null && newStr != null && diffMode === 'unified'" class="edit-diff-body" label="diff">
+    <RendererScrollRegion v-if="oldStr != null && newStr != null && diffMode === 'unified'" class="edit-diff-body" label="diff" :reset-key="`${diffMode}-${diffPage}`">
       <table class="diff-table" role="presentation">
         <tbody>
           <tr v-for="(line, idx) in visibleDiffLines" :key="idx" :class="['diff-line', `diff-line--${line.type}`]">
@@ -227,7 +227,7 @@ watch([oldStr, newStr, diffMode], () => {
       </table>
     </RendererScrollRegion>
 
-    <RendererScrollRegion v-else-if="oldStr != null && newStr != null && diffMode === 'split'" class="edit-diff-body" label="diff">
+    <RendererScrollRegion v-else-if="oldStr != null && newStr != null && diffMode === 'split'" class="edit-diff-body" label="diff" :reset-key="`${diffMode}-${diffPage}`">
       <div class="diff-split">
         <div class="diff-split-panel"><div class="diff-split-label">Before</div><table class="diff-table diff-table--half" role="presentation">
           <tbody>

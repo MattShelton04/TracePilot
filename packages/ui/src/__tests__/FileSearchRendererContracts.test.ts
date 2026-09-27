@@ -1,5 +1,5 @@
 import type { TurnToolCall } from "@tracepilot/types";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ApplyPatchRenderer from "../components/renderers/ApplyPatchRenderer.vue";
 import CodeBlock from "../components/renderers/CodeBlock.vue";
@@ -101,6 +101,15 @@ describe("file result contracts", () => {
 });
 
 describe("bounded complete code access", () => {
+  it("distinguishes source line numbers from the total excerpt length", async () => {
+    const wrapper = mount(CodeBlock, {
+      props: { code: "one\ntwo\nthree", startLine: 40, maxLines: 2 },
+    });
+    expect(wrapper.get(".code-block-collapsed").text()).toContain("Lines 40–41 · 3 total lines");
+    await wrapper.get(".code-block-collapsed button:last-child").trigger("click");
+    expect(wrapper.get(".code-block-collapsed").text()).toContain("Lines 42–42 · 3 total lines");
+  });
+
   it("pages every long patch row without losing its final changes", async () => {
     const patch = [
       "*** Begin Patch",
@@ -116,7 +125,12 @@ describe("bounded complete code access", () => {
       },
     });
     expect(wrapper.findAll(".patch-line")).toHaveLength(500);
+    const viewport = wrapper.get(".patch-diff-body .renderer-scroll-region__viewport")
+      .element as HTMLElement;
+    viewport.scrollTop = 600;
     await wrapper.get(".patch-pager button:last-child").trigger("click");
+    await flushPromises();
+    expect(viewport.scrollTop).toBe(0);
     expect(wrapper.findAll(".patch-line")).toHaveLength(1);
     expect(wrapper.find(".patch-line").text()).toContain("line 501");
     await wrapper.get(".patch-pager button:first-of-type").trigger("click");
@@ -134,11 +148,45 @@ describe("bounded complete code access", () => {
       },
     });
     expect(wrapper.find('[data-line-number="80"]').exists()).toBe(true);
+    const viewport = wrapper.get(".code-block-content").element as HTMLElement;
+    viewport.scrollTop = 120;
     await wrapper.get(".code-block-collapsed button:nth-of-type(3)").trigger("click");
+    await flushPromises();
+    expect(viewport.scrollTop).toBe(0);
     expect(wrapper.find('[data-line-number="81"]').exists()).toBe(true);
     expect(wrapper.find('[data-line-number="80"]').exists()).toBe(false);
+    viewport.scrollTop = 140;
     await wrapper.get(".code-block-collapsed button:nth-of-type(1)").trigger("click");
+    await flushPromises();
+    expect(viewport.scrollTop).toBe(0);
     expect(wrapper.find('[data-line-number="1"]').exists()).toBe(true);
+  });
+
+  it("starts each unified and split diff page at its first row", async () => {
+    const wrapper = mount(EditDiffRenderer, {
+      props: {
+        content: "Applied",
+        args: {
+          old_str: "",
+          new_str: Array.from({ length: 1001 }, (_, i) => `line ${i + 1}`).join("\n"),
+        },
+      },
+    });
+    for (const mode of ["unified", "split"]) {
+      if (mode === "split") await wrapper.get(".edit-diff-tab:last-child").trigger("click");
+      const viewport = wrapper.get(".edit-diff-body .renderer-scroll-region__viewport")
+        .element as HTMLElement;
+      viewport.scrollTop = 800;
+      await wrapper.get(".diff-pager button:last-child").trigger("click");
+      await flushPromises();
+      expect(viewport.scrollTop).toBe(0);
+      expect(wrapper.get(".edit-diff-body").text()).toContain("line 1001");
+      expect(wrapper.get(".edit-diff-body").text()).not.toContain("line 999");
+      viewport.scrollTop = 60;
+      await wrapper.get(".diff-pager button:first-of-type").trigger("click");
+      await flushPromises();
+      expect(viewport.scrollTop).toBe(0);
+    }
   });
 
   it("offers every long-line character and full copy without tokenizing it all", async () => {

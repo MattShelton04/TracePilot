@@ -71,7 +71,7 @@ watch(pageCount, (count) => {
           <span class="sql-section-label">Result</span>
           <span class="sql-row-count">{{ rowCount }} {{ rowCount === 1 ? 'row' : 'rows' }}</span>
         </div>
-        <RendererScrollRegion v-if="parsedTable.headers.length" label="rows" :max-height="360" :key="`rows-${tc?.toolCallId}`" class="sql-table-wrap">
+        <RendererScrollRegion v-if="parsedTable.headers.length" label="rows" :max-height="360" :key="`rows-${tc?.toolCallId}`" :reset-key="page" class="sql-table-wrap">
           <table class="sql-data-table" aria-label="SQL query results">
             <thead><tr>
               <th v-for="(header, index) in parsedTable.headers" :key="index" scope="col" :class="{ 'sql-column--number': numericColumns[index] }">{{ header || '(unnamed column)' }}</th>

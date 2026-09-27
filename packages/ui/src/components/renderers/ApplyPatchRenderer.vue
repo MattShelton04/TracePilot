@@ -62,9 +62,8 @@ function visibleFileLines(file: PatchFile, index: number) {
 }
 
 const primaryHint = computed(() => {
-  if (patchFiles.value.length === 0) return undefined;
   if (patchFiles.value.length === 1) return patchFiles.value[0].path;
-  return `${patchFiles.value.length} files`;
+  return undefined;
 });
 
 const addedLineCount = computed(() =>
@@ -220,7 +219,7 @@ function addedFileContent(file: PatchFile): string {
             :max-lines="120"
           />
 
-          <RendererScrollRegion v-else-if="file.operation === 'update'" class="patch-diff-body" :label="`diff for ${file.path}`">
+          <RendererScrollRegion v-else-if="file.operation === 'update'" class="patch-diff-body" :label="`diff for ${file.path}`" :reset-key="filePages[fileIndex] ?? 0">
             <table class="patch-diff-table" role="presentation">
               <tbody>
                 <tr

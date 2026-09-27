@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import SqlResultRenderer from "../components/renderers/SqlResultRenderer.vue";
 import { parseSqlResult } from "../utils/sqlResult";
@@ -82,7 +82,11 @@ describe("SQL result contracts", () => {
     });
     expect(wrapper.findAll("tbody tr")).toHaveLength(200);
     expect(wrapper.get("tbody tr").text()).toContain("row-0");
+    const viewport = wrapper.get(".renderer-scroll-region__viewport").element as HTMLElement;
+    viewport.scrollTop = 600;
     await wrapper.get(".sql-pagination button:last-child").trigger("click");
+    await flushPromises();
+    expect(viewport.scrollTop).toBe(0);
     expect(wrapper.get("tbody tr").text()).toContain("row-200");
     await wrapper.get(".sql-pagination button:last-child").trigger("click");
     expect(wrapper.findAll("tbody tr")).toHaveLength(1);

@@ -1,15 +1,26 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, useId } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from "vue";
 
-withDefaults(defineProps<{ label?: string; maxHeight?: number }>(), {
-  label: "output",
-  maxHeight: 320,
-});
+const props = withDefaults(
+  defineProps<{ label?: string; maxHeight?: number; resetKey?: string | number }>(),
+  {
+    label: "output",
+    maxHeight: 320,
+  },
+);
 const id = useId();
 const viewport = ref<HTMLElement>();
 const content = ref<HTMLElement>();
 const expanded = ref(false);
 const overflows = ref(false);
+// Replacing a page should start at its first row without collapsing an expanded region.
+watch(
+  () => props.resetKey,
+  async () => {
+    await nextTick();
+    if (viewport.value) viewport.value.scrollTop = 0;
+  },
+);
 let observer: ResizeObserver | undefined;
 function measure() {
   if (!expanded.value && viewport.value) {

@@ -84,7 +84,7 @@ describe("CodeBlock", () => {
     const rows = wrapper.findAll(".code-line");
     expect(rows).toHaveLength(10);
     expect(wrapper.find(".code-block-collapsed").exists()).toBe(true);
-    expect(wrapper.find(".code-block-collapsed").text()).toContain("Showing lines 1–10 of 50");
+    expect(wrapper.find(".code-block-collapsed").text()).toContain("Lines 1–10 · 50 total lines");
   });
 
   it("does not show collapsed indicator when under maxLines", () => {
@@ -140,7 +140,7 @@ describe("CodeBlock", () => {
 
     expect(wrapper.findAll(".code-line")).toHaveLength(10);
     expect(wrapper.find('[data-line-number="80"]').exists()).toBe(true);
-    expect(wrapper.find(".code-block-collapsed").text()).toContain("Showing lines");
+    expect(wrapper.find(".code-block-collapsed").text()).toContain("total lines");
   });
 
   it("pages through every capped line window", async () => {
