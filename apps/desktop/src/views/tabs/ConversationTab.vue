@@ -191,7 +191,7 @@ function retryLoadTurns() {
   store.loadTurns();
 }
 
-// ── Persistent objective banner ─────────────────────────────────────────
+// ── Conversation objective ──────────────────────────────────────────────
 // Latest recorded main-agent objective. Saved session metadata cannot establish
 // whether this objective is still running or has been completed.
 
@@ -238,6 +238,14 @@ function richEnabledFor(toolName: string): boolean {
       <StatCard :value="formatDuration(totalDurationMs)" label="Total Time" color="done" mini />
     </div>
 
+    <ObjectiveBanner
+      v-if="sessionObjective"
+      class="conv-objective-strip"
+      scope="session"
+      :objective="sessionObjective"
+      @reveal="revealObjective"
+    />
+
     <!-- View mode toggle -->
     <ConversationViewSwitcher v-model="activeView" />
 
@@ -250,11 +258,9 @@ function richEnabledFor(toolName: string): boolean {
     <ChatViewMode
       v-else-if="activeView === 'chat'"
       ref="chatViewRef"
-      :objective="sessionObjective"
       :cache-windows="cacheWindows"
       :cache-timeline="cacheTimeline"
       @message-sent="handleChatSteeringMessage"
-      @reveal-objective="revealObjective"
     />
 
     <!-- ═══════════════ COMPACT / TIMELINE VIEWS ═══════════════ -->
@@ -275,14 +281,6 @@ function richEnabledFor(toolName: string): boolean {
       :rich-enabled-for="richEnabledFor"
       @load-full-result="handleLoadFullResult"
       @retry-full-result="handleRetryResult"
-    />
-
-    <ObjectiveBanner
-      v-if="activeView !== 'chat' && sessionObjective"
-      class="conv-objective-strip"
-      scope="session"
-      :objective="sessionObjective"
-      @reveal="revealObjective"
     />
 
     <!-- Floating scroll buttons -->
@@ -320,10 +318,8 @@ function richEnabledFor(toolName: string): boolean {
 }
 
 .conv-objective-strip {
-  position: sticky;
-  bottom: 12px;
-  z-index: 8;
-  margin: 12px auto 0;
+  display: flex;
+  margin: 0 0 12px;
 }
 
 /* Floating scroll buttons */
