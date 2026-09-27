@@ -42,6 +42,8 @@ export function richToolVariants(richToolSamples, { agent, reviewer, source }) {
     { length: 45 },
     (_, i) => `Fallback line ${i + 1}: unrecognized tool output stays complete and readable.`,
   ).join("\n")}\nFINAL FALLBACK MARKER`;
+  const annotatedSearch =
+    "## Known text envelope\n\n1. Preserve **lists**.\n2. Preserve `code`.\n\n```ts\nconst complete = true;\n```\n\nFive cited sources remain available without body URLs: [1] [2] [3] [4] [5].";
 
   return [
     variant("edit", "edit-deletion", {
@@ -178,12 +180,24 @@ export function richToolVariants(richToolSamples, { agent, reviewer, source }) {
         content: [
           {
             type: "text",
-            text: "## Known text envelope\n\n1. Preserve **lists**.\n2. Preserve `code`.\n\n```ts\nconst complete = true;\n```\n\n[Guide with parentheses](https://example.com/guide_(reference))",
+            text: {
+              value: annotatedSearch,
+              annotations: Array.from({ length: 5 }, (_, index) => ({
+                text: `[${index + 1}]`,
+                start_index: annotatedSearch.indexOf(`[${index + 1}]`),
+                end_index: annotatedSearch.indexOf(`[${index + 1}]`) + 3,
+                url_citation: {
+                  url: `https://example.com/reference/${index + 1}`,
+                  title: `Fixture reference ${index + 1}`,
+                },
+              })),
+            },
           },
         ],
         trace: "synthetic-metadata",
       }),
-      viewState: "text-array envelope and balanced source URL",
+      expectText: "Fixture reference 5",
+      viewState: "text-array envelope with five annotation-only citations",
     }),
     variant("web-search", "web-search-unknown", {
       content: '{"unexpected":{"response":"Keep unrecognized content intact"}}',

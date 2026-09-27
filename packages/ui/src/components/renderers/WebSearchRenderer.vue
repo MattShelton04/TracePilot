@@ -27,7 +27,10 @@ const status = computed(() => toolCallStatus(props.tc));
 const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : ""));
 const body = computed(() => parseWebSearchBody(props.content));
 const sources = computed(() =>
-  mdReady.value && body.value.recognized ? webSearchSources(renderMarkdown(body.value.text)) : [],
+  webSearchSources(
+    mdReady.value && body.value.recognized ? renderMarkdown(body.value.text) : "",
+    body.value.citations,
+  ),
 );
 
 function openSource(url: string) {
@@ -79,7 +82,7 @@ function openSource(url: string) {
 .ws-query-icon { flex-shrink: 0; margin-top: 3px; color: var(--text-tertiary); }
 .ws-query-text { min-width: 0; font-weight: 600; color: var(--text-primary); line-height: 1.6; overflow-wrap: anywhere; }
 .ws-body { padding: 12px; line-height: 1.7; color: var(--text-secondary); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
-.ws-body :deep(p:first-child), .ws-body :deep(h1:first-child), .ws-body :deep(h2:first-child), .ws-body :deep(h3:first-child) { margin-top: 0; }
+.ws-body :deep(p:first-child), .ws-body :deep(h1:first-child), .ws-body :deep(h2:first-child), .ws-body :deep(h3:first-child), .ws-body :deep(h4:first-child), .ws-body :deep(h5:first-child), .ws-body :deep(h6:first-child) { margin-top: 0 !important; }
 .ws-body :deep(p:last-child) { margin-bottom: 0; }
 .ws-body :deep(pre) { max-width: 100%; overflow: auto; }
 .ws-body :deep(table) { display: block; max-width: 100%; overflow: auto; }

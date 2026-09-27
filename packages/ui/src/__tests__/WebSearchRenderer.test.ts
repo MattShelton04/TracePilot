@@ -47,6 +47,69 @@ describe("WebSearchRenderer external links", () => {
 });
 
 describe("web_search result contracts", () => {
+  it("renders all annotation-only sources without rewriting the recorded text or offsets", async () => {
+    const text = "Five cited sources back this result, without any URLs in the body.";
+    const annotations = Array.from({ length: 5 }, (_, index) => ({
+      text: `[${index + 1}]`,
+      start_index: index,
+      end_index: index + 1,
+      url_citation: {
+        url: `https://example.com/reference/${index + 1}`,
+        title: `Reference ${index + 1}`,
+      },
+    }));
+    const content = JSON.stringify({ text: { value: text, annotations } });
+    const wrapper = mount(WebSearchRenderer, { props: { content, args: {} } });
+    expect(wrapper.get(".ws-body").text()).toBe(text);
+    expect(wrapper.findAll(".ws-body a")).toHaveLength(0);
+    expect(wrapper.findAll(".ws-source-card").map((link) => link.attributes("href"))).toEqual(
+      annotations.map((annotation) => annotation.url_citation.url),
+    );
+    expect(wrapper.get(".ws-sources-label").text()).toBe("Linked sources 5");
+    expect(wrapper.get(".recorded-tool-response pre").text()).toBe(content);
+    await wrapper.findAll(".ws-source-card")[4].trigger("click");
+    expect(wrapper.emitted("open-external")).toEqual([["https://example.com/reference/5"]]);
+  });
+
+  it("merges nested annotation citations with Markdown sources and rejects unsafe or malformed links", () => {
+    const citations = [
+      { url: "https://EXAMPLE.com:443/reference", title: "Annotated reference" },
+      { url: "https://example.com/reference", title: "Duplicate annotation" },
+      { url: "https://example.org/plain", title: '<img src=x onerror="alert(1)">' },
+      { url: "javascript:alert(1)", title: "Unsafe" },
+      { url: "data:text/html,unsafe", title: "Unsafe data" },
+      { url: "file:///C:/private.txt", title: "Local file" },
+      { url: "/relative", title: "Relative" },
+      { url: 42, title: "Invalid" },
+    ];
+    const content = JSON.stringify({
+      content: [
+        {
+          type: "text",
+          text: {
+            value:
+              "[Markdown duplicate](https://example.com/reference) and [Other](https://example.net/other)",
+            annotations: [null, {}, ...citations.map((url_citation) => ({ url_citation }))],
+          },
+        },
+      ],
+    });
+    const wrapper = mount(WebSearchRenderer, { props: { content, args: {} } });
+    expect(wrapper.findAll(".ws-source-card").map((link) => link.attributes("href"))).toEqual([
+      "https://example.com/reference",
+      "https://example.org/plain",
+      "https://example.net/other",
+    ]);
+    expect(wrapper.findAll(".ws-source-title").map((title) => title.text())).toEqual([
+      "Annotated reference",
+      '<img src=x onerror="alert(1)">',
+      "Other",
+    ]);
+    expect(wrapper.find("img").exists()).toBe(false);
+    expect(wrapper.find("script").exists()).toBe(false);
+    expect(wrapper.get(".recorded-tool-response pre").text()).toBe(content);
+  });
+
   it("unwraps text arrays and MCP content while retaining unknown envelopes", () => {
     expect(
       parseWebSearchBody(JSON.stringify({ text: [{ value: "One" }, { text: "Two" }] })).text,
@@ -59,6 +122,7 @@ describe("web_search result contracts", () => {
       text: unknown,
       structured: true,
       recognized: false,
+      citations: [],
     });
     const wrapper = mount(WebSearchRenderer, { props: { content: unknown, args: {} } });
     expect(wrapper.get(".ws-raw-body").text()).toBe(unknown);
