@@ -6,7 +6,7 @@ use crate::Result;
 use crate::index_db;
 use crate::indexing::progress::SearchIndexingProgress;
 
-/// Minimum number of stale sessions before the bulk path is considered.
+/// Minimum session count for amortizing a shared search-write transaction.
 const BULK_MIN_SESSIONS: usize = 10;
 
 /// Choose between the bulk path (drop triggers → insert → rebuild FTS) and
@@ -122,10 +122,29 @@ pub fn reindex_search_content(
             false
         };
         if !bulk_done {
-            match db.upsert_search_snapshots(&prepared, &fingerprints, &is_cancelled) {
-                Ok(count) => indexed += count,
-                Err(error) => tracing::warn!(error = %error,
-                    "Search batch not committed; retaining previous content"),
+            if prepared.len() >= BULK_MIN_SESSIONS {
+                match db.upsert_search_snapshots(&prepared, &fingerprints, &is_cancelled) {
+                    Ok(count) => indexed += count,
+                    Err(error) => tracing::warn!(error = %error,
+                        "Search batch not committed; retaining previous content"),
+                }
+            } else {
+                // A few large sessions do not amortize transaction coalescing:
+                // release SQLite/FTS write state between their individual commits.
+                for (snapshot, fingerprint) in prepared.iter().zip(&fingerprints) {
+                    if is_cancelled() {
+                        return Ok((indexed, skipped));
+                    }
+                    match db.upsert_search_snapshots(
+                        std::slice::from_ref(snapshot),
+                        std::slice::from_ref(fingerprint),
+                        &is_cancelled,
+                    ) {
+                        Ok(count) => indexed += count,
+                        Err(error) => tracing::warn!(session_id = %snapshot.0, error = %error,
+                            "Search content not written; retaining previous content"),
+                    }
+                }
             }
         }
         if is_cancelled() {

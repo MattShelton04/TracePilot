@@ -22,9 +22,13 @@ fn row(id: &SessionId, content: &str) -> SearchContentRow {
 }
 
 fn fixture() -> (tempfile::TempDir, IndexDb, Vec<SessionId>) {
+    fixture_with_sessions(3)
+}
+
+fn fixture_with_sessions(count: usize) -> (tempfile::TempDir, IndexDb, Vec<SessionId>) {
     let temp = tempfile::tempdir().unwrap();
     let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
-    let ids: Vec<_> = (0..3)
+    let ids: Vec<_> = (0..count)
         .map(|index| {
             let id = format!("11111111-1111-4111-8111-{index:012}");
             let path = write_session(temp.path(), &id, "batch", "repo", "main", "user", "reply");
@@ -161,6 +165,71 @@ fn commit_failure_rolls_back_rows_fingerprints_and_fts() {
             .is_err()
     );
     assert_original(&db);
+}
+
+#[test]
+fn small_trigger_batches_commit_and_count_each_session_before_cancellation() {
+    for count in [3, 9] {
+        let (temp, db, _ids) = fixture_with_sessions(count);
+        // Observe only committed writes through a separate connection from the
+        // indexer. Cancel immediately after its first durable session update.
+        let result = crate::reindex_search_content(
+            temp.path(),
+            &temp.path().join("index.db"),
+            |_| {},
+            || {
+                fingerprints(&db)
+                    .iter()
+                    .any(|fingerprint| fingerprint != "old")
+            },
+        )
+        .unwrap();
+        assert_eq!(result, (1, 0));
+        assert_eq!(hits(&db, "original"), count - 1);
+        assert_eq!(hits(&db, "user"), 1);
+        assert_eq!(
+            fingerprints(&db)
+                .iter()
+                .filter(|fingerprint| *fingerprint == "old")
+                .count(),
+            count - 1
+        );
+        assert_eq!(
+            crate::reindex_search_content(
+                temp.path(),
+                &temp.path().join("index.db"),
+                |_| {},
+                || false
+            )
+            .unwrap(),
+            (count - 1, 1),
+        );
+    }
+}
+
+#[test]
+fn ten_small_trigger_updates_remain_one_atomic_batch() {
+    let (temp, db, ids) = fixture_with_sessions(10);
+    // Enough existing rows to select trigger updates instead of full FTS rebuild.
+    let old_rows: Vec<_> = (0..100)
+        .map(|_| row(&ids[0], "original sentinel"))
+        .collect();
+    db.upsert_search_snapshot(&ids[0], &old_rows, Some("old"), &|| false)
+        .unwrap();
+    let result = crate::reindex_search_content(
+        temp.path(),
+        &temp.path().join("index.db"),
+        |_| {},
+        || {
+            fingerprints(&db)
+                .iter()
+                .any(|fingerprint| fingerprint != "old")
+        },
+    )
+    .unwrap();
+    assert_eq!(result, (10, 0));
+    assert_eq!(hits(&db, "original"), 0);
+    assert_eq!(hits(&db, "user"), 10);
 }
 
 #[test]
