@@ -28,6 +28,8 @@ use tokio::sync::watch;
 /// Job-coordination state. One instance lives inside
 /// [`super::IndexingSemaphores`].
 pub struct IndexJobState {
+    /// Invalidates work queued before a reset or root relocation.
+    generation: AtomicU64,
     /// Sequence number of the most recently *started* session reindex.
     started_seq: AtomicU64,
     /// Start sequence and result of the most recently *completed* reindex.
@@ -37,7 +39,7 @@ pub struct IndexJobState {
     /// Request that the running search pass stop at its next checkpoint.
     search_cancel: AtomicBool,
     /// A search pass was requested while another was running.
-    search_rerun: AtomicBool,
+    search_rerun: AtomicU64,
     /// Index paths a reader has already tried to build on demand.
     on_demand_builds: Mutex<HashSet<PathBuf>>,
 }
@@ -46,16 +48,35 @@ impl IndexJobState {
     pub fn new() -> Self {
         let (initial_build, _) = watch::channel(false);
         Self {
+            generation: AtomicU64::new(1),
             started_seq: AtomicU64::new(0),
             last_completed: Mutex::new(None),
             initial_build,
             search_cancel: AtomicBool::new(false),
-            search_rerun: AtomicBool::new(false),
+            search_rerun: AtomicU64::new(0),
             on_demand_builds: Mutex::new(HashSet::new()),
         }
     }
 
     // ── Session reindex coalescing ─────────────────────────────────
+
+    pub fn generation(&self) -> u64 {
+        self.generation.load(Ordering::Acquire)
+    }
+
+    /// Caller must hold both indexing permits before invalidating work.
+    pub fn invalidate(&self) {
+        self.generation.fetch_add(1, Ordering::AcqRel);
+        *self
+            .last_completed
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = None;
+        self.on_demand_builds
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .clear();
+        self.search_rerun.store(0, Ordering::Release);
+    }
 
     /// Ticket identifying the point in time a caller asked for a reindex.
     pub fn arrival_ticket(&self) -> u64 {
@@ -124,13 +145,16 @@ impl IndexJobState {
         self.search_cancel.load(Ordering::Acquire)
     }
 
-    pub fn request_search_rerun(&self) {
-        self.search_rerun.store(true, Ordering::Release);
+    pub fn request_search_rerun(&self, generation: u64) {
+        // A delayed old request must not overwrite a newer generation's signal.
+        self.search_rerun.fetch_max(generation, Ordering::AcqRel);
     }
 
     /// Consume a pending rerun request.
-    pub fn take_search_rerun(&self) -> bool {
-        self.search_rerun.swap(false, Ordering::AcqRel)
+    pub fn take_search_rerun(&self, generation: u64) -> bool {
+        self.search_rerun
+            .compare_exchange(generation, 0, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
     }
 }
 
@@ -174,11 +198,32 @@ mod tests {
     #[test]
     fn search_rerun_is_consumed_once() {
         let state = IndexJobState::new();
-        assert!(!state.take_search_rerun());
-        state.request_search_rerun();
-        state.request_search_rerun();
-        assert!(state.take_search_rerun());
-        assert!(!state.take_search_rerun());
+        let generation = state.generation();
+        assert!(!state.take_search_rerun(generation));
+        state.request_search_rerun(generation);
+        state.request_search_rerun(generation);
+        assert!(state.take_search_rerun(generation));
+        assert!(!state.take_search_rerun(generation));
+    }
+
+    #[test]
+    fn reset_clears_completion_and_claims_without_old_jobs_consuming_new_reruns() {
+        let state = IndexJobState::new();
+        let old = state.generation();
+        let seq = state.begin_job();
+        state.complete_job(seq, (1, 1));
+        assert!(state.claim_on_demand_build(Path::new("index.db")));
+        state.request_search_rerun(old);
+        state.invalidate();
+        let current = state.generation();
+        assert_ne!(old, current);
+        assert_eq!(state.completed_since(0), None);
+        assert!(state.claim_on_demand_build(Path::new("index.db")));
+        assert!(!state.take_search_rerun(old));
+        state.request_search_rerun(current);
+        state.request_search_rerun(old);
+        assert!(!state.take_search_rerun(old));
+        assert!(state.take_search_rerun(current));
     }
 
     #[tokio::test]

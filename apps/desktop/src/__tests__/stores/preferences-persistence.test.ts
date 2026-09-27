@@ -1,13 +1,14 @@
-import { getConfig, updateConfig } from "@tracepilot/client";
+import { factoryReset, getConfig, saveConfig, updateConfig } from "@tracepilot/client";
 import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import { createDefaultConfig, type TracePilotConfig } from "@tracepilot/types";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { usePreferencesStore } from "@/stores/preferences";
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../mocks/client");
-  return createClientMock();
+  return createClientMock({ factoryReset: vi.fn().mockResolvedValue(undefined) });
 });
 
 let persisted: TracePilotConfig;
@@ -16,6 +17,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.useFakeTimers();
   vi.clearAllMocks();
+  vi.mocked(factoryReset).mockReset().mockResolvedValue(undefined);
   persisted = createDefaultConfig();
   vi.mocked(getConfig).mockImplementation(async () => persisted);
   vi.mocked(updateConfig).mockImplementation(async (patch) => {
@@ -80,4 +82,81 @@ it("cancels a pending debounced save when its store is disposed", async () => {
   store.$dispose();
   await vi.advanceTimersByTimeAsync(350);
   expect(updateConfig).not.toHaveBeenCalled();
+});
+
+it("cancels a pending debounce and keeps preference writes suspended after reset", async () => {
+  const store = usePreferencesStore();
+  await store.whenReady;
+  store.theme = "light";
+  await nextTick();
+  await store.resetConfig();
+  store.uiScale = 1.2;
+  await nextTick();
+  await vi.advanceTimersByTimeAsync(500);
+
+  expect(factoryReset).toHaveBeenCalledTimes(1);
+  expect(updateConfig).not.toHaveBeenCalled();
+  await expect(store.updateConfigFields({ ui: { theme: "dark" } })).rejects.toThrow(
+    "during factory reset",
+  );
+  expect(updateConfig).not.toHaveBeenCalled();
+});
+
+it("drains an in-flight write and its queued successor before resetting", async () => {
+  const store = usePreferencesStore();
+  await store.whenReady;
+  const saving = createDeferred<TracePilotConfig>();
+  vi.mocked(updateConfig).mockReturnValueOnce(saving.promise);
+  const first = store.updateConfigFields({ ui: { theme: "light" } });
+  await vi.advanceTimersByTimeAsync(0);
+  const second = store.updateConfigFields({ ui: { uiScale: 1.2 } });
+  await vi.advanceTimersByTimeAsync(0);
+  const resetting = store.resetConfig();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(factoryReset).not.toHaveBeenCalled();
+  expect(updateConfig).toHaveBeenCalledTimes(1);
+
+  persisted.ui.theme = "light";
+  saving.resolve(structuredClone(persisted));
+  await Promise.all([first, second, resetting]);
+  expect(updateConfig).toHaveBeenCalledTimes(2);
+  expect(factoryReset).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(factoryReset).mock.invocationCallOrder[0]).toBeGreaterThan(
+    vi.mocked(updateConfig).mock.invocationCallOrder[1]!,
+  );
+  await vi.advanceTimersByTimeAsync(500);
+  expect(updateConfig).toHaveBeenCalledTimes(2);
+});
+
+it("finishes an in-flight legacy hydration save before resetting", async () => {
+  localStorage.setItem(STORAGE_KEYS.legacyPrefs, JSON.stringify({ theme: "light" }));
+  const saving = createDeferred<void>();
+  vi.mocked(saveConfig).mockReturnValueOnce(saving.promise);
+  const store = usePreferencesStore();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(saveConfig).toHaveBeenCalledTimes(1);
+  const resetting = store.resetConfig();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(factoryReset).not.toHaveBeenCalled();
+
+  saving.resolve();
+  await resetting;
+  expect(factoryReset).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(500);
+  expect(updateConfig).not.toHaveBeenCalled();
+});
+
+it("resumes pending edits when reset fails and allows another reset attempt", async () => {
+  const store = usePreferencesStore();
+  await store.whenReady;
+  store.theme = "light";
+  await nextTick();
+  vi.mocked(factoryReset).mockRejectedValueOnce(new Error("reset unavailable"));
+  await expect(store.resetConfig()).rejects.toThrow("reset unavailable");
+  await vi.advanceTimersByTimeAsync(350);
+  expect(updateConfig).toHaveBeenLastCalledWith({ ui: { theme: "light" } });
+  expect(persisted.ui.theme).toBe("light");
+
+  await store.resetConfig();
+  expect(factoryReset).toHaveBeenCalledTimes(2);
 });

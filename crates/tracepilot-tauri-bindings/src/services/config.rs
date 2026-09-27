@@ -22,10 +22,9 @@ pub(crate) fn delete_index_db_files(path: &std::path::Path) -> Result<(), Bindin
     remove_index_db_files(path)
 }
 
-/// RAII pair of indexing permits held for the duration of a TracePilot-home
-/// migration. Both permits must outlive the on-disk copy so reindex jobs
-/// cannot race the move.
-struct IndexingMovePermits {
+/// Hold both indexing permits until a changed source or database path is
+/// published, including any on-disk migration of the data root.
+struct IndexingChangePermits {
     _sessions: OwnedSemaphorePermit,
     _search: OwnedSemaphorePermit,
 }
@@ -78,8 +77,23 @@ async fn mutate_config(
     persist: impl FnOnce(&TracePilotConfig) -> CmdResult<()> + Send + 'static,
 ) -> CmdResult<TracePilotConfig> {
     let mutation_guard = coordinator.mutation().await;
-    let previous = read_config(shared_config);
-    let old_tracepilot_home = previous.tracepilot_home();
+    let loaded = shared_config
+        .read()
+        .map_err(|_poisoned| mutex_poisoned())?
+        .clone();
+    // A preference write queued behind factory reset belongs to the previous
+    // configuration. Only an explicit setup save may create a new one.
+    if matches!(&mutation, ConfigMutation::Patch(_)) && loaded.is_none() {
+        return Err(BindingsError::Validation(
+            "TracePilot is not configured. Complete setup before updating preferences.".into(),
+        ));
+    }
+    // Missing config (first run or reset) has no previous root to migrate.
+    let old_tracepilot_home = loaded.as_ref().map(TracePilotConfig::tracepilot_home);
+    let old_index_paths = loaded
+        .as_ref()
+        .map(|config| (config.session_state_dir(), config.index_db_path()));
+    let previous = loaded.unwrap_or_default();
     let mut cfg = match mutation {
         ConfigMutation::Replace(config) => config,
         ConfigMutation::Patch(patch) => {
@@ -92,26 +106,38 @@ async fn mutate_config(
     validate_configured_roots(&cfg)?;
     let new_tracepilot_home = cfg.tracepilot_home();
 
-    let (move_permits, root_guard) = if old_tracepilot_home != new_tracepilot_home {
+    let root_moved = old_tracepilot_home
+        .as_ref()
+        .is_some_and(|old| old != &new_tracepilot_home);
+    let index_paths_changed =
+        old_index_paths.is_some_and(|old| old != (cfg.session_state_dir(), cfg.index_db_path()));
+    let (index_permits, root_guard) = if index_paths_changed {
         let sessions = gates
             .try_acquire_sessions()
             .map_err(|_busy| BindingsError::AlreadyIndexing)?;
         let search = gates.cancel_and_acquire_search().await;
-        let root = coordinator.root_write().await;
+        let root = if root_moved {
+            Some(coordinator.root_write().await)
+        } else {
+            None
+        };
+        gates.jobs().invalidate();
         (
-            Some(IndexingMovePermits {
+            Some(IndexingChangePermits {
                 _sessions: sessions,
                 _search: search,
             }),
-            Some(root),
+            root,
         )
     } else {
         (None, None)
     };
     let config_state = Arc::clone(shared_config);
     tokio::task::spawn_blocking(move || {
-        let _guards = (mutation_guard, move_permits, root_guard);
-        copy_tracepilot_home_if_moved(&old_tracepilot_home, &new_tracepilot_home)?;
+        let _guards = (mutation_guard, index_permits, root_guard);
+        if let Some(old_root) = old_tracepilot_home {
+            copy_tracepilot_home_if_moved(&old_root, &new_tracepilot_home)?;
+        }
         persist(&cfg)?;
         let mut state = config_state.write().map_err(|_poisoned| mutex_poisoned())?;
         *state = Some(cfg.clone());
@@ -127,25 +153,39 @@ pub(crate) async fn factory_reset(
     gates: &IndexingSemaphores,
     coordinator: &ConfigCoordinator,
 ) -> CmdResult<()> {
+    factory_reset_at(
+        shared_config,
+        gates,
+        coordinator,
+        config::config_file_path(),
+    )
+    .await
+}
+
+async fn factory_reset_at(
+    shared_config: &SharedConfig,
+    gates: &IndexingSemaphores,
+    coordinator: &ConfigCoordinator,
+    config_path: Option<std::path::PathBuf>,
+) -> CmdResult<()> {
     let mutation_guard = coordinator.mutation().await;
     let root_guard = coordinator.root_write().await;
     // Never delete the database under a running indexer: wait for the session
     // job, stop any search pass, and hold both gates until files are removed.
     let sessions_permit = gates.acquire_sessions().await;
     let search_permit = gates.cancel_and_acquire_search().await;
+    gates.jobs().invalidate();
     let cfg = read_config(shared_config);
     let index_path = cfg.index_db_path();
-    let config_path = config::config_file_path();
 
     let config_state = Arc::clone(shared_config);
     tokio::task::spawn_blocking(move || {
         let _permits = (mutation_guard, root_guard, sessions_permit, search_permit);
-        if let Err(e) = delete_index_db_files(&index_path) {
-            tracing::warn!(error = %e, "factory_reset: failed to remove index DB files");
-        }
+        delete_index_db_files(&index_path)?;
 
         if let Some(ref path) = config_path {
-            for target in [path.clone(), config::config_backup_file_path(path)] {
+            // Keep the main config available if removing its backup fails.
+            for target in [config::config_backup_file_path(path), path.clone()] {
                 match std::fs::remove_file(&target) {
                     Ok(()) => {}
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -155,6 +195,7 @@ pub(crate) async fn factory_reset(
                             error = %e,
                             "factory_reset: failed to remove config file"
                         );
+                        return Err(e.into());
                     }
                 }
             }

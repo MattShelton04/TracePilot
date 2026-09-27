@@ -424,6 +424,20 @@ describe("SettingsDataStorage", () => {
     expect(action(wrapper, "Rebuild").props("disabled")).toBe(false);
   });
 
+  it("reports a reset failure and releases the settings operation lock", async () => {
+    const wrapper = mount(SettingsDataStorage);
+    await flushPromises();
+    mocks.confirm.mockResolvedValueOnce({ confirmed: true });
+    mocks.factoryReset.mockRejectedValueOnce(new Error("Reset unavailable"));
+    await action(wrapper, "Reset Everything…").trigger("click");
+    await flushPromises();
+
+    expect(mocks.factoryReset).toHaveBeenCalledOnce();
+    expect(mocks.toast.error).toHaveBeenCalledWith("Factory reset failed: Reset unavailable");
+    expect(action(wrapper, "Reset Everything…").props("disabled")).toBe(false);
+    expect(action(wrapper, "Rebuild").props("disabled")).toBe(false);
+  });
+
   it("blocks competing operations while the native directory picker is pending and recovers on cancel", async () => {
     const wrapper = mount(SettingsDataStorage);
     await flushPromises();

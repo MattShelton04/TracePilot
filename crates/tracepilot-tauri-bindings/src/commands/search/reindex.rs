@@ -12,6 +12,7 @@
 //!   search pass before touching database files.
 
 use super::cache::invalidate_facets_cache;
+use super::reindex_lifecycle::IndexTarget;
 use crate::concurrency::{IndexingSemaphores, InitialBuildGuard};
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
@@ -42,17 +43,18 @@ pub(crate) async fn run_incremental_reindex(
     gates: &Arc<IndexingSemaphores>,
     app: &tauri::AppHandle,
 ) -> CmdResult<(usize, usize)> {
+    let generation = gates.jobs().generation();
     let ticket = gates.jobs().arrival_ticket();
     let permit = gates.acquire_sessions().await;
+    let target = IndexTarget::capture(state, gates, generation)?;
     if let Some(result) = gates.jobs().completed_since(ticket) {
         tracing::debug!("reindex_sessions coalesced with a newer completed job");
         return Ok(result);
     }
     let seq = gates.jobs().begin_job();
 
-    let cfg = read_config(state);
-    let session_state_dir = cfg.session_state_dir();
-    let index_path = cfg.index_db_path();
+    let session_state_dir = target.session_state_dir.clone();
+    let index_path = target.index_path.clone();
     let app_handle = app.clone();
     let gates_for_job = Arc::clone(gates);
 
@@ -107,12 +109,10 @@ pub(crate) async fn run_incremental_reindex(
 
     let result = result?;
     if result.is_ok() {
-        let cfg2 = read_config(state);
         spawn_search_content_phase2(
             Arc::clone(gates),
             None,
-            cfg2.session_state_dir(),
-            cfg2.index_db_path(),
+            target,
             app.clone(),
             SearchPass::Incremental,
         );
@@ -171,6 +171,7 @@ pub async fn reindex_sessions_full(
     gates: tauri::State<'_, Arc<IndexingSemaphores>>,
     app: tauri::AppHandle,
 ) -> CmdResult<(usize, usize)> {
+    let generation = gates.jobs().generation();
     let permit = gates
         .try_acquire_sessions()
         .map_err(|_busy| BindingsError::AlreadyIndexing)?;
@@ -179,9 +180,9 @@ pub async fn reindex_sessions_full(
     let search_permit = gates.cancel_and_acquire_search().await;
     let seq = gates.jobs().begin_job();
 
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
-    let index_path = cfg.index_db_path();
+    let target = IndexTarget::capture(&state, &gates, generation)?;
+    let session_state_dir = target.session_state_dir.clone();
+    let index_path = target.index_path.clone();
     let app_handle = app.clone();
     let gates_for_job = Arc::clone(gates.inner());
 
@@ -191,18 +192,22 @@ pub async fn reindex_sessions_full(
         let _permit = permit;
         let _initial = InitialBuildGuard::start(Arc::clone(&gates_for_job));
 
-        remove_index_db_files(&index_path)?;
+        // Both permits belong to the worker even if its caller is cancelled.
+        let result = (|| {
+            remove_index_db_files(&index_path)?;
 
-        let counts = tracepilot_indexer::reindex_all_with_rich_progress(
-            &session_state_dir,
-            &index_path,
-            |progress| {
-                emit_indexing_progress(&app_handle, progress);
-            },
-        )
-        .map(|n| (n, n))?;
-        gates_for_job.jobs().complete_job(seq, counts);
-        Ok::<_, BindingsError>(counts)
+            let counts = tracepilot_indexer::reindex_all_with_rich_progress(
+                &session_state_dir,
+                &index_path,
+                |progress| {
+                    emit_indexing_progress(&app_handle, progress);
+                },
+            )
+            .map(|n| (n, n))?;
+            gates_for_job.jobs().complete_job(seq, counts);
+            Ok::<_, BindingsError>(counts)
+        })();
+        (result, search_permit)
     })
     .await;
 
@@ -211,14 +216,12 @@ pub async fn reindex_sessions_full(
     // Invalidate facets cache after full reindex.
     invalidate_facets_cache();
 
-    let result = result?;
+    let (result, search_permit) = result?;
     if result.is_ok() {
-        let cfg2 = read_config(&state);
         spawn_search_content_phase2(
             Arc::clone(gates.inner()),
             Some(search_permit),
-            cfg2.session_state_dir(),
-            cfg2.index_db_path(),
+            target,
             app.clone(),
             SearchPass::Rebuild,
         );
@@ -233,6 +236,7 @@ pub async fn rebuild_search_index(
     gates: tauri::State<'_, Arc<IndexingSemaphores>>,
     app: tauri::AppHandle,
 ) -> CmdResult<(usize, usize)> {
+    let generation = gates.jobs().generation();
     if gates.sessions_available() == 0 {
         return Err(BindingsError::AlreadyIndexing);
     }
@@ -240,9 +244,9 @@ pub async fn rebuild_search_index(
         .try_acquire_search()
         .map_err(|_busy| BindingsError::AlreadyIndexing)?;
 
-    let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
-    let index_path = cfg.index_db_path();
+    let target = IndexTarget::capture(&state, &gates, generation)?;
+    let session_state_dir = target.session_state_dir;
+    let index_path = target.index_path;
     let app_handle = app.clone();
     let gates_for_job = Arc::clone(gates.inner());
 
@@ -329,8 +333,7 @@ fn emit_search_progress(
 fn spawn_search_content_phase2(
     gates: Arc<IndexingSemaphores>,
     permit: Option<OwnedSemaphorePermit>,
-    session_state_dir: PathBuf,
-    index_path: PathBuf,
+    target: IndexTarget,
     app: tauri::AppHandle,
     pass: SearchPass,
 ) {
@@ -339,19 +342,24 @@ fn spawn_search_content_phase2(
         None => match gates.try_acquire_search() {
             Ok(permit) => permit,
             Err(_) => {
-                gates.jobs().request_search_rerun();
+                if target.is_current(&gates) {
+                    gates.jobs().request_search_rerun(target.generation);
+                }
                 return;
             }
         },
     };
+    if !target.is_current(&gates) {
+        return;
+    }
     tokio::task::spawn_blocking(move || {
         let mut pass = pass;
         loop {
             let start = std::time::Instant::now();
             emit_best_effort(&app, crate::events::SEARCH_INDEXING_STARTED, ());
             let result = pass.run(
-                &session_state_dir,
-                &index_path,
+                &target.session_state_dir,
+                &target.index_path,
                 |progress| emit_search_progress(&app, progress),
                 || gates.jobs().search_cancelled(),
             );
@@ -383,7 +391,8 @@ fn spawn_search_content_phase2(
             }
             // Sessions indexed while this pass ran asked for a rerun. The
             // incremental staleness check makes a no-change rerun cheap.
-            if gates.jobs().search_cancelled() || !gates.jobs().take_search_rerun() {
+            if gates.jobs().search_cancelled() || !gates.jobs().take_search_rerun(target.generation)
+            {
                 break;
             }
             pass = SearchPass::Incremental;
@@ -391,15 +400,8 @@ fn spawn_search_content_phase2(
         drop(permit);
         // A request that raced with the release above must not be lost: start
         // another pass (which re-flags the rerun if someone else got the gate).
-        if !gates.jobs().search_cancelled() && gates.jobs().take_search_rerun() {
-            spawn_search_content_phase2(
-                gates,
-                None,
-                session_state_dir,
-                index_path,
-                app,
-                SearchPass::Incremental,
-            );
+        if !gates.jobs().search_cancelled() && gates.jobs().take_search_rerun(target.generation) {
+            spawn_search_content_phase2(gates, None, target, app, SearchPass::Incremental);
         }
     });
 }

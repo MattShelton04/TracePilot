@@ -6,6 +6,7 @@
 
 import {
   checkConfigExists,
+  factoryReset,
   getConfig,
   saveConfig,
   type TracePilotConfigPatch,
@@ -58,6 +59,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // Hydration gate — prevents reactive watches from persisting default values
   // to disk before the real config has been loaded from the backend.
   let hydrated = false;
+  let resetting = false;
 
   // Last-known full backend config so preference changes can be merged back
   // without clobbering paths/version fields.
@@ -169,7 +171,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   });
 
   function scheduleSave() {
-    if (!hydrated) return;
+    if (!hydrated || resetting) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
       saveTimer = null;
@@ -188,7 +190,28 @@ export const usePreferencesStore = defineStore("preferences", () => {
 
   async function updateConfigFields(patch: TracePilotConfigPatch) {
     await hydratePromise;
+    if (resetting) throw new Error("Preferences cannot be changed during factory reset.");
     return persistence.save(patch);
+  }
+
+  async function resetConfig() {
+    if (resetting) throw new Error("Factory reset is already in progress.");
+    // Close the write boundary before yielding: debounce callbacks and other
+    // settings actions must not enqueue stale preferences behind the reset.
+    resetting = true;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = null;
+    try {
+      // Initial hydration may still be saving a legacy full configuration.
+      await hydrationWork;
+      await persistence.drain();
+      await factoryReset();
+      // Stay suspended until the caller reloads into first-run setup.
+    } catch (error) {
+      resetting = false;
+      scheduleSave();
+      throw error;
+    }
   }
 
   // ── Hydrate from backend on store creation ─────────────────
@@ -196,8 +219,17 @@ export const usePreferencesStore = defineStore("preferences", () => {
   const hydratePromise = new Promise<void>((resolve) => {
     hydrateResolve = resolve;
   });
+  let hydrationWork: Promise<void> | null = null;
 
-  async function hydrate() {
+  function hydrate(): Promise<void> {
+    if (resetting) return Promise.resolve();
+    hydrationWork ??= hydrateFromBackend().finally(() => {
+      hydrationWork = null;
+    });
+    return hydrationWork;
+  }
+
+  async function hydrateFromBackend() {
     try {
       // If no config file exists (e.g. after factory reset), don't hydrate.
       // This prevents the watcher from recreating config.toml before the
@@ -295,5 +327,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
      *  This arms the auto-save watcher so subsequent preference changes persist. */
     hydrate,
     updateConfigFields,
+    resetConfig,
   };
 });

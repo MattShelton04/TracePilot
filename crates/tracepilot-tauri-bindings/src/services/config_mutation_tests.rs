@@ -79,6 +79,194 @@ fn interrupted_sqlite_unit_retries_without_losing_committed_wal_data() {
 }
 
 #[tokio::test]
+async fn failed_reset_keeps_config_loaded_and_reports_the_failed_deletion() {
+    for obstruct_index in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let mut initial = configured(temp.path());
+        initial.ui.theme = "light".into();
+        let path = temp.path().join("config.toml");
+        initial.save_to(&path).unwrap();
+        let obstruction = if obstruct_index {
+            initial.index_db_path()
+        } else {
+            config::config_backup_file_path(&path)
+        };
+        // A directory cannot be removed with remove_file on any platform.
+        std::fs::create_dir(&obstruction).unwrap();
+        let state = Arc::new(RwLock::new(Some(initial.clone())));
+        let result = factory_reset_at(
+            &state,
+            &IndexingSemaphores::new(),
+            &ConfigCoordinator::default(),
+            Some(path.clone()),
+        )
+        .await;
+
+        assert!(
+            result.is_err(),
+            "failed deletion must not report reset success"
+        );
+        assert!(
+            path.exists(),
+            "a failed reset must preserve the main config"
+        );
+        assert!(obstruction.is_dir());
+        assert_eq!(
+            serde_json::to_value(state.read().unwrap().as_ref().unwrap()).unwrap(),
+            serde_json::to_value(initial).unwrap()
+        );
+    }
+}
+
+#[tokio::test]
+async fn reset_rejects_a_queued_preference_patch_and_allows_fresh_setup() {
+    use std::future::Future;
+    use std::task::Poll;
+
+    let temp = tempfile::tempdir().unwrap();
+    let initial = configured(temp.path());
+    let path = temp.path().join("config.toml");
+    initial.save_to(&path).unwrap();
+    initial.save_to(&path).unwrap();
+    let index_path = initial.index_db_path();
+    std::fs::write(&index_path, "old index").unwrap();
+    let state = Arc::new(RwLock::new(Some(initial.clone())));
+    let gates = Arc::new(IndexingSemaphores::new());
+    let coordinator = ConfigCoordinator::default();
+    let capture = coordinator.root_read().await;
+    let mut reset = Box::pin(factory_reset_at(
+        &state,
+        &gates,
+        &coordinator,
+        Some(path.clone()),
+    ));
+    // Deterministically stop reset after it owns mutation ordering but while
+    // a capture still owns the root. The stale preference must queue behind it.
+    std::future::poll_fn(|context| {
+        assert!(reset.as_mut().poll(context).is_pending());
+        Poll::Ready(())
+    })
+    .await;
+    let patch_path = path.clone();
+    let patch = serde_json::from_value(serde_json::json!({"ui": {"theme": "light"}})).unwrap();
+    let mut pending = Box::pin(mutate_config(
+        &state,
+        gates.clone(),
+        &coordinator,
+        ConfigMutation::Patch(patch),
+        move |config| config.save_to(&patch_path),
+    ));
+    std::future::poll_fn(|context| {
+        assert!(pending.as_mut().poll(context).is_pending());
+        Poll::Ready(())
+    })
+    .await;
+    drop(capture);
+    let (reset_result, patch_result) = tokio::join!(reset, pending);
+    reset_result.unwrap();
+    assert!(matches!(patch_result, Err(BindingsError::Validation(_))));
+    assert!(state.read().unwrap().is_none());
+    assert!(
+        !path.exists(),
+        "queued preferences must not resurrect config"
+    );
+    assert!(!config::config_backup_file_path(&path).exists());
+    assert!(!index_path.exists());
+
+    // The setup wizard still creates a full config, then preferences may patch it.
+    let setup_path = path.clone();
+    mutate_config(
+        &state,
+        gates.clone(),
+        &coordinator,
+        ConfigMutation::Replace(initial),
+        move |config| config.save_to(&setup_path),
+    )
+    .await
+    .unwrap();
+    let patch = serde_json::from_value(serde_json::json!({"ui": {"theme": "light"}})).unwrap();
+    let patch_path = path.clone();
+    mutate_config(
+        &state,
+        gates,
+        &coordinator,
+        ConfigMutation::Patch(patch),
+        move |config| config.save_to(&patch_path),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        TracePilotConfig::load_from(&path).unwrap().ui.theme,
+        "light"
+    );
+}
+
+#[tokio::test]
+async fn changing_session_source_excludes_indexers_without_blocking_capture_writers() {
+    use std::future::Future;
+    use std::task::Poll;
+
+    let temp = tempfile::tempdir().unwrap();
+    let initial = configured(temp.path());
+    let state = Arc::new(RwLock::new(Some(initial.clone())));
+    let gates = Arc::new(IndexingSemaphores::new());
+    let coordinator = ConfigCoordinator::default();
+    let new_source = temp.path().join("new-session-source");
+    let patch = || {
+        serde_json::from_value(serde_json::json!({
+            "paths": {"sessionStateDir": new_source}
+        }))
+        .unwrap()
+    };
+    let active_sessions = gates.acquire_sessions().await;
+    let result = mutate_config(
+        &state,
+        gates.clone(),
+        &coordinator,
+        ConfigMutation::Patch(patch()),
+        |_| panic!("a busy indexer must prevent publishing new paths"),
+    )
+    .await;
+    assert!(matches!(result, Err(BindingsError::AlreadyIndexing)));
+    assert_eq!(
+        read_config(&state).session_state_dir(),
+        initial.session_state_dir()
+    );
+    drop(active_sessions);
+
+    let active_search = gates.acquire_search().await;
+    let generation = gates.jobs().generation();
+    // A source-only change must not need the exclusive data-root lease.
+    let _capture = coordinator.root_read().await;
+    let path = temp.path().join("config.toml");
+    let mut changing = Box::pin(mutate_config(
+        &state,
+        gates.clone(),
+        &coordinator,
+        ConfigMutation::Patch(patch()),
+        move |config| config.save_to(&path),
+    ));
+    std::future::poll_fn(|context| {
+        assert!(changing.as_mut().poll(context).is_pending());
+        Poll::Ready(())
+    })
+    .await;
+    assert!(gates.jobs().search_cancelled());
+    assert_eq!(
+        read_config(&state).session_state_dir(),
+        initial.session_state_dir()
+    );
+    drop(active_search);
+    let saved = tokio::time::timeout(std::time::Duration::from_secs(2), changing)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.session_state_dir(), new_source);
+    assert_eq!(saved.index_db_path(), initial.index_db_path());
+    assert_ne!(gates.jobs().generation(), generation);
+}
+
+#[tokio::test]
 async fn concurrent_patches_merge_against_latest_committed_config() {
     let temp = tempfile::tempdir().unwrap();
     let initial = configured(temp.path());

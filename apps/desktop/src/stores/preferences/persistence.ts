@@ -67,6 +67,8 @@ export function createPreferencePersistence(
   return {
     accept,
     save,
+    /** Finish every save already accepted before a destructive operation. */
+    drain: () => queue,
     dispose: () => {
       disposed = true;
     },

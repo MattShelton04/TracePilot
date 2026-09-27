@@ -156,6 +156,28 @@ Run `node --test scripts/fixtures/*.test.mjs` for corpus/renderer coverage check
 
 Generated JSONL, indexes and screenshots stay in ignored `.tracepilot/` directories.
 
+### Reset and recovery validation
+
+Use an explicit synthetic `-DataRoot` for destructive settings tests. For a
+concurrent checkout, also choose distinct `-Port`, `-UiPort`, and
+`-StateDirectory` values. A separate WebView profile alone does not isolate data.
+
+1. Finish setup and verify sessions, search results, and analytics.
+2. Change a preference and immediately use **Reset Everything**. Confirm setup
+   returns, config and the active index/WAL/SHM files are absent, and original
+   session files retain their hashes. Factory reset removes configuration and
+   the active index; it does not delete source sessions or saved captures.
+3. Finish setup again, rebuild both indexes, and verify the same session/search
+   and analytics totals. Add, edit, and remove a disposable synthetic session;
+   incremental refresh must add/update/remove its search hits and analytics.
+4. Restart the owned app and verify configuration and rebuilt data persist.
+
+Unit regressions separately control races that are hard to schedule through the
+UI: pending preference hydration/saves, reset versus queued indexing, delayed
+search-phase handoff, and source-root changes. SDK tests with a local protocol
+peer cover stalled handshakes/requests, responsive status, deadlines, and
+disconnect cleanup; they do not establish provider-backed conversation behavior.
+
 ## Cross-references
 
 - `packages/ui/src/__vrt__/README.md` — VRT contract + baseline workflow

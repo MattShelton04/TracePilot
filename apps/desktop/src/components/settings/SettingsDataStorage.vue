@@ -2,7 +2,6 @@
 import {
   contextCaptureDeleteAll,
   contextCaptureStorageStats,
-  factoryReset as factoryResetApi,
   getConfig,
   getDbSize,
   getSessionCount as getSessionCountApi,
@@ -301,7 +300,7 @@ async function handleFactoryReset() {
   const confirmed = await confirmDataOperation({
     title: "Factory Reset",
     message:
-      "This will permanently erase all data and restore default settings. This action cannot be undone.",
+      "This removes settings and the active index, then reopens setup. Source sessions and saved request snapshots are kept. Your preferences cannot be recovered.",
     variant: "danger",
     confirmLabel: "Yes, Reset Everything",
   });
@@ -309,7 +308,7 @@ async function handleFactoryReset() {
 
   resetting.value = true;
   try {
-    await factoryResetApi();
+    await preferencesStore.resetConfig();
     // Clear all TracePilot localStorage keys
     localStorage.removeItem(STORAGE_KEYS.legacyPrefs);
     localStorage.removeItem(STORAGE_KEYS.theme);
