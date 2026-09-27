@@ -24,6 +24,11 @@ not verify Rust or native behavior. VRT needs a Chromium download;
 desktop automation attaches to the installed WebView2 runtime and needs a live
 Tauri build, with no separate browser download.
 
+Required CI also enforces Biome, rustfmt, Clippy, repository policies, regenerated
+IPC contract freshness, and dependency audits. RustSec vulnerability findings and
+high/critical production npm advisories fail the security job. Informational
+RustSec notices remain visible without failing it.
+
 ## 1. Unit & integration (Vitest)
 
 - **Run all:** `pnpm test`; the runner reports the current test inventory.
