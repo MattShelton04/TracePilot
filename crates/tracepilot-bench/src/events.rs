@@ -71,16 +71,8 @@ pub(crate) fn build_session_events(
     }));
 
     // Distribute tool calls across turns
-    let tools_per_turn = if turn_count > 0 {
-        tool_call_count / turn_count
-    } else {
-        0
-    };
-    let extra_tools = if turn_count > 0 {
-        tool_call_count % turn_count
-    } else {
-        0
-    };
+    let tools_per_turn = tool_call_count.checked_div(turn_count).unwrap_or(0);
+    let extra_tools = tool_call_count.checked_rem(turn_count).unwrap_or(0);
 
     for turn_idx in 0..turn_count {
         let turn_id = format!("turn-{turn_idx}");
