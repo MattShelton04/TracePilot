@@ -42,6 +42,57 @@ HTML reports are generated in `target/criterion/report/index.html`.
 | `indexer` | Search content indexing (FTS5) | `reindex_search_content/{10,50,100,200}`, `reindex_search_varied/{50,100}` |
 | `analytics` | Analytics computation functions | `compute_analytics`, `compute_tool_analysis`, `compute_code_impact` |
 
+### Indexing resource and cancellation budgets
+
+The existing [`index_probe`](../crates/tracepilot-bench/examples/index_probe.rs)
+reports `elapsed_ms` and the process high-water memory mark (`peak_rss_kib`) on
+Windows and Linux. Each mode runs in a fresh process so its peak is attributable.
+The peak includes SQLite and Rayon allocations. Windows uses the process's
+`PeakWorkingSet64`; Linux uses `/proc/self/status`'s `VmHWM`.
+
+Build and generate a deterministic corpus, keeping data and output in the ignored
+agent area. For example, from PowerShell at the repository root:
+
+```powershell
+cargo build --release -p tracepilot-bench --example index_probe --example performance_probe
+$corpus = Join-Path (Get-Location) '.agent/indexing-perf'
+& .\target\release\examples\performance_probe.exe generate --root $corpus --scale large
+$sessions = Join-Path $corpus 'copilot/session-state'
+$index = Join-Path $corpus 'tracepilot/index.db'
+$env:TRACEPILOT_MEMORY_BUDGET_MIB = '1024'
+$env:TRACEPILOT_CANCEL_BUDGET_MS = '250'
+& .\target\release\examples\index_probe.exe phase1 $sessions $index
+& .\target\release\examples\index_probe.exe phase2 $sessions $index
+& .\target\release\examples\index_probe.exe phase2-cancel $sessions $index
+```
+
+`phase1` must run before search modes. `phase2-cancel` marks search extraction
+stale, requests cancellation from another thread after 50 ms, and measures until
+indexing returns, including worker joins and discarded partial buffers. Its JSON
+`cancellation` object reports `latency_us`, `budget_ms`, and `request_delay_ms`.
+The probe fails if indexing completes before the request; use a larger corpus
+instead of interpreting that case as a cancellation measurement.
+
+The default enforced budgets are 1,024 MiB peak memory and 250 ms cancellation
+latency. The environment variables above override them for a declared workload.
+Over-budget runs and unavailable memory measurements exit unsuccessfully. Record
+the corpus scale and overrides alongside results. The `large` fixture exercises
+many sessions; `massive` adds gigabytes of input and much larger individual logs.
+Use `massive` when assessing how memory scales beyond the preparation batch.
+
+Preparation is limited to 32 sessions and an estimated 16 MiB of event source per
+batch. An oversized session runs alone and may exceed that amount in memory;
+parsed representations, extracted rows and SQLite also consume memory. This is
+a bound on accumulated preparation across sessions, not a universal process-memory
+limit. Cancellation checkpoints cover buffered reads, extraction and insertion
+chunks; individual JSON decoding and SQLite statements remain non-preemptible.
+
+For base/head comparisons, run a separate head-only budget check. A historical
+base may legitimately exceed the new memory budget; use an explicitly recorded
+larger budget for the comparison itself so it can produce both measurements.
+The shared comparison probe consists of `index_probe.rs` and its
+`index_probe/limits.rs` helper; copy both when building it against an older base.
+
 ---
 
 ## 2. Heap Profiling (dhat-rs)

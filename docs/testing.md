@@ -26,8 +26,9 @@ Tauri build, with no separate browser download.
 
 ## 1. Unit & integration (Vitest)
 
-- **Run all:** `pnpm test` (≈1662 test cases at the time of writing).
+- **Run all:** `pnpm test`; the runner reports the current test inventory.
 - **Run one package:** `pnpm --filter @tracepilot/desktop test`.
+- Desktop tests cap workers at four; use `--maxWorkers=2` while another native build runs. Tests must await store hydration and deferred imports instead of relying on arbitrary delays.
 - **Watch mode:** `pnpm --filter @tracepilot/desktop test -- --watch`.
 - Tests live next to the code they cover (`*.spec.ts` / `*.test.ts`) or
   under `__tests__/` folders. Fixtures live in

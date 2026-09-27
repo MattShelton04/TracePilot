@@ -1,12 +1,10 @@
 # Specta / tauri-specta migration guide
 
-> Phase 1B.1 pilot status: **🟡 PARTIAL (wave 98)** — codegen infrastructure
-> landed in wave 8; additional session-listing DTOs were migrated in wave
-> 21; wave 98 added the state/system subsystem (update + git + DB-size +
-> session-count + install-type + validate-session-dir). The bulk of the
-> Rust ↔ TS contract is still hand-maintained in `packages/types/` and
-> `packages/client/src/commands.ts`. This guide is the playbook for
-> expanding coverage in subsequent waves.
+> Status: partial, with required regeneration checks in CI. Settings read/update
+> contracts and capture-progress payloads now join the generated surface. Use
+> [the emitter](../crates/tracepilot-tauri-bindings/src/specta_exports.rs) as the
+> current typed inventory and [the IPC registry](../crates/tracepilot-tauri-bindings/src/ipc_command_names.rs)
+> for all commands. Earlier wave descriptions below are historical context.
 
 ## What landed in this wave
 
@@ -263,30 +261,34 @@ safety net that cross-checks Rust vs TS command names. Keep it running
 until codegen is authoritative, then delete it in the same PR that
 removes `commands.ts`.
 
-## CI recommendation
+## Shared settings and event contracts
 
-Add a fail-fast check that the generated file is never stale. Either as
-a lefthook pre-push step or a dedicated CI job:
+The emitter also writes `packages/types/src/generated/contracts.ts` using
+Specta's serde transform. This file contains DTOs only and has no Tauri runtime
+imports. Configuration consumers retain only UI-specific refinements in
+`packages/types/src/config.ts`; capture progress and stage types reuse the
+emitted contract. The command wrappers preserve the client's centralized
+error handling and mock transport.
 
-```yaml
-# .github/workflows/ci.yml (or similar)
-- name: Regenerate bindings
-  run: cargo run -p tracepilot-tauri-bindings --bin gen-bindings
-- name: Fail on stale bindings
-  run: git diff --exit-code packages/client/src/generated/
+Use `update_config` for ordinary settings changes: omitted fields preserve the
+latest persisted value, and arrays/maps replace atomically. The backend merges
+under its mutation lock, so consumers must send changed fields instead of a
+stale full configuration. Reserve `save_config` for initial setup and legacy
+migration. Root relocation leases also coordinate saved capture access.
+
+## Required freshness check
+
+The Linux Rust CI job runs the generator and rejects changes to either output:
+
+```sh
+pnpm gen:bindings
+git diff --exit-code -- packages/client/src/generated packages/types/src/generated
 ```
 
-Equivalent lefthook step:
-
-```yaml
-# lefthook.yml
-pre-push:
-  commands:
-    gen-bindings-fresh:
-      run: |
-        cargo run -p tracepilot-tauri-bindings --bin gen-bindings
-        git diff --exit-code packages/client/src/generated/
-```
+Run the same commands locally after changing an exported Rust field. Commit
+regenerated files together with consumers; never edit the generated output.
+Typed coverage remains incremental, so an unexported DTO still needs an explicit
+migration before code generation can protect it.
 
 ## Troubleshooting
 

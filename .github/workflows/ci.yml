@@ -35,10 +35,13 @@ jobs:
         # Typecheck already ran above; the package build script repeats vue-tsc.
         run: pnpm --filter @tracepilot/desktop exec vite build
 
-      # Biome also checks formatting, which is intentionally advisory.
-      - name: Frontend lint and format (advisory)
-        continue-on-error: true
-        run: pnpm biome check --error-on-warnings .
+      - name: Frontend lint and format
+        run: pnpm lint
+
+      - name: Build and smoke-test standalone CLI
+        run: |
+          pnpm build:cli
+          node --test scripts/cli/cli-smoke.test.mjs
 
   frontend_test:
     name: frontend (workspace tests)
@@ -108,17 +111,20 @@ jobs:
       - name: Rust tests
         run: cargo test --workspace --exclude tracepilot-desktop
 
+      - name: Regenerate and verify TypeScript bindings
+        if: runner.os == 'Linux'
+        run: |
+          cargo run -p tracepilot-tauri-bindings --bin gen-bindings
+          git diff --exit-code -- packages/client/src/generated packages/types/src/generated
+
       # Validate performance plans and the native E2E corpus on both OSes.
       - name: Performance fixture contracts
         run: |
           cargo test -p tracepilot-bench --example performance_probe
           cargo test -p tracepilot-bench --example e2e_fixture
 
-      - name: Rust lint (clippy, advisory)
+      - name: Rust lint (clippy)
         if: runner.os == 'Linux'
-        # The current branch has a pre-existing needless-range-loop warning.
-        # Keep this visible without turning this PR into lint cleanup.
-        continue-on-error: true
         run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
 
   # The app.ps1 lifecycle contracts need Windows but not a native build, so they
@@ -210,9 +216,14 @@ jobs:
           fi
           echo "Version OK: $CARGO_VER"
 
-      - name: Rust format (advisory)
-        continue-on-error: true
+      - name: Rust format
         run: cargo fmt --all -- --check
+
+      - name: Repository contract checks
+        run: |
+          node scripts/check-catalog-drift.mjs
+          node scripts/check-csp.mjs
+          node scripts/check-public-api.mjs
 
       - name: File size budgets
         run: node scripts/check-file-sizes.mjs
@@ -252,14 +263,11 @@ jobs:
 
       - name: Rust security audit
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
-        continue-on-error: true
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: pnpm audit (production)
         run: pnpm audit --prod --audit-level=high
-        # The current lockfile has high-severity transitive advisories.
-        continue-on-error: true
 
   # Configure this single, stable check as required in the main ruleset.
   required:

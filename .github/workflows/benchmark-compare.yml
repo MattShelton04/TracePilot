@@ -91,6 +91,8 @@ jobs:
           # The probe uses only public library APIs, so head's copy also builds
           # against base (it may not exist there yet).
           cp crates/tracepilot-bench/examples/index_probe.rs "$BASE_DIR/crates/tracepilot-bench/examples/"
+          mkdir -p "$BASE_DIR/crates/tracepilot-bench/examples/index_probe"
+          cp crates/tracepilot-bench/examples/index_probe/limits.rs "$BASE_DIR/crates/tracepilot-bench/examples/index_probe/"
 
       - name: Build probes and generate corpus
         run: |

@@ -97,46 +97,86 @@ All child tables use `ON DELETE CASCADE` — deleting a session row automaticall
 
 ## Data Flow
 
-```
-1. Discovery     → discover_sessions() finds session dirs on disk
-2. Change check  → needs_reindex() compares workspace_mtime, events_mtime+size, analytics_version
-3. Indexing      → upsert_session() loads summary+events ONCE, computes analytics, writes all in SAVEPOINT
-4. Query         → query_analytics / query_tool_analysis / query_code_impact → SQL aggregation → typed structs
-5. Tauri layer   → Commands try SQL fast path, fall back to disk scan if index empty/missing
-```
+1. Discovery finds the session directories on disk.
+2. `needs_reindex()` compares the stored successful source fingerprint and
+   analytics version with the current source metadata.
+3. Indexing prepares a bounded batch outside SQLite: parse workspace metadata
+   and events, reconstruct turns once, and compute per-session analytics.
+4. Each successful snapshot replaces its session row and child rows together
+   in a savepoint. The batch shares a surrounding transaction.
+5. Analytics queries aggregate the stored rows. Tauri commands retain the
+   disk-scan fallback when the index is unavailable.
+6. Background search indexing independently parses source snapshots and replaces
+   search content and its freshness marker together.
 
-### Indexing detail (step 3)
+### Successful source snapshots
 
-Within a single `SAVEPOINT`:
-1. Parse `workspace.yaml` → session metadata
-2. Parse `events.jsonl` → typed events (single parse via `SessionLoadResult`)
-3. Extract token/cost totals from shutdown metrics
-4. Compute duration, health score, lines changed
-5. Extract tool call stats, model metrics, modified files, activity buckets
-6. `INSERT OR REPLACE` into `sessions` with all analytics columns
-7. `DELETE` + batch `INSERT` into child tables
-8. Update `conversation_fts` for full-text search
+[Migration 21](../../crates/tracepilot-indexer/src/index_db/migrations/plan.rs)
+adds two separate freshness fields:
+
+| Column | Source represented |
+| --- | --- |
+| `source_fingerprint` | `workspace.yaml` and `events.jsonl` used to compute analytics |
+| `search_source_fingerprint` | `events.jsonl` used to extract search content |
+
+A fingerprint stores each file's modification time at the precision returned
+by the filesystem and its byte length. Missing optional files are represented
+explicitly. These are metadata fingerprints, not content hashes: rewriting the
+same number of bytes while preserving the modification time is outside this
+change-detection contract. Existing mtime/size columns remain available for
+queries and diagnostics, but search no longer borrows analytics' source identity.
+
+The strict [snapshot loader](../../crates/tracepilot-core/src/summary/snapshot.rs)
+samples metadata before reading and verifies it after parsing and enrichment.
+The analytics writer checks stability again before writing. Writers persist the
+identity carried by the parsed snapshot, never a newly sampled identity that
+could belong to a later append. If an append occurs after the final check, the
+stored identity still describes the older snapshot and the next freshness check
+requests another pass.
+
+A complete snapshot may contain unknown event types, which preserve their raw
+payloads for forward compatibility. I/O errors, malformed JSONL, failed known
+payload deserialization, malformed workspace metadata, and files changing during
+reads reject the update. Existing analytics, child rows, and search content remain
+available. Failed snapshots remain stale and are retried on a later indexing pass.
+Best-effort UI summary loading remains separate from this persistence contract.
+
+A search rebuild invalidates its own freshness markers first, then replaces each
+successful session atomically. Cancellation or a failed source read does not
+first erase the last-good search results. A later analytics update cannot make
+an older search snapshot appear current.
+
+### Bounded preparation and cancellation
+
+Both index paths alternate preparation and writes using batches of at most
+32 sessions and an estimated 16 MiB of event-log source bytes. A source larger
+than that budget runs alone. This bounds the amount prepared across sessions;
+it is not a hard heap cap for an individual session or for files that grow after
+the size estimate. Metadata discovery still retains the lightweight session list.
+
+Analytics and search preparation use Rayon. Search polls its existing cancellation
+callback on the calling thread every 5 ms while workers run, forwarding an atomic
+signal to workers. Cancellation is checked during each 8 KiB buffered event read,
+between extracted events, and between 256-row search insertion chunks. All workers
+join before the operation returns, and interrupted writes roll back content and
+freshness together. Nested calls from Rayon workers prepare synchronously to avoid
+waiting for work queued to the same pool.
+
+An individual JSON deserialization or SQLite statement cannot be interrupted by
+these checkpoints. Use the [resource probes](../performance-playbook.md#indexing-resource-and-cancellation-budgets)
+to measure the resulting memory peak and cancellation latency on the target corpus.
 
 ## Resumed Session Detection
 
-A session can be resumed at any time. Three signals trigger re-indexing:
+Reindexing is required when either source's mtime or byte length changes, when
+an optional source appears or disappears, when metadata cannot be read, or when
+`analytics_version` is older than the current extraction version. An absent
+successful fingerprint also requests indexing, including after migration from
+an older database. Search applies the same rules to its own event fingerprint
+and extractor version. A null search completion timestamp also requests indexing.
 
-- **workspace.yaml mtime changed** → metadata updated (summary fields, updated_at)
-- **events.jsonl mtime + file size changed** → new events appended (session resumed)
-- **analytics_version < CURRENT_ANALYTICS_VERSION** → extraction logic changed, force re-extract
-
-```rust
-// Simplified sketch; see session_writer.rs for the current signature and logic.
-pub fn needs_reindex(&self, session_id: &str, session_path: &Path) -> bool {
-    // Compare stored vs current: workspace_mtime, events_mtime, events_size, analytics_version
-    stored_ws_mtime != current_ws_mtime
-        || stored_ev_mtime != current_ev_mtime
-        || stored_ev_size != current_ev_size
-        || stored_version < CURRENT_ANALYTICS_VERSION
-}
-```
-
-Checking both mtime **and** file size for events.jsonl guards against filesystem mtime granularity issues — a quick append within the same second still changes the file size.
+Checking both mtime and byte length detects an append even when the filesystem's
+mtime granularity does not distinguish two writes.
 
 ## Performance Characteristics
 
