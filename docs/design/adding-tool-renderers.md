@@ -1,304 +1,203 @@
-# Adding a New Tool Renderer
+# Adding and maintaining tool renderers
 
-This guide walks you through adding a rich renderer for a new tool type in TracePilot. The architecture uses a **component-per-tool dispatcher pattern** — each tool gets its own Vue component(s), registered in a central registry, and automatically picked up by the dispatchers.
+Tool renderers present recorded inputs and outputs without changing their meaning.
+A rich view must retain the complete available payload, distinguish input from
+returned results, and support both pending and completed calls.
 
-## Architecture Overview
+## Architecture
 
+Conversation details and timeline detail panels share the same rendering path:
+
+```text
+ToolCallDetail / ToolDetailPanel
+├── useToolDisplayResult       persisted/full result, live partials, empty completion
+├── ToolArgsRenderer           Parameters disclosure + rich input or complete raw input
+└── ToolResultRenderer         rich/plain/Markdown dispatch + one full-output action
+    ├── registered renderer    RendererShell + payload presentation
+    └── fallback               PlainTextRenderer or sanitized MarkdownContent
 ```
-ToolCallDetail.vue
-├── ToolArgsRenderer.vue      ← dispatcher for arguments
-│   ├── EditArgsRenderer.vue  ← rich renderer (if registered & enabled)
-│   └── [JSON fallback]       ← default
-└── ToolResultRenderer.vue    ← dispatcher for results
-    ├── EditDiffRenderer.vue  ← rich renderer (if registered & enabled)
-    └── PlainTextRenderer.vue ← default
-```
 
-Key files:
+The source of truth is
+[`registry.ts`](../../packages/ui/src/components/renderers/registry.ts).
+Components live in `packages/ui/src/components/renderers/`; the shared shell,
+scroll region and truncation footer live **one directory above**, in
+`packages/ui/src/components/`.
 
-| File | Purpose |
-|------|---------|
-| `packages/ui/src/components/renderers/registry.ts` | Maps tool names → renderer components |
-| `packages/ui/src/components/renderers/ToolResultRenderer.vue` | Dispatches result rendering |
-| `packages/ui/src/components/renderers/ToolArgsRenderer.vue` | Dispatches argument rendering |
-| `packages/ui/src/components/renderers/RendererShell.vue` | Shared wrapper (header, copy, truncation, error) |
-| `packages/ui/src/components/renderers/CodeBlock.vue` | Shared code display with line numbers |
-| `packages/ui/src/components/renderers/PlainTextRenderer.vue` | Fallback plain-text renderer |
-| `packages/ui/src/utils/languageDetection.ts` | File-path → language detection |
-| `packages/types/src/index.ts` | `RichRenderableToolName` type union |
+## Component contract
 
-## Step-by-Step Guide
+`ToolResultRenderer` passes `content: string`, `args: Record<string, unknown>`
+and `tc: TurnToolCall` to a registered result component. `content` may be an
+incomplete preview. The dispatcher removes only the recognized trailing transport
+marker before presentation. Parse conservatively and fall back to the supplied
+text when its format is unknown.
 
-### 1. Create Your Renderer Component
+Use [`RendererShell.vue`](../../packages/ui/src/components/RendererShell.vue)
+for result framing:
 
-Create a new `.vue` file in `packages/ui/src/components/renderers/`.
+| Prop | Purpose |
+| --- | --- |
+| `toolName: string` | Required readable title |
+| `status: RendererShellStatus` | Required pending/success/warning/error/cancelled state |
+| `copyText?: string` | Available payload copied by the header action |
+| `primaryHint?: string` | Optional short context; do not repeat the whole body |
+| `iconName?: string` | Registered Lucide icon, or supply the `icon` slot |
+| `durationMs?`, `tokenUsage?` | Optional footer metadata |
+| `collapsible?`, `defaultCollapsed?` | Optional shell disclosure |
 
-**Naming convention:** `<ToolName><Type>Renderer.vue`
-- Result renderer: `MyToolResultRenderer.vue` (or just `MyToolRenderer.vue`)
-- Args renderer: `MyToolArgsRenderer.vue`
+Slots are `default`, `icon`, `tabs` and `footer`; shell events are `toggle`
+and `retry`. The shell does **not** fetch full results or accept
+`label`, `copyContent`, `isTruncated` or `error` props.
 
-#### Result Renderer Template
+The body is flush. Each payload section owns its padding, normally 12px.
+Use 13px body text and readable 12px secondary text, existing design tokens and
+visible keyboard focus. Allow names, descriptions and metadata to wrap. Code
+and tables may scroll horizontally inside their own region, never the page.
+Copy should retain the available source rather than only the visible page.
+
+A minimal result component:
 
 ```vue
 <script setup lang="ts">
-/**
- * MyToolRenderer — renders results from the "my_tool" tool call.
- *
- * [Describe what this tool does and how the renderer presents it.]
- */
-import RendererShell from "./RendererShell.vue";
+import type { TurnToolCall } from "@tracepilot/types";
+import { computed } from "vue";
+import { toolCallStatus } from "../../utils/toolCallStatus";
+import RendererScrollRegion from "../RendererScrollRegion.vue";
+import RendererShell from "../RendererShell.vue";
 
 const props = defineProps<{
-  /** The result content string (may be truncated). */
   content: string;
-  /** The tool's arguments, parsed as a key-value map. */
   args: Record<string, unknown>;
-  /** Whether the content was truncated. */
-  isTruncated?: boolean;
+  tc: TurnToolCall;
 }>();
-
-const emit = defineEmits<{
-  /** Emitted when the user clicks "Show Full Output". */
-  "load-full": [];
-}>();
+const status = computed(() => toolCallStatus(props.tc));
 </script>
 
 <template>
-  <RendererShell
-    label="My Tool"
-    :copy-content="content"
-    :is-truncated="isTruncated"
-    @load-full="emit('load-full')"
-  >
-    <!-- Your custom rendering here -->
-    <div class="my-tool-output">
-      {{ content }}
-    </div>
+  <RendererShell tool-name="My tool" :status="status" :copy-text="content">
+    <RendererScrollRegion label="output">
+      <pre class="my-tool-output">{{ content || (status === 'pending' ? 'Waiting for output…' : 'No output returned.') }}</pre>
+    </RendererScrollRegion>
   </RendererShell>
 </template>
 
 <style scoped>
 .my-tool-output {
-  padding: 10px 12px;
-  font-size: 0.8125rem;
+  margin: 0;
+  padding: 12px;
+  font: 13px/1.6 var(--font-mono, monospace);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 </style>
 ```
 
-#### Args Renderer Template
+An argument component receives `args` and `tc`. Present proposed operations
+as input, and preserve long input through scrolling, paging or expansion.
 
-```vue
-<script setup lang="ts">
-/**
- * MyToolArgsRenderer — renders arguments for the "my_tool" tool call.
- */
+## Payload and lifecycle rules
 
-const props = defineProps<{
-  /** Tool arguments as a key-value map. */
-  args: Record<string, unknown>;
-}>();
-</script>
+- Use [`toolCallStatus(tc)`](../../packages/ui/src/utils/toolCallStatus.ts).
+  Explicit failure or `tc.error` wins; incomplete calls are pending; successful
+  or completed calls are successful. An omitted `tc` supports standalone legacy
+  rendering with success. Do not infer process exit code from successful tool
+  invocation, worker completion from successful `read_agent`, or delivery from
+  the presence of recipient arguments.
+- Keep acknowledgments, diagnostics and failures visible separately from submitted
+  code, patches, memory or messages. A successful parse must not discard unknown
+  fields or surrounding text. Use a faithful fallback or
+  [`RecordedToolResponse.vue`](../../packages/ui/src/components/renderers/RecordedToolResponse.vue)
+  for a clearly labelled Raw response disclosure.
+- Preserve exact values: empty strings, null, false, zero, heterogeneous table
+  columns and nested objects differ. Never fabricate source context, absolute
+  line numbers, output or successful delivery.
+- [`useToolDisplayResult`](../../packages/ui/src/composables/useToolDisplayResult.ts)
+  shares live/final selection between both detail hosts. Full results replace
+  previews; a persisted empty string replaces stale live text. PowerShell uses
+  the same renderer while streaming and after completion. Preserve local
+  expansion when output appends and reset state when the call identity changes.
+- Render Markdown with the existing sanitized `MarkdownContent` pipeline.
+  Avoid handwritten HTML/Markdown replacements and unrequested external assets.
 
-<template>
-  <div class="my-tool-args">
-    <!-- Render specific args with custom formatting -->
-  </div>
-</template>
+## Parameters and the two kinds of expansion
 
-<style scoped>
-.my-tool-args {
-  padding: 8px 12px;
-  font-size: 0.8125rem;
-}
-</style>
-```
+**Parameters are always recoverable.** `ToolArgsRenderer` keeps the Parameters
+disclosure whenever input exists. Rich pending input also includes an
+All parameters disclosure. The legacy registry flag `hideArgsWithRichResult`
+now selects complete raw parameters when a rich result already presents the
+input; it does not remove input access. `autoExpandArgs` makes relevant pending
+input discoverable. User disclosure choices are retained through completion.
 
-### 2. Register in the Registry
+**Backend full-output loading belongs only to `ToolResultRenderer`.** It
+receives `isTruncated`, `loading` and `failed`, renders one
+`RendererTruncationFooter`, and emits `load-full(toolCallId)` or
+`retry-full(toolCallId)`. Both detail hosts forward those events and states.
+The button disables during loading, offers an explicit retry after failure,
+and disappears when the full payload arrives.
 
-Open `packages/ui/src/components/renderers/registry.ts` and add your entry to `RENDERER_REGISTRY`:
+The dispatcher passes `isTruncated=false` to leaves to suppress duplicate fetch
+buttons. Existing leaves may keep their optional `isTruncated`/`load-full`
+API for standalone callers, but normal dispatched rendering must not add another
+transport footer.
 
-```ts
-const RENDERER_REGISTRY: Record<string, RendererEntry> = {
-  // ... existing entries ...
-  my_tool: {
-    label: "My Tool (Description)",
-    resultComponent: defineAsyncComponent(() => import("./MyToolRenderer.vue")),
-    // Optional: only add if you have a dedicated args renderer
-    argsComponent: defineAsyncComponent(() => import("./MyToolArgsRenderer.vue")),
-  },
-};
-```
+**Local expansion changes presentation only.**
+[`RendererScrollRegion.vue`](../../packages/ui/src/components/RendererScrollRegion.vue)
+measures actual overflow, provides a keyboard-accessible scroll region, and adds
+reversible Show all / Show less controls. Its default `maxHeight` is 320px;
+supply a meaningful `label`. It never fetches missing backend output.
+Avoid multiple controls that expand the same content.
 
-**Important:**
-- The key must match the tool name exactly as it appears in `TurnToolCall.toolName`
-- The `label` appears in the Settings UI toggle grid
-- Use `defineAsyncComponent` — renderers are lazy-loaded to avoid bundle bloat
-- You can omit `argsComponent` or `resultComponent` if you don't need one
+For source, use [`CodeBlock.vue`](../../packages/ui/src/components/renderers/CodeBlock.vue).
+`maxLines` selects nonoverlapping pages, with paging controls outside the scroll
+area. `startLine` controls the source offset; leave fragment numbering explicit.
+Very long lines use bounded character chunks with previous/next navigation and
+Copy full line, preserving text beyond the rendering limit. Language detection,
+line numbers, search highlighting and fill-height behavior are shared here;
+do not duplicate them in individual renderers.
 
-### 3. Add the Tool Name to the Type Union
+## Registering a tool
 
-Open `packages/types/src/index.ts` and add your tool name to `RichRenderableToolName`:
+1. Add the component and lazy `defineAsyncComponent` entry to `registry.ts`.
+   The key must match `TurnToolCall.toolName`; `label` appears in settings.
+   Add `argsComponent` only when a dedicated input view adds value.
+2. Add the tool to `RichRenderableToolName` in
+   [`packages/types/src/tool-rendering.ts`](../../packages/types/src/tool-rendering.ts).
+   Export from `renderers/index.ts` only when direct consumers need it.
+3. Add meaningful parser/component tests and shared sanitized samples in
+   [`scripts/fixtures/rich-tools.mjs`](../../scripts/fixtures/rich-tools.mjs).
+   Registry coverage must include both result and argument renderers.
+4. Validate rich and plain modes, full input access, empty/failure/pending states,
+   long/unknown payloads, and initial versus expanded/fetched results. Exercise
+   loading/retry and live-to-final transitions through the shared detail hosts.
+   See [testing](../testing.md) and [visual regression](../visual-regression.md).
 
-```ts
-export type RichRenderableToolName =
-  | "edit"
-  | "view"
-  // ... existing names ...
-  | "my_tool";  // ← add here
-```
+Inspect actual screenshots at 1440×960, 960×640 and 2560×1440. Synthetic captures
+exercise the frontend; verify live behavior in the native app using
+[app automation](../app-automation.md). Keep one-off captures and audit notes in
+ignored agent/output directories.
 
-This ensures the Settings UI shows a toggle for your tool and TypeScript catches typos.
+## Current registry
 
-### 4. Export (Optional)
+There are 18 registered tool names and six argument-renderer registrations.
 
-If you want direct imports (not just via the registry), add your component to `packages/ui/src/components/renderers/index.ts`:
+| Tool | Result component | Argument component |
+| --- | --- | --- |
+| `edit` | EditDiffRenderer | EditArgsRenderer |
+| `view` | ViewCodeRenderer | — |
+| `create` | CreateFileRenderer | CreateArgsRenderer |
+| `grep`, `rg` | GrepResultRenderer | — |
+| `glob` | GlobTreeRenderer | — |
+| `powershell`, `read_powershell`, `write_powershell` | ShellOutputRenderer | — |
+| `sql` | SqlResultRenderer | — |
+| `web_search` | WebSearchRenderer | — |
+| `store_memory` | StoreMemoryRenderer | — |
+| `report_intent` | ReportIntentRenderer | ReportIntentRenderer |
+| `ask_user` | AskUserRenderer | AskUserArgsRenderer |
+| `read_agent` | ReadAgentRenderer | — |
+| `write_agent` | WriteAgentRenderer | WriteAgentArgsRenderer |
+| `list_agents` | ListAgentsRenderer | — |
+| `apply_patch` | ApplyPatchRenderer | ApplyPatchArgsRenderer |
 
-```ts
-export { default as MyToolRenderer } from "./MyToolRenderer.vue";
-```
-
-### 5. Write Tests
-
-Create `packages/ui/src/__tests__/MyToolRenderer.test.ts`:
-
-```ts
-import { describe, it, expect } from "vitest";
-import { mount } from "@vue/test-utils";
-import MyToolRenderer from "../components/renderers/MyToolRenderer.vue";
-
-describe("MyToolRenderer", () => {
-  it("renders content in custom format", () => {
-    const wrapper = mount(MyToolRenderer, {
-      props: {
-        content: "some result text",
-        args: { key: "value" },
-      },
-    });
-    expect(wrapper.find(".my-tool-output").exists()).toBe(true);
-    expect(wrapper.text()).toContain("some result text");
-  });
-
-  it("shows truncation notice", () => {
-    const wrapper = mount(MyToolRenderer, {
-      props: {
-        content: "partial...",
-        args: {},
-        isTruncated: true,
-      },
-    });
-    expect(wrapper.text()).toContain("Output was truncated");
-  });
-});
-```
-
-Run tests with:
-```bash
-pnpm --filter @tracepilot/ui test
-```
-
-### 6. Test the Settings Toggle
-
-No additional work is needed — the Settings UI automatically picks up registered renderers via `getRegisteredRenderers()`. Your tool will appear in the "Tool Visualization" grid once registered.
-
-## Shared Components
-
-### RendererShell
-
-All renderers should wrap their output in `<RendererShell>` for consistent styling:
-
-| Prop | Type | Description |
-|------|------|-------------|
-| `label` | `string?` | Header label (e.g., "Diff View") |
-| `copyContent` | `string?` | Text to copy when the Copy button is clicked |
-| `isTruncated` | `boolean?` | Shows "Output was truncated" banner with load button |
-| `error` | `string?` | Shows an error state instead of the slot content |
-
-| Event | Description |
-|-------|-------------|
-| `load-full` | Emitted when the user clicks "Show Full Output" |
-
-### CodeBlock
-
-Reusable syntax-highlighted code display:
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `code` | `string` | (required) | The source code to display |
-| `filePath` | `string?` | — | Used for language auto-detection |
-| `language` | `string?` | — | Override language (skips detection) |
-| `lineNumbers` | `boolean` | `true` | Show line numbers |
-| `startLine` | `number` | `1` | Starting line number |
-| `maxLines` | `number?` | — | Collapse after N lines (0 = unlimited) |
-| `showLanguageBadge` | `boolean` | `true` | Show language badge in header |
-
-### PlainTextRenderer
-
-Simple fallback — wraps content in a scrollable `<pre>`:
-
-| Prop | Type | Description |
-|------|------|-------------|
-| `content` | `string` | The text to display |
-
-### Language Detection
-
-```ts
-import { detectLanguage, languageDisplayName } from "../utils/languageDetection";
-
-const lang = detectLanguage("src/app.tsx"); // → "tsx"
-const display = languageDisplayName("tsx");  // → "TypeScript JSX"
-```
-
-Supports 90+ file extensions. Add new ones in `packages/ui/src/utils/languageDetection.ts`.
-
-## Props Contract
-
-All result renderers receive these props from `ToolResultRenderer.vue`:
-
-| Prop | Type | Always Present | Description |
-|------|------|----------------|-------------|
-| `content` | `string` | ✓ | The tool result (may be truncated to ~1KB) |
-| `args` | `Record<string, unknown>` | ✓ | Parsed tool arguments |
-| `tc` | `TurnToolCall` | ✓ | Full tool call object |
-| `isTruncated` | `boolean` | ✗ | Whether `content` was truncated |
-
-All args renderers receive:
-
-| Prop | Type | Description |
-|------|------|-------------|
-| `args` | `Record<string, unknown>` | Parsed tool arguments |
-| `tc` | `TurnToolCall` | Full tool call object |
-
-## Data Considerations
-
-- **`content` is always a string.** Even if the original result was JSON, it arrives as a stringified version. If you need structured data, use `JSON.parse()` with try/catch (see `SqlResultRenderer.vue` for an example).
-- **Truncation:** Result content may be truncated to ~1KB. Always handle partial data gracefully. When `isTruncated` is true, emit `load-full` to let the user request the complete content.
-- **No fabrication:** Do NOT invent data that isn't in the tool call. For example, the edit tool only provides `old_str` and `new_str` — don't generate surrounding context lines.
-
-## Checklist
-
-- [ ] Created renderer component(s) in `packages/ui/src/components/renderers/`
-- [ ] Registered in `RENDERER_REGISTRY` in `registry.ts`
-- [ ] Added tool name to `RichRenderableToolName` in `packages/types/src/index.ts`
-- [ ] Used `RendererShell` wrapper for consistent chrome
-- [ ] Used `defineAsyncComponent` for lazy loading
-- [ ] Handled truncated content gracefully
-- [ ] Written tests in `packages/ui/src/__tests__/`
-- [ ] Verified Settings UI shows the toggle
-- [ ] Run `pnpm --filter @tracepilot/ui test` — all green
-
-## Existing Renderers (Reference)
-
-| Tool | Result Renderer | Args Renderer | Notes |
-|------|----------------|---------------|-------|
-| `edit` | `EditDiffRenderer` | `EditArgsRenderer` | LCS word-level diff |
-| `view` | `ViewCodeRenderer` | — | Code + directory detection |
-| `create` | `CreateFileRenderer` | `CreateArgsRenderer` | New-file badge |
-| `grep` | `GrepResultRenderer` | — | Grouped by file |
-| `glob` | `GlobTreeRenderer` | — | File list with icons |
-| `powershell` | `ShellOutputRenderer` | — | Terminal style |
-| `read_powershell` | `ShellOutputRenderer` | — | Shared with powershell |
-| `write_powershell` | `ShellOutputRenderer` | — | Shared with powershell |
-| `sql` | `SqlResultRenderer` | — | JSON→table parsing |
-| `web_search` | `WebSearchRenderer` | — | Source link extraction |
-| `store_memory` | `StoreMemoryRenderer` | — | Memory card layout |
-| `report_intent` | — | `ReportIntentRenderer` | Intent badge (args only) |
+`report_intent` reuses one component for its pending intent and returned
+acknowledgment. `task`, calls marked `isSubagent` (including named task aliases)
+and `web_fetch` use the dispatcher's Markdown fallback when rich rendering is
+enabled. Other unregistered or disabled tools use `PlainTextRenderer`.
