@@ -11,7 +11,10 @@ import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 import {
   askUserChoices,
   askUserFields,
+  askUserOptionForValue,
   askUserPrompt,
+  formatAskUserFieldValue,
+  formatAskUserOption,
   formatAskUserValue,
   parseAskUserResponseValues,
   parseStructuredResponse,
@@ -51,9 +54,6 @@ function hasResponse(fieldName: string): boolean {
 function responseForField(fieldName: string): unknown {
   return schemaResponseValues.value.find((item) => item.field.name === fieldName)?.value;
 }
-function isSelectedEnumValue(fieldName: string, value: string): boolean {
-  return hasResponse(fieldName) && formatAskUserValue(responseForField(fieldName)) === value;
-}
 const emptyResponse = computed(() => {
   if (status.value === "pending") return "Awaiting user response…";
   if (status.value === "error") return "The request failed without a response.";
@@ -79,7 +79,7 @@ const emptyResponse = computed(() => {
             </div>
             <div v-if="hasResponse(field.name)" class="askuser-schema-submitted">
               <Check :size="14" aria-label="Submitted" class="askuser-response-check" />
-              <span class="askuser-schema-submitted-value">{{ formatAskUserValue(responseForField(field.name)) }}</span>
+              <span class="askuser-schema-submitted-value">{{ formatAskUserFieldValue(field, responseForField(field.name)) }}</span>
             </div>
             <p v-if="field.description" class="askuser-schema-description">{{ field.description }}</p>
             <details class="askuser-schema-details">
@@ -89,11 +89,11 @@ const emptyResponse = computed(() => {
                 <span>{{ field.type }}</span>
                 <span>{{ field.required ? 'Required' : 'Optional' }}</span>
               </div>
-              <div v-if="field.enumValues.length" class="askuser-schema-enum">
-                <span v-for="value in field.enumValues" :key="value"
-                      :class="['askuser-schema-enum-pill', { 'askuser-schema-enum-pill--selected': isSelectedEnumValue(field.name, value) }]">{{ value }}</span>
+              <div v-if="field.options.length" class="askuser-schema-enum" aria-label="Available values">
+                <span v-for="(option, index) in field.options" :key="index"
+                      :class="['askuser-schema-enum-pill', { 'askuser-schema-enum-pill--selected': hasResponse(field.name) && askUserOptionForValue(field, responseForField(field.name)) === option }]">{{ formatAskUserOption(option) }}</span>
               </div>
-              <div v-if="field.defaultValue !== undefined" class="askuser-schema-default">Default: {{ formatAskUserValue(field.defaultValue) }}</div>
+              <div v-if="field.defaultValue !== undefined" class="askuser-schema-default">Default: {{ formatAskUserFieldValue(field, field.defaultValue) }}</div>
             </details>
           </div>
           <div v-if="additionalResponse.length" class="askuser-additional-response">

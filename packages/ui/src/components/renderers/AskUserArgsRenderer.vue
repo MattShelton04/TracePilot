@@ -13,7 +13,8 @@ import {
   askUserChoices,
   askUserFields,
   askUserPrompt,
-  formatAskUserValue,
+  formatAskUserFieldValue,
+  formatAskUserOption,
 } from "./askUserSchema";
 
 const props = defineProps<{
@@ -46,13 +47,13 @@ const status = computed(() => toolCallStatus(props.tc));
             {{ field.required ? 'Required' : 'Optional' }}
           </span>
           <span v-if="field.defaultValue !== undefined" class="askuser-field-default">
-            default: {{ formatAskUserValue(field.defaultValue) }}
+            default: {{ formatAskUserFieldValue(field, field.defaultValue) }}
           </span>
         </div>
         <p v-if="field.description" class="askuser-field-description">{{ field.description }}</p>
-        <div v-if="field.enumValues.length > 0" class="askuser-enum-list">
-          <span v-for="value in field.enumValues" :key="value" class="askuser-enum-pill">
-            {{ value }}
+        <div v-if="field.options.length > 0" class="askuser-enum-list" aria-label="Available values">
+          <span v-for="(option, index) in field.options" :key="index" class="askuser-enum-pill">
+            {{ formatAskUserOption(option) }}
           </span>
         </div>
       </div>
