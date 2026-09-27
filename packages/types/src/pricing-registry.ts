@@ -25,6 +25,7 @@ interface LegacyMultiplierData {
   displayName: string;
   premiumRequests: number;
   effectiveFrom?: string;
+  effectiveTo?: string;
   verifiedAt?: string;
   sourceNote?: string;
 }
@@ -40,6 +41,7 @@ interface PricingDataFile {
   githubCopilotUsage: UsagePricingData[];
   githubCopilotUsageHistory: UsagePricingData[];
   annualLegacyMultipliers: LegacyMultiplierData[];
+  annualLegacyMultiplierHistory: LegacyMultiplierData[];
 }
 
 const DATA = pricingData as PricingDataFile;
@@ -104,6 +106,7 @@ function legacyMultiplierEntry(row: LegacyMultiplierData): PricingRegistryEntry 
     currency: "USD",
     unit: "premium-request",
     effectiveFrom: row.effectiveFrom ?? ANNUAL_MULTIPLIERS_SOURCE.effectiveFrom,
+    effectiveTo: row.effectiveTo,
     sourceLabel: sourceLabel(ANNUAL_MULTIPLIERS_SOURCE, row),
     sourceUrl: ANNUAL_MULTIPLIERS_SOURCE.url,
     status: "official",
@@ -140,9 +143,14 @@ export const PROVIDER_WHOLESALE_PRICING: readonly PricingRegistryEntry[] = [
   })),
 ];
 
-export const PRICING_REGISTRY: readonly PricingRegistryEntry[] = [
+export const LATEST_PRICING_REGISTRY: readonly PricingRegistryEntry[] = [
   ...PROVIDER_WHOLESALE_PRICING,
   ...GITHUB_COPILOT_USAGE_PRICING,
-  ...DATA.githubCopilotUsageHistory.map(githubUsageEntry),
   ...GITHUB_ANNUAL_LEGACY_MULTIPLIERS,
+];
+
+export const PRICING_REGISTRY: readonly PricingRegistryEntry[] = [
+  ...LATEST_PRICING_REGISTRY,
+  ...DATA.githubCopilotUsageHistory.map(githubUsageEntry),
+  ...DATA.annualLegacyMultiplierHistory.map(legacyMultiplierEntry),
 ];

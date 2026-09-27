@@ -3,7 +3,15 @@
  * the whole PR against its merge base, so the latest report supersedes earlier
  * ones; separate comments per push read as incremental reports.
  */
-export async function postReportComment({ api, pr, run, body, marker, family }) {
+export async function postReportComment({
+  api,
+  pr,
+  run,
+  body,
+  marker,
+  family,
+  createIfMissing = true,
+}) {
   const isCurrent = async () => {
     const current = await api(`/pulls/${pr}`);
     return current.state === "open" && current.head.sha === run.head_sha;
@@ -20,6 +28,7 @@ export async function postReportComment({ api, pr, run, body, marker, family }) 
     }
     if (comments.length < 100) break;
   }
+  if (!existing && !createIfMissing) return "no-report-needed";
   if (!(await isCurrent())) return "stale-head";
   const currentRun = await api(`/actions/runs/${run.id}`);
   if ((currentRun.run_attempt ?? 1) !== (run.run_attempt ?? 1)) return "stale-attempt";

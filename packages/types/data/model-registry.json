@@ -39,9 +39,9 @@
     "id": "claude-opus-4.6-fast",
     "name": "Claude Opus 4.6 Fast",
     "tier": "premium",
-    "inputPerM": 30.0,
-    "cachedInputPerM": 3.0,
-    "outputPerM": 150.0,
+    "inputPerM": 30,
+    "cachedInputPerM": 3,
+    "outputPerM": 150,
     "premiumRequests": 30
   },
   {
@@ -84,9 +84,9 @@
     "id": "gemini-3-pro-preview",
     "name": "Gemini 3 Pro",
     "tier": "standard",
-    "inputPerM": 3.0,
+    "inputPerM": 3,
     "cachedInputPerM": 0.3,
-    "outputPerM": 16.0,
+    "outputPerM": 16,
     "premiumRequests": 1
   },
   {
@@ -149,7 +149,7 @@
     "tier": "standard",
     "inputPerM": 1.75,
     "cachedInputPerM": 0.175,
-    "outputPerM": 14.0,
+    "outputPerM": 14,
     "premiumRequests": 1
   },
   {
@@ -158,16 +158,16 @@
     "tier": "standard",
     "inputPerM": 1.75,
     "cachedInputPerM": 0.175,
-    "outputPerM": 14.0,
+    "outputPerM": 14,
     "premiumRequests": 1
   },
   {
     "id": "gpt-5.1",
     "name": "GPT-5.1",
     "tier": "standard",
-    "inputPerM": 10.0,
-    "cachedInputPerM": 1.0,
-    "outputPerM": 40.0,
+    "inputPerM": 10,
+    "cachedInputPerM": 1,
+    "outputPerM": 40,
     "premiumRequests": 1
   },
   {
@@ -429,6 +429,42 @@
     "inputPerM": 3,
     "cachedInputPerM": 0.3,
     "outputPerM": 15,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-opus-5.5",
+    "name": "Claude Opus 5.5",
+    "tier": "premium",
+    "inputPerM": 4,
+    "cachedInputPerM": 0.2,
+    "outputPerM": 20,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-6-sol",
+    "name": "GPT-6 Sol",
+    "tier": "premium",
+    "inputPerM": 2,
+    "cachedInputPerM": 0.2,
+    "outputPerM": 10,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-6-luna",
+    "name": "GPT-6 Luna",
+    "tier": "fast",
+    "inputPerM": 0.1,
+    "cachedInputPerM": 0.01,
+    "outputPerM": 0.5,
+    "premiumRequests": 1
+  },
+  {
+    "id": "grok-4.7",
+    "name": "Grok 4.7",
+    "tier": "standard",
+    "inputPerM": 2,
+    "cachedInputPerM": 0.5,
+    "outputPerM": 6,
     "premiumRequests": 1
   }
 ]

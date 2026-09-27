@@ -58,6 +58,11 @@ jobs:
         # script would recursively run the entire workspace (including desktop).
         run: pnpm --filter '!tracepilot' --filter '!@tracepilot/desktop' -r test
 
+      - name: Copilot pricing snapshot consistency and updater tests
+        run: |
+          pnpm pricing:check
+          pnpm test:pricing
+
   # Desktop's 291 test files previously waited for the workspace dependency
   # suites, then ran for ~166 seconds. Preserve isolation and split by file.
   desktop_test:

@@ -224,6 +224,39 @@ mod tests {
     use super::*;
 
     #[test]
+    fn latest_copilot_models_round_trip_with_cache_write_rates_and_tiers() {
+        let prices = default_model_prices();
+        for (model, input, cached, write, output, tiers) in [
+            ("claude-opus-5.5", 4.0, 0.2, 5.0, 20.0, 1),
+            ("gpt-6-sol", 2.0, 0.2, 2.5, 10.0, 2),
+            ("gpt-6-luna", 0.1, 0.01, 0.125, 0.5, 2),
+            ("grok-4.7", 2.0, 0.5, 0.0, 6.0, 2),
+        ] {
+            let rows: Vec<_> = prices.iter().filter(|p| p.model == model).collect();
+            assert_eq!(rows.len(), tiers);
+            let encoded = toml::to_string(rows[0]).unwrap();
+            let decoded: ModelPriceEntry = toml::from_str(&encoded).unwrap();
+            assert_eq!(decoded.input_per_m, input);
+            assert_eq!(decoded.cached_input_per_m, cached);
+            assert_eq!(decoded.cache_write_per_m, Some(write));
+            assert_eq!(decoded.output_per_m, output);
+            assert!(
+                decoded
+                    .source_label
+                    .unwrap()
+                    .contains("verified 2026-09-27")
+            );
+        }
+        let luna_long = prices
+            .iter()
+            .find(|p| p.model == "gpt-6-luna" && p.minimum_input_tokens.is_some())
+            .unwrap();
+        assert_eq!(luna_long.minimum_input_tokens, Some(272001));
+        assert_eq!(luna_long.cache_write_per_m, Some(0.25));
+        assert_eq!(luna_long.output_per_m, 0.75);
+    }
+
+    #[test]
     fn september_prices_include_astra_cache_writes_and_both_context_tiers() {
         let prices = default_model_prices();
         let astra: Vec<_> = prices.iter().filter(|p| p.model == "gpt-6-astra").collect();

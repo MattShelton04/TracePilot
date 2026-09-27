@@ -74,7 +74,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [Copilot Session Store](research/copilot-session-store-db.md) | What the CLI's `session-store.db` contains, who has it, and how TracePilot could safely read it. |
 | [Incremental Analytics Delivery](research/optimization-plan.md) | Dated implementation record and one remaining fallback limitation; use the architecture reference for current design. |
 | [VS Code Support](research/vscode-session-support-feasibility.md) | Feasibility of supporting VS Code Copilot sessions. |
-| [Pricing Model](pricing-model.md) | Dated pricing reference; verify rates before using estimates. |
+| [Pricing Model](pricing-model.md) | Copilot rates, historical estimates, deterministic update workflow, and validation. |
 | [Performance Evidence](reports/performance-mission.md) | Native measurements, methods, and limitations; retain alongside its JSON evidence. |
 | [Usability Audit](reports/usability-audit-2026-09-12/findings.md) | Dated findings with linked coverage, validation, and screenshots. |
 | [Version Reports](reports/versions/README.md) | Dated Copilot CLI schema/corpus reports and generation guidance. |

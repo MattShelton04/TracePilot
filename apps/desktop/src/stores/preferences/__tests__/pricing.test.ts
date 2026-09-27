@@ -87,6 +87,30 @@ describe("createPricingSlice", () => {
     expect(match?.model).toBe("gpt-4-turbo");
   });
 
+  it("backfills new models and preserves saved overrides and removals", () => {
+    const saved = {
+      model: "gpt-6-sol",
+      inputPerM: 99,
+      cachedInputPerM: 9,
+      outputPerM: 199,
+      premiumRequests: 1,
+    };
+    const merged = mergeWholesalePricesWithDefaults([saved], ["grok-4.7"]);
+    expect(
+      merged.find((price) => price.model === "gpt-6-sol" && price.pricingTier === "default"),
+    ).toMatchObject(saved);
+    expect(
+      merged.find((price) => price.model === "gpt-6-sol" && price.pricingTier === "long-context"),
+    ).toMatchObject({ inputPerM: 4, cacheWritePerM: 5 });
+    expect(merged.find((price) => price.model === "claude-opus-5.5")).toMatchObject({
+      inputPerM: 4,
+      cachedInputPerM: 0.2,
+      cacheWritePerM: 5,
+    });
+    expect(merged.filter((price) => price.model === "gpt-6-luna")).toHaveLength(2);
+    expect(merged.some((price) => price.model === "grok-4.7")).toBe(false);
+  });
+
   it("getWholesalePrice matches explicit aliases without arbitrary substring fallback", () => {
     const slice = createPricingSlice();
     expect(slice.getWholesalePrice("Claude Sonnet 4.6")?.model).toBe("claude-sonnet-4.6");
