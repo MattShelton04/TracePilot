@@ -96,6 +96,9 @@ export interface CachedFetchResult<TData, TParams> {
    * Clear the cache without resetting data/loading/error state.
    */
   clearCache: () => void;
+
+  /** Invalidate completed and pending results, preserving displayed data and errors. */
+  invalidate: () => void;
 }
 
 /**
@@ -287,9 +290,11 @@ export function useCachedFetch<TData, TParams = void>(
 
         return undefined;
       } finally {
-        // Clean up inflight tracking
-        inflight.delete(cacheKey);
-        if (!loaded.has(cacheKey)) keyGenerations.delete(cacheKey);
+        // A pre-reset request must never remove a newer same-key request.
+        if (epoch === resetEpoch && gen === keyGenerations.get(cacheKey)) {
+          inflight.delete(cacheKey);
+          if (!loaded.has(cacheKey)) keyGenerations.delete(cacheKey);
+        }
 
         // Only update loading and call onFinally if this is still the latest request for this key
         if (activeKey === cacheKey && activeGeneration === gen && activeEpoch === epoch) {
@@ -318,8 +323,12 @@ export function useCachedFetch<TData, TParams = void>(
    */
   const reset = () => {
     data.value = initialData;
-    loading.value = false;
     error.value = null;
+    invalidate();
+  };
+
+  const invalidate = () => {
+    loading.value = false;
     cacheData.clear();
     loaded.clear();
     inflight.clear();
@@ -341,6 +350,9 @@ export function useCachedFetch<TData, TParams = void>(
    * Clear the cache without resetting data/loading/error state.
    */
   const clearCache = () => {
+    for (const key of loaded) {
+      if (!inflight.has(key)) keyGenerations.delete(key);
+    }
     cacheData.clear();
     loaded.clear();
   };
@@ -353,5 +365,6 @@ export function useCachedFetch<TData, TParams = void>(
     reset,
     isCached,
     clearCache,
+    invalidate,
   };
 }

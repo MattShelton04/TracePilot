@@ -1,11 +1,12 @@
+import { createDeferred } from "@tracepilot/test-utils";
 import type { SkillAsset, SkillFrontmatter } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
-import { defineComponent, h, provide } from "vue";
+import { defineComponent, h, nextTick, provide, reactive } from "vue";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────
 
-const routeMock = { params: { name: "my-skill" }, query: {} as Record<string, string> };
+const routeMock = reactive({ params: { name: "my-skill" }, query: {} as Record<string, string> });
 const routerMock = { push: vi.fn(), replace: vi.fn() };
 const navigationGuards = vi.hoisted(() => ({ leave: vi.fn(), update: vi.fn() }));
 vi.mock("vue-router", () => ({
@@ -93,6 +94,7 @@ function mountHarness(renderEditor = false) {
     },
   });
   const wrapper = mount(Harness);
+  onTestFinished(() => wrapper.unmount());
   return {
     wrapper,
     get ctx() {
@@ -114,6 +116,7 @@ beforeEach(() => {
   };
   storeMock.error = null;
   storeMock.listAssets.mockResolvedValue([]);
+  storeMock.updateSkillRaw.mockResolvedValue(true);
   storeMock.getSkill.mockImplementation(async () => storeMock.selectedSkill);
   routeMock.params.name = "my-skill";
   routeMock.query = {};
@@ -227,7 +230,7 @@ describe("useSkillEditor", () => {
     await new Promise((r) => setTimeout(r, 0));
     await wrapper.vm.$nextTick();
 
-    expect(storeMock.getSkill).toHaveBeenCalledWith("my-skill");
+    expect(storeMock.getSkill).toHaveBeenCalledWith("my-skill", expect.any(Function));
     expect(ctx.previewBody.trim()).toBe("# Body");
     expect(ctx.previewFrontmatter?.name).toBe("my-skill");
     expect(ctx.assets).toHaveLength(1);
@@ -248,6 +251,68 @@ describe("useSkillEditor", () => {
     expect(ctx.saving).toBe(false);
     expect(ctx.lastSaved).not.toBeNull();
     wrapper.unmount();
+  });
+
+  it("preserves a newer dirty draft while the previous draft is saving", async () => {
+    const { ctx } = mountHarness();
+    await flushPromises();
+    ctx.setBody("First draft");
+    const save = createDeferred<boolean>();
+    storeMock.updateSkillRaw.mockReturnValueOnce(save.promise);
+    const saving = ctx.handleSave();
+    ctx.setBody("Newer draft");
+    save.resolve(true);
+    await saving;
+    expect(ctx.previewBody).toBe("Newer draft");
+    expect(ctx.editorDirty).toBe(true);
+    expect(storeMock.getSkill).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves typing that happens during the post-save reload", async () => {
+    const { ctx } = mountHarness();
+    await flushPromises();
+    ctx.setBody("First draft");
+    const reload = createDeferred<typeof storeMock.selectedSkill>();
+    storeMock.getSkill.mockReturnValueOnce(reload.promise);
+    const saving = ctx.handleSave();
+    await flushPromises();
+    ctx.setBody("Newer draft");
+    reload.resolve(storeMock.selectedSkill);
+    await saving;
+    expect(ctx.previewBody).toBe("Newer draft");
+    expect(ctx.editorDirty).toBe(true);
+  });
+
+  it("ignores a save completion after switching away and back to the same directory", async () => {
+    const { ctx } = mountHarness();
+    await flushPromises();
+    ctx.setBody("First draft");
+    const save = createDeferred<boolean>();
+    storeMock.updateSkillRaw.mockReturnValueOnce(save.promise);
+    const saving = ctx.handleSave();
+    routeMock.params.name = "other";
+    await nextTick();
+    routeMock.params.name = "my-skill";
+    await flushPromises();
+    ctx.setBody("Current draft");
+    save.resolve(true);
+    await saving;
+    expect(ctx.previewBody).toBe("Current draft");
+    expect(ctx.editorDirty).toBe(true);
+    expect(ctx.lastSaved).toBeNull();
+  });
+
+  it("does not attach a keyboard listener after unmount while loading", async () => {
+    const load = createDeferred<typeof storeMock.selectedSkill>();
+    storeMock.getSkill.mockReturnValueOnce(load.promise);
+    const { ctx, wrapper } = mountHarness();
+    wrapper.unmount();
+    load.resolve(storeMock.selectedSkill);
+    await flushPromises();
+    ctx.editorDirty = true;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true }));
+    expect(storeMock.updateSkillRaw).not.toHaveBeenCalled();
+    expect(storeMock.listAssets).not.toHaveBeenCalled();
   });
 
   it("onNameInput rebuilds raw content and marks dirty", async () => {

@@ -1,4 +1,3 @@
-import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   contextBenchmarkDelete,
   contextBenchmarkGet,
@@ -16,8 +15,8 @@ import type {
   ContextCaptureSnapshot,
   ContextCaptureSummary,
 } from "@tracepilot/types";
-import { onBeforeUnmount, ref } from "vue";
-import { safeListen } from "@/utils/tauriEvents";
+import { ref } from "vue";
+import { useScopedEventListener } from "@/composables/useScopedEventListener";
 
 const BENCHMARK_COLLECTION_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -41,14 +40,15 @@ export function useContextBenchmarks() {
   const repositoryPath = ref("");
   const model = ref("gpt-5");
   const protocol = ref<CaptureProtocol>("openAiResponses");
-  let unlisten: UnlistenFn | null = null;
+  const setupListener = useScopedEventListener<CaptureProgress>(
+    IPC_EVENTS.CONTEXT_CAPTURE_PROGRESS,
+    (event) => {
+      if (event.payload.sessionId === BENCHMARK_COLLECTION_ID) progress.value = event.payload;
+    },
+  );
 
   async function setup() {
-    if (!unlisten) {
-      unlisten = await safeListen<CaptureProgress>(IPC_EVENTS.CONTEXT_CAPTURE_PROGRESS, (event) => {
-        if (event.payload.sessionId === BENCHMARK_COLLECTION_ID) progress.value = event.payload;
-      });
-    }
+    await setupListener();
     await Promise.all([loadPreflight(), loadList()]);
   }
 
@@ -120,8 +120,6 @@ export function useContextBenchmarks() {
     if (snapshot.value?.manifest.captureId === captureId) snapshot.value = null;
     await loadList();
   }
-
-  onBeforeUnmount(() => unlisten?.());
 
   return {
     preflight,

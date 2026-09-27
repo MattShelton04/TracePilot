@@ -13,8 +13,22 @@ vi.mock("@/utils/tauriEvents", () => ({
 import { IPC_EVENTS } from "@tracepilot/client";
 import { safeListen } from "@/utils/tauriEvents";
 import { useAnalyticsStore } from "../../../stores/analytics";
+import { createDeferred } from "@tracepilot/test-utils";
 
 describe("analytics cache invalidation on reindex", () => {
+  it("refetches after indexing instead of joining a pre-index request", async () => {
+    const old = createDeferred<typeof FIXTURE_ANALYTICS>();
+    mocks.getAnalytics.mockReturnValueOnce(old.promise).mockResolvedValueOnce(FIXTURE_ANALYTICS);
+    const store = useAnalyticsStore();
+    await store.watchIndexUpdates();
+    const pending = store.fetchAnalytics();
+    listeners.get(IPC_EVENTS.INDEXING_FINISHED)?.();
+    await store.fetchAnalytics();
+    expect(mocks.getAnalytics).toHaveBeenCalledTimes(2);
+    old.resolve({ ...FIXTURE_ANALYTICS, totalSessions: 0 });
+    await pending;
+    expect(store.analytics).toEqual(FIXTURE_ANALYTICS);
+  });
   it("drops cached results and bumps dataRevision when indexing finishes", async () => {
     mocks.getAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
     const store = useAnalyticsStore();
