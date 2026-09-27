@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual, parseArgs } from "node:util";
-import { extractFootnotes, parseSources, requireDate, SOURCE_PATHS, sha256 } from "./source.mjs";
+import { checkFreshness } from "./freshness.mjs";
+import { fetchUpstream } from "./remote.mjs";
+import { renderFreshness } from "./report.mjs";
+import { parseSources } from "./source.mjs";
 import { updatePricing } from "./update.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -14,55 +17,43 @@ const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 
 async function fetchSnapshot(revision, verifiedAt) {
-  requireDate(verifiedAt);
-  if (!/^[a-f0-9]{40}$/.test(revision ?? ""))
-    throw new Error("--revision requires a full github/docs commit SHA");
-  const sources = Object.fromEntries(
-    await Promise.all(
-      Object.entries(SOURCE_PATHS).map(async ([key, path]) => {
-        const response = await fetch(
-          `https://raw.githubusercontent.com/github/docs/${revision}/${path}`,
-          {
-            signal: AbortSignal.timeout(30_000),
-          },
-        );
-        if (!response.ok) throw new Error(`Download failed (${response.status}): ${path}`);
-        return [key, (await response.text()).replaceAll("\r\n", "\n")];
-      }),
-    ),
-  );
-  const snapshot = {
-    revision,
-    verifiedAt,
-    sha256: Object.fromEntries(Object.entries(sources).map(([key, text]) => [key, sha256(text)])),
-    footnotes: extractFootnotes(sources.page),
-  };
+  const { sources, snapshot } = await fetchUpstream({ revision, verifiedAt });
   // Fetch only freezes evidence. Unknown identities/footnotes are reviewed before update.
   await mkdir(sourceDir, { recursive: true });
   await writeFile(resolve(sourceDir, "models-and-pricing.yml"), sources.usage);
   await writeFile(resolve(sourceDir, "annual-subscriber-model-multipliers.yml"), sources.annual);
   await writeFile(resolve(sourceDir, "snapshot.json"), json(snapshot));
   console.log(
-    `Frozen github/docs@${revision} (${verifiedAt}). Review source, aliases and footnotes; run pnpm pricing:update.`,
+    `Frozen github/docs@${snapshot.revision} (${snapshot.verifiedAt}). Review source, aliases and footnotes; run pnpm pricing:update.`,
   );
 }
 
 async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
-    options: { revision: { type: "string" }, date: { type: "string" }, write: { type: "boolean" } },
+    options: {
+      revision: { type: "string" },
+      date: { type: "string" },
+      write: { type: "boolean" },
+      report: { type: "string" },
+    },
   });
   const [command] = positionals;
-  if (positionals.length !== 1 || !["fetch", "update", "check"].includes(command)) {
+  if (positionals.length !== 1 || !["fetch", "update", "check", "freshness"].includes(command)) {
     throw new Error(
-      "Usage: cli.mjs fetch --revision <sha> --date <YYYY-MM-DD> | update [--write] | check",
+      "Usage: cli.mjs fetch [--revision <sha>] [--date <YYYY-MM-DD>] | update [--write] | check | freshness [--report <path>]",
     );
   }
   if (command === "fetch") {
-    if (values.write) throw new Error("fetch does not accept --write");
+    if (values.write || values.report) throw new Error("Invalid options for fetch");
     return fetchSnapshot(values.revision, values.date);
   }
-  if (values.revision || values.date || (command === "check" && values.write))
+  if (
+    values.revision ||
+    values.date ||
+    (command !== "update" && values.write) ||
+    (command !== "freshness" && values.report)
+  )
     throw new Error("Invalid options for command");
   const [data, models, snapshot, policy, usage, annual] = await Promise.all([
     readJson(dataPath),
@@ -72,6 +63,33 @@ async function main() {
     readFile(resolve(sourceDir, "models-and-pricing.yml"), "utf8"),
     readFile(resolve(sourceDir, "annual-subscriber-model-multipliers.yml"), "utf8"),
   ]);
+  if (command === "freshness") {
+    const report = await checkFreshness({
+      snapshot,
+      policy,
+      sources: {
+        usage: usage.replaceAll("\r\n", "\n"),
+        annual: annual.replaceAll("\r\n", "\n"),
+      },
+    });
+    report.headSha = process.env.PR_HEAD_SHA ?? process.env.GITHUB_SHA;
+    const markdown = renderFreshness(report);
+    console.log(markdown);
+    if (values.report) {
+      const reportPath = resolve(values.report);
+      await mkdir(dirname(reportPath), { recursive: true });
+      await writeFile(reportPath, json(report));
+    }
+    if (process.env.GITHUB_STEP_SUMMARY) await writeFile(process.env.GITHUB_STEP_SUMMARY, markdown);
+    if (process.env.GITHUB_ACTIONS && report.status !== "current") {
+      console.log(
+        `::warning title=Copilot pricing freshness::${report.status === "outdated" ? "Pricing changes need review; see the job summary." : "Could not verify current pricing; see the job summary."}`,
+      );
+    }
+    // Nonzero locally is useful for scripting. CI explicitly treats this as advisory.
+    process.exitCode = report.status === "current" ? 0 : report.status === "outdated" ? 1 : 2;
+    return;
+  }
   // Normalize Git checkout line endings; the digest represents upstream LF text.
   const parsed = parseSources(
     snapshot,

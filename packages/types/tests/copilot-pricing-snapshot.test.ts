@@ -129,6 +129,27 @@ describe("September 2026 Copilot pricing snapshot", () => {
     }
   });
 
+  it.each([
+    ["gpt-6-sol", 272000, 0.489],
+    ["gpt-6-sol", 272001, 0.928004],
+    ["gpt-6-luna", 272000, 0.02445],
+    ["gpt-6-luna", 272001, 0.0464002],
+  ] as const)("charges the entire %s request at the selected tier with %i input tokens", (model, inputTokens, expected) => {
+    const cost = calculateTokenCost(
+      model,
+      { inputTokens, cacheReadTokens: 100000, cacheWriteTokens: 50000, outputTokens: 10000 },
+      options,
+    );
+    expect(cost.totalCost).toBeCloseTo(expected, 8);
+    expect(cost.aiCredits).toBeCloseTo(expected * 100, 6);
+  });
+
+  it("keeps Opus 5.5 at its published flat rate even for large prompts", () => {
+    const cost = calculateTokenCost("claude-opus-5.5", { inputTokens: 1_000_000 }, options);
+    expect(cost.totalCost).toBe(4);
+    expect(cost.entry?.pricingTier).toBe("default");
+  });
+
   it("preserves July GPT-5.6 estimates while resolving new rates at the snapshot boundary", () => {
     const usage = { inputTokens: 100_000, cacheWriteTokens: 50_000, outputTokens: 10_000 };
     const old = calculateTokenCost("gpt-5.6-sol", usage, { ...options, at: "2026-09-09" });

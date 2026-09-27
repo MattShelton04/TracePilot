@@ -6,7 +6,13 @@ const run = { id: 123, run_attempt: 2, head_sha: "a".repeat(40) };
 const marker = "<!-- test-report:123:2 -->";
 const family = "<!-- test-report -->";
 const own = (body, id = 1) => ({ id, body, user: { login: "github-actions[bot]" } });
-function fixture({ pages = [[]], stale = false, moved = false, attempt = 2 } = {}) {
+function fixture({
+  pages = [[]],
+  stale = false,
+  moved = false,
+  attempt = 2,
+  createIfMissing = true,
+} = {}) {
   const writes = [];
   let reads = 0;
   const api = async (path, options) => {
@@ -25,7 +31,15 @@ function fixture({ pages = [[]], stale = false, moved = false, attempt = 2 } = {
   return {
     writes,
     call: () =>
-      postReportComment({ api, pr: 7, run, body: `${family}${marker}\nReport`, marker, family }),
+      postReportComment({
+        api,
+        pr: 7,
+        run,
+        body: `${family}${marker}\nReport`,
+        marker,
+        family,
+        createIfMissing,
+      }),
   };
 }
 test("the first report creates one comment", async () => {
@@ -61,4 +75,13 @@ test("stale heads, heads moving during pagination and superseded attempts cannot
     assert.match(await call(), /^stale-/);
     assert.equal(writes.length, 0);
   }
+});
+
+test("advisory reports stay quiet when current and update an existing warning when resolved", async () => {
+  const quiet = fixture({ createIfMissing: false });
+  assert.equal(await quiet.call(), "no-report-needed");
+  assert.equal(quiet.writes.length, 0);
+  const resolved = fixture({ createIfMissing: false, pages: [[own(`${family} warning`, 3)]] });
+  assert.equal(await resolved.call(), "updated");
+  assert.equal(resolved.writes[0][1].method, "PATCH");
 });
