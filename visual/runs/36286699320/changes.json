@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": null,
-  "headSha": null,
+  "baseSha": "7ed5cb20cc231081c64d4acb432f3a8539bccc0f",
+  "headSha": "2aa69ee3a4944d322d4c42fc9c27d807be34f1dc",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,8 +9,8 @@
     "scale": 1
   },
   "summary": {
-    "changed": 0,
-    "unchanged": 37,
+    "changed": 1,
+    "unchanged": 36,
     "subtle": 0,
     "incomplete": 0,
     "baseUnavailable": 0,
@@ -27,8 +27,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/02206fa3e5b251186a3e9b08fa40564f2068163351f4b371ec3d1e389fe9b272.png",
-        "after": "../../img/02206fa3e5b251186a3e9b08fa40564f2068163351f4b371ec3d1e389fe9b272.png",
+        "before": "../../img/c350f2ea088cb780b936bc3e2fe4c0e8aea5b67ca134eb926fc1e803bc705a32.png",
+        "after": "../../img/c350f2ea088cb780b936bc3e2fe4c0e8aea5b67ca134eb926fc1e803bc705a32.png",
         "difference": null,
         "closeUps": []
       },
@@ -61,8 +61,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/d07d22f440b09997a8afd6f4064681008dd78a487f1a6010c6c0c0c55b5a34d8.png",
-        "after": "../../img/d07d22f440b09997a8afd6f4064681008dd78a487f1a6010c6c0c0c55b5a34d8.png",
+        "before": "../../img/202dbee6c942fed2a46e663deabd5e45d1235f9e422aeb3e3d960319dbcf9ddc.png",
+        "after": "../../img/202dbee6c942fed2a46e663deabd5e45d1235f9e422aeb3e3d960319dbcf9ddc.png",
         "difference": null,
         "closeUps": []
       },
@@ -163,8 +163,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/cc1e896c3305acd2425a8e4cd3298ef54d46f54b3e2f08e358f933cf5e4f8360.png",
-        "after": "../../img/cc1e896c3305acd2425a8e4cd3298ef54d46f54b3e2f08e358f933cf5e4f8360.png",
+        "before": "../../img/0dc530db43dfe18bd178bfb04b37d80aaed3a200b94d82a7bda393a86bbbaf78.png",
+        "after": "../../img/0dc530db43dfe18bd178bfb04b37d80aaed3a200b94d82a7bda393a86bbbaf78.png",
         "difference": null,
         "closeUps": []
       },
@@ -395,16 +395,66 @@
       "id": "settings-pricing",
       "route": "/settings",
       "state": "configured pricing",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 252,
+      "percent": 0.018229166666666668,
+      "areas": [
+        {
+          "x": 659,
+          "y": 746,
+          "width": 14,
+          "height": 8,
+          "pixels": 101
+        },
+        {
+          "x": 1344,
+          "y": 793,
+          "width": 7,
+          "height": 8,
+          "pixels": 55
+        },
+        {
+          "x": 1344,
+          "y": 910,
+          "width": 7,
+          "height": 8,
+          "pixels": 49
+        },
+        {
+          "x": 1344,
+          "y": 832,
+          "width": 7,
+          "height": 8,
+          "pixels": 47
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/0d35d600e6336dab20fc90c9facf95e9225a89a8a8539a9a0e50f2eac7ce6442.png",
-        "after": "../../img/0d35d600e6336dab20fc90c9facf95e9225a89a8a8539a9a0e50f2eac7ce6442.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/a4bd9e0188ab44f7d7c56af20f88755d646530f622429eb207390a23402eca19.png",
+        "difference": "../../img/e91eeb62622e4a812cebf5cb80fc421869115f760a55431ca7c860bdff08f4ad.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 426,
+              "y": 650,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/0d85f2ea3afde75be9cf4af7e27d6bc8cdd0c3aa91095f3e59a0a0d6afc5e3c5.png",
+            "after": "../../img/c485db40ed637868fdbcefe2d5895bd3932ebed937d02444848a3d1f4158049b.png"
+          },
+          {
+            "rect": {
+              "x": 960,
+              "y": 697,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3acc849c9be996a5da6dd561938e08e4ec122bb8b0781a13cc8ee10fa3a8150.png",
+            "after": "../../img/022cf0851dad1bb194aa5334c8203004f2749c791b46d4c5e6bc5b4600b317a3.png"
+          }
+        ]
       },
       "limitations": []
     },
