@@ -321,7 +321,7 @@ function richEnabledFor(toolName: string): boolean {
   bottom: 28px;
   right: 28px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
   z-index: var(--z-fab, 55);
 }
