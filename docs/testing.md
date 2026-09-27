@@ -10,6 +10,7 @@ tooling, scripts, and CI status for each.
 | --- | --- | --- | --- |
 | Unit / integration (JS/TS) | Vitest | `apps/**`, `packages/**` (`*.spec.ts`, `*.test.ts`) | ✅ `pnpm test` |
 | Unit / integration (Rust) | `cargo test` | `crates/**` | ✅ `cargo test --workspace --exclude tracepilot-desktop` |
+| Copilot pricing sources and importer | Node test runner + offline drift check | `scripts/pricing/` | ✅ CI workspace test job; locally `pnpm pricing:check` and `pnpm test:pricing` |
 | Component visual regression | Playwright CT | `packages/ui/src/__vrt__/*.vrt.spec.ts` | ❌ on-demand only |
 | Desktop frontend visual comparison | Chromium + synthetic backend fixtures | `scripts/visual/`, `visual-*.yml` workflows | ✅ relevant PRs and main pushes |
 | Desktop integration (installed Tauri app) | Playwright Test + native WebView2/CDP | `tests/e2e/`, `scripts/e2e/test.ps1` | ✅ Windows installer job on PRs and main |

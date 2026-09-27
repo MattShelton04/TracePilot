@@ -1,0 +1,9 @@
+{
+  "footnotes": {
+    "gemini-flash-promo": {
+      "text": "{% data variables.copilot.copilot_gemini_36_flash %}, {% data variables.copilot.copilot_gemini_37_flash %}, and {% data variables.copilot.copilot_gemini_38_flash %} are available at the promotional pricing of $0.75 per 1M input tokens, $0.075 per 1M cached input tokens, and $3.75 per 1M output tokens through December 31, 2026.",
+      "effectiveTo": "2027-01-01",
+      "sourceNote": "Promotional Copilot rates through December 31, 2026; subsequent rates unpublished"
+    }
+  }
+}

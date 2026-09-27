@@ -1,5 +1,5 @@
 import type { ModelPriceEntry } from "./config.js";
-import { PRICING_REGISTRY } from "./pricing-registry.js";
+import { LATEST_PRICING_REGISTRY, PRICING_REGISTRY } from "./pricing-registry.js";
 import type { ModelMetricDetail, ShutdownMetrics } from "./session.js";
 
 export const AI_CREDIT_USD = 0.01;
@@ -136,9 +136,19 @@ function entryAliases(entry: PricingRegistryEntry): string[] {
   return [entry.model, ...(entry.aliases ?? [])].map(normalizeModelName);
 }
 
-function modelMatches(entry: PricingRegistryEntry, normalizedModel: string): boolean {
-  return entryAliases(entry).some(
-    (alias) => normalizedModel === alias || normalizedModel.startsWith(`${alias}-`),
+function matchingAliasLength(entry: PricingRegistryEntry, normalizedModel: string): number {
+  // Only an exact identity or a dated provider snapshot may inherit a rate.
+  // Unpublished variants (e.g. -fast, -mini) must not borrow a base model price.
+  return Math.max(
+    0,
+    ...entryAliases(entry)
+      .filter(
+        (alias) =>
+          normalizedModel === alias ||
+          (normalizedModel.startsWith(`${alias}-`) &&
+            /^\d{4}(?:-\d{2}-\d{2}|\d{4})$/.test(normalizedModel.slice(alias.length + 1))),
+      )
+      .map((alias) => alias.length),
   );
 }
 
@@ -153,10 +163,6 @@ function inputTokensMatch(
 
 function compareEffectiveFrom(a: PricingRegistryEntry, b: PricingRegistryEntry): number {
   return (parseEffectiveDate(b.effectiveFrom) ?? 0) - (parseEffectiveDate(a.effectiveFrom) ?? 0);
-}
-
-function longestAliasLength(entry: PricingRegistryEntry): number {
-  return Math.max(...entryAliases(entry).map((alias) => alias.length));
 }
 
 export function modelPriceEntryToPricingEntry(
@@ -212,17 +218,24 @@ export function resolvePricingEntry(
   // Local direct-API/provider overrides intentionally default to latest-rate
   // lookups in the desktop store because the persisted settings table is a
   // mutable override list, not a historical pricing ledger.
-  const registry = [...(options.userOverrides ?? []), ...PRICING_REGISTRY];
+  // Historical tiers must never win a latest lookup after a threshold changes
+  // or a tier is removed. An explicit latest lookup still includes promotions.
+  const latest = rateMode === "latest" || parseEffectiveDate(options.at) == null;
+  const registry = [
+    ...(options.userOverrides ?? []),
+    ...(latest ? LATEST_PRICING_REGISTRY : PRICING_REGISTRY),
+  ];
   const matches = registry
     .filter(
       (entry) =>
         entry.billingProvider === billingProvider &&
         entry.pricingKind === pricingKind &&
         inputTokensMatch(entry, options.inputTokens) &&
-        modelMatches(entry, normalizedModel),
+        matchingAliasLength(entry, normalizedModel) > 0,
     )
     .sort((a, b) => {
-      const aliasLength = longestAliasLength(b) - longestAliasLength(a);
+      const aliasLength =
+        matchingAliasLength(b, normalizedModel) - matchingAliasLength(a, normalizedModel);
       if (aliasLength !== 0) return aliasLength;
       const inputTier = (b.minimumInputTokens ?? 0) - (a.minimumInputTokens ?? 0);
       if (inputTier !== 0) return inputTier;

@@ -15,6 +15,8 @@ Tauri. Direct script invocations generally expect dependencies to be present.
 | Stop or inspect owned app process | `pnpm app:stop`, `pnpm app:status` | Windows; manual | Uses the automation launcher's recorded process identity. |
 | Run workspace checks | `just ci`, `just check-docs`, `pnpm typecheck`, `pnpm test` | All; manual/CI | `just ci` mirrors local gates; see [testing](../docs/testing.md) for hosted differences. |
 | Run native integration | `pnpm test:e2e` locally; `pnpm test:e2e -Install` in CI | Windows; manual and installer CI | Builds and tests against synthetic isolated data; `-Install` also exercises the installer. See [E2E README](../tests/e2e/README.md). |
+| Refresh Copilot pricing | `pnpm pricing:fetch --revision <SHA> --date YYYY-MM-DD`, `pnpm pricing:update`, `pnpm pricing:update --write` | All; manual | Fetch freezes official source evidence; update previews changes, `--write` updates runtime prices/shared defaults. See the [pricing update workflow](../docs/pricing-model.md#reproducible-update-workflow). |
+| Validate Copilot pricing | `pnpm pricing:check`, `pnpm test:pricing` | All; local/CI, offline | Verifies frozen sources, deterministic updates, history and shared defaults; no network or writes. |
 
 `just --list` shows the maintained recipes. It wraps existing pnpm, cargo, and
 Node commands; it is not a second implementation of those tasks.
@@ -51,6 +53,7 @@ Node commands; it is not a second implementation of those tasks.
 | Group | Role / invocation | Effects and output |
 | --- | --- | --- |
 | `scripts/automation/` | Native lifecycle and readiness behind `pnpm app:*`; `pnpm test:automation` runs isolated contract tests. | Launch state and owned processes; see [automation guide](../docs/app-automation.md). |
+| `scripts/pricing/` | Source parser, importer and CLI behind `pnpm pricing:*`; `pnpm test:pricing` runs update contracts. | Versioned evidence under `packages/types/data/copilot-pricing/`; runtime JSON changes only with `--write`. |
 | `scripts/e2e/` | `test.ps1` is the native integration entry point; `launch.ps1`/`stop.ps1` are compatibility wrappers; `connect.mjs`, smoke/perf diagnostics, README capture, and fixture helpers are internal or opt-in. | Diagnostics/screenshots under ignored `scripts/e2e/screenshots/`; README capture deliberately updates selected `docs/images/`. See [testing guide](../docs/testing.md). |
 | `scripts/visual/` | Synthetic frontend capture, report, policy tests, and trusted publisher. Run focused tests with `node --test scripts/visual/*.test.mjs` and `python scripts/visual/extract_test.py`. | Own npm lockfile/dependencies via `npm ci --prefix scripts/visual --ignore-scripts`; local captures under `.tracepilot/visual/`. Publishing is a CI workflow action, not a local diagnostic. See [visual regression](../docs/visual-regression.md). |
 | `scripts/perf/` | Performance/bundle probes and comparison contracts. Focused tests: `node --test scripts/perf/*.test.mjs`. | Some probes launch a native app or read selected data and write ignored `.tracepilot/perf/`; review the particular command first. See [performance playbook](../docs/performance-playbook.md). |
