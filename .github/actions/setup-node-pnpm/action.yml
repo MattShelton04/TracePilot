@@ -16,7 +16,8 @@ runs:
   steps:
     - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
       with:
-        version: 10.32.1
+        # Comparison jobs install a different revision from the harness. Use
+        # that checkout's packageManager pin instead of forcing the head pin.
         package_json_file: ${{ inputs.working-directory }}/package.json
 
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

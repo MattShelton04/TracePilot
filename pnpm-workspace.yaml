@@ -4,6 +4,9 @@ packages:
 allowBuilds:
   better-sqlite3: true
   esbuild: true
+  # Hook installation is explicit (`pnpm hooks:install`), never a side effect
+  # of dependency installation. The CLI uses its optional platform binary.
+  lefthook: false
 # Shared dependency versions (Plan §6.6 / Waves 48 & 104).
 # Deps shared by 2+ workspace packages are pinned centrally here so a single
 # bump updates every consumer. Per-package deps stay local to avoid coupling
@@ -16,9 +19,9 @@ catalog:
   "@vitejs/plugin-vue": "^5.2.4"
   "@vue/test-utils": "^2.4.6"
   jsdom: "^28.1.0"
-  tsx: "^4.21.0"
+  tsx: "^4.23.15"
   typescript: "^5.8.0"
-  vite: "^6.3.0"
-  vitest: "^3.2.4"
+  vite: "^6.4.3"
+  vitest: "4.1.11"
   vue: "^3.5.0"
   vue-tsc: "^2.2.0"

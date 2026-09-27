@@ -1,6 +1,8 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
-import { beforeEach, vi } from "vitest";
+import { beforeEach, type Mock, vi } from "vitest";
+
+type FixtureMockNames = "getAnalytics" | "getToolAnalysis" | "getCodeImpact";
 
 const hoistedMocks = vi.hoisted(() => ({
   getAnalytics: vi.fn(),
@@ -8,7 +10,7 @@ const hoistedMocks = vi.hoisted(() => ({
   getCodeImpact: vi.fn(),
 }));
 
-export const mocks = hoistedMocks;
+export const mocks: Record<FixtureMockNames, Mock> = hoistedMocks;
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");

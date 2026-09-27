@@ -9,10 +9,24 @@ import type {
   McpTool,
 } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, type Mock, vi } from "vitest";
 import type { useMcpStore } from "../../../stores/mcp";
 
 export { createDeferred } from "@tracepilot/test-utils";
+
+type FixtureMockNames =
+  | "mcpListServers"
+  | "mcpGetServer"
+  | "mcpAddServer"
+  | "mcpUpdateServer"
+  | "mcpRemoveServer"
+  | "mcpToggleServer"
+  | "mcpCheckHealth"
+  | "mcpCheckServerHealth"
+  | "mcpImportFromFile"
+  | "mcpImportFromGitHub"
+  | "mcpComputeDiff"
+  | "logWarn";
 
 const hoistedMocks = vi.hoisted(() => ({
   mcpListServers: vi.fn(),
@@ -29,7 +43,7 @@ const hoistedMocks = vi.hoisted(() => ({
   logWarn: vi.fn(),
 }));
 
-export const mocks = hoistedMocks;
+export const mocks: Record<FixtureMockNames, Mock> = hoistedMocks;
 
 vi.mock("@tracepilot/client", () => ({
   mcpListServers: (...args: unknown[]) => hoistedMocks.mcpListServers(...args),

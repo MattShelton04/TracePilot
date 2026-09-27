@@ -6,7 +6,17 @@ import type {
   SystemDependencies,
   WorktreeInfo,
 } from "@tracepilot/types";
-import { beforeEach, vi } from "vitest";
+import { beforeEach, type Mock, vi } from "vitest";
+
+type FixtureMockNames =
+  | "mockCheckSystemDeps"
+  | "mockListSessions"
+  | "mockDiscoverCopilotVersions"
+  | "mockGetActiveCopilotVersion"
+  | "mockListWorktrees"
+  | "mockListRegisteredRepos"
+  | "mockGetWorktreeDiskUsage"
+  | "mockLogWarn";
 
 const clientMocks = vi.hoisted(() => ({
   mockCheckSystemDeps: vi.fn(),
@@ -28,7 +38,7 @@ export const {
   mockListRegisteredRepos,
   mockGetWorktreeDiskUsage,
   mockLogWarn,
-} = clientMocks;
+}: Record<FixtureMockNames, Mock> = clientMocks;
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");

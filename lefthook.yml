@@ -1,5 +1,5 @@
 # Lefthook — Git hooks manager
-# Install: cargo install lefthook && lefthook install
+# Install: pnpm install && pnpm hooks:install (explicit opt-in)
 # See https://github.com/evilmartians/lefthook
 
 pre-commit:
@@ -80,4 +80,3 @@ fix:
       run: cargo fmt --all
     clippy-fix:
       run: cargo clippy --workspace --exclude tracepilot-desktop --all-targets --fix --allow-dirty --allow-staged
-

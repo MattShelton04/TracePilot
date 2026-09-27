@@ -26,8 +26,11 @@ Tauri build, with no separate browser download.
 
 Required CI also enforces Biome, rustfmt, Clippy, repository policies, regenerated
 IPC contract freshness, and dependency audits. RustSec vulnerability findings and
-high/critical production npm advisories fail the security job. Informational
-RustSec notices remain visible without failing it.
+high/critical npm advisories in both the production and full pnpm graph fail the
+security job, as do high/critical findings in the isolated `scripts/visual` npm
+lockfile. Informational RustSec notices remain visible without failing it.
+See the [dependency security reference](dependencies/security.md) for scanner
+scopes, remaining notices, and the separate cargo-deny policy findings.
 
 ## 1. Unit & integration (Vitest)
 

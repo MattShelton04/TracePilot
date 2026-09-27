@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -48,6 +49,41 @@ test("built CLI runs against an isolated shared session fixture", () => {
     assert.deepEqual(turns[0].tools, [
       { name: "view", success: false },
       { name: "view", success: true },
+    ]);
+
+    // The bundled ESM CLI loads its external native SQLite addon via createRequire.
+    // Resolve the same package from the CLI workspace to build a real session DB.
+    const requireFromCli = createRequire(join(repoRoot, "apps/cli/package.json"));
+    const Database = requireFromCli("better-sqlite3");
+    const db = new Database(join(sessionDir, "session.db"));
+    try {
+      db.exec(`
+        CREATE TABLE todos (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          status TEXT NOT NULL,
+          created_at TEXT
+        );
+        CREATE TABLE todo_deps (todo_id TEXT, depends_on TEXT);
+        INSERT INTO todos VALUES ('first', 'Inspect fixture', NULL, 'done', '2026-01-01');
+        INSERT INTO todos VALUES ('second', 'Report result', 'Include evidence', 'pending', '2026-01-02');
+        INSERT INTO todo_deps VALUES ('second', 'first');
+      `);
+    } finally {
+      db.close();
+    }
+    const showTodos = run("show", sessionId.slice(0, 8), "--todos", "--json");
+    assert.equal(showTodos.status, 0, showTodos.stderr);
+    assert.deepEqual(JSON.parse(showTodos.stdout).todos, [
+      { id: "first", title: "Inspect fixture", status: "done", deps: [] },
+      {
+        id: "second",
+        title: "Report result",
+        description: "Include evidence",
+        status: "pending",
+        deps: ["first"],
+      },
     ]);
 
     const search = run("search", "inspect this", "--json");

@@ -22,6 +22,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [Tauri Command Registration](tauri-command-registration.md) | How Tauri IPC commands are registered and called. |
 | [On-Disk Paths](on-disk-paths.md) | Filesystem locations used by TracePilot. |
 | [Performance Playbook](performance-playbook.md) | Current performance investigation and profiling guidance. |
+| [Dependencies](dependencies/README.md) | Complete dependency graph, usage inventory, update decisions, security findings, and measured costs. |
 | [Exact Context Capture Guide](exact-context-capture.md) | Enable, run, inspect, store, and delete isolated model-request snapshots. |
 | [Agent Communication](features/agent-communication.md) | Timeline Messages modes, communication evidence, live refresh, and Agents usage counters. |
 

@@ -213,4 +213,95 @@ mod tests {
         assert!(listener.receiver.try_recv().is_err());
         listener.shutdown().await;
     }
+
+    #[tokio::test]
+    async fn rejects_invalid_payloads_without_consuming_endpoint() {
+        let nonce = uuid::Uuid::new_v4().simple().to_string();
+        let mut listener = OneShotListener::bind(CaptureProtocol::OpenAiResponses, &nonce)
+            .await
+            .expect("bind");
+        let url = format!("{}/responses", listener.base_url);
+        let client = reqwest::Client::new();
+
+        let wrong_content_type = client
+            .post(&url)
+            .header(reqwest::header::CONTENT_TYPE, "text/plain")
+            .body("{}")
+            .send()
+            .await
+            .expect("wrong content type request");
+        assert_eq!(
+            wrong_content_type.status(),
+            reqwest::StatusCode::UNSUPPORTED_MEDIA_TYPE
+        );
+        assert_eq!(
+            wrong_content_type.text().await.expect("rejection body"),
+            "capture requires a JSON request body"
+        );
+
+        let malformed_json = client
+            .post(&url)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body("{not-json")
+            .send()
+            .await
+            .expect("malformed JSON request");
+        assert_eq!(
+            malformed_json.status(),
+            reqwest::StatusCode::UNSUPPORTED_MEDIA_TYPE
+        );
+        assert_eq!(
+            malformed_json.text().await.expect("rejection body"),
+            "capture requires a JSON request body"
+        );
+        assert!(matches!(
+            listener.receiver.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
+        ));
+        assert!(!listener.retry_seen());
+
+        let valid = client
+            .post(&url)
+            .json(&serde_json::json!({"model":"capture"}))
+            .send()
+            .await
+            .expect("valid request after rejection");
+        assert_eq!(valid.status(), reqwest::StatusCode::BAD_REQUEST);
+        assert!(listener.receiver.recv().await.is_some());
+        listener.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn rejects_oversized_body_without_consuming_endpoint() {
+        let nonce = uuid::Uuid::new_v4().simple().to_string();
+        let mut listener = OneShotListener::bind(CaptureProtocol::OpenAiResponses, &nonce)
+            .await
+            .expect("bind");
+        let url = format!("{}/responses", listener.base_url);
+        let client = reqwest::Client::new();
+
+        let oversized = client
+            .post(&url)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(vec![b' '; MAX_CAPTURE_BODY_BYTES + 1])
+            .send()
+            .await
+            .expect("oversized request");
+        assert_eq!(oversized.status(), reqwest::StatusCode::PAYLOAD_TOO_LARGE);
+        assert!(matches!(
+            listener.receiver.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
+        ));
+        assert!(!listener.retry_seen());
+
+        let valid = client
+            .post(&url)
+            .json(&serde_json::json!({"model":"capture"}))
+            .send()
+            .await
+            .expect("valid request after body limit rejection");
+        assert_eq!(valid.status(), reqwest::StatusCode::BAD_REQUEST);
+        assert!(listener.receiver.recv().await.is_some());
+        listener.shutdown().await;
+    }
 }

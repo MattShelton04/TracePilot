@@ -6,7 +6,23 @@ import type {
   CopilotVersion,
   MigrationDiff,
 } from "@tracepilot/types";
-import { beforeEach, vi } from "vitest";
+import { beforeEach, type Mock, vi } from "vitest";
+
+type FixtureMockNames =
+  | "getAgentDefinitions"
+  | "saveAgentDefinition"
+  | "getCopilotConfig"
+  | "saveCopilotConfig"
+  | "createConfigBackup"
+  | "deleteConfigBackup"
+  | "listConfigBackups"
+  | "restoreConfigBackup"
+  | "discoverCopilotVersions"
+  | "getActiveCopilotVersion"
+  | "getMigrationDiffs"
+  | "migrateAgentDefinition"
+  | "toastSuccess"
+  | "toastError";
 
 const hoistedMocks = vi.hoisted(() => ({
   getAgentDefinitions: vi.fn(),
@@ -25,7 +41,7 @@ const hoistedMocks = vi.hoisted(() => ({
   toastError: vi.fn(),
 }));
 
-export const mocks = hoistedMocks;
+export const mocks: Record<FixtureMockNames, Mock> = hoistedMocks;
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");

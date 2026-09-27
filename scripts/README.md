@@ -10,6 +10,7 @@ Tauri. Direct script invocations generally expect dependencies to be present.
 | Purpose | Command | Platform and status | Prerequisites / effects |
 | --- | --- | --- | --- |
 | Install workspace dependencies | `pnpm install` or `just install` | All; manual | Node 22, pnpm 10; changes local dependency installation. |
+| Install repository Git hooks | `pnpm hooks:install` | All; explicit opt-in | Uses the pinned local Lefthook. Dependency installation does not install or replace Git hooks. |
 | Launch the real desktop app | `pnpm app:start` | Windows; manual diagnostic | Rust, Tauri/WebView2, pnpm dependencies; starts owned processes and uses the configured session/index data unless an isolated data root is supplied. See [automation](../docs/app-automation.md). |
 | Launch frontend mock UI | `pnpm app:ui` | Windows launcher; manual diagnostic | Starts Vite with mock IPC; cannot verify native behavior. |
 | Stop or inspect owned app process | `pnpm app:stop`, `pnpm app:status` | Windows; manual | Uses the automation launcher's recorded process identity. |
@@ -54,6 +55,7 @@ Node commands; it is not a second implementation of those tasks.
 | Group | Role / invocation | Effects and output |
 | --- | --- | --- |
 | `scripts/automation/` | Native lifecycle and readiness behind `pnpm app:*`; `pnpm test:automation` runs isolated contract tests. | Launch state and owned processes; see [automation guide](../docs/app-automation.md). |
+| `scripts/dependencies/` | Capture locked resolver inputs, generate complete dependency graphs, and test graph invariants. | Read-only package-manager queries; writes ignored inputs and generated graphs under `.agent/dependency-audit/`. See [rerun commands](dependencies/README.md) and [dependency reference](../docs/dependencies/README.md). |
 | `scripts/pricing/` | Source parser, importer, live freshness comparator and CLI behind `pnpm pricing:*`; `pnpm test:pricing` runs update/freshness/reporting contracts. `publish.mjs` is the trusted CI comment entry point. | Versioned evidence under `packages/types/data/copilot-pricing/`; runtime JSON changes only with `--write`. Freshness writes only its optional report/CI summary; the report workflow maintains one advisory comment. |
 | `scripts/e2e/` | `test.ps1` is the native integration entry point; `launch.ps1`/`stop.ps1` are compatibility wrappers; `connect.mjs`, smoke/perf diagnostics, README capture, and fixture helpers are internal or opt-in. | Diagnostics/screenshots under ignored `scripts/e2e/screenshots/`; README capture deliberately updates selected `docs/images/`. See [testing guide](../docs/testing.md). |
 | `node scripts/fixtures/session-fixtures.mjs [--root=PATH]` | Generate a 63-case rich-tool gallery and a separate `report_intent` session for native inspection. Tests: `node --test scripts/fixtures/*.test.mjs`. | Defaults to ignored `.tracepilot/rich-tool-fixtures`; preserves app config/index and refuses modified/unowned sessions. See [testing](../docs/testing.md#rich-tool-fixtures). |

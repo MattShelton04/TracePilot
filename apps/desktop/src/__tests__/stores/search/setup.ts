@@ -1,5 +1,17 @@
-import { vi } from "vitest";
+import { type Mock, vi } from "vitest";
 import { nextTick } from "vue";
+
+type FixtureMockNames =
+  | "searchContent"
+  | "getSearchFacets"
+  | "getSearchStats"
+  | "getSearchRepositories"
+  | "getSearchToolNames"
+  | "rebuildSearchIndex"
+  | "ftsIntegrityCheck"
+  | "ftsOptimize"
+  | "ftsHealth"
+  | "logWarn";
 
 const hoistedMocks = vi.hoisted(() => ({
   searchContent: vi.fn(),
@@ -14,7 +26,7 @@ const hoistedMocks = vi.hoisted(() => ({
   logWarn: vi.fn(),
 }));
 
-export const mocks = hoistedMocks;
+export const mocks: Record<FixtureMockNames, Mock> = hoistedMocks;
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");

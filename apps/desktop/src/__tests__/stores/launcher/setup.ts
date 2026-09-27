@@ -1,6 +1,17 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import type { ModelInfo, SessionTemplate, SystemDependencies } from "@tracepilot/types";
-import { beforeEach, vi } from "vitest";
+import { beforeEach, type Mock, vi } from "vitest";
+
+type FixtureMockNames =
+  | "launchSession"
+  | "getAvailableModels"
+  | "listSessionTemplates"
+  | "saveSessionTemplate"
+  | "deleteSessionTemplate"
+  | "restoreDefaultTemplates"
+  | "incrementTemplateUsage"
+  | "checkSystemDeps"
+  | "logWarn";
 
 const hoistedMocks = vi.hoisted(() => ({
   launchSession: vi.fn(),
@@ -14,7 +25,7 @@ const hoistedMocks = vi.hoisted(() => ({
   logWarn: vi.fn(),
 }));
 
-export const mocks = hoistedMocks;
+export const mocks: Record<FixtureMockNames, Mock> = hoistedMocks;
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");
