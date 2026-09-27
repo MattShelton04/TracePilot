@@ -123,6 +123,16 @@ try {
       window.__TRACEPILOT_VISUAL_CASE__ = fixture;
     }, item.fixture);
     await page.addInitScript(() => {
+      // The app's global handler can log a null Error object for browser-only
+      // errors (for example ResizeObserver). Retain the actual event message.
+      window.__TRACEPILOT_VISUAL_ERRORS__ = [];
+      window.addEventListener("error", (event) => {
+        window.__TRACEPILOT_VISUAL_ERRORS__.push({
+          message: event.message,
+          source: event.filename,
+          line: event.lineno,
+        });
+      });
       localStorage.setItem("tracepilot-theme", "dark");
       localStorage.setItem("tracepilot-last-seen-version", "999.0.0");
       let seed = 42;
@@ -166,6 +176,29 @@ try {
           const argsToggle = page.locator('.args-toggle[aria-expanded="false"]');
           if (await argsToggle.count()) await argsToggle.first().click();
         }
+        for (const action of item.actions ?? []) {
+          if (action.type === "full") {
+            const button = page.getByRole("button", { name: "Show Full Output", exact: true });
+            await button.waitFor({ state: "visible" });
+            if ((await button.count()) !== 1)
+              throw new Error("A preview must offer exactly one full-output action");
+            await button.click();
+            await page.waitForFunction(
+              () => window.__TRACEPILOT_VISUAL__?.calls.get_tool_result > 0,
+            );
+            await page.locator(".rs-trunc-row").waitFor({ state: "hidden" });
+          } else if (action.type === "button") {
+            const scope = action.within ? page.locator(action.within) : page;
+            const button = scope.getByRole("button", { name: action.name, exact: true });
+            const element = await button.elementHandle();
+            await button.click();
+            if (
+              action.name.startsWith("Show ") &&
+              (await element.getAttribute("aria-expanded")) !== "true"
+            )
+              throw new Error(`Disclosure did not expand: ${action.name}`);
+          } else throw new Error(`Unknown rich-tool action: ${action.type}`);
+        }
       }
       await page.locator(item.ready).first().waitFor({ state: "visible", timeout: 15000 });
       if (item.command)
@@ -187,7 +220,19 @@ try {
           throw new Error("Web search must render completely without manual output loading");
       }
       if (item.group === "rich-tools") {
-        await page.locator(item.ready).first().scrollIntoViewIfNeeded();
+        if (
+          item.expectText &&
+          !(await page.locator(".rs__body").allTextContents()).join("\n").includes(item.expectText)
+        )
+          throw new Error(`Expected complete result text: ${item.expectText}`);
+        // Focus the call, not a source card far below its header. Respect the
+        // sticky session toolbar so initial/expanded evidence remains readable.
+        const anchor = page.locator(item.focus === "end" ? ".rs" : ".tool-call-item").last();
+        await anchor.evaluate((element, end) => {
+          element.style.scrollMarginTop = "112px";
+          element.style.scrollMarginBottom = "24px";
+          element.scrollIntoView({ block: end ? "end" : "start", behavior: "instant" });
+        }, item.focus === "end");
       }
       await page.addStyleTag({
         content:
@@ -216,6 +261,11 @@ try {
       result.missingFixtures = await page.evaluate(
         () => window.__TRACEPILOT_VISUAL__?.missing ?? [],
       );
+      const browserErrors = await page.evaluate(() => window.__TRACEPILOT_VISUAL_ERRORS__ ?? []);
+      for (const error of browserErrors)
+        errors.push(
+          `Browser error: ${error.message} (${error.source}:${error.line})`.slice(0, 500),
+        );
       if (errors.length || result.missingFixtures.length) result.status = "incomplete";
     } catch (error) {
       result.status = "failed";

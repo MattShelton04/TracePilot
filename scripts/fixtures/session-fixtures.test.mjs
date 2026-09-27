@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   buildRichToolsSession,
+  richToolPreview,
   richToolSamples,
   richToolsSessionId,
   richToolTurn,
@@ -56,6 +57,7 @@ test("native gallery is deterministic, has valid event ancestry and matches brow
     );
     assert.equal(result?.data.result.content ?? null, sample.content);
     const browserCall = richToolTurn(sample).toolCalls[0];
+    assert.equal(browserCall.resultContent, richToolPreview(sample));
     if (sample.toolName === "task" && sample.arguments.agent_type) {
       const started = session.events.find(
         (e) => e.type === "subagent.started" && e.data.toolCallId === call.data.toolCallId,
@@ -74,6 +76,44 @@ test("native gallery is deterministic, has valid event ancestry and matches brow
       assert.equal(browserCall.agentDisplayName, started.data.agentDisplayName);
     }
   }
+});
+
+test("browser previews preserve the native UTF-8 boundary without truncating stored results", () => {
+  for (const sample of richToolSamples) {
+    const preview = richToolPreview(sample);
+    if (
+      sample.content == null ||
+      sample.toolName === "web_search" ||
+      Buffer.byteLength(sample.content) <= 1024
+    ) {
+      assert.equal(preview, sample.content);
+      continue;
+    }
+    assert(preview.endsWith("…[truncated]"), `${sample.id} must exercise full-result loading`);
+    const prefix = preview.slice(0, -"…[truncated]".length);
+    assert(Buffer.byteLength(prefix) <= 1024);
+    assert(sample.content.startsWith(prefix));
+    assert(!prefix.includes("\uFFFD"));
+  }
+  assert.equal(
+    richToolPreview({ toolName: "powershell", content: "日".repeat(400) }).slice(
+      0,
+      -"…[truncated]".length,
+    ).length,
+    341,
+  );
+  const session = buildRichToolsSession();
+  const empty = session.events.find(
+    (event) =>
+      event.type === "tool.execution_complete" &&
+      event.data.toolCallId === "fixture-shell-empty-completed",
+  );
+  assert.equal(empty.data.result.content, "");
+  assert.equal(
+    richToolTurn(richToolSamples.find((sample) => sample.id === "shell-empty-completed"))
+      .toolCalls[0].isComplete,
+    true,
+  );
 });
 
 test("generation preserves launcher config, reuses owned data and refuses modified sessions", (t) => {
