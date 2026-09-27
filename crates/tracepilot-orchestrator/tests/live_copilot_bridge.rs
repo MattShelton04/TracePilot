@@ -60,7 +60,8 @@ async fn stdio_bridge_reports_cli_status_auth_and_models() {
         BridgeConnectionState::Connected
     );
 
-    let status = mgr.get_cli_status().await.expect("cli status");
+    let request = { mgr.read().await.get_cli_status() };
+    let status = request.await.expect("cli status");
     eprintln!(
         "CLI {:?}, protocol {:?}",
         status.cli_version, status.protocol_version
@@ -71,14 +72,17 @@ async fn stdio_bridge_reports_cli_status_auth_and_models() {
         Some(github_copilot_sdk::SDK_PROTOCOL_VERSION)
     );
 
-    let auth = mgr.get_auth_status().await.expect("auth status");
+    let request = { mgr.read().await.get_auth_status() };
+    let auth = request.await.expect("auth status");
     eprintln!(
         "authenticated={} login={:?}",
         auth.is_authenticated, auth.login
     );
-    let models = mgr.list_models().await.expect("models");
+    let request = { mgr.read().await.list_models() };
+    let models = request.await.expect("models");
     eprintln!("{} models", models.len());
-    match mgr.get_quota().await {
+    let request = { mgr.read().await.get_quota() };
+    match request.await {
         Ok(quota) => eprintln!("{} quota snapshots", quota.quotas.len()),
         Err(e) => eprintln!("quota unavailable: {e}"),
     }
@@ -107,8 +111,8 @@ async fn attach_to_ui_server_foreground_session_and_observe() {
     .await
     .expect("attach connect");
 
-    let session_id = mgr
-        .get_foreground_session()
+    let request = { mgr.read().await.get_foreground_session() };
+    let session_id = request
         .await
         .expect("foreground query")
         .expect("the ui-server shows a session");
@@ -121,16 +125,16 @@ async fn attach_to_ui_server_foreground_session_and_observe() {
 
     let prompt = env("TRACEPILOT_LIVE_PROMPT");
     if let Some(prompt) = &prompt {
-        let message_id = mgr
-            .send_message(
+        let request = {
+            mgr.read().await.send_message(
                 &session_id,
                 BridgeMessagePayload {
                     prompt: prompt.clone(),
                     mode: None,
                 },
             )
-            .await
-            .expect("send prompt");
+        };
+        let message_id = request.await.expect("send prompt");
         eprintln!("sent message {message_id}");
     }
 

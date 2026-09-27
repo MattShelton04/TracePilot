@@ -32,6 +32,52 @@ fn failed_migration_copy_never_publishes_a_partial_file_and_can_retry() {
     );
 }
 
+#[test]
+fn interrupted_sqlite_unit_retries_without_losing_committed_wal_data() {
+    for fail_main in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("source.db");
+        let target = temp.path().join("migrated/index.db");
+        let connection = rusqlite::Connection::open(&source).unwrap();
+        connection
+            .execute_batch(
+                "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0;
+                 CREATE TABLE durable(value TEXT); INSERT INTO durable VALUES ('committed');",
+            )
+            .unwrap();
+        let failed_path = if fail_main {
+            source.clone()
+        } else {
+            source.with_extension("db-wal")
+        };
+        let result = copy_sqlite_db_if_absent_with(&source, &target, |src, dst| {
+            if src == failed_path {
+                return Err(std::io::Error::other("injected SQLite copy interruption").into());
+            }
+            copy_file_if_absent(src, dst)
+        });
+        assert!(result.is_err());
+        assert!(!target.exists(), "main DB must only mark a complete copy");
+        let mut source_connection = Some(connection);
+        if fail_main {
+            // Closing the final writer checkpoints and removes source sidecars.
+            // Retry must remove destination sidecars from the interrupted attempt.
+            drop(source_connection.take());
+            assert!(!source.with_extension("db-wal").exists());
+        }
+        copy_sqlite_db_if_absent(&source, &target).unwrap();
+        if fail_main {
+            assert!(!target.with_extension("db-wal").exists());
+            assert!(!target.with_extension("db-shm").exists());
+        }
+        let migrated = rusqlite::Connection::open(&target).unwrap();
+        let value: String = migrated
+            .query_row("SELECT value FROM durable", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(value, "committed");
+    }
+}
+
 #[tokio::test]
 async fn concurrent_patches_merge_against_latest_committed_config() {
     let temp = tempfile::tempdir().unwrap();

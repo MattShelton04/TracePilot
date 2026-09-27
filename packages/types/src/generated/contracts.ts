@@ -307,7 +307,7 @@ export type ToolRenderingPatch_Serialize = {
 
 /**
  *  Top-level configuration.
- * 
+ *
  *  Note: `rename_all = "camelCase"` ensures JSON (Tauri IPC) uses camelCase to
  *  match the TypeScript `TracePilotConfig` type.  The TOML file on disk will
  *  also use camelCase keys — this is intentional so a single struct serves both
@@ -345,7 +345,7 @@ export type TracePilotConfigPatch_Serialize = {
 
 /**
  *  Top-level configuration.
- * 
+ *
  *  Note: `rename_all = "camelCase"` ensures JSON (Tauri IPC) uses camelCase to
  *  match the TypeScript `TracePilotConfig` type.  The TOML file on disk will
  *  also use camelCase keys — this is intentional so a single struct serves both
@@ -367,7 +367,7 @@ export type TracePilotConfig_Deserialize = {
 
 /**
  *  Top-level configuration.
- * 
+ *
  *  Note: `rename_all = "camelCase"` ensures JSON (Tauri IPC) uses camelCase to
  *  match the TypeScript `TracePilotConfig` type.  The TOML file on disk will
  *  also use camelCase keys — this is intentional so a single struct serves both

@@ -156,7 +156,7 @@ the size estimate. Metadata discovery still retains the lightweight session list
 
 Analytics and search preparation use Rayon. Search polls its existing cancellation
 callback on the calling thread every 5 ms while workers run, forwarding an atomic
-signal to workers. Cancellation is checked during each 8 KiB buffered event read,
+signal to workers. Cancellation is checked between discovered directories, during each 8 KiB buffered event read,
 between extracted events, and between 256-row search insertion chunks. All workers
 join before the operation returns, and interrupted writes roll back content and
 freshness together. Nested calls from Rayon workers prepare synchronously to avoid

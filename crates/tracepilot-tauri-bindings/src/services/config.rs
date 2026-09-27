@@ -239,6 +239,14 @@ fn copy_sqlite_db_if_absent(
     src_db: &std::path::Path,
     dst_db: &std::path::Path,
 ) -> Result<(), BindingsError> {
+    copy_sqlite_db_if_absent_with(src_db, dst_db, copy_file_if_absent)
+}
+
+fn copy_sqlite_db_if_absent_with(
+    src_db: &std::path::Path,
+    dst_db: &std::path::Path,
+    mut copy: impl FnMut(&std::path::Path, &std::path::Path) -> Result<(), BindingsError>,
+) -> Result<(), BindingsError> {
     if !src_db.exists() {
         return Ok(());
     }
@@ -251,7 +259,9 @@ fn copy_sqlite_db_if_absent(
         return Ok(());
     }
 
-    copy_file_if_absent(src_db, dst_db)?;
+    // Publish the main database last: its presence is the completion marker
+    // checked above. If any copy fails, the next attempt replaces sidecars
+    // before publishing the database, so committed WAL data cannot be skipped.
     for (src, dst) in [
         (
             src_db.with_extension("db-wal"),
@@ -266,9 +276,14 @@ fn copy_sqlite_db_if_absent(
             if dst.exists() {
                 std::fs::remove_file(&dst)?;
             }
-            copy_file_if_absent(&src, &dst)?;
+            copy(&src, &dst)?;
+        } else if dst.exists() {
+            // A source checkpoint may remove a sidecar between failed attempts.
+            // Never pair the current main database with that stale retry file.
+            std::fs::remove_file(&dst)?;
         }
     }
+    copy(src_db, dst_db)?;
     Ok(())
 }
 

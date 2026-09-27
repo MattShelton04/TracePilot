@@ -6,6 +6,8 @@
 #[cfg(all(windows, any(debug_assertions, feature = "automation-devtools")))]
 mod automation;
 
+// Fatal startup failures must remain visible before logging is initialized.
+#[allow(clippy::print_stderr)]
 fn main() {
     if let Err(error) = tracepilot_core::paths::isolated_data_root() {
         eprintln!("Fatal: invalid TRACEPILOT_DATA_ROOT: {error}");

@@ -130,12 +130,18 @@ async fn successful_external_handshake_keeps_transport_usable() {
     let address = listener.local_addr().unwrap().to_string();
     let connect = tokio::spawn(async move { super::start_external_client(&address).await });
     let (mut reader, handshake) = receive_handshake(&listener).await;
-    respond(&mut reader, &handshake, json!({ "protocolVersion": 3 })).await;
+    respond(
+        &mut reader,
+        &handshake,
+        json!({ "ok": true, "protocolVersion": 3, "version": "fake" }),
+    )
+    .await;
     let client = timeout(Duration::from_secs(2), connect)
         .await
         .unwrap()
         .unwrap()
         .unwrap();
+    assert_eq!(client.protocol_version(), Some(3));
     let querying = client.clone();
     let query = tokio::spawn(async move { querying.get_status().await });
     let request = read_request(&mut reader).await;
@@ -165,13 +171,18 @@ async fn rejected_external_handshake_closes_transport() {
     let address = listener.local_addr().unwrap().to_string();
     let connect = tokio::spawn(async move { super::start_external_client(&address).await });
     let (mut reader, handshake) = receive_handshake(&listener).await;
-    respond(&mut reader, &handshake, json!({ "protocolVersion": 0 })).await;
+    respond(
+        &mut reader,
+        &handshake,
+        json!({ "ok": true, "protocolVersion": 0, "version": "fake" }),
+    )
+    .await;
     assert!(matches!(
         timeout(Duration::from_secs(2), connect)
             .await
             .unwrap()
             .unwrap(),
-        Err(BridgeError::ConnectionFailed(_))
+        Err(BridgeError::ConnectionFailed(message)) if message.contains("version mismatch")
     ));
     assert_closed(reader).await;
 }

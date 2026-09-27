@@ -34,17 +34,24 @@ impl RequestScope {
         }
     }
 
-    pub(super) async fn run<T>(
+    pub(super) fn run<T>(
         &self,
         operation: &str,
         future: impl Future<Output = Result<T, BridgeError>>,
-    ) -> Result<T, BridgeError> {
-        let mut cancelled = self.0.subscribe();
-        self.check()?;
-        tokio::select! {
-            biased;
-            _ = cancelled.changed() => Err(BridgeError::Cancelled),
-            result = bounded(RPC_TIMEOUT, operation, future) => result,
+    ) -> impl Future<Output = Result<T, BridgeError>> {
+        // SDK session futures are large. Box before building the async state
+        // machine so nested connection/session scopes retain only a pointer;
+        // boxing inside an async fn still embeds its unboxed input future.
+        // Otherwise constructing/polling attach can overflow Windows stacks.
+        let future = Box::pin(future);
+        async move {
+            let mut cancelled = self.0.subscribe();
+            self.check()?;
+            tokio::select! {
+                biased;
+                _ = cancelled.changed() => Err(BridgeError::Cancelled),
+                result = bounded(RPC_TIMEOUT, operation, future) => result,
+            }
         }
     }
 }

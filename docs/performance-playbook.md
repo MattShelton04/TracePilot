@@ -84,7 +84,7 @@ Preparation is limited to 32 sessions and an estimated 16 MiB of event source pe
 batch. An oversized session runs alone and may exceed that amount in memory;
 parsed representations, extracted rows and SQLite also consume memory. This is
 a bound on accumulated preparation across sessions, not a universal process-memory
-limit. Cancellation checkpoints cover buffered reads, extraction and insertion
+limit. Cancellation checkpoints cover directory scans, buffered reads, extraction and insertion
 chunks; individual JSON decoding and SQLite statements remain non-preemptible.
 
 For base/head comparisons, run a separate head-only budget check. A historical

@@ -1,7 +1,7 @@
 //! Orchestration Tauri commands (22 commands).
 
 use crate::blocking_cmd;
-use crate::config::SharedConfig;
+use crate::config::{ConfigCoordinator, SharedConfig};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, validate_path_within_any};
 use std::path::PathBuf;
@@ -170,69 +170,80 @@ pub async fn list_registered_repos(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(path), err)]
+#[tracing::instrument(skip(state, coordinator, path), err)]
 pub async fn add_registered_repo(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     path: String,
 ) -> CmdResult<tracepilot_orchestrator::RegisteredRepo> {
+    let root_lease = coordinator.root_read().await;
     let tracepilot_home = read_config(&state).tracepilot_home();
-    blocking_cmd!(tracepilot_orchestrator::repo_registry::add_repo_in(
-        &tracepilot_home,
-        &path,
-        tracepilot_orchestrator::RepoSource::Manual,
-    ))
+    blocking_cmd!({
+        let _root_lease = root_lease;
+        tracepilot_orchestrator::repo_registry::add_repo_in(
+            &tracepilot_home,
+            &path,
+            tracepilot_orchestrator::RepoSource::Manual,
+        )
+    })
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(path), err)]
+#[tracing::instrument(skip(state, coordinator, path), err)]
 pub async fn remove_registered_repo(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     path: String,
 ) -> CmdResult<()> {
+    let root_lease = coordinator.root_read().await;
     let tracepilot_home = read_config(&state).tracepilot_home();
-    blocking_cmd!(tracepilot_orchestrator::repo_registry::remove_repo_in(
-        &tracepilot_home,
-        &path
-    ))
+    blocking_cmd!({
+        let _root_lease = root_lease;
+        tracepilot_orchestrator::repo_registry::remove_repo_in(&tracepilot_home, &path)
+    })
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(path), err)]
+#[tracing::instrument(skip(state, coordinator, path), err)]
 pub async fn toggle_repo_favourite(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     path: String,
 ) -> CmdResult<bool> {
+    let root_lease = coordinator.root_read().await;
     let tracepilot_home = read_config(&state).tracepilot_home();
-    blocking_cmd!(
+    blocking_cmd!({
+        let _root_lease = root_lease;
         tracepilot_orchestrator::repo_registry::toggle_repo_favourite_in(&tracepilot_home, &path)
-    )
+    })
 }
 
 #[tauri::command]
-#[tracing::instrument(skip(state), err)]
+#[tracing::instrument(skip(state, coordinator), err)]
 pub async fn discover_repos_from_sessions(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
 ) -> CmdResult<Vec<tracepilot_orchestrator::RegisteredRepo>> {
+    let root_lease = coordinator.root_read().await;
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
     let tracepilot_home = cfg.tracepilot_home();
 
-    let cwds = tokio::task::spawn_blocking(move || -> CmdResult<Vec<String>> {
-        if !index_path.exists() {
-            Ok(Vec::new())
+    blocking_cmd!({
+        let _root_lease = root_lease;
+        let cwds = if !index_path.exists() {
+            Vec::new()
         } else {
             let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-            Ok(db.distinct_session_cwds()?)
-        }
-    })
-    .await??;
-
-    blocking_cmd!(
-        tracepilot_orchestrator::repo_registry::discover_repos_from_sessions_in(
-            &tracepilot_home,
-            &cwds,
+            db.distinct_session_cwds()?
+        };
+        Ok::<_, BindingsError>(
+            tracepilot_orchestrator::repo_registry::discover_repos_from_sessions_in(
+                &tracepilot_home,
+                &cwds,
+            )?,
         )
-    )
+    })
 }
 
 // -- Launcher commands --

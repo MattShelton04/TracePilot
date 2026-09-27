@@ -1,8 +1,8 @@
 //! Per-application mutation ordering and data-root leases.
 //!
-//! Capture operations read the root under a lease. A relocation takes exclusive
-//! access before copying and publishing a new root. Owned guards can outlive an
-//! IPC future while its blocking filesystem work completes.
+//! Durable data writers and capture operations read the root under a lease.
+//! A relocation takes exclusive access before copying and publishing a new root.
+//! Owned guards outlive an IPC future while its blocking filesystem work completes.
 
 use std::sync::Arc;
 use tokio::sync::{Mutex, OwnedMutexGuard, OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock};
@@ -41,5 +41,45 @@ mod tests {
         assert!(coordinator.root.try_read().is_err());
         drop(relocation);
         assert!(coordinator.root.try_read().is_ok());
+    }
+
+    #[tokio::test]
+    async fn cancelled_command_keeps_the_root_leased_until_its_worker_finishes() {
+        use std::time::Duration;
+
+        let temp = tempfile::tempdir().unwrap();
+        let target = temp.path().join("repo-registry.json");
+        let coordinator = Arc::new(ConfigCoordinator::default());
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (finish_tx, finish_rx) = std::sync::mpsc::channel();
+        let command: tokio::task::JoinHandle<crate::error::CmdResult<()>> = {
+            let coordinator = coordinator.clone();
+            let target = target.clone();
+            tokio::spawn(async move {
+                let root_lease = coordinator.root_read().await;
+                // Exercise the same blocking command boundary as registry,
+                // template, and backup writes. Aborting its caller must not
+                // let relocation copy the root before this write completes.
+                crate::blocking_cmd!({
+                    let _root_lease = root_lease;
+                    started_tx.send(()).unwrap();
+                    finish_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+                    std::fs::write(target, "completed")?;
+                    Ok::<_, crate::error::BindingsError>(())
+                })
+            })
+        };
+        tokio::time::timeout(Duration::from_secs(2), started_rx)
+            .await
+            .unwrap()
+            .unwrap();
+        command.abort();
+        assert!(command.await.unwrap_err().is_cancelled());
+        assert!(coordinator.root.try_write().is_err());
+        finish_tx.send(()).unwrap();
+        let _relocation = tokio::time::timeout(Duration::from_secs(2), coordinator.root_write())
+            .await
+            .unwrap();
+        assert_eq!(std::fs::read_to_string(target).unwrap(), "completed");
     }
 }

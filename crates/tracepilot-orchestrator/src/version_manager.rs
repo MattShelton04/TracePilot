@@ -199,6 +199,26 @@ pub fn migrate_agent(
     from_version: &str,
     to_version: &str,
 ) -> Result<()> {
+    let backup_dir = crate::config_injector::backup_dir()?;
+    migrate_agent_with_backup_dir(
+        copilot_home,
+        file_name,
+        from_version,
+        to_version,
+        &backup_dir,
+    )
+}
+
+/// Migrate an agent while retaining its previous definition in the configured
+/// backup directory. Root-aware callers hold their relocation lease until this
+/// operation completes; the legacy entry point keeps its default backup root.
+pub fn migrate_agent_with_backup_dir(
+    copilot_home: &Path,
+    file_name: &str,
+    from_version: &str,
+    to_version: &str,
+    backup_dir: &Path,
+) -> Result<()> {
     let universal = tracepilot_core::paths::CopilotPaths::from_home(copilot_home).pkg_target_dir();
     let from_file = universal
         .join(from_version)
@@ -210,10 +230,9 @@ pub fn migrate_agent(
         .join(file_name);
 
     // Backup the target first (skip if target doesn't exist yet — new agent)
-    let backup_dir = crate::config_injector::backup_dir()?;
     match crate::config_injector::create_backup(
         &to_file,
-        &backup_dir,
+        backup_dir,
         &format!("pre-migrate-{}", to_version),
     ) {
         Ok(_) => {}
@@ -418,5 +437,37 @@ mod tests {
         assert_eq!(diffs.len(), 1);
         assert!(diffs[0].diff.contains("opus-4.5"));
         assert!(diffs[0].diff.contains("opus-4.6"));
+    }
+
+    #[test]
+    fn migration_keeps_the_previous_definition_in_the_configured_backup_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let copilot_home = dir.path().join("copilot");
+        let paths = tracepilot_core::paths::CopilotPaths::from_home(&copilot_home);
+        let source_dir = paths.pkg_target_dir().join("1.0.8/definitions");
+        let target_dir = paths.pkg_target_dir().join("1.0.9/definitions");
+        fs::create_dir_all(&source_dir).unwrap();
+        fs::create_dir_all(&target_dir).unwrap();
+        let file_name = "task.agent.yaml";
+        fs::write(source_dir.join(file_name), "name: customized\n").unwrap();
+        fs::write(target_dir.join(file_name), "name: original\n").unwrap();
+        let backup_dir = tracepilot_core::paths::TracePilotPaths::from_root(
+            dir.path().join("configured-data-root"),
+        )
+        .agent_backups_dir();
+
+        migrate_agent_with_backup_dir(&copilot_home, file_name, "1.0.8", "1.0.9", &backup_dir)
+            .unwrap();
+
+        let backups = crate::config_injector::list_backups(&backup_dir).unwrap();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(
+            fs::read_to_string(&backups[0].backup_path).unwrap(),
+            "name: original\n"
+        );
+        assert_eq!(
+            fs::read_to_string(target_dir.join(file_name)).unwrap(),
+            "name: customized\n"
+        );
     }
 }

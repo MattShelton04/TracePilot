@@ -89,5 +89,15 @@ pub fn export_contracts(out_path: &Path) -> Result<(), Box<dyn std::error::Error
     Typescript::default()
         .header(HEADER)
         .export_to(out_path, &resolved)?;
+    // Specta preserves blank Rust doc lines as " * "; keep generated artifacts
+    // whitespace-clean while preserving deterministic output across platforms.
+    let generated = std::fs::read_to_string(out_path)?;
+    let mut normalized = generated
+        .lines()
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n");
+    normalized.push('\n');
+    std::fs::write(out_path, normalized)?;
     Ok(())
 }

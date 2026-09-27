@@ -362,3 +362,42 @@ async fn disconnect_cancels_an_attach_queued_before_any_rpc() {
     bridge.attach_session("remote", "host").await.unwrap();
     bridge.disconnect(false).await.unwrap();
 }
+
+#[test]
+fn lifecycle_futures_keep_sdk_state_off_the_stack() {
+    fn future_size<A, F: std::future::Future>(_: impl FnOnce(A) -> F) -> usize {
+        std::mem::size_of::<F>()
+    }
+
+    // Inspect types without constructing the futures: a regression must fail
+    // an assertion, rather than overflowing the test thread before it runs.
+    // Leave ample room for callers, SDK polling frames, and debug-build moves
+    // on an ordinary Windows thread. Nested unboxed scopes exceeded 130 KiB.
+    for (operation, size) in [
+        (
+            "attach",
+            future_size(|mgr: &'static SharedBridgeManager| mgr.attach_session("s", "address")),
+        ),
+        (
+            "connect",
+            future_size(|mgr: &'static SharedBridgeManager| {
+                mgr.connect(crate::bridge::BridgeConnectConfig {
+                    cli_url: None,
+                    cwd: None,
+                    log_level: None,
+                    github_token: None,
+                })
+            }),
+        ),
+        (
+            "resume",
+            future_size(|mgr: &'static SharedBridgeManager| mgr.resume_session("s", None, None)),
+        ),
+        (
+            "create",
+            future_size(|mgr: &'static SharedBridgeManager| mgr.create_session(config())),
+        ),
+    ] {
+        assert!(size < 16 * 1024, "{operation} future occupies {size} bytes");
+    }
+}

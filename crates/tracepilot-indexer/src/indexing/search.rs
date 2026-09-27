@@ -38,7 +38,14 @@ pub fn reindex_search_content(
     is_cancelled: impl Fn() -> bool,
 ) -> Result<(usize, usize)> {
     let phase2_start = std::time::Instant::now();
-    let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
+    let discovery = tracepilot_core::session::discovery::discover_sessions_cancellable(
+        session_state_dir,
+        &is_cancelled,
+    );
+    if is_cancelled() {
+        return Ok((0, 0));
+    }
+    let sessions = discovery?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
     tracing::debug!(
         sessions = sessions.len(),
