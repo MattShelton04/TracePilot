@@ -1,3 +1,16 @@
+/** Make submitted control characters visible while retaining the exact input in Parameters. */
+export function formatShellInput(input: string): string {
+  return input.replace(/\r\n|[\s\S]/g, (control) => {
+    if (control === "\r\n" || control === "\n") return "[Enter (newline)]";
+    if (control === "\r") return "[Enter (carriage return)]";
+    if (control === "\t") return "[Tab]";
+    if (control === "\x7f") return "[Delete]";
+    if (control.charCodeAt(0) < 32)
+      return `[Ctrl+${String.fromCharCode(control.charCodeAt(0) + 64)}]`;
+    return control;
+  });
+}
+
 /** Render recorded terminal text as text, never as HTML or executable ANSI. */
 export function normalizeTerminalText(content: string): string {
   const esc = String.fromCharCode(27);

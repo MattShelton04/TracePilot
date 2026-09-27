@@ -7,7 +7,12 @@ import ToolArgsRenderer from "../components/renderers/ToolArgsRenderer.vue";
 import ToolCallDetail from "../components/ToolCallDetail.vue";
 import ToolDetailPanel from "../components/ToolDetailPanel.vue";
 import { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "../composables/liveToolPartialOutput";
-import { normalizeTerminalText, parseShellOutput, shellLineTone } from "../utils/shellOutput";
+import {
+  formatShellInput,
+  normalizeTerminalText,
+  parseShellOutput,
+  shellLineTone,
+} from "../utils/shellOutput";
 import { toolCallStatus, toolResultPreview } from "../utils/toolCallStatus";
 
 const call = (overrides: Partial<TurnToolCall> = {}): TurnToolCall => ({
@@ -23,6 +28,22 @@ async function settle() {
 }
 
 describe.each([ToolCallDetail, ToolDetailPanel])("tool detail lifecycle", (Component) => {
+  it.each([
+    "cancelled",
+    "error",
+  ] as const)("keeps %s metadata consistent before completion", async (status) => {
+    const wrapper = mount(Component, {
+      props: {
+        tc: call(status === "cancelled" ? { cancelled: true } : { success: false }),
+        richEnabled: true,
+      },
+    });
+    await settle();
+    expect(wrapper.find(`.rs--${status}`).exists()).toBe(true);
+    expect(wrapper.text()).not.toContain("In progress");
+    expect(wrapper.text()).not.toContain("Waiting for output");
+  });
+
   it("reuses the rich shell for streamed output, then replaces it even with an empty final result", async () => {
     const partial = ref(new Map([["shell-call", "hello\n\u001b[32"]]));
     const wrapper = mount(Component, {
@@ -78,6 +99,25 @@ describe.each([ToolCallDetail, ToolDetailPanel])("tool detail lifecycle", (Compo
 });
 
 describe("complete parameters", () => {
+  it("collapses automatic pending input after empty completion and respects an explicit disclosure choice", async () => {
+    const pending = call({
+      toolName: "create",
+      arguments: { path: "empty.txt", file_text: "", extra: "retained" },
+    });
+    const wrapper = mount(ToolArgsRenderer, { props: { tc: pending, richEnabled: true } });
+    expect(wrapper.find(".args-toggle").attributes("aria-expanded")).toBe("true");
+    await wrapper.setProps({ tc: { ...pending, isComplete: true } });
+    expect(wrapper.find(".args-toggle").attributes("aria-expanded")).toBe("false");
+    await wrapper.find(".args-toggle").trigger("click");
+    expect(wrapper.find(".tool-args-json").text()).toContain("retained");
+    expect(wrapper.find(".args-raw").exists()).toBe(false);
+    await wrapper.setProps({ tc: { ...pending, toolCallId: "next-call" } });
+    await wrapper.find(".args-toggle").trigger("click");
+    await wrapper.find(".args-toggle").trigger("click");
+    await wrapper.setProps({ tc: { ...pending, toolCallId: "next-call", isComplete: true } });
+    expect(wrapper.find(".args-toggle").attributes("aria-expanded")).toBe("true");
+  });
+
   it("keeps additional completed rich-tool inputs accessible without another rich card", async () => {
     const wrapper = mount(ToolArgsRenderer, {
       props: {
@@ -102,6 +142,12 @@ describe("complete parameters", () => {
 });
 
 describe("terminal contracts", () => {
+  it("makes mixed shell input controls visible", () => {
+    expect(formatShellInput("y\r\n")).toBe("y[Enter (newline)]");
+    expect(formatShellInput("\r")).toBe("[Enter (carriage return)]");
+    expect(formatShellInput("stop\x03")).toBe("stop[Ctrl+C]");
+    expect(formatShellInput("\t")).toBe("[Tab]");
+  });
   it("never infers process exit from tool success", () => {
     const wrapper = mount(ShellOutputRenderer, {
       props: {

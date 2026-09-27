@@ -96,8 +96,8 @@ describe("registry", () => {
       expect(hasResultRenderer("sql")).toBe(true);
     });
 
-    it("returns false for tools without result renderers", () => {
-      expect(hasResultRenderer("report_intent")).toBe(false);
+    it("renders the intent and acknowledgement together", () => {
+      expect(hasResultRenderer("report_intent")).toBe(true);
     });
 
     it("returns false for unknown tools", () => {

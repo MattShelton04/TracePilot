@@ -3,8 +3,8 @@
  * ToolArgsRenderer — dispatcher component for tool call arguments.
  *
  * Arguments are displayed in a collapsible dropdown (collapsed by default)
- * to save space. For tools where the rich result renderer already conveys
- * the argument info (edit, create), args are hidden entirely.
+ * to save space. Complete parameters remain available even when the rich
+ * result already conveys the primary input (such as edit and create).
  */
 
 import type { TurnToolCall } from "@tracepilot/types";
@@ -27,20 +27,33 @@ const props = defineProps<{
 /**
  * Open by default while the tool is still streaming (so the user can see
  * what command is being run alongside the live stdout) or when the
- * registry marks this tool as auto-expanding (e.g. ask_user). Stays
- * open after completion unless the user collapses it.
+ * registry marks this tool as auto-expanding (e.g. ask_user). Collapse after
+ * a rich result completes unless the user has chosen the disclosure state.
  */
 const startsOpen = () =>
   props.tc.isComplete === false ||
-  (props.tc.resultContent == null && shouldAutoExpandArgs(props.tc.toolName));
+  (!props.tc.isComplete && shouldAutoExpandArgs(props.tc.toolName));
 const isOpen = ref(startsOpen());
+const userToggled = ref(false);
 const contentId = useId();
 watch(
   () => props.tc.toolCallId ?? props.tc.toolName,
   () => {
     isOpen.value = startsOpen();
+    userToggled.value = false;
   },
 );
+watch(
+  () => props.tc.isComplete,
+  (complete) => {
+    if (complete && !userToggled.value && props.richEnabled && hasResultRenderer(props.tc.toolName))
+      isOpen.value = false;
+  },
+);
+function toggleParameters() {
+  userToggled.value = true;
+  isOpen.value = !isOpen.value;
+}
 
 const entry = computed(() => getRendererEntry(props.tc.toolName));
 
@@ -81,7 +94,7 @@ const preferRawParameters = computed(
     props.richEnabled &&
     shouldHideArgsWithRichResult(props.tc.toolName) &&
     hasResultRenderer(props.tc.toolName) &&
-    props.tc.resultContent != null,
+    (props.tc.resultContent != null || props.tc.isComplete),
 );
 </script>
 
@@ -93,7 +106,7 @@ const preferRawParameters = computed(
         class="args-toggle"
         :aria-expanded="isOpen"
         :aria-controls="contentId"
-        @click="isOpen = !isOpen"
+        @click="toggleParameters"
       >
         <ChevronRight :size="14" class="args-toggle-icon" :class="{ 'args-toggle-icon--open': isOpen }" aria-hidden="true" />
         <span class="args-toggle-label">Parameters</span>

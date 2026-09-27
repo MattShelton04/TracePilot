@@ -13,6 +13,7 @@ import { computed } from "vue";
 import { useToolDisplayResult } from "../composables/useToolDisplayResult";
 import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { extractPrompt, toolIcon } from "../utils/toolCall";
+import { toolCallStatus } from "../utils/toolCallStatus";
 import Badge from "./Badge.vue";
 import ToolArgsRenderer from "./renderers/ToolArgsRenderer.vue";
 import ToolErrorDisplay from "./renderers/ToolErrorDisplay.vue";
@@ -39,6 +40,7 @@ defineEmits<{
   "retry-full-result": [toolCallId: string];
 }>();
 const { displayResult, showResult, isTruncated, isStreaming } = useToolDisplayResult(props);
+const callStatus = computed(() => toolCallStatus(props.tc));
 
 const iconComponent = computed(() => {
   return resolveLucideIcon(toolIcon(props.tc.toolName));
@@ -55,8 +57,9 @@ const iconComponent = computed(() => {
         <strong>{{ tc.agentDisplayName ?? tc.toolName }}</strong>
       </span>
       <div class="detail-badges">
-        <Badge v-if="tc.success === false" variant="danger">failed</Badge>
-        <Badge v-else-if="tc.success === true" variant="success">ok</Badge>
+        <Badge v-if="callStatus === 'error'" variant="danger">failed</Badge>
+        <Badge v-else-if="callStatus === 'cancelled'" variant="neutral">cancelled</Badge>
+        <Badge v-else-if="callStatus === 'success'" variant="success">ok</Badge>
         <Badge
           v-for="badge in badges"
           :key="badge.label"
@@ -78,7 +81,7 @@ const iconComponent = computed(() => {
       <div class="detail-field">
         <span class="detail-label">Status</span>
         <span class="detail-value">
-          {{ tc.success === false ? '✕ Failed' : tc.success === true ? '✓ Success' : '⏳ In Progress' }}
+          {{ callStatus === 'error' ? 'Failed' : callStatus === 'cancelled' ? 'Cancelled' : callStatus === 'success' ? 'Success' : 'In progress' }}
         </span>
       </div>
       <div v-if="tc.durationMs != null" class="detail-field">

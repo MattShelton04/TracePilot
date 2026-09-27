@@ -3,6 +3,7 @@ import type { TurnToolCall } from "@tracepilot/types";
 import { formatDuration, formatTime } from "@tracepilot/types";
 import { computed } from "vue";
 import { useToolDisplayResult } from "../composables/useToolDisplayResult";
+import { toolCallStatus } from "../utils/toolCallStatus";
 import ToolArgsRenderer from "./renderers/ToolArgsRenderer.vue";
 import ToolErrorDisplay from "./renderers/ToolErrorDisplay.vue";
 import ToolResultRenderer from "./renderers/ToolResultRenderer.vue";
@@ -21,6 +22,7 @@ const emit = defineEmits<{
 }>();
 const { displayResult, showResult, isTruncated, isStreaming } = useToolDisplayResult(props);
 const isRichEnabled = computed(() => props.richEnabled !== false);
+const status = computed(() => toolCallStatus(props.tc));
 </script>
 
 <template>
@@ -31,7 +33,7 @@ const isRichEnabled = computed(() => props.richEnabled !== false);
       <div v-if="tc.startedAt"><dt>Started</dt><dd>{{ formatTime(tc.startedAt) }}</dd></div>
       <div v-if="tc.completedAt"><dt>Completed</dt><dd>{{ formatTime(tc.completedAt) }}</dd></div>
       <div v-if="tc.durationMs != null"><dt>Duration</dt><dd>{{ formatDuration(tc.durationMs) }}</dd></div>
-      <div v-if="tc.isComplete === false"><dt>Status</dt><dd>In progress</dd></div>
+      <div v-if="status !== 'success'"><dt>Status</dt><dd>{{ status === 'cancelled' ? 'Cancelled' : status === 'error' ? 'Failed' : 'In progress' }}</dd></div>
     </dl>
     <ToolArgsRenderer :key="tc.toolCallId ?? tc.toolName" :tc="tc" :rich-enabled="isRichEnabled" />
     <div v-if="showResult" class="tool-result-section" :class="{ 'tool-result-section--live': isStreaming }">

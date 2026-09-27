@@ -2,7 +2,7 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { Terminal } from "lucide-vue-next";
 import { computed } from "vue";
-import { parseShellOutput, shellLineTone } from "../../utils/shellOutput";
+import { formatShellInput, parseShellOutput, shellLineTone } from "../../utils/shellOutput";
 import { toolCallStatus } from "../../utils/toolCallStatus";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
@@ -35,20 +35,14 @@ const title = computed(() =>
 const processLabel = computed(() => {
   if (terminal.value.exitCode != null) return `Exit ${terminal.value.exitCode}`;
   if (terminal.value.running) return "Process running";
-  if (props.tc.isComplete === false)
+  if (status.value === "pending")
     return props.streaming && props.content ? "Streaming output" : "Waiting for output";
   return "";
 });
 const outputLines = computed(() =>
   terminal.value.output ? terminal.value.output.split("\n") : [],
 );
-const visibleInput = computed(() =>
-  input.value === "\n" || input.value === "\r\n"
-    ? "Enter (newline)"
-    : input.value === String.fromCharCode(3)
-      ? "Ctrl+C"
-      : input.value,
-);
+const visibleInput = computed(() => formatShellInput(input.value ?? ""));
 </script>
 
 <template>
