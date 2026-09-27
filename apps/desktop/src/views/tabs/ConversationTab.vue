@@ -220,7 +220,7 @@ function richEnabledFor(toolName: string): boolean {
 </script>
 
 <template>
-  <div ref="conversationRoot">
+  <div ref="conversationRoot" class="conversation-tab">
     <!-- Error alert for failed turn loading -->
     <ErrorAlert
       v-if="store.turnsError"
@@ -312,6 +312,13 @@ function richEnabledFor(toolName: string): boolean {
 </template>
 
 <style scoped>
+.conversation-tab {
+  --scroll-button-size: 40px;
+  /* Keep a stable rail for navigation, including while the controls are hidden.
+     Tool footers, pagers and live content never sit beneath the fixed buttons. */
+  padding-inline-end: calc(var(--scroll-button-size) + 16px);
+}
+
 .conv-objective-strip {
   position: sticky;
   bottom: 12px;
@@ -331,8 +338,8 @@ function richEnabledFor(toolName: string): boolean {
 }
 
 .scroll-fab {
-  width: 40px;
-  height: 40px;
+  width: var(--scroll-button-size);
+  height: var(--scroll-button-size);
   border-radius: 50%;
   border: 1px solid var(--border-default);
   background: var(--canvas-overlay);
