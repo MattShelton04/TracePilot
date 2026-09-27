@@ -167,6 +167,59 @@ describe("SettingsDataStorage", () => {
     mocks.confirm.mockResolvedValue({ confirmed: false });
   });
 
+  it("keeps path controls locked until the initial config arrives", async () => {
+    const pending = deferred<ReturnType<typeof config>>();
+    mocks.getConfig.mockReturnValue(pending.promise);
+    const wrapper = mount(SettingsDataStorage);
+    await flushPromises();
+
+    expect(mocks.getConfig).toHaveBeenCalled();
+    expectBusy(wrapper);
+    action(wrapper, "Browse…").vm.$emit("click");
+    action(wrapper, "Apply path changes").vm.$emit("click");
+    expect(mocks.browseForDirectory).not.toHaveBeenCalled();
+    expect(mocks.updateConfig).not.toHaveBeenCalled();
+
+    pending.resolve(config());
+    await flushPromises();
+    const inputs = wrapper.findAll<HTMLInputElement>("input");
+    expect(inputs.map((input) => input.element.value)).toEqual([
+      config().paths.copilotHome,
+      config().paths.tracepilotHome,
+    ]);
+    expect(inputs.every((input) => !input.element.disabled)).toBe(true);
+    expect(action(wrapper, "Browse…").props("disabled")).toBe(false);
+  });
+
+  it("keeps path edits locked after config failure and recovers on retry", async () => {
+    mocks.getConfig.mockRejectedValue(new Error("Config unavailable"));
+    const wrapper = mount(SettingsDataStorage);
+    await flushPromises();
+
+    expect(
+      wrapper.findAll<HTMLInputElement>("input").every((input) => input.element.disabled),
+    ).toBe(true);
+    expect(action(wrapper, "Browse…").props("disabled")).toBe(true);
+    expect(action(wrapper, "Apply path changes").props("disabled")).toBe(true);
+    expect(action(wrapper, "Rebuild").props("disabled")).toBe(false);
+    expect(mocks.toast.error).toHaveBeenCalledWith(
+      "Failed to load path settings: Config unavailable",
+    );
+    action(wrapper, "Browse…").vm.$emit("click");
+    expect(mocks.browseForDirectory).not.toHaveBeenCalled();
+
+    const callsBeforeRetry = mocks.getConfig.mock.calls.length;
+    mocks.getConfig.mockResolvedValue(config());
+    await action(wrapper, "Retry loading paths").trigger("click");
+    await flushPromises();
+    expect(mocks.getConfig).toHaveBeenCalledTimes(callsBeforeRetry + 1);
+    expect(wrapper.findAll<HTMLInputElement>("input")[0].element.value).toBe(
+      config().paths.copilotHome,
+    );
+    expect(action(wrapper, "Browse…").props("disabled")).toBe(false);
+    expect(wrapper.text()).not.toContain("Retry loading paths");
+  });
+
   it.each([
     [74, 0, "Indexed 74 sessions"],
     [1, 2, "Indexed 1 session; 2 already up to date"],

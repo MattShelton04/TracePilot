@@ -58,6 +58,8 @@ const pathSettingsDirty = computed(
 );
 const databaseSize = ref("—");
 const indexedSessionCount = ref(0);
+const pathsLoading = ref(true);
+const pathsReady = ref(false);
 const pathsSaving = ref(false);
 const reindexResult = ref<string | null>(null);
 const resetting = ref(false);
@@ -75,6 +77,7 @@ const indexingProgress = ref<IndexingProgressPayload | null>(null);
 const isIndexing = ref(false);
 const dataOperationBusy = computed(
   () =>
+    pathsLoading.value ||
     isIndexing.value ||
     pathsSaving.value ||
     browsingPath.value ||
@@ -84,6 +87,7 @@ const dataOperationBusy = computed(
     resetting.value ||
     confirmingOperation.value,
 );
+const pathControlsDisabled = computed(() => dataOperationBusy.value || !pathsReady.value);
 
 const { setup: setupIndexingEvents } = useIndexingEvents({
   onStarted: () => {
@@ -99,9 +103,8 @@ const { setup: setupIndexingEvents } = useIndexingEvents({
   },
 });
 
-// ── Load config data on mount ────────────────────────────────
-onMounted(async () => {
-  await setupIndexingEvents();
+async function loadPaths() {
+  pathsLoading.value = true;
   try {
     const config = await getConfig();
     copilotHome.value = config.paths.copilotHome;
@@ -109,10 +112,19 @@ onMounted(async () => {
     savedCopilotHome.value = config.paths.copilotHome;
     savedTracePilotHome.value = config.paths.tracepilotHome;
     savedSessionsDirectory.value = config.paths.sessionStateDir;
+    pathsReady.value = true;
   } catch (e) {
-    // Non-critical: defaults are fine
     logWarn("[SettingsDataStorage] Failed to load config:", e);
+    toast.error(`Failed to load path settings: ${toErrorMessage(e)}`);
+  } finally {
+    pathsLoading.value = false;
   }
+}
+
+// ── Load config data on mount ────────────────────────────────
+onMounted(async () => {
+  await setupIndexingEvents();
+  await loadPaths();
 
   try {
     const bytes = await getDbSize();
@@ -187,7 +199,7 @@ async function deleteAllCaptures() {
 }
 
 async function browseCopilotHome() {
-  if (dataOperationBusy.value) return;
+  if (pathControlsDisabled.value) return;
   browsingPath.value = true;
   try {
     const selected = await browseForDirectory({
@@ -201,7 +213,7 @@ async function browseCopilotHome() {
 }
 
 async function browseTracePilotHome() {
-  if (dataOperationBusy.value) return;
+  if (pathControlsDisabled.value) return;
   browsingPath.value = true;
   try {
     const selected = await browseForDirectory({
@@ -215,7 +227,7 @@ async function browseTracePilotHome() {
 }
 
 async function persistPaths(options: { revalidateSessionDir: boolean }) {
-  if (dataOperationBusy.value || !pathSettingsDirty.value) return;
+  if (pathControlsDisabled.value || !pathSettingsDirty.value) return;
   const paths = {
     copilotHome: copilotHome.value,
     tracepilotHome: tracepilotHome.value,
@@ -327,8 +339,8 @@ defineExpose({ databaseSize, indexedSessionCount });
           </div>
         </div>
         <div class="setting-control-group">
-          <FormInput id="settings-copilot-home" v-model="copilotHome" :disabled="dataOperationBusy" class="input-medium-mono" />
-          <ActionButton size="sm" aria-label="Browse for Copilot home" :disabled="dataOperationBusy" @click="browseCopilotHome">
+          <FormInput id="settings-copilot-home" v-model="copilotHome" :disabled="pathControlsDisabled" class="input-medium-mono" />
+          <ActionButton size="sm" aria-label="Browse for Copilot home" :disabled="pathControlsDisabled" @click="browseCopilotHome">
             Browse…
           </ActionButton>
         </div>
@@ -342,8 +354,8 @@ defineExpose({ databaseSize, indexedSessionCount });
           </div>
         </div>
         <div class="setting-control-group">
-          <FormInput id="settings-tracepilot-home" v-model="tracepilotHome" :disabled="dataOperationBusy" class="input-medium-mono" />
-          <ActionButton size="sm" aria-label="Browse for TracePilot data directory" :disabled="dataOperationBusy" @click="browseTracePilotHome">
+          <FormInput id="settings-tracepilot-home" v-model="tracepilotHome" :disabled="pathControlsDisabled" class="input-medium-mono" />
+          <ActionButton size="sm" aria-label="Browse for TracePilot data directory" :disabled="pathControlsDisabled" @click="browseTracePilotHome">
             Browse…
           </ActionButton>
         </div>
@@ -368,12 +380,19 @@ defineExpose({ databaseSize, indexedSessionCount });
         <div class="setting-actions">
           <ActionButton
             size="sm"
-            :disabled="!pathSettingsDirty || dataOperationBusy"
+            :disabled="!pathSettingsDirty || pathControlsDisabled"
             @click="persistPaths({ revalidateSessionDir: true })"
           >
             {{ pathsSaving ? 'Saving…' : 'Apply path changes' }}
           </ActionButton>
         </div>
+      </div>
+
+      <div v-if="!pathsLoading && !pathsReady" class="setting-row">
+        <div class="setting-info">
+          <div class="setting-description">Current paths could not be loaded. Retry before editing them.</div>
+        </div>
+        <ActionButton size="sm" :disabled="dataOperationBusy" @click="loadPaths">Retry loading paths</ActionButton>
       </div>
 
       <div class="setting-row">
