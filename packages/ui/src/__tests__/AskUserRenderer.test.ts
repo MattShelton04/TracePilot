@@ -2,6 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import AskUserArgsRenderer from "../components/renderers/AskUserArgsRenderer.vue";
 import AskUserRenderer from "../components/renderers/AskUserRenderer.vue";
+import { parseStructuredResponse } from "../components/renderers/askUserSchema";
 
 const schemaArgs = {
   message: "Before I continue, choose the rollout behavior.",
@@ -29,6 +30,52 @@ const schemaArgs = {
 };
 
 describe("AskUser renderers", () => {
+  it("keeps unknown response fields and exact submitted payload accessible", () => {
+    const content = JSON.stringify({
+      enableRollout: false,
+      mode: "fast",
+      extra: { note: "unknown field retained", flags: [false, null] },
+    });
+    const wrapper = mount(AskUserRenderer, { props: { content, args: schemaArgs } });
+    expect(wrapper.find(".askuser-additional-response").text()).toContain("unknown field retained");
+    expect(wrapper.find(".askuser-additional-response").text()).toContain('"flags":[false,null]');
+    expect(wrapper.find(".recorded-tool-response pre").text()).toBe(content);
+  });
+
+  it("retains key-value fields named like object prototype properties", () => {
+    const parsed = parseStructuredResponse(
+      "User responded: __proto__=recorded value, constructor=another value",
+    );
+    expect(parsed?.__proto__).toBe("recorded value");
+    expect(Object.hasOwn(parsed ?? {}, "__proto__")).toBe(true);
+    expect(parsed?.constructor).toBe("another value");
+  });
+
+  it("distinguishes pending, completed-empty and failed requests", async () => {
+    const tc = { toolName: "ask_user", isComplete: false };
+    const wrapper = mount(AskUserRenderer, {
+      props: { content: "", args: { question: "Continue?" }, tc },
+    });
+    expect(wrapper.find(".rs--pending").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Awaiting user response");
+    await wrapper.setProps({ tc: { ...tc, isComplete: true, success: true } });
+    expect(wrapper.text()).toContain("No response was recorded");
+    expect(wrapper.text()).not.toContain("Awaiting user response");
+    await wrapper.setProps({ tc: { ...tc, isComplete: true, success: false } });
+    expect(wrapper.find(".rs--error").exists()).toBe(true);
+    expect(wrapper.text()).toContain("failed without a response");
+  });
+
+  it("renders empty strings, nulls and arrays without flattening their meaning", () => {
+    const args = { requestedSchema: { properties: { empty: {}, absent: {}, values: {} } } };
+    const wrapper = mount(AskUserRenderer, {
+      props: { content: '{"empty":"","absent":null,"values":["a,b","c"]}', args },
+    });
+    expect(wrapper.findAll(".askuser-schema-submitted-value").map((value) => value.text())).toEqual(
+      ['""', "null", '["a,b","c"]'],
+    );
+  });
+
   it("keeps rendering legacy question choices and selected response", () => {
     const wrapper = mount(AskUserRenderer, {
       props: {

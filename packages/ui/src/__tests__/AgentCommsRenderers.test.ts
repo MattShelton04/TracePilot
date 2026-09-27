@@ -1,12 +1,16 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Component, computed, defineComponent, h } from "vue";
+import AgentChip from "../components/agentComms/AgentChip.vue";
 import ListAgentsRenderer from "../components/renderers/ListAgentsRenderer.vue";
 import ReadAgentRenderer from "../components/renderers/ReadAgentRenderer.vue";
 import WriteAgentRenderer from "../components/renderers/WriteAgentRenderer.vue";
 import { provideAgentDirectory } from "../composables/useAgentDirectory";
 import { buildAgentCommunications, buildAgentDirectory } from "../utils/agentComms";
+import { agentToolSummary } from "../utils/agentComms/summary";
+
+afterEach(() => vi.restoreAllMocks());
 
 const ALPHA = "65f59a0b-dcb7-4bc0-bd1b-1c971ca4edd4";
 const BETA = "9fec072e-1ce7-49f2-9378-c9465b7a6b84";
@@ -123,7 +127,8 @@ describe("ReadAgentRenderer", () => {
     const text = wrapper.text();
     expect(text).toContain("alpha");
     expect(text).toContain("beta");
-    expect(text).not.toContain(BETA);
+    expect(wrapper.find(".ra-turns").text()).not.toContain(BETA);
+    expect(wrapper.find(".recorded-tool-response pre").text()).toBe(transcript);
     expect(text).toContain("Idle");
     expect(text).toContain("waited ≤ 180s");
     expect(text).toContain("claude-haiku-4.5");
@@ -133,17 +138,42 @@ describe("ReadAgentRenderer", () => {
     expect(text).toContain("Main agent");
   });
 
-  it("collapses earlier turns of long transcripts", async () => {
+  it("keeps all transcript turns accessible and expands reversibly as content appends", async () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(320);
     const long = `${transcript}\n\n[Turn 3]\n[Message]\nOne more.\n\n[Response]\nOK`;
-    const wrapper = mountWithDirectory(ReadAgentRenderer, {
-      content: long,
-      args: {},
-      tc: tool("read_agent", { agent_id: ALPHA }),
+    const wrapper = mount(ReadAgentRenderer, {
+      props: {
+        content: long,
+        args: {},
+        tc: tool("read_agent", { agent_id: ALPHA }),
+      },
     });
     await flushPromises();
-    expect(wrapper.findAll(".ra-turn")).toHaveLength(3);
-    await wrapper.find(".ra-show-earlier").trigger("click");
     expect(wrapper.findAll(".ra-turn")).toHaveLength(4);
+    const toggle = wrapper.find(".renderer-scroll-region__toggle");
+    expect(toggle.text()).toBe("Show all 4-turn agent transcript");
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+    await toggle.trigger("click");
+    expect(toggle.attributes("aria-expanded")).toBe("true");
+    await wrapper.setProps({ content: `${long}\n\n[Turn 4]\nLatest append` });
+    expect(toggle.attributes("aria-expanded")).toBe("true");
+    expect(wrapper.findAll(".ra-turn")).toHaveLength(5);
+    expect(toggle.text()).toBe("Show less 5-turn agent transcript");
+    await toggle.trigger("click");
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+  });
+
+  it("separates successful reads from running worker state", () => {
+    const wrapper = mount(ReadAgentRenderer, {
+      props: {
+        content: `Agent is running. agent_id: ${ALPHA}, status: running, current_intent: Reviewing`,
+        args: {},
+        tc: tool("read_agent", {}),
+      },
+    });
+    expect(wrapper.find(".rs--success").exists()).toBe(true);
+    expect(wrapper.find(".ra-header").text()).toContain("Running");
   });
 
   it("falls back to Markdown for unstructured output", async () => {
@@ -159,6 +189,43 @@ describe("ReadAgentRenderer", () => {
 });
 
 describe("WriteAgentRenderer", () => {
+  it("preserves unknown responses without inventing recipient delivery", () => {
+    const content = "Recipient lookup failed; try again after reconnecting.";
+    const args = { agent_id: ALPHA, message: "Please review." };
+    const wrapper = mount(WriteAgentRenderer, {
+      props: { content, args, tc: tool("write_agent", args) },
+    });
+    expect(wrapper.find(".wa-raw").text()).toBe(content);
+    expect(wrapper.findAll(".wa-delivery")).toHaveLength(0);
+    expect(wrapper.text()).not.toContain("Delivered");
+  });
+
+  it("keeps a pending call pending and replaces its waiting state with returned delivery", async () => {
+    const args = { agent_id: ALPHA, message: "Please review." };
+    const tc = { ...tool("write_agent", args), isComplete: false, success: undefined };
+    const wrapper = mount(WriteAgentRenderer, { props: { content: "", args, tc } });
+    expect(wrapper.find(".rs--pending").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Waiting for delivery confirmation");
+    expect(wrapper.findAll(".wa-delivery")).toHaveLength(0);
+    await wrapper.setProps({
+      content: `Message delivered to agent ${ALPHA}.`,
+      tc: { ...tc, isComplete: true, success: true },
+    });
+    expect(wrapper.find(".rs--success").exists()).toBe(true);
+    expect(wrapper.findAll(".wa-delivery")).toHaveLength(1);
+    expect(wrapper.text()).not.toContain("Waiting for delivery confirmation");
+  });
+
+  it("preserves extra response text on parsed partial deliveries and respects explicit failure", () => {
+    const args = { agent_ids: [ALPHA, BETA], message: "Review." };
+    const content = `Message delivered to 1 agents.\n- ${ALPHA}, delivered\n- ${BETA}, recipient unavailable\nAdditional diagnostic: reconnect the worker.`;
+    const wrapper = mount(WriteAgentRenderer, {
+      props: { content, args, tc: { ...tool("write_agent", args), success: false } },
+    });
+    expect(wrapper.find(".rs--error").exists()).toBe(true);
+    expect(wrapper.findAll(".wa-delivery")).toHaveLength(2);
+    expect(wrapper.find(".recorded-tool-response pre").text()).toBe(content);
+  });
   it("shows a broadcast's recipients and queued delivery", async () => {
     const wrapper = mountWithDirectory(WriteAgentRenderer, {
       content: broadcast.resultContent,
@@ -198,6 +265,23 @@ describe("WriteAgentRenderer", () => {
 });
 
 describe("ListAgentsRenderer", () => {
+  it("keeps unrecognized rows accessible instead of reporting an empty roster", () => {
+    const content = "Background agents:\n\nRunning (1):\nA future CLI row format";
+    const wrapper = mount(ListAgentsRenderer, {
+      props: { content, args: { scope: "children" }, tc: tool("list_agents", {}) },
+    });
+    expect(wrapper.text()).toContain("No recognized agent entries");
+    expect(wrapper.text()).not.toContain("No background agents.");
+    expect(wrapper.find(".recorded-tool-response pre").text()).toBe(content);
+    expect(wrapper.text()).toContain("children");
+  });
+
+  it("renders an explicitly empty roster accurately", () => {
+    const wrapper = mount(ListAgentsRenderer, {
+      props: { content: "<no background agents>", args: {}, tc: tool("list_agents", {}) },
+    });
+    expect(wrapper.text()).toContain("No background agents.");
+  });
   it("groups agents by status with relation and model", async () => {
     const wrapper = mountWithDirectory(ListAgentsRenderer, {
       content: `Background agents (scope: siblings):\n\nRunning (1):\n  🔄 beta (${BETA}): general-purpose - "Answer alpha question" (4s, owner: s, relation: sibling) (model: claude-haiku-4.5)\n\nIdle (1):\n  💤 alpha (${ALPHA}): general-purpose - "Coordinate" (9s, owner: s, relation: sibling) (model: claude-haiku-4.5)`,
@@ -212,5 +296,18 @@ describe("ListAgentsRenderer", () => {
     expect(groups[0].text()).toContain("sibling");
     expect(groups[1].text()).toContain("Idle");
     expect(wrapper.text()).toContain("siblings · 2 agents");
+  });
+});
+
+describe("Unresolved agent identifiers", () => {
+  it("distinguishes IDs sharing a prefix in chips and row summaries", () => {
+    const first = "72510000-0000-4000-8000-000000000002";
+    const second = "72510000-0000-4000-8000-000000000003";
+    const chip = mount(AgentChip, { props: { identifier: first } });
+    expect(chip.text()).toBe("72510000…0002");
+    expect(chip.attributes("title")).toBe(first);
+    expect(
+      agentToolSummary(tool("write_agent", { agent_ids: [first, second], message: "Hi" }), null),
+    ).toContain("72510000…0002, 72510000…0003");
   });
 });

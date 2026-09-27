@@ -78,7 +78,7 @@ export function parseAskUserResponseValues(
     .map((field) => ({ field, value: parsedObject[field.name] }));
 }
 
-function parseStructuredResponse(content: string): Record<string, unknown> | null {
+export function parseStructuredResponse(content: string): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(content);
     return isRecord(parsed) ? parsed : null;
@@ -106,7 +106,7 @@ function stripResponsePrefix(content: string): string {
 }
 
 function parseKeyValueResponse(content: string): Record<string, string> {
-  const values: Record<string, string> = {};
+  const values: Record<string, string> = Object.create(null);
   const pairPattern = /(?:^|,\s*)([A-Za-z_][\w.-]*)=([\s\S]*?)(?=,\s*[A-Za-z_][\w.-]*=|$)/g;
 
   for (const match of content.matchAll(pairPattern)) {
@@ -118,9 +118,8 @@ function parseKeyValueResponse(content: string): Record<string, string> {
 
 export function formatAskUserValue(value: unknown): string {
   if (value == null) return "null";
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return value === "" ? '""' : value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map((item) => formatAskUserValue(item)).join(", ");
   try {
     return JSON.stringify(value);
   } catch {

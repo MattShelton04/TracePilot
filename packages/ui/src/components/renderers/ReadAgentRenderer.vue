@@ -12,18 +12,21 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { toolArgString } from "@tracepilot/types";
 import { CornerDownRight, Inbox } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import {
   formatAgentAge,
   MAIN_AGENT_KEY,
   parseReadAgentResult,
   proseHint,
 } from "../../utils/agentComms";
+import { toolCallStatus } from "../../utils/toolCallStatus";
 import AgentChip from "../agentComms/AgentChip.vue";
 import AgentStatusPill from "../agentComms/AgentStatusPill.vue";
 import MarkdownContent from "../MarkdownContent.vue";
+import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
+import RecordedToolResponse from "./RecordedToolResponse.vue";
 
 const props = defineProps<{
   content: string;
@@ -34,9 +37,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{ "load-full": [] }>();
 
-/** Turns shown before "show earlier turns" — the latest turns matter most. */
-const VISIBLE_TURNS = 3;
-
 const read = computed(() => parseReadAgentResult(props.content));
 const reader = computed(() => props.tc.parentToolCallId ?? MAIN_AGENT_KEY);
 const worker = computed(
@@ -45,12 +45,6 @@ const worker = computed(
     toolArgString(props.args, "agent_id") ||
     toolArgString(props.args, "agent_name"),
 );
-
-const showAllTurns = ref(false);
-const hiddenTurnCount = computed(() =>
-  showAllTurns.value ? 0 : Math.max(0, (read.value?.turns.length ?? 0) - VISIBLE_TURNS),
-);
-const visibleTurns = computed(() => read.value?.turns.slice(hiddenTurnCount.value) ?? []);
 
 const meta = computed(() => {
   const r = read.value;
@@ -76,14 +70,8 @@ const readOptions = computed(() => {
   return options;
 });
 
-const shellStatus = computed(() => {
-  if (props.tc.success === false) return "error" as const;
-  const status = read.value?.status;
-  if (status === "failed") return "error" as const;
-  if (status === "cancelled") return "cancelled" as const;
-  if (status === "running" || status === "pending") return "pending" as const;
-  return "success" as const;
-});
+// Reading an agent can succeed while the worker is still running or has failed.
+const shellStatus = computed(() => toolCallStatus(props.tc));
 </script>
 
 <template>
@@ -95,6 +83,7 @@ const shellStatus = computed(() => {
   >
     <template #icon><Inbox :size="16" /></template>
 
+    <RendererScrollRegion :label="read?.turns.length ? `${read.turns.length}-turn agent transcript` : 'agent response'">
     <div v-if="read" class="ra-body">
       <div class="ra-header">
         <AgentChip v-if="worker" :identifier="worker" size="md" />
@@ -112,17 +101,8 @@ const shellStatus = computed(() => {
         The read returned before the agent finished; its result arrives in a later read or notification.
       </p>
 
-      <button
-        v-if="hiddenTurnCount > 0"
-        type="button"
-        class="ra-show-earlier"
-        @click="showAllTurns = true"
-      >
-        Show {{ hiddenTurnCount }} earlier {{ hiddenTurnCount === 1 ? "turn" : "turns" }}
-      </button>
-
-      <ol v-if="visibleTurns.length" class="ra-turns">
-        <li v-for="turn in visibleTurns" :key="turn.index" class="ra-turn">
+      <ol v-if="read.turns.length" class="ra-turns">
+        <li v-for="turn in read.turns" :key="turn.index" class="ra-turn">
           <div class="ra-turn-label">Turn {{ turn.index }}</div>
           <div v-if="turn.message" class="ra-inbound">
             <div class="ra-inbound-from">
@@ -149,9 +129,12 @@ const shellStatus = computed(() => {
       </ol>
 
       <MarkdownContent v-if="read.body" :content="read.body" :render="true" class="ra-text ra-legacy" />
+      <RecordedToolResponse :content="content" />
     </div>
 
-    <MarkdownContent v-else :content="content" :render="true" class="ra-fallback" />
+    <MarkdownContent v-else-if="content" :content="content" :render="true" class="ra-fallback" />
+    <p v-else class="ra-fallback ra-empty">{{ shellStatus === 'pending' ? 'Waiting for agent response…' : 'No response returned.' }}</p>
+    </RendererScrollRegion>
     <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
@@ -161,7 +144,9 @@ const shellStatus = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .ra-header {
   display: flex;
@@ -171,47 +156,32 @@ const shellStatus = computed(() => {
 }
 .ra-headline {
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: 13px;
 }
 .ra-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 12px;
   color: var(--text-tertiary);
-  font-size: 0.6875rem;
+  font-size: 12px;
 }
 .ra-description {
   color: var(--text-secondary);
 }
 .ra-label {
   color: var(--text-tertiary);
-  font-size: 0.625rem;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .ra-intent,
 .ra-note {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 13px;
   color: var(--text-secondary);
 }
 .ra-note {
   color: var(--text-tertiary);
   font-style: italic;
-}
-.ra-show-earlier {
-  align-self: flex-start;
-  padding: 2px 10px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.6875rem;
-  cursor: pointer;
-}
-.ra-show-earlier:hover {
-  background: var(--neutral-subtle);
 }
 .ra-turns {
   display: flex;
@@ -230,10 +200,8 @@ const shellStatus = computed(() => {
 }
 .ra-turn-label {
   color: var(--text-tertiary);
-  font-size: 0.625rem;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .ra-inbound {
   display: flex;
@@ -246,6 +214,7 @@ const shellStatus = computed(() => {
 }
 .ra-inbound-from {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -265,7 +234,7 @@ const shellStatus = computed(() => {
 }
 .ra-empty {
   color: var(--text-tertiary);
-  font-size: 0.75rem;
+  font-size: 13px;
   font-style: italic;
 }
 .ra-legacy,
@@ -273,6 +242,9 @@ const shellStatus = computed(() => {
   padding: 4px 0;
 }
 .ra-fallback {
-  padding: 10px 12px;
+  margin: 0;
+  padding: 12px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 </style>

@@ -11,11 +11,14 @@ import type { TurnToolCall } from "@tracepilot/types";
 import { Users } from "lucide-vue-next";
 import { computed } from "vue";
 import { formatAgentAge, parseListAgentsResult, proseHint } from "../../utils/agentComms";
+import { toolCallStatus } from "../../utils/toolCallStatus";
 import AgentChip from "../agentComms/AgentChip.vue";
 import AgentStatusPill from "../agentComms/AgentStatusPill.vue";
 import MarkdownContent from "../MarkdownContent.vue";
+import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
+import RecordedToolResponse from "./RecordedToolResponse.vue";
 
 const props = defineProps<{
   content: string;
@@ -27,11 +30,15 @@ const props = defineProps<{
 const emit = defineEmits<{ "load-full": [] }>();
 
 const roster = computed(() => parseListAgentsResult(props.content));
+const status = computed(() => toolCallStatus(props.tc));
+const emptyRoster = computed(() => props.content.trim() === "<no background agents>");
 
 const hint = computed(() => {
   const r = roster.value;
-  if (!r) return undefined;
-  const scope = r.scope && r.scope !== "default" ? `${r.scope} · ` : "";
+  const requestScope = typeof props.args.scope === "string" ? props.args.scope : undefined;
+  if (!r) return requestScope;
+  const value = r.scope ?? requestScope;
+  const scope = value && value !== "default" ? `${value} · ` : "";
   return proseHint(`${scope}${r.total} ${r.total === 1 ? "agent" : "agents"}`);
 });
 </script>
@@ -39,14 +46,15 @@ const hint = computed(() => {
 <template>
   <RendererShell
     tool-name="List agents"
-    :status="tc.success === false ? 'error' : 'success'"
+    :status="status"
     :primary-hint="hint"
     :copy-text="content"
   >
     <template #icon><Users :size="16" /></template>
 
+    <RendererScrollRegion :label="roster?.total ? `${roster.total}-agent roster` : 'agent roster'">
     <div v-if="roster" class="la-body">
-      <p v-if="roster.total === 0" class="la-empty">No background agents.</p>
+      <p v-if="roster.total === 0" class="la-empty">{{ emptyRoster ? 'No background agents.' : 'No recognized agent entries. See the raw response below.' }}</p>
       <section v-for="group in roster.groups" :key="group.label" class="la-group">
         <header class="la-group-header">
           <AgentStatusPill :status="group.status" />
@@ -54,10 +62,12 @@ const hint = computed(() => {
         </header>
         <ul class="la-agents">
           <li v-for="agent in group.agents" :key="agent.agentId" class="la-agent">
-            <AgentChip :identifier="agent.agentId" :fallback-label="agent.name" />
-            <span v-if="agent.relation" class="la-relation">{{ agent.relation }}</span>
-            <span v-if="agent.oneShot" class="la-relation" title="MCP background task: read-only">one-shot</span>
-            <span class="la-description" :title="agent.description">{{ agent.description }}</span>
+            <div class="la-agent-heading">
+              <AgentChip :identifier="agent.agentId" :fallback-label="agent.name" />
+              <span v-if="agent.relation" class="la-relation">{{ agent.relation }}</span>
+              <span v-if="agent.oneShot" class="la-relation" title="MCP background task: read-only">one-shot</span>
+            </div>
+            <span v-if="agent.description" class="la-description">{{ agent.description }}</span>
             <span class="la-meta">
               <span v-if="agent.agentType">{{ agent.agentType }}</span>
               <span v-if="agent.model">{{ agent.model }}</span>
@@ -66,9 +76,12 @@ const hint = computed(() => {
           </li>
         </ul>
       </section>
+      <RecordedToolResponse :content="content" />
     </div>
 
-    <MarkdownContent v-else :content="content" :render="false" class="la-fallback" />
+    <MarkdownContent v-else-if="content" :content="content" :render="false" class="la-fallback" />
+    <p v-else class="la-fallback la-empty">{{ status === 'pending' ? 'Waiting for agent roster…' : 'No response returned.' }}</p>
+    </RendererScrollRegion>
     <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
@@ -78,12 +91,14 @@ const hint = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .la-empty {
   margin: 0;
   color: var(--text-tertiary);
-  font-size: 0.75rem;
+  font-size: 13px;
   font-style: italic;
 }
 .la-group {
@@ -98,7 +113,7 @@ const hint = computed(() => {
 }
 .la-group-count {
   color: var(--text-tertiary);
-  font-size: 0.6875rem;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .la-agents {
@@ -110,13 +125,14 @@ const hint = computed(() => {
 }
 .la-agent {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   min-width: 0;
-  padding: 5px 0;
-  font-size: 0.75rem;
+  padding: 10px 0;
+  font-size: 13px;
 }
+.la-agent-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
 .la-agent + .la-agent {
   border-top: 1px solid var(--border-muted);
 }
@@ -126,27 +142,25 @@ const hint = computed(() => {
   border-radius: var(--radius-full);
   background: var(--neutral-subtle);
   color: var(--text-secondary);
-  font-size: 0.625rem;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .la-description {
-  flex: 1 1 160px;
   min-width: 0;
-  overflow: hidden;
   color: var(--text-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  line-height: 1.5;
 }
 .la-meta {
   display: flex;
-  flex-shrink: 0;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   color: var(--text-tertiary);
-  font-size: 0.6875rem;
+  font-size: 12px;
 }
 .la-fallback {
-  padding: 10px 12px;
+  margin: 0;
+  padding: 12px;
+  overflow-wrap: anywhere;
 }
 </style>
