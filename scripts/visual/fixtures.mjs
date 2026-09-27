@@ -4,6 +4,7 @@
 
 import { configureVisualFeatures } from "./feature-policy.mjs";
 import { richToolFixture } from "./rich-tool-fixtures.mjs";
+import { updateAvailableFixture, updateFixture } from "./update-fixtures.mjs";
 
 export const skill = {
   name: "visual-review",
@@ -277,6 +278,8 @@ export async function visualInvoke(cmd, args, fallback) {
   try {
     const toolFixture = richToolFixture(cmd, args, window.__TRACEPILOT_VISUAL_CASE__);
     if (toolFixture !== undefined) return structuredClone(toolFixture);
+    const update = updateFixture(cmd, window.__TRACEPILOT_VISUAL_CASE__);
+    if (update !== undefined) return structuredClone(update);
     if (Object.hasOwn(overrides, cmd)) return structuredClone(overrides[cmd]);
     if (cmd === "preview_export") {
       const content =
@@ -318,7 +321,8 @@ export async function visualInvoke(cmd, args, fallback) {
     if (cmd === "get_config") {
       result.ui.theme = "dark";
       result.ui.autoRefreshEnabled = false;
-      result.ui.checkForUpdates = false;
+      // Only update-flow cases contact the (fixture) GitHub release check.
+      result.ui.checkForUpdates = window.__TRACEPILOT_VISUAL_CASE__ === updateAvailableFixture;
       result.ui.uiScale = 1;
       configureVisualFeatures(result, window.__TRACEPILOT_VISUAL_FEATURES__ ?? []);
     }

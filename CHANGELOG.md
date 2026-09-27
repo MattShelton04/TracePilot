@@ -7,6 +7,33 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added
+
+- **Live terminal sessions** — Watch Copilot CLI sessions running in a terminal as they happen. TracePilot joins sessions started with `--ui-server` as an observer, which is now the default for sessions it launches or resumes in a terminal. The session list marks them Live or Watching, and Settings controls auto-attach (#853).
+- **Inter-agent communication** — A new Timeline → Messages mode shows how a session's agents communicated, as a sequence diagram, time lanes or a playback graph, with a shared message log. Subagent panels show the messages each agent received and sent. `read_agent`, `write_agent` and `list_agents` render as rich results with named agent chips, and Analytics adds cross-session messaging stats (#851).
+- **Agents explorer** — Configuration → Agents lists built-in, personal and project agents, plus agents seen only in sessions, with per-agent usage, a definition editor, an effective-config view and `/subagents` overrides. Analytics gains an Agents panel (#831, #847).
+- **Skills usage analytics** — The Skills Manager, a new Usage tab in the Skill Editor and an Analytics panel show how often each skill is invoked, what triggered it and how many tokens it injected. Unused, dormant, drifted and shadowed skills are flagged, and skill calls in a conversation link to their usage (#841).
+- **Prompt-cache insights** — See whether a session's prompt cache is warm, expiring or expired, with a live countdown in the session header and at the end of the conversation. Resume dividers explain likely cache breaks. Metrics adds a Prompt Cache section with estimated miss cost, Model Comparison shows observed cache TTLs, and Analytics summarises resumes after expiry (#830, #842, #847).
+- **Model changes in the conversation** — Mid-session `/model` switches, auto-mode choices and reasoning-effort changes now appear in the conversation. The current model is derived from the event log, so running and resumed sessions show the model actually in use (#847).
+
+### Changed
+
+- **Official Copilot SDK** — The Copilot SDK Bridge now uses the official `github-copilot-sdk`. Its settings lead with connection status and terminal sessions, with connection targets ("Private CLI" or "CLI server") under Advanced. Detaching never shuts down a CLI session, SDK-launched sessions approve tool permissions only when Auto-approve is on, and the sidebar SDK button shows progress (#852, #853).
+- **Rich tool results** — Tool results show complete data by default, including web search source cards and citations, SQL results, grouped search and glob results from current CLIs, and titled `ask_user` choices. Full-output controls now behave the same across renderers (#854, #856).
+- **Reasoning previews** — Collapsed reasoning previews every section heading, and expanded reasoning shows later headings as section labels (#842, #847).
+- **Copilot CLI built-in discovery** — Built-in skills and agents are found for every installation method, including npm, nvm, fnm, Volta, pnpm, Bun, Homebrew, `COPILOT_CLI_DIST_DIR` and `PATH`. Personal skills also load from `~/.agents/skills` and `COPILOT_SKILLS_DIRS` (#844).
+- **Model pricing** — Refreshed Copilot rates for 27 September 2026, adding Claude Opus 5.5, GPT-6 Sol, GPT-6 Luna and Grok 4.7 with their long-context tiers (#855).
+- **Performance** — Faster first-run indexing, with build progress shown on the session list and after Skip setup. Long conversations lay out only visible turns, and overlapping index requests queue instead of failing (#832, #849, #857).
+- **Index upgrade** — Existing indexes refresh automatically on first launch to backfill session models, prompt-cache windows, and skill and agent usage.
+- **Development workflow** — Pull requests get whole-PR visual reports with difference images, per-chunk bundle comparisons, base-vs-head benchmarks and native Windows installer tests (#833, #843, #848, #849).
+
+### Fixed
+
+- **Prompt-cache accuracy** — Fewer false "likely cache break" warnings, correct handling of auto mode, and recorded cache expiry shown for ended sessions (#830, #842, #847).
+- **Large sessions** — Metrics for very large sessions stay responsive, and the Prompt Cache table pages and filters long idle histories (#847, #854).
+- **Reliability** — Hardened settings persistence, factory reset, indexing and SDK lifecycles, cancelled stale indexing work cleanly, and removed vulnerable Rust dependencies (#849, #857).
+- **Configuration views** — Config Injector model selects show models the registry doesn't list, and Worktree Manager rows align correctly (#847, #854).
+
 ## [0.8.2] - 2026-09-13
 
 ### Added

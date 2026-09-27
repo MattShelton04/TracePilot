@@ -10,6 +10,8 @@ const props = defineProps<{
   role?: "dialog" | "alertdialog";
   /** Resolve the initial control after this dialog takes focus ownership. */
   initialFocus?: () => HTMLElement | null;
+  /** CSS max-width for the dialog panel. Defaults to the shared modal width. */
+  width?: string;
 }>();
 
 const emit = defineEmits<{
@@ -33,7 +35,15 @@ useOverlayFocus({
 <template>
   <Teleport to="body">
     <div v-if="visible" class="modal-overlay" @click.self="close">
-      <div ref="panelRef" class="modal" :role="role ?? 'dialog'" aria-modal="true" :aria-label="title" tabindex="-1">
+      <div
+        ref="panelRef"
+        class="modal"
+        :role="role ?? 'dialog'"
+        aria-modal="true"
+        :aria-label="title"
+        :style="width ? { maxWidth: width } : undefined"
+        tabindex="-1"
+      >
         <div v-if="title || $slots.header" class="modal-header">
           <slot name="header">
             <h3>{{ title }}</h3>

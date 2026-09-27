@@ -1,22 +1,28 @@
 <script setup lang="ts">
-import { ProgressBar, useOverlayFocus } from "@tracepilot/ui";
-import { computed, onMounted, ref } from "vue";
+import { ActionButton, formatDateMedium, ModalDialog, ProgressBar } from "@tracepilot/ui";
+import { AlertCircle, ArrowRight, Info } from "lucide-vue-next";
+import { computed, onMounted } from "vue";
+import { useAppVersion } from "@/composables/useAppVersion";
 import { useAutoUpdate } from "@/composables/useAutoUpdate";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
 import { openExternal } from "@/utils/openExternal";
+import { displayVersion } from "@/utils/releaseNotes";
 
 const emit = defineEmits<{
   close: [];
+  "whats-new": [];
 }>();
 
-const panelRef = ref<HTMLElement | null>(null);
-useOverlayFocus({ active: true, panel: panelRef, onEscape: () => emit("close") });
-
 const { updateResult } = useUpdateCheck();
+const { appVersion } = useAppVersion();
 const { status, progress, errorMessage, installType, detectInstallType, installUpdate } =
   useAutoUpdate();
 
-const version = computed(() => updateResult.value?.latestVersion ?? "");
+const latest = computed(() => displayVersion(updateResult.value?.latestVersion ?? ""));
+const installed = computed(() =>
+  displayVersion(updateResult.value?.currentVersion ?? appVersion.value),
+);
+const publishedAt = computed(() => formatDateMedium(updateResult.value?.publishedAt));
 const releaseUrl = computed(() => updateResult.value?.releaseUrl);
 const isUpdating = computed(() =>
   ["checking", "downloading", "installing", "done"].includes(status.value),
@@ -25,349 +31,323 @@ const isUpdating = computed(() =>
 const statusText = computed(() => {
   switch (status.value) {
     case "checking":
-      return "Checking for update…";
+      return "Preparing download…";
     case "downloading":
       return `Downloading… ${progress.value}%`;
     case "installing":
       return "Installing…";
     case "done":
-      return "Relaunching…";
+      return "Restarting TracePilot…";
     default:
       return "";
   }
 });
 
+const sourceSteps = [
+  { text: "Stop TracePilot in its terminal with", code: "Ctrl+C", kbd: true },
+  { text: "Pull the latest code in your TracePilot folder:", code: "git pull" },
+  { text: "Start TracePilot again:", code: "pnpm start" },
+];
+
 onMounted(() => detectInstallType());
 
 function handleOpenRelease() {
-  if (releaseUrl.value) {
-    openExternal(releaseUrl.value);
-  }
+  if (releaseUrl.value) openExternal(releaseUrl.value);
 }
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="modal-overlay" @click.self="emit('close')">
-      <div ref="panelRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="update-modal-title" tabindex="-1">
-        <div class="modal-header">
-          <h2 id="update-modal-title">Update to v{{ version }}</h2>
-          <button class="modal-close" aria-label="Close update instructions" @click="emit('close')">
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-
-        <div class="modal-body">
-          <p class="update-intro">
-            A new version of TracePilot is available.
-          </p>
-
-          <!-- ── INSTALLED (NSIS/MSI) ── auto-update with progress -->
-          <template v-if="installType === 'installed'">
-            <div class="update-method auto-update-section">
-              <h3 class="method-title">Install automatically</h3>
-              <p class="method-description">
-                Download and install the update in the background. The app will restart when ready.
-              </p>
-              <div v-if="isUpdating" class="auto-update-progress">
-                <ProgressBar :percent="progress" aria-label="Update download progress" />
-                <span class="progress-text">{{ statusText }}</span>
-              </div>
-              <div v-else-if="status === 'error'" class="auto-update-error">
-                {{ errorMessage }}
-              </div>
-              <button
-                v-if="!isUpdating"
-                class="modal-btn install-btn"
-                :disabled="status === 'done'"
-                @click="installUpdate"
-              >
-                {{ status === 'error' ? 'Retry' : 'Install Update' }}
-              </button>
-            </div>
-          </template>
-
-          <!-- ── SOURCE (dev build) ── git pull instructions -->
-          <template v-else-if="installType === 'source'">
-            <div class="update-method">
-              <h3 class="method-title">Update from source</h3>
-              <div class="update-steps">
-                <ol>
-                  <li>In your terminal, press <kbd>Ctrl+C</kbd> to stop TracePilot</li>
-                  <li>Navigate to your TracePilot directory</li>
-                  <li>
-                    Pull the latest code:
-                    <code>git pull</code>
-                  </li>
-                  <li>
-                    Relaunch TracePilot:
-                    <code>pnpm start</code>
-                  </li>
-                </ol>
-              </div>
-            </div>
-          </template>
-
-          <!-- ── PORTABLE (standalone exe) ── re-download instructions -->
-          <template v-else>
-            <div class="update-method">
-              <h3 class="method-title">Download the latest version</h3>
-              <p class="method-description">
-                You're running the standalone <code>.exe</code>. Download the updated version from the
-                <a
-                  v-if="releaseUrl"
-                  href="#"
-                  @click.prevent="handleOpenRelease"
-                >GitHub Releases page</a><template v-else>GitHub Releases page</template>
-                and replace your current file.
-              </p>
-              <p class="method-description" style="margin-top: 8px;">
-                <strong>Tip:</strong> Installing via the NSIS installer enables one-click auto-updates
-                in future versions.
-              </p>
-            </div>
-          </template>
-
-          <div class="update-note">
-            <template v-if="installType === 'source'">
-              <strong>Note:</strong> If <code>git pull</code> fails due to conflicts,
-              use <code>git stash</code> or <code>git reset --hard origin/main</code>
-              (discards local changes) to resolve.
-            </template>
-            <template v-else>
-              <strong>Note:</strong> TracePilot is not code-signed (not worth the cost at this stage),
-              so Windows may show a SmartScreen warning — click "More info" → "Run anyway" to proceed.
-            </template>
-          </div>
-
-          <div v-if="releaseUrl" class="update-links">
-            <a href="#" @click.prevent="handleOpenRelease">
-              View full release notes on GitHub →
-            </a>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="modal-btn" @click="emit('close')">Got it</button>
-        </div>
+  <ModalDialog
+    :visible="true"
+    width="520px"
+    :title="`Update to ${latest}`"
+    @update:visible="(open) => !open && emit('close')"
+  >
+    <template #header>
+      <div class="up-header">
+        <span class="up-eyebrow">Update available</span>
+        <h2 class="up-title">Update to {{ latest }}</h2>
+        <p class="up-versions">
+          <span class="up-version">{{ installed }}</span>
+          <ArrowRight :size="12" :stroke-width="2" aria-label="to" />
+          <span class="up-version up-version--new">{{ latest }}</span>
+          <span v-if="publishedAt" class="up-published">Released {{ publishedAt }}</span>
+        </p>
       </div>
+    </template>
+
+    <div class="up-body">
+      <!-- Installed (NSIS/MSI): one-click update with progress -->
+      <section v-if="installType === 'installed'" class="up-method" aria-label="Install automatically">
+        <h3 class="up-method-title">Install automatically</h3>
+        <p class="up-text">
+          TracePilot downloads and installs the update, then restarts. Your sessions and settings are kept.
+        </p>
+        <div v-if="isUpdating" class="up-progress">
+          <ProgressBar :percent="progress" aria-label="Update download progress" />
+          <span class="up-progress-text" aria-live="polite">{{ statusText }}</span>
+        </div>
+        <p v-else-if="status === 'error'" class="up-error" role="alert">
+          <AlertCircle :size="14" :stroke-width="2" aria-hidden="true" />
+          <span>{{ errorMessage }}</span>
+        </p>
+      </section>
+
+      <!-- Source checkout: git pull -->
+      <section v-else-if="installType === 'source'" class="up-method" aria-label="Update from source">
+        <h3 class="up-method-title">Update from source</h3>
+        <ol class="up-steps">
+          <li v-for="(step, index) in sourceSteps" :key="index" class="up-step">
+            <span class="up-step-number" aria-hidden="true">{{ index + 1 }}</span>
+            <span class="up-step-text">
+              {{ step.text }}
+              <kbd v-if="step.kbd">{{ step.code }}</kbd>
+              <code v-else>{{ step.code }}</code>
+            </span>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Portable executable: download again -->
+      <section v-else-if="installType === 'portable'" class="up-method" aria-label="Download the latest version">
+        <h3 class="up-method-title">Download the latest version</h3>
+        <p class="up-text">
+          You're running the standalone <code>.exe</code>. Download {{ latest }} from GitHub Releases and
+          replace your current file. The installer version updates itself in one click.
+        </p>
+      </section>
+
+      <p v-if="installType === 'source'" class="up-note">
+        <Info :size="14" :stroke-width="2" aria-hidden="true" />
+        <span>
+          If <code>git pull</code> reports conflicts, run <code>git stash</code> first, or
+          <code>git reset --hard origin/main</code> to discard local changes.
+        </span>
+      </p>
+      <p v-else-if="installType !== 'unknown'" class="up-note">
+        <Info :size="14" :stroke-width="2" aria-hidden="true" />
+        <span>
+          TracePilot isn't code-signed, so Windows may show a SmartScreen prompt. Choose
+          <strong>More info → Run anyway</strong> to continue.
+        </span>
+      </p>
     </div>
-  </Teleport>
+
+    <template #footer>
+      <button type="button" class="up-link" @click="emit('whats-new')">
+        What's new in {{ latest }}
+      </button>
+      <template v-if="installType === 'installed'">
+        <ActionButton :disabled="isUpdating" @click="emit('close')">Not now</ActionButton>
+        <ActionButton variant="primary" :loading="isUpdating" @click="installUpdate">
+          {{ status === "error" ? "Try again" : "Install and restart" }}
+        </ActionButton>
+      </template>
+      <template v-else-if="installType === 'portable' && releaseUrl">
+        <ActionButton @click="emit('close')">Not now</ActionButton>
+        <ActionButton variant="primary" @click="handleOpenRelease">Open GitHub Releases</ActionButton>
+      </template>
+      <ActionButton v-else variant="primary" @click="emit('close')">Done</ActionButton>
+    </template>
+  </ModalDialog>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+.up-header {
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.up-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-fg);
+}
+
+.up-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.up-versions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 0;
+  color: var(--text-tertiary);
+}
+
+.up-version {
+  padding: 0 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.up-version--new {
+  border-color: var(--accent-muted);
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+}
+
+.up-published {
+  font-size: 0.75rem;
+}
+
+.up-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.up-method {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.up-method-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.up-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.up-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.up-step {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.up-step-number {
+  display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
-}
-
-.modal-content {
-  background: var(--canvas-default);
-  border: 1px solid var(--border-muted);
-  border-radius: 12px;
-  max-width: 520px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24px 24px 16px;
-}
-
-.modal-header h2 {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 22px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.modal-close:hover {
-  color: var(--text-primary);
-}
-
-.modal-body {
-  padding: 4px 24px 20px;
-}
-
-.update-method {
-  margin-bottom: 16px;
-}
-
-.method-title {
-  font-size: 13px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--neutral-subtle);
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 8px;
 }
 
-.method-description {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.method-description a {
-  color: var(--accent-fg);
-  text-decoration: none;
-}
-
-.method-description a:hover {
-  text-decoration: underline;
-}
-
-.method-description code {
-  background: var(--canvas-subtle);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: 'Cascadia Code', 'Fira Code', monospace;
-  color: var(--accent-fg);
-}
-
-.update-intro {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin-bottom: 16px;
-}
-
-.update-steps ol {
-  padding-left: 20px;
-  font-size: 14px;
-  line-height: 2;
-  color: var(--text-primary);
-}
-
-.update-steps code {
-  background: var(--canvas-subtle);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: 'Cascadia Code', 'Fira Code', monospace;
-  color: var(--accent-fg);
-}
-
-.update-steps kbd {
-  background: var(--canvas-subtle);
-  padding: 1px 5px;
-  border-radius: 3px;
-  border: 1px solid var(--border-muted);
-  font-size: 12px;
-  font-family: inherit;
-}
-
-.update-note {
-  margin-top: 12px;
-  padding: 10px 14px;
-  background: var(--attention-subtle);
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.update-note strong {
-  color: var(--attention-fg);
-}
-
-.update-note code {
-  font-size: 12px;
-  font-family: 'Cascadia Code', 'Fira Code', monospace;
-}
-
-.update-links {
-  margin-top: 14px;
-}
-
-.update-links a {
-  color: var(--accent-fg);
-  text-decoration: none;
-  font-size: 13px;
-}
-
-.update-links a:hover {
-  text-decoration: underline;
-}
-
-.modal-footer {
-  padding: 12px 24px 20px;
+.up-progress {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
 }
 
-.modal-btn {
-  padding: 8px 20px;
-  border-radius: 8px;
-  background: var(--accent-emphasis);
-  color: var(--text-on-emphasis);
-  border: none;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.modal-btn:hover {
-  background: var(--accent-emphasis-hover);
-}
-
-.auto-update-section {
-  padding: 16px;
-  background: var(--accent-subtle);
-  border-radius: 10px;
-  border: 1px solid var(--border-muted);
-}
-
-.install-btn {
-  margin-top: 12px;
-  width: 100%;
-}
-
-.auto-update-progress {
-  margin-top: 12px;
-}
-
-.auto-update-progress :deep(.progress-bar) {
-  width: 100%;
-}
-
-.auto-update-progress :deep(.progress-bar-fill) {
+.up-progress :deep(.progress-bar-fill) {
   transition: none;
 }
 
-.progress-text {
-  display: block;
-  margin-top: 6px;
-  font-size: 12px;
+.up-progress-text {
+  font-size: 0.75rem;
   color: var(--text-secondary);
 }
 
-.auto-update-error {
-  margin-top: 8px;
+.up-error,
+.up-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
   padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.up-error svg,
+.up-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.up-error {
   background: var(--danger-subtle);
-  border-radius: 6px;
-  font-size: 12px;
   color: var(--danger-fg);
+}
+
+.up-note {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  color: var(--text-secondary);
+}
+
+.up-note svg {
+  color: var(--text-tertiary);
+}
+
+.up-note strong {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+code,
+kbd {
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+code {
+  background: var(--canvas-inset);
+  color: var(--text-primary);
+}
+
+kbd {
+  border: 1px solid var(--border-default);
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+}
+
+.up-link {
+  margin-right: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-fg);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.up-link:hover {
+  text-decoration: underline;
 }
 </style>

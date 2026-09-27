@@ -11,6 +11,10 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 export const updateResult = ref<UpdateCheckResult | null>(null);
 export const updateCheckLoading = ref(false);
 export const updateCheckError = ref<string | null>(null);
+/** When the current `updateResult` was fetched from GitHub (ms since epoch). */
+export const updateCheckedAt = ref<number | null>(null);
+/** Whether the update instructions dialog is open. */
+export const showUpdateInstructions = ref(false);
 
 async function getCurrentVersion(): Promise<string> {
   try {
@@ -42,6 +46,7 @@ export async function runUpdateCheck(force = false): Promise<void> {
           // Invalidate cache if version changed or TTL expired
           if (forVersion === currentVersion && Date.now() - timestamp < CACHE_TTL_MS) {
             updateResult.value = result;
+            updateCheckedAt.value = timestamp;
             return;
           }
         }
@@ -53,11 +58,13 @@ export async function runUpdateCheck(force = false): Promise<void> {
     }
 
     const result = await checkForUpdates();
+    const timestamp = Date.now();
     localStorage.setItem(
       CACHE_KEY,
-      JSON.stringify({ timestamp: Date.now(), result, forVersion: currentVersion }),
+      JSON.stringify({ timestamp, result, forVersion: currentVersion }),
     );
     updateResult.value = result;
+    updateCheckedAt.value = timestamp;
   } catch (e) {
     updateCheckError.value = toErrorMessage(e, "Update check failed");
   } finally {
@@ -69,6 +76,24 @@ export function clearUpdateCache(): void {
   localStorage.removeItem(CACHE_KEY);
 }
 
+export function openUpdateInstructions(): void {
+  showUpdateInstructions.value = true;
+}
+
+export function closeUpdateInstructions(): void {
+  showUpdateInstructions.value = false;
+}
+
 export function useUpdateCheck() {
-  return { updateResult, updateCheckLoading, updateCheckError, runUpdateCheck, clearUpdateCache };
+  return {
+    updateResult,
+    updateCheckLoading,
+    updateCheckError,
+    updateCheckedAt,
+    showUpdateInstructions,
+    runUpdateCheck,
+    clearUpdateCache,
+    openUpdateInstructions,
+    closeUpdateInstructions,
+  };
 }

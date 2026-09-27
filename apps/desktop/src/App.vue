@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ConfirmDialog, EXTERNAL_LINK_HANDLER_KEY, ToastContainer } from "@tracepilot/ui";
-import { computed, provide, ref, watch } from "vue";
+import { computed, provide, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AlertCenterDrawer from "@/components/chrome/AlertCenterDrawer.vue";
 import KbdHelpOverlay from "@/components/chrome/KbdHelpOverlay.vue";
@@ -16,6 +16,7 @@ import UpdateInstructionsModal from "@/components/UpdateInstructionsModal.vue";
 import WhatsNewModal from "@/components/WhatsNewModal.vue";
 import { useBootstrapPhase } from "@/composables/useBootstrapPhase";
 import { useBreadcrumbs } from "@/composables/useBreadcrumbs";
+import { useUpdateCheck } from "@/composables/useUpdateCheck";
 import { useWhatsNew } from "@/composables/useWhatsNew";
 import { useWindowLifecycle } from "@/composables/useWindowLifecycle";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -28,8 +29,6 @@ const route = useRoute();
 const router = useRouter();
 const tabStore = useSessionTabsStore();
 const { isMain } = useWindowRole();
-
-const showUpdateModal = ref(false);
 
 // Window + event listener ownership lives in a dedicated composable so HMR
 // and window teardown can release the handles (Phase 1A.7).  MUST be invoked
@@ -45,15 +44,30 @@ useWindowLifecycle({
 
 const { phase, expectedSessionCount, onSetupSaved, onIndexingComplete } = useBootstrapPhase();
 
+const { showUpdateInstructions, openUpdateInstructions, closeUpdateInstructions } =
+  useUpdateCheck();
+
 const {
   showWhatsNew,
+  whatsNewKind,
   whatsNewPreviousVersion,
   whatsNewCurrentVersion,
   whatsNewEntries,
   whatsNewReleaseUrl,
   whatsNewReleaseNotes,
+  openUpdatePreview,
   closeWhatsNew,
 } = useWhatsNew();
+
+function showUpdateFromWhatsNew() {
+  closeWhatsNew();
+  openUpdateInstructions();
+}
+
+function showWhatsNewFromUpdate() {
+  closeUpdateInstructions();
+  void openUpdatePreview();
+}
 
 /**
  * Tab view vs router-view switching logic.
@@ -135,7 +149,7 @@ const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
       <div class="app-orb app-orb-1" />
       <div class="app-orb app-orb-2" />
     </div>
-    <AppSidebar @view-update-details="showUpdateModal = true" @nav-sessions="onTabGoHome" />
+    <AppSidebar @nav-sessions="onTabGoHome" />
     <div class="main-content">
       <div class="page-header-bar">
         <BreadcrumbNav :items="breadcrumbs" />
@@ -150,19 +164,22 @@ const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
 
   <!-- Update instructions modal -->
   <UpdateInstructionsModal
-    v-if="showUpdateModal"
-    @close="showUpdateModal = false"
+    v-if="showUpdateInstructions"
+    @close="closeUpdateInstructions"
+    @whats-new="showWhatsNewFromUpdate"
   />
 
   <!-- What's New modal (shown on version change or reopened from settings) -->
   <WhatsNewModal
     v-if="showWhatsNew"
+    :kind="whatsNewKind"
     :previous-version="whatsNewPreviousVersion"
     :current-version="whatsNewCurrentVersion"
     :entries="whatsNewEntries"
     :release-url="whatsNewReleaseUrl"
     :release-notes="whatsNewReleaseNotes"
     @close="closeWhatsNew"
+    @update="showUpdateFromWhatsNew"
     @open-external="openExternal"
   />
 

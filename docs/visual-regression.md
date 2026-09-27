@@ -272,6 +272,13 @@ Use `command` when completion depends on a specific backend fixture and
 return generic success for unknown commands. Fixture contents must remain
 synthetic and non-sensitive.
 
+Update-flow cases (`update-*` and `release-notes`) open the sidebar update
+notice, the release notes and the update dialog. The `update-available` fixture in
+[`scripts/visual/update-fixtures.mjs`](../scripts/visual/update-fixtures.mjs)
+turns on the startup update check and returns a synthetic installer build with a
+newer release. Every capture reads `/release-manifest.json` from that file, so
+editing the real release notes never changes a screenshot.
+
 To assemble two local captures into a gallery:
 
 ```sh

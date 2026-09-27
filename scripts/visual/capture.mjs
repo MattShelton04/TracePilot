@@ -9,6 +9,7 @@ import { fixtureCorpusPlugin } from "./fixture-plugin.mjs";
 import { writeLocalGallery } from "./local-gallery.mjs";
 import { fixedTime, selectCases, viewport } from "./manifest.mjs";
 import { sectionId } from "./sections.mjs";
+import { releaseManifestFixture } from "./update-fixtures.mjs";
 import { assertWorktreeLayout } from "./worktree-assertions.mjs";
 
 const args = Object.fromEntries(
@@ -105,6 +106,9 @@ try {
     // A fixture page cannot call the real network or attach to the native app.
     await context.route("**/*", (route) => {
       const url = new URL(route.request().url());
+      // Release notes change every release; captures read a fixed manifest.
+      if (url.origin === baseUrl && url.pathname === "/release-manifest.json")
+        return route.fulfill({ json: releaseManifestFixture });
       if (url.origin === baseUrl) return route.continue();
       // Web search normally requests remote source favicons. Supply a fixed,
       // neutral icon locally; no external fetch, failed request or brand asset.
@@ -173,6 +177,15 @@ try {
         await page.getByLabel("Select Session A").selectOption("sess-search-polish");
         await page.getByLabel("Select Session B").selectOption("sess-auth-refactor");
         await page.getByRole("button", { name: "Compare", exact: true }).click();
+      } else if (item.prepare === "sidebar-click") {
+        // Open update surfaces from the sidebar, as a user would. Labels are
+        // matched case-insensitively so earlier revisions' capitalisation works.
+        const scope = page.locator(item.within ?? ".sidebar-footer-area");
+        const target = item.button
+          ? scope.getByRole("button", { name: new RegExp(`^${item.button}$`, "i") })
+          : scope.locator(item.target);
+        await target.first().waitFor({ state: "visible", timeout: 15000 });
+        await target.first().click();
       } else if (item.prepare === "agent-usage") {
         await page.getByRole("tab", { name: /^Usage/ }).click();
       } else if (item.prepare === "rich-tool") {

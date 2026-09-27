@@ -25,6 +25,7 @@ import {
   Sun,
   Upload,
   Wrench,
+  X,
   Zap,
 } from "lucide-vue-next";
 import { type Component, computed } from "vue";
@@ -39,6 +40,7 @@ import { STORAGE_KEYS } from "@/config/storageKeys";
 import { useAlertsStore } from "@/stores/alerts";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
+import { displayVersion } from "@/utils/releaseNotes";
 
 const DISMISSED_KEY = STORAGE_KEYS.dismissedUpdate;
 
@@ -64,13 +66,13 @@ const sidebarIconMap: Record<string, Component> = {
 };
 
 const emit = defineEmits<{
-  "view-update-details": [];
   "nav-sessions": [];
 }>();
 
 const { appVersion } = useAppVersion();
-const { updateResult } = useUpdateCheck();
-const { openWhatsNew } = useWhatsNew();
+const { updateResult, openUpdateInstructions } = useUpdateCheck();
+const { openUpdatePreview, openReleaseHistory } = useWhatsNew();
+const latestVersionLabel = computed(() => displayVersion(updateResult.value?.latestVersion ?? ""));
 
 const route = useRoute();
 const sessionsStore = useSessionsStore();
@@ -109,22 +111,6 @@ function dismissUpdate() {
   if (updateResult.value?.latestVersion) {
     dismissedVersion.value = updateResult.value.latestVersion;
   }
-}
-
-async function handleWhatsNewPreview() {
-  const latestVersion = updateResult.value?.latestVersion;
-  if (latestVersion) {
-    await openWhatsNew(
-      appVersion.value,
-      latestVersion,
-      updateResult.value?.releaseUrl ?? undefined,
-      updateResult.value?.releaseNotes ?? undefined,
-    );
-  }
-}
-
-async function handleVersionClick() {
-  await openWhatsNew("0.0.0", appVersion.value);
 }
 </script>
 
@@ -299,42 +285,51 @@ async function handleVersionClick() {
     <div class="sidebar-footer-area">
       <!-- Update available notification -->
       <Transition name="sidebar-update-slide">
-        <div v-if="hasUpdate" class="sidebar-update-notice">
+        <div v-if="hasUpdate && !isCollapsed" class="sidebar-update-notice" role="status">
           <div class="sidebar-update-header">
-            <div class="sidebar-update-content">
-              <span class="sidebar-update-icon" aria-hidden="true">
-                <Sparkles :size="14" :stroke-width="1.5" />
-              </span>
-              <span class="sidebar-update-text">
-                <strong>v{{ updateResult?.latestVersion }}</strong> available
-              </span>
-            </div>
+            <span class="sidebar-update-icon" aria-hidden="true">
+              <Sparkles :size="14" :stroke-width="1.75" />
+            </span>
+            <span class="sidebar-update-text">
+              <strong>{{ latestVersionLabel }}</strong> is available
+            </span>
             <button
               class="sidebar-update-dismiss"
               aria-label="Dismiss update notification"
+              title="Dismiss until the next release"
               @click="dismissUpdate"
             >
-              ×
+              <X :size="12" :stroke-width="2" aria-hidden="true" />
             </button>
           </div>
           <div class="sidebar-update-actions">
-            <button class="sidebar-update-btn" @click="emit('view-update-details')">
+            <button class="sidebar-update-btn" @click="openUpdateInstructions">
               Update
             </button>
-            <button class="sidebar-update-btn-secondary" @click="handleWhatsNewPreview">
-              What's New
+            <button class="sidebar-update-btn-secondary" @click="openUpdatePreview">
+              What's new
             </button>
           </div>
         </div>
       </Transition>
+      <button
+        v-if="hasUpdate && isCollapsed"
+        class="sidebar-update-compact"
+        :aria-label="`Update available: ${latestVersionLabel}`"
+        :title="`${latestVersionLabel} is available — click to update`"
+        @click="openUpdateInstructions"
+      >
+        <Sparkles :size="16" :stroke-width="1.75" aria-hidden="true" />
+        <span class="sidebar-update-compact-dot" aria-hidden="true" />
+      </button>
 
       <div class="sidebar-footer">
         <button
           class="sidebar-version-btn"
           title="View release notes"
-          @click="handleVersionClick"
+          @click="openReleaseHistory"
         >
-          v{{ appVersion }}
+          {{ displayVersion(appVersion) }}
         </button>
         <SdkStatusIndicator :compact="isCollapsed" />
         <button

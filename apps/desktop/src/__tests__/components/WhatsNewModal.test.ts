@@ -1,3 +1,4 @@
+import type { ReleaseManifestEntry } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import WhatsNewModal from "@/components/WhatsNewModal.vue";
@@ -7,6 +8,15 @@ const markdownContentStub = {
   emits: ["open-external"],
   template: '<div data-testid="remote-release-notes">{{ content }}</div>',
 };
+
+function release(version: string, added: string[] = [], requiresReindex = false) {
+  return {
+    version,
+    date: "2026-07-26",
+    notes: { added, changed: [], fixed: [] },
+    requiresReindex,
+  } satisfies ReleaseManifestEntry;
+}
 
 function mountModal(props: Partial<InstanceType<typeof WhatsNewModal>["$props"]> = {}) {
   return mount(WhatsNewModal, {
@@ -39,21 +49,12 @@ describe("WhatsNewModal", () => {
 
   it("prefers structured bundled entries when they cover the requested update", () => {
     const wrapper = mountModal({
-      entries: [
-        {
-          version: "0.8.0",
-          date: "2026-07-26",
-          notes: {
-            added: ["Bundled update details"],
-            changed: [],
-            fixed: [],
-          },
-        },
-      ],
+      entries: [release("0.8.0", ["Bundled update: details"])],
       releaseNotes: "Remote update details",
     });
 
-    expect(wrapper.text()).toContain("Bundled update details");
+    expect(wrapper.get(".wn-item-title").text()).toBe("Bundled update");
+    expect(wrapper.get(".wn-item-body").text()).toBe("details");
     expect(wrapper.find('[data-testid="remote-release-notes"]').exists()).toBe(false);
   });
 
@@ -64,5 +65,48 @@ describe("WhatsNewModal", () => {
 
     expect(wrapper.text()).toContain("Release notes could not be loaded");
     expect(wrapper.text()).toContain("View release notes on GitHub");
+  });
+
+  it("does not list earlier releases when the previous version is a development build", () => {
+    const wrapper = mountModal({
+      previousVersion: "dev",
+      currentVersion: "0.8.0",
+      entries: [release("0.8.0", ["Current"]), release("0.7.1", ["Older"])],
+    });
+
+    expect(wrapper.text()).toContain("Current");
+    expect(wrapper.text()).not.toContain("Older");
+  });
+
+  it("offers the update from a preview and names the installed version", async () => {
+    const wrapper = mountModal({
+      kind: "preview",
+      previousVersion: "0.8.2",
+      currentVersion: "0.9.0",
+    });
+
+    expect(wrapper.text()).toContain("You're on v0.8.2.");
+    const update = wrapper.findAll("button").find((b) => b.text() === "Update to v0.9.0");
+    await update?.trigger("click");
+    expect(wrapper.emitted("update")).toHaveLength(1);
+  });
+
+  it("shows the reindex hint once for updates that need it", () => {
+    const wrapper = mountModal({ entries: [release("0.8.0", ["Indexed"], true)] });
+
+    expect(wrapper.findAll(".wn-reindex")).toHaveLength(1);
+  });
+
+  it("collapses older releases in the history view", async () => {
+    const wrapper = mountModal({
+      kind: "history",
+      previousVersion: "0.0.0",
+      currentVersion: "0.8.0",
+      entries: ["0.8.0", "0.7.1", "0.7.0", "0.6.7"].map((v) => release(v, [`Notes ${v}`])),
+    });
+
+    expect(wrapper.findAll(".wn-version")).toHaveLength(3);
+    await wrapper.get(".wn-more").trigger("click");
+    expect(wrapper.findAll(".wn-version")).toHaveLength(4);
   });
 });
