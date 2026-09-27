@@ -77,15 +77,15 @@ export const richToolSamples = [
   sample(
     "rg",
     "rg",
-    { pattern: "ready", path: "src", output_mode: "content" },
-    "src/ready.ts:1:export const ready = true;\nsrc/app.ts:8:if (ready) render();",
+    { pattern: "ready", paths: "C:/synthetic/orchard/src", output_mode: "content" },
+    "[Search scope: C:/synthetic/orchard/src]\nready.ts (1 match(es)):\n  1:export const ready = true;\n\napp.ts (1 match(es)):\n  8:if (ready) render();",
     ".grep-result",
   ),
   sample(
     "glob",
     "glob",
-    { pattern: "**/*.ts", path: "C:/synthetic/orchard" },
-    "C:/synthetic/orchard/src/greeting.ts\nC:/synthetic/orchard/src/ready.ts\nC:/synthetic/orchard/src/components/status.ts\nC:/synthetic/orchard/tests/greeting.test.ts",
+    { pattern: "**/*.ts", paths: "C:/synthetic/orchard" },
+    "[Search scope: C:/synthetic/orchard]\nC:/synthetic/orchard/src\n  greeting.ts\n  ready.ts\n  components/status.ts\nC:/synthetic/orchard/tests\n  greeting.test.ts",
     ".glob-tree",
   ),
   sample(
@@ -166,13 +166,23 @@ export const richToolSamples = [
       requestedSchema: {
         type: "object",
         properties: {
-          viewport: { type: "string", title: "Viewport", enum: ["Desktop", "Minimum", "Large"] },
-          includeErrors: { type: "boolean", title: "Include error states" },
+          viewport: {
+            type: "string",
+            title: "Viewport",
+            description: "Choose the viewport used for the visual review.",
+            oneOf: [
+              { const: "desktop", title: "Desktop (1440 × 960)" },
+              { const: "minimum", title: "Minimum (960 × 640)" },
+              { const: "large", title: "Large (2560 × 1440)" },
+            ],
+            default: "desktop",
+          },
+          includeErrors: { type: "boolean", title: "Include error states", default: true },
         },
         required: ["viewport"],
       },
     },
-    JSON.stringify({ viewport: "Desktop", includeErrors: true }),
+    "User responded: viewport=minimum, includeErrors=false",
     ".askuser-schema-section",
   ),
   sample(
@@ -505,7 +515,7 @@ richToolSamples.push(
   }),
   variant("ask-user-schema", "ask-schema-unknown", {
     content:
-      '{"viewport":"Minimum","includeErrors":false,"unrecognized":{"reason":"Preserve this answer too"}}',
+      '{"viewport":"large","includeErrors":false,"unrecognized":{"reason":"Preserve this answer too"}}',
     viewState: "schema answers retain unmatched fields",
   }),
   variant("read-agent", "read-agent-preview", {

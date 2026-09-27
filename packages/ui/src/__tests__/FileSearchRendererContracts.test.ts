@@ -204,6 +204,65 @@ describe("bounded complete code access", () => {
 });
 
 describe("search result integrity", () => {
+  it("parses grouped CLI matches and context without treating scope metadata as filenames", () => {
+    const content = [
+      "[Search scope: C:/fixture/src]",
+      "ready.ts (2 match(es)):",
+      "  8:const ready = true;",
+      "  9-// context",
+      "  10:if (ready) render();",
+      "",
+      "nested/app.ts (1 match):",
+      "  4:export { ready };",
+    ].join("\n");
+    const parsed = parseSearchResults(content, "content");
+    expect(parsed.matches).toEqual([
+      { file: "ready.ts", lineNum: 8, text: "const ready = true;", isContext: false },
+      { file: "ready.ts", lineNum: 9, text: "// context", isContext: true },
+      { file: "ready.ts", lineNum: 10, text: "if (ready) render();", isContext: false },
+      { file: "nested/app.ts", lineNum: 4, text: "export { ready };", isContext: false },
+    ]);
+    expect(parsed.notices).toEqual(["[Search scope: C:/fixture/src]"]);
+    const wrapper = mount(GrepResultRenderer, {
+      props: {
+        content,
+        args: { pattern: "ready", paths: "C:/fixture/src", output_mode: "content" },
+        tc: { toolName: "rg", isComplete: true },
+      },
+    });
+    expect(wrapper.findAll(".grep-file-group")).toHaveLength(2);
+    expect(wrapper.text()).toContain("3 matches");
+    expect(wrapper.findAll(".grep-line-num").map((line) => line.text())).toEqual([
+      "8",
+      "9",
+      "10",
+      "4",
+    ]);
+  });
+
+  it("resolves grouped glob files against their directories and accepts the paths argument", () => {
+    const content =
+      "[Search scope: C:/fixture]\nC:\\fixture\\src\n  ready.ts\n  notes for review.md\n  nested/app.ts\nC:\\fixture\\tests\n  ready.test.ts";
+    expect(normalizeGlobPaths(content, "C:/fixture")).toEqual({
+      paths: [
+        "src/ready.ts",
+        "src/notes for review.md",
+        "src/nested/app.ts",
+        "tests/ready.test.ts",
+      ],
+      notices: ["[Search scope: C:/fixture]"],
+    });
+    const wrapper = mount(GlobTreeRenderer, { props: { content, args: { paths: "C:/fixture" } } });
+    expect(wrapper.findAll(".glob-file")).toHaveLength(4);
+    expect(wrapper.get(".glob-file").attributes("title")).toContain("C:/fixture/");
+    expect(wrapper.findAll(".glob-dir-name").map((folder) => folder.text())).toEqual([
+      "src",
+      "nested",
+      "tests",
+    ]);
+    expect(wrapper.text()).toContain("notes for review.md");
+  });
+
   it("only highlights literal text with the requested case semantics", async () => {
     const wrapper = mount(GrepResultRenderer, {
       props: { content: "a.ts:1:Match match", args: { pattern: "Match", output_mode: "content" } },

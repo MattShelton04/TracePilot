@@ -30,7 +30,9 @@ const pattern = computed(() =>
 const searchRoot = computed(() =>
   typeof props.args?.path === "string"
     ? props.args.path.replace(/\\/g, "/").replace(/\/+$/, "")
-    : null,
+    : typeof props.args?.paths === "string"
+      ? props.args.paths.replace(/\\/g, "/").replace(/\/+$/, "")
+      : null,
 );
 
 const status = computed(() => toolCallStatus(props.tc));
