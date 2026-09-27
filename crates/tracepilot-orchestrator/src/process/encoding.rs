@@ -137,17 +137,17 @@ pub(crate) fn win32_quote_arg(s: &str) -> String {
 /// Base64-encode a prompt (UTF-8). Output is `[A-Za-z0-9+/=]` — safe inside
 /// POSIX single-quoted strings and AppleScript double-quoted strings with no
 /// further escaping. Decoded at runtime via `$(echo '...' | base64 -d)`.
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 pub(crate) fn encode_prompt_utf8_base64(s: &str) -> String {
     const C: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut o = Vec::with_capacity(4 * ((s.len() + 2) / 3));
+    let mut o = String::with_capacity(4 * s.len().div_ceil(3));
     for c in s.as_bytes().chunks(3) {
         let (b0, b1, b2) = (
             c[0],
             c.get(1).copied().unwrap_or(0),
             c.get(2).copied().unwrap_or(0),
         );
-        o.extend_from_slice(&[
+        for byte in [
             C[(b0 >> 2) as usize],
             C[((b0 & 3) << 4 | b1 >> 4) as usize],
             if c.len() > 1 {
@@ -160,7 +160,9 @@ pub(crate) fn encode_prompt_utf8_base64(s: &str) -> String {
             } else {
                 b'='
             },
-        ]);
+        ] {
+            o.push(char::from(byte));
+        }
     }
-    String::from_utf8(o).expect("base64 is ASCII")
+    o
 }

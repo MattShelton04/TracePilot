@@ -165,7 +165,7 @@ async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
                 && (line.contains("ui-server") || line.contains("--server"))
                 && !line.contains("grep")
         })
-        .filter_map(|line| line.trim().split_whitespace().next()?.parse().ok())
+        .filter_map(|line| line.split_whitespace().next()?.parse().ok())
         .collect();
 
     if pids.is_empty() {
@@ -189,17 +189,18 @@ async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
         for line in lsof_text.lines().skip(1) {
             // lsof output: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
             // NAME looks like: *:12345 or 127.0.0.1:12345
-            if let Some(name) = line.split_whitespace().last() {
-                if let Some(port_str) = name.rsplit(':').next() {
-                    if let Ok(port) = port_str.parse::<u16>() {
-                        results.push(DetectedUiServer {
-                            pid,
-                            port,
-                            address: format!("127.0.0.1:{}", port),
-                        });
-                        break; // One port per PID is enough
-                    }
-                }
+            if let Some(port) = line
+                .split_whitespace()
+                .last()
+                .and_then(|name| name.rsplit(':').next())
+                .and_then(|port_str| port_str.parse::<u16>().ok())
+            {
+                results.push(DetectedUiServer {
+                    pid,
+                    port,
+                    address: format!("127.0.0.1:{}", port),
+                });
+                break; // One port per PID is enough
             }
         }
     }
@@ -230,7 +231,7 @@ async fn detect_linux() -> Vec<DetectedUiServer> {
                 && (line.contains("ui-server") || line.contains("--server"))
                 && !line.contains("grep")
         })
-        .filter_map(|line| line.trim().split_whitespace().next()?.parse().ok())
+        .filter_map(|line| line.split_whitespace().next()?.parse().ok())
         .collect();
 
     if pids.is_empty() {
@@ -253,21 +254,22 @@ async fn detect_linux() -> Vec<DetectedUiServer> {
         let ss_text = String::from_utf8_lossy(&ss_stdout);
         let pid_pattern = format!("pid={}", pid);
         for line in ss_text.lines() {
-            if line.contains(&pid_pattern) {
-                // ss output: State Recv-Q Send-Q Local_Address:Port Peer_Address:Port Process
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 4 {
-                    if let Some(port_str) = parts[3].rsplit(':').next() {
-                        if let Ok(port) = port_str.parse::<u16>() {
-                            results.push(DetectedUiServer {
-                                pid,
-                                port,
-                                address: format!("127.0.0.1:{}", port),
-                            });
-                            break;
-                        }
-                    }
-                }
+            if !line.contains(&pid_pattern) {
+                continue;
+            }
+            // ss output: State Recv-Q Send-Q Local_Address:Port Peer_Address:Port Process
+            if let Some(port) = line
+                .split_whitespace()
+                .nth(3)
+                .and_then(|address| address.rsplit(':').next())
+                .and_then(|port_str| port_str.parse::<u16>().ok())
+            {
+                results.push(DetectedUiServer {
+                    pid,
+                    port,
+                    address: format!("127.0.0.1:{}", port),
+                });
+                break;
             }
         }
     }

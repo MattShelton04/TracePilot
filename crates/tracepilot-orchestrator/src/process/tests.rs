@@ -247,6 +247,20 @@ fn test_encode_powershell_command() {
     assert_eq!(decoded, cmd);
 }
 
+#[test]
+fn test_encode_prompt_utf8_base64() {
+    for (prompt, encoded) in [
+        ("", ""),
+        ("f", "Zg=="),
+        ("fo", "Zm8="),
+        ("foo", "Zm9v"),
+        ("é", "w6k="),
+        ("hello 🌍", "aGVsbG8g8J+MjQ=="),
+    ] {
+        assert_eq!(super::encoding::encode_prompt_utf8_base64(prompt), encoded);
+    }
+}
+
 #[cfg(windows)]
 #[test]
 fn test_win32_quote_arg_plain() {
