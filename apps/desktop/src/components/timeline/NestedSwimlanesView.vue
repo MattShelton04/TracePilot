@@ -46,7 +46,9 @@ const {
   prefs,
   fullResults,
   loadingResults,
+  failedResults,
   loadFullResult,
+  retryFullResult,
   allToolCalls,
   selectedTool,
   selectTool,
@@ -187,6 +189,7 @@ function onLoadFullResult(toolCallId: string) {
       :selected-tool="selectedTool"
       :full-results="fullResults"
       :loading-results="loadingResults"
+      :failed-results="failedResults"
       :prefs="prefs"
       :turn-owns-selected="turnOwnsSelected"
       :is-tool-selected="isToolSelected"
@@ -196,6 +199,7 @@ function onLoadFullResult(toolCallId: string) {
       @select-tool="selectTool"
       @close-detail="closeDetail"
       @load-full-result="onLoadFullResult"
+      @retry-full-result="retryFullResult"
       @set-assistant-idx="setAssistantMsgIdx"
     />
   </div>

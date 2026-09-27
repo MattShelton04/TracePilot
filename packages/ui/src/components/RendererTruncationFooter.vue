@@ -4,16 +4,18 @@
   inline accent-bordered "Show Full Output" button. See 13-tool-renderers.md.
 -->
 <script setup lang="ts">
+defineProps<{ loading?: boolean; failed?: boolean }>();
 const emit = defineEmits<{
   "load-full": [];
+  retry: [];
 }>();
 </script>
 
 <template>
   <div class="rs-trunc-row">
-    <span class="rs-trunc-text">Output was truncated.</span>
-    <button class="rs-trunc-btn" type="button" @click="emit('load-full')">
-      Show Full Output
+    <span class="rs-trunc-text" role="status">{{ failed ? 'Full output could not be loaded.' : 'Showing a preview of the output.' }}</span>
+    <button class="rs-trunc-btn" type="button" :disabled="loading" @click="failed ? emit('retry') : emit('load-full')">
+      {{ loading ? 'Loading full output…' : failed ? 'Retry full output' : 'Show Full Output' }}
     </button>
   </div>
 </template>
@@ -21,7 +23,8 @@ const emit = defineEmits<{
 <style scoped>
 .rs-trunc-row {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
@@ -38,13 +41,13 @@ const emit = defineEmits<{
 .rs-trunc-btn {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 4px 8px;
   font-size: 12px;
   font-weight: 500;
   color: var(--accent-fg);
   background: transparent;
   border: 1px solid var(--accent-emphasis);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -54,6 +57,7 @@ const emit = defineEmits<{
 .rs-trunc-btn:hover {
   background: var(--accent-subtle);
 }
+.rs-trunc-btn:disabled { cursor: wait; opacity: 0.65; }
 
 .rs-trunc-btn:focus-visible {
   outline: 2px solid var(--accent-emphasis);

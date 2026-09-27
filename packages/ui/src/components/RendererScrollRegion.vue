@@ -1,0 +1,69 @@
+<script setup lang="ts">
+import { nextTick, onBeforeUnmount, onMounted, ref, useId } from "vue";
+
+withDefaults(defineProps<{ label?: string; maxHeight?: number }>(), {
+  label: "output",
+  maxHeight: 320,
+});
+const id = useId();
+const viewport = ref<HTMLElement>();
+const content = ref<HTMLElement>();
+const expanded = ref(false);
+const overflows = ref(false);
+let observer: ResizeObserver | undefined;
+function measure() {
+  if (!expanded.value && viewport.value) {
+    overflows.value = viewport.value.scrollHeight > viewport.value.clientHeight + 1;
+  }
+}
+async function toggle() {
+  expanded.value = !expanded.value;
+  await nextTick();
+  measure();
+}
+onMounted(() => {
+  if (typeof ResizeObserver !== "undefined") {
+    observer = new ResizeObserver(measure);
+    if (viewport.value) observer.observe(viewport.value);
+    if (content.value) observer.observe(content.value);
+  }
+  measure();
+});
+onBeforeUnmount(() => observer?.disconnect());
+</script>
+
+<template>
+  <div class="renderer-scroll-region">
+    <div
+      :id="id"
+      ref="viewport"
+      class="renderer-scroll-region__viewport"
+      :style="{ maxHeight: expanded ? 'none' : `${maxHeight}px` }"
+      role="region"
+      :aria-label="label"
+      tabindex="0"
+    ><div ref="content"><slot /></div></div>
+    <button
+      v-if="overflows || expanded"
+      type="button"
+      class="renderer-scroll-region__toggle"
+      :aria-controls="id"
+      :aria-expanded="expanded"
+      @click="toggle"
+    >{{ expanded ? 'Show less' : 'Show all' }} {{ label }}</button>
+  </div>
+</template>
+
+<style scoped>
+.renderer-scroll-region { min-width: 0; }
+.renderer-scroll-region__viewport { overflow: auto; min-width: 0; scrollbar-gutter: stable; }
+.renderer-scroll-region__toggle {
+  display: block; width: 100%; padding: 8px 12px; text-align: left;
+  border: 0; border-top: 1px solid var(--border-subtle);
+  background: var(--canvas-inset); color: var(--accent-fg);
+  font-size: 12px; cursor: pointer;
+}
+.renderer-scroll-region__toggle:hover { background: var(--accent-subtle); }
+.renderer-scroll-region__toggle:focus-visible,
+.renderer-scroll-region__viewport:focus-visible { outline: 2px solid var(--accent-emphasis); outline-offset: -2px; }
+</style>

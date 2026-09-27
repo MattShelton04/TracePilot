@@ -10,10 +10,12 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { formatDuration, formatTime } from "@tracepilot/types";
 import { computed } from "vue";
+import { useToolDisplayResult } from "../composables/useToolDisplayResult";
 import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { extractPrompt, toolIcon } from "../utils/toolCall";
 import Badge from "./Badge.vue";
 import ToolArgsRenderer from "./renderers/ToolArgsRenderer.vue";
+import ToolErrorDisplay from "./renderers/ToolErrorDisplay.vue";
 import ToolResultRenderer from "./renderers/ToolResultRenderer.vue";
 
 const props = defineProps<{
@@ -22,6 +24,7 @@ const props = defineProps<{
   fullResult?: string;
   /** Whether full result is currently loading */
   loadingFullResult?: boolean;
+  failedFullResult?: boolean;
   /** Whether rich rendering is enabled for this tool */
   richEnabled?: boolean;
   /** Number of child/nested tool calls (for subagents) */
@@ -33,7 +36,9 @@ const props = defineProps<{
 defineEmits<{
   close: [];
   "load-full-result": [toolCallId: string];
+  "retry-full-result": [toolCallId: string];
 }>();
+const { displayResult, showResult, isTruncated, isStreaming } = useToolDisplayResult(props);
 
 const iconComponent = computed(() => {
   return resolveLucideIcon(toolIcon(props.tc.toolName));
@@ -126,25 +131,25 @@ const iconComponent = computed(() => {
     <slot name="before-renderers" />
 
     <!-- Arguments (rich renderer) -->
-    <ToolArgsRenderer :tc="tc" :rich-enabled="richEnabled ?? true" />
+    <ToolArgsRenderer :key="tc.toolCallId ?? tc.toolName" :tc="tc" :rich-enabled="richEnabled ?? true" />
 
     <!-- Result (rich renderer) -->
-    <div v-if="tc.resultContent || (tc.toolCallId && fullResult)" class="tool-result-section">
+    <div v-if="showResult" class="tool-result-section">
       <ToolResultRenderer
         :tc="tc"
-        :content="fullResult ?? tc.resultContent ?? ''"
+        :content="displayResult"
         :rich-enabled="richEnabled ?? true"
-        :is-truncated="!!(tc.toolCallId && tc.resultContent?.includes('…[truncated]') && !fullResult)"
+        :is-truncated="isTruncated"
+        :streaming="isStreaming"
         :loading="loadingFullResult ?? false"
+        :failed="failedFullResult"
         @load-full="$emit('load-full-result', tc.toolCallId!)"
+        @retry-full="$emit('retry-full-result', tc.toolCallId!)"
       />
     </div>
 
     <!-- Error -->
-    <div v-if="tc.error" class="detail-error">
-      <span class="detail-error-label">Error</span>
-      <pre class="detail-error-body">{{ tc.error }}</pre>
-    </div>
+    <ToolErrorDisplay v-if="tc.error" :error="tc.error" />
 
     <!-- Slot for extra content after -->
     <slot name="after" />

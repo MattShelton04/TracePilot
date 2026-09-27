@@ -127,13 +127,13 @@ describe("ToolDetailPanel", () => {
 
   it("shows error section when error present", () => {
     const wrapper = mountPanel({ error: "ENOENT: file not found" });
-    expect(wrapper.find(".detail-error").exists()).toBe(true);
-    expect(wrapper.find(".detail-error-body").text()).toBe("ENOENT: file not found");
+    expect(wrapper.find(".tool-error").exists()).toBe(true);
+    expect(wrapper.find(".tool-error-message").text()).toContain("ENOENT: file not found");
   });
 
   it("hides error section when no error", () => {
     const wrapper = mountPanel({});
-    expect(wrapper.find(".detail-error").exists()).toBe(false);
+    expect(wrapper.find(".tool-error").exists()).toBe(false);
   });
 
   it('emits "close" when close button clicked', async () => {

@@ -29,6 +29,6 @@ describe("PlainTextRenderer", () => {
     const wrapper = mount(PlainTextRenderer, {
       props: { content: "" },
     });
-    expect(wrapper.find("pre").text()).toBe("");
+    expect(wrapper.find("pre").text()).toBe("No output returned.");
   });
 });

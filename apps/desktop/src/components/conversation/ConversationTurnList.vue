@@ -243,8 +243,10 @@ function onRetryFullResult(toolCallId: string) {
               :show-metadata="false"
               :full-result="tc.toolCallId ? fullResults.get(tc.toolCallId) : undefined"
               :loading-full-result="tc.toolCallId ? loadingResults.has(tc.toolCallId) : false"
+              :failed-full-result="tc.toolCallId ? failedResults.has(tc.toolCallId) : false"
               :rich-enabled="richEnabledFor(tc.toolName)"
               @load-full-result="onLoadFullResult"
+              @retry-full-result="emit('retry-full-result', $event)"
             />
           </div>
         </template>
