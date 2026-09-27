@@ -168,6 +168,63 @@ fn commit_failure_rolls_back_rows_fingerprints_and_fts() {
 }
 
 #[test]
+fn standalone_cancellation_after_fingerprint_update_retains_last_good_snapshot() {
+    let (_temp, db, ids) = fixture();
+    let saw_uncommitted_write = Cell::new(false);
+    let result = db.upsert_search_snapshot(
+        &ids[0],
+        &[row(&ids[0], "replacement sentinel")],
+        Some("new"),
+        &|| {
+            let cancel = fingerprints(&db)[0] == "new";
+            saw_uncommitted_write.set(saw_uncommitted_write.get() || cancel);
+            cancel
+        },
+    );
+    assert!(result.is_err());
+    assert!(saw_uncommitted_write.get());
+    assert_original(&db);
+}
+
+#[test]
+fn standalone_panic_after_replacement_rolls_back_and_allows_retry() {
+    let (_temp, db, ids) = fixture();
+    let rows = [row(&ids[0], "replacement sentinel")];
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        db.upsert_search_snapshot(&ids[0], &rows, Some("new"), &|| {
+            assert_eq!(hits(&db, "replacement"), 0, "injected callback panic");
+            false
+        })
+    }));
+    assert!(result.is_err());
+    assert_original(&db);
+    assert_eq!(
+        db.upsert_search_snapshot(&ids[0], &rows, Some("new"), &|| false)
+            .unwrap(),
+        1
+    );
+    assert!(db.conn.is_autocommit());
+    assert_eq!(fingerprints(&db), ["new", "old", "old"]);
+    assert_eq!(hits(&db, "original"), 2);
+    assert_eq!(hits(&db, "replacement"), 1);
+}
+
+#[test]
+fn standalone_commit_failure_rolls_back_rows_fingerprint_and_fts() {
+    let (_temp, db, ids) = fixture();
+    db.conn
+        .execute_batch("PRAGMA defer_foreign_keys=ON;")
+        .unwrap();
+    let mut invalid_row = row(&ids[0], "replacement sentinel");
+    invalid_row.session_id = "missing-session".to_string();
+    assert!(
+        db.upsert_search_snapshot(&ids[0], &[invalid_row], Some("new"), &|| false)
+            .is_err()
+    );
+    assert_original(&db);
+}
+
+#[test]
 fn small_trigger_batches_commit_and_count_each_session_before_cancellation() {
     for count in [3, 9] {
         let (temp, db, _ids) = fixture_with_sessions(count);

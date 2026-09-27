@@ -114,60 +114,21 @@ impl IndexDb {
         source_fingerprint: Option<&str>,
         is_cancelled: &impl Fn() -> bool,
     ) -> Result<usize> {
-        let session_id = session_id.as_str();
-        self.conn.execute_batch("SAVEPOINT upsert_search")?;
-
-        let result = (|| -> Result<usize> {
-            // Delete existing search content for this session
-            self.conn.execute(
-                "DELETE FROM search_content WHERE session_id = ?1",
-                [session_id],
-            )?;
-
-            // Batch insert new content (skip empty rows)
-            let non_empty: Vec<&SearchContentRow> =
-                rows.iter().filter(|r| !r.content.is_empty()).collect();
-            for chunk in non_empty.chunks(256) {
-                tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
-                batched_insert(
-                    &self.conn,
-                    "INSERT INTO search_content \
-                    (session_id, content_type, turn_number, event_index, \
-                     timestamp_unix, tool_name, content, metadata_json) VALUES",
-                    8,
-                    chunk,
-                    |row, params| {
-                        params.push(&row.session_id);
-                        params.push(&row.content_type as &dyn rusqlite::ToSql);
-                        params.push(&row.turn_number);
-                        params.push(&row.event_index);
-                        params.push(&row.timestamp_unix);
-                        params.push(&row.tool_name);
-                        params.push(&row.content);
-                        params.push(&row.metadata_json);
-                    },
-                )?;
-            }
+        if self.conn.is_autocommit() {
+            // An extra savepoint would retain a temp_store=MEMORY rollback
+            // subjournal across all statements of a large session replacement.
+            // A standalone RAII transaction already provides atomic rollback.
+            let transaction = self.conn.unchecked_transaction()?;
+            let count =
+                self.write_search_snapshot(session_id, rows, source_fingerprint, is_cancelled)?;
             tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
-            let inserted = non_empty.len();
+            transaction.commit()?;
+            return Ok(count);
+        }
 
-            // Update search indexing timestamp and extractor version
-            let now = chrono::Utc::now().to_rfc3339();
-            self.conn.execute(
-                "UPDATE sessions SET search_indexed_at = ?1, search_extractor_version = ?2,
-                    search_source_fingerprint = ?4 WHERE id = ?3",
-                params![
-                    now,
-                    CURRENT_EXTRACTOR_VERSION,
-                    session_id,
-                    source_fingerprint
-                ],
-            )?;
-
-            Ok(inserted)
-        })();
-
-        match result {
+        // A shared batch needs session-level isolation inside its transaction.
+        self.conn.execute_batch("SAVEPOINT upsert_search")?;
+        match self.write_search_snapshot(session_id, rows, source_fingerprint, is_cancelled) {
             Ok(count) => {
                 self.conn.execute_batch("RELEASE upsert_search")?;
                 Ok(count)
@@ -183,6 +144,58 @@ impl IndexDb {
                 Err(e)
             }
         }
+    }
+
+    /// Replace one snapshot inside the transaction owned by the caller.
+    fn write_search_snapshot(
+        &self,
+        session_id: &SessionId,
+        rows: &[SearchContentRow],
+        source_fingerprint: Option<&str>,
+        is_cancelled: &impl Fn() -> bool,
+    ) -> Result<usize> {
+        self.conn.execute(
+            "DELETE FROM search_content WHERE session_id = ?1",
+            [session_id.as_str()],
+        )?;
+
+        let non_empty: Vec<&SearchContentRow> =
+            rows.iter().filter(|r| !r.content.is_empty()).collect();
+        for chunk in non_empty.chunks(256) {
+            tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+            batched_insert(
+                &self.conn,
+                "INSERT INTO search_content \
+                (session_id, content_type, turn_number, event_index, \
+                 timestamp_unix, tool_name, content, metadata_json) VALUES",
+                8,
+                chunk,
+                |row, params| {
+                    params.push(&row.session_id);
+                    params.push(&row.content_type as &dyn rusqlite::ToSql);
+                    params.push(&row.turn_number);
+                    params.push(&row.event_index);
+                    params.push(&row.timestamp_unix);
+                    params.push(&row.tool_name);
+                    params.push(&row.content);
+                    params.push(&row.metadata_json);
+                },
+            )?;
+        }
+        tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+
+        let now = chrono::Utc::now().to_rfc3339();
+        self.conn.execute(
+            "UPDATE sessions SET search_indexed_at = ?1, search_extractor_version = ?2,
+                search_source_fingerprint = ?4 WHERE id = ?3",
+            params![
+                now,
+                CURRENT_EXTRACTOR_VERSION,
+                session_id.as_str(),
+                source_fingerprint
+            ],
+        )?;
+        Ok(non_empty.len())
     }
 
     /// Request a rebuild without deleting last-good content before source reads.

@@ -135,12 +135,13 @@ pub fn reindex_search_content(
                     if is_cancelled() {
                         return Ok((indexed, skipped));
                     }
-                    match db.upsert_search_snapshots(
-                        std::slice::from_ref(snapshot),
-                        std::slice::from_ref(fingerprint),
+                    match db.upsert_search_snapshot(
+                        &snapshot.0,
+                        &snapshot.1,
+                        Some(fingerprint),
                         &is_cancelled,
                     ) {
-                        Ok(count) => indexed += count,
+                        Ok(_) => indexed += 1,
                         Err(error) => tracing::warn!(session_id = %snapshot.0, error = %error,
                             "Search content not written; retaining previous content"),
                     }

@@ -90,8 +90,9 @@ chunks; individual JSON decoding and SQLite statements remain non-preemptible.
 Trigger-maintained search writes coalesce prepared batches of at least 10 sessions
 into one transaction, with per-session savepoints for failed writes. Smaller
 batches keep individual commits so a few large sessions do not retain combined
-SQLite/FTS write state. Cancellation or a failed batch commit rolls back that
-batch; completed commits remain searchable. Source
+SQLite/FTS write state. Standalone writes use one transaction without a nested
+savepoint, avoiding a second in-memory rollback journal. Cancellation or a failed
+batch commit rolls back that batch; completed commits remain searchable. Source
 preparation happens before the transaction, so file reads do not hold the database
 write lock. Compare fresh and incremental phases when changing this boundary:
 per-session commits can substantially increase transaction and WAL/checkpoint work.
