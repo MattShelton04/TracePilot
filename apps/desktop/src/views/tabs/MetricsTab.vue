@@ -90,7 +90,8 @@ const {
       @retry="retryLoadMetrics"
     />
 
-    <EmptyState v-if="!metrics && !store.metricsError" description="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
+    <p v-if="!metrics && !store.loaded.has('metrics') && !store.metricsError" role="status" class="text-sm text-[var(--text-tertiary)] mb-4">Loading session metrics…</p>
+    <EmptyState v-else-if="!metrics && !store.metricsError" description="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
 
     <template v-if="promptCacheEnabled">
       <ErrorAlert
@@ -101,7 +102,7 @@ const {
         class="mb-4"
         @retry="retryPromptCache"
       />
-      <MetricsPromptCacheSection v-if="promptCache && !metrics" :timeline="promptCache" class="mt-4" />
+      <MetricsPromptCacheSection v-if="promptCache && !metrics" :key="store.sessionId ?? undefined" :timeline="promptCache" class="mt-4" />
     </template>
 
     <template v-if="metrics">
@@ -130,13 +131,13 @@ const {
         :has-reasoning-data="hasReasoningData"
       />
 
-      <MetricsSessionActivity :metrics="metrics" />
+      <MetricsSessionActivity :key="store.sessionId ?? undefined" :metrics="metrics" />
 
-      <MetricsPromptCacheSection v-if="promptCacheEnabled && promptCache" :timeline="promptCache" />
+      <MetricsPromptCacheSection v-if="promptCacheEnabled && promptCache" :key="store.sessionId ?? undefined" :timeline="promptCache" />
 
       <MetricsTokenBudget :metrics="metrics" :has-token-budget="hasTokenBudget" />
 
-      <MetricsCodeChanges :metrics="metrics" />
+      <MetricsCodeChanges :key="store.sessionId ?? undefined" :metrics="metrics" />
 
       <div v-if="currentModel" class="flex items-center gap-2">
         <span class="text-xs text-[var(--text-tertiary)]">Current Model:</span>

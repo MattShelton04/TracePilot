@@ -10,6 +10,10 @@ Prioritize the default 1440×960 desktop viewport, then the 960×640 minimum and
 larger 2560×1440 viewport. See [automation](docs/app-automation.md) and
 [testing](docs/testing.md) for lifecycle, diagnostics, and validation commands.
 
+For synthetic fixtures and focused capture commands, see
+[visual regression](docs/visual-regression.md). Keep renderer fixture coverage
+current when adding rich tools; keep one-off stress data and captures untracked.
+
 # Repository notes
 
 Keep session scratch files, logs, and one-off audit reports outside tracked

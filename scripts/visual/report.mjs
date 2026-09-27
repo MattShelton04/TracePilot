@@ -6,6 +6,7 @@ import { cases } from "./manifest.mjs";
 import { classifyPixels, compare, describeBounds, thresholds } from "./pixels.mjs";
 import { decodePng, encodeHeat, encodePng } from "./png.mjs";
 import { areaKey, changeAreas, crop, differenceImage, focusRect } from "./review-images.mjs";
+import { sectionId } from "./sections.mjs";
 
 export { validatePng } from "./png.mjs";
 export { escapeHtml };
@@ -31,6 +32,7 @@ async function readSide(directory, side) {
         throw new Error("Capture inventory exceeds limit");
       if (records.has(row.id)) throw new Error("Duplicate captured view across shards");
       records.set(row.id, {
+        group: sectionId(row),
         route: typeof row.route === "string" ? row.route.slice(0, 300) : "",
         state: typeof row.state === "string" ? row.state.slice(0, 300) : "",
         status: row.status === "captured" ? "captured" : "incomplete",
@@ -90,7 +92,7 @@ export async function buildReport({
   for (const [id, record] of [...baseRows, ...headRows]) {
     if (!inventory.has(id)) {
       if (inventory.size >= 128) throw new Error("Combined capture inventory exceeds limit");
-      inventory.set(id, { id, route: record.route, state: record.state });
+      inventory.set(id, { id, group: record.group, route: record.route, state: record.state });
     }
   }
   const rows = [];
@@ -100,6 +102,7 @@ export async function buildReport({
     // Describe the captured fixture state, including historical feature defaults.
     const row = {
       ...item,
+      group: sectionId(item),
       route: head?.route || base?.route || item.route,
       state: head?.state || base?.state || item.state,
       base,
@@ -239,7 +242,7 @@ export function groupSharedChanges(rows) {
     if (!row.review) continue;
     // Areas above 8/255 ignore sparse anti-aliasing speckle elsewhere in the view.
     const significant = row.analyses?.[8]?.regions;
-    const key = areaKey(significant?.length ? changeAreas(significant) : row.review.areas);
+    const key = `${sectionId(row)}:${areaKey(significant?.length ? changeAreas(significant) : row.review.areas)}`;
     if (!groups.has(key)) groups.set(key, row);
     else {
       const lead = groups.get(key);
@@ -260,6 +263,7 @@ export function changeSummary({ rows, summary, metadata, imageRoot }) {
     summary,
     views: rows.map((row) => ({
       id: row.id,
+      group: sectionId(row),
       route: row.route,
       state: row.state,
       change: row.change,

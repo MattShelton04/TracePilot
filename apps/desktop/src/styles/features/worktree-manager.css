@@ -503,24 +503,14 @@
   background: var(--accent-subtle);
 }
 
-.wt-row--selected::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--accent-emphasis);
+/* A generated child of <tr> can become an anonymous table cell in Chromium,
+   shifting every real cell one column. Paint the rail inside the existing cell. */
+.wt-row--selected > td:first-child {
+  box-shadow: inset 3px 0 var(--accent-emphasis);
 }
 
-.wt-row--stale:not(.wt-row--selected)::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--warning-fg);
+.wt-row--stale:not(.wt-row--selected) > td:first-child {
+  box-shadow: inset 3px 0 var(--warning-fg);
 }
 
 /* Row icon */

@@ -5,6 +5,31 @@ import { renderGallery, renderHistory, safeHttpUrl, scriptJson } from "./gallery
 import { historyEntry } from "./history.mjs";
 import { cases } from "./manifest.mjs";
 import * as TracePilotPixels from "./pixels.mjs";
+import { sectionId } from "./sections.mjs";
+
+test("gallery normalizes sections and keeps tool captures separate", async () => {
+  assert.equal(sectionId({ id: "sessions", group: "<script>" }), "overview");
+  assert.equal(sectionId({ id: "rich-tool-search" }), "rich-tools");
+  const html = await renderGallery({
+    title: "Sections",
+    rows: ["sessions", "rich-tool-search"].map((id) => ({
+      id,
+      change: "incomplete",
+    })),
+    summary: { changed: 0, unchanged: 0, incomplete: 2, baseUnavailable: 0 },
+  });
+  const data = JSON.parse(
+    /<script id="report-data" type="application\/json">(.*?)<\/script>/.exec(html)[1],
+  );
+  assert.deepEqual(
+    data.sections.map((section) => section.id),
+    ["overview", "rich-tools"],
+  );
+  assert.deepEqual(
+    data.rows.map((row) => row.group),
+    ["overview", "rich-tools"],
+  );
+});
 
 test("core captures disable experimental features and alerts; each experimental case explicitly opts in", () => {
   for (const item of cases) {

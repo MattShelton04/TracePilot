@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { extname, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright-core";
+import { checkHistory } from "./history-check.mjs";
 import { encodeHeat } from "./png.mjs";
 import { buildReport } from "./report.mjs";
 
@@ -26,11 +27,16 @@ try {
       await writeFile(join(directory, "sessions.png"), encodeHeat(pixels));
       if (side === "head") pixels[0] = 254;
       await writeFile(join(directory, "session-overview.png"), encodeHeat(pixels));
+      if (side === "head") pixels[0] = 0;
+      await writeFile(join(directory, "rich-tool-view.png"), encodeHeat(pixels));
       await writeFile(
         join(directory, "capture-1-1.json"),
         JSON.stringify({
           schema: 1,
-          cases: ["sessions", "session-overview"].map((id) => ({ id, status: "captured" })),
+          cases: ["sessions", "session-overview", "rich-tool-view"].map((id) => ({
+            id,
+            status: "captured",
+          })),
         }),
       );
     }
@@ -42,7 +48,7 @@ try {
   );
   const row =
     report.rows.find((row) => row.id === "session-conversation" && row.analyses?.[0].changed) ??
-    report.rows.find((row) => row.analyses?.[0].changed);
+    report.rows.find((row) => row.group === "overview" && row.analyses?.[0].changed);
   assert.ok(row, "Need a paired changed view for the interaction check");
   server = createServer(async (request, response) => {
     try {
@@ -81,9 +87,45 @@ try {
     document.querySelector("#pixel-metric").textContent.includes("precomputed from PNGs"),
   );
   const initial =
-    report.rows.find((row) => row.change === "changed") ??
-    report.rows.find((row) => row.change === "subtle");
+    report.rows.find((row) => row.group === "overview" && row.change === "changed") ??
+    report.rows.find((row) => row.group === "overview" && row.change === "subtle");
   assert.equal(await page.locator("#view-title").innerText(), initial.id);
+  if (!args.report) {
+    assert.equal(
+      await page
+        .getByRole("button", { name: "App views", exact: true })
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Rich tools", exact: true })
+        .getAttribute("aria-pressed"),
+      "false",
+    );
+    assert.equal(await page.locator('.view-link[aria-label^="rich-tool-"]:visible').count(), 0);
+    await page.getByRole("button", { name: "Rich tools", exact: true }).click();
+    assert.equal(await page.locator("#view-title").innerText(), "rich-tool-view");
+    assert.equal(
+      await page.locator('.view-link[aria-label="sessions, unchanged"]').isVisible(),
+      false,
+    );
+    assert.match(page.url(), /section=rich-tools/);
+    await page.getByLabel("Filter views in section").fill("no match");
+    assert.equal(await page.locator("#empty-filter").isVisible(), true);
+    await page.goBack();
+    assert.equal(await page.locator("#view-title").innerText(), initial.id);
+    assert.equal(await page.getByLabel("Filter views in section").inputValue(), "");
+    await page.goto(`${url.split("#")[0]}#section=rich-tools`);
+    assert.equal(await page.locator("#view-title").innerText(), "rich-tool-view");
+    await page.goto(`${url.split("#")[0]}#view=rich-tool-view`);
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Rich tools", exact: true })
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+  }
   await page.goto(url);
   const metric = page.locator("#pixel-metric");
   await page.waitForFunction(() =>
@@ -191,6 +233,16 @@ try {
     document.querySelector("#pixel-metric").textContent.includes("Pixel analysis unavailable"),
   );
   assert.equal(await page.locator(".bounds").count(), 0);
+  // A new document avoids inheriting the comparison page's script-hash CSP.
+  const historyPage = await browser.newPage();
+  historyPage.on("pageerror", (error) => errors.push(error.message));
+  await historyPage.route("**/index.html", async (route) =>
+    route.fulfill({ contentType: "text/html", body: "<!doctype html><html><body></body></html>" }),
+  );
+  await historyPage.goto(url.split("#")[0]);
+  await checkHistory(historyPage);
+  await historyPage.close();
+  assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({
       view: row.id,

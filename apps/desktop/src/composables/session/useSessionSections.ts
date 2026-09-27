@@ -43,9 +43,13 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
   const todosSection = createAsyncSection<TodosResponse | null>(null);
   const checkpointsSection = createAsyncSection<CheckpointEntry[]>([]);
   const planSection = createAsyncSection<SessionPlan | null>(null);
-  const metricsSection = createAsyncSection<ShutdownMetrics | null>(null);
+  // These large snapshots are replaced wholesale on load/refresh. Avoid deep
+  // proxies for thousands of cache windows, segment records and file paths.
+  const metricsSection = createAsyncSection<ShutdownMetrics | null>(null, { shallow: true });
   const incidentsSection = createAsyncSection<SessionIncident[]>([]);
-  const promptCacheSection = createAsyncSection<PromptCacheTimeline | null>(null);
+  const promptCacheSection = createAsyncSection<PromptCacheTimeline | null>(null, {
+    shallow: true,
+  });
 
   const todosDef = defineAsyncSection({
     key: "todos",

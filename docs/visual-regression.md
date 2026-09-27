@@ -2,7 +2,7 @@
 
 The **Desktop Visual Capture** workflow renders the actual Vue application with
 synthetic backend fixtures at **1440×960 CSS pixels**, dark theme and 100% UI
-scale. Its 33 cases capture every named route, all eight session detail tabs,
+scale. Its cases capture every named route, all eight session detail tabs,
 populated search, a selected Explorer file, a completed session comparison,
 a populated Markdown export preview, and a second Settings position.
 The [case manifest](../scripts/visual/manifest.mjs)
@@ -96,8 +96,10 @@ after capture completion. It generates a standalone gallery with searchable view
 navigation and a changes/limitations filter. New case IDs introduced by the PR
 are included before their manifest reaches `main`. Captured route/state labels
 are preserved, so an older report does not silently acquire newer fixture labels.
-The filter explicitly hides identical and subtle views; all views remain available
-by default. When a report has only subtle differences, it opens one of those
+The gallery opens **App views** first, with **Rich tools** in a separate section.
+Section buttons show change and limitation counts; search and filtering apply
+within the selected section. The filter hides identical and subtle views when
+enabled. When a section has only subtle differences, it opens one of those
 comparisons first. Comments include the subtle count and a link to exact differences
 without expanding every tiny variation into another before/after image section.
 
@@ -157,7 +159,8 @@ for agents and scripts.
 The history page has three tabs:
 
 - **Pull requests**: the latest report per PR with difference thumbnails of its
-  changed views; earlier pushes are folded under each card.
+  changed App views and compact links/counts for detailed sections; earlier pushes
+  are folded under each card.
 - **Main**: each merge compared with the previous main commit.
 - **View timeline**: for one view, only the runs where its pixels differ from
   the previous listed run, with identical stretches collapsed.
@@ -175,7 +178,7 @@ capture run and attempt. Duplicate workflow deliveries are idempotent, and the
 publisher checks for a current open PR and current capture attempt immediately
 before editing.
 
-For each changed view, the comment shows:
+For changed App views, the comment shows:
 
 - A **difference image**: the after screenshot dimmed, changed pixels tinted
   pink, and changed areas outlined at full brightness. It shows where a change
@@ -186,12 +189,14 @@ For each changed view, the comment shows:
   by agents that read images.
 - Exact changed-pixel counts, percentage and area coordinates.
 
-The largest three changes are expanded; others are collapsed. Views whose
+The largest three App view changes are expanded; others are collapsed. Views whose
 significant (above 8/255) changed areas coincide are folded into one entry,
 because a shared component usually changes the same area across many views.
 Subtle views are listed in a collapsed block with their pixel counts. The
 comment stays bounded below GitHub's comment limit, with a full-gallery link
 for omitted views.
+Rich tools have section counts and collapsed link lists, without embedding
+another image for every tool case.
 
 Missing baselines and incomplete head captures prominently say **Comparison
 incomplete**. Diagnostic error-page screenshots stay in capture artifacts and
@@ -298,6 +303,57 @@ its file-entry contract and checking console/error-boundary output closed that
 false-positive gap. Repeated captures exposed a sidebar opacity transition;
 disabling screenshot animation/transition timing made all 33 captures
 byte-identical across repeated runs.
+
+## Rich-tool iteration
+
+The shared corpus in [`scripts/fixtures/`](../scripts/fixtures/session-fixtures.mjs)
+feeds both native JSONL sessions and focused browser cases. Rich-tool samples
+reconstruct formats from versioned CLI fixtures and renderer parser tests, with
+synthetic paths, text and URLs. The inventory covers every registered result and
+argument renderer, plus unregistered fallback tools, failed output, pending
+arguments and structured `ask_user` responses. A registry coverage test fails
+when a new renderer lacks a sample. The `web_search` case crosses the backend
+preview boundary and asserts both final source cards appear without manual loading.
+
+Default local and CI captures contain **64 cases: 37 App views and 27 Rich tools**.
+The report keeps those sections separate; PR comments and history cards show
+compact counts/links for detailed tools. Generated JSONL, indexes and screenshots
+stay ignored.
+
+The trusted publisher runs from `main`, so report-section changes in a PR take
+effect in automatic publication after merge. Local gallery checks use the current
+checkout and can validate them beforehand.
+
+Capture an offline searchable gallery for rapid iteration:
+
+```powershell
+node scripts/visual/capture.mjs --group=rich-tools --gallery --channel=msedge --out=.tracepilot/visual/rich-tools
+```
+
+Open the generated `index.html`, edit a renderer, and repeat the command. The
+gallery shows one capture and requires no baseline or extra commit. It is a
+local review aid; trusted CI comparison/publication continues to use its existing
+artifact checks. Omit `--channel=msedge` to use the installed pinned Chromium.
+Use `--case=rich-tool-web-search` for one case, or
+`--viewport=960x640` / `--viewport=2560x1440` for other desktop sizes. Store each
+size in a separate output directory. CI keeps the standard 1440×960 size;
+its trusted paired reporter does not accept arbitrary viewport dimensions.
+
+The worktree case also asserts all header/body columns align at all three
+desktop sizes, including selected active and stale rows. This catches generated
+table cells from row pseudo-elements that DOM-only tests miss.
+
+Run fixture and harness checks together:
+
+```sh
+node --test scripts/fixtures/*.test.mjs scripts/visual/*.test.mjs
+```
+
+For native inspection, use the same generator with `app:start -DataRoot` as
+described in [testing](testing.md#rich-tool-fixtures).
+The native gallery contains all tool calls in one session; focused browser
+captures isolate each scenario for readable diffs. Full native parsing and
+visible interaction checks remain necessary when changing transport contracts.
 
 ## First hosted validation
 

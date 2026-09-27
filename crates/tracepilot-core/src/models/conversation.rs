@@ -231,7 +231,8 @@ pub struct TurnToolCall {
     pub total_tool_calls: Option<u64>,
     /// Human-readable description of what this tool call intends to do.
     pub intention_summary: Option<String>,
-    /// Truncated preview of the tool result (≤1KB). Use `get_tool_result` for full content.
+    /// Full web_search content; other tools use a 1KB preview plus truncation marker.
+    /// Use `get_tool_result` to load full content for those other tools.
     pub result_content: Option<String>,
     /// Short summary of arguments, computed server-side for IPC efficiency.
     #[serde(skip_serializing_if = "Option::is_none")]

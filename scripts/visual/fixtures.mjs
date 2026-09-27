@@ -1,7 +1,9 @@
 // Loaded ONLY by the visual harness's Vite transform. Not shipped in the app.
 // Existing typed browser fixtures supply sessions, turns, metrics and charts.
 // These additions cover domains whose normal browser mode has no fallback.
+
 import { configureVisualFeatures } from "./feature-policy.mjs";
+import { richToolFixture } from "./rich-tool-fixtures.mjs";
 
 export const skill = {
   name: "visual-review",
@@ -273,6 +275,8 @@ export async function visualInvoke(cmd, args, fallback) {
   state.pending++;
   state.calls[cmd] = (state.calls[cmd] ?? 0) + 1;
   try {
+    const toolFixture = richToolFixture(cmd, args, window.__TRACEPILOT_VISUAL_CASE__);
+    if (toolFixture !== undefined) return structuredClone(toolFixture);
     if (Object.hasOwn(overrides, cmd)) return structuredClone(overrides[cmd]);
     if (cmd === "preview_export") {
       const content =

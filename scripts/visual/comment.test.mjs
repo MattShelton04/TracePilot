@@ -67,6 +67,68 @@ test("only the largest changes are expanded; the rest stay collapsed and bounded
   assert.match(body, /view=view-32&mode=difference/);
 });
 
+test("rich tools have section counts and compact links without displacing app previews", () => {
+  const tools = Array.from({ length: 27 }, (_, index) => ({
+    ...changedRow(`rich-tool-${index}`, 100_000 + index),
+    group: "rich-tools",
+  }));
+  const rows = [
+    ...tools,
+    changedRow("sessions", 100),
+    changedRow("worktrees", 200),
+    changedRow("settings", 300),
+    { id: "rich-tool-subtle", change: "subtle", analyses: { 0: { changed: 5 } } },
+    { id: "rich-tool-failed", change: "incomplete" },
+    { id: "rich-tool-identical", change: "unchanged" },
+    { id: "rich-tool-unavailable", change: "base unavailable" },
+  ];
+  const body = buildComment({
+    ...args,
+    rows,
+    summary: { changed: 30, subtle: 1, unchanged: 1, baseUnavailable: 1, incomplete: 1 },
+  });
+  assert.match(body, /\[App views\].*#section=overview/);
+  assert.match(
+    body,
+    /\[Rich tools\].*27 review · 1 subtle · 1 identical · 1 base unavailable · 1 incomplete/,
+  );
+  assert.match(body, /<summary>Rich tools: 30 views to inspect<\/summary>/);
+  assert.match(body, /section=rich-tools&view=rich-tool-26&mode=difference/);
+  assert.match(body, /rich-tool-failed&mode=difference\) · incomplete/);
+  assert.match(body, /rich-tool-subtle&mode=difference\) · subtle/);
+  assert.match(body, /rich-tool-unavailable&mode=difference\) · base unavailable/);
+  assert.match(body, /Comparison incomplete/);
+  assert.deepEqual(
+    [...body.matchAll(/^#### ([\w-]+)/gm)].map((match) => match[1]),
+    ["settings", "worktrees", "sessions"],
+  );
+  assert.equal((body.match(/!\[Difference for /g) ?? []).length, 3);
+  assert.doesNotMatch(body, /!\[(?:Difference|Before|After).*rich-tool-/);
+});
+
+test("section counts remain available when Pages publication is unavailable", () => {
+  const body = buildComment({
+    ...args,
+    galleryUrl: undefined,
+    rows: [changedRow("rich-tool-web-search", 1000)],
+  });
+  assert.match(body, /\| Rich tools \| 1 review/);
+  assert.match(body, /Pages publication is unavailable/);
+  assert.doesNotMatch(body, /!\[/);
+});
+
+test("an app view sharing changed areas with a tool still receives a primary preview", () => {
+  const body = buildComment({
+    ...args,
+    rows: [
+      changedRow("rich-tool-web-search", 1000, { sharedWith: ["sessions"] }),
+      changedRow("sessions", 1000, { sameAs: "rich-tool-web-search" }),
+    ],
+  });
+  assert.match(body, /#### sessions/);
+  assert.doesNotMatch(body, /#### rich-tool-web-search/);
+});
+
 test("large comments remain bounded, escape artifact HTML and explain omitted screenshots", () => {
   const rows = Array.from({ length: 128 }, (_, index) => ({
     ...changedRow(`view-${index}`, 200),

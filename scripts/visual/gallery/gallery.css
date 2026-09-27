@@ -143,6 +143,24 @@ h1 {
   padding: 18px 15px 13px;
   border-bottom: 1px solid var(--line);
 }
+.sections {
+  display: grid;
+  gap: 6px;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--line);
+}
+.section-link {
+  text-align: left;
+}
+.section-link small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.section-link .section-limited {
+  color: var(--pink);
+}
 .filters input {
   width: 100%;
   margin-bottom: 10px;

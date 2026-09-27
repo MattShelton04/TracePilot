@@ -1,10 +1,26 @@
 import { postReportComment } from "../ci/report-comment.mjs";
 import { escapeHtml, safeHttpUrl } from "./gallery-template.mjs";
+import { sectionId, visualSections } from "./sections.mjs";
 
 export const commentMarker = "<!-- tracepilot-visual-report -->";
 const expandedViews = 3;
 const number = (value) => Number(value ?? 0).toLocaleString("en-US");
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+
+function sectionSummary(rows) {
+  const count = (change) => rows.filter((row) => row.change === change).length;
+  return `${count("changed")} review · ${count("subtle")} subtle · ${count("unchanged")} identical · ${count("base unavailable")} base unavailable · ${count("incomplete")} incomplete`;
+}
+
+function detailSection({ id, label, rows }, galleryLink) {
+  const attention = rows.filter((row) => row.change !== "unchanged");
+  if (!attention.length) return "";
+  const links = attention.map(
+    (row) =>
+      `- [${escapeHtml(row.id)}](${galleryLink}#section=${id}&view=${row.id}&mode=difference) · ${escapeHtml(row.change)}\n`,
+  );
+  return `<details><summary>${label}: ${plural(attention.length, "view")} to inspect</summary>\n\n${links.join("")}\n</details>\n\n`;
+}
 
 function viewBlock(row, { galleryLink, images }) {
   const review = row.review;
@@ -44,16 +60,41 @@ export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRu
   if (summary.baseUnavailable || summary.incomplete)
     body +=
       "**Comparison incomplete.** Unavailable or failed captures cannot establish that the UI is unchanged. Review capture limitations in the gallery.\n\n";
+  const sections = visualSections
+    .map((section) => ({ ...section, rows: rows.filter((row) => sectionId(row) === section.id) }))
+    .filter((section) => section.rows.length);
+  const galleryLink = gallery ? `${gallery}?attempt=${attempt}` : undefined;
+  if (sections.length) {
+    body += "| Section | Results |\n|---|---|\n";
+    for (const section of sections) {
+      const label = galleryLink
+        ? `[${section.label}](${galleryLink}#section=${section.id})`
+        : section.label;
+      body += `| ${label} | ${sectionSummary(section.rows)} |\n`;
+    }
+    body += "\n";
+  }
   const footer = `<sub>Every push re-compares the entire PR against its merge base with the default branch; this comment is updated in place. Actual frontend at 1440×960, dark, 100% scale, with deterministic synthetic backend fixtures. Rust/native behaviour is verified separately.</sub>\n`;
   if (!gallery)
     return `${body}[Capture artifacts](${runUrl}) · [Standalone gallery artifact](https://github.com/${repo}/actions/runs/${publisherRunId})\n\nPages publication is unavailable. Download visual-gallery and open index.html; precomputed pixel comparisons also work offline.\n\n${footer}`;
   const history = new URL("../../index.html", gallery).href;
   const images = new URL("../../img/", gallery).href;
-  const galleryLink = `${gallery}?attempt=${attempt}`;
   body += `[Interactive gallery](${galleryLink}) · [Machine-readable changes](${gallery}changes.json) · [Screenshot history](${history})\n\n`;
+  // Detailed tool fixtures have their own gallery section and never flood the PR with images.
+  for (const section of sections.filter((section) => section.id !== "overview"))
+    body += detailSection(section, galleryLink);
+  const overview = rows.filter((row) => sectionId(row) === "overview");
+  const overviewIds = new Set(overview.map((row) => row.id));
   // Largest changes first; views repeating another view's areas are folded into it.
-  const changed = rows
-    .filter((row) => row.change === "changed" && !row.review?.sameAs)
+  const changed = overview
+    .filter((row) => row.change === "changed" && !overviewIds.has(row.review?.sameAs))
+    .map((row) => ({
+      ...row,
+      review: row.review && {
+        ...row.review,
+        sharedWith: row.review.sharedWith?.filter((id) => overviewIds.has(id)),
+      },
+    }))
     .sort((a, b) => (b.analyses?.[0]?.changed ?? 0) - (a.analyses?.[0]?.changed ?? 0));
   let embedded = 0;
   for (const row of changed) {
@@ -76,7 +117,7 @@ export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRu
     }
     body += "\n";
   }
-  const subtle = rows.filter((row) => row.change === "subtle");
+  const subtle = overview.filter((row) => row.change === "subtle");
   if (subtle.length) {
     let list = "";
     for (const row of subtle) {
@@ -89,7 +130,7 @@ export function buildComment({ rows, summary, run, repo, galleryUrl, publisherRu
     }
     body += `<details><summary>${plural(subtle.length, "view has", "views have")} subtle pixel differences (at most 128 pixels, each channel within 8/255)</summary>\n\nThese are neither identical nor automatically dismissed. Inspect their exact differences:\n\n${list}\n</details>\n\n`;
   }
-  const limited = rows.filter((row) => ["base unavailable", "incomplete"].includes(row.change));
+  const limited = overview.filter((row) => ["base unavailable", "incomplete"].includes(row.change));
   if (limited.length)
     body += `Unavailable or incomplete: ${limited.map((row) => `[${escapeHtml(row.id)}](${galleryLink}#view=${row.id})`).join(", ")}.\n\n`;
   if (!review && !summary.baseUnavailable && !summary.incomplete)

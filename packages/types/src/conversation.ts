@@ -158,7 +158,8 @@ export interface TurnToolCall {
   totalToolCalls?: number;
   /** AI-generated summary of what this tool call intends to do. */
   intentionSummary?: string;
-  /** Truncated preview of the tool result (≤1 KB). Use getToolResult() for full content. */
+  /** Full web_search content; other tools use a 1 KB preview plus truncation marker.
+   *  Use getToolResult() to load full content for those other tools. */
   resultContent?: string;
   /** Short summary of arguments, computed server-side for IPC efficiency. */
   argsSummary?: string;

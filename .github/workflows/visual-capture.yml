@@ -3,10 +3,10 @@ name: Desktop Visual Capture
 on:
   pull_request:
     branches: [main]
-    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
+    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', 'scripts/fixtures/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
   push:
     branches: [main]
-    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
+    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', 'scripts/fixtures/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
   workflow_dispatch:
 
 # PR code, including fork dependencies/configuration, runs ONLY with read access.
@@ -60,6 +60,7 @@ jobs:
         run: |
           npm ci --prefix harness/scripts/visual --ignore-scripts --no-audit --no-fund
           node --test harness/scripts/visual/*.test.mjs
+          node --test harness/scripts/fixtures/*.test.mjs
           node --test harness/scripts/ci/*.test.mjs
           python3 harness/scripts/visual/extract_test.py
       - name: Capture real frontend routes with synthetic backend fixtures

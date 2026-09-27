@@ -4,7 +4,7 @@ use crate::models::conversation::TurnToolCall;
 use crate::models::event_types::{SubagentStartedData, ToolExecCompleteData, ToolExecStartData};
 use crate::parsing::events::TypedEvent;
 
-use super::super::utils::{duration_ms, extract_result_preview, json_value_to_string};
+use super::super::utils::{duration_ms, extract_result_content, json_value_to_string};
 use super::state::enrich_subagent;
 use super::{CURRENT_TURN_SENTINEL, TurnReconstructor};
 
@@ -183,9 +183,9 @@ impl TurnReconstructor {
                 tool_call.parent_tool_call_id = parent;
             }
             if let Some(result) = &data.result
-                && let Some(preview) = extract_result_preview(result)
+                && let Some(content) = extract_result_content(result, &tool_call.tool_name)
             {
-                tool_call.result_content = Some(preview);
+                tool_call.result_content = Some(content);
             }
         } else {
             tracing::debug!(

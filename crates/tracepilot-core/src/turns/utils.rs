@@ -35,30 +35,31 @@ pub(crate) fn truncate_str(s: &str, max_bytes: usize) -> String {
     crate::utils::truncate_utf8_with_marker(s, max_bytes, Some("…[truncated]"))
 }
 
-/// Extract a truncated result preview from a polymorphic `result` field.
+/// Extract display content from a polymorphic `result` field.
 ///
 /// The result can be a plain string, an object with `content`/`detailedContent`, or other shapes.
-pub(crate) fn extract_result_preview(result: &serde_json::Value) -> Option<String> {
-    match result {
-        serde_json::Value::String(s) => {
-            if s.trim().is_empty() {
-                None
-            } else {
-                Some(truncate_str(s, RESULT_PREVIEW_MAX_BYTES))
-            }
-        }
-        serde_json::Value::Object(obj) => {
-            let text = obj
-                .get("content")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.trim().is_empty())
-                .or_else(|| {
-                    obj.get("detailedContent")
-                        .and_then(|v| v.as_str())
-                        .filter(|s| !s.trim().is_empty())
-                });
-            text.map(|s| truncate_str(s, RESULT_PREVIEW_MAX_BYTES))
-        }
+/// Web search must retain its complete JSON envelope so the rich renderer can parse
+/// it and discover sources after the usual preview boundary. Other tools remain lazy.
+pub(crate) fn extract_result_content(
+    result: &serde_json::Value,
+    tool_name: &str,
+) -> Option<String> {
+    let text = match result {
+        serde_json::Value::String(s) => Some(s.as_str()).filter(|s| !s.trim().is_empty()),
+        serde_json::Value::Object(obj) => obj
+            .get("content")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| {
+                obj.get("detailedContent")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.trim().is_empty())
+            }),
         _ => None,
-    }
+    }?;
+    Some(if tool_name == "web_search" {
+        text.to_owned()
+    } else {
+        truncate_str(text, RESULT_PREVIEW_MAX_BYTES)
+    })
 }

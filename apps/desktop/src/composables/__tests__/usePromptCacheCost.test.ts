@@ -1,11 +1,26 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
+import { usePreferencesStore } from "@/stores/preferences";
 import { makeWindow } from "@/utils/__tests__/promptCacheFixtures";
 
 beforeEach(() => setupPinia());
 
 describe("usePromptCacheCost", () => {
+  it("prices repeated prefixes once without combining token sizes across pricing tiers", () => {
+    const pricing = vi.spyOn(usePreferencesStore(), "computeUsageBasedCostBreakdown");
+    const { totalMissCredits, missCredits } = usePromptCacheCost();
+    const windows = Array.from({ length: 2400 }, (_, i) =>
+      makeWindow({ outcome: "expired", prefixTokens: i % 2 ? 100000 : 400000 }),
+    );
+    const expected =
+      1200 *
+      ((missCredits("gpt-5.6-luna", 100000) ?? 0) + (missCredits("gpt-5.6-luna", 400000) ?? 0));
+    pricing.mockClear();
+    expect(totalMissCredits(windows)).toBeCloseTo(expected);
+    expect(pricing).toHaveBeenCalledTimes(4);
+    pricing.mockRestore();
+  });
   it("prices a miss as cache writes minus cache reads", () => {
     const { missCredits } = usePromptCacheCost();
     // gpt-5.6-luna: $0.25/M cache write, $0.02/M cache read; 1 AIC = $0.01.

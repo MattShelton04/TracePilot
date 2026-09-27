@@ -1,6 +1,9 @@
 // Every named desktop route has an entry. These are browser fixture states,
 // never evidence that Rust, the SDK, native dialogs or external services work.
+
+import { richToolSamples, richToolsSessionId } from "../fixtures/rich-tools.mjs";
 import { skill } from "./fixtures.mjs";
+import { sectionId, visualSections } from "./sections.mjs";
 
 const session = "/session/sess-auth-refactor";
 const skillEditor = `/skills/${encodeURIComponent(skill.directory)}`;
@@ -105,6 +108,7 @@ export const cases = [
     ready: ".wt-manager .right-panel",
     command: "list_worktrees",
     state: "populated fixture repositories",
+    assertion: "worktree-layout",
   },
   {
     id: "session-launcher",
@@ -170,11 +174,24 @@ export const cases = [
     features: ["exactContextCapture"],
   },
   { id: "not-found", route: "/visual-route-does-not-exist", ready: "h2", state: "not found" },
+  ...richToolSamples.map((sample) => ({
+    id: `rich-tool-${sample.id}`,
+    group: "rich-tools",
+    fixture: sample.id,
+    route: `/session/${richToolsSessionId}/conversation`,
+    start: ".detail-title",
+    prepare: "rich-tool",
+    ready: sample.selector,
+    command: "get_session_turns",
+    state: `Synthetic ${sample.toolName} · ${sample.content == null ? "pending arguments" : sample.success === false ? "error result" : "complete result"}${sample.registered === false ? ` · ${sample.fallback ?? "plain"} fallback (no registered renderer)` : ""}`,
+    openArgs: sample.openArgs,
+    assertion: sample.assertion,
+  })),
 ];
 export const viewport = { width: 1440, height: 960 };
 export const fixedTime = "2026-03-20T12:00:00.000Z";
 
-export function selectCases(shard = "1/1") {
+export function selectCases(shard = "1/1", { group, caseIds } = {}) {
   const [index, total] = shard.split("/").map(Number);
   if (
     !Number.isInteger(index) ||
@@ -185,5 +202,11 @@ export function selectCases(shard = "1/1") {
   ) {
     throw new Error(`Invalid shard: ${shard}`);
   }
-  return cases.filter((_, i) => i % total === index - 1);
+  if (group && !visualSections.some((section) => section.id === group))
+    throw new Error(`Unknown visual group: ${group}`);
+  return cases
+    .filter(
+      (item) => (!group || sectionId(item) === group) && (!caseIds || caseIds.includes(item.id)),
+    )
+    .filter((_, i) => i % total === index - 1);
 }

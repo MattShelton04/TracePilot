@@ -124,6 +124,30 @@ on PRs and main in CI. The suite requires Windows, WebView2, the Rust toolchain,
 Node 22, and pnpm 10. Frontend-only exploration is portable via `pnpm dev` and
 the CLI. WebView2 CDP does not apply to macOS/Linux.
 
+## Rich-tool fixtures
+
+Generate deterministic files for the real backend, then start the native app
+against that isolated root:
+
+```powershell
+node scripts/fixtures/session-fixtures.mjs
+pnpm app:start -DataRoot "$PWD/.tracepilot/rich-tool-fixtures"
+# Attach with the command printed by startup, finish setup, then Refresh data.
+```
+
+The library contains **SYNTHETIC · Rich tool renderer gallery**: 27 scenarios
+covering registered renderers plus fallback, error and pending states. These
+reconstruct tool contracts with synthetic content, without private recordings.
+
+`--root=PATH` selects another profile. The generator verifies its ownership and
+content hashes on repeated runs, preserves config/index files, and refuses
+edited sessions or changed fixture contracts. Use a fresh root in those cases.
+Stop the tracked app before switching roots. The shared fixture modules also
+feed the [frontend visual captures](visual-regression.md#rich-tool-iteration).
+Run `node --test scripts/fixtures/*.test.mjs` for corpus/renderer coverage checks.
+
+Generated JSONL, indexes and screenshots stay in ignored `.tracepilot/` directories.
+
 ## Cross-references
 
 - `packages/ui/src/__vrt__/README.md` — VRT contract + baseline workflow
