@@ -4,6 +4,7 @@
 import { richToolSamples, richToolsSessionId } from "../fixtures/rich-tools.mjs";
 import { skill } from "./fixtures.mjs";
 import { sectionId, visualSections } from "./sections.mjs";
+import { updateAvailableFixture } from "./update-fixtures.mjs";
 
 const session = "/session/sess-auth-refactor";
 const skillEditor = `/skills/${encodeURIComponent(skill.directory)}`;
@@ -172,6 +173,48 @@ export const cases = [
     ready: "h1",
     state: "Experimental · explicitly enabled; no captured external context",
     features: ["exactContextCapture"],
+  },
+  {
+    id: "update-available",
+    fixture: updateAvailableFixture,
+    route: "/settings",
+    ready: ".sidebar-update-notice",
+    command: "check_for_updates",
+    scrollText: "Updates",
+    state: "installer build with a newer release; sidebar notice and Settings → Updates",
+  },
+  {
+    id: "update-whats-new",
+    fixture: updateAvailableFixture,
+    route: "/",
+    start: ".sidebar-update-notice",
+    prepare: "sidebar-click",
+    within: ".sidebar-update-notice",
+    button: "What's new",
+    ready: '[role="dialog"]',
+    command: "check_for_updates",
+    state: "release notes preview from the GitHub release body",
+  },
+  {
+    id: "update-install",
+    fixture: updateAvailableFixture,
+    route: "/",
+    start: ".sidebar-update-notice",
+    prepare: "sidebar-click",
+    within: ".sidebar-update-notice",
+    button: "Update",
+    ready: '[role="dialog"]',
+    command: "get_install_type",
+    state: "installer build; one-click update dialog before download",
+  },
+  {
+    id: "release-notes",
+    route: "/",
+    start: ".sidebar-version-btn",
+    prepare: "sidebar-click",
+    target: ".sidebar-version-btn",
+    ready: '[role="dialog"]',
+    state: "installed version's release history from a fixture manifest",
   },
   { id: "not-found", route: "/visual-route-does-not-exist", ready: "h2", state: "not found" },
   ...richToolSamples.map((sample) => ({
