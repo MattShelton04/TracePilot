@@ -3,6 +3,7 @@ name = "tracepilot-test-support"
 description = "Shared test-only helpers and fixtures for the TracePilot workspace"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 publish = false
 
 [dependencies]

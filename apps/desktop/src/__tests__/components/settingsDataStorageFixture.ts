@@ -1,7 +1,7 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import { createDefaultConfig } from "@tracepilot/types";
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { afterEach, beforeEach, expect, vi } from "vitest";
+import { afterEach, beforeEach, expect, type Mock, vi } from "vitest";
 
 import SettingsDataStorage from "@/components/settings/SettingsDataStorage.vue";
 
@@ -9,7 +9,24 @@ export function mountSettingsDataStorage() {
   return mount(SettingsDataStorage);
 }
 
-const mocks = vi.hoisted(() => ({
+const mocks: {
+  checkConfigExists: Mock;
+  browseForDirectory: Mock;
+  getConfig: Mock;
+  getDbSize: Mock;
+  getSessionCount: Mock;
+  updateConfig: Mock;
+  validateSessionDir: Mock;
+  rebuildSearchIndex: Mock;
+  reindexSessionsFull: Mock;
+  contextCaptureStorageStats: Mock;
+  contextCaptureDeleteAll: Mock;
+  factoryReset: Mock;
+  confirm: Mock;
+  fetchSessions: Mock;
+  resetAnalytics: Mock;
+  toast: { error: Mock; success: Mock };
+} = vi.hoisted(() => ({
   checkConfigExists: vi.fn(),
   browseForDirectory: vi.fn(),
   getConfig: vi.fn(),

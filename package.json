@@ -6,7 +6,7 @@
   "license": "GPL-3.0-or-later",
   "description": "Visualize, audit, and inspect GitHub Copilot CLI sessions",
   "homepage": "https://github.com/MattShelton04/TracePilot",
-  "packageManager": "pnpm@10.32.1",
+  "packageManager": "pnpm@10.34.5",
   "keywords": [
     "github-copilot",
     "cli",
@@ -47,11 +47,11 @@
     "check:design-system": "node scripts/check-no-hex-colors.mjs && node scripts/check-no-emoji-in-templates.mjs && node scripts/check-no-backdrop-filter.mjs && node scripts/check-z-index-tokens.mjs",
     "gen:bindings": "cargo run -p tracepilot-tauri-bindings --bin gen-bindings",
     "clean": "pnpm -r clean",
-    "prepare": "lefthook install || exit 0"
+    "hooks:install": "lefthook install"
   },
   "engines": {
-    "node": ">=22 <23",
-    "pnpm": ">=10 <11"
+    "node": ">=22.12 <23",
+    "pnpm": ">=10.34.5 <11"
   },
   "pnpm": {
     "overrides": {
@@ -60,9 +60,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
-    "@fontsource-variable/inter": "catalog:",
     "@playwright/cli": "0.1.19",
     "@playwright/test": "1.59.1",
+    "lefthook": "2.1.14",
     "playwright-core": "^1.58.2",
     "rimraf": "^6.1.3",
     "tsx": "catalog:",

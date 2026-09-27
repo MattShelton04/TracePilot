@@ -52,6 +52,9 @@ packages/ui/src/__vrt__/__screenshots__/**/*-diff.png
 
 # Agent planning artifacts
 .agent/
+# Generated dependency audit evidence belongs under .agent/dependency-audit/.
+/docs/dependencies/*-graph.json
+/docs/dependencies/measurements.json
 .jules/
 package-lock.json
 !scripts/visual/package-lock.json

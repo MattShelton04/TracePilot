@@ -72,13 +72,13 @@ vi.mock("@/composables/useBrowseDirectory", () => ({
 import { useSkillImportWizard } from "../useSkillImportWizard";
 
 interface WizardHandlers {
-  onImported: ReturnType<typeof vi.fn>;
-  onClose: ReturnType<typeof vi.fn>;
+  onImported: (result: SkillBatchImportResult) => void;
+  onClose: () => void;
 }
 
 function mountWizard(handlers?: Partial<WizardHandlers>) {
-  const onImported = handlers?.onImported ?? vi.fn();
-  const onClose = handlers?.onClose ?? vi.fn();
+  const onImported = handlers?.onImported ?? vi.fn<(result: SkillBatchImportResult) => void>();
+  const onClose = handlers?.onClose ?? vi.fn<() => void>();
   const TestHost = defineComponent({
     setup() {
       const wizard = useSkillImportWizard({ onImported, onClose });

@@ -26,13 +26,12 @@ serde_json = "1"
 serde_norway = "0.9.42"
 rusqlite = { version = "0.32", features = ["bundled", "trace", "backup"] }
 chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1", features = ["v4", "serde"] }
+uuid = { version = "1", features = ["v4"] }
 thiserror = "2"
-anyhow = "1"
-tokio = { version = "1", features = ["full"] }
+# Enable only the async APIs used by our consumers. Tauri also enables fs.
+tokio = { version = "1", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "sync", "time"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3"
-clap = { version = "4", features = ["derive"] }
 toml = "0.8"
 tempfile = "3"
 sha2 = "0.10"
@@ -69,7 +68,6 @@ tracepilot-core = { path = "crates/tracepilot-core" }
 tracepilot-indexer = { path = "crates/tracepilot-indexer" }
 tracepilot-export = { path = "crates/tracepilot-export" }
 tracepilot-orchestrator = { path = "crates/tracepilot-orchestrator" }
-tracepilot-test-support = { path = "crates/tracepilot-test-support" }
 
 [profile.release]
 lto = "thin"

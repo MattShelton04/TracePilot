@@ -3,6 +3,7 @@ name = "tracepilot-indexer"
 description = "Incremental session indexing, FTS5 sync, and file watching"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 [dependencies]
 tracepilot-core = { workspace = true }

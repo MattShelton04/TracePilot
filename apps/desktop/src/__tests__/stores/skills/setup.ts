@@ -7,9 +7,30 @@ import type {
   SkillUsageStats,
 } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, type Mock, vi } from "vitest";
 
 export { createDeferred } from "@tracepilot/test-utils";
+
+type FixtureMockNames =
+  | "skillsListAll"
+  | "skillsGetSkill"
+  | "skillsCreate"
+  | "skillsUpdate"
+  | "skillsUpdateRaw"
+  | "skillsDelete"
+  | "skillsRename"
+  | "skillsDuplicate"
+  | "skillsSetEnabled"
+  | "skillsListAssets"
+  | "skillsAddAsset"
+  | "skillsRemoveAsset"
+  | "skillsImportLocal"
+  | "skillsImportFile"
+  | "skillsImportGitHub"
+  | "skillsImportGitHubSkill"
+  | "skillsDiscoverRepos"
+  | "skillsUsageSummary"
+  | "logWarn";
 
 const hoistedMocks = vi.hoisted(() => ({
   skillsListAll: vi.fn(),
@@ -33,7 +54,7 @@ const hoistedMocks = vi.hoisted(() => ({
   logWarn: vi.fn(),
 }));
 
-export const mocks = hoistedMocks;
+export const mocks: Record<FixtureMockNames, Mock> = hoistedMocks;
 
 vi.mock("@tracepilot/client", () => ({
   skillsListAll: (...args: unknown[]) => hoistedMocks.skillsListAll(...args),

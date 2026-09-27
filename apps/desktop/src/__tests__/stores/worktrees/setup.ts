@@ -1,10 +1,27 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import type { RegisteredRepo, WorktreeInfo } from "@tracepilot/types";
 import { flushPromises } from "@vue/test-utils";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, type Mock, vi } from "vitest";
 
 export { createDeferred } from "@tracepilot/test-utils";
 export { flushPromises };
+
+type FixtureMockNames =
+  | "listWorktrees"
+  | "createWorktree"
+  | "removeWorktree"
+  | "pruneWorktrees"
+  | "listBranches"
+  | "getWorktreeDiskUsage"
+  | "lockWorktree"
+  | "unlockWorktree"
+  | "getWorktreeDetails"
+  | "listRegisteredRepos"
+  | "addRegisteredRepo"
+  | "removeRegisteredRepo"
+  | "discoverReposFromSessions"
+  | "toggleRepoFavourite"
+  | "logWarn";
 
 const hoistedMocks = vi.hoisted(() => ({
   listWorktrees: vi.fn(),
@@ -24,7 +41,7 @@ const hoistedMocks = vi.hoisted(() => ({
   logWarn: vi.fn(),
 }));
 
-export const mocks = hoistedMocks;
+export const mocks: Record<FixtureMockNames, Mock> = hoistedMocks;
 
 vi.mock("@tracepilot/client", () => ({
   listWorktrees: (...args: unknown[]) => hoistedMocks.listWorktrees(...args),

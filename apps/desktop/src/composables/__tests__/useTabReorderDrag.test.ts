@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { computed, effectScope, ref } from "vue";
 import { useTabReorderDrag } from "../useTabReorderDrag";
 
@@ -69,13 +69,13 @@ function makePointerEvent(
 }
 
 describe("useTabReorderDrag", () => {
-  let onReorder: ReturnType<typeof vi.fn>;
-  let onDragOut: ReturnType<typeof vi.fn>;
+  let onReorder: Mock<(fromIndex: number, toIndex: number) => void>;
+  let onDragOut: Mock<(sessionId: string) => void>;
   let scope: ReturnType<typeof effectScope>;
 
   beforeEach(() => {
-    onReorder = vi.fn();
-    onDragOut = vi.fn();
+    onReorder = vi.fn<(fromIndex: number, toIndex: number) => void>();
+    onDragOut = vi.fn<(sessionId: string) => void>();
     scope = effectScope();
   });
 

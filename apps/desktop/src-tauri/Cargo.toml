@@ -12,12 +12,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tracepilot-core = { workspace = true }
-tracepilot-indexer = { workspace = true }
 tracepilot-tauri-bindings = { path = "../../../crates/tracepilot-tauri-bindings" }
 tauri = { workspace = true }
-serde = { workspace = true }
+# Referenced by tauri::generate_context! even without a textual source import.
 serde_json = { workspace = true }
-tokio = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 tauri-plugin-log = { workspace = true }
 tauri-plugin-notification = { workspace = true }

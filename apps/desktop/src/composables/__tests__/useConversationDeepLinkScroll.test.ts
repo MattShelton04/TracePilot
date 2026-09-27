@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { type EffectScope, effectScope, ref } from "vue";
 import { useConversationDeepLinkScroll } from "../useConversationDeepLinkScroll";
 
@@ -29,7 +29,7 @@ class FakeIntersectionObserver {
 
 describe("useConversationDeepLinkScroll", () => {
   let root: HTMLElement;
-  let scrollSpy: ReturnType<typeof vi.fn>;
+  let scrollSpy: Mock<typeof Element.prototype.scrollIntoView>;
   let scope: EffectScope;
 
   beforeEach(() => {
@@ -41,7 +41,7 @@ describe("useConversationDeepLinkScroll", () => {
 
     root = document.createElement("div");
     document.body.appendChild(root);
-    scrollSpy = vi.fn();
+    scrollSpy = vi.fn<typeof Element.prototype.scrollIntoView>();
     Element.prototype.scrollIntoView = scrollSpy;
     scope = effectScope();
   });

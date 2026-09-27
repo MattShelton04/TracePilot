@@ -31,7 +31,12 @@ describe("formatTime", () => {
 
   it("constructs once per synchronous batch and refreshes after the next microtask", async () => {
     await Promise.resolve();
-    const dateTimeFormatSpy = vi.spyOn(Intl, "DateTimeFormat");
+    const realDateTimeFormat = Intl.DateTimeFormat;
+    const dateTimeFormatSpy = vi
+      .spyOn(Intl, "DateTimeFormat")
+      .mockImplementation(function DateTimeFormatSpy(locales, options) {
+        return new realDateTimeFormat(locales, options);
+      });
     try {
       formatTime("2026-01-01T00:00:00.000Z");
       formatTime("2026-01-01T00:00:01.000Z");

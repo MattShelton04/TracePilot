@@ -6,15 +6,16 @@ vi.mock("@/utils/logger", () => ({
   logWarn: vi.fn(),
 }));
 
-const mockPerformanceObserver = vi.fn();
 const mockDisconnect = vi.fn();
 const mockObserve = vi.fn();
+const mockPerformanceObserver = vi.fn(
+  class MockPerformanceObserver {
+    observe = mockObserve;
+    disconnect = mockDisconnect;
 
-mockPerformanceObserver.mockImplementation((callback) => ({
-  observe: mockObserve,
-  disconnect: mockDisconnect,
-  callback,
-}));
+    constructor(readonly callback: PerformanceObserverCallback) {}
+  },
+);
 
 vi.stubGlobal("PerformanceObserver", mockPerformanceObserver);
 
@@ -60,8 +61,11 @@ describe("longTaskObserver", () => {
     const list = { getEntries: () => entries };
 
     // Manually trigger the callback
-    const observerInstance = mockPerformanceObserver.mock.results[0].value;
-    observerInstance.callback(list);
+    const observerInstance = mockPerformanceObserver.mock.instances[0]!;
+    observerInstance.callback(
+      list as PerformanceObserverEntryList,
+      observerInstance as unknown as PerformanceObserver,
+    );
 
     expect(loggerSpy).toHaveBeenCalledOnce();
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining("[perf] Long task"));
@@ -74,8 +78,11 @@ describe("longTaskObserver", () => {
     const entries = [{ duration: 40, name: "test", startTime: 100 }];
     const list = { getEntries: () => entries };
 
-    const observerInstance = mockPerformanceObserver.mock.results[0].value;
-    observerInstance.callback(list);
+    const observerInstance = mockPerformanceObserver.mock.instances[0]!;
+    observerInstance.callback(
+      list as PerformanceObserverEntryList,
+      observerInstance as unknown as PerformanceObserver,
+    );
 
     expect(loggerSpy).not.toHaveBeenCalled();
   });
