@@ -6,7 +6,6 @@
 
 import {
   checkConfigExists,
-  factoryReset,
   getConfig,
   saveConfig,
   type TracePilotConfigPatch,
@@ -59,7 +58,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
   // Hydration gate — prevents reactive watches from persisting default values
   // to disk before the real config has been loaded from the backend.
   let hydrated = false;
-  let resetting = false;
 
   // Last-known full backend config so preference changes can be merged back
   // without clobbering paths/version fields.
@@ -163,55 +161,20 @@ export const usePreferencesStore = defineStore("preferences", () => {
     };
   }
 
-  // ── Debounced persist to backend ───────────────────────────
-  let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  const persistence = createPreferencePersistence(buildConfig, (config) => {
-    backendConfig = config;
-    applyConfig(config);
-  });
-
-  function scheduleSave() {
-    if (!hydrated || resetting) return;
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      saveTimer = null;
-      try {
-        await persistence.save();
-      } catch (e) {
-        logWarn("[preferences] Failed to persist config:", e);
-      }
-    }, 300);
-  }
-
-  onScopeDispose(() => {
-    if (saveTimer) clearTimeout(saveTimer);
-    persistence.dispose();
-  });
+  // ── Backend persistence lifecycle ─────────────────────────
+  const persistence = createPreferencePersistence(
+    buildConfig,
+    (config) => {
+      backendConfig = config;
+      applyConfig(config);
+    },
+    () => hydrated,
+  );
+  onScopeDispose(persistence.dispose);
 
   async function updateConfigFields(patch: TracePilotConfigPatch) {
     await hydratePromise;
-    if (resetting) throw new Error("Preferences cannot be changed during factory reset.");
     return persistence.save(patch);
-  }
-
-  async function resetConfig() {
-    if (resetting) throw new Error("Factory reset is already in progress.");
-    // Close the write boundary before yielding: debounce callbacks and other
-    // settings actions must not enqueue stale preferences behind the reset.
-    resetting = true;
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = null;
-    try {
-      // Initial hydration may still be saving a legacy full configuration.
-      await hydrationWork;
-      await persistence.drain();
-      await factoryReset();
-      // Stay suspended until the caller reloads into first-run setup.
-    } catch (error) {
-      resetting = false;
-      scheduleSave();
-      throw error;
-    }
   }
 
   // ── Hydrate from backend on store creation ─────────────────
@@ -222,7 +185,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
   let hydrationWork: Promise<void> | null = null;
 
   function hydrate(): Promise<void> {
-    if (resetting) return Promise.resolve();
+    if (persistence.isResetting()) return Promise.resolve();
     hydrationWork ??= hydrateFromBackend().finally(() => {
       hydrationWork = null;
     });
@@ -310,7 +273,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       ui.sessionCacheSize,
       ...Object.values(live),
     ],
-    scheduleSave,
+    persistence.scheduleSave,
     { deep: true },
   );
 
@@ -327,6 +290,6 @@ export const usePreferencesStore = defineStore("preferences", () => {
      *  This arms the auto-save watcher so subsequent preference changes persist. */
     hydrate,
     updateConfigFields,
-    resetConfig,
+    resetConfig: () => persistence.resetConfig(hydrationWork),
   };
 });

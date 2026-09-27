@@ -1,5 +1,6 @@
-import { type TracePilotConfigPatch, updateConfig } from "@tracepilot/client";
+import { factoryReset, type TracePilotConfigPatch, updateConfig } from "@tracepilot/client";
 import type { TracePilotConfig } from "@tracepilot/types";
+import { logWarn } from "@/utils/logger";
 
 type ConfigSection = Exclude<keyof TracePilotConfig, "version">;
 
@@ -31,14 +32,17 @@ function merge(config: TracePilotConfig, patch: TracePilotConfigPatch): TracePil
   return merged;
 }
 
-/** Serializes writes and preserves edits made while a write is pending. */
+/** Owns autosave, ordered writes, and the reset boundary around pending work. */
 export function createPreferencePersistence(
   read: () => TracePilotConfig,
   apply: (config: TracePilotConfig) => void,
+  isHydrated: () => boolean,
 ) {
   let persisted = snapshot(read());
   let queue: Promise<unknown> = Promise.resolve();
   let disposed = false;
+  let resetting = false;
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   function accept(config: TracePilotConfig) {
     apply(config);
@@ -47,6 +51,9 @@ export function createPreferencePersistence(
   }
 
   function save(explicit: TracePilotConfigPatch = {}): Promise<TracePilotConfig> {
+    if (resetting) {
+      return Promise.reject(new Error("Preferences cannot be changed during factory reset."));
+    }
     const operation = queue.then(async () => {
       const before = snapshot(read());
       if (disposed) return before;
@@ -64,13 +71,52 @@ export function createPreferencePersistence(
     return operation;
   }
 
+  function cancelScheduledSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+
+  function scheduleSave() {
+    if (!isHydrated() || resetting || disposed) return;
+    cancelScheduledSave();
+    saveTimer = setTimeout(async () => {
+      saveTimer = null;
+      try {
+        await save();
+      } catch (error) {
+        logWarn("[preferences] Failed to persist config:", error);
+      }
+    }, 300);
+  }
+
+  async function resetConfig(hydrationWork: Promise<void> | null) {
+    if (resetting) throw new Error("Factory reset is already in progress.");
+    // Close the write boundary before yielding. Already accepted writes drain;
+    // new settings actions and debounce callbacks cannot run behind the reset.
+    resetting = true;
+    cancelScheduledSave();
+    try {
+      // Hydration may still be saving a legacy full configuration.
+      await hydrationWork;
+      await queue;
+      await factoryReset();
+      // Stay suspended until the caller reloads into first-run setup.
+    } catch (error) {
+      resetting = false;
+      scheduleSave();
+      throw error;
+    }
+  }
+
   return {
     accept,
     save,
-    /** Finish every save already accepted before a destructive operation. */
-    drain: () => queue,
+    scheduleSave,
+    resetConfig,
+    isResetting: () => resetting,
     dispose: () => {
       disposed = true;
+      cancelScheduledSave();
     },
   };
 }
