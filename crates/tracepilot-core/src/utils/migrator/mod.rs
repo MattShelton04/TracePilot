@@ -117,12 +117,8 @@ pub fn run_migrations(
             continue;
         }
 
-        let backup_path = if do_backup {
-            let path = backup_path_for(
-                db_path.expect("db_path is Some when do_backup is true"),
-                migration.version,
-                opts.backup_dir.as_deref(),
-            );
+        let backup_path = if let Some(db_path) = db_path.filter(|_| opts.backup) {
+            let path = backup_path_for(db_path, migration.version, opts.backup_dir.as_deref());
             write_backup(conn, &path).map_err(|err| map_backup_err(migration.version, err))?;
             Some(path)
         } else {

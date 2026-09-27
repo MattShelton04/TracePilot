@@ -16,6 +16,7 @@ pub mod diagnostics;
 pub mod events;
 pub mod rewind_snapshots;
 pub mod session_db;
+pub mod snapshot;
 pub mod workspace;
 
 /// File name for the JSONL event log.

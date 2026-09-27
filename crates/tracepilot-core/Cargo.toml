@@ -27,3 +27,6 @@ specta = { workspace = true, optional = true }
 tempfile = { workspace = true }
 filetime = "0.2"
 tracepilot-test-support = { path = "../tracepilot-test-support" }
+
+[lints]
+workspace = true

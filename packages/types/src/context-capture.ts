@@ -64,28 +64,8 @@ export interface StartBenchmarkCaptureRequest {
   save: boolean;
 }
 
-export type CaptureStage =
-  | "preflight"
-  | "copyingSession"
-  | "preparingEnvironment"
-  | "startingListener"
-  | "resumingClone"
-  | "waitingForRequest"
-  | "parsingSnapshot"
-  | "savingSnapshot"
-  | "cleaningUp"
-  | "complete"
-  | "cancelled";
-
-export interface CaptureProgress {
-  captureId: string;
-  sessionId: string;
-  stage: CaptureStage;
-  message: string;
-  bytesCopied?: number | null;
-  totalBytes?: number | null;
-  cancellable: boolean;
-}
+// Capture progress is emitted directly from the Rust contract.
+export type { CaptureProgress, CaptureStage } from "./generated/contracts.js";
 
 export interface FidelityManifest {
   profile: string;

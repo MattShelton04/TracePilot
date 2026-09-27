@@ -1,34 +1,11 @@
-use super::dismissed::dismissed_defaults_path;
+use super::dismissed::dismissed_defaults_path_in;
 use super::*;
 use crate::types::SessionTemplate;
 use tempfile::TempDir;
 
-fn with_temp_home<F: FnOnce()>(f: F) {
-    let _guard = crate::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+fn with_temp_home<F: FnOnce(&std::path::Path)>(f: F) {
     let tmp = TempDir::new().unwrap();
-    // Create .copilot so copilot_home() succeeds
-    std::fs::create_dir_all(tmp.path().join(".copilot")).unwrap();
-    let old = std::env::var("HOME").ok();
-    let old_userprofile = std::env::var("USERPROFILE").ok();
-    // SAFETY: Environment mutation is serialized across the entire crate via
-    // crate::TEST_ENV_LOCK, matching the Rust 2024 requirements for set_var/remove_var.
-    unsafe {
-        std::env::set_var("HOME", tmp.path());
-        std::env::set_var("USERPROFILE", tmp.path());
-    }
-    f();
-    unsafe {
-        match old {
-            Some(v) => std::env::set_var("HOME", v),
-            None => std::env::remove_var("HOME"),
-        }
-        match old_userprofile {
-            Some(v) => std::env::set_var("USERPROFILE", v),
-            None => std::env::remove_var("USERPROFILE"),
-        }
-    }
+    f(tmp.path());
 }
 
 #[test]
@@ -115,41 +92,41 @@ fn test_template_deserialization_without_icon() {
 
 #[test]
 fn test_dismiss_and_restore_default_template() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         // All defaults should appear initially
-        let all = all_templates().unwrap();
+        let all = all_templates_in(home).unwrap();
         assert_eq!(all.len(), 2);
 
         // Dismiss one
-        dismiss_default_template("default-write-tests").unwrap();
-        let all = all_templates().unwrap();
+        dismiss_default_template_in(home, "default-write-tests").unwrap();
+        let all = all_templates_in(home).unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].id, "default-multi-agent-review");
 
         // Restore it
-        restore_default_template("default-write-tests").unwrap();
-        let all = all_templates().unwrap();
+        restore_default_template_in(home, "default-write-tests").unwrap();
+        let all = all_templates_in(home).unwrap();
         assert_eq!(all.len(), 2);
     });
 }
 
 #[test]
 fn test_dismiss_nondefault_fails() {
-    with_temp_home(|| {
-        let result = dismiss_default_template("nonexistent");
+    with_temp_home(|home| {
+        let result = dismiss_default_template_in(home, "nonexistent");
         assert!(result.is_err());
     });
 }
 
 #[test]
 fn test_delete_default_template_dismisses_it() {
-    with_temp_home(|| {
-        let all_before = all_templates().unwrap();
+    with_temp_home(|home| {
+        let all_before = all_templates_in(home).unwrap();
         assert_eq!(all_before.len(), 2);
 
         // delete_template on a default should dismiss it, not error
-        delete_template("default-write-tests").unwrap();
-        let all_after = all_templates().unwrap();
+        delete_template_in(home, "default-write-tests").unwrap();
+        let all_after = all_templates_in(home).unwrap();
         assert_eq!(all_after.len(), 1);
         assert!(!all_after.iter().any(|t| t.id == "default-write-tests"));
     });
@@ -157,7 +134,7 @@ fn test_delete_default_template_dismisses_it() {
 
 #[test]
 fn test_save_and_list_user_template() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         let template = SessionTemplate {
             id: "user-custom-1".into(),
             name: "Custom Template".into(),
@@ -185,8 +162,8 @@ fn test_save_and_list_user_template() {
             usage_count: 0,
         };
 
-        save_template(&template).unwrap();
-        let all = all_templates().unwrap();
+        save_template_in(home, &template).unwrap();
+        let all = all_templates_in(home).unwrap();
         // 2 defaults + 1 user
         assert_eq!(all.len(), 3);
         assert!(all.iter().any(|t| t.id == "user-custom-1"));
@@ -195,34 +172,34 @@ fn test_save_and_list_user_template() {
 
 #[test]
 fn test_restore_all_default_templates() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         // Dismiss both defaults
-        dismiss_default_template("default-multi-agent-review").unwrap();
-        dismiss_default_template("default-write-tests").unwrap();
-        assert_eq!(all_templates().unwrap().len(), 0);
-        assert!(has_dismissed_defaults());
+        dismiss_default_template_in(home, "default-multi-agent-review").unwrap();
+        dismiss_default_template_in(home, "default-write-tests").unwrap();
+        assert_eq!(all_templates_in(home).unwrap().len(), 0);
+        assert!(has_dismissed_defaults_in(home));
 
         // Restore all at once
-        restore_all_default_templates().unwrap();
-        assert_eq!(all_templates().unwrap().len(), 2);
-        assert!(!has_dismissed_defaults());
+        restore_all_default_templates_in(home).unwrap();
+        assert_eq!(all_templates_in(home).unwrap().len(), 2);
+        assert!(!has_dismissed_defaults_in(home));
     });
 }
 
 #[test]
 fn test_has_dismissed_defaults() {
-    with_temp_home(|| {
-        assert!(!has_dismissed_defaults());
-        dismiss_default_template("default-write-tests").unwrap();
-        assert!(has_dismissed_defaults());
-        restore_default_template("default-write-tests").unwrap();
-        assert!(!has_dismissed_defaults());
+    with_temp_home(|home| {
+        assert!(!has_dismissed_defaults_in(home));
+        dismiss_default_template_in(home, "default-write-tests").unwrap();
+        assert!(has_dismissed_defaults_in(home));
+        restore_default_template_in(home, "default-write-tests").unwrap();
+        assert!(!has_dismissed_defaults_in(home));
     });
 }
 
 #[test]
 fn test_reserved_id_rejected_on_save() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         let template = SessionTemplate {
             id: "dismissed_defaults".into(),
             name: "Sneaky".into(),
@@ -249,15 +226,15 @@ fn test_reserved_id_rejected_on_save() {
             created_at: "2025-01-01T00:00:00Z".into(),
             usage_count: 0,
         };
-        let result = save_template(&template);
+        let result = save_template_in(home, &template);
         assert!(result.is_err());
     });
 }
 
 #[test]
 fn test_reserved_id_rejected_on_delete() {
-    with_temp_home(|| {
-        let result = delete_template("dismissed_defaults");
+    with_temp_home(|home| {
+        let result = delete_template_in(home, "dismissed_defaults");
         assert!(result.is_err());
     });
 }
@@ -276,9 +253,9 @@ fn test_default_templates_have_prompts() {
 
 #[test]
 fn test_increment_usage_default_template() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         // Default templates start with usage_count 0
-        let all = all_templates().unwrap();
+        let all = all_templates_in(home).unwrap();
         let review = all
             .iter()
             .find(|t| t.id == "default-multi-agent-review")
@@ -286,8 +263,8 @@ fn test_increment_usage_default_template() {
         assert_eq!(review.usage_count, 0);
 
         // Increment creates a user override file
-        increment_usage("default-multi-agent-review").unwrap();
-        let all = all_templates().unwrap();
+        increment_usage_in(home, "default-multi-agent-review").unwrap();
+        let all = all_templates_in(home).unwrap();
         let review = all
             .iter()
             .find(|t| t.id == "default-multi-agent-review")
@@ -295,8 +272,8 @@ fn test_increment_usage_default_template() {
         assert_eq!(review.usage_count, 1);
 
         // Second increment reads from the file
-        increment_usage("default-multi-agent-review").unwrap();
-        let all = all_templates().unwrap();
+        increment_usage_in(home, "default-multi-agent-review").unwrap();
+        let all = all_templates_in(home).unwrap();
         let review = all
             .iter()
             .find(|t| t.id == "default-multi-agent-review")
@@ -307,21 +284,21 @@ fn test_increment_usage_default_template() {
 
 #[test]
 fn test_increment_usage_nonexistent_fails() {
-    with_temp_home(|| {
-        let result = increment_usage("nonexistent-template");
+    with_temp_home(|home| {
+        let result = increment_usage_in(home, "nonexistent-template");
         assert!(result.is_err());
     });
 }
 
 #[test]
 fn test_corrupted_dismissed_defaults_returns_all_templates() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         // Write corrupted JSON to dismissed_defaults.json
-        let path = dismissed_defaults_path().unwrap();
+        let path = dismissed_defaults_path_in(home).unwrap();
         std::fs::write(&path, b"{invalid json}").unwrap();
 
         // Should log warning and return all default templates (empty dismissed list)
-        let all = all_templates().unwrap();
+        let all = all_templates_in(home).unwrap();
         assert_eq!(
             all.len(),
             2,
@@ -334,37 +311,37 @@ fn test_corrupted_dismissed_defaults_returns_all_templates() {
 
 #[test]
 fn test_corrupted_dismissed_defaults_has_dismissed_returns_false() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         // Write corrupted JSON
-        let path = dismissed_defaults_path().unwrap();
+        let path = dismissed_defaults_path_in(home).unwrap();
         std::fs::write(&path, b"not valid json").unwrap();
 
         // Should return false (treats as no dismissed templates)
-        assert!(!has_dismissed_defaults());
+        assert!(!has_dismissed_defaults_in(home));
     });
 }
 
 #[test]
 fn test_empty_dismissed_defaults_file() {
-    with_temp_home(|| {
+    with_temp_home(|home| {
         // Write empty string (not valid JSON array)
-        let path = dismissed_defaults_path().unwrap();
+        let path = dismissed_defaults_path_in(home).unwrap();
         std::fs::write(&path, b"").unwrap();
 
         // Should log warning and return all templates
-        let all = all_templates().unwrap();
+        let all = all_templates_in(home).unwrap();
         assert_eq!(all.len(), 2);
     });
 }
 
 #[test]
 fn test_dismissed_defaults_wrong_json_type() {
-    with_temp_home(|| {
-        let path = dismissed_defaults_path().unwrap();
+    with_temp_home(|home| {
+        let path = dismissed_defaults_path_in(home).unwrap();
 
         // Test object instead of array
         std::fs::write(&path, b"{\"key\": \"value\"}").unwrap();
-        let all = all_templates().unwrap();
+        let all = all_templates_in(home).unwrap();
         assert_eq!(
             all.len(),
             2,
@@ -373,7 +350,7 @@ fn test_dismissed_defaults_wrong_json_type() {
 
         // Test string instead of array
         std::fs::write(&path, b"\"just a string\"").unwrap();
-        let all = all_templates().unwrap();
+        let all = all_templates_in(home).unwrap();
         assert_eq!(
             all.len(),
             2,
@@ -382,7 +359,7 @@ fn test_dismissed_defaults_wrong_json_type() {
 
         // Test number instead of array
         std::fs::write(&path, b"42").unwrap();
-        let all = all_templates().unwrap();
+        let all = all_templates_in(home).unwrap();
         assert_eq!(
             all.len(),
             2,

@@ -114,6 +114,12 @@ pub trait InfallibleWrite {
     fn push_line(&mut self, args: std::fmt::Arguments<'_>);
 }
 
+// String's fmt::Write implementation cannot fail. A failing Display formatter
+// violates fmt's contract unless the underlying writer itself returned an error.
+#[allow(
+    clippy::expect_used,
+    reason = "String writes are infallible under the fmt::Display contract"
+)]
 impl InfallibleWrite for String {
     fn push_fmt(&mut self, args: std::fmt::Arguments<'_>) {
         use std::fmt::Write;

@@ -64,6 +64,8 @@ fn pricing_source_label(source: &PricingSourceData) -> String {
     format!("{} (verified {})", source.label, source.verified_at)
 }
 
+// Embedded, versioned pricing is validated by the pricing contract tests.
+#[allow(clippy::expect_used)]
 fn pricing_data() -> PricingDataFile {
     serde_json::from_str(PRICING_DATA_JSON).expect("embedded pricing-data.json should parse")
 }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::defaults::{default_alert_cooldown, default_alert_scope, default_true};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AlertsConfig {
     /// Master switch for the alerting system.

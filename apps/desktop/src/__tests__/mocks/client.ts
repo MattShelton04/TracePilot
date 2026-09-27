@@ -39,8 +39,15 @@ export function createClientMock(overrides: ClientExports = {}): ClientExports {
 
   const base: ClientExports = {
     checkConfigExists: vi.fn().mockResolvedValue(true),
-    getConfig: vi.fn().mockResolvedValue(defaultConfig),
+    getConfig: vi.fn(async () => defaultConfig),
     saveConfig: vi.fn().mockResolvedValue(undefined),
+    updateConfig: vi.fn(async (patch: ClientModule.TracePilotConfigPatch) => {
+      const next = { ...defaultConfig };
+      for (const section of Object.keys(patch) as (keyof typeof patch)[]) {
+        Object.assign(next, { [section]: { ...next[section], ...patch[section] } });
+      }
+      return next;
+    }),
     contextCaptureStorageStats: vi.fn().mockResolvedValue({ captureCount: 0, totalBytes: 0 }),
     contextCaptureDeleteAll: vi.fn().mockResolvedValue(0),
     IPC_EVENTS,

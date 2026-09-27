@@ -7,6 +7,13 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
+// Every caller supplies a checked-in literal; malformed patterns are a programmer
+// error and must not silently disable redaction. Tests exercise every category.
+#[allow(clippy::expect_used)]
+fn static_regex(pattern: &'static str) -> Regex {
+    Regex::new(pattern).expect("checked-in redaction pattern must compile")
+}
+
 /// A single redaction pattern with its replacement strategy.
 #[derive(Debug)]
 pub struct RedactionPattern {
@@ -18,13 +25,13 @@ pub struct RedactionPattern {
 // ── Path Patterns ───────────────────────────────────────────────────────────
 
 static WINDOWS_PATH: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"[A-Za-z]:\\(?:[^\s\\/:*?"<>|]+\\)*[^\s\\/:*?"<>|]*"#).unwrap());
+    Lazy::new(|| static_regex(r#"[A-Za-z]:\\(?:[^\s\\/:*?"<>|]+\\)*[^\s\\/:*?"<>|]*"#));
 
 static UNIX_HOME_PATH: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"(?:/home/|/Users/)[^\s:,;)}\]"']+"#).unwrap());
+    Lazy::new(|| static_regex(r#"(?:/home/|/Users/)[^\s:,;)}\]"']+"#));
 
 static UNIX_ABS_PATH: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"/(?:usr|var|etc|opt|tmp|srv|mnt)/[^\s:,;)}\]"']+"#).unwrap());
+    Lazy::new(|| static_regex(r#"/(?:usr|var|etc|opt|tmp|srv|mnt)/[^\s:,;)}\]"']+"#));
 
 /// Patterns that match filesystem paths.
 pub static PATH_PATTERNS: &[RedactionPattern] = &[
@@ -48,23 +55,28 @@ pub static PATH_PATTERNS: &[RedactionPattern] = &[
 // ── Secret Patterns ─────────────────────────────────────────────────────────
 
 static GENERIC_API_KEY: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?i)(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?key)\s*[:=]\s*["']?([A-Za-z0-9+/=_\-]{16,})["']?"#).unwrap()
+    static_regex(
+        r#"(?i)(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?key)\s*[:=]\s*["']?([A-Za-z0-9+/=_\-]{16,})["']?"#,
+    )
 });
 
-static BEARER_TOKEN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?i)Bearer\s+[A-Za-z0-9._\-]{20,}").unwrap());
+static BEARER_TOKEN: Lazy<Regex> = Lazy::new(|| static_regex(r"(?i)Bearer\s+[A-Za-z0-9._\-]{20,}"));
 
 static GITHUB_TOKEN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?:ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{30,}").unwrap());
+    Lazy::new(|| static_regex(r"(?:ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{30,}"));
 
-static AWS_KEY: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:AKIA|ASIA)[A-Z0-9]{16}").unwrap());
+static AWS_KEY: Lazy<Regex> = Lazy::new(|| static_regex(r"(?:AKIA|ASIA)[A-Z0-9]{16}"));
 
 static GENERIC_SECRET_ASSIGN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?i)(?:password|passwd|secret|token|credential|private[_-]?key)\s*[:=]\s*["']?([^\s"']{8,})["']?"#).unwrap()
+    static_regex(
+        r#"(?i)(?:password|passwd|secret|token|credential|private[_-]?key)\s*[:=]\s*["']?([^\s"']{8,})["']?"#,
+    )
 });
 
 static ENV_VAR_ASSIGN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?i)(?:export\s+|set\s+)?(?:API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE_KEY|ACCESS_KEY|AUTH)[A-Z_]*\s*=\s*(?:"[^"]*"|'[^']*'|\S+)"#).unwrap()
+    static_regex(
+        r#"(?i)(?:export\s+|set\s+)?(?:API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE_KEY|ACCESS_KEY|AUTH)[A-Z_]*\s*=\s*(?:"[^"]*"|'[^']*'|\S+)"#,
+    )
 });
 
 /// Patterns that match secrets, tokens, API keys, and credentials.
@@ -104,11 +116,10 @@ pub static SECRET_PATTERNS: &[RedactionPattern] = &[
 // ── PII Patterns ────────────────────────────────────────────────────────────
 
 static EMAIL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}").unwrap());
+    Lazy::new(|| static_regex(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"));
 
 static IPV4: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b")
-        .unwrap()
+    static_regex(r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b")
 });
 
 /// Patterns that match personally identifiable information.

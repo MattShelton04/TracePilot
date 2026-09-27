@@ -1,4 +1,4 @@
-import { checkConfigExists, getConfig, saveConfig } from "@tracepilot/client";
+import { checkConfigExists, getConfig } from "@tracepilot/client";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { registerNotificationClickHandler } from "@/composables/useAlertDispatcher";
@@ -69,9 +69,7 @@ export function useBootstrapPhase() {
   async function onIndexingComplete() {
     // Mark setup as fully complete so interrupted indexing won't restart setup
     try {
-      const cfg = await getConfig();
-      cfg.general.setupComplete = true;
-      await saveConfig(cfg);
+      await prefsStore.updateConfigFields({ general: { setupComplete: true } });
     } catch (e) {
       logError("[app] Failed to save setupComplete flag:", e);
     }

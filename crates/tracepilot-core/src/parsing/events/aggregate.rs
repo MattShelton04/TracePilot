@@ -118,11 +118,7 @@ fn combine_shutdown_data(
             let mut last_resume: Option<&DateTime<Utc>> = None;
             while let Some(&&rt) = resume_iter.peek().as_ref() {
                 if ts.is_none_or(|shutdown_ts| *rt <= shutdown_ts) {
-                    last_resume = Some(
-                        resume_iter
-                            .next()
-                            .expect("BUG: peek() confirmed element exists"),
-                    );
+                    last_resume = resume_iter.next();
                 } else {
                     break;
                 }

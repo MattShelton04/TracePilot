@@ -1,3 +1,10 @@
+// Fixtures and diagnostic executables fail fast on invalid setup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
 //! Durable, deterministic TracePilot performance corpus generator and service probe.
 //!
 //! The probe measures Rust service functions directly. It does not include the

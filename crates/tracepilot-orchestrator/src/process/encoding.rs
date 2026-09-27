@@ -7,6 +7,8 @@
 
 /// Encode a PowerShell command string as Base64 UTF-16LE for use with
 /// `-EncodedCommand`. This bypasses all command-line escaping issues.
+// Vec<u8> writes cannot fail, and Base64 output is ASCII by construction.
+#[allow(clippy::expect_used)]
 #[cfg(windows)]
 pub fn encode_powershell_command(cmd: &str) -> String {
     use std::io::Write;

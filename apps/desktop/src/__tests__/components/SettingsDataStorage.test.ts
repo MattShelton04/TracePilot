@@ -6,11 +6,12 @@ import { nextTick } from "vue";
 import SettingsDataStorage from "@/components/settings/SettingsDataStorage.vue";
 
 const mocks = vi.hoisted(() => ({
+  checkConfigExists: vi.fn(),
   browseForDirectory: vi.fn(),
   getConfig: vi.fn(),
   getDbSize: vi.fn(),
   getSessionCount: vi.fn(),
-  saveConfig: vi.fn(),
+  updateConfig: vi.fn(),
   validateSessionDir: vi.fn(),
   rebuildSearchIndex: vi.fn(),
   reindexSessionsFull: vi.fn(),
@@ -29,10 +30,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../mocks/client");
   return createClientMock({
+    checkConfigExists: mocks.checkConfigExists,
     getConfig: mocks.getConfig,
     getDbSize: mocks.getDbSize,
     getSessionCount: mocks.getSessionCount,
-    saveConfig: mocks.saveConfig,
+    updateConfig: mocks.updateConfig,
     validateSessionDir: mocks.validateSessionDir,
     rebuildSearchIndex: mocks.rebuildSearchIndex,
     reindexSessionsFull: mocks.reindexSessionsFull,
@@ -148,10 +150,14 @@ describe("SettingsDataStorage", () => {
   beforeEach(() => {
     setupPinia();
     vi.resetAllMocks();
+    mocks.checkConfigExists.mockResolvedValue(true);
     mocks.getConfig.mockImplementation(() => Promise.resolve(config()));
     mocks.getDbSize.mockResolvedValue(1024);
     mocks.getSessionCount.mockResolvedValue(12);
-    mocks.saveConfig.mockResolvedValue(undefined);
+    mocks.updateConfig.mockImplementation(async (patch) => ({
+      ...config(),
+      paths: { ...config().paths, ...patch.paths },
+    }));
     mocks.validateSessionDir.mockResolvedValue({ valid: true, sessionCount: 12 });
     mocks.contextCaptureStorageStats.mockResolvedValue({ captureCount: 3, totalBytes: 1024 });
     mocks.contextCaptureDeleteAll.mockResolvedValue(3);
@@ -192,7 +198,7 @@ describe("SettingsDataStorage", () => {
     await browseButtons[1].trigger("click");
     await flushPromises();
 
-    expect(mocks.saveConfig).not.toHaveBeenCalled();
+    expect(mocks.updateConfig).not.toHaveBeenCalled();
     expect((wrapper.findAll("input")[1].element as HTMLInputElement).value).toBe(
       "D:\\TracePilotData",
     );
@@ -203,24 +209,21 @@ describe("SettingsDataStorage", () => {
       ?.trigger("click");
     await flushPromises();
 
-    expect(mocks.saveConfig).toHaveBeenCalledOnce();
-    expect(mocks.saveConfig.mock.calls[0][0].paths).toMatchObject({
+    expect(mocks.updateConfig).toHaveBeenCalledOnce();
+    expect(mocks.updateConfig.mock.calls[0][0].paths).toMatchObject({
       tracepilotHome: "D:\\TracePilotData",
       indexDbPath: "D:\\TracePilotData\\index.db",
-      sessionStateDir: "C:\\Users\\me\\.copilot\\session-state",
     });
     expect(mocks.toast.success).toHaveBeenCalledWith("Path settings saved");
   });
 
-  it("locks maintenance through delayed path validation, config read and save, using the validated snapshot", async () => {
+  it("locks maintenance through delayed path validation and save, using the validated snapshot", async () => {
     const wrapper = mount(SettingsDataStorage);
     await flushPromises();
     const validation = deferred<{ valid: boolean; sessionCount: number }>();
-    const configRead = deferred<ReturnType<typeof config>>();
-    const save = deferred<void>();
+    const save = deferred<ReturnType<typeof config>>();
     mocks.validateSessionDir.mockReturnValueOnce(validation.promise);
-    mocks.getConfig.mockReturnValueOnce(configRead.promise);
-    mocks.saveConfig.mockReturnValueOnce(save.promise);
+    mocks.updateConfig.mockReturnValueOnce(save.promise);
     await wrapper.findAll("input")[0].setValue("D:\\AuditCopilot");
     const apply = action(wrapper, "Apply path changes");
     apply.vm.$emit("click");
@@ -248,18 +251,19 @@ describe("SettingsDataStorage", () => {
     wrapper
       .findAllComponents({ name: "FormInput" })[1]
       .vm.$emit("update:modelValue", "D:\\OtherData");
-    configRead.resolve(config());
     await flushPromises();
-    expect(mocks.saveConfig).toHaveBeenCalledOnce();
-    expect(mocks.saveConfig.mock.calls[0][0].paths).toEqual({
-      ...config().paths,
+    expect(mocks.updateConfig).toHaveBeenCalledOnce();
+    expect(mocks.updateConfig.mock.calls[0][0].paths).toEqual({
       copilotHome: "D:\\AuditCopilot",
       sessionStateDir: "D:\\AuditCopilot\\session-state",
     });
     expectBusy(wrapper);
     action(wrapper, "Rebuild").vm.$emit("click");
     expect(mocks.reindexSessionsFull).not.toHaveBeenCalled();
-    save.resolve();
+    save.resolve({
+      ...config(),
+      paths: { ...config().paths, ...mocks.updateConfig.mock.calls[0][0].paths },
+    });
     await flushPromises();
     expect(action(wrapper, "Apply path changes").props("disabled")).toBe(false);
     await action(wrapper, "Rebuild").trigger("click");
@@ -290,12 +294,12 @@ describe("SettingsDataStorage", () => {
       kind === "analytics" ? mocks.rebuildSearchIndex : mocks.reindexSessionsFull,
     ).not.toHaveBeenCalled();
     expect(mocks.validateSessionDir).not.toHaveBeenCalled();
-    expect(mocks.saveConfig).not.toHaveBeenCalled();
+    expect(mocks.updateConfig).not.toHaveBeenCalled();
     rebuild.resolve([74, 0]);
     await flushPromises();
     await action(wrapper, "Apply path changes").trigger("click");
     await flushPromises();
-    expect(mocks.saveConfig).toHaveBeenCalledOnce();
+    expect(mocks.updateConfig).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -308,7 +312,7 @@ describe("SettingsDataStorage", () => {
     if (failure === "validation") {
       mocks.validateSessionDir.mockResolvedValueOnce({ valid: false, error: "Folder not found" });
     } else {
-      mocks.saveConfig.mockRejectedValueOnce(new Error("Cannot write config"));
+      mocks.updateConfig.mockRejectedValueOnce(new Error("Cannot write config"));
     }
     await action(wrapper, "Apply path changes").trigger("click");
     await flushPromises();
@@ -384,7 +388,7 @@ describe("SettingsDataStorage", () => {
     await flushPromises();
     expect(action(wrapper, "Browse…").props("disabled")).toBe(false);
     expect(action(wrapper, "Rebuild").props("disabled")).toBe(false);
-    expect(mocks.saveConfig).not.toHaveBeenCalled();
+    expect(mocks.updateConfig).not.toHaveBeenCalled();
   });
 
   it.each([

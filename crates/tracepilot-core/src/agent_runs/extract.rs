@@ -312,25 +312,24 @@ fn count_messages(runs: &mut [AgentRun], turns: &[ConversationTurn]) {
 /// For each run, the most siblings (same launching agent) active at once
 /// during its lifetime, itself included.
 fn compute_peak_siblings(runs: &mut [AgentRun]) {
-    let mut groups: HashMap<Option<String>, Vec<usize>> = HashMap::new();
+    let mut groups: HashMap<Option<String>, Vec<(usize, DateTime<Utc>)>> = HashMap::new();
     for (index, run) in runs.iter().enumerate() {
-        if run.started_at.is_some() {
+        if let Some(start) = run.started_at {
             groups
                 .entry(run.parent_run_key.clone())
                 .or_default()
-                .push(index);
+                .push((index, start));
         }
     }
     for members in groups.values() {
-        let interval = |index: usize| -> (DateTime<Utc>, DateTime<Utc>) {
+        let interval = |index: usize, start: DateTime<Utc>| -> (DateTime<Utc>, DateTime<Utc>) {
             let run = &runs[index];
-            let start = run.started_at.expect("grouped runs have a start");
             // Zero-length or unfinished runs occupy their start instant only.
             let end = run.ended_at.filter(|end| *end > start);
             (start, end.unwrap_or(start + Duration::milliseconds(1)))
         };
-        let mut starts: Vec<DateTime<Utc>> = members.iter().map(|&i| interval(i).0).collect();
-        let mut ends: Vec<DateTime<Utc>> = members.iter().map(|&i| interval(i).1).collect();
+        let (mut starts, mut ends): (Vec<_>, Vec<_>) =
+            members.iter().map(|&(i, start)| interval(i, start)).unzip();
         starts.sort_unstable();
         ends.sort_unstable();
         let active_at = |point: DateTime<Utc>| {
@@ -338,8 +337,8 @@ fn compute_peak_siblings(runs: &mut [AgentRun]) {
         };
         let peaks: Vec<(usize, u32)> = members
             .iter()
-            .map(|&index| {
-                let (start, end) = interval(index);
+            .map(|&(index, start)| {
+                let (start, end) = interval(index, start);
                 let first = starts.partition_point(|s| *s < start);
                 let last = starts.partition_point(|s| *s < end);
                 let peak = starts[first..last]

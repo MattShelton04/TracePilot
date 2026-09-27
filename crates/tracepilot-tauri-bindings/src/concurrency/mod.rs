@@ -184,6 +184,8 @@ impl Drop for InitialBuildGuard {
     }
 }
 
+// Gates are privately owned and never closed; a closed gate is a programming error.
+#[allow(clippy::expect_used)]
 async fn wait_traced(gate: &'static str, sem: &Arc<Semaphore>) -> OwnedSemaphorePermit {
     let permit = sem
         .clone()

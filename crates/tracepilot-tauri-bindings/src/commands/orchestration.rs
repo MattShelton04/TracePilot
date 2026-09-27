@@ -244,8 +244,7 @@ pub async fn launch_session(
     config: tracepilot_orchestrator::LaunchConfig,
 ) -> CmdResult<tracepilot_orchestrator::LaunchedSession> {
     if config.launch_mode == tracepilot_orchestrator::LaunchMode::Sdk || config.headless {
-        let mut mgr = bridge.write().await;
-        return tracepilot_orchestrator::launcher::launch_sdk_session(&config, &mut mgr)
+        return tracepilot_orchestrator::launcher::launch_sdk_session(&config, &bridge)
             .await
             .map_err(Into::into);
     }

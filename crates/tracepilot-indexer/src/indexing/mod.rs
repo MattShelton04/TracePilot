@@ -3,6 +3,9 @@
 
 use std::path::PathBuf;
 
+mod batches;
+mod search_prepare;
+
 pub mod progress;
 pub mod reindex;
 pub mod search;

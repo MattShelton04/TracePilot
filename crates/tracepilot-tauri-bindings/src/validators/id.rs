@@ -18,7 +18,7 @@ use super::rules::truncate_for_display;
 /// Returns a [`SessionId`] newtype on success so downstream callers can
 /// carry a type-level proof that validation has occurred.
 pub(crate) fn validate_session_id(session_id: &str) -> CmdResult<SessionId> {
-    uuid::Uuid::parse_str(session_id).map_err(|_| {
+    uuid::Uuid::parse_str(session_id).map_err(|_invalid_uuid| {
         BindingsError::Validation(format!(
             "Invalid session ID format: expected UUID, got '{}'",
             truncate_for_display(session_id, 64)

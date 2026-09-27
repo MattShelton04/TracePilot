@@ -39,7 +39,7 @@ pub struct StartBenchmarkCaptureRequest {
     pub save: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum CaptureStage {
     Preflight,
@@ -55,14 +55,16 @@ pub enum CaptureStage {
     Cancelled,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptureProgress {
     pub capture_id: String,
     pub session_id: String,
     pub stage: CaptureStage,
     pub message: String,
+    #[specta(type = Option<f64>)]
     pub bytes_copied: Option<u64>,
+    #[specta(type = Option<f64>)]
     pub total_bytes: Option<u64>,
     pub cancellable: bool,
 }

@@ -27,6 +27,7 @@ pub(crate) struct PreparedSessionData {
     pub summary: tracepilot_core::SessionSummary,
     pub analytics: SessionAnalytics,
     pub index_info: SessionIndexInfo,
+    pub fingerprint: tracepilot_core::summary::SessionFingerprint,
 }
 
 /// Parse and compute analytics for a session without any database interaction.
@@ -34,12 +35,13 @@ pub(crate) struct PreparedSessionData {
 /// This is the CPU/IO-bound portion of indexing that can be safely parallelized
 /// with Rayon since it only reads files and runs pure computation.
 pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessionData> {
-    let load_result = tracepilot_core::summary::load_session_summary_with_events(session_path)?;
+    let (load_result, fingerprint) =
+        tracepilot_core::summary::load_session_snapshot(session_path, &|| false)?;
     let summary = load_result.summary;
     let typed_events = load_result.typed_events;
     let diagnostics = load_result.diagnostics;
 
-    let file_meta = SessionFileMeta::from_session_path(session_path);
+    let file_meta = SessionFileMeta::from_fingerprint(&fingerprint);
 
     let analytics = extract_session_analytics(
         &summary,
@@ -63,6 +65,7 @@ pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessio
         summary,
         analytics,
         index_info,
+        fingerprint,
     })
 }
 
@@ -81,6 +84,12 @@ impl IndexDb {
         &self,
         prepared: &PreparedSessionData,
     ) -> Result<SessionIndexInfo> {
+        tracepilot_core::parsing::snapshot::ensure_unchanged(
+            &prepared.fingerprint,
+            &tracepilot_core::summary::SessionFingerprint::read(&prepared.session_path)?,
+            &prepared.session_path,
+        )?;
+        let source_fingerprint = serde_json::to_string(&prepared.fingerprint)?;
         let summary = &prepared.summary;
         let analytics = &prepared.analytics;
         let session_path = &prepared.session_path;
@@ -111,12 +120,12 @@ impl IndexDb {
                     events_mtime, events_size, analytics_version,
                     error_count, rate_limit_count, compaction_count, truncation_count,
                     total_compaction_input_tokens, total_compaction_output_tokens,
-                    indexed_at
+                    source_fingerprint, indexed_at
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
                     ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
                     ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30,
-                    ?31,
+                    ?31, ?32,
                     datetime('now')
                 )
                 ON CONFLICT(id) DO UPDATE SET
@@ -140,6 +149,7 @@ impl IndexDb {
                     truncation_count=excluded.truncation_count,
                     total_compaction_input_tokens=excluded.total_compaction_input_tokens,
                     total_compaction_output_tokens=excluded.total_compaction_output_tokens,
+                    source_fingerprint=excluded.source_fingerprint,
                     indexed_at=excluded.indexed_at",
                 params![
                     summary.id,
@@ -173,6 +183,7 @@ impl IndexDb {
                     analytics.truncation_count,
                     analytics.total_compaction_input,
                     analytics.total_compaction_output,
+                    source_fingerprint,
                 ],
             )?;
 
@@ -212,65 +223,26 @@ impl IndexDb {
     /// Accepts a validated [`SessionId`] so callers cannot accidentally pass a
     /// task/job ID or some other opaque string.
     pub fn needs_reindex(&self, session_id: &SessionId, session_path: &Path) -> bool {
-        let session_id = session_id.as_str();
-        let current_ws_mtime = get_workspace_mtime(session_path);
-        let current_events = get_events_mtime_and_size(session_path);
-
-        let stored: Option<super::types::StalenessRow> = self
-            .conn
+        let Ok(current) = tracepilot_core::summary::SessionFingerprint::read(session_path) else {
+            return true;
+        };
+        let Ok(current) = serde_json::to_string(&current) else {
+            return true;
+        };
+        self.conn
             .query_row(
-                "SELECT workspace_mtime, events_mtime, events_size, analytics_version
-                 FROM sessions WHERE id = ?1",
-                [session_id],
+                "SELECT source_fingerprint, analytics_version FROM sessions WHERE id = ?1",
+                [session_id.as_str()],
                 |row| {
                     Ok((
                         row.get::<_, Option<String>>(0)?,
-                        row.get::<_, Option<String>>(1)?,
-                        row.get::<_, Option<i64>>(2)?,
-                        row.get::<_, Option<i64>>(3)?,
+                        row.get::<_, Option<i64>>(1)?,
                     ))
                 },
             )
-            .ok();
-
-        let Some((stored_ws_mtime, stored_ev_mtime, stored_ev_size, stored_av)) = stored else {
-            tracing::debug!(session_id, "needs_reindex: not in DB");
-            return true;
-        };
-
-        if stored_av.unwrap_or(0) < CURRENT_ANALYTICS_VERSION {
-            tracing::debug!(
-                session_id,
-                stored = stored_av.unwrap_or(0),
-                current = CURRENT_ANALYTICS_VERSION,
-                "needs_reindex: analytics_version"
-            );
-            return true;
-        }
-
-        if stored_ws_mtime.as_deref() != current_ws_mtime.as_deref() {
-            tracing::debug!(session_id, "needs_reindex: workspace_mtime changed");
-            return true;
-        }
-
-        match (&current_events, &stored_ev_mtime) {
-            (Some((cur_mtime, cur_size)), Some(st_mtime)) => {
-                if cur_mtime != st_mtime || Some(*cur_size as i64) != stored_ev_size {
-                    tracing::debug!(session_id, "needs_reindex: events file changed");
-                    return true;
-                }
-            }
-            (Some(_), None) => {
-                tracing::debug!(session_id, "needs_reindex: events exist but not stored");
-                return true;
-            }
-            (None, Some(_)) => {
-                tracing::debug!(session_id, "needs_reindex: events gone");
-                return true;
-            }
-            (None, None) => {}
-        }
-
-        false
+            .map_or(true, |(source, version)| {
+                source.as_deref() != Some(current.as_str())
+                    || version.unwrap_or(0) < CURRENT_ANALYTICS_VERSION
+            })
     }
 }

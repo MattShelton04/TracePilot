@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::sync::mpsc;
+use tokio::sync::{Notify, mpsc};
 
 /// Result returned by `session.send`.
 pub(super) const FAKE_MESSAGE_ID: &str = "message-1";
@@ -33,6 +33,7 @@ struct Script {
 pub(super) struct FakeCli {
     script: Arc<Mutex<Script>>,
     outbound: mpsc::UnboundedSender<Value>,
+    received: Arc<Notify>,
 }
 
 impl FakeCli {
@@ -57,6 +58,8 @@ impl FakeCli {
             }
         });
 
+        let received = Arc::new(Notify::new());
+        let reader_received = Arc::clone(&received);
         let reader_script = Arc::clone(&script);
         let responder = outbound.clone();
         tokio::spawn(async move {
@@ -75,6 +78,7 @@ impl FakeCli {
                 let reply = {
                     let mut script = reader_script.lock().unwrap();
                     script.calls.push((method.clone(), params.clone()));
+                    reader_received.notify_one();
                     if script.stalled.contains(&method) {
                         continue;
                     }
@@ -107,7 +111,25 @@ impl FakeCli {
 
         let client = Client::from_streams(client_read, client_write, PathBuf::from("."))
             .expect("client from in-memory streams");
-        (client, FakeCli { script, outbound })
+        (
+            client,
+            FakeCli {
+                script,
+                outbound,
+                received,
+            },
+        )
+    }
+
+    /// Wait until the peer has actually received a request (no timing sleeps).
+    pub(super) async fn wait_for(&self, method: &str) {
+        loop {
+            let received = self.received.notified();
+            if self.methods().iter().any(|m| m == method) {
+                return;
+            }
+            received.await;
+        }
     }
 
     /// Every request received so far, as `(method, params)`.
@@ -199,6 +221,10 @@ fn canned_result(method: &str, params: &Value) -> Value {
         "session.resume" | "session.create" => json!({
             "sessionId": params.get("sessionId").cloned().unwrap_or(json!("fake-created")),
         }),
+        "auth.getStatus" => json!({ "isAuthenticated": true }),
+        "models.list" => json!({ "models": [] }),
+        "account.getQuota" => json!({ "quotaSnapshots": {} }),
+        "status.get" => json!({ "version": "fake", "protocolVersion": 3 }),
         "session.detach" => json!({ "success": true }),
         "session.send" => json!({ "messageId": FAKE_MESSAGE_ID }),
         "session.getForeground" => json!({ "sessionId": null }),

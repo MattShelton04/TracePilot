@@ -35,10 +35,10 @@ pub(super) fn copy_environment_context(source_home: &Path, destination_home: &Pa
                     entry.path().display()
                 )));
             }
-            let relative = entry.path().strip_prefix(source_home).map_err(|_| {
-                OrchestratorError::ContextCapture(
-                    "Configured context path escaped the Copilot home.".into(),
-                )
+            let relative = entry.path().strip_prefix(source_home).map_err(|error| {
+                OrchestratorError::ContextCapture(format!(
+                    "Configured context path escaped the Copilot home: {error}"
+                ))
             })?;
             let destination = destination_home.join(relative);
             if metadata.is_dir() {
@@ -143,10 +143,10 @@ pub(super) fn fingerprint_context_tree(root: &Path, seed: &str) -> Result<String
         if !entry.file_type().is_file() {
             continue;
         }
-        let relative = entry.path().strip_prefix(root).map_err(|_| {
-            OrchestratorError::ContextCapture(
-                "Configured context fingerprint path escaped its root.".into(),
-            )
+        let relative = entry.path().strip_prefix(root).map_err(|error| {
+            OrchestratorError::ContextCapture(format!(
+                "Configured context fingerprint path escaped its root: {error}"
+            ))
         })?;
         hasher.update(relative.to_string_lossy().as_bytes());
         let mut file = std::fs::File::open(entry.path())?;

@@ -1,3 +1,10 @@
+// Fixtures and diagnostic executables fail fast on invalid setup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
 use std::path::PathBuf;
 use tracepilot_core::models::conversation::{ConversationTurn, TurnToolCall};
 use tracepilot_core::parsing::events::{TypedEvent, TypedEventData, parse_typed_events};

@@ -1,130 +1,47 @@
-// ─── Configuration Types ──────────────────────────────────────────
-// Application configuration shape (persisted in config.toml), model
-// pricing entries, session directory validation, update checks, git
-// metadata, and release manifest entries.
-//
-// Note: default values for these types live in `defaults.ts`.
-
+// Configuration wire fields are generated from Rust. Keep only UI domain
+// refinements here; changing a backend field regenerates the shared roster.
+import type {
+  TracePilotConfig_Serialize as WireConfig,
+  ModelPriceEntry_Serialize as WireModelPriceEntry,
+  TracePilotConfigPatch_Deserialize as WirePatch,
+} from "./generated/contracts.js";
 import type { PricingKind, PricingProvider, PricingStatus } from "./pricing.js";
 
-/** Per-model pricing entry persisted in local settings. Defaults mirror the shipped registry; user edits override it locally. */
-export interface ModelPriceEntry {
-  model: string;
+type NonNullFields<T> = { [K in keyof T]: NonNullable<T[K]> };
+type ConfigSections = {
+  [K in keyof WireConfig]-?: Required<NonNullFields<NonNullable<WireConfig[K]>>>;
+};
+
+/** Pricing controls expose the supported domain choices over the Rust wire fields. */
+export type ModelPriceEntry = Omit<
+  NonNullFields<WireModelPriceEntry>,
+  "pricingTier" | "source" | "pricingKind" | "status"
+> & {
   pricingTier?: "default" | "long-context";
-  minimumInputTokens?: number;
-  aliases?: string[];
-  inputPerM: number;
-  cachedInputPerM: number;
-  cacheWritePerM?: number;
-  outputPerM: number;
-  reasoningPerM?: number;
-  /** Premium request multiplier (e.g. 1x, 3x, 0.33x). 0 = free tier. */
-  premiumRequests: number;
-  /** Optional provenance for display. Local settings entries are applied as direct-API/provider rates. */
   source?: PricingProvider;
   pricingKind?: PricingKind;
-  effectiveFrom?: string;
-  effectiveTo?: string;
-  sourceLabel?: string;
-  sourceUrl?: string;
   status?: PricingStatus;
-}
+};
 
-/** TracePilot application configuration — persisted in config.toml */
-export interface TracePilotConfig {
-  version: number;
-  paths: {
-    /** Copilot CLI home directory. Defaults to ~/.copilot. */
-    copilotHome: string;
-    /** TracePilot-owned data directory. Defaults to {copilotHome}/tracepilot. */
-    tracepilotHome: string;
-    /** Derived compatibility field: {copilotHome}/session-state. */
-    sessionStateDir: string;
-    /** Derived compatibility field: {tracepilotHome}/index.db. */
-    indexDbPath: string;
-  };
-  general: {
-    autoIndexOnLaunch: boolean;
-    cliCommand: string;
-    /** True once the first full indexing run completes. If false, setup restarts. */
-    setupComplete: boolean;
-  };
-  ui: {
-    theme: string;
-    hideEmptySessions: boolean;
-    autoRefreshEnabled: boolean;
-    autoRefreshIntervalSeconds: number;
-    checkForUpdates: boolean;
-    favouriteModels: string[];
-    recentRepoPaths: string[];
-    /** Max width for page content area in px. 0 = full width (no cap). Default: 1200. */
-    contentMaxWidth: number;
-    /** Global UI scale factor (0.8 – 1.3). Default: 1.0. */
-    uiScale: number;
-  };
-  pricing: {
-    costPerPremiumRequest: number;
+/** Normalized application settings returned by the backend, persisted in config.toml. */
+export type TracePilotConfig = Omit<ConfigSections, "pricing" | "alerts"> & {
+  pricing: Omit<ConfigSections["pricing"], "models" | "removedModels"> & {
     models: ModelPriceEntry[];
-    /** Bundled model pricing intentionally removed by the user. */
     removedModels?: string[];
   };
-  toolRendering: {
-    enabled: boolean;
-    toolOverrides: Record<string, boolean>;
-  };
-  features: {
-    exportView: boolean;
-    sessionReplay: boolean;
-    renderMarkdown: boolean;
-    mcpServers: boolean;
-    skills: boolean;
-    copilotSdk: boolean;
-    exactContextCapture: boolean;
-    configInjector: boolean;
-    promptCacheInsights: boolean;
-    agents: boolean;
-  };
-  logging: {
-    level: string;
-  };
-  alerts: {
-    /** Master switch for the alerting system. */
-    enabled: boolean;
-    /** Which sessions to monitor: 'monitored' = open tabs/views only, 'all' = all running. */
-    scope: "monitored" | "all";
-    /** Show native OS toast notifications. */
-    nativeNotifications: boolean;
-    /** Flash the taskbar icon when an alert fires. */
-    taskbarFlash: boolean;
-    /** Play a sound when an alert fires. */
-    soundEnabled: boolean;
-    /** Alert when a session agent finishes (completes or errors out). */
-    onSessionEnd: boolean;
-    /** Alert when a session prompts the user via ask_user. */
-    onAskUser: boolean;
-    /** Alert when a session encounters an error. */
-    onSessionError: boolean;
-    /** Minimum seconds between alerts for the same session to prevent spam. */
-    cooldownSeconds: number;
-  };
-  performance: {
-    /**
-     * Maximum recent sessions retained by each navigation cache.
-     * Higher values trade additional memory retention for faster revisits.
-     */
-    sessionCacheSize: number;
-  };
-  /** Live session preferences (Copilot SDK live attach). */
-  live: {
-    /**
-     * Attach automatically when a session view opens on a session running in
-     * an attachable (`--ui-server`) terminal.
-     */
-    autoAttach: boolean;
-    /** Start terminals TracePilot launches or resumes with `--ui-server`. */
-    launchAttachable: boolean;
-  };
-}
+  alerts: Omit<ConfigSections["alerts"], "scope"> & { scope: "monitored" | "all" };
+};
+
+/** Only supplied fields change; arrays and maps replace as a whole. */
+export type TracePilotConfigPatch = Omit<
+  {
+    [K in keyof WirePatch]?: NonNullFields<NonNullable<WirePatch[K]>>;
+  },
+  "pricing" | "alerts"
+> & {
+  pricing?: Partial<TracePilotConfig["pricing"]>;
+  alerts?: Partial<TracePilotConfig["alerts"]>;
+};
 
 /** A single entry in the release manifest used by the What's New modal. */
 export interface ReleaseManifestEntry {

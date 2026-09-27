@@ -10,10 +10,11 @@
 //! The SDK is the official `github-copilot-sdk` crate (ADR-0015), driven
 //! against the user's installed CLI; client construction lives in
 //! [`sdk_client`]. The struct definition, constructor, and small
-//! accessor/helper methods live here; lifecycle, session steering, client
-//! queries, and the `--ui-server` helpers are each in their own submodule. Every submodule
-//! contributes an `impl BridgeManager` block so the public API remains a single
-//! flat surface from the caller's point of view.
+//! accessor/helper methods live here. [`SharedBridgeManager`] owns lifecycle
+//! operations: reserve handles under a short lock, perform bounded I/O outside
+//! it, then publish only while the originating lifecycle is still current.
+//! Steering and query methods return owned futures; callers release their
+//! read guard before awaiting them.
 
 use super::live_state::{LiveStateStore, SessionLiveState, SessionRuntimeStatus};
 use super::{BridgeConnectionState, BridgeError, BridgeEvent, BridgeStatus, ConnectionMode};
@@ -27,9 +28,13 @@ mod attach;
 mod forwarder;
 mod lifecycle;
 mod queries;
+mod requests;
 pub(crate) mod sdk_client;
 mod session_model;
 mod session_tasks;
+mod shared;
+mod shared_attach;
+mod shared_sessions;
 mod ui_server;
 
 #[cfg(test)]
@@ -45,14 +50,38 @@ mod live_state_tests;
 #[cfg(test)]
 mod preference_tests;
 #[cfg(test)]
+mod request_tests;
+#[cfg(test)]
 mod session_tasks_tests;
 #[cfg(test)]
 mod tests;
 
+pub use shared_attach::AttachmentSnapshot;
 pub use ui_server::{launch_ui_server, stop_ui_server};
 
-/// Shared bridge manager type for Tauri state.
-pub type SharedBridgeManager = Arc<RwLock<BridgeManager>>;
+/// Runtime bridge handle. Clones share state and lifecycle cancellation.
+#[derive(Clone)]
+pub struct SharedBridgeManager {
+    state: Arc<RwLock<BridgeManager>>,
+    teardown: Arc<tokio::sync::Mutex<()>>,
+}
+
+impl SharedBridgeManager {
+    pub fn new(manager: BridgeManager) -> Self {
+        Self {
+            state: Arc::new(RwLock::new(manager)),
+            teardown: Arc::new(tokio::sync::Mutex::new(())),
+        }
+    }
+
+    pub async fn read(&self) -> tokio::sync::RwLockReadGuard<'_, BridgeManager> {
+        self.state.read().await
+    }
+
+    pub async fn write(&self) -> tokio::sync::RwLockWriteGuard<'_, BridgeManager> {
+        self.state.write().await
+    }
+}
 
 /// Cumulative metrics for the bridge broadcast channels.
 ///
@@ -147,6 +176,10 @@ pub struct BridgeManager {
     pub(super) copilot_home_reader: Option<CopilotHomeReader>,
 
     pub(super) client: Option<github_copilot_sdk::Client>,
+    connection_scope: requests::RequestScope,
+    attachment_scope: requests::RequestScope,
+    session_scopes: HashMap<String, requests::RequestScope>,
+    gates: HashMap<shared::GateKey, std::sync::Weak<tokio::sync::Mutex<()>>>,
     pub(super) sessions: HashMap<String, Arc<SdkSession>>,
     pub(super) event_tasks: HashMap<String, tokio::task::JoinHandle<()>>,
     /// Live attach clients keyed by endpoint address (`127.0.0.1:<port>`),
@@ -186,6 +219,10 @@ impl BridgeManager {
             pref_reader: None,
             copilot_home_reader: None,
             client: None,
+            connection_scope: requests::RequestScope::default(),
+            attachment_scope: requests::RequestScope::default(),
+            session_scopes: HashMap::new(),
+            gates: HashMap::new(),
             sessions: HashMap::new(),
             event_tasks: HashMap::new(),
             endpoints: HashMap::new(),

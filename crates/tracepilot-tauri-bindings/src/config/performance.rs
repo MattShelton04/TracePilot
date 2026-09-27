@@ -14,11 +14,12 @@ fn default_session_cache_size() -> usize {
     DEFAULT_SESSION_CACHE_SIZE
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PerformanceConfig {
     /// Maximum recent sessions retained by each navigation cache.
     #[serde(default = "default_session_cache_size")]
+    #[specta(type = f64)]
     pub session_cache_size: usize,
 }
 

@@ -1,6 +1,6 @@
 //! Typed event deserialization — turns [`RawEvent`] envelopes into [`TypedEvent`]s.
 
-use super::raw::parse_events_jsonl;
+use super::raw::visit_events_jsonl;
 use crate::error::Result;
 use crate::models::event_types::{
     AbortData, AssistantMessageData, AssistantReasoningData, CompactionCompleteData,
@@ -404,14 +404,17 @@ pub(crate) fn typed_data_from_raw(
 /// (unknown event types, deserialization failures, malformed line counts).
 #[tracing::instrument(skip_all, fields(path = %path.display()))]
 pub fn parse_typed_events(path: &Path) -> Result<ParsedEvents> {
-    let (raw_events, malformed) = parse_events_jsonl(path)?;
-    let mut diagnostics = ParseDiagnostics {
-        malformed_lines: malformed,
-        ..Default::default()
-    };
-    let mut events = Vec::with_capacity(raw_events.len());
+    parse_typed_events_cancellable(path, &|| false)
+}
 
-    for raw in raw_events {
+/// Parse with cancellation checkpoints during buffered reads and conversion.
+pub fn parse_typed_events_cancellable(
+    path: &Path,
+    is_cancelled: &impl Fn() -> bool,
+) -> Result<ParsedEvents> {
+    let mut diagnostics = ParseDiagnostics::default();
+    let mut events = Vec::new();
+    let malformed = visit_events_jsonl(path, is_cancelled, |raw| {
         let event_type = SessionEventType::parse_wire(raw.event_type.as_str());
         let (typed_data, warning) = typed_data_from_raw(&event_type, &raw.data);
 
@@ -430,8 +433,9 @@ pub fn parse_typed_events(path: &Path) -> Result<ParsedEvents> {
             event_type,
             typed_data,
         });
-    }
+    })?;
 
+    diagnostics.malformed_lines = malformed;
     diagnostics.log_summary();
     Ok(ParsedEvents {
         events,

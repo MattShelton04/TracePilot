@@ -1,3 +1,5 @@
+// Assertions in tests should fail immediately on invalid fixtures.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! Build script for `tracepilot-tauri-bindings`.
 //!
 //! The sole purpose of this script is to embed a Windows application

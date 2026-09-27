@@ -71,6 +71,7 @@
       "!docs/theme-prototypes",
       "!**/gen/schemas",
       "!packages/client/src/generated",
+      "!packages/types/src/generated",
       "!apps/desktop/src/components/search/search-palette-results.css"
     ]
   },

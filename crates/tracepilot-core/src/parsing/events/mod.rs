@@ -25,6 +25,9 @@
 mod aggregate;
 mod raw;
 mod session_model;
+mod snapshot;
+#[cfg(test)]
+mod snapshot_tests;
 #[cfg(test)]
 mod tests;
 mod typed;
@@ -33,8 +36,10 @@ mod types;
 pub use aggregate::{extract_combined_shutdown_data, extract_session_start};
 pub use raw::{RawEvent, events_to_jsonl};
 pub use session_model::{AUTO_MODEL, SessionModelTracker, current_session_model, is_auto_model};
+pub use snapshot::{EventSnapshot, load_event_snapshot};
 pub use typed::{
-    ParsedEvents, TypedEvent, TypedEventData, parse_typed_events, parse_typed_events_if_exists,
+    ParsedEvents, TypedEvent, TypedEventData, parse_typed_events, parse_typed_events_cancellable,
+    parse_typed_events_if_exists,
 };
 
 #[cfg(test)]

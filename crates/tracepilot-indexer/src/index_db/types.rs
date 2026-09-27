@@ -81,9 +81,6 @@ pub struct IndexedIncident {
 
 // ── Internal types used by the session writer ─────────────────────────
 
-/// Row shape returned by `needs_reindex` / `needs_search_reindex` staleness queries.
-pub(super) type StalenessRow = (Option<String>, Option<String>, Option<i64>, Option<i64>);
-
 /// Named row for per-model metrics.
 pub(crate) struct ModelMetricsRow {
     pub model: String,
@@ -224,43 +221,20 @@ pub(crate) struct SessionAnalytics {
     pub skill_invocations: Vec<tracepilot_core::skill_invocations::SkillInvocation>,
 }
 
-/// Return value from `IndexDb::get_file_metadata`.
+/// File metadata from the successfully parsed session snapshot.
 pub(crate) struct SessionFileMeta {
     pub workspace_mtime: Option<String>,
     pub events_mtime: Option<String>,
     pub events_size: Option<i64>,
 }
 
-/// Build file metadata for a session path.
+/// Reuse the snapshot identity; never sample newer metadata after parsing.
 impl SessionFileMeta {
-    pub fn from_session_path(session_path: &std::path::Path) -> Self {
-        let workspace_mtime = get_workspace_mtime(session_path);
-        let events_meta = get_events_mtime_and_size(session_path);
-        let events_mtime = events_meta.as_ref().map(|(m, _)| m.clone());
-        let events_size = events_meta.map(|(_, s)| s as i64);
+    pub fn from_fingerprint(source: &tracepilot_core::summary::SessionFingerprint) -> Self {
         Self {
-            workspace_mtime,
-            events_mtime,
-            events_size,
+            workspace_mtime: source.workspace.as_ref().map(|file| file.mtime()),
+            events_mtime: source.events.as_ref().map(|file| file.mtime()),
+            events_size: source.events.as_ref().map(|file| file.size as i64),
         }
     }
-}
-
-pub(super) fn get_workspace_mtime(session_path: &std::path::Path) -> Option<String> {
-    let ws_path = tracepilot_core::paths::SessionPaths::from_root(session_path).workspace_yaml();
-    std::fs::metadata(&ws_path)
-        .ok()
-        .and_then(|m| m.modified().ok())
-        .map(|t| {
-            let dt: chrono::DateTime<chrono::Utc> = t.into();
-            dt.to_rfc3339()
-        })
-}
-
-pub(super) fn get_events_mtime_and_size(session_path: &std::path::Path) -> Option<(String, u64)> {
-    let ev_path = tracepilot_core::paths::SessionPaths::from_root(session_path).events_jsonl();
-    let meta = std::fs::metadata(&ev_path).ok()?;
-    let mtime = meta.modified().ok()?;
-    let dt: chrono::DateTime<chrono::Utc> = mtime.into();
-    Some((dt.to_rfc3339(), meta.len()))
 }

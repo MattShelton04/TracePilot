@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::defaults::default_true;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FeaturesConfig {
     #[serde(default)]

@@ -87,16 +87,17 @@ where
     // Re-preparing the same 100-row statement inside the loop is a major bottleneck
     // when writing thousands of rows. Caching it here bypasses `sqlite3_prepare_v2`
     // for everything except the final partial chunk.
-    let mut full_stmt_cache: Option<rusqlite::Statement<'_>> = None;
+    let mut full_stmt_cache = if items.len() >= BATCH_CHUNK_SIZE {
+        let sql = build_placeholder_sql(sql_prefix, BATCH_CHUNK_SIZE, params_per_row);
+        Some(conn.prepare(&sql)?)
+    } else {
+        None
+    };
 
     for chunk in items.chunks(BATCH_CHUNK_SIZE) {
-        if chunk.len() == BATCH_CHUNK_SIZE {
-            if full_stmt_cache.is_none() {
-                let sql = build_placeholder_sql(sql_prefix, BATCH_CHUNK_SIZE, params_per_row);
-                full_stmt_cache = Some(conn.prepare(&sql)?);
-            }
-            let stmt = full_stmt_cache.as_mut().unwrap();
-
+        if chunk.len() == BATCH_CHUNK_SIZE
+            && let Some(stmt) = full_stmt_cache.as_mut()
+        {
             let mut params: Vec<&'a dyn ToSql> = Vec::with_capacity(chunk.len() * params_per_row);
             for item in chunk {
                 to_params(item, &mut params);

@@ -110,10 +110,7 @@ fn parse_iso_date(date_str: &str, param_name: &str) -> CmdResult<chrono::DateTim
 
     // Fall back to date-only YYYY-MM-DD (frontend sends this format)
     if let Ok(nd) = chrono::NaiveDate::parse_from_str(trimmed, "%Y-%m-%d") {
-        return Ok(nd
-            .and_hms_opt(0, 0, 0)
-            .expect("midnight is always valid")
-            .and_utc());
+        return Ok(nd.and_time(chrono::NaiveTime::MIN).and_utc());
     }
 
     Err(BindingsError::Validation(format!(

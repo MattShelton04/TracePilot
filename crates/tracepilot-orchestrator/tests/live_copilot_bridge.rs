@@ -1,3 +1,10 @@
+// Fixtures and diagnostic executables fail fast on invalid setup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
 //! Opt-in smoke tests that drive `BridgeManager` against a **real** Copilot
 //! CLI (ADR-0015). They are `#[ignore]`d and additionally gated on
 //! environment variables, so `cargo test` never spawns a CLI or talks to a
@@ -22,6 +29,7 @@
 //! ```
 
 use std::time::Duration;
+use tracepilot_orchestrator::bridge::manager::SharedBridgeManager;
 use tracepilot_orchestrator::bridge::{
     BridgeConnectConfig, BridgeConnectionState, BridgeManager, BridgeMessagePayload,
 };
@@ -37,7 +45,8 @@ async fn stdio_bridge_reports_cli_status_auth_and_models() {
         eprintln!("TRACEPILOT_LIVE_STDIO not set; skipping");
         return;
     }
-    let (mut mgr, _events, _status) = BridgeManager::new();
+    let (mgr, _events, _status) = BridgeManager::new();
+    let mgr = SharedBridgeManager::new(mgr);
     mgr.connect(BridgeConnectConfig {
         cli_url: None,
         cwd: None,
@@ -46,7 +55,10 @@ async fn stdio_bridge_reports_cli_status_auth_and_models() {
     })
     .await
     .expect("stdio connect");
-    assert_eq!(mgr.connection_state(), BridgeConnectionState::Connected);
+    assert_eq!(
+        mgr.read().await.connection_state(),
+        BridgeConnectionState::Connected
+    );
 
     let status = mgr.get_cli_status().await.expect("cli status");
     eprintln!(
@@ -71,7 +83,7 @@ async fn stdio_bridge_reports_cli_status_auth_and_models() {
         Err(e) => eprintln!("quota unavailable: {e}"),
     }
 
-    tokio::time::timeout(Duration::from_secs(15), mgr.disconnect())
+    tokio::time::timeout(Duration::from_secs(15), mgr.disconnect(false))
         .await
         .expect("disconnect within 15s")
         .expect("disconnect ok");
@@ -84,7 +96,8 @@ async fn attach_to_ui_server_foreground_session_and_observe() {
         eprintln!("TRACEPILOT_LIVE_CLI_URL not set; skipping");
         return;
     };
-    let (mut mgr, mut events, _status) = BridgeManager::new();
+    let (mgr, mut events, _status) = BridgeManager::new();
+    let mgr = SharedBridgeManager::new(mgr);
     mgr.connect(BridgeConnectConfig {
         cli_url: Some(cli_url),
         cwd: None,
@@ -139,12 +152,16 @@ async fn attach_to_ui_server_foreground_session_and_observe() {
                 "expected {expected} in {seen:?}"
             );
         }
-        let live = mgr.get_session_state(&session_id).expect("live state");
+        let live = mgr
+            .read()
+            .await
+            .get_session_state(&session_id)
+            .expect("live state");
         eprintln!("live status: {:?}", live.status);
     }
 
     mgr.destroy_session(&session_id)
         .await
         .expect("detach from session");
-    mgr.disconnect().await.expect("disconnect");
+    mgr.disconnect(false).await.expect("disconnect");
 }

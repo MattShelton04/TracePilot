@@ -173,7 +173,7 @@ pub async fn reindex_sessions_full(
 ) -> CmdResult<(usize, usize)> {
     let permit = gates
         .try_acquire_sessions()
-        .map_err(|_| BindingsError::AlreadyIndexing)?;
+        .map_err(|_busy| BindingsError::AlreadyIndexing)?;
     // A background search pass may still be writing to the database we are
     // about to delete: stop it and hold its gate until the rebuild is done.
     let search_permit = gates.cancel_and_acquire_search().await;
@@ -238,7 +238,7 @@ pub async fn rebuild_search_index(
     }
     let permit = gates
         .try_acquire_search()
-        .map_err(|_| BindingsError::AlreadyIndexing)?;
+        .map_err(|_busy| BindingsError::AlreadyIndexing)?;
 
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();

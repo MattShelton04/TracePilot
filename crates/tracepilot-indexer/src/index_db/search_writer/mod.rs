@@ -25,6 +25,7 @@ use super::IndexDb;
 // Re-export the public extraction function so external callers
 // (e.g. lib.rs) can continue using `search_writer::extract_search_content`.
 pub use content_extraction::extract_search_content;
+pub(crate) use content_extraction::extract_search_content_cancellable;
 
 /// Bump when extraction logic changes (new content types, field mapping, etc.)
 /// to force re-indexing even when events.jsonl hasn't changed.
@@ -46,64 +47,22 @@ pub struct SearchContentRow {
 impl IndexDb {
     /// Check whether a session needs its search content re-indexed.
     pub fn needs_search_reindex(&self, session_id: &SessionId, session_path: &Path) -> bool {
-        let session_id = session_id.as_str();
-        let current_events = super::types::get_events_mtime_and_size(session_path);
-
-        let stored: Option<super::types::StalenessRow> = self
-            .conn
-            .query_row(
-                "SELECT search_indexed_at, events_mtime, events_size, search_extractor_version
-                 FROM sessions WHERE id = ?1",
-                [session_id],
-                |row| {
-                    Ok((
-                        row.get::<_, Option<String>>(0)?,
-                        row.get::<_, Option<String>>(1)?,
-                        row.get::<_, Option<i64>>(2)?,
-                        row.get::<_, Option<i64>>(3)?,
-                    ))
-                },
-            )
-            .ok();
-
-        let Some((search_indexed_at, stored_ev_mtime, stored_ev_size, extractor_ver)) = stored
-        else {
-            // Session row doesn't exist in `sessions` table (Phase 1 didn't index it,
-            // e.g. missing workspace.yaml in old Copilot CLI sessions). Don't attempt
-            // search indexing — the FK constraint on search_content would fail.
-            return false;
+        let Ok(current) = tracepilot_core::parsing::snapshot::FileFingerprint::read(
+            &session_path.join("events.jsonl"),
+        ) else {
+            return true;
         };
-
-        // Never indexed
-        if search_indexed_at.is_none() {
+        let Ok(current) = serde_json::to_string(&current) else {
             return true;
-        }
-
-        // Extractor version changed
-        if extractor_ver.unwrap_or(0) < CURRENT_EXTRACTOR_VERSION {
-            return true;
-        }
-
-        // Events file changed (mtime or size)
-        match (&current_events, &stored_ev_mtime) {
-            (Some((cur_mtime, cur_size)), Some(st_mtime)) => {
-                if cur_mtime != st_mtime || Some(*cur_size as i64) != stored_ev_size {
-                    return true;
-                }
-            }
-            (Some(_), None) => return true,
-            (None, Some(_)) => return true,
-            (None, None) => {}
-        }
-
-        // Compare search_indexed_at < events_mtime
-        if let (Some(sia), Some(em)) = (&search_indexed_at, &stored_ev_mtime)
-            && sia < em
-        {
-            return true;
-        }
-
-        false
+        };
+        self.conn.query_row(
+            "SELECT CASE WHEN search_indexed_at IS NULL THEN NULL ELSE search_source_fingerprint END,
+                    search_extractor_version FROM sessions WHERE id = ?1",
+            [session_id.as_str()],
+            |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<i64>>(1)?)),
+        ).is_ok_and(|(source, version)| {
+            source.as_deref() != Some(current.as_str()) || version.unwrap_or(0) < CURRENT_EXTRACTOR_VERSION
+        })
     }
 
     /// Index search content for a single session.
@@ -112,6 +71,16 @@ impl IndexDb {
         &self,
         session_id: &SessionId,
         rows: &[SearchContentRow],
+    ) -> Result<usize> {
+        self.upsert_search_snapshot(session_id, rows, None, &|| false)
+    }
+
+    pub(crate) fn upsert_search_snapshot(
+        &self,
+        session_id: &SessionId,
+        rows: &[SearchContentRow],
+        source_fingerprint: Option<&str>,
+        is_cancelled: &impl Fn() -> bool,
     ) -> Result<usize> {
         let session_id = session_id.as_str();
         self.conn.execute_batch("SAVEPOINT upsert_search")?;
@@ -126,32 +95,41 @@ impl IndexDb {
             // Batch insert new content (skip empty rows)
             let non_empty: Vec<&SearchContentRow> =
                 rows.iter().filter(|r| !r.content.is_empty()).collect();
-            batched_insert(
-                &self.conn,
-                "INSERT INTO search_content \
+            for chunk in non_empty.chunks(256) {
+                tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+                batched_insert(
+                    &self.conn,
+                    "INSERT INTO search_content \
                     (session_id, content_type, turn_number, event_index, \
                      timestamp_unix, tool_name, content, metadata_json) VALUES",
-                8,
-                &non_empty,
-                |row, params| {
-                    params.push(&row.session_id);
-                    params.push(&row.content_type as &dyn rusqlite::ToSql);
-                    params.push(&row.turn_number);
-                    params.push(&row.event_index);
-                    params.push(&row.timestamp_unix);
-                    params.push(&row.tool_name);
-                    params.push(&row.content);
-                    params.push(&row.metadata_json);
-                },
-            )?;
+                    8,
+                    chunk,
+                    |row, params| {
+                        params.push(&row.session_id);
+                        params.push(&row.content_type as &dyn rusqlite::ToSql);
+                        params.push(&row.turn_number);
+                        params.push(&row.event_index);
+                        params.push(&row.timestamp_unix);
+                        params.push(&row.tool_name);
+                        params.push(&row.content);
+                        params.push(&row.metadata_json);
+                    },
+                )?;
+            }
+            tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
             let inserted = non_empty.len();
 
             // Update search indexing timestamp and extractor version
             let now = chrono::Utc::now().to_rfc3339();
             self.conn.execute(
-                "UPDATE sessions SET search_indexed_at = ?1, search_extractor_version = ?2
-                 WHERE id = ?3",
-                params![now, CURRENT_EXTRACTOR_VERSION, session_id],
+                "UPDATE sessions SET search_indexed_at = ?1, search_extractor_version = ?2,
+                    search_source_fingerprint = ?4 WHERE id = ?3",
+                params![
+                    now,
+                    CURRENT_EXTRACTOR_VERSION,
+                    session_id,
+                    source_fingerprint
+                ],
             )?;
 
             Ok(inserted)
@@ -175,12 +153,20 @@ impl IndexDb {
         }
     }
 
+    /// Request a rebuild without deleting last-good content before source reads.
+    pub(crate) fn invalidate_search_content(&self) -> Result<()> {
+        self.conn
+            .execute("UPDATE sessions SET search_source_fingerprint = NULL", [])?;
+        Ok(())
+    }
+
     /// Clear all search content and reset search_indexed_at for all sessions.
     pub fn clear_search_content(&self) -> Result<()> {
         self.conn.execute_batch(
             "BEGIN;
              DELETE FROM search_content;
-             UPDATE sessions SET search_indexed_at = NULL, search_extractor_version = 0;
+             UPDATE sessions SET search_indexed_at = NULL, search_extractor_version = 0,
+                search_source_fingerprint = NULL;
              COMMIT;",
         )?;
         Ok(())
@@ -203,6 +189,15 @@ impl IndexDb {
         &self,
         session_rows: &[(SessionId, Vec<SearchContentRow>)],
     ) -> Result<usize> {
+        self.bulk_write_search_snapshots(session_rows, &[], &|| false)
+    }
+
+    pub(crate) fn bulk_write_search_snapshots(
+        &self,
+        session_rows: &[(SessionId, Vec<SearchContentRow>)],
+        fingerprints: &[String],
+        is_cancelled: &impl Fn() -> bool,
+    ) -> Result<usize> {
         let total_start = std::time::Instant::now();
         self.conn.execute_batch("BEGIN")?;
 
@@ -218,7 +213,8 @@ impl IndexDb {
             let now = chrono::Utc::now().to_rfc3339();
             let mut total_inserted = 0;
 
-            for (session_id, rows) in session_rows {
+            for (index, (session_id, rows)) in session_rows.iter().enumerate() {
+                tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
                 // Delete existing content for this session
                 self.conn.execute(
                     "DELETE FROM search_content WHERE session_id = ?1",
@@ -227,34 +223,43 @@ impl IndexDb {
 
                 let non_empty: Vec<&SearchContentRow> =
                     rows.iter().filter(|r| !r.content.is_empty()).collect();
-                batched_insert(
-                    &self.conn,
-                    "INSERT INTO search_content \
+                for chunk in non_empty.chunks(256) {
+                    tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+                    batched_insert(
+                        &self.conn,
+                        "INSERT INTO search_content \
                         (session_id, content_type, turn_number, event_index, \
                          timestamp_unix, tool_name, content, metadata_json) VALUES",
-                    8,
-                    &non_empty,
-                    |row, params| {
-                        params.push(&row.session_id);
-                        params.push(&row.content_type as &dyn rusqlite::ToSql);
-                        params.push(&row.turn_number);
-                        params.push(&row.event_index);
-                        params.push(&row.timestamp_unix);
-                        params.push(&row.tool_name);
-                        params.push(&row.content);
-                        params.push(&row.metadata_json);
-                    },
-                )?;
+                        8,
+                        chunk,
+                        |row, params| {
+                            params.push(&row.session_id);
+                            params.push(&row.content_type as &dyn rusqlite::ToSql);
+                            params.push(&row.turn_number);
+                            params.push(&row.event_index);
+                            params.push(&row.timestamp_unix);
+                            params.push(&row.tool_name);
+                            params.push(&row.content);
+                            params.push(&row.metadata_json);
+                        },
+                    )?;
+                }
                 total_inserted += non_empty.len();
 
                 // Mark session as indexed
                 self.conn.execute(
-                    "UPDATE sessions SET search_indexed_at = ?1, search_extractor_version = ?2
-                     WHERE id = ?3",
-                    params![now, CURRENT_EXTRACTOR_VERSION, session_id.as_str()],
+                    "UPDATE sessions SET search_indexed_at = ?1, search_extractor_version = ?2,
+                        search_source_fingerprint = ?4 WHERE id = ?3",
+                    params![
+                        now,
+                        CURRENT_EXTRACTOR_VERSION,
+                        session_id.as_str(),
+                        fingerprints.get(index)
+                    ],
                 )?;
             }
 
+            tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
             // Step 3: Rebuild FTS index in a single pass
             self.conn
                 .execute_batch("INSERT INTO search_fts(search_fts) VALUES('rebuild');")?;

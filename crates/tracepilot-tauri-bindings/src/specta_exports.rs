@@ -21,6 +21,7 @@ use tauri_specta::Builder;
 use crate::error::ErrorCode;
 use crate::types::IndexingProgressPayload;
 use tracepilot_orchestrator::bridge::manager::BridgeMetricsSnapshot;
+use tracepilot_orchestrator::context_capture::CaptureProgress;
 
 const HEADER: &str = "\
 // ──────────────────────────────────────────────────────────────────
@@ -64,11 +65,29 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         ])
         .typ::<ErrorCode>()
         .typ::<BridgeMetricsSnapshot>()
+        .typ::<CaptureProgress>()
         .typ::<IndexingProgressPayload>();
 
     tracepilot_core::utils::fs::ensure_parent_dir(out_path)?;
 
     let exporter = Typescript::default().header(HEADER);
     builder.export(exporter, out_path)?;
+    Ok(())
+}
+
+/// Shared wire DTOs live in the dependency-free types package, so consumers do
+/// not acquire a runtime dependency on Tauri just to use a configuration type.
+pub fn export_contracts(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let types = specta::Types::default()
+        .register::<crate::config::TracePilotConfig>()
+        .register::<crate::config::TracePilotConfigPatch>()
+        .register::<CaptureProgress>();
+    // Optional fields have different serialize/deserialize shapes (TOML
+    // defaults and omitted prices), so retain both directions explicitly.
+    let resolved = specta_serde::apply_phases(types)?;
+    tracepilot_core::utils::fs::ensure_parent_dir(out_path)?;
+    Typescript::default()
+        .header(HEADER)
+        .export_to(out_path, &resolved)?;
     Ok(())
 }

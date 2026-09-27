@@ -8,7 +8,6 @@ import {
   getSessionCount as getSessionCountApi,
   rebuildSearchIndex as rebuildSearchIndexApi,
   reindexSessionsFull as reindexSessionsFullApi,
-  saveConfig,
   validateSessionDir,
 } from "@tracepilot/client";
 import {
@@ -30,12 +29,14 @@ import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { useAnalyticsStore } from "@/stores/analytics";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
 import { logWarn } from "@/utils/logger";
 
 const sessionsStore = useSessionsStore();
 const analyticsStore = useAnalyticsStore();
+const preferencesStore = usePreferencesStore();
 const toast = useToast();
 const { confirm } = useConfirmDialog();
 
@@ -231,12 +232,10 @@ async function persistPaths(options: { revalidateSessionDir: boolean }) {
       }
     }
 
-    const config = await getConfig();
-    Object.assign(config.paths, paths);
-    await saveConfig(config);
-    savedCopilotHome.value = paths.copilotHome;
-    savedTracePilotHome.value = paths.tracepilotHome;
-    savedSessionsDirectory.value = paths.sessionStateDir;
+    const config = await preferencesStore.updateConfigFields({ paths });
+    savedCopilotHome.value = config.paths.copilotHome;
+    savedTracePilotHome.value = config.paths.tracepilotHome;
+    savedSessionsDirectory.value = config.paths.sessionStateDir;
     toast.success("Path settings saved");
   } catch (e) {
     logWarn("[SettingsDataStorage] Failed to persist paths:", e);

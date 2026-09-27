@@ -1,3 +1,5 @@
+// Assertions in tests should fail immediately on invalid fixtures.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! tracepilot-indexer: Maintain a local index database for fast session search.
 //!
 //! Creates and incrementally updates the configured TracePilot index database with:

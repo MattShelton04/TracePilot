@@ -2,7 +2,9 @@
 
 use crate::blocking_cmd;
 use crate::concurrency::IndexingSemaphores;
-use crate::config::{self, SharedConfig, TracePilotConfig};
+use crate::config::{
+    self, ConfigCoordinator, SharedConfig, TracePilotConfig, TracePilotConfigPatch,
+};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, validate_path_within, validate_write_path_within};
 use crate::services;
@@ -45,6 +47,7 @@ pub async fn check_config_exists() -> CmdResult<bool> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_config(state: tauri::State<'_, SharedConfig>) -> CmdResult<TracePilotConfig> {
     Ok(read_config(&state))
 }
@@ -53,15 +56,43 @@ pub async fn get_config(state: tauri::State<'_, SharedConfig>) -> CmdResult<Trac
 #[tracing::instrument(skip_all, level = "debug", err)]
 pub async fn save_config(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
     turn_cache: tauri::State<'_, TurnCache>,
     event_cache: tauri::State<'_, EventCache>,
     config: TracePilotConfig,
 ) -> CmdResult<()> {
     let cache_size = config::clamp_session_cache_size(config.performance.session_cache_size);
-    services::config::save_config(&state, std::sync::Arc::clone(&*gates), config).await?;
+    services::config::save_config(&state, std::sync::Arc::clone(&*gates), &coordinator, config)
+        .await?;
     resize_session_caches(&turn_cache, &event_cache, cache_size);
     Ok(())
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, level = "debug", err)]
+#[specta::specta]
+pub async fn update_config(
+    state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
+    gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
+    turn_cache: tauri::State<'_, TurnCache>,
+    event_cache: tauri::State<'_, EventCache>,
+    patch: TracePilotConfigPatch,
+) -> CmdResult<TracePilotConfig> {
+    let config = services::config::update_config(
+        &state,
+        std::sync::Arc::clone(&*gates),
+        &coordinator,
+        patch,
+    )
+    .await?;
+    resize_session_caches(
+        &turn_cache,
+        &event_cache,
+        config.performance.session_cache_size,
+    );
+    Ok(config)
 }
 
 #[tauri::command]
@@ -102,11 +133,12 @@ pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirR
 #[specta::specta]
 pub async fn factory_reset(
     state: tauri::State<'_, SharedConfig>,
+    coordinator: tauri::State<'_, ConfigCoordinator>,
     gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
     turn_cache: tauri::State<'_, TurnCache>,
     event_cache: tauri::State<'_, EventCache>,
 ) -> CmdResult<()> {
-    services::config::factory_reset(&state, &gates).await?;
+    services::config::factory_reset(&state, &gates, &coordinator).await?;
     clear_session_caches(&turn_cache, &event_cache);
     resize_session_caches(
         &turn_cache,
