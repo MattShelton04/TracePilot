@@ -234,11 +234,23 @@ try {
           throw new Error("Web search must render completely without manual output loading");
       }
       if (item.group === "rich-tools") {
-        if (
-          item.expectText &&
-          !(await page.locator(".rs__body").allTextContents()).join("\n").includes(item.expectText)
-        )
-          throw new Error(`Expected complete result text: ${item.expectText}`);
+        if (item.expectText) {
+          // Paging and lazy result replacement update Vue on the next render.
+          // Wait for the sentinel instead of racing an immediate DOM read.
+          await page
+            .waitForFunction(
+              (expected) =>
+                Array.from(document.querySelectorAll(".rs__body"))
+                  .map((element) => element.textContent ?? "")
+                  .join("\n")
+                  .includes(expected),
+              item.expectText,
+              { timeout: 15000 },
+            )
+            .catch(() => {
+              throw new Error(`Expected complete result text: ${item.expectText}`);
+            });
+        }
         // Focus the call, not a source card far below its header. Respect the
         // sticky session toolbar so initial/expanded evidence remains readable.
         const anchor = page.locator(item.focus === "end" ? ".rs" : ".tool-call-item").last();
