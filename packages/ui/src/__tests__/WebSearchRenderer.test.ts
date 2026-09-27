@@ -197,7 +197,7 @@ describe("complete web_search output", () => {
       expect(wrapper.get(".ws-body").text()).not.toContain('"value":');
       expect(wrapper.get(".ws-source-card").attributes("href")).toBe("https://example.com/final");
       expect(wrapper.find(".rs-trunc-row").exists()).toBe(false);
-      expect(wrapper.text()).not.toContain("Show Full Output");
+      expect(wrapper.text()).not.toContain("Load full output");
       expect(wrapper.emitted("load-full-result")).toBeUndefined();
     });
   }

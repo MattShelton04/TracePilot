@@ -101,6 +101,6 @@ describe("EditDiffRenderer", () => {
         isTruncated: true,
       },
     });
-    expect(wrapper.text()).toContain("Show Full Output");
+    expect(wrapper.text()).toContain("Load full output");
   });
 });

@@ -35,8 +35,7 @@ const title = computed(() =>
 const processLabel = computed(() => {
   if (terminal.value.exitCode != null) return `Exit ${terminal.value.exitCode}`;
   if (terminal.value.running) return "Process running";
-  if (status.value === "pending")
-    return props.streaming && props.content ? "Streaming output" : "Waiting for output";
+  if (status.value === "pending" && props.streaming && props.content) return "Streaming output";
   return "";
 });
 const outputLines = computed(() =>

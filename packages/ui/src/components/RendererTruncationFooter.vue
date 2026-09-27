@@ -1,7 +1,7 @@
 <!--
   Shared truncation footer for renderer bodies. Renders a single line of
   hairline-bordered chrome containing "Output was truncated." and an
-  inline accent-bordered "Show Full Output" button. See 13-tool-renderers.md.
+  inline accent-bordered "Load full output" button. See 13-tool-renderers.md.
 -->
 <script setup lang="ts">
 defineProps<{ loading?: boolean; failed?: boolean }>();
@@ -15,7 +15,7 @@ const emit = defineEmits<{
   <div class="rs-trunc-row">
     <span class="rs-trunc-text" role="status">{{ failed ? 'Full output could not be loaded.' : 'Showing a preview of the output.' }}</span>
     <button class="rs-trunc-btn" type="button" :disabled="loading" @click="failed ? emit('retry') : emit('load-full')">
-      {{ loading ? 'Loading full output…' : failed ? 'Retry full output' : 'Show Full Output' }}
+      {{ loading ? 'Loading full output…' : failed ? 'Retry full output' : 'Load full output' }}
     </button>
   </div>
 </template>

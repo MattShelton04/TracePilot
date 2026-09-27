@@ -72,6 +72,6 @@ describe("ViewCodeRenderer", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("Show Full Output");
+    expect(wrapper.text()).toContain("Load full output");
   });
 });
