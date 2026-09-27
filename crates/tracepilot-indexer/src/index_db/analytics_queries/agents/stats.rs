@@ -39,7 +39,7 @@ pub(super) fn ranked<I: IntoIterator<Item = String>>(labels: I) -> Vec<AgentLabe
         .into_iter()
         .map(|(label, runs)| AgentLabelCount { label, runs })
         .collect();
-    ranked.sort_by(|a, b| b.runs.cmp(&a.runs));
+    ranked.sort_by_key(|entry| std::cmp::Reverse(entry.runs));
     ranked
 }
 
