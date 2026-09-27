@@ -77,6 +77,6 @@ describe("GrepResultRenderer", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("0 matches");
+    expect(wrapper.text()).toContain("No matches found");
   });
 });

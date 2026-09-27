@@ -20,7 +20,7 @@ describe("EditArgsRenderer", () => {
     });
     const labels = wrapper.findAll(".edit-args-label");
     expect(labels.some((l) => l.text() === "Find")).toBe(true);
-    expect(wrapper.find(".edit-args-code--old").text()).toBe("old code");
+    expect(wrapper.find(".edit-args-code--old pre").text()).toBe("old code");
   });
 
   it("shows new_str with 'Replace' label", () => {
@@ -31,18 +31,17 @@ describe("EditArgsRenderer", () => {
     });
     const labels = wrapper.findAll(".edit-args-label");
     expect(labels.some((l) => l.text() === "Replace")).toBe(true);
-    expect(wrapper.find(".edit-args-code--new").text()).toBe("new code");
+    expect(wrapper.find(".edit-args-code--new pre").text()).toBe("new code");
   });
 
-  it("truncates long strings", () => {
+  it("preserves the complete supplied excerpt", () => {
     const longStr = "x".repeat(600);
     const wrapper = mount(EditArgsRenderer, {
       props: {
         args: { path: "test.ts", old_str: longStr, new_str: "short" },
       },
     });
-    const oldText = wrapper.find(".edit-args-code--old").text();
-    expect(oldText.length).toBeLessThan(600);
-    expect(oldText).toContain("…");
+    const oldText = wrapper.find(".edit-args-code--old pre").text();
+    expect(oldText).toBe(longStr);
   });
 });

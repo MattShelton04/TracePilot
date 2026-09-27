@@ -2,15 +2,13 @@
 /**
  * EditArgsRenderer — shows edit tool arguments in a structured layout.
  */
-import { truncateText } from "@tracepilot/types";
+
+import { detectLanguage } from "../../utils/languageDetection";
+import CodeBlock from "./CodeBlock.vue";
 
 defineProps<{
   args: Record<string, unknown>;
 }>();
-
-function truncate(s: string, max: number): string {
-  return truncateText(s, max);
-}
 </script>
 
 <template>
@@ -21,11 +19,11 @@ function truncate(s: string, max: number): string {
     </div>
     <div v-if="typeof args.old_str === 'string'" class="edit-args-row">
       <span class="edit-args-label">Find</span>
-      <pre class="edit-args-code edit-args-code--old">{{ truncate(String(args.old_str), 500) }}</pre>
+      <div class="edit-args-code edit-args-code--old"><CodeBlock :code="args.old_str" :language="detectLanguage(typeof args.path === 'string' ? args.path : '')" :max-lines="30" :show-language-badge="false" /></div>
     </div>
     <div v-if="typeof args.new_str === 'string'" class="edit-args-row">
       <span class="edit-args-label">Replace</span>
-      <pre class="edit-args-code edit-args-code--new">{{ truncate(String(args.new_str), 500) }}</pre>
+      <div class="edit-args-code edit-args-code--new"><CodeBlock :code="args.new_str" :language="detectLanguage(typeof args.path === 'string' ? args.path : '')" :max-lines="30" :show-language-badge="false" /></div>
     </div>
   </div>
 </template>
@@ -35,6 +33,8 @@ function truncate(s: string, max: number): string {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 12px;
+  min-width: 0;
 }
 .edit-args-row {
   display: flex;
@@ -60,13 +60,12 @@ function truncate(s: string, max: number): string {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.6875rem;
   line-height: 1.5;
-  padding: 6px 10px;
+  padding: 0;
   margin: 0;
   border-radius: var(--radius-sm);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 120px;
-  overflow: auto;
+  overflow: hidden;
 }
 .edit-args-code--old {
   background: var(--danger-subtle);

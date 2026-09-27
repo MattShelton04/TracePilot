@@ -6,7 +6,7 @@
  * produce colored tokens. The `.syn-*` CSS classes are defined in this
  * component's scoped styles.
  */
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
 import { detectLanguage, languageDisplayName } from "../../utils/languageDetection";
 import { highlightLine } from "../../utils/syntaxHighlight";
 
@@ -53,9 +53,12 @@ const langDisplay = computed(() => languageDisplayName(lang.value));
 const showNumbers = computed(() => props.lineNumbers);
 const start = computed(() => props.startLine);
 const visiblePage = ref(0);
+const lineOffsets = reactive<Record<number, number>>({});
+const copyState = ref("");
 
 const lines = computed(() => {
-  const raw = props.code.split("\n");
+  if (!props.code) return [];
+  const raw = props.code.split(/\r?\n/);
   if (raw.length > 1 && raw[raw.length - 1] === "") raw.pop();
   return raw;
 });
@@ -65,25 +68,32 @@ const visibleRange = computed(() => {
   if (maxLines <= 0 || lines.value.length <= maxLines) {
     return { start: 0, end: lines.value.length };
   }
-  const activeIndex = props.searchQuery?.trim()
-    ? (props.activeSearchLine ?? start.value) - start.value
-    : -1;
-  if (activeIndex >= 0 && activeIndex < lines.value.length) {
-    const rangeStart = Math.max(
-      0,
-      Math.min(activeIndex - Math.floor(maxLines / 2), lines.value.length - maxLines),
-    );
-    return { start: rangeStart, end: rangeStart + maxLines };
-  }
-  const rangeStart = Math.min(visiblePage.value * maxLines, lines.value.length - maxLines);
-  return { start: rangeStart, end: rangeStart + maxLines };
+  const rangeStart =
+    Math.min(visiblePage.value, Math.ceil(lines.value.length / maxLines) - 1) * maxLines;
+  return { start: rangeStart, end: Math.min(rangeStart + maxLines, lines.value.length) };
 });
 
 watch(
   () => props.code,
   () => {
     visiblePage.value = 0;
+    for (const key of Object.keys(lineOffsets)) delete lineOffsets[Number(key)];
   },
+);
+
+// A new search selects its page once. Subsequent manual paging remains usable.
+watch(
+  () => [props.searchQuery, props.activeSearchLine, props.activeSearchColumn, props.code],
+  () => {
+    const index = (props.activeSearchLine ?? start.value) - start.value;
+    if (!props.searchQuery?.trim() || index < 0 || index >= lines.value.length) return;
+    if (props.maxLines && props.maxLines > 0)
+      visiblePage.value = Math.floor(index / props.maxLines);
+    lineOffsets[start.value + index] =
+      Math.floor((props.activeSearchColumn ?? 0) / props.maxLineCharacters) *
+      props.maxLineCharacters;
+  },
+  { immediate: true },
 );
 
 const pageCount = computed(() => {
@@ -95,7 +105,7 @@ function movePage(direction: 1 | -1) {
   visiblePage.value = Math.max(0, Math.min(pageCount.value - 1, visiblePage.value + direction));
 }
 
-function highlightedLine(line: string, lineNumber: number): string {
+function highlightedLine(line: string, lineNumber: number, offset = 0): string {
   const query = props.searchQuery?.trim();
   if (!query) return highlightLine(line, lang.value);
 
@@ -108,7 +118,8 @@ function highlightedLine(line: string, lineNumber: number): string {
   let html = "";
   while (match >= 0) {
     html += highlightLine(line.slice(cursor, match), lang.value);
-    const active = lineNumber === props.activeSearchLine && match === props.activeSearchColumn;
+    const active =
+      lineNumber === props.activeSearchLine && match + offset === props.activeSearchColumn;
     html += `<mark class="code-search-match${active ? " code-search-match--active" : ""}">${highlightLine(line.slice(match, match + query.length), lang.value)}</mark>`;
     cursor = match + query.length;
     match = lowerLine.indexOf(lowerQuery, cursor);
@@ -120,12 +131,19 @@ const visibleLines = computed(() =>
   lines.value.slice(visibleRange.value.start, visibleRange.value.end).map((line, index) => {
     const sourceIndex = visibleRange.value.start + index;
     const lineNumber = start.value + sourceIndex;
+    const offset = lineOffsets[lineNumber] ?? 0;
+    const truncated = line.length > props.maxLineCharacters;
     return {
-      html:
-        line.length > props.maxLineCharacters
-          ? `${highlightedLine(line.slice(0, props.maxLineCharacters), lineNumber)}${highlightLine(" … [line truncated for display]", "text")}`
-          : highlightedLine(line, lineNumber),
+      html: highlightedLine(
+        line.slice(offset, offset + props.maxLineCharacters),
+        lineNumber,
+        offset,
+      ),
       lineNumber,
+      truncated,
+      offset,
+      end: Math.min(offset + props.maxLineCharacters, line.length),
+      length: line.length,
     };
   }),
 );
@@ -133,6 +151,21 @@ const visibleLines = computed(() =>
 const isCollapsed = computed(() => (props.maxLines ? lines.value.length > props.maxLines : false));
 
 const contentElement = ref<HTMLElement | null>(null);
+function moveLine(lineNumber: number, direction: 1 | -1) {
+  lineOffsets[lineNumber] = Math.max(
+    0,
+    (lineOffsets[lineNumber] ?? 0) + direction * props.maxLineCharacters,
+  );
+}
+
+async function copyLine(lineNumber: number) {
+  try {
+    await navigator.clipboard.writeText(lines.value[lineNumber - start.value]);
+    copyState.value = `Line ${lineNumber} copied`;
+  } catch {
+    copyState.value = "Clipboard unavailable";
+  }
+}
 watch(
   () => [
     props.searchQuery,
@@ -169,7 +202,8 @@ function fileName(path: string): string {
       </span>
       <span v-if="showLanguageBadge" class="code-block-lang">{{ langDisplay }}</span>
     </div>
-    <div ref="contentElement" class="code-block-content" :class="{ 'code-block-content--fill': fillHeight }">
+    <div ref="contentElement" class="code-block-content" :class="{ 'code-block-content--fill': fillHeight }" tabindex="0" role="region" aria-label="Source code">
+      <p v-if="lines.length === 0" class="code-block-empty">Empty file</p>
       <table class="code-block-table" role="presentation">
         <tbody>
           <tr
@@ -182,10 +216,19 @@ function fileName(path: string): string {
               {{ line.lineNumber }}
             </td>
             <!-- eslint-disable-next-line vue/no-v-html -- input is HTML-escaped by highlightLine -->
-            <td class="code-line-content"><pre v-html="line.html"></pre></td>
+            <td class="code-line-content">
+              <pre v-html="line.html"></pre>
+              <div v-if="line.truncated" class="code-line-controls">
+                <span>Long line · characters {{ line.offset + 1 }}–{{ line.end }} of {{ line.length }}</span>
+                <button type="button" :disabled="line.offset === 0" :aria-label="`Previous characters in line ${line.lineNumber}`" @click="moveLine(line.lineNumber, -1)">Previous</button>
+                <button type="button" :disabled="line.end === line.length" :aria-label="`Next characters in line ${line.lineNumber}`" @click="moveLine(line.lineNumber, 1)">Next</button>
+                <button type="button" @click="copyLine(line.lineNumber)">Copy full line</button>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
+    </div>
       <div v-if="isCollapsed" class="code-block-collapsed">
         <span>
           Showing lines {{ visibleRange.start + start }}–{{ visibleRange.end + start - 1 }} of
@@ -195,14 +238,15 @@ function fileName(path: string): string {
         <button type="button" :disabled="visibleRange.start === 0" @click="movePage(-1)">Previous</button>
         <button type="button" :disabled="visibleRange.end >= lines.length" @click="movePage(1)">Next</button>
       </div>
-    </div>
+      <span v-if="copyState" class="code-copy-state" role="status">{{ copyState }}</span>
   </div>
 </template>
 
 <style scoped>
 .code-block {
+  min-width: 0;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 0.75rem;
+  font-size: 13px;
   line-height: 1.6;
   background: var(--canvas-default);
   overflow: hidden;
@@ -219,7 +263,7 @@ function fileName(path: string): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 10px;
+  padding: 8px 12px;
   background: var(--canvas-inset);
   border-bottom: 1px solid var(--border-muted);
 }
@@ -242,6 +286,7 @@ function fileName(path: string): string {
 .code-block-content {
   overflow: auto;
   max-height: 500px;
+  min-width: 0;
 }
 /* Fill mode: take all available height from the flex parent and scroll
    in both directions (long lines → horizontal, tall files → vertical). */
@@ -269,7 +314,6 @@ function fileName(path: string): string {
   vertical-align: top;
   white-space: nowrap;
   border-right: 1px solid var(--border-muted);
-  opacity: 0.6;
 }
 .code-line-content {
   padding: 0 12px;
@@ -286,14 +330,17 @@ function fileName(path: string): string {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
   padding: 6px;
   color: var(--text-tertiary);
-  font-size: 0.6875rem;
+  font-size: 12px;
   background: var(--canvas-inset);
   border-top: 1px solid var(--border-muted);
 }
 
-.code-block-collapsed button {
+.code-block-collapsed button,
+.code-line-controls button {
   padding: 2px 7px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -303,10 +350,23 @@ function fileName(path: string): string {
   font-size: inherit;
 }
 
-.code-block-collapsed button:disabled {
+.code-block-collapsed button:disabled,
+.code-line-controls button:disabled {
   cursor: default;
   opacity: 0.45;
 }
+.code-line-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: normal;
+}
+.code-block-empty, .code-copy-state { display: block; padding: 12px; margin: 0; color: var(--text-tertiary); }
+.code-block button:focus-visible, .code-block-content:focus-visible { outline: 2px solid var(--accent-emphasis); outline-offset: -2px; }
 
 /* ── Syntax highlighting tokens ── */
 .code-line-content :deep(.syn-keyword)  { color: var(--syn-keyword, #c084fc); }

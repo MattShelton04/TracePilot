@@ -20,15 +20,15 @@ describe("EditDiffRenderer", () => {
     expect(html).toContain("universe");
   });
 
-  it("shows delete-only view when new_str is missing", () => {
+  it("does not invent deletion when the replacement is missing", () => {
     const wrapper = mount(EditDiffRenderer, {
       props: {
         content: "File edited",
         args: { path: "/file.ts", old_str: "removed code" },
       },
     });
-    // Delete view now uses diff-table with diff-line--removed rows
-    expect(wrapper.find(".diff-line--removed").exists()).toBe(true);
+    expect(wrapper.find(".diff-line--removed").exists()).toBe(false);
+    expect(wrapper.text()).toContain("Replacement text was not provided");
     expect(wrapper.text()).toContain("removed code");
   });
 
@@ -101,6 +101,6 @@ describe("EditDiffRenderer", () => {
         isTruncated: true,
       },
     });
-    expect(wrapper.text()).toContain("Output was truncated");
+    expect(wrapper.text()).toContain("Show Full Output");
   });
 });

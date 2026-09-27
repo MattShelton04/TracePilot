@@ -4,8 +4,11 @@
  */
 import type { TurnToolCall } from "@tracepilot/types";
 import { GitPullRequest } from "lucide-vue-next";
-import { computed, ref } from "vue";
-import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
+import { computed, reactive, ref, watch } from "vue";
+import { detectLanguage } from "../../utils/languageDetection";
+import { toolCallStatus } from "../../utils/toolCallStatus";
+import RendererScrollRegion from "../RendererScrollRegion.vue";
+import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 import CodeBlock from "./CodeBlock.vue";
 
@@ -37,17 +40,26 @@ interface PatchFile {
 
 const showRaw = ref(false);
 
-const status = computed<RendererShellStatus>(() =>
-  props.tc?.success === true ? "success" : props.tc?.success === false ? "error" : "pending",
-);
+const status = computed(() => toolCallStatus(props.tc));
+const filePages = reactive<Record<number, number>>({});
+const PAGE_SIZE = 500;
 
 const rawPatch = computed(() => {
   if (typeof props.tc.arguments === "string") return props.tc.arguments;
+  if (typeof props.args.patch === "string") return props.args.patch;
+  if (typeof props.args.input === "string") return props.args.input;
   if (props.content.startsWith("*** Begin Patch")) return props.content;
   return "";
 });
 
 const patchFiles = computed(() => parsePatch(rawPatch.value));
+watch(rawPatch, () => {
+  for (const key of Object.keys(filePages)) delete filePages[Number(key)];
+});
+function visibleFileLines(file: PatchFile, index: number) {
+  const start = (filePages[index] ?? 0) * PAGE_SIZE;
+  return file.lines.slice(start, start + PAGE_SIZE);
+}
 
 const primaryHint = computed(() => {
   if (patchFiles.value.length === 0) return undefined;
@@ -143,6 +155,8 @@ function parsePatch(patch: string): PatchFile[] {
 }
 
 function operationLabel(operation: PatchOperation): string {
+  if (status.value !== "success")
+    return { add: "Proposed add", update: "Proposed update", delete: "Proposed delete" }[operation];
   switch (operation) {
     case "add":
       return "Added";
@@ -202,57 +216,63 @@ function addedFileContent(file: PatchFile): string {
           <CodeBlock
             v-if="file.operation === 'add'"
             :code="addedFileContent(file)"
-            :file-path="file.path"
+            :language="detectLanguage(file.path)"
             :max-lines="120"
           />
 
-          <div v-else-if="file.operation === 'update'" class="patch-diff-body">
+          <RendererScrollRegion v-else-if="file.operation === 'update'" class="patch-diff-body" :label="`diff for ${file.path}`">
             <table class="patch-diff-table" role="presentation">
               <tbody>
                 <tr
-                  v-for="(line, lineIndex) in file.lines"
+                  v-for="(line, lineIndex) in visibleFileLines(file, fileIndex)"
                   :key="lineIndex"
                   :class="['patch-line', `patch-line--${line.type}`]"
                 >
                   <td class="patch-line-indicator">
                     <span v-if="line.type === 'added'">+</span>
                     <span v-else-if="line.type === 'removed'">-</span>
-                    <span v-else-if="line.type === 'hunk'">@@</span>
                     <span v-else>&nbsp;</span>
                   </td>
                   <td class="patch-line-code"><pre>{{ line.content }}</pre></td>
                 </tr>
               </tbody>
             </table>
-          </div>
+          </RendererScrollRegion>
 
           <div v-else class="patch-delete-body">
             This patch deletes <code>{{ file.path }}</code>.
           </div>
+          <div v-if="file.operation === 'update' && file.lines.length > PAGE_SIZE" class="patch-pager">
+            <span>Rows {{ (filePages[fileIndex] ?? 0) * PAGE_SIZE + 1 }}–{{ Math.min(((filePages[fileIndex] ?? 0) + 1) * PAGE_SIZE, file.lines.length) }} of {{ file.lines.length }}</span>
+            <button type="button" :disabled="!filePages[fileIndex]" @click="filePages[fileIndex] = (filePages[fileIndex] ?? 0) - 1">Previous</button>
+            <button type="button" :disabled="((filePages[fileIndex] ?? 0) + 1) * PAGE_SIZE >= file.lines.length" @click="filePages[fileIndex] = (filePages[fileIndex] ?? 0) + 1">Next</button>
+          </div>
         </section>
       </div>
 
-      <button type="button" class="patch-raw-toggle" @click="showRaw = !showRaw">
+      <button type="button" class="patch-raw-toggle" :aria-expanded="showRaw" @click="showRaw = !showRaw">
         {{ showRaw ? 'Hide raw patch' : 'Show raw patch' }}
       </button>
-      <pre v-if="showRaw" class="patch-raw">{{ rawPatch }}</pre>
+      <CodeBlock v-if="showRaw" class="patch-raw" :code="rawPatch" language="diff" :max-lines="120" :show-language-badge="false" />
     </div>
 
-    <pre v-else class="patch-fallback">{{ content || rawPatch }}</pre>
+    <CodeBlock v-else-if="rawPatch" :code="rawPatch" :max-lines="120" :show-language-badge="false" />
+    <pre v-else class="patch-fallback">{{ content }}</pre>
+    <div v-if="content && rawPatch && content !== rawPatch" class="patch-result-feedback"><span>Result</span><pre>{{ content }}</pre></div>
     <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
 <style scoped>
 .patch-renderer {
-  font-size: 0.75rem;
+  font-size: 13px;
 }
 .patch-summary {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-muted);
   background: var(--canvas-inset);
 }
@@ -296,7 +316,7 @@ function addedFileContent(file: PatchFile): string {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  padding: 7px 10px;
+  padding: 8px 12px;
   background: var(--canvas-inset);
 }
 .patch-file-title {
@@ -332,21 +352,22 @@ function addedFileContent(file: PatchFile): string {
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .patch-move-target {
   color: var(--text-tertiary);
   flex-shrink: 1;
 }
 .patch-diff-body {
-  max-height: 520px;
+
   overflow: auto;
 }
 .patch-diff-table {
   width: 100%;
   border-collapse: collapse;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
+  font-size: 13px;
   line-height: 1.6;
 }
 .patch-line--added {
@@ -400,18 +421,17 @@ function addedFileContent(file: PatchFile): string {
   width: 100%;
   border: none;
   border-top: 1px solid var(--border-muted);
-  padding: 7px 10px;
+  padding: 8px 12px;
   background: var(--canvas-inset);
   color: var(--text-tertiary);
   cursor: pointer;
-  font-size: 0.6875rem;
+  font-size: 12px;
   font-weight: 700;
 }
 .patch-raw-toggle:hover {
   color: var(--text-secondary);
   background: var(--neutral-muted);
 }
-.patch-raw,
 .patch-fallback {
   margin: 0;
   padding: 10px 12px;
@@ -420,8 +440,17 @@ function addedFileContent(file: PatchFile): string {
   color: var(--text-secondary);
   background: var(--canvas-default);
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
+  font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
 }
+.patch-file-header { flex-wrap: wrap; }
+.patch-result-feedback { padding: 12px; border-top: 1px solid var(--border-muted); }
+.patch-result-feedback span { color: var(--text-tertiary); font-size: 12px; }
+.patch-result-feedback pre { margin: 4px 0 0; font: inherit; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-secondary); max-height: 240px; overflow: auto; }
+.patch-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px; color: var(--text-tertiary); border-top: 1px solid var(--border-muted); }
+.patch-pager button { border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 3px 8px; color: var(--accent-fg); background: var(--canvas-default); cursor: pointer; }
+.patch-pager button:disabled { opacity: 0.5; cursor: default; }
+.patch-raw-toggle:focus-visible, .patch-pager button:focus-visible { outline: 2px solid var(--accent-emphasis); outline-offset: -2px; }
+.patch-delete-body { overflow-wrap: anywhere; }
 </style>

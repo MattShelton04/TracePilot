@@ -3,8 +3,12 @@
  * GlobTreeRenderer — renders glob results as a hierarchical collapsible file tree.
  */
 
+import type { TurnToolCall } from "@tracepilot/types";
 import { File, Folder, FolderTree } from "lucide-vue-next";
 import { computed, reactive } from "vue";
+import { toolCallStatus } from "../../utils/toolCallStatus";
+import { normalizeGlobPaths } from "../../utils/toolSearchResults";
+import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
@@ -12,6 +16,7 @@ const props = defineProps<{
   content: string;
   args: Record<string, unknown>;
   isTruncated?: boolean;
+  tc?: TurnToolCall;
 }>();
 
 const emit = defineEmits<{
@@ -28,22 +33,10 @@ const searchRoot = computed(() =>
     : null,
 );
 
-const files = computed(() => props.content.split("\n").filter((l) => l.trim()));
-
-const relativePaths = computed(() => {
-  const root = searchRoot.value;
-  if (!root) return files.value;
-  return files.value
-    .map((f) => {
-      const norm = f.replace(/\\/g, "/");
-      if (norm.startsWith(`${root}/`)) return norm.slice(root.length + 1);
-      if (norm.startsWith(root)) return norm.slice(root.length);
-      return norm;
-    })
-    .filter((p) => p);
-});
-
-const fileCount = computed(() => files.value.length);
+const status = computed(() => toolCallStatus(props.tc));
+const parsed = computed(() => normalizeGlobPaths(props.content, searchRoot.value));
+const relativePaths = computed(() => parsed.value.paths);
+const fileCount = computed(() => relativePaths.value.length);
 
 interface TreeNode {
   name: string;
@@ -67,7 +60,7 @@ function buildTree(paths: string[]): TreeNode[] {
       if (!child) {
         child = {
           name: part,
-          path: parts.slice(0, i + 1).join("/"),
+          path: `${filePath.startsWith("/") ? "/" : ""}${parts.slice(0, i + 1).join("/")}`,
           isDir: !isLast,
           children: [],
         };
@@ -132,12 +125,17 @@ function countFiles(node: TreeNode): number {
   }
   return count;
 }
+
+function fullPath(node: TreeNode): string {
+  if (/^(?:[A-Za-z]:|\/)/.test(node.path) || !searchRoot.value) return node.path;
+  return `${searchRoot.value}/${node.path}`;
+}
 </script>
 
 <template>
   <RendererShell
     tool-name="Glob"
-    status="success"
+    :status="status"
     :primary-hint="pattern ?? undefined"
     :copy-text="content"
   >
@@ -147,11 +145,13 @@ function countFiles(node: TreeNode): number {
         <span class="glob-stat">{{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }} matched</span>
         <span v-if="searchRoot" class="glob-root-path" :title="searchRoot">{{ searchRoot }}</span>
       </div>
-      <div class="glob-list" role="tree">
-        <div v-for="item in flatList" :key="item.node.path"
+      <RendererScrollRegion class="glob-list" label="file list"><div role="group" aria-label="Matched files">
+        <component :is="item.node.isDir ? 'button' : 'div'" v-for="item in flatList" :key="item.node.path"
              :class="['glob-node', item.node.isDir ? 'glob-dir' : 'glob-file']"
              :style="{ paddingLeft: (12 + item.depth * 16) + 'px' }"
-             :role="item.node.isDir ? 'treeitem' : undefined"
+             :type="item.node.isDir ? 'button' : undefined"
+             :title="fullPath(item.node)"
+             :aria-label="item.node.isDir ? `${item.node.name}, ${countFiles(item.node)} files` : undefined"
              :aria-expanded="item.node.isDir ? !collapsed.has(item.node.path) : undefined"
              @click="item.node.isDir && toggleDir(item.node.path)">
           <template v-if="item.node.isDir">
@@ -164,8 +164,10 @@ function countFiles(node: TreeNode): number {
             <File :size="14" class="glob-file-icon" />
             <span class="glob-file-name">{{ item.node.name }}</span>
           </template>
-        </div>
-      </div>
+        </component>
+      </div></RendererScrollRegion>
+      <p v-if="!fileCount && !parsed.notices.length" class="glob-empty">No files matched.</p>
+      <pre v-if="parsed.notices.length" class="glob-notices">{{ parsed.notices.join('\n') }}</pre>
     </div>
     <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
@@ -174,38 +176,41 @@ function countFiles(node: TreeNode): number {
 <style scoped>
 .glob-tree {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
+  font-size: 13px;
 }
 .glob-stats {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-muted);
 }
 .glob-stat {
-  font-size: 0.6875rem;
+  font-size: 12px;
   color: var(--text-tertiary);
 }
 .glob-root-path {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.625rem;
   color: var(--text-tertiary);
-  opacity: 0.7;
+
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-left: auto;
 }
-.glob-list {
-  max-height: 400px;
-  overflow: auto;
-}
+.glob-list { min-width: 0; }
 .glob-node {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 12px;
+  padding: 5px 12px;
+  border: 0;
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
   cursor: default;
 }
 .glob-node:hover {
@@ -232,6 +237,8 @@ function countFiles(node: TreeNode): number {
 .glob-dir-name {
   color: var(--text-secondary);
   font-weight: 500;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 .glob-dir-count {
   font-size: 0.5625rem;
@@ -243,13 +250,16 @@ function countFiles(node: TreeNode): number {
   margin-left: auto;
 }
 .glob-file-icon {
+  margin-left: 16px;
   flex-shrink: 0;
   color: var(--text-tertiary);
 }
 .glob-file-name {
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
+.glob-dir:focus-visible { outline: 2px solid var(--accent-emphasis); outline-offset: -2px; }
+.glob-notices, .glob-empty { margin: 0; padding: 12px; color: var(--text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.glob-stats { flex-wrap: wrap; }
 </style>

@@ -4,9 +4,13 @@
  * amber pattern highlighting, context/match distinction, and separator gaps.
  */
 
+import type { TurnToolCall } from "@tracepilot/types";
 import { File, Search } from "lucide-vue-next";
 import { computed } from "vue";
 import { normalizePath } from "../../utils/pathUtils";
+import { toolCallStatus } from "../../utils/toolCallStatus";
+import { parseSearchResults, type SearchMatch } from "../../utils/toolSearchResults";
+import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 
@@ -14,6 +18,7 @@ const props = defineProps<{
   content: string;
   args: Record<string, unknown>;
   isTruncated?: boolean;
+  tc?: TurnToolCall;
 }>();
 
 const emit = defineEmits<{
@@ -24,122 +29,57 @@ const pattern = computed(() =>
   typeof props.args?.pattern === "string" ? props.args.pattern : null,
 );
 
-const outputMode = computed(() =>
-  typeof props.args?.output_mode === "string" ? props.args.output_mode : "files_with_matches",
+const outputMode = computed(() => {
+  const value = props.args?.output_mode;
+  return value === "count" || value === "content" || value === "files_with_matches"
+    ? value
+    : "files_with_matches";
+});
+
+const status = computed(() => toolCallStatus(props.tc));
+const parsed = computed(() => parseSearchResults(props.content, outputMode.value));
+const parsedMatches = computed(() => parsed.value.matches);
+const groupedByFile = computed(() => {
+  const groups = new Map<string, SearchMatch[]>();
+  for (const match of parsedMatches.value) {
+    const key = normalizePath(match.file);
+    const rows = groups.get(key) ?? [];
+    rows.push(match);
+    groups.set(key, rows);
+  }
+  return [...groups.entries()].map(([file, matches]) => ({ file, matches }));
+});
+const fileCount = computed(() => groupedByFile.value.length);
+const matchCount = computed(() =>
+  outputMode.value === "count"
+    ? parsedMatches.value.reduce((sum, match) => sum + Number(match.text), 0)
+    : parsedMatches.value.filter((match) => !match.isContext).length,
+);
+const literalPattern = computed(() =>
+  pattern.value &&
+  (props.args?.["-F"] === true ||
+    props.args?.fixed_strings === true ||
+    !/[.*+?^${}()|[\]\\]/.test(pattern.value))
+    ? pattern.value
+    : null,
 );
 
-interface GrepMatch {
-  file: string;
-  lineNum?: number;
-  text: string;
-  isContext?: boolean;
-}
-
-const parsedMatches = computed<GrepMatch[]>(() => {
-  if (!props.content) return [];
-  const lines = props.content
-    .split("\n")
-    .map((l) => l.replace(/\r$/, ""))
-    .filter((l) => l.trim());
-
-  const results: GrepMatch[] = [];
-
-  for (const line of lines) {
-    if (line === "--") continue;
-
-    const winMatchLine = line.match(/^([A-Za-z]:\\.+?):(\d+):(.*)$/);
-    if (winMatchLine) {
-      results.push({
-        file: winMatchLine[1],
-        lineNum: parseInt(winMatchLine[2], 10),
-        text: winMatchLine[3],
-        isContext: false,
-      });
-      continue;
-    }
-
-    const winCtxLine = line.match(/^([A-Za-z]:\\.+?)-(\d+)-(.*)$/);
-    if (winCtxLine) {
-      results.push({
-        file: winCtxLine[1],
-        lineNum: parseInt(winCtxLine[2], 10),
-        text: winCtxLine[3],
-        isContext: true,
-      });
-      continue;
-    }
-
-    const unixMatchLine = line.match(/^(.+?):(\d+):(.*)$/);
-    if (unixMatchLine) {
-      results.push({
-        file: unixMatchLine[1],
-        lineNum: parseInt(unixMatchLine[2], 10),
-        text: unixMatchLine[3],
-        isContext: false,
-      });
-      continue;
-    }
-
-    const unixCtxLine = line.match(/^(.+?)-(\d+)-(.*)$/);
-    if (unixCtxLine && (unixCtxLine[1].includes("/") || unixCtxLine[1].includes("\\"))) {
-      results.push({
-        file: unixCtxLine[1],
-        lineNum: parseInt(unixCtxLine[2], 10),
-        text: unixCtxLine[3],
-        isContext: true,
-      });
-      continue;
-    }
-
-    const winBare = line.match(/^([A-Za-z]:\\.+?):(.+)$/);
-    if (winBare) {
-      results.push({ file: winBare[1], text: winBare[2] });
-      continue;
-    }
-
-    const unixBare = line.match(/^(.+?):(.+)$/);
-    if (unixBare && (unixBare[1].includes("/") || unixBare[1].includes("\\"))) {
-      results.push({ file: unixBare[1], text: unixBare[2] });
-      continue;
-    }
-
-    results.push({ file: line.trim(), text: "", isContext: false });
-  }
-
-  return results;
-});
-
-const groupedByFile = computed(() => {
-  const groups: Record<string, GrepMatch[]> = {};
-  for (const m of parsedMatches.value) {
-    const key = normalizePath(m.file);
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(m);
-  }
-  return groups;
-});
-
-const fileCount = computed(() => Object.keys(groupedByFile.value).length);
-const matchCount = computed(() => {
-  if (outputMode.value === "count") {
-    return parsedMatches.value.reduce((sum, m) => {
-      const n = parseInt(m.text, 10);
-      return sum + (Number.isNaN(n) ? 1 : n);
-    }, 0);
-  }
-  return parsedMatches.value.filter((m) => !m.isContext).length;
-});
-
 function highlightPattern(text: string): string {
-  if (!pattern.value) return escapeHtml(text);
-  try {
-    return escapeHtml(text).replace(
-      new RegExp(`(${escapeRegex(escapeHtml(pattern.value))})`, "gi"),
-      '<span class="grep-highlight">$1</span>',
-    );
-  } catch {
-    return escapeHtml(text);
+  const literal = literalPattern.value;
+  if (!literal) return escapeHtml(text);
+  const insensitive = props.args?.["-i"] === true || props.args?.ignore_case === true;
+  const lower = insensitive ? text.toLocaleLowerCase() : text;
+  const needle = insensitive ? literal.toLocaleLowerCase() : literal;
+  let cursor = 0;
+  let match = lower.indexOf(needle);
+  let html = "";
+  while (match >= 0) {
+    html += escapeHtml(text.slice(cursor, match));
+    html += `<mark class="grep-highlight">${escapeHtml(text.slice(match, match + literal.length))}</mark>`;
+    cursor = match + literal.length;
+    match = lower.indexOf(needle, cursor);
   }
+  return html + escapeHtml(text.slice(cursor));
 }
 
 function escapeHtml(s: string): string {
@@ -150,11 +90,7 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function hasGap(matches: GrepMatch[], idx: number): boolean {
+function hasGap(matches: SearchMatch[], idx: number): boolean {
   if (idx === 0) return false;
   const prev = matches[idx - 1];
   const curr = matches[idx];
@@ -167,8 +103,8 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
 
 <template>
   <RendererShell
-    tool-name="Grep"
-    status="success"
+     :tool-name="tc?.toolName === 'rg' ? 'Ripgrep' : 'Grep'"
+    :status="status"
     :primary-hint="pattern ?? undefined"
     :copy-text="content"
   >
@@ -176,16 +112,19 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
     <div class="grep-result">
       <div class="grep-stats">
         <Search :size="12" class="grep-stat-icon" />
-        <span class="grep-stat">{{ matchCount }} match{{ matchCount !== 1 ? 'es' : '' }}</span>
-        <span class="grep-stat">in {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }}</span>
+        <template v-if="outputMode !== 'files_with_matches'">
+          <span class="grep-stat">{{ matchCount }} match{{ matchCount !== 1 ? 'es' : '' }}</span>
+          <span class="grep-stat">in {{ fileCount }} file{{ fileCount !== 1 ? 's' : '' }}</span>
+        </template>
+        <span v-else class="grep-stat">{{ fileCount }} matching file{{ fileCount !== 1 ? 's' : '' }}</span>
         <span v-if="outputMode !== 'files_with_matches'" class="grep-mode-badge">{{ outputMode }}</span>
       </div>
 
-      <div v-if="outputMode === 'content'" class="grep-groups">
-        <div v-for="(matches, _key) in groupedByFile" :key="_key" class="grep-file-group">
+      <RendererScrollRegion v-if="outputMode === 'content'" class="grep-groups" label="search results">
+        <div v-for="{file, matches} in groupedByFile" :key="file" class="grep-file-group">
           <div class="grep-file-header">
             <File :size="12" class="grep-file-icon" />
-            <span class="grep-file-path">{{ matches[0]?.file ?? _key }}</span>
+            <span class="grep-file-path" :title="matches[0]?.file">{{ matches[0]?.file ?? file }}</span>
             <span class="grep-file-count">{{ matches.filter(m => !m.isContext).length }}</span>
           </div>
           <div class="grep-matches">
@@ -199,22 +138,24 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
             </template>
           </div>
         </div>
-      </div>
+      </RendererScrollRegion>
 
-      <div v-else-if="outputMode === 'count'" class="grep-file-list">
-        <div v-for="m in parsedMatches" :key="m.file" class="grep-file-item">
+      <RendererScrollRegion v-else-if="outputMode === 'count'" class="grep-file-list" label="search results">
+        <div v-for="(m, idx) in parsedMatches" :key="`${m.file}-${idx}`" class="grep-file-item">
           <File :size="12" class="grep-file-icon" />
-          <span class="grep-file-path">{{ m.file }}</span>
+          <span class="grep-file-path" :title="m.file">{{ m.file }}</span>
           <span v-if="m.text" class="grep-file-count">{{ m.text }}</span>
         </div>
-      </div>
+      </RendererScrollRegion>
 
-      <div v-else class="grep-file-list">
-        <div v-for="m in parsedMatches" :key="m.file" class="grep-file-item">
+      <RendererScrollRegion v-else class="grep-file-list" label="search results">
+        <div v-for="(m, idx) in parsedMatches" :key="`${m.file}-${idx}`" class="grep-file-item">
           <File :size="12" class="grep-file-icon" />
-          <span class="grep-file-path">{{ m.file }}</span>
+          <span class="grep-file-path" :title="m.file">{{ m.file }}</span>
         </div>
-      </div>
+      </RendererScrollRegion>
+      <p v-if="!parsedMatches.length && !parsed.notices.length" class="grep-empty">No matches found.</p>
+      <pre v-if="parsed.notices.length" class="grep-notices">{{ parsed.notices.join('\n') }}</pre>
     </div>
     <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
@@ -223,13 +164,13 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
 <style scoped>
 .grep-result {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
+  font-size: 13px;
 }
 .grep-stats {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-muted);
 }
 .grep-stat-icon {
@@ -237,7 +178,7 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   flex-shrink: 0;
 }
 .grep-stat {
-  font-size: 0.6875rem;
+  font-size: 12px;
   color: var(--text-tertiary);
 }
 .grep-mode-badge {
@@ -247,10 +188,7 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   background: var(--accent-muted);
   color: var(--accent-fg);
 }
-.grep-groups {
-  max-height: 500px;
-  overflow: auto;
-}
+.grep-groups { min-width: 0; }
 .grep-file-group {
   border-bottom: 1px solid var(--border-muted);
 }
@@ -259,7 +197,7 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   background: var(--canvas-inset);
 }
 .grep-file-icon {
@@ -268,9 +206,8 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
 }
 .grep-file-path {
   color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
   flex: 1;
 }
 .grep-file-count {
@@ -284,23 +221,24 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   color: var(--warning-fg);
   flex-shrink: 0;
 }
-.grep-matches { padding: 2px 0; }
+.grep-matches { padding: 4px 0; overflow-x: auto; }
 .grep-separator {
   text-align: center;
   color: var(--text-tertiary);
   font-size: 0.625rem;
   padding: 2px 0;
-  opacity: 0.5;
+
 }
 .grep-match-line {
   display: flex;
-  padding: 1px 12px;
+  min-width: max-content;
+  padding: 2px 12px;
   background: var(--warning-subtle);
 }
 .grep-match-line:hover { background: var(--warning-muted); }
 .grep-match-line--context {
   background: transparent;
-  opacity: 0.6;
+
 }
 .grep-match-line--context:hover {
   background: var(--neutral-muted);
@@ -312,12 +250,10 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   text-align: right;
   padding-right: 10px;
   flex-shrink: 0;
-  opacity: 0.5;
+
 }
 .grep-line-text {
   white-space: pre;
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--text-secondary);
 }
 .grep-line-text :deep(.grep-highlight) {
@@ -326,10 +262,7 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   border-radius: 2px;
   padding: 0 1px;
 }
-.grep-file-list {
-  max-height: 400px;
-  overflow: auto;
-}
+.grep-file-list { min-width: 0; }
 .grep-file-item {
   display: flex;
   align-items: center;
@@ -337,4 +270,6 @@ function hasGap(matches: GrepMatch[], idx: number): boolean {
   padding: 3px 12px;
 }
 .grep-file-item:hover { background: var(--neutral-muted); }
+.grep-notices, .grep-empty { margin: 0; padding: 12px; color: var(--text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.grep-stats { flex-wrap: wrap; }
 </style>

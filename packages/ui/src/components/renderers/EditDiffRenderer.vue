@@ -6,21 +6,29 @@
  * and a "Modified" badge.
  */
 
+import type { TurnToolCall } from "@tracepilot/types";
 import { FileEdit } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
+import { toolCallStatus } from "../../utils/toolCallStatus";
+import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
+import CodeBlock from "./CodeBlock.vue";
 
 const props = defineProps<{
   content: string;
   args: Record<string, unknown>;
   isTruncated?: boolean;
+  tc?: TurnToolCall;
 }>();
 
 const emit = defineEmits<{
   "load-full": [];
 }>();
 
+const status = computed(() => toolCallStatus(props.tc));
+const diffPage = ref(0);
+const PAGE_SIZE = 1000;
 const diffMode = ref<"unified" | "split">("unified");
 
 const filePath = computed(() => {
@@ -36,7 +44,7 @@ const newStr = computed(() =>
   typeof props.args?.new_str === "string" ? props.args.new_str : null,
 );
 
-const isDelete = computed(() => oldStr.value != null && !newStr.value);
+const isDelete = computed(() => oldStr.value != null && newStr.value === "");
 
 interface DiffLine {
   type: "context" | "added" | "removed";
@@ -46,7 +54,8 @@ interface DiffLine {
 }
 
 function splitLines(text: string): string[] {
-  const lines = text.split("\n");
+  if (!text) return [];
+  const lines = text.split(/\r?\n/);
   if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
   return lines;
 }
@@ -109,10 +118,11 @@ const contextCount = computed(() => diffLines.value.filter((l) => l.type === "co
 const isPureAddition = computed(() => removedCount.value === 0 && addedCount.value > 0);
 
 const editBadgeText = computed(() => {
-  if (isDelete.value) return "Deleted";
+  if (status.value !== "success") return "Proposed change";
+  if (isDelete.value) return "Removed text";
   if (isPureAddition.value) return "Extended";
   if (addedCount.value === 0 && removedCount.value > 0) return "Trimmed";
-  return "Modified";
+  return addedCount.value || removedCount.value ? "Modified" : "Unchanged";
 });
 const editBadgeClass = computed(() => {
   if (isDelete.value) return "edit-diff-badge--deleted";
@@ -150,47 +160,58 @@ const splitPairs = computed(() => {
   flushQueues();
   return pairs;
 });
+const rowCount = computed(() =>
+  diffMode.value === "unified" ? diffLines.value.length : splitPairs.value.length,
+);
+const visibleDiffLines = computed(() =>
+  diffLines.value.slice(diffPage.value * PAGE_SIZE, (diffPage.value + 1) * PAGE_SIZE),
+);
+const visibleSplitPairs = computed(() =>
+  splitPairs.value.slice(diffPage.value * PAGE_SIZE, (diffPage.value + 1) * PAGE_SIZE),
+);
+watch([oldStr, newStr, diffMode], () => {
+  diffPage.value = 0;
+});
 </script>
 
 <template>
   <RendererShell
     tool-name="Edit"
-    status="success"
+    :status="status"
     :primary-hint="filePath"
     :copy-text="newStr ?? content"
   >
     <template #icon><FileEdit :size="16" /></template>
     <template v-if="oldStr != null && newStr != null" #tabs>
-      <div class="edit-diff-tabs" role="tablist">
+      <div class="edit-diff-tabs" role="group" aria-label="Diff view">
         <span class="edit-diff-badge" :class="editBadgeClass">{{ editBadgeText }}</span>
         <button
           type="button"
-          role="tab"
-          :aria-selected="diffMode === 'unified'"
+          :aria-pressed="diffMode === 'unified'"
           :class="['edit-diff-tab', { active: diffMode === 'unified' }]"
           @click="diffMode = 'unified'"
         >Unified</button>
         <button
           type="button"
-          role="tab"
-          :aria-selected="diffMode === 'split'"
+          :aria-pressed="diffMode === 'split'"
           :class="['edit-diff-tab', { active: diffMode === 'split' }]"
           @click="diffMode = 'split'"
         >Split</button>
       </div>
     </template>
 
-    <div v-if="oldStr != null || isDelete" class="edit-diff-stats">
+    <div v-if="oldStr != null && newStr != null" class="edit-diff-stats">
+      <span class="edit-diff-stat edit-diff-stat--context">Excerpt line numbers</span>
       <span v-if="removedCount > 0" class="edit-diff-stat edit-diff-stat--removed">−{{ removedCount }} line{{ removedCount !== 1 ? 's' : '' }}</span>
       <span v-if="addedCount > 0" class="edit-diff-stat edit-diff-stat--added">+{{ addedCount }} line{{ addedCount !== 1 ? 's' : '' }}</span>
       <span v-if="contextCount > 0" class="edit-diff-stat edit-diff-stat--context">{{ contextCount }} unchanged</span>
-      <span v-if="isDelete" class="edit-diff-stat edit-diff-stat--removed">deleted</span>
+
     </div>
 
-    <div v-if="oldStr != null && newStr != null && diffMode === 'unified'" class="edit-diff-body">
+    <RendererScrollRegion v-if="oldStr != null && newStr != null && diffMode === 'unified'" class="edit-diff-body" label="diff">
       <table class="diff-table" role="presentation">
         <tbody>
-          <tr v-for="(line, idx) in diffLines" :key="idx" :class="['diff-line', `diff-line--${line.type}`]">
+          <tr v-for="(line, idx) in visibleDiffLines" :key="idx" :class="['diff-line', `diff-line--${line.type}`]">
             <td class="diff-num diff-num--old">{{ line.oldNum ?? '' }}</td>
             <td class="diff-num diff-num--new">{{ line.newNum ?? '' }}</td>
             <td class="diff-indicator">
@@ -204,13 +225,13 @@ const splitPairs = computed(() => {
           </tr>
         </tbody>
       </table>
-    </div>
+    </RendererScrollRegion>
 
-    <div v-else-if="oldStr != null && newStr != null && diffMode === 'split'" class="edit-diff-body">
+    <RendererScrollRegion v-else-if="oldStr != null && newStr != null && diffMode === 'split'" class="edit-diff-body" label="diff">
       <div class="diff-split">
-        <table class="diff-table diff-table--half" role="presentation">
+        <div class="diff-split-panel"><div class="diff-split-label">Before</div><table class="diff-table diff-table--half" role="presentation">
           <tbody>
-            <tr v-for="(pair, idx) in splitPairs" :key="'l-' + idx"
+            <tr v-for="(pair, idx) in visibleSplitPairs" :key="'l-' + idx"
                 :class="['diff-line', pair.left ? `diff-line--${pair.left.type}` : 'diff-line--empty']">
               <td class="diff-num">{{ pair.left?.oldNum ?? '' }}</td>
               <td class="diff-indicator">
@@ -222,10 +243,10 @@ const splitPairs = computed(() => {
               </td>
             </tr>
           </tbody>
-        </table>
-        <table class="diff-table diff-table--half" role="presentation">
+        </table></div>
+        <div class="diff-split-panel"><div class="diff-split-label">After</div><table class="diff-table diff-table--half" role="presentation">
           <tbody>
-            <tr v-for="(pair, idx) in splitPairs" :key="'r-' + idx"
+            <tr v-for="(pair, idx) in visibleSplitPairs" :key="'r-' + idx"
                 :class="['diff-line', pair.right ? `diff-line--${pair.right.type}` : 'diff-line--empty']">
               <td class="diff-num">{{ pair.right?.newNum ?? '' }}</td>
               <td class="diff-indicator">
@@ -237,23 +258,21 @@ const splitPairs = computed(() => {
               </td>
             </tr>
           </tbody>
-        </table>
+        </table></div>
       </div>
-    </div>
+    </RendererScrollRegion>
 
-    <div v-else-if="isDelete && oldStr" class="edit-diff-body">
-      <table class="diff-table" role="presentation">
-        <tbody>
-          <tr v-for="(line, idx) in oldStr.split('\n')" :key="idx" class="diff-line diff-line--removed">
-            <td class="diff-num">{{ idx + 1 }}</td>
-            <td class="diff-indicator">−</td>
-            <td class="diff-code"><pre>{{ line }}</pre></td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-else-if="oldStr !== null || newStr !== null" class="edit-incomplete-input">
+      <p>{{ oldStr === null ? 'Original text was not provided.' : 'Replacement text was not provided.' }} Showing the supplied excerpt.</p>
+      <CodeBlock :code="oldStr ?? newStr ?? ''" :show-language-badge="false" :max-lines="100" />
     </div>
-
     <pre v-else class="edit-diff-fallback">{{ content }}</pre>
+    <div v-if="rowCount > PAGE_SIZE" class="diff-pager">
+      <span>Rows {{ diffPage * PAGE_SIZE + 1 }}–{{ Math.min((diffPage + 1) * PAGE_SIZE, rowCount) }} of {{ rowCount }}</span>
+      <button type="button" :disabled="diffPage === 0" @click="diffPage--">Previous</button>
+      <button type="button" :disabled="(diffPage + 1) * PAGE_SIZE >= rowCount" @click="diffPage++">Next</button>
+    </div>
+    <div v-if="content && (oldStr !== null || newStr !== null)" class="edit-result-feedback"><span>Result</span><pre>{{ content }}</pre></div>
     <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
@@ -308,8 +327,9 @@ const splitPairs = computed(() => {
 .edit-diff-stats {
   display: flex;
   gap: 10px;
-  padding: 4px 12px;
-  font-size: 0.6875rem;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
   border-bottom: 1px solid var(--border-muted);
 }
 .edit-diff-stat {
@@ -321,14 +341,14 @@ const splitPairs = computed(() => {
 .edit-diff-stat--context { color: var(--text-tertiary); }
 .edit-diff-body {
   overflow: auto;
-  max-height: 500px;
+
 }
 
 .diff-table {
   border-collapse: collapse;
   width: 100%;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
+  font-size: 13px;
   line-height: 1.6;
 }
 .diff-line { border: none; }
@@ -340,7 +360,7 @@ const splitPairs = computed(() => {
   text-align: right;
   padding: 0 6px;
   color: var(--text-tertiary);
-  opacity: 0.5;
+
   user-select: none;
   vertical-align: top;
   white-space: nowrap;
@@ -372,7 +392,7 @@ const splitPairs = computed(() => {
 
 .diff-split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0;
 }
 .diff-split .diff-table--half {
@@ -384,7 +404,7 @@ const splitPairs = computed(() => {
 
 .edit-diff-fallback {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  font-size: 13px;
   line-height: 1.5;
   padding: 10px 12px;
   margin: 0;
@@ -394,4 +414,14 @@ const splitPairs = computed(() => {
   max-height: 400px;
   overflow: auto;
 }
+.diff-split-panel { min-width: 0; overflow-x: auto; border-right: 1px solid var(--border-muted); }
+.diff-split-panel:last-child { border-right: 0; }
+.diff-split-label { padding: 6px 12px; color: var(--text-tertiary); font-size: 12px; background: var(--canvas-inset); }
+.edit-result-feedback, .edit-incomplete-input { padding: 12px; border-top: 1px solid var(--border-muted); }
+.edit-result-feedback span { color: var(--text-tertiary); font-size: 12px; }
+.edit-result-feedback pre, .edit-incomplete-input p { margin: 4px 0 0; font: inherit; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-secondary); max-height: 240px; overflow: auto; }
+.diff-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border-muted); font-size: 12px; color: var(--text-tertiary); }
+.diff-pager button { border: 1px solid var(--border-default); padding: 3px 8px; border-radius: var(--radius-sm); color: var(--accent-fg); background: var(--canvas-default); cursor: pointer; }
+.diff-pager button:disabled { opacity: 0.5; cursor: default; }
+.edit-diff-tab:focus-visible, .diff-pager button:focus-visible { outline: 2px solid var(--accent-emphasis); outline-offset: 2px; }
 </style>

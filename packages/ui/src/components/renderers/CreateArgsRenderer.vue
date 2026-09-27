@@ -2,6 +2,8 @@
 /**
  * CreateArgsRenderer — shows create tool arguments (path + file content preview).
  */
+
+import { detectLanguage } from "../../utils/languageDetection";
 import CodeBlock from "./CodeBlock.vue";
 
 defineProps<{
@@ -19,7 +21,7 @@ defineProps<{
       <span class="create-args-label">Content</span>
       <CodeBlock
         :code="String(args.file_text)"
-        :file-path="typeof args.path === 'string' ? String(args.path) : undefined"
+        :language="detectLanguage(typeof args.path === 'string' ? args.path : '')"
         :max-lines="30"
         :show-language-badge="false"
       />
@@ -32,6 +34,8 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 12px;
+  min-width: 0;
 }
 .create-args-row {
   display: flex;

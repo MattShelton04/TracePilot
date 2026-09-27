@@ -151,13 +151,15 @@ describe("CodeBlock", () => {
     expect(wrapper.find('[data-line-number="11"]').exists()).toBe(true);
     await wrapper.get(".code-block-collapsed button:nth-of-type(3)").trigger("click");
     expect(wrapper.find('[data-line-number="25"]').exists()).toBe(true);
+    expect(wrapper.find('[data-line-number="20"]').exists()).toBe(false);
+    expect(wrapper.findAll(".code-line")).toHaveLength(5);
   });
 
   it("bounds extremely long rendered lines", () => {
     const wrapper = mount(CodeBlock, {
       props: { code: "x".repeat(50_000), maxLineCharacters: 1_000 },
     });
-    expect(wrapper.text()).toContain("line truncated for display");
+    expect(wrapper.text()).toContain("Long line · characters 1–1000 of 50000");
     expect(wrapper.get("pre").text().length).toBeLessThan(1_100);
   });
 });

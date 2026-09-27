@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import CreateFileRenderer from "../components/renderers/CreateFileRenderer.vue";
 
 describe("CreateFileRenderer", () => {
-  it("renders file_text from args instead of result content", () => {
+  it("preserves submitted source alongside the actual result", () => {
     const fileText = 'export const hello = "world";\n';
     const wrapper = mount(CreateFileRenderer, {
       props: {
@@ -12,9 +12,9 @@ describe("CreateFileRenderer", () => {
       },
     });
 
-    // Should show the actual file content, not the confirmation message
+    // Proposed source and the returned message are different information.
     expect(wrapper.text()).toContain("hello");
-    expect(wrapper.text()).not.toContain("File created successfully");
+    expect(wrapper.text()).toContain("File created successfully");
   });
 
   it("falls back to content when file_text is not in args", () => {
