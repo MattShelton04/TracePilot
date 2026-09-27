@@ -1,14 +1,16 @@
 <script setup lang="ts">
-/**
- * WebSearchRenderer — renders web_search tool results with markdown body,
- * numbered source cards, and inline citation highlighting.
- */
 import type { TurnToolCall } from "@tracepilot/types";
 import { Globe, Search } from "lucide-vue-next";
 import { computed } from "vue";
 import { useExternalLinkHandler } from "../../composables/externalLinks";
-import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
+import { mdReady, renderMarkdown } from "../../utils/markdownLoader";
+import { toolCallStatus } from "../../utils/toolCallStatus";
+import { parseWebSearchBody, webSearchSources } from "../../utils/webSearchResult";
+import MarkdownContent from "../MarkdownContent.vue";
+import RendererScrollRegion from "../RendererScrollRegion.vue";
+import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
+import RecordedToolResponse from "./RecordedToolResponse.vue";
 
 const props = defineProps<{
   content: string;
@@ -16,185 +18,55 @@ const props = defineProps<{
   tc?: TurnToolCall;
   isTruncated?: boolean;
 }>();
-
 const emit = defineEmits<{
   "load-full": [];
   "open-external": [url: string];
 }>();
 const externalLinkHandler = useExternalLinkHandler();
-
-const status = computed<RendererShellStatus>(() =>
-  props.tc?.success === true ? "success" : props.tc?.success === false ? "error" : "success",
+const status = computed(() => toolCallStatus(props.tc));
+const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : ""));
+const body = computed(() => parseWebSearchBody(props.content));
+const sources = computed(() =>
+  mdReady.value && body.value.recognized ? webSearchSources(renderMarkdown(body.value.text)) : [],
 );
 
-const query = computed(() => (typeof props.args?.query === "string" ? props.args.query : null));
-
-const unwrappedContent = computed(() => {
-  if (!props.content) return "";
-  const s = props.content.trim();
-  if (!s.startsWith("{") && !s.startsWith("[")) return s;
-  try {
-    const parsed = JSON.parse(s);
-    if (parsed?.text?.value && typeof parsed.text.value === "string") {
-      return parsed.text.value;
-    }
-    if (typeof parsed?.value === "string") return parsed.value;
-    if (typeof parsed?.text === "string") return parsed.text;
-    if (Array.isArray(parsed)) {
-      return parsed
-        .map((e: Record<string, unknown>) =>
-          typeof e === "string"
-            ? e
-            : ((e?.text as Record<string, unknown>)?.value ?? e?.value ?? ""),
-        )
-        .filter(Boolean)
-        .join("\n\n");
-    }
-  } catch {
-    // Not JSON
-  }
-  return s;
-});
-
-const sources = computed<Array<{ title: string; url: string; domain: string }>>(() => {
-  const text = unwrappedContent.value;
-  if (!text) return [];
-  const matches = text.matchAll(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g);
-  const seen = new Set<string>();
-  const results: Array<{ title: string; url: string; domain: string }> = [];
-  for (const m of matches) {
-    if (!seen.has(m[2])) {
-      seen.add(m[2]);
-      let domain = "";
-      try {
-        domain = new URL(m[2]).hostname.replace(/^www\./, "");
-      } catch {
-        /* */
-      }
-      results.push({ title: m[1], url: m[2], domain });
-    }
-  }
-  return results;
-});
-
-const renderedBody = computed(() => {
-  const text = unwrappedContent.value;
-  if (!text) return "";
-  let html = escapeHtml(text);
-
-  html = html.replace(/^### (.+)$/gm, '<h4 class="ws-heading ws-h3">$1</h4>');
-  html = html.replace(/^## (.+)$/gm, '<h3 class="ws-heading ws-h2">$1</h3>');
-  html = html.replace(/^# (.+)$/gm, '<h2 class="ws-heading ws-h1">$1</h2>');
-
-  html = html.replace(/^---+$/gm, '<hr class="ws-hr">');
-
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>");
-  html = html.replace(/`([^`]+)`/g, '<code class="ws-inline-code">$1</code>');
-
-  html = html.replace(/(?<!\[)\[(\d+)\](?!\()/g, '<span class="ws-citation">$1</span>');
-
-  html = html.replace(
-    /\[([^\]]+)\]\((https?:\/\/(?:[^()]*|\([^()]*\))*)\)/g,
-    '<a href="$2" class="ws-link">$1</a>',
-  );
-
-  html = html.replace(/(?:^|\n)((?:(?:- |\* ).+\n?)+)/g, (_match, block: string) => {
-    const items = block
-      .split("\n")
-      .filter((l) => l.trim())
-      .map((l) => `<li>${l.replace(/^(?:- |\* )/, "")}</li>`)
-      .join("");
-    return `<ul class="ws-list">${items}</ul>`;
-  });
-
-  html = html.replace(/(?:^|\n)((?:\d+\. .+\n?)+)/g, (_match, block: string) => {
-    const items = block
-      .split("\n")
-      .filter((l) => l.trim())
-      .map((l) => `<li>${l.replace(/^\d+\. /, "")}</li>`)
-      .join("");
-    return `<ol class="ws-list ws-list--ordered">${items}</ol>`;
-  });
-
-  html = html.replace(/(?:^|\n)((?:&gt; .+\n?)+)/g, (_match, block: string) => {
-    const content = block
-      .split("\n")
-      .filter((l) => l.trim())
-      .map((l) => l.replace(/^&gt; /, ""))
-      .join("<br>");
-    return `<blockquote class="ws-blockquote">${content}</blockquote>`;
-  });
-
-  html = html.replace(/\n\n+/g, '</p><p class="ws-paragraph">');
-  html = html.replace(/\n/g, "<br>");
-  html = `<p class="ws-paragraph">${html}</p>`;
-
-  return html;
-});
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function faviconUrl(domain: string): string {
-  return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-}
-
-function handleLinkClick(event: MouseEvent) {
-  const target = event.target as HTMLElement;
-  const link = target.closest<HTMLAnchorElement>("a[href]");
-  if (!link) return;
-
-  event.preventDefault();
-  const href = link.getAttribute("href");
-  if (!href) return;
-
-  if (externalLinkHandler) {
-    void externalLinkHandler(href);
-  } else {
-    emit("open-external", href);
-  }
+function openSource(url: string) {
+  if (externalLinkHandler) void externalLinkHandler(url);
+  else emit("open-external", url);
 }
 </script>
 
 <template>
-  <RendererShell
-    tool-name="Web Search"
-    :status="status"
-    :primary-hint="query ?? undefined"
-    :copy-text="content"
-  >
+  <RendererShell tool-name="Web Search" :status="status" :copy-text="content">
     <template #icon><Globe :size="16" /></template>
-    <div class="web-search" @click="handleLinkClick">
+    <div class="web-search">
       <div v-if="query" class="ws-query-bar">
-        <Search :size="14" class="ws-query-icon" />
+        <Search :size="14" class="ws-query-icon" aria-hidden="true" />
         <span class="ws-query-text">{{ query }}</span>
       </div>
 
-      <!-- eslint-disable vue/no-v-html -->
-      <div class="ws-body" v-html="renderedBody"></div>
+      <RendererScrollRegion label="search response" :max-height="400" :key="`body-${tc?.toolCallId}`">
+        <MarkdownContent v-if="body.text && body.recognized" class="ws-body" :content="body.text" :render="true" @open-external="emit('open-external', $event)" />
+        <pre v-else-if="body.text" class="ws-body ws-raw-body">{{ body.text }}</pre>
+        <p v-else class="ws-empty">{{ status === 'pending' ? 'Searching…' : status === 'error' ? 'The search returned no output.' : 'No search response returned.' }}</p>
+      </RendererScrollRegion>
 
-      <div v-if="sources.length > 0" class="ws-sources">
-        <div class="ws-sources-label">Sources ({{ sources.length }})</div>
-        <div class="ws-source-grid">
-          <a v-for="(src, idx) in sources" :key="src.url"
-             :href="src.url"
-             class="ws-source-card">
-            <span class="ws-source-num">{{ idx + 1 }}</span>
-            <div class="ws-source-info">
-              <span class="ws-source-title">{{ src.title }}</span>
-              <span class="ws-source-domain">
-                <img :src="faviconUrl(src.domain)" :alt="src.domain" width="12" height="12" class="ws-favicon" loading="lazy" @error="($event.target as HTMLImageElement).style.display = 'none'" />
-                {{ src.domain }}
+      <div v-if="sources.length" class="ws-sources">
+        <div class="ws-sources-label">Linked sources <span>{{ sources.length }}</span></div>
+        <RendererScrollRegion label="sources" :max-height="240" :key="`sources-${tc?.toolCallId}`">
+          <div class="ws-source-grid">
+            <a v-for="source in sources" :key="source.url" :href="source.url" :title="source.url" class="ws-source-card" @click.prevent="openSource(source.url)">
+              <Globe :size="16" class="ws-source-icon" aria-hidden="true" />
+              <span class="ws-source-info">
+                <span class="ws-source-title">{{ source.title }}</span>
+                <span class="ws-source-domain">{{ source.domain }}</span>
               </span>
-            </div>
-          </a>
-        </div>
+            </a>
+          </div>
+        </RendererScrollRegion>
+      </div>
+      <div v-if="body.structured && body.recognized" class="ws-raw-response">
+        <RecordedToolResponse :content="content" />
       </div>
     </div>
     <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
@@ -202,151 +74,28 @@ function handleLinkClick(event: MouseEvent) {
 </template>
 
 <style scoped>
-.web-search {
-  font-size: 0.75rem;
-}
-.ws-query-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--canvas-inset);
-  border-bottom: 1px solid var(--border-muted);
-}
-.ws-query-icon { flex-shrink: 0; color: var(--text-tertiary); }
-.ws-query-text {
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ws-body {
-  padding: 10px 12px;
-  line-height: 1.7;
-  color: var(--text-secondary);
-  max-height: 400px;
-  overflow: auto;
-}
-.ws-body :deep(strong) { color: var(--text-primary); font-weight: 600; }
-.ws-body :deep(.ws-inline-code) {
-  background: var(--neutral-muted);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6875rem;
-}
-.ws-body :deep(.ws-link) {
-  color: var(--accent-fg);
-  text-decoration: none;
-}
-.ws-body :deep(.ws-link:hover) { text-decoration: underline; }
-.ws-body :deep(.ws-heading) { color: var(--text-primary); margin: 8px 0 4px; }
-.ws-body :deep(.ws-h1) { font-size: 1rem; font-weight: 700; }
-.ws-body :deep(.ws-h2) { font-size: 0.875rem; font-weight: 700; }
-.ws-body :deep(.ws-h3) { font-size: 0.8125rem; font-weight: 600; }
-.ws-body :deep(.ws-hr) { border: none; border-top: 1px solid var(--border-muted); margin: 8px 0; }
-.ws-body :deep(.ws-list) {
-  margin: 4px 0;
-  padding-left: 20px;
-  color: var(--text-secondary);
-}
-.ws-body :deep(.ws-list li) { margin: 2px 0; }
-.ws-body :deep(.ws-blockquote) {
-  border-left: 3px solid var(--accent-emphasis);
-  padding: 4px 10px;
-  margin: 6px 0;
-  background: var(--neutral-muted);
-  border-radius: 0 4px 4px 0;
-  color: var(--text-secondary);
-}
-.ws-body :deep(.ws-paragraph) { margin: 0 0 6px; }
-.ws-body :deep(.ws-paragraph:last-child) { margin-bottom: 0; }
-.ws-body :deep(em) { font-style: italic; }
-.ws-body :deep(.ws-citation) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--accent-muted);
-  color: var(--accent-fg);
-  font-size: 0.5625rem;
-  font-weight: 700;
-  vertical-align: super;
-  margin: 0 1px;
-  cursor: default;
-}
-
-.ws-sources {
-  border-top: 1px solid var(--border-muted);
-  padding: 8px 12px;
-}
-.ws-sources-label {
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 8px;
-}
-.ws-source-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 6px;
-}
-.ws-source-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  color: inherit;
-  transition: all 0.15s;
-}
-.ws-source-card:hover {
-  border-color: var(--accent-emphasis);
-  background: var(--neutral-muted);
-}
-.ws-source-num {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--accent-muted);
-  color: var(--accent-fg);
-  font-size: 0.625rem;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.ws-source-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow: hidden;
-  min-width: 0;
-}
-.ws-source-title {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ws-source-domain {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.5625rem;
-  color: var(--text-tertiary);
-}
-.ws-favicon {
-  border-radius: 2px;
-}
+.web-search { min-width: 0; font-size: 13px; }
+.ws-query-bar { display: flex; align-items: flex-start; gap: 8px; padding: 12px; background: var(--canvas-inset); border-bottom: 1px solid var(--border-muted); }
+.ws-query-icon { flex-shrink: 0; margin-top: 3px; color: var(--text-tertiary); }
+.ws-query-text { min-width: 0; font-weight: 600; color: var(--text-primary); line-height: 1.6; overflow-wrap: anywhere; }
+.ws-body { padding: 12px; line-height: 1.7; color: var(--text-secondary); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.ws-body :deep(p:first-child), .ws-body :deep(h1:first-child), .ws-body :deep(h2:first-child), .ws-body :deep(h3:first-child) { margin-top: 0; }
+.ws-body :deep(p:last-child) { margin-bottom: 0; }
+.ws-body :deep(pre) { max-width: 100%; overflow: auto; }
+.ws-body :deep(table) { display: block; max-width: 100%; overflow: auto; }
+.ws-body :deep(a) { overflow-wrap: anywhere; }
+.ws-raw-body { margin: 0; white-space: pre-wrap; font-family: var(--font-mono, monospace); }
+.ws-empty { margin: 0; padding: 12px; color: var(--text-tertiary); }
+.ws-sources { border-top: 1px solid var(--border-muted); padding: 12px; }
+.ws-sources-label { display: flex; gap: 8px; color: var(--text-tertiary); font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.ws-sources-label span { font-weight: 400; font-variant-numeric: tabular-nums; }
+.ws-source-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 8px; }
+.ws-source-card { display: flex; align-items: flex-start; gap: 8px; padding: 12px; min-width: 0; border: 1px solid var(--border-muted); border-radius: var(--radius-sm); text-decoration: none; color: inherit; background: var(--canvas-inset); }
+.ws-source-card:hover { border-color: var(--accent-emphasis); background: var(--neutral-muted); }
+.ws-source-card:focus-visible { outline: 2px solid var(--accent-emphasis); outline-offset: -2px; }
+.ws-source-icon { color: var(--accent-fg); flex-shrink: 0; margin-top: 2px; }
+.ws-source-info { display: flex; flex-direction: column; min-width: 0; gap: 4px; }
+.ws-source-title { font-size: 13px; line-height: 1.5; font-weight: 500; color: var(--text-primary); overflow-wrap: anywhere; }
+.ws-source-domain { font-size: 12px; color: var(--text-tertiary); overflow-wrap: anywhere; }
+.ws-raw-response { padding: 8px 12px; border-top: 1px solid var(--border-muted); }
 </style>
