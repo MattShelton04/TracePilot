@@ -42,3 +42,8 @@ IDs and tool lists are synthetic or truncated; it contains no user content.
 and a delivery queued while a recipient was busy. It exercises the sender ID,
 recipient launch call, delivery state and message ID recorded on child
 `user.message` events. All content and identifiers are synthetic.
+
+`cli_turn_parity.jsonl` is a small shared Rust/TypeScript contract. It repeats
+the same user prompt in two turns and completes two same-name tool calls after
+both have started, with the first call failing. The standalone CLI smoke test
+also loads it through a temporary session directory.

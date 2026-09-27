@@ -99,6 +99,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.15
+      esbuild:
+        specifier: 0.27.4
+        version: 0.27.4
       tsx:
         specifier: 'catalog:'
         version: 4.21.0

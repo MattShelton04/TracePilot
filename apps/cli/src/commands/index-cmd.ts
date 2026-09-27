@@ -1,19 +1,9 @@
-/**
- * `tracepilot index` — stub for the index command.
- *
- * The full indexer is a Rust crate. For Phase 1, this is a placeholder.
- */
+/** The desktop Rust indexer is not exposed by this standalone CLI. */
 
-import chalk from "chalk";
+import { handleValidationError } from "../utils/errorHandler.js";
 
-export async function indexCommand(options: { full?: boolean }) {
-  console.log(
-    chalk.yellow(
-      "\n  Index command uses the Rust indexer — run from the desktop app " +
-        "or wait for NAPI-RS integration.\n",
-    ),
+export async function indexCommand(_options: { full?: boolean }): Promise<never> {
+  handleValidationError(
+    "The index command is unavailable in the standalone CLI. Open TracePilot desktop to rebuild its index.",
   );
-  if (options.full) {
-    console.log(chalk.dim("  (--full flag noted; will be used once Rust indexer is integrated)\n"));
-  }
 }
