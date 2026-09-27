@@ -251,14 +251,6 @@ try {
               throw new Error(`Expected complete result text: ${item.expectText}`);
             });
         }
-        // Focus the call, not a source card far below its header. Respect the
-        // sticky session toolbar so initial/expanded evidence remains readable.
-        const anchor = page.locator(item.focus === "end" ? ".rs" : ".tool-call-item").last();
-        await anchor.evaluate((element, end) => {
-          element.style.scrollMarginTop = "112px";
-          element.style.scrollMarginBottom = "24px";
-          element.scrollIntoView({ block: end ? "end" : "start", behavior: "instant" });
-        }, item.focus === "end");
       }
       await page.addStyleTag({
         content:
@@ -270,6 +262,36 @@ try {
         await new Promise(requestAnimationFrame);
       });
       await page.waitForFunction(() => window.__TRACEPILOT_VISUAL__?.pending === 0);
+      if (item.group === "rich-tools") {
+        // A preceding click must not leave incidental hover styling in the capture.
+        await page.mouse.move(0, 0);
+        // Frame only after fonts and expansion layout settle. End fixtures show
+        // one call: use the page bottom, matching the conversation's scroll lock,
+        // rather than racing its ResizeObserver with a different card-end target.
+        const anchor = page.locator(item.focus === "end" ? ".rs" : ".tool-call-item").last();
+        await anchor.evaluate(async (element, end) => {
+          if (end) {
+            const container = element.closest(".page-content");
+            if (!container)
+              throw new Error("Rich-tool end capture requires a page scroll container");
+            container.scrollTo({ top: container.scrollHeight, behavior: "instant" });
+          } else {
+            // Keep the call header below the sticky session toolbar.
+            element.style.scrollMarginTop = "112px";
+            element.scrollIntoView({ block: "start", behavior: "instant" });
+          }
+          await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+        }, item.focus === "end");
+        if (item.focus === "end")
+          await page.waitForFunction(() => {
+            const container = document.querySelector(".rs")?.closest(".page-content");
+            return (
+              container &&
+              container.scrollHeight - container.scrollTop - container.clientHeight <= 1
+            );
+          });
+      }
       if (await page.locator(".error-boundary").count())
         errors.push(
           `Visible error boundary: ${(await page.locator(".error-boundary").first().innerText()).slice(0, 300)}`,
