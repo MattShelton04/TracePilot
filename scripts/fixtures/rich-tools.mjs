@@ -223,10 +223,12 @@ export const richToolSamples = [
       agent_type: "explore",
     },
     "The greeting test covers ordinary and Unicode names. No changes are required.",
-    ".rs .markdown-content",
+    ".plain-text-renderer",
     {
       registered: false,
-      fallback: "Markdown",
+      // Native reconstruction names a started task after its agent (explore),
+      // which uses the generic result fallback in the Timeline view.
+      fallback: "delegated plain-text",
       subagent: {
         agentName: "explore",
         agentDisplayName: "Fixture review",
