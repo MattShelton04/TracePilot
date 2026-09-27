@@ -315,10 +315,32 @@ arguments and structured `ask_user` responses. A registry coverage test fails
 when a new renderer lacks a sample. The `web_search` case crosses the backend
 preview boundary and asserts both final source cards appear without manual loading.
 
-Default local and CI captures contain **64 cases: 37 App views and 27 Rich tools**.
+Default local and CI captures contain **101 cases: 37 App views and 64 Rich tools**.
 The report keeps those sections separate; PR comments and history cards show
 compact counts/links for detailed tools. Generated JSONL, indexes and screenshots
 stay ignored.
+
+The native fixture generator puts 63 scenarios in the main renderer gallery and
+`report_intent` in a dedicated session, so its objective banner does not clutter
+unrelated tools. Browser captures already isolate each case; their 64-case
+inventory and routes remain unchanged.
+
+The rich cases include empty and failed results, all argument renderers, unknown
+payloads, heterogeneous SQL rows, escaped table cells, numbered source excerpts,
+read/write/async PowerShell state, complete agent transcripts and long text.
+Long non-search outputs use the native **1024-byte UTF-8 preview boundary**;
+`get_tool_result` returns the distinct complete payload. Paired scenarios click
+the single full-output action, expand local scroll regions, page long code/tables,
+or open raw patches. State labels distinguish the initial view, fetched content
+and the end of an expanded response. Assertions verify completion markers and
+expanded controls before capture. The initial camera keeps the call header below
+the sticky session toolbar; expanded-end captures intentionally show the tail.
+
+These are deterministic snapshots of lifecycle states. They do not simulate SDK
+streaming or prove that incremental updates survive a backend transition; verify
+those interactions in the native app and shared display-state tests. Native
+empty completions may reconstruct with absent content, while their completion
+event still makes the call complete.
 
 The trusted publisher runs from `main`, so report-section changes in a PR take
 effect in automatic publication after merge. Local gallery checks use the current
@@ -338,6 +360,11 @@ Use `--case=rich-tool-web-search` for one case, or
 `--viewport=960x640` / `--viewport=2560x1440` for other desktop sizes. Store each
 size in a separate output directory. CI keeps the standard 1440×960 size;
 its trusted paired reporter does not accept arbitrary viewport dimensions.
+
+For a focused initial/expanded comparison, use
+`--case=rich-tool-shell-preview,rich-tool-shell-full` or
+`--case=rich-tool-web-search,rich-tool-web-search-expanded`. The fixture test
+enforces the publisher's 128-view inventory limit when adding cases.
 
 The worktree case also asserts all header/body columns align at all three
 desktop sizes, including selected active and stale rows. This catches generated

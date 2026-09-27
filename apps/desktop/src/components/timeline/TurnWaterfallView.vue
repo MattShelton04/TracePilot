@@ -27,8 +27,16 @@ import "@/styles/features/waterfall.css";
 /*  Store & data                                                      */
 /* ------------------------------------------------------------------ */
 
-const { store, prefs, fullResults, loadingResults, loadFullResult, allToolCalls } =
-  useTimelineToolState();
+const {
+  store,
+  prefs,
+  fullResults,
+  loadingResults,
+  failedResults,
+  loadFullResult,
+  retryFullResult,
+  allToolCalls,
+} = useTimelineToolState();
 
 const turns = computed(() => store.turns);
 
@@ -291,11 +299,13 @@ const waterfallTerms = [
           :tc="pinnedRow.call"
           :full-result="fullResults.get(pinnedRow.call.toolCallId ?? '')"
           :loading-full-result="!!(pinnedRow.call.toolCallId && loadingResults.has(pinnedRow.call.toolCallId))"
+          :failed-full-result="!!(pinnedRow.call.toolCallId && failedResults.has(pinnedRow.call.toolCallId))"
           :rich-enabled="prefs.isRichRenderingEnabled(pinnedRow.call.toolName)"
           :child-tool-count="pinnedRow.call.isSubagent ? childToolCount(pinnedRow) : undefined"
           :badges="pinnedRow.isParallel ? [{ label: 'parallel', variant: 'accent' }] : []"
           @close="dismissDetail"
           @load-full-result="loadFullResult"
+          @retry-full-result="retryFullResult"
         />
       </Transition>
     </template>

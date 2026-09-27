@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
+  buildReportIntentSession,
   buildRichToolsSession,
+  reportIntentSessionId,
+  richToolPreview,
   richToolSamples,
   richToolsSessionId,
   richToolTurn,
@@ -36,31 +39,40 @@ test("every registered result and argument renderer has an explicit visual fixtu
   assert.match(JSON.parse(search.content).text.value, /Fixture response format/);
 });
 
-test("native gallery is deterministic, has valid event ancestry and matches browser payloads", () => {
-  const session = buildRichToolsSession();
-  assert.deepEqual(session, buildRichToolsSession());
+test("native sessions are deterministic, have unique ancestry and match every browser payload", () => {
+  const sessions = [buildRichToolsSession(), buildReportIntentSession()];
+  assert.deepEqual(sessions, [buildRichToolsSession(), buildReportIntentSession()]);
   const ids = new Set();
-  for (const event of session.events) {
-    assert.match(event.id, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/);
-    assert(!ids.has(event.id));
-    assert(event.parentId === null || ids.has(event.parentId));
-    ids.add(event.id);
+  for (const session of sessions) {
+    assert.equal(session.events[0].data.sessionId, session.id);
+    const sessionIds = new Set();
+    for (const event of session.events) {
+      assert.match(event.id, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/);
+      assert(!ids.has(event.id), "Event IDs must be unique across native sessions");
+      assert(event.parentId === null || sessionIds.has(event.parentId));
+      ids.add(event.id);
+      sessionIds.add(event.id);
+    }
   }
+  const events = sessions.flatMap((session) => session.events);
   for (const sample of richToolSamples) {
-    const call = session.events.find(
+    const calls = events.filter(
       (e) => e.type === "tool.execution_start" && e.data.toolCallId === `fixture-${sample.id}`,
     );
+    assert.equal(calls.length, 1, `${sample.id} must appear in exactly one native session`);
+    const [call] = calls;
     assert.deepEqual(call.data.arguments, sample.arguments);
-    const result = session.events.find(
+    const result = events.find(
       (e) => e.type === "tool.execution_complete" && e.data.toolCallId === call.data.toolCallId,
     );
     assert.equal(result?.data.result.content ?? null, sample.content);
     const browserCall = richToolTurn(sample).toolCalls[0];
+    assert.equal(browserCall.resultContent, richToolPreview(sample));
     if (sample.toolName === "task" && sample.arguments.agent_type) {
-      const started = session.events.find(
+      const started = events.find(
         (e) => e.type === "subagent.started" && e.data.toolCallId === call.data.toolCallId,
       );
-      const completed = session.events.find(
+      const completed = events.find(
         (e) => e.type === "subagent.completed" && e.data.toolCallId === call.data.toolCallId,
       );
       assert(started, "task fixtures must start their native subagent lifecycle");
@@ -76,6 +88,61 @@ test("native gallery is deterministic, has valid event ancestry and matches brow
   }
 });
 
+test("report_intent is isolated so ordinary native renderer scenarios have no objective", () => {
+  const gallery = buildRichToolsSession();
+  const intent = buildReportIntentSession();
+  assert.equal(gallery.expected.scenarios, 63);
+  assert.equal(intent.expected.scenarios, 1);
+  assert.equal(gallery.expected.scenarios + intent.expected.scenarios, richToolSamples.length);
+  const starts = (session) =>
+    session.events.filter((event) => event.type === "tool.execution_start");
+  assert(starts(gallery).every((event) => event.data.toolName !== "report_intent"));
+  assert.deepEqual(
+    starts(intent).map((event) => event.data.toolName),
+    ["report_intent"],
+  );
+  assert.deepEqual(intent.expected.tools, ["report_intent"]);
+  assert.notEqual(gallery.id, intent.id);
+});
+
+test("browser previews preserve the native UTF-8 boundary without truncating stored results", () => {
+  for (const sample of richToolSamples) {
+    const preview = richToolPreview(sample);
+    if (
+      sample.content == null ||
+      sample.toolName === "web_search" ||
+      Buffer.byteLength(sample.content) <= 1024
+    ) {
+      assert.equal(preview, sample.content);
+      continue;
+    }
+    assert(preview.endsWith("…[truncated]"), `${sample.id} must exercise full-result loading`);
+    const prefix = preview.slice(0, -"…[truncated]".length);
+    assert(Buffer.byteLength(prefix) <= 1024);
+    assert(sample.content.startsWith(prefix));
+    assert(!prefix.includes("\uFFFD"));
+  }
+  assert.equal(
+    richToolPreview({ toolName: "powershell", content: "日".repeat(400) }).slice(
+      0,
+      -"…[truncated]".length,
+    ).length,
+    341,
+  );
+  const session = buildRichToolsSession();
+  const empty = session.events.find(
+    (event) =>
+      event.type === "tool.execution_complete" &&
+      event.data.toolCallId === "fixture-shell-empty-completed",
+  );
+  assert.equal(empty.data.result.content, "");
+  assert.equal(
+    richToolTurn(richToolSamples.find((sample) => sample.id === "shell-empty-completed"))
+      .toolCalls[0].isComplete,
+    true,
+  );
+});
+
 test("generation preserves launcher config, reuses owned data and refuses modified sessions", (t) => {
   const root = mkdtempSync(join(tmpdir(), "tracepilot-synthetic-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -86,20 +153,26 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
   assert.equal(generated.reused, false);
   assert.deepEqual(
     generated.sessions.map((session) => session.id),
-    [richToolsSessionId],
+    [richToolsSessionId, reportIntentSessionId],
   );
+  assert.equal(generated.files.length, 4);
   assert.equal(generateSessionFixtures(root).reused, true);
   assert.equal(readFileSync(config, "utf8"), "# Launcher-owned config\n");
   writeFileSync(
-    join(root, "copilot/session-state", richToolsSessionId, "events.jsonl"),
+    join(root, "copilot/session-state", reportIntentSessionId, "events.jsonl"),
     "user modification",
   );
   assert.throws(() => generateSessionFixtures(root), /Fixture was edited/);
 });
 
-test("generation refuses a preexisting session without its ownership manifest", (t) => {
-  const root = mkdtempSync(join(tmpdir(), "tracepilot-unowned-"));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
-  mkdirSync(join(root, "copilot/session-state", richToolsSessionId), { recursive: true });
-  assert.throws(() => generateSessionFixtures(root), /Unowned fixture session/);
+test("generation refuses either unowned session before writing the other", (t) => {
+  for (const sessionId of [richToolsSessionId, reportIntentSessionId]) {
+    const root = mkdtempSync(join(tmpdir(), "tracepilot-unowned-"));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    mkdirSync(join(root, "copilot/session-state", sessionId), { recursive: true });
+    assert.throws(() => generateSessionFixtures(root), /Unowned fixture session/);
+    const otherId = sessionId === richToolsSessionId ? reportIntentSessionId : richToolsSessionId;
+    assert(!existsSync(join(root, "copilot/session-state", otherId)));
+    assert(!existsSync(join(root, "synthetic-fixtures.json")));
+  }
 });

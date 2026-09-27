@@ -13,7 +13,7 @@ function makeTc(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
 }
 
 describe("ToolArgsRenderer", () => {
-  it("renders JSON fallback when richEnabled is false", () => {
+  it("renders JSON fallback when richEnabled is false", async () => {
     const wrapper = mount(ToolArgsRenderer, {
       props: {
         tc: makeTc({
@@ -23,18 +23,20 @@ describe("ToolArgsRenderer", () => {
         richEnabled: false,
       },
     });
+    await wrapper.find(".args-toggle").trigger("click");
     expect(wrapper.find(".tool-args-json").exists()).toBe(true);
     const text = wrapper.find(".tool-args-json").text();
     expect(text).toContain("test.ts");
   });
 
-  it("renders JSON fallback for unknown tool with args", () => {
+  it("renders JSON fallback for unknown tool with args", async () => {
     const wrapper = mount(ToolArgsRenderer, {
       props: {
         tc: makeTc({ toolName: "unknown_tool", arguments: { foo: "bar" } }),
         richEnabled: true,
       },
     });
+    await wrapper.find(".args-toggle").trigger("click");
     expect(wrapper.find(".tool-args-json").exists()).toBe(true);
   });
 

@@ -88,6 +88,12 @@ try {
     args: chromiumArgs,
   });
   for (const item of selected) {
+    // Historical task/web_fetch results used the plain fallback. Keep those
+    // before-images comparable without relaxing current renderer assertions.
+    const readySelector =
+      revision === "base" && ["task-fallback", "web-fetch-fallback"].includes(item.fixture)
+        ? ".plain-text-renderer, .tool-markdown-result"
+        : item.ready;
     const context = await browser.newContext({
       viewport: captureViewport,
       deviceScaleFactor: 1,
@@ -123,6 +129,16 @@ try {
       window.__TRACEPILOT_VISUAL_CASE__ = fixture;
     }, item.fixture);
     await page.addInitScript(() => {
+      // The app's global handler can log a null Error object for browser-only
+      // errors (for example ResizeObserver). Retain the actual event message.
+      window.__TRACEPILOT_VISUAL_ERRORS__ = [];
+      window.addEventListener("error", (event) => {
+        window.__TRACEPILOT_VISUAL_ERRORS__.push({
+          message: event.message,
+          source: event.filename,
+          line: event.lineno,
+        });
+      });
       localStorage.setItem("tracepilot-theme", "dark");
       localStorage.setItem("tracepilot-last-seen-version", "999.0.0");
       let seed = 42;
@@ -148,7 +164,7 @@ try {
         timeout: 15000,
       });
       await page
-        .locator(item.start ?? item.ready)
+        .locator(item.start ?? readySelector)
         .first()
         .waitFor({ state: "visible", timeout: 15000 });
       if (item.prepare === "open-plan") {
@@ -166,8 +182,35 @@ try {
           const argsToggle = page.locator('.args-toggle[aria-expanded="false"]');
           if (await argsToggle.count()) await argsToggle.first().click();
         }
+        for (const action of item.actions ?? []) {
+          if (action.type === "full") {
+            const buttons = page.getByRole("button", {
+              name: /^(?:Load full output|Show Full Output)$/,
+            });
+            await buttons.first().waitFor({ state: "visible" });
+            // The base may contain the duplicate controls this PR fixes. Use
+            // one to load the same content; require a single owner at head.
+            if (revision === "head" && (await buttons.count()) !== 1)
+              throw new Error("A preview must offer exactly one full-output action");
+            await buttons.first().click();
+            await page.waitForFunction(
+              () => window.__TRACEPILOT_VISUAL__?.calls.get_tool_result > 0,
+            );
+            await page.locator(".rs-trunc-row").waitFor({ state: "hidden" });
+          } else if (action.type === "button") {
+            const scope = action.within ? page.locator(action.within) : page;
+            const button = scope.getByRole("button", { name: action.name, exact: true });
+            const element = await button.elementHandle();
+            await button.click();
+            if (
+              action.name.startsWith("Show ") &&
+              (await element.getAttribute("aria-expanded")) !== "true"
+            )
+              throw new Error(`Disclosure did not expand: ${action.name}`);
+          } else throw new Error(`Unknown rich-tool action: ${action.type}`);
+        }
       }
-      await page.locator(item.ready).first().waitFor({ state: "visible", timeout: 15000 });
+      await page.locator(readySelector).first().waitFor({ state: "visible", timeout: 15000 });
       if (item.command)
         await page.waitForFunction(
           (cmd) => window.__TRACEPILOT_VISUAL__?.calls[cmd] > 0,
@@ -183,11 +226,31 @@ try {
           throw new Error(
             "Complete web search must render both source cards from its JSON envelope",
           );
-        if (await page.getByRole("button", { name: "Show Full Output", exact: true }).count())
+        if (
+          await page
+            .getByRole("button", { name: /^(?:Load full output|Show Full Output)$/ })
+            .count()
+        )
           throw new Error("Web search must render completely without manual output loading");
       }
       if (item.group === "rich-tools") {
-        await page.locator(item.ready).first().scrollIntoViewIfNeeded();
+        if (item.expectText) {
+          // Paging and lazy result replacement update Vue on the next render.
+          // Wait for the sentinel instead of racing an immediate DOM read.
+          await page
+            .waitForFunction(
+              (expected) =>
+                Array.from(document.querySelectorAll(".rs__body"))
+                  .map((element) => element.textContent ?? "")
+                  .join("\n")
+                  .includes(expected),
+              item.expectText,
+              { timeout: 15000 },
+            )
+            .catch(() => {
+              throw new Error(`Expected complete result text: ${item.expectText}`);
+            });
+        }
       }
       await page.addStyleTag({
         content:
@@ -199,6 +262,36 @@ try {
         await new Promise(requestAnimationFrame);
       });
       await page.waitForFunction(() => window.__TRACEPILOT_VISUAL__?.pending === 0);
+      if (item.group === "rich-tools") {
+        // A preceding click must not leave incidental hover styling in the capture.
+        await page.mouse.move(0, 0);
+        // Frame only after fonts and expansion layout settle. End fixtures show
+        // one call: use the page bottom, matching the conversation's scroll lock,
+        // rather than racing its ResizeObserver with a different card-end target.
+        const anchor = page.locator(item.focus === "end" ? ".rs" : ".tool-call-item").last();
+        await anchor.evaluate(async (element, end) => {
+          if (end) {
+            const container = element.closest(".page-content");
+            if (!container)
+              throw new Error("Rich-tool end capture requires a page scroll container");
+            container.scrollTo({ top: container.scrollHeight, behavior: "instant" });
+          } else {
+            // Keep the call header below the sticky session toolbar.
+            element.style.scrollMarginTop = "112px";
+            element.scrollIntoView({ block: "start", behavior: "instant" });
+          }
+          await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+        }, item.focus === "end");
+        if (item.focus === "end")
+          await page.waitForFunction(() => {
+            const container = document.querySelector(".rs")?.closest(".page-content");
+            return (
+              container &&
+              container.scrollHeight - container.scrollTop - container.clientHeight <= 1
+            );
+          });
+      }
       if (await page.locator(".error-boundary").count())
         errors.push(
           `Visible error boundary: ${(await page.locator(".error-boundary").first().innerText()).slice(0, 300)}`,
@@ -216,6 +309,11 @@ try {
       result.missingFixtures = await page.evaluate(
         () => window.__TRACEPILOT_VISUAL__?.missing ?? [],
       );
+      const browserErrors = await page.evaluate(() => window.__TRACEPILOT_VISUAL_ERRORS__ ?? []);
+      for (const error of browserErrors)
+        errors.push(
+          `Browser error: ${error.message} (${error.source}:${error.line})`.slice(0, 500),
+        );
       if (errors.length || result.missingFixtures.length) result.status = "incomplete";
     } catch (error) {
       result.status = "failed";

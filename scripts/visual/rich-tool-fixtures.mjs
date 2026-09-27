@@ -32,6 +32,9 @@ export function richToolFixture(cmd, args, sampleId) {
       eventsFileSize: 1024,
       eventsFileMtime: Date.parse(fixtureTime),
     };
+  // get_session_turns applies the native UTF-8 preview boundary. Fetching must
+  // return the canonical complete result so interaction captures exercise a
+  // real replacement, including the completed-empty-string contract.
   if (cmd === "get_tool_result") return sample.content;
   if (cmd === "get_session_prompt_cache")
     return { timeline: null, eventsFileSize: 1024, eventsFileMtime: Date.parse(fixtureTime) };

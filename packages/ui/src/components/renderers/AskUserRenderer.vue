@@ -1,21 +1,25 @@
 <script setup lang="ts">
-/**
- * AskUserRenderer — renders ask_user prompts and responses.
- * Supports both legacy question/choices args and the newer message/requestedSchema form.
- */
+/** Read-only question and recorded answer, for legacy and schema-shaped prompts. */
 import type { TurnToolCall } from "@tracepilot/types";
-import { MessageCircleQuestion } from "lucide-vue-next";
+import { Check, Circle, MessageCircleQuestion } from "lucide-vue-next";
 import { computed } from "vue";
+import { toolCallStatus } from "../../utils/toolCallStatus";
 import MarkdownContent from "../MarkdownContent.vue";
-import RendererShell, { type RendererShellStatus } from "../RendererShell.vue";
+import RendererScrollRegion from "../RendererScrollRegion.vue";
+import RendererShell from "../RendererShell.vue";
 import RendererTruncationFooter from "../RendererTruncationFooter.vue";
 import {
   askUserChoices,
   askUserFields,
+  askUserOptionForValue,
   askUserPrompt,
+  formatAskUserFieldValue,
+  formatAskUserOption,
   formatAskUserValue,
   parseAskUserResponseValues,
+  parseStructuredResponse,
 } from "./askUserSchema";
+import RecordedToolResponse from "./RecordedToolResponse.vue";
 
 const props = defineProps<{
   content: string;
@@ -23,335 +27,141 @@ const props = defineProps<{
   tc?: TurnToolCall;
   isTruncated?: boolean;
 }>();
-
-const emit = defineEmits<{
-  "load-full": [];
-}>();
-
-const status = computed<RendererShellStatus>(() =>
-  props.tc?.success === true ? "success" : props.tc?.success === false ? "error" : "pending",
-);
-
+const emit = defineEmits<{ "load-full": [] }>();
+const status = computed(() => toolCallStatus(props.tc));
 const question = computed(() => askUserPrompt(props.args));
 const choices = computed(() => askUserChoices(props.args));
 const fields = computed(() => askUserFields(props.args));
-
 const response = computed(() => props.content?.trim() ?? "");
-
 const selectedChoiceIdx = computed(() => {
-  if (!response.value || choices.value.length === 0) return -1;
-  const resp = response.value.toLowerCase().trim();
-
-  const exact = choices.value.findIndex((c) => c.toLowerCase().trim() === resp);
-  if (exact !== -1) return exact;
-
-  const prefixes = ["user selected: ", "user responded: ", "selected: "];
-  let stripped = resp;
-  for (const prefix of prefixes) {
-    if (resp.startsWith(prefix)) {
-      stripped = resp.slice(prefix.length).trim();
-      break;
-    }
-  }
-  if (stripped !== resp) {
-    const prefixMatch = choices.value.findIndex((c) => c.toLowerCase().trim() === stripped);
-    if (prefixMatch !== -1) return prefixMatch;
-  }
-
-  return -1;
+  const normalized = response.value
+    .replace(/^(?:user selected|user responded|user response|selected|response):\s*/i, "")
+    .toLowerCase();
+  return choices.value.findIndex((choice) => choice.trim().toLowerCase() === normalized);
 });
-
-const isFreeformResponse = computed(
-  () => choices.value.length > 0 && selectedChoiceIdx.value === -1,
-);
-
 const schemaResponseValues = computed(() =>
   parseAskUserResponseValues(response.value, fields.value),
 );
-
-function responseForField(fieldName: string): unknown | undefined {
+const additionalResponse = computed(() => {
+  if (!schemaResponseValues.value.length) return [];
+  const parsed = parseStructuredResponse(response.value);
+  const names = new Set(fields.value.map((field) => field.name));
+  return Object.entries(parsed ?? {}).filter(([name]) => !names.has(name));
+});
+function hasResponse(fieldName: string): boolean {
+  return schemaResponseValues.value.some((item) => item.field.name === fieldName);
+}
+function responseForField(fieldName: string): unknown {
   return schemaResponseValues.value.find((item) => item.field.name === fieldName)?.value;
 }
-
-function isSelectedEnumValue(fieldName: string, enumValue: string): boolean {
-  const submitted = responseForField(fieldName);
-  return (
-    submitted !== undefined &&
-    formatAskUserValue(submitted).trim().toLowerCase() === enumValue.trim().toLowerCase()
-  );
-}
+const emptyResponse = computed(() => {
+  if (status.value === "pending") return "Awaiting user response…";
+  if (status.value === "error") return "The request failed without a response.";
+  return "No response was recorded.";
+});
 </script>
 
 <template>
-  <RendererShell
-    tool-name="Ask User"
-    :status="status"
-    :copy-text="content"
-  >
+  <RendererShell tool-name="Ask user" :status="status" :copy-text="content">
     <template #icon><MessageCircleQuestion :size="16" /></template>
-    <div class="askuser-result">
-      <div v-if="question" class="askuser-question-bar">
-        <MarkdownContent class="askuser-q-text" :content="question" :render="true" />
-      </div>
-
-      <div v-if="fields.length > 0" class="askuser-schema-section">
-        <div
-          v-for="field in fields"
-          :key="field.name"
-          :class="[
-            'askuser-schema-field',
-            { 'askuser-schema-field--answered': responseForField(field.name) !== undefined },
-          ]"
-        >
-          <div class="askuser-schema-field-head">
-            <span class="askuser-schema-field-title">{{ field.title }}</span>
-            <span class="askuser-schema-field-type">{{ field.type }}</span>
-            <span v-if="field.required" class="askuser-schema-required">Required</span>
-            <span v-if="responseForField(field.name) !== undefined" class="askuser-schema-selected">
-              Submitted
-            </span>
+    <RendererScrollRegion label="question and response">
+      <div class="askuser-result">
+        <div v-if="question" class="askuser-question-bar">
+          <MarkdownContent class="askuser-q-text" :content="question" :render="true" />
+        </div>
+        <div v-if="fields.length" class="askuser-schema-section">
+          <div v-if="schemaResponseValues.length" class="askuser-section-label">Submitted responses</div>
+          <div v-for="field in fields" :key="field.name"
+               :class="['askuser-schema-field', { 'askuser-schema-field--answered': hasResponse(field.name) }]">
+            <div class="askuser-schema-field-head">
+              <span class="askuser-schema-field-title">{{ field.title }}</span>
+              <span v-if="!hasResponse(field.name)" class="askuser-schema-unanswered">No answer recorded</span>
+            </div>
+            <div v-if="hasResponse(field.name)" class="askuser-schema-submitted">
+              <Check :size="14" aria-label="Submitted" class="askuser-response-check" />
+              <span class="askuser-schema-submitted-value">{{ formatAskUserFieldValue(field, responseForField(field.name)) }}</span>
+            </div>
+            <p v-if="field.description" class="askuser-schema-description">{{ field.description }}</p>
+            <details class="askuser-schema-details">
+              <summary>Field details</summary>
+              <div class="askuser-schema-field-meta">
+                <code>{{ field.name }}</code>
+                <span>{{ field.type }}</span>
+                <span>{{ field.required ? 'Required' : 'Optional' }}</span>
+              </div>
+              <div v-if="field.options.length" class="askuser-schema-enum" aria-label="Available values">
+                <span v-for="(option, index) in field.options" :key="index"
+                      :class="['askuser-schema-enum-pill', { 'askuser-schema-enum-pill--selected': hasResponse(field.name) && askUserOptionForValue(field, responseForField(field.name)) === option }]">{{ formatAskUserOption(option) }}</span>
+              </div>
+              <div v-if="field.defaultValue !== undefined" class="askuser-schema-default">Default: {{ formatAskUserFieldValue(field, field.defaultValue) }}</div>
+            </details>
           </div>
-          <p v-if="field.description" class="askuser-schema-description">{{ field.description }}</p>
-          <div v-if="field.enumValues.length > 0" class="askuser-schema-enum">
-            <span
-              v-for="value in field.enumValues"
-              :key="value"
-              :class="[
-                'askuser-schema-enum-pill',
-                { 'askuser-schema-enum-pill--selected': isSelectedEnumValue(field.name, value) },
-              ]"
-            >
-              {{ value }}
-            </span>
-          </div>
-          <div v-if="field.defaultValue !== undefined" class="askuser-schema-default">
-            Default: {{ formatAskUserValue(field.defaultValue) }}
-          </div>
-          <div v-if="responseForField(field.name) !== undefined" class="askuser-schema-submitted">
-            <span class="askuser-schema-submitted-label">Response</span>
-            <span class="askuser-schema-submitted-value">
-              {{ formatAskUserValue(responseForField(field.name)) }}
-            </span>
+          <div v-if="additionalResponse.length" class="askuser-additional-response">
+            <div class="askuser-section-label">Additional response fields</div>
+            <dl>
+              <div v-for="[name, value] in additionalResponse" :key="name">
+                <dt>{{ name }}</dt>
+                <dd>{{ formatAskUserValue(value) }}</dd>
+              </div>
+            </dl>
           </div>
         </div>
-      </div>
-
-      <div v-if="choices.length > 0" class="askuser-choices-section">
-        <div
-          v-for="(choice, idx) in choices"
-          :key="idx"
-          :class="['askuser-choice-row', { 'askuser-choice-row--selected': idx === selectedChoiceIdx }]"
-        >
-          <span class="askuser-choice-indicator" aria-hidden="true">{{ idx === selectedChoiceIdx ? '–' : '·' }}</span>
-          <span class="askuser-choice-label">{{ choice }}</span>
-          <span v-if="idx === selectedChoiceIdx" class="askuser-selected-badge">Selected</span>
+        <ul v-if="choices.length" class="askuser-choices-section" aria-label="Recorded choices">
+          <li v-for="(choice, idx) in choices" :key="idx"
+              :class="['askuser-choice-row', { 'askuser-choice-row--selected': idx === selectedChoiceIdx }]">
+            <Check v-if="idx === selectedChoiceIdx" :size="14" aria-hidden="true" />
+            <Circle v-else :size="12" aria-hidden="true" />
+            <span class="askuser-choice-label">{{ choice }}</span>
+            <span v-if="idx === selectedChoiceIdx" class="askuser-selected-badge">Selected</span>
+          </li>
+        </ul>
+        <div v-if="response && !schemaResponseValues.length && selectedChoiceIdx === -1" class="askuser-freeform">
+          <div class="askuser-section-label">{{ choices.length ? 'Custom response' : 'Response' }}</div>
+          <div class="askuser-freeform-text">{{ response }}</div>
         </div>
+        <p v-if="!response" class="askuser-pending">{{ emptyResponse }}</p>
+        <RecordedToolResponse v-if="schemaResponseValues.length" :content="content" class="askuser-recorded" />
       </div>
-
-      <div
-        v-if="response && schemaResponseValues.length === 0 && (choices.length === 0 || isFreeformResponse)"
-        class="askuser-freeform"
-      >
-        <div class="askuser-freeform-label">
-          <span v-if="isFreeformResponse">Custom response</span>
-          <span v-else>Response</span>
-        </div>
-        <div class="askuser-freeform-text">{{ response }}</div>
-      </div>
-
-      <div v-if="!response" class="askuser-pending">
-        <span>Awaiting user response…</span>
-      </div>
-    </div>
+    </RendererScrollRegion>
     <RendererTruncationFooter v-if="isTruncated" @load-full="emit('load-full')" />
   </RendererShell>
 </template>
 
 <style scoped>
-.askuser-result {
-  font-size: 0.75rem;
-}
-.askuser-question-bar {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--canvas-inset);
-  border-bottom: 1px solid var(--border-muted);
-}
-.askuser-q-text {
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  flex: 1;
-  min-width: 0;
-}
-.askuser-choices-section {
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.askuser-choice-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  transition: all 0.15s;
-}
-.askuser-choice-row--selected {
-  border-color: var(--accent-emphasis);
-  background: var(--accent-muted);
-  color: var(--text-primary);
-}
-.askuser-choice-indicator {
-  font-size: 0.875rem;
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-}
-.askuser-choice-row--selected .askuser-choice-indicator {
-  color: var(--accent-fg);
-}
-.askuser-choice-label { flex: 1; }
-.askuser-selected-badge {
-  font-size: 0.5625rem;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--accent-muted);
-  color: var(--accent-fg);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.askuser-schema-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-muted);
-  background: var(--canvas-default);
-}
-.askuser-schema-field {
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  background: var(--canvas-inset);
-}
-.askuser-schema-field-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-.askuser-schema-field-title {
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-.askuser-schema-field-type,
-.askuser-schema-required,
-.askuser-schema-enum-pill {
-  border-radius: 9999px;
-  padding: 1px 6px;
-  font-size: 0.625rem;
-  font-weight: 700;
-}
-.askuser-schema-field-type {
-  color: var(--accent-fg);
-  background: var(--accent-muted);
-}
-.askuser-schema-required {
-  color: var(--warning-fg);
-  background: var(--warning-subtle);
-}
-.askuser-schema-selected {
-  border-radius: 9999px;
-  padding: 1px 6px;
-  color: var(--success-fg);
-  background: var(--success-subtle);
-  font-size: 0.625rem;
-  font-weight: 700;
-}
-.askuser-schema-field--answered {
-  border-color: var(--success-muted);
-  background: var(--canvas-inset);
-}
-.askuser-schema-description,
-.askuser-schema-default {
-  margin: 6px 0 0;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  line-height: 1.45;
-}
-.askuser-schema-enum {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 7px;
-}
-.askuser-schema-enum-pill {
-  border: 1px solid var(--border-muted);
-  color: var(--text-secondary);
-  background: var(--canvas-default);
-}
-.askuser-schema-enum-pill--selected {
-  border-color: var(--success-muted);
-  color: var(--success-fg);
-  background: var(--success-subtle);
-}
-.askuser-schema-submitted {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 8px;
-  padding: 7px 8px;
-  border: 1px solid var(--success-muted);
-  border-radius: var(--radius-sm);
-  background: var(--success-subtle);
-}
-.askuser-schema-submitted-label {
-  color: var(--text-tertiary);
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.askuser-schema-submitted-value {
-  color: var(--text-primary);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.askuser-freeform {
-  padding: 8px 12px;
-  border-top: 1px solid var(--border-muted);
-}
-.askuser-freeform-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.askuser-freeform-text {
-  padding: 8px 10px;
-  background: var(--canvas-inset);
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.askuser-pending {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 12px;
-  color: var(--text-tertiary);
-  font-style: italic;
-}
+.askuser-result { font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.askuser-question-bar { padding: 12px; background: var(--canvas-inset); border-bottom: 1px solid var(--border-muted); }
+.askuser-q-text { color: var(--text-primary); font-size: 13px; line-height: 1.6; min-width: 0; }
+.askuser-choices-section { list-style: none; margin: 0; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.askuser-choice-row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-left: 2px solid transparent; border-radius: var(--radius-sm); color: var(--text-secondary); line-height: 1.5; }
+.askuser-choice-row > svg { flex-shrink: 0; margin-top: 3px; color: var(--text-tertiary); }
+.askuser-choice-row--selected { border-left-color: var(--accent-emphasis); background: var(--accent-muted); color: var(--text-primary); }
+.askuser-choice-row--selected > svg { color: var(--accent-fg); }
+.askuser-choice-label { flex: 1; min-width: 0; white-space: pre-wrap; }
+.askuser-selected-badge { flex-shrink: 0; font-size: 12px; font-weight: 500; color: var(--accent-fg); }
+.askuser-schema-section { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.askuser-section-label { font-size: 12px; font-weight: 500; color: var(--text-tertiary); }
+.askuser-schema-field { border: 1px solid var(--border-muted); border-radius: var(--radius-sm); padding: 10px 12px; min-width: 0; }
+.askuser-schema-field-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.askuser-schema-field-title { color: var(--text-primary); font-weight: 600; }
+.askuser-schema-unanswered { color: var(--text-tertiary); font-size: 12px; }
+.askuser-schema-submitted { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; color: var(--text-primary); line-height: 1.5; }
+.askuser-response-check { flex-shrink: 0; margin-top: 3px; color: var(--success-fg); }
+.askuser-schema-submitted-value { min-width: 0; white-space: pre-wrap; }
+.askuser-schema-description { margin: 6px 0 0; color: var(--text-secondary); line-height: 1.5; }
+.askuser-schema-details { margin-top: 8px; font-size: 12px; color: var(--text-secondary); }
+.askuser-schema-details summary { width: fit-content; cursor: pointer; color: var(--text-tertiary); }
+.askuser-schema-details summary:focus-visible { outline: 2px solid var(--accent-emphasis); outline-offset: 3px; }
+.askuser-schema-field-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; }
+.askuser-schema-field-meta code { font: inherit; font-family: var(--font-mono, monospace); }
+.askuser-schema-enum { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.askuser-schema-enum-pill { border: 1px solid var(--border-muted); border-radius: var(--radius-sm); padding: 2px 6px; }
+.askuser-schema-enum-pill--selected { border-color: var(--accent-emphasis); background: var(--accent-muted); color: var(--accent-fg); }
+.askuser-schema-default { margin-top: 8px; }
+.askuser-additional-response dl { margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.askuser-additional-response dt { color: var(--text-tertiary); font-size: 12px; }
+.askuser-additional-response dd { margin: 4px 0 0; white-space: pre-wrap; color: var(--text-primary); }
+.askuser-freeform { padding: 12px; border-top: 1px solid var(--border-muted); }
+.askuser-freeform-text { margin-top: 8px; color: var(--text-primary); line-height: 1.6; white-space: pre-wrap; }
+.askuser-pending { margin: 0; padding: 12px; color: var(--text-tertiary); line-height: 1.5; }
+.askuser-recorded { padding: 0 12px 12px; }
 </style>

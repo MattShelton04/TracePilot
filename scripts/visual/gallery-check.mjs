@@ -111,8 +111,17 @@ try {
       false,
     );
     assert.match(page.url(), /section=rich-tools/);
-    await page.getByLabel("Filter views in section").fill("no match");
-    assert.equal(await page.locator("#empty-filter").isVisible(), true);
+    // Fixture states can themselves contain phrases such as "no matches".
+    const unmatchedFilter = "__no_matching_gallery_view__";
+    assert.ok(
+      report.rows.every(
+        (row) => !`${row.id} ${row.route} ${row.state}`.toLowerCase().includes(unmatchedFilter),
+      ),
+      "The empty-filter query must not match fixture metadata",
+    );
+    await page.getByLabel("Filter views in section").fill(unmatchedFilter);
+    await page.locator("#empty-filter").waitFor({ state: "visible" });
+    assert.equal(await page.locator(".view-link:visible").count(), 0);
     await page.goBack();
     assert.equal(await page.locator("#view-title").innerText(), initial.id);
     assert.equal(await page.getByLabel("Filter views in section").inputValue(), "");

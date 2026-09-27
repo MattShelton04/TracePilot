@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
-import { type CurrentObjective, ObjectiveBanner, provideAgentOpener } from "@tracepilot/ui";
+import { provideAgentOpener } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
@@ -19,14 +19,12 @@ import SystemMessagePanel from "./SystemMessagePanel.vue";
 
 const props = withDefaults(
   defineProps<{
-    objective?: CurrentObjective | null;
     /** Prompt-cache windows keyed by the turn they resumed. */
     cacheWindows?: Map<number, CacheWindow>;
     /** Prompt-cache timeline, for the live countdown after the last turn. */
     cacheTimeline?: PromptCacheTimeline | null;
   }>(),
   {
-    objective: null,
     cacheWindows: () => new Map(),
     cacheTimeline: null,
   },
@@ -34,7 +32,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   messageSent: [prompt: string];
-  revealObjective: [info: { eventIndex?: number; toolCallId?: string }];
 }>();
 
 useRenderBudget({ key: "render.chatViewModeMs", budgetMs: 200, label: "ChatViewMode" });
@@ -172,14 +169,6 @@ defineExpose({ revealEvent });
       </div>
 
       <div class="cv-bottom-stack">
-        <ObjectiveBanner
-          v-if="props.objective"
-          class="cv-objective-strip"
-          scope="session"
-          :objective="props.objective"
-          @reveal="emit('revealObjective', $event)"
-        />
-
         <!-- SDK Steering Panel (appears at bottom of chat when SDK is active) -->
         <SdkSteeringPanel :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
       </div>
@@ -280,11 +269,6 @@ defineExpose({ revealEvent });
   align-items: center;
   padding: 0 16px 8px;
   pointer-events: none;
-}
-
-.cv-objective-strip {
-  margin: 0 0 8px;
-  pointer-events: auto;
 }
 
 .cv-bottom-stack :deep(.sdk-steering-feature) {

@@ -12,6 +12,7 @@ import { isSessionRunning, openInExplorer, resumeSessionInTerminal } from "@trac
 import {
   Badge,
   ErrorAlert,
+  LIVE_TOOL_PARTIAL_OUTPUT_KEY,
   PageShell,
   SkeletonLoader,
   TabNav,
@@ -27,7 +28,7 @@ import {
   Play,
   Share,
 } from "lucide-vue-next";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, provide, ref, watch } from "vue";
 import type { Router } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
@@ -39,6 +40,7 @@ import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
 import { logError } from "@/utils/logger";
+import { normalizeToolPartialOutput } from "@/utils/normalizeToolPartialOutput";
 import { sessionModel } from "@/utils/sessionModel";
 
 const props = defineProps<{
@@ -76,6 +78,20 @@ const { copy, copied } = useClipboard();
 
 const isSessionActive = ref(false);
 const sdk = useSdkStore();
+// Every tool-detail surface (including compact, waterfall and swimlanes) can
+// display partial output for persisted in-flight calls in this session.
+provide(
+  LIVE_TOOL_PARTIAL_OUTPUT_KEY,
+  computed(() => {
+    const output = new Map<string, string>();
+    for (const tool of sdk.sessionStatesById[props.sessionId]?.tools ?? []) {
+      if (!tool.toolCallId || tool.partialResult == null) continue;
+      const text = normalizeToolPartialOutput(tool.partialResult);
+      if (text) output.set(tool.toolCallId, text);
+    }
+    return output;
+  }),
+);
 useLivePersistedSync({
   sessionId: () => props.sessionId,
   refresh: () => props.store.refreshAll(),

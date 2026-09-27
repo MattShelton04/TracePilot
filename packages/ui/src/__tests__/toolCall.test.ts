@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatArgsSummary, toolCategory } from "../utils/toolCall";
+import { formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
 
 describe("toolCategory", () => {
   it("returns 'file' for file-related tools", () => {
-    const tools = ["view", "edit", "create", "grep", "glob"];
+    const tools = ["view", "edit", "create", "grep", "rg", "glob"];
     for (const tool of tools) {
       expect(toolCategory(tool)).toBe("file");
     }
@@ -67,6 +67,23 @@ describe("toolCategory", () => {
 });
 
 describe("formatArgsSummary", () => {
+  it("keeps rg aliases and current paths parameters consistent with grep", () => {
+    expect(toolIcon("rg")).toBe(toolIcon("grep"));
+    expect(formatArgsSummary({ pattern: "ready", paths: "src" }, "rg")).toBe("/ready/ in src");
+    expect(formatArgsSummary({ pattern: "ready", paths: ["src", "tests"] }, "rg")).toBe(
+      "/ready/ in src, tests",
+    );
+  });
+
+  it("summarizes shell read/write identity without exposing submitted input", () => {
+    for (const tool of ["read_powershell", "write_powershell"]) {
+      expect(toolIcon(tool)).toBe("terminal");
+      expect(formatArgsSummary({ shellId: "17", chars: "private input" }, tool)).toBe("Shell 17");
+      expect(formatArgsSummary({ shell_id: "18" }, tool)).toBe("Shell 18");
+      expect(formatArgsSummary({ chars: "private input" }, tool)).toBe("");
+    }
+  });
+
   it("returns empty string for falsy or non-object args", () => {
     expect(formatArgsSummary(null, "view")).toBe("");
     expect(formatArgsSummary(undefined, "view")).toBe("");
