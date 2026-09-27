@@ -1,5 +1,8 @@
 // Every named desktop route has an entry. These are browser fixture states,
 // never evidence that Rust, the SDK, native dialogs or external services work.
+
+import { METRICS_STRESS_ID } from "../fixtures/metrics-stress.mjs";
+import { richToolSamples, richToolsSessionId } from "../fixtures/rich-tools.mjs";
 import { skill } from "./fixtures.mjs";
 
 const session = "/session/sess-auth-refactor";
@@ -105,6 +108,7 @@ export const cases = [
     ready: ".wt-manager .right-panel",
     command: "list_worktrees",
     state: "populated fixture repositories",
+    assertion: "worktree-layout",
   },
   {
     id: "session-launcher",
@@ -170,6 +174,60 @@ export const cases = [
     features: ["exactContextCapture"],
   },
   { id: "not-found", route: "/visual-route-does-not-exist", ready: "h2", state: "not found" },
+  ...richToolSamples.map((sample) => ({
+    id: `rich-tool-${sample.id}`,
+    group: "rich-tools",
+    fixture: sample.id,
+    route: `/session/${richToolsSessionId}/conversation`,
+    start: ".detail-title",
+    prepare: "rich-tool",
+    ready: sample.selector,
+    command: "get_session_turns",
+    state: `Synthetic ${sample.toolName} · ${sample.content == null ? "pending arguments" : sample.success === false ? "error result" : "complete result"}${sample.registered === false ? ` · ${sample.fallback ?? "plain"} fallback (no registered renderer)` : ""}`,
+    openArgs: sample.openArgs,
+    assertion: sample.assertion,
+  })),
+  {
+    id: "session-metrics-stress",
+    fixedTime: "2026-09-20T12:00:00.000Z",
+    group: "metrics",
+    route: `/session/${METRICS_STRESS_ID}/metrics`,
+    ready: '[aria-label="Metrics breakdown"]',
+    command: "get_shutdown_metrics",
+    state: "Synthetic stress · 120 shutdowns, 2,401 cache windows, 3,000 modified files",
+  },
+  {
+    id: "session-metrics-stress-files",
+    fixedTime: "2026-09-20T12:00:00.000Z",
+    group: "metrics",
+    route: `/session/${METRICS_STRESS_ID}/metrics`,
+    ready: ".files-list",
+    scrollText: "Code Changes",
+    command: "get_shutdown_metrics",
+    state: "Synthetic stress · paginated 3,000-file Code Changes list",
+  },
+  {
+    id: "session-metrics-stress-activity",
+    fixedTime: "2026-09-20T12:00:00.000Z",
+    group: "metrics",
+    route: `/session/${METRICS_STRESS_ID}/metrics`,
+    start: '[aria-label="Metrics breakdown"]',
+    prepare: "metrics-activity",
+    ready: ".activity-pagination",
+    command: "get_shutdown_metrics",
+    state: "Synthetic stress · latest six of 120 cumulative shutdown activities",
+  },
+  {
+    id: "session-metrics-stress-cache",
+    fixedTime: "2026-09-20T12:00:00.000Z",
+    group: "metrics",
+    route: `/session/${METRICS_STRESS_ID}/metrics`,
+    start: '[aria-label="Metrics breakdown"]',
+    prepare: "metrics-cache",
+    ready: '[data-testid="prompt-cache-detail"]',
+    command: "get_session_prompt_cache",
+    state: "Synthetic stress · paginated idle windows and expanded cache break details",
+  },
 ];
 export const viewport = { width: 1440, height: 960 };
 export const fixedTime = "2026-03-20T12:00:00.000Z";

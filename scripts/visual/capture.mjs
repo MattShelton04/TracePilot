@@ -6,7 +6,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { captureExitCode, chromiumArgs, stableScreenshot } from "./capture-policy.mjs";
 import { fixtureCorpusPlugin } from "./fixture-plugin.mjs";
+import { writeLocalGallery } from "./local-gallery.mjs";
 import { fixedTime, selectCases, viewport } from "./manifest.mjs";
+import { assertWorktreeLayout } from "./worktree-assertions.mjs";
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((value) => value.replace(/^--/, "").split(/=(.*)/s)),
@@ -17,9 +19,19 @@ const shard = args.shard ?? "1/1";
 const revision = args.revision ?? "head";
 captureExitCode([], revision); // Validate before starting the browser or Vite.
 const selected = selectCases(shard).filter(
-  (item) => !args.case || args.case.split(",").includes(item.id),
+  (item) =>
+    (!args.case || args.case.split(",").includes(item.id)) &&
+    (!args.group || item.group === args.group),
 );
 if (!selected.length) throw new Error("No visual cases selected");
+const captureViewport = args.viewport
+  ? (() => {
+      const match = /^(1440x960|960x640|2560x1440)$/.exec(args.viewport);
+      if (!match) throw new Error("--viewport must be 1440x960, 960x640 or 2560x1440");
+      const [width, height] = match[1].split("x").map(Number);
+      return { width, height };
+    })()
+  : viewport;
 const app = resolve(root, "apps/desktop");
 const requireApp = createRequire(resolve(app, "package.json"));
 const requireHarness = createRequire(
@@ -51,7 +63,7 @@ const server = await createServer({
     host: "127.0.0.1",
     port: Number(args.port ?? 0),
     strictPort: true,
-    fs: { allow: [root, dirname(fixtureFile)] },
+    fs: { allow: [root, dirname(fixtureFile), resolve(harnessRoot, "scripts/fixtures")] },
   },
   plugins: [
     fixtureCorpusPlugin({ targetRoot: root, harnessRoot }),
@@ -80,7 +92,7 @@ try {
   });
   for (const item of selected) {
     const context = await browser.newContext({
-      viewport,
+      viewport: captureViewport,
       deviceScaleFactor: 1,
       colorScheme: "dark",
       reducedMotion: "reduce",
@@ -88,19 +100,31 @@ try {
       timezoneId: "UTC",
     });
     // A fixture page cannot call the real network or attach to the native app.
-    await context.route("**/*", (route) =>
-      new URL(route.request().url()).origin === baseUrl ? route.continue() : route.abort(),
-    );
+    await context.route("**/*", (route) => {
+      const url = new URL(route.request().url());
+      if (url.origin === baseUrl) return route.continue();
+      // Web search normally requests remote source favicons. Supply a fixed,
+      // neutral icon locally; no external fetch, failed request or brand asset.
+      if (url.hostname === "icons.duckduckgo.com" && url.pathname === "/ip3/example.com.ico")
+        return route.fulfill({
+          contentType: "image/svg+xml",
+          body: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4" fill="none" stroke="gray"/><path d="M2 6h8M6 2v8" stroke="gray"/></svg>',
+        });
+      return route.abort();
+    });
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message.slice(0, 300)));
     page.on("console", (message) => {
       if (message.type() === "error") errors.push(message.text().slice(0, 300));
     });
-    await page.clock.setFixedTime(new Date(fixedTime));
+    await page.clock.setFixedTime(new Date(item.fixedTime ?? fixedTime));
     await page.addInitScript((features) => {
       window.__TRACEPILOT_VISUAL_FEATURES__ = features;
     }, item.features ?? []);
+    await page.addInitScript((fixture) => {
+      window.__TRACEPILOT_VISUAL_CASE__ = fixture;
+    }, item.fixture);
     await page.addInitScript(() => {
       localStorage.setItem("tracepilot-theme", "dark");
       localStorage.setItem("tracepilot-last-seen-version", "999.0.0");
@@ -115,6 +139,7 @@ try {
       route: item.route,
       state: item.state,
       features: item.features ?? [],
+      fixedTime: item.fixedTime ?? fixedTime,
       status: "captured",
       errors,
     };
@@ -136,6 +161,23 @@ try {
         await page.getByRole("button", { name: "Compare", exact: true }).click();
       } else if (item.prepare === "agent-usage") {
         await page.getByRole("tab", { name: /^Usage/ }).click();
+      } else if (item.prepare === "rich-tool") {
+        await page.getByRole("button", { name: "Timeline", exact: true }).click();
+        await page.locator(".tool-call-item").first().click();
+        if (item.openArgs) {
+          const argsToggle = page.locator('.args-toggle[aria-expanded="false"]');
+          if (await argsToggle.count()) await argsToggle.first().click();
+        }
+      } else if (item.prepare === "metrics-activity") {
+        await page.getByRole("button", { name: "Latest activities", exact: true }).click();
+        await page.getByText("115–120 of 120 activities", { exact: true }).waitFor();
+        await page.locator(item.ready).scrollIntoViewIfNeeded();
+      } else if (item.prepare === "metrics-cache") {
+        await page.getByRole("button", { name: "Show 2401 idle windows", exact: true }).click();
+        if ((await page.locator(".prompt-cache__row").count()) !== 20)
+          throw new Error("Cache stress must render a bounded page of 20 windows");
+        await page.locator(".prompt-cache__row").first().click();
+        await page.locator(item.ready).scrollIntoViewIfNeeded();
       }
       await page.locator(item.ready).first().waitFor({ state: "visible", timeout: 15000 });
       if (item.command)
@@ -147,6 +189,18 @@ try {
         throw new Error(`Unexpected route redirect: ${page.url().split("#")[1]}`);
       if (item.scrollText)
         await page.getByText(item.scrollText, { exact: true }).first().scrollIntoViewIfNeeded();
+      if (item.assertion === "worktree-layout") await assertWorktreeLayout(page);
+      if (item.assertion === "complete-web-search") {
+        if ((await page.locator(".ws-source-card").count()) !== 2)
+          throw new Error(
+            "Complete web search must render both source cards from its JSON envelope",
+          );
+        if (await page.getByRole("button", { name: "Show Full Output", exact: true }).count())
+          throw new Error("Web search must render completely without manual output loading");
+      }
+      if (item.group === "rich-tools") {
+        await page.locator(item.ready).first().scrollIntoViewIfNeeded();
+      }
       await page.addStyleTag({
         content:
           "*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}",
@@ -202,7 +256,7 @@ try {
         revision,
         revisionSha,
         harnessSha,
-        viewport,
+        viewport: captureViewport,
         fixedTime,
         shard,
         durationMs: Math.round(performance.now() - started),
@@ -212,5 +266,6 @@ try {
       2,
     ),
   );
+  if (Object.hasOwn(args, "gallery")) await writeLocalGallery(output, reports, captureViewport);
 }
 process.exitCode = captureExitCode(reports, revision);

@@ -1,7 +1,12 @@
 // Loaded ONLY by the visual harness's Vite transform. Not shipped in the app.
 // Existing typed browser fixtures supply sessions, turns, metrics and charts.
 // These additions cover domains whose normal browser mode has no fallback.
+
+import { buildMetricsStressVisualData, METRICS_STRESS_ID } from "../fixtures/metrics-stress.mjs";
 import { configureVisualFeatures } from "./feature-policy.mjs";
+import { richToolFixture } from "./rich-tool-fixtures.mjs";
+
+const metricsStress = buildMetricsStressVisualData();
 
 export const skill = {
   name: "visual-review",
@@ -273,6 +278,17 @@ export async function visualInvoke(cmd, args, fallback) {
   state.pending++;
   state.calls[cmd] = (state.calls[cmd] ?? 0) + 1;
   try {
+    const toolFixture = richToolFixture(cmd, args, window.__TRACEPILOT_VISUAL_CASE__);
+    if (toolFixture !== undefined) return structuredClone(toolFixture);
+    if (args?.sessionId === METRICS_STRESS_ID) {
+      if (cmd === "get_shutdown_metrics") return structuredClone(metricsStress.metrics);
+      if (cmd === "get_session_prompt_cache")
+        return {
+          timeline: structuredClone(metricsStress.promptCache),
+          eventsFileSize: 8192000,
+          eventsFileMtime: Date.parse("2026-03-20T10:00:00Z"),
+        };
+    }
     if (Object.hasOwn(overrides, cmd)) return structuredClone(overrides[cmd]);
     if (cmd === "preview_export") {
       const content =
@@ -300,7 +316,11 @@ export async function visualInvoke(cmd, args, fallback) {
     const result = structuredClone(await fallback(cmd, args));
     if (cmd === "get_session_detail") {
       result.summary =
-        args.sessionId === "sess-search-polish" ? "Search preset cleanup" : "Auth plugin refactor";
+        args.sessionId === METRICS_STRESS_ID
+          ? "SYNTHETIC · Metrics stress · 2,400 cache windows and 120 shutdowns"
+          : args.sessionId === "sess-search-polish"
+            ? "Search preset cleanup"
+            : "Auth plugin refactor";
     }
     if (cmd === "get_shutdown_metrics" && args.sessionId === "sess-search-polish") {
       result.codeChanges = { filesModified: [], linesAdded: 0, linesRemoved: 0 };

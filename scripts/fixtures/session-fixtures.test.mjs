@@ -3,7 +3,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { buildRichToolsSession, richToolSamples, richToolsSessionId } from "./rich-tools.mjs";
+import {
+  buildRichToolsSession,
+  richToolSamples,
+  richToolsSessionId,
+  richToolTurn,
+} from "./rich-tools.mjs";
 import { generateSessionFixtures } from "./session-fixtures.mjs";
 
 test("every registered result and argument renderer has an explicit visual fixture", () => {
@@ -50,6 +55,24 @@ test("native gallery is deterministic, has valid event ancestry and matches brow
       (e) => e.type === "tool.execution_complete" && e.data.toolCallId === call.data.toolCallId,
     );
     assert.equal(result?.data.result.content ?? null, sample.content);
+    const browserCall = richToolTurn(sample).toolCalls[0];
+    if (sample.toolName === "task" && sample.arguments.agent_type) {
+      const started = session.events.find(
+        (e) => e.type === "subagent.started" && e.data.toolCallId === call.data.toolCallId,
+      );
+      const completed = session.events.find(
+        (e) => e.type === "subagent.completed" && e.data.toolCallId === call.data.toolCallId,
+      );
+      assert(started, "task fixtures must start their native subagent lifecycle");
+      assert(completed, "completed task fixtures must terminate their native subagent lifecycle");
+      assert.equal(browserCall.isSubagent, true);
+      assert.equal(browserCall.toolName, started.data.agentName);
+      assert.equal(browserCall.agentStatus, "completed");
+      assert.equal(browserCall.isComplete, true);
+      assert.equal(browserCall.durationMs, completed.data.durationMs);
+      assert.equal(browserCall.totalTokens, completed.data.totalTokens);
+      assert.equal(browserCall.agentDisplayName, started.data.agentDisplayName);
+    }
   }
 });
 

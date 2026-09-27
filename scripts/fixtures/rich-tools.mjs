@@ -224,7 +224,19 @@ export const richToolSamples = [
     },
     "The greeting test covers ordinary and Unicode names. No changes are required.",
     ".rs .markdown-content",
-    { registered: false, fallback: "Markdown" },
+    {
+      registered: false,
+      fallback: "Markdown",
+      subagent: {
+        agentName: "explore",
+        agentDisplayName: "Fixture review",
+        agentDescription: "Review fixture coverage",
+        model: "gpt-4.1",
+        totalToolCalls: 0,
+        totalTokens: 420,
+        durationMs: 2000,
+      },
+    },
   ),
   sample(
     "shell-error",
@@ -282,7 +294,7 @@ export function richToolTurn(item, index = 0) {
     toolCalls: [
       {
         toolCallId: `fixture-${item.id}`,
-        toolName: item.toolName,
+        toolName: item.subagent?.agentName ?? item.toolName,
         arguments: item.arguments,
         success: item.content == null ? null : item.success !== false,
         isComplete: item.content != null,
@@ -290,6 +302,18 @@ export function richToolTurn(item, index = 0) {
         startedAt: fixtureTime,
         completedAt: item.content == null ? null : fixtureTime,
         durationMs: item.content == null ? null : 120,
+        ...(item.subagent
+          ? {
+              isSubagent: true,
+              agentStatus: "completed",
+              agentDisplayName: item.subagent.agentDisplayName,
+              agentDescription: item.subagent.agentDescription,
+              model: item.subagent.model,
+              totalToolCalls: item.subagent.totalToolCalls,
+              totalTokens: item.subagent.totalTokens,
+              durationMs: item.subagent.durationMs,
+            }
+          : {}),
         ...(item.error ? { error: item.error.message } : {}),
       },
     ],
@@ -336,6 +360,14 @@ export function buildRichToolsSession() {
       toolName: item.toolName,
       arguments: item.arguments,
     });
+    if (item.subagent)
+      add("subagent.started", {
+        toolCallId: `fixture-${item.id}`,
+        agentName: item.subagent.agentName,
+        agentDisplayName: item.subagent.agentDisplayName,
+        agentDescription: item.subagent.agentDescription,
+        model: item.subagent.model,
+      });
     if (item.content != null)
       add("tool.execution_complete", {
         turnId,
@@ -343,6 +375,11 @@ export function buildRichToolsSession() {
         success: item.success !== false,
         result: { content: item.content },
         ...(item.error ? { error: item.error } : {}),
+      });
+    if (item.subagent)
+      add("subagent.completed", {
+        toolCallId: `fixture-${item.id}`,
+        ...item.subagent,
       });
     add("assistant.turn_end", { turnId });
   }
