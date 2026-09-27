@@ -52,7 +52,6 @@ const ALLOW_FILES = new Set([
   "apps/desktop/src/views/SessionListView.vue",
   "apps/desktop/src/components/WhatsNewModal.vue",
   "apps/desktop/src/components/search/SearchSyntaxHelpModal.vue",
-  "apps/desktop/src/components/UpdateBanner.vue",
   "apps/desktop/src/components/UpdateInstructionsModal.vue",
 ]);
 
