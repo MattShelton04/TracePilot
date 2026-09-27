@@ -195,8 +195,8 @@ because a shared component usually changes the same area across many views.
 Subtle views are listed in a collapsed block with their pixel counts. The
 comment stays bounded below GitHub's comment limit, with a full-gallery link
 for omitted views.
-Rich tools and any explicitly captured Metrics stress views have section counts
-and collapsed link lists, without embedding another image for every tool case.
+Rich tools have section counts and collapsed link lists, without embedding
+another image for every tool case.
 
 Missing baselines and incomplete head captures prominently say **Comparison
 incomplete**. Diagnostic error-page screenshots stay in capture artifacts and
@@ -304,7 +304,7 @@ false-positive gap. Repeated captures exposed a sidebar opacity transition;
 disabling screenshot animation/transition timing made all 33 captures
 byte-identical across repeated runs.
 
-## Rich-tool and Metrics iteration
+## Rich-tool iteration
 
 The shared corpus in [`scripts/fixtures/`](../scripts/fixtures/session-fixtures.mjs)
 feeds both native JSONL sessions and focused browser cases. Rich-tool samples
@@ -317,11 +317,8 @@ preview boundary and asserts both final source cards appear without manual loadi
 
 Default local and CI captures contain **64 cases: 37 App views and 27 Rich tools**.
 The report keeps those sections separate; PR comments and history cards show
-compact counts/links for detailed tools. The **four Metrics stress cases are
-local opt-in**, selected with `--group=metrics` or an explicit stress `--case`.
-They do not add captures or allocate the large browser dataset in default runs;
-the dataset is built lazily when requested. Only the reusable generator and tests
-are versioned; generated JSONL, indexes and screenshots stay ignored.
+compact counts/links for detailed tools. Generated JSONL, indexes and screenshots
+stay ignored.
 
 The trusted publisher runs from `main`, so report-section changes in a PR take
 effect in automatic publication after merge. Local gallery checks use the current
@@ -331,7 +328,6 @@ Capture an offline searchable gallery for rapid iteration:
 
 ```powershell
 node scripts/visual/capture.mjs --group=rich-tools --gallery --channel=msedge --out=.tracepilot/visual/rich-tools
-node scripts/visual/capture.mjs --group=metrics --gallery --channel=msedge --out=.tracepilot/visual/metrics
 ```
 
 Open the generated `index.html`, edit a renderer, and repeat the command. The
@@ -343,8 +339,6 @@ Use `--case=rich-tool-web-search` for one case, or
 size in a separate output directory. CI keeps the standard 1440×960 size;
 its trusted paired reporter does not accept arbitrary viewport dimensions.
 
-The optional Metrics group captures the top, Code Changes, latest Session Activity, and
-expanded Prompt Cache of the 3,000-file/120-shutdown/2,401-window fixture.
 The worktree case also asserts all header/body columns align at all three
 desktop sizes, including selected active and stale rows. This catches generated
 table cells from row pseudo-elements that DOM-only tests miss.
@@ -356,7 +350,7 @@ node --test scripts/fixtures/*.test.mjs scripts/visual/*.test.mjs
 ```
 
 For native inspection, use the same generator with `app:start -DataRoot` as
-described in [testing](testing.md#rich-tools-and-session-metrics-stress-data).
+described in [testing](testing.md#rich-tool-fixtures).
 The native gallery contains all tool calls in one session; focused browser
 captures isolate each scenario for readable diffs. Full native parsing and
 visible interaction checks remain necessary when changing transport contracts.

@@ -49,15 +49,9 @@
   const sections = data.sections ?? [
     { id: "overview", label: "App overview" },
     { id: "rich-tools", label: "Rich tools" },
-    { id: "metrics", label: "Metrics stress" },
   ];
   const sectionFor = (view) =>
-    data.viewSections?.[view] ??
-    (view.startsWith("rich-tool-")
-      ? "rich-tools"
-      : view.startsWith("session-metrics-stress")
-        ? "metrics"
-        : "overview");
+    data.viewSections?.[view] ?? (view.startsWith("rich-tool-") ? "rich-tools" : "overview");
   const entryViews = (entry) => [
     ...new Set([
       ...(entry.views ?? []),

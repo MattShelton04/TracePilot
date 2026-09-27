@@ -4,10 +4,9 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildMetricsStressSession } from "./metrics-stress.mjs";
 import { buildRichToolsSession } from "./rich-tools.mjs";
 
-const owner = "tracepilot-tool-metrics-fixtures-v1";
+const owner = "tracepilot-rich-tool-fixtures-v1";
 const hash = (content) => createHash("sha256").update(content).digest("hex");
 function ensureDirectory(path) {
   if (existsSync(path)) {
@@ -31,7 +30,7 @@ export function generateSessionFixtures(root) {
         `Refusing redirected directory: ${p}`,
       );
   }
-  const sessions = [buildRichToolsSession(), buildMetricsStressSession()];
+  const sessions = [buildRichToolsSession()];
   const manifestPath = join(root, "synthetic-fixtures.json");
   const sessionRoot = join(root, "copilot/session-state");
   const files = sessions.flatMap((session) => {
@@ -43,7 +42,7 @@ export function generateSessionFixtures(root) {
       },
       {
         path: join(directory, "workspace.yaml"),
-        content: `id: ${session.id}\nname: ${JSON.stringify(session.title)}\nuser_named: true\ncwd: C:/synthetic/orchard\nrepository: example/orchard\nbranch: fixture/tool-metrics\nhost_type: github\ncreated_at: ${JSON.stringify(session.events[0].timestamp)}\nupdated_at: ${JSON.stringify(session.events.at(-1).timestamp)}\n`,
+        content: `id: ${session.id}\nname: ${JSON.stringify(session.title)}\nuser_named: true\ncwd: C:/synthetic/orchard\nrepository: example/orchard\nbranch: fixture/rich-tools\nhost_type: github\ncreated_at: ${JSON.stringify(session.events[0].timestamp)}\nupdated_at: ${JSON.stringify(session.events.at(-1).timestamp)}\n`,
       },
     ];
   });
@@ -101,6 +100,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     options.length <= 1 && options.every((arg) => arg.startsWith("--root=")),
     "Usage: node scripts/fixtures/session-fixtures.mjs [--root=PATH]",
   );
-  const root = resolve(options[0]?.slice(7) ?? ".tracepilot/tool-metrics-fixtures");
+  const root = resolve(options[0]?.slice(7) ?? ".tracepilot/rich-tool-fixtures");
   console.log(JSON.stringify(generateSessionFixtures(root), null, 2));
 }

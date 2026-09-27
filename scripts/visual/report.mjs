@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { escapeHtml, renderGallery } from "./gallery-template.mjs";
-import { defaultCases } from "./manifest.mjs";
+import { cases } from "./manifest.mjs";
 import { classifyPixels, compare, describeBounds, thresholds } from "./pixels.mjs";
 import { decodePng, encodeHeat, encodePng } from "./png.mjs";
 import { areaKey, changeAreas, crop, differenceImage, focusRect } from "./review-images.mjs";
@@ -88,7 +88,7 @@ export async function buildReport({
   const headRows = headSide.records;
   // A route first introduced by a PR must remain visible before its manifest
   // reaches the trusted default branch. Only bounded text/IDs cross this boundary.
-  const inventory = new Map(defaultCases.map((item) => [item.id, item]));
+  const inventory = new Map(cases.map((item) => [item.id, item]));
   for (const [id, record] of [...baseRows, ...headRows]) {
     if (!inventory.has(id)) {
       if (inventory.size >= 128) throw new Error("Combined capture inventory exceeds limit");

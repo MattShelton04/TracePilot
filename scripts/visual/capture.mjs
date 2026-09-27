@@ -166,16 +166,6 @@ try {
           const argsToggle = page.locator('.args-toggle[aria-expanded="false"]');
           if (await argsToggle.count()) await argsToggle.first().click();
         }
-      } else if (item.prepare === "metrics-activity") {
-        await page.getByRole("button", { name: "Latest activities", exact: true }).click();
-        await page.getByText("115–120 of 120 activities", { exact: true }).waitFor();
-        await page.locator(item.ready).scrollIntoViewIfNeeded();
-      } else if (item.prepare === "metrics-cache") {
-        await page.getByRole("button", { name: "Show 2401 idle windows", exact: true }).click();
-        if ((await page.locator(".prompt-cache__row").count()) !== 20)
-          throw new Error("Cache stress must render a bounded page of 20 windows");
-        await page.locator(".prompt-cache__row").first().click();
-        await page.locator(item.ready).scrollIntoViewIfNeeded();
       }
       await page.locator(item.ready).first().waitFor({ state: "visible", timeout: 15000 });
       if (item.command)

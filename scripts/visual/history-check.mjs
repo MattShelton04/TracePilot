@@ -5,8 +5,7 @@ import { renderHistory } from "./gallery-template.mjs";
 export async function checkHistory(page) {
   const overview = ["sessions", ...Array.from({ length: 7 }, (_, i) => `overview-${i}`)];
   const tools = Array.from({ length: 27 }, (_, i) => `rich-tool-fixture-${i}`);
-  const metrics = Array.from({ length: 4 }, (_, i) => `session-metrics-stress-${i}`);
-  const views = [...overview, ...tools, ...metrics];
+  const views = [...overview, ...tools];
   const images = Object.fromEntries(views.map((view) => [view, `${"a".repeat(64)}.png`]));
   const changes = Object.fromEntries(views.map((view) => [view, "changed"]));
   for (const view of tools.slice(22, 24)) changes[view] = "subtle";
@@ -20,7 +19,7 @@ export async function checkHistory(page) {
     views,
     images,
     changes,
-    summary: { changed: 34, subtle: 2, incomplete: 2, baseUnavailable: 1, unchanged: 0, total: 39 },
+    summary: { changed: 30, subtle: 2, incomplete: 2, baseUnavailable: 1, unchanged: 0, total: 35 },
   };
   const html = await renderHistory([entry, { ...entry, id: 199, pr: null }]);
   const imageRoute = "**/img/*.png";
@@ -44,19 +43,15 @@ export async function checkHistory(page) {
       ),
     );
     assert.equal(await page.locator("#pr-list .more-views:not(.detail-sections) .chip").count(), 1);
-    assert.equal(await page.locator("#pr-list .detail-sections .chip").count(), 2);
+    assert.equal(await page.locator("#pr-list .detail-sections .chip").count(), 1);
     const rich = page.locator('#pr-list [data-section="rich-tools"]');
     assert.match(await rich.innerText(), /27 views · 22 review · 2 subtle · 3 limitations/);
     assert.match(await rich.getAttribute("href"), /#view=rich-tool-fixture-0&mode=difference$/);
-    assert.match(
-      await page.locator('#pr-list [data-section="metrics"]').innerText(),
-      /4 views · 4 review/,
-    );
     const groups = page.locator("#timeline-view optgroup");
-    assert.equal(await groups.count(), 3);
+    assert.equal(await groups.count(), 2);
     assert.deepEqual(
       await groups.evaluateAll((nodes) => nodes.map((group) => group.children.length)),
-      [8, 27, 4],
+      [8, 27],
     );
     for (const [width, height] of [
       [1440, 960],
@@ -71,7 +66,7 @@ export async function checkHistory(page) {
     }
     await page.getByRole("tab", { name: "Main", exact: true }).click();
     assert.equal(await page.locator("#main-list .preview").count(), 4);
-    assert.equal(await page.locator("#main-list .detail-sections .chip").count(), 2);
+    assert.equal(await page.locator("#main-list .detail-sections .chip").count(), 1);
 
     // Older history links only had a view hash. Keep those opening the timeline.
     await page.evaluate(
@@ -87,9 +82,9 @@ export async function checkHistory(page) {
     assert.equal(await page.locator("#timeline-scope").inputValue(), "all");
     assert.equal(await page.locator(".timeline-card").count(), 1);
     assert.match(await page.locator(".timeline-info").innerText(), /Same pixels in 1 earlier run/);
-    await page.locator("#timeline-view").selectOption(metrics[0]);
-    assert.match(page.url(), /view=session-metrics-stress-0/);
-    return { sections: 3, overviewPreviews: [3, 4], detailLinksPerRun: 2, timelineDeepLink: true };
+    await page.locator("#timeline-view").selectOption(overview[0]);
+    assert.match(page.url(), /view=sessions/);
+    return { sections: 2, overviewPreviews: [3, 4], detailLinksPerRun: 1, timelineDeepLink: true };
   } finally {
     await page.unroute(imageRoute, imageHandler);
   }

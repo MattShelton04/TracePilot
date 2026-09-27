@@ -82,7 +82,12 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
   mkdirSync(join(root, "tracepilot"));
   const config = join(root, "tracepilot/config.toml");
   writeFileSync(config, "# Launcher-owned config\n");
-  assert.equal(generateSessionFixtures(root).reused, false);
+  const generated = generateSessionFixtures(root);
+  assert.equal(generated.reused, false);
+  assert.deepEqual(
+    generated.sessions.map((session) => session.id),
+    [richToolsSessionId],
+  );
   assert.equal(generateSessionFixtures(root).reused, true);
   assert.equal(readFileSync(config, "utf8"), "# Launcher-owned config\n");
   writeFileSync(

@@ -67,7 +67,7 @@ test("only the largest changes are expanded; the rest stay collapsed and bounded
   assert.match(body, /view=view-32&mode=difference/);
 });
 
-test("rich tools and metrics have section counts and compact links without displacing app previews", () => {
+test("rich tools have section counts and compact links without displacing app previews", () => {
   const tools = Array.from({ length: 27 }, (_, index) => ({
     ...changedRow(`rich-tool-${index}`, 100_000 + index),
     group: "rich-tools",
@@ -80,7 +80,7 @@ test("rich tools and metrics have section counts and compact links without displ
     { id: "rich-tool-subtle", change: "subtle", analyses: { 0: { changed: 5 } } },
     { id: "rich-tool-failed", change: "incomplete" },
     { id: "rich-tool-identical", change: "unchanged" },
-    { id: "session-metrics-stress", change: "base unavailable" },
+    { id: "rich-tool-unavailable", change: "base unavailable" },
   ];
   const body = buildComment({
     ...args,
@@ -90,18 +90,13 @@ test("rich tools and metrics have section counts and compact links without displ
   assert.match(body, /\[App views\].*#section=overview/);
   assert.match(
     body,
-    /\[Rich tools\].*27 review · 1 subtle · 1 identical · 0 base unavailable · 1 incomplete/,
+    /\[Rich tools\].*27 review · 1 subtle · 1 identical · 1 base unavailable · 1 incomplete/,
   );
-  assert.match(
-    body,
-    /\[Metrics stress\].*0 review · 0 subtle · 0 identical · 1 base unavailable · 0 incomplete/,
-  );
-  assert.match(body, /<summary>Rich tools: 29 views to inspect<\/summary>/);
-  assert.match(body, /<summary>Metrics stress: 1 view to inspect<\/summary>/);
+  assert.match(body, /<summary>Rich tools: 30 views to inspect<\/summary>/);
   assert.match(body, /section=rich-tools&view=rich-tool-26&mode=difference/);
   assert.match(body, /rich-tool-failed&mode=difference\) · incomplete/);
   assert.match(body, /rich-tool-subtle&mode=difference\) · subtle/);
-  assert.match(body, /session-metrics-stress&mode=difference\) · base unavailable/);
+  assert.match(body, /rich-tool-unavailable&mode=difference\) · base unavailable/);
   assert.match(body, /Comparison incomplete/);
   assert.deepEqual(
     [...body.matchAll(/^#### ([\w-]+)/gm)].map((match) => match[1]),

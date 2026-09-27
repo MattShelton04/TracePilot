@@ -124,44 +124,29 @@ on PRs and main in CI. The suite requires Windows, WebView2, the Rust toolchain,
 Node 22, and pnpm 10. Frontend-only exploration is portable via `pnpm dev` and
 the CLI. WebView2 CDP does not apply to macOS/Linux.
 
-## Rich tools and Session Metrics stress data
+## Rich-tool fixtures
 
 Generate deterministic files for the real backend, then start the native app
 against that isolated root:
 
 ```powershell
 node scripts/fixtures/session-fixtures.mjs
-pnpm app:start -DataRoot "$PWD/.tracepilot/tool-metrics-fixtures"
+pnpm app:start -DataRoot "$PWD/.tracepilot/rich-tool-fixtures"
 # Attach with the command printed by startup, finish setup, then Refresh data.
 ```
 
-The library contains **SYNTHETIC · Rich tool renderer gallery** (27 scenarios,
-all registered tool renderers plus fallback, error and pending states) and
-**SYNTHETIC · Metrics stress · 2,400 cache windows and 120 shutdowns**. The latter
-has 12,099 events, 3,000 modified paths, 120 shutdown segments and 2,401 parsed
-cache windows (including the final session-ended window), with expiry, prefix
-changes, agent wakes, long paths and Unicode. Expand Prompt Cache to inspect
-the detailed causes; filter Code Changes or page Session Activity to reach later
-records. These are generated tool contracts, not private session recordings.
+The library contains **SYNTHETIC · Rich tool renderer gallery**: 27 scenarios
+covering registered renderers plus fallback, error and pending states. These
+reconstruct tool contracts with synthetic content, without private recordings.
 
 `--root=PATH` selects another profile. The generator verifies its ownership and
 content hashes on repeated runs, preserves config/index files, and refuses
 edited sessions or changed fixture contracts. Use a fresh root in those cases.
 Stop the tracked app before switching roots. The shared fixture modules also
-feed the [frontend visual captures](visual-regression.md#rich-tool-and-metrics-iteration).
+feed the [frontend visual captures](visual-regression.md#rich-tool-iteration).
 Run `node --test scripts/fixtures/*.test.mjs` for corpus/renderer coverage checks.
 
-Only the reusable generator and its contracts are checked in. Generated JSONL,
-indexes and screenshots stay in ignored `.tracepilot/` directories. The four
-Metrics stress captures are for local iteration: explicitly request
-`--group=metrics` or a stress `--case` in the visual harness. Default capture runs
-cover 37 App views and 27 Rich tools; the harness neither captures nor builds the
-large Metrics dataset unless requested.
-
-Metrics tests verify bounded file/activity rendering, complete filtering and
-paging, shallow immutable snapshots and pricing work per distinct model/prefix
-pair. Native IPC counts and browser geometry remain the integration checks;
-mock screenshots alone cannot establish backend correctness or loading speed.
+Generated JSONL, indexes and screenshots stay in ignored `.tracepilot/` directories.
 
 ## Cross-references
 

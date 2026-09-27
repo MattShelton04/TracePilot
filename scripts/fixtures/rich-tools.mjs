@@ -152,7 +152,7 @@ export const richToolSamples = [
     "ask_user",
     {
       question: "Which fixture should the review cover?",
-      choices: ["All renderers", "Only changed renderers", "Metrics stress session"],
+      choices: ["All renderers", "Only changed renderers", "Failed tool calls"],
       allow_freeform: true,
     },
     "User selected: All renderers",

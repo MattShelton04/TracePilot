@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { PNG } from "pngjs";
 import { captureExitCode, stableScreenshot } from "./capture-policy.mjs";
-import { cases, defaultCases, selectCases } from "./manifest.mjs";
+import { cases, selectCases } from "./manifest.mjs";
 import { decodePng } from "./png.mjs";
 import { buildReport, escapeHtml, validatePng } from "./report.mjs";
 
@@ -43,19 +43,14 @@ test("captures require consecutive exact frames and unstable rendering is an exp
   assert.equal(calls, 5);
 });
 
-test("two shards cover the CI inventory exactly once and keep stress opt-in", () => {
+test("two shards cover the inventory exactly once and support focused tool groups", () => {
   assert.deepEqual(
     [...selectCases("1/2"), ...selectCases("2/2")].map((x) => x.id).sort(),
-    defaultCases.map((x) => x.id).sort(),
+    cases.map((x) => x.id).sort(),
   );
   assert.equal(new Set(cases.map((x) => x.id)).size, cases.length);
   for (const shard of ["0/2", "3/2", "1/0", "1/100", "x"]) assert.throws(() => selectCases(shard));
-  assert.equal(
-    defaultCases.some((item) => item.group === "metrics"),
-    false,
-  );
-  assert.equal(selectCases("1/1", { group: "metrics" }).length, 4);
-  assert.equal(selectCases("1/1", { caseIds: ["session-metrics-stress-cache"] }).length, 1);
+  assert.equal(selectCases("1/1", { caseIds: ["rich-tool-web-search"] }).length, 1);
   const tools = selectCases("1/1", { group: "rich-tools" });
   assert.equal(tools.length, 27);
   assert.deepEqual(
@@ -159,10 +154,6 @@ test("reports changed captures, missing bases, failures and escaped artifact dia
     await writeFile(join(head, "tools.png"), png());
     await writeFile(join(head, "future-route.png"), png());
     const report = await buildReport({ baseDir: base, headDir: head, output });
-    assert.equal(
-      report.rows.some((row) => row.group === "metrics"),
-      false,
-    );
     assert.equal(report.rows.find((x) => x.id === "sessions").change, "subtle");
     assert.equal(report.summary.subtle, 1);
     const comparison = report.rows.find((x) => x.id === "sessions").analyses;
