@@ -1,33 +1,43 @@
 {
   "unreleased": {
     "notes": {
-      "added": [
-        "Live terminal sessions: Watch Copilot CLI sessions running in a terminal as they happen. Sessions TracePilot launches or resumes are watchable by default, and the session list marks them Live or Watching",
-        "Inter-agent communication: A new Timeline → Messages mode shows how a session's agents communicated, and subagent panels show the messages each agent sent and received",
-        "Agents explorer: Browse built-in, personal and project agents with per-agent usage, a definition editor and /subagents overrides",
-        "Skills usage analytics: See how often each skill is invoked and how many tokens it injects, with unused, dormant and drifted skills flagged",
-        "Prompt-cache insights: A live cache countdown, resume markers that explain likely cache breaks, and prompt-cache stats in Metrics and Analytics",
-        "Model changes in the conversation: /model switches, auto-mode choices and reasoning-effort changes now appear inline, and sessions show the model actually in use"
-      ],
-      "changed": [
-        "Official Copilot SDK: The SDK Bridge now uses the official github-copilot-sdk, with simpler settings and a sidebar button that shows connection progress",
-        "Rich tool results: Web search, SQL, search and ask_user results show complete data with clearer layouts",
-        "Reasoning previews: Collapsed reasoning previews every section heading",
-        "Copilot CLI built-ins: Built-in skills and agents are found for every CLI installation method",
-        "Model pricing: Refreshed Copilot rates, adding Claude Opus 5.5, GPT-6 Sol, GPT-6 Luna and Grok 4.7",
-        "Performance: Faster first-run indexing with visible progress, and smoother long conversations",
-        "Index upgrade: Existing indexes refresh automatically on first launch to add the new model, cache, skill and agent data"
-      ],
-      "fixed": [
-        "Prompt-cache accuracy: Fewer false cache-break warnings and recorded cache expiry for ended sessions",
-        "Large sessions: Metrics for very large sessions stay responsive",
-        "Reliability: Hardened settings, factory reset, indexing and SDK lifecycles",
-        "Configuration views: Config Injector shows unlisted models, and Worktree Manager rows align correctly"
-      ]
+      "added": [],
+      "changed": [],
+      "fixed": []
     },
     "requiresReindex": false
   },
   "versions": [
+    {
+      "version": "0.9.0",
+      "date": "2026-09-27",
+      "notes": {
+        "added": [
+          "Live terminal sessions: Watch Copilot CLI sessions running in a terminal as they happen. Sessions TracePilot launches or resumes are watchable by default, and the session list marks them Live or Watching",
+          "Inter-agent communication: A new Timeline → Messages mode shows how a session's agents communicated, and subagent panels show the messages each agent sent and received",
+          "Agents explorer: Browse built-in, personal and project agents with per-agent usage, a definition editor and /subagents overrides",
+          "Skills usage analytics: See how often each skill is invoked and how many tokens it injects, with unused, dormant and drifted skills flagged",
+          "Prompt-cache insights: A live cache countdown, resume markers that explain likely cache breaks, and prompt-cache stats in Metrics and Analytics",
+          "Model changes in the conversation: /model switches, auto-mode choices and reasoning-effort changes now appear inline, and sessions show the model actually in use"
+        ],
+        "changed": [
+          "Official Copilot SDK: The SDK Bridge now uses the official github-copilot-sdk, with simpler settings and a sidebar button that shows connection progress",
+          "Rich tool results: Web search, SQL, search and ask_user results show complete data with clearer layouts",
+          "Reasoning previews: Collapsed reasoning previews every section heading",
+          "Copilot CLI built-ins: Built-in skills and agents are found for every CLI installation method",
+          "Model pricing: Refreshed Copilot rates, adding Claude Opus 5.5, GPT-6 Sol, GPT-6 Luna and Grok 4.7",
+          "Performance: Faster first-run indexing with visible progress, and smoother long conversations",
+          "Index upgrade: Existing indexes refresh automatically on first launch to add the new model, cache, skill and agent data"
+        ],
+        "fixed": [
+          "Prompt-cache accuracy: Fewer false cache-break warnings and recorded cache expiry for ended sessions",
+          "Large sessions: Metrics for very large sessions stay responsive",
+          "Reliability: Hardened settings, factory reset, indexing and SDK lifecycles",
+          "Configuration views: Config Injector shows unlisted models, and Worktree Manager rows align correctly"
+        ]
+      },
+      "requiresReindex": false
+    },
     {
       "version": "0.8.2",
       "date": "2026-09-13",

@@ -7,6 +7,8 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-27
+
 ### Added
 
 - **Live terminal sessions** — Watch Copilot CLI sessions running in a terminal as they happen. TracePilot joins sessions started with `--ui-server` as an observer, which is now the default for sessions it launches or resumes in a terminal. The session list marks them Live or Watching, and Settings controls auto-attach (#853).
