@@ -156,6 +156,17 @@ test("Windows lifecycle owns only its recorded process trees", {
     assert.equal(existsSync(statePath), false);
   });
 
+  await t.test("rejects invalid or production UI ports before launching", async () => {
+    await assert.rejects(run("start", "ui", ["-UiPort", "-1"]), /UiPort/);
+    await assert.rejects(run("start", "ui", ["-UiPort", "65536"]), /UiPort/);
+    await assert.rejects(
+      run("start", "desktop", ["-Runtime", "production", "-UiPort", "1437"]),
+      /-UiPort is valid only with -Runtime development/,
+    );
+    assert.equal(existsSync(statePath), false);
+    assert.equal(existsSync(join(runtime, "desktop.json")), false);
+  });
+
   await t.test("custom executables require an isolated production launch", async () => {
     await assert.rejects(
       run("start", "desktop", ["-Executable", process.execPath]),
@@ -180,6 +191,56 @@ test("Windows lifecycle owns only its recorded process trees", {
       await run("stop", "ui", options);
       await run("stop");
     }
+  });
+
+  await t.test("uses the requested UI port and rejects mismatched reuse", async () => {
+    const reservation = createServer();
+    await new Promise((resolve) => reservation.listen(0, "127.0.0.1", resolve));
+    const port = reservation.address().port;
+    await new Promise((resolve) => reservation.close(resolve));
+    await run("start", "ui", ["-UiPort", String(port)]);
+    try {
+      const owned = state();
+      assert.equal(new URL(owned.url).port, String(port));
+      assert.equal(await (await fetch(owned.url)).text(), "fixture");
+      await run("start", "ui", ["-UiPort", String(port)]);
+      const alternatePort = port === 65535 ? port - 1 : port + 1;
+      await assert.rejects(
+        run("start", "ui", ["-UiPort", String(alternatePort)]),
+        /different launch options.*UI port/,
+      );
+      assert.deepEqual(state().processes, owned.processes);
+      assert.equal(await (await fetch(owned.url)).text(), "fixture");
+    } finally {
+      await run("stop");
+    }
+  });
+
+  await t.test("rejects an occupied requested UI port without disturbing its owner", async () => {
+    const server = createServer();
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      await assert.rejects(
+        run("start", "ui", ["-UiPort", String(server.address().port)]),
+        /No free loopback port/,
+      );
+      assert.equal(server.listening, true);
+      assert.equal(existsSync(statePath), false);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  await t.test("rejects the same requested UI and CDP port before launching", async () => {
+    const reservation = createServer();
+    await new Promise((resolve) => reservation.listen(0, "127.0.0.1", resolve));
+    const port = reservation.address().port;
+    await new Promise((resolve) => reservation.close(resolve));
+    await assert.rejects(
+      run("start", "desktop", ["-Port", String(port), "-UiPort", String(port)]),
+      /No free loopback port/,
+    );
+    assert.equal(existsSync(join(runtime, "desktop.json")), false);
   });
 
   await t.test("rejects an occupied requested CDP port without disturbing its owner", async () => {

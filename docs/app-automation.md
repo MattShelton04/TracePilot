@@ -39,6 +39,18 @@ real-app proof of concept and before/after UI captures.
 On macOS/Linux use `pnpm dev` and open the printed URL with an installed browser.
 The managed launcher is Windows-only, matching the desktop CDP target.
 
+To run a second development clone concurrently, start it from that clone with
+separate loopback ports:
+
+```powershell
+pnpm app:start -Port 9327 -UiPort 1437
+```
+
+`-Port` selects desktop CDP and `-UiPort` selects Vite. A busy requested port
+fails without stopping its owner. `-UiPort` also works with `pnpm app:ui` and
+is unavailable for the production runtime. Omit either option to keep its
+automatic default range.
+
 ## Why this integration
 
 Options evaluated against the goal of autonomous, exploratory development:
@@ -102,8 +114,8 @@ production starts continue to build, avoiding accidental stale-binary reuse.
 The launcher serializes lifecycle commands per mode, chooses unused ports,
 records process IDs/start times/executables, and cleans up owned trees on failure.
 It never kills an app merely because of its name or listening port. Repeated
-starts validate runtime, data root, and requested CDP port before reusing the
-current instance. Stop the tracked instance before changing those options. The
+starts validate runtime, data root, and requested CDP and UI ports before reusing
+the current instance. Stop the tracked instance before changing those options. The
 recorded state also identifies built versus HMR frontend, Rust profile, devtools
 mode, release executable path, timestamp, and size so benchmark tooling can
 reject an accidental development comparison. Without `-DataRoot`, desktop
