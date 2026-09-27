@@ -129,7 +129,9 @@ describe("web_search result contracts", () => {
         clientHeight: { value: 400 },
       });
       for (const callback of callbacks) callback();
-      await flushPromises();
+      await vi.waitFor(() =>
+        expect(wrapper.find(".renderer-scroll-region__toggle").exists()).toBe(true),
+      );
       const toggle = wrapper.get(".renderer-scroll-region__toggle");
       expect(toggle.text()).toBe("Show all search response");
       await toggle.trigger("click");

@@ -22,25 +22,40 @@ watch(
   },
 );
 let observer: ResizeObserver | undefined;
+let measurementFrame: number | undefined;
+let disposed = false;
 function measure() {
   if (!expanded.value && viewport.value) {
     overflows.value = viewport.value.scrollHeight > viewport.value.clientHeight + 1;
   }
 }
+function scheduleMeasurement() {
+  if (disposed || measurementFrame !== undefined) return;
+  // Updating the disclosure can resize its parent. Leave ResizeObserver delivery
+  // before changing reactive layout state, and combine simultaneous notifications.
+  measurementFrame = requestAnimationFrame(() => {
+    measurementFrame = undefined;
+    measure();
+  });
+}
 async function toggle() {
   expanded.value = !expanded.value;
   await nextTick();
-  measure();
+  scheduleMeasurement();
 }
 onMounted(() => {
   if (typeof ResizeObserver !== "undefined") {
-    observer = new ResizeObserver(measure);
+    observer = new ResizeObserver(scheduleMeasurement);
     if (viewport.value) observer.observe(viewport.value);
     if (content.value) observer.observe(content.value);
   }
-  measure();
+  scheduleMeasurement();
 });
-onBeforeUnmount(() => observer?.disconnect());
+onBeforeUnmount(() => {
+  disposed = true;
+  observer?.disconnect();
+  if (measurementFrame !== undefined) cancelAnimationFrame(measurementFrame);
+});
 </script>
 
 <template>
