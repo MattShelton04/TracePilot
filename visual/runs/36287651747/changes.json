@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "202fff8f81545fff04d3676215a4f91961d15c4e",
-  "headSha": "15411b2a066fa4eaf35e7fd88834b99547a7dae4",
+  "baseSha": "7ed5cb20cc231081c64d4acb432f3a8539bccc0f",
+  "headSha": "b89e9e22ed8af19bbeea40776cf97ea91539ef52",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,132 +9,35 @@
     "scale": 1
   },
   "summary": {
-    "changed": 2,
-    "unchanged": 35,
+    "changed": 1,
+    "unchanged": 36,
     "subtle": 0,
-    "incomplete": 0,
+    "incomplete": 27,
     "baseUnavailable": 0,
-    "total": 37
+    "total": 64
   },
   "views": [
     {
       "id": "sessions",
+      "group": "overview",
       "route": "/",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 1178,
-      "percent": 0.08521412037037036,
-      "areas": [
-        {
-          "x": 675,
-          "y": 235,
-          "width": 299,
-          "height": 28,
-          "pixels": 437
-        },
-        {
-          "x": 1061,
-          "y": 235,
-          "width": 269,
-          "height": 7,
-          "pixels": 323
-        },
-        {
-          "x": 289,
-          "y": 222,
-          "width": 234,
-          "height": 20,
-          "pixels": 294
-        },
-        {
-          "x": 388,
-          "y": 311,
-          "width": 14,
-          "height": 14,
-          "pixels": 26
-        },
-        {
-          "x": 347,
-          "y": 314,
-          "width": 12,
-          "height": 9,
-          "pixels": 13
-        },
-        {
-          "x": 730,
-          "y": 314,
-          "width": 12,
-          "height": 9,
-          "pixels": 13
-        },
-        {
-          "x": 1110,
-          "y": 314,
-          "width": 12,
-          "height": 9,
-          "pixels": 13
-        },
-        {
-          "x": 427,
-          "y": 313,
-          "width": 12,
-          "height": 10,
-          "pixels": 9
-        },
-        {
-          "x": 292,
-          "y": 313,
-          "width": 8,
-          "height": 9,
-          "pixels": 7
-        },
-        {
-          "x": 678,
-          "y": 313,
-          "width": 8,
-          "height": 9,
-          "pixels": 7
-        },
-        {
-          "x": 1064,
-          "y": 313,
-          "width": 8,
-          "height": 9,
-          "pixels": 7
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/02206fa3e5b251186a3e9b08fa40564f2068163351f4b371ec3d1e389fe9b272.png",
+        "before": "../../img/c350f2ea088cb780b936bc3e2fe4c0e8aea5b67ca134eb926fc1e803bc705a32.png",
         "after": "../../img/c350f2ea088cb780b936bc3e2fe4c0e8aea5b67ca134eb926fc1e803bc705a32.png",
-        "difference": "../../img/e053a31d141a7c0443c239220fd4ac1d681b3a4e099c6f0a936313b8a3f1132c.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 585,
-              "y": 149,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/0a55c43eacbf2b677f10ad0eef8431fce93689600f7f6b35e56d5fb25c2b4239.png",
-            "after": "../../img/c1ccc0ebda77cf631f260b65526fadea8dfb433cdbb5cf6b3960867586fc1066.png"
-          },
-          {
-            "rect": {
-              "x": 956,
-              "y": 139,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/1e9995b36062dc6ac53bdc0feb69186377537f6d8d68dff59f3a0cbbb22908d4.png",
-            "after": "../../img/5f3fcf702eff93ba06c229c3bba5842fac0737e6ac4cc1c4ffa090a44760372f.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
     {
       "id": "session-overview",
+      "group": "overview",
       "route": "/session/sess-auth-refactor/overview",
       "state": "populated",
       "change": "unchanged",
@@ -152,42 +55,25 @@
     },
     {
       "id": "session-conversation",
+      "group": "overview",
       "route": "/session/sess-auth-refactor/conversation",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 4282,
-      "percent": 0.3097511574074074,
-      "areas": [
-        {
-          "x": 319,
-          "y": 797,
-          "width": 1045,
-          "height": 55,
-          "pixels": 4282
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/d07d22f440b09997a8afd6f4064681008dd78a487f1a6010c6c0c0c55b5a34d8.png",
+        "before": "../../img/202dbee6c942fed2a46e663deabd5e45d1235f9e422aeb3e3d960319dbcf9ddc.png",
         "after": "../../img/202dbee6c942fed2a46e663deabd5e45d1235f9e422aeb3e3d960319dbcf9ddc.png",
-        "difference": "../../img/e376e0985908b890e185c86251b52b92df9ef733400cc8bf2ded4560d275c9e3.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 287,
-              "y": 725,
-              "width": 1109,
-              "height": 200
-            },
-            "before": "../../img/c8c8de4af35fdc932082637c16dca60f291a32c23bef8c04f05f785c507516ec.png",
-            "after": "../../img/4b388bca7fe5d450ef01c4b82ef1077fd1549d94d9426cb5f87343c5e9e8be6b.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
     {
       "id": "session-events",
+      "group": "overview",
       "route": "/session/sess-auth-refactor/events",
       "state": "populated",
       "change": "unchanged",
@@ -205,6 +91,7 @@
     },
     {
       "id": "session-todos",
+      "group": "overview",
       "route": "/session/sess-auth-refactor/todos",
       "state": "populated",
       "change": "unchanged",
@@ -222,6 +109,7 @@
     },
     {
       "id": "session-metrics",
+      "group": "overview",
       "route": "/session/sess-auth-refactor/metrics",
       "state": "populated",
       "change": "unchanged",
@@ -239,6 +127,7 @@
     },
     {
       "id": "session-context",
+      "group": "overview",
       "route": "/session/sess-auth-refactor/context",
       "state": "populated",
       "change": "unchanged",
@@ -256,6 +145,7 @@
     },
     {
       "id": "session-explorer",
+      "group": "overview",
       "route": "/session/sess-auth-refactor/explorer",
       "state": "populated",
       "change": "unchanged",
@@ -273,6 +163,7 @@
     },
     {
       "id": "session-timeline",
+      "group": "overview",
       "route": "/session/sess-auth-refactor/timeline",
       "state": "populated",
       "change": "unchanged",
@@ -281,8 +172,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/cc1e896c3305acd2425a8e4cd3298ef54d46f54b3e2f08e358f933cf5e4f8360.png",
-        "after": "../../img/cc1e896c3305acd2425a8e4cd3298ef54d46f54b3e2f08e358f933cf5e4f8360.png",
+        "before": "../../img/0dc530db43dfe18bd178bfb04b37d80aaed3a200b94d82a7bda393a86bbbaf78.png",
+        "after": "../../img/0dc530db43dfe18bd178bfb04b37d80aaed3a200b94d82a7bda393a86bbbaf78.png",
         "difference": null,
         "closeUps": []
       },
@@ -290,6 +181,7 @@
     },
     {
       "id": "session-explorer-file",
+      "group": "overview",
       "route": "/session/sess-auth-refactor/explorer",
       "state": "synthetic plan.md selected in the file reader",
       "change": "unchanged",
@@ -307,6 +199,7 @@
     },
     {
       "id": "search",
+      "group": "overview",
       "route": "/search",
       "state": "empty search prompt; indexed fixtures",
       "change": "unchanged",
@@ -324,6 +217,7 @@
     },
     {
       "id": "search-results",
+      "group": "overview",
       "route": "/search?q=auth",
       "state": "populated search results",
       "change": "unchanged",
@@ -341,6 +235,7 @@
     },
     {
       "id": "analytics",
+      "group": "overview",
       "route": "/analytics",
       "state": "populated",
       "change": "unchanged",
@@ -358,6 +253,7 @@
     },
     {
       "id": "tools",
+      "group": "overview",
       "route": "/tools",
       "state": "populated",
       "change": "unchanged",
@@ -375,6 +271,7 @@
     },
     {
       "id": "code",
+      "group": "overview",
       "route": "/code",
       "state": "populated",
       "change": "unchanged",
@@ -392,6 +289,7 @@
     },
     {
       "id": "model-comparison",
+      "group": "overview",
       "route": "/models",
       "state": "populated",
       "change": "unchanged",
@@ -409,6 +307,7 @@
     },
     {
       "id": "compare",
+      "group": "overview",
       "route": "/compare",
       "state": "session picker",
       "change": "unchanged",
@@ -426,6 +325,7 @@
     },
     {
       "id": "compare-populated",
+      "group": "overview",
       "route": "/compare",
       "state": "two synthetic sessions compared; zero file-count baseline",
       "change": "unchanged",
@@ -443,6 +343,7 @@
     },
     {
       "id": "replay",
+      "group": "overview",
       "route": "/replay/sess-auth-refactor",
       "state": "Experimental · explicitly enabled; populated paused replay",
       "change": "unchanged",
@@ -460,6 +361,7 @@
     },
     {
       "id": "export",
+      "group": "overview",
       "route": "/export",
       "state": "Experimental · explicitly enabled; session picker",
       "change": "unchanged",
@@ -477,6 +379,7 @@
     },
     {
       "id": "export-preview",
+      "group": "overview",
       "route": "/export?sessionId=sess-auth-refactor&preset=minimal-team-log",
       "state": "Experimental · explicitly enabled; selected session and populated Markdown preview",
       "change": "unchanged",
@@ -494,6 +397,7 @@
     },
     {
       "id": "settings",
+      "group": "overview",
       "route": "/settings",
       "state": "configured defaults",
       "change": "unchanged",
@@ -511,23 +415,75 @@
     },
     {
       "id": "settings-pricing",
+      "group": "overview",
       "route": "/settings",
       "state": "configured pricing",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 252,
+      "percent": 0.018229166666666668,
+      "areas": [
+        {
+          "x": 659,
+          "y": 746,
+          "width": 14,
+          "height": 8,
+          "pixels": 101
+        },
+        {
+          "x": 1344,
+          "y": 793,
+          "width": 7,
+          "height": 8,
+          "pixels": 55
+        },
+        {
+          "x": 1344,
+          "y": 910,
+          "width": 7,
+          "height": 8,
+          "pixels": 49
+        },
+        {
+          "x": 1344,
+          "y": 832,
+          "width": 7,
+          "height": 8,
+          "pixels": 47
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/0d35d600e6336dab20fc90c9facf95e9225a89a8a8539a9a0e50f2eac7ce6442.png",
-        "after": "../../img/0d35d600e6336dab20fc90c9facf95e9225a89a8a8539a9a0e50f2eac7ce6442.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/a4bd9e0188ab44f7d7c56af20f88755d646530f622429eb207390a23402eca19.png",
+        "difference": "../../img/e91eeb62622e4a812cebf5cb80fc421869115f760a55431ca7c860bdff08f4ad.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 426,
+              "y": 650,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/0d85f2ea3afde75be9cf4af7e27d6bc8cdd0c3aa91095f3e59a0a0d6afc5e3c5.png",
+            "after": "../../img/c485db40ed637868fdbcefe2d5895bd3932ebed937d02444848a3d1f4158049b.png"
+          },
+          {
+            "rect": {
+              "x": 960,
+              "y": 697,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3acc849c9be996a5da6dd561938e08e4ec122bb8b0781a13cc8ee10fa3a8150.png",
+            "after": "../../img/022cf0851dad1bb194aa5334c8203004f2749c791b46d4c5e6bc5b4600b317a3.png"
+          }
+        ]
       },
       "limitations": []
     },
     {
       "id": "orchestration",
+      "group": "overview",
       "route": "/orchestration",
       "state": "SDK disabled; fixture sessions",
       "change": "unchanged",
@@ -545,6 +501,7 @@
     },
     {
       "id": "worktree-manager",
+      "group": "overview",
       "route": "/orchestration/worktrees",
       "state": "populated fixture repositories",
       "change": "unchanged",
@@ -562,6 +519,7 @@
     },
     {
       "id": "session-launcher",
+      "group": "overview",
       "route": "/orchestration/launcher",
       "state": "launch form; no process launched",
       "change": "unchanged",
@@ -579,6 +537,7 @@
     },
     {
       "id": "config-injector",
+      "group": "overview",
       "route": "/orchestration/config",
       "state": "Experimental · explicitly enabled; fixture configuration",
       "change": "unchanged",
@@ -596,6 +555,7 @@
     },
     {
       "id": "mcp-manager",
+      "group": "overview",
       "route": "/mcp",
       "state": "Experimental · explicitly enabled; populated",
       "change": "unchanged",
@@ -613,6 +573,7 @@
     },
     {
       "id": "mcp-server-detail",
+      "group": "overview",
       "route": "/mcp/visual-files",
       "state": "Experimental · explicitly enabled; configured; no network health check",
       "change": "unchanged",
@@ -630,6 +591,7 @@
     },
     {
       "id": "skills-manager",
+      "group": "overview",
       "route": "/skills",
       "state": "populated",
       "change": "unchanged",
@@ -647,6 +609,7 @@
     },
     {
       "id": "skill-editor",
+      "group": "overview",
       "route": "/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review",
       "state": "populated synthetic skill",
       "change": "unchanged",
@@ -664,6 +627,7 @@
     },
     {
       "id": "skill-usage",
+      "group": "overview",
       "route": "/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review?tab=usage",
       "state": "synthetic skill with cross-session usage",
       "change": "unchanged",
@@ -681,6 +645,7 @@
     },
     {
       "id": "agents-manager",
+      "group": "overview",
       "route": "/agents",
       "state": "populated",
       "change": "unchanged",
@@ -698,6 +663,7 @@
     },
     {
       "id": "agent-editor",
+      "group": "overview",
       "route": "/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md",
       "state": "populated synthetic personal agent",
       "change": "unchanged",
@@ -715,6 +681,7 @@
     },
     {
       "id": "agent-usage",
+      "group": "overview",
       "route": "/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml",
       "state": "agent usage and model breakdown",
       "change": "unchanged",
@@ -732,6 +699,7 @@
     },
     {
       "id": "cli-context",
+      "group": "overview",
       "route": "/cli-context",
       "state": "Experimental · explicitly enabled; no captured external context",
       "change": "unchanged",
@@ -749,6 +717,7 @@
     },
     {
       "id": "not-found",
+      "group": "overview",
       "route": "/visual-route-does-not-exist",
       "state": "not found",
       "change": "unchanged",
@@ -759,6 +728,492 @@
       "images": {
         "before": "../../img/3b5ffd08b54d99e163b32cb5bdd429284d649a066726ec4204da489125d81a07.png",
         "after": "../../img/3b5ffd08b54d99e163b32cb5bdd429284d649a066726ec4204da489125d81a07.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-edit",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-view",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic view · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-grep",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic grep · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-rg",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic rg · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-glob",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic glob · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-powershell",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-powershell",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_powershell · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-powershell",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_powershell · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-search",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_search · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-store-memory",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic store_memory · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-report-intent",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic report_intent · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-user",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-user-schema",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-agent",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_agent · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-agent",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_agent · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-list-agents",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic list_agents · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-apply-patch",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · complete result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-fetch-fallback",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_fetch · complete result · plain fallback (no registered renderer)",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-task-fallback",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic task · complete result · delegated plain-text fallback (no registered renderer)",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · error result",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-user-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · pending arguments",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-edit-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · pending arguments",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · pending arguments",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-agent-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_agent · pending arguments",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-apply-patch-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · pending arguments",
+      "change": "incomplete",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": null,
         "difference": null,
         "closeUps": []
       },
