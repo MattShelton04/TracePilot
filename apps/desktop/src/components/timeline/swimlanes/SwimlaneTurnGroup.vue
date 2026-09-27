@@ -45,6 +45,7 @@ const props = defineProps<{
   selectedTool: TurnToolCall | null;
   fullResults: Map<string, string>;
   loadingResults: Set<string>;
+  failedResults: Set<string>;
   /** Preferences store for accessing user settings and feature flags */
   prefs: ReturnType<typeof usePreferencesStore>;
   turnOwnsSelected: ((turn: ConversationTurn) => boolean) | undefined;
@@ -58,6 +59,7 @@ const emit = defineEmits<{
   (e: "select-tool", tc: TurnToolCall): void;
   (e: "close-detail"): void;
   (e: "load-full-result", toolCallId: string): void;
+  (e: "retry-full-result", toolCallId: string): void;
   (e: "set-assistant-idx", turnIndex: number, idx: number): void;
 }>();
 
@@ -198,10 +200,12 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
         :tc="selectedTool"
         :full-result="fullResults.get(selectedTool.toolCallId ?? '')"
         :loading-full-result="!!(selectedTool.toolCallId && loadingResults.has(selectedTool.toolCallId))"
+        :failed-full-result="!!(selectedTool.toolCallId && failedResults.has(selectedTool.toolCallId))"
         :rich-enabled="prefs.isRichRenderingEnabled(selectedTool.toolName)"
         :child-tool-count="selectedTool.isSubagent ? countNestedTools(selectedTool) : undefined"
         @close="emit('close-detail')"
         @load-full-result="(id) => emit('load-full-result', id)"
+        @retry-full-result="(id) => emit('retry-full-result', id)"
       />
     </div>
   </div>

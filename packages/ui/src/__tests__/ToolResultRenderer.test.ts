@@ -1,6 +1,6 @@
 import type { TurnToolCall } from "@tracepilot/types";
-import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { flushPromises, mount } from "@vue/test-utils";
+import { describe, expect, it, vi } from "vitest";
 import { getRendererEntry } from "../components/renderers/registry";
 import ToolResultRenderer from "../components/renderers/ToolResultRenderer.vue";
 
@@ -37,7 +37,7 @@ describe("ToolResultRenderer", () => {
     expect(wrapper.find(".plain-text-renderer").exists()).toBe(true);
   });
 
-  it("does not render anything when content is empty", () => {
+  it("keeps the completed renderer visible when content is empty", async () => {
     const wrapper = mount(ToolResultRenderer, {
       props: {
         tc: makeTc(),
@@ -45,8 +45,9 @@ describe("ToolResultRenderer", () => {
         richEnabled: true,
       },
     });
-    // No RendererShell should appear for empty content
-    expect(wrapper.find('[data-tp-component="RendererShell"]').exists()).toBe(false);
+    await vi.dynamicImportSettled();
+    await flushPromises();
+    expect(wrapper.find('[data-tp-component="RendererShell"]').exists()).toBe(true);
   });
 
   it("registers apply_patch and rg rich renderers", () => {

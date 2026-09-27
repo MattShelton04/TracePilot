@@ -6,6 +6,7 @@ import { useAgentDirectory } from "../composables/useAgentDirectory";
 import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { agentToolSummary } from "../utils/agentComms";
 import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
+import { toolCallStatus } from "../utils/toolCallStatus";
 import ExpandChevron from "./ExpandChevron.vue";
 import ToolCallDetail from "./ToolCallDetail.vue";
 
@@ -42,6 +43,7 @@ const emit = defineEmits<{
 }>();
 
 const { directory: agentDirectory } = useAgentDirectory();
+const status = computed(() => toolCallStatus(props.tc));
 
 // Agent-control tools name the agents they address instead of raw runtime IDs.
 const summary = computed(
@@ -158,7 +160,7 @@ watch(
     :style="
       permissionStatus === 'denied'
         ? 'border-color: var(--danger-muted);'
-        : tc.success === false
+        : status === 'error'
           ? 'border-color: var(--danger-muted);'
           : 'border-color: var(--border-muted);'
     "
@@ -170,7 +172,7 @@ watch(
       :style="
         permissionStatus === 'denied'
           ? 'background: var(--danger-muted);'
-          : tc.success === false
+          : status === 'error'
             ? 'background: var(--danger-muted);'
             : ''
       "
@@ -228,9 +230,9 @@ watch(
         </span>
 
         <!-- Success/fail indicator -->
-        <span v-if="tc.success === true" class="tool-call-status success">✓</span>
-        <span v-else-if="tc.success === false" class="tool-call-status failed">✗</span>
-        <span v-else class="tool-call-status" style="color: var(--text-tertiary);">○</span>
+        <span v-if="status === 'success'" class="tool-call-status success" aria-label="Succeeded">✓</span>
+        <span v-else-if="status === 'error'" class="tool-call-status failed" aria-label="Failed">✗</span>
+        <span v-else class="tool-call-status" style="color: var(--text-tertiary);" :aria-label="status === 'cancelled' ? 'Cancelled' : 'Pending'">{{ status === 'cancelled' ? '—' : '○' }}</span>
 
         <ExpandChevron :expanded="expanded" />
       </span>

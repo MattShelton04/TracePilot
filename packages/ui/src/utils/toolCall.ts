@@ -11,8 +11,11 @@ const TOOL_ICONS: Record<string, LucideName> = {
   edit: "pencil",
   create: "file-plus",
   grep: "search",
+  rg: "search",
   glob: "folder-search",
   powershell: "terminal",
+  read_powershell: "terminal",
+  write_powershell: "terminal",
   task: "bot",
   write_agent: "send",
   read_agent: "inbox",
@@ -33,7 +36,7 @@ export function toolIcon(toolName: string): LucideName {
 export type ToolCategory = "file" | "shell" | "agent" | "github" | "web" | "data" | "other";
 
 export function toolCategory(toolName: string): ToolCategory {
-  if (["view", "edit", "create", "grep", "glob"].includes(toolName)) return "file";
+  if (["view", "edit", "create", "grep", "rg", "glob"].includes(toolName)) return "file";
   if (["powershell", "read_powershell", "write_powershell", "stop_powershell"].includes(toolName))
     return "shell";
   if (["task", "read_agent", "write_agent", "list_agents"].includes(toolName)) return "agent";
@@ -65,11 +68,23 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
   if (toolName === "view" && a.path) return String(a.path);
   if (toolName === "edit" && a.path) return String(a.path);
   if (toolName === "create" && a.path) return String(a.path);
-  if (toolName === "grep" && a.pattern) return `/${a.pattern}/${a.path ? ` in ${a.path}` : ""}`;
+  if ((toolName === "grep" || toolName === "rg") && a.pattern) {
+    const path = a.path ?? a.paths;
+    const summary = Array.isArray(path)
+      ? path.filter((item) => typeof item === "string").join(", ")
+      : typeof path === "string"
+        ? path
+        : "";
+    return `/${a.pattern}/${summary ? ` in ${summary}` : ""}`;
+  }
   if (toolName === "glob" && a.pattern) return String(a.pattern);
   if (toolName === "powershell" && a.command) {
     const cmd = String(a.command);
     return cmd.length > 150 ? `${cmd.slice(0, 150)}…` : cmd;
+  }
+  if (toolName === "read_powershell" || toolName === "write_powershell") {
+    const shellId = a.shellId ?? a.shell_id;
+    return shellId == null ? "" : `Shell ${shellId}`;
   }
   if (toolName === "task" && a.description) return String(a.description);
   if (toolName === "read_agent") {

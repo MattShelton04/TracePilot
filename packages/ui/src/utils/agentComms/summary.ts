@@ -13,8 +13,8 @@ function preview(text: string): string {
   return line.length > PREVIEW_LENGTH ? `${line.slice(0, PREVIEW_LENGTH)}…` : line;
 }
 
-function shortId(id: string): string {
-  return /^[0-9a-f]{8}-/.test(id) ? id.slice(0, 8) : id;
+export function shortAgentIdentifier(id: string): string {
+  return /^[0-9a-f]{8}-[0-9a-f-]+$/i.test(id) ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
 }
 
 /** Summary for `write_agent`, `read_agent` or `list_agents`; `null` for other tools. */
@@ -23,7 +23,7 @@ export function agentToolSummary(
   directory: AgentDirectory | null,
 ): string | null {
   const args = getToolArgs(tc);
-  const name = (id: string) => directory?.resolve(id)?.name ?? shortId(id);
+  const name = (id: string) => directory?.resolve(id)?.name ?? shortAgentIdentifier(id);
 
   if (tc.toolName === "write_agent") {
     const target = writeAgentTarget(args);
@@ -49,13 +49,9 @@ export function agentToolSummary(
   return null;
 }
 
-/**
- * Renderer header hints truncate from the left (`direction: rtl`) to keep the
- * end of file paths visible. Left-to-right marks keep prose such as
- * "2 agents" in reading order under that direction.
- */
+/** Retained for callers that distinguish prose hints from other summaries. */
 export function proseHint(text: string | undefined): string | undefined {
-  return text ? `\u200E${text}\u200E` : undefined;
+  return text || undefined;
 }
 
 /** Agent ages from the CLI are whole seconds: "0s", "42s", "3m 05s", "1h 02m". */

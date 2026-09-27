@@ -1,10 +1,15 @@
+export interface AskUserOption {
+  value: unknown;
+  title?: string;
+}
+
 export interface AskUserField {
   name: string;
   type: string;
   title: string;
   description?: string;
   required: boolean;
-  enumValues: string[];
+  options: AskUserOption[];
   defaultValue?: unknown;
 }
 
@@ -47,9 +52,23 @@ export function askUserFields(args: Record<string, unknown>): AskUserField[] {
     const type = typeof field.type === "string" ? field.type : "string";
     const title = typeof field.title === "string" ? field.title : name;
     const description = typeof field.description === "string" ? field.description : undefined;
-    const enumValues = Array.isArray(field.enum)
-      ? field.enum.map((value) => formatAskUserValue(value))
+    const options: AskUserOption[] = Array.isArray(field.enum)
+      ? field.enum.map((value) => ({ value }))
       : [];
+    // Current CLI schemas attach human-readable labels to constant oneOf
+    // branches. Keep the constant itself for response matching and raw access.
+    if (Array.isArray(field.oneOf)) {
+      for (const branch of field.oneOf) {
+        if (!isRecord(branch) || !Object.hasOwn(branch, "const")) continue;
+        const option = {
+          value: branch.const,
+          title: typeof branch.title === "string" ? branch.title : undefined,
+        };
+        const existing = options.findIndex((item) => sameValue(item.value, option.value));
+        if (existing === -1) options.push(option);
+        else if (option.title) options[existing] = option;
+      }
+    }
 
     return {
       name,
@@ -57,10 +76,44 @@ export function askUserFields(args: Record<string, unknown>): AskUserField[] {
       title,
       description,
       required: required.has(name),
-      enumValues,
+      options,
       defaultValue: Object.hasOwn(field, "default") ? field.default : undefined,
     };
   });
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  return (
+    left !== null &&
+    right !== null &&
+    typeof left === "object" &&
+    typeof right === "object" &&
+    JSON.stringify(left) === JSON.stringify(right)
+  );
+}
+
+export function askUserOptionForValue(
+  field: AskUserField,
+  value: unknown,
+): AskUserOption | undefined {
+  const exact = field.options.find((option) => sameValue(option.value, value));
+  if (exact) return exact;
+  // Textual CLI responses encode scalar values as strings. Match those only
+  // when there is one unambiguous constant; JSON values retain their types.
+  if (typeof value !== "string") return undefined;
+  const matches = field.options.filter((option) => formatAskUserValue(option.value) === value);
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+export function formatAskUserOption(option: AskUserOption): string {
+  const value = formatAskUserValue(option.value);
+  return option.title && option.title !== value ? `${option.title} (${value})` : value;
+}
+
+export function formatAskUserFieldValue(field: AskUserField, value: unknown): string {
+  const option = askUserOptionForValue(field, value);
+  return option ? formatAskUserOption(option) : formatAskUserValue(value);
 }
 
 export function parseAskUserResponseValues(
@@ -78,7 +131,7 @@ export function parseAskUserResponseValues(
     .map((field) => ({ field, value: parsedObject[field.name] }));
 }
 
-function parseStructuredResponse(content: string): Record<string, unknown> | null {
+export function parseStructuredResponse(content: string): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(content);
     return isRecord(parsed) ? parsed : null;
@@ -106,7 +159,7 @@ function stripResponsePrefix(content: string): string {
 }
 
 function parseKeyValueResponse(content: string): Record<string, string> {
-  const values: Record<string, string> = {};
+  const values: Record<string, string> = Object.create(null);
   const pairPattern = /(?:^|,\s*)([A-Za-z_][\w.-]*)=([\s\S]*?)(?=,\s*[A-Za-z_][\w.-]*=|$)/g;
 
   for (const match of content.matchAll(pairPattern)) {
@@ -118,9 +171,8 @@ function parseKeyValueResponse(content: string): Record<string, string> {
 
 export function formatAskUserValue(value: unknown): string {
   if (value == null) return "null";
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return value === "" ? '""' : value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map((item) => formatAskUserValue(item)).join(", ");
   try {
     return JSON.stringify(value);
   } catch {

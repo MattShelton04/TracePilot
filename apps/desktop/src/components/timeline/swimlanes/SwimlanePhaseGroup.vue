@@ -31,6 +31,7 @@ const props = defineProps<{
   selectedTool: TurnToolCall | null;
   fullResults: Map<string, string>;
   loadingResults: Set<string>;
+  failedResults: Set<string>;
   /** Preferences store for accessing user settings and feature flags */
   prefs: ReturnType<typeof usePreferencesStore>;
   turnOwnsSelected: ((turn: ConversationTurn) => boolean) | undefined;
@@ -44,6 +45,7 @@ const emit = defineEmits<{
   (e: "select-tool", tc: TurnToolCall): void;
   (e: "close-detail"): void;
   (e: "load-full-result", toolCallId: string): void;
+  (e: "retry-full-result", toolCallId: string): void;
   (e: "set-assistant-idx", turnIndex: number, idx: number): void;
 }>();
 </script>
@@ -90,6 +92,7 @@ const emit = defineEmits<{
         :selected-tool="selectedTool"
         :full-results="fullResults"
         :loading-results="loadingResults"
+        :failed-results="failedResults"
         :prefs="prefs"
         :turn-owns-selected="turnOwnsSelected"
         :is-tool-selected="isToolSelected"
@@ -99,6 +102,7 @@ const emit = defineEmits<{
         @select-tool="(tc) => emit('select-tool', tc)"
         @close-detail="emit('close-detail')"
         @load-full-result="(id) => emit('load-full-result', id)"
+        @retry-full-result="(id) => emit('retry-full-result', id)"
         @set-assistant-idx="(turnIndex, idx) => emit('set-assistant-idx', turnIndex, idx)"
       />
     </div>

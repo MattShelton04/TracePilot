@@ -5,7 +5,10 @@
  * renderer parser tests; no user session text, paths, credentials or URLs.
  * Keep the registry coverage test in sync when adding a renderer.
  */
+import { richToolVariants } from "./rich-tool-variants.mjs";
+
 export const richToolsSessionId = "72510000-0000-4000-8000-000000000001";
+export const reportIntentSessionId = "72510000-0000-4000-8000-000000000004";
 export const fixtureTime = "2026-03-20T10:00:00.000Z";
 const agent = "72510000-0000-4000-8000-000000000002";
 const reviewer = "72510000-0000-4000-8000-000000000003";
@@ -77,15 +80,15 @@ export const richToolSamples = [
   sample(
     "rg",
     "rg",
-    { pattern: "ready", path: "src", output_mode: "content" },
-    "src/ready.ts:1:export const ready = true;\nsrc/app.ts:8:if (ready) render();",
+    { pattern: "ready", paths: "C:/synthetic/orchard/src", output_mode: "content" },
+    "[Search scope: C:/synthetic/orchard/src]\nready.ts (1 match(es)):\n  1:export const ready = true;\n\napp.ts (1 match(es)):\n  8:if (ready) render();",
     ".grep-result",
   ),
   sample(
     "glob",
     "glob",
-    { pattern: "**/*.ts", path: "C:/synthetic/orchard" },
-    "C:/synthetic/orchard/src/greeting.ts\nC:/synthetic/orchard/src/ready.ts\nC:/synthetic/orchard/src/components/status.ts\nC:/synthetic/orchard/tests/greeting.test.ts",
+    { pattern: "**/*.ts", paths: "C:/synthetic/orchard" },
+    "[Search scope: C:/synthetic/orchard]\nC:/synthetic/orchard/src\n  greeting.ts\n  ready.ts\n  components/status.ts\nC:/synthetic/orchard/tests\n  greeting.test.ts",
     ".glob-tree",
   ),
   sample(
@@ -166,13 +169,23 @@ export const richToolSamples = [
       requestedSchema: {
         type: "object",
         properties: {
-          viewport: { type: "string", title: "Viewport", enum: ["Desktop", "Minimum", "Large"] },
-          includeErrors: { type: "boolean", title: "Include error states" },
+          viewport: {
+            type: "string",
+            title: "Viewport",
+            description: "Choose the viewport used for the visual review.",
+            oneOf: [
+              { const: "desktop", title: "Desktop (1440 × 960)" },
+              { const: "minimum", title: "Minimum (960 × 640)" },
+              { const: "large", title: "Large (2560 × 1440)" },
+            ],
+            default: "desktop",
+          },
+          includeErrors: { type: "boolean", title: "Include error states", default: true },
         },
         required: ["viewport"],
       },
     },
-    JSON.stringify({ viewport: "Desktop", includeErrors: true }),
+    "User responded: viewport=minimum, includeErrors=false",
     ".askuser-schema-section",
   ),
   sample(
@@ -211,8 +224,8 @@ export const richToolSamples = [
     "web_fetch",
     { url: "https://example.com/fixture-guide" },
     "# Synthetic guide\n\nThe fetched page describes fixture-only review data.\n\n- Inspect the complete result.\n- Keep all external requests disabled during visual capture.",
-    ".plain-text-renderer",
-    { registered: false },
+    ".tool-markdown-result",
+    { registered: false, fallback: "Markdown" },
   ),
   sample(
     "task-fallback",
@@ -223,12 +236,12 @@ export const richToolSamples = [
       agent_type: "explore",
     },
     "The greeting test covers ordinary and Unicode names. No changes are required.",
-    ".plain-text-renderer",
+    ".tool-markdown-result",
     {
       registered: false,
-      // Native reconstruction names a started task after its agent (explore),
-      // which uses the generic result fallback in the Timeline view.
-      fallback: "delegated plain-text",
+      // Native reconstruction names a started task after its agent (explore).
+      // Subagent metadata preserves its Markdown result presentation.
+      fallback: "delegated Markdown",
       subagent: {
         agentName: "explore",
         agentDisplayName: "Fixture review",
@@ -286,6 +299,26 @@ export const richToolSamples = [
   sample("apply-patch-pending", "apply_patch", patch, null, ".patch-file-card", { openArgs: true }),
 ];
 
+// Canonical results remain complete in JSONL. Browser previews mirror the Rust
+// reconstructor's 1024-byte UTF-8 boundary (web_search keeps its full envelope).
+export function richToolPreview(item) {
+  if (Object.hasOwn(item, "previewContent")) return item.previewContent;
+  if (item.content == null || item.toolName === "web_search") return item.content;
+  const encoder = new TextEncoder();
+  if (encoder.encode(item.content).length <= 1024) return item.content;
+  let bytes = 0;
+  let preview = "";
+  for (const character of item.content) {
+    const size = encoder.encode(character).length;
+    if (bytes + size > 1024) break;
+    preview += character;
+    bytes += size;
+  }
+  return `${preview}…[truncated]`;
+}
+
+richToolSamples.push(...richToolVariants(richToolSamples, { agent, reviewer, source }));
+
 export function richToolTurn(item, index = 0) {
   return {
     turnIndex: index,
@@ -300,7 +333,7 @@ export function richToolTurn(item, index = 0) {
         arguments: item.arguments,
         success: item.content == null ? null : item.success !== false,
         isComplete: item.content != null,
-        resultContent: item.content,
+        resultContent: richToolPreview(item),
         startedAt: fixtureTime,
         completedAt: item.content == null ? null : fixtureTime,
         durationMs: item.content == null ? null : 120,
@@ -323,10 +356,28 @@ export function richToolTurn(item, index = 0) {
 }
 
 export function buildRichToolsSession() {
+  return buildSession({
+    samples: richToolSamples.filter((item) => item.toolName !== "report_intent"),
+    sessionId: richToolsSessionId,
+    title: "SYNTHETIC · Rich tool renderer gallery",
+    eventNamespace: "4001",
+  });
+}
+
+export function buildReportIntentSession() {
+  return buildSession({
+    samples: richToolSamples.filter((item) => item.toolName === "report_intent"),
+    sessionId: reportIntentSessionId,
+    title: "SYNTHETIC · Report intent renderer",
+    eventNamespace: "4002",
+  });
+}
+
+function buildSession({ samples, sessionId, title, eventNamespace }) {
   const events = [];
   const add = (type, data) => {
     const index = events.length;
-    const id = (i) => `72510000-0000-4001-8000-${String(i).padStart(12, "0")}`;
+    const id = (i) => `72510000-0000-${eventNamespace}-8000-${String(i).padStart(12, "0")}`;
     events.push({
       id: id(index),
       parentId: index ? id(index - 1) : null,
@@ -336,7 +387,7 @@ export function buildRichToolsSession() {
     });
   };
   add("session.start", {
-    sessionId: richToolsSessionId,
+    sessionId,
     version: 3,
     producer: "tracepilot-synthetic",
     copilotVersion: "1.0.88",
@@ -349,7 +400,7 @@ export function buildRichToolsSession() {
       hostType: "github",
     },
   });
-  for (const [index, item] of richToolSamples.entries()) {
+  for (const [index, item] of samples.entries()) {
     const turnId = `turn-${index}`;
     add("user.message", {
       turnId,
@@ -397,7 +448,7 @@ export function buildRichToolsSession() {
     },
     modelMetrics: {
       "gpt-4.1": {
-        requests: { count: richToolSamples.length, cost: 0 },
+        requests: { count: samples.length, cost: 0 },
         usage: {
           inputTokens: 12500,
           outputTokens: 4200,
@@ -408,12 +459,12 @@ export function buildRichToolsSession() {
     },
   });
   return {
-    id: richToolsSessionId,
-    title: "SYNTHETIC · Rich tool renderer gallery",
+    id: sessionId,
+    title,
     events,
     expected: {
-      scenarios: richToolSamples.length,
-      tools: [...new Set(richToolSamples.map((item) => item.toolName))],
+      scenarios: samples.length,
+      tools: [...new Set(samples.map((item) => item.toolName))],
     },
   };
 }

@@ -9,7 +9,9 @@
   See 02-primitives.md §RendererShell + 13-tool-renderers.md.
 -->
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { Check, Clipboard, Clock, RotateCcw } from "lucide-vue-next";
+import { computed, onBeforeUnmount, ref } from "vue";
+import { resolveLucideIcon } from "../icons/lucideRegistry";
 import StatusPill, { type StatusPillTone } from "./StatusPill.vue";
 
 export type RendererShellStatus = "pending" | "success" | "warning" | "error" | "cancelled";
@@ -73,16 +75,21 @@ const formattedDuration = computed(() => {
 });
 
 const copied = ref(false);
+const copyFailed = ref(false);
+let copyTimer: ReturnType<typeof setTimeout> | undefined;
+onBeforeUnmount(() => clearTimeout(copyTimer));
 async function handleCopy() {
   if (!props.copyText) return;
   try {
     await navigator.clipboard.writeText(props.copyText);
     copied.value = true;
-    setTimeout(() => {
+    copyFailed.value = false;
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => {
       copied.value = false;
     }, 1500);
   } catch {
-    /* ignore — clipboard unavailable in headless test envs */
+    copyFailed.value = true;
   }
 }
 
@@ -117,12 +124,25 @@ function emitRetry() {
       </button>
       <span v-if="$slots.icon || iconName" class="rs__icon" aria-hidden="true">
         <slot name="icon">
-          <span class="rs__icon-name">{{ iconName }}</span>
+          <component :is="resolveLucideIcon(iconName ?? 'file-text')" :size="16" />
         </slot>
       </span>
       <span class="rs__name">{{ toolName }}</span>
       <StatusPill :tone="statusTone" :label="statusLabel" size="xs" />
       <span v-if="primaryHint" class="rs__hint" :title="primaryHint">{{ primaryHint }}</span>
+      <span v-else class="rs__head-spacer" />
+      <button
+        v-if="copyText"
+        type="button"
+        class="rs__action rs__copy"
+        :aria-label="copied ? 'Copied to clipboard' : copyFailed ? 'Copy failed. Try again' : 'Copy to clipboard'"
+        @click="handleCopy"
+      >
+        <Check v-if="copied" :size="14" aria-hidden="true" />
+        <Clipboard v-else :size="14" aria-hidden="true" />
+        {{ copied ? 'Copied' : copyFailed ? 'Try copy again' : 'Copy' }}
+      </button>
+      <span class="rs__announcement" role="status">{{ copied ? 'Copied to clipboard' : copyFailed ? 'Unable to copy to clipboard' : '' }}</span>
     </header>
 
     <div v-if="$slots.tabs && !collapsed" class="rs__tabs">
@@ -135,11 +155,11 @@ function emitRetry() {
 
     <slot name="footer">
       <footer
-        v-if="!collapsed && (durationMs !== undefined || tokenUsage || copyText || $attrs.onRetry)"
+        v-if="!collapsed && (durationMs !== undefined || tokenUsage || $attrs.onRetry)"
         class="rs__foot"
       >
         <span v-if="durationMs !== undefined" class="rs__meta">
-          <span aria-hidden="true">⏱</span>
+          <Clock :size="14" aria-hidden="true" />
           <span class="rs__num">{{ formattedDuration }}</span>
         </span>
         <span v-if="tokenUsage" class="rs__meta">
@@ -149,21 +169,13 @@ function emitRetry() {
         </span>
         <span class="rs__foot-spacer" />
         <button
-          v-if="copyText"
-          type="button"
-          class="rs__action"
-          :aria-label="copied ? 'Copied to clipboard' : 'Copy to clipboard'"
-          @click="handleCopy"
-        >
-          {{ copied ? "Copied" : "Copy" }}
-        </button>
-        <button
           v-if="$attrs.onRetry"
           type="button"
           class="rs__action"
           aria-label="Retry"
           @click="emitRetry"
         >
+          <RotateCcw :size="14" aria-hidden="true" />
           Retry
         </button>
       </footer>
@@ -173,6 +185,8 @@ function emitRetry() {
 
 <style scoped>
 .rs {
+  min-width: 0;
+  max-width: 100%;
   background: var(--canvas-subtle);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -185,6 +199,7 @@ function emitRetry() {
   gap: 8px;
   padding: 8px 12px;
   min-height: 36px;
+  flex-wrap: wrap;
   border-left: 2px solid transparent;
 }
 
@@ -212,6 +227,7 @@ function emitRetry() {
 }
 
 .rs__icon {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -240,13 +256,16 @@ function emitRetry() {
   font-size: 12px;
   color: var(--text-tertiary);
   margin-left: auto;
-  max-width: 40ch;
+  flex: 1 1 120px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  direction: rtl;
-  text-align: left;
+  text-align: right;
 }
+
+.rs__head-spacer { flex: 1; }
+.rs__announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .rs__tabs {
   padding: 6px 12px;
@@ -255,7 +274,8 @@ function emitRetry() {
 }
 
 .rs__body {
-  padding: 12px;
+  min-width: 0;
+  padding: 0;
   border-top: 1px solid var(--border-subtle);
 }
 
@@ -286,6 +306,12 @@ function emitRetry() {
 .rs__foot-spacer { flex: 1 1 auto; }
 
 .rs__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  flex-shrink: 0;
   background: transparent;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -298,6 +324,7 @@ function emitRetry() {
     color 120ms cubic-bezier(0.2, 0.6, 0.2, 1),
     border-color 120ms cubic-bezier(0.2, 0.6, 0.2, 1);
 }
+.rs__copy { border-color: transparent; }
 .rs__action:hover {
   color: var(--text-primary);
   background: var(--surface-tertiary);

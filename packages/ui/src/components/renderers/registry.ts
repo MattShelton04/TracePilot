@@ -89,7 +89,10 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
   },
   report_intent: {
     label: "Report Intent",
+    resultComponent: defineAsyncComponent(() => import("./ReportIntentRenderer.vue")),
     argsComponent: defineAsyncComponent(() => import("./ReportIntentRenderer.vue")),
+    hideArgsWithRichResult: true,
+    autoExpandArgs: true,
   },
   ask_user: {
     label: "Ask User (Q&A)",

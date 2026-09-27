@@ -9,6 +9,7 @@
  */
 import { computed } from "vue";
 import { useAgentDirectory } from "../../composables/useAgentDirectory";
+import { shortAgentIdentifier } from "../../utils/agentComms/summary";
 import { getAgentColor } from "../../utils/agentTypes";
 
 const props = defineProps<{
@@ -27,7 +28,7 @@ const label = computed(() => {
   if (entry.value) return entry.value.name;
   if (props.fallbackLabel) return props.fallbackLabel;
   const id = props.identifier ?? "";
-  return /^[0-9a-f]{8}-/.test(id) ? id.slice(0, 8) : id || "Unknown agent";
+  return shortAgentIdentifier(id) || "Unknown agent";
 });
 
 const color = computed(() => getAgentColor(entry.value?.type ?? "task"));
@@ -83,7 +84,7 @@ function onClick() {
   background: color-mix(in srgb, var(--agent-chip-color) 10%, transparent);
   color: var(--text-primary);
   font: inherit;
-  font-size: 0.6875rem;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.6;
   vertical-align: middle;

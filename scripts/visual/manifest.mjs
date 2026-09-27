@@ -183,9 +183,12 @@ export const cases = [
     prepare: "rich-tool",
     ready: sample.selector,
     command: "get_session_turns",
-    state: `Synthetic ${sample.toolName} · ${sample.content == null ? "pending arguments" : sample.success === false ? "error result" : "complete result"}${sample.registered === false ? ` · ${sample.fallback ?? "plain"} fallback (no registered renderer)` : ""}`,
+    state: `Synthetic ${sample.toolName} · ${sample.viewState ?? (sample.content == null ? "pending arguments" : sample.success === false ? "error result" : "complete result")}${sample.registered === false ? ` · ${sample.fallback ?? "plain"} fallback (no registered renderer)` : ""}`,
     openArgs: sample.openArgs,
     assertion: sample.assertion,
+    actions: sample.actions,
+    expectText: sample.expectText,
+    focus: sample.focus,
   })),
 ];
 export const viewport = { width: 1440, height: 960 };
