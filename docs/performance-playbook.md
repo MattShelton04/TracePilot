@@ -87,6 +87,13 @@ a bound on accumulated preparation across sessions, not a universal process-memo
 limit. Cancellation checkpoints cover directory scans, buffered reads, extraction and insertion
 chunks; individual JSON decoding and SQLite statements remain non-preemptible.
 
+Trigger-maintained search writes commit each prepared batch in one transaction,
+with per-session savepoints for failed writes. Cancellation or a failed commit
+rolls back the current batch; completed batches remain searchable. Source
+preparation happens before the transaction, so file reads do not hold the database
+write lock. Compare fresh and incremental phases when changing this boundary:
+per-session commits can substantially increase transaction and WAL/checkpoint work.
+
 For base/head comparisons, run a separate head-only budget check. A historical
 base may legitimately exceed the new memory budget; use an explicitly recorded
 larger budget for the comparison itself so it can produce both measurements.

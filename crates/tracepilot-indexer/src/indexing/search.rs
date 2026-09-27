@@ -122,16 +122,10 @@ pub fn reindex_search_content(
             false
         };
         if !bulk_done {
-            for ((session_id, rows), fingerprint) in prepared.iter().zip(&fingerprints) {
-                if is_cancelled() {
-                    return Ok((indexed, skipped));
-                }
-                match db.upsert_search_snapshot(session_id, rows, Some(fingerprint), &is_cancelled)
-                {
-                    Ok(_) => indexed += 1,
-                    Err(error) => tracing::warn!(session_id = %session_id, error = %error,
-                        "Search content not written; retaining previous content"),
-                }
+            match db.upsert_search_snapshots(&prepared, &fingerprints, &is_cancelled) {
+                Ok(count) => indexed += count,
+                Err(error) => tracing::warn!(error = %error,
+                    "Search batch not committed; retaining previous content"),
             }
         }
         if is_cancelled() {

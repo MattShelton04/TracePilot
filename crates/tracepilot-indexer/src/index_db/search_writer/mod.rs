@@ -75,6 +75,38 @@ impl IndexDb {
         self.upsert_search_snapshot(session_id, rows, None, &|| false)
     }
 
+    /// Commit one bounded preparation batch together to amortize commit cost, while
+    /// per-session savepoints retain last-good rows when an individual write fails.
+    /// Cancellation or unwinding rolls back the entire current batch.
+    pub(crate) fn upsert_search_snapshots(
+        &self,
+        session_rows: &[(SessionId, Vec<SearchContentRow>)],
+        fingerprints: &[String],
+        is_cancelled: &impl Fn() -> bool,
+    ) -> Result<usize> {
+        let transaction = self.conn.unchecked_transaction()?;
+        let mut indexed = 0;
+        for ((session_id, rows), fingerprint) in session_rows.iter().zip(fingerprints) {
+            tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+            match self.upsert_search_snapshot(session_id, rows, Some(fingerprint), is_cancelled) {
+                Ok(_) => indexed += 1,
+                Err(error) => {
+                    // SQLITE_FULL/IOERR and RAISE(ROLLBACK) can end the outer
+                    // transaction too. Never let later savepoints commit alone.
+                    if self.conn.is_autocommit() {
+                        return Err(error);
+                    }
+                    tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+                    tracing::warn!(session_id = %session_id, error = %error,
+                        "Search content not written; retaining previous content");
+                }
+            }
+        }
+        tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+        transaction.commit()?;
+        Ok(indexed)
+    }
+
     pub(crate) fn upsert_search_snapshot(
         &self,
         session_id: &SessionId,

@@ -7,6 +7,7 @@ mod analytics;
 mod common;
 mod maintenance;
 mod prompt_cache;
+mod search_batches;
 mod search_content;
 mod sessions;
 mod skill_invocations;
