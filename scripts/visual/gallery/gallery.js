@@ -10,27 +10,19 @@
     return imageRoot + name;
   };
   const modes = ["side", "toggle", "wipe", "overlay", "difference"];
-  // Review order: changes first, then limitations, subtle and identical views.
-  const groups = [
-    ["changed", "Review changes"],
-    ["incomplete", "Incomplete"],
-    ["base unavailable", "Base unavailable"],
-    ["subtle", "Subtle differences"],
-    ["unchanged", "Identical"],
-  ];
-  const rank = (row) => {
-    const index = groups.findIndex(([status]) => status === row.change);
-    return index < 0 ? groups.length : index;
-  };
-  const rows = [...report.rows].sort((a, b) => rank(a) - rank(b)),
+  const navigation = globalThis.TracePilotGallerySections;
+  const { groups, text } = navigation;
+  const rows = navigation.orderRows(report.rows),
     byId = new Map(rows.map((row) => [row.id, row]));
   const headings = new Map();
   const params = new URLSearchParams(location.hash.slice(1));
-  let selected =
-    byId.get(params.get("view")) ??
-    rows.find((row) => row.change === "changed") ??
-    rows.find((row) => row.change === "subtle") ??
-    rows[0];
+  const sections = report.sections;
+  const firstInSection = (id) => navigation.firstInSection(rows, id);
+  let section = sections.some((item) => item.id === params.get("section"))
+    ? params.get("section")
+    : sections[0]?.id;
+  let selected = byId.get(params.get("view")) ?? firstInSection(section);
+  section = selected?.group ?? section;
   let mode = modes.includes(params.get("mode")) ? params.get("mode") : "side";
   let zoom = params.get("zoom") === "100" ? 1 : "fit",
     scale = 1,
@@ -44,16 +36,10 @@
     stage = $("image-stage"),
     scaled = $("scaled-stage");
   const buttons = new Map();
-  const text = (tag, content, className) => {
-    const node = document.createElement(tag);
-    node.textContent = content;
-    if (className) node.className = className;
-    return node;
-  };
   const both = () => images.base && images.head;
   const dimensions = () => ({ width: mode === "side" && both() ? 2904 : 1440, height: 960 });
   function urlState(push = false) {
-    const query = new URLSearchParams({ view: selected.id, mode });
+    const query = new URLSearchParams({ section, view: selected.id, mode });
     if (zoom === 1) query.set("zoom", "100");
     history[push ? "pushState" : "replaceState"](null, "", `#${query}`);
     $("history-link").href = `../../index.html#view=${encodeURIComponent(selected.id)}`;
@@ -62,6 +48,7 @@
     let visible = 0;
     for (const row of rows) {
       const matches =
+        row.group === section &&
         `${row.id} ${row.route} ${row.state}`
           .toLowerCase()
           .includes($("search").value.toLowerCase()) &&
@@ -69,11 +56,27 @@
       buttons.get(row.id).hidden = !matches;
       if (matches) visible++;
     }
-    for (const [status, heading] of headings)
+    for (const [status, heading] of headings) {
       heading.hidden = !rows.some((row) => row.change === status && !buttons.get(row.id).hidden);
-    $("visible-count").textContent = `${visible} of ${rows.length} views`;
+      const count = rows.filter((row) => row.group === section && row.change === status).length;
+      heading.textContent = `${groups.find(([value]) => value === status)?.[1] ?? status} · ${count}`;
+    }
+    for (const [id, button] of sectionButtons)
+      button.setAttribute("aria-pressed", String(id === section));
+    const total = rows.filter((row) => row.group === section).length;
+    $("visible-count").textContent = `${visible} of ${total} views in this section`;
     $("empty-filter").hidden = visible > 0;
   }
+  const sectionButtons = navigation.mountButtons({
+    sections,
+    rows,
+    container: $("sections"),
+    onSelect: (id) => {
+      $("search").value = "";
+      $("changes").checked = false;
+      select(firstInSection(id), true);
+    },
+  });
   for (const row of rows) {
     if (!headings.has(row.change)) {
       const [, label] = groups.find(([status]) => status === row.change) ?? [
@@ -411,7 +414,10 @@
     return image;
   }
   async function select(row, push = false) {
+    if (!row) return;
     selected = row;
+    section = row.group;
+    filter();
     const token = ++generation;
     images = {};
     analysis = null;
@@ -482,7 +488,9 @@
     const next = new URLSearchParams(location.hash.slice(1));
     mode = modes.includes(next.get("mode")) ? next.get("mode") : "side";
     zoom = next.get("zoom") === "100" ? 1 : "fit";
-    select(byId.get(next.get("view")) ?? rows[0]);
+    $("search").value = "";
+    $("changes").checked = false;
+    select(byId.get(next.get("view")) ?? firstInSection(next.get("section")) ?? rows[0]);
   });
   filter();
   select(selected);

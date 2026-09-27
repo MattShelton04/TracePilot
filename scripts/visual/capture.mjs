@@ -8,6 +8,7 @@ import { captureExitCode, chromiumArgs, stableScreenshot } from "./capture-polic
 import { fixtureCorpusPlugin } from "./fixture-plugin.mjs";
 import { writeLocalGallery } from "./local-gallery.mjs";
 import { fixedTime, selectCases, viewport } from "./manifest.mjs";
+import { sectionId } from "./sections.mjs";
 import { assertWorktreeLayout } from "./worktree-assertions.mjs";
 
 const args = Object.fromEntries(
@@ -18,11 +19,7 @@ const output = resolve(args.out ?? ".tracepilot/visual");
 const shard = args.shard ?? "1/1";
 const revision = args.revision ?? "head";
 captureExitCode([], revision); // Validate before starting the browser or Vite.
-const selected = selectCases(shard).filter(
-  (item) =>
-    (!args.case || args.case.split(",").includes(item.id)) &&
-    (!args.group || item.group === args.group),
-);
+const selected = selectCases(shard, { group: args.group, caseIds: args.case?.split(",") });
 if (!selected.length) throw new Error("No visual cases selected");
 const captureViewport = args.viewport
   ? (() => {
@@ -136,6 +133,7 @@ try {
     });
     const result = {
       id: item.id,
+      group: sectionId(item),
       route: item.route,
       state: item.state,
       features: item.features ?? [],

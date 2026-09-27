@@ -5,6 +5,32 @@ import { renderGallery, renderHistory, safeHttpUrl, scriptJson } from "./gallery
 import { historyEntry } from "./history.mjs";
 import { cases } from "./manifest.mjs";
 import * as TracePilotPixels from "./pixels.mjs";
+import { sectionId } from "./sections.mjs";
+
+test("gallery normalizes sections and keeps historical tool and stress captures separate", async () => {
+  assert.equal(sectionId({ id: "sessions", group: "<script>" }), "overview");
+  assert.equal(sectionId({ id: "rich-tool-search" }), "rich-tools");
+  assert.equal(sectionId({ id: "session-metrics-stress-cache" }), "metrics");
+  const html = await renderGallery({
+    title: "Sections",
+    rows: ["sessions", "rich-tool-search", "session-metrics-stress-cache"].map((id) => ({
+      id,
+      change: "incomplete",
+    })),
+    summary: { changed: 0, unchanged: 0, incomplete: 3, baseUnavailable: 0 },
+  });
+  const data = JSON.parse(
+    /<script id="report-data" type="application\/json">(.*?)<\/script>/.exec(html)[1],
+  );
+  assert.deepEqual(
+    data.sections.map((section) => section.id),
+    ["overview", "rich-tools", "metrics"],
+  );
+  assert.deepEqual(
+    data.rows.map((row) => row.group),
+    ["overview", "rich-tools", "metrics"],
+  );
+});
 
 test("core captures disable experimental features and alerts; each experimental case explicitly opts in", () => {
   for (const item of cases) {

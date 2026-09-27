@@ -4,6 +4,7 @@
 import { METRICS_STRESS_ID } from "../fixtures/metrics-stress.mjs";
 import { richToolSamples, richToolsSessionId } from "../fixtures/rich-tools.mjs";
 import { skill } from "./fixtures.mjs";
+import { sectionId, visualSections } from "./sections.mjs";
 
 const session = "/session/sess-auth-refactor";
 const skillEditor = `/skills/${encodeURIComponent(skill.directory)}`;
@@ -231,8 +232,10 @@ export const cases = [
 ];
 export const viewport = { width: 1440, height: 960 };
 export const fixedTime = "2026-03-20T12:00:00.000Z";
+// Stress captures are an explicit local iteration aid, outside the CI inventory.
+export const defaultCases = cases.filter((item) => sectionId(item) !== "metrics");
 
-export function selectCases(shard = "1/1") {
+export function selectCases(shard = "1/1", { group, caseIds } = {}) {
   const [index, total] = shard.split("/").map(Number);
   if (
     !Number.isInteger(index) ||
@@ -243,5 +246,12 @@ export function selectCases(shard = "1/1") {
   ) {
     throw new Error(`Invalid shard: ${shard}`);
   }
-  return cases.filter((_, i) => i % total === index - 1);
+  if (group && !visualSections.some((section) => section.id === group))
+    throw new Error(`Unknown visual group: ${group}`);
+  const inventory = group || caseIds ? cases : defaultCases;
+  return inventory
+    .filter(
+      (item) => (!group || sectionId(item) === group) && (!caseIds || caseIds.includes(item.id)),
+    )
+    .filter((_, i) => i % total === index - 1);
 }

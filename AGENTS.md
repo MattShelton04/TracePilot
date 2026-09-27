@@ -16,8 +16,11 @@ with `node scripts/fixtures/session-fixtures.mjs`, then launch with
 The generator preserves config/index data and refuses edited fixtures; use a
 fresh `--root` after changing fixture contracts. Focused visual captures use
 `node scripts/visual/capture.mjs --group=rich-tools` or `--group=metrics`
-(`--channel=msedge` on Windows). See [visual regression](docs/visual-regression.md)
-for cases, viewport options, and iteration. Keep renderer registry coverage in
+(`--channel=msedge` on Windows). Default CI covers App views and Rich tools in
+separate report sections; Metrics stress is local opt-in. Keep generated sessions
+and screenshots ignored; only generators and tests belong in source.
+See [visual regression](docs/visual-regression.md) for cases, viewport options,
+and iteration. Keep renderer registry coverage in
 `scripts/fixtures/session-fixtures.test.mjs` current when adding tools.
 
 # Repository notes

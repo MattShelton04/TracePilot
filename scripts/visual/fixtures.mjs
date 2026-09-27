@@ -6,7 +6,7 @@ import { buildMetricsStressVisualData, METRICS_STRESS_ID } from "../fixtures/met
 import { configureVisualFeatures } from "./feature-policy.mjs";
 import { richToolFixture } from "./rich-tool-fixtures.mjs";
 
-const metricsStress = buildMetricsStressVisualData();
+let metricsStress;
 
 export const skill = {
   name: "visual-review",
@@ -281,6 +281,7 @@ export async function visualInvoke(cmd, args, fallback) {
     const toolFixture = richToolFixture(cmd, args, window.__TRACEPILOT_VISUAL_CASE__);
     if (toolFixture !== undefined) return structuredClone(toolFixture);
     if (args?.sessionId === METRICS_STRESS_ID) {
+      metricsStress ??= buildMetricsStressVisualData();
       if (cmd === "get_shutdown_metrics") return structuredClone(metricsStress.metrics);
       if (cmd === "get_session_prompt_cache")
         return {

@@ -96,8 +96,10 @@ after capture completion. It generates a standalone gallery with searchable view
 navigation and a changes/limitations filter. New case IDs introduced by the PR
 are included before their manifest reaches `main`. Captured route/state labels
 are preserved, so an older report does not silently acquire newer fixture labels.
-The filter explicitly hides identical and subtle views; all views remain available
-by default. When a report has only subtle differences, it opens one of those
+The gallery opens **App views** first, with **Rich tools** in a separate section.
+Section buttons show change and limitation counts; search and filtering apply
+within the selected section. The filter hides identical and subtle views when
+enabled. When a section has only subtle differences, it opens one of those
 comparisons first. Comments include the subtle count and a link to exact differences
 without expanding every tiny variation into another before/after image section.
 
@@ -157,7 +159,8 @@ for agents and scripts.
 The history page has three tabs:
 
 - **Pull requests**: the latest report per PR with difference thumbnails of its
-  changed views; earlier pushes are folded under each card.
+  changed App views and compact links/counts for detailed sections; earlier pushes
+  are folded under each card.
 - **Main**: each merge compared with the previous main commit.
 - **View timeline**: for one view, only the runs where its pixels differ from
   the previous listed run, with identical stretches collapsed.
@@ -175,7 +178,7 @@ capture run and attempt. Duplicate workflow deliveries are idempotent, and the
 publisher checks for a current open PR and current capture attempt immediately
 before editing.
 
-For each changed view, the comment shows:
+For changed App views, the comment shows:
 
 - A **difference image**: the after screenshot dimmed, changed pixels tinted
   pink, and changed areas outlined at full brightness. It shows where a change
@@ -186,12 +189,14 @@ For each changed view, the comment shows:
   by agents that read images.
 - Exact changed-pixel counts, percentage and area coordinates.
 
-The largest three changes are expanded; others are collapsed. Views whose
+The largest three App view changes are expanded; others are collapsed. Views whose
 significant (above 8/255) changed areas coincide are folded into one entry,
 because a shared component usually changes the same area across many views.
 Subtle views are listed in a collapsed block with their pixel counts. The
 comment stays bounded below GitHub's comment limit, with a full-gallery link
 for omitted views.
+Rich tools and any explicitly captured Metrics stress views have section counts
+and collapsed link lists, without embedding another image for every tool case.
 
 Missing baselines and incomplete head captures prominently say **Comparison
 incomplete**. Diagnostic error-page screenshots stay in capture artifacts and
@@ -310,6 +315,18 @@ arguments and structured `ask_user` responses. A registry coverage test fails
 when a new renderer lacks a sample. The `web_search` case crosses the backend
 preview boundary and asserts both final source cards appear without manual loading.
 
+Default local and CI captures contain **64 cases: 37 App views and 27 Rich tools**.
+The report keeps those sections separate; PR comments and history cards show
+compact counts/links for detailed tools. The **four Metrics stress cases are
+local opt-in**, selected with `--group=metrics` or an explicit stress `--case`.
+They do not add captures or allocate the large browser dataset in default runs;
+the dataset is built lazily when requested. Only the reusable generator and tests
+are versioned; generated JSONL, indexes and screenshots stay ignored.
+
+The trusted publisher runs from `main`, so report-section changes in a PR take
+effect in automatic publication after merge. Local gallery checks use the current
+checkout and can validate them beforehand.
+
 Capture an offline searchable gallery for rapid iteration:
 
 ```powershell
@@ -326,7 +343,7 @@ Use `--case=rich-tool-web-search` for one case, or
 size in a separate output directory. CI keeps the standard 1440×960 size;
 its trusted paired reporter does not accept arbitrary viewport dimensions.
 
-The Metrics group captures the top, Code Changes, latest Session Activity, and
+The optional Metrics group captures the top, Code Changes, latest Session Activity, and
 expanded Prompt Cache of the 3,000-file/120-shutdown/2,401-window fixture.
 The worktree case also asserts all header/body columns align at all three
 desktop sizes, including selected active and stale rows. This catches generated

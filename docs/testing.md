@@ -151,6 +151,13 @@ Stop the tracked app before switching roots. The shared fixture modules also
 feed the [frontend visual captures](visual-regression.md#rich-tool-and-metrics-iteration).
 Run `node --test scripts/fixtures/*.test.mjs` for corpus/renderer coverage checks.
 
+Only the reusable generator and its contracts are checked in. Generated JSONL,
+indexes and screenshots stay in ignored `.tracepilot/` directories. The four
+Metrics stress captures are for local iteration: explicitly request
+`--group=metrics` or a stress `--case` in the visual harness. Default capture runs
+cover 37 App views and 27 Rich tools; the harness neither captures nor builds the
+large Metrics dataset unless requested.
+
 Metrics tests verify bounded file/activity rendering, complete filtering and
 paging, shallow immutable snapshots and pricing work per distinct model/prefix
 pair. Native IPC counts and browser geometry remain the integration checks;

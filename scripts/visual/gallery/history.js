@@ -46,6 +46,25 @@
     Object.entries(entry.changes ?? {})
       .filter(([, status]) => status === "changed")
       .map(([id]) => id);
+  const sections = data.sections ?? [
+    { id: "overview", label: "App overview" },
+    { id: "rich-tools", label: "Rich tools" },
+    { id: "metrics", label: "Metrics stress" },
+  ];
+  const sectionFor = (view) =>
+    data.viewSections?.[view] ??
+    (view.startsWith("rich-tool-")
+      ? "rich-tools"
+      : view.startsWith("session-metrics-stress")
+        ? "metrics"
+        : "overview");
+  const entryViews = (entry) => [
+    ...new Set([
+      ...(entry.views ?? []),
+      ...Object.keys(entry.images ?? {}),
+      ...Object.keys(entry.changes ?? {}),
+    ]),
+  ];
   const ordered = [...entries].sort((a, b) => b.id - a.id);
 
   function counts(entry) {
@@ -63,10 +82,10 @@
     if (limits) pill(`${limits} limitations`, "limited");
     return row;
   }
-  // Difference thumbnails show where each changed view moved.
+  // Keep the landing page focused on app views; detail suites get one link each.
   function previews(entry, limit) {
     const strip = element("div", "", "preview-strip");
-    const views = changedViews(entry);
+    const views = changedViews(entry).filter((view) => sectionFor(view) === "overview");
     for (const view of views.slice(0, limit)) {
       const figure = link(runUrl(entry, view, "difference"), "", "preview");
       const name = entry.previews?.[view] ?? entry.images?.[view];
@@ -82,11 +101,38 @@
     }
     if (views.length > limit) {
       const more = element("div", "", "more-views");
-      for (const view of views.slice(limit))
-        more.append(link(runUrl(entry, view, "difference"), view, "chip"));
+      more.append(
+        link(
+          runUrl(entry, views[limit], "difference"),
+          `${views.length - limit} more app changes →`,
+          "chip",
+        ),
+      );
       strip.append(more);
     }
-    if (!views.length) strip.append(element("p", "No review changes in this run.", "quiet"));
+    if (!views.length) strip.append(element("p", "No app overview review changes.", "quiet"));
+    const details = element("div", "", "more-views detail-sections");
+    for (const section of sections.filter((item) => item.id !== "overview")) {
+      const sectionViews = entryViews(entry).filter((view) => sectionFor(view) === section.id);
+      if (!sectionViews.length) continue;
+      const changed = sectionViews.filter((view) => entry.changes?.[view] === "changed");
+      const subtle = sectionViews.filter((view) => entry.changes?.[view] === "subtle");
+      const limited = sectionViews.filter((view) =>
+        ["incomplete", "base unavailable"].includes(entry.changes?.[view]),
+      );
+      const parts = [`${sectionViews.length} views`, `${changed.length} review`];
+      if (subtle.length) parts.push(`${subtle.length} subtle`);
+      if (limited.length) parts.push(`${limited.length} limitations`);
+      const first = changed[0] ?? limited[0] ?? subtle[0] ?? sectionViews[0];
+      const summary = link(
+        runUrl(entry, first, changed.length ? "difference" : ""),
+        `${section.label} · ${parts.join(" · ")} →`,
+        "chip",
+      );
+      summary.dataset.section = section.id;
+      details.append(summary);
+    }
+    if (details.children.length) strip.append(details);
     return strip;
   }
   const sha = (entry) => entry.sha.slice(0, 8);
@@ -169,13 +215,16 @@
     return shown;
   }
 
-  const allViews = [
-    ...new Set(
-      ordered.flatMap((entry) => Object.keys(entry.images ?? {}).concat(entry.views ?? [])),
-    ),
-  ].sort();
+  const allViews = [...new Set(ordered.flatMap(entryViews))].sort();
   const requested = new URLSearchParams(location.hash.slice(1));
-  for (const id of allViews) $("timeline-view").add(new Option(id, id));
+  for (const section of sections) {
+    const views = allViews.filter((view) => sectionFor(view) === section.id);
+    if (!views.length) continue;
+    const group = element("optgroup");
+    group.label = section.label;
+    for (const id of views) group.append(new Option(id, id));
+    $("timeline-view").append(group);
+  }
   $("timeline-view").value = allViews.includes(requested.get("view"))
     ? requested.get("view")
     : allViews.includes("sessions")
