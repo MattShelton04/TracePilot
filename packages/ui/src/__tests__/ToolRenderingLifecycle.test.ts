@@ -5,6 +5,7 @@ import { computed, ref } from "vue";
 import ShellOutputRenderer from "../components/renderers/ShellOutputRenderer.vue";
 import ToolArgsRenderer from "../components/renderers/ToolArgsRenderer.vue";
 import ToolCallDetail from "../components/ToolCallDetail.vue";
+import ToolCallItem from "../components/ToolCallItem.vue";
 import ToolDetailPanel from "../components/ToolDetailPanel.vue";
 import { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "../composables/liveToolPartialOutput";
 import {
@@ -142,6 +143,13 @@ describe("complete parameters", () => {
 });
 
 describe("terminal contracts", () => {
+  it("uses the same cancellation status on the collapsed call header", () => {
+    const wrapper = mount(ToolCallItem, {
+      props: { tc: call({ cancelled: true, success: true }), expanded: false },
+    });
+    expect(wrapper.find('[aria-label="Cancelled"]').exists()).toBe(true);
+    expect(wrapper.find(".tool-call-status.success").exists()).toBe(false);
+  });
   it("makes mixed shell input controls visible", () => {
     expect(formatShellInput("y\r\n")).toBe("y[Enter (newline)]");
     expect(formatShellInput("\r")).toBe("[Enter (carriage return)]");
