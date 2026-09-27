@@ -78,6 +78,32 @@ fn interrupted_sqlite_unit_retries_without_losing_committed_wal_data() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn migration_preserves_private_permissions_during_staging_and_after_publish() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = tempfile::tempdir().unwrap();
+    let source = temp.path().join("request.json");
+    let target = temp.path().join("migrated/request.json");
+    let content = br#"{"messages":["private capture"]}"#;
+    std::fs::write(&source, content).unwrap();
+    std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+    copy_file_if_absent_with(&source, &target, |source, file| {
+        assert_eq!(file.metadata()?.permissions().mode() & 0o777, 0o600);
+        std::io::copy(&mut std::fs::File::open(source)?, file)?;
+        Ok(())
+    })
+    .unwrap();
+
+    assert_eq!(std::fs::read(&target).unwrap(), content);
+    assert_eq!(
+        std::fs::metadata(target).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+}
+
 #[tokio::test]
 async fn failed_reset_keeps_config_loaded_and_reports_the_failed_deletion() {
     for obstruct_index in [false, true] {

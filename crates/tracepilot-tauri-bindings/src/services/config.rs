@@ -16,8 +16,7 @@ use crate::config::{
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{mutex_poisoned, read_config, remove_index_db_files};
 
-/// Service-layer alias for [`crate::helpers::remove_index_db_files`]. Speaks
-/// the verb the docs/refactor brief uses; behaviour is identical.
+/// Remove index database files through the shared filesystem helper.
 pub(crate) fn delete_index_db_files(path: &std::path::Path) -> Result<(), BindingsError> {
     remove_index_db_files(path)
 }
@@ -352,6 +351,8 @@ fn copy_file_if_absent_with(
             .write(true)
             .create_new(true)
             .open(&temp_path)?;
+        // Preserve source permissions before staging private capture contents.
+        file.set_permissions(std::fs::metadata(src)?.permissions())?;
         copy(src, &mut file)?;
         file.sync_all()?;
         drop(file);
