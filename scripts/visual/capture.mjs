@@ -88,6 +88,12 @@ try {
     args: chromiumArgs,
   });
   for (const item of selected) {
+    // Historical task/web_fetch results used the plain fallback. Keep those
+    // before-images comparable without relaxing current renderer assertions.
+    const readySelector =
+      revision === "base" && ["task-fallback", "web-fetch-fallback"].includes(item.fixture)
+        ? ".plain-text-renderer, .tool-markdown-result"
+        : item.ready;
     const context = await browser.newContext({
       viewport: captureViewport,
       deviceScaleFactor: 1,
@@ -158,7 +164,7 @@ try {
         timeout: 15000,
       });
       await page
-        .locator(item.start ?? item.ready)
+        .locator(item.start ?? readySelector)
         .first()
         .waitFor({ state: "visible", timeout: 15000 });
       if (item.prepare === "open-plan") {
@@ -178,11 +184,15 @@ try {
         }
         for (const action of item.actions ?? []) {
           if (action.type === "full") {
-            const button = page.getByRole("button", { name: "Show Full Output", exact: true });
-            await button.waitFor({ state: "visible" });
-            if ((await button.count()) !== 1)
+            const buttons = page.getByRole("button", {
+              name: /^(?:Load full output|Show Full Output)$/,
+            });
+            await buttons.first().waitFor({ state: "visible" });
+            // The base may contain the duplicate controls this PR fixes. Use
+            // one to load the same content; require a single owner at head.
+            if (revision === "head" && (await buttons.count()) !== 1)
               throw new Error("A preview must offer exactly one full-output action");
-            await button.click();
+            await buttons.first().click();
             await page.waitForFunction(
               () => window.__TRACEPILOT_VISUAL__?.calls.get_tool_result > 0,
             );
@@ -200,7 +210,7 @@ try {
           } else throw new Error(`Unknown rich-tool action: ${action.type}`);
         }
       }
-      await page.locator(item.ready).first().waitFor({ state: "visible", timeout: 15000 });
+      await page.locator(readySelector).first().waitFor({ state: "visible", timeout: 15000 });
       if (item.command)
         await page.waitForFunction(
           (cmd) => window.__TRACEPILOT_VISUAL__?.calls[cmd] > 0,
@@ -216,7 +226,11 @@ try {
           throw new Error(
             "Complete web search must render both source cards from its JSON envelope",
           );
-        if (await page.getByRole("button", { name: "Show Full Output", exact: true }).count())
+        if (
+          await page
+            .getByRole("button", { name: /^(?:Load full output|Show Full Output)$/ })
+            .count()
+        )
           throw new Error("Web search must render completely without manual output loading");
       }
       if (item.group === "rich-tools") {
