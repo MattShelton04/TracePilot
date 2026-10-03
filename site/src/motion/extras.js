@@ -1,4 +1,5 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
+import { anchorY } from "./anchors.js";
 import { $, $$, DESK, REDUCE } from "./env.js";
 
 export function initPrivacy() {
@@ -74,6 +75,26 @@ export function initNav() {
       onToggle: (st) => a.classList.toggle("is-current", st.isActive),
     });
   });
+  // in-page links to pinned scenes: jump to the pin start (see anchorY), not the scene's live position
+  const pinned = (hash) => {
+    const el = hash.length > 1 && document.getElementById(hash.slice(1));
+    return el && ScrollTrigger.getAll().some((t) => t.pin === el) ? el : null;
+  };
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest?.('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+      return;
+    const el = pinned(a.getAttribute("href"));
+    if (!el) return;
+    e.preventDefault();
+    history.pushState(null, "", a.getAttribute("href"));
+    scrollTo(0, anchorY(el));
+  });
+  // a deep link was resolved before the pins added their scroll length; resolve it again
+  if (location.hash.length > 1) {
+    const el = document.getElementById(location.hash.slice(1));
+    if (el) scrollTo(0, anchorY(el));
+  }
   $$(".copy-chip").forEach((b) => {
     b.addEventListener("click", () => {
       (navigator.clipboard
