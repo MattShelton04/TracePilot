@@ -57,7 +57,7 @@ The browser scripts fail if their preview port is occupied.
 
 | Source | Responsibility |
 | --- | --- |
-| `src/main.js`, `src/demo.js` | Page entry points; the landing page wires after fonts are ready and reloads when the pinning breakpoint changes. |
+| `index.html` boot script, `src/main.js`, `src/demo.js` | Page entry points. The inline boot script sets the layout-mode classes before first paint; the landing page wires after fonts are ready and reloads when the pinning breakpoint changes. |
 | `src/data.js`, `src/lib/` | Generated showcase/release imports, illustrative agent usage, formatting, asset URLs and shared GSAP plugins. |
 | `src/motion/` | Environment, stage sizing, one module per pinned scene, branch geometry, mobile frames, lazy demo, tour and ancillary motion. |
 | `src/traces/` | Hero canvas, fixed signal rail, SVG branch layer and final eye convergence. |
@@ -179,6 +179,48 @@ After merge, the first live verification requires checking the root, `demo/`,
 again to confirm no extra commit. Perform the initial manual dispatch with the
 maintainer's approval.
 
+### Load path
+
+The first viewport must not wait for the script bundle:
+
+1. The inline boot script at the top of `<body>` adds `motion`/`pin` (the same
+   media queries as `motion/env.js`) and adds `fonts` once Inter and JetBrains
+   Mono load, capped at 1.2s. Its SHA-256 is added to `script-src` by the Vite
+   plugin (`inlineScriptHashes` in `scripts/html-facts.mjs`), so editing it
+   needs no CSP change. Builds preload the first-paint fonts.
+2. The hero copy enters in CSS keyed off `.fonts` ("Hero entrance" in
+   `site.css`), so it runs on the compositor while the page wires.
+3. `wire()` runs one frame later and yields between steps: one app window and
+   scene timeline per task (`.ready` after the first lets the window rise in),
+   then all pins together, bento, and the rest. Nothing builds at import time.
+
+Pinned scenes sit in static `.scene-spacer` wrappers passed to ScrollTrigger as
+`pinSpacer`. A generated spacer re-inserts the scene on creation and every
+refresh, which restarts CSS animations inside it. Pinned scenes keep an
+explicit `width: 100%` because the spacer copies the scene's `display: flex`.
+Measure load changes with a throttled profile (4x CPU, ~1.6 Mbps) as well as
+unthrottled: check when the hero becomes visible, long tasks, and that nothing
+flashes or blanks.
+
+### Navigation and tour
+
+Once scrolled past, a pinned scene sits at the end of its spacer, so a native
+anchor jump would land a whole scene late. In-page links to pinned scenes use
+`anchorY()` (`motion/anchors.js`), which returns the pin start or a scene's
+`anchor` label (the hero marks where the library is in view); deep links are
+re-resolved after pinning. `#top` relies on the browser's document-top
+behaviour, so no element may use that id.
+
+The tour starts wherever the page is. Its bar shows progress through the whole
+page with a tick per chapter; previous/next jump between chapter starts
+(previous first restarts the current chapter) and speed cycles 1×, 1.5×, 2×,
+0.5×. Wheel, touch, keys and clicks outside the pill stop it.
+
+Phone frames play when the whole frame is in view. A run cut short by
+scrolling away resets and replays on return. Replica steps whose panel is
+taller than the window (`SCROLLED` in `replica/steps.js`) scroll the tabs to
+the top, both when played and in reduced-motion end states.
+
 ## Design and motion rules
 
 - Keep the approved dark, precise instrument aesthetic and the narrative from
@@ -209,6 +251,9 @@ maintainer's approval.
 | Browser executable missing | Install Chromium with the site Playwright command above. CI uses `--with-deps`. |
 | Preview exits or port is busy | Stop the known preview owner or free port 4187/4188; the scripts will not attach to another server. |
 | Pins/branches misplaced after resize | Check breakpoint reload, stage scale, font readiness and `layoutBranches()`. |
+| Hero flashes, blanks or replays on load | Check the boot script classes, the CSS entrance selectors and that pinned scenes still use their `.scene-spacer` as `pinSpacer`. |
+| CSP blocks an inline script | Keep inline scripts classic and without `src`; the build hashes them. Rebuild after editing. |
+| A nav link lands mid-scene | Route it through `anchorY()`; pinned scenes need the pin start, not their live position. |
 | Publisher refuses ownership/source | Inspect the manifest or collision; keep foreign content intact and restore the expected Pages source only through a maintainer decision. |
 | Push rejected repeatedly | Check competing publishers and shared concurrency, then rerun; the publisher never force-pushes. |
 | Site size budget exceeded | Inspect built assets and measured gzip totals; raise thresholds only with an explained measurement. |
