@@ -1,6 +1,9 @@
 import { gsap } from "../lib/gsap.js";
 import { HERO, RM } from "./shared.js";
 
+// steps whose panel is taller than the window: the tabs scroll to the top so the panel is in view
+const SCROLLED = new Set(["conversation", "messages", "todos", "context"]);
+
 export const stepMethods = {
   /* ---------- ghost cursor ---------- */
   localPoint(el, fx, fy) {
@@ -138,7 +141,7 @@ export const stepMethods = {
         if (!(await this.wait(350, tok))) return;
       }
       const det = this.views.session;
-      const needsScroll = id === "conversation" || id === "messages" || id === "todos";
+      const needsScroll = SCROLLED.has(id);
       if (this.tab !== tab) {
         if (!(await this.scrollDetail(false, tok))) return;
         const te = det.querySelector(`.sd-tab[data-tab="${tab}"]`);
@@ -158,6 +161,8 @@ export const stepMethods = {
           const b = det.querySelector(`[data-tl="${want}"]`);
           if (!(await this.cursorClick(b, tok))) return;
           this.setTlMode(want);
+          // the first scroll was capped by the shorter mode; finish it now the new one is shown
+          if (needsScroll && !(await this.scrollDetail(true, tok))) return;
         } else this.introTimeline(want);
       } else if (needsScroll) {
         if (!(await this.wait(120, tok))) return;
@@ -206,6 +211,8 @@ export const stepMethods = {
     else if (sessionTab[id]) {
       this.tlMode = id === "messages" ? "messages" : "tree";
       this.showView("session", { anim: false, intro: false, tab: sessionTab[id] });
+      const det = this.views.session;
+      if (SCROLLED.has(id)) det.scrollTop = det.querySelector(".sd-tabs-wrap").offsetTop;
     } else if (id === "search") {
       this.showView("search", { anim: false, intro: false });
       this.searchFinal(false);

@@ -32,16 +32,27 @@ export function initFrames() {
     };
     size();
     ScrollTrigger.create({ trigger: frame, start: "top bottom+=500", once: true, onEnter: build });
-    if (!REDUCE)
+    if (!REDUCE) {
+      // play while the frame is in view (centre past 62% of the viewport, the whole frame
+      // visible); scrolling away mid-run resets it so it plays from the start next time
+      let finished = false;
       ScrollTrigger.create({
         trigger: frame,
-        start: "top 70%",
-        once: true,
-        onEnter: () => {
+        start: "center 62%",
+        end: "bottom 15%",
+        onToggle: async (st) => {
           build();
-          rp.runStep(id);
+          if (finished) return;
+          if (!st.isActive) {
+            rp.setInstant(PREV[id]);
+            return;
+          }
+          const run = rp.run;
+          await rp.runStep(id);
+          finished = rp.run === run + 1; // nothing newer started: it ran to the end
         },
       });
+    }
     addEventListener("resize", size);
   });
 }
