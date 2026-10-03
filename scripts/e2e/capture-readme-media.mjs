@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Capture README media from a running TracePilot desktop app.
+ * Capture README-style media from a running TracePilot desktop app and its
+ * real local sessions (for native review; tracked README images are synthetic).
  *
  * Prerequisites:
  *   1. .\scripts\e2e\launch.ps1
@@ -27,14 +28,16 @@ import { writeStoryboard } from "./readme-media/storyboard.mjs";
 import { buildCaptureConfig, buildTargets, captureTarget } from "./readme-media/targets.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(__dirname, "..", "..");
 const args = parseArgs(process.argv.slice(2));
 
 const port = args.port ? Number(args.port) : undefined;
 const candidateRoot = resolve(
   args.outDir ?? resolve(__dirname, "screenshots", "readme-candidates"),
 );
-const docsImagesDir = resolve(args.docsImagesDir ?? resolve(repoRoot, "docs", "images"));
+// These captures show the local user's real sessions, so they stay in the
+// ignored candidate folder unless a directory is passed explicitly. Tracked
+// README images come from the synthetic `scripts/visual/capture.mjs --suite=readme`.
+const docsImagesDir = resolve(args.docsImagesDir ?? resolve(candidateRoot, "final"));
 const finalViewport = args.finalViewport ?? DEFAULT_FINAL_VIEWPORT;
 const viewports = args.viewport?.length ? parseViewports(args.viewport) : DEFAULT_VIEWPORTS;
 const candidateLimit = args.candidateLimit ? Number(args.candidateLimit) : 12;

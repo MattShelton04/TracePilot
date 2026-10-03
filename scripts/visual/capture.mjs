@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -8,6 +8,7 @@ import { captureExitCode, chromiumArgs, stableScreenshot } from "./capture-polic
 import { fixtureCorpusPlugin } from "./fixture-plugin.mjs";
 import { writeLocalGallery } from "./local-gallery.mjs";
 import { fixedTime, selectCases, viewport } from "./manifest.mjs";
+import { selectReadmeCases } from "./readme-manifest.mjs";
 import { sectionId } from "./sections.mjs";
 import { releaseManifestFixture } from "./update-fixtures.mjs";
 import { assertWorktreeLayout } from "./worktree-assertions.mjs";
@@ -20,7 +21,12 @@ const output = resolve(args.out ?? ".tracepilot/visual");
 const shard = args.shard ?? "1/1";
 const revision = args.revision ?? "head";
 captureExitCode([], revision); // Validate before starting the browser or Vite.
-const selected = selectCases(shard, { group: args.group, caseIds: args.case?.split(",") });
+// `--suite=readme` captures the README screenshots from the showcase fixture.
+const readmeSuite = args.suite === "readme";
+if (args.suite && !readmeSuite) throw new Error(`Unknown suite: ${args.suite}`);
+const selected = readmeSuite
+  ? selectReadmeCases(args.case?.split(","))
+  : selectCases(shard, { group: args.group, caseIds: args.case?.split(",") });
 if (!selected.length) throw new Error("No visual cases selected");
 const captureViewport = args.viewport
   ? (() => {
@@ -31,6 +37,9 @@ const captureViewport = args.viewport
     })()
   : viewport;
 const app = resolve(root, "apps/desktop");
+const readmeVersion = readmeSuite
+  ? JSON.parse(await readFile(resolve(app, "package.json"), "utf8")).version
+  : null;
 const requireApp = createRequire(resolve(app, "package.json"));
 const requireHarness = createRequire(
   resolve(dirname(fileURLToPath(import.meta.url)), "../../package.json"),
@@ -78,6 +87,7 @@ const server = await createServer({
         return `import { visualInvoke } from ${JSON.stringify(fixtureImport)};\n${source.replace(marker, (match) => `${match}    return visualInvoke(cmd, args, fallback);\n`)}`;
       },
     },
+    ...(readmeSuite ? [readmeVersionPlugin(readmeVersion)] : []),
   ],
 });
 try {
@@ -151,6 +161,11 @@ try {
         return seed / 4294967296;
       };
     });
+    // The release-notes dialog opens when the version differs from the last seen.
+    if (readmeVersion)
+      await page.addInitScript((version) => {
+        localStorage.setItem("tracepilot-last-seen-version", version);
+      }, readmeVersion);
     const result = {
       id: item.id,
       group: sectionId(item),
@@ -186,6 +201,8 @@ try {
           : scope.locator(item.target);
         await target.first().waitFor({ state: "visible", timeout: 15000 });
         await target.first().click();
+      } else if (item.prepare === "actions") {
+        for (const action of item.actions) await runAction(page, action);
       } else if (item.prepare === "agent-usage") {
         await page.getByRole("tab", { name: /^Usage/ }).click();
       } else if (item.prepare === "rich-tool") {
@@ -210,17 +227,7 @@ try {
               () => window.__TRACEPILOT_VISUAL__?.calls.get_tool_result > 0,
             );
             await page.locator(".rs-trunc-row").waitFor({ state: "hidden" });
-          } else if (action.type === "button") {
-            const scope = action.within ? page.locator(action.within) : page;
-            const button = scope.getByRole("button", { name: action.name, exact: true });
-            const element = await button.elementHandle();
-            await button.click();
-            if (
-              action.name.startsWith("Show ") &&
-              (await element.getAttribute("aria-expanded")) !== "true"
-            )
-              throw new Error(`Disclosure did not expand: ${action.name}`);
-          } else throw new Error(`Unknown rich-tool action: ${action.type}`);
+          } else await runAction(page, action);
         }
       }
       await page.locator(readySelector).first().waitFor({ state: "visible", timeout: 15000 });
@@ -366,5 +373,57 @@ try {
     ),
   );
   if (Object.hasOwn(args, "gallery")) await writeLocalGallery(output, reports, captureViewport);
+  if (readmeSuite && Object.hasOwn(args, "docs")) {
+    const captured = reports.filter((row) => row.status === "captured");
+    for (const report of captured)
+      await copyFile(
+        resolve(output, `${report.id}.png`),
+        resolve(root, `docs/images/${report.id}.png`),
+      );
+    console.log(`Copied ${captured.length} README images to docs/images`);
+  }
 }
 process.exitCode = captureExitCode(reports, revision);
+
+async function runAction(page, action) {
+  if (action.type === "select") {
+    const option = action.value != null ? { value: action.value } : { label: action.option };
+    await page.getByLabel(action.label, { exact: true }).selectOption(option);
+  } else if (action.type === "fill") {
+    await page.getByLabel(action.label, { exact: true }).fill(action.value);
+  } else if (action.type === "scroll") {
+    // Bring a deliberate region into view inside the page's scroll container.
+    await page
+      .locator(action.selector)
+      .first()
+      .evaluate((element, offset) => {
+        const container = element.closest(".page-content") ?? document.scrollingElement;
+        const top = element.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        container.scrollTo({ top: container.scrollTop + top - offset, behavior: "instant" });
+      }, action.offset ?? 0);
+  } else if (action.type === "button") {
+    const scope = action.within ? page.locator(action.within) : page;
+    const button = scope.getByRole("button", { name: action.name, exact: true });
+    const element = await button.elementHandle();
+    await button.click();
+    if (action.name.startsWith("Show ") && (await element.getAttribute("aria-expanded")) !== "true")
+      throw new Error(`Disclosure did not expand: ${action.name}`);
+  } else throw new Error(`Unknown capture action: ${action.type}`);
+}
+
+/** README captures show the workspace version instead of browser mode's "dev". */
+function readmeVersionPlugin(version) {
+  return {
+    name: "readme-app-version",
+    enforce: "pre",
+    transform(source, id) {
+      if (!id.replaceAll("\\", "/").endsWith("/apps/desktop/src/lib/tauri/app.ts")) return;
+      const marker = "if (!isTauri()) return null;";
+      if (!source.includes(marker))
+        throw new Error(
+          "README version stub no longer matches getTauriAppVersion; update the harness.",
+        );
+      return source.replace(marker, `if (!isTauri()) return ${JSON.stringify(version)};`);
+    },
+  };
+}

@@ -113,8 +113,10 @@ budgets. It exits non-zero on assertion failures and reports budget overruns as
 diagnostic warnings. It also verifies keyboard access to Settings and visibility
 of the sidebar brand/footer at 1440×960, 960×640, and 2560×1440. It writes its report
 and screenshots under the ignored `scripts/e2e/screenshots/` directory.
-README capture writes candidates under `screenshots/readme-candidates/` and
-selected product images under `docs/images/`.
+Native README-style capture uses your real local sessions, so it writes candidates
+and final-viewport images only under the ignored `screenshots/readme-candidates/`.
+Tracked README images come from the synthetic showcase described in
+[visual regression](visual-regression.md#readme-screenshots).
 
 `pnpm test:automation` verifies lifecycle reuse, process-tree cleanup, stale PID
 protection, startup timeouts, and occupied ports using isolated local fixtures
