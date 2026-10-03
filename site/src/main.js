@@ -8,4 +8,6 @@ const reload = () => location.reload();
 mqDesk.addEventListener("change", reload);
 mqReduce.addEventListener("change", reload);
 
-document.fonts.ready.then(wire);
+// Wire once the fonts are in (scene geometry depends on them), one frame after the CSS hero
+// entrance starts, so that entrance is already on the compositor when the long build runs.
+document.fonts.ready.then(() => requestAnimationFrame(() => setTimeout(wire)));

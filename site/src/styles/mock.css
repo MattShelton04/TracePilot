@@ -168,11 +168,9 @@
 }
 .sb-hl {
   position: absolute;
-  z-index: 0;
-  left: 10px;
-  right: 10px;
-  height: 31px;
-  border-radius: 7px;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
   background: rgba(99, 102, 241, 0.13);
 }
 .sb-hl::before {

@@ -1,7 +1,7 @@
 import { D } from "../data.js";
 import { lat } from "../lib/format.js";
 import { ic } from "./icons.js";
-import { AG, clock, crumbs, dur, esc, fmtK, placeHighlight, shell, toolbar } from "./shell.js";
+import { AG, clock, crumbs, dur, esc, fmtK, shell, toolbar } from "./shell.js";
 
 export function buildConvo(win) {
   const T = D.heroTurns[8],
@@ -145,6 +145,5 @@ export function buildConvo(win) {
     </div>`;
   win.innerHTML = shell("sessions", main, true);
   const app = win.firstElementChild;
-  placeHighlight(app, "sessions");
   return app;
 }

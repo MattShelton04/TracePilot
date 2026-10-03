@@ -441,7 +441,7 @@ html.has-rail .final-traces {
   position: relative;
   padding: calc(var(--nav-h) + 56px) 0 72px;
 }
-.scene + .scene {
+.scene-spacer + .scene-spacer > .scene {
   padding-top: 96px;
 }
 .scene-copy {
@@ -513,6 +513,8 @@ html.has-rail .final-traces {
 
 /* pinned (desktop, motion allowed) */
 html.pin .scene {
+  /* explicit: the pin spacer copies display: flex, and the scene must not size to its content */
+  width: 100%;
   height: 100vh;
   min-height: 620px;
   padding: calc(var(--nav-h) + clamp(18px, 3.2vh, 40px)) 0 0;
@@ -520,7 +522,7 @@ html.pin .scene {
   flex-direction: column;
   overflow: hidden;
 }
-html.pin .scene + .scene {
+html.pin .scene-spacer + .scene-spacer > .scene {
   padding-top: calc(var(--nav-h) + clamp(18px, 3.2vh, 40px));
 }
 html.pin .beats {
@@ -618,18 +620,6 @@ html.pin #winOpen {
   width: 100%;
   height: 100%;
   overflow: visible;
-}
-.eye-svg .dial line {
-  stroke: rgba(255, 255, 255, 0.14);
-  stroke-width: 1.6;
-}
-.eye-svg .dial line.major {
-  stroke: rgba(255, 255, 255, 0.3);
-}
-.eye-svg .dial circle {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.07);
-  stroke-width: 1.4;
 }
 .eye-core {
   filter: drop-shadow(0 0 30px rgba(99, 102, 241, 0.45));
@@ -804,9 +794,61 @@ html.pin .hero-copy {
 html.pin .scene-open .scene-copy {
   opacity: 0;
 }
-html.pin:not(.ready) #open .stage,
-html.pin:not(.ready) .hero-copy {
+/* Hero entrance. CSS rather than script, so it starts at first paint and runs on the compositor
+   while the scenes are built. The boot script adds .fonts once the fonts are ready; wire.js adds
+   .ready once the first window is built, and the window rises in. The pinned scenes sit in static
+   .scene-spacer wrappers so pinning never re-inserts them, which would restart these animations. */
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise, 14px));
+  }
+}
+@keyframes hero-line {
+  from {
+    transform: translateY(105%);
+  }
+}
+@keyframes hero-eye {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+html.motion:not(.fonts) .hero-copy {
   visibility: hidden;
+}
+html.motion .callout {
+  opacity: 0;
+}
+html.motion.fonts .eye-svg {
+  animation: hero-eye 1.2s var(--ease-out-expo) 0.1s backwards;
+}
+html.motion.fonts .hero-eyebrow {
+  --rise: 12px;
+  animation: hero-rise 0.8s var(--ease-out-expo) 0.15s backwards;
+}
+html.motion.fonts .hero-title .line > span {
+  animation: hero-line 1s var(--ease-out-expo) 0.2s backwards;
+}
+html.motion.fonts .hero-title .line + .line > span {
+  animation-delay: 0.28s;
+}
+html.motion.fonts :is(.hero-sub, .hero-ctas, .hero-meta) {
+  animation: hero-rise 0.9s var(--ease-out-expo) 0.45s backwards;
+}
+html.motion.fonts .hero-ctas {
+  animation-delay: 0.53s;
+}
+html.motion.fonts .hero-meta {
+  animation-delay: 0.61s;
+}
+html.pin:not(.ready) #open .stage {
+  visibility: hidden;
+}
+html.pin.ready #open .stage {
+  --rise: 60px;
+  animation: hero-rise 1.2s var(--ease-out-expo) backwards;
 }
 @media (max-height: 780px) and (min-width: 900px) {
   .hero-eye {
@@ -1363,7 +1405,7 @@ html.pin:not(.ready) .hero-copy {
     gap: 14px;
   }
   .scene,
-  .scene + .scene {
+  .scene-spacer + .scene-spacer > .scene {
     padding: 72px 0 24px;
   }
   .scene-copy {

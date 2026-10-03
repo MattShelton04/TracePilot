@@ -81,11 +81,6 @@ export function sceneOpen() {
   if (PIN) {
     // autoAlpha: once faded, the hero is hidden so its buttons stop catching clicks over the window
     tl.to(heroCopy, { y: -170, autoAlpha: 0, duration: 1.3, ease: "power1.in" }, 0);
-    tl.to(
-      "#heroEye .dial",
-      { rotate: 50, transformOrigin: "50% 50%", duration: 1.3, ease: "none" },
-      0,
-    );
     tl.to(["#heroField", "#heroPulses"], { opacity: 0, duration: 1.1, ease: "power1.in" }, 0);
   }
   tl.fromTo(

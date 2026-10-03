@@ -1,17 +1,7 @@
 import { D } from "../data.js";
 import { fmtAic, fmtInt, fmtUsd } from "../lib/format.js";
 import { ic } from "./icons.js";
-import {
-  chipsFor,
-  crumbs,
-  dur,
-  esc,
-  fmtK,
-  placeHighlight,
-  placeInk,
-  shell,
-  tabsHTML,
-} from "./shell.js";
+import { chipsFor, crumbs, dur, esc, fmtK, placeInk, shell, tabsHTML } from "./shell.js";
 
 /* ---------- 4. Context + Metrics window ---------- */
 export const CTX = (() => {
@@ -169,7 +159,6 @@ export function buildContext(win) {
     </div>`;
   win.innerHTML = shell("sessions", main, true);
   const app = win.firstElementChild;
-  placeHighlight(app, "sessions");
   placeInk(app, "context");
   app.__geo = { X, Y, L, pw, CW, CH, T, cx, pts: CTX.pts };
   return app;
