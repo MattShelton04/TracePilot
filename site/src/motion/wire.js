@@ -10,13 +10,13 @@ import { Demo } from "./demo-section.js";
 import { $, DESK, html, PIN, REDUCE } from "./env.js";
 import { initEye, initNav, initPrivacy } from "./extras.js";
 import { initFrames } from "./frames.js";
-import { field, initHero, intro } from "./hero.js";
+import { field, initHero } from "./hero.js";
 import { sceneAgents } from "./scene-agents.js";
 import { sceneContext } from "./scene-context.js";
 import { sceneConvo } from "./scene-convo.js";
 import { sceneLaunch } from "./scene-launch.js";
 import { sceneOpen } from "./scene-open.js";
-import { apps, fit, setHeroDY } from "./stage.js";
+import { buildApp, fit, setHeroDY } from "./stage.js";
 
 /* =========================================================
    Wiring
@@ -33,66 +33,90 @@ export function layoutRail() {
   rail.layout(left);
 }
 export let finals = null;
-export function wire() {
-  const scenes = [
-    { el: $("#open"), build: sceneOpen, len: 3.2 },
-    { el: $("#conversation"), build: sceneConvo, len: 3.4 },
-    { el: $("#agents"), build: sceneAgents, len: 3.2 },
-    { el: $("#context"), build: sceneContext, len: 3.4 },
-    { el: $("#launch"), build: sceneLaunch, len: 3.2 },
-  ];
-  if (DESK) {
-    placeInk($(".dv", apps.open), "overview");
-    placeInk(apps.context, "context");
-    placeSeg(apps.agents);
+
+const SCENES = [
+  {
+    id: "open",
+    build: sceneOpen,
+    len: 3.2,
+    prep: (app) => placeInk($(".dv", app), "overview"),
+  },
+  { id: "conversation", app: "convo", build: sceneConvo, len: 3.4 },
+  { id: "agents", build: sceneAgents, len: 3.2, prep: placeSeg },
+  { id: "context", build: sceneContext, len: 3.4, prep: (app) => placeInk(app, "context") },
+  { id: "launch", build: sceneLaunch, len: 3.2 },
+];
+
+// Scroll-scrub a scene's timeline and pin the scene for its length. #open sits in a static
+// .scene-spacer, passed as its pin spacer, so pinning and refreshes never re-insert it into the
+// document: re-insertion would restart the CSS hero entrance. The other scenes use generated
+// spacers; native ones there make Chrome report a phantom full-viewport layout shift.
+function pinScene(el, tl, len) {
+  const lead = el.id === "open" ? 0 : 0.6;
+  const pinOpts = {
+    trigger: el,
+    start: "top top",
+    end: () => `+=${innerHeight * len}`,
+    pin: true,
+    pinSpacer: el.parentElement.classList.contains("scene-spacer") ? el.parentElement : undefined,
+    anticipatePin: 1,
+    onToggle: (st) => el.classList.toggle("is-active", st.isActive),
+  };
+  if (!lead) ScrollTrigger.create({ ...pinOpts, animation: tl, scrub: 0.6 });
+  else {
+    ScrollTrigger.create({
+      trigger: el,
+      start: `top ${lead * 100}%`,
+      end: () => `+=${innerHeight * (len + lead)}`,
+      animation: tl,
+      scrub: 0.6,
+    });
+    ScrollTrigger.create(pinOpts);
   }
-  html.classList.add("ready");
+}
+
+// a fresh task: the build yields between steps so no single task blocks input or rendering
+const nextTask = () => new Promise((resolve) => setTimeout(resolve));
+
+export async function wire() {
+  fit();
   rail.init($("#rail"), $("#start"));
   layoutRail();
   initHero();
 
   if (DESK) {
-    scenes.forEach((s) => {
+    // one window and its timeline per task; .ready lets the first window rise in (CSS)
+    const tls = [];
+    for (const s of SCENES) {
+      const app = buildApp(s.app || s.id);
+      s.prep?.(app);
       const tl = s.build();
-      if (REDUCE) {
-        tl.progress(1).pause();
-        return;
-      }
-      if (PIN) {
-        tl.pause();
-        const lead = s.el.id === "open" ? 0 : 0.6;
-        const pinOpts = {
-          trigger: s.el,
-          start: "top top",
-          end: () => `+=${innerHeight * s.len}`,
-          pin: true,
-          anticipatePin: 1,
-          onToggle: (st) => s.el.classList.toggle("is-active", st.isActive),
-        };
-        if (!lead) ScrollTrigger.create({ ...pinOpts, animation: tl, scrub: 0.6 });
-        else {
-          ScrollTrigger.create({
-            trigger: s.el,
-            start: `top ${lead * 100}%`,
-            end: () => `+=${innerHeight * (s.len + lead)}`,
-            animation: tl,
-            scrub: 0.6,
-          });
-          ScrollTrigger.create(pinOpts);
-        }
-      }
-    });
+      if (REDUCE) tl.progress(1).pause();
+      else tl.pause();
+      tls.push(tl);
+      html.classList.add("ready");
+      await nextTask();
+    }
+    // pins go in together: each pin queues a refresh of every trigger
+    if (PIN) {
+      SCENES.forEach((s, i) => {
+        pinScene($(`#${s.id}`), tls[i], s.len);
+      });
+    }
     layoutBranches();
   } else {
+    html.classList.add("ready");
     initFrames();
   }
   if (REDUCE) {
     cache.start();
     rail.setReveal(1);
   }
-  if (!REDUCE) intro();
+  await nextTask();
 
   initBento($("#bento"), { parallax: !REDUCE });
+  await nextTask();
+
   Demo.init();
   initPrivacy();
   initNav();

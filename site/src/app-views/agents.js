@@ -1,7 +1,7 @@
 import { D } from "../data.js";
 import { fmtInt, shortId } from "../lib/format.js";
 import { ic } from "./icons.js";
-import { AG, crumbs, dur, esc, fmtK, placeHighlight, shell } from "./shell.js";
+import { AG, crumbs, dur, esc, fmtK, shell } from "./shell.js";
 
 /* ---------- 3. Agents window ---------- */
 export const SEQ = (() => {
@@ -174,7 +174,6 @@ export function buildAgents(win) {
     <div class="tl-canvas panel" style="top:${40 + 18 + 48 + 14 + 38 + 14}px">${tree}${seq}</div>`;
   win.innerHTML = shell("sessions", main, true);
   const app = win.firstElementChild;
-  placeHighlight(app, "sessions");
   const mainAct = app.querySelector('.act[data-act="main"]');
   if (mainAct) {
     mainAct.style.width = "6px";

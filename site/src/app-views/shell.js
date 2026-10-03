@@ -66,7 +66,7 @@ export const NAV = [
   ["settings", "settings", "Settings"],
 ];
 export function sidebar(active, collapsed) {
-  let h = `<aside class="sb${collapsed ? " sb-collapsed" : ""}"><div class="sb-brand"><img src="${LOGO_ICON}" alt="">TracePilot${ic("chevL")}</div><i class="sb-hl"></i>`;
+  let h = `<aside class="sb${collapsed ? " sb-collapsed" : ""}"><div class="sb-brand"><img src="${LOGO_ICON}" alt="">TracePilot${ic("chevL")}</div>`;
   for (const it of NAV) {
     if (it === "DIV") {
       h += '<div class="sb-div"></div>';
@@ -76,7 +76,9 @@ export function sidebar(active, collapsed) {
       h += `<div class="sb-sec">${it}</div>`;
       continue;
     }
-    h += `<div class="sb-item${it[0] === active ? " on" : ""}" data-nav="${it[0]}">${ic(it[1])}<span class="sb-t">${it[2]}</span>${it[3] || ""}</div>`;
+    // the highlight sits inside the active item, so it needs no measuring to place
+    const on = it[0] === active;
+    h += `<div class="sb-item${on ? " on" : ""}" data-nav="${it[0]}">${on ? '<i class="sb-hl"></i>' : ""}${ic(it[1])}<span class="sb-t">${it[2]}</span>${it[3] || ""}</div>`;
   }
   h += `<div class="sb-foot"><span>v${VERSION}</span><span class="btnico">${ic("sun")}</span></div></aside>`;
   return h;
@@ -86,12 +88,6 @@ export function shell(active, mainHTML, collapsed) {
     `<div class="app"><div class="tb"><img src="${LOGO_ICON}" alt="">TracePilot<div class="tb-ctrls"><span>${ic("minus")}</span><span>${ic("square")}</span><span>${ic("x")}</span></div></div>` +
     `<div class="body">${sidebar(active, collapsed)}<div class="main">${mainHTML}</div></div></div>`
   );
-}
-// position the sidebar highlight under the active item (call after insert)
-export function placeHighlight(app, key) {
-  const hl = app.querySelector(".sb-hl");
-  const it = app.querySelector(`.sb-item[data-nav="${key}"]`);
-  if (hl && it) hl.style.top = `${it.offsetTop}px`;
 }
 export const crumbs = (...parts) =>
   parts

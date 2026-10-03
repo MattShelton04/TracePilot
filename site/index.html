@@ -24,6 +24,20 @@
 <script type="module" src="./src/main.js"></script>
 </head>
 <body>
+<script>
+  // Runs before first paint (after the stylesheet). Picks the layout mode that env.js and the
+  // CSS key off, and holds the CSS hero entrance until its fonts load (or 1.2s), so the hero
+  // never paints in a fallback font or the wrong layout while the bundle downloads.
+  ((d, mq) => {
+    const c = d.documentElement.classList;
+    const still = mq("(prefers-reduced-motion: reduce)").matches;
+    if (!still) c.add("motion");
+    if (!still && mq("(min-width: 900px)").matches) c.add("pin");
+    const go = () => c.add("fonts");
+    setTimeout(go, 1200);
+    Promise.all([d.fonts.load('1em "Inter Variable"'), d.fonts.load('1em "JetBrains Mono"')]).then(go, go);
+  })(document, matchMedia);
+</script>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="nav" id="nav">
@@ -62,63 +76,67 @@
 <main id="main">
 
   <!-- ===== 1. Hero + Open any session (one pinned scene) ===== -->
-  <section class="scene scene-open" id="open" aria-labelledby="hero-title">
-    <span id="top" class="anchor"></span>
-    <canvas class="hero-field" id="heroField" aria-hidden="true"></canvas>
-    <canvas class="hero-pulses" id="heroPulses" aria-hidden="true"></canvas>
-    <div class="hero-copy" id="heroCopy">
-      <div class="hero-eye" id="heroEye" aria-hidden="true">
-        <svg aria-hidden="true" class="eye-svg" viewBox="-200 -200 400 400">
-          <g class="dial"></g>
-          <g class="eye-core">
-            <polygon class="hex" points="0,-120 104,-60 104,60 0,120 -104,60 -104,-60"/>
-            <polygon class="hex-fill" points="0,-106 91,-53 91,53 0,106 -91,53 -91,-53"/>
-            <g class="lid">
-              <path class="almond" d="M-72 0c0 0 32-48 72-48s72 48 72 48-32 48-72 48-72-48-72-48z"/>
-              <circle class="iris" r="27"/>
-              <circle class="pupil" r="10.5"/>
-              <circle class="glint" cx="10.5" cy="-8.4" r="3.6"/>
+  <div class="scene-spacer">
+    <section class="scene scene-open" id="open" aria-labelledby="hero-title">
+      <canvas class="hero-field" id="heroField" aria-hidden="true"></canvas>
+      <canvas class="hero-pulses" id="heroPulses" aria-hidden="true"></canvas>
+      <div class="hero-copy" id="heroCopy">
+        <div class="hero-eye" id="heroEye" aria-hidden="true">
+          <svg aria-hidden="true" class="eye-svg" viewBox="-200 -200 400 400">
+            <g class="eye-core">
+              <polygon class="hex" points="0,-120 104,-60 104,60 0,120 -104,60 -104,-60"/>
+              <polygon class="hex-fill" points="0,-106 91,-53 91,53 0,106 -91,53 -91,-53"/>
+              <g class="lid">
+                <path class="almond" d="M-72 0c0 0 32-48 72-48s72 48 72 48-32 48-72 48-72-48-72-48z"/>
+                <circle class="iris" r="27"/>
+                <circle class="pupil" r="10.5"/>
+                <circle class="glint" cx="10.5" cy="-8.4" r="3.6"/>
+              </g>
             </g>
-          </g>
-        </svg>
-        <div class="callout c1"><span class="k">Reads</span><span class="v">~/.copilot/session-state</span></div>
-        <div class="callout c2"><span class="k">Indexes</span><span class="v">Rust · SQLite FTS5</span></div>
+          </svg>
+          <div class="callout c1"><span class="k">Reads</span><span class="v">~/.copilot/session-state</span></div>
+          <div class="callout c2"><span class="k">Indexes</span><span class="v">Rust · SQLite FTS5</span></div>
+        </div>
+        <p class="eyebrow hero-eyebrow"><span class="mono">v__version__</span> · for GitHub Copilot CLI</p>
+        <h1 id="hero-title" class="hero-title">
+          <span class="line"><span>See everything</span></span>
+          <span class="line"><span><em class="grad">your agents</em> did.</span></span>
+        </h1>
+        <p class="hero-sub">TracePilot reads the session state Copilot CLI already writes to disk and turns it into something you can read, search, measure and act on. On your machine.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="__downloadUrl__">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            Download for Windows
+          </a>
+          <button class="btn btn-ghost btn-tour" type="button" data-tour>
+            <span class="play-dot" aria-hidden="true"><svg aria-hidden="true" viewBox="0 0 24 24"><polygon points="8 5 19 12 8 19 8 5"/></svg></span>
+            Watch the tour
+          </button>
+          <a class="btn btn-ghost" href="https://github.com/MattShelton04/TracePilot" target="_blank" rel="noopener">
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+            View on GitHub
+          </a>
+        </div>
+        <p class="hero-meta"><span>Open source</span><span aria-hidden="true">·</span><span>GPL-3.0</span><span aria-hidden="true">·</span><button class="copy-chip" type="button" data-copy="pnpm start" aria-label="Copy build-from-source command: pnpm start"><code>pnpm start</code><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button></p>
       </div>
-      <p class="eyebrow hero-eyebrow"><span class="mono">v__version__</span> · for GitHub Copilot CLI</p>
-      <h1 id="hero-title" class="hero-title">
-        <span class="line"><span>See everything</span></span>
-        <span class="line"><span><em class="grad">your agents</em> did.</span></span>
-      </h1>
-      <p class="hero-sub">TracePilot reads the session state Copilot CLI already writes to disk and turns it into something you can read, search, measure and act on. On your machine.</p>
-      <div class="hero-ctas">
-        <a class="btn btn-primary" href="__downloadUrl__">
-          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-          Download for Windows
-        </a>
-        <button class="btn btn-ghost btn-tour" type="button" data-tour>
-          <span class="play-dot" aria-hidden="true"><svg aria-hidden="true" viewBox="0 0 24 24"><polygon points="8 5 19 12 8 19 8 5"/></svg></span>
-          Watch the tour
-        </button>
-      </div>
-      <p class="hero-meta"><a href="https://github.com/MattShelton04/TracePilot">Open source on GitHub</a><span aria-hidden="true">·</span><span>GPL-3.0</span><span aria-hidden="true">·</span><button class="copy-chip" type="button" data-copy="pnpm start" aria-label="Copy build-from-source command: pnpm start"><code>pnpm start</code><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button></p>
-    </div>
 
-    <div class="scene-copy">
-      <div class="scene-head">
-        <p class="eyebrow"><span class="mono">01</span> Session library</p>
-        <h2>Open any session.</h2>
+      <div class="scene-copy">
+        <div class="scene-head">
+          <p class="eyebrow"><span class="mono">01</span> Session library</p>
+          <h2>Open any session.</h2>
+        </div>
+        <div class="beats">
+          <p class="beat">Your whole Copilot CLI history, indexed: __sessionCount__ sessions across every repo, branch and model.</p>
+          <p class="beat">Open one and the full story is there: turns, events, todos, checkpoints, context and cost.</p>
+        </div>
       </div>
-      <div class="beats">
-        <p class="beat">Your whole Copilot CLI history, indexed: __sessionCount__ sessions across every repo, branch and model.</p>
-        <p class="beat">Open one and the full story is there: turns, events, todos, checkpoints, context and cost.</p>
+      <div class="stage">
+        <p class="sr-only">Illustration: the TracePilot session library. A pointer opens the "Add Apple Pay to checkout" session and the card expands into its detail view with Overview, Conversation, Events, Todos, Metrics, Context, Explorer and Timeline tabs.</p>
+        <div class="win" id="winOpen" aria-hidden="true"></div>
+        <div class="m-frame" data-mstep="open" aria-hidden="true"></div>
       </div>
-    </div>
-    <div class="stage">
-      <p class="sr-only">Illustration: the TracePilot session library. A pointer opens the "Add Apple Pay to checkout" session and the card expands into its detail view with Overview, Conversation, Events, Todos, Metrics, Context, Explorer and Timeline tabs.</p>
-      <div class="win" id="winOpen" aria-hidden="true"></div>
-      <div class="m-frame" data-mstep="open" aria-hidden="true"></div>
-    </div>
-  </section>
+    </section>
+  </div>
 
   <!-- ===== 2. Conversation ===== -->
   <section class="scene" id="conversation" aria-labelledby="conv-title">
@@ -300,7 +318,7 @@
           <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
           Download for Windows
         </a>
-        <a class="btn btn-ghost" href="https://github.com/MattShelton04/TracePilot">
+        <a class="btn btn-ghost" href="https://github.com/MattShelton04/TracePilot" target="_blank" rel="noopener">
           <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
           View on GitHub
         </a>
@@ -329,11 +347,18 @@
 </footer>
 
 <!-- guided tour control -->
-<div class="tour-pill" id="tourPill" hidden>
+<div class="tour-pill" id="tourPill" role="group" aria-label="Guided tour" hidden>
   <button type="button" class="tp-stop" id="tourStop" aria-label="Stop the tour"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg></button>
-  <div class="tp-text"><span class="tp-k">Touring</span><span class="tp-label" id="tourLabel">Open any session</span></div>
-  <i class="tp-prog"><i id="tourProg"></i></i>
-  <span class="tp-hint">Scroll or press any key to stop</span>
+  <div class="tp-body">
+    <div class="tp-text"><span class="tp-k">Touring</span><span class="tp-label" id="tourLabel" aria-live="polite">Open any session</span></div>
+    <i class="tp-prog"><i id="tourProg"></i><span class="tp-ticks" id="tourTicks"></span></i>
+    <span class="tp-hint">Scroll or press any key to stop</span>
+  </div>
+  <div class="tp-ctrls">
+    <button type="button" class="tp-btn" id="tourPrev" aria-label="Previous chapter"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/></svg></button>
+    <button type="button" class="tp-btn" id="tourNext" aria-label="Next chapter"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/></svg></button>
+    <button type="button" class="tp-btn tp-speed" id="tourSpeed" aria-label="Tour speed 1×. Change speed">1×</button>
+  </div>
 </div>
 
 </body>

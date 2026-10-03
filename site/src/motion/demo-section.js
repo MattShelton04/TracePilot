@@ -8,6 +8,14 @@ import { Tour } from "./tour.js";
    ========================================================= */
 // scroll target that puts the demo toolbar just under the nav, so the whole window is in view
 export const demoTop = () => $("#demoStage").getBoundingClientRect().top + scrollY - 56 - 14;
+// where the tour ends: the "Now take the controls" heading stays in view, with the section
+// centred under the nav when it fits and the heading just below the nav when it does not
+export const demoIntroTop = () => {
+  const head = $("#demo .section-head").getBoundingClientRect(),
+    end = $("#demoHost").getBoundingClientRect();
+  const room = innerHeight - 56 - (end.bottom - head.top);
+  return head.top + scrollY - 56 - Math.max(16, room / 2);
+};
 export const DEMO_STEPS = [
   ["library", "Library"],
   ["open", "Open a session"],

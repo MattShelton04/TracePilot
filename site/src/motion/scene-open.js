@@ -79,12 +79,8 @@ export function sceneOpen() {
   );
   // unpinned (reduced motion) the hero stays a normal block above the window
   if (PIN) {
-    tl.to(heroCopy, { y: -170, opacity: 0, duration: 1.3, ease: "power1.in" }, 0);
-    tl.to(
-      "#heroEye .dial",
-      { rotate: 50, transformOrigin: "50% 50%", duration: 1.3, ease: "none" },
-      0,
-    );
+    // autoAlpha: once faded, the hero is hidden so its buttons stop catching clicks over the window
+    tl.to(heroCopy, { y: -170, autoAlpha: 0, duration: 1.3, ease: "power1.in" }, 0);
     tl.to(["#heroField", "#heroPulses"], { opacity: 0, duration: 1.1, ease: "power1.in" }, 0);
   }
   tl.fromTo(
@@ -100,6 +96,7 @@ export function sceneOpen() {
     1.35,
   );
   T0 = 2.1;
+  tl.addLabel("anchor", T0); // the "Sessions" link lands here: hero gone, library in view
 
   // --- cursor glides in, becomes a hand over the card, and clicks ---
   tl.to(cursor, { opacity: 1, duration: 0.25 }, T0);

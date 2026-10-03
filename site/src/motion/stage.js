@@ -5,16 +5,18 @@ import { buildLaunch } from "../app-views/launch.js";
 import { buildOpen } from "../app-views/open.js";
 import { $, $$, DESK, html, PIN } from "./env.js";
 
-/* ---------- build the desktop windows (variant A) ---------- */
-export const apps = DESK
-  ? {
-      open: buildOpen($("#winOpen")),
-      convo: buildConvo($("#winConvo")),
-      agents: buildAgents($("#winAgents")),
-      context: buildContext($("#winContext")),
-      launch: buildLaunch($("#winLaunch")),
-    }
-  : null;
+/* ---------- build the desktop windows (variant A) ----------
+   Built one at a time from wire(), not at import: building and sizing a window forces layout,
+   which would otherwise hold up the first paint and the hero entrance. */
+const BUILD = {
+  open: () => buildOpen($("#winOpen")),
+  convo: () => buildConvo($("#winConvo")),
+  agents: () => buildAgents($("#winAgents")),
+  context: () => buildContext($("#winContext")),
+  launch: () => buildLaunch($("#winLaunch")),
+};
+export const apps = {};
+export const buildApp = (key) => (apps[key] = BUILD[key]());
 
 export function fit() {
   if (!DESK) return;
@@ -35,7 +37,6 @@ export function fit() {
   // scene headings line up with the window edges when the window is wider than the text column
   if (PIN) html.style.setProperty("--win-w", `${Math.round(1280 * $("#winConvo").__s)}px`);
 }
-fit();
 
 export function setHeroDY() {
   const heroCopy = $("#heroCopy"),

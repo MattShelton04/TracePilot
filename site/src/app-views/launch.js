@@ -1,6 +1,6 @@
 import { D } from "../data.js";
 import { ic } from "./icons.js";
-import { cursorHTML, esc, libraryContent, placeHighlight, shell } from "./shell.js";
+import { cursorHTML, esc, libraryContent, shell } from "./shell.js";
 
 /* ---------- 5. Launch window ---------- */
 export const LAUNCH = {
@@ -83,7 +83,6 @@ export function buildLaunch(win) {
     ${cursorHTML}`;
   win.innerHTML = shell("launcher", main);
   const app = win.firstElementChild;
-  placeHighlight(app, "launcher");
   app.querySelectorAll(".pkv dd.x svg").forEach((s) => {
     s.style.width = "12px";
     s.style.height = "12px";

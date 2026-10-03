@@ -1,17 +1,18 @@
 // Values substituted into __placeholders__ in index.html and demo/index.html at
 // build time, derived from the generated data files. Unknown placeholders fail
 // the build (see vite.config.mjs).
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export const SITE_URL = process.env.SITE_URL || "https://mattshelton04.github.io/TracePilot/";
 
 const CSP = {
   build:
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+    "default-src 'self'; script-src 'self'%s; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
     "font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'",
   // the dev server's hot reload needs its websocket
   serve:
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+    "default-src 'self'; script-src 'self'%s; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
     "font-src 'self'; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'",
 };
 
@@ -42,7 +43,14 @@ export function htmlFacts(showcaseFile, releaseFile, _mode) {
   };
 }
 
-export const cspFor = (mode) => CSP[mode];
+// Inline classic scripts (the page's pre-paint boot script) are allowed by hash, nothing broader.
+export const inlineScriptHashes = (html) =>
+  [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
+    .filter((m) => m[1].trim())
+    .map((m) => `'sha256-${createHash("sha256").update(m[1]).digest("base64")}'`);
+
+export const cspFor = (mode, hashes = []) =>
+  CSP[mode].replace("%s", hashes.map((h) => ` ${h}`).join(""));
 
 export function fillPlaceholders(html, facts, file) {
   return html.replace(/__([a-zA-Z][a-zA-Z0-9_]*?)__/g, (_, key) => {

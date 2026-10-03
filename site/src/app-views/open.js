@@ -9,7 +9,6 @@ import {
   dur,
   esc,
   libraryContent,
-  placeHighlight,
   placeInk,
   planHTML,
   shell,
@@ -54,7 +53,6 @@ export function buildOpen(win) {
     </div>${cursorHTML}`;
   win.innerHTML = shell("sessions", main);
   const app = win.firstElementChild;
-  placeHighlight(app, "sessions");
   placeInk(app.querySelector(".dv"), "overview");
   return app;
 }

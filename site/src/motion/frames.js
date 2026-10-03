@@ -1,6 +1,7 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
 import { Replica } from "../replica/replica.js";
 import { $$, REDUCE } from "./env.js";
+import { holds } from "./holds.js";
 
 /* =========================================================
    Phone: one narrow live replica per scene (variant C)
@@ -32,16 +33,31 @@ export function initFrames() {
     };
     size();
     ScrollTrigger.create({ trigger: frame, start: "top bottom+=500", once: true, onEnter: build });
-    if (!REDUCE)
+    if (!REDUCE) {
+      // play while the frame is in view (centre past 62% of the viewport, the whole frame
+      // visible); scrolling away mid-run resets it so it plays from the start next time
+      let finished = false;
       ScrollTrigger.create({
         trigger: frame,
-        start: "top 70%",
-        once: true,
-        onEnter: () => {
+        start: "center 62%",
+        end: "bottom 15%",
+        onToggle: async (st) => {
           build();
-          rp.runStep(id);
+          if (finished) return;
+          if (!st.isActive) {
+            holds.delete(frame);
+            rp.setInstant(PREV[id]);
+            return;
+          }
+          holds.add(frame);
+          const run = rp.run;
+          await rp.runStep(id);
+          finished = rp.run === run + 1; // nothing newer started: it ran to the end
+          // the tour lingers a beat on the result before moving on
+          if (finished) setTimeout(() => holds.delete(frame), 1500);
         },
       });
+    }
     addEventListener("resize", size);
   });
 }
