@@ -56,7 +56,7 @@ Usage:
 Options:
   --port <port>                  CDP port, usually auto-discovered
   --out-dir <path>               Candidate screenshot directory
-  --docs-images-dir <path>       Final docs image directory
+  --docs-images-dir <path>       Final image directory (default: <out-dir>/final)
   --viewport <WxH>               Add a viewport, can be repeated
   --final-viewport <WxH>         Viewport copied into docs/images
   --list-candidates              Score sessions and print screenshot candidates

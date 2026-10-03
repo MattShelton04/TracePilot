@@ -389,6 +389,42 @@ The native gallery contains all tool calls in one session; focused browser
 captures isolate each scenario for readable diffs. Full native parsing and
 visible interaction checks remain necessary when changing transport contracts.
 
+## README screenshots
+
+The README images in `docs/images/readme-*.png` are captured by the same
+harness from a separate synthetic workspace, so they never contain a
+developer's real sessions and can be regenerated identically:
+
+```powershell
+node scripts/visual/capture.mjs --suite=readme --channel=msedge --docs
+```
+
+`--suite=readme` selects the cases in
+[`readme-manifest.mjs`](../scripts/visual/readme-manifest.mjs) instead of the CI
+manifest; `--case=readme-timeline` narrows it, and `--docs` copies each
+successful capture to `docs/images/<id>.png`. Without `--docs`, images stay
+under `--out` (default `.tracepilot/visual/`) for review. README cases are not
+part of PR visual CI and do not change its 101-view inventory.
+
+Their data comes from [`showcase/`](../scripts/visual/showcase/index.mjs): about
+370 sessions across fictional `acme/*` repositories, with analytics, tools,
+code-impact and model totals derived from those same sessions so every page
+agrees. One running session ("Add Apple Pay to checkout") supplies the
+conversation, parallel agents and inter-agent messages, todo dependencies,
+context compaction, prompt-cache window, metrics, plan and files. Repositories
+and worktrees are returned per repository, as the backend does. Commands the
+showcase does not define fall back to the ordinary visual fixtures and client
+mocks. README cases pin the clock to the showcase's own date, use the app's
+default features (plus any listed per case), show the workspace version in the
+sidebar, and mark it as already seen so the release-notes dialog stays closed.
+
+Cases can prepare a view with `actions`: `button` (click by accessible name),
+`select` (choose an option by label or value), `fill` (type into a labelled
+field) and `scroll` (bring a selector to a fixed offset below the top of the
+page's scroll container). After regenerating, inspect every image: each one
+should show its feature populated and readable at 1440×960, with nothing
+clipped under the sticky session toolbar.
+
 ## First hosted validation
 
 [Run 34684266923](https://github.com/MattShelton04/TracePilot/actions/runs/34684266923)

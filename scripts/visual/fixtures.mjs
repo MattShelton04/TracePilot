@@ -4,6 +4,7 @@
 
 import { configureVisualFeatures } from "./feature-policy.mjs";
 import { richToolFixture } from "./rich-tool-fixtures.mjs";
+import { showcaseFixture } from "./showcase/index.mjs";
 import { updateAvailableFixture, updateFixture } from "./update-fixtures.mjs";
 
 export const skill = {
@@ -280,6 +281,8 @@ export async function visualInvoke(cmd, args, fallback) {
     if (toolFixture !== undefined) return structuredClone(toolFixture);
     const update = updateFixture(cmd, window.__TRACEPILOT_VISUAL_CASE__);
     if (update !== undefined) return structuredClone(update);
+    const showcase = showcaseFixture(cmd, args, window.__TRACEPILOT_VISUAL_CASE__);
+    if (showcase !== undefined) return structuredClone(showcase);
     if (Object.hasOwn(overrides, cmd)) return structuredClone(overrides[cmd]);
     if (cmd === "preview_export") {
       const content =

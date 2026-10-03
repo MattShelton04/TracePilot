@@ -8,7 +8,7 @@
   <strong>A desktop app for inspecting, searching, and launching GitHub Copilot CLI sessions.</strong>
 </p>
 
-TracePilot is built for developers who use GitHub Copilot CLI heavily and want a clearer view of what happened across their sessions: prompts, assistant turns, subagents, tool calls, todos, checkpoints, token usage, costs, search, and orchestration.
+TracePilot is built for developers who use GitHub Copilot CLI heavily and want a clearer view of what happened across their sessions: prompts, assistant turns, subagents and the messages they exchange, tool calls, todos, checkpoints, context growth, prompt-cache state, token usage, AI Credits, search, and orchestration.
 
 It reads the session data Copilot CLI writes under `~/.copilot/session-state/` by default, indexes it locally, and presents it in a Tauri desktop app backed by Rust, SQLite, and Vue.
 
@@ -38,23 +38,28 @@ Browse your Copilot CLI session history as a searchable library, then open any s
 
 | Area | What it helps with |
 | --- | --- |
-| **Overview** | Session metadata, plan/checkpoint summaries, incidents, and high-level stats. |
-| **Conversation** | User/assistant turns, reasoning, subagent activity, tool calls, and rich tool-result renderers. |
+| **Overview** | Session metadata, plan and checkpoint summaries, incidents, AI Credits, and high-level stats. |
+| **Conversation** | User/assistant turns, reasoning, model switches, parallel subagents, skill invocations, tool calls, and rich tool-result renderers. |
 | **Events** | Raw session events with filtering and pagination for debugging parser or CLI behavior. |
-| **Todos** | Copilot's task state, including dependency relationships when available. |
-| **Metrics** | Token usage, cache usage, model attribution, duration, and cost estimates. |
-| **Explorer** | Files inside the session state directory, rendered with type-aware viewers where possible. |
-| **Timeline** | Agent tree, swimlane, and waterfall views for understanding sequencing and parallel work. |
+| **Todos** | Copilot's task state as a list or dependency graph. |
+| **Metrics** | AI Credits, token and cache usage per model or per agent, duration, code changes, and prompt-cache timing. |
+| **Context** | How the context window grows by turn or over time (system prompt, tool definitions, conversation), where compactions happened, and which tools contribute most. |
+| **Explorer** | Files inside the session state directory, with viewers for Markdown, JSON/JSONL, CSV, SQLite, images, and more. |
+| **Timeline** | Swimlane, waterfall, and agent-tree views, plus a **Messages** view of how agents launched, messaged, and read back from each other. |
 
-TracePilot also supports pop-out session windows, auto-refresh for live sessions, inline incident rendering, structured checkpoint rendering, and specialized renderers for common tool outputs such as diffs, shell output, search results, SQL, and file trees.
+The session header shows whether the prompt cache is warm, expiring, or expired, with a live countdown. Sessions can open in pop-out windows and auto-refresh while they run. Rich renderers cover common tool output such as diffs, patches, shell output, search and web-search results, SQL, file trees, `ask_user` prompts, and the agent-control tools (`read_agent`, `write_agent`, `list_agents`).
 
 | Conversation | Agent timeline |
 | --- | --- |
-| ![Conversation view with tool activity](docs/images/readme-conversation.png) | ![Agent tree timeline](docs/images/readme-timeline.png) |
+| ![Conversation with three agents launched in parallel](docs/images/readme-conversation.png) | ![Agent tree timeline](docs/images/readme-timeline.png) |
 
-| Todos | Session files |
+| Inter-agent messages | Todos |
 | --- | --- |
-| ![Todo dependency view](docs/images/readme-todos.png) | ![Session file explorer](docs/images/readme-session-explorer.png) |
+| ![Sequence diagram of messages between agents](docs/images/readme-agent-messages.png) | ![Todo dependency graph](docs/images/readme-todos.png) |
+
+| Context | Metrics |
+| --- | --- |
+| ![Context window growth with a compaction](docs/images/readme-context.png) | ![Session metrics with cache breakdown](docs/images/readme-metrics.png) |
 
 ### Search and analyze session history
 
@@ -62,7 +67,8 @@ TracePilot maintains a local SQLite/FTS5 index so you can search across session 
 
 The analytics views help answer questions such as:
 
-- Which repositories, models, and tools are consuming the most time or tokens?
+- Which repositories, models, and tools are consuming the most time, tokens, or AI Credits?
+- How well is the prompt cache working, and how often do sessions resume after it expired?
 - How often do tool calls fail, and which tools dominate a session?
 - Which files and file types are touched most often?
 - How do two sessions compare after normalizing by turns or duration?
@@ -73,64 +79,70 @@ Available top-level analysis pages include Search, Analytics, Tools, Code Impact
 | --- | --- | --- |
 | ![Full-text search across sessions](docs/images/readme-search.png) | ![Analytics dashboard](docs/images/readme-analytics.png) | ![Tool analysis dashboard](docs/images/readme-tool-analysis.png) |
 
+### Understand agents and skills
+
+- **Agents** lists built-in, personal, and project Copilot CLI agents, plus agents seen only in sessions. Each has run counts, durations, and failure rates, a definition editor, its effective configuration, and `/subagents` model overrides.
+- **Skills** creates, edits, and imports Copilot CLI skills (including from GitHub through the `gh` CLI) and shows how often each skill is invoked, by whom, and how many tokens it injects. Unused, dormant, drifted, and shadowed skills are flagged.
+
+| Agents | Skills |
+| --- | --- |
+| ![Agents explorer with usage](docs/images/readme-agents.png) | ![Skills with usage analytics](docs/images/readme-skills.png) |
+
 ### Launch and manage Copilot CLI work
 
 The orchestration pages are for starting and organizing Copilot CLI work from the desktop app:
 
 - **Command Centre** shows repository/session status, recent activity, and system dependency health.
-- **Session Launcher** builds Copilot CLI launch commands with repository, branch, model, prompt, environment, and optional worktree settings.
+- **Session Launcher** builds Copilot CLI launch commands with repository, branch, model, reasoning effort, prompt, environment, and optional worktree settings.
 - **Worktree Manager** discovers registered repositories, creates/removes/prunes worktrees, fetches remotes, opens folders, and launches sessions from worktrees.
 
 TracePilot understands the newer Copilot CLI settings layout: user-editable settings belong in `~/.copilot/settings.json`, while CLI-managed internal state can remain in `~/.copilot/config.json`.
 
-| Command Centre | Session Launcher |
+| Session Launcher | Worktrees |
 | --- | --- |
-| ![Orchestration command centre](docs/images/readme-orchestration.png) | ![Session launcher](docs/images/readme-launcher.png) |
+| ![Session launcher with a prepared launch](docs/images/readme-launcher.png) | ![Worktree manager](docs/images/readme-worktrees.png) |
 
-| Worktrees | Config Injector |
-| --- | --- |
-| ![Worktree manager](docs/images/readme-worktrees.png) | ![Config injector](docs/images/readme-config-injector.png) |
+### Additional features
 
-### Configure Copilot-adjacent tools
+Settings → Additional Features groups optional surfaces:
 
-TracePilot includes feature-flagged configuration surfaces for:
-
-- **Skills Manager**: create, edit, import, and manage Copilot CLI skills, including assets and GitHub imports through the `gh` CLI.
-- **MCP Server Manager**: add, import, configure, toggle, and health-check MCP servers compatible with Copilot CLI configuration.
-- **Session Replay**: step through session event timelines using indexed session data.
-- **Copilot SDK bridge**: experimental live-session connection and steering support.
-- **Config Injector**: edit Copilot CLI agent model assignments and user settings, compare installed CLI versions, and back up or restore config files.
-
-Skills, Export, and Exact Context Capture are presented as recommended additional features. MCP Servers, Session Replay, the Copilot SDK bridge, and Config Injector are experimental and disabled by default.
+- **Recommended:** Skills, Agents, Export, and Prompt Cache Insights are on by default. **Exact Context Capture** is opt-in and adds a CLI Context page that records and compares the exact context a session sends to the model.
+- **Experimental** (off by default):
+  - **Copilot SDK Bridge**: steer sessions from TracePilot through the official Copilot SDK, and follow terminal sessions live when they run with `copilot --ui-server` (sessions TracePilot launches get this flag by default).
+  - **MCP Servers**: add, import, configure, toggle, and health-check MCP servers compatible with Copilot CLI configuration.
+  - **Session Replay**: step through session event timelines using indexed session data.
+  - **Config Injector**: edit Copilot CLI agent model assignments and user settings, compare installed CLI versions, and back up or restore config files.
 
 ### Export and share sessions
 
-TracePilot can export sessions as Markdown, TracePilot JSON, or raw session archives, with configurable sections and redaction options. Session-level export is available from session detail; the top-level Export page provides a broader export/import workflow when enabled.
+TracePilot can export sessions as Markdown, TracePilot JSON, or raw session archives, with configurable sections and redaction options. Session-level export is available from session detail; the top-level Export page provides a broader export/import workflow.
 
 ---
 
 ## Screenshots
 
-Browse the [interactive screenshot history](https://mattshelton04.github.io/TracePilot/visual/)
-for automated before/after comparisons of PRs and merges. It captures the real
-frontend at 1440×960 with synthetic data, with side-by-side, wipe, overlay, and
-highlighted pixel differences. See [how visual CI works](docs/visual-regression.md).
-
-The README screenshots are generated from the running desktop app via the same Playwright-over-CDP automation used for local E2E diagnostics. The script captures more pages than the README embeds, so screenshots can be swapped in without manually driving the app.
+The README screenshots are generated rather than captured by hand. The
+[visual harness](docs/visual-regression.md#readme-screenshots) renders the real
+frontend at 1440×960 against a synthetic showcase workspace of fictional
+`acme/*` repositories, so the images contain no personal session data and can be
+refreshed after any UI change:
 
 ```powershell
-.\scripts\e2e\launch.ps1 -NoWatch
-node scripts\e2e\capture-readme-media.mjs
+node scripts/visual/capture.mjs --suite=readme --channel=msedge --docs
 ```
 
-Useful outputs:
+More views are captured than this page embeds, including the
+[session overview](docs/images/readme-session-overview.png),
+[session files](docs/images/readme-session-explorer.png),
+[code impact](docs/images/readme-code-impact.png),
+[model comparison](docs/images/readme-model-comparison.png),
+[Command Centre](docs/images/readme-orchestration.png), and
+[Config Injector](docs/images/readme-config-injector.png).
 
-| Path | Contents |
-| --- | --- |
-| `docs/images/readme-*.png` | Final README-ready screenshots from the selected viewport. |
-| `scripts/e2e/screenshots/readme-candidates/` | Per-viewport candidates, manifest, storyboard, and optional FFmpeg helper. |
-| `scripts/e2e/screenshots/readme-candidates/readme-demo-storyboard.html` | HTML/CSS storyboard with subtle pan/zoom animation for reviewing a demo sequence. |
-| `scripts/e2e/screenshots/readme-candidates/make-readme-demo-video.ps1` | Optional FFmpeg command wrapper for creating an MP4 from the selected screenshots. |
+Browse the [interactive screenshot history](https://mattshelton04.github.io/TracePilot/visual/)
+for automated before/after comparisons of PRs and merges, with side-by-side,
+wipe, overlay, and highlighted pixel differences. See
+[how visual CI works](docs/visual-regression.md).
 
 ---
 
@@ -194,6 +206,7 @@ TracePilot/
 │   ├── client/                     # Typed TypeScript client for Tauri IPC
 │   ├── types/                      # Shared TypeScript models/config
 │   ├── ui/                         # Shared Vue components and renderers
+│   ├── test-utils/                 # Shared frontend test helpers
 │   └── config/                     # Shared TS config presets
 ├── docs/                           # Architecture, design, and developer docs
 └── scripts/                        # Build, release, validation, and E2E helpers
@@ -242,6 +255,7 @@ Common commands:
 | Rust tests | `cargo test --workspace --exclude tracepilot-desktop` |
 | Biome lint | `pnpm lint` |
 | Regenerate IPC bindings | `pnpm gen:bindings` |
+| Regenerate README screenshots | `node scripts/visual/capture.mjs --suite=readme --channel=msedge --docs` |
 | Check docs links | `node scripts/check-doc-links.mjs` |
 | Check file-size budgets | `node scripts/check-file-sizes.mjs` |
 
