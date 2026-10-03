@@ -215,11 +215,16 @@ behaviour, so no element may use that id.
 
 The tour starts wherever the page is. Its bar shows progress through the whole
 page with a tick per chapter; previous/next jump between chapter starts
-(previous first restarts the current chapter) and speed cycles 1×, 1.5×, 2×,
-0.5×. Wheel, touch, keys and clicks outside the pill stop it.
+(previous restarts the current chapter once it has shown for 3 s, otherwise
+goes back one) and speed cycles 1×, 1.5×, 2×, 0.5×. Wheel, touch, keys and
+clicks outside the pill stop it. It ends on the demo section with the "Now take
+the controls" heading in view (`demoIntroTop()`), not on the demo toolbar.
 
 Phone frames play when the whole frame is in view. A run cut short by
-scrolling away resets and replays on return. Replica steps whose panel is
+scrolling away resets and replays on return. Timed animations register in
+`motion/holds.js` while they run; the tour centres a held frame and waits for
+it (plus a beat) before scrolling on, since only the desktop scenes are
+scrubbed by scroll. Replica steps whose panel is
 taller than the window (`SCROLLED` in `replica/steps.js`) scroll the tabs to
 the top, both when played and in reduced-motion end states.
 

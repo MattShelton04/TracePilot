@@ -1,6 +1,7 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
 import { Replica } from "../replica/replica.js";
 import { $$, REDUCE } from "./env.js";
+import { holds } from "./holds.js";
 
 /* =========================================================
    Phone: one narrow live replica per scene (variant C)
@@ -44,12 +45,16 @@ export function initFrames() {
           build();
           if (finished) return;
           if (!st.isActive) {
+            holds.delete(frame);
             rp.setInstant(PREV[id]);
             return;
           }
+          holds.add(frame);
           const run = rp.run;
           await rp.runStep(id);
           finished = rp.run === run + 1; // nothing newer started: it ran to the end
+          // the tour lingers a beat on the result before moving on
+          if (finished) setTimeout(() => holds.delete(frame), 1500);
         },
       });
     }

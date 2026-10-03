@@ -1,3 +1,5 @@
+import { createReadStream, existsSync } from "node:fs";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { cspFor, fillPlaceholders, htmlFacts, inlineScriptHashes } from "./scripts/html-facts.mjs";
@@ -70,10 +72,28 @@ function preloadFonts() {
   };
 }
 
+/** Dev only: the pages link the repo-level brand SVGs as ../assets/, which the build resolves on
+    disk but the dev server can only see as the URL /assets/ inside its root; serve them there. */
+function brandAssets() {
+  const dir = here("../assets/");
+  return {
+    name: "tracepilot-brand-assets",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use("/assets/", (req, res, next) => {
+        const file = join(dir, basename(req.url.split("?")[0]));
+        if (!file.endsWith(".svg") || !existsSync(file)) return next();
+        res.setHeader("Content-Type", "image/svg+xml");
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
+
 export default defineConfig({
   // relative asset URLs: works under /TracePilot/ today and on a custom domain later
   base: "./",
-  plugins: [siteFacts(), preloadFonts()],
+  plugins: [siteFacts(), preloadFonts(), brandAssets()],
   build: {
     outDir: "dist",
     emptyOutDir: true,
