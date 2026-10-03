@@ -276,11 +276,11 @@ The shell renders deterministic chrome in every state — the inner tab body own
 
 ## 11.8 · Motion (cite §G5)
 
-All motion in this surface lives inside the §G5 budget: **120ms** for color/border (hover, focus, status-pill enter), **180ms** for tab switch (opacity cross-fade of the tab body, see `12-conversation-tab.md` for body-side details), **220ms** reserved for child-window pop-out flourish (the new window's own enter, not anything in the shell). Easing `cubic-bezier(0.2, 0.6, 0.2, 1)`. Properties `transform` and `opacity` only.
+All motion in this surface lives inside the §G5 budget: **120ms** for color/border (hover, focus, status-pill enter), **180ms** for tab switch (the shared `TabNav` underline slides to the new tab; the tab body swaps without a fade, because an opacity animation makes the body a stacking context that briefly hides the ambient background glow over its cards), **220ms** reserved for child-window pop-out flourish (the new window's own enter, not anything in the shell). Easing `cubic-bezier(0.2, 0.6, 0.2, 1)`. Properties `transform` and `opacity` only.
 
 **The header height MUST NOT change** when the running pill appears, when the refresh spinner overlays, when band 1c's metadata is appended, or when the tab badges resolve. Reserved-space rules in §11.7 enforce this. Any motion that would alter band 1's height (e.g. animating in the pill from 0×0 to 28×28) is forbidden — fade in `opacity` on the already-reserved 28px box.
 
-`prefers-reduced-motion`: the rotating `refresh-cw` and `loader-2` icons swap to a static state with the same color tone (no infinite animation, per G5). Tab-switch cross-fade caps at 80ms.
+`prefers-reduced-motion`: the rotating `refresh-cw` and `loader-2` icons swap to a static state with the same color tone (no infinite animation, per G5). The tab underline moves instantly.
 
 ---
 

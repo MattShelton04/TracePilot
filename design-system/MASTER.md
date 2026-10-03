@@ -344,6 +344,10 @@ These are the tokens defined in `packages/ui/src/styles/tokens.css`. **Always im
 --transition-normal: 180ms ease;
 --transition-slow: 280ms ease;
 
+/* Motion (§4.4) — prefer these for new code */
+--duration-fast: 120ms; --duration-normal: 180ms; --duration-slow: 220ms;
+--ease-out: cubic-bezier(0.2, 0.6, 0.2, 1);
+
 /* Shadows (use sparingly — overlays only) */
 --shadow-sm; --shadow-md; --shadow-lg;
 --shadow-glow-accent; --shadow-glow-success;

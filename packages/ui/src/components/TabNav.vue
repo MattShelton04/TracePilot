@@ -54,6 +54,29 @@ const focusedIndex = ref(0);
 const navRef = ref<HTMLElement | null>(null);
 const tabRefs = ref<HTMLButtonElement[]>([]);
 
+/**
+ * One shared underline slides between tabs instead of each tab drawing its
+ * own, so a tab change reads as movement from the previous tab. It is placed
+ * without animation on first render, resize and label/count changes.
+ */
+const showInk = computed(() => props.variant !== "pill");
+const inkStyle = ref<{ transform: string } | null>(null);
+const inkAnimated = ref(false);
+
+function placeInk(animate: boolean) {
+  const idx = props.tabs.findIndex((tab) => tab.routeName === activeTab.value);
+  const tab = idx >= 0 ? tabRefs.value[idx] : undefined;
+  if (!showInk.value || !tab?.isConnected || tab.offsetWidth === 0) {
+    inkStyle.value = null;
+    return;
+  }
+  inkAnimated.value = animate && inkStyle.value !== null;
+  // A 1px bar scaled to the tab's width keeps the motion transform-only.
+  inkStyle.value = {
+    transform: `translateX(${tab.offsetLeft}px) scaleX(${tab.offsetWidth})`,
+  };
+}
+
 function revealTab(index: number) {
   const nav = navRef.value;
   const tab = tabRefs.value[index];
@@ -71,7 +94,7 @@ function revealTab(index: number) {
 }
 
 function revealCurrentTab() {
-  const focused = tabRefs.value.findIndex((tab) => tab === document.activeElement);
+  const focused = tabRefs.value.indexOf(document.activeElement as HTMLButtonElement);
   revealTab(
     focused >= 0 ? focused : props.tabs.findIndex((tab) => tab.routeName === activeTab.value),
   );
@@ -79,11 +102,12 @@ function revealCurrentTab() {
 
 watch(
   activeTab,
-  async (name) => {
+  async (name, previous) => {
     const idx = props.tabs.findIndex((t) => t.routeName === name);
     if (idx >= 0) focusedIndex.value = idx;
     await nextTick();
     revealTab(idx);
+    placeInk(previous !== undefined);
   },
   { immediate: true },
 );
@@ -93,16 +117,26 @@ watch(
   async () => {
     await nextTick();
     revealCurrentTab();
+    observeTabs();
+    placeInk(false);
   },
   { deep: true },
 );
 
 let resizeObserver: ResizeObserver | undefined;
+function observeTabs() {
+  for (const tab of tabRefs.value) resizeObserver?.observe(tab);
+}
 onMounted(() => {
   if (navRef.value && typeof ResizeObserver !== "undefined") {
-    resizeObserver = new ResizeObserver(revealCurrentTab);
+    resizeObserver = new ResizeObserver(() => {
+      revealCurrentTab();
+      placeInk(false);
+    });
     resizeObserver.observe(navRef.value);
+    observeTabs();
   }
+  placeInk(false);
 });
 onBeforeUnmount(() => resizeObserver?.disconnect());
 
@@ -178,6 +212,14 @@ function handleKeydown(e: KeyboardEvent, index: number) {
       {{ tab.label }}
       <span v-if="tab.count != null" class="tab-count">{{ tab.count }}</span>
     </button>
+    <span
+      v-if="showInk && inkStyle"
+      class="tab-nav-ink"
+      :class="{ 'tab-nav-ink--animated': inkAnimated }"
+      :style="inkStyle"
+      aria-hidden="true"
+      data-testid="tab-nav-ink"
+    />
   </nav>
 </template>
 
@@ -203,6 +245,27 @@ function handleKeydown(e: KeyboardEvent, index: number) {
 }
 .tab-nav-item.active::after {
   bottom: 0;
+}
+
+/* The shared ink replaces each active tab's own underline. */
+.tab-nav-item.active:not(.tab-nav-item--pill) {
+  border-bottom-color: transparent;
+}
+.tab-nav-item.active:not(.tab-nav-item--pill)::after {
+  display: none;
+}
+.tab-nav-ink {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 2px;
+  background: var(--accent-emphasis);
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.tab-nav-ink--animated {
+  transition: transform var(--duration-normal, 180ms) var(--ease-out, ease-out);
 }
 
 /* ── Pill variant ─────────────────────────────────────────── */

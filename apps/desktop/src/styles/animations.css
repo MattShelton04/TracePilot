@@ -17,3 +17,25 @@
     transform: rotate(360deg);
   }
 }
+
+/* ============================
+   REDUCED MOTION
+   ============================ */
+
+/* Honour the OS setting app-wide (design-system/pages/00-globals.md §G5):
+   transitions finish immediately and infinite loops, including spinners, stop
+   on a static frame. 1ms keeps transitionend/animationend firing. */
+/* biome-ignore-start lint/complexity/noImportantStyles: the OS preference must beat component-level motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: the OS preference must beat component-level motion. */
