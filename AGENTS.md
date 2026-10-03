@@ -16,6 +16,8 @@ current when adding rich tools; keep one-off stress data and captures untracked.
 
 # Repository notes
 
+For site work, read [the landing-page guide](docs/landing-page.md) and run `pnpm site:check` after building.
+
 Keep session scratch files, logs, and one-off audit reports outside tracked
 source (or in an existing ignored agent area). Add a reusable script only when
 it has a clear purpose and a discoverable invocation in `scripts/README.md`.

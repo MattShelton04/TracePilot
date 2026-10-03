@@ -1,0 +1,127 @@
+name: Site
+
+# Builds and checks the landing page (site/) on PRs; on main it also publishes
+# it into the root of the gh-pages branch. See docs/landing-page.md.
+on:
+  pull_request:
+    branches: [main]
+    paths: &site-paths
+      - site/**
+      - scripts/site/**
+      - scripts/visual/showcase/**
+      - packages/types/src/**
+      - packages/ui/src/styles/tokens.css
+      - assets/**
+      - perf-budget.json
+      - .github/workflows/site.yml
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - package.json
+  push:
+    branches: [main]
+    paths: *site-paths
+  # Release publishes with GITHUB_TOKEN, which never triggers `release: published`
+  # elsewhere; rebuild when it finishes so the version and installer link update.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.revision.outputs.sha }}
+    concurrency:
+      group: site-build-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Record the build revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/setup-node-pnpm
+
+      - name: Install Chromium for the site checks
+        run: pnpm --filter @tracepilot/site exec playwright install --with-deps chromium
+
+      - name: Build (showcase data, latest release, Vite)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pnpm site:build
+
+      - name: Unit tests
+        run: |
+          pnpm --filter @tracepilot/site test
+          node --test scripts/site/*.test.mjs
+
+      - name: Browser checks and size budget
+        run: pnpm site:check
+
+      - name: Upload site build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: site-dist
+          path: site/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload check screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: site-check-screenshots
+          path: site/.check/
+          if-no-files-found: warn
+          retention-days: 14
+
+  deploy:
+    needs: build
+    # main only: pushes, manual runs and successful releases. PR code never
+    # reaches this job; it publishes the artifact built from main above.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pages: write
+    # Same group as visual-report.yml: gh-pages pushes are serialised.
+    concurrency:
+      group: visual-gallery-publish
+      queue: max
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+
+      - name: Download site build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: site-dist
+          path: site/dist
+
+      - name: Verify the publisher
+        run: node --test scripts/site/*.test.mjs
+
+      - name: Publish into the gh-pages root
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ needs.build.outputs.sha }}
+        run: node scripts/site/publish.mjs --dist site/dist

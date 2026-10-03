@@ -61,7 +61,10 @@ const pkgFiles = gitFiles()
   .filter(
     (f) =>
       !f.includes("/node_modules/") &&
-      (f === "package.json" || f.startsWith("apps/") || f.startsWith("packages/")),
+      (f === "package.json" ||
+        f.startsWith("apps/") ||
+        f.startsWith("packages/") ||
+        f.startsWith("site/")),
   );
 
 const HARD_FIELDS = ["dependencies", "devDependencies"];
