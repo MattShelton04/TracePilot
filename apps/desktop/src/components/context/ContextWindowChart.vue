@@ -593,7 +593,9 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
           />
         </g>
 
-        <polygon v-for="layer in layerPolygons" :key="layer.key" :points="layer.points" :fill="layer.color" class="context-chart__area" />
+        <g data-reveal="wipe">
+          <polygon v-for="layer in layerPolygons" :key="layer.key" :points="layer.points" :fill="layer.color" class="context-chart__area" />
+        </g>
 
         <g v-for="line in thresholdLines" :key="line.kind">
           <line :x1="margin.left" :x2="width - margin.right" :y1="y(line.value)" :y2="y(line.value)" :class="['context-chart__threshold', `context-chart__threshold--${line.kind}`]" />

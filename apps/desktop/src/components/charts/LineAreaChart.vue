@@ -51,29 +51,31 @@ defineEmits<{
       </linearGradient>
     </template>
 
-    <!-- Area fill -->
-    <polygon :points="chartData.areaPoints" :fill="`url(#${chartId}-area-grad)`" />
+    <g data-reveal="wipe">
+      <!-- Area fill -->
+      <polygon :points="chartData.areaPoints" :fill="`url(#${chartId}-area-grad)`" />
 
-    <!-- Line -->
-    <polyline
-      :points="chartData.linePoints"
-      fill="none"
-      :stroke="color"
-      stroke-width="2"
-      stroke-linejoin="round"
-      stroke-linecap="round"
-    />
+      <!-- Line -->
+      <polyline
+        :points="chartData.linePoints"
+        fill="none"
+        :stroke="color"
+        stroke-width="2"
+        stroke-linejoin="round"
+        stroke-linecap="round"
+      />
 
-    <!-- Data dots -->
-    <circle
-      v-for="(c, ci) in chartData.coords"
-      :key="`${chartId}-d-${ci}`"
-      :cx="c.x"
-      :cy="c.y"
-      :r="ci === chartData.coords.length - 1 ? 3.5 : 3"
-      :fill="ci === chartData.coords.length - 1 ? (colorLight ?? color) : color"
-      class="chart-dot"
-    />
+      <!-- Data dots -->
+      <circle
+        v-for="(c, ci) in chartData.coords"
+        :key="`${chartId}-d-${ci}`"
+        :cx="c.x"
+        :cy="c.y"
+        :r="ci === chartData.coords.length - 1 ? 3.5 : 3"
+        :fill="ci === chartData.coords.length - 1 ? (colorLight ?? color) : color"
+        class="chart-dot"
+      />
+    </g>
 
     <!-- Highlight ring on active point -->
     <circle

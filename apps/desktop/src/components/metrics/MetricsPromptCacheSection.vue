@@ -264,6 +264,7 @@ function rowCredits(window: CacheWindow) {
                     >
                       <div
                         class="prompt-cache__meter-fill"
+                        data-reveal="grow-x"
                         :class="`prompt-cache__meter-fill--${window.outcome}`"
                         :style="{ width: `${(meterPercent(window) ?? 0) * 100}%` }"
                       />

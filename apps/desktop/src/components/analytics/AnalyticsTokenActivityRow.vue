@@ -105,18 +105,20 @@ const activityChart = computed(() => {
             <stop offset="100%" :stop-color="CHART_COLORS.primary" />
           </linearGradient>
         </template>
-        <rect
-          v-for="(bar, bi) in activityChart.bars"
-          :key="`sb-${bi}`"
-          :x="bar.x"
-          :y="bar.y"
-          :width="bar.width"
-          :height="bar.height"
-          rx="3"
-          fill="url(#sessionBarGrad)"
-          class="chart-bar"
-          :class="{ 'chart-bar--active': tooltip.chartId === 'activity' && tooltip.highlightIndex === bi }"
-        />
+        <g data-reveal="grow-y">
+          <rect
+            v-for="(bar, bi) in activityChart.bars"
+            :key="`sb-${bi}`"
+            :x="bar.x"
+            :y="bar.y"
+            :width="bar.width"
+            :height="bar.height"
+            rx="3"
+            fill="url(#sessionBarGrad)"
+            class="chart-bar"
+            :class="{ 'chart-bar--active': tooltip.chartId === 'activity' && tooltip.highlightIndex === bi }"
+          />
+        </g>
       </ChartFrame>
     </SectionPanel>
   </div>

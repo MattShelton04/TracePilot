@@ -12,7 +12,8 @@ defineProps<{
     <div class="token-bar-label">{{ label }}</div>
     <div class="token-bar-track">
       <div 
-        class="token-bar-fill" 
+        class="token-bar-fill"
+        data-reveal="grow-x"
         :style="{ 
           width: `${Math.min(percentage, 100)}%`,
           background: color || 'var(--accent-emphasis)',

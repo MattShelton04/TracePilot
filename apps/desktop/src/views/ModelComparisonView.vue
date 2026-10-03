@@ -1,17 +1,26 @@
 <script setup lang="ts">
 import { EmptyState, ErrorState, LoadingOverlay, PageShell } from "@tracepilot/ui";
 import { Bot } from "lucide-vue-next";
-import { provide } from "vue";
+import { provide, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import ModelCharts from "@/components/modelComparison/ModelCharts.vue";
 import ModelCompareTable from "@/components/modelComparison/ModelCompareTable.vue";
 import ModelLeaderboard from "@/components/modelComparison/ModelLeaderboard.vue";
 import ModelStatsGrid from "@/components/modelComparison/ModelStatsGrid.vue";
+import { useFirstReveal } from "@/composables/useFirstReveal";
 import { ModelComparisonKey, useModelComparison } from "@/composables/useModelComparison";
 import "@/styles/features/model-comparison.css";
 
 const ctx = useModelComparison();
 provide(ModelComparisonKey, ctx);
+
+const contentRoot = ref<HTMLElement | null>(null);
+const { revealing } = useFirstReveal({
+  key: "models",
+  ready: () => !ctx.loading && !!ctx.data && ctx.modelRows.length > 0,
+  root: contentRoot,
+  countUpSelector: ".stat-card-value, .model-card-stat-value",
+});
 </script>
 
 <template>
@@ -38,12 +47,12 @@ provide(ModelComparisonKey, ctx);
             </template>
           </EmptyState>
 
-          <template v-else>
+          <div v-else ref="contentRoot" :class="{ 'chart-reveal': revealing }">
             <ModelStatsGrid />
             <ModelLeaderboard />
             <ModelCharts />
             <ModelCompareTable />
-          </template>
+          </div>
         </template>
       </LoadingOverlay>
     </div>

@@ -197,6 +197,11 @@ Never remove `:focus-visible` — only override when replacing with an equivalen
 - Decorative auto-play loops (`pulse-glow`, `fadeInUp` cascade, `drift-motion` skew).
 - `animation: ... infinite` outside indeterminate-progress contexts.
 
+### First-appearance data reveals (exception)
+Charts and headline numbers on Analytics, Tools, Code, Models and the session Context/Metrics tabs may reveal once, the first time their data appears in an app run (`useFirstReveal`). They never replay on revisits, refreshes or filter changes. Lines and areas draw left to right, bars grow from their baseline, donut arcs sweep, and aggregate-page numbers count up from zero to their formatted value. A reveal takes **500ms** (count-ups 600ms) and never blocks interaction.
+- Opt in with `data-reveal` (`wipe`, `grow-y`, `grow-x`, `grow-x-view`, `arc`, `sweep`, `scale-view`, `pop`). The animations live in `apps/desktop/src/styles/animations.css`.
+- Animate inside SVGs or on small bar fills only. **Never fade or transform whole panels, cards or tab bodies:** opacity and transform make an element a stacking context, which paints it over the ambient background glow until the animation ends, and the glow then visibly pops back.
+
 ### `prefers-reduced-motion`
 Wrap every animation:
 ```css

@@ -7,7 +7,7 @@ import {
   PageShell,
   useChartTooltip,
 } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import AnalyticsAgentsPanel from "@/components/analytics/AnalyticsAgentsPanel.vue";
 import AnalyticsCacheHealthRow from "@/components/analytics/AnalyticsCacheHealthRow.vue";
@@ -18,6 +18,7 @@ import AnalyticsSkillsPanel from "@/components/analytics/AnalyticsSkillsPanel.vu
 import AnalyticsStatsGrids from "@/components/analytics/AnalyticsStatsGrids.vue";
 import AnalyticsTokenActivityRow from "@/components/analytics/AnalyticsTokenActivityRow.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
+import { useFirstReveal } from "@/composables/useFirstReveal";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -35,6 +36,14 @@ const { store } = useAnalyticsPage("fetchAnalytics");
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);
+
+const contentRoot = ref<HTMLElement | null>(null);
+const { revealing } = useFirstReveal({
+  key: "analytics",
+  ready: () => !loading.value && !!data.value,
+  root: contentRoot,
+  countUpSelector: ".stat-card-value, .metric-value, [data-count-up]",
+});
 
 const pageSubtitle = computed(() => {
   const allPrefix = store.selectedRepo ? "" : "all ";
@@ -81,7 +90,7 @@ const timeRangeLabel = computed(() => {
     <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
     <LoadingOverlay :loading="loading" message="Loading analytics…">
       <ErrorState v-if="store.analyticsError" heading="Failed to load analytics" :message="store.analyticsError" @retry="store.fetchAnalytics({ force: true })" />
-      <template v-else-if="data">
+      <div v-else-if="data" ref="contentRoot" :class="{ 'chart-reveal': revealing }">
         <AnalyticsStatsGrids
           :data="data"
           :ai-credit-summary="aiCreditSummary"
@@ -118,7 +127,7 @@ const timeRangeLabel = computed(() => {
           :on-chart-click="onChartClick"
           :dismiss-tooltip="dismissTooltip"
         />
-      </template>
+      </div>
     </LoadingOverlay>
   </PageShell>
 </template>

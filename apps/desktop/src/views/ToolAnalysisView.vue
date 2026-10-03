@@ -2,18 +2,27 @@
 import type { ToolUsageEntry } from "@tracepilot/types";
 import { formatDuration, formatNumberFull, formatRate } from "@tracepilot/types";
 import { ErrorState, LoadingOverlay, PageShell, StatCard } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import ToolFrequencyList from "@/components/toolAnalysis/ToolFrequencyList.vue";
 import ToolSuccessFailureChart from "@/components/toolAnalysis/ToolSuccessFailureChart.vue";
 import ToolUsageHeatmap from "@/components/toolAnalysis/ToolUsageHeatmap.vue";
 import ToolUsageList from "@/components/toolAnalysis/ToolUsageList.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
+import { useFirstReveal } from "@/composables/useFirstReveal";
 
 const { store } = useAnalyticsPage("fetchToolAnalysis");
 
 const loading = computed(() => store.toolAnalysisLoading);
 const data = computed(() => store.toolAnalysis);
+
+const contentRoot = ref<HTMLElement | null>(null);
+const { revealing } = useFirstReveal({
+  key: "tools",
+  ready: () => !loading.value && !!data.value,
+  root: contentRoot,
+  countUpSelector: ".stat-card-value",
+});
 
 const pageSubtitle = computed(() => {
   const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
@@ -43,7 +52,7 @@ const maxInvocations = computed(() => {
         :message="store.toolAnalysisError"
         @retry="store.fetchToolAnalysis({ force: true })"
       />
-      <template v-else-if="data">
+      <div v-else-if="data" ref="contentRoot" :class="{ 'chart-reveal': revealing }">
         <div class="grid-4 mb-4">
           <StatCard :value="formatNumberFull(data.totalCalls)" label="Total Tool Calls" />
           <StatCard :value="uniqueToolCount" label="Unique Tools" color="done" />
@@ -59,7 +68,7 @@ const maxInvocations = computed(() => {
         </div>
 
         <ToolUsageHeatmap :entries="data.activityHeatmap" />
-      </template>
+      </div>
     </LoadingOverlay>
   </PageShell>
 </template>

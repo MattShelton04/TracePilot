@@ -27,7 +27,7 @@ defineProps<{
             <td>
               <div class="tabular-nums">{{ formatRate(tool.successRate) }}</div>
               <div class="progress-bar tool-usage-list__success-bar">
-                <div class="progress-bar-fill" :style="{ width: formatRate(tool.successRate) }" />
+                <div class="progress-bar-fill" data-reveal="grow-x" :style="{ width: formatRate(tool.successRate) }" />
               </div>
             </td>
             <td class="tabular-nums">{{ formatDuration(tool.avgDurationMs) }}</td>

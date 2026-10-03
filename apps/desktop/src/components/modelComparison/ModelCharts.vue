@@ -67,27 +67,29 @@ const ctx = useModelComparisonContext();
               fill="var(--text-tertiary)"
               font-family="Inter, sans-serif"
             >{{ label }}</text>
-            <!-- Model polygons -->
-            <polygon
-              v-for="rm in ctx.radarModels"
-              :key="`poly-${rm.model}`"
-              :points="ctx.radarPolygon(ctx.radarValues(rm))"
-              :fill="rm.color"
-              fill-opacity="0.12"
-              :stroke="rm.color"
-              stroke-width="1.5"
-            />
-            <!-- Model dots -->
-            <template v-for="rm in ctx.radarModels" :key="`dots-${rm.model}`">
-              <circle
-                v-for="(v, vi) in ctx.radarValues(rm)"
-                :key="`dot-${rm.model}-${vi}`"
-                :cx="ctx.radarPoint(vi, v).x"
-                :cy="ctx.radarPoint(vi, v).y"
-                r="3"
+            <g data-reveal="scale-view" :style="{ '--reveal-origin': `${RADAR_CX}px ${RADAR_CY}px` }">
+              <!-- Model polygons -->
+              <polygon
+                v-for="rm in ctx.radarModels"
+                :key="`poly-${rm.model}`"
+                :points="ctx.radarPolygon(ctx.radarValues(rm))"
                 :fill="rm.color"
+                fill-opacity="0.12"
+                :stroke="rm.color"
+                stroke-width="1.5"
               />
-            </template>
+              <!-- Model dots -->
+              <template v-for="rm in ctx.radarModels" :key="`dots-${rm.model}`">
+                <circle
+                  v-for="(v, vi) in ctx.radarValues(rm)"
+                  :key="`dot-${rm.model}-${vi}`"
+                  :cx="ctx.radarPoint(vi, v).x"
+                  :cy="ctx.radarPoint(vi, v).y"
+                  r="3"
+                  :fill="rm.color"
+                />
+              </template>
+            </g>
           </svg>
         </template>
       </div>
@@ -204,6 +206,7 @@ const ctx = useModelComparisonContext();
                 :r="ctx.scatterRadius(row.cacheHitRate)"
                 :fill="row.color"
                 fill-opacity="0.6"
+                data-reveal="pop"
                 :stroke="row.color"
                 stroke-width="1.5"
               >

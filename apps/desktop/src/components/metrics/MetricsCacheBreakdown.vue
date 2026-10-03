@@ -26,7 +26,7 @@ const format = (value: number | null) => (value == null ? "—" : formatNumber(v
       <Tooltip text="The percentage of input tokens served from the prompt cache, weighted by token count. The remainder was not served from cache. This measures reuse, not a percentage of money or time saved."><button type="button" aria-label="About cache metrics" class="text-[var(--text-tertiary)]"><Info :size="14" /></button></Tooltip>
     </template>
     <div class="cache-section">
-      <div class="cache-gauge" :role="breakdown.cacheRatio != null ? 'meter' : undefined" aria-label="Input served from cache" :aria-valuenow="breakdown.cacheRatio != null ? cachePercent : undefined" :aria-valuemin="0" :aria-valuemax="100">
+      <div class="cache-gauge" data-reveal="sweep" :role="breakdown.cacheRatio != null ? 'meter' : undefined" aria-label="Input served from cache" :aria-valuenow="breakdown.cacheRatio != null ? cachePercent : undefined" :aria-valuemin="0" :aria-valuemax="100">
         <strong>{{ breakdown.cacheRatio != null ? `${cachePercent.toFixed(1)}%` : '—' }}</strong>
         <span>cache read</span>
       </div>
@@ -38,7 +38,7 @@ const format = (value: number | null) => (value == null ? "—" : formatNumber(v
           </div>
         </div>
         <div v-if="breakdown.cacheRatio != null" class="cache-track mt-4" aria-hidden="true">
-          <div :style="{ width: `${cachePercent}%` }" />
+          <div data-reveal="grow-x" :style="{ width: `${cachePercent}%` }" />
         </div>
         <div class="text-xs text-[var(--text-tertiary)] mt-2">{{ format(breakdown.input) }} input tokens</div>
       </div>
@@ -53,7 +53,7 @@ const format = (value: number | null) => (value == null ? "—" : formatNumber(v
   width: 104px; height: 104px; flex-shrink: 0; border-radius: 50%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: radial-gradient(circle at center, var(--canvas-overlay) 0 62%, transparent 63%),
-    conic-gradient(var(--success-fg) 0 calc(v-bind(cachePercent) * 1%), var(--canvas-inset) 0 100%);
+    conic-gradient(var(--success-fg) 0 calc(v-bind(cachePercent) * var(--reveal-progress, 1) * 1%), var(--canvas-inset) 0 100%);
   font-variant-numeric: tabular-nums;
 }
 .cache-gauge strong { font-size: 1.25rem; color: var(--text-primary); }

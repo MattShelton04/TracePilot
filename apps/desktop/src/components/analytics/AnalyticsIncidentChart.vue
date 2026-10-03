@@ -48,51 +48,53 @@ const {
       @click="onChartClick($event, incidentChart.bars, (i) => formatIncidentTooltip(incidentChart!.bars[i]), 'incidents', '.chart-frame')"
       @dismiss-tooltip="dismissTooltip"
     >
-      <g v-for="(bar, i) in incidentChart.bars" :key="`ib-${i}`">
-        <rect
-          v-if="bar.truncRect.h > 0.5"
-          :x="bar.x - incidentChart.barW / 2"
-          :y="bar.truncRect.y"
-          :width="incidentChart.barW"
-          :height="bar.truncRect.h"
-          fill="var(--text-tertiary)"
-          rx="1"
-          class="chart-bar"
-          :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
-        />
-        <rect
-          v-if="bar.compRect.h > 0.5"
-          :x="bar.x - incidentChart.barW / 2"
-          :y="bar.compRect.y"
-          :width="incidentChart.barW"
-          :height="bar.compRect.h"
-          fill="var(--chart-secondary)"
-          rx="1"
-          class="chart-bar"
-          :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
-        />
-        <rect
-          v-if="bar.otherRect.h > 0.5"
-          :x="bar.x - incidentChart.barW / 2"
-          :y="bar.otherRect.y"
-          :width="incidentChart.barW"
-          :height="bar.otherRect.h"
-          fill="var(--danger-fg)"
-          rx="1"
-          class="chart-bar"
-          :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
-        />
-        <rect
-          v-if="bar.rlRect.h > 0.5"
-          :x="bar.x - incidentChart.barW / 2"
-          :y="bar.rlRect.y"
-          :width="incidentChart.barW"
-          :height="bar.rlRect.h"
-          fill="var(--warning-fg)"
-          rx="1"
-          class="chart-bar"
-          :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
-        />
+      <g data-reveal="grow-y">
+        <g v-for="(bar, i) in incidentChart.bars" :key="`ib-${i}`">
+          <rect
+            v-if="bar.truncRect.h > 0.5"
+            :x="bar.x - incidentChart.barW / 2"
+            :y="bar.truncRect.y"
+            :width="incidentChart.barW"
+            :height="bar.truncRect.h"
+            fill="var(--text-tertiary)"
+            rx="1"
+            class="chart-bar"
+            :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
+          />
+          <rect
+            v-if="bar.compRect.h > 0.5"
+            :x="bar.x - incidentChart.barW / 2"
+            :y="bar.compRect.y"
+            :width="incidentChart.barW"
+            :height="bar.compRect.h"
+            fill="var(--chart-secondary)"
+            rx="1"
+            class="chart-bar"
+            :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
+          />
+          <rect
+            v-if="bar.otherRect.h > 0.5"
+            :x="bar.x - incidentChart.barW / 2"
+            :y="bar.otherRect.y"
+            :width="incidentChart.barW"
+            :height="bar.otherRect.h"
+            fill="var(--danger-fg)"
+            rx="1"
+            class="chart-bar"
+            :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
+          />
+          <rect
+            v-if="bar.rlRect.h > 0.5"
+            :x="bar.x - incidentChart.barW / 2"
+            :y="bar.rlRect.y"
+            :width="incidentChart.barW"
+            :height="bar.rlRect.h"
+            fill="var(--warning-fg)"
+            rx="1"
+            class="chart-bar"
+            :class="{ 'chart-bar--active': tooltip.chartId === 'incidents' && tooltip.highlightIndex === i }"
+          />
+        </g>
       </g>
 
       <template #footer>

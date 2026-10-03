@@ -138,10 +138,11 @@ const tooltipFormatter = (i: number) => {
             :stroke-dashoffset="seg.offset"
             transform="rotate(-90 80 80)"
             class="donut-segment"
+            data-reveal="arc"
             @mouseenter="hoveredDonut = si"
             @mouseleave="hoveredDonut = null"
           />
-          <text x="80" y="76" text-anchor="middle" font-size="20" font-weight="700" fill="currentColor" class="donut-center-value">
+          <text x="80" y="76" text-anchor="middle" font-size="20" font-weight="700" fill="currentColor" class="donut-center-value" data-count-up>
             {{ activeDonutSegment ? formatNumber(activeDonutSegment.tokens) : formatNumber(data.totalTokens) }}
           </text>
           <text x="80" y="92" text-anchor="middle" font-size="9" fill="currentColor" class="donut-center-label">

@@ -21,6 +21,7 @@ import {
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import UsageStackedBar, { type StackedSegment } from "@/components/usage/UsageStackedBar.vue";
+import { useFirstReveal } from "@/composables/useFirstReveal";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useAnalyticsStore } from "@/stores/analytics";
@@ -30,6 +31,14 @@ const store = useAnalyticsStore();
 const router = useRouter();
 
 const summary = ref<AgentUsageSummary | null>(null);
+const panelRoot = ref<HTMLElement | null>(null);
+// The panel loads its own data, usually after the dashboard's reveal window.
+const { revealing } = useFirstReveal({
+  key: "analytics:agents",
+  ready: () => (summary.value?.totalRuns ?? 0) > 0,
+  root: panelRoot,
+  countUpSelector: ".agents-panel__value",
+});
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -139,7 +148,12 @@ function openAgents(search?: string) {
     <p v-if="error" class="agents-panel__note" role="alert">{{ error }}</p>
     <p v-else-if="loading" class="agents-panel__note" role="status">Loading agent runs…</p>
 
-    <div v-else-if="summary && summary.totalRuns > 0" class="agents-panel">
+    <div
+      v-else-if="summary && summary.totalRuns > 0"
+      ref="panelRoot"
+      class="agents-panel"
+      :class="{ 'chart-reveal': revealing }"
+    >
       <div class="agents-panel__metrics">
         <div v-for="metric in metrics" :key="metric.key" class="agents-panel__metric">
           <span class="agents-panel__value" :class="{ 'agents-panel__value--accent': metric.accent }">
@@ -165,6 +179,7 @@ function openAgents(search?: string) {
               <span class="agents-panel__track" aria-hidden="true">
                 <span
                   class="agents-panel__fill"
+                  data-reveal="grow-x"
                   :class="{ 'agents-panel__fill--warning': agent.failing }"
                   :style="{ width: agent.width }"
                 />

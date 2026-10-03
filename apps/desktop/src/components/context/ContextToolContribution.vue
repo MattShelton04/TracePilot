@@ -75,7 +75,7 @@ function toolCallSummary(item: ContextToolCallContribution): string {
               <span> {{ formatNumber(item.totalTokens) }} · {{ item.percentage.toFixed(1) }}% </span>
             </div>
             <div class="context-tab__bar">
-              <span :style="{ width: `${Math.max(item.percentage, 1)}%` }" />
+              <span data-reveal="grow-x" :style="{ width: `${Math.max(item.percentage, 1)}%` }" />
             </div>
             <small class="context-tab__tool-split">
               {{ formatNumber(item.argumentTokens) }} arguments ·
@@ -106,6 +106,7 @@ function toolCallSummary(item: ContextToolCallContribution): string {
             <span class="context-tab__ranked-tool-summary">{{ toolCallSummary(item) }}</span>
             <span class="context-tab__ranked-tool-bar">
               <span
+                data-reveal="grow-x"
                 :style="{
                   width: `${Math.max((item.totalTokens / maxToolCallTokens) * 100, 2)}%`,
                 }"
