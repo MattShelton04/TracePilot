@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src &#39;self&#39;; script-src &#39;self&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; data:; font-src &#39;self&#39;; connect-src &#39;none&#39;; object-src &#39;none&#39;; base-uri &#39;self&#39;; form-action &#39;none&#39;">
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TracePilot: inspect, search and launch GitHub Copilot CLI sessions</title>
+<meta name="description" content="TracePilot is a local-first desktop app for inspecting, searching and launching GitHub Copilot CLI sessions: every turn, subagent, tool call and token, on your machine.">
+<meta name="theme-color" content="#09090b">
+<link rel="canonical" href="https://mattshelton04.github.io/TracePilot/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TracePilot">
+<meta property="og:title" content="TracePilot: see everything your agents did">
+<meta property="og:description" content="Inspect, search and launch GitHub Copilot CLI sessions: every turn, subagent, tool call and token, on your machine.">
+<meta property="og:url" content="https://mattshelton04.github.io/TracePilot/">
+<meta property="og:image" content="https://mattshelton04.github.io/TracePilot/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="TracePilot: see everything your agents did.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TracePilot: see everything your agents did">
+<meta name="twitter:description" content="Inspect, search and launch GitHub Copilot CLI sessions, on your machine.">
+<meta name="twitter:image" content="https://mattshelton04.github.io/TracePilot/og.png">
+<link rel="icon" href="./assets/logo-dlQnh7Ok.svg" type="image/svg+xml">
+  <script type="module" crossorigin src="./assets/main--ZJPBsAp.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/replica-BITnjVif.js">
+  <link rel="stylesheet" crossorigin href="./assets/main-Ds7cQEGS.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top" aria-label="TracePilot home">
+      <img src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%20fill='none'%3e%3cpolygon%20points='32,2%2059,17%2059,47%2032,62%205,47%205,17'%20stroke='%236366f1'%20stroke-width='2.5'%20stroke-linejoin='round'%20fill='none'/%3e%3cpolygon%20points='32,7%2054,20%2054,44%2032,57%2010,44%2010,20'%20fill='%236366f1'%20opacity='0.07'/%3e%3cpath%20d='M15%2032c0%200%207.5-11%2017-11s17%2011%2017%2011-7.5%2011-17%2011-17-11-17-11z'%20stroke='%234f46e5'%20stroke-width='2'%20stroke-linejoin='round'%20fill='none'/%3e%3ccircle%20cx='32'%20cy='32'%20r='6.5'%20stroke='%236366f1'%20stroke-width='2'%20fill='none'/%3e%3ccircle%20cx='32'%20cy='32'%20r='2.5'%20fill='%234f46e5'/%3e%3ccircle%20cx='34.5'%20cy='30'%20r='1'%20fill='%23818cf8'/%3e%3c/svg%3e" alt="" width="26" height="26">
+      <span>TracePilot</span>
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#open">Sessions</a>
+      <a href="#conversation">Agents</a>
+      <a href="#context">Context</a>
+      <a href="#more">Features</a>
+      <a href="#demo">Live demo</a>
+      <a href="#privacy">Privacy</a>
+    </nav>
+    <div class="nav-cta">
+      <button class="nav-tour" type="button" data-tour aria-label="Play the guided tour">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><polygon points="7 4 19 12 7 20 7 4"/></svg><span>Tour</span>
+      </button>
+      <a class="nav-gh" href="https://github.com/MattShelton04/TracePilot" aria-label="TracePilot on GitHub">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+        <span>GitHub</span>
+      </a>
+      <a class="btn btn-sm btn-primary" href="https://github.com/MattShelton04/TracePilot/releases/download/v0.9.0/TracePilot_0.9.0_x64-setup.exe">Download</a>
+    </div>
+  </div>
+  <div class="nav-progress" aria-hidden="true"><span id="navProgress"></span></div>
+</header>
+
+<!-- The signal rail: six agent-coloured traces down the left margin (desktop) -->
+<div class="sig-rail" id="rail" aria-hidden="true">
+  <i style="--c:#fbbf24"><b></b></i><i style="--c:#fde047"><b></b></i><i style="--c:#a78bfa"><b></b></i><i style="--c:#f472b6"><b></b></i><i style="--c:#22d3ee"><b></b></i><i style="--c:#6366f1"><b></b></i>
+</div>
+
+<main id="main">
+
+  <!-- ===== 1. Hero + Open any session (one pinned scene) ===== -->
+  <section class="scene scene-open" id="open" aria-labelledby="hero-title">
+    <span id="top" class="anchor"></span>
+    <canvas class="hero-field" id="heroField" aria-hidden="true"></canvas>
+    <canvas class="hero-pulses" id="heroPulses" aria-hidden="true"></canvas>
+    <div class="hero-copy" id="heroCopy">
+      <div class="hero-eye" id="heroEye" aria-hidden="true">
+        <svg aria-hidden="true" class="eye-svg" viewBox="-200 -200 400 400">
+          <g class="dial"></g>
+          <g class="eye-core">
+            <polygon class="hex" points="0,-120 104,-60 104,60 0,120 -104,60 -104,-60"/>
+            <polygon class="hex-fill" points="0,-106 91,-53 91,53 0,106 -91,53 -91,-53"/>
+            <g class="lid">
+              <path class="almond" d="M-72 0c0 0 32-48 72-48s72 48 72 48-32 48-72 48-72-48-72-48z"/>
+              <circle class="iris" r="27"/>
+              <circle class="pupil" r="10.5"/>
+              <circle class="glint" cx="10.5" cy="-8.4" r="3.6"/>
+            </g>
+          </g>
+        </svg>
+        <div class="callout c1"><span class="k">Reads</span><span class="v">~/.copilot/session-state</span></div>
+        <div class="callout c2"><span class="k">Indexes</span><span class="v">Rust · SQLite FTS5</span></div>
+      </div>
+      <p class="eyebrow hero-eyebrow"><span class="mono">v0.9.0</span> · for GitHub Copilot CLI</p>
+      <h1 id="hero-title" class="hero-title">
+        <span class="line"><span>See everything</span></span>
+        <span class="line"><span><em class="grad">your agents</em> did.</span></span>
+      </h1>
+      <p class="hero-sub">TracePilot reads the session state Copilot CLI already writes to disk and turns it into something you can read, search, measure and act on. On your machine.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://github.com/MattShelton04/TracePilot/releases/download/v0.9.0/TracePilot_0.9.0_x64-setup.exe">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Download for Windows
+        </a>
+        <button class="btn btn-ghost btn-tour" type="button" data-tour>
+          <span class="play-dot" aria-hidden="true"><svg aria-hidden="true" viewBox="0 0 24 24"><polygon points="8 5 19 12 8 19 8 5"/></svg></span>
+          Watch the tour
+        </button>
+      </div>
+      <p class="hero-meta"><a href="https://github.com/MattShelton04/TracePilot">Open source on GitHub</a><span aria-hidden="true">·</span><span>GPL-3.0</span><span aria-hidden="true">·</span><button class="copy-chip" type="button" data-copy="pnpm start" aria-label="Copy build-from-source command: pnpm start"><code>pnpm start</code><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button></p>
+    </div>
+
+    <div class="scene-copy">
+      <div class="scene-head">
+        <p class="eyebrow"><span class="mono">01</span> Session library</p>
+        <h2>Open any session.</h2>
+      </div>
+      <div class="beats">
+        <p class="beat">Your whole Copilot CLI history, indexed: 372 sessions across every repo, branch and model.</p>
+        <p class="beat">Open one and the full story is there: turns, events, todos, checkpoints, context and cost.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <p class="sr-only">Illustration: the TracePilot session library. A pointer opens the "Add Apple Pay to checkout" session and the card expands into its detail view with Overview, Conversation, Events, Todos, Metrics, Context, Explorer and Timeline tabs.</p>
+      <div class="win" id="winOpen" aria-hidden="true"></div>
+      <div class="m-frame" data-mstep="open" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ===== 2. Conversation ===== -->
+  <section class="scene" id="conversation" aria-labelledby="conv-title">
+    <svg class="sig-branch" aria-hidden="true"></svg>
+    <div class="scene-copy">
+      <div class="scene-head">
+        <p class="eyebrow"><span class="mono">02</span> Conversation</p>
+        <h2 id="conv-title">Three agents. One turn.</h2>
+      </div>
+      <div class="beats">
+        <p class="beat">Every prompt, reply and tool call, in order, with the agent that made it.</p>
+        <p class="beat">Parallel subagents fan out in their own colours, each with its model, token count and runtime.</p>
+        <p class="beat">Follow-ups and read-backs land where they happened. You can see who finished first.</p>
+        <p class="beat">Tool calls open into rich renderers: diffs, test output, file views.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <p class="sr-only">Illustration: the Conversation tab. Copilot launches three subagents in parallel (code review, Playwright coverage, Safari support check), sends one follow-up, reads each result back, and then applies a fix shown as a diff.</p>
+      <div class="win" id="winConvo" aria-hidden="true"></div>
+      <div class="m-frame" data-mstep="conversation" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ===== 3. Agents: tree to messages ===== -->
+  <section class="scene" id="agents" aria-labelledby="agents-title">
+    <svg class="sig-branch" aria-hidden="true"></svg>
+    <div class="scene-copy">
+      <div class="scene-head">
+        <p class="eyebrow"><span class="mono">03</span> Timeline</p>
+        <h2 id="agents-title">Watch the agents talk.</h2>
+      </div>
+      <div class="beats">
+        <p class="beat">Who launched whom, on which model, for how long: the agent tree for every turn.</p>
+        <p class="beat">Switch to Messages and the same turn becomes a sequence diagram, in timestamp order.</p>
+        <p class="beat">Launch prompts, follow-ups, peer messages and read-backs, each with its own line.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <p class="sr-only">Illustration: the Timeline tab. An agent tree with a main agent and three parallel children transforms into a sequence diagram of eight messages between them.</p>
+      <div class="win" id="winAgents" aria-hidden="true"></div>
+      <div class="m-frame" data-mstep="messages" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ===== 4. Context and cost ===== -->
+  <section class="scene" id="context" aria-labelledby="ctx-title">
+    <svg class="sig-branch" aria-hidden="true"></svg>
+    <div class="scene-copy">
+      <div class="scene-head">
+        <p class="eyebrow"><span class="mono">04</span> Context &amp; cost</p>
+        <h2 id="ctx-title">Context and cost, turn by turn.</h2>
+      </div>
+      <div class="beats">
+        <p class="beat">Watch the context fill and the bill follow it. Pressure is split into system prompt, tool definitions and conversation.</p>
+        <p class="beat">Turn 8 hits 183K and compacts to 30.5K. You see exactly when, and what it cost.</p>
+        <p class="beat">AI Credits, a USD equivalent, tokens by model, and how much was served from cache.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <p class="sr-only">Illustration: the Context tab, where a stacked area chart of context tokens grows across 12 turns while an AI Credits estimate climbs alongside it. Context peaks at 183K tokens on turn 8 and drops after compaction. It then switches to the Metrics tab showing 610.9 AI Credits, $6.11, 5.1 million tokens and a 84.8% cache read rate.</p>
+      <div class="win" id="winContext" aria-hidden="true"></div>
+      <div class="m-frame" data-mstep="context" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ===== 5. Launch ===== -->
+  <section class="scene" id="launch" aria-labelledby="launch-title">
+    <svg class="sig-branch" aria-hidden="true"></svg>
+    <div class="scene-copy">
+      <div class="scene-head">
+        <p class="eyebrow"><span class="mono">05</span> Session launcher</p>
+        <h2 id="launch-title">Then launch the next one.</h2>
+      </div>
+      <div class="beats">
+        <p class="beat">Pick a repository, model and reasoning effort. The exact command builds as you go.</p>
+        <p class="beat">Launch it in a terminal, or in its own worktree.</p>
+        <p class="beat">It shows up in your library while it runs. From insight to the next session, without leaving the app.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <p class="sr-only">Illustration: the Session Launcher form fills in a repository, Claude Opus 5.5, high reasoning effort and a prompt, builds the copilot command, and launches. A new active session appears at the top of the library.</p>
+      <div class="win" id="winLaunch" aria-hidden="true"></div>
+      <div class="m-frame" data-mstep="launch" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ===== 6. Everything else ===== -->
+  <section class="section more" id="more" aria-labelledby="more-title">
+    <div class="wrap">
+      <div class="section-head split">
+        <div>
+          <p class="eyebrow"><span class="mono">06</span> And the rest</p>
+          <h2 id="more-title">Then zoom out.</h2>
+        </div>
+        <p class="lede">Search, analytics, plans, agents and skills, across every session you have run.</p>
+      </div>
+      <div class="bento" id="bento"></div>
+      <p class="bento-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>Open any card for the details.</p>
+      <ul class="also" aria-label="Also included">
+        <li>Session compare</li><li>Export to JSON and Markdown</li><li>Worktrees</li><li>Command Centre</li><li>Config injector</li><li>MCP servers</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 7. Live demo ===== -->
+  <section class="section demo" id="demo" aria-labelledby="demo-title">
+    <div class="wrap">
+      <div class="section-head split">
+        <div>
+          <p class="eyebrow"><span class="mono">07</span> Live demo</p>
+          <h2 id="demo-title">Now take the controls.</h2>
+        </div>
+        <p class="lede">This is TracePilot, rebuilt in your browser. Click a session, switch tabs, search, launch. Or pick a stop below and it will drive itself.</p>
+      </div>
+    </div>
+    <div class="demo-stage" id="demoStage">
+      <div class="demo-bar wrap" role="toolbar" aria-label="Demo stops">
+        <div class="demo-mode" id="demoMode"><i></i><span id="demoModeText">Click anything</span></div>
+        <div class="demo-steps" id="demoSteps"></div>
+        <a class="demo-full" href="demo/" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+          <span>Full screen</span>
+        </a>
+      </div>
+      <div class="demo-host" id="demoHost"></div>
+    </div>
+  </section>
+
+  <!-- ===== 8. Privacy ===== -->
+  <section class="section privacy" id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap privacy-grid">
+      <div class="section-head">
+        <p class="eyebrow"><span class="mono">08</span> Private by design</p>
+        <h2 id="privacy-title">Your sessions never leave your machine.</h2>
+        <p class="lede">TracePilot reads <code>~/.copilot/session-state</code> directly and keeps its index in a local SQLite file. Search runs against that file, not a server. Open source under GPL-3.0, so you can check.</p>
+      </div>
+      <figure class="pipeline" id="pipeline">
+        <figcaption class="sr-only">Data flow: Copilot CLI session state on disk is parsed by a Rust backend into a SQLite and FTS5 index, which the Vue desktop app reads. All four stages sit inside your machine.</figcaption>
+        <div class="pipe-boundary" aria-hidden="true">
+          <span class="pipe-boundary-label mono">your machine</span>
+          <svg class="pipe-rect" preserveAspectRatio="none" aria-hidden="true"><rect x="1" y="1" rx="16" ry="16"/></svg>
+          <div class="pipe-row">
+            <div class="pipe-node"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><b>Session state</b><span class="mono">~/.copilot/session-state</span></div>
+            <div class="pipe-link"><i></i></div>
+            <div class="pipe-node"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg><b>Rust parser</b><span class="mono">events.jsonl → typed</span></div>
+            <div class="pipe-link"><i></i></div>
+            <div class="pipe-node"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg><b>Local index</b><span class="mono">SQLite + FTS5</span></div>
+            <div class="pipe-link"><i></i></div>
+            <div class="pipe-node"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg><b>Desktop app</b><span class="mono">Tauri 2 + Vue 3</span></div>
+          </div>
+        </div>
+        <div class="pipe-outside" aria-hidden="true"><span class="mono">uploaded sessions</span><b>0</b></div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===== 9. Final CTA ===== -->
+  <section class="section final" id="start" aria-labelledby="final-title">
+    <svg class="final-traces" id="finalTraces" aria-hidden="true"></svg>
+    <div class="wrap final-inner">
+      <div class="final-eye" id="finalEye" aria-hidden="true">
+        <svg viewBox="-80 -80 160 160" aria-hidden="true">
+          <polygon class="hex" points="0,-70 60.6,-35 60.6,35 0,70 -60.6,35 -60.6,-35"/>
+          <polygon class="hex-fill" points="0,-62 53.7,-31 53.7,31 0,62 -53.7,31 -53.7,-31"/>
+          <g class="lid">
+            <path class="almond" d="M-42 0c0 0 18.7-28 42-28s42 28 42 28-18.7 28-42 28-42-28-42-28z"/>
+            <g class="pupil-g">
+              <circle class="iris" r="15.8"/>
+              <circle class="pupil" r="6.2"/>
+              <circle class="glint" cx="6" cy="-5" r="2.2"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <h2 id="final-title" class="final-title">Start tracing.</h2>
+      <p class="lede">Free and open source. Point it at your Copilot CLI history and open the first session.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://github.com/MattShelton04/TracePilot/releases/download/v0.9.0/TracePilot_0.9.0_x64-setup.exe">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Download for Windows
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/MattShelton04/TracePilot">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <p class="fine">v0.9.0 · Windows builds on GitHub Releases · or build from source with <code>pnpm start</code></p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <img src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%20fill='none'%3e%3cpolygon%20points='32,2%2059,17%2059,47%2032,62%205,47%205,17'%20stroke='%236366f1'%20stroke-width='2.5'%20stroke-linejoin='round'%20fill='none'/%3e%3cpolygon%20points='32,7%2054,20%2054,44%2032,57%2010,44%2010,20'%20fill='%236366f1'%20opacity='0.07'/%3e%3cpath%20d='M15%2032c0%200%207.5-11%2017-11s17%2011%2017%2011-7.5%2011-17%2011-17-11-17-11z'%20stroke='%234f46e5'%20stroke-width='2'%20stroke-linejoin='round'%20fill='none'/%3e%3ccircle%20cx='32'%20cy='32'%20r='6.5'%20stroke='%236366f1'%20stroke-width='2'%20fill='none'/%3e%3ccircle%20cx='32'%20cy='32'%20r='2.5'%20fill='%234f46e5'/%3e%3ccircle%20cx='34.5'%20cy='30'%20r='1'%20fill='%23818cf8'/%3e%3c/svg%3e" alt="" width="20" height="20">
+      <span>TracePilot</span>
+      <span class="mono dim">v0.9.0</span>
+    </div>
+    <nav class="footer-links" aria-label="Project links">
+      <a href="https://github.com/MattShelton04/TracePilot/releases">Releases</a>
+      <a href="https://github.com/MattShelton04/TracePilot/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="https://github.com/MattShelton04/TracePilot#readme">Docs</a>
+      <a href="https://mattshelton04.github.io/TracePilot/visual/">Visual history</a>
+      <a href="https://github.com/MattShelton04/TracePilot/blob/main/LICENSE">GPL-3.0</a>
+    </nav>
+    <p class="footer-note">Not affiliated with or endorsed by GitHub.</p>
+  </div>
+</footer>
+
+<!-- guided tour control -->
+<div class="tour-pill" id="tourPill" hidden>
+  <button type="button" class="tp-stop" id="tourStop" aria-label="Stop the tour"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg></button>
+  <div class="tp-text"><span class="tp-k">Touring</span><span class="tp-label" id="tourLabel">Open any session</span></div>
+  <i class="tp-prog"><i id="tourProg"></i></i>
+  <span class="tp-hint">Scroll or press any key to stop</span>
+</div>
+
+</body>
+</html>
