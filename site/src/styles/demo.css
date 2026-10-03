@@ -25,6 +25,8 @@ body {
 }
 body {
   display: grid;
+  /* Let the step toolbar scroll within the viewport instead of widening the grid. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   overflow: hidden;
 }

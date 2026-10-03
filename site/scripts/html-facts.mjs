@@ -45,8 +45,8 @@ export function htmlFacts(showcaseFile, releaseFile, _mode) {
 export const cspFor = (mode) => CSP[mode];
 
 export function fillPlaceholders(html, facts, file) {
-  return html.replace(/__([a-zA-Z]+)__/g, (_, key) => {
-    if (!(key in facts)) throw new Error(`${file}: unknown placeholder __${key}__`);
+  return html.replace(/__([a-zA-Z][a-zA-Z0-9_]*?)__/g, (_, key) => {
+    if (!Object.hasOwn(facts, key)) throw new Error(`${file}: unknown placeholder __${key}__`);
     return facts[key];
   });
 }

@@ -35,5 +35,11 @@
     "computeAnalytics100SessionsNs": 10000000,
     "searchContent100SessionsMs": 200,
     "notes": "Advisory thresholds for Criterion mean point estimates from corrected non-empty fixtures. Reports retain the approximate 95% confidence interval around each mean; this interval is not a latency percentile."
+  },
+  "site": {
+    "jsGzipKb": 142,
+    "cssGzipKb": 37,
+    "dataGzipKb": 14,
+    "notes": "Landing page (site/), gzipped totals of dist/assets/*.js, dist/assets/*.css and the generated src/data/*.json. Enforced by `pnpm site:check`; set from the first build plus about 10%."
   }
 }

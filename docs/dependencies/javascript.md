@@ -142,6 +142,21 @@ The three delivered removals are root `@fontsource-variable/inter` (desktop stil
 | --- | --- | --- | --- | --- | --- |
 | P11-12 | `pngjs` / `dependencies` | `7.0.0` → `7.0.0` | `7.0.0` → `7.0.0` | isolated npm production dependency exact, outside pnpm workspace; CI visual capture/report, not shipped app; PNG pixel decoder/encoder; necessary with strict predecode profile validation; reviewed target: stay 7.0.0; isolated npm audit baseline zero findings (confidence: high) | [scripts/visual/png.mjs:1](https://github.com/MattShelton04/TracePilot/blob/e3ff0935641de98b96da49f9c2c9fb5b83e3cbf1/scripts/visual/png.mjs#L1),53-63 decode/encode; [scripts/visual/report.test.mjs:6](https://github.com/MattShelton04/TracePilot/blob/e3ff0935641de98b96da49f9c2c9fb5b83e3cbf1/scripts/visual/report.test.mjs#L6) |
 
+## site/package.json
+
+The landing-page package was added after the baseline census above. These are
+its direct dependencies; they are not shipped in the desktop executable.
+
+| Dependency / section | Declaration → lock | Purpose and source |
+| --- | --- | --- |
+| `gsap` / dependencies | `^3.13.0` → `3.15.0` | Self-hosted animation runtime with ScrollTrigger and Flip; `site/src/lib/gsap.js`. Uses the [GSAP Standard License](https://gsap.com/community/standard-license/), a no-charge licence rather than an OSI-approved open-source licence. The repository's `deny.toml` licence gate covers Rust crates; retain the maintainer licence review in the PR. |
+| `@fontsource-variable/inter` / dependencies | catalog `^5.2.8` → `5.2.8` | Self-hosted Inter Variable CSS/font assets; `site/src/styles/index.css`. |
+| `@fontsource/jetbrains-mono` / dependencies | `^5.2.8` → `5.3.0` | Self-hosted monospace CSS/font assets; `site/src/styles/index.css`. Font licence: OFL-1.1. |
+| `@tracepilot/ui` / dependencies | `workspace:*` → workspace link | Imports canonical `tokens.css`; Vue UI components are not bundled into the site. |
+| `@tracepilot/types` / devDependencies | `workspace:*` → workspace link | Build-time pricing functions in `site/scripts/export-data.mjs`. |
+| `playwright` / devDependencies | `1.59.1` → `1.59.1` | Chromium browser checks and OG image generation; does not ship in the site. Apache-2.0. |
+| `tsx`, `vite` / devDependencies | catalog → `4.23.15`, `6.4.3` | TypeScript pricing import during data generation and the static multi-page build. |
+
 ## Executables and external toolchain
 
 These ten entries are command/runtime prerequisites from the P10 tooling census, not ten extra npm direct declarations. Baseline pins and command locations were read at `e3ff0935641de98b96da49f9c2c9fb5b83e3cbf1`; the current column names delivered pin changes and explicitly marks unverified executable versions.

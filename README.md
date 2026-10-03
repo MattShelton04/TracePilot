@@ -22,6 +22,7 @@ It reads the session data Copilot CLI writes under `~/.copilot/session-state/` b
   <a href="#what-you-can-do">What you can do</a> |
   <a href="#screenshots">Screenshots</a> |
   <a href="https://mattshelton04.github.io/TracePilot/visual/">Visual history</a> |
+  <a href="https://mattshelton04.github.io/TracePilot/">Website</a> |
   <a href="#install-and-run">Install and run</a> |
   <a href="#architecture">Architecture</a> |
   <a href="#development">Development</a> |

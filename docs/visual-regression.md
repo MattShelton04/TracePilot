@@ -215,6 +215,15 @@ not publish a PR/main history entry.
 
 ## Security boundary
 
+The [landing page](landing-page.md) shares the `gh-pages` branch root with
+`visual/` and `dev/bench/`. Its publisher owns only paths recorded in
+`.site-manifest.json` and preserves the gallery, benchmarks, `.nojekyll` and
+`README.md`. The Site deploy job and visual publisher share the
+`visual-gallery-publish` concurrency group (`queue: max`, no cancellation),
+with fetch/reapply retries for rejected pushes. Keep Pages configured to serve
+the branch root; replacing it with an Actions Pages artifact would break this
+shared ownership.
+
 The capture workflow runs PR code with `contents: read` and without repository
 write secrets. Checkout credentials are not persisted. Fork code, dependencies
 and Vite configuration remain untrusted. They never run in the publishing job.

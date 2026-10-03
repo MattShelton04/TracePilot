@@ -14,7 +14,7 @@
     "preview": "vite preview",
     "check": "node scripts/check.mjs",
     "og": "node scripts/og.mjs",
-    "test": "node --test scripts/*.test.mjs",
+    "test": "tsx scripts/export-data.mjs && node --test scripts/*.test.mjs",
     "clean": "rimraf dist src/data"
   },
   "dependencies": {
