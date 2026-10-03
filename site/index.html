@@ -139,97 +139,89 @@
   </div>
 
   <!-- ===== 2. Conversation ===== -->
-  <div class="scene-spacer">
-    <section class="scene" id="conversation" aria-labelledby="conv-title">
-      <svg class="sig-branch" aria-hidden="true"></svg>
-      <div class="scene-copy">
-        <div class="scene-head">
-          <p class="eyebrow"><span class="mono">02</span> Conversation</p>
-          <h2 id="conv-title">Three agents. One turn.</h2>
-        </div>
-        <div class="beats">
-          <p class="beat">Every prompt, reply and tool call, in order, with the agent that made it.</p>
-          <p class="beat">Parallel subagents fan out in their own colours, each with its model, token count and runtime.</p>
-          <p class="beat">Follow-ups and read-backs land where they happened. You can see who finished first.</p>
-          <p class="beat">Tool calls open into rich renderers: diffs, test output, file views.</p>
-        </div>
+  <section class="scene" id="conversation" aria-labelledby="conv-title">
+    <svg class="sig-branch" aria-hidden="true"></svg>
+    <div class="scene-copy">
+      <div class="scene-head">
+        <p class="eyebrow"><span class="mono">02</span> Conversation</p>
+        <h2 id="conv-title">Three agents. One turn.</h2>
       </div>
-      <div class="stage">
-        <p class="sr-only">Illustration: the Conversation tab. Copilot launches three subagents in parallel (code review, Playwright coverage, Safari support check), sends one follow-up, reads each result back, and then applies a fix shown as a diff.</p>
-        <div class="win" id="winConvo" aria-hidden="true"></div>
-        <div class="m-frame" data-mstep="conversation" aria-hidden="true"></div>
+      <div class="beats">
+        <p class="beat">Every prompt, reply and tool call, in order, with the agent that made it.</p>
+        <p class="beat">Parallel subagents fan out in their own colours, each with its model, token count and runtime.</p>
+        <p class="beat">Follow-ups and read-backs land where they happened. You can see who finished first.</p>
+        <p class="beat">Tool calls open into rich renderers: diffs, test output, file views.</p>
       </div>
-    </section>
-  </div>
+    </div>
+    <div class="stage">
+      <p class="sr-only">Illustration: the Conversation tab. Copilot launches three subagents in parallel (code review, Playwright coverage, Safari support check), sends one follow-up, reads each result back, and then applies a fix shown as a diff.</p>
+      <div class="win" id="winConvo" aria-hidden="true"></div>
+      <div class="m-frame" data-mstep="conversation" aria-hidden="true"></div>
+    </div>
+  </section>
 
   <!-- ===== 3. Agents: tree to messages ===== -->
-  <div class="scene-spacer">
-    <section class="scene" id="agents" aria-labelledby="agents-title">
-      <svg class="sig-branch" aria-hidden="true"></svg>
-      <div class="scene-copy">
-        <div class="scene-head">
-          <p class="eyebrow"><span class="mono">03</span> Timeline</p>
-          <h2 id="agents-title">Watch the agents talk.</h2>
-        </div>
-        <div class="beats">
-          <p class="beat">Who launched whom, on which model, for how long: the agent tree for every turn.</p>
-          <p class="beat">Switch to Messages and the same turn becomes a sequence diagram, in timestamp order.</p>
-          <p class="beat">Launch prompts, follow-ups, peer messages and read-backs, each with its own line.</p>
-        </div>
+  <section class="scene" id="agents" aria-labelledby="agents-title">
+    <svg class="sig-branch" aria-hidden="true"></svg>
+    <div class="scene-copy">
+      <div class="scene-head">
+        <p class="eyebrow"><span class="mono">03</span> Timeline</p>
+        <h2 id="agents-title">Watch the agents talk.</h2>
       </div>
-      <div class="stage">
-        <p class="sr-only">Illustration: the Timeline tab. An agent tree with a main agent and three parallel children transforms into a sequence diagram of eight messages between them.</p>
-        <div class="win" id="winAgents" aria-hidden="true"></div>
-        <div class="m-frame" data-mstep="messages" aria-hidden="true"></div>
+      <div class="beats">
+        <p class="beat">Who launched whom, on which model, for how long: the agent tree for every turn.</p>
+        <p class="beat">Switch to Messages and the same turn becomes a sequence diagram, in timestamp order.</p>
+        <p class="beat">Launch prompts, follow-ups, peer messages and read-backs, each with its own line.</p>
       </div>
-    </section>
-  </div>
+    </div>
+    <div class="stage">
+      <p class="sr-only">Illustration: the Timeline tab. An agent tree with a main agent and three parallel children transforms into a sequence diagram of eight messages between them.</p>
+      <div class="win" id="winAgents" aria-hidden="true"></div>
+      <div class="m-frame" data-mstep="messages" aria-hidden="true"></div>
+    </div>
+  </section>
 
   <!-- ===== 4. Context and cost ===== -->
-  <div class="scene-spacer">
-    <section class="scene" id="context" aria-labelledby="ctx-title">
-      <svg class="sig-branch" aria-hidden="true"></svg>
-      <div class="scene-copy">
-        <div class="scene-head">
-          <p class="eyebrow"><span class="mono">04</span> Context &amp; cost</p>
-          <h2 id="ctx-title">Context and cost, turn by turn.</h2>
-        </div>
-        <div class="beats">
-          <p class="beat">Watch the context fill and the bill follow it. Pressure is split into system prompt, tool definitions and conversation.</p>
-          <p class="beat">Turn __compactTurn__ hits __compactBefore__ and compacts to __compactAfter__. You see exactly when, and what it cost.</p>
-          <p class="beat">AI Credits, a USD equivalent, tokens by model, and how much was served from cache.</p>
-        </div>
+  <section class="scene" id="context" aria-labelledby="ctx-title">
+    <svg class="sig-branch" aria-hidden="true"></svg>
+    <div class="scene-copy">
+      <div class="scene-head">
+        <p class="eyebrow"><span class="mono">04</span> Context &amp; cost</p>
+        <h2 id="ctx-title">Context and cost, turn by turn.</h2>
       </div>
-      <div class="stage">
-        <p class="sr-only">Illustration: the Context tab, where a stacked area chart of context tokens grows across __turnCount__ turns while an AI Credits estimate climbs alongside it. Context peaks at __compactBefore__ tokens on turn __compactTurn__ and drops after compaction. It then switches to the Metrics tab showing __heroAic__ AI Credits, __heroUsd__, __heroTokens__ tokens and a __heroCacheRate__ cache read rate.</p>
-        <div class="win" id="winContext" aria-hidden="true"></div>
-        <div class="m-frame" data-mstep="context" aria-hidden="true"></div>
+      <div class="beats">
+        <p class="beat">Watch the context fill and the bill follow it. Pressure is split into system prompt, tool definitions and conversation.</p>
+        <p class="beat">Turn __compactTurn__ hits __compactBefore__ and compacts to __compactAfter__. You see exactly when, and what it cost.</p>
+        <p class="beat">AI Credits, a USD equivalent, tokens by model, and how much was served from cache.</p>
       </div>
-    </section>
-  </div>
+    </div>
+    <div class="stage">
+      <p class="sr-only">Illustration: the Context tab, where a stacked area chart of context tokens grows across __turnCount__ turns while an AI Credits estimate climbs alongside it. Context peaks at __compactBefore__ tokens on turn __compactTurn__ and drops after compaction. It then switches to the Metrics tab showing __heroAic__ AI Credits, __heroUsd__, __heroTokens__ tokens and a __heroCacheRate__ cache read rate.</p>
+      <div class="win" id="winContext" aria-hidden="true"></div>
+      <div class="m-frame" data-mstep="context" aria-hidden="true"></div>
+    </div>
+  </section>
 
   <!-- ===== 5. Launch ===== -->
-  <div class="scene-spacer">
-    <section class="scene" id="launch" aria-labelledby="launch-title">
-      <svg class="sig-branch" aria-hidden="true"></svg>
-      <div class="scene-copy">
-        <div class="scene-head">
-          <p class="eyebrow"><span class="mono">05</span> Session launcher</p>
-          <h2 id="launch-title">Then launch the next one.</h2>
-        </div>
-        <div class="beats">
-          <p class="beat">Pick a repository, model and reasoning effort. The exact command builds as you go.</p>
-          <p class="beat">Launch it in a terminal, or in its own worktree.</p>
-          <p class="beat">It shows up in your library while it runs. From insight to the next session, without leaving the app.</p>
-        </div>
+  <section class="scene" id="launch" aria-labelledby="launch-title">
+    <svg class="sig-branch" aria-hidden="true"></svg>
+    <div class="scene-copy">
+      <div class="scene-head">
+        <p class="eyebrow"><span class="mono">05</span> Session launcher</p>
+        <h2 id="launch-title">Then launch the next one.</h2>
       </div>
-      <div class="stage">
-        <p class="sr-only">Illustration: the Session Launcher form fills in a repository, Claude Opus 5.5, high reasoning effort and a prompt, builds the copilot command, and launches. A new active session appears at the top of the library.</p>
-        <div class="win" id="winLaunch" aria-hidden="true"></div>
-        <div class="m-frame" data-mstep="launch" aria-hidden="true"></div>
+      <div class="beats">
+        <p class="beat">Pick a repository, model and reasoning effort. The exact command builds as you go.</p>
+        <p class="beat">Launch it in a terminal, or in its own worktree.</p>
+        <p class="beat">It shows up in your library while it runs. From insight to the next session, without leaving the app.</p>
       </div>
-    </section>
-  </div>
+    </div>
+    <div class="stage">
+      <p class="sr-only">Illustration: the Session Launcher form fills in a repository, Claude Opus 5.5, high reasoning effort and a prompt, builds the copilot command, and launches. A new active session appears at the top of the library.</p>
+      <div class="win" id="winLaunch" aria-hidden="true"></div>
+      <div class="m-frame" data-mstep="launch" aria-hidden="true"></div>
+    </div>
+  </section>
 
   <!-- ===== 6. Everything else ===== -->
   <section class="section more" id="more" aria-labelledby="more-title">

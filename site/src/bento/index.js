@@ -9,9 +9,32 @@ export function initBento(el, opts) {
     t.querySelector(".tile-open").addEventListener("click", () => open(t));
   });
   if (RM) return;
+  // Entrances use IntersectionObservers rather than a ScrollTrigger per tile, and each tile's
+  // timeline is only set up a viewport ahead of it: both forced layouts of the new tiles on load.
+  const tls = new Map();
+  const play = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        tls.get(e.target).play();
+        play.unobserve(e.target);
+      }
+    },
+    { rootMargin: "0px 0px -12% 0px" }, // the tile's top has passed 88% of the viewport
+  );
+  const prep = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        tls.set(e.target, replay(e.target).pause(0));
+        prep.unobserve(e.target);
+        play.observe(e.target);
+      }
+    },
+    { rootMargin: "0px 0px 100% 0px" },
+  );
   el.querySelectorAll(".tile").forEach((t) => {
-    const tl = replay(t).pause(0);
-    ScrollTrigger.create({ trigger: t, start: "top 88%", once: true, onEnter: () => tl.play() });
+    prep.observe(t);
   });
   if (opts?.parallax) {
     ScrollTrigger.matchMedia({

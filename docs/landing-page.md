@@ -194,10 +194,12 @@ The first viewport must not wait for the script bundle:
    scene timeline per task (`.ready` after the first lets the window rise in),
    then all pins together, bento, and the rest. Nothing builds at import time.
 
-Pinned scenes sit in static `.scene-spacer` wrappers passed to ScrollTrigger as
+`#open` sits in a static `.scene-spacer` passed to ScrollTrigger as
 `pinSpacer`. A generated spacer re-inserts the scene on creation and every
-refresh, which restarts CSS animations inside it. Pinned scenes keep an
-explicit `width: 100%` because the spacer copies the scene's `display: flex`.
+refresh, which would restart the CSS hero entrance. The other scenes keep
+generated spacers: native ones there made Chrome report a phantom
+full-viewport layout shift (CLS 1.0). Pinned scenes keep an explicit
+`width: 100%` because a spacer copies the scene's `display: flex`.
 Measure load changes with a throttled profile (4x CPU, ~1.6 Mbps) as well as
 unthrottled: check when the hero becomes visible, long tasks, and that nothing
 flashes or blanks.
@@ -251,7 +253,7 @@ the top, both when played and in reduced-motion end states.
 | Browser executable missing | Install Chromium with the site Playwright command above. CI uses `--with-deps`. |
 | Preview exits or port is busy | Stop the known preview owner or free port 4187/4188; the scripts will not attach to another server. |
 | Pins/branches misplaced after resize | Check breakpoint reload, stage scale, font readiness and `layoutBranches()`. |
-| Hero flashes, blanks or replays on load | Check the boot script classes, the CSS entrance selectors and that pinned scenes still use their `.scene-spacer` as `pinSpacer`. |
+| Hero flashes, blanks or replays on load | Check the boot script classes, the CSS entrance selectors and that pinned scenes still pins inside its `.scene-spacer`; measure CLS after pinning changes. |
 | CSP blocks an inline script | Keep inline scripts classic and without `src`; the build hashes them. Rebuild after editing. |
 | A nav link lands mid-scene | Route it through `anchorY()`; pinned scenes need the pin start, not their live position. |
 | Publisher refuses ownership/source | Inspect the manifest or collision; keep foreign content intact and restore the expected Pages source only through a maintainer decision. |

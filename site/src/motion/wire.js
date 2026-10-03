@@ -47,9 +47,10 @@ const SCENES = [
   { id: "launch", build: sceneLaunch, len: 3.2 },
 ];
 
-// Scroll-scrub a scene's timeline and pin the scene for its length. The static .scene-spacer
-// around each scene is passed as the pin spacer, so pinning and refreshes never re-insert the
-// scene into the document (re-insertion restarts the CSS hero entrance inside #open).
+// Scroll-scrub a scene's timeline and pin the scene for its length. #open sits in a static
+// .scene-spacer, passed as its pin spacer, so pinning and refreshes never re-insert it into the
+// document: re-insertion would restart the CSS hero entrance. The other scenes use generated
+// spacers; native ones there make Chrome report a phantom full-viewport layout shift.
 function pinScene(el, tl, len) {
   const lead = el.id === "open" ? 0 : 0.6;
   const pinOpts = {
@@ -57,7 +58,7 @@ function pinScene(el, tl, len) {
     start: "top top",
     end: () => `+=${innerHeight * len}`,
     pin: true,
-    pinSpacer: el.parentElement,
+    pinSpacer: el.parentElement.classList.contains("scene-spacer") ? el.parentElement : undefined,
     anticipatePin: 1,
     onToggle: (st) => el.classList.toggle("is-active", st.isActive),
   };

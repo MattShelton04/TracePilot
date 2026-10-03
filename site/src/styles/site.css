@@ -441,7 +441,7 @@ html.has-rail .final-traces {
   position: relative;
   padding: calc(var(--nav-h) + 56px) 0 72px;
 }
-.scene-spacer + .scene-spacer > .scene {
+.scene:not(.scene-open) {
   padding-top: 96px;
 }
 .scene-copy {
@@ -513,7 +513,7 @@ html.has-rail .final-traces {
 
 /* pinned (desktop, motion allowed) */
 html.pin .scene {
-  /* explicit: the pin spacer copies display: flex, and the scene must not size to its content */
+  /* explicit: a pin spacer copies display: flex, and the scene must not size to its content */
   width: 100%;
   height: 100vh;
   min-height: 620px;
@@ -522,7 +522,7 @@ html.pin .scene {
   flex-direction: column;
   overflow: hidden;
 }
-html.pin .scene-spacer + .scene-spacer > .scene {
+html.pin .scene:not(.scene-open) {
   padding-top: calc(var(--nav-h) + clamp(18px, 3.2vh, 40px));
 }
 html.pin .beats {
@@ -796,8 +796,8 @@ html.pin .scene-open .scene-copy {
 }
 /* Hero entrance. CSS rather than script, so it starts at first paint and runs on the compositor
    while the scenes are built. The boot script adds .fonts once the fonts are ready; wire.js adds
-   .ready once the first window is built, and the window rises in. The pinned scenes sit in static
-   .scene-spacer wrappers so pinning never re-inserts them, which would restart these animations. */
+   .ready once the first window is built, and the window rises in. #open sits in a static
+   .scene-spacer so pinning never re-inserts it, which would restart these animations. */
 @keyframes hero-rise {
   from {
     opacity: 0;
@@ -1405,7 +1405,7 @@ html.pin.ready #open .stage {
     gap: 14px;
   }
   .scene,
-  .scene-spacer + .scene-spacer > .scene {
+  .scene:not(.scene-open) {
     padding: 72px 0 24px;
   }
   .scene-copy {
