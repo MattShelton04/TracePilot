@@ -1,0 +1,10 @@
+/* Self-hosted fonts and the app's canonical tokens; the page loads nothing cross-origin. */
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "@tracepilot/ui/tokens.css";
+@import "./site.css";
+@import "./mock.css";
+@import "./bento.css";
+@import "./replica.css";

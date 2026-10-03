@@ -1,0 +1,32 @@
+{
+  "name": "@tracepilot/site",
+  "version": "0.9.0",
+  "private": true,
+  "description": "TracePilot landing page, published to GitHub Pages",
+  "author": "Matt Shelton (@MattShelton04)",
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://mattshelton04.github.io/TracePilot/",
+  "type": "module",
+  "scripts": {
+    "data": "tsx scripts/export-data.mjs && node scripts/release-data.mjs",
+    "dev": "pnpm run data && vite",
+    "build": "pnpm run data && vite build",
+    "preview": "vite preview",
+    "check": "node scripts/check.mjs",
+    "og": "node scripts/og.mjs",
+    "test": "node --test scripts/*.test.mjs",
+    "clean": "rimraf dist src/data"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "catalog:",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@tracepilot/ui": "workspace:*",
+    "gsap": "^3.13.0"
+  },
+  "devDependencies": {
+    "@tracepilot/types": "workspace:*",
+    "playwright": "1.59.1",
+    "tsx": "catalog:",
+    "vite": "catalog:"
+  }
+}
