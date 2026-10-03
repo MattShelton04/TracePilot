@@ -1,6 +1,7 @@
 // Shared preview lifecycle for the browser checks and social-image generator.
 import { spawn } from "node:child_process";
 import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 
 export async function startPreview(root, port) {
   const proc = spawn(
@@ -19,7 +20,12 @@ export async function startPreview(root, port) {
     await new Promise((resolve, reject) => {
       let output = "";
       const timeout = setTimeout(
-        () => reject(new Error("vite preview did not start; run pnpm site:build first")),
+        () =>
+          reject(
+            new Error(
+              `vite preview did not start; run pnpm site:build first\n${stripVTControlCharacters(output)}`,
+            ),
+          ),
         20_000,
       );
       const cleanup = () => clearTimeout(timeout);
@@ -36,7 +42,8 @@ export async function startPreview(root, port) {
       });
       proc.stdout.on("data", (chunk) => {
         output += chunk;
-        if (/Local:.*http:/.test(output)) {
+        // Vite colours "Local" separately from ":" when CI forces ANSI output.
+        if (/Local:.*http:/.test(stripVTControlCharacters(output))) {
           cleanup();
           resolve();
         }
