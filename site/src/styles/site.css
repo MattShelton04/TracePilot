@@ -1530,7 +1530,8 @@ html.pin.ready #open .stage {
   .tp-prog {
     min-width: 0;
   }
-  .tp-hint {
+  .tp-hint,
+  .tp-k {
     display: none;
   }
   .tp-ctrls {
