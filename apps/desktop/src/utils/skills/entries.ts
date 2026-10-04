@@ -149,7 +149,7 @@ function computeFlags(
   if (
     entry.skill &&
     usage?.latestContentSha256 &&
-    usage.latestContentSha256 !== entry.skill.contentSha256
+    !matchesInstalledSkill(usage.latestContentSha256, entry.skill)
   ) {
     flags.push("drifted");
   }
@@ -300,4 +300,16 @@ export function filterAndSortSkills(
     listingCost: numeric((entry) => entry.listingTokens || null),
   };
   return result.sort(comparators[filter.sort]);
+}
+
+/**
+ * Whether a fingerprint recorded at invocation describes the installed skill.
+ * Older Copilot CLIs recorded the whole `SKILL.md`; 1.0.48+ records only the
+ * body, so either installed fingerprint can match.
+ */
+export function matchesInstalledSkill(
+  recorded: string,
+  installed: { contentSha256: string | null; bodySha256?: string | null },
+): boolean {
+  return recorded === installed.contentSha256 || recorded === installed.bodySha256;
 }

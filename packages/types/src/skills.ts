@@ -58,6 +58,11 @@ export interface SkillSummary {
    * at invocation to detect a skill that changed since it was last used.
    */
   contentSha256: string;
+  /**
+   * Fingerprint of the body without frontmatter, which Copilot CLI 1.0.48+
+   * records at invocation. Matching either fingerprint means unchanged.
+   */
+  bodySha256?: string;
 }
 
 export interface SkillDiagnostic {

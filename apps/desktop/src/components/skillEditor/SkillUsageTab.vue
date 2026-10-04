@@ -7,6 +7,7 @@ import UsageBreakdownBars, { type BreakdownRow } from "@/components/usage/UsageB
 import UsageSparkline from "@/components/usage/UsageSparkline.vue";
 import UsageStackedBar, { type StackedSegment } from "@/components/usage/UsageStackedBar.vue";
 import { useSkillEditorContext } from "@/composables/useSkillEditor";
+import { matchesInstalledSkill } from "@/utils/skills/entries";
 import { USAGE_RANGE_LABELS, zeroFilledDays } from "@/utils/usage/range";
 
 const ctx = useSkillEditorContext();
@@ -134,12 +135,14 @@ const firstUsed = computed(() =>
  * The installed file differs from the content of the last invocation, so the
  * figures above describe an older version of this skill.
  */
-const drifted = computed(
-  () =>
-    Boolean(stats.value?.latestContentSha256) &&
-    Boolean(ctx.installedSha256) &&
-    stats.value?.latestContentSha256 !== ctx.installedSha256,
-);
+const drifted = computed(() => {
+  const recorded = stats.value?.latestContentSha256;
+  if (!recorded || !ctx.installedSha256) return false;
+  return !matchesInstalledSkill(recorded, {
+    contentSha256: ctx.installedSha256,
+    bodySha256: ctx.installedBodySha256,
+  });
+});
 
 const fallbackOnly = computed(
   () => (stats.value?.fallbackUses ?? 0) > 0 && stats.value?.usesWithContent === 0,
