@@ -150,13 +150,40 @@ describe("MetricsSessionActivity", () => {
     expect(wrapper.text()).not.toContain("No interaction recorded");
   });
 
-  it("shows a recorded empty activity as no interaction with zero credits", () => {
+  it("keeps a backend-shaped empty activity unavailable and shows its legacy fallback", () => {
     const wrapper = mount(MetricsSessionActivity, {
-      props: { metrics: { sessionSegments: [segment({ tokens: 0, modelMetrics: {} })] } },
+      props: {
+        metrics: {
+          sessionSegments: [segment({ tokens: 0, modelMetrics: {}, premiumRequests: 3 })],
+        },
+      },
     });
-    expect(wrapper.text()).toContain("No interaction recorded");
-    expect(wrapper.find(".hero-val").exists()).toBe(false);
-    expect(wrapper.get(".activity-tile-costs .cost-pill").text()).toBe("0 AIC");
+    expect(wrapper.text()).not.toContain("No interaction recorded");
+    expect(wrapper.get(".hero-val").text()).toBe("—");
+    expect(wrapper.get(".activity-tile-costs .cost-pill").text()).toBe("—");
+    expect(wrapper.text()).toContain("Legacy Premium");
+    expect(wrapper.get(".premium-val").text()).toBe("3.0");
+  });
+
+  it("retains positive observed model credits without inventing a zero activity credit total", () => {
+    const wrapper = mount(MetricsSessionActivity, {
+      props: {
+        metrics: {
+          sessionSegments: [
+            segment({
+              tokens: 0,
+              modelMetrics: {
+                model: { totalNanoAiu: 1_000_000_000, usage: { inputTokens: 0, outputTokens: 0 } },
+              },
+            }),
+          ],
+        },
+      },
+    });
+    expect(wrapper.get(".hero-val").text()).toBe("0");
+    expect(wrapper.get(".model-row .cost-pill").text()).toBe("1 AIC");
+    expect(wrapper.get(".model-row .cost-pill").attributes("title")).toBe("Observed AI Credits");
+    expect(wrapper.get(".activity-tile-costs .cost-pill").text()).toBe("—");
   });
 
   it.each([

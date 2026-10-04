@@ -216,6 +216,31 @@ describe("useSessionComparison", () => {
     });
   });
 
+  it("keeps empty backend-shaped maps and observed-model-only credit totals unavailable", () => {
+    const { comp } = mountHook();
+    comp.compared = true;
+    comp.dataA.metrics = { modelMetrics: {}, totalPremiumRequests: 3 };
+    comp.dataB.metrics = {
+      modelMetrics: {
+        model: { totalNanoAiu: 1_000_000_000, usage: { inputTokens: 0, outputTokens: 0 } },
+      },
+    };
+    expect(comp.metricsRows.find((row) => row.label === "Total Tokens")).toMatchObject({
+      valueA: "—",
+      valueB: "0",
+      rawA: null,
+      rawB: 0,
+      delta: "—",
+    });
+    expect(comp.metricsRows.find((row) => row.label === "AI Credits")).toMatchObject({
+      valueA: "—",
+      valueB: "—",
+      rawA: null,
+      rawB: null,
+      delta: "—",
+    });
+  });
+
   it("preserves complete metrics, observed credits, deltas and both normalization modes", () => {
     const { comp } = mountHook();
     const turn: ConversationTurn = {

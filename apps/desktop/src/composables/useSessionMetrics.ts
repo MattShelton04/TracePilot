@@ -5,13 +5,14 @@
 import {
   type AiCreditUsage,
   type ConversationTurn,
+  type ModelMetricDetail,
   resolveAiCreditUsage,
   type SessionDetail,
   type ShutdownMetrics,
   sumTokenCosts,
   type TokenCostBreakdown,
 } from "@tracepilot/types";
-import { shutdownTokenBreakdown } from "@/utils/metricsTokenBreakdown";
+import { modelTokenBreakdown, shutdownTokenBreakdown } from "@/utils/metricsTokenBreakdown";
 
 export function totalTokens(m: ShutdownMetrics | null): number | null {
   return shutdownTokenBreakdown(m).total;
@@ -46,6 +47,12 @@ interface ShutdownCreditPricing {
   computeWholesaleCostBreakdown: TokenCostCalculator;
 }
 
+/** Positive observed credits mean zero token counters cannot establish a free estimate. */
+export function hasObservedCreditsWithZeroTokens(model: ModelMetricDetail): boolean {
+  const observed = resolveAiCreditUsage(model.totalNanoAiu);
+  return observed.credits != null && observed.credits > 0 && modelTokenBreakdown(model).total === 0;
+}
+
 /** Both session views use observed credits first, then a complete token estimate. */
 export function shutdownAiCreditUsage(
   metrics: ShutdownMetrics | null | undefined,
@@ -57,8 +64,11 @@ export function shutdownAiCreditUsage(
   // Partial input/output counts cannot establish a session-wide cost. Optional
   // cache counts retain the historical zero fallback used by the pricing API.
   if (shutdownTokenBreakdown(metrics).total == null) return observed;
+  const modelEntries = Object.entries(metrics?.modelMetrics ?? {});
+  // Do not silently omit an observed charge when estimating the whole session.
+  if (modelEntries.some(([, model]) => hasObservedCreditsWithZeroTokens(model))) return observed;
   // Recorded zero usage costs nothing, even for a model without a price.
-  const models = Object.entries(metrics?.modelMetrics ?? {}).filter(
+  const models = modelEntries.filter(
     ([, model]) =>
       (model.usage?.inputTokens ?? 0) +
         (model.usage?.outputTokens ?? 0) +

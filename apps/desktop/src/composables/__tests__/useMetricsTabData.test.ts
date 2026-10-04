@@ -131,4 +131,53 @@ describe("useMetricsTabData", () => {
       ).totalWholesaleCost.value,
     ).toBeNull();
   });
+
+  it("preserves complete estimates alongside an unpriced model with explicit zero counts", () => {
+    const prefs = usePreferencesStore();
+    const result = useMetricsTabData(
+      computed(() => ({
+        modelMetrics: {
+          "gpt-5.5": { usage: { inputTokens: 100, outputTokens: 20 } },
+          unknown: { usage: { inputTokens: 0, outputTokens: 0 } },
+        },
+      })),
+      prefs,
+    );
+    const zero = result.modelEntries.value.find((row) => row.name === "unknown");
+    expect(zero).toMatchObject({ aiCredits: 0, directApiCost: 0 });
+    expect(result.totalWholesaleCost.value).toBeCloseTo(
+      prefs.computeWholesaleCostBreakdown("gpt-5.5", 100, 0, 20).totalCost ?? 0,
+    );
+    expect(result.aiCreditUsage.value).toMatchObject({ source: "estimated-token-usage" });
+    expect(result.aiCreditUsage.value.credits).toBeGreaterThan(0);
+  });
+
+  it.each([
+    false,
+    true,
+  ])("leaves the direct estimate unavailable for an observed charge with zero tokens (other usage: %s)", (withOtherUsage) => {
+    const result = useMetricsTabData(
+      computed(() => ({
+        modelMetrics: {
+          model: { totalNanoAiu: 1_000_000_000, usage: { inputTokens: 0, outputTokens: 0 } },
+          ...(withOtherUsage
+            ? { "gpt-5.5": { usage: { inputTokens: 100, outputTokens: 20 } } }
+            : {}),
+        },
+      })),
+      usePreferencesStore(),
+    );
+    expect(result.modelEntries.value.find((row) => row.name === "model")).toMatchObject({
+      aiCredits: 1,
+      aiCreditSource: "observed",
+      directApiCost: null,
+    });
+    expect(result.totalWholesaleCost.value).toBeNull();
+    expect(result.aiCreditUsage.value).toMatchObject({ credits: null, source: "unavailable" });
+    if (withOtherUsage) {
+      expect(
+        result.modelEntries.value.find((row) => row.name === "gpt-5.5")?.directApiCost,
+      ).toBeGreaterThan(0);
+    }
+  });
 });

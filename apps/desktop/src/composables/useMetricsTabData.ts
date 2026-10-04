@@ -5,7 +5,10 @@ import {
   sumTokenCosts,
 } from "@tracepilot/types";
 import { type ComputedRef, computed } from "vue";
-import { shutdownAiCreditUsage } from "@/composables/useSessionMetrics";
+import {
+  hasObservedCreditsWithZeroTokens,
+  shutdownAiCreditUsage,
+} from "@/composables/useSessionMetrics";
 import type { usePreferencesStore } from "@/stores/preferences";
 import {
   type MetricsTokenBreakdown,
@@ -63,8 +66,10 @@ export function useMetricsTabData(
                 )
               : sumTokenCosts([]);
         const premiumRequests = data.requests?.cost ?? 0;
+        // A recorded charge conflicts with the zero counters, so the direct
+        // fallback cannot confidently present a free model or session estimate.
         const wholesale =
-          tokens.total == null
+          tokens.total == null || hasObservedCreditsWithZeroTokens(data)
             ? null
             : hasTokenUsage
               ? prefs.computeWholesaleCostBreakdown(

@@ -97,25 +97,10 @@ export function combinedTokenBreakdown(models: ModelMetricDetail[]): MetricsToke
 
 /**
  * Shutdown totals retain unknown categories instead of treating absent telemetry
- * as zero. A recorded empty model map means no model was used, so it totals zero.
+ * as zero. Empty maps can come from missing backend telemetry.
  */
 export function shutdownTokenBreakdown(
   metrics: Pick<ShutdownMetrics, "modelMetrics"> | null | undefined,
 ): MetricsTokenBreakdown {
-  const models = metrics?.modelMetrics;
-  if (models && Object.keys(models).length === 0) {
-    return {
-      input: 0,
-      output: 0,
-      cacheRead: 0,
-      cacheWrite: 0,
-      uncached: 0,
-      notCached: 0,
-      reasoning: 0,
-      total: 0,
-      cacheRatio: null,
-      inconsistent: false,
-    };
-  }
-  return combinedTokenBreakdown(Object.values(models ?? {}));
+  return combinedTokenBreakdown(Object.values(metrics?.modelMetrics ?? {}));
 }

@@ -18,9 +18,9 @@ describe("useSessionMetrics", () => {
       expect(totalTokens(m)).toBeNull();
     });
 
-    it("treats a recorded empty model map as zero usage", () => {
+    it("keeps a backend-normalized empty model map unavailable", () => {
       const m = { modelMetrics: {} } as ShutdownMetrics;
-      expect(totalTokens(m)).toBe(0);
+      expect(totalTokens(m)).toBeNull();
     });
 
     it("should correctly sum inputTokens and outputTokens across multiple models", () => {
@@ -80,7 +80,6 @@ describe("useSessionMetrics", () => {
     });
 
     it.each([
-      ["an empty model map", {}],
       ["recorded zero counts", { "gpt-5.5": { usage: { inputTokens: 0, outputTokens: 0 } } }],
       [
         "an unpriced model without usage",
@@ -91,6 +90,84 @@ describe("useSessionMetrics", () => {
         credits: 0,
         source: "estimated-token-usage",
       });
+    });
+
+    it("does not infer recorded zero credits from a backend-normalized empty map", () => {
+      expect(
+        shutdownAiCreditUsage({ modelMetrics: {}, totalPremiumRequests: 3 }, pricing),
+      ).toMatchObject({
+        credits: null,
+        source: "unavailable",
+      });
+    });
+
+    it.each([
+      false,
+      true,
+    ])("does not discard positive observed model credits from zero-count rows (other usage: %s)", (withOtherUsage) => {
+      const metrics: ShutdownMetrics = {
+        modelMetrics: {
+          "observed-model": {
+            totalNanoAiu: 1_000_000_000,
+            usage: { inputTokens: 0, outputTokens: 0 },
+          },
+          ...(withOtherUsage
+            ? { "gpt-5.5": { usage: { inputTokens: 100, outputTokens: 20 } } }
+            : {}),
+        },
+      };
+      expect(shutdownAiCreditUsage(metrics, pricing)).toMatchObject({
+        credits: null,
+        source: "unavailable",
+      });
+      expect(shutdownAiCreditUsage({ ...metrics, totalNanoAiu: 0 }, pricing)).toMatchObject({
+        credits: 0,
+        source: "observed",
+      });
+      expect(
+        shutdownAiCreditUsage({ ...metrics, totalNanoAiu: 2_000_000_000 }, pricing),
+      ).toMatchObject({ credits: 2, source: "observed" });
+      expect(shutdownAiCreditUsage(metrics, pricing, true)).toMatchObject({
+        credits: null,
+        source: "unavailable",
+      });
+    });
+
+    it("retains useful priced estimates alongside unpriced models with explicit zero counts", () => {
+      const known = { usage: { inputTokens: 100, outputTokens: 20 } };
+      const expected = shutdownAiCreditUsage({ modelMetrics: { "gpt-5.5": known } }, pricing);
+      expect(
+        shutdownAiCreditUsage(
+          {
+            modelMetrics: {
+              "gpt-5.5": known,
+              unknown: { usage: { inputTokens: 0, outputTokens: 0 } },
+            },
+          },
+          pricing,
+        ),
+      ).toEqual(expected);
+      expect(expected.source).toBe("estimated-token-usage");
+    });
+
+    it("keeps the token estimate when observed model credits have positive token coverage", () => {
+      const modelMetrics = {
+        "gpt-5.5": { usage: { inputTokens: 100, outputTokens: 20 } },
+        "gpt-5.4": { usage: { inputTokens: 50, outputTokens: 10 } },
+      };
+      const expected = shutdownAiCreditUsage({ modelMetrics }, pricing);
+      expect(
+        shutdownAiCreditUsage(
+          {
+            modelMetrics: {
+              ...modelMetrics,
+              "gpt-5.4": { ...modelMetrics["gpt-5.4"], totalNanoAiu: 1_000_000_000 },
+            },
+          },
+          pricing,
+        ),
+      ).toEqual(expected);
+      expect(expected.source).toBe("estimated-token-usage");
     });
 
     it("does not estimate a complete cost from partial model telemetry", () => {
