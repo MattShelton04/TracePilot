@@ -109,6 +109,46 @@ describe("SessionDetailPanel", () => {
     );
   });
 
+  async function autoRefreshCalls(): Promise<SessionDetailContext> {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    try {
+      const prefs = usePreferencesStore();
+      await flushPromises(); // let config hydration finish before overriding it
+      prefs.autoRefreshEnabled = true;
+      prefs.autoRefreshIntervalSeconds = 5;
+      const store = createStore();
+      mount(SessionDetailPanel, {
+        props: {
+          store,
+          sessionId: "session-1",
+          tabMode: "local",
+          activeSubTab: "overview",
+          refreshEnabled: true,
+        },
+      });
+      await flushPromises();
+      await vi.advanceTimersByTimeAsync(30_000);
+      return store;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it("keeps auto-refreshing a session that still exists", async () => {
+    const store = await autoRefreshCalls();
+    expect(vi.mocked(store.refreshAll).mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it("pauses auto-refresh once the open session no longer exists", async () => {
+    mocks.isSessionRunning.mockRejectedValue({
+      code: "CORE",
+      message: "Session not found: session-1",
+    });
+    const store = await autoRefreshCalls();
+    expect(store.refreshAll).not.toHaveBeenCalled();
+    expect(mocks.isSessionRunning).toHaveBeenCalledTimes(1);
+  });
+
   it("shows recorded cache expiry beside resume controls for an ended session", async () => {
     const prefs = usePreferencesStore();
     prefs.featureFlags.promptCacheInsights = true;

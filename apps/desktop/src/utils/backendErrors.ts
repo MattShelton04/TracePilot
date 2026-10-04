@@ -79,6 +79,15 @@ export function isAlreadyIndexingError(error: unknown): boolean {
 }
 
 /**
+ * Check whether an error says the session no longer exists on disk, e.g. its
+ * directory was deleted while it was open. Matches the core
+ * `TracePilotError::SessionNotFound` message, which has no dedicated code.
+ */
+export function isSessionNotFoundError(error: unknown): boolean {
+  return (extractRawMessage(error) ?? "").startsWith("Session not found");
+}
+
+/**
  * Check whether an error indicates an FTS5 search syntax error from SQLite.
  *
  * Only matches the `fts5:` prefix used by SQLite's FTS5 engine — intentionally

@@ -3,7 +3,7 @@ import type { SessionListItem } from "@tracepilot/types";
 import { runAction, toErrorMessage, useInflightPromise } from "@tracepilot/ui";
 import type { Ref, ShallowRef } from "vue";
 import { isAlreadyIndexingError } from "@/utils/backendErrors";
-import { logError, logWarn } from "@/utils/logger";
+import { logDebug, logError, logWarn } from "@/utils/logger";
 
 export interface IndexingLifecycleDeps {
   /** Backing session list — wholesale-replaced on every fetch/refresh. */
@@ -144,7 +144,12 @@ export function createIndexingLifecycle(deps: IndexingLifecycleDeps): IndexingLi
       lastIndexedAt = Date.now();
       sessions.value = await refreshSessionsAfterIndex();
     } catch (e) {
-      // Silent — this is a background optimization, not user-initiated
+      // Silent — this is a background optimization, not user-initiated.
+      // A pass started elsewhere (startup, watcher) already covers it.
+      if (isAlreadyIndexingError(e)) {
+        logDebug("[sessions] Background ensureIndex skipped; indexing already running");
+        return;
+      }
       logWarn("[sessions] Background ensureIndex failed", e);
     }
   }
