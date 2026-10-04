@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta http-equiv="Content-Security-Policy" content="default-src &#39;self&#39;; script-src &#39;self&#39; https://static.cloudflareinsights.com; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; data:; font-src &#39;self&#39;; connect-src https://cloudflareinsights.com; object-src &#39;none&#39;; base-uri &#39;self&#39;; form-action &#39;none&#39;">
+  <meta http-equiv="Content-Security-Policy" content="default-src &#39;self&#39;; script-src &#39;self&#39; https://static.cloudflareinsights.com &#39;sha256-o/fpzrqH6K/q8FaOZr0d7Z9BWggAIAMuCN9DevNwaco=&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; data:; font-src &#39;self&#39;; connect-src https://cloudflareinsights.com; object-src &#39;none&#39;; base-uri &#39;self&#39;; form-action &#39;none&#39;">
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -16,8 +16,25 @@
 <meta property="og:image" content="https://mattshelton04.github.io/TracePilot/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../assets/logo-dlQnh7Ok.svg" type="image/svg+xml">
-  <script type="module" crossorigin src="../assets/demo-CjHOlCnw.js"></script>
-  <link rel="modulepreload" crossorigin href="../assets/replica-C64uyN-O.js">
+  <script>((d, pick) => {
+  const dl = pick(navigator, {"win":"https://github.com/MattShelton04/TracePilot/releases/download/v0.9.0/TracePilot_0.9.0_x64-setup.exe","mac":null,"page":"https://github.com/MattShelton04/TracePilot/releases/latest"});
+  d.documentElement.dataset.os = dl.os;
+  d.documentElement.dataset.download = dl.url;
+  d.addEventListener("DOMContentLoaded", () => {
+    for (const a of d.querySelectorAll("a[data-download]")) {
+      a.href = dl.url;
+      if (dl.os === "mac") a.title = "Apple Silicon (M1 or later)";
+    }
+  });
+})(document, function pickDownload(nav, links) {
+  const platform = nav.userAgentData?.platform || nav.platform || "";
+  let os = "other";
+  if (/^win/i.test(platform)) os = "win";
+  else if (/^mac/i.test(platform) && !(nav.maxTouchPoints > 1)) os = "mac";
+  return links[os] ? { os, url: links[os] } : { os: "other", url: links.page };
+});</script>
+  <script type="module" crossorigin src="../assets/demo-Bqlx1AfI.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/replica-eKzyyyXz.js">
   <link rel="stylesheet" crossorigin href="../assets/demo-BVLFaOqL.css">
   <link rel="preload" href="../assets/inter-latin-wght-normal-Dx4kXJAl.woff2" as="font" type="font/woff2" crossorigin="">
   <link rel="preload" href="../assets/jetbrains-mono-latin-400-normal-V6pRDFza.woff2" as="font" type="font/woff2" crossorigin="">
@@ -28,7 +45,7 @@
   <a class="brand back" href="../#demo" aria-label="Back to the TracePilot page"><img src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%20fill='none'%3e%3cpolygon%20points='32,2%2059,17%2059,47%2032,62%205,47%205,17'%20stroke='%236366f1'%20stroke-width='2.5'%20stroke-linejoin='round'%20fill='none'/%3e%3cpolygon%20points='32,7%2054,20%2054,44%2032,57%2010,44%2010,20'%20fill='%236366f1'%20opacity='0.07'/%3e%3cpath%20d='M15%2032c0%200%207.5-11%2017-11s17%2011%2017%2011-7.5%2011-17%2011-17-11-17-11z'%20stroke='%234f46e5'%20stroke-width='2'%20stroke-linejoin='round'%20fill='none'/%3e%3ccircle%20cx='32'%20cy='32'%20r='6.5'%20stroke='%236366f1'%20stroke-width='2'%20fill='none'/%3e%3ccircle%20cx='32'%20cy='32'%20r='2.5'%20fill='%234f46e5'/%3e%3ccircle%20cx='34.5'%20cy='30'%20r='1'%20fill='%23818cf8'/%3e%3c/svg%3e" alt=""><span>TracePilot</span></a>
   <span class="tag">Live demo</span>
   <div class="steps" id="steps" role="toolbar" aria-label="Demo stops"></div>
-  <div class="actions"><a class="dl" href="https://github.com/MattShelton04/TracePilot/releases/download/v0.9.0/TracePilot_0.9.0_x64-setup.exe">Download</a></div>
+  <div class="actions"><a class="dl" href="https://github.com/MattShelton04/TracePilot/releases/latest" data-download>Download</a></div>
 </header>
 <main class="stage" id="stage"><div class="host" id="host"></div></main>
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon="{&quot;token&quot;:&quot;359648189de9418bb11a56de3b7ba8d5&quot;}"></script>
