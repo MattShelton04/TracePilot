@@ -6,6 +6,12 @@ import { readFileSync } from "node:fs";
 
 export const SITE_URL = process.env.SITE_URL || "https://mattshelton04.github.io/TracePilot/";
 
+// Cloudflare Web Analytics site token. It is public (it ships in the page), but only CI sets it,
+// so local builds and previews never load the beacon or report visits.
+export const BEACON_TOKEN = process.env.CF_BEACON_TOKEN || "";
+const BEACON_SCRIPT = "https://static.cloudflareinsights.com";
+const BEACON_REPORT = "https://cloudflareinsights.com";
+
 const CSP = {
   build:
     "default-src 'self'; script-src 'self'%s; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
@@ -49,8 +55,29 @@ export const inlineScriptHashes = (html) =>
     .filter((m) => m[1].trim())
     .map((m) => `'sha256-${createHash("sha256").update(m[1]).digest("base64")}'`);
 
-export const cspFor = (mode, hashes = []) =>
-  CSP[mode].replace("%s", hashes.map((h) => ` ${h}`).join(""));
+/** The page CSP; `beacon` (builds only) admits the analytics script and its reporting endpoint. */
+export function cspFor(mode, hashes = [], beacon = false) {
+  const csp = CSP[mode].replace("%s", hashes.map((h) => ` ${h}`).join(""));
+  if (!beacon) return csp;
+  if (mode !== "build") throw new Error("the analytics beacon is for builds only");
+  return csp
+    .replace("script-src 'self'", `script-src 'self' ${BEACON_SCRIPT}`)
+    .replace("connect-src 'none'", `connect-src ${BEACON_REPORT}`);
+}
+
+/** Cloudflare's Web Analytics snippet as a Vite tag; rejects anything but a 32-hex token. */
+export function beaconTag(token) {
+  if (!/^[0-9a-f]{32}$/.test(token)) throw new Error("CF_BEACON_TOKEN must be 32 hex characters");
+  return {
+    tag: "script",
+    attrs: {
+      type: "module",
+      src: `${BEACON_SCRIPT}/beacon.min.js`,
+      "data-cf-beacon": JSON.stringify({ token }),
+    },
+    injectTo: "body",
+  };
+}
 
 export function fillPlaceholders(html, facts, file) {
   return html.replace(/__([a-zA-Z][a-zA-Z0-9_]*?)__/g, (_, key) => {

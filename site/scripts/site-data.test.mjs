@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { fillPlaceholders } from "./html-facts.mjs";
+import { beaconTag, cspFor, fillPlaceholders } from "./html-facts.mjs";
 import { fromRelease, pickInstaller } from "./release-data.mjs";
 import { validateShowcase } from "./validate-data.mjs";
 
@@ -55,4 +55,26 @@ test("placeholders are filled, and unknown ones fail the build", () => {
   assert.throws(() => fillPlaceholders("__nope__", {}, "x.html"), /unknown placeholder __nope__/);
   assert.throws(() => fillPlaceholders("__future_fact2__", {}, "x.html"), /unknown placeholder/);
   assert.throws(() => fillPlaceholders("__constructor__", {}, "x.html"), /unknown placeholder/);
+});
+
+test("the CSP admits the analytics beacon only when asked, and only in builds", () => {
+  const hash = "'sha256-abc'";
+  const plain = cspFor("build", [hash]);
+  assert.match(plain, /script-src 'self' 'sha256-abc';/);
+  assert.match(plain, /connect-src 'none'/);
+  assert.doesNotMatch(plain, /cloudflareinsights/);
+  const beacon = cspFor("build", [hash], true);
+  assert.match(beacon, /script-src 'self' https:\/\/static\.cloudflareinsights\.com 'sha256-abc';/);
+  assert.match(beacon, /connect-src https:\/\/cloudflareinsights\.com;/);
+  assert.throws(() => cspFor("serve", [], true), /builds only/);
+});
+
+test("the beacon tag carries a well-formed token and nothing else", () => {
+  const token = "0123456789abcdef0123456789abcdef";
+  const { attrs } = beaconTag(token);
+  assert.equal(attrs.src, "https://static.cloudflareinsights.com/beacon.min.js");
+  assert.deepEqual(JSON.parse(attrs["data-cf-beacon"]), { token });
+  for (const bad of ["", "xyz", `${token}"><script>`, token.toUpperCase()]) {
+    assert.throws(() => beaconTag(bad), /32 hex characters/);
+  }
 });

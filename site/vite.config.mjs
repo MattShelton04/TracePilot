@@ -2,13 +2,22 @@ import { createReadStream, existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-import { cspFor, fillPlaceholders, htmlFacts, inlineScriptHashes } from "./scripts/html-facts.mjs";
+import {
+  BEACON_TOKEN,
+  beaconTag,
+  cspFor,
+  fillPlaceholders,
+  htmlFacts,
+  inlineScriptHashes,
+} from "./scripts/html-facts.mjs";
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 
 // fonts the first viewport paints with; preloading them starts the download with the HTML
 // instead of after the stylesheet, and the boot script waits for them before the hero enters
 const PRELOAD_FONTS = [/inter-latin-wght-normal/, /jetbrains-mono-latin-(400|500)-normal/];
+
+const beaconOn = (mode) => mode === "build" && !!BEACON_TOKEN;
 
 /** Fills __placeholders__ (version, download link, showcase figures), adds the CSP to each page
     and, in builds, preloads the first-paint fonts. */
@@ -35,7 +44,7 @@ function siteFacts() {
               tag: "meta",
               attrs: {
                 "http-equiv": "Content-Security-Policy",
-                content: cspFor(mode, inlineScriptHashes(filled)),
+                content: cspFor(mode, inlineScriptHashes(filled), beaconOn(mode)),
               },
               injectTo: "head-prepend",
             },
@@ -72,6 +81,16 @@ function preloadFonts() {
   };
 }
 
+/** CI builds only: Cloudflare Web Analytics, added after Vite has processed the page's own scripts
+    so the external module is left untouched. The CSP admits it in siteFacts(). */
+function analyticsBeacon() {
+  return {
+    name: "tracepilot-analytics-beacon",
+    apply: (_config, { command }) => beaconOn(command),
+    transformIndexHtml: { order: "post", handler: () => [beaconTag(BEACON_TOKEN)] },
+  };
+}
+
 /** Dev only: the pages link the repo-level brand SVGs as ../assets/, which the build resolves on
     disk but the dev server can only see as the URL /assets/ inside its root; serve them there. */
 function brandAssets() {
@@ -93,7 +112,7 @@ function brandAssets() {
 export default defineConfig({
   // relative asset URLs: works under /TracePilot/ today and on a custom domain later
   base: "./",
-  plugins: [siteFacts(), preloadFonts(), brandAssets()],
+  plugins: [siteFacts(), preloadFonts(), analyticsBeacon(), brandAssets()],
   build: {
     outDir: "dist",
     emptyOutDir: true,
