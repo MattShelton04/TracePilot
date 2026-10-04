@@ -6,6 +6,7 @@ import { useAppVersion } from "@/composables/useAppVersion";
 import { useAutoUpdate } from "@/composables/useAutoUpdate";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
 import { openExternal } from "@/utils/openExternal";
+import { isMacPlatform } from "@/utils/platform";
 import { displayVersion } from "@/utils/releaseNotes";
 
 const emit = defineEmits<{
@@ -42,6 +43,8 @@ const statusText = computed(() => {
       return "";
   }
 });
+
+const isMac = isMacPlatform();
 
 const sourceSteps = [
   { text: "Stop TracePilot in its terminal with", code: "Ctrl+C", kbd: true },
@@ -108,6 +111,20 @@ function handleOpenRelease() {
         </ol>
       </section>
 
+      <!-- macOS app on a disk image or translocated: move it, then update -->
+      <section
+        v-else-if="installType === 'portable' && isMac"
+        class="up-method"
+        aria-label="Move TracePilot to Applications"
+      >
+        <h3 class="up-method-title">Move TracePilot to Applications</h3>
+        <p class="up-text">
+          TracePilot is running from its disk image or download folder, where macOS doesn't let it
+          update itself. Quit TracePilot, drag <code>TracePilot.app</code> into Applications and open it
+          from there to update in one click, or download {{ latest }} from GitHub Releases.
+        </p>
+      </section>
+
       <!-- Portable executable: download again -->
       <section v-else-if="installType === 'portable'" class="up-method" aria-label="Download the latest version">
         <h3 class="up-method-title">Download the latest version</h3>
@@ -122,6 +139,21 @@ function handleOpenRelease() {
         <span>
           If <code>git pull</code> reports conflicts, run <code>git stash</code> first, or
           <code>git reset --hard origin/main</code> to discard local changes.
+        </span>
+      </p>
+      <p v-else-if="installType === 'installed' && isMac" class="up-note">
+        <Info :size="14" :stroke-width="2" aria-hidden="true" />
+        <span>
+          If TracePilot can't write to its folder, macOS asks for an administrator password to replace
+          the app.
+        </span>
+      </p>
+      <p v-else-if="installType === 'portable' && isMac" class="up-note">
+        <Info :size="14" :stroke-width="2" aria-hidden="true" />
+        <span>
+          TracePilot isn't notarized by Apple, so macOS blocks a newly downloaded copy the first time
+          it opens. Click <strong>Done</strong>, then in <strong>System Settings → Privacy &amp;
+          Security</strong> click <strong>Open Anyway</strong>.
         </span>
       </p>
       <p v-else-if="installType !== 'unknown'" class="up-note">

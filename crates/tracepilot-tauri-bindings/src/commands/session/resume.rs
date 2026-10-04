@@ -63,10 +63,11 @@ pub async fn resume_session_in_terminal(
         .or_else(|| tracepilot_core::utils::home_dir_opt().filter(|p| p.is_dir()))
         .unwrap_or_else(|| std::path::PathBuf::from("."));
 
-    let cmd = resume_command(&cli, &session_id, attachable);
+    let argv = resume_argv(&cli, &session_id, attachable);
 
     #[cfg(windows)]
     {
+        let cmd = argv.join(" ");
         let escaped_cwd = effective_cwd.display().to_string().replace('\'', "''");
         let ps_cmd = format!(
             "$host.UI.RawUI.WindowTitle = 'Copilot Session (Resume)'; Set-Location -LiteralPath '{}'; Write-Host 'Resuming Copilot session...' -ForegroundColor Cyan; Write-Host '  Session: {}' -ForegroundColor White; Write-Host ''; {}",
@@ -84,37 +85,59 @@ pub async fn resume_session_in_terminal(
         )?;
     }
 
+    // The terminal shell-quotes the program and each argument separately, so
+    // they must not be joined into one string ('copilot --resume …' is not a
+    // command).
     #[cfg(not(windows))]
     {
-        tracepilot_orchestrator::process::spawn_detached_terminal(&cmd, &[], &effective_cwd, None)?;
+        let (program, args) = argv
+            .split_first()
+            .ok_or_else(|| BindingsError::Validation("CLI command must not be empty".into()))?;
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        tracepilot_orchestrator::process::spawn_detached_terminal(
+            program,
+            &args,
+            &effective_cwd,
+            None,
+        )?;
     }
 
     Ok(())
 }
 
-/// The CLI command that resumes `session_id`, optionally as an attachable
-/// `--ui-server` terminal.
-fn resume_command(cli: &str, session_id: &str, attachable: bool) -> String {
+/// The argv that resumes `session_id`, optionally as an attachable
+/// `--ui-server` terminal. A multi-word CLI command (`gh copilot`) splits on
+/// whitespace; the validator has already rejected quotes and shell syntax.
+fn resume_argv(cli: &str, session_id: &str, attachable: bool) -> Vec<String> {
+    let mut argv: Vec<String> = cli.split_whitespace().map(str::to_owned).collect();
+    argv.extend(["--resume".to_owned(), session_id.to_owned()]);
     if attachable {
-        format!("{cli} --resume {session_id} --ui-server")
-    } else {
-        format!("{cli} --resume {session_id}")
+        argv.push("--ui-server".to_owned());
     }
+    argv
 }
 
 #[cfg(test)]
 mod tests {
-    use super::resume_command;
+    use super::resume_argv;
 
     #[test]
-    fn resume_command_adds_ui_server_only_when_attachable() {
+    fn resume_argv_adds_ui_server_only_when_attachable() {
         assert_eq!(
-            resume_command("copilot", "abc", false),
-            "copilot --resume abc"
+            resume_argv("copilot", "abc", false),
+            ["copilot", "--resume", "abc"]
         );
         assert_eq!(
-            resume_command("copilot", "abc", true),
-            "copilot --resume abc --ui-server"
+            resume_argv("copilot", "abc", true),
+            ["copilot", "--resume", "abc", "--ui-server"]
+        );
+    }
+
+    #[test]
+    fn resume_argv_keeps_program_and_arguments_separate() {
+        assert_eq!(
+            resume_argv("gh  copilot", "abc", false),
+            ["gh", "copilot", "--resume", "abc"]
         );
     }
 }

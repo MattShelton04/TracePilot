@@ -9,6 +9,10 @@ mod automation;
 // Fatal startup failures must remain visible before logging is initialized.
 #[allow(clippy::print_stderr)]
 fn main() {
+    // Before any thread starts: a Finder-launched macOS app may re-exec here
+    // with the login shell's PATH so `copilot` and `node` can be found.
+    tracepilot_orchestrator::process::restore_login_shell_path();
+
     if let Err(error) = tracepilot_core::paths::isolated_data_root() {
         eprintln!("Fatal: invalid TRACEPILOT_DATA_ROOT: {error}");
         std::process::exit(2);

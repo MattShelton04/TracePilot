@@ -15,6 +15,7 @@ tooling, scripts, and CI status for each.
 | Component visual regression | Playwright CT | `packages/ui/src/__vrt__/*.vrt.spec.ts` | ❌ on-demand only |
 | Desktop frontend visual comparison | Chromium + synthetic backend fixtures | `scripts/visual/`, `visual-*.yml` workflows | ✅ relevant PRs and main pushes |
 | Desktop integration (installed Tauri app) | Playwright Test + native WebView2/CDP | `tests/e2e/`, `scripts/e2e/test.ps1` | ✅ Windows installer job on PRs and main |
+| macOS bundle smoke (disk image install + launch) | Shell + `codesign`/`hdiutil` | `scripts/macos/bundle-smoke.sh` | ✅ Non-blocking macOS job on PRs and main; also gates the release's macOS job |
 | Interactive desktop diagnostics | Playwright agent CLI | `scripts/automation/`, `scripts/e2e/` | ❌ on-demand |
 
 The JS/TS and Rust unit suites are the primary regression gate. Component VRT
@@ -136,6 +137,14 @@ Local desktop E2E is opt-in; the Windows installer job runs `pnpm test:e2e -Inst
 on PRs and main in CI. The suite requires Windows, WebView2, the Rust toolchain,
 Node 22, and pnpm 10. Frontend-only exploration is portable via `pnpm dev` and
 the CLI. WebView2 CDP does not apply to macOS/Linux.
+
+The macOS job builds the ad-hoc signed app and disk image, verifies the
+signature, bundle identity and arm64 architecture, copies the app out of the
+disk image and checks that it logs startup against an isolated data root and
+keeps running. WKWebView exposes no CDP endpoint, so it runs no Playwright
+journeys. The job is not part of `required` (macOS is tier 2 in
+[ADR 0010](adr/0010-supported-platforms.md)) and uploads the disk image as a
+`tracepilot-macos-dmg-*` artifact for manual testing on a Mac.
 
 ## Rich-tool fixtures
 

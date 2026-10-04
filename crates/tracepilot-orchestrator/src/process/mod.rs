@@ -8,6 +8,7 @@
 //! Submodules:
 //! - [`hidden`]   — hidden-window spawning (`CREATE_NO_WINDOW`), `run_hidden*`,
 //!   `find_executable`, `is_alive`, base64 / win32 encoding helpers.
+//! - [`login_path`] — login-shell `PATH` restore for Finder-launched macOS apps.
 //! - [`terminal`] — user-facing detached terminal spawning.
 //! - [`timeout`]  — wall-clock timeout policy for captured child processes.
 
@@ -15,6 +16,7 @@ use crate::error::{OrchestratorError, Result};
 
 mod encoding;
 mod hidden;
+mod login_path;
 mod terminal;
 mod timeout;
 
@@ -35,6 +37,8 @@ pub(crate) use timeout::run_async_with_limits;
 
 #[allow(deprecated)]
 pub use hidden::run_hidden_shell;
+
+pub use login_path::restore_login_shell_path;
 
 #[cfg(windows)]
 pub use encoding::encode_powershell_command;

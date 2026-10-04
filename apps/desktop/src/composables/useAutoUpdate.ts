@@ -2,6 +2,7 @@ import { getInstallType } from "@tracepilot/client";
 import { toErrorMessage } from "@tracepilot/ui";
 import { ref } from "vue";
 import { logWarn } from "@/utils/logger";
+import { isMacPlatform } from "@/utils/platform";
 
 export type AutoUpdateStatus =
   | "idle"
@@ -37,17 +38,22 @@ async function detectInstallType(): Promise<InstallType> {
   return installType.value;
 }
 
+function unavailableMessage(type: InstallType): string {
+  if (type === "source") return "Auto-update is not available in dev mode. Use git pull instead.";
+  return isMacPlatform()
+    ? "Auto-update needs TracePilot in a folder it can write to. Move TracePilot.app to Applications and open it from there."
+    : "Auto-update is not available for standalone exe. Download the latest version from GitHub Releases.";
+}
+
 /**
  * Download and install the latest update, then relaunch the app.
- * Only works for NSIS-installed builds.
+ * Only works for installer builds (Windows NSIS/MSI, or a macOS app bundle
+ * in a writable folder).
  */
 async function installUpdate(): Promise<void> {
   const type = await detectInstallType();
   if (type !== "installed") {
-    errorMessage.value =
-      type === "source"
-        ? "Auto-update is not available in dev mode. Use git pull instead."
-        : "Auto-update is not available for standalone exe. Download the latest version from GitHub Releases.";
+    errorMessage.value = unavailableMessage(type);
     status.value = "error";
     return;
   }

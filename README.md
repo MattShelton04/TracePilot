@@ -16,7 +16,7 @@ It reads the session data Copilot CLI writes under `~/.copilot/session-state/` b
 
 > **Project status:** TracePilot is early-stage software. It is useful today, but the UI and internal data model still change quickly.
 >
-> **Platform status:** TracePilot is currently tested on Windows. The stack is cross-platform, but macOS and Linux are not yet official targets.
+> **Platform status:** TracePilot is tested on Windows. Apple Silicon Macs get a preview build; Intel Macs and Linux are not yet release targets.
 
 <p align="center">
   <a href="#what-you-can-do">What you can do</a> |
@@ -151,7 +151,7 @@ wipe, overlay, and highlighted pixel differences. See
 
 ### Prerequisites
 
-- Windows with the WebView2 runtime.
+- Windows with the WebView2 runtime, or macOS 12+ on Apple Silicon.
 - GitHub Copilot CLI with session history.
 - For source builds: Rust, Node.js 22, pnpm 10, and the Tauri 2 prerequisites.
   The exact known-good versions are recorded in `.node-version` and the root
@@ -172,7 +172,13 @@ The current release assets include:
 
 The app is not code-signed yet. Windows SmartScreen may warn on first launch; choose **More info** -> **Run anyway** if you trust the build, or build from source instead.
 
-### Option B: run from source
+### Option B: install a macOS build (Apple Silicon preview)
+
+Download `TracePilot_<version>_aarch64.dmg` from [GitHub Releases](https://github.com/MattShelton04/TracePilot/releases/latest), open it and drag **TracePilot** into **Applications**. Intel Macs are not supported yet.
+
+The app is not notarized by Apple, so the first time you open it macOS shows **"TracePilot" Not Opened**. Click **Done**, open **System Settings** -> **Privacy & Security**, scroll to the TracePilot message under **Security**, click **Open Anyway** and confirm. This is needed only once: later versions install from inside the app in one click without that prompt. Run TracePilot from Applications rather than from the disk image, or it cannot update itself.
+
+### Option C: run from source
 
 ```powershell
 git clone https://github.com/MattShelton04/TracePilot.git

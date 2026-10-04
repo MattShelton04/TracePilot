@@ -12,6 +12,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tracepilot-core = { workspace = true }
+tracepilot-orchestrator = { workspace = true }
 tracepilot-tauri-bindings = { path = "../../../crates/tracepilot-tauri-bindings" }
 tauri = { workspace = true }
 # Referenced by tauri::generate_context! even without a textual source import.
