@@ -61,22 +61,30 @@ flamegraph, and PGO workflows.
 ## CI Benchmark Workflow
 
 The [`Benchmarks`](../../.github/workflows/benchmark.yml) workflow runs nightly
-and can also be triggered manually from the GitHub Actions tab. It runs on a
-shared Ubuntu runner; it is not an automatic pull-request gate and does not run
-the native Windows desktop harness.
+and can also be triggered manually from the GitHub Actions tab. Each declared
+Cargo benchmark suite runs on a separate shared Ubuntu runner; it is not an
+automatic pull-request gate and does not run the native Windows desktop harness.
 
 Each run:
 
-1. Executes `cargo bench -p tracepilot-bench` against synthetic fixtures.
+1. Discovers the benchmark targets from the crate's `Cargo.toml` and executes
+   `cargo bench --locked -p tracepilot-bench --bench <suite>` against synthetic
+   fixtures in parallel. The first declared suite is the sole main cache writer.
 2. Requires corrected, populated results for parsing 1,000 events, analytics
    across 100 sessions, and common-term content search across 100 sessions.
 3. Records Criterion's mean estimate and reported confidence interval, budget
    status, fixture/harness identity, revision, run, runner, Node, Rust, and
    `bench` profile provenance in `benchmark-output.json`.
-4. Fails on missing, malformed, or unknown required data. Threshold
-   exceedances are retained as advisory status.
-5. Uploads the JSON, Markdown summary, checker log, and full Criterion report
-   tree as `criterion-v2-nonempty-fixtures-<run-number>` with 90-day retention.
+4. Requires every declared suite to succeed and record the same Rust compiler.
+   Compiler provenance is recorded before measurement, and suite outcomes and
+   Cargo logs remain available after failures. Missing, malformed, or unknown
+   required data also fail validation. Threshold exceedances remain advisory.
+5. Uploads each suite's measurements, full HTML report tree and diagnostics as
+   `criterion-suite-<suite>`. A separate
+   `criterion-v2-nonempty-fixtures-<run-number>` artifact contains the combined
+   JSON, Markdown summary and checker log. All artifacts have 90-day retention.
+   Failed or incomplete runs retain an explicitly incomplete diagnostic summary;
+   they cannot be used as successful baselines.
 
 The workflow has read-only repository permission, does not update Pages, and
 does not comment on pull requests.
@@ -85,8 +93,9 @@ does not comment on pull requests.
 
 Latest CI artifacts: see the most recent successful run on the
 [`Benchmarks` workflow page](../../.github/workflows/benchmark.yml). Download
-the `criterion-v2-nonempty-fixtures-*` artifact and unzip into
-[`results/`](./results/) to browse the HTML reports locally.
+the `criterion-v2-nonempty-fixtures-*` artifact for the combined summary. Download
+the `criterion-suite-*` artifacts and unzip each into a separate directory under
+[`results/`](./results/) to browse its full HTML report locally.
 
 The [`results/`](./results/) directory is gitignored (artifacts are large and
 reproducible from CI), so committed snapshots live under `results/README.md`

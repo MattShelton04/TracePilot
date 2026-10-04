@@ -115,9 +115,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     env:
-      # Full debug symbols inflate the Windows cache/link work without changing
-      # test semantics. Keep debug assertions and backtraces, omit symbol data.
-      CARGO_PROFILE_DEV_DEBUG: "0"
+      # Full debug symbols inflate the Windows cache/link work. Line tables
+      # retain file:line backtraces and assertions without variable/type info.
+      CARGO_PROFILE_DEV_DEBUG: "line-tables-only"
     # macOS is tier 2 (ADR 0010) and some timing-sensitive tests were flaky
     # there, so its leg reports failures without failing `required`.
     continue-on-error: ${{ matrix.os == 'macos-15' }}
@@ -312,6 +312,8 @@ jobs:
           node scripts/check-catalog-drift.mjs
           node scripts/check-csp.mjs
           node scripts/check-public-api.mjs
+          # Keep the Site trigger/deploy contract checked even if filters drift.
+          node --test scripts/site/workflow-contract.test.mjs
 
       - name: File size budgets
         run: node scripts/check-file-sizes.mjs
@@ -334,6 +336,7 @@ jobs:
       - name: Workflow syntax, expressions, and shell checks
         shell: bash
         run: |
+          # Curl pins are maintained manually; see docs/testing.md#pinned-ci-binaries.
           archive="$RUNNER_TEMP/actionlint.tar.gz"
           curl --fail --location --retry 3 --max-time 90 \
             https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
@@ -373,6 +376,7 @@ jobs:
       - name: Install pinned cargo-audit binary
         shell: bash
         run: |
+          # Curl pins are maintained manually; see docs/testing.md#pinned-ci-binaries.
           archive="$RUNNER_TEMP/cargo-audit.tgz"
           curl --fail --location --retry 3 --max-time 90 \
             https://github.com/rustsec/rustsec/releases/download/cargo-audit/v0.22.2/cargo-audit-x86_64-unknown-linux-gnu-v0.22.2.tgz \

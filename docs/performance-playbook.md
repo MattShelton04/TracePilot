@@ -309,8 +309,8 @@ silently hand back the other revision's binary.
 
 CI restores the nightly main dependency cache and seeds two separate release
 targets, removing local workspace crates and example binaries before each build.
-Only the nightly parsing suite saves this cache; PR comparisons never save new
-entries. Keep `CARGO_TARGET_DIR` scoped to Cargo commands: declaring it for the
+Only the first declared nightly suite (currently parsing) saves this cache;
+PR comparisons never save new entries. Keep `CARGO_TARGET_DIR` scoped to Cargo commands: declaring it for the
 whole comparison job changes the Rust cache environment hash and prevents it
 from restoring the nightly cache.
 

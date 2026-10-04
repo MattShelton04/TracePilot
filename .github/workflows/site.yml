@@ -5,6 +5,7 @@ name: Site
 on:
   pull_request:
     branches: [main]
+    # Keep deploy's staleness pathspecs aligned; workflow-contract.test.mjs checks both.
     paths: &site-paths
       - site/**
       - scripts/site/**
@@ -113,7 +114,7 @@ jobs:
           path: site/
 
       - name: Install Chromium for the site checks
-        run: pnpm --filter @tracepilot/site exec playwright install --with-deps chromium
+        run: pnpm --filter @tracepilot/site exec playwright install --with-deps --only-shell chromium
 
       - name: Browser checks and size budget
         run: pnpm site:check --viewport ${{ matrix.viewport }}
@@ -170,7 +171,8 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "$BUILD_SHA"
           # A docs-only main advance has no replacement Site run. Skip only
-          # when the inputs covered by site-paths actually changed.
+          # when the inputs covered by site-paths actually changed. Keep these
+          # pathspecs aligned with &site-paths (checked by the workflow contract).
           if git diff --quiet "$BUILD_SHA" HEAD -- \
             site scripts/site scripts/visual/showcase packages/types/src \
             packages/types/data packages/ui/src/styles/tokens.css assets \

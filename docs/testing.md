@@ -47,8 +47,9 @@ an unexpected skip fails it. Selection and gate contracts live in
 Linux, Windows and macOS each have one main-branch pnpm cache writer. PRs
 restore main caches without saving branch-local entries. Filtered dependency
 installs use distinct keys and can fall back to the full workspace store.
-Rust caches retain dependencies per workload; CI tests omit debug symbols
-while retaining debug assertions. The release profile remains the shipping
+Rust caches retain dependencies per workload; CI tests use `line-tables-only`
+debug information, retaining file:line backtraces and debug assertions without
+full variable/type information. The release profile remains the shipping
 profile; installer/bundle CI disables LTO and uses 16 codegen units to check
 native packaging without paying its shipping optimization cost. Rust commands
 use `--locked`, and example contracts use the same workspace feature set as
@@ -64,6 +65,39 @@ checksum-pinned actionlint 1.7.12 and the runner's ShellCheck, in addition to
 remote action-pin verification. That actionlint release predates GitHub's
 `concurrency.queue` field; only its unknown-key diagnostic for that field is
 ignored. Remove the narrow exception when updating to a supporting release.
+
+### Pinned CI binaries
+
+Dependabot updates action references and package lockfiles, but cannot update
+the cargo-audit and actionlint release archives downloaded in
+[`ci.yml`](../.github/workflows/ci.yml). Maintainers should review these two
+pins alongside the weekly Dependabot updates and promptly when the advisory
+database reports a scanner-format incompatibility. Keep the version and
+checksum pinned; fetching a floating latest binary would execute an
+unreviewed tool in CI.
+
+1. Check the official [RustSec cargo-audit releases](https://github.com/rustsec/rustsec/releases?q=cargo-audit)
+   and [actionlint releases](https://github.com/rhysd/actionlint/releases), including
+   compatibility notes. RustSec publishes multiple tools; select a `cargo-audit/`
+   tag rather than its repository's generic latest release. Distinguish
+   scanner/database-format errors from actual
+   vulnerabilities; both must remain visible and failing until addressed.
+2. Download the chosen Linux amd64 archive from that official release. Verify
+   an upstream checksum or release attestation when provided; calculate its
+   SHA256 (`sha256sum <archive>` on Linux or `Get-FileHash -Algorithm SHA256`
+   on Windows) and review the source URL and digest together.
+3. Update the release URL, versioned archive filename and committed SHA256 in
+   the corresponding CI step and update the version references in this guide.
+   Verify `cargo audit --version` or `actionlint --version`. Scanner
+   installation must still pass checksum validation before execution.
+4. Run the policy lint and remote action-pin checks, then confirm the PR's
+   live security job can read the current advisory database and still uses
+   the RustSec reporting wrapper. Check notices as well as the exit status.
+   For actionlint, test whether the new release accepts `concurrency.queue`
+   and remove its narrow diagnostic exception only when supported.
+
+The current pins are cargo-audit 0.22.2 and actionlint 1.7.12. New scanner
+releases require this review even if their wrapper action has not changed.
 
 ## 1. Unit & integration (Vitest)
 
