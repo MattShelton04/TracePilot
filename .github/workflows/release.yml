@@ -92,7 +92,7 @@ jobs:
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}
 
   build-installers:
-    name: Build and upload installers
+    name: Build and upload Windows installers
     needs: create-release
     runs-on: windows-latest
     timeout-minutes: 30
@@ -128,10 +128,117 @@ jobs:
           fail_on_unmatched_files: true
           draft: true
 
+  # Apple Silicon only (see ADR 0010). The bundle is ad-hoc signed through
+  # tauri.conf.json because there is no Developer ID, so users approve the
+  # first launch in Privacy & Security. In-app updates are not quarantined
+  # and install without that prompt.
+  build-macos:
+    name: Build and upload macOS app
+    needs: create-release
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.create-release.outputs.tag }}
+
+      - uses: ./.github/actions/setup-node-pnpm
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache: "false"
+
+      # latest.json is written once, by the Windows job and then the
+      # updater-manifest job. tauri-action merges it with a read, delete and
+      # upload, so two jobs writing it concurrently can drop a platform.
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          uploadUpdaterJson: false
+
+      - name: Verify, install from disk image, and launch
+        run: bash scripts/macos/bundle-smoke.sh
+
+      - name: Upload macOS smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-macos-smoke-${{ github.run_attempt }}
+          retention-days: 7
+          include-hidden-files: true
+          if-no-files-found: ignore
+          path: |
+            .tracepilot/macos-smoke/*.txt
+            .tracepilot/macos-smoke/*.log
+            .tracepilot/macos-smoke/*.png
+            .tracepilot/macos-smoke/data root/logs/
+
+  # Adds the macOS entries to the latest.json the Windows job uploaded. URLs use
+  # the API asset form, like tauri-action's, because browser download URLs
+  # change when a draft is published.
+  updater-manifest:
+    name: Add macOS to updater manifest
+    needs: [create-release, build-installers, build-macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Merge darwin-aarch64 into latest.json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          assets=$(gh api "repos/$GH_REPO/releases/$RELEASE_ID/assets" --paginate --jq '.[] | {id, name}' | jq -s .)
+          only() {
+            jq -r --arg want "$1" --arg mode "$2" '
+              [.[] | select(if $mode == "suffix" then (.name | endswith($want)) else .name == $want end)]
+              | if length == 1 then .[0].id
+                else error("expected one release asset matching \($want), found \(length)") end' <<<"$assets"
+          }
+          download() {
+            gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$1"
+          }
+          manifest_id=$(only latest.json exact)
+          tarball_id=$(only .app.tar.gz suffix)
+          signature_id=$(only .app.tar.gz.sig suffix)
+
+          download "$manifest_id" > latest.json
+          signature=$(download "$signature_id")
+          url="https://api.github.com/repos/$GH_REPO/releases/assets/$tarball_id"
+          jq --arg signature "$signature" --arg url "$url" '
+            .platforms["darwin-aarch64"] = {signature: $signature, url: $url}
+            | .platforms["darwin-aarch64-app"] = {signature: $signature, url: $url}
+          ' latest.json > merged.json
+          jq -e '.platforms | has("windows-x86_64") and has("darwin-aarch64")' merged.json > /dev/null \
+            || { echo "::error::Merged latest.json is missing a platform"; exit 1; }
+          jq '.platforms | keys' merged.json
+
+          gh api -X DELETE "repos/$GH_REPO/releases/assets/$manifest_id"
+          curl --fail-with-body --silent --show-error --retry 3 \
+            -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            --data-binary @merged.json \
+            "https://uploads.github.com/repos/$GH_REPO/releases/$RELEASE_ID/assets?name=latest.json" > /dev/null
+
+  # Pushed prerelease tags (v1.2.3-1) stay drafts so a release can be
+  # rehearsed and its assets tested before anything is published. MSI only
+  # accepts a numeric prerelease, so rehearsal versions look like 1.2.3-1.
   publish-release:
     name: Publish completed release
-    needs: [create-release, build-installers]
-    if: github.event_name == 'push' || inputs.draft == false
+    needs: [create-release, build-installers, build-macos, updater-manifest]
+    if: >-
+      (github.event_name == 'push' && !contains(needs.create-release.outputs.version, '-'))
+      || inputs.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

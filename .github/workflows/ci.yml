@@ -184,6 +184,52 @@ jobs:
             .tracepilot/e2e-results/tests/**/native/data root/fixture.json
             .tracepilot/e2e-results/tests/**/native/data root/tracepilot/config.toml
 
+  # macOS is a tier-2 platform (ADR 0010): this lane is deliberately not in
+  # `required`. It builds the ad-hoc signed app and disk image, installs from
+  # the image and launches the app. WKWebView has no CDP endpoint, so the
+  # Playwright journeys stay Windows-only. The disk image is uploaded for
+  # manual testing on a Mac.
+  macos_bundle:
+    name: desktop bundle (macOS, non-blocking)
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      # Same trade-off as desktop_e2e: packaging, not shipping codegen.
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+      CARGO_PROFILE_RELEASE_LTO: "off"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-node-pnpm
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: macos-release
+          save-cache: "true"
+      # Updater artifacts need the release signing key, which PRs never see.
+      - name: Build app bundle and disk image
+        run: pnpm tauri build --bundles app,dmg --config '{"bundle":{"createUpdaterArtifacts":false}}'
+      # Uploaded before the smoke test so a failing build can still be tried.
+      - name: Upload disk image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tracepilot-macos-dmg-${{ github.run_attempt }}
+          retention-days: 7
+          path: target/release/bundle/dmg/*.dmg
+      - name: Verify, install from disk image, and launch
+        run: bash scripts/macos/bundle-smoke.sh
+      - name: Upload macOS smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos-smoke-${{ github.run_attempt }}
+          retention-days: 7
+          include-hidden-files: true
+          if-no-files-found: ignore
+          path: |
+            .tracepilot/macos-smoke/*.txt
+            .tracepilot/macos-smoke/*.log
+            .tracepilot/macos-smoke/*.png
+            .tracepilot/macos-smoke/data root/logs/
+
   # Fast repository-policy checks do not need dependency installation or
   # native Tauri packages.
   policy:

@@ -16,7 +16,7 @@ It reads the session data Copilot CLI writes under `~/.copilot/session-state/` b
 
 > **Project status:** TracePilot is early-stage software. It is useful today, but the UI and internal data model still change quickly.
 >
-> **Platform status:** TracePilot is currently tested on Windows. The stack is cross-platform, but macOS and Linux are not yet official targets.
+> **Platform status:** TracePilot is tested on Windows. Apple Silicon Macs get a preview build; Intel Macs and Linux are not yet release targets.
 
 <p align="center">
   <a href="#what-you-can-do">What you can do</a> |
@@ -151,7 +151,7 @@ wipe, overlay, and highlighted pixel differences. See
 
 ### Prerequisites
 
-- Windows with the WebView2 runtime.
+- Windows with the WebView2 runtime, or macOS 12+ on Apple Silicon.
 - GitHub Copilot CLI with session history.
 - For source builds: Rust, Node.js 22, pnpm 10, and the Tauri 2 prerequisites.
   The exact known-good versions are recorded in `.node-version` and the root
@@ -172,7 +172,13 @@ The current release assets include:
 
 The app is not code-signed yet. Windows SmartScreen may warn on first launch; choose **More info** -> **Run anyway** if you trust the build, or build from source instead.
 
-### Option B: run from source
+### Option B: install a macOS build (Apple Silicon preview)
+
+Download `TracePilot_<version>_aarch64.dmg` from [GitHub Releases](https://github.com/MattShelton04/TracePilot/releases/latest), open it and drag **TracePilot** into **Applications**. Intel Macs are not supported yet.
+
+The app is not notarized by Apple, so the first launch is blocked. Open TracePilot once, then choose **System Settings** -> **Privacy & Security** -> **Open Anyway**. Later versions install from inside the app in one click without that prompt. Run TracePilot from Applications rather than from the disk image, or it cannot update itself.
+
+### Option C: run from source
 
 ```powershell
 git clone https://github.com/MattShelton04/TracePilot.git
@@ -278,6 +284,10 @@ The workspace version is centralized in the root `Cargo.toml` and mirrored into 
 The script updates only the root and pnpm workspace package manifests, leaving third-party test fixtures and local Copilot packages at their own versions. It requires pnpm and `cargo-edit` (`cargo install cargo-edit`).
 
 After a version bump, update `CHANGELOG.md` and `apps/desktop/public/release-manifest.json`, run the validation gates, and open a PR to `main`. Once the PR is merged, tag the merged commit with `v<version>` and push that tag to trigger the repository release workflow.
+
+The workflow builds the Windows installers and the Apple Silicon disk image in parallel, adds the macOS entry to `latest.json`, and publishes the release once every job passes. If only the macOS job fails, the draft already holds the Windows assets and a Windows-only `latest.json`, so it can be published by hand.
+
+To rehearse a release without publishing it, bump a throwaway commit to a numeric prerelease version (for example `0.9.1-1`; MSI rejects non-numeric prerelease identifiers) and push a matching tag. Pushed prerelease tags stop at a draft. Draft assets are only downloadable by repository members while signed in, and the in-app updater cannot see drafts. Delete the draft and the tag afterwards.
 
 ---
 
