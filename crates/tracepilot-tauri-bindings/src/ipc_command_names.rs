@@ -43,7 +43,6 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "get_session_plan",
     "get_shutdown_metrics",
     "get_session_prompt_cache",
-    "get_session_effort_usage",
     "context_capture_preflight",
     "context_capture_start",
     "context_capture_cancel",

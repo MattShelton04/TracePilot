@@ -1,4 +1,4 @@
-//! Reasoning effort, shell exit codes and user-turn grouping, reconstructed
+//! Reasoning effort, shell exit codes and user-message origin, reconstructed
 //! from event shapes recorded by Copilot CLI 1.0.91.
 
 use super::*;
@@ -37,14 +37,6 @@ fn turn_end(second: u32, turn_id: &str) -> TypedEvent {
     ev(
         json!({ "type": "assistant.turn_end", "timestamp": at(second), "data": { "turnId": turn_id } }),
     )
-}
-
-fn reply(second: u32, origin: Option<&str>) -> TypedEvent {
-    ev(json!({
-        "type": "assistant.message",
-        "timestamp": at(second),
-        "data": { "content": "ok", "model": "gpt-5.6-luna", "originatingMessageId": origin },
-    }))
 }
 
 #[test]
@@ -122,50 +114,7 @@ fn each_agent_turn_records_the_effort_it_ran_at() {
 }
 
 #[test]
-fn originating_message_ids_group_steered_runs_into_one_user_turn() {
-    let events = vec![
-        user(0, "p", "idle"),
-        turn_start(1, "0"),
-        reply(2, Some("p")),
-        turn_end(3, "0"),
-        user(4, "s", "steering"),
-        turn_start(5, "1"),
-        reply(6, Some("p")),
-        turn_end(7, "1"),
-        user(8, "n", "idle"),
-        turn_start(9, "2"),
-        reply(10, Some("n")),
-        turn_end(11, "2"),
-    ];
-    let turns = reconstruct_turns(&events);
-    assert_eq!(turns.len(), 3);
-    assert_eq!(turns[1].user_message_delivery.as_deref(), Some("steering"));
-    assert_eq!(turns[1].originating_message_id.as_deref(), Some("p"));
-    let user_turns: Vec<_> = turns.iter().map(|t| t.user_turn_index).collect();
-    assert_eq!(user_turns, vec![Some(0), Some(0), Some(1)]);
-}
-
-#[test]
-fn logs_without_message_ids_group_by_user_message_order() {
-    let events = vec![
-        user(0, "m1", "idle"),
-        turn_start(1, "0"),
-        reply(2, None),
-        turn_end(3, "0"),
-        turn_start(4, "1"),
-        reply(5, None),
-        turn_end(6, "1"),
-        user(7, "m2", "idle"),
-        turn_start(8, "2"),
-        turn_end(9, "2"),
-    ];
-    let turns = reconstruct_turns(&events);
-    let user_turns: Vec<_> = turns.iter().map(|t| t.user_turn_index).collect();
-    assert_eq!(user_turns, vec![Some(0), Some(0), Some(1)]);
-}
-
-#[test]
-fn system_notifications_and_reminders_stay_in_the_user_turn() {
+fn steering_and_injected_messages_are_told_apart_from_typed_ones() {
     let events = vec![
         user(0, "p", "idle"),
         turn_start(1, "0"),
@@ -193,11 +142,11 @@ fn system_notifications_and_reminders_stay_in_the_user_turn() {
         })),
         turn_start(8, "2"),
         turn_end(9, "2"),
-        user(10, "q", "idle"),
+        user(10, "s", "steering"),
     ];
     let turns = reconstruct_turns(&events);
     let flags: Vec<_> = turns.iter().map(|t| t.system_initiated).collect();
     assert_eq!(flags, vec![false, true, true, true, false]);
-    let user_turns: Vec<_> = turns.iter().map(|t| t.user_turn_index.unwrap()).collect();
-    assert_eq!(user_turns, vec![0, 0, 0, 0, 1]);
+    let last = turns.last().unwrap();
+    assert_eq!(last.user_message_delivery.as_deref(), Some("steering"));
 }

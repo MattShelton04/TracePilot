@@ -179,10 +179,7 @@ pub(super) fn make_turn_with_tools(tool_calls: Vec<TurnToolCall>) -> Conversatio
         system_messages: Vec::new(),
         agent_messages: Vec::new(),
         reasoning_effort: None,
-        user_message_id: None,
         user_message_delivery: None,
         system_initiated: false,
-        originating_message_id: None,
-        user_turn_index: None,
     }
 }

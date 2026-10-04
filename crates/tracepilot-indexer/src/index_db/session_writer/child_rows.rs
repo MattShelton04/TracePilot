@@ -22,7 +22,6 @@ pub(super) fn delete_child_rows(conn: &Connection, session_id: &str) -> Result<(
         "DELETE FROM session_agent_runs WHERE session_id = ?1",
         "DELETE FROM session_agent_selections WHERE session_id = ?1",
         "DELETE FROM session_skill_invocations WHERE session_id = ?1",
-        "DELETE FROM session_effort_usage WHERE session_id = ?1",
     ];
 
     for sql in DELETE_SQLS {
@@ -188,42 +187,5 @@ pub(super) fn write_child_rows(
         },
     )?;
 
-    write_effort_rows(conn, session_id, &analytics.effort_rows)?;
-
-    Ok(())
-}
-
-/// A session has a handful of model/effort pairs, so rows go in one by one.
-fn write_effort_rows(
-    conn: &Connection,
-    session_id: &str,
-    rows: &[tracepilot_core::effort_usage::EffortUsageEntry],
-) -> Result<()> {
-    if rows.is_empty() {
-        return Ok(());
-    }
-    let mut stmt = conn.prepare_cached(
-        "INSERT OR REPLACE INTO session_effort_usage          (session_id, model, reasoning_effort, user_turns, agent_turns, tool_calls, wall_ms,           observed_user_turns, requests, reasoning_tokens, output_tokens, api_duration_ms,           total_nano_aiu, subagent_requests, subagent_nano_aiu)          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
-    )?;
-    let int = |value: u64| i64::try_from(value).unwrap_or(i64::MAX);
-    for row in rows {
-        stmt.execute(rusqlite::params![
-            session_id,
-            row.model.as_deref().unwrap_or(""),
-            row.reasoning_effort.as_deref().unwrap_or(""),
-            row.user_turns,
-            row.agent_turns,
-            row.tool_calls,
-            int(row.wall_ms),
-            row.observed_user_turns,
-            row.requests,
-            int(row.reasoning_tokens),
-            int(row.output_tokens),
-            int(row.api_duration_ms),
-            int(row.nano_aiu),
-            row.subagent_requests,
-            int(row.subagent_nano_aiu),
-        ])?;
-    }
     Ok(())
 }

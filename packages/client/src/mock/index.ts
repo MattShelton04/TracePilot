@@ -10,7 +10,6 @@ export {
   MOCK_CODE_IMPACT,
   MOCK_TOOL_ANALYSIS,
 } from "./analytics.js";
-export { MOCK_EFFORT_USAGE } from "./effortUsage.js";
 export { MOCK_EXPORT_RESULT } from "./export.js";
 export { MOCK_PROMPT_CACHE } from "./promptCache.js";
 export {

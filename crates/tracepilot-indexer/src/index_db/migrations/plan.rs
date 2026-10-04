@@ -4,7 +4,7 @@ use super::columns::ensure_search_columns;
 use super::sql::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
     MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_13, MIGRATION_14, MIGRATION_15,
-    MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19, MIGRATION_20, MIGRATION_22,
+    MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19, MIGRATION_20,
 };
 use tracepilot_core::utils::migrator::{Migration, MigrationPlan};
 
@@ -128,12 +128,6 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
         name: "independent successful source snapshots",
         sql: "ALTER TABLE sessions ADD COLUMN source_fingerprint TEXT;
               ALTER TABLE sessions ADD COLUMN search_source_fingerprint TEXT;",
-        pre_hook: None,
-    },
-    Migration {
-        version: 22,
-        name: "reasoning effort usage",
-        sql: MIGRATION_22,
         pre_hook: None,
     },
 ];

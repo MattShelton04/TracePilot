@@ -15,7 +15,6 @@ use super::postprocess::{
     correct_turn_models, finalize_subagent_completion, infer_subagent_models,
     resolve_agent_display_names,
 };
-use super::user_turns::assign_user_turns;
 
 mod agent_control;
 mod agent_messages;
@@ -350,7 +349,6 @@ impl TurnReconstructor {
         finalize_subagent_completion(&mut self.turns);
         correct_turn_models(&mut self.turns, &self.explicit_turn_models);
         resolve_agent_display_names(&mut self.turns);
-        assign_user_turns(&mut self.turns);
         self.turns
     }
 }

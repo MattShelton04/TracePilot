@@ -182,9 +182,6 @@ pub struct ConversationTurn {
     /// effort selections. `None` when the model's default applied.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<String>,
-    /// `messageId` of this turn's user message.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub user_message_id: Option<String>,
     /// How this turn's user message reached the agent loop: `idle`,
     /// `steering` (injected into the running request) or `queued`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -193,16 +190,6 @@ pub struct ConversationTurn {
     /// reminder or autopilot continuation) rather than the user typing it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub system_initiated: bool,
-    /// `messageId` of the user message whose request the main agent was
-    /// serving in this turn (Copilot CLI 1.0.88+ `originatingMessageId`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub originating_message_id: Option<String>,
-    /// The user request this agent turn belongs to. A request spans every
-    /// agent turn from one user message until the next request; steering
-    /// messages stay in the request they redirect. See
-    /// [`crate::turns::assign_user_turns`].
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub user_turn_index: Option<usize>,
 }
 
 /// A tool call within a conversation turn.

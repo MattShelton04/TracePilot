@@ -27,7 +27,7 @@ use chrono::Utc;
 use serde_json::{Value, json};
 
 // Declare test submodules
-mod effort_and_user_turns;
+mod effort_and_exit_codes;
 mod message_handling;
 mod model_tracking;
 mod performance;

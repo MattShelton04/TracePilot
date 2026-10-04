@@ -5,7 +5,6 @@ import { provide, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import ModelCharts from "@/components/modelComparison/ModelCharts.vue";
 import ModelCompareTable from "@/components/modelComparison/ModelCompareTable.vue";
-import ModelEffortTable from "@/components/modelComparison/ModelEffortTable.vue";
 import ModelLeaderboard from "@/components/modelComparison/ModelLeaderboard.vue";
 import ModelStatsGrid from "@/components/modelComparison/ModelStatsGrid.vue";
 import { useFirstReveal } from "@/composables/useFirstReveal";
@@ -53,7 +52,6 @@ const { revealing } = useFirstReveal({
             <ModelLeaderboard />
             <ModelCharts />
             <ModelCompareTable />
-            <ModelEffortTable />
           </div>
         </template>
       </LoadingOverlay>

@@ -5,7 +5,6 @@ import SubagentPanel from "@/components/conversation/SubagentPanel.vue";
 import MetricsAgentBreakdown from "@/components/metrics/MetricsAgentBreakdown.vue";
 import MetricsCacheBreakdown from "@/components/metrics/MetricsCacheBreakdown.vue";
 import MetricsCodeChanges from "@/components/metrics/MetricsCodeChanges.vue";
-import MetricsEffortSection from "@/components/metrics/MetricsEffortSection.vue";
 import MetricsModelTable from "@/components/metrics/MetricsModelTable.vue";
 import MetricsPromptCacheSection from "@/components/metrics/MetricsPromptCacheSection.vue";
 import MetricsSessionActivity from "@/components/metrics/MetricsSessionActivity.vue";
@@ -17,7 +16,6 @@ import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { usePromptCache } from "@/composables/usePromptCache";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
-import { useSessionEffortUsage } from "@/composables/useSessionEffortUsage";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { usePreferencesStore } from "@/stores/preferences";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
@@ -42,12 +40,6 @@ const {
   timeline: promptCache,
   retry: retryPromptCache,
 } = usePromptCache(store);
-
-const {
-  usage: effortUsage,
-  error: effortError,
-  retry: retryEffortUsage,
-} = useSessionEffortUsage(store);
 
 function retryLoadMetrics() {
   store.loaded.delete("metrics");
@@ -144,9 +136,6 @@ const {
         :total-tokens="totalTokens"
         :has-reasoning-data="hasReasoningData"
       />
-
-      <ErrorAlert v-if="effortError" :message="effortError" variant="inline" class="mb-4" retryable @retry="retryEffortUsage" />
-      <MetricsEffortSection v-if="effortUsage" :usage="effortUsage" />
 
       <MetricsSessionActivity :key="store.sessionId ?? undefined" :metrics="metrics" />
 

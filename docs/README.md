@@ -25,7 +25,6 @@ some older reports and plans, which remain recoverable from Git history.
 | [Dependencies](dependencies/README.md) | Complete dependency graph, usage inventory, update decisions, security findings, and measured costs. |
 | [Exact Context Capture Guide](exact-context-capture.md) | Enable, run, inspect, store, and delete isolated model-request snapshots. |
 | [Agent Communication](features/agent-communication.md) | Timeline Messages modes, communication evidence, live refresh, and Agents usage counters. |
-| [Reasoning Effort Insights](features/reasoning-effort-insights.md) | User-turn grouping, per-turn effort, session-store request figures, and shell exit-code chips. |
 
 ## Architecture and design references
 

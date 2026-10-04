@@ -236,11 +236,8 @@ mod tests {
             system_messages: vec![],
             agent_messages: vec![],
             reasoning_effort: None,
-            user_message_id: None,
             user_message_delivery: None,
             system_initiated: false,
-            originating_message_id: None,
-            user_turn_index: None,
         }
     }
 

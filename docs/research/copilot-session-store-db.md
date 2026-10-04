@@ -3,10 +3,6 @@
 Status: **Research** (2026-09-19). Read-only analysis of the author's local data plus the CLI
 1.0.83 package. No CLI files were modified.
 
-Update: per-request usage now feeds reasoning-effort analytics through a minimal read-only
-reader. See [Reasoning effort insights](../features/reasoning-effort-insights.md#3-request-figures-from-the-session-store)
-for where it departs from the adapter proposed in section 6.
-
 ## 1. Short answer
 
 - **Who has it?** Every Copilot CLI user since **1.0.40** (2026-05-01): "Session history, file
@@ -74,6 +70,19 @@ The same runtime also contains per-session databases (`session.db`, with `todos`
 | 5 | **Store-only sessions** (21 not on disk) listed as "known remotely" | Low–medium | Yes |
 | 6 | `finish_reason` / `content_filter_triggered` per request | Low (0 filtered locally) | Yes |
 | 7 | FTS, files, turns | None. TracePilot already has better equivalents. | n/a |
+
+### Reasoning-effort comparisons need the store
+
+Comparing reasoning tokens, API time or AI Credits per turn by effort level (for example,
+xhigh vs medium) can't be built from `events.jsonl` alone on current CLIs:
+
+- Reasoning tokens were never in the event log.
+- `assistant.message.outputTokens` was recorded through 1.0.79 and dropped in 1.0.83.
+
+Turn effort itself is in the log (`session.start`/`resume`/`model_change` `reasoningEffort`
+and `user.message.responsesReasoning`). TracePilot shows it per session and per turn without
+the store. A store-backed effort table was prototyped (October 2026) and then deferred. Its
+cross-task averages are confounded by task difficulty, and most sessions never change effort.
 
 ## 5. Guardrails for any integration
 

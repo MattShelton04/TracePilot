@@ -48,7 +48,6 @@ impl TurnReconstructor {
         turn.event_index = Some(event_index);
         turn.model = self.session_model.clone();
         turn.reasoning_effort = self.effort.current_effort().map(str::to_string);
-        turn.user_message_id = data.message_id.clone();
         turn.user_message_delivery = data.delivery.clone();
         turn.system_initiated = !is_typed_by_user(data);
         // Flush any session events that occurred between turns
@@ -94,10 +93,6 @@ impl TurnReconstructor {
         }
         if owner.is_none() && turn.interaction_id.is_none() {
             turn.interaction_id = data.interaction_id.clone();
-        }
-        if owner.is_none() && event.raw.agent_id.is_none() && turn.originating_message_id.is_none()
-        {
-            turn.originating_message_id = data.originating_message_id.clone();
         }
         if let Some(content) = &data.content
             && !content.trim().is_empty()

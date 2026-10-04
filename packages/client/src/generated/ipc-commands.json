@@ -66,7 +66,6 @@
   "get_session_context_timeline",
   "get_session_count",
   "get_session_detail",
-  "get_session_effort_usage",
   "get_session_events",
   "get_session_incidents",
   "get_session_plan",

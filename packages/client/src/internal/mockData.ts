@@ -2,7 +2,6 @@ import type {
   ContextCaptureSnapshot,
   ContextTimeline,
   ContextTimelineResponse,
-  EffortUsageResponse,
   ExportPreviewResult,
   FreshnessResponse,
   ImportPreviewResult,
@@ -294,11 +293,6 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       eventsFileSize: 1024,
       eventsFileMtime: MOCK_EVENTS_MTIME,
     } as PromptCacheResponse,
-    get_session_effort_usage: {
-      usage: mocks.MOCK_EFFORT_USAGE,
-      eventsFileSize: 1024,
-      eventsFileMtime: MOCK_EVENTS_MTIME,
-    } as EffortUsageResponse,
     context_capture_list: [],
     context_capture_preflight: {
       sourceSessionId: mockSessionId,

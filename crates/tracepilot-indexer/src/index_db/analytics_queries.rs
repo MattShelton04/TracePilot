@@ -12,8 +12,6 @@ mod agents;
 mod code_impact;
 mod dashboard;
 mod day_bucket;
-mod effort_usage;
-mod model_usage_by_day;
 mod prompt_cache;
 mod skills;
 mod tool_analysis;
@@ -27,13 +25,7 @@ impl IndexDb {
         repo: Option<&str>,
         hide_empty: bool,
     ) -> Result<AnalyticsData> {
-        let mut data =
-            dashboard::query_analytics(&self.conn, from_date, to_date, repo, hide_empty)?;
-        let (where_clause, bind_values) =
-            super::helpers::build_date_repo_filter(from_date, to_date, repo, hide_empty);
-        data.reasoning_effort =
-            effort_usage::query_effort_usage(&self.conn, &where_clause, &bind_values)?;
-        Ok(data)
+        dashboard::query_analytics(&self.conn, from_date, to_date, repo, hide_empty)
     }
 
     /// The most common prompt-cache TTL observed per model across all indexed

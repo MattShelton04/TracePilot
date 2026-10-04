@@ -273,8 +273,8 @@ watch(
   font-size: 10px;
   font-weight: 600;
   white-space: nowrap;
-  color: var(--warning-fg, #d29922);
-  background: var(--warning-subtle, rgba(210, 153, 34, 0.12));
+  color: var(--warning-fg);
+  background: var(--warning-subtle);
 }
 
 .tool-call-permission-pill {
@@ -306,7 +306,7 @@ watch(
 }
 
 .tool-call-permission-pill.status-pending {
-  color: var(--warning-fg, #d29922);
+  color: var(--warning-fg);
 }
 
 .tool-call-permission-pill.status-hook {

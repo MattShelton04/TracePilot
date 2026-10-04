@@ -23,31 +23,26 @@ export interface AgentTimeRange {
 /* ------------------------------------------------------------------ */
 
 /**
- * One phase per user turn: every agent turn serving one typed user message.
- * The backend's `userTurnIndex` keeps steering messages and system
- * notifications inside the request they belong to; turns without it (older
- * payloads) fall back to starting a phase at each user message.
+ * One phase per message the user typed. Steering messages and messages
+ * Copilot injected (notifications, reminders) continue the current phase.
  */
 export function groupPhases(turns: ConversationTurn[]): Phase[] {
   if (!turns.length) return [];
 
   const result: Phase[] = [];
   let current: Phase | null = null;
-  let currentKey: number | null = null;
 
   for (const turn of turns) {
-    const key = turn.userTurnIndex;
     const startsPhase =
-      key != null ? key !== currentKey : turn.userMessage != null && !turn.systemInitiated;
+      turn.userMessage != null && !turn.systemInitiated && turn.userMessageDelivery !== "steering";
     if (startsPhase || !current) {
-      const label =
-        turn.userMessage != null && !turn.systemInitiated ? turn.userMessage : "(system)";
+      // Turns before the first typed message form an implicit phase.
+      const label = startsPhase && turn.userMessage != null ? turn.userMessage : "(system)";
       current = { index: result.length, label, turns: [turn] };
       result.push(current);
     } else {
       current.turns.push(turn);
     }
-    currentKey = key ?? currentKey;
   }
 
   return result;

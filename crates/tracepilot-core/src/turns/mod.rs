@@ -44,13 +44,11 @@
 //! - [`reconstructor`]: Core state machine for turn reconstruction
 //! - [`postprocess`]: Post-processing functions (model inference, name resolution)
 //! - [`ipc`]: IPC preparation utilities (args summaries, payload optimization)
-//! - [`user_turns`]: Grouping agent turns into the user requests they serve
 //! - [`utils`]: Shared utility functions (duration, truncation, etc.)
 
 mod ipc;
 mod postprocess;
 mod reconstructor;
-mod user_turns;
 mod utils;
 
 use crate::models::conversation::ConversationTurn;
@@ -59,10 +57,6 @@ use crate::parsing::events::TypedEvent;
 // Re-export public items
 pub use ipc::{compute_args_summary, prepare_turns_for_ipc};
 pub use reconstructor::TurnReconstructor;
-pub use user_turns::{assign_user_turns, user_turn_indices};
-
-#[cfg(test)]
-pub(crate) use reconstructor::new_turn;
 
 /// Aggregate statistics for reconstructed turns.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -129,7 +129,6 @@ impl AnalyticsAccumulator {
             incidents_by_day: Vec::new(),
             // Cache windows are only available from the index.
             prompt_cache: PromptCacheAnalytics::default(),
-            reasoning_effort: Vec::new(),
         }
     }
 
