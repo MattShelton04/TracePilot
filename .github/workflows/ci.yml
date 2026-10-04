@@ -111,7 +111,7 @@ jobs:
       # `cargo test` already compiles the tested workspace targets, so a
       # preceding serial `cargo check` only delayed the same feedback.
       - name: Rust tests
-        run: cargo test --workspace --exclude tracepilot-desktop
+        run: cargo test --workspace --exclude tracepilot-desktop --no-fail-fast
 
       - name: Regenerate and verify TypeScript bindings
         if: runner.os == 'Linux'
