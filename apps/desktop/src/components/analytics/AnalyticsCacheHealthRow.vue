@@ -19,11 +19,12 @@ const prefs = usePreferencesStore();
       <div class="cache-hit-rate" :title="`${formatPercent(data.cacheStats.cacheHitRate)} of input tokens were served from the prompt cache`">
         <div class="cache-hit-rate-label">
           <span>Cache Hit Rate</span>
-          <strong>{{ formatPercent(data.cacheStats.cacheHitRate) }}</strong>
+          <strong data-count-up>{{ formatPercent(data.cacheStats.cacheHitRate) }}</strong>
         </div>
         <div class="cache-progress-track">
           <div
             class="cache-progress-fill"
+            data-reveal="grow-x"
             :style="{ width: `${Math.min(data.cacheStats.cacheHitRate, 100)}%` }"
             :class="{
               'cache-progress-fill--high': data.cacheStats.cacheHitRate >= 50,

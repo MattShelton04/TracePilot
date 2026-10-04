@@ -102,6 +102,7 @@ function handleChartPointerMove(event: MouseEvent) {
             :stroke="item.color"
             :stroke-width="hoveredLabel === item.label ? 10 : 9"
             pathLength="100"
+            data-reveal="arc"
             :stroke-dasharray="`${item.percentage} ${100 - item.percentage}`"
             :stroke-dashoffset="-item.offset"
             class="tool-donut__segment"

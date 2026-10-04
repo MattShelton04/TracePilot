@@ -12,6 +12,7 @@ import MetricsStatCards from "@/components/metrics/MetricsStatCards.vue";
 import MetricsTokenBudget from "@/components/metrics/MetricsTokenBudget.vue";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useCrossTurnSubagents } from "@/composables/useCrossTurnSubagents";
+import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { usePromptCache } from "@/composables/usePromptCache";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
@@ -51,6 +52,10 @@ function retryLoadTurns() {
 }
 
 const metrics = computed(() => store.shutdownMetrics);
+const { revealing } = useFirstReveal({
+  key: () => store.sessionId && `metrics:${store.sessionId}`,
+  ready: () => !!metrics.value,
+});
 const currentModel = computed(() => sessionModel(store.detail));
 const turns = computed(() => store.turns);
 const { allSubagents } = useCrossTurnSubagents(turns);
@@ -80,7 +85,7 @@ const {
 </script>
 
 <template>
-  <div ref="metricsRoot">
+  <div ref="metricsRoot" :class="{ 'chart-reveal': revealing }">
     <ErrorAlert
       v-if="store.metricsError"
       :message="store.metricsError"

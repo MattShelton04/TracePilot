@@ -80,7 +80,7 @@ const extraCredits = computed(() => {
           <li v-for="cause in causes" :key="cause.kind" class="prompt-timing__cause">
             <span class="prompt-timing__cause-label">{{ changeKindLabel(cause.kind) }}</span>
             <span class="prompt-timing__bar" aria-hidden="true">
-              <span class="prompt-timing__bar-fill" :style="{ width: `${(cause.count / maxCauseCount) * 100}%` }" />
+              <span class="prompt-timing__bar-fill" data-reveal="grow-x" :style="{ width: `${(cause.count / maxCauseCount) * 100}%` }" />
             </span>
             <span class="prompt-timing__count">{{ cause.count }}</span>
           </li>

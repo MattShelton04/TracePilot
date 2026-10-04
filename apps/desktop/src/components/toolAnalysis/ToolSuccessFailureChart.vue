@@ -137,6 +137,8 @@ function onClick(event: MouseEvent) {
             :fill="CHART_COLORS.success"
             class="chart-bar"
             :class="{ 'chart-bar--active': tooltip.chartId === 'success-failure' && tooltip.highlightIndex === ri }"
+            data-reveal="grow-x-view"
+            :style="{ '--reveal-origin-x': `${chart.chartLeft}px` }"
           />
           <rect
             v-if="row.failureWidth > 0"
@@ -148,6 +150,8 @@ function onClick(event: MouseEvent) {
             :fill="CHART_COLORS.danger"
             class="chart-bar"
             :class="{ 'chart-bar--active': tooltip.chartId === 'success-failure' && tooltip.highlightIndex === ri }"
+            data-reveal="grow-x-view"
+            :style="{ '--reveal-origin-x': `${chart.chartLeft}px` }"
           />
           <text
             :x="chart.chartLeft + row.successWidth + row.failureWidth + 8"

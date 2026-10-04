@@ -16,9 +16,10 @@ import {
   toPolylinePoints,
   useChartTooltip,
 } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
+import { useFirstReveal } from "@/composables/useFirstReveal";
 import { CHART_COLORS } from "@/utils/chartColors";
 
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick, onBarMouseEnter } =
@@ -27,6 +28,14 @@ const { store } = useAnalyticsPage("fetchCodeImpact");
 
 const loading = computed(() => store.codeImpactLoading);
 const data = computed(() => store.codeImpact);
+
+const contentRoot = ref<HTMLElement | null>(null);
+const { revealing } = useFirstReveal({
+  key: "code",
+  ready: () => !loading.value && !!data.value,
+  root: contentRoot,
+  countUpSelector: ".stat-card-value",
+});
 
 const pageSubtitle = computed(() => {
   const allPrefix = store.selectedRepo ? "" : "all ";
@@ -98,7 +107,7 @@ const timelineChart = computed(() => {
     <AnalyticsPageHeader title="Code Impact" :subtitle="pageSubtitle" />
     <LoadingOverlay :loading="loading" message="Loading code impact data…">
         <ErrorState v-if="store.codeImpactError" heading="Failed to load code impact data" :message="store.codeImpactError" @retry="store.fetchCodeImpact({ force: true })" />
-        <template v-else-if="data">
+        <div v-else-if="data" ref="contentRoot" :class="{ 'chart-reveal': revealing }">
 
           <!-- Stats Row -->
           <div class="grid-4 mb-4">
@@ -139,6 +148,7 @@ const timelineChart = computed(() => {
                   <div class="token-bar-track">
                     <div
                       class="token-bar-fill"
+                      data-reveal="grow-x"
                       :style="{ width: (ft.count / maxFileTypeCount * 100) + '%' }"
                     />
                   </div>
@@ -162,6 +172,7 @@ const timelineChart = computed(() => {
                   <span class="file-freq">{{ file.additions }} session{{ file.additions !== 1 ? 's' : '' }}</span>
                   <div
                     class="churn-bar"
+                    data-reveal="grow-x"
                     :style="{ width: churnBarWidth(file.additions, 0) + 'px' }"
                   >
                     <div class="churn-bar-add" style="width: 100%" />
@@ -196,28 +207,30 @@ const timelineChart = computed(() => {
                   @click="onChartClick($event, timelineChart.addCoords, (i) => `${formatDateShort(timelineChart!.addCoords[i].date)} — +${formatNumberFull(timelineChart!.addCoords[i].additions)} / -${formatNumberFull(timelineChart!.addCoords[i].deletions)}`, 'timeline', '.chart-frame')"
                   @dismiss-tooltip="dismissTooltip"
                 >
-                  <!-- Additions area -->
-                  <polygon :points="timelineChart.addArea" :fill="CHART_COLORS.success" fill-opacity="0.15" />
-                  <!-- Deletions area -->
-                  <polygon :points="timelineChart.delArea" :fill="CHART_COLORS.danger" fill-opacity="0.15" />
-                  <!-- Additions line -->
-                  <polyline
-                    :points="timelineChart.addLine"
-                    fill="none"
-                    :stroke="CHART_COLORS.success"
-                    stroke-width="2"
-                    stroke-linejoin="round"
-                    stroke-linecap="round"
-                  />
-                  <!-- Deletions line -->
-                  <polyline
-                    :points="timelineChart.delLine"
-                    fill="none"
-                    :stroke="CHART_COLORS.danger"
-                    stroke-width="2"
-                    stroke-linejoin="round"
-                    stroke-linecap="round"
-                  />
+                  <g data-reveal="wipe">
+                    <!-- Additions area -->
+                    <polygon :points="timelineChart.addArea" :fill="CHART_COLORS.success" fill-opacity="0.15" />
+                    <!-- Deletions area -->
+                    <polygon :points="timelineChart.delArea" :fill="CHART_COLORS.danger" fill-opacity="0.15" />
+                    <!-- Additions line -->
+                    <polyline
+                      :points="timelineChart.addLine"
+                      fill="none"
+                      :stroke="CHART_COLORS.success"
+                      stroke-width="2"
+                      stroke-linejoin="round"
+                      stroke-linecap="round"
+                    />
+                    <!-- Deletions line -->
+                    <polyline
+                      :points="timelineChart.delLine"
+                      fill="none"
+                      :stroke="CHART_COLORS.danger"
+                      stroke-width="2"
+                      stroke-linejoin="round"
+                      stroke-linecap="round"
+                    />
+                  </g>
                   <!-- Highlight rings -->
                   <circle
                     v-if="tooltip.chartId === 'timeline' && tooltip.highlightIndex >= 0 && tooltip.highlightIndex < timelineChart.addCoords.length"
@@ -243,7 +256,7 @@ const timelineChart = computed(() => {
               </div>
             </div>
           </div>
-        </template>
+        </div>
       </LoadingOverlay>
   </PageShell>
 </template>

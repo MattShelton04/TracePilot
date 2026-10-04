@@ -29,6 +29,7 @@ const { tooltip, dismissTooltip, onBarMouseEnter } = useChartTooltip();
           <div class="tool-frequency__track">
             <div
               class="tool-frequency__bar"
+              data-reveal="grow-x"
               :style="{ width: (tool.callCount / (maxInvocations || 1) * 100) + '%' }"
             />
           </div>

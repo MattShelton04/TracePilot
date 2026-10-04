@@ -17,3 +17,120 @@
     transform: rotate(360deg);
   }
 }
+
+/* ============================
+   FIRST-APPEARANCE CHART REVEAL
+   ============================ */
+
+/* useFirstReveal puts `chart-reveal` on a view root the first time its data
+   appears in an app run; chart parts opt in with `data-reveal`. Reveals run
+   inside SVGs or on small bar fills only: animating opacity or transform on
+   whole panels would lift them above the ambient background glow until the
+   animation ends (see design-system/pages/00-globals.md §G5). */
+.chart-reveal {
+  --reveal-duration: 500ms;
+}
+/* Series group drawn left to right (line + area, stacked areas). */
+.chart-reveal [data-reveal="wipe"] {
+  animation: tp-reveal-wipe var(--reveal-duration) var(--ease-out) backwards;
+}
+/* Vertical bars grow from the baseline. */
+.chart-reveal [data-reveal="grow-y"] {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: tp-reveal-grow-y var(--reveal-duration) var(--ease-out) backwards;
+}
+/* Horizontal bar fills grow from the start of their track. */
+.chart-reveal [data-reveal="grow-x"] {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  animation: tp-reveal-grow-x var(--reveal-duration) var(--ease-out) backwards;
+}
+/* SVG bars that share a baseline (stacked segments) grow from
+   --reveal-origin-x in chart coordinates. */
+.chart-reveal [data-reveal="grow-x-view"] {
+  transform-box: view-box;
+  transform-origin: var(--reveal-origin-x, 0) 0;
+  animation: tp-reveal-grow-x var(--reveal-duration) var(--ease-out) backwards;
+}
+/* SVG groups that grow out of a point (radar), given as --reveal-origin. */
+.chart-reveal [data-reveal="scale-view"] {
+  transform-box: view-box;
+  transform-origin: var(--reveal-origin, 50% 50%);
+  animation: tp-reveal-scale var(--reveal-duration) var(--ease-out) backwards;
+}
+/* Single marks (scatter bubbles) grow from their own centre. */
+.chart-reveal [data-reveal="pop"] {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: tp-reveal-scale var(--reveal-duration) var(--ease-out) backwards;
+}
+/* Donut segments (stroke-dasharray arcs) extend from their start angle. */
+.chart-reveal [data-reveal="arc"] {
+  animation: tp-reveal-arc var(--reveal-duration) var(--ease-out) backwards;
+}
+/* Conic-gradient gauges multiply their fill by --reveal-progress. */
+.chart-reveal [data-reveal="sweep"] {
+  animation: tp-reveal-sweep var(--reveal-duration) var(--ease-out) backwards;
+}
+@property --reveal-progress {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+/* Explicit end: inset() cannot interpolate to the underlying `none`. */
+@keyframes tp-reveal-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes tp-reveal-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes tp-reveal-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes tp-reveal-scale {
+  from {
+    transform: scale(0);
+  }
+}
+@keyframes tp-reveal-arc {
+  from {
+    stroke-dasharray: 0 10000;
+  }
+}
+@keyframes tp-reveal-sweep {
+  from {
+    --reveal-progress: 0;
+  }
+}
+
+/* ============================
+   REDUCED MOTION
+   ============================ */
+
+/* Honour the OS setting app-wide (design-system/pages/00-globals.md §G5):
+   transitions finish immediately and infinite loops, including spinners, stop
+   on a static frame. 1ms keeps transitionend/animationend firing. */
+/* biome-ignore-start lint/complexity/noImportantStyles: the OS preference must beat component-level motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: the OS preference must beat component-level motion. */

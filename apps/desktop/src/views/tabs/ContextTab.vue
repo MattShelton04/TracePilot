@@ -27,6 +27,7 @@ import ContextCapturePanel from "@/components/contextCapture/ContextCapturePanel
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
 import { getCachedContextTimeline, loadContextTimeline } from "@/composables/useContextTimeline";
 import { useConversationNavigation } from "@/composables/useConversationNavigation";
+import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -59,6 +60,10 @@ const selectedToolCall = ref<ContextToolCallContribution | null>(null);
 const selectedTurnToolCall = ref<TurnToolCall | null>(null);
 const selectedTimelineEvent = ref<ContextTimelineEvent | null>(null);
 const loadingTurnTools = ref(false);
+const { revealing } = useFirstReveal({
+  key: () => store.sessionId && `context:${store.sessionId}`,
+  ready: () => contextView.value === "timeline" && (timeline.value?.points.length ?? 0) > 0,
+});
 const navigateToCheckpoint = useCheckpointNavigation();
 const navigateToConversation = useConversationNavigation();
 const { fullResults, loadingResults, failedResults, loadFullResult, retryFullResult } =
@@ -414,7 +419,7 @@ function retryLoad() {
 </script>
 
 <template>
-  <div class="context-tab">
+  <div class="context-tab" :class="{ 'chart-reveal': revealing }">
     <div v-if="showContextCapture" class="context-tab__view-nav">
       <SegmentedControl v-model="contextView" :options="contextViews" />
     </div>

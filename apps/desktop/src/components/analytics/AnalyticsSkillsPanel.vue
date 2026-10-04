@@ -19,6 +19,7 @@ import type { SkillUsageSummary } from "@tracepilot/types";
 import { formatNumber, SectionPanel, toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { useFirstReveal } from "@/composables/useFirstReveal";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useAnalyticsStore } from "@/stores/analytics";
@@ -30,6 +31,14 @@ const skillsStore = useSkillsStore();
 const router = useRouter();
 
 const summary = ref<SkillUsageSummary | null>(null);
+const panelRoot = ref<HTMLElement | null>(null);
+// The panel loads its own data, usually after the dashboard's reveal window.
+const { revealing } = useFirstReveal({
+  key: "analytics:skills",
+  ready: () => (summary.value?.totalUses ?? 0) > 0,
+  root: panelRoot,
+  countUpSelector: ".skills-panel__value",
+});
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -134,7 +143,12 @@ function openSkills(search?: string) {
     <p v-if="error" class="skills-panel__note" role="alert">{{ error }}</p>
     <p v-else-if="loading" class="skills-panel__note" role="status">Loading skill uses…</p>
 
-    <div v-else-if="summary && summary.totalUses > 0" class="skills-panel">
+    <div
+      v-else-if="summary && summary.totalUses > 0"
+      ref="panelRoot"
+      class="skills-panel"
+      :class="{ 'chart-reveal': revealing }"
+    >
       <div class="skills-panel__metrics">
         <div v-for="metric in metrics" :key="metric.key" class="skills-panel__metric">
           <span
@@ -162,7 +176,7 @@ function openSkills(search?: string) {
             >
               <span class="skills-panel__name" :title="skill.name">{{ skill.name }}</span>
               <span class="skills-panel__track" aria-hidden="true">
-                <span class="skills-panel__fill" :style="{ width: skill.width }" />
+                <span class="skills-panel__fill" data-reveal="grow-x" :style="{ width: skill.width }" />
               </span>
               <span class="skills-panel__figure">{{ skill.uses }}</span>
               <span class="skills-panel__figure skills-panel__figure--muted">

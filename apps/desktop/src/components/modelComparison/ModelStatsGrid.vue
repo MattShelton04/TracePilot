@@ -48,6 +48,7 @@ const ctx = useModelComparisonContext();
       <div class="token-share-bar">
         <div
           class="token-share-fill"
+          data-reveal="grow-x"
           :style="{ '--fill-width': `${row.percentage}%`, '--model-color': row.color }"
         />
       </div>

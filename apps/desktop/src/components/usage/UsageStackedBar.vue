@@ -48,7 +48,7 @@ function label(value: number): string {
 
 <template>
   <div v-if="visible.length" class="stacked">
-    <div class="stacked__track" aria-hidden="true">
+    <div class="stacked__track" data-reveal="grow-x" aria-hidden="true">
       <span
         v-for="segment in visible"
         :key="segment.key"

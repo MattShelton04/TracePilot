@@ -104,6 +104,7 @@ const sortColumns: { key: SortKey; label: string }[] = [
                 <div class="inline-progress-bar">
                   <div
                     class="inline-progress-fill"
+                    data-reveal="grow-x"
                     :style="{ '--fill-width': `${row.percentage}%`, '--model-color': row.color }"
                   />
                 </div>
