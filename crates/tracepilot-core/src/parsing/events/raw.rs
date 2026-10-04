@@ -80,7 +80,7 @@ pub(super) fn visit_events_jsonl(
             })?
             .trim();
         if !line.is_empty() {
-            match serde_json::from_str::<RawEvent>(line) {
+            match parse_raw_event_line(line) {
                 Ok(event) => visit(event),
                 Err(error) => {
                     tracing::warn!(line = line_number, error = %error, "Skipping malformed event line");
@@ -94,6 +94,81 @@ pub(super) fn visit_events_jsonl(
         }
     }
     Ok(malformed)
+}
+
+/// Parse one JSONL record, recovering lines that contain unpaired UTF-16
+/// surrogate escapes.
+///
+/// Copilot CLI writes events with JavaScript's `JSON.stringify`, which emits
+/// a lone surrogate (for example, shell output truncated in the middle of an
+/// emoji) as `\ud83d`. That is valid JSON syntax and `JSON.parse` accepts it,
+/// but it cannot be represented as a Rust `String`, so serde_json rejects
+/// the whole line. Only after that failure is each unpaired escape replaced
+/// with U+FFFD, the same substitution a lossy UTF-16 decoder makes.
+fn parse_raw_event_line(line: &str) -> serde_json::Result<RawEvent> {
+    let error = match serde_json::from_str::<RawEvent>(line) {
+        Ok(event) => return Ok(event),
+        Err(error) => error,
+    };
+    // Report the original error if the repair does not help: it describes the
+    // line as written, not our rewrite of it.
+    replace_lone_surrogate_escapes(line)
+        .and_then(|repaired| serde_json::from_str::<RawEvent>(&repaired).ok())
+        .ok_or(error)
+}
+
+/// Replace `\uXXXX` escapes that encode an unpaired surrogate with `�`.
+/// Returns `None` when the line has none. Escaped backslashes are skipped, so
+/// literal text such as `\\ud83d` is left untouched.
+fn replace_lone_surrogate_escapes(line: &str) -> Option<String> {
+    fn escape_at(bytes: &[u8], at: usize) -> Option<u16> {
+        let hex = bytes.get(at..at + 6)?;
+        if hex[0] != b'\\' || hex[1] != b'u' {
+            return None;
+        }
+        u16::from_str_radix(std::str::from_utf8(&hex[2..]).ok()?, 16).ok()
+    }
+    let is_high = |unit: u16| (0xD800..0xDC00).contains(&unit);
+    let is_low = |unit: u16| (0xDC00..0xE000).contains(&unit);
+
+    let bytes = line.as_bytes();
+    let mut lone = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] != b'\\' {
+            i += 1;
+            continue;
+        }
+        match escape_at(bytes, i) {
+            Some(unit) if is_high(unit) => {
+                if escape_at(bytes, i + 6).is_some_and(is_low) {
+                    i += 12;
+                } else {
+                    lone.push(i);
+                    i += 6;
+                }
+            }
+            Some(unit) if is_low(unit) => {
+                lone.push(i);
+                i += 6;
+            }
+            Some(_) => i += 6,
+            // Any other escape is two bytes, including `\\`.
+            None => i += 2,
+        }
+    }
+    if lone.is_empty() {
+        return None;
+    }
+    let mut repaired = String::with_capacity(line.len());
+    let mut copied = 0;
+    for start in lone {
+        repaired.push_str(&line[copied..start]);
+        repaired.push_str("\\ufffd");
+        copied = start + 6;
+    }
+    repaired.push_str(&line[copied..]);
+    Some(repaired)
 }
 
 #[cfg(test)]
@@ -120,5 +195,61 @@ mod tests {
         let (events, malformed) = parse_events_jsonl(&path).unwrap();
         assert_eq!(malformed, 0);
         assert_eq!(events[0].agent_id.as_deref(), Some("subagent-call"));
+    }
+
+    #[test]
+    fn recovers_shell_output_truncated_inside_a_surrogate_pair() {
+        // Shape observed in a real Copilot CLI tool.execution_complete record:
+        // output cut between the two halves of an emoji.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(EVENTS_JSONL);
+        std::fs::write(
+            &path,
+            concat!(
+                r#"{"type":"tool.execution_complete","data":{"result":{"content":"<span>\ud83d\n<exited>"}},"id":"evt-1"}"#,
+                "\n",
+                r#"{"type":"user.message","data":{"content":"ok"},"id":"evt-2"}"#,
+            ),
+        )
+        .unwrap();
+
+        let (events, malformed) = parse_events_jsonl(&path).unwrap();
+        assert_eq!(malformed, 0);
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            events[0].data["result"]["content"],
+            "<span>\u{fffd}\n<exited>"
+        );
+    }
+
+    /// Test JSON with `|` standing in for a backslash, so escapes stay literal.
+    fn esc(json: &str) -> String {
+        json.replace('|', "\\")
+    }
+
+    #[test]
+    fn lone_surrogate_repair_keeps_pairs_and_escaped_text() {
+        let repair = |json: &str| replace_lone_surrogate_escapes(&esc(json));
+        assert_eq!(repair(r#"{"a":"|ud83d|ude00"}"#), None);
+        assert_eq!(repair(r#"{"a":"||ud83d"}"#), None);
+        assert_eq!(
+            repair(r#"{"a":"x|ud83d","b":"|ude00|||udc00"}"#),
+            Some(esc(r#"{"a":"x|ufffd","b":"|ufffd|||ufffd"}"#))
+        );
+        assert_eq!(
+            repair(r#"{"a":"|uD83D|uD83D|uDE00"}"#),
+            Some(esc(r#"{"a":"|ufffd|uD83D|uDE00"}"#))
+        );
+    }
+
+    #[test]
+    fn genuinely_malformed_lines_are_still_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(EVENTS_JSONL);
+        std::fs::write(&path, r#"{"type":"user.message","data":{"content":"\ud83d"#).unwrap();
+
+        let (events, malformed) = parse_events_jsonl(&path).unwrap();
+        assert!(events.is_empty());
+        assert_eq!(malformed, 1);
     }
 }

@@ -1,5 +1,6 @@
 //! Build [`SkillInvocation`]s from reconstructed turns plus one event pass.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 use crate::agent_runs::AgentRun;
@@ -101,8 +102,12 @@ pub fn extract_skill_invocations(
     let mut covered = Covered::default();
 
     for (event_index, event) in events.iter().enumerate() {
-        let TypedEventData::SkillInvoked(data) = &event.typed_data else {
-            continue;
+        // A repeated invocation in 1.0.86+ is a `skill.invoked_ref` whose body
+        // was resolved from the session's first inline event while parsing.
+        let data = match &event.typed_data {
+            TypedEventData::SkillInvoked(data) => Cow::Borrowed(data),
+            TypedEventData::SkillInvokedRef(data) => Cow::Owned(data.as_invoked()),
+            _ => continue,
         };
         let Some(name) = non_empty(data.name.as_ref()) else {
             continue;

@@ -148,3 +148,52 @@ fn folded_skill_context_is_counted_once_and_not_shown_as_user_input() {
     assert_eq!(timeline.points[0].conversation_tokens, expected_tokens);
     assert!(timeline.events.is_empty());
 }
+
+#[test]
+fn delivered_skill_wrapper_replaces_the_invocation_body() {
+    // Copilot CLI 1.0.86+: the wrapper is its own event, parented to the
+    // invocation, and references the body by content id.
+    let skill_body = "Follow this skill workflow exactly.";
+    let prefix = "<skill-context name=\"demo\">\nBase directory: skills/demo\n\n";
+    let suffix = "\n</skill-context>";
+    let mut invocation = event(
+        SessionEventType::SkillInvokedRef,
+        TypedEventData::SkillInvokedRef(SkillInvokedRefData {
+            name: Some("demo".into()),
+            resolved_content: Some(skill_body.into()),
+            ..Default::default()
+        }),
+    );
+    invocation.raw.id = Some("skill-event".into());
+    let mut delivered = event(
+        SessionEventType::SkillContextDeliveredRef,
+        TypedEventData::SkillContextDeliveredRef(SkillContextDeliveredRefData {
+            prefix: Some(prefix.into()),
+            suffix: Some(suffix.into()),
+            resolved_content: Some(skill_body.into()),
+            ..Default::default()
+        }),
+    );
+    delivered.raw.parent_id = Some("skill-event".into());
+    let prompt = "use the demo skill";
+
+    let events = vec![
+        user_message(prompt, "interaction-1"),
+        event(
+            SessionEventType::AssistantTurnStart,
+            TypedEventData::TurnStart(TurnStartData {
+                turn_id: Some("turn-1".into()),
+                interaction_id: Some("interaction-1".into()),
+                ..Default::default()
+            }),
+        ),
+        invocation,
+        delivered,
+        assistant_message("done"),
+    ];
+
+    let timeline = build_context_timeline(&events);
+    let wrapper_len = (prefix.len() + skill_body.len() + suffix.len()) as u64;
+    let expected = (prompt.len() as u64).div_ceil(4) + wrapper_len.div_ceil(4) + 1;
+    assert_eq!(timeline.points[0].conversation_tokens, expected);
+}

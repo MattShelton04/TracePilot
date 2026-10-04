@@ -156,3 +156,20 @@ pub struct SessionCanvasRemovedData {
     pub extension_id: Option<String>,
     pub canvas_id: Option<String>,
 }
+
+/// `session.model_deselected`: the host withdrew the explicitly selected model.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionModelDeselectedData {
+    pub previous_model: Option<String>,
+    /// Currently only `provider_withdrawn`.
+    pub reason: Option<String>,
+}
+
+/// `session.fusion_change_checkpoint`: internal durable editing totals after a
+/// Fusion turn, including edits from discarded phases.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionFusionChangeCheckpointData {
+    pub code_changes: Option<super::CodeChanges>,
+}

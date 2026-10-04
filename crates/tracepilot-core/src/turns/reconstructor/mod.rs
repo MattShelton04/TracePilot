@@ -21,6 +21,7 @@ mod agent_messages;
 mod messages;
 mod ownership;
 mod session_events;
+mod skills;
 mod state;
 mod tool_exec;
 
@@ -288,6 +289,23 @@ impl TurnReconstructor {
             }
             (SessionEventType::SkillInvoked, TypedEventData::SkillInvoked(data)) => {
                 self.handle_skill_invoked(event, data);
+            }
+            (SessionEventType::SkillInvokedRef, TypedEventData::SkillInvokedRef(data)) => {
+                self.handle_skill_invoked_ref(event, data);
+            }
+            (
+                SessionEventType::SkillContextDelivered,
+                TypedEventData::SkillContextDelivered(data),
+            ) => {
+                let length = data.content.as_deref().map(|c| c.chars().count());
+                self.handle_skill_context_delivered(event, length);
+            }
+            (
+                SessionEventType::SkillContextDeliveredRef,
+                TypedEventData::SkillContextDeliveredRef(data),
+            ) => {
+                let length = data.delivered_content().map(|c| c.chars().count());
+                self.handle_skill_context_delivered(event, length);
             }
             (
                 SessionEventType::ExternalToolRequested,

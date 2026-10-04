@@ -385,6 +385,21 @@ pub(crate) fn typed_data_from_raw(
                 event_type
             )
         }
+        other @ (SessionEventType::SessionModelDeselected
+        | SessionEventType::SessionFusionChangeCheckpoint
+        | SessionEventType::SessionPermissionRecovery
+        | SessionEventType::SkillInvokedRef
+        | SessionEventType::SkillContextDelivered
+        | SessionEventType::SkillContextDeliveredRef
+        | SessionEventType::PermissionCarriedForward
+        | SessionEventType::PermissionMessageAuthorization
+        | SessionEventType::PermissionMessageAuthorizationRead
+        | SessionEventType::PermissionMessageAuthorizationDegraded
+        | SessionEventType::PermissionAssentDetected
+        | SessionEventType::PermissionContextualAuthorization) => {
+            super::typed_extended::typed_extended(other, data)
+                .unwrap_or_else(|| (TypedEventData::Other(data.clone()), None))
+        }
         SessionEventType::Unknown(name) => (
             TypedEventData::Other(data.clone()),
             Some(EventParseWarning::UnknownEventType {
@@ -414,9 +429,11 @@ pub fn parse_typed_events_cancellable(
 ) -> Result<ParsedEvents> {
     let mut diagnostics = ParseDiagnostics::default();
     let mut events = Vec::new();
+    let mut skill_contents = super::skill_refs::SkillContentResolver::default();
     let malformed = visit_events_jsonl(path, is_cancelled, |raw| {
         let event_type = SessionEventType::parse_wire(raw.event_type.as_str());
-        let (typed_data, warning) = typed_data_from_raw(&event_type, &raw.data);
+        let (mut typed_data, warning) = typed_data_from_raw(&event_type, &raw.data);
+        skill_contents.observe(&mut typed_data);
 
         diagnostics.total_events += 1;
         if matches!(typed_data, TypedEventData::Other(_)) {

@@ -80,3 +80,36 @@ fn malformed_or_unreadable_sources_are_not_missing_snapshots() {
     std::fs::create_dir(&path).unwrap();
     assert!(load_event_snapshot(&path, &|| false).is_err());
 }
+
+#[test]
+fn fractional_nano_aiu_and_lone_surrogates_do_not_block_indexing() {
+    // Both shapes come from real Copilot CLI logs (1.0.86 shutdown metrics,
+    // shell output truncated inside an emoji) and previously made the whole
+    // snapshot "incomplete", so the session was never indexed again.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("events.jsonl");
+    std::fs::write(
+        &path,
+        concat!(
+            r#"{"type":"tool.execution_complete","data":{"toolCallId":"t1","result":{"content":"<span>\ud83d\n"}}}"#,
+            "\n",
+            r#"{"type":"session.shutdown","data":{"totalNanoAiu":528375599.99999994,"modelMetrics":{"gpt-5.6-luna":{"totalNanoAiu":528375599.99999994}}}}"#,
+            "\n",
+        ),
+    )
+    .unwrap();
+
+    let parsed = load_event_snapshot(&path, &|| false)
+        .unwrap()
+        .parsed
+        .unwrap();
+    assert_eq!(parsed.events.len(), 2);
+    let super::TypedEventData::SessionShutdown(shutdown) = &parsed.events[1].typed_data else {
+        panic!("shutdown should decode as typed data");
+    };
+    assert_eq!(shutdown.total_nano_aiu, Some(528_375_600));
+    assert_eq!(
+        shutdown.model_metrics.as_ref().unwrap()["gpt-5.6-luna"].total_nano_aiu,
+        Some(528_375_600)
+    );
+}

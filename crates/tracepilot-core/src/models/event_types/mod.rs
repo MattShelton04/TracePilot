@@ -2,6 +2,7 @@ pub mod agent_data;
 pub mod conversation_data;
 pub mod event_type_enum;
 pub mod model_data;
+mod nano_aiu;
 mod reasoning;
 pub mod session_lifecycle_data;
 pub mod tool_execution_data;
@@ -18,3 +19,9 @@ pub use session_extended_data::*;
 
 pub mod fusion_data;
 pub use fusion_data::*;
+
+pub mod permission_data;
+pub use permission_data::*;
+
+pub mod skill_data;
+pub use skill_data::*;
