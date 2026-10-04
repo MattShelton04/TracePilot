@@ -18,9 +18,9 @@ describe("useSessionMetrics", () => {
       expect(totalTokens(m)).toBeNull();
     });
 
-    it("returns unknown when m.modelMetrics is empty", () => {
+    it("treats a recorded empty model map as zero usage", () => {
       const m = { modelMetrics: {} } as ShutdownMetrics;
-      expect(totalTokens(m)).toBeNull();
+      expect(totalTokens(m)).toBe(0);
     });
 
     it("should correctly sum inputTokens and outputTokens across multiple models", () => {
@@ -76,6 +76,20 @@ describe("useSessionMetrics", () => {
         credits: 0,
         usdEquivalent: 0,
         source: "observed",
+      });
+    });
+
+    it.each([
+      ["an empty model map", {}],
+      ["recorded zero counts", { "gpt-5.5": { usage: { inputTokens: 0, outputTokens: 0 } } }],
+      [
+        "an unpriced model without usage",
+        { unknown: { usage: { inputTokens: 0, outputTokens: 0 } } },
+      ],
+    ])("estimates zero credits for %s", (_, modelMetrics) => {
+      expect(shutdownAiCreditUsage({ modelMetrics }, pricing)).toMatchObject({
+        credits: 0,
+        source: "estimated-token-usage",
       });
     });
 

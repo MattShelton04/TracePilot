@@ -150,6 +150,15 @@ describe("MetricsSessionActivity", () => {
     expect(wrapper.text()).not.toContain("No interaction recorded");
   });
 
+  it("shows a recorded empty activity as no interaction with zero credits", () => {
+    const wrapper = mount(MetricsSessionActivity, {
+      props: { metrics: { sessionSegments: [segment({ tokens: 0, modelMetrics: {} })] } },
+    });
+    expect(wrapper.text()).toContain("No interaction recorded");
+    expect(wrapper.find(".hero-val").exists()).toBe(false);
+    expect(wrapper.get(".activity-tile-costs .cost-pill").text()).toBe("0 AIC");
+  });
+
   it.each([
     undefined,
     { inputTokens: 0, outputTokens: 0 },

@@ -57,8 +57,8 @@ export function shutdownAiCreditUsage(
   // Partial input/output counts cannot establish a session-wide cost. Optional
   // cache counts retain the historical zero fallback used by the pricing API.
   if (shutdownTokenBreakdown(metrics).total == null) return observed;
-  const models = Object.entries(metrics?.modelMetrics ?? {});
-  const hasTokenUsage = models.some(
+  // Recorded zero usage costs nothing, even for a model without a price.
+  const models = Object.entries(metrics?.modelMetrics ?? {}).filter(
     ([, model]) =>
       (model.usage?.inputTokens ?? 0) +
         (model.usage?.outputTokens ?? 0) +
@@ -66,7 +66,6 @@ export function shutdownAiCreditUsage(
         (model.usage?.cacheWriteTokens ?? 0) >
       0,
   );
-  if (!hasTokenUsage) return observed;
   const estimate = (calculate: TokenCostCalculator) =>
     sumTokenCosts(
       models.map(([name, model]) =>

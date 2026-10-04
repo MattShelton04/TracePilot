@@ -1,4 +1,9 @@
-import { type AiCreditSource, resolveAiCreditUsage, type ShutdownMetrics } from "@tracepilot/types";
+import {
+  type AiCreditSource,
+  resolveAiCreditUsage,
+  type ShutdownMetrics,
+  sumTokenCosts,
+} from "@tracepilot/types";
 import { type ComputedRef, computed } from "vue";
 import { shutdownAiCreditUsage } from "@/composables/useSessionMetrics";
 import type { usePreferencesStore } from "@/stores/preferences";
@@ -43,34 +48,37 @@ export function useMetricsTabData(
         const cacheWriteTokens = data.usage?.cacheWriteTokens ?? 0;
         const reasoningTokens = data.usage?.reasoningTokens ?? null;
         const tokens = modelTokenBreakdown(data);
-        const hasTokenUsage =
-          tokens.total != null &&
-          inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens > 0;
+        // Recorded zero usage costs nothing, even for a model without a price.
+        const hasTokenUsage = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens > 0;
         const usageBased =
-          tokens.total != null
-            ? prefs.computeUsageBasedCostBreakdown(
-                name,
-                inputTokens,
-                cacheReadTokens,
-                outputTokens,
-                cacheWriteTokens,
-              )
-            : null;
+          tokens.total == null
+            ? null
+            : hasTokenUsage
+              ? prefs.computeUsageBasedCostBreakdown(
+                  name,
+                  inputTokens,
+                  cacheReadTokens,
+                  outputTokens,
+                  cacheWriteTokens,
+                )
+              : sumTokenCosts([]);
         const premiumRequests = data.requests?.cost ?? 0;
         const wholesale =
-          tokens.total != null
-            ? prefs.computeWholesaleCostBreakdown(
-                name,
-                inputTokens,
-                cacheReadTokens,
-                outputTokens,
-                cacheWriteTokens,
-              )
-            : null;
+          tokens.total == null
+            ? null
+            : hasTokenUsage
+              ? prefs.computeWholesaleCostBreakdown(
+                  name,
+                  inputTokens,
+                  cacheReadTokens,
+                  outputTokens,
+                  cacheWriteTokens,
+                )
+              : sumTokenCosts([]);
         const aiCreditUsage = resolveAiCreditUsage(
           data.totalNanoAiu,
-          hasTokenUsage && !observedOnly ? usageBased : null,
-          hasTokenUsage && !observedOnly ? wholesale : null,
+          observedOnly ? null : usageBased,
+          observedOnly ? null : wholesale,
         );
         return {
           name,

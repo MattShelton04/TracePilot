@@ -102,7 +102,10 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
         </div>
 
         <div class="activity-hero" :class="{ 'activity-hero--empty': tokens === 0 }">
-          <div class="hero-stats">
+          <div v-if="tokens === 0 && !models.length" class="hero-empty">
+            <span class="text-[var(--text-tertiary)]">No interaction recorded</span>
+          </div>
+          <div v-else class="hero-stats">
             <div class="hero-main">
               <span class="hero-val" :title="tokens == null ? 'Token total unavailable' : undefined">{{ tokens == null ? '—' : formatNumber(tokens) }}</span>
               <span class="hero-unit">tokens</span>
@@ -280,6 +283,11 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
+}
+
+.hero-empty {
+  font-size: 0.6875rem;
+  color: var(--text-placeholder);
 }
 
 .activity-details {
