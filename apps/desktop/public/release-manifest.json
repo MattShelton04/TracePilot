@@ -2,8 +2,13 @@
   "unreleased": {
     "notes": {
       "added": [],
-      "changed": [],
-      "fixed": []
+      "changed": [
+        "Copilot CLI 1.0.91 support: Repeated skill invocations and the skill context the model received are now recognized"
+      ],
+      "fixed": [
+        "Indexing and skill accuracy: Sessions with fractional AI Credit totals or truncated emoji output index again, and unedited skills are no longer marked as changed",
+        "Quieter logs: Expected conditions are no longer reported as failures"
+      ]
     },
     "requiresReindex": false
   },
