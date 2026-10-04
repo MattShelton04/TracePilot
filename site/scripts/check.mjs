@@ -1,6 +1,8 @@
 // Browser checks for the built site (CI and local): `pnpm site:check` after `pnpm site:build`.
 // Serves dist/ with `vite preview`, drives Chromium through every supported viewport,
-// fails on errors, third-party requests, overflow and broken interactions, enforces the
+// fails on errors, third-party requests, overflow and broken interactions, checks the analytics
+// beacon is present exactly when CF_BEACON_TOKEN is set (stubbed, so checks never count as visits),
+// enforces the
 // size budget in perf-budget.json (`site`), and saves screenshots to site/.check/ for review.
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -32,12 +34,32 @@ const SECTIONS = [
   "start",
 ];
 
+// Cloudflare Web Analytics: the only third party a page may load, and only in CI builds
+const BEACON = process.env.CF_BEACON_TOKEN || "";
+const BEACON_HOSTS = /^https:\/\/(static\.)?cloudflareinsights\.com\//;
+const BEACON_SCRIPT = "https://static.cloudflareinsights.com/beacon.min.js";
+
 const failures = [];
 const fail = (where, what) => {
   failures.push(`${where}: ${what}`);
   console.error(`  ✗ ${what}`);
 };
 const ok = (what) => console.log(`  ✓ ${what}`);
+
+/** The beacon must ship exactly when CI asks for it, with the token it was given. */
+function beaconMarkup() {
+  console.log("analytics beacon");
+  for (const page of ["index.html", "demo/index.html"]) {
+    const html = readFileSync(join(root, "dist", page), "utf8");
+    const tag = html.match(/<script[^>]*data-cf-beacon="([^"]*)"[^>]*>/);
+    if (!BEACON) {
+      if (tag) fail("beacon", `${page} has a beacon but CF_BEACON_TOKEN is not set; rebuild`);
+      else ok(`${page}: none (CF_BEACON_TOKEN not set)`);
+    } else if (!tag || !tag[1].includes(BEACON)) {
+      fail("beacon", `${page} lacks the beacon for CF_BEACON_TOKEN; rebuild with it set`);
+    } else ok(`${page}: present`);
+  }
+}
 
 function sizeBudget() {
   const budget = JSON.parse(readFileSync(join(root, "../perf-budget.json"), "utf8")).site;
@@ -71,6 +93,16 @@ async function openPage(browser, vp) {
     hasTouch: !!vp.mobile,
   });
   const problems = [];
+  const beaconLoads = [];
+  // an empty module in place of the real beacon, so nothing is ever reported
+  await context.route(BEACON_HOSTS, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/javascript",
+      headers: { "access-control-allow-origin": "*" },
+      body: "",
+    }),
+  );
   context.on("page", (page) => {
     page.on("pageerror", (e) => problems.push(`page error: ${e.message}`));
     page.on("console", (m) => {
@@ -85,12 +117,16 @@ async function openPage(browser, vp) {
   });
   context.on("request", (r) => {
     const url = r.url();
+    if (BEACON && BEACON_HOSTS.test(url)) {
+      if (url === BEACON_SCRIPT) beaconLoads.push(r.frame().url());
+      return;
+    }
     if (new URL(url).origin !== new URL(BASE).origin && !/^(data|blob):/.test(url)) {
       problems.push(`third-party request: ${url}`);
     }
   });
   const page = await context.newPage();
-  return { context, page, problems };
+  return { context, page, problems, beaconLoads };
 }
 
 const settle = (page, ms = 1600) => page.waitForTimeout(ms);
@@ -208,13 +244,14 @@ async function checkReduced(page, where) {
 async function run() {
   rmSync(out, { recursive: true, force: true });
   sizeBudget();
+  beaconMarkup();
   const preview = await startPreview(root, PORT);
   let browser;
   try {
     browser = await chromium.launch();
     for (const vp of VIEWPORTS) {
       console.log(vp.name);
-      const { context, page, problems } = await openPage(browser, vp);
+      const { context, page, problems, beaconLoads } = await openPage(browser, vp);
       await page.goto(BASE, { waitUntil: "networkidle" });
       await page.evaluate(() => document.fonts.ready);
       await settle(page, 2500);
@@ -242,6 +279,11 @@ async function run() {
       await demo.screenshot({ path: join(out, vp.name, "demo-page.png") });
       for (const p of new Set(problems)) fail(vp.name, p);
       if (!problems.length) ok("no console errors, failed or third-party requests");
+      if (BEACON) {
+        const missing = [BASE, `${BASE}demo/`].filter((u) => !beaconLoads.includes(u));
+        if (missing.length) fail(vp.name, `analytics beacon not loaded on ${missing.join(", ")}`);
+        else ok("analytics beacon loads on both pages (stubbed)");
+      }
       await context.close();
     }
   } finally {

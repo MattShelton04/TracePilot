@@ -40,6 +40,10 @@ jobs:
     concurrency:
       group: site-build-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    env:
+      # Cloudflare Web Analytics site token (public; it ships in the page). Every CI build carries
+      # the beacon so PRs check what main publishes; site:check stubs it, so checks report nothing.
+      CF_BEACON_TOKEN: 359648189de9418bb11a56de3b7ba8d5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

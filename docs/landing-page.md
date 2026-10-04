@@ -29,7 +29,8 @@ node --test scripts/site/*.test.mjs
 `site:check` starts and stops its own Vite preview on port 4187. It checks
 1440×960 first, then 960×640, 2560×1440, 390×844 and 1440×960 with reduced
 motion. It covers both pages for console/page errors, failed or cross-origin
-requests, HTTP errors and overflow; verifies five desktop pins and no mobile or
+requests (other than the analytics beacon), HTTP errors and overflow; checks
+the beacon is present exactly when `CF_BEACON_TOKEN` is set; verifies five desktop pins and no mobile or
 reduced-motion pins; exercises dialog focus/Escape, the Search demo step and
 wheel cancellation of the tour. Reduced motion keeps the hero visible and
 disables the tour. It saves 50 section screenshots in ignored `site/.check/`.
@@ -115,7 +116,8 @@ published release at build time, using `GITHUB_TOKEN` in CI. It prefers the
 binary. API failure falls back to the root package version and the releases
 page with a warning. Local release data is cached for six hours; use
 `pnpm --filter @tracepilot/site exec node scripts/release-data.mjs --refresh`
-to refresh it. CI always refreshes. The page makes no runtime API calls.
+to refresh it. CI always refreshes. The page makes no runtime API calls; its
+only runtime request is the analytics beacon below.
 
 The Vite HTML plugin fills `__placeholders__` from those files and rejects
 unknown keys. `src/data.js` imports the same data for interactive views. Agent
@@ -131,6 +133,21 @@ social tags. Relative asset URLs (`base: './'`) work under `/TracePilot/`.
 `robots.txt` at the project path does not control the host's root crawler rules.
 See the [dependency inventory](dependencies/javascript.md#sitepackagejson)
 for the GSAP licence and the site's direct dependencies.
+
+### Analytics
+
+Visits are counted with [Cloudflare Web Analytics](https://developers.cloudflare.com/web-analytics/)
+(cookieless; page views, referrers, countries, devices and Core Web Vitals) using
+its manual snippet, registered for the `mattshelton04.github.io` host. The
+`analyticsBeacon()` Vite plugin adds the beacon to both pages only when a build
+runs with `CF_BEACON_TOKEN`, which the Site workflow sets for every CI build;
+local builds, previews and the dev server never load it. The same flag adds
+`https://static.cloudflareinsights.com` to `script-src` and replaces
+`connect-src 'none'` with `https://cloudflareinsights.com`. The token is public
+(it ships in the page) and must be 32 hex characters. `site:check` serves an
+empty stub in place of the beacon, so CI never reports visits. Ad-blockers block
+the beacon, so treat counts as trends. View the data in the Cloudflare dashboard
+under Analytics & Logs → Web Analytics.
 
 ## Publishing and updates
 
@@ -263,4 +280,5 @@ the top, both when played and in reduced-motion end states.
 | A nav link lands mid-scene | Route it through `anchorY()`; pinned scenes need the pin start, not their live position. |
 | Publisher refuses ownership/source | Inspect the manifest or collision; keep foreign content intact and restore the expected Pages source only through a maintainer decision. |
 | Push rejected repeatedly | Check competing publishers and shared concurrency, then rerun; the publisher never force-pushes. |
+| Beacon check fails or no visits recorded | Rebuild with the same `CF_BEACON_TOKEN` you check with; confirm the token matches the dashboard site and the built CSP lists both Cloudflare hosts. |
 | Site size budget exceeded | Inspect built assets and measured gzip totals; raise thresholds only with an explained measurement. |
