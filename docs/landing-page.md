@@ -20,7 +20,7 @@ data first. To check the production build:
 
 ```powershell
 pnpm site:build
-pnpm --filter @tracepilot/site exec playwright install chromium
+pnpm --filter @tracepilot/site exec playwright install --only-shell chromium
 pnpm site:check
 pnpm --filter @tracepilot/site test
 node --test scripts/site/*.test.mjs
@@ -36,6 +36,11 @@ reduced-motion pins; exercises dialog focus/Escape, the Search demo step and
 wheel cancellation of the tour. Reduced motion keeps the hero visible and
 disables the tour. It saves 50 section screenshots in ignored `site/.check/`.
 Review these images when changing layout or choreography.
+
+For a focused check, use `pnpm site:check --viewport 1440x960` (repeat
+`--viewport` to select several). With no selection, the command still checks
+all five modes. CI runs each mode in a separate job against one shared build;
+every job checks the size budget, beacon markup and all platform download cases.
 
 The `site` thresholds in [`perf-budget.json`](../perf-budget.json) enforce
 gzipped JS, CSS and generated data sizes. They were set from the first build
@@ -175,12 +180,20 @@ under Analytics & Logs → Web Analytics.
 [`Site`](../.github/workflows/site.yml) builds/checks matching PRs and pushes to
 main, successful `Release` workflow completions, and manual dispatches. Release
 publication uses `GITHUB_TOKEN`, so a `release: published` trigger would not
-start this workflow. The read-only build job installs dependencies and Chromium,
-runs both test suites and browser checks, then uploads `site-dist` (7 days) and
-check screenshots (14 days, including failed checks).
+start this workflow. The read-only build job installs the site's workspace
+dependency graph, runs both test suites and uploads `site-dist` (7 days),
+containing the build and its generated showcase/release data. Five independent
+browser jobs download that exact artifact and install Chromium's headless shell,
+retaining all viewport and interaction coverage. Each uploads
+`site-check-screenshots-<viewport>` (14 days, including failed checks);
+hidden-file uploads are enabled because `.check/` is hidden.
 
 Only non-PR main runs can deploy. The write-permission job checks out the default
-branch, runs the publisher tests, downloads this run's build and publishes it.
+branch, runs the publisher tests, downloads this run's build and publishes it
+after all five browser jobs pass. If the site inputs changed on the default
+branch after the build, publication is skipped; unrelated changes still allow
+the checked artifact to publish. A workflow contract test keeps the trigger
+paths and stale-build guard aligned with the inputs that trigger replacement builds.
 It records the actual build revision in the publish commit. PR code never runs
 in that job. Actions are pinned to full SHAs.
 
@@ -195,9 +208,11 @@ build creates no commit. A rejected push gets up to three retries, each fetching
 and reapplying on the new branch tip; successful pushes request a Pages build.
 
 The deploy job shares `visual-gallery-publish`, `queue: max`, and
-`cancel-in-progress: false` with the visual publisher. PR builds have separate
-concurrency. Preserve the Pages branch source; switching to `actions/deploy-pages`
-would replace the shared content. Existing `visual/`, `dev/bench/`, `.nojekyll`
+`cancel-in-progress: false` with the visual publisher. Workflow concurrency
+cancels superseded PR builds and their browser jobs; main runs finish in sequence,
+with only the newest pending run retained. Preserve the Pages branch source;
+switching to `actions/deploy-pages` would replace the shared content. Existing
+`visual/`, `dev/bench/`, `.nojekyll`
 and `README.md` remain owned by their current publishers. No root `404.html`
 is supplied because it would affect gallery misses too.
 
@@ -294,7 +309,7 @@ the top, both when played and in reduced-motion end states.
 | Mac visitors see "View latest release" | The release has no `*_aarch64.dmg` (releases before macOS builds), so Macs get the release page; the next release with a disk image fixes it. |
 | Missing generated JSON | Use `site:build` or `site:dev`, which run data generation before Vite. |
 | CSP font errors | Keep font files uninlined and local; check `assetsInlineLimit` in Vite configuration. |
-| Browser executable missing | Install Chromium with the site Playwright command above. CI uses `--with-deps`. |
+| Browser executable missing | Install Chromium's headless shell with the site Playwright command above. The checks use the default headless launch; CI adds `--with-deps`. A headed browser or explicit browser channel needs the full browser installation. |
 | Preview exits or port is busy | Stop the known preview owner or free port 4187/4188; the scripts will not attach to another server. |
 | Pins/branches misplaced after resize | Check breakpoint reload, stage scale, font readiness and `layoutBranches()`. |
 | Hero flashes, blanks or replays on load | Check the boot script classes, the CSS entrance selectors and that pinned scenes still pins inside its `.scene-spacer`; measure CLS after pinning changes. |

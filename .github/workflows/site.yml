@@ -5,15 +5,19 @@ name: Site
 on:
   pull_request:
     branches: [main]
+    # Keep deploy's staleness pathspecs aligned; workflow-contract.test.mjs checks both.
     paths: &site-paths
       - site/**
       - scripts/site/**
       - scripts/visual/showcase/**
       - packages/types/src/**
+      - packages/types/data/**
       - packages/ui/src/styles/tokens.css
       - assets/**
       - perf-budget.json
       - .github/workflows/site.yml
+      - .github/actions/setup-node-pnpm/**
+      - .node-version
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - package.json
@@ -30,6 +34,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
@@ -37,24 +45,23 @@ jobs:
     timeout-minutes: 20
     outputs:
       sha: ${{ steps.revision.outputs.sha }}
-    concurrency:
-      group: site-build-${{ github.ref }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     env:
       # Cloudflare Web Analytics site token (public; it ships in the page). Every CI build carries
       # the beacon so PRs check what main publishes; site:check stubs it, so checks report nothing.
       CF_BEACON_TOKEN: 359648189de9418bb11a56de3b7ba8d5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Record the build revision
         id: revision
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/setup-node-pnpm
-
-      - name: Install Chromium for the site checks
-        run: pnpm --filter @tracepilot/site exec playwright install --with-deps chromium
+        with:
+          install-filter: "@tracepilot/site..."
 
       - name: Build (showcase data, latest release, Vite)
         env:
@@ -66,28 +73,64 @@ jobs:
           pnpm --filter @tracepilot/site test
           node --test scripts/site/*.test.mjs
 
-      - name: Browser checks and size budget
-        run: pnpm site:check
-
       - name: Upload site build
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: site-dist
-          path: site/dist/
+          # Browser checks consume the exact build and its size/download data.
+          path: |
+            site/dist/
+            site/src/data/
           if-no-files-found: error
           retention-days: 7
+
+  browser-checks:
+    name: Browser checks (${{ matrix.viewport }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        viewport: [1440x960, 960x640, 2560x1440, 390x844, 1440x960-reduced]
+    env:
+      CF_BEACON_TOKEN: 359648189de9418bb11a56de3b7ba8d5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # GitHub fixes this event SHA for every job, including PR merge refs.
+          # Keep executable checkout provenance independent of step outputs.
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-node-pnpm
+        with:
+          install-filter: "@tracepilot/site..."
+
+      - name: Download the checked build and generated data
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: site-dist
+          path: site/
+
+      - name: Install Chromium for the site checks
+        run: pnpm --filter @tracepilot/site exec playwright install --with-deps --only-shell chromium
+
+      - name: Browser checks and size budget
+        run: pnpm site:check --viewport ${{ matrix.viewport }}
 
       - name: Upload check screenshots
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: site-check-screenshots
+          name: site-check-screenshots-${{ matrix.viewport }}
           path: site/.check/
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
 
   deploy:
-    needs: build
+    needs: [build, browser-checks]
     # main only: pushes, manual runs and successful releases. PR code never
     # reaches this job; it publishes the artifact built from main above.
     if: >-
@@ -119,12 +162,33 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: site-dist
-          path: site/dist
+          path: site/
+
+      - name: Check the build is still current
+        id: current
+        env:
+          BUILD_SHA: ${{ needs.build.outputs.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BUILD_SHA"
+          # A docs-only main advance has no replacement Site run. Skip only
+          # when the inputs covered by site-paths actually changed. Keep these
+          # pathspecs aligned with &site-paths (checked by the workflow contract).
+          if git diff --quiet "$BUILD_SHA" HEAD -- \
+            site scripts/site scripts/visual/showcase packages/types/src \
+            packages/types/data packages/ui/src/styles/tokens.css assets \
+            perf-budget.json .github/workflows/site.yml \
+            .github/actions/setup-node-pnpm .node-version pnpm-lock.yaml \
+            pnpm-workspace.yaml package.json; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Site inputs advanced after this build; skipping its stale publication."
+          fi
 
       - name: Verify the publisher
         run: node --test scripts/site/*.test.mjs
 
       - name: Publish into the gh-pages root
+        if: steps.current.outputs.publish == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ needs.build.outputs.sha }}

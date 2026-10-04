@@ -24,6 +24,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-node-pnpm
+        with:
+          install-filter: tracepilot
       - name: Compare with GitHub's latest published pricing source
         continue-on-error: true
         env:

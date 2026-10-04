@@ -54,6 +54,25 @@ export function parseProbeLine(stdout) {
   return parsed;
 }
 
+/** Refuse swapped or stale example executables before collecting measurements. */
+export function validateProbeRevisions({ baseSha, headSha }, readRevision) {
+  if (!baseSha && !headSha) return;
+  assert(
+    /^[a-f0-9]{40}$/.test(baseSha) && /^[a-f0-9]{40}$/.test(headSha) && baseSha !== headSha,
+    "Supply distinct --base-sha and --head-sha commits",
+  );
+  for (const [variant, expected] of [
+    ["base", baseSha],
+    ["head", headSha],
+  ]) {
+    assert.equal(
+      readRevision(variant),
+      expected,
+      `${variant} probe was built from the wrong revision`,
+    );
+  }
+}
+
 /** samples: [{ variant, step, elapsedMs, peakRssKib }] */
 export function summarize(samples, threshold = DEFAULT_THRESHOLD) {
   return PIPELINE.map((step) => {
@@ -135,12 +154,19 @@ function parseOptions(args) {
     corpus: o.corpus ?? "generated corpus",
     output: resolve(o.output ?? "probe-compare.json"),
     summary: resolve(o.summary ?? "probe-compare.md"),
+    baseSha: o["base-sha"],
+    headSha: o["head-sha"],
   };
 }
 
 export function run(args = process.argv.slice(2)) {
   const options = parseOptions(args);
   assert(Number.isInteger(options.repeats) && options.repeats > 0 && options.repeats <= 20);
+  validateProbeRevisions(
+    options,
+    (variant) =>
+      JSON.parse(execFileSync(options[variant], ["--revision"], { encoding: "utf8" })).revision_sha,
+  );
   const samples = [];
   for (const [i, variant] of variantOrder(options.repeats).entries()) {
     const dbDir = join(options.work, `${variant}-${i}`);
@@ -171,7 +197,7 @@ export function run(args = process.argv.slice(2)) {
     mkdirSync(dirname(path), { recursive: true });
   writeFileSync(
     options.output,
-    `${JSON.stringify({ repeats: options.repeats, samples, rows }, null, 2)}\n`,
+    `${JSON.stringify({ repeats: options.repeats, baseSha: options.baseSha, headSha: options.headSha, samples, rows }, null, 2)}\n`,
   );
   const markdown = renderMarkdown(rows, options);
   writeFileSync(options.summary, markdown);

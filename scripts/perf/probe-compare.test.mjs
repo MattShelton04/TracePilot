@@ -5,8 +5,33 @@ import {
   parseProbeLine,
   renderMarkdown,
   summarize,
+  validateProbeRevisions,
   variantOrder,
 } from "./probe-compare.mjs";
+
+test("rejects stale, swapped and indistinguishable probe binaries before measurement", () => {
+  const baseSha = "a".repeat(40),
+    headSha = "b".repeat(40);
+  validateProbeRevisions({ baseSha, headSha }, (variant) =>
+    variant === "base" ? baseSha : headSha,
+  );
+  assert.throws(
+    () => validateProbeRevisions({ baseSha, headSha }, () => headSha),
+    /base probe.*wrong revision/,
+  );
+  assert.throws(
+    () => validateProbeRevisions({ baseSha, headSha }, () => baseSha),
+    /head probe.*wrong revision/,
+  );
+  assert.throws(
+    () => validateProbeRevisions({ baseSha, headSha: baseSha }, () => baseSha),
+    /distinct/,
+  );
+  assert.throws(() => validateProbeRevisions({ baseSha }, () => baseSha), /distinct/);
+  validateProbeRevisions({}, () => {
+    throw new Error("Local SHA checking is optional");
+  });
+});
 
 test("variants alternate in ABBA order", () => {
   assert.deepEqual(variantOrder(2), ["base", "head", "head", "base"]);

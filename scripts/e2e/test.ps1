@@ -64,6 +64,7 @@ try {
             '--config', (Join-Path $repo 'tests/e2e/tauri.prebuilt-frontend.conf.json'))
         if ($Install) { $tauriArgs += @('--bundles', 'nsis', '--config', (Join-Path $repo 'tests/e2e/tauri.e2e.conf.json')) }
         else { $tauriArgs += '--no-bundle' }
+        $tauriArgs += @('--', '--locked')
         & pnpm @tauriArgs
         if ($LASTEXITCODE -ne 0) { throw 'Native app build failed.' }
     }

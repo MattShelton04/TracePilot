@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'apps/desktop/**'
+      - '!apps/desktop/src-tauri/**'
       - 'packages/**'
       - 'scripts/perf/*bundle*'
       - 'scripts/ci/**'

@@ -291,8 +291,8 @@ Performance coverage:
 | Check | What it does |
 |-------|-------------|
 | **Bundle analysis** | Relevant PRs: builds frontend, reports advisory size thresholds, retains size tables as artifacts and job summaries |
-| **Criterion benchmarks** | Nightly/manual Linux runs: validates populated fixtures and required results; timing thresholds are advisory |
-| **Base vs head comparison** | PRs touching Rust: `benchmark-compare.yml` measures the PR's base and head on one runner. `index_probe` alternates base/head builds over a generated corpus for wall time and peak RSS (~5 min, every run). The Criterion comparison (~25 min) is opt-in: add the `benchmark:criterion` label or run the workflow manually. Advisory annotations plus a job summary |
+| **Criterion benchmarks** | Nightly/manual Linux runs: five benchmark suites run on separate runners, followed by one required-result summary. Suite HTML reports and the combined JSON/Markdown are retained; timing thresholds are advisory |
+| **Base vs head comparison** | PRs touching Rust: `benchmark-compare.yml` measures the whole-PR merge base and exact PR head on one runner. `index_probe` alternates base/head builds over a generated corpus for wall time and peak RSS. The Criterion comparison (~25 min) is opt-in: add the `benchmark:criterion` label or run the workflow manually. Advisory annotations plus a job summary |
 | **Native desktop** | Manual Windows release measurements with isolated data, including conversation scroll frame times; see the [performance mission report](reports/performance-mission.md) |
 | **Typecheck + tests** | Standard correctness checks; see the [testing guide](testing.md) |
 
@@ -306,6 +306,20 @@ node scripts/perf/probe-compare.mjs --base=<base index_probe> --head=<head index
 Build each probe into its own `CARGO_TARGET_DIR`. Cargo does not re-copy an
 up-to-date example into `target/release/examples`, so a shared directory can
 silently hand back the other revision's binary.
+
+CI restores the nightly main dependency cache and seeds two separate release
+targets, removing local workspace crates and example binaries before each build.
+Only the first declared nightly suite (currently parsing) saves this cache;
+PR comparisons never save new entries. Keep `CARGO_TARGET_DIR` scoped to Cargo commands: declaring it for the
+whole comparison job changes the Rust cache environment hash and prevents it
+from restoring the nightly cache.
+
+The shared probe harness embeds `TRACEPILOT_PROBE_REVISION` at compile time.
+`index_probe --revision` prints that commit; passing `--base-sha=<commit>` and
+`--head-sha=<commit>` to the comparator rejects stale or swapped binaries before
+measurement. CI always enables this check and includes the SHAs in its JSON.
+Manual workflow runs use the selected revision's first parent when the base
+input is blank; an explicit base must differ from the measured head.
 
 Measurement jobs have read-only repository permissions. They do not publish to
 Pages or comment on PRs. See the [performance index](perf/index.md) for artifact

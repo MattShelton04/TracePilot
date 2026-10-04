@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { chromium } from "playwright";
+import { checkPlan } from "./check-plan.mjs";
 import { pickDownload } from "./html-facts.mjs";
 import { startPreview } from "./preview.mjs";
 
@@ -16,13 +17,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, ".check");
 const PORT = 4187;
 const BASE = `http://localhost:${PORT}/`;
-const VIEWPORTS = [
-  { name: "1440x960", width: 1440, height: 960, full: true },
-  { name: "960x640", width: 960, height: 640 },
-  { name: "2560x1440", width: 2560, height: 1440 },
-  { name: "390x844", width: 390, height: 844, full: true, mobile: true },
-  { name: "1440x960-reduced", width: 1440, height: 960, reduce: true },
-];
+const VIEWPORTS = checkPlan();
 const SECTIONS = [
   "open",
   "conversation",
@@ -39,6 +34,18 @@ const SECTIONS = [
 const BEACON = process.env.CF_BEACON_TOKEN || "";
 const BEACON_HOSTS = /^https:\/\/(static\.)?cloudflareinsights\.com\//;
 const BEACON_SCRIPT = "https://static.cloudflareinsights.com/beacon.min.js";
+
+// Every context, including platform-download checks, must stub analytics so
+// testing a production beacon never records a visit.
+const stubBeacon = (context) =>
+  context.route(BEACON_HOSTS, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/javascript",
+      headers: { "access-control-allow-origin": "*" },
+      body: "",
+    }),
+  );
 
 const failures = [];
 const fail = (where, what) => {
@@ -131,6 +138,7 @@ async function checkPlatforms(browser) {
   ];
   for (const [name, platform, touch] of cases) {
     const context = await browser.newContext({ javaScriptEnabled: platform !== null });
+    await stubBeacon(context);
     await context.addInitScript(
       ([p, t]) => {
         const fake = (key, value) =>
@@ -166,15 +174,7 @@ async function openPage(browser, vp) {
   });
   const problems = [];
   const beaconLoads = [];
-  // an empty module in place of the real beacon, so nothing is ever reported
-  await context.route(BEACON_HOSTS, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "text/javascript",
-      headers: { "access-control-allow-origin": "*" },
-      body: "",
-    }),
-  );
+  await stubBeacon(context);
   context.on("page", (page) => {
     page.on("pageerror", (e) => problems.push(`page error: ${e.message}`));
     page.on("console", (m) => {
