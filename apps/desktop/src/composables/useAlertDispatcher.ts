@@ -8,7 +8,7 @@ import type { AlertEvent, AlertSeverity, AlertType } from "@/stores/alerts";
 import { useAlertsStore } from "@/stores/alerts";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useToastStore } from "@/stores/toast";
-import { logError, logInfo, logWarn } from "@/utils/logger";
+import { logDebug, logError, logInfo, logWarn } from "@/utils/logger";
 
 // ── Cooldown tracking ────────────────────────────────────────────
 // Maps "sessionId:alertType" → last-fired timestamp to enforce cooldown.
@@ -279,6 +279,14 @@ export async function registerNotificationClickHandler(navigator?: NotificationN
     notificationListenerRegistered = true;
     logInfo("[alerts] Notification click handler registered");
   } catch (e) {
+    // The desktop notification plugin implements only notify/permission
+    // commands, so action types and click callbacks are mobile-only. That is
+    // expected on Windows, not a failure worth a warning on every launch.
+    if (/not found/i.test(String(e))) {
+      notificationListenerRegistered = true;
+      logDebug("[alerts] Notification click actions are unavailable on this platform");
+      return;
+    }
     logWarn("[alerts] Failed to register notification click handler:", e);
   }
 }

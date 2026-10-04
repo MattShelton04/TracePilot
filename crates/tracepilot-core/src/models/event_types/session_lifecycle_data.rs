@@ -64,6 +64,7 @@ pub struct ShutdownData {
     pub conversation_tokens: Option<u64>,
     /// Tool definition tokens at shutdown.
     pub tool_definitions_tokens: Option<u64>,
+    #[serde(default, deserialize_with = "super::nano_aiu::optional")]
     pub total_nano_aiu: Option<u64>,
     /// Whether source shutdown payloads were segment deltas or cumulative snapshots.
     pub source_metrics_scope: Option<ShutdownMetricsScope>,
@@ -89,6 +90,7 @@ pub struct SessionSegment {
     pub total_requests: u64,
     pub premium_requests: f64,
     pub api_duration_ms: u64,
+    #[serde(default, deserialize_with = "super::nano_aiu::optional")]
     pub total_nano_aiu: Option<u64>,
     pub current_model: Option<String>,
     pub model_metrics: Option<HashMap<String, ModelMetricDetail>>,
@@ -122,6 +124,7 @@ pub struct ModelMetricDetail {
     pub requests: Option<RequestMetrics>,
     pub usage: Option<UsageMetrics>,
     /// Observed usage-based billing amount for this model, in nano AI units.
+    #[serde(default, deserialize_with = "super::nano_aiu::optional")]
     pub total_nano_aiu: Option<u64>,
     /// Observed billed token counts by billing category.
     pub token_details: Option<HashMap<String, ShutdownTokenDetail>>,
@@ -179,6 +182,7 @@ pub struct SessionLimitsConfig {
 #[serde(rename_all = "camelCase")]
 pub struct UsageCheckpointData {
     /// Session-wide accumulated usage in nano AI units.
+    #[serde(deserialize_with = "super::nano_aiu::required")]
     pub total_nano_aiu: u64,
     pub total_premium_requests: Option<f64>,
     /// The CLI's prompt-cache expiry per model (internal schema, 1.0.75+).
@@ -259,6 +263,8 @@ pub struct SessionTaskCompleteData {
     pub outcome: Option<String>,
     pub reason: Option<String>,
     pub objective_id: Option<f64>,
+    /// Why autonomous work stopped, e.g. an unresolved permission-recovery episode.
+    pub blocker: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -302,6 +308,7 @@ pub struct AbortData {
 pub struct SystemNotificationData {
     pub content: Option<String>,
     pub kind: Option<serde_json::Value>,
+    pub responses_reasoning: Option<serde_json::Value>,
 }
 
 /// Data for `session.remote_steerable_changed` events.

@@ -45,6 +45,12 @@ pub struct CompactionCompleteData {
     pub status_code: Option<f64>,
     pub token_limit: Option<f64>,
     pub trigger: Option<String>,
+    /// Reasoning configuration in effect for the compaction request (1.0.88+).
+    pub responses_reasoning: Option<serde_json::Value>,
+    /// Active-workflow reminder appended to the compacted context (1.0.88+).
+    pub active_workflow_summary: Option<String>,
+    /// Legacy pre-rename reminder the CLI keeps for replay compatibility.
+    pub active_factory_summary: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,7 +75,10 @@ pub struct CompactionTokenUsage {
 #[serde(rename_all = "camelCase")]
 pub struct CopilotUsage {
     pub token_details: Option<Vec<CopilotUsageTokenDetail>>,
+    #[serde(default, deserialize_with = "super::nano_aiu::optional")]
     pub total_nano_aiu: Option<u64>,
+    /// Billing model when it differs from the request model (1.0.88+).
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +88,7 @@ pub struct CopilotUsageTokenDetail {
     pub token_count: Option<u64>,
     pub batch_size: Option<u64>,
     pub cost_per_batch: Option<u64>,
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

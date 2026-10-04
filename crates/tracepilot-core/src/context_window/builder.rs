@@ -7,17 +7,12 @@ use super::points::{
     anchor_from_compaction_start, anchor_from_shutdown, build_points, compaction_from_complete,
     finish_compaction, phase_order, signed_token_change,
 };
+use super::skills::folded_skill_contexts;
 use crate::parsing::events::{TypedEvent, TypedEventData};
 use crate::turns::reconstruct_turns;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 const METHODOLOGY: &str = "System, tool-definition, and conversation totals are observed at Copilot compaction-start/shutdown anchors. Main-agent system.message events represent prompt snapshots for the next request, so estimated points replace the System layer with each snapshot rather than adding it to Conversation. Snapshot sizes use ceil UTF-8 bytes / 4 and are calibrated against observed System totals when available. Full tool definitions are not serialized in events.jsonl, so that layer remains zero until Copilot reports it. Compaction starts and completes are paired in event order, even when they span turns; the post-compaction summary is estimated unless Copilot reports explicit layers. Between-anchor conversation totals are calibrated estimates derived from main-agent context-bearing event text, including visible reasoning. Nested subagent messages and child tools are excluded because they run in separate context windows; the main agent's subagent invocation and returned result remain included. Folded skill context is counted once. Opaque or encrypted reasoning cannot be independently estimated; its effect is captured only by observed Copilot totals. Point-to-point context change is the signed difference between consecutive displayed totals. Tool arguments and primary returned content are estimated conversation-input contribution, not cache attribution.";
-
-#[derive(Debug, Default)]
-struct FoldedSkillContexts {
-    invocation_indexes: HashSet<usize>,
-    message_indexes: HashSet<usize>,
-}
 
 fn subagent_tool_call_ids(events: &[TypedEvent]) -> HashSet<String> {
     let mut ids = HashSet::new();
@@ -50,58 +45,6 @@ fn is_nested_subagent_event(event: &TypedEvent, subagent_ids: &HashSet<String>) 
         _ => false,
     };
     explicitly_nested || event.raw.agent_id.is_some()
-}
-
-fn folded_skill_contexts(events: &[TypedEvent]) -> FoldedSkillContexts {
-    let invocations = events
-        .iter()
-        .enumerate()
-        .filter_map(|(index, event)| {
-            let TypedEventData::SkillInvoked(data) = &event.typed_data else {
-                return None;
-            };
-            Some((
-                event.raw.id.as_deref()?,
-                (index, data.name.as_deref(), data.content.as_deref()),
-            ))
-        })
-        .collect::<HashMap<_, _>>();
-    let mut folded = FoldedSkillContexts::default();
-
-    for (message_index, event) in events.iter().enumerate() {
-        let TypedEventData::UserMessage(data) = &event.typed_data else {
-            continue;
-        };
-        let Some((invocation_index, name, skill_content)) = event
-            .raw
-            .parent_id
-            .as_deref()
-            .and_then(|parent_id| invocations.get(parent_id))
-        else {
-            continue;
-        };
-        let Some(content) = data.content.as_deref().map(str::trim_start) else {
-            continue;
-        };
-        if !content.starts_with("<skill-context") {
-            continue;
-        }
-        if name.is_some_and(|name| {
-            !content.contains(&format!("name=\"{name}\""))
-                && !content.contains(&format!("name='{name}'"))
-        }) {
-            continue;
-        }
-        if skill_content.is_some_and(|skill_content| {
-            !skill_content.trim().is_empty() && !content.contains(skill_content)
-        }) {
-            continue;
-        }
-        folded.invocation_indexes.insert(*invocation_index);
-        folded.message_indexes.insert(message_index);
-    }
-
-    folded
 }
 
 fn reconstruct_event_turn_slots(events: &[TypedEvent]) -> (Vec<usize>, usize) {
@@ -263,6 +206,22 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                 if !folded_skills.invocation_indexes.contains(&event_index) {
                     add_message_delta(&mut deltas[turn], data.content.as_deref().unwrap_or(""));
                 }
+            }
+            TypedEventData::SkillInvokedRef(data) => {
+                if !folded_skills.invocation_indexes.contains(&event_index) {
+                    let body = data.resolved_content.as_deref().unwrap_or("");
+                    add_message_delta(&mut deltas[turn], body);
+                }
+            }
+            TypedEventData::SkillContextDelivered(data) => {
+                add_message_delta(&mut deltas[turn], data.content.as_deref().unwrap_or(""));
+            }
+            TypedEventData::SkillContextDeliveredRef(data) => {
+                let delivered = data.delivered_content().unwrap_or_else(|| {
+                    let prefix = data.prefix.as_deref().unwrap_or("");
+                    format!("{prefix}{}", data.suffix.as_deref().unwrap_or(""))
+                });
+                add_message_delta(&mut deltas[turn], &delivered);
             }
             TypedEventData::ToolExecutionStart(data) => {
                 let content = data

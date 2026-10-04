@@ -3,6 +3,11 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v16: count Copilot CLI 1.0.86+ `skill.invoked_ref` repeat invocations with
+/// their resolved skill body (previously tool-call-only fallbacks without a
+/// path, hash or token estimate), and fold `skill.context_delivered(_ref)`
+/// wrappers into context estimates.
+///
 /// v15: count inter-agent messaging per agent run (messages sent, received,
 /// peer and queued) in `session_agent_runs`, and name runs by their launch name.
 ///
@@ -29,7 +34,7 @@
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 15;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 16;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

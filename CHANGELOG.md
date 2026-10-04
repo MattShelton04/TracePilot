@@ -7,6 +7,15 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Changed
+
+- **Copilot CLI 1.0.91 support** — All persisted event types are recognized, including repeated skill invocations and the skill context the model received. Existing indexes refresh once on launch.
+
+### Fixed
+
+- **Indexing and skill accuracy** — Sessions with fractional AI Credit totals or truncated emoji output index again, and unedited skills are no longer marked "Changed since used".
+- **Quieter logs** — A disabled SDK, a deleted open session and overlapping indexing are no longer reported as failures.
+
 ## [0.9.0] - 2026-09-27
 
 ### Added

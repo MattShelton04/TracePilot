@@ -18,6 +18,8 @@ pub struct UserMessageData {
     pub delivery: Option<String>,
     pub is_autopilot_continuation: Option<bool>,
     pub turn_id: Option<String>,
+    /// Reasoning effort/model requested for this message (1.0.88+).
+    pub responses_reasoning: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -52,6 +54,9 @@ pub struct AssistantMessageData {
     pub reasoning_blocks: Option<serde_json::Value>,
     pub citations: Option<serde_json::Value>,
     pub fusion: Option<serde_json::Value>,
+    /// `messageId` of the user message that initiated this run, stable across
+    /// tool iterations and steering (1.0.88+).
+    pub originating_message_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -60,6 +65,8 @@ pub struct TurnStartData {
     pub turn_id: Option<String>,
     pub interaction_id: Option<String>,
     pub model: Option<String>,
+    /// Launching tool call when the turn belongs to a subagent (1.0.86+).
+    pub parent_tool_call_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -67,6 +74,7 @@ pub struct TurnStartData {
 pub struct TurnEndData {
     pub turn_id: Option<String>,
     pub model: Option<String>,
+    pub parent_tool_call_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -78,6 +86,8 @@ pub struct SystemMessageData {
     pub name: Option<String>,
     pub metadata: Option<SystemMessageMetadata>,
     pub interaction_id: Option<String>,
+    /// Prompt split into cacheable blocks (1.0.88+).
+    pub content_blocks: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

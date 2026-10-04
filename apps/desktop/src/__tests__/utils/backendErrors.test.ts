@@ -4,6 +4,7 @@ import {
   isAlreadyIndexingError,
   isBackendErrorEnvelope,
   isSearchSyntaxError,
+  isSessionNotFoundError,
   toFriendlyErrorMessage,
 } from "../../utils/backendErrors";
 
@@ -150,5 +151,17 @@ describe("toFriendlyErrorMessage", () => {
     // Ensure the ordering is correct — search syntax errors checked first
     const result = toFriendlyErrorMessage("fts5: syntax error");
     expect(result).toContain("Invalid search syntax");
+  });
+});
+
+describe("isSessionNotFoundError", () => {
+  it("matches the core session-not-found envelope and plain strings", () => {
+    expect(isSessionNotFoundError({ code: "CORE", message: "Session not found: abc" })).toBe(true);
+    expect(isSessionNotFoundError("Session not found: abc")).toBe(true);
+  });
+
+  it("ignores other failures", () => {
+    expect(isSessionNotFoundError({ code: "IO", message: "Access is denied" })).toBe(false);
+    expect(isSessionNotFoundError(null)).toBe(false);
   });
 });

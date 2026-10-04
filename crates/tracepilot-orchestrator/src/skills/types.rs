@@ -123,6 +123,9 @@ pub struct SkillSummary {
     /// recorded at invocation to detect a skill that changed since it was
     /// last used. Line endings are normalised first.
     pub content_sha256: String,
+    /// Fingerprint of the body without frontmatter, which is what Copilot CLI
+    /// 1.0.48+ records at invocation. Matching either means unchanged.
+    pub body_sha256: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -282,6 +285,7 @@ mod tests {
             asset_count: 0,
             modified_at: None,
             content_sha256: "abc".into(),
+            body_sha256: "def".into(),
         };
         let json = serde_json::to_string(&summary).unwrap();
         let parsed: SkillSummary = serde_json::from_str(&json).unwrap();

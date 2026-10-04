@@ -73,9 +73,38 @@ pub fn content_fingerprint(content: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+/// [`content_fingerprint`] of a skill's body alone, without frontmatter.
+///
+/// Copilot CLI 1.0.48+ records only the body in `skill.invoked.content`
+/// (frontmatter removed, leading whitespace trimmed), so an unchanged installed
+/// `SKILL.md` matches this rather than the whole-file fingerprint. Older CLIs
+/// recorded the whole file.
+pub fn skill_body_fingerprint(content: &str) -> String {
+    content_fingerprint(split_frontmatter(content).1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn body_fingerprint_matches_modern_recorded_content() {
+        // A CRLF SKILL.md and the shape Copilot CLI 1.0.91 records for it.
+        let installed = "---\r\nname: probe-notes\r\ndescription: Returns the codeword.\r\n---\r\n\r\n# Probe notes\r\n\r\nAnswer TANGERINE-42.\r\n";
+        let recorded = "# Probe notes\n\nAnswer TANGERINE-42.\n";
+        assert_eq!(
+            skill_body_fingerprint(installed),
+            content_fingerprint(recorded)
+        );
+        assert_ne!(
+            content_fingerprint(installed),
+            content_fingerprint(recorded)
+        );
+        assert_eq!(
+            skill_body_fingerprint(recorded),
+            content_fingerprint(recorded)
+        );
+    }
 
     #[test]
     fn empty_string_returns_zero() {

@@ -137,6 +137,14 @@ describe("SkillUsageTab", () => {
     expect(wrapper.get(".usage-detail__notice").text()).toContain("changed since it was last used");
   });
 
+  it("does not report drift when the recorded body matches the installed body", () => {
+    const { wrapper } = mountTab({
+      installedSha256: "sha-whole-file",
+      installedBodySha256: "sha-current",
+    } as never);
+    expect(wrapper.find(".usage-detail__notice").exists()).toBe(false);
+  });
+
   it("stays quiet about drift when the installed content has not been read", () => {
     const { wrapper } = mountTab({ installedSha256: null } as never);
     expect(wrapper.find(".usage-detail__notice").exists()).toBe(false);

@@ -23,12 +23,21 @@ const MAX_LIVE_HOST_QUERY: usize = 500;
 // ─── Connection Lifecycle ─────────────────────────────────────────
 
 #[tauri::command]
-#[tracing::instrument(skip(bridge, config), err)]
+#[tracing::instrument(skip(bridge, config))]
 pub async fn sdk_connect(
     bridge: tauri::State<'_, SharedBridgeManager>,
     config: BridgeConnectConfig,
 ) -> CmdResult<BridgeStatus> {
-    bridge.connect(config).await?;
+    if let Err(error) = bridge.connect(config).await {
+        // Turning the SDK off is a user choice, not a failure; the frontend
+        // already reports it as "connect skipped".
+        if matches!(error, BridgeError::DisabledByPreference) {
+            tracing::debug!(%error, "SDK connect skipped");
+        } else {
+            tracing::error!(%error, "SDK connect failed");
+        }
+        return Err(error.into());
+    }
     Ok(bridge.read().await.status())
 }
 

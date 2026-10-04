@@ -138,6 +138,31 @@ pub enum SessionEventType {
     SessionCanvasRecorded,
     #[strum(serialize = "session.canvas.removed")]
     SessionCanvasRemoved,
+    // ── Copilot CLI 1.0.86–1.0.91 ──
+    #[strum(serialize = "session.model_deselected")]
+    SessionModelDeselected,
+    #[strum(serialize = "session.fusion_change_checkpoint")]
+    SessionFusionChangeCheckpoint,
+    #[strum(serialize = "session.permission_recovery")]
+    SessionPermissionRecovery,
+    #[strum(serialize = "skill.invoked_ref")]
+    SkillInvokedRef,
+    #[strum(serialize = "skill.context_delivered")]
+    SkillContextDelivered,
+    #[strum(serialize = "skill.context_delivered_ref")]
+    SkillContextDeliveredRef,
+    #[strum(serialize = "permission.carriedForward")]
+    PermissionCarriedForward,
+    #[strum(serialize = "permission.messageAuthorization")]
+    PermissionMessageAuthorization,
+    #[strum(serialize = "permission.messageAuthorizationRead")]
+    PermissionMessageAuthorizationRead,
+    #[strum(serialize = "permission.messageAuthorizationDegraded")]
+    PermissionMessageAuthorizationDegraded,
+    #[strum(serialize = "permission.assentDetected")]
+    PermissionAssentDetected,
+    #[strum(serialize = "permission.contextualAuthorization")]
+    PermissionContextualAuthorization,
     /// Catch-all for unrecognized event types from newer Copilot CLI versions.
     /// The contained string is the original wire-format type name.
     #[strum(default)]
@@ -210,6 +235,18 @@ pub const KNOWN_EVENT_TYPES: &[&str] = &[
     "session.auto_mode_resolved",
     "session.canvas.recorded",
     "session.canvas.removed",
+    "session.model_deselected",
+    "session.fusion_change_checkpoint",
+    "session.permission_recovery",
+    "skill.invoked_ref",
+    "skill.context_delivered",
+    "skill.context_delivered_ref",
+    "permission.carriedForward",
+    "permission.messageAuthorization",
+    "permission.messageAuthorizationRead",
+    "permission.messageAuthorizationDegraded",
+    "permission.assentDetected",
+    "permission.contextualAuthorization",
 ];
 
 impl fmt::Display for SessionEventType {

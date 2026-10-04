@@ -334,6 +334,7 @@ fn load_skill_summary(
         asset_count,
         modified_at: file_modified_at(skill_md_path),
         content_sha256: tracepilot_core::tokens::content_fingerprint(&content),
+        body_sha256: tracepilot_core::tokens::skill_body_fingerprint(&content),
     })
 }
 

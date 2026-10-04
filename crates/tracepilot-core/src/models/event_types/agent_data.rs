@@ -13,6 +13,12 @@ pub struct SubagentStartedData {
     pub resumable: Option<bool>,
     pub agent_type: Option<String>,
     pub execution_mode: Option<String>,
+    /// Successor of `factoryRunId` after the factory → workflow rename (1.0.88+).
+    pub workflow_run_id: Option<String>,
+    /// Where the task model came from, e.g. `task_argument` (1.0.88+).
+    pub task_model_source: Option<String>,
+    /// How the effective model was chosen, e.g. `explicit_override`.
+    pub model_selection_source: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -36,6 +42,7 @@ pub struct SubagentCompletedData {
     pub model_override_reason: Option<String>,
     pub configured_model_matches_actual: Option<bool>,
     pub cancelled: Option<bool>,
+    pub model_selection_source: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -59,6 +66,7 @@ pub struct SubagentFailedData {
     pub explicit_model_matches_preference: Option<bool>,
     pub model_override_reason: Option<String>,
     pub configured_model_matches_actual: Option<bool>,
+    pub model_selection_source: Option<String>,
 }
 
 /// Data for `subagent.selected` events — custom agent activation.

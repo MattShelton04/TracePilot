@@ -23,6 +23,13 @@ use crate::models::event_types::{
     SessionPermissionsChangedData, SessionScheduleCancelledData, SessionScheduleCreatedData,
     SessionScheduleRearmedData, SubagentConfiguredData, ToolSearchActivatedData,
 };
+use crate::models::event_types::{
+    PermissionAssentDetectedData, PermissionCarriedForwardData,
+    PermissionContextualAuthorizationData, PermissionMessageAuthorizationData,
+    PermissionMessageAuthorizationDegradedData, PermissionMessageAuthorizationReadData,
+    SessionFusionChangeCheckpointData, SessionModelDeselectedData, SessionPermissionRecoveryData,
+    SkillContextDeliveredData, SkillContextDeliveredRefData, SkillInvokedRefData,
+};
 use crate::parsing::diagnostics::ParseDiagnostics;
 use serde_json::Value;
 
@@ -105,6 +112,18 @@ pub enum TypedEventData {
     SessionAutoModeResolved(SessionAutoModeResolvedData),
     SessionCanvasRecorded(SessionCanvasRecordedData),
     SessionCanvasRemoved(SessionCanvasRemovedData),
+    SessionModelDeselected(SessionModelDeselectedData),
+    SessionFusionChangeCheckpoint(SessionFusionChangeCheckpointData),
+    SessionPermissionRecovery(SessionPermissionRecoveryData),
+    SkillInvokedRef(SkillInvokedRefData),
+    SkillContextDelivered(SkillContextDeliveredData),
+    SkillContextDeliveredRef(SkillContextDeliveredRefData),
+    PermissionCarriedForward(PermissionCarriedForwardData),
+    PermissionMessageAuthorization(PermissionMessageAuthorizationData),
+    PermissionMessageAuthorizationRead(PermissionMessageAuthorizationReadData),
+    PermissionMessageAuthorizationDegraded(PermissionMessageAuthorizationDegradedData),
+    PermissionAssentDetected(PermissionAssentDetectedData),
+    PermissionContextualAuthorization(PermissionContextualAuthorizationData),
     Other(Value),
 }
 

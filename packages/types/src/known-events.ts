@@ -78,6 +78,19 @@ export const TRACEPILOT_KNOWN_EVENTS = [
   "session.auto_mode_resolved",
   "session.canvas.recorded",
   "session.canvas.removed",
+  // Copilot CLI 1.0.86–1.0.91
+  "session.model_deselected",
+  "session.fusion_change_checkpoint",
+  "session.permission_recovery",
+  "skill.invoked_ref",
+  "skill.context_delivered",
+  "skill.context_delivered_ref",
+  "permission.carriedForward",
+  "permission.messageAuthorization",
+  "permission.messageAuthorizationRead",
+  "permission.messageAuthorizationDegraded",
+  "permission.assentDetected",
+  "permission.contextualAuthorization",
 ] as const;
 
 export type TracePilotKnownEvent = (typeof TRACEPILOT_KNOWN_EVENTS)[number];

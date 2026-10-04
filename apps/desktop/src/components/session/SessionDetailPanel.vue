@@ -39,7 +39,8 @@ import { useWindowRole } from "@/composables/useWindowRole";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
-import { logError } from "@/utils/logger";
+import { isSessionNotFoundError } from "@/utils/backendErrors";
+import { logError, logWarn } from "@/utils/logger";
 import { normalizeToolPartialOutput } from "@/utils/normalizeToolPartialOutput";
 import { sessionModel } from "@/utils/sessionModel";
 
@@ -121,6 +122,13 @@ async function openSessionFolder() {
   }
 }
 
+/**
+ * The open session's files were removed (for example, a temporary session was
+ * cleaned up). Auto-refresh pauses instead of failing every interval; a manual
+ * refresh checks again and resumes it if the session reappears.
+ */
+const sessionMissing = ref(false);
+
 async function checkRunning() {
   if (!props.sessionId) {
     isSessionActive.value = false;
@@ -128,9 +136,17 @@ async function checkRunning() {
   }
   try {
     isSessionActive.value = await isSessionRunning(props.sessionId);
+    sessionMissing.value = false;
     emit("update:isActive", isSessionActive.value);
   } catch (e) {
     isSessionActive.value = false;
+    if (isSessionNotFoundError(e)) {
+      if (!sessionMissing.value) {
+        logWarn("[sessionDetail] Session no longer exists; pausing auto-refresh:", e);
+      }
+      sessionMissing.value = true;
+      return;
+    }
     logError("[sessionDetail] Failed to check if session is running:", e);
   }
 }
@@ -139,7 +155,9 @@ const { refreshing, refresh } = useAutoRefresh({
   onRefresh: async () => {
     await Promise.all([props.store.refreshAll(), checkRunning()]);
   },
-  enabled: computed(() => prefs.autoRefreshEnabled && (props.refreshEnabled ?? true)),
+  enabled: computed(
+    () => prefs.autoRefreshEnabled && (props.refreshEnabled ?? true) && !sessionMissing.value,
+  ),
   intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
 });
 
@@ -205,6 +223,7 @@ watch(
   () => props.sessionId,
   (newId) => {
     isSessionActive.value = false;
+    sessionMissing.value = false;
     props.store.loadDetail(newId);
     checkRunning();
   },

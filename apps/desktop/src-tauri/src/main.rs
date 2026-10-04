@@ -74,6 +74,10 @@ fn main() {
                 .level_for("tao", log::LevelFilter::Warn)
                 .level_for("wry", log::LevelFilter::Warn)
                 .level_for("tracing", log::LevelFilter::Warn)
+                // Span lifecycle records only. The Copilot SDK scopes its
+                // JSON-RPC loops with `error_span!`, which the log bridge
+                // would otherwise print as ERROR on every successful connect.
+                .level_for("tracing::span", log::LevelFilter::Off)
                 .level_for("reqwest", log::LevelFilter::Warn)
                 .level_for("hyper", log::LevelFilter::Warn)
                 .level_for("rustls", log::LevelFilter::Warn)

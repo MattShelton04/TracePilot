@@ -12,6 +12,14 @@ The [1.0.83 alignment report](2026-09-12-v1.0.83-alignment.md) also records the
 recovered 1.0.71 baseline, compatibility fixes, live validation and useful future
 UI opportunities.
 
+The [1.0.91 alignment report](2026-10-04-v1.0.91-alignment.md) covers the
+1.0.83 → 1.0.91 schema changes, deduplicated skill receipts, and log-driven fixes
+for sessions that could not be indexed.
+
+To regenerate a synthetic schema contract for a newly installed version, run
+`node scripts/fixtures/copilot-schema-fixture.mjs <version> crates/tracepilot-core/tests/fixtures/versions/schema_v<version_with_underscores>.jsonl`,
+then add the version to `crates/tracepilot-core/tests/schema_compatibility.rs`.
+
 ## Naming Convention
 
 Reports follow the format: `{date}-v{latest_version}-{label}.md`

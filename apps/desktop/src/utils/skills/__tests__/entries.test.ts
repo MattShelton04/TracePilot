@@ -265,6 +265,17 @@ describe("flags", () => {
     expect(flagsOf(entries, "edited")).toContain("drifted");
   });
 
+  it("treats a body-only fingerprint from newer CLIs as unchanged", () => {
+    // Copilot CLI 1.0.48+ records the body without frontmatter.
+    const entries = buildSkillEntries(
+      [skill("modern", { contentSha256: "sha-whole-file", bodySha256: "sha-body" })],
+      summary([usage("modern", { latestContentSha256: "sha-body" })]),
+      "90d",
+      NOW,
+    );
+    expect(flagsOf(entries, "modern")).not.toContain("drifted");
+  });
+
   it("does not claim drift when no invocation carried content", () => {
     const entries = buildSkillEntries(
       [skill("fallback-only", { contentSha256: "sha-new" })],

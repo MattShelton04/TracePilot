@@ -9,6 +9,7 @@ mod builder;
 mod contributions;
 mod model;
 mod points;
+mod skills;
 
 pub use builder::build_context_timeline;
 pub use model::{

@@ -16,6 +16,11 @@ pub struct ToolExecStartData {
     pub display_verbatim: Option<bool>,
     pub tool_description: Option<serde_json::Value>,
     pub fusion: Option<serde_json::Value>,
+    /// Human-readable tool title (1.0.86+).
+    pub tool_title: Option<String>,
+    pub mcp_config_server_name: Option<String>,
+    pub mcp_transport: Option<String>,
+    pub mcp_config_source: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -38,6 +43,8 @@ pub struct ToolExecCompleteData {
     pub tool_description: Option<serde_json::Value>,
     pub sandboxed: Option<bool>,
     pub fusion: Option<serde_json::Value>,
+    /// Structured shell process outcome, including exit code (1.0.88+).
+    pub shell_execution: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +70,8 @@ pub struct SkillInvokedData {
     pub disable_model_invocation: Option<bool>,
     pub source: Option<String>,
     pub trigger: Option<String>,
+    /// Projected chat-message count at invocation (1.0.86+).
+    pub invoked_at_turn: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -102,14 +111,21 @@ pub struct PermissionRequestedData {
     pub resolved_by_hook: Option<bool>,
     pub agent_mode: Option<String>,
     pub risk_assessment: Option<serde_json::Value>,
+    pub permission_mode: Option<String>,
+    /// Autopilot permission-recovery episode this request belongs to.
+    pub recovery_episode_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PermissionCompletedData {
     pub request_id: Option<String>,
     pub tool_call_id: Option<String>,
     pub result: Option<serde_json::Value>,
+    pub recovery_episode_id: Option<String>,
+    pub blocker: Option<serde_json::Value>,
+    /// Who decided: assisted approval, a human, host policy, etc.
+    pub decision_source: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

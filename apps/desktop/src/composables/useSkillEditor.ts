@@ -116,9 +116,12 @@ export function useSkillEditor() {
    * catalog rather than the open draft, so an unsaved edit never reads as
    * drift against past usage.
    */
-  const installedSha256 = computed(
-    () => store.skills.find((skill) => skill.directory === skillDir.value)?.contentSha256 ?? null,
+  const installedSkill = computed(() =>
+    store.skills.find((skill) => skill.directory === skillDir.value),
   );
+  const installedSha256 = computed(() => installedSkill.value?.contentSha256 ?? null);
+  /** Body-only fingerprint, which newer CLIs record at invocation. */
+  const installedBodySha256 = computed(() => installedSkill.value?.bodySha256 ?? null);
 
   const totalLineCount = computed(() => rawContent.value.split("\n").length);
   const byteCount = computed(() => new TextEncoder().encode(rawContent.value).length);
@@ -429,6 +432,7 @@ export function useSkillEditor() {
     usageError,
     usageRange,
     installedSha256,
+    installedBodySha256,
     leftWidth,
     minLeftWidth,
     maxLeftWidth,

@@ -25,12 +25,14 @@
 mod aggregate;
 mod raw;
 mod session_model;
+mod skill_refs;
 mod snapshot;
 #[cfg(test)]
 mod snapshot_tests;
 #[cfg(test)]
 mod tests;
 mod typed;
+mod typed_extended;
 mod types;
 
 pub use aggregate::{extract_combined_shutdown_data, extract_session_start};

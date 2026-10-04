@@ -35,7 +35,7 @@ fn assert_preserved(expected: &Value, actual: &Value, path: &str) {
 
 #[test]
 fn official_persisted_payloads_preserve_fields_across_supported_versions() {
-    for version in ["1_0_71", "1_0_75", "1_0_83"] {
+    for version in ["1_0_71", "1_0_75", "1_0_83", "1_0_91"] {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/versions")
             .join(format!("schema_v{version}.jsonl"));

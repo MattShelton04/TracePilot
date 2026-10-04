@@ -38,6 +38,11 @@ pub struct SessionFusionResolvedData {
     pub follow_up_model: Option<String>,
     pub follow_up: Option<serde_json::Value>,
     pub routing_latency_ms: Option<f64>,
+    /// Short display summary of the selected route (experimental).
+    pub hint: Option<String>,
+    pub judge_model: Option<String>,
+    pub repair_model: Option<String>,
+    pub critics: Option<serde_json::Value>,
 }
 
 /// Persisted `session.fusion_handoff` payload. Fields remain optional for older producers.
@@ -105,6 +110,7 @@ pub struct AssistantFusionPhaseCompletedData {
     pub projection_message: Option<serde_json::Value>,
     pub projection_mode: Option<String>,
     pub staged_terminal: Option<serde_json::Value>,
+    pub reasoning_effort: Option<String>,
 }
 
 /// Persisted `assistant.fusion_phase_failed` payload. Fields remain optional for older producers.
@@ -123,4 +129,5 @@ pub struct AssistantFusionPhaseFailedData {
     pub usage: Option<serde_json::Value>,
     pub error_message: Option<String>,
     pub degraded_to_phase_id: Option<String>,
+    pub reasoning_effort: Option<String>,
 }

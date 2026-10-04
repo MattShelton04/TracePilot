@@ -66,6 +66,20 @@ pub fn payload(data: &TypedEventData) -> Value {
         TypedEventData::SessionAutoModeResolved(d) => serde_json::to_value(d).unwrap(),
         TypedEventData::SessionCanvasRecorded(d) => serde_json::to_value(d).unwrap(),
         TypedEventData::SessionCanvasRemoved(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionModelDeselected(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionFusionChangeCheckpoint(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SessionPermissionRecovery(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SkillInvokedRef(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SkillContextDelivered(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::SkillContextDeliveredRef(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::PermissionCarriedForward(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::PermissionMessageAuthorization(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::PermissionMessageAuthorizationRead(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::PermissionMessageAuthorizationDegraded(d) => {
+            serde_json::to_value(d).unwrap()
+        }
+        TypedEventData::PermissionAssentDetected(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::PermissionContextualAuthorization(d) => serde_json::to_value(d).unwrap(),
         TypedEventData::Other(d) => serde_json::to_value(d).unwrap(),
     }
 }

@@ -26,6 +26,7 @@ fn permission_events_attach_to_turn_with_audit_summaries() {
                 request_id: Some("req-1".to_string()),
                 tool_call_id: Some("tc-1".to_string()),
                 result: Some(json!({ "kind": "approved-for-session" })),
+                ..Default::default()
             }),
             "evt-perm-done",
             "2026-05-04T08:00:11.000Z",
@@ -98,6 +99,7 @@ fn rejected_permission_result_is_warning() {
                 "kind": "denied-interactively-by-user",
                 "feedback": "Not now"
             })),
+            ..Default::default()
         }),
         "evt-perm-denied",
         "2026-05-04T08:00:11.000Z",
