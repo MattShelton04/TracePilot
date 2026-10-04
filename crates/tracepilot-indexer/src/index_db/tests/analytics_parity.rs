@@ -58,11 +58,8 @@ fn assert_tool_parity(events: Vec<Value>, expected_calls: u32) -> Value {
     let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
     db.upsert_session(&path).unwrap();
     let inputs = load_full_sessions_filtered(temp.path(), None, None, None, false).unwrap();
-    let mut fallback = compute_tool_analysis(&inputs);
-    let mut indexed = db.query_tool_analysis(None, None, None, false).unwrap();
-    // Tied counts have no defined order. Compare the actual metrics by tool name.
-    fallback.tools.sort_by(|a, b| a.name.cmp(&b.name));
-    indexed.tools.sort_by(|a, b| a.name.cmp(&b.name));
+    let fallback = compute_tool_analysis(&inputs);
+    let indexed = db.query_tool_analysis(None, None, None, false).unwrap();
     assert_eq!(fallback.total_calls, expected_calls);
     assert_eq!(
         serde_json::to_value(&indexed).unwrap(),
@@ -199,7 +196,7 @@ fn activity_and_segment_charts_use_the_end_day_and_respect_the_date_filter() {
     let shutdown = |id, timestamp, tokens| {
         event(
             "session.shutdown",
-            json!({"totalPremiumRequests": 2.0, "modelMetrics": {"model": {"requests": {"cost": 2.0}, "usage": {"inputTokens": tokens}}}}),
+            json!({"totalPremiumRequests": 2.0, "modelMetrics": {"model": {"requests": {"cost": 0.5}, "usage": {"inputTokens": tokens}}}}),
             id,
             Some(timestamp),
         )
@@ -248,6 +245,58 @@ fn activity_and_segment_charts_use_the_end_day_and_respect_the_date_filter() {
             indexed["activityPerDay"][0]["date"],
             from.unwrap_or("2026-03-11")
         );
+        assert_eq!(indexed["costByDay"][0]["cost"], 2.0);
+        assert_eq!(indexed["totalCost"], fallback["totalCost"]);
+        assert_eq!(indexed["totalCost"], 1.0);
+    }
+}
+
+#[test]
+fn tied_tool_counts_have_a_stable_name_order_and_most_used_tool() {
+    let result = assert_tool_parity(
+        vec![
+            start(Some("read"), "read_file", None),
+            start(Some("edit"), "edit_file", None),
+        ],
+        2,
+    );
+    assert_eq!(result["mostUsedTool"], "edit_file");
+    assert_eq!(result["tools"][0]["name"], "edit_file");
+}
+
+#[test]
+fn undated_shutdowns_keep_lifetime_totals_without_daily_chart_points() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = write_events(
+        temp.path(),
+        vec![event(
+            "session.shutdown",
+            json!({"totalPremiumRequests": 2.0, "modelMetrics": {"model": {"requests": {"cost": 0.5}, "usage": {"inputTokens": 100, "outputTokens": 20}}}}),
+            "undated-shutdown",
+            None,
+        )],
+        "2026-03-10T08:00:00Z",
+    );
+    let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
+    db.upsert_session(&path).unwrap();
+    for from in [None, Some("2026-03-10")] {
+        let inputs = load_full_sessions_filtered(temp.path(), from, None, None, false).unwrap();
+        let indexed =
+            serde_json::to_value(db.query_analytics(from, None, None, false).unwrap()).unwrap();
+        let fallback = serde_json::to_value(compute_analytics(&inputs)).unwrap();
+        for field in [
+            "activityPerDay",
+            "tokenUsageByDay",
+            "costByDay",
+            "modelUsageByDay",
+        ] {
+            assert_eq!(indexed[field], fallback[field], "{field}: from={from:?}");
+            assert_eq!(indexed[field], json!([]));
+        }
+        assert_eq!(indexed["totalTokens"], fallback["totalTokens"]);
+        assert_eq!(indexed["totalTokens"], 120);
+        assert_eq!(indexed["totalCost"], fallback["totalCost"]);
+        assert_eq!(indexed["totalCost"], 0.5);
     }
 }
 

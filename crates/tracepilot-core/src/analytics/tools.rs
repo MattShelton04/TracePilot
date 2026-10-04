@@ -104,7 +104,11 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
             total_duration_ms: acc.total_duration_ms,
         })
         .collect();
-    tools.sort_by_key(|b| std::cmp::Reverse(b.call_count));
+    tools.sort_by(|a, b| {
+        b.call_count
+            .cmp(&a.call_count)
+            .then_with(|| a.name.cmp(&b.name))
+    });
 
     let most_used_tool = get_most_used_tool(&tools);
     let success_rate = compute_success_rate(total_success, total_failure);

@@ -23,18 +23,21 @@ impl DailySeriesAccumulator {
     pub(super) fn record_segments(&mut self, segments: &[SessionSegment]) {
         for seg in segments {
             let end_date = date_part(&seg.end_timestamp);
+            // Undated shutdowns still contribute to lifetime totals, but cannot
+            // be placed on a daily chart. Match SQLite's date(NULL) filtering.
+            if chrono::NaiveDate::parse_from_str(&end_date, "%Y-%m-%d").is_err() {
+                continue;
+            }
             let mut seg_tokens: u64 = 0;
-            let mut seg_cost: f64 = 0.0;
             if let Some(ref mm) = seg.model_metrics {
                 for (model, detail) in mm {
                     let totals = tokens_and_cost(detail);
                     seg_tokens += totals.tokens;
-                    seg_cost += totals.cost;
                     self.record_model_usage(&end_date, model, detail);
                 }
             }
             *self.tokens_by_day.entry(end_date.clone()).or_insert(0) += seg_tokens;
-            *self.cost_by_day.entry(end_date.clone()).or_insert(0.0) += seg_cost;
+            *self.cost_by_day.entry(end_date.clone()).or_insert(0.0) += seg.premium_requests;
             // Match the indexed charts: tokens, cost and activity all belong
             // to the day the segment ended, including cross-midnight segments.
             *self.activity_by_day.entry(end_date).or_insert(0) += 1;

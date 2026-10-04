@@ -118,6 +118,7 @@ name, outcome and duration. Success rate uses known successes and failures;
 unknown outcomes do not enter its denominator. Average duration uses only calls
 with a reconstructed duration. The dashboard's tool-call productivity numerator
 uses the same invocation count.
+Equal tool counts are ordered by name so the most-used-tool result is stable.
 
 Analytics extraction version 17 refreshes previously indexed sessions with these
 rules. It changes derived rows, not the database schema or source event files.
@@ -127,8 +128,10 @@ Date filters select sessions by their last-active date. For selected sessions,
 headline totals remain lifetime values; segment-based daily charts use the day
 each segment ended and include only segments within the requested date range.
 This keeps activity, token and cost charts on the same day for sessions spanning
-midnight. Differential fixtures in the indexer's `analytics_parity` tests cover
-these semantics against the disk fallback.
+midnight. The legacy daily cost series counts premium requests; the headline
+`total_cost` retains model-reported cost. Undated shutdowns contribute to lifetime
+totals without producing daily chart points. Differential fixtures in the
+indexer's `analytics_parity` tests cover these semantics against the disk fallback.
 
 ### Successful source snapshots
 
