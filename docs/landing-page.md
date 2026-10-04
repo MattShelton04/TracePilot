@@ -26,8 +26,9 @@ pnpm --filter @tracepilot/site test
 node --test scripts/site/*.test.mjs
 ```
 
-`site:check` starts and stops its own Vite preview on port 4187. It checks
-1440×960 first, then 960×640, 2560×1440, 390×844 and 1440×960 with reduced
+`site:check` starts and stops its own Vite preview on port 4187. It checks the
+platform download labels and links (see [Download links](#download-links)), then
+viewports: 1440×960 first, then 960×640, 2560×1440, 390×844 and 1440×960 with reduced
 motion. It covers both pages for console/page errors, failed or cross-origin
 requests (other than the analytics beacon), HTTP errors and overflow; checks
 the beacon is present exactly when `CF_BEACON_TOKEN` is set; verifies five desktop pins and no mobile or
@@ -111,13 +112,33 @@ when the fixtures no longer match the renderers. The unit-test command exports
 fresh fixtures so validation tests also run on a clean checkout.
 
 [`release-data.mjs`](../site/scripts/release-data.mjs) reads GitHub's latest
-published release at build time, using `GITHUB_TOKEN` in CI. It prefers the
-`*_x64-setup.exe` NSIS installer and falls back to MSI, excluding the standalone
-binary. API failure falls back to the root package version and the releases
-page with a warning. Local release data is cached for six hours; use
+published release at build time, using `GITHUB_TOKEN` in CI; drafts and
+prereleases are never "latest". It records the Windows installer (the
+`*_x64-setup.exe` NSIS installer, then the MSI, never the standalone binary)
+and the macOS `*_aarch64.dmg`, either of which may be missing. API failure falls
+back to the root package version with no installers, with a warning. Local
+release data is cached for six hours; use
 `pnpm --filter @tracepilot/site exec node scripts/release-data.mjs --refresh`
 to refresh it. CI always refreshes. The page makes no runtime API calls; its
 only runtime request is the analytics beacon below.
+
+### Download links
+
+Download links are `a[data-download]` and point at
+`https://github.com/<repo>/releases/latest` in the HTML, which stays correct
+even if a post-release rebuild fails. The Vite plugin injects a head script
+into both pages (`platformScript()` in
+[`html-facts.mjs`](../site/scripts/html-facts.mjs), with its CSP hash). Before
+first paint it chooses from the platform (`pickDownload()`): Windows gets the
+installer and "Download for Windows"; a Mac gets the disk image, "Download for
+macOS" and an "Apple Silicon (M1 or later)" tooltip; anything else, including
+iPads (which report a Mac platform but have touch) and a platform whose
+installer is missing, gets "View latest release". It sets `html[data-os]`, which
+CSS uses to show one of the `.dl-*` labels, and `html[data-download]`, which
+`DOWNLOAD_URL` in `src/data.js` reads for links the modules render. Without
+JavaScript, the neutral "Download" label and the release page remain.
+`site:check` covers each case, including no JavaScript, against the built
+release data. The small print lists the platforms the release has builds for.
 
 The Vite HTML plugin fills `__placeholders__` from those files and rejects
 unknown keys. `src/data.js` imports the same data for interactive views. Agent
@@ -182,7 +203,7 @@ is supplied because it would affect gallery misses too.
 
 | Change | How the site updates |
 | --- | --- |
-| Published release | Successful `Release` completion triggers a rebuild with the latest version and installer. |
+| Published release | Successful `Release` completion triggers a rebuild with the latest version and installers. Publishing is that workflow's last job, so the release is live before the rebuild reads it; a version-bump merge rebuilds earlier but still sees the previous release. A release published by hand from a draft does not trigger a rebuild; dispatch the Site workflow. |
 | Showcase fixtures or shared pricing/types | Matching main push rebuilds figures/charts; incompatible fixture shapes fail validation. |
 | App tokens or assets | Matching main push rebuilds the directly imported assets. |
 | Site source, build configuration or budgets | PR build/check artifacts support review; merging to main deploys. |
@@ -270,6 +291,7 @@ the top, both when played and in reduced-motion end states.
 | --- | --- |
 | Fixture validation fails | Follow the listed field names; update fixtures or the corresponding view and HTML facts. |
 | Release version looks stale | Refresh the six-hour cache; check API warnings and installer selection. |
+| Mac visitors see "View latest release" | The release has no `*_aarch64.dmg` (releases before macOS builds), so Macs get the release page; the next release with a disk image fixes it. |
 | Missing generated JSON | Use `site:build` or `site:dev`, which run data generation before Vite. |
 | CSP font errors | Keep font files uninlined and local; check `assetsInlineLimit` in Vite configuration. |
 | Browser executable missing | Install Chromium with the site Playwright command above. CI uses `--with-deps`. |

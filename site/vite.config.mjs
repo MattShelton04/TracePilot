@@ -1,4 +1,4 @@
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
@@ -9,6 +9,8 @@ import {
   fillPlaceholders,
   htmlFacts,
   inlineScriptHashes,
+  platformScript,
+  scriptHash,
 } from "./scripts/html-facts.mjs";
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
@@ -19,8 +21,8 @@ const PRELOAD_FONTS = [/inter-latin-wght-normal/, /jetbrains-mono-latin-(400|500
 
 const beaconOn = (mode) => mode === "build" && !!BEACON_TOKEN;
 
-/** Fills __placeholders__ (version, download link, showcase figures), adds the CSP to each page
-    and, in builds, preloads the first-paint fonts. */
+/** Fills __placeholders__ (version, release link, showcase figures), adds the platform download
+    script and the CSP to each page. */
 function siteFacts() {
   let mode = "build";
   return {
@@ -31,12 +33,11 @@ function siteFacts() {
     transformIndexHtml: {
       order: "pre",
       handler(html, ctx) {
-        const facts = htmlFacts(
-          here("./src/data/showcase.json"),
-          here("./src/data/release.json"),
-          mode,
-        );
+        const releaseFile = here("./src/data/release.json");
+        const facts = htmlFacts(here("./src/data/showcase.json"), releaseFile, mode);
         const filled = fillPlaceholders(html, facts, ctx.filename);
+        const platform = platformScript(JSON.parse(readFileSync(releaseFile, "utf8")));
+        const hashes = [...inlineScriptHashes(filled), scriptHash(platform)];
         return {
           html: filled,
           tags: [
@@ -44,10 +45,11 @@ function siteFacts() {
               tag: "meta",
               attrs: {
                 "http-equiv": "Content-Security-Policy",
-                content: cspFor(mode, inlineScriptHashes(filled), beaconOn(mode)),
+                content: cspFor(mode, hashes, beaconOn(mode)),
               },
               injectTo: "head-prepend",
             },
+            { tag: "script", children: platform, injectTo: "head" },
           ],
         };
       },

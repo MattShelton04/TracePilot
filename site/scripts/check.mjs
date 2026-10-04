@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { chromium } from "playwright";
+import { pickDownload } from "./html-facts.mjs";
 import { startPreview } from "./preview.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -82,6 +83,77 @@ function sizeBudget() {
     const line = `${k} ${v.toFixed(1)} KB (budget ${budget[k]} KB)`;
     if (v > budget[k]) fail("budget", line);
     else ok(line);
+  }
+}
+
+const LABELS = {
+  win: "Download for Windows",
+  mac: "Download for macOS",
+  other: "View latest release",
+  none: "Download",
+};
+
+/** The labels a download link shows and where every download link points, on both pages. */
+async function downloadState(context) {
+  const page = await context.newPage();
+  // load, not domcontentloaded: without JavaScript nothing waits for the stylesheet
+  await page.goto(BASE, { waitUntil: "load" });
+  const state = await page.evaluate(() => ({
+    labels: [...document.querySelectorAll(".hero-ctas a[data-download]")].map((a) =>
+      [...a.querySelectorAll("span")]
+        .filter((span) => getComputedStyle(span).display !== "none")
+        .map((span) => span.textContent.trim())
+        .join("|"),
+    ),
+    hrefs: [...document.querySelectorAll("a[data-download]")].map((a) => a.href),
+    title: document.querySelector("a[data-download]").title,
+  }));
+  await page.goto(`${BASE}demo/`, { waitUntil: "domcontentloaded" });
+  state.hrefs.push(await page.locator("a[data-download]").getAttribute("href"));
+  return state;
+}
+
+/** Each platform gets its own label and installer; no JavaScript gets the neutral label. */
+async function checkPlatforms(browser) {
+  console.log("platform downloads");
+  const release = JSON.parse(readFileSync(join(root, "src/data/release.json"), "utf8"));
+  const links = {
+    win: release.installers.windows?.url ?? null,
+    mac: release.installers.macos?.url ?? null,
+    page: release.page,
+  };
+  const cases = [
+    ["Windows", "Win32", 0],
+    ["Mac", "MacIntel", 0],
+    ["Linux", "Linux x86_64", 0],
+    ["iPad", "MacIntel", 5],
+    ["no JavaScript", null, 0],
+  ];
+  for (const [name, platform, touch] of cases) {
+    const context = await browser.newContext({ javaScriptEnabled: platform !== null });
+    await context.addInitScript(
+      ([p, t]) => {
+        const fake = (key, value) =>
+          Object.defineProperty(Navigator.prototype, key, { get: () => value });
+        fake("platform", p);
+        fake("userAgentData", undefined);
+        fake("maxTouchPoints", t);
+      },
+      [platform, touch],
+    );
+    const want =
+      platform === null
+        ? { os: "none", url: links.page }
+        : pickDownload({ platform, maxTouchPoints: touch }, links);
+    const { labels, hrefs, title } = await downloadState(context);
+    const where = `downloads (${name})`;
+    if (labels.length !== 2 || labels.some((l) => l !== LABELS[want.os]))
+      fail(where, `labels ${JSON.stringify(labels)}, expected "${LABELS[want.os]}"`);
+    else if (hrefs.length !== 4 || hrefs.some((h) => h !== want.url))
+      fail(where, `links ${JSON.stringify(hrefs)}, expected ${want.url}`);
+    else if (want.os === "mac" ? !title : title) fail(where, `unexpected link title "${title}"`);
+    else ok(`${name}: "${LABELS[want.os]}" → ${want.url.split("/").pop() || want.url}`);
+    await context.close();
   }
 }
 
@@ -249,6 +321,7 @@ async function run() {
   let browser;
   try {
     browser = await chromium.launch();
+    await checkPlatforms(browser);
     for (const vp of VIEWPORTS) {
       console.log(vp.name);
       const { context, page, problems, beaconLoads } = await openPage(browser, vp);

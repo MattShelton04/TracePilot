@@ -36,7 +36,9 @@ export function htmlFacts(showcaseFile, releaseFile, _mode) {
   return {
     siteUrl: SITE_URL,
     version: r.version,
-    downloadUrl: r.installer ? r.installer.url : r.page,
+    // download links point here until the head script picks this visitor's installer
+    releaseUrl: r.page,
+    platforms: r.installers.macos ? "Windows and macOS (Apple Silicon)" : "Windows",
     sessionCount: String(d.sessionCount),
     turnCount: String(d.heroContextTimeline.turnCount),
     compactTurn: String(d.compaction.turn),
@@ -49,11 +51,55 @@ export function htmlFacts(showcaseFile, releaseFile, _mode) {
   };
 }
 
+export const MAC_NOTE = "Apple Silicon (M1 or later)";
+
+/**
+ * Chooses this visitor's download from `links` ({ win, mac, page }); a platform without an
+ * installer gets the release page. It runs in the browser (serialised into platformScript), so it
+ * must stay self-contained. iPadOS reports a Mac platform, so a touch screen rules a Mac out.
+ */
+export function pickDownload(nav, links) {
+  const platform = nav.userAgentData?.platform || nav.platform || "";
+  let os = "other";
+  if (/^win/i.test(platform)) os = "win";
+  else if (/^mac/i.test(platform) && !(nav.maxTouchPoints > 1)) os = "mac";
+  return links[os] ? { os, url: links[os] } : { os: "other", url: links.page };
+}
+
+/**
+ * The head script on both pages. Before first paint it sets html[data-os] (win, mac or other),
+ * which the CSS uses to show the matching download label, and html[data-download] for links the
+ * modules render. Static `a[data-download]` links get the URL once parsed. Without JavaScript
+ * every link keeps the neutral label and the release page.
+ */
+export function platformScript(release) {
+  const links = {
+    win: release.installers.windows?.url ?? null,
+    mac: release.installers.macos?.url ?? null,
+    page: release.page,
+  };
+  const json = (v) => JSON.stringify(v).replace(/</g, "\\u003c");
+  return `((d, pick) => {
+  const dl = pick(navigator, ${json(links)});
+  d.documentElement.dataset.os = dl.os;
+  d.documentElement.dataset.download = dl.url;
+  d.addEventListener("DOMContentLoaded", () => {
+    for (const a of d.querySelectorAll("a[data-download]")) {
+      a.href = dl.url;
+      if (dl.os === "mac") a.title = ${json(MAC_NOTE)};
+    }
+  });
+})(document, ${pickDownload.toString()});`;
+}
+
+export const scriptHash = (source) =>
+  `'sha256-${createHash("sha256").update(source).digest("base64")}'`;
+
 // Inline classic scripts (the page's pre-paint boot script) are allowed by hash, nothing broader.
 export const inlineScriptHashes = (html) =>
   [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
     .filter((m) => m[1].trim())
-    .map((m) => `'sha256-${createHash("sha256").update(m[1]).digest("base64")}'`);
+    .map((m) => scriptHash(m[1]));
 
 /** The page CSP; `beacon` (builds only) admits the analytics script and its reporting endpoint. */
 export function cspFor(mode, hashes = [], beacon = false) {
