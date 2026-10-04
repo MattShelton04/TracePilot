@@ -285,10 +285,6 @@ The script updates only the root and pnpm workspace package manifests, leaving t
 
 After a version bump, update `CHANGELOG.md` and `apps/desktop/public/release-manifest.json`, run the validation gates, and open a PR to `main`. Once the PR is merged, tag the merged commit with `v<version>` and push that tag to trigger the repository release workflow.
 
-The workflow builds the Windows installers and the Apple Silicon disk image in parallel, adds the macOS entry to `latest.json`, and publishes the release once every job passes. If only the macOS job fails, the draft already holds the Windows assets and a Windows-only `latest.json`, so it can be published by hand.
-
-To rehearse a release without publishing it, bump a throwaway commit to a numeric prerelease version (for example `0.9.1-1`; MSI rejects non-numeric prerelease identifiers) and push a matching tag. Pushed prerelease tags stop at a draft. Draft assets are only downloadable by repository members while signed in, and the in-app updater cannot see drafts. Delete the draft and the tag afterwards.
-
 ---
 
 ## Roadmap
