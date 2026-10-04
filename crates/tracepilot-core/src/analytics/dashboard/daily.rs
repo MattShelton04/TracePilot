@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::models::event_types::{ModelMetricDetail, SessionSegment};
 
 use super::super::types::{DayActivity, DayCost, DayModelUsage, DayTokens};
+use super::super::utils::segment_end_date;
 
 #[derive(Default)]
 pub(super) struct DailySeriesAccumulator {
@@ -22,12 +23,11 @@ pub(super) struct DailySeries {
 impl DailySeriesAccumulator {
     pub(super) fn record_segments(&mut self, segments: &[SessionSegment]) {
         for seg in segments {
-            let end_date = date_part(&seg.end_timestamp);
             // Undated shutdowns still contribute to lifetime totals, but cannot
             // be placed on a daily chart. Match SQLite's date(NULL) filtering.
-            if chrono::NaiveDate::parse_from_str(&end_date, "%Y-%m-%d").is_err() {
+            let Some(end_date) = segment_end_date(seg).map(str::to_string) else {
                 continue;
-            }
+            };
             let mut seg_tokens: u64 = 0;
             if let Some(ref mm) = seg.model_metrics {
                 for (model, detail) in mm {
@@ -190,8 +190,4 @@ fn tokens_and_cost(detail: &ModelMetricDetail) -> DetailTotals {
         .map(|requests| requests.cost.unwrap_or(0.0))
         .unwrap_or(0.0);
     DetailTotals { tokens, cost }
-}
-
-fn date_part(timestamp: &str) -> String {
-    timestamp.split('T').next().unwrap_or(timestamp).to_string()
 }
