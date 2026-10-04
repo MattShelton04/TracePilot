@@ -38,6 +38,22 @@ cross-platform release coverage has not landed. Current release assets are
 Windows-only; CI runs Rust tests on Windows and Linux, with macOS disabled.
 The public README therefore describes Windows as the currently tested target.
 
+## Implementation status (2026-10-04)
+
+Releases add an Apple Silicon (`aarch64`) disk image and updater bundle. The
+app is ad-hoc signed, not notarized: users approve the first launch in
+Privacy & Security, and in-app updates then install without that prompt
+because the updater's download is not quarantined. A non-blocking CI job
+builds the bundle and smoke-tests it.
+
+Intel Macs are deferred. Apple has stopped selling them, macOS 26 is the last
+release that supports them, and GitHub's Intel runners are being retired.
+Adding them later means building `universal-apple-darwin` on the same arm64
+runner, roughly doubling the macOS build time, and writing the same updater
+bundle to the `darwin-x86_64` entries in the release's updater-manifest job.
+Rust tests run on macOS again as a non-blocking matrix leg. Linux artefacts
+have not landed.
+
 ## References
 
 - Historical cross-platform drift findings and release-plan notes are available in git history before the 2026-05-01 documentation cleanup.

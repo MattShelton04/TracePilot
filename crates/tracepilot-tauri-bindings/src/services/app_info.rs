@@ -123,13 +123,12 @@ fn detect_install_type_for(
                 InstallType::Portable
             }
         }
-        PlatformKind::Mac => {
-            if is_macos_app_bundle(exe) {
-                InstallType::Installed
-            } else {
-                InstallType::Portable
-            }
-        }
+        PlatformKind::Mac => match macos_app_bundle(exe) {
+            // The updater replaces the bundle in place, which a mounted disk
+            // image or a translocated (quarantined) copy cannot allow.
+            Some(bundle) if !is_macos_read_only_bundle(bundle) => InstallType::Installed,
+            _ => InstallType::Portable,
+        },
         PlatformKind::Linux => {
             if is_linux_appimage(exe, appimage_env) {
                 InstallType::Portable
@@ -182,13 +181,28 @@ fn is_windows_installed(exe: &Path) -> bool {
     false
 }
 
-fn is_macos_app_bundle(exe: &Path) -> bool {
-    exe.ancestors().any(|ancestor| {
+/// The innermost `.app` bundle containing the executable, which is the bundle
+/// the updater replaces.
+fn macos_app_bundle(exe: &Path) -> Option<&Path> {
+    exe.ancestors().find(|ancestor| {
         ancestor
             .file_name()
             .and_then(|n| n.to_str())
             .is_some_and(|name| name.ends_with(".app"))
     })
+}
+
+/// Gatekeeper runs a quarantined app that was never moved from a randomized,
+/// read-only `AppTranslocation` path. A bundle at the root of a `/Volumes/*`
+/// mount is the disk-image layout; apps installed on an external drive sit in
+/// a folder below the volume root and stay updatable.
+fn is_macos_read_only_bundle(bundle: &Path) -> bool {
+    let translocated = normalize_path(bundle).contains("/apptranslocation/");
+    let disk_image_root = bundle
+        .parent()
+        .and_then(Path::parent)
+        .is_some_and(|mounts| normalize_path(mounts) == "/volumes");
+    translocated || disk_image_root
 }
 
 fn is_linux_appimage(exe: &Path, appimage_env: Option<&OsStr>) -> bool {
@@ -270,6 +284,37 @@ mod tests {
         let exe = PathBuf::from("/Applications/TracePilot.app/Contents/MacOS/TracePilot");
         let install_type = detect_install_type_for(&exe, None, PlatformKind::Mac);
         assert_eq!(install_type, InstallType::Installed);
+    }
+
+    #[test]
+    fn macos_user_applications_counts_as_installed() {
+        let exe = PathBuf::from("/Users/me/Applications/TracePilot.app/Contents/MacOS/TracePilot");
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Mac);
+        assert_eq!(install_type, InstallType::Installed);
+    }
+
+    #[test]
+    fn macos_app_on_external_drive_folder_counts_as_installed() {
+        let exe =
+            PathBuf::from("/Volumes/Work/Applications/TracePilot.app/Contents/MacOS/TracePilot");
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Mac);
+        assert_eq!(install_type, InstallType::Installed);
+    }
+
+    #[test]
+    fn macos_app_run_from_disk_image_is_portable() {
+        let exe = PathBuf::from("/Volumes/TracePilot/TracePilot.app/Contents/MacOS/TracePilot");
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Mac);
+        assert_eq!(install_type, InstallType::Portable);
+    }
+
+    #[test]
+    fn macos_translocated_app_is_portable() {
+        let exe = PathBuf::from(
+            "/private/var/folders/xy/abc/T/AppTranslocation/1A2B3C/d/TracePilot.app/Contents/MacOS/TracePilot",
+        );
+        let install_type = detect_install_type_for(&exe, None, PlatformKind::Mac);
+        assert_eq!(install_type, InstallType::Portable);
     }
 
     #[test]

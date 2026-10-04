@@ -6,6 +6,7 @@ const installType = ref("installed");
 const status = ref("idle");
 const installUpdate = vi.fn();
 const openExternal = vi.fn();
+let isMac = false;
 
 vi.mock("@/composables/useAutoUpdate", () => ({
   useAutoUpdate: () => ({
@@ -30,6 +31,7 @@ vi.mock("@/composables/useUpdateCheck", () => ({
   }),
 }));
 vi.mock("@/utils/openExternal", () => ({ openExternal }));
+vi.mock("@/utils/platform", () => ({ isMacPlatform: () => isMac }));
 
 const { default: UpdateInstructionsModal } = await import(
   "@/components/UpdateInstructionsModal.vue"
@@ -49,6 +51,7 @@ describe("UpdateInstructionsModal", () => {
   beforeEach(() => {
     installType.value = "installed";
     status.value = "idle";
+    isMac = false;
     installUpdate.mockClear();
     openExternal.mockClear();
   });
@@ -78,6 +81,27 @@ describe("UpdateInstructionsModal", () => {
     expect(openExternal).toHaveBeenCalledWith(
       "https://github.com/MattShelton04/TracePilot/releases/tag/v0.9.0",
     );
+  });
+
+  it("keeps the Windows guidance off macOS installer builds", () => {
+    isMac = true;
+    const wrapper = mountModal();
+
+    expect(wrapper.text()).toContain("Install automatically");
+    expect(wrapper.text()).toContain("administrator password");
+    expect(wrapper.text()).not.toContain("SmartScreen");
+  });
+
+  it("asks macOS apps on a disk image to move to Applications", async () => {
+    installType.value = "portable";
+    isMac = true;
+    const wrapper = mountModal();
+
+    expect(wrapper.text()).toContain("Move TracePilot to Applications");
+    expect(wrapper.text()).toContain("Open Anyway");
+    expect(wrapper.text()).not.toContain(".exe");
+    await button(wrapper, "Open GitHub Releases").trigger("click");
+    expect(openExternal).toHaveBeenCalledOnce();
   });
 
   it("links to the release notes preview", async () => {

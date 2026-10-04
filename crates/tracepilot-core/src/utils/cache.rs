@@ -115,15 +115,19 @@ mod tests {
         assert_eq!(cache.get(&"temp"), None);
     }
 
+    // Compares stored timestamps rather than racing a short TTL with sleeps,
+    // which oversleep on loaded CI runners (notably macOS).
     #[test]
     fn test_update_refreshes_timestamp() {
-        let cache = TtlCache::new(Duration::from_millis(150));
+        let cache = TtlCache::new(Duration::from_secs(60));
+        let inserted_at = |cache: &TtlCache<&str, &str>| cache.data.get("key").unwrap().1;
         cache.insert("key", "value1");
+        let first = inserted_at(&cache);
 
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(5));
         cache.insert("key", "value2");
 
-        thread::sleep(Duration::from_millis(100));
+        assert!(inserted_at(&cache) > first);
         assert_eq!(cache.get(&"key"), Some("value2"));
     }
 
