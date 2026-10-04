@@ -109,6 +109,27 @@ All child tables use `ON DELETE CASCADE` — deleting a session row automaticall
 6. Background search indexing independently parses source snapshots and replaces
    search content and its freshness marker together.
 
+### Tool and daily-chart semantics
+
+Tool statistics use reconstructed conversation invocations in both indexing and
+the disk fallback. Pending calls count as invocations, repeated lifecycle records
+do not create extra calls, and subagent terminal events determine the final tool
+name, outcome and duration. Success rate uses known successes and failures;
+unknown outcomes do not enter its denominator. Average duration uses only calls
+with a reconstructed duration. The dashboard's tool-call productivity numerator
+uses the same invocation count.
+
+Analytics extraction version 17 refreshes previously indexed sessions with these
+rules. It changes derived rows, not the database schema or source event files.
+The normal path continues to aggregate those rows with SQL.
+
+Date filters select sessions by their last-active date. For selected sessions,
+headline totals remain lifetime values; segment-based daily charts use the day
+each segment ended and include only segments within the requested date range.
+This keeps activity, token and cost charts on the same day for sessions spanning
+midnight. Differential fixtures in the indexer's `analytics_parity` tests cover
+these semantics against the disk fallback.
+
 ### Successful source snapshots
 
 [Migration 21](../../crates/tracepilot-indexer/src/index_db/migrations/plan.rs)

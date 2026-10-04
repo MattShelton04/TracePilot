@@ -118,7 +118,25 @@ pub fn load_full_sessions_filtered(
     let inputs = load_full_sessions(sessions_dir)?;
     let filtered = filter_by_date_range(inputs, from_date, to_date);
     let filtered = filter_by_repo(filtered, repo);
-    Ok(filter_empty(filtered, hide_empty))
+    let mut filtered = filter_empty(filtered, hide_empty);
+    // Session totals remain lifetime values, as in the SQL query. Only the
+    // per-day charts clamp segments to the requested window.
+    if from_date.is_some() || to_date.is_some() {
+        for input in &mut filtered {
+            if let Some(segments) = input
+                .summary
+                .shutdown_metrics
+                .as_mut()
+                .and_then(|metrics| metrics.session_segments.as_mut())
+            {
+                segments.retain(|segment| {
+                    let date = segment.end_timestamp.split('T').next().unwrap_or("");
+                    from_date.is_none_or(|from| date >= from) && to_date.is_none_or(|to| date <= to)
+                });
+            }
+        }
+    }
+    Ok(filtered)
 }
 
 /// Filter inputs by date range (YYYY-MM-DD strings, inclusive).

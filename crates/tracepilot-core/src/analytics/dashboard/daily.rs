@@ -23,7 +23,6 @@ impl DailySeriesAccumulator {
     pub(super) fn record_segments(&mut self, segments: &[SessionSegment]) {
         for seg in segments {
             let end_date = date_part(&seg.end_timestamp);
-            let start_date = date_part(&seg.start_timestamp);
             let mut seg_tokens: u64 = 0;
             let mut seg_cost: f64 = 0.0;
             if let Some(ref mm) = seg.model_metrics {
@@ -35,8 +34,10 @@ impl DailySeriesAccumulator {
                 }
             }
             *self.tokens_by_day.entry(end_date.clone()).or_insert(0) += seg_tokens;
-            *self.cost_by_day.entry(end_date).or_insert(0.0) += seg_cost;
-            *self.activity_by_day.entry(start_date).or_insert(0) += 1;
+            *self.cost_by_day.entry(end_date.clone()).or_insert(0.0) += seg_cost;
+            // Match the indexed charts: tokens, cost and activity all belong
+            // to the day the segment ended, including cross-midnight segments.
+            *self.activity_by_day.entry(end_date).or_insert(0) += 1;
         }
     }
 
