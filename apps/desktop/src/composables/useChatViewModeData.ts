@@ -37,6 +37,18 @@ export interface TurnPermissionData {
 }
 
 const EMPTY_RENDER_DATA: TurnRenderData = { reasoning: [], messages: [], segments: [] };
+const EMPTY_PERMISSION_DATA: TurnPermissionData = {
+  entries: [],
+  permissionByToolCallId: new Map(),
+};
+
+function buildTurnRenderData(turn: ConversationTurn): TurnRenderData {
+  return {
+    reasoning: getMainReasoning(turn),
+    messages: getMainMessages(turn),
+    segments: segmentToolCalls(turn.toolCalls),
+  };
+}
 
 /**
  * State + derived data for `ChatViewMode`.
@@ -57,7 +69,7 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
 
   const persistedTurns = computed(() => store.turns);
 
-  const { turns, liveToolPartialOutputs } = useLiveConversationTurn({
+  const { turns, liveConversationTurn, liveToolPartialOutputs } = useLiveConversationTurn({
     sessionId: () => store.sessionId,
     persistedTurns: () => persistedTurns.value,
     liveTurnsBySessionId: () => sdk.liveTurnsBySessionId,
@@ -99,7 +111,9 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
   } = useToolResultLoader(() => store.sessionId);
 
   // ─── Conversation sections (for tool call index) ─────────────────
-  const { findToolCallIndex, getArgsSummary } = useConversationSections(() => turns.value);
+  // The synthetic live tail contains text only. Tool indexes and summaries
+  // depend on saved turns, including replacements after late agent attribution.
+  const { findToolCallIndex, getArgsSummary } = useConversationSections(() => persistedTurns.value);
 
   // Auto-expand in-progress tool calls so users can watch live progress
   // without an extra click. Once added, the key stays in the set across
@@ -122,14 +136,19 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
   );
 
   // ─── Memoized per-turn render data ────────────────────────────────
-  // Computed once when turns change, avoids re-segmenting on every render.
-  const turnRenderData = computed(() =>
-    mapByTurnIndex<TurnRenderData>(turns.value, (turn) => ({
-      reasoning: getMainReasoning(turn),
-      messages: getMainMessages(turn),
-      segments: segmentToolCalls(turn.toolCalls),
-    })),
+  // Streaming changes only the synthetic tail. Rebuild saved render data on
+  // persisted refreshes so late subagent attribution remains visible.
+  const persistedRenderData = computed(() =>
+    mapByTurnIndex(persistedTurns.value, buildTurnRenderData),
   );
+  const turnRenderData = computed(() => {
+    const saved = persistedRenderData.value;
+    const live = liveConversationTurn.value;
+    if (!live) return saved;
+    const map = new Map(saved);
+    map.set(live.turnIndex, buildTurnRenderData(live));
+    return map;
+  });
 
   function renderDataFor(turn: ConversationTurn): TurnRenderData {
     return turnRenderData.value.get(turn.turnIndex) ?? EMPTY_RENDER_DATA;
@@ -158,12 +177,12 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
   );
 
   // ─── Per-turn permission events (paired + tool-call attached) ────
-  // Pairing runs once per turns change. Pairs whose toolCallId matches a
+  // Pairing runs once per persisted refresh. Pairs whose toolCallId matches a
   // rendered tool call are extracted into a per-toolCallId map; the
   // remaining (orphan) entries flow through the timeline as standalone
   // permission cards. Computed up-front so we don't re-pair on every render.
   const turnPermissionData = computed(() =>
-    mapByTurnIndex<TurnPermissionData>(turns.value, (turn) => {
+    mapByTurnIndex<TurnPermissionData>(persistedTurns.value, (turn) => {
       const events = turn.sessionEvents ?? [];
       if (events.length === 0) {
         return { entries: [], permissionByToolCallId: new Map() };
@@ -177,18 +196,16 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
   );
 
   function permissionDataFor(turn: ConversationTurn): TurnPermissionData {
-    return (
-      turnPermissionData.value.get(turn.turnIndex) ?? {
-        entries: [],
-        permissionByToolCallId: new Map(),
-      }
-    );
+    // Preserve the combined feed's last-wins lookup if a live tail shares an
+    // index with saved data. Live text has no permission events of its own.
+    if (turn.turnIndex === liveConversationTurn.value?.turnIndex) return EMPTY_PERMISSION_DATA;
+    return turnPermissionData.value.get(turn.turnIndex) ?? EMPTY_PERMISSION_DATA;
   }
 
   // ─── toolCallId → turnIndex index (O(1) lookups) ─────────────────
   const toolCallTurnIndex = computed(() => {
     const map = new Map<string, number>();
-    for (const turn of turns.value) {
+    for (const turn of persistedTurns.value) {
       for (const tc of turn.toolCalls) {
         if (tc.toolCallId) {
           map.set(tc.toolCallId, turn.turnIndex);
