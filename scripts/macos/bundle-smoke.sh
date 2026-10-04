@@ -74,7 +74,10 @@ codesign --verify --deep --strict "$app"
 data_root="$results/data root"
 mkdir -p "$data_root"
 log_file="$data_root/logs/TracePilot.log"
-TRACEPILOT_DATA_ROOT="$data_root" "$app/Contents/MacOS/$executable" >"$results/app.stdout.log" 2>&1 &
+# Start with launchd's minimal PATH, as a Finder launch would, so the app's
+# login-shell PATH restore (and its re-exec) runs.
+TRACEPILOT_DATA_ROOT="$data_root" PATH="/usr/bin:/bin:/usr/sbin:/sbin" \
+  "$app/Contents/MacOS/$executable" >"$results/app.stdout.log" 2>&1 &
 app_pid=$!
 
 started=false
@@ -96,6 +99,12 @@ sleep 15
 if ! kill -0 "$app_pid" 2>/dev/null; then
   cat "$results/app.stdout.log" >&2 || true
   fail "TracePilot exited after startup."
+fi
+# Advisory: `ps` may not show another process's environment on every host.
+if ps eww -p "$app_pid" 2>/dev/null | grep -q "TRACEPILOT_LOGIN_PATH_RESTORED=1"; then
+  echo "Login shell PATH restored after the minimal launch PATH."
+else
+  echo "::warning::Could not confirm the login shell PATH restore from the process environment."
 fi
 screencapture -x "$results/window.png" 2>/dev/null || true
 echo "TracePilot $version launched from the disk image copy and stayed running."

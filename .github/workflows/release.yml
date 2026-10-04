@@ -233,12 +233,14 @@ jobs:
   # Pushed prerelease tags (v1.2.3-1) stay drafts so a release can be
   # rehearsed and its assets tested before anything is published. MSI only
   # accepts a numeric prerelease, so rehearsal versions look like 1.2.3-1.
+  # The event check on the manual branch matters: on a push `inputs.draft` is
+  # null, and GitHub's loose comparison treats `null == false` as true.
   publish-release:
     name: Publish completed release
     needs: [create-release, build-installers, build-macos, updater-manifest]
     if: >-
       (github.event_name == 'push' && !contains(needs.create-release.outputs.version, '-'))
-      || inputs.draft == false
+      || (github.event_name == 'workflow_dispatch' && inputs.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

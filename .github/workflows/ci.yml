@@ -88,11 +88,13 @@ jobs:
     name: rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    # macOS is tier 2 (ADR 0010) and some timing-sensitive tests were flaky
+    # there, so its leg reports failures without failing `required`.
+    continue-on-error: ${{ matrix.os == 'macos-15' }}
     strategy:
       fail-fast: false
       matrix:
-        # macOS remains disabled while timing-sensitive tests are flaky there.
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-15]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

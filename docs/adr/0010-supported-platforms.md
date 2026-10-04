@@ -50,8 +50,9 @@ Intel Macs are deferred. Apple has stopped selling them, macOS 26 is the last
 release that supports them, and GitHub's Intel runners are being retired.
 Adding them later means building `universal-apple-darwin` on the same arm64
 runner, roughly doubling the macOS build time, and writing the same updater
-bundle to the `darwin-x86_64` entries in the release's updater-manifest job. Rust tests on macOS remain disabled, and Linux
-artefacts have not landed.
+bundle to the `darwin-x86_64` entries in the release's updater-manifest job.
+Rust tests run on macOS again as a non-blocking matrix leg. Linux artefacts
+have not landed.
 
 ## References
 
