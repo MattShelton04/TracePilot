@@ -73,6 +73,76 @@ impl SessionModelTracker {
     }
 }
 
+/// Follows the root agent's reasoning effort through a session's events.
+///
+/// `session.start` sets it for a new session. A resume or model change sets it
+/// when it names one; a model change that names no effort clears a previous
+/// one (switching to auto or to a model without effort levels), while older
+/// logs that never record effort leave it alone. A user message's
+/// `responsesReasoning` (Copilot CLI 1.0.88+) records the effort actually in
+/// force before that message and wins over the selections.
+#[derive(Debug, Clone, Default)]
+pub struct SessionEffortTracker {
+    effort: Option<String>,
+}
+
+impl SessionEffortTracker {
+    pub fn observe(&mut self, event: &TypedEvent) {
+        if event.raw.agent_id.is_some() {
+            return;
+        }
+        match &event.typed_data {
+            TypedEventData::SessionStart(data) => {
+                self.effort = non_empty(data.reasoning_effort.as_deref());
+            }
+            TypedEventData::SessionResume(data) => {
+                if let Some(effort) = non_empty(data.reasoning_effort.as_deref()) {
+                    self.effort = Some(effort);
+                }
+            }
+            TypedEventData::ModelChange(data) => {
+                if let Some(effort) = non_empty(data.reasoning_effort.as_deref()) {
+                    self.effort = Some(effort);
+                } else if data.previous_reasoning_effort.is_some() {
+                    self.effort = None;
+                }
+            }
+            TypedEventData::UserMessage(data) => {
+                if let Some(effort) = data
+                    .responses_reasoning
+                    .as_ref()
+                    .and_then(|value| value.get("effort"))
+                    .and_then(|value| non_empty(value.as_str()))
+                {
+                    self.effort = Some(effort);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// The effort in force, or `None` when the model's default applies.
+    pub fn current_effort(&self) -> Option<&str> {
+        self.effort.as_deref()
+    }
+}
+
+fn non_empty(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+/// The reasoning effort a session was last on, from its whole event log.
+pub fn current_session_effort(events: &[TypedEvent]) -> Option<String> {
+    let mut tracker = SessionEffortTracker::default();
+    for event in events {
+        tracker.observe(event);
+    }
+    tracker.current_effort().map(str::to_string)
+}
+
 /// The model a session was last on, from its whole event log.
 pub fn current_session_model(events: &[TypedEvent]) -> Option<String> {
     let mut tracker = SessionModelTracker::default();
@@ -215,5 +285,77 @@ mod tests {
     fn no_model_evidence_yields_none() {
         let events = [event("user.message", json!({ "content": "hi" }))];
         assert_eq!(current_session_model(&events), None);
+    }
+
+    #[test]
+    fn effort_follows_selections_and_clears_on_switch_to_auto() {
+        // Copilot CLI 1.0.91 in `-p` mode: settings start at high, then the
+        // startup model change moves to auto, which has no effort levels.
+        let events = [
+            event(
+                "session.start",
+                json!({ "selectedModel": "gpt-5.6-luna", "reasoningEffort": "high" }),
+            ),
+            event(
+                "session.model_change",
+                json!({
+                    "newModel": "auto",
+                    "previousReasoningEffort": "high",
+                    "reasoningEffort": null,
+                }),
+            ),
+        ];
+        assert_eq!(
+            current_session_effort(&events[..1]).as_deref(),
+            Some("high")
+        );
+        assert_eq!(current_session_effort(&events), None);
+    }
+
+    #[test]
+    fn effort_survives_model_changes_that_do_not_record_it() {
+        let events = [
+            event("session.start", json!({ "reasoningEffort": "medium" })),
+            event(
+                "session.model_change",
+                json!({ "newModel": "claude-sonnet-4.6" }),
+            ),
+            event(
+                "session.resume",
+                json!({ "selectedModel": "claude-sonnet-4.6" }),
+            ),
+        ];
+        assert_eq!(current_session_effort(&events).as_deref(), Some("medium"));
+    }
+
+    #[test]
+    fn effort_prefers_message_reasoning_and_ignores_subagents() {
+        let events = [
+            event("session.start", json!({ "reasoningEffort": "medium" })),
+            event(
+                "session.model_change",
+                json!({ "previousReasoningEffort": "medium", "reasoningEffort": "xhigh" }),
+            ),
+            subagent(event(
+                "session.model_change",
+                json!({ "reasoningEffort": "low" }),
+            )),
+            event(
+                "user.message",
+                json!({
+                    "content": "go",
+                    "responsesReasoning": {
+                        "model": "gpt-5.6-luna",
+                        "initialEffort": "xhigh",
+                        "effort": "high",
+                    },
+                }),
+            ),
+        ];
+        assert_eq!(
+            current_session_effort(&events[..3]).as_deref(),
+            Some("xhigh")
+        );
+        assert_eq!(current_session_effort(&events).as_deref(), Some("high"));
     }
 }

@@ -106,8 +106,9 @@ impl TurnReconstructor {
     ) -> &mut ConversationTurn {
         self.current_turn.get_or_insert_with(|| {
             let mut turn = new_turn(self.turns.len(), timestamp, None, None, None, None);
-            // Inherit session model, same as UserMessage does
+            // Inherit session model and effort, same as UserMessage does
             turn.model = self.session_model.clone();
+            turn.reasoning_effort = self.effort.current_effort().map(str::to_string);
             // Flush any session events that occurred while no turn was active
             turn.session_events.append(&mut self.pending_session_events);
             // Flush any system messages that arrived before this turn
@@ -304,6 +305,12 @@ pub(crate) fn new_turn(
         session_events: Vec::new(),
         system_messages: Vec::new(),
         agent_messages: Vec::new(),
+        reasoning_effort: None,
+        user_message_id: None,
+        user_message_delivery: None,
+        system_initiated: false,
+        originating_message_id: None,
+        user_turn_index: None,
     }
 }
 

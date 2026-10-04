@@ -100,6 +100,12 @@ export {
   MAX_SESSION_CACHE_SIZE,
   MIN_SESSION_CACHE_SIZE,
 } from "./defaults.js";
+// ── effortUsage.js ─────────────────────────────────────────────────
+export type {
+  EffortUsageEntry,
+  EffortUsageResponse,
+  SessionEffortUsage,
+} from "./effortUsage.js";
 export type {
   ComparisonResult,
   ConflictStrategy,

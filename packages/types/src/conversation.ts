@@ -69,6 +69,20 @@ export interface ConversationTurn {
   systemMessages?: string[];
   /** Messages delivered to subagents launched in this turn, in log order. */
   agentMessages?: AgentMessage[];
+  /** Main agent's reasoning effort when this turn ran; absent when the model's default applied. */
+  reasoningEffort?: string;
+  /** `messageId` of this turn's user message. */
+  userMessageId?: string;
+  /** How the user message reached the agent loop: `idle`, `steering` or `queued`. */
+  userMessageDelivery?: string;
+  /** True when Copilot injected the user message (a notification, reminder or
+   *  autopilot continuation) rather than the user typing it. */
+  systemInitiated?: boolean;
+  /** `messageId` of the user message whose request this agent turn served (CLI 1.0.88+). */
+  originatingMessageId?: string;
+  /** The user turn this agent turn belongs to: every agent turn from one typed
+   *  user message until the next. Steering messages stay in the turn they redirect. */
+  userTurnIndex?: number;
 }
 
 /** Severity level for session events embedded in a conversation turn. */
@@ -165,6 +179,9 @@ export interface TurnToolCall {
   argsSummary?: string;
   /** Skill-specific payload, present when this tool call loaded a skill. */
   skillInvocation?: SkillInvocationEvent;
+  /** Exit code of a shell command. Non-zero means the command reported a
+   *  problem; the tool itself still ran. */
+  exitCode?: number;
 }
 
 /** Response from get_session_turns — includes file size for freshness tracking. */

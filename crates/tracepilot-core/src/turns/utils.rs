@@ -25,6 +25,61 @@ pub(crate) fn json_value_to_string(value: &serde_json::Value) -> String {
         .unwrap_or_else(|| value.to_string())
 }
 
+/// Shell tools whose results end with the process exit code.
+const SHELL_TOOLS: &[&str] = &[
+    "bash",
+    "powershell",
+    "local_shell",
+    "read_bash",
+    "read_powershell",
+    "write_bash",
+    "write_powershell",
+];
+
+/// Exit code of a completed shell command.
+///
+/// Prefers the structured `shellExecution.exitCode` (Copilot CLI 1.0.88+),
+/// which survives even when the CLI strips result contents. Older logs only
+/// carry the code in the result's last line: `<shellId: N completed with exit
+/// code X>`, `<exited with exit code X>` or `Process exited with code X.`.
+pub(crate) fn shell_exit_code(
+    tool_name: &str,
+    shell_execution: Option<&serde_json::Value>,
+    result: Option<&serde_json::Value>,
+) -> Option<i64> {
+    if let Some(code) = shell_execution
+        .and_then(|value| value.get("exitCode"))
+        .and_then(serde_json::Value::as_i64)
+    {
+        return Some(code);
+    }
+    if !SHELL_TOOLS.contains(&tool_name) {
+        return None;
+    }
+    let text = match result? {
+        serde_json::Value::String(text) => text.as_str(),
+        serde_json::Value::Object(obj) => obj.get("content")?.as_str()?,
+        _ => return None,
+    };
+    exit_code_from_output(text)
+}
+
+fn exit_code_from_output(text: &str) -> Option<i64> {
+    let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty())?;
+    let code = if line.starts_with("<shellId:") {
+        line.rsplit_once("completed with exit code ")?
+            .1
+            .strip_suffix('>')?
+    } else if let Some(rest) = line.strip_prefix("<exited with exit code ") {
+        rest.strip_suffix('>')?
+    } else if let Some(rest) = line.strip_prefix("Process exited with code ") {
+        rest.strip_suffix('.').unwrap_or(rest)
+    } else {
+        return None;
+    };
+    code.trim().parse().ok()
+}
+
 const RESULT_PREVIEW_MAX_BYTES: usize = 1024;
 
 /// Truncate a string to a maximum byte length, respecting UTF-8 boundaries.

@@ -50,6 +50,14 @@ pub struct PromptCacheResponse {
     pub events_file_mtime: Option<i64>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EffortUsageResponse {
+    pub usage: tracepilot_core::effort_usage::SessionEffortUsage,
+    pub events_file_size: u64,
+    pub events_file_mtime: Option<i64>,
+}
+
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct FreshnessResponse {

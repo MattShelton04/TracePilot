@@ -370,5 +370,6 @@ pub(crate) fn extract_session_analytics(
         cache_ttl_rows,
         agent_runs,
         skill_invocations,
+        effort_rows: Vec::new(),
     }
 }

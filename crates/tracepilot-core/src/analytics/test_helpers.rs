@@ -65,6 +65,7 @@ pub(super) fn make_input(
             checkpoint_count: None,
             turn_count: Some(turns as usize),
             current_model: None,
+            current_reasoning_effort: None,
             shutdown_metrics: Some(ShutdownMetrics {
                 shutdown_type: Some("normal".to_string()),
                 total_premium_requests: Some(turns as f64),
@@ -146,6 +147,7 @@ pub(super) fn make_tool_call(
         result_content: None,
         args_summary: None,
         skill_invocation: None,
+        exit_code: None,
     }
 }
 
@@ -176,5 +178,11 @@ pub(super) fn make_turn_with_tools(tool_calls: Vec<TurnToolCall>) -> Conversatio
         session_events: Vec::new(),
         system_messages: Vec::new(),
         agent_messages: Vec::new(),
+        reasoning_effort: None,
+        user_message_id: None,
+        user_message_delivery: None,
+        system_initiated: false,
+        originating_message_id: None,
+        user_turn_index: None,
     }
 }

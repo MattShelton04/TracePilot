@@ -22,31 +22,32 @@ export interface AgentTimeRange {
 /*  Phase grouping                                                    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * One phase per user turn: every agent turn serving one typed user message.
+ * The backend's `userTurnIndex` keeps steering messages and system
+ * notifications inside the request they belong to; turns without it (older
+ * payloads) fall back to starting a phase at each user message.
+ */
 export function groupPhases(turns: ConversationTurn[]): Phase[] {
   if (!turns.length) return [];
 
   const result: Phase[] = [];
   let current: Phase | null = null;
+  let currentKey: number | null = null;
 
   for (const turn of turns) {
-    if (turn.userMessage != null) {
-      current = {
-        index: result.length,
-        label: turn.userMessage,
-        turns: [turn],
-      };
+    const key = turn.userTurnIndex;
+    const startsPhase =
+      key != null ? key !== currentKey : turn.userMessage != null && !turn.systemInitiated;
+    if (startsPhase || !current) {
+      const label =
+        turn.userMessage != null && !turn.systemInitiated ? turn.userMessage : "(system)";
+      current = { index: result.length, label, turns: [turn] };
       result.push(current);
-    } else if (current) {
-      current.turns.push(turn);
     } else {
-      // Turns before first user message → create implicit phase
-      current = {
-        index: result.length,
-        label: "(system)",
-        turns: [turn],
-      };
-      result.push(current);
+      current.turns.push(turn);
     }
+    currentKey = key ?? currentKey;
   }
 
   return result;

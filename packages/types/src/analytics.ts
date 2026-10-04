@@ -1,3 +1,4 @@
+import type { EffortUsageEntry } from "./effortUsage.js";
 import type { PromptCacheAnalytics } from "./promptCache.js";
 
 // ─── Analytics Types ──────────────────────────────────────────────
@@ -83,6 +84,9 @@ export interface AnalyticsData {
    * by older builds predate it.
    */
   promptCache?: PromptCacheAnalytics;
+  /** User turns per model and reasoning effort, most first. Optional because
+   *  analytics cached by older builds predate it. */
+  reasoningEffort?: EffortUsageEntry[];
 }
 
 /** API duration statistics (avg, median, p95) computed from total_api_duration_ms */

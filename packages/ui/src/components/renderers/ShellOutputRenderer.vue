@@ -25,6 +25,8 @@ const shellId = computed(() => props.args.shellId ?? props.args.shell_id ?? term
 const input = computed(() => (typeof props.args.chars === "string" ? props.args.chars : null));
 const mode = computed(() => (typeof props.args.mode === "string" ? props.args.mode : ""));
 const status = computed(() => toolCallStatus(props.tc));
+// The recorded exit code outlives result text the CLI may strip.
+const exitCode = computed(() => props.tc.exitCode ?? terminal.value.exitCode);
 const title = computed(() =>
   props.tc.toolName === "read_powershell"
     ? "Read shell"
@@ -33,7 +35,7 @@ const title = computed(() =>
       : "PowerShell",
 );
 const processLabel = computed(() => {
-  if (terminal.value.exitCode != null) return `Exit ${terminal.value.exitCode}`;
+  if (exitCode.value != null) return `Exit ${exitCode.value}`;
   if (terminal.value.running) return "Process running";
   if (status.value === "pending" && props.streaming && props.content) return "Streaming output";
   return "";
@@ -55,7 +57,7 @@ const visibleInput = computed(() => formatShellInput(input.value ?? ""));
       <div v-if="shellId != null || mode || processLabel" class="shell-meta">
         <span v-if="shellId != null">Shell <code>{{ shellId }}</code></span>
         <span v-if="mode">{{ mode }}</span>
-        <span v-if="processLabel" class="shell-process-state" :class="{ 'shell-process-state--error': terminal.exitCode != null && terminal.exitCode !== 0 }">{{ processLabel }}</span>
+        <span v-if="processLabel" class="shell-process-state" :class="{ 'shell-process-state--error': exitCode != null && exitCode !== 0 }">{{ processLabel }}</span>
       </div>
       <div v-if="input != null" class="shell-input">
         <span class="shell-section-label">Input sent</span>

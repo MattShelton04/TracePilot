@@ -5,6 +5,7 @@ mod agent_runs;
 mod agent_usage;
 mod analytics;
 mod common;
+mod effort_usage;
 mod maintenance;
 mod prompt_cache;
 mod search_batches;

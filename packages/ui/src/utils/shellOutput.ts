@@ -38,7 +38,9 @@ export function parseShellOutput(content: string) {
   const footer = last >= 0 ? lines[last].trim() : "";
   const shell =
     /^<shellId:\s*([^\s>]+)(?:\s+(completed with exit code (-?\d+)|running))?\s*>$/i.exec(footer);
-  const exited = /^Process exited with code (-?\d+)\.?$/i.exec(footer);
+  const exited =
+    /^Process exited with code (-?\d+)\.?$/i.exec(footer) ??
+    /^<exited with exit code (-?\d+)>$/i.exec(footer);
   const exitCode = shell?.[3] != null ? Number(shell[3]) : exited ? Number(exited[1]) : null;
   const running = shell?.[2]?.toLowerCase() === "running";
   if (shell || exited) lines.splice(last, 1);

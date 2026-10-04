@@ -3,6 +3,10 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v17: extract user turns per model and reasoning effort into
+/// `session_effort_usage`, with per-request usage from Copilot CLI's session
+/// store when it recorded the session.
+///
 /// v16: count Copilot CLI 1.0.86+ `skill.invoked_ref` repeat invocations with
 /// their resolved skill body (previously tool-call-only fallbacks without a
 /// path, hash or token estimate), and fold `skill.context_delivered(_ref)`
@@ -34,7 +38,7 @@
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 16;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -224,6 +228,8 @@ pub(crate) struct SessionAnalytics {
     // Agent runs
     pub agent_runs: tracepilot_core::agent_runs::AgentRunExtraction,
     pub skill_invocations: Vec<tracepilot_core::skill_invocations::SkillInvocation>,
+    /// Filled by `prepare_session_data`, which can read the session store.
+    pub effort_rows: Vec<tracepilot_core::effort_usage::EffortUsageEntry>,
 }
 
 /// File metadata from the successfully parsed session snapshot.

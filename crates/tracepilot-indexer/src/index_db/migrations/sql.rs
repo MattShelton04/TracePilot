@@ -488,3 +488,4 @@ CREATE TABLE IF NOT EXISTS session_agent_selections (
 
 pub(super) const MIGRATION_19: &str = include_str!("019_skill_invocations.sql");
 pub(super) const MIGRATION_20: &str = include_str!("020_agent_messaging.sql");
+pub(super) const MIGRATION_22: &str = include_str!("022_effort_usage.sql");

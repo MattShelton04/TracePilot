@@ -1,6 +1,7 @@
 import type {
   CheckpointEntry,
   ContextTimelineResponse,
+  EffortUsageResponse,
   EventsResponse,
   FreshnessResponse,
   PromptCacheResponse,
@@ -61,6 +62,11 @@ export async function getSessionContextTimeline(
 /** Prompt-cache idle windows, predicted expiries and prefix changes. */
 export async function getSessionPromptCache(sessionId: string): Promise<PromptCacheResponse> {
   return invoke<PromptCacheResponse>("get_session_prompt_cache", { sessionId });
+}
+
+/** User turns per model and reasoning effort, with recorded request usage when available. */
+export async function getSessionEffortUsage(sessionId: string): Promise<EffortUsageResponse> {
+  return invoke<EffortUsageResponse>("get_session_effort_usage", { sessionId });
 }
 
 export async function checkSessionFreshness(sessionId: string): Promise<FreshnessResponse> {

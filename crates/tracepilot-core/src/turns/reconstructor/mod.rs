@@ -9,12 +9,13 @@ use chrono::{DateTime, Utc};
 
 use crate::models::conversation::{ConversationTurn, TurnSessionEvent};
 use crate::models::event_types::{SessionEventType, UserMessageData};
-use crate::parsing::events::{TypedEvent, TypedEventData};
+use crate::parsing::events::{SessionEffortTracker, TypedEvent, TypedEventData};
 
 use super::postprocess::{
     correct_turn_models, finalize_subagent_completion, infer_subagent_models,
     resolve_agent_display_names,
 };
+use super::user_turns::assign_user_turns;
 
 mod agent_control;
 mod agent_messages;
@@ -64,6 +65,8 @@ pub struct TurnReconstructor {
     pub(crate) session_model: Option<String>,
     /// The model auto mode last chose, so repeated choices are shown once.
     pub(crate) auto_model_choice: Option<String>,
+    /// The main agent's reasoning effort, so each turn records the one it ran at.
+    pub(crate) effort: SessionEffortTracker,
     /// Session events buffered while no turn is active.
     /// Flushed into the next real turn when one is opened.
     pub(crate) pending_session_events: Vec<TurnSessionEvent>,
@@ -113,6 +116,7 @@ impl TurnReconstructor {
             explicit_turn_models: HashMap::new(),
             session_model: None,
             auto_model_choice: None,
+            effort: SessionEffortTracker::default(),
             pending_session_events: Vec::new(),
             pending_system_messages: Vec::new(),
             pending_system_messages_ts: None,
@@ -124,6 +128,7 @@ impl TurnReconstructor {
     /// Process a single event, advancing the state machine.
     pub fn process(&mut self, event: &TypedEvent, event_index: usize) {
         self.register_agent_owner(event);
+        self.effort.observe(event);
         let kind = event.raw.event_type.as_str();
         if ["user.", "assistant.", "tool.", "subagent."]
             .iter()
@@ -345,6 +350,7 @@ impl TurnReconstructor {
         finalize_subagent_completion(&mut self.turns);
         correct_turn_models(&mut self.turns, &self.explicit_turn_models);
         resolve_agent_display_names(&mut self.turns);
+        assign_user_turns(&mut self.turns);
         self.turns
     }
 }

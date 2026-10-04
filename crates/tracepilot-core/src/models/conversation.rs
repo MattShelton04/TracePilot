@@ -178,6 +178,31 @@ pub struct ConversationTurn {
     /// Messages delivered to subagents launched in this turn, in log order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub agent_messages: Vec<AgentMessage>,
+    /// Main agent's reasoning effort when this turn ran, from the session's
+    /// effort selections. `None` when the model's default applied.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
+    /// `messageId` of this turn's user message.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_message_id: Option<String>,
+    /// How this turn's user message reached the agent loop: `idle`,
+    /// `steering` (injected into the running request) or `queued`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_message_delivery: Option<String>,
+    /// Whether Copilot injected this turn's user message (a notification,
+    /// reminder or autopilot continuation) rather than the user typing it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub system_initiated: bool,
+    /// `messageId` of the user message whose request the main agent was
+    /// serving in this turn (Copilot CLI 1.0.88+ `originatingMessageId`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub originating_message_id: Option<String>,
+    /// The user request this agent turn belongs to. A request spans every
+    /// agent turn from one user message until the next request; steering
+    /// messages stay in the request they redirect. See
+    /// [`crate::turns::assign_user_turns`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_turn_index: Option<usize>,
 }
 
 /// A tool call within a conversation turn.
@@ -240,4 +265,9 @@ pub struct TurnToolCall {
     /// Skill-specific payload, present when this tool call loaded a skill.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skill_invocation: Option<SkillInvocationEvent>,
+    /// Exit code of a shell command, from `shellExecution` (Copilot CLI
+    /// 1.0.88+) or else the result's closing exit-code line. A non-zero code
+    /// means the command reported a problem; the tool itself still ran.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i64>,
 }

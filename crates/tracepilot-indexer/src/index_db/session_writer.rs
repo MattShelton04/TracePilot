@@ -43,13 +43,19 @@ pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessio
 
     let file_meta = SessionFileMeta::from_fingerprint(&fingerprint);
 
-    let analytics = extract_session_analytics(
+    let mut analytics = extract_session_analytics(
         &summary,
         &typed_events,
         load_result.turns.as_deref(),
         diagnostics.as_ref(),
         &file_meta,
     );
+    if let Some(turns) = load_result.turns.as_deref() {
+        // One indexed read of the CLI's store; nothing when it is absent.
+        let requests = tracepilot_core::session_store::read_request_usage(session_path);
+        analytics.effort_rows =
+            tracepilot_core::effort_usage::build_effort_usage(turns, requests.as_deref()).entries;
+    }
 
     let index_info = SessionIndexInfo {
         repository: summary.repository.clone(),

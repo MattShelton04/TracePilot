@@ -54,6 +54,9 @@ pub struct AnalyticsData {
     /// checkpoint-predicted expiries contribute.
     #[serde(default)]
     pub prompt_cache: PromptCacheAnalytics,
+    /// User turns per model and reasoning effort, most first. Index only.
+    #[serde(default)]
+    pub reasoning_effort: Vec<crate::effort_usage::EffortUsageEntry>,
 }
 
 /// Token usage for a single day.

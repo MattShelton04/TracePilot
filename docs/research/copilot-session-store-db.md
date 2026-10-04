@@ -3,6 +3,10 @@
 Status: **Research** (2026-09-19). Read-only analysis of the author's local data plus the CLI
 1.0.83 package. No CLI files were modified.
 
+Update: per-request usage now feeds reasoning-effort analytics through a minimal read-only
+reader. See [Reasoning effort insights](../features/reasoning-effort-insights.md#3-request-figures-from-the-session-store)
+for where it departs from the adapter proposed in section 6.
+
 ## 1. Short answer
 
 - **Who has it?** Every Copilot CLI user since **1.0.40** (2026-05-01): "Session history, file
