@@ -1,6 +1,6 @@
 {
   "name": "@tracepilot/site",
-  "version": "0.9.0",
+  "version": "0.9.1-1",
   "private": true,
   "description": "TracePilot landing page, published to GitHub Pages",
   "author": "Matt Shelton (@MattShelton04)",
