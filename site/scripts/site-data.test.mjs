@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { beaconTag, cspFor, fillPlaceholders } from "./html-facts.mjs";
-import { fromRelease, pickInstaller } from "./release-data.mjs";
+import { runInNewContext } from "node:vm";
+import {
+  beaconTag,
+  cspFor,
+  fillPlaceholders,
+  MAC_NOTE,
+  pickDownload,
+  platformScript,
+} from "./html-facts.mjs";
+import { fromRelease, pickInstallers } from "./release-data.mjs";
 import { validateShowcase } from "./validate-data.mjs";
 
 const generated = new URL("../src/data/showcase.json", import.meta.url);
@@ -30,16 +38,23 @@ test("validation catches a renamed todo in otherwise valid data", () => {
 
 const asset = (name) => ({ name, browser_download_url: `https://example.test/${name}`, size: 1 });
 
-test("the installer is the NSIS setup exe, then the MSI, never the bare binary", () => {
+test("the Windows installer is the NSIS setup exe, then the MSI, never the bare binary", () => {
   const exe = asset("tracepilot-desktop.exe");
   const msi = asset("TracePilot_0.9.0_x64_en-US.msi");
   const nsis = asset("TracePilot_0.9.0_x64-setup.exe");
-  assert.equal(pickInstaller([exe, msi, nsis]).name, nsis.name);
-  assert.equal(pickInstaller([exe, msi]).name, msi.name);
-  assert.equal(pickInstaller([exe]), null);
+  assert.equal(pickInstallers([exe, msi, nsis]).windows.name, nsis.name);
+  assert.equal(pickInstallers([exe, msi]).windows.name, msi.name);
+  assert.equal(pickInstallers([exe]).windows, null);
 });
 
-test("release data strips the tag prefix and keeps the release page", () => {
+test("the macOS installer is the Apple Silicon disk image, not the updater archive", () => {
+  const dmg = asset("TracePilot_0.9.1_aarch64.dmg");
+  const updater = asset("TracePilot_0.9.1_aarch64.app.tar.gz");
+  assert.equal(pickInstallers([updater, dmg]).macos.name, dmg.name);
+  assert.equal(pickInstallers([updater]).macos, null);
+});
+
+test("release data strips the tag prefix and links the always-current latest release", () => {
   const data = fromRelease({
     tag_name: "v1.2.3",
     published_at: "2026-10-01T00:00:00Z",
@@ -47,7 +62,67 @@ test("release data strips the tag prefix and keeps the release page", () => {
     assets: [asset("TracePilot_1.2.3_x64-setup.exe")],
   });
   assert.equal(data.version, "1.2.3");
-  assert.equal(data.installer.name, "TracePilot_1.2.3_x64-setup.exe");
+  assert.equal(data.installers.windows.name, "TracePilot_1.2.3_x64-setup.exe");
+  assert.equal(data.installers.macos, null);
+  assert.match(data.page, /\/releases\/latest$/);
+});
+
+const links = {
+  win: "https://example.test/win",
+  mac: "https://example.test/mac",
+  page: "https://example.test/rel",
+};
+
+test("each platform gets its installer, and anything else the release page", () => {
+  const pick = (nav, l = links) => pickDownload(nav, l);
+  assert.deepEqual(pick({ platform: "Win32" }), { os: "win", url: links.win });
+  assert.deepEqual(pick({ userAgentData: { platform: "Windows" } }), { os: "win", url: links.win });
+  assert.deepEqual(pick({ platform: "MacIntel", maxTouchPoints: 0 }), {
+    os: "mac",
+    url: links.mac,
+  });
+  assert.deepEqual(pick({ userAgentData: { platform: "macOS" } }), { os: "mac", url: links.mac });
+  // iPadOS reports MacIntel; a touch screen gives it away
+  assert.deepEqual(pick({ platform: "MacIntel", maxTouchPoints: 5 }), {
+    os: "other",
+    url: links.page,
+  });
+  for (const platform of ["Linux x86_64", "iPhone", "Android", ""]) {
+    assert.deepEqual(pick({ platform }), { os: "other", url: links.page });
+  }
+  // a release without a disk image (before macOS builds) sends Macs to the release page
+  assert.deepEqual(pick({ platform: "MacIntel" }, { ...links, mac: null }), {
+    os: "other",
+    url: links.page,
+  });
+});
+
+test("the head script labels the page and points static download links at the installer", () => {
+  const release = {
+    page: links.page,
+    installers: { windows: { url: links.win }, macos: { url: links.mac } },
+  };
+  const run = (platform) => {
+    const dataset = {};
+    const anchors = [{ href: links.page }, { href: links.page }];
+    let ready;
+    const document = {
+      documentElement: { dataset },
+      addEventListener: (type, fn) => {
+        if (type === "DOMContentLoaded") ready = fn;
+      },
+      querySelectorAll: (sel) => (sel === "a[data-download]" ? anchors : []),
+    };
+    runInNewContext(platformScript(release), { document, navigator: { platform } });
+    ready();
+    return { dataset, anchors };
+  };
+  const mac = run("MacIntel");
+  assert.deepEqual(mac.dataset, { os: "mac", download: links.mac });
+  assert.ok(mac.anchors.every((a) => a.href === links.mac && a.title === MAC_NOTE));
+  const linux = run("Linux x86_64");
+  assert.deepEqual(linux.dataset, { os: "other", download: links.page });
+  assert.ok(linux.anchors.every((a) => a.href === links.page && a.title === undefined));
 });
 
 test("placeholders are filled, and unknown ones fail the build", () => {

@@ -16,6 +16,11 @@ try {
     viewport: { width: 1200, height: 630 },
     deviceScaleFactor: 1,
   });
+  // the hero's download label follows the visitor's platform; keep the image's label stable
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "platform", { get: () => "Win32" });
+    Object.defineProperty(Navigator.prototype, "userAgentData", { get: () => undefined });
+  });
   await page.goto(url, { waitUntil: "networkidle" });
   await page.evaluate(() => document.fonts.ready);
   // let the trace field converge and the eye blink before capturing

@@ -5,10 +5,11 @@ import showcase from "./data/showcase.json";
 
 /** The README showcase workspace (scripts/visual/showcase), plus derived costs and counts. */
 export const D = showcase;
-/** The latest published release (version, release page, Windows installer). */
+/** The latest published release (version, release page, Windows and macOS installers). */
 export const R = release;
 export const VERSION = release.version;
-export const DOWNLOAD_URL = release.installer ? release.installer.url : release.page;
+/** This visitor's installer, or the release page: the head script picks it before modules run. */
+export const DOWNLOAD_URL = document.documentElement.dataset.download || release.page;
 
 /*
  * Agent usage for the Agents views. The showcase fixtures do not model agent

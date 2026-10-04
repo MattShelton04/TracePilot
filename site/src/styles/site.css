@@ -132,6 +132,19 @@ p {
   width: 18px;
   height: 18px;
 }
+/* Download labels: the head script sets html[data-os] before first paint (platformScript in
+   scripts/html-facts.mjs). Without it the neutral label and the release page remain. */
+.dl-win,
+.dl-mac,
+.dl-other,
+html[data-os] .dl-any {
+  display: none;
+}
+html[data-os="win"] .dl-win,
+html[data-os="mac"] .dl-mac,
+html[data-os="other"] .dl-other {
+  display: inline;
+}
 .btn-primary {
   background: var(--gradient-accent);
   color: #fff;
@@ -1199,6 +1212,7 @@ html.pin.ready #open .stage {
   font-size: 13.5px;
   color: var(--text-tertiary);
   max-width: 46em;
+  text-wrap: balance;
 }
 
 .footer {
