@@ -3,6 +3,7 @@
 > **Status:** Research Complete — Multi-Model Review Consolidated ✅  
 > **Branch:** `Matt/VSCode_Support_Evaluation`  
 > **Date:** 2026-03-21  
+> **Superseded (2026-10-04):** see [VS Code session support — fresh look](vscode-agent-sessions-feasibility.md). Most VS Code agent sessions are now Copilot CLI or SDK sessions under `~/.copilot/session-state`; this study's classic-chat format notes remain accurate.  
 
 ---
 
