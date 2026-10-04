@@ -23,7 +23,7 @@ pub(super) fn query_tool_analysis(
                     SUM(t.total_duration_ms), SUM(t.calls_with_duration)
              FROM session_tool_calls t
              JOIN sessions s ON s.id = t.session_id{}
-             GROUP BY t.tool_name ORDER BY SUM(t.call_count) DESC",
+             GROUP BY t.tool_name ORDER BY SUM(t.call_count) DESC, t.tool_name ASC",
         where_clause
     );
     let refs = to_refs(&bind_values);

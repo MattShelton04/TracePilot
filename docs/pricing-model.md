@@ -35,6 +35,21 @@ TracePilot merges old and new sessions using this precedence:
 
 Premium requests are never converted into AIC because the units are not equivalent. Analytics separately aggregate observed coverage and only estimate token usage belonging to sessions without observed telemetry, preventing double counting when historical and current sessions are viewed together.
 
+Desktop session metrics, activity tiles and comparisons share null-aware shutdown
+accounting. A combined token total or token-based credit estimate requires recorded
+input and output counts for every included model. Partial counts remain visible in
+their own categories, while the combined value is unavailable. An unpriced model
+also makes a session-wide estimate unavailable instead of exposing a partial
+subtotal. Recorded zero counts and observed zero credits remain valid values;
+comparisons suppress deltas when either side is unavailable. An empty model map
+cannot establish zero usage because the backend also normalizes missing maps to
+empty maps. Models with explicit zero token counts estimate zero even without a
+price. If a model reports positive observed credits alongside zero token counts,
+its direct API estimate remains unavailable. The session credit estimate is also
+unavailable without an observed session total. Observed session totals, including
+zero, remain authoritative. Optional cache counts retain the existing pricing
+fallback to zero.
+
 ## Cost surfaces
 
 - **AI Credits**: the primary session, model, segment, comparison, CLI, and analytics value. One billion nano-AIU equals one AIC, and one AIC has a $0.01 USD billing equivalent.

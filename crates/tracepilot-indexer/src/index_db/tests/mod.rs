@@ -4,6 +4,7 @@
 mod agent_runs;
 mod agent_usage;
 mod analytics;
+mod analytics_parity;
 mod common;
 mod effort_usage;
 mod maintenance;

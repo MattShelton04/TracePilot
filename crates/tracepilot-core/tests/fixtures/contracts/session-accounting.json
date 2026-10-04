@@ -1,0 +1,480 @@
+[
+  {
+    "name": "omitted model metrics",
+    "events": [
+      {
+        "type": "session.shutdown",
+        "timestamp": "2026-09-12T10:00:00Z",
+        "data": {}
+      }
+    ],
+    "wire": {
+      "modelMetrics": {},
+      "totalNanoAiu": null,
+      "totalPremiumRequests": null,
+      "sessionSegments": [
+        {
+          "modelMetrics": null,
+          "totalNanoAiu": null,
+          "tokens": 0,
+          "totalRequests": 0,
+          "premiumRequests": 0
+        }
+      ]
+    },
+    "expected": {
+      "tokens": null,
+      "credits": {
+        "credits": null,
+        "source": "unavailable"
+      },
+      "models": {},
+      "segments": [
+        {
+          "tokens": null,
+          "credits": {
+            "credits": null,
+            "source": "unavailable"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "null model metrics",
+    "events": [
+      {
+        "type": "session.shutdown",
+        "timestamp": "2026-09-12T10:00:00Z",
+        "data": {
+          "modelMetrics": null
+        }
+      }
+    ],
+    "wire": {
+      "modelMetrics": {},
+      "totalNanoAiu": null,
+      "totalPremiumRequests": null,
+      "sessionSegments": [
+        {
+          "modelMetrics": null,
+          "totalNanoAiu": null,
+          "tokens": 0,
+          "totalRequests": 0,
+          "premiumRequests": 0
+        }
+      ]
+    },
+    "expected": {
+      "tokens": null,
+      "credits": {
+        "credits": null,
+        "source": "unavailable"
+      },
+      "models": {},
+      "segments": [
+        {
+          "tokens": null,
+          "credits": {
+            "credits": null,
+            "source": "unavailable"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty model metrics",
+    "events": [
+      {
+        "type": "session.shutdown",
+        "timestamp": "2026-09-12T10:00:00Z",
+        "data": {
+          "modelMetrics": {}
+        }
+      }
+    ],
+    "wire": {
+      "modelMetrics": {},
+      "totalNanoAiu": null,
+      "totalPremiumRequests": null,
+      "sessionSegments": [
+        {
+          "modelMetrics": {},
+          "totalNanoAiu": null,
+          "tokens": 0,
+          "totalRequests": 0,
+          "premiumRequests": 0
+        }
+      ]
+    },
+    "expected": {
+      "tokens": null,
+      "credits": {
+        "credits": null,
+        "source": "unavailable"
+      },
+      "models": {},
+      "segments": [
+        {
+          "tokens": null,
+          "credits": {
+            "credits": null,
+            "source": "unavailable"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "missing cumulative model metrics",
+    "events": [
+      {
+        "type": "session.shutdown",
+        "timestamp": "2026-09-12T10:00:00Z",
+        "data": {
+          "eventsFileSizeBytes": 100,
+          "totalNanoAiu": 0,
+          "totalPremiumRequests": 0,
+          "modelMetrics": {
+            "contract-unpriced-model": {
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              },
+              "totalNanoAiu": 0
+            }
+          }
+        }
+      },
+      {
+        "type": "session.shutdown",
+        "timestamp": "2026-09-12T10:00:01Z",
+        "data": {
+          "eventsFileSizeBytes": 200
+        }
+      }
+    ],
+    "wire": {
+      "modelMetrics": {},
+      "totalNanoAiu": null,
+      "totalPremiumRequests": null,
+      "sessionSegments": [
+        {
+          "modelMetrics": {
+            "contract-unpriced-model": {
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              },
+              "totalNanoAiu": 0
+            }
+          },
+          "totalNanoAiu": 0,
+          "tokens": 0,
+          "totalRequests": 0,
+          "premiumRequests": 0
+        },
+        {
+          "modelMetrics": {},
+          "totalNanoAiu": null,
+          "tokens": 0,
+          "totalRequests": 0,
+          "premiumRequests": 0
+        }
+      ]
+    },
+    "expected": {
+      "tokens": null,
+      "credits": {
+        "credits": null,
+        "source": "unavailable"
+      },
+      "models": {},
+      "segments": [
+        {
+          "tokens": 0,
+          "credits": {
+            "credits": 0,
+            "source": "observed"
+          }
+        },
+        {
+          "tokens": null,
+          "credits": {
+            "credits": null,
+            "source": "unavailable"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "explicit per-model zero credits",
+    "events": [
+      {
+        "type": "session.shutdown",
+        "timestamp": "2026-09-12T10:00:00Z",
+        "data": {
+          "modelMetrics": {
+            "contract-unpriced-model": {
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              },
+              "totalNanoAiu": 0
+            }
+          }
+        }
+      }
+    ],
+    "wire": {
+      "modelMetrics": {
+        "contract-unpriced-model": {
+          "usage": {
+            "inputTokens": 0,
+            "outputTokens": 0
+          },
+          "totalNanoAiu": 0
+        }
+      },
+      "totalNanoAiu": null,
+      "totalPremiumRequests": null,
+      "sessionSegments": [
+        {
+          "modelMetrics": {
+            "contract-unpriced-model": {
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              },
+              "totalNanoAiu": 0
+            }
+          },
+          "totalNanoAiu": null,
+          "tokens": 0,
+          "totalRequests": 0,
+          "premiumRequests": 0
+        }
+      ]
+    },
+    "expected": {
+      "tokens": 0,
+      "credits": {
+        "credits": 0,
+        "source": "estimated-token-usage"
+      },
+      "models": {
+        "contract-unpriced-model": {
+          "tokens": 0,
+          "credits": {
+            "credits": 0,
+            "source": "observed"
+          }
+        }
+      },
+      "segments": [
+        {
+          "tokens": 0,
+          "credits": {
+            "credits": 0,
+            "source": "estimated-token-usage"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "explicit zero tokens without prices",
+    "events": [
+      {
+        "type": "session.shutdown",
+        "timestamp": "2026-09-12T10:00:00Z",
+        "data": {
+          "modelMetrics": {
+            "contract-unpriced-model": {
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              }
+            }
+          }
+        }
+      }
+    ],
+    "wire": {
+      "modelMetrics": {
+        "contract-unpriced-model": {
+          "usage": {
+            "inputTokens": 0,
+            "outputTokens": 0
+          },
+          "totalNanoAiu": null
+        }
+      },
+      "totalNanoAiu": null,
+      "totalPremiumRequests": null,
+      "sessionSegments": [
+        {
+          "modelMetrics": {
+            "contract-unpriced-model": {
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              },
+              "totalNanoAiu": null
+            }
+          },
+          "totalNanoAiu": null,
+          "tokens": 0,
+          "totalRequests": 0,
+          "premiumRequests": 0
+        }
+      ]
+    },
+    "expected": {
+      "tokens": 0,
+      "credits": {
+        "credits": 0,
+        "source": "estimated-token-usage"
+      },
+      "models": {
+        "contract-unpriced-model": {
+          "tokens": 0,
+          "credits": {
+            "credits": 0,
+            "source": "estimated-token-usage"
+          }
+        }
+      },
+      "segments": [
+        {
+          "tokens": 0,
+          "credits": {
+            "credits": 0,
+            "source": "estimated-token-usage"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "observed session zero without model metrics",
+    "events": [
+      {
+        "type": "session.shutdown",
+        "timestamp": "2026-09-12T10:00:00Z",
+        "data": {
+          "totalNanoAiu": 0,
+          "totalPremiumRequests": 0
+        }
+      }
+    ],
+    "wire": {
+      "modelMetrics": {},
+      "totalNanoAiu": 0,
+      "totalPremiumRequests": 0,
+      "sessionSegments": [
+        {
+          "modelMetrics": null,
+          "totalNanoAiu": 0,
+          "tokens": 0,
+          "totalRequests": 0,
+          "premiumRequests": 0
+        }
+      ]
+    },
+    "expected": {
+      "tokens": null,
+      "credits": {
+        "credits": 0,
+        "source": "observed"
+      },
+      "models": {},
+      "segments": [
+        {
+          "tokens": null,
+          "credits": {
+            "credits": 0,
+            "source": "observed"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "positive model credits with zero tokens and absent session total",
+    "events": [
+      {
+        "type": "session.shutdown",
+        "timestamp": "2026-09-12T10:00:00Z",
+        "data": {
+          "modelMetrics": {
+            "contract-unpriced-model": {
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              },
+              "totalNanoAiu": 3000000000
+            }
+          }
+        }
+      }
+    ],
+    "wire": {
+      "modelMetrics": {
+        "contract-unpriced-model": {
+          "usage": {
+            "inputTokens": 0,
+            "outputTokens": 0
+          },
+          "totalNanoAiu": 3000000000
+        }
+      },
+      "totalNanoAiu": null,
+      "totalPremiumRequests": null,
+      "sessionSegments": [
+        {
+          "modelMetrics": {
+            "contract-unpriced-model": {
+              "usage": {
+                "inputTokens": 0,
+                "outputTokens": 0
+              },
+              "totalNanoAiu": 3000000000
+            }
+          },
+          "totalNanoAiu": null,
+          "tokens": 0,
+          "totalRequests": 0,
+          "premiumRequests": 0
+        }
+      ]
+    },
+    "expected": {
+      "tokens": 0,
+      "credits": {
+        "credits": null,
+        "source": "unavailable"
+      },
+      "models": {
+        "contract-unpriced-model": {
+          "tokens": 0,
+          "credits": {
+            "credits": 3,
+            "source": "observed"
+          }
+        }
+      },
+      "segments": [
+        {
+          "tokens": 0,
+          "credits": {
+            "credits": null,
+            "source": "unavailable"
+          }
+        }
+      ]
+    }
+  }
+]

@@ -3,9 +3,13 @@
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
-/// v17: extract user turns per model and reasoning effort into
+/// v18: extract user turns per model and reasoning effort into
 /// `session_effort_usage`, with per-request usage from Copilot CLI's session
 /// store when it recorded the session.
+///
+/// v17: derive tool counts, outcomes, durations and heatmap activity from the
+/// reconstructed conversation, including pending invocations and authoritative
+/// subagent terminal outcomes while deduplicating repeated lifecycle records.
 ///
 /// v16: count Copilot CLI 1.0.86+ `skill.invoked_ref` repeat invocations with
 /// their resolved skill body (previously tool-call-only fallbacks without a
@@ -38,7 +42,7 @@
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 18;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

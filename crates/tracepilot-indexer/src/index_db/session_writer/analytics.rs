@@ -6,6 +6,68 @@ use super::super::types::*;
 
 // ── Pure analytics extraction ──────────────────────────────────────────
 
+/// Tool usage rows derived from one session's reconstructed conversation.
+#[derive(Default)]
+struct ConversationToolUsage {
+    call_count: i64,
+    tool_call_rows: Vec<ToolCallRow>,
+    activity_rows: Vec<ActivityRow>,
+}
+
+/// The conversation reconstruction owns deduplication, pending calls and
+/// authoritative subagent outcomes. Reuse it so persisted tool usage and the
+/// disk-scan fallback describe the same invocations.
+fn conversation_tool_usage(turns: &[tracepilot_core::ConversationTurn]) -> ConversationToolUsage {
+    use chrono::{Datelike, Timelike};
+
+    let mut call_count = 0;
+    let mut tools: HashMap<&str, ToolCallRow> = HashMap::new();
+    let mut heatmap: HashMap<(i64, i64), i64> = HashMap::new();
+    for call in turns.iter().flat_map(|turn| &turn.tool_calls) {
+        call_count += 1;
+        let row = tools
+            .entry(call.tool_name.as_str())
+            .or_insert_with(|| ToolCallRow {
+                name: call.tool_name.clone(),
+                calls: 0,
+                success: 0,
+                failure: 0,
+                duration_ms: 0,
+                calls_with_duration: 0,
+            });
+        row.calls += 1;
+        match call.success {
+            Some(true) => row.success += 1,
+            Some(false) => row.failure += 1,
+            None => {}
+        }
+        if let Some(duration) = call.duration_ms {
+            row.duration_ms = row
+                .duration_ms
+                .saturating_add(i64::try_from(duration).unwrap_or(i64::MAX));
+            row.calls_with_duration += 1;
+        }
+        if let Some(ts) = call.started_at {
+            let day = ts.weekday().num_days_from_monday() as i64;
+            let hour = ts.hour() as i64;
+            *heatmap.entry((day, hour)).or_default() += 1;
+        }
+    }
+
+    ConversationToolUsage {
+        call_count,
+        tool_call_rows: tools.into_values().collect(),
+        activity_rows: heatmap
+            .into_iter()
+            .map(|((day_of_week, hour), tool_call_count)| ActivityRow {
+                day_of_week,
+                hour,
+                tool_call_count,
+            })
+            .collect(),
+    }
+}
+
 /// Extract all analytics from a session's summary and events without any
 /// database interaction. This is the core computation that powers
 /// `upsert_session`, extracted as a pure function for testability.
@@ -116,10 +178,13 @@ pub(crate) fn extract_session_analytics(
     }
 
     // ── Extract event-level analytics (single pass) ────────────
-    let mut tool_call_rows: Vec<ToolCallRow> = Vec::new();
-    let mut activity_rows: Vec<ActivityRow> = Vec::new();
     let mut modified_file_rows: Vec<ModifiedFileRow> = Vec::new();
-    let mut actual_tool_call_count: i64 = 0;
+    let ConversationToolUsage {
+        call_count,
+        tool_call_rows,
+        activity_rows,
+    } = turns.map(conversation_tool_usage).unwrap_or_default();
+    let tool_call_count = turns.is_some().then_some(call_count);
 
     let mut error_count: i64 = 0;
     let mut rate_limit_count: i64 = 0;
@@ -130,11 +195,6 @@ pub(crate) fn extract_session_analytics(
     let mut incidents: Vec<IncidentRow> = Vec::new();
 
     if let Some(events) = typed_events {
-        let mut tool_starts: HashMap<String, (String, Option<chrono::DateTime<chrono::Utc>>)> =
-            HashMap::new();
-        let mut tool_accum: HashMap<String, (i64, i64, i64, i64, i64)> = HashMap::new();
-        let mut heatmap_accum: HashMap<(i64, i64), i64> = HashMap::new();
-
         for event in events {
             match &event.typed_data {
                 TypedEventData::SessionStart(d) => {
@@ -152,42 +212,6 @@ pub(crate) fn extract_session_analytics(
                 }
                 TypedEventData::AssistantMessage(_) => {
                     // FTS content extraction moved to search_writer (Phase 2)
-                }
-                TypedEventData::ToolExecutionStart(d) => {
-                    if let Some(ref tool_call_id) = d.tool_call_id {
-                        let name = d.tool_name.clone().unwrap_or_else(|| "unknown".into());
-                        tool_starts.insert(tool_call_id.clone(), (name, event.raw.timestamp));
-                    }
-                }
-                TypedEventData::ToolExecutionComplete(d) => {
-                    actual_tool_call_count += 1;
-                    if let Some(ref tool_call_id) = d.tool_call_id
-                        && let Some((tool_name, start_ts)) = tool_starts.remove(tool_call_id)
-                    {
-                        let acc = tool_accum
-                            .entry(tool_name.clone())
-                            .or_insert((0, 0, 0, 0, 0));
-                        acc.0 += 1;
-
-                        match d.success {
-                            Some(true) => acc.1 += 1,
-                            Some(false) => acc.2 += 1,
-                            None => {}
-                        }
-
-                        if let (Some(start), Some(end)) = (start_ts, event.raw.timestamp) {
-                            let dur = (end - start).num_milliseconds().max(0);
-                            acc.3 += dur;
-                            acc.4 += 1;
-                        }
-
-                        if let Some(ts) = start_ts {
-                            use chrono::{Datelike, Timelike};
-                            let day = ts.weekday().num_days_from_monday() as i64;
-                            let hour = ts.hour() as i64;
-                            *heatmap_accum.entry((day, hour)).or_insert(0) += 1;
-                        }
-                    }
                 }
                 TypedEventData::SessionError(d) => {
                     error_count += 1;
@@ -277,31 +301,7 @@ pub(crate) fn extract_session_analytics(
                 _ => {}
             }
         }
-
-        for (name, (calls, success, failure, dur, dur_count)) in &tool_accum {
-            tool_call_rows.push(ToolCallRow {
-                name: name.clone(),
-                calls: *calls,
-                success: *success,
-                failure: *failure,
-                duration_ms: *dur,
-                calls_with_duration: *dur_count,
-            });
-        }
-        for ((day, hour), count) in &heatmap_accum {
-            activity_rows.push(ActivityRow {
-                day_of_week: *day,
-                hour: *hour,
-                tool_call_count: *count,
-            });
-        }
     }
-
-    let final_tool_call_count = if actual_tool_call_count > 0 {
-        Some(actual_tool_call_count)
-    } else {
-        None
-    };
 
     // Modified files from shutdown metrics
     if let Some(ref metrics) = summary.shutdown_metrics
@@ -346,7 +346,7 @@ pub(crate) fn extract_session_analytics(
         total_nano_aiu,
         lines_added,
         lines_removed,
-        tool_call_count: final_tool_call_count,
+        tool_call_count,
         current_model,
         copilot_version,
         total_premium_requests,

@@ -111,7 +111,7 @@ and differed by one in the other.
 ## 4. Storage
 
 - Index migration 22 adds `session_effort_usage`, keyed by session, model and effort, with
-  `''` for unknown values. Analytics version 17 re-extracts existing sessions once.
+  `''` for unknown values. Analytics version 18 re-extracts existing sessions once.
 - `IndexDb::query_analytics` aggregates it into `AnalyticsData.reasoningEffort` using the same
   date and repository filters as the dashboard.
 - `get_session_effort_usage` builds a single session's figures live from cached events and the
