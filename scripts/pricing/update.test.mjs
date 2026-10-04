@@ -17,12 +17,15 @@ const models = json("packages/types/data/model-registry.json");
 const parse = (text = usage, metadata = snapshot) =>
   parseSources(metadata, text, annual, policy, data, models);
 const parsed = parse();
-const future = { ...snapshot, verifiedAt: "2026-10-01" };
+const future = {
+  ...snapshot,
+  verifiedAt: new Date(Date.parse(snapshot.verifiedAt) + 86_400_000).toISOString().slice(0, 10),
+};
 const withHash = (text) => ({ ...snapshot, sha256: { ...snapshot.sha256, usage: sha256(text) } });
 
 test("frozen official sources reproduce all shipped rates and Rust/TS defaults without network", () => {
-  assert.equal(parsed.usage.length, 44);
-  assert.equal(parsed.annual.length, 18);
+  assert.equal(parsed.usage.length, 43);
+  assert.equal(parsed.annual.length, 16);
   assert.deepEqual(updatePricing(data, models, parsed, snapshot), { data, models });
 });
 
@@ -72,8 +75,30 @@ test("delisted models keep the last verification date and no invented retirement
   const next = updatePricing(data, models, changed, future);
   const retained = next.data.githubCopilotUsage.find((row) => row.model === "grok-4.7");
   assert.equal(retained.verifiedAt, snapshot.verifiedAt);
-  assert.match(retained.sourceNote, /absent from the 2026-10-01 Copilot table/);
+  assert.ok(retained.sourceNote.includes(`absent from the ${future.verifiedAt} Copilot table`));
   assert.equal(retained.effectiveTo, undefined);
+  assert.equal(next.data.githubCopilotUsage.filter((row) => row.model === "grok-4.7").length, 2);
+  assert.deepEqual(next.data.githubCopilotUsageHistory, data.githubCopilotUsageHistory);
+  assert.deepEqual(next.models, models);
+  assert.deepEqual(updatePricing(next.data, next.models, changed, future), next);
+});
+
+test("delisted annual multipliers retain billing and compatibility values without inventing an end date", () => {
+  const changed = {
+    ...parsed,
+    annual: parsed.annual.filter((row) => row.model !== "claude-opus-4.8"),
+  };
+  const next = updatePricing(data, models, changed, future);
+  const old = data.annualLegacyMultipliers.find((row) => row.model === "claude-opus-4.8");
+  const retained = next.data.annualLegacyMultipliers.find((row) => row.model === old.model);
+  assert.deepEqual(retained, {
+    ...old,
+    verifiedAt: snapshot.verifiedAt,
+    sourceNote: `Retained ${snapshot.verifiedAt} snapshot; absent from the ${future.verifiedAt} Copilot table`,
+  });
+  assert.equal(retained.effectiveTo, undefined);
+  assert.deepEqual(next.data.annualLegacyMultiplierHistory, data.annualLegacyMultiplierHistory);
+  assert.deepEqual(next.models, models);
   assert.deepEqual(updatePricing(next.data, next.models, changed, future), next);
 });
 
@@ -98,7 +123,7 @@ test("snapshot dates cannot silently rewrite existing history", () => {
     /backwards/,
   );
   const changed = structuredClone(parsed);
-  changed.usage.find((row) => row.model === "gpt-6-sol").inputPerM = 1.5;
+  changed.usage.find((row) => row.model === "gpt-6.1-sol").inputPerM = 1.5;
   assert.throws(() => updatePricing(data, models, changed, snapshot), /Cannot rewrite/);
 });
 

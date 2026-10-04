@@ -1,23 +1,23 @@
 {
-  "version": "github-copilot-usage-2026-09-27",
+  "version": "github-copilot-usage-2026-10-04",
   "sources": {
     "githubCopilotUsage": {
       "label": "GitHub Copilot models and pricing",
       "url": "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing",
-      "verifiedAt": "2026-09-27",
+      "verifiedAt": "2026-10-04",
       "effectiveFrom": "2026-06-01",
-      "revision": "18945a31a4f2d97beb6c5c1a7479102e23c25727",
-      "dataUrl": "https://raw.githubusercontent.com/github/docs/18945a31a4f2d97beb6c5c1a7479102e23c25727/data/tables/copilot/models-and-pricing.yml",
-      "sha256": "300a358efde42a86853c098777d408ae0cdfcaa2eac99cbb3122cc1a8a4984bf"
+      "revision": "2bd66de8cea336061c9ea060c9b37385136e6ab3",
+      "dataUrl": "https://raw.githubusercontent.com/github/docs/2bd66de8cea336061c9ea060c9b37385136e6ab3/data/tables/copilot/models-and-pricing.yml",
+      "sha256": "eaab874e5781f974bf6c943ffcbd0686738c426dd511f913bc384d9ec551d69d"
     },
     "annualLegacyMultipliers": {
       "label": "GitHub annual-plan premium request multipliers",
       "url": "https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans",
-      "verifiedAt": "2026-09-27",
+      "verifiedAt": "2026-10-04",
       "effectiveFrom": "2026-06-01",
-      "revision": "18945a31a4f2d97beb6c5c1a7479102e23c25727",
-      "dataUrl": "https://raw.githubusercontent.com/github/docs/18945a31a4f2d97beb6c5c1a7479102e23c25727/data/tables/copilot/annual-subscriber-model-multipliers.yml",
-      "sha256": "457500b3eddf44163f1c650be77c7d8303a98a5184ebdb43d9010f320291207a"
+      "revision": "2bd66de8cea336061c9ea060c9b37385136e6ab3",
+      "dataUrl": "https://raw.githubusercontent.com/github/docs/2bd66de8cea336061c9ea060c9b37385136e6ab3/data/tables/copilot/annual-subscriber-model-multipliers.yml",
+      "sha256": "d8ddb6f9758516d9294a204f83ebe4eb2d840a565c5695059966f18c7b5dc79a"
     },
     "tracePilotLegacyProviderEstimate": {
       "label": "TracePilot legacy provider estimate",
@@ -82,7 +82,9 @@
     "claude-opus-5.5": ["Claude Opus 5.5"],
     "gpt-6-sol": ["GPT-6 Sol"],
     "gpt-6-luna": ["GPT-6 Luna"],
-    "grok-4.7": ["Grok 4.7"]
+    "grok-4.7": ["Grok 4.7"],
+    "claude-sonnet-5.5": ["Claude Sonnet 5.5"],
+    "gpt-6.1-sol": ["GPT-6.1 Sol"]
   },
   "githubCopilotUsage": [
     {
@@ -303,7 +305,9 @@
       "inputPerM": 5,
       "cachedInputPerM": 0.5,
       "cacheWritePerM": 6.25,
-      "outputPerM": 25
+      "outputPerM": 25,
+      "verifiedAt": "2026-09-27",
+      "sourceNote": "Retained 2026-09-27 snapshot; absent from the 2026-10-04 Copilot table"
     },
     {
       "model": "claude-opus-4.8",
@@ -385,7 +389,9 @@
       "inputPerM": 1.5,
       "cachedInputPerM": 0.15,
       "cacheWritePerM": 0,
-      "outputPerM": 9
+      "outputPerM": 9,
+      "verifiedAt": "2026-09-27",
+      "sourceNote": "Retained 2026-09-27 snapshot; absent from the 2026-10-04 Copilot table"
     },
     {
       "model": "mai-code-1-flash",
@@ -403,7 +409,9 @@
       "inputPerM": 0.95,
       "cachedInputPerM": 0.19,
       "cacheWritePerM": 0,
-      "outputPerM": 4
+      "outputPerM": 4,
+      "verifiedAt": "2026-09-27",
+      "sourceNote": "Retained 2026-09-27 snapshot; absent from the 2026-10-04 Copilot table"
     },
     {
       "model": "grok-code-fast-1",
@@ -481,8 +489,9 @@
       "cacheWritePerM": 0,
       "outputPerM": 3.75,
       "effectiveFrom": "2026-09-10",
-      "sourceNote": "Promotional Copilot rates through December 31, 2026; subsequent rates unpublished",
-      "effectiveTo": "2027-01-01"
+      "sourceNote": "Promotional Copilot rates through December 31, 2026; subsequent rates unpublished; Retained 2026-09-27 snapshot; absent from the 2026-10-04 Copilot table",
+      "effectiveTo": "2027-01-01",
+      "verifiedAt": "2026-09-27"
     },
     {
       "model": "gemini-3.7-flash",
@@ -632,6 +641,35 @@
       "pricingTier": "long-context",
       "minimumInputTokens": 200001,
       "effectiveFrom": "2026-09-27"
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "displayName": "GPT-6.1 Sol",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 2.5,
+      "outputPerM": 10,
+      "effectiveFrom": "2026-10-04"
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "displayName": "GPT-6.1 Sol",
+      "inputPerM": 4,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 5,
+      "outputPerM": 15,
+      "pricingTier": "long-context",
+      "minimumInputTokens": 272001,
+      "effectiveFrom": "2026-10-04"
+    },
+    {
+      "model": "claude-sonnet-5.5",
+      "displayName": "Claude Sonnet 5.5",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 2.5,
+      "outputPerM": 10,
+      "effectiveFrom": "2026-10-04"
     }
   ],
   "annualLegacyMultipliers": [
@@ -661,7 +699,9 @@
       "model": "claude-opus-4.7",
       "displayName": "Claude Opus 4.7",
       "currentPremiumRequests": 15,
-      "premiumRequests": 27
+      "premiumRequests": 27,
+      "verifiedAt": "2026-09-27",
+      "sourceNote": "Retained 2026-09-27 snapshot; absent from the 2026-10-04 Copilot table"
     },
     {
       "model": "claude-opus-4.8",
@@ -725,7 +765,9 @@
       "model": "gemini-3.5-flash",
       "displayName": "Gemini 3.5 Flash",
       "currentPremiumRequests": 0.33,
-      "premiumRequests": 14
+      "premiumRequests": 14,
+      "verifiedAt": "2026-09-27",
+      "sourceNote": "Retained 2026-09-27 snapshot; absent from the 2026-10-04 Copilot table"
     },
     {
       "model": "gpt-4o",
@@ -980,6 +1022,18 @@
     {
       "model": "grok-4.7",
       "displayName": "Grok 4.7",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "claude-sonnet-5.5",
+      "displayName": "Claude Sonnet 5.5",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "displayName": "GPT-6.1 Sol",
       "currentPremiumRequests": 1,
       "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
     }

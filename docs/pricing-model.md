@@ -106,6 +106,25 @@ Each model's default and long-context rates remain separate rows under the same 
 - Dated lookups select effective historical entries. Undated and explicit `latest` lookups exclude superseded history, so a removed long-context tier cannot outrank its replacement. Explicit latest lookups still use the last published promotional snapshot; dated lookups honor its expiry.
 - Source files and their revisions are preserved in Git history. Neither old sessions nor observed `totalNanoAiu` billing telemetry are rewritten. User Direct API overrides and intentional model removals remain intact; newly bundled models/tiers are backfilled by the preferences store.
 
+When GitHub removes a whole model from a table, the importer retains it in `githubCopilotUsage` or `annualLegacyMultipliers`; it does not delete the model or move it into closed history. Its aliases, model metadata, compatibility defaults, last verified date, and any published promotion expiry are preserved. This differs from a changed price or removed context tier, where the previous tier set is archived with an exclusive end date. A later dated estimate can therefore still use a delisted model's last known rate, subject to its published expiry. It is an estimate from retained evidence, not confirmation of current pricing or model availability.
+
+The bundled model registry also supplies launcher and config-editor model lists, so retained identities can still appear in those menus. Those lists are local metadata, not a live Copilot availability check. The SDK's separate model-list query reflects what the connected Copilot client reports. Removing a model in local Direct API settings only suppresses its editable defaults during merges; it does not remove the bundled Copilot pricing evidence used by historical estimates.
+
+### October 4, 2026 snapshot
+
+Verified against `github/docs` revision [`2bd66de8cea336061c9ea060c9b37385136e6ab3`](https://github.com/github/docs/commit/2bd66de8cea336061c9ea060c9b37385136e6ab3) and both rendered references. The source contains **43 token-rate rows** and **16 annual-plan multipliers**. Two identities are newly registered:
+
+| Model | Input | Cached input | Cache write | Output | Long-context threshold |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Claude Sonnet 5.5 | $2 | $0.20 | $2.50 | $10 | None published |
+| GPT-6.1 Sol | $2 | $0.10 | $2.50 | $10 | Above 272,000 input tokens: $4 / $0.20 / $5 / $15 |
+
+Amounts are USD per million tokens; long-context rates apply to the entire request. New rows begin at TracePilot's **2026-10-04 verification boundary**. Existing listed rates and multipliers are unchanged. GitHub publishes no annual legacy multipliers for these new models; their `currentPremiumRequestDefaults` values are explicitly labeled local compatibility placeholders.
+
+Claude Opus 4.7, Gemini 3.5 Flash, Gemini 3.6 Flash, and Kimi K2.7 Code are absent from the token table. Opus 4.7 and Gemini 3.5 Flash are also absent from the annual table. All retain their September 27 prices, verification dates, and identities with an October 4 retention note. No retirement date or replacement-model price is inferred. Earlier retained entries and closed pricing history remain unchanged.
+
+The reviewed Gemini promotion footnote now names only Gemini 3.7 and 3.8 Flash. Their exclusive expiry remains `2027-01-01`; the retained Gemini 3.6 rate keeps that same previously published expiry. Delisting does not extend a promotion.
+
 ### September 27, 2026 snapshot
 
 Verified against `github/docs` revision [`18945a31a4f2d97beb6c5c1a7479102e23c25727`](https://github.com/github/docs/commit/18945a31a4f2d97beb6c5c1a7479102e23c25727) and the rendered references. All **44 token-rate rows** and **18 annual-plan multipliers** are covered. Four identities are newly registered:

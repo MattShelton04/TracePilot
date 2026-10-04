@@ -233,6 +233,8 @@ mod tests {
             ("gpt-6-sol", 2.0, 0.2, 2.5, 10.0, 2),
             ("gpt-6-luna", 0.1, 0.01, 0.125, 0.5, 2),
             ("grok-4.7", 2.0, 0.5, 0.0, 6.0, 2),
+            ("claude-sonnet-5.5", 2.0, 0.2, 2.5, 10.0, 1),
+            ("gpt-6.1-sol", 2.0, 0.1, 2.5, 10.0, 2),
         ] {
             let rows: Vec<_> = prices.iter().filter(|p| p.model == model).collect();
             assert_eq!(rows.len(), tiers);
@@ -246,7 +248,7 @@ mod tests {
                 decoded
                     .source_label
                     .unwrap()
-                    .contains("verified 2026-09-27")
+                    .contains("verified 2026-10-04")
             );
         }
         let luna_long = prices
@@ -256,6 +258,15 @@ mod tests {
         assert_eq!(luna_long.minimum_input_tokens, Some(272001));
         assert_eq!(luna_long.cache_write_per_m, Some(0.25));
         assert_eq!(luna_long.output_per_m, 0.75);
+        let sol_long = prices
+            .iter()
+            .find(|p| p.model == "gpt-6.1-sol" && p.minimum_input_tokens.is_some())
+            .unwrap();
+        assert_eq!(sol_long.minimum_input_tokens, Some(272001));
+        assert_eq!(sol_long.input_per_m, 4.0);
+        assert_eq!(sol_long.cached_input_per_m, 0.2);
+        assert_eq!(sol_long.cache_write_per_m, Some(5.0));
+        assert_eq!(sol_long.output_per_m, 15.0);
     }
 
     #[test]
@@ -302,5 +313,26 @@ mod tests {
         let label = retired.source_label.as_ref().unwrap();
         assert!(label.contains("verified 2026-07-17"));
         assert!(label.contains("absent from the September Copilot table"));
+        for model in [
+            "claude-opus-4.7",
+            "gemini-3.5-flash",
+            "gemini-3.6-flash",
+            "kimi-k2.7-code",
+        ] {
+            let price = prices.iter().find(|p| p.model == model).unwrap();
+            let encoded = toml::to_string(price).unwrap();
+            let decoded: ModelPriceEntry = toml::from_str(&encoded).unwrap();
+            let label = decoded.source_label.unwrap();
+            assert!(label.contains("verified 2026-09-27"));
+            assert!(label.contains("absent from the 2026-10-04 Copilot table"));
+            assert_eq!(
+                decoded.effective_to.as_deref(),
+                if model == "gemini-3.6-flash" {
+                    Some("2027-01-01")
+                } else {
+                    None
+                }
+            );
+        }
     }
 }

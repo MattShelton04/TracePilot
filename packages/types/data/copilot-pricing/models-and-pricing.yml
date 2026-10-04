@@ -240,6 +240,28 @@
   output: $15.00
   cache_write: $5.00
 
+- model: GPT-6.1 Sol
+  provider: openai
+  release_status: GA
+  category: Powerful
+  threshold: '≤ 272K'
+  tier: Default
+  input: $2.00
+  cached_input: $0.10
+  output: $10.00
+  cache_write: $2.50
+
+- model: GPT-6.1 Sol
+  provider: openai
+  release_status: GA
+  category: Powerful
+  threshold: '> 272K'
+  tier: 'Long context'
+  input: $4.00
+  cached_input: $0.20
+  output: $15.00
+  cache_write: $5.00
+
 # Anthropic
 - model: Claude Haiku 4.5
   provider: anthropic
@@ -267,15 +289,6 @@
   cached_input: $0.30
   output: $15.00
   cache_write: $3.75
-
-- model: Claude Opus 4.7
-  provider: anthropic
-  release_status: GA
-  category: Powerful
-  input: $5.00
-  cached_input: $0.50
-  output: $25.00
-  cache_write: $6.25
 
 - model: Claude Opus 4.8
   provider: anthropic
@@ -313,6 +326,15 @@
   output: $10.00
   cache_write: $2.50
 
+- model: Claude Sonnet 5.5
+  provider: anthropic
+  release_status: GA
+  category: Versatile
+  input: $2.00
+  cached_input: $0.20
+  output: $10.00
+  cache_write: $2.50
+
 - model: Claude Opus 4.8 (fast mode) (preview)
   provider: anthropic
   release_status: GA
@@ -341,26 +363,6 @@
   cache_write: $12.50
 
 # Google
-- model: 'Gemini 3.5 Flash'
-  provider: google
-  release_status: GA
-  category: Lightweight
-  threshold: 'Not applicable'
-  tier: 'Default'
-  input: $1.50
-  cached_input: $0.15
-  output: $9.00
-
-- model: 'Gemini 3.6 Flash[^gemini-flash-promo]'
-  provider: google
-  release_status: GA
-  category: Versatile
-  threshold: 'Not applicable'
-  tier: 'Default'
-  input: $0.75
-  cached_input: $0.075
-  output: $3.75
-
 - model: 'Gemini 3.7 Flash[^gemini-flash-promo]'
   provider: google
   release_status: GA
@@ -452,14 +454,6 @@
   output: $1.20
 
 # Open-weight models
-- model: 'Kimi K2.7 Code'
-  provider: moonshot_ai
-  release_status: GA
-  category: Versatile
-  input: $0.95
-  cached_input: $0.19
-  output: $4.00
-
 - model: 'Kimi K3'
   provider: moonshot_ai
   release_status: GA

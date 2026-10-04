@@ -117,6 +117,46 @@ describe("createPricingSlice", () => {
     expect(slice.getWholesalePrice("not-claude-sonnet-4.6-but-contains-it")).toBeUndefined();
   });
 
+  it("backfills October models while preserving saved overrides, removals and delisted prices", () => {
+    const saved = {
+      model: "claude-opus-4.7",
+      inputPerM: 99,
+      cachedInputPerM: 9,
+      outputPerM: 199,
+      premiumRequests: 15,
+    };
+    const merged = mergeWholesalePricesWithDefaults([saved], ["gemini-3.5-flash"]);
+    expect(merged.find((price) => price.model === saved.model)).toMatchObject(saved);
+    expect(merged.some((price) => price.model === "gemini-3.5-flash")).toBe(false);
+    expect(merged.filter((price) => price.model === "gpt-6.1-sol")).toMatchObject([
+      { inputPerM: 2, cachedInputPerM: 0.1, cacheWritePerM: 2.5, outputPerM: 10 },
+      {
+        minimumInputTokens: 272001,
+        inputPerM: 4,
+        cachedInputPerM: 0.2,
+        cacheWritePerM: 5,
+        outputPerM: 15,
+      },
+    ]);
+    expect(merged.find((price) => price.model === "claude-sonnet-5.5")).toMatchObject({
+      inputPerM: 2,
+      cachedInputPerM: 0.2,
+      cacheWritePerM: 2.5,
+      outputPerM: 10,
+    });
+    expect(merged.find((price) => price.model === "gemini-3.6-flash")?.effectiveTo).toBe(
+      "2027-01-01",
+    );
+    expect(merged.find((price) => price.model === "kimi-k2.7-code")?.sourceLabel).toContain(
+      "verified 2026-09-27",
+    );
+    const slice = createPricingSlice();
+    slice.modelWholesalePrices.value = merged;
+    expect(slice.computeUsageBasedCost(saved.model, 100_000, 0, 0)).toBe(0.5);
+    expect(slice.computeUsageBasedCost("Claude Sonnet 5.5", 100_000, 0, 0)).toBe(0.2);
+    expect(slice.computeUsageBasedCost("GPT-6.1 Sol", 100_000, 100_000, 0)).toBeCloseTo(0.01);
+  });
+
   it("computeWholesaleCost subtracts cache reads from input tokens", () => {
     const slice = createPricingSlice();
     slice.modelWholesalePrices.value = [

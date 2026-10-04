@@ -466,5 +466,23 @@
     "cachedInputPerM": 0.5,
     "outputPerM": 6,
     "premiumRequests": 1
+  },
+  {
+    "id": "claude-sonnet-5.5",
+    "name": "Claude Sonnet 5.5",
+    "tier": "standard",
+    "inputPerM": 2,
+    "cachedInputPerM": 0.2,
+    "outputPerM": 10,
+    "premiumRequests": 1
+  },
+  {
+    "id": "gpt-6.1-sol",
+    "name": "GPT-6.1 Sol",
+    "tier": "premium",
+    "inputPerM": 2,
+    "cachedInputPerM": 0.1,
+    "outputPerM": 10,
+    "premiumRequests": 1
   }
 ]
