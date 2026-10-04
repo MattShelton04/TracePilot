@@ -197,7 +197,9 @@ export function run(args = process.argv.slice(2)) {
   const provenance = {
     ...ciFields,
     nodeVersion: process.version,
-    rustcVersion: execFileSync("rustc", ["--version"], { encoding: "utf8" }).trim(),
+    rustcVersion:
+      process.env.BENCHMARK_RUSTC_VERSION ||
+      execFileSync("rustc", ["--version"], { encoding: "utf8" }).trim(),
     rustProfile: "bench",
   };
   const report = collectBenchmarkReport({

@@ -20,7 +20,11 @@ concurrency:
 
 jobs:
   report:
-    if: github.event.workflow_run.conclusion != 'cancelled'
+    if: >-
+      github.event.workflow_run.conclusion != 'cancelled' &&
+      (github.event.workflow_run.event == 'pull_request' ||
+       (github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == github.event.repository.default_branch))
     runs-on: ubuntu-24.04
     # The first run after the shared image store lands migrates every retained
     # report once (~2 minutes locally); later publications take under a minute.

@@ -13,7 +13,7 @@ Tauri. Direct script invocations generally expect dependencies to be present.
 | Install repository Git hooks | `pnpm hooks:install` | All; explicit opt-in | Uses the pinned local Lefthook. Dependency installation does not install or replace Git hooks. |
 | Develop the landing page | `pnpm site:dev` | All; manual | Generates showcase/release data and starts Vite on port 5180. See [landing-page guide](../docs/landing-page.md). |
 | Build the landing page | `pnpm site:build` | All; local/CI | Generates data and writes `site/dist/`; fetches release information at build time. |
-| Check the landing page | `pnpm site:check` | All; local/CI | Requires a built site and Playwright Chromium; runs viewport/interaction/CSP and size checks, saving ignored `site/.check/` screenshots. |
+| Check the landing page | `pnpm site:check` | All; local/CI | Requires a built site and Playwright Chromium; runs all viewport/interaction/CSP and size checks, saving ignored `site/.check/` screenshots. Add `--viewport 1440x960` (repeatable) for focused checks; CI shards the five modes against one shared build. |
 | Launch the real desktop app | `pnpm app:start` | Windows; manual diagnostic | Rust, Tauri/WebView2, pnpm dependencies; starts owned processes and uses the configured session/index data unless an isolated data root is supplied. See [automation](../docs/app-automation.md). |
 | Launch frontend mock UI | `pnpm app:ui` | Windows launcher; manual diagnostic | Starts Vite with mock IPC; cannot verify native behavior. |
 | Stop or inspect owned app process | `pnpm app:stop`, `pnpm app:status` | Windows; manual | Uses the automation launcher's recorded process identity. |
@@ -33,6 +33,7 @@ Node commands; it is not a second implementation of those tasks.
 | `node scripts/check-doc-links.mjs` | Check relative Markdown file targets across repository docs; accepts explicit paths for staged checks. | Local `just check-docs` and lefthook; CI policy. Read-only. It does not validate anchors or paths written only in code spans. |
 | `node scripts/check-adr.mjs` | Check ADR headings, dates, status, and index membership. | Local `just check-docs` and lefthook; CI policy. Read-only. |
 | `node scripts/check-workflow-actions.mjs` | Check pinned action SHAs and comments. | CI policy; `--verify-remote` uses GitHub API in CI. Read-only without that flag. |
+| `node scripts/ci/classify-changes.mjs`, `node scripts/ci/classify-changes.mjs --verify-required` | Select application checks from the complete PR merge diff and strictly verify the required job results. | CI only; consumes GitHub event/output or `CI_NEEDS` environment data. Contracts: `node --test scripts/ci/classify-changes.test.mjs`. |
 | `node scripts/check-file-sizes.mjs` | Enforce source line budgets. | CI and lefthook. Read-only. |
 | `node scripts/check-catalog-drift.mjs` | Check pnpm catalogue references. | `just ci`; read-only. |
 | `node scripts/check-csp.mjs` | Guard Tauri CSP. | `just ci` and lefthook; read-only. |
@@ -69,7 +70,7 @@ Node commands; it is not a second implementation of those tasks.
 | `site/scripts/` | Data export/validation, release/HTML facts, browser checks and shared preview lifecycle. Tests: `pnpm --filter @tracepilot/site test`; social image: `pnpm --filter @tracepilot/site og` after a build. | Generated data and screenshots are ignored; OG generation updates committed `site/public/og.png`. See [landing-page guide](../docs/landing-page.md). |
 | `node scripts/site/publish.mjs --dist site/dist` | Trusted Site workflow publisher; CI only. Tests: `node --test scripts/site/*.test.mjs` use a scratch Git remote. | Writes only manifest-owned paths in the shared gh-pages root, preserving visual history and benchmarks. `--no-api` is for scratch-remote testing. |
 | `scripts/perf/` | Performance/bundle probes and comparison contracts. Focused tests: `node --test scripts/perf/*.test.mjs`. | Some probes launch a native app or read selected data and write ignored `.tracepilot/perf/`; review the particular command first. See [performance playbook](../docs/performance-playbook.md). |
-| `scripts/ci/` | Imported PR reference/comment helpers, with `*.test.mjs` contracts. | `node --test scripts/ci/*.test.mjs` is read-only; workflow publishers may post comments. |
+| `scripts/ci/` | CI job selection/required-gate verification and imported PR reference/comment helpers, with `*.test.mjs` contracts. | `node --test scripts/ci/*.test.mjs` uses isolated scratch repositories; workflow publishers may post comments. The CI policy job also runs checksum-pinned actionlint with the runner's ShellCheck to validate workflows, expressions, action inputs and embedded Bash. |
 
 The tests and imported helpers in these groups are not standalone user commands.
 Keep externally documented wrapper paths and the visual publisher's isolated

@@ -37,6 +37,11 @@ wheel cancellation of the tour. Reduced motion keeps the hero visible and
 disables the tour. It saves 50 section screenshots in ignored `site/.check/`.
 Review these images when changing layout or choreography.
 
+For a focused check, use `pnpm site:check --viewport 1440x960` (repeat
+`--viewport` to select several). With no selection, the command still checks
+all five modes. CI runs each mode in a separate job against one shared build;
+every job checks the size budget, beacon markup and all platform download cases.
+
 The `site` thresholds in [`perf-budget.json`](../perf-budget.json) enforce
 gzipped JS, CSS and generated data sizes. They were set from the first build
 with about 10% headroom: 142, 37 and 14 KiB respectively. Keep budget changes
@@ -175,12 +180,19 @@ under Analytics & Logs → Web Analytics.
 [`Site`](../.github/workflows/site.yml) builds/checks matching PRs and pushes to
 main, successful `Release` workflow completions, and manual dispatches. Release
 publication uses `GITHUB_TOKEN`, so a `release: published` trigger would not
-start this workflow. The read-only build job installs dependencies and Chromium,
-runs both test suites and browser checks, then uploads `site-dist` (7 days) and
-check screenshots (14 days, including failed checks).
+start this workflow. The read-only build job installs the site's workspace
+dependency graph, runs both test suites and uploads `site-dist` (7 days),
+containing the build and its generated showcase/release data. Five independent
+browser jobs download that exact artifact and install Chromium, retaining all
+viewport and interaction coverage. Each uploads
+`site-check-screenshots-<viewport>` (14 days, including failed checks);
+hidden-file uploads are enabled because `.check/` is hidden.
 
 Only non-PR main runs can deploy. The write-permission job checks out the default
-branch, runs the publisher tests, downloads this run's build and publishes it.
+branch, runs the publisher tests, downloads this run's build and publishes it
+after all five browser jobs pass. If the site inputs changed on the default
+branch after the build, publication is skipped; unrelated changes still allow
+the checked artifact to publish.
 It records the actual build revision in the publish commit. PR code never runs
 in that job. Actions are pinned to full SHAs.
 
@@ -195,9 +207,11 @@ build creates no commit. A rejected push gets up to three retries, each fetching
 and reapplying on the new branch tip; successful pushes request a Pages build.
 
 The deploy job shares `visual-gallery-publish`, `queue: max`, and
-`cancel-in-progress: false` with the visual publisher. PR builds have separate
-concurrency. Preserve the Pages branch source; switching to `actions/deploy-pages`
-would replace the shared content. Existing `visual/`, `dev/bench/`, `.nojekyll`
+`cancel-in-progress: false` with the visual publisher. Workflow concurrency
+cancels superseded PR builds and their browser jobs; main runs finish in sequence,
+with only the newest pending run retained. Preserve the Pages branch source;
+switching to `actions/deploy-pages` would replace the shared content. Existing
+`visual/`, `dev/bench/`, `.nojekyll`
 and `README.md` remain owned by their current publishers. No root `404.html`
 is supplied because it would affect gallery misses too.
 

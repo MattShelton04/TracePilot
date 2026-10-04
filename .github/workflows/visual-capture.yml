@@ -3,10 +3,10 @@ name: Desktop Visual Capture
 on:
   pull_request:
     branches: [main]
-    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', 'scripts/fixtures/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
+    paths: ['apps/desktop/**', '!apps/desktop/src-tauri/**', 'packages/**', 'scripts/visual/**', 'scripts/fixtures/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
   push:
     branches: [main]
-    paths: ['apps/desktop/**', 'packages/**', 'scripts/visual/**', 'scripts/fixtures/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
+    paths: ['apps/desktop/**', '!apps/desktop/src-tauri/**', 'packages/**', 'scripts/visual/**', 'scripts/fixtures/**', 'scripts/ci/**', '.github/actions/setup-node-pnpm/**', '.github/workflows/visual-*.yml', '.node-version', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json']
   workflow_dispatch:
 
 # PR code, including fork dependencies/configuration, runs ONLY with read access.
@@ -55,7 +55,7 @@ jobs:
         working-directory: harness
         run: pnpm install --frozen-lockfile --filter tracepilot --ignore-scripts
       - name: Install lockfile-pinned Chromium
-        run: node harness/node_modules/playwright-core/cli.js install --with-deps chromium
+        run: node harness/node_modules/playwright-core/cli.js install --with-deps --only-shell chromium
       - name: Harness policy tests
         run: |
           npm ci --prefix harness/scripts/visual --ignore-scripts --no-audit --no-fund

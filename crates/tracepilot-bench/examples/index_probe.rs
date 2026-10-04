@@ -33,6 +33,15 @@ use std::time::Instant;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // CI embeds the measured commit when compiling each isolated binary.
+    // Check it before measurement so a stale copied executable fails loudly.
+    if args.get(1).map(String::as_str) == Some("--revision") {
+        println!(
+            "{}",
+            serde_json::json!({ "revision_sha": option_env!("TRACEPILOT_PROBE_REVISION") })
+        );
+        return;
+    }
     if args.len() < 4 {
         eprintln!("usage: index_probe <mode> <session-state-dir> <index-db> [n]");
         std::process::exit(2);
@@ -161,6 +170,7 @@ fn main() {
         "{}",
         serde_json::json!({
             "mode": mode, "elapsed_ms": elapsed_ms, "peak_rss_kib": peak,
+            "revision_sha": option_env!("TRACEPILOT_PROBE_REVISION"),
             "memory_budget_mib": memory_budget, "cancellation": cancellation, "detail": detail,
         })
     );

@@ -33,6 +33,38 @@ lockfile. Informational RustSec notices remain visible without failing it.
 See the [dependency security reference](dependencies/security.md) for scanner
 scopes, remaining notices, and the separate cargo-deny policy findings.
 
+CI runs its full application coverage on every main push. PRs use the complete
+base-to-merge diff: documentation-only changes skip application builds/tests;
+changes confined to `site/` and documentation retain frontend builds and
+workspace tests but skip desktop tests, Rust, Windows automation/installer and
+the macOS bundle. Shared package, lockfile, workflow, script and unknown-path
+changes run all jobs. Repository policy and live dependency audits always run.
+The single `required` check verifies that selected jobs succeeded and that
+only unselected jobs were skipped; missing classification, cancellation or
+an unexpected skip fails it. Selection and gate contracts live in
+`scripts/ci/classify-changes.mjs` and its Node test suite.
+
+Linux, Windows and macOS each have one main-branch pnpm cache writer. PRs
+restore main caches without saving branch-local entries. Filtered dependency
+installs use distinct keys and can fall back to the full workspace store.
+Rust caches retain dependencies per workload; CI tests omit debug symbols
+while retaining debug assertions. The release profile remains the shipping
+profile; installer/bundle CI disables LTO and uses 16 codegen units to check
+native packaging without paying its shipping optimization cost. Rust commands
+use `--locked`, and example contracts use the same workspace feature set as
+the unit suites to avoid recompiling core dependencies between steps.
+
+The security job verifies the checksum of RustSec's pinned cargo-audit binary
+before installation and still refreshes the advisory database on every run.
+The existing audit reporter preserves vulnerability failures and visible
+informational notices, including its log fallback on fork PRs.
+
+The policy job checks workflow syntax, expressions and embedded Bash with
+checksum-pinned actionlint 1.7.12 and the runner's ShellCheck, in addition to
+remote action-pin verification. That actionlint release predates GitHub's
+`concurrency.queue` field; only its unknown-key diagnostic for that field is
+ignored. Remove the narrow exception when updating to a supporting release.
+
 ## 1. Unit & integration (Vitest)
 
 - **Run all:** `pnpm test`; the runner reports the current test inventory.

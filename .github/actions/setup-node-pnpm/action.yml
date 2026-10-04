@@ -10,6 +10,10 @@ inputs:
     description: Save a new pnpm store cache when running on main
     required: false
     default: "false"
+  install-filter:
+    description: Optional pnpm workspace selector (for example @tracepilot/site...)
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -29,7 +33,14 @@ runs:
       id: pnpm-store
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      env:
+        INSTALL_FILTER: ${{ inputs.install-filter }}
+      run: |
+        echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        # Filtered installs must not lock an incomplete store into the full
+        # workspace's immutable key. They can still restore that larger store.
+        scope=$(node -e 'const {createHash}=require("node:crypto"); const filter=process.env.INSTALL_FILTER; console.log(filter ? "filter-"+createHash("sha256").update(filter).digest("hex").slice(0,16) : "all")')
+        echo "scope=$scope" >> "$GITHUB_OUTPUT"
 
     # Restore and save are separate so PRs can consume main's cache without
     # creating large, PR-scoped entries that no other branch can reuse.
@@ -38,14 +49,22 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
-        key: pnpm-store-${{ runner.os }}-v10-${{ hashFiles(format('{0}/pnpm-lock.yaml', inputs.working-directory)) }}
+        key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-v10-${{ steps.pnpm-store.outputs.scope }}-${{ hashFiles(format('{0}/pnpm-lock.yaml', inputs.working-directory)) }}
         restore-keys: |
-          pnpm-store-${{ runner.os }}-v10-
+          pnpm-store-${{ runner.os }}-${{ runner.arch }}-v10-${{ steps.pnpm-store.outputs.scope }}-
+          pnpm-store-${{ runner.os }}-${{ runner.arch }}-v10-all-
 
     - name: Install pnpm dependencies
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: pnpm install --frozen-lockfile
+      env:
+        INSTALL_FILTER: ${{ inputs.install-filter }}
+      run: |
+        if [ -n "$INSTALL_FILTER" ]; then
+          pnpm --filter "$INSTALL_FILTER" install --frozen-lockfile
+        else
+          pnpm install --frozen-lockfile
+        fi
 
     - name: Save pnpm store
       if: >-
@@ -56,4 +75,4 @@ runs:
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
-        key: pnpm-store-${{ runner.os }}-v10-${{ hashFiles(format('{0}/pnpm-lock.yaml', inputs.working-directory)) }}
+        key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-v10-${{ steps.pnpm-store.outputs.scope }}-${{ hashFiles(format('{0}/pnpm-lock.yaml', inputs.working-directory)) }}

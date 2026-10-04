@@ -32,6 +32,7 @@ jobs:
       release_id: ${{ steps.create.outputs.id }}
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.revision.outputs.sha }}
     steps:
       - name: Validate release tag
         id: version
@@ -51,6 +52,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.version.outputs.tag }}
+          persist-credentials: false
+
+      - name: Record the immutable release revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Check version consistency
         shell: bash
@@ -75,9 +81,11 @@ jobs:
           if [ -z "$SECTION" ]; then
             SECTION="See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/CHANGELOG.md) for details."
           fi
-          echo "body<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$SECTION" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "body<<EOF"
+            echo "$SECTION"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       # Always create a draft first. A failed installer build must not leave a
       # published release with missing assets.
@@ -99,7 +107,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: ${{ needs.create-release.outputs.sha }}
+          persist-credentials: false
 
       - uses: ./.github/actions/setup-node-pnpm
 
@@ -119,6 +128,7 @@ jobs:
           projectPath: apps/desktop
           releaseId: ${{ needs.create-release.outputs.release_id }}
           uploadUpdaterJson: true
+          args: -- --locked
 
       - name: Upload standalone exe
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
@@ -140,7 +150,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.create-release.outputs.tag }}
+          ref: ${{ needs.create-release.outputs.sha }}
+          persist-credentials: false
 
       - uses: ./.github/actions/setup-node-pnpm
 
@@ -161,6 +172,7 @@ jobs:
           projectPath: apps/desktop
           releaseId: ${{ needs.create-release.outputs.release_id }}
           uploadUpdaterJson: false
+          args: -- --locked
 
       - name: Verify, install from disk image, and launch
         run: bash scripts/macos/bundle-smoke.sh
@@ -250,4 +262,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.create-release.outputs.tag }}
-        run: gh release edit "$TAG" --draft=false
+          BUILD_SHA: ${{ needs.create-release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          tag_sha=$(gh api "repos/$GH_REPO/commits/$TAG" --jq '.sha')
+          if [ "$tag_sha" != "$BUILD_SHA" ]; then
+            echo "::error::Release tag moved after validation; refusing to publish different source."
+            exit 1
+          fi
+          gh release edit "$TAG" --draft=false

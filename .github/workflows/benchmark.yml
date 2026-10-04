@@ -15,9 +15,13 @@ concurrency:
 
 jobs:
   benchmark:
-    name: Run Criterion Benchmarks
+    name: Criterion (${{ matrix.suite }})
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [parsing, analytics, indexer, batch_size, ipc_hot_path]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -26,7 +30,41 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           cache-key: benchmark-release
-          save-cache: "true"
+          # Every suite has the same dependency graph. One writer avoids cache
+          # upload races and keeps all PR comparisons on the same main cache.
+          save-cache: ${{ matrix.suite == 'parsing' }}
+
+      - name: Warm release probe dependencies for PR comparisons
+        if: matrix.suite == 'parsing'
+        run: cargo build --locked --release -p tracepilot-bench --example index_probe --example performance_probe
+
+      - name: Run benchmark suite
+        run: |
+          # Measurements are per run; no old Criterion data may survive a
+          # cache restore or satisfy the required-results contract.
+          rm -rf target/criterion
+          cargo bench --locked -p tracepilot-bench --bench ${{ matrix.suite }}
+          rustc --version > target/criterion/${{ matrix.suite }}-rustc-version.txt
+
+      - name: Upload suite results and HTML reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: criterion-suite-${{ matrix.suite }}
+          path: target/criterion
+          if-no-files-found: error
+          retention-days: 90
+
+  summary:
+    name: Validate and summarize benchmarks
+    needs: benchmark
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -36,18 +74,38 @@ jobs:
       - name: Verify benchmark result contract
         run: node --test scripts/perf/check-budgets.test.mjs
 
-      - name: Run benchmarks
-        run: cargo bench -p tracepilot-bench
+      - name: Download suite measurements
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: criterion-suite-*
+          path: target/criterion
+          merge-multiple: true
 
       - name: Validate and summarize required results
         shell: bash
+        env:
+          BENCHMARK_RESULT: ${{ needs.benchmark.result }}
         run: |
-          node scripts/perf/check-budgets.mjs \
+          toolchain_files=(target/criterion/*-rustc-version.txt)
+          if [[ "${#toolchain_files[@]}" -ne 5 ]]; then
+            echo "::error::Missing benchmark-suite toolchain provenance."
+            exit 1
+          fi
+          if [[ "$(sort -u "${toolchain_files[@]}" | wc -l)" -ne 1 ]]; then
+            echo "::error::Benchmark suites used different Rust toolchains."
+            exit 1
+          fi
+          rustc_version="$(cat target/criterion/parsing-rustc-version.txt)"
+          BENCHMARK_RUSTC_VERSION="$rustc_version" node scripts/perf/check-budgets.mjs \
             --criterion=target/criterion \
             --budget=perf-budget.json \
             --output=benchmark-output.json \
             --summary=benchmark-summary.md 2>&1 | tee benchmark-contract.log
           cat benchmark-summary.md >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$BENCHMARK_RESULT" != success ]]; then
+            echo "::error::At least one benchmark suite failed; results are incomplete."
+            exit 1
+          fi
 
       - name: Upload Criterion reports and machine-readable summary
         if: always()
@@ -55,7 +113,6 @@ jobs:
         with:
           name: criterion-v2-nonempty-fixtures-${{ github.run_number }}
           path: |
-            target/criterion
             benchmark-output.json
             benchmark-summary.md
             benchmark-contract.log

@@ -43,6 +43,27 @@ if ((currentRun.run_attempt ?? 1) !== (run.run_attempt ?? 1)) {
   console.log("A newer capture attempt exists; skipping superseded publication.");
   process.exit(0);
 }
+let pr;
+if (run.event === "pull_request") {
+  const associated = await api(`/commits/${run.head_sha}/pulls`);
+  pr = associated.find(
+    (item) =>
+      item.state === "open" &&
+      item.head.sha === run.head_sha &&
+      item.base.repo.full_name === repo &&
+      item.base.ref === event.repository.default_branch &&
+      (!run.pull_requests?.length ||
+        run.pull_requests.some((source) => source.number === item.number)),
+  );
+  if (!pr) {
+    console.log("PR closed or superseded; skipping stale report.");
+    process.exit(0);
+  }
+} else if (run.event !== "push" || run.head_branch !== event.repository.default_branch) {
+  console.log("Only current PRs and default-branch pushes are published.");
+  process.exit(0);
+}
+// Resolve superseded/closed PRs before downloading and decoding their images.
 const workspace = resolve(".tracepilot/visual-publish");
 const output = resolve(".tracepilot/visual-report");
 await mkdir(workspace, { recursive: true });
@@ -64,26 +85,6 @@ for (const artifact of artifacts) {
     [join(dirname(fileURLToPath(import.meta.url)), "extract.py"), zip, join(workspace, match[1])],
     { stdio: "inherit" },
   );
-}
-let pr;
-if (run.event === "pull_request") {
-  const associated = await api(`/commits/${run.head_sha}/pulls`);
-  pr = associated.find(
-    (item) =>
-      item.state === "open" &&
-      item.head.sha === run.head_sha &&
-      item.base.repo.full_name === repo &&
-      item.base.ref === event.repository.default_branch &&
-      (!run.pull_requests?.length ||
-        run.pull_requests.some((source) => source.number === item.number)),
-  );
-  if (!pr) {
-    console.log("PR closed or superseded; skipping stale report.");
-    process.exit(0);
-  }
-} else if (run.event !== "push" || run.head_branch !== event.repository.default_branch) {
-  console.log("Only current PRs and default-branch pushes are published.");
-  process.exit(0);
 }
 const title = `${pr ? `PR #${pr.number}` : "Main"} · ${run.head_sha.slice(0, 8)} · fixture visual comparison`;
 const { rows, summary, metadata, files } = await buildReport({
