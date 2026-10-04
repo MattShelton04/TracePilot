@@ -2,10 +2,8 @@
 import {
   type AiCreditUsage,
   type ModelMetricDetail,
-  resolveAiCreditUsage,
   type SessionSegment,
   type ShutdownMetrics,
-  sumTokenCosts,
 } from "@tracepilot/types";
 import {
   Badge,
@@ -19,7 +17,9 @@ import {
 } from "@tracepilot/ui";
 import { computed } from "vue";
 import { useClientPager } from "@/composables/useClientPager";
+import { shutdownAiCreditUsage } from "@/composables/useSessionMetrics";
 import { usePreferencesStore } from "@/stores/preferences";
+import { modelTokenBreakdown, shutdownTokenBreakdown } from "@/utils/metricsTokenBreakdown";
 
 const props = defineProps<{
   metrics: ShutdownMetrics;
@@ -36,11 +36,15 @@ const visibleSegments = computed(() =>
     seg,
     index: page.value * PAGE_SIZE + offset,
     duration: segmentDurationMs(seg),
-    credits: segmentAiCredits(seg),
+    tokens: shutdownTokenBreakdown(seg).total,
+    credits: shutdownAiCreditUsage(seg, prefs),
     models: sortedSegmentModels(seg.modelMetrics).map(([name, metric]) => ({
       name,
-      metric,
-      credits: modelAiCredits(name, metric),
+      tokens: modelTokenBreakdown(metric).total,
+      credits: shutdownAiCreditUsage(
+        { totalNanoAiu: metric.totalNanoAiu, modelMetrics: { [name]: metric } },
+        prefs,
+      ),
     })),
   })),
 );
@@ -52,8 +56,8 @@ function sortedSegmentModels(
   return Object.entries(modelMetrics).sort(([, a], [, b]) => {
     const costDiff = (b.requests?.cost ?? 0) - (a.requests?.cost ?? 0);
     if (costDiff !== 0) return costDiff;
-    const tokensA = (a.usage?.inputTokens ?? 0) + (a.usage?.outputTokens ?? 0);
-    const tokensB = (b.usage?.inputTokens ?? 0) + (b.usage?.outputTokens ?? 0);
+    const tokensA = modelTokenBreakdown(a).total ?? -1;
+    const tokensB = modelTokenBreakdown(b).total ?? -1;
     return tokensB - tokensA;
   });
 }
@@ -61,80 +65,6 @@ function sortedSegmentModels(
 function segmentDurationMs(seg: SessionSegment): number | null {
   if (!seg.startTimestamp || !seg.endTimestamp) return null;
   return new Date(seg.endTimestamp).getTime() - new Date(seg.startTimestamp).getTime();
-}
-
-function modelAiCredits(name: string, metric: ModelMetricDetail): AiCreditUsage {
-  const observed = resolveAiCreditUsage(metric.totalNanoAiu);
-  if (observed.source === "observed") return observed;
-  const usage = metric.usage;
-  const hasTokenUsage =
-    (usage?.inputTokens ?? 0) +
-      (usage?.outputTokens ?? 0) +
-      (usage?.cacheReadTokens ?? 0) +
-      (usage?.cacheWriteTokens ?? 0) >
-    0;
-  const usageEstimate = hasTokenUsage
-    ? prefs.computeUsageBasedCostBreakdown(
-        name,
-        usage?.inputTokens ?? 0,
-        usage?.cacheReadTokens ?? 0,
-        usage?.outputTokens ?? 0,
-        usage?.cacheWriteTokens ?? 0,
-      )
-    : null;
-  const directEstimate = hasTokenUsage
-    ? prefs.computeWholesaleCostBreakdown(
-        name,
-        usage?.inputTokens ?? 0,
-        usage?.cacheReadTokens ?? 0,
-        usage?.outputTokens ?? 0,
-        usage?.cacheWriteTokens ?? 0,
-      )
-    : null;
-  return resolveAiCreditUsage(metric.totalNanoAiu, usageEstimate, directEstimate);
-}
-
-function segmentAiCredits(segment: SessionSegment): AiCreditUsage {
-  const observed = resolveAiCreditUsage(segment.totalNanoAiu);
-  if (observed.source === "observed") return observed;
-  const models = Object.entries(segment.modelMetrics ?? {});
-  const hasTokenUsage = models.some(
-    ([, metric]) =>
-      (metric.usage?.inputTokens ?? 0) +
-        (metric.usage?.outputTokens ?? 0) +
-        (metric.usage?.cacheReadTokens ?? 0) +
-        (metric.usage?.cacheWriteTokens ?? 0) >
-      0,
-  );
-  return resolveAiCreditUsage(
-    segment.totalNanoAiu,
-    hasTokenUsage
-      ? sumTokenCosts(
-          models.map(([name, metric]) =>
-            prefs.computeUsageBasedCostBreakdown(
-              name,
-              metric.usage?.inputTokens ?? 0,
-              metric.usage?.cacheReadTokens ?? 0,
-              metric.usage?.outputTokens ?? 0,
-              metric.usage?.cacheWriteTokens ?? 0,
-            ),
-          ),
-        )
-      : null,
-    hasTokenUsage
-      ? sumTokenCosts(
-          models.map(([name, metric]) =>
-            prefs.computeWholesaleCostBreakdown(
-              name,
-              metric.usage?.inputTokens ?? 0,
-              metric.usage?.cacheReadTokens ?? 0,
-              metric.usage?.outputTokens ?? 0,
-              metric.usage?.cacheWriteTokens ?? 0,
-            ),
-          ),
-        )
-      : null,
-  );
 }
 
 function sourceLabel(source: AiCreditUsage["source"]): string {
@@ -155,7 +85,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
     </nav>
     <div class="activity-horizontal" tabindex="0" role="region" aria-label="Session activity">
       <div
-        v-for="{ seg, index: idx, duration, credits, models } in visibleSegments"
+        v-for="{ seg, index: idx, duration, tokens, credits, models } in visibleSegments"
         :key="idx"
         class="activity-tile"
       >
@@ -171,27 +101,24 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
           <Badge v-if="idx === metrics.sessionSegments.length - 1" variant="success" size="sm">Latest</Badge>
         </div>
 
-        <div class="activity-hero" :class="{ 'activity-hero--empty': seg.tokens === 0 }">
-          <div v-if="seg.tokens > 0" class="hero-stats">
+        <div class="activity-hero" :class="{ 'activity-hero--empty': tokens === 0 }">
+          <div class="hero-stats">
             <div class="hero-main">
-              <span class="hero-val">{{ formatNumber(seg.tokens) }}</span>
+              <span class="hero-val" :title="tokens == null ? 'Token total unavailable' : undefined">{{ tokens == null ? '—' : formatNumber(tokens) }}</span>
               <span class="hero-unit">tokens</span>
             </div>
           </div>
-          <div v-else class="hero-empty">
-            <span class="text-[var(--text-tertiary)]">No interaction recorded</span>
-          </div>
         </div>
 
-        <div v-if="seg.tokens > 0" class="activity-details">
+        <div v-if="models.length" class="activity-details">
           <div
-            v-for="{ name, metric: m, credits: modelCredits } in models"
+            v-for="{ name, tokens: modelTokens, credits: modelCredits } in models"
             :key="name"
             class="model-row"
           >
             <div class="row-main">
               <span class="model-name">{{ name }}</span>
-              <span class="model-tokens">{{ formatNumber((m.usage?.inputTokens ?? 0) + (m.usage?.outputTokens ?? 0)) }} <small>tokens</small></span>
+              <span class="model-tokens">{{ modelTokens == null ? '—' : formatNumber(modelTokens) }} <small>tokens</small></span>
             </div>
             <div class="row-costs">
               <span
@@ -210,7 +137,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
           </div>
         </div>
 
-        <div v-if="seg.tokens > 0" class="activity-tile-costs">
+        <div class="activity-tile-costs">
           <span class="cost-pill blue-text" :title="sourceLabel(credits.source)">
             {{ formatAiCredits(credits.credits) }}
           </span>
@@ -353,11 +280,6 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-}
-
-.hero-empty {
-  font-size: 0.6875rem;
-  color: var(--text-placeholder);
 }
 
 .activity-details {
