@@ -12,7 +12,7 @@ defineProps<{
   metrics: ShutdownMetrics;
   totalRequests: number;
   copilotCost: number;
-  totalWholesaleCost: number;
+  totalWholesaleCost: number | null;
   aiCreditUsage: AiCreditUsage;
   totalTokens: number | null;
 }>();
@@ -42,7 +42,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
     <StatCard :value="totalRequests" label="Total Requests" color="accent" />
     <StatCard :value="metrics.totalPremiumRequests?.toFixed(1) ?? '—'" label="Legacy Premium Requests" color="warning" />
     <StatCard :value="formatCost(copilotCost)" label="Legacy Cost Estimate" color="warning" />
-    <StatCard :value="totalWholesaleCost > 0 ? formatCost(totalWholesaleCost) : '—'" label="Direct API Estimate" color="done" />
+    <StatCard :value="totalWholesaleCost != null ? formatCost(totalWholesaleCost) : '—'" label="Direct API Estimate" color="done" />
   </div>
 
   <p class="cost-legend mb-6">

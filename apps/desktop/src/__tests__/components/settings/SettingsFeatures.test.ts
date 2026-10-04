@@ -1,5 +1,5 @@
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
-import { createPinia, setActivePinia } from "pinia";
+import { createPinia, disposePinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import SettingsAlerts from "@/components/settings/SettingsAlerts.vue";
@@ -18,7 +18,14 @@ vi.mock("@/composables/useAlertDispatcher", () => ({
   dispatchTestAlert: vi.fn(),
 }));
 
+// Settings rendering does not need the bridge's delayed connection lifecycle.
+vi.mock("@/stores/sdk", () => ({
+  useSdkStore: () => ({ autoConnect: vi.fn() }),
+}));
+
 enableAutoUnmount(afterEach);
+let pinia: ReturnType<typeof createPinia>;
+afterEach(() => disposePinia(pinia));
 
 function tooltipTexts(wrapper: ReturnType<typeof mount>): string[] {
   return wrapper.findAll('[data-tp-component="Tooltip"]').flatMap((trigger) => {
@@ -30,9 +37,10 @@ function tooltipTexts(wrapper: ReturnType<typeof mount>): string[] {
 
 describe("settings feature groups", () => {
   beforeEach(async () => {
-    setActivePinia(createPinia());
+    pinia = createPinia();
+    setActivePinia(pinia);
     localStorage.clear();
-    await usePreferencesStore().whenReady;
+    await usePreferencesStore(pinia).whenReady;
   });
 
   it("shows recommended and experimental features in the requested order", async () => {
@@ -87,16 +95,17 @@ describe("settings feature groups", () => {
 
 describe("recent sessions setting", () => {
   beforeEach(async () => {
-    setActivePinia(createPinia());
+    pinia = createPinia();
+    setActivePinia(pinia);
     localStorage.clear();
-    await usePreferencesStore().whenReady;
+    await usePreferencesStore(pinia).whenReady;
   });
 
   it("keeps the empty-session explanation in sync with the switch", async () => {
     const wrapper = mount(SettingsGeneral);
     await flushPromises();
-    const preferences = usePreferencesStore();
-    const sessions = useSessionsStore();
+    const preferences = usePreferencesStore(pinia);
+    const sessions = useSessionsStore(pinia);
     sessions.sessions = [
       {
         id: "empty",
@@ -127,7 +136,7 @@ describe("recent sessions setting", () => {
     const wrapper = mount(SettingsGeneral);
     await flushPromises();
 
-    const preferences = usePreferencesStore();
+    const preferences = usePreferencesStore(pinia);
     preferences.sessionCacheSize += 1;
     await nextTick();
 
@@ -143,9 +152,10 @@ describe("recent sessions setting", () => {
 
 describe("rich tool rendering settings", () => {
   beforeEach(async () => {
-    setActivePinia(createPinia());
+    pinia = createPinia();
+    setActivePinia(pinia);
     localStorage.clear();
-    await usePreferencesStore().whenReady;
+    await usePreferencesStore(pinia).whenReady;
   });
 
   it("keeps per-tool overrides collapsed until requested", async () => {
@@ -167,7 +177,7 @@ describe("rich tool rendering settings", () => {
     const wrapper = mount(SettingsToolVisualization);
     await flushPromises();
 
-    const preferences = usePreferencesStore();
+    const preferences = usePreferencesStore(pinia);
     preferences.setToolRenderingOverride("view", false);
     await nextTick();
 

@@ -5,11 +5,15 @@ import {
   sumTokenCosts,
 } from "@tracepilot/types";
 import { type ComputedRef, computed } from "vue";
+import {
+  hasObservedCreditsWithZeroTokens,
+  shutdownAiCreditUsage,
+} from "@/composables/useSessionMetrics";
 import type { usePreferencesStore } from "@/stores/preferences";
 import {
-  combinedTokenBreakdown,
   type MetricsTokenBreakdown,
   modelTokenBreakdown,
+  shutdownTokenBreakdown,
 } from "@/utils/metricsTokenBreakdown";
 
 type PreferencesStore = ReturnType<typeof usePreferencesStore>;
@@ -46,26 +50,40 @@ export function useMetricsTabData(
         const cacheReadTokens = data.usage?.cacheReadTokens ?? 0;
         const cacheWriteTokens = data.usage?.cacheWriteTokens ?? 0;
         const reasoningTokens = data.usage?.reasoningTokens ?? null;
+        const tokens = modelTokenBreakdown(data);
+        // Recorded zero usage costs nothing, even for a model without a price.
         const hasTokenUsage = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens > 0;
-        const usageBased = prefs.computeUsageBasedCostBreakdown(
-          name,
-          inputTokens,
-          cacheReadTokens,
-          outputTokens,
-          cacheWriteTokens,
-        );
+        const usageBased =
+          tokens.total == null
+            ? null
+            : hasTokenUsage
+              ? prefs.computeUsageBasedCostBreakdown(
+                  name,
+                  inputTokens,
+                  cacheReadTokens,
+                  outputTokens,
+                  cacheWriteTokens,
+                )
+              : sumTokenCosts([]);
         const premiumRequests = data.requests?.cost ?? 0;
-        const wholesale = prefs.computeWholesaleCostBreakdown(
-          name,
-          inputTokens,
-          cacheReadTokens,
-          outputTokens,
-          cacheWriteTokens,
-        );
+        // A recorded charge conflicts with the zero counters, so the direct
+        // fallback cannot confidently present a free model or session estimate.
+        const wholesale =
+          tokens.total == null || hasObservedCreditsWithZeroTokens(data)
+            ? null
+            : hasTokenUsage
+              ? prefs.computeWholesaleCostBreakdown(
+                  name,
+                  inputTokens,
+                  cacheReadTokens,
+                  outputTokens,
+                  cacheWriteTokens,
+                )
+              : sumTokenCosts([]);
         const aiCreditUsage = resolveAiCreditUsage(
           data.totalNanoAiu,
-          hasTokenUsage && !observedOnly ? usageBased : null,
-          hasTokenUsage && !observedOnly ? wholesale : null,
+          observedOnly ? null : usageBased,
+          observedOnly ? null : wholesale,
         );
         return {
           name,
@@ -73,7 +91,7 @@ export function useMetricsTabData(
           aiCredits: aiCreditUsage.credits,
           aiCreditUsd: aiCreditUsage.usdEquivalent,
           aiCreditSource: aiCreditUsage.source,
-          directApiCost: wholesale.totalCost,
+          directApiCost: wholesale?.totalCost ?? null,
           inputTokens,
           outputTokens,
           cacheReadTokens,
@@ -81,7 +99,7 @@ export function useMetricsTabData(
           reasoningTokens,
           totalTokens: inputTokens + outputTokens,
           legacyPremiumRequests: premiumRequests,
-          tokens: modelTokenBreakdown(data),
+          tokens,
         };
       })
       .sort(
@@ -116,56 +134,24 @@ export function useMetricsTabData(
     return premiumReqs * prefs.costPerPremiumRequest;
   });
 
-  const totalWholesaleCost = computed(() => {
+  const totalWholesaleCost = computed<number | null>(() => {
+    if (modelEntries.value.length === 0) return null;
     let total = 0;
     for (const m of modelEntries.value) {
-      if (m.directApiCost !== null) total += m.directApiCost;
+      if (m.directApiCost == null) return null;
+      total += m.directApiCost;
     }
     return total;
   });
 
-  const aiCreditUsage = computed(() => {
-    const hasTokenUsage = modelEntries.value.some(
-      (model) =>
-        model.inputTokens + model.outputTokens + model.cacheReadTokens + model.cacheWriteTokens > 0,
-    );
-    const usageEstimate = sumTokenCosts(
-      modelEntries.value.map((m) =>
-        prefs.computeUsageBasedCostBreakdown(
-          m.name,
-          m.inputTokens,
-          m.cacheReadTokens,
-          m.outputTokens,
-          m.cacheWriteTokens,
-        ),
-      ),
-    );
-    const directEstimate = sumTokenCosts(
-      modelEntries.value.map((m) =>
-        prefs.computeWholesaleCostBreakdown(
-          m.name,
-          m.inputTokens,
-          m.cacheReadTokens,
-          m.outputTokens,
-          m.cacheWriteTokens,
-        ),
-      ),
-    );
-    return resolveAiCreditUsage(
-      metrics.value?.totalNanoAiu,
-      hasTokenUsage && !observedOnly ? usageEstimate : null,
-      hasTokenUsage && !observedOnly ? directEstimate : null,
-    );
-  });
+  const aiCreditUsage = computed(() => shutdownAiCreditUsage(metrics.value, prefs, observedOnly));
 
   const cacheHitRatio = computed(() =>
     totalInputTokens.value > 0 ? totalCacheReadTokens.value / totalInputTokens.value : 0,
   );
 
   return {
-    tokenBreakdown: computed(() =>
-      combinedTokenBreakdown(Object.values(metrics.value?.modelMetrics ?? {})),
-    ),
+    tokenBreakdown: computed(() => shutdownTokenBreakdown(metrics.value)),
     modelEntries,
     totalInputTokens,
     totalOutputTokens,

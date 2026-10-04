@@ -1,26 +1,26 @@
-import type { ShutdownMetrics } from "@tracepilot/types";
+import { calculateTokenCost, type ShutdownMetrics } from "@tracepilot/types";
 import { describe, expect, it, vi } from "vitest";
-import { totalTokens, wholesaleCost } from "../useSessionMetrics";
+import { shutdownAiCreditUsage, totalTokens, wholesaleCost } from "../useSessionMetrics";
 
 describe("useSessionMetrics", () => {
   describe("totalTokens", () => {
-    it("should return 0 when m is null", () => {
-      expect(totalTokens(null)).toBe(0);
+    it("returns unknown when m is null", () => {
+      expect(totalTokens(null)).toBeNull();
     });
 
-    it("should return 0 when m.modelMetrics is missing", () => {
+    it("returns unknown when m.modelMetrics is missing", () => {
       const m = {} as ShutdownMetrics;
-      expect(totalTokens(m)).toBe(0);
+      expect(totalTokens(m)).toBeNull();
     });
 
-    it("should return 0 when m.modelMetrics is null", () => {
+    it("returns unknown when m.modelMetrics is null", () => {
       const m = { modelMetrics: null } as unknown as ShutdownMetrics;
-      expect(totalTokens(m)).toBe(0);
+      expect(totalTokens(m)).toBeNull();
     });
 
-    it("should return 0 when m.modelMetrics is empty", () => {
+    it("keeps a backend-normalized empty model map unavailable", () => {
       const m = { modelMetrics: {} } as ShutdownMetrics;
-      expect(totalTokens(m)).toBe(0);
+      expect(totalTokens(m)).toBeNull();
     });
 
     it("should correctly sum inputTokens and outputTokens across multiple models", () => {
@@ -33,7 +33,7 @@ describe("useSessionMetrics", () => {
       expect(totalTokens(m)).toBe(50); // 10 + 20 + 5 + 15
     });
 
-    it("should handle missing inputTokens or outputTokens gracefully", () => {
+    it("keeps an incomplete session total unknown", () => {
       const m = {
         modelMetrics: {
           "model-a": { usage: { inputTokens: 10 } }, // missing outputTokens
@@ -42,7 +42,181 @@ describe("useSessionMetrics", () => {
           "model-d": {}, // missing usage
         },
       } as ShutdownMetrics;
-      expect(totalTokens(m)).toBe(25); // 10 + 0 + 0 + 15 + 0 + 0
+      expect(totalTokens(m)).toBeNull();
+    });
+
+    it("keeps recorded zero distinct from missing telemetry", () => {
+      expect(
+        totalTokens({ modelMetrics: { model: { usage: { inputTokens: 0, outputTokens: 0 } } } }),
+      ).toBe(0);
+    });
+  });
+
+  describe("shutdownAiCreditUsage", () => {
+    const calculate = (
+      model: string,
+      input: number,
+      cache: number,
+      output: number,
+      cacheWrite = 0,
+    ) =>
+      calculateTokenCost(model, {
+        inputTokens: input,
+        cacheReadTokens: cache,
+        outputTokens: output,
+        cacheWriteTokens: cacheWrite,
+      });
+    const pricing = {
+      computeUsageBasedCostBreakdown: vi.fn(calculate),
+      computeWholesaleCostBreakdown: vi.fn(calculate),
+    };
+
+    it("preserves observed zero even without token coverage", () => {
+      expect(shutdownAiCreditUsage({ totalNanoAiu: 0 }, pricing)).toEqual({
+        credits: 0,
+        usdEquivalent: 0,
+        source: "observed",
+      });
+    });
+
+    it.each([
+      ["recorded zero counts", { "gpt-5.5": { usage: { inputTokens: 0, outputTokens: 0 } } }],
+      [
+        "an unpriced model without usage",
+        { unknown: { usage: { inputTokens: 0, outputTokens: 0 } } },
+      ],
+    ])("estimates zero credits for %s", (_, modelMetrics) => {
+      expect(shutdownAiCreditUsage({ modelMetrics }, pricing)).toMatchObject({
+        credits: 0,
+        source: "estimated-token-usage",
+      });
+    });
+
+    it("does not infer recorded zero credits from a backend-normalized empty map", () => {
+      expect(
+        shutdownAiCreditUsage({ modelMetrics: {}, totalPremiumRequests: 3 }, pricing),
+      ).toMatchObject({
+        credits: null,
+        source: "unavailable",
+      });
+    });
+
+    it.each([
+      false,
+      true,
+    ])("does not discard positive observed model credits from zero-count rows (other usage: %s)", (withOtherUsage) => {
+      const metrics: ShutdownMetrics = {
+        modelMetrics: {
+          "observed-model": {
+            totalNanoAiu: 1_000_000_000,
+            usage: { inputTokens: 0, outputTokens: 0 },
+          },
+          ...(withOtherUsage
+            ? { "gpt-5.5": { usage: { inputTokens: 100, outputTokens: 20 } } }
+            : {}),
+        },
+      };
+      expect(shutdownAiCreditUsage(metrics, pricing)).toMatchObject({
+        credits: null,
+        source: "unavailable",
+      });
+      expect(shutdownAiCreditUsage({ ...metrics, totalNanoAiu: 0 }, pricing)).toMatchObject({
+        credits: 0,
+        source: "observed",
+      });
+      expect(
+        shutdownAiCreditUsage({ ...metrics, totalNanoAiu: 2_000_000_000 }, pricing),
+      ).toMatchObject({ credits: 2, source: "observed" });
+      expect(shutdownAiCreditUsage(metrics, pricing, true)).toMatchObject({
+        credits: null,
+        source: "unavailable",
+      });
+    });
+
+    it("retains useful priced estimates alongside unpriced models with explicit zero counts", () => {
+      const known = { usage: { inputTokens: 100, outputTokens: 20 } };
+      const expected = shutdownAiCreditUsage({ modelMetrics: { "gpt-5.5": known } }, pricing);
+      expect(
+        shutdownAiCreditUsage(
+          {
+            modelMetrics: {
+              "gpt-5.5": known,
+              unknown: { usage: { inputTokens: 0, outputTokens: 0 } },
+            },
+          },
+          pricing,
+        ),
+      ).toEqual(expected);
+      expect(expected.source).toBe("estimated-token-usage");
+    });
+
+    it("keeps the token estimate when observed model credits have positive token coverage", () => {
+      const modelMetrics = {
+        "gpt-5.5": { usage: { inputTokens: 100, outputTokens: 20 } },
+        "gpt-5.4": { usage: { inputTokens: 50, outputTokens: 10 } },
+      };
+      const expected = shutdownAiCreditUsage({ modelMetrics }, pricing);
+      expect(
+        shutdownAiCreditUsage(
+          {
+            modelMetrics: {
+              ...modelMetrics,
+              "gpt-5.4": { ...modelMetrics["gpt-5.4"], totalNanoAiu: 1_000_000_000 },
+            },
+          },
+          pricing,
+        ),
+      ).toEqual(expected);
+      expect(expected.source).toBe("estimated-token-usage");
+    });
+
+    it("does not estimate a complete cost from partial model telemetry", () => {
+      expect(
+        shutdownAiCreditUsage(
+          { modelMetrics: { "gpt-5.5": { usage: { inputTokens: 100 } } } },
+          pricing,
+        ),
+      ).toMatchObject({
+        credits: null,
+        source: "unavailable",
+      });
+    });
+
+    it("retains token-rate estimates and their provenance for complete counts", () => {
+      const metrics = {
+        modelMetrics: { "gpt-5.5": { usage: { inputTokens: 1_000_000, outputTokens: 100 } } },
+      };
+      const expected = calculate("gpt-5.5", 1_000_000, 0, 100);
+      expect(shutdownAiCreditUsage(metrics, pricing)).toMatchObject({
+        credits: expected.aiCredits,
+        source: "estimated-token-usage",
+      });
+      expect(shutdownAiCreditUsage(metrics, pricing, true)).toMatchObject({
+        credits: null,
+        source: "unavailable",
+      });
+    });
+
+    it("retains the direct API fallback without making unknown prices a zero estimate", () => {
+      const metrics = {
+        modelMetrics: { "gpt-5.5": { usage: { inputTokens: 100, outputTokens: 20 } } },
+      };
+      const unknownPrice = calculateTokenCost("unknown-model", {});
+      const directPrice = calculate("gpt-5.5", 100, 0, 20);
+      const fallbackPricing = {
+        computeUsageBasedCostBreakdown: () => unknownPrice,
+        computeWholesaleCostBreakdown: () => directPrice,
+      };
+      expect(shutdownAiCreditUsage(metrics, fallbackPricing)).toMatchObject({
+        credits: directPrice.aiCredits,
+        source: "estimated-direct-api",
+      });
+      expect(
+        shutdownAiCreditUsage(metrics, {
+          ...fallbackPricing,
+          computeWholesaleCostBreakdown: () => unknownPrice,
+        }),
+      ).toMatchObject({ credits: null, source: "unavailable" });
     });
   });
 

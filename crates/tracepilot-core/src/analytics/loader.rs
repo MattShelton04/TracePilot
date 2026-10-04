@@ -16,6 +16,7 @@ use crate::session::discovery::{DiscoveredSession, discover_sessions};
 use crate::summary::{load_session_summary, load_session_summary_with_events};
 
 use super::types::SessionAnalyticsInput;
+use super::utils::segment_end_date;
 
 /// Load session summaries only (no turn reconstruction).
 ///
@@ -108,6 +109,11 @@ pub fn load_session_summaries_filtered(
 }
 
 /// Load full sessions with optional date range and repository filtering.
+///
+/// Sessions are selected by their last-active date. Their lifetime totals are
+/// left intact, but `session_segments` are clamped to the requested window so
+/// the per-day charts match the indexed query; see
+/// [`clamp_segments_to_date_range`].
 pub fn load_full_sessions_filtered(
     sessions_dir: &Path,
     from_date: Option<&str>,
@@ -118,7 +124,38 @@ pub fn load_full_sessions_filtered(
     let inputs = load_full_sessions(sessions_dir)?;
     let filtered = filter_by_date_range(inputs, from_date, to_date);
     let filtered = filter_by_repo(filtered, repo);
-    Ok(filter_empty(filtered, hide_empty))
+    let mut filtered = filter_empty(filtered, hide_empty);
+    clamp_segments_to_date_range(&mut filtered, from_date, to_date);
+    Ok(filtered)
+}
+
+/// Drop segments that ended outside the date range (inclusive).
+///
+/// Session totals remain lifetime values, as in the SQL query; only the
+/// segment-based daily charts are limited to the requested window. Callers
+/// reading segments from filtered inputs therefore see the clamped list.
+fn clamp_segments_to_date_range(
+    inputs: &mut [SessionAnalyticsInput],
+    from_date: Option<&str>,
+    to_date: Option<&str>,
+) {
+    if from_date.is_none() && to_date.is_none() {
+        return;
+    }
+    for input in inputs {
+        if let Some(segments) = input
+            .summary
+            .shutdown_metrics
+            .as_mut()
+            .and_then(|metrics| metrics.session_segments.as_mut())
+        {
+            segments.retain(|segment| {
+                segment_end_date(segment).is_some_and(|date| {
+                    from_date.is_none_or(|from| date >= from) && to_date.is_none_or(|to| date <= to)
+                })
+            });
+        }
+    }
 }
 
 /// Filter inputs by date range (YYYY-MM-DD strings, inclusive).

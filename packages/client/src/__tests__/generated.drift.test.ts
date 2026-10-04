@@ -18,12 +18,18 @@ import type {
   FreshnessResponse as HandFreshnessResponse,
   SessionListItem as HandSessionListItem,
 } from "@tracepilot/types";
-import { describe, it } from "vitest";
+import { describe, expectTypeOf, it } from "vitest";
 
 import type {
   FreshnessResponse as GenFreshnessResponse,
   SessionListItem as GenSessionListItem,
 } from "../generated/bindings.js";
+import type {
+  BridgeHydrationSnapshot,
+  SessionLiveState,
+  sdkGetSessionState,
+  sdkHydrate,
+} from "../index.js";
 
 describe("generated bindings match hand-written mirrors (wave 21)", () => {
   it("has structurally compatible shapes (compile-time only)", () => {
@@ -44,5 +50,19 @@ describe("generated bindings match hand-written mirrors (wave 21)", () => {
     void _freshness;
     void _session;
     void _sessionArray;
+  });
+});
+
+describe("public SDK DTOs match the client responses", () => {
+  it("includes the complete live context state (checked by typecheck)", () => {
+    expectTypeOf<SessionLiveState>().toEqualTypeOf<
+      NonNullable<Awaited<ReturnType<typeof sdkGetSessionState>>>
+    >();
+    expectTypeOf<BridgeHydrationSnapshot>().toEqualTypeOf<Awaited<ReturnType<typeof sdkHydrate>>>();
+    expectTypeOf<
+      BridgeHydrationSnapshot["sessionStates"][number]
+    >().toEqualTypeOf<SessionLiveState>();
+    expectTypeOf<SessionLiveState["contextTokens"]>().toEqualTypeOf<number | null>();
+    expectTypeOf<SessionLiveState["contextLimit"]>().toEqualTypeOf<number | null>();
   });
 });
