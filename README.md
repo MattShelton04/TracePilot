@@ -176,7 +176,7 @@ The app is not code-signed yet. Windows SmartScreen may warn on first launch; ch
 
 Download `TracePilot_<version>_aarch64.dmg` from [GitHub Releases](https://github.com/MattShelton04/TracePilot/releases/latest), open it and drag **TracePilot** into **Applications**. Intel Macs are not supported yet.
 
-The app is not notarized by Apple, so the first launch is blocked. Open TracePilot once, then choose **System Settings** -> **Privacy & Security** -> **Open Anyway**. Later versions install from inside the app in one click without that prompt. Run TracePilot from Applications rather than from the disk image, or it cannot update itself.
+The app is not notarized by Apple, so the first time you open it macOS shows **"TracePilot" Not Opened**. Click **Done**, open **System Settings** -> **Privacy & Security**, scroll to the TracePilot message under **Security**, click **Open Anyway** and confirm. This is needed only once: later versions install from inside the app in one click without that prompt. Run TracePilot from Applications rather than from the disk image, or it cannot update itself.
 
 ### Option C: run from source
 

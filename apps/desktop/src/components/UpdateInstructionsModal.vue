@@ -152,8 +152,8 @@ function handleOpenRelease() {
         <Info :size="14" :stroke-width="2" aria-hidden="true" />
         <span>
           TracePilot isn't notarized by Apple, so macOS blocks a newly downloaded copy the first time
-          it opens. Choose <strong>System Settings → Privacy &amp; Security → Open Anyway</strong> to
-          continue.
+          it opens. Click <strong>Done</strong>, then in <strong>System Settings → Privacy &amp;
+          Security</strong> click <strong>Open Anyway</strong>.
         </span>
       </p>
       <p v-else-if="installType !== 'unknown'" class="up-note">
