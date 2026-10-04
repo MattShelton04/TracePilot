@@ -158,6 +158,33 @@ describe("ComparisonMetrics", () => {
     expect(wrapper.findAll(".bar-row").length).toBeGreaterThan(0);
     expect(wrapper.text()).toContain("No tool usage data");
   });
+
+  it("renders unknown token values as a dash and recorded zero as zero", () => {
+    const comp = makeCompStub({
+      compared: true,
+      metricsRows: [
+        {
+          label: "AI Credits",
+          valueA: "0",
+          valueB: "—",
+          rawA: 0,
+          rawB: null,
+          delta: "—",
+          deltaClass: "delta-neutral",
+          arrow: "",
+        },
+      ],
+      tokenBars: [{ label: "Input", valueA: 0, valueB: null, maxVal: 1 }],
+    });
+    const wrapper = mount(hostFor(ComparisonMetrics, comp));
+    expect(wrapper.findAll(".bar-value-outside").map((node) => node.text())).toEqual(["0", "—"]);
+    expect(wrapper.find(".val-a").text()).toBe("0");
+    expect(wrapper.find(".val-b").text()).toBe("—");
+    expect(wrapper.find(".delta-col").text()).toBe("—");
+    expect(
+      wrapper.findAll(".bar-fill").every((node) => node.attributes("style") === "width: 0%;"),
+    ).toBe(true);
+  });
 });
 
 describe("ComparisonCharts", () => {

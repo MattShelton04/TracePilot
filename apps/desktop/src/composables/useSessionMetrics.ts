@@ -2,33 +2,88 @@
  * Pure computation functions for session metrics.
  * Extracted from SessionComparisonView to enable reuse across views.
  */
-import type { ConversationTurn, SessionDetail, ShutdownMetrics } from "@tracepilot/types";
+import {
+  type AiCreditUsage,
+  type ConversationTurn,
+  resolveAiCreditUsage,
+  type SessionDetail,
+  type ShutdownMetrics,
+  sumTokenCosts,
+  type TokenCostBreakdown,
+} from "@tracepilot/types";
+import { shutdownTokenBreakdown } from "@/utils/metricsTokenBreakdown";
 
-export function totalTokens(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((sum, mm) => {
-    return sum + (mm.usage?.inputTokens ?? 0) + (mm.usage?.outputTokens ?? 0);
-  }, 0);
+export function totalTokens(m: ShutdownMetrics | null): number | null {
+  return shutdownTokenBreakdown(m).total;
 }
 
-export function totalInputTokens(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.usage?.inputTokens ?? 0), 0);
+export function totalInputTokens(m: ShutdownMetrics | null): number | null {
+  return shutdownTokenBreakdown(m).input;
 }
 
-export function totalOutputTokens(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.usage?.outputTokens ?? 0), 0);
+export function totalOutputTokens(m: ShutdownMetrics | null): number | null {
+  return shutdownTokenBreakdown(m).output;
 }
 
-export function totalCacheRead(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.usage?.cacheReadTokens ?? 0), 0);
+export function totalCacheRead(m: ShutdownMetrics | null): number | null {
+  return shutdownTokenBreakdown(m).cacheRead;
 }
 
-export function totalReasoningTokens(m: ShutdownMetrics | null): number {
-  if (!m?.modelMetrics) return 0;
-  return Object.values(m.modelMetrics).reduce((s, mm) => s + (mm.usage?.reasoningTokens ?? 0), 0);
+export function totalReasoningTokens(m: ShutdownMetrics | null): number | null {
+  return shutdownTokenBreakdown(m).reasoning;
+}
+
+type TokenCostCalculator = (
+  model: string,
+  input: number,
+  cache: number,
+  output: number,
+  cacheWrite?: number,
+) => TokenCostBreakdown;
+
+interface ShutdownCreditPricing {
+  computeUsageBasedCostBreakdown: TokenCostCalculator;
+  computeWholesaleCostBreakdown: TokenCostCalculator;
+}
+
+/** Both session views use observed credits first, then a complete token estimate. */
+export function shutdownAiCreditUsage(
+  metrics: ShutdownMetrics | null | undefined,
+  pricing: ShutdownCreditPricing,
+  observedOnly = false,
+): AiCreditUsage {
+  const observed = resolveAiCreditUsage(metrics?.totalNanoAiu);
+  if (observed.source === "observed" || observedOnly) return observed;
+  // Partial input/output counts cannot establish a session-wide cost. Optional
+  // cache counts retain the historical zero fallback used by the pricing API.
+  if (shutdownTokenBreakdown(metrics).total == null) return observed;
+  const models = Object.entries(metrics?.modelMetrics ?? {});
+  const hasTokenUsage = models.some(
+    ([, model]) =>
+      (model.usage?.inputTokens ?? 0) +
+        (model.usage?.outputTokens ?? 0) +
+        (model.usage?.cacheReadTokens ?? 0) +
+        (model.usage?.cacheWriteTokens ?? 0) >
+      0,
+  );
+  if (!hasTokenUsage) return observed;
+  const estimate = (calculate: TokenCostCalculator) =>
+    sumTokenCosts(
+      models.map(([name, model]) =>
+        calculate(
+          name,
+          model.usage?.inputTokens ?? 0,
+          model.usage?.cacheReadTokens ?? 0,
+          model.usage?.outputTokens ?? 0,
+          model.usage?.cacheWriteTokens ?? 0,
+        ),
+      ),
+    );
+  return resolveAiCreditUsage(
+    metrics?.totalNanoAiu,
+    estimate(pricing.computeUsageBasedCostBreakdown),
+    estimate(pricing.computeWholesaleCostBreakdown),
+  );
 }
 
 /** True when the session has any reasoning token data (v1.0.24+ sessions). */

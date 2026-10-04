@@ -1,4 +1,4 @@
-import type { ModelMetricDetail } from "@tracepilot/types";
+import type { ModelMetricDetail, ShutdownMetrics } from "@tracepilot/types";
 
 export interface MetricsTokenBreakdown {
   input: number | null;
@@ -93,4 +93,11 @@ export function combinedTokenBreakdown(models: ModelMetricDetail[]): MetricsToke
         : null,
     inconsistent: rows.some((row) => row.inconsistent),
   };
+}
+
+/** Shutdown totals retain unknown categories instead of treating absent telemetry as zero. */
+export function shutdownTokenBreakdown(
+  metrics: ShutdownMetrics | null | undefined,
+): MetricsTokenBreakdown {
+  return combinedTokenBreakdown(Object.values(metrics?.modelMetrics ?? {}));
 }

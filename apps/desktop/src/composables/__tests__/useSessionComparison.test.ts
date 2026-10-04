@@ -1,5 +1,10 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import type { ConversationTurn, SessionDetail, ShutdownMetrics } from "@tracepilot/types";
+import {
+  type ConversationTurn,
+  calculateTokenCost,
+  type SessionDetail,
+  type ShutdownMetrics,
+} from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
@@ -16,6 +21,32 @@ vi.mock("@/stores/sessions", () => ({
 const prefsStoreMock = {
   computeWholesaleCost: false,
   costPerPremiumRequest: 0.04,
+  computeUsageBasedCostBreakdown: (
+    model: string,
+    input: number,
+    cache: number,
+    output: number,
+    cacheWrite = 0,
+  ) =>
+    calculateTokenCost(model, {
+      inputTokens: input,
+      cacheReadTokens: cache,
+      outputTokens: output,
+      cacheWriteTokens: cacheWrite,
+    }),
+  computeWholesaleCostBreakdown: (
+    model: string,
+    input: number,
+    cache: number,
+    output: number,
+    cacheWrite = 0,
+  ) =>
+    calculateTokenCost(model, {
+      inputTokens: input,
+      cacheReadTokens: cache,
+      outputTokens: output,
+      cacheWriteTokens: cacheWrite,
+    }),
 };
 vi.mock("@/stores/preferences", () => ({
   usePreferencesStore: () => prefsStoreMock,
@@ -123,6 +154,133 @@ describe("useSessionComparison", () => {
     expect(labels).toContain("AI Credits");
     expect(labels).toContain("Success Rate");
     expect(comp.metricsRows.length).toBe(8);
+  });
+
+  it("shows unavailable telemetry without a token distribution or comparison delta", () => {
+    const { comp } = mountHook();
+    comp.compared = true;
+    comp.dataA.metrics = { modelMetrics: { model: { usage: { inputTokens: 100 } } } };
+    comp.dataB.metrics = null;
+
+    expect(comp.metricsRows.find((row) => row.label === "Total Tokens")).toMatchObject({
+      valueA: "—",
+      valueB: "—",
+      rawA: null,
+      rawB: null,
+      delta: "—",
+      deltaClass: "delta-neutral",
+      arrow: "",
+    });
+    expect(comp.metricsRows.find((row) => row.label === "AI Credits")).toMatchObject({
+      valueA: "—",
+      valueB: "—",
+      rawA: null,
+      rawB: null,
+      delta: "—",
+    });
+    expect(comp.tokenBars.find((row) => row.label === "Input")).toMatchObject({
+      valueA: 100,
+      valueB: null,
+    });
+    expect(comp.tokenBars.find((row) => row.label === "Output")).toMatchObject({
+      valueA: null,
+      valueB: null,
+    });
+    expect(comp.donutA).toEqual([]);
+  });
+
+  it("keeps recorded zero values distinct from an unavailable comparison side", () => {
+    const { comp } = mountHook();
+    comp.compared = true;
+    comp.dataA.metrics = {
+      totalNanoAiu: 0,
+      modelMetrics: { model: { usage: { inputTokens: 0, outputTokens: 0 } } },
+    };
+    expect(comp.metricsRows.find((row) => row.label === "Total Tokens")).toMatchObject({
+      valueA: "0",
+      valueB: "—",
+      rawA: 0,
+      rawB: null,
+      delta: "—",
+    });
+    expect(comp.metricsRows.find((row) => row.label === "AI Credits")).toMatchObject({
+      valueA: "0 AIC",
+      valueB: "—",
+      rawA: 0,
+      rawB: null,
+      delta: "—",
+    });
+    expect(comp.tokenBars.find((row) => row.label === "Input")).toMatchObject({
+      valueA: 0,
+      valueB: null,
+    });
+  });
+
+  it("preserves complete metrics, observed credits, deltas and both normalization modes", () => {
+    const { comp } = mountHook();
+    const turn: ConversationTurn = {
+      turnIndex: 0,
+      toolCalls: [],
+      assistantMessages: [],
+      isComplete: true,
+    };
+    comp.compared = true;
+    Object.assign(comp.dataA, {
+      detail: {
+        id: "a",
+        hasPlan: false,
+        hasCheckpoints: false,
+        createdAt: "2026-10-01T00:00:00Z",
+        updatedAt: "2026-10-01T00:02:00Z",
+      },
+      metrics: {
+        totalNanoAiu: 2_000_000_000,
+        modelMetrics: {
+          model: { usage: { inputTokens: 100, outputTokens: 20, cacheReadTokens: 30 } },
+        },
+      },
+      turns: [turn, turn],
+    });
+    Object.assign(comp.dataB, {
+      detail: {
+        id: "b",
+        hasPlan: false,
+        hasCheckpoints: false,
+        createdAt: "2026-10-01T00:00:00Z",
+        updatedAt: "2026-10-01T00:04:00Z",
+      },
+      metrics: {
+        totalNanoAiu: 4_000_000_000,
+        modelMetrics: {
+          model: { usage: { inputTokens: 200, outputTokens: 40, cacheReadTokens: 60 } },
+        },
+      },
+      turns: [turn, turn, turn, turn],
+    });
+    expect(comp.metricsRows.find((row) => row.label === "Total Tokens")).toMatchObject({
+      rawA: 120,
+      rawB: 240,
+      delta: "↑ 100%",
+    });
+    expect(comp.metricsRows.find((row) => row.label === "AI Credits")).toMatchObject({
+      rawA: 2,
+      rawB: 4,
+      delta: "↑ 100%",
+    });
+    expect(comp.donutA[0]).toMatchObject({ tokens: 120, percentage: 1 });
+    for (const mode of ["per-turn", "per-minute"] as const) {
+      comp.normMode = mode;
+      expect(comp.metricsRows.find((row) => row.label.startsWith("Total Tokens"))).toMatchObject({
+        rawA: 60,
+        rawB: 60,
+        delta: "—",
+      });
+      expect(comp.metricsRows.find((row) => row.label.startsWith("AI Credits"))).toMatchObject({
+        rawA: 1,
+        rawB: 1,
+        delta: "—",
+      });
+    }
   });
 });
 

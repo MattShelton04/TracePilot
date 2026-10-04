@@ -57,11 +57,11 @@ const comp = useSessionComparisonContext();
           <div class="bar-track">
             <div
               :class="['bar-fill', bar.isCacheRow ? 'bar-fill-cache' : 'bar-fill-a']"
-              :style="{ width: (bar.valueA / bar.maxVal * 100) + '%' }"
+              :style="{ width: ((bar.valueA ?? 0) / bar.maxVal * 100) + '%' }"
             >
-              <span v-if="(bar.valueA / bar.maxVal * 100) >= 15" class="bar-value">{{ formatNumber(bar.valueA) }}</span>
+              <span v-if="bar.valueA != null && (bar.valueA / bar.maxVal * 100) >= 15" class="bar-value">{{ formatNumber(bar.valueA) }}</span>
             </div>
-            <span v-if="bar.valueA > 0 && (bar.valueA / bar.maxVal * 100) < 15" class="bar-value-outside">{{ formatNumber(bar.valueA) }}</span>
+            <span v-if="bar.valueA == null || (bar.valueA / bar.maxVal * 100) < 15" class="bar-value-outside">{{ bar.valueA == null ? '—' : formatNumber(bar.valueA) }}</span>
           </div>
         </div>
       </div>
@@ -74,11 +74,11 @@ const comp = useSessionComparisonContext();
           <div class="bar-track">
             <div
               :class="['bar-fill', bar.isCacheRow ? 'bar-fill-cache' : 'bar-fill-b']"
-              :style="{ width: (bar.valueB / bar.maxVal * 100) + '%' }"
+              :style="{ width: ((bar.valueB ?? 0) / bar.maxVal * 100) + '%' }"
             >
-              <span v-if="(bar.valueB / bar.maxVal * 100) >= 15" class="bar-value">{{ formatNumber(bar.valueB) }}</span>
+              <span v-if="bar.valueB != null && (bar.valueB / bar.maxVal * 100) >= 15" class="bar-value">{{ formatNumber(bar.valueB) }}</span>
             </div>
-            <span v-if="bar.valueB > 0 && (bar.valueB / bar.maxVal * 100) < 15" class="bar-value-outside">{{ formatNumber(bar.valueB) }}</span>
+            <span v-if="bar.valueB == null || (bar.valueB / bar.maxVal * 100) < 15" class="bar-value-outside">{{ bar.valueB == null ? '—' : formatNumber(bar.valueB) }}</span>
           </div>
         </div>
       </div>

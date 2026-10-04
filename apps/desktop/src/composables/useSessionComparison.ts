@@ -1,11 +1,9 @@
 import { getSessionDetail, getSessionTurns, getShutdownMetrics } from "@tracepilot/client";
-import {
-  type ConversationTurn,
-  resolveAiCreditUsage,
-  type SessionDetail,
-  type SessionListItem,
-  type ShutdownMetrics,
-  sumTokenCosts,
+import type {
+  ConversationTurn,
+  SessionDetail,
+  SessionListItem,
+  ShutdownMetrics,
 } from "@tracepilot/types";
 import {
   formatAiCredits,
@@ -19,6 +17,7 @@ import {
   filesModified,
   linesChanged,
   sessionDurationMs,
+  shutdownAiCreditUsage,
   successRate,
   toolCounts,
   totalCacheRead,
@@ -31,6 +30,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { formatSessionDelta } from "@/utils/deltaFormatting";
 import { getChartColors } from "@/utils/designTokens";
+import { modelTokenBreakdown } from "@/utils/metricsTokenBreakdown";
 
 /**
  * State + derivations for `SessionComparisonView`.
@@ -53,8 +53,8 @@ export interface MetricRow {
   label: string;
   valueA: string;
   valueB: string;
-  rawA: number;
-  rawB: number;
+  rawA: number | null;
+  rawB: number | null;
   delta: string;
   deltaClass: string;
   arrow: string;
@@ -62,8 +62,8 @@ export interface MetricRow {
 
 export interface TokenBarRow {
   label: string;
-  valueA: number;
-  valueB: number;
+  valueA: number | null;
+  valueB: number | null;
   maxVal: number;
   isCacheRow?: boolean;
 }
@@ -101,10 +101,10 @@ const DONUT_COLORS_B = [
 ];
 
 function modelDistribution(m: ShutdownMetrics | null, colors: string[]): DonutSegment[] {
-  if (!m?.modelMetrics) return [];
+  if (!m?.modelMetrics || totalTokens(m) == null) return [];
   const entries = Object.entries(m.modelMetrics).map(([model, mm]) => ({
     model,
-    tokens: (mm.usage?.inputTokens ?? 0) + (mm.usage?.outputTokens ?? 0),
+    tokens: modelTokenBreakdown(mm).total ?? 0,
   }));
   const total = entries.reduce((s, e) => s + e.tokens, 0);
   if (total === 0) return [];
@@ -243,48 +243,8 @@ export function useSessionComparison() {
 
     const tokA = totalTokens(dataA.metrics);
     const tokB = totalTokens(dataB.metrics);
-    const aiCredits = (metrics: ShutdownMetrics | null) => {
-      const models = Object.entries(metrics?.modelMetrics ?? {});
-      const hasTokenUsage = models.some(
-        ([, detail]) =>
-          (detail.usage?.inputTokens ?? 0) +
-            (detail.usage?.outputTokens ?? 0) +
-            (detail.usage?.cacheReadTokens ?? 0) +
-            (detail.usage?.cacheWriteTokens ?? 0) >
-          0,
-      );
-      return resolveAiCreditUsage(
-        metrics?.totalNanoAiu,
-        hasTokenUsage
-          ? sumTokenCosts(
-              models.map(([model, detail]) =>
-                prefs.computeUsageBasedCostBreakdown(
-                  model,
-                  detail.usage?.inputTokens ?? 0,
-                  detail.usage?.cacheReadTokens ?? 0,
-                  detail.usage?.outputTokens ?? 0,
-                  detail.usage?.cacheWriteTokens ?? 0,
-                ),
-              ),
-            )
-          : null,
-        hasTokenUsage
-          ? sumTokenCosts(
-              models.map(([model, detail]) =>
-                prefs.computeWholesaleCostBreakdown(
-                  model,
-                  detail.usage?.inputTokens ?? 0,
-                  detail.usage?.cacheReadTokens ?? 0,
-                  detail.usage?.outputTokens ?? 0,
-                  detail.usage?.cacheWriteTokens ?? 0,
-                ),
-              ),
-            )
-          : null,
-      ).credits;
-    };
-    const aiA = aiCredits(dataA.metrics);
-    const aiB = aiCredits(dataB.metrics);
+    const aiA = shutdownAiCreditUsage(dataA.metrics, prefs).credits;
+    const aiB = shutdownAiCreditUsage(dataB.metrics, prefs).credits;
     const tcA = totalToolCalls(dataA.turns);
     const tcB = totalToolCalls(dataB.turns);
     const srA = successRate(dataA.turns);
@@ -299,13 +259,23 @@ export function useSessionComparison() {
 
     function row(
       label: string,
-      va: number,
-      vb: number,
+      va: number | null,
+      vb: number | null,
       fmt: (v: number) => string,
       hib: boolean,
     ): MetricRow {
-      const d = formatSessionDelta(va, vb, hib);
-      return { label, valueA: fmt(va), valueB: fmt(vb), rawA: va, rawB: vb, ...d };
+      const d =
+        va == null || vb == null
+          ? { delta: "—", deltaClass: "delta-neutral", arrow: "" }
+          : formatSessionDelta(va, vb, hib);
+      return {
+        label,
+        valueA: va == null ? "—" : fmt(va),
+        valueB: vb == null ? "—" : fmt(vb),
+        rawA: va,
+        rawB: vb,
+        ...d,
+      };
     }
 
     const fmtN = (v: number) => (isNorm ? v.toFixed(1) : formatNumber(v));
@@ -314,8 +284,20 @@ export function useSessionComparison() {
     return [
       row("Duration", durA, durB, (v) => formatDuration(v) || "0s", false),
       row("Turns", turnsA, turnsB, String, false),
-      row(`Total Tokens${suffix}`, tokA / divA, tokB / divB, fmtN, false),
-      row(`AI Credits${suffix}`, (aiA ?? 0) / divA, (aiB ?? 0) / divB, formatAiCredits, false),
+      row(
+        `Total Tokens${suffix}`,
+        tokA == null ? null : tokA / divA,
+        tokB == null ? null : tokB / divB,
+        fmtN,
+        false,
+      ),
+      row(
+        `AI Credits${suffix}`,
+        aiA == null ? null : aiA / divA,
+        aiB == null ? null : aiB / divB,
+        formatAiCredits,
+        false,
+      ),
       row(`Tool Calls${suffix}`, tcA / divA, tcB / divB, fmtInt, false),
       row("Success Rate", srA, srB, formatRate, true),
       row("Files Modified", fmA, fmB, String, false),
@@ -331,10 +313,10 @@ export function useSessionComparison() {
     const outB = totalOutputTokens(dataB.metrics);
     const crA = totalCacheRead(dataA.metrics);
     const crB = totalCacheRead(dataB.metrics);
-    const maxAll = Math.max(inA, inB, outA, outB, 1);
+    const maxAll = Math.max(inA ?? 0, inB ?? 0, outA ?? 0, outB ?? 0, 1);
     return [
       { label: "Input", valueA: inA, valueB: inB, maxVal: maxAll },
-      ...(crA > 0 || crB > 0
+      ...((crA ?? 0) > 0 || (crB ?? 0) > 0
         ? [
             {
               label: "\u00A0\u00A0└ Cached",
