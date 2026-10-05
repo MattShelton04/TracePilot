@@ -6217,6 +6217,7 @@ dependencies = [
 name = "tracepilot-test-support"
 version = "0.9.1"
 dependencies = [
+ "serde_json",
  "tempfile",
 ]
 

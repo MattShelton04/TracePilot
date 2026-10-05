@@ -47,7 +47,7 @@ pub use typed::{
     parse_typed_events_if_exists,
 };
 
-#[cfg(test)]
+pub(crate) use raw::parse_json_line_lenient;
 pub(crate) use typed::typed_data_from_raw;
 mod agent_usage;
 pub use agent_usage::extract_agent_usage;

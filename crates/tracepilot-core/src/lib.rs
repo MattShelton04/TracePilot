@@ -68,6 +68,7 @@ pub mod models;
 pub mod parsing;
 pub mod paths;
 pub mod prompt_cache;
+pub mod provider;
 pub mod session;
 pub mod skill_invocations;
 pub mod summary;
