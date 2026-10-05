@@ -105,10 +105,26 @@ These are the only additions to the normalized model. Each one also serves Codex
 | Addition | Shape | Consumers |
 | --- | --- | --- |
 | **`tracepilot.model_call` event** | `ModelCallData { model, request_id, input_tokens (inclusive), cache_read_tokens, cache_write_tokens, cache_write_by_ttl: Option<{ttl_s → tokens}>, output_tokens, reasoning_tokens, duration_ms, stop_reason, context_window_tokens }`; owner via envelope `agentId`. A standalone event (Codex reports usage on `token_count` records unrelated to message ids) | (a) `metrics_from_model_calls()` in `summary/enrichment.rs` when there is no `session.shutdown`; (b) a "total only" anchor in `context_window/builder.rs` (anchors need the 3-way split today, `points.rs:206-220`); (c) an observed-hit path in `prompt_cache/builder.rs` with `CacheConfidence::Observed`; (d) optional per-turn usage on `ConversationTurn` |
-| **`RawEvent.native`** | `Option<NativeRecord { source, record_type, data }>` | Events tab and export show truthful records while `event_type` stays canonical (the reconstructor dispatches on prefixes, `reconstructor/mod.rs:131-137`) |
+| **`RawEvent.native`** | `Option<NativeRecord { source, record_type, data }>`, sanitized (no image base64, no file contents). `raw.data` stays canonical | Events tab and export show truthful records while `event_type` and `data` stay canonical (the reconstructor dispatches on prefixes, `reconstructor/mod.rs:131-137`, and reparsing derives typed data from `raw.data`) |
 | **`native_tool_name`** | On `ToolExecStartData` and `TurnToolCall` | Display, filters, tool analysis breakdown |
-| **`SessionMetrics` from the provider** | Maps into `ShutdownMetrics` with AIC and premium requests **`None`, not 0**, plus `estimated_cost_usd` and a `cost_basis` enum (`GithubAic \| CopilotPremiumRequests \| ProviderReported \| ApiRateEstimate \| None`) | Metrics tab, analytics, comparisons |
+| **`SessionMetrics` from the provider** | Maps into `ShutdownMetrics` with AIC and premium requests **`None`, not 0**, plus a cost figure: `cost_amount`, `cost_unit` (`aic \| usd`) and `cost_basis` (below) | Metrics tab, analytics, comparisons |
 | **`SourceCapabilities`** | `can_resume`, `can_launch`, `can_steer`, `has_aic`, `has_premium_requests`, `has_context_breakdown`, `has_todos`, `has_checkpoints`, `has_plan`, `has_explorer`, `has_hidden_roles`, … Static per source, with optional per-session overrides (e.g. "todos tool used") | Tab gating, IPC refusal, KPI visibility |
+
+**Wire compatibility.** Every new field is optional, with
+`#[serde(default, skip_serializing_if = "Option::is_none")]`. Copilot `events.jsonl` lines and
+IPC JSON therefore serialize exactly as before; F7a proves this with a round-trip test.
+
+**Cost basis.** This is the one vocabulary used by every document, DTO and label (serialized in
+camelCase). It answers "who produced this number, and is it a bill?":
+
+| `cost_basis` | Meaning | Example |
+| --- | --- | --- |
+| `billed` | The provider reports it as charged usage | Copilot AIC from `session.shutdown` |
+| `providerEstimate` | The provider's own estimate, not a bill | Claude Code `cost-state.totalCostUSD` |
+| `tracepilotEstimate` | TracePilot priced recorded usage from its pricing registry | Copilot AIC from GitHub rates; Claude live tail at Anthropic API rates |
+
+When there is no cost figure, the field is absent, never 0. Premium requests are a separate
+Copilot-only count, not a cost basis.
 
 **Never synthesize** `session.shutdown`, `session.usage_checkpoint`, `inuse.*.lock` or
 `workspace.yaml`. Shutdown semantics drive segment detection (`aggregate.rs:11-15`), "ended"
@@ -151,13 +167,26 @@ The reshape has to happen in Rust:
 - **Resolution:** `with_session_path` becomes `with_session_locator(state, id, |provider, locator| …)`.
   It resolves via the index (`get_session_path` + new `get_session_source`) and falls back to
   `registry.resolve`. All 25 call sites move.
-- **Pruning is per source.** It runs only for providers whose discovery completed, so one
-  source can never delete another's rows.
-  - Expired Claude Code transcripts drop out on the next reindex, respecting Claude Code's
-    rolling window (decision D3).
+- **Pruning is per source**, so one source can never delete another's rows.
+  - A source is pruned only after a **complete inventory** of its configured root. If
+    discovery was cancelled, hit an I/O error, or found the root missing or unreadable, that
+    source is not pruned in that run.
+  - Expired Claude Code transcripts drop out on the next complete reindex, respecting Claude
+    Code's rolling window (decision D3).
   - **Disabling a source purges its rows** (`DELETE FROM sessions WHERE source = ?`, cascading
     to child tables). Queries therefore never need an "enabled sources" filter. Re-enabling
     rebuilds them.
+- **Config generations stop stale writes.** Each source has a generation counter, bumped on
+  every enable, disable or root change. An indexing job records the generation of each source
+  in its registry snapshot, and every write transaction for a source checks it is still
+  current before commit. Otherwise the transaction rolls back. Disabling therefore runs in
+  this order:
+  1. Bump the generation and cancel the source's running jobs.
+  2. Purge its rows.
+  3. Invalidate its event, turn, search and analytics caches.
+
+  A job that started before the disable can no longer write Claude rows back after the purge.
+  A root change is a disable of the old root followed by an enable of the new one.
 - **Freshness** becomes an opaque `source_version` (a hash of the serialized
   `SourceFingerprint`) in the caches and in `FreshnessResponse`. The old `events_file_*` fields
   stay populated for Copilot during the transition. The frontend already compares them only for
@@ -176,7 +205,8 @@ The reshape has to happen in Rust:
   - Shown in Settings → Data & Storage only when the flag is on.
   - The Copilot paths stay in `PathsConfig` unchanged, which keeps the config migration additive.
 - **Toggle effects:** the provider registry is rebuilt on config change. Enabling triggers a
-  reindex of that source; disabling purges that source's rows (§3.4).
+  reindex of that source. Disabling follows the generation ordering in §3.4: cancel, purge,
+  then invalidate.
 - **Setup wizard** is unchanged while TracePilot is Copilot-first (decision D1). It still
   requires a valid Copilot folder (`SetupWizard.vue:93-98`,
   `tauri-bindings/src/commands/config_cmds.rs:103-108`). Allowing a Claude-only setup, and
@@ -198,6 +228,20 @@ The reshape has to happen in Rust:
 - **Incremental parse of an appended file** is an optimization, not a requirement. The current
   full re-parse on freshness change is acceptable at observed sizes (median 4.6 MB, max 52 MB).
   Add it only if the perf budget (`perf-budget.json`) shows a regression.
+
+### 3.7 Prompt-cache expiry is an estimate
+
+Claude Code transcripts record what each call **did**: cache reads, and cache writes split by
+TTL tier (`cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens`). They do
+not say whether the cache is still warm. Following
+[Anthropic's prompt-caching guide](https://platform.claude.com/docs/en/build-with-claude/prompt-caching):
+- The TTL tier comes from the call's recorded split. Every write in this corpus was 1h, but a
+  hard-coded 1h is wrong for a session that writes 5m entries.
+- A cache read refreshes the entry's lifetime. Expiry therefore counts from the start of the
+  last request that read or wrote that prefix, not from the first write.
+- With no recorded tier, the state is **unknown**, not expired.
+- An observed hit only shows the prefix matched *then*. The next request may change tools,
+  system prompt or model and miss. The UI says "estimated" and never promises a hit.
 
 ## 4. Frontend shape
 
@@ -307,6 +351,12 @@ Designs that would have fitted **only** Claude Code, and the generalization chos
 | "Usage per `message.id`" | Standalone `ModelCall` event |
 | "Cost = `cost-state` USD" | `estimated_cost_usd` + `cost_basis` enum |
 
-**Acceptance test for the foundation:** a stub `FixtureProvider` (test-only) that emits a
-hand-written event stream must get through discovery, indexing, search, Conversation and
-analytics with **zero changes outside `provider/`**. If it doesn't, the seam leaks.
+**Acceptance tests for the foundation.** There are two milestones, because consumers become
+provider-aware only in F4–F6:
+1. **F2 (seam):** `CopilotProvider` parity with today's direct loaders for summaries, events,
+   turns, metrics, fingerprints and liveness, plus a registry-level `FixtureProvider` smoke
+   test (register, discover, load). Re-running unchanged consumers alone would leave the
+   wrapper untested.
+2. **Q1 (pipeline):** a stub `FixtureProvider` (test-only) that emits a hand-written event
+   stream gets through discovery, indexing, search, Conversation and analytics with **zero
+   changes outside `provider/`**. If it doesn't, the seam leaks.
