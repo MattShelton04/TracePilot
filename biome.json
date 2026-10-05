@@ -72,6 +72,7 @@
       "!**/gen/schemas",
       "!packages/client/src/generated",
       "!packages/types/src/generated",
+      "!crates/*/tests/golden",
       "!apps/desktop/src/components/search/search-palette-results.css"
     ]
   },
