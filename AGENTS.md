@@ -22,6 +22,11 @@ Launch one with `Read docs/agents/tasks/<card>.md and follow it.` The shared rul
 [docs/agents/protocol.md](docs/agents/protocol.md). When several agents share this
 machine, start the app with `pnpm app:start -Instance <name> -Fixtures`.
 
+# Releases
+
+To prepare a release ("update the project to vX.Y.Z"), follow
+[the release guide](docs/releasing.md) up to an open PR.
+
 # Repository notes
 
 For site work, read [the landing-page guide](docs/landing-page.md) and run `pnpm site:check` after building.

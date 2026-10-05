@@ -2,17 +2,36 @@
   "unreleased": {
     "notes": {
       "added": [],
-      "changed": [
-        "Copilot CLI 1.0.91 support: Repeated skill invocations and the skill context the model received are now recognized"
-      ],
-      "fixed": [
-        "Indexing and skill accuracy: Sessions with fractional AI Credit totals or truncated emoji output index again, and unedited skills are no longer marked as changed",
-        "Quieter logs: Expected conditions are no longer reported as failures"
-      ]
+      "changed": [],
+      "fixed": []
     },
     "requiresReindex": false
   },
   "versions": [
+    {
+      "version": "0.9.1",
+      "date": "2026-10-05",
+      "notes": {
+        "added": [
+          "macOS preview build: Apple Silicon Macs get a disk image that updates in one click from inside the app, with macOS-specific update guidance",
+          "Reasoning effort: The session header, Overview, Metrics and each turn show the reasoning effort in use",
+          "Motion: Charts draw in on first appearance, headline numbers count up and tab underlines slide, while respecting reduced motion"
+        ],
+        "changed": [
+          "Copilot CLI 1.0.91 support: All event types are recognized, including repeated skill invocations and the skill context the model received. Existing indexes refresh once on launch",
+          "Shell exit codes: A non-zero exit shows an amber exit chip instead of a success tick, without marking the tool as failed",
+          "Timeline phases: Steering messages and background-agent notifications no longer start a new phase",
+          "Model pricing: Refreshed Copilot rates, adding Claude Sonnet 5.5 and GPT-6.1 Sol"
+        ],
+        "fixed": [
+          "Indexing and skill accuracy: Sessions with fractional AI Credit totals or truncated emoji output index again, and unedited skills are no longer marked as changed",
+          "Analytics and metrics consistency: Analytics and session Metrics agree, and missing usage telemetry shows as unavailable rather than zero",
+          "Search palette: Results from an earlier query no longer replace those for the current one",
+          "Quieter logs: Expected conditions are no longer reported as failures"
+        ]
+      },
+      "requiresReindex": false
+    },
     {
       "version": "0.9.0",
       "date": "2026-09-27",

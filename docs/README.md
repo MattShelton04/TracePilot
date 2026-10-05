@@ -15,6 +15,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [Testing Guide](testing.md) | Canonical testing layers, commands, VRT/E2E scope, and caveats. |
 | [Script and Command Index](../scripts/README.md) | Supported commands, diagnostics, CI helpers, prerequisites, and side effects. |
 | [Running-App Automation](app-automation.md) | Playwright agent CLI for the real Tauri app and frontend-only UI server. |
+| [Releasing](releasing.md) | Release PR checklist: version bump, changelog and in-app notes, validation, tagging. |
 | [Agent Task Playbook](agents/README.md) | Task cards and the shared protocol for autonomous coding agents, including hands-off orchestration. |
 | [Visual Regression](visual-regression.md) | Synthetic frontend comparisons, CI publisher, and interpretation limits. |
 | [Architecture Overview](architecture/overview.md) | Crate/package structure, data flow, and major boundaries. |
@@ -49,7 +50,7 @@ some older reports and plans, which remain recoverable from Git history.
 |----------|-------------|
 | [Git Worktree Guide](git-worktree-guide.md) | Working with git worktrees in TracePilot. |
 | [Version Analysis](version-analysis-implementation-guide.md) | Implementing Copilot schema version analysis. |
-| [Versioning & Release Proposal](versioning-updates-release-strategy.md) | Historical strategy draft; use the root README for the current release process. |
+| [Versioning & Release Proposal](versioning-updates-release-strategy.md) | Historical strategy draft; use the [release guide](releasing.md) for the current process. |
 | [Specta Migration](specta-migration-guide.md) | Specta / tauri-specta migration guide. |
 | [Syntax Highlighting](syntax-highlighting.md) | Current syntax-highlighting behavior and tradeoffs. |
 | [Bespoke Syntax Highlighting Analysis](syntax-highlighting-bespoke-analysis.md) | Analysis behind bespoke syntax-highlighting choices. |
