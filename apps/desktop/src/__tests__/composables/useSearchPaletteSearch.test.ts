@@ -294,6 +294,33 @@ describe("useSearchPaletteSearch", () => {
     expectCleared(state);
   });
 
+  it.each([
+    ["dispose", "success"],
+    ["dispose", "error"],
+    ["scope stop", "success"],
+    ["scope stop", "error"],
+  ] as const)("%s clears completed %s state without changing the query", async (cleanup, completion) => {
+    if (completion === "success") mockSearch.mockResolvedValue(response("alpha"));
+    else mockSearch.mockRejectedValue(new Error("Completed search failed"));
+    const { state, scope } = setup();
+    await start(state);
+    if (completion === "success") {
+      expect(state.results.value).toHaveLength(1);
+      expect(state.totalCount.value).toBe(11);
+      expect(state.latencyMs.value).toBe(12);
+    } else expect(state.searchError.value).toBe("Completed search failed");
+    expect(state.loading.value).toBe(false);
+
+    if (cleanup === "dispose") state.dispose();
+    else scope.stop();
+
+    expectCleared(state);
+    expect(state.query.value).toBe("alpha");
+    expect(state.hasQuery.value).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(mockSearch).toHaveBeenCalledTimes(1);
+  });
+
   it("cleanup only invalidates the search owned by its scope", async () => {
     const first = createDeferred<SearchResultsResponse>();
     const second = createDeferred<SearchResultsResponse>();

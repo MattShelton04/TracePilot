@@ -123,7 +123,7 @@ export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: n
   function dispose() {
     invalidateSearch();
     stopWatching();
-    loading.value = false;
+    clearSearchState();
   }
 
   onScopeDispose(dispose);
