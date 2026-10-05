@@ -19,14 +19,16 @@ A launch message may set any of these, overriding the card's defaults:
 - Read `AGENTS.md`, then only the docs your change needs.
 - If your harness gave you a branch, worktree or sandbox, use it. Otherwise run `git fetch origin` and set one up:
   - **Clean checkout:** `git switch -c <type>/<slug> origin/main`.
-  - **Dirty or shared checkout:** `git worktree add ../TracePilot-<slug> -b <type>/<slug> origin/main`, then `pnpm install --frozen-lockfile` inside it.
+  - **Dirty or shared checkout:** `git worktree add .agent/worktrees/<slug> -b <type>/<slug> origin/main`, then `pnpm install --frozen-lockfile` inside it. `.agent/` is ignored, and staying inside the checkout avoids sandbox prompts for writes outside it.
 
   Never stash, reset or clean changes that aren't yours. If fetching fails, branch from local `main` and say so.
 - Skim `gh pr list --state open` and `git log --oneline -15 origin/main` so you don't duplicate work in flight.
 
 ### Choose with evidence
+- Read [focus.md](focus.md) and skip its deprioritized areas.
 - Keep the search bounded. Focused presets spend about 15% of the effort choosing a target; larger ones spend about 25%. Compare at most three candidates.
 - Evidence means one of these: a reproduced failure, a failing test, a screenshot you have actually looked at, a measurement, or a concrete code path with inputs that reach it.
+- **Prefer what users actually hit.** A problem in a common workflow beats a hardened edge case. Malformed bytes, overflowing counters or input nobody produces need evidence that they occur in practice; otherwise they lose to a smaller, everyday problem.
 - **If nothing worthwhile and safe turns up, stop.** Open no PR and report what you checked. That is a valid outcome.
 
 ### Change
@@ -52,9 +54,10 @@ Each rule links to the doc that explains it.
 ### Verify proportionately
 1. Before editing, run the focused tests for the area so you know what already fails.
 2. After the change, run the checks that match it from the table below, plus `pnpm lint` and `node scripts/check-file-sizes.mjs`.
-3. **Focused presets:** run targeted checks only. Run the full gate only if you changed shared packages, IPC or build configuration. **Larger presets:** run the full gate once, at the end (`just ci`, or its commands from the `justfile`). CI runs everything again on the PR.
-4. **For a bug fix or a new regression test,** show that the test fails on the old code *for the behavioral reason*, not just a compile error, and passes on the new code. Refactors and documentation changes don't need this.
-5. Label failures that existed before your change as pre-existing. Pending CI is not passing CI.
+3. **Run the full gate** (`just ci`, about 15 minutes) **only** if you changed IPC types or commands, build or dependency configuration, or a shared package (`packages/*`) API that other workspaces consume. Otherwise targeted checks are enough, because CI runs everything on the PR.
+4. **For a bug fix or a new regression test,** show once that the test fails on the old code *for the behavioral reason*, not just a compile error, and passes on the new code. Keep the failing output. Refactors and documentation changes don't need this.
+5. **Record what you ran:** the commit SHA, each command and its result. Anyone later in the run reuses those results instead of repeating them, unless the code they cover changes or there is a specific doubt.
+6. Label failures that existed before your change as pre-existing. Pending CI is not passing CI.
 
 | You changed | Run |
 | --- | --- |
@@ -62,7 +65,7 @@ Each rule links to the doc that explains it.
 | `packages/{ui,client,types}/**` | `pnpm --filter @tracepilot/<pkg> test`, `pnpm typecheck`, plus the desktop tests if a consumer changed |
 | `crates/<crate>/**` | `cargo test -p <crate>`, `cargo clippy -p <crate> --all-targets -- -D warnings`, `cargo fmt --all -- --check` |
 | Vue templates or styles | `pnpm check:design-system`. It may already fail on `main`, so make sure *your* files are clean. |
-| Renderers or fixtures | `node --test scripts/fixtures/*.test.mjs scripts/visual/*.test.mjs` |
+| Desktop tool-call renderers (`packages/ui/src/components/renderers/**`) or `scripts/fixtures/**` | `node --test scripts/fixtures/*.test.mjs scripts/visual/*.test.mjs`. Export renderers in Rust don't need this. |
 | Markdown | `node scripts/check-doc-links.mjs` |
 | `scripts/<group>/**` | `node --test scripts/<group>/*.test.mjs` |
 | `site/**` | Follow [the landing-page guide](../landing-page.md), then `pnpm site:check` |
@@ -75,7 +78,17 @@ Each rule links to the doc that explains it.
    - Did you cover the edge cases that matter for *this* change?
    - Is there scope creep, debug leftovers or private data?
    - Is every claim you will make backed by evidence?
-3. **Larger or risky changes only:** if your harness can start a fresh-context reviewer, ask it to break the change. Fix what it substantiates, then re-check only those fixes.
+3. **Risky changes only:** if your harness can start a fresh-context reviewer, ask it to break the change. Fix what it substantiates, then re-check only those fixes.
+
+A change is **risky** if it touches any of these:
+- concurrency, async lifecycle or cancellation;
+- deleting data, or stopping processes;
+- a trust boundary, redaction, or path handling;
+- database migrations or index semantics;
+- IPC contracts;
+- a shared component or helper with many consumers.
+
+Everything else, including most small, isolated fixes, needs only your own review.
 
 <!-- section: ship -->
 ## Ship
@@ -111,7 +124,9 @@ Each rule links to the doc that explains it.
 - Keep to the 4px grid and Lucide icons, and keep the established density.
 - Use the motion tokens and respect reduced-motion settings.
 - Reuse `packages/ui` components before creating new ones. See [common components](../common-frontend-components.md).
-- **Viewports.** Check the default 1440×960 first, then 960×640 (the minimum) and 2560×1440. Check the light theme too if you changed styling. Dark is primary.
+- **Viewports.** Dark is the primary theme.
+  - **Layout or styling changes:** check the default 1440×960 first, then 960×640 (the minimum) and 2560×1440, plus the light theme.
+  - **Behavior-only changes** (logic, keyboard, state): one check at 1440×960 is enough. Deterministic tests carry the rest.
 - **Evidence**, from cheapest to most faithful:
   1. **The visual harness.** It uses a synthetic mock backend and captures *dark only*. Run `node scripts/visual/capture.mjs --case=<id> --channel=msedge --out=.tracepilot/visual/<before|after>`.
      - Case IDs are in `scripts/visual/manifest.mjs`.
@@ -149,7 +164,7 @@ Each rule links to the doc that explains it.
   - Named instances get distinct ports from the machine-wide registry, and readiness verifies it reached your exact instance.
   - Only one *development* desktop instance can run per checkout, so work in your own worktree if another agent may need the app. `-Mode ui` and production instances can share a checkout.
   - Run desktop Vitest with `--maxWorkers=2` while a native build is running.
-- **Clean up only what you started:** run `pnpm app:stop -Instance <slug>` (add `-Mode ui` for a UI-only instance), then detach your Playwright session. Never kill processes by name or port.
+- **Clean up only what you started:** run `pnpm app:stop -Instance <slug>` (add `-Mode ui` for a UI-only instance), then detach your Playwright session. Do both before removing a worktree, because on Windows they hold its files open. Never kill processes by name or port.
 
 <!-- section: rust -->
 ## Rust and IPC

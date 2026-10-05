@@ -30,7 +30,6 @@ Candidate failures:
 - invalid config;
 - a missing Copilot CLI, `gh` or git;
 - an export or import failure;
-- an MCP probe timing out;
 - the launcher failing;
 - the SDK bridge disconnecting.
 

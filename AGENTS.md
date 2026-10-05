@@ -21,6 +21,8 @@ Launch one with `Read docs/agents/tasks/<card>.md and follow it.` The shared rul
 (isolated named app instances, proportionate verification, PR format) are in
 [docs/agents/protocol.md](docs/agents/protocol.md). When several agents share this
 machine, start the app with `pnpm app:start -Instance <name> -Fixtures`.
+When choosing what to improve, skip the experimental areas listed in
+[focus.md](docs/agents/focus.md) unless you're asked to work on them.
 
 # Releases
 

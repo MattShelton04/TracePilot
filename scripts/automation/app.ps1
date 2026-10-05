@@ -332,7 +332,7 @@ try {
                 $_.mode -eq 'desktop' -and $_.runtime -eq 'development' -and (Test-SamePath $_.repoRoot $repoRoot) -and -not (Test-SamePath $_.statePath $statePath)
             } | Select-Object -First 1
             if ($sibling) {
-                throw "Another desktop development instance from this checkout is running (state: $($sibling.statePath)). Both would rebuild and run the same target/debug executable; start a parallel instance from its own worktree (git worktree add ../TracePilot-<name> -b <branch> origin/main)."
+                throw "Another desktop development instance from this checkout is running (state: $($sibling.statePath)). Both would rebuild and run the same target/debug executable; start a parallel instance from its own worktree (git worktree add .agent/worktrees/<name> -b <branch> origin/main)."
             }
         }
         $reserved = [int[]]@($live | ForEach-Object { $_.uiPort; $_.cdpPort } | Where-Object { $_ })
