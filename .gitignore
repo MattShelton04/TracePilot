@@ -58,3 +58,6 @@ packages/ui/src/__vrt__/__screenshots__/**/*-diff.png
 .jules/
 package-lock.json
 !scripts/visual/package-lock.json
+
+# Golden-test mismatch output (see tracepilot-test-support golden.rs)
+crates/*/tests/golden/**/*.actual.json
