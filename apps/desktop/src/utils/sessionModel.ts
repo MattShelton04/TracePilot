@@ -10,3 +10,15 @@ export function sessionModel(
 ): string | null {
   return detail?.currentModel || detail?.shutdownMetrics?.currentModel || null;
 }
+
+/** The main agent's reasoning effort the session is on, when one is set. */
+export function sessionEffort(
+  detail: Pick<SessionDetail, "currentReasoningEffort"> | null | undefined,
+): string | null {
+  return detail?.currentReasoningEffort || null;
+}
+
+/** Badge text for a reasoning effort, e.g. "high effort". */
+export function effortLabel(effort: string): string {
+  return `${effort} effort`;
+}

@@ -99,6 +99,9 @@ pub fn simple_turn(
         session_events: vec![],
         system_messages: vec![],
         agent_messages: vec![],
+        reasoning_effort: None,
+        user_message_delivery: None,
+        system_initiated: false,
     }
 }
 
@@ -132,5 +135,6 @@ pub fn simple_tool_call(name: &str, success: Option<bool>, is_subagent: bool) ->
         result_content: None,
         args_summary: Some("test args".to_string()),
         skill_invocation: None,
+        exit_code: None,
     }
 }

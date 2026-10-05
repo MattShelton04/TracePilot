@@ -22,6 +22,10 @@ export interface AgentTimeRange {
 /*  Phase grouping                                                    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * One phase per message the user typed. Steering messages and messages
+ * Copilot injected (notifications, reminders) continue the current phase.
+ */
 export function groupPhases(turns: ConversationTurn[]): Phase[] {
   if (!turns.length) return [];
 
@@ -29,23 +33,15 @@ export function groupPhases(turns: ConversationTurn[]): Phase[] {
   let current: Phase | null = null;
 
   for (const turn of turns) {
-    if (turn.userMessage != null) {
-      current = {
-        index: result.length,
-        label: turn.userMessage,
-        turns: [turn],
-      };
+    const startsPhase =
+      turn.userMessage != null && !turn.systemInitiated && turn.userMessageDelivery !== "steering";
+    if (startsPhase || !current) {
+      // Turns before the first typed message form an implicit phase.
+      const label = startsPhase && turn.userMessage != null ? turn.userMessage : "(system)";
+      current = { index: result.length, label, turns: [turn] };
       result.push(current);
-    } else if (current) {
-      current.turns.push(turn);
     } else {
-      // Turns before first user message → create implicit phase
-      current = {
-        index: result.length,
-        label: "(system)",
-        turns: [turn],
-      };
-      result.push(current);
+      current.turns.push(turn);
     }
   }
 

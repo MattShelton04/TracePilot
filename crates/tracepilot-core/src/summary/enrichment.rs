@@ -2,7 +2,8 @@ use crate::models::conversation::ConversationTurn;
 use crate::models::event_types::ShutdownData;
 use crate::models::session_summary::{SessionSummary, ShutdownMetrics};
 use crate::parsing::events::{
-    TypedEvent, current_session_model, extract_combined_shutdown_data, extract_session_start,
+    TypedEvent, current_session_effort, current_session_model, extract_combined_shutdown_data,
+    extract_session_start,
 };
 use crate::turns::{reconstruct_turns, turn_stats};
 
@@ -21,6 +22,7 @@ pub(super) fn apply_event_enrichment(
     }
 
     summary.current_model = current_session_model(typed_events);
+    summary.current_reasoning_effort = current_session_effort(typed_events);
 
     let turns = reconstruct_turns(typed_events);
     let stats = turn_stats(&turns);

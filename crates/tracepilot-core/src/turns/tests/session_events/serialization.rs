@@ -60,6 +60,9 @@ fn session_events_serialization_round_trip() {
         }],
         system_messages: Vec::new(),
         agent_messages: Vec::new(),
+        reasoning_effort: None,
+        user_message_delivery: None,
+        system_initiated: false,
     };
 
     let json = serde_json::to_value(&turn).unwrap();

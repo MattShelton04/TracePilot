@@ -18,7 +18,7 @@ import { usePromptCache } from "@/composables/usePromptCache";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { usePreferencesStore } from "@/stores/preferences";
-import { sessionModel } from "@/utils/sessionModel";
+import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
 
 const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
@@ -57,6 +57,7 @@ const { revealing } = useFirstReveal({
   ready: () => !!metrics.value,
 });
 const currentModel = computed(() => sessionModel(store.detail));
+const currentEffort = computed(() => sessionEffort(store.detail));
 const turns = computed(() => store.turns);
 const { allSubagents } = useCrossTurnSubagents(turns);
 const {
@@ -147,6 +148,7 @@ const {
       <div v-if="currentModel" class="flex items-center gap-2">
         <span class="text-xs text-[var(--text-tertiary)]">Current Model:</span>
         <Badge variant="done">{{ currentModel }}</Badge>
+        <Badge v-if="currentEffort" variant="neutral">{{ effortLabel(currentEffort) }}</Badge>
       </div>
     </template>
     <SubagentPanel :subagent="selectedSubagent" :is-open="isPanelOpen" :current-index="selectedIndex" :total-count="allSubagents.length" :has-prev="hasPrev" :has-next="hasNext" :top-offset="panelTopPx" @close="closePanel" @prev="navigatePrev" @next="navigateNext" @select-subagent="selectSubagent" />

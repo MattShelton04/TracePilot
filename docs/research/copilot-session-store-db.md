@@ -71,6 +71,19 @@ The same runtime also contains per-session databases (`session.db`, with `todos`
 | 6 | `finish_reason` / `content_filter_triggered` per request | Low (0 filtered locally) | Yes |
 | 7 | FTS, files, turns | None. TracePilot already has better equivalents. | n/a |
 
+### Reasoning-effort comparisons need the store
+
+Comparing reasoning tokens, API time or AI Credits per turn by effort level (for example,
+xhigh vs medium) can't be built from `events.jsonl` alone on current CLIs:
+
+- Reasoning tokens were never in the event log.
+- `assistant.message.outputTokens` was recorded through 1.0.79 and dropped in 1.0.83.
+
+Turn effort itself is in the log (`session.start`/`resume`/`model_change` `reasoningEffort`
+and `user.message.responsesReasoning`). TracePilot shows it per session and per turn without
+the store. A store-backed effort table was prototyped (October 2026) and then deferred. Its
+cross-task averages are confounded by task difficulty, and most sessions never change effort.
+
 ## 5. Guardrails for any integration
 
 1. **Read-only, always.** The CLI writes this file live (WAL mode) and the agent itself runs SQL

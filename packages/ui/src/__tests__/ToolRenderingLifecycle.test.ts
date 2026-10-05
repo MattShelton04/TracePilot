@@ -172,6 +172,33 @@ describe("terminal contracts", () => {
       output: "failed",
     });
     expect(parseShellOutput("The log says Process exited with code 1").exitCode).toBeNull();
+    expect(
+      parseShellOutput("fatal: not a git repository\n<exited with exit code 128>"),
+    ).toMatchObject({ exitCode: 128, output: "fatal: not a git repository" });
+  });
+  it("shows a non-zero exit as a caution, not a failed tool", () => {
+    const failing = mount(ToolCallItem, {
+      props: { tc: call({ isComplete: true, success: true, exitCode: 1 }), expanded: false },
+    });
+    expect(failing.find(".tool-call-exit").text()).toBe("exit 1");
+    expect(failing.find(".tool-call-status.success").exists()).toBe(false);
+    expect(failing.find(".tool-call-status.failed").exists()).toBe(false);
+
+    const clean = mount(ToolCallItem, {
+      props: { tc: call({ isComplete: true, success: true, exitCode: 0 }), expanded: false },
+    });
+    expect(clean.find(".tool-call-exit").exists()).toBe(false);
+    expect(clean.find(".tool-call-status.success").exists()).toBe(true);
+  });
+  it("prefers the recorded exit code when the output has none", () => {
+    const wrapper = mount(ShellOutputRenderer, {
+      props: {
+        tc: call({ isComplete: true, success: true, exitCode: 3 }),
+        args: {},
+        content: "partial output",
+      },
+    });
+    expect(wrapper.text()).toContain("Exit 3");
   });
   it("preserves blank lines and normalizes incremental terminal controls without HTML", () => {
     expect(normalizeTerminalText("\u001b[32mPASS\u001b[0m\r\n\r\n10%\r20%\n\u001b[3")).toBe(

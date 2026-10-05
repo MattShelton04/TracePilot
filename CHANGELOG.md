@@ -10,9 +10,12 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ### Added
 
 - **macOS preview build** — Releases include an Apple Silicon disk image. The app isn't notarized, so the first launch needs **Open Anyway** in Privacy & Security. After that it updates in one click from inside the app. The update dialog explains macOS steps, including moving the app out of the disk image so it can update itself. A Copilot CLI installed through Homebrew, npm or a version manager is found even when TracePilot is opened from Finder.
+- **Reasoning effort** — The session header, Overview and Metrics show the reasoning effort the session is using, and each turn in the Compact and Timeline views shows the effort it ran at.
 
 ### Changed
 
+- **Shell exit codes** — A shell command that exits non-zero now shows an amber `exit N` chip instead of a success tick. It isn't marked as a failed tool, because agents often run tests and linters that are expected to fail.
+- **Timeline phases** — Steering messages and background-agent notifications no longer start a new phase in the Timeline swimlanes.
 - **Copilot CLI 1.0.91 support** — All persisted event types are recognized, including repeated skill invocations and the skill context the model received. Existing indexes refresh once on launch.
 
 ### Fixed

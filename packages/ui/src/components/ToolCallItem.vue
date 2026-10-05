@@ -45,6 +45,13 @@ const emit = defineEmits<{
 const { directory: agentDirectory } = useAgentDirectory();
 const status = computed(() => toolCallStatus(props.tc));
 
+// A command that exits non-zero (failing tests, lint findings, a missing
+// path) still ran: shown as a caution, not as a failed tool.
+const nonZeroExit = computed(() => {
+  const code = props.tc.exitCode;
+  return status.value === "success" && code != null && code !== 0 ? code : null;
+});
+
 // Agent-control tools name the agents they address instead of raw runtime IDs.
 const summary = computed(
   () =>
@@ -230,7 +237,13 @@ watch(
         </span>
 
         <!-- Success/fail indicator -->
-        <span v-if="status === 'success'" class="tool-call-status success" aria-label="Succeeded">✓</span>
+        <span
+          v-if="nonZeroExit != null"
+          class="tool-call-exit"
+          :aria-label="`Completed, exit code ${nonZeroExit}`"
+          :title="`The command exited with code ${nonZeroExit}. The tool ran; the command reported a problem.`"
+        >exit {{ nonZeroExit }}</span>
+        <span v-else-if="status === 'success'" class="tool-call-status success" aria-label="Succeeded">✓</span>
         <span v-else-if="status === 'error'" class="tool-call-status failed" aria-label="Failed">✗</span>
         <span v-else class="tool-call-status" style="color: var(--text-tertiary);" :aria-label="status === 'cancelled' ? 'Cancelled' : 'Pending'">{{ status === 'cancelled' ? '—' : '○' }}</span>
 
@@ -253,6 +266,17 @@ watch(
 </template>
 
 <style scoped>
+.tool-call-exit {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--warning-fg);
+  background: var(--warning-subtle);
+}
+
 .tool-call-permission-pill {
   display: inline-flex;
   align-items: center;
@@ -282,7 +306,7 @@ watch(
 }
 
 .tool-call-permission-pill.status-pending {
-  color: var(--warning-fg, #d29922);
+  color: var(--warning-fg);
 }
 
 .tool-call-permission-pill.status-hook {

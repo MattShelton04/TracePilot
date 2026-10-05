@@ -59,6 +59,8 @@ export interface SessionDetail {
    * value at the last shutdown.
    */
   currentModel?: string | null;
+  /** The main agent's reasoning effort the session was last on; absent when the model's default applies. */
+  currentReasoningEffort?: string | null;
   hasPlan: boolean;
   hasCheckpoints: boolean;
   checkpointCount?: number | null;

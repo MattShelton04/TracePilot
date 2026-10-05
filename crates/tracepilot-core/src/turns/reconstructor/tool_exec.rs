@@ -4,7 +4,9 @@ use crate::models::conversation::TurnToolCall;
 use crate::models::event_types::{SubagentStartedData, ToolExecCompleteData, ToolExecStartData};
 use crate::parsing::events::TypedEvent;
 
-use super::super::utils::{duration_ms, extract_result_content, json_value_to_string};
+use super::super::utils::{
+    duration_ms, extract_result_content, json_value_to_string, shell_exit_code,
+};
 use super::state::enrich_subagent;
 use super::{CURRENT_TURN_SENTINEL, TurnReconstructor};
 
@@ -104,6 +106,7 @@ impl TurnReconstructor {
             result_content: None,
             args_summary: None,
             skill_invocation: None,
+            exit_code: None,
         });
 
         // Index the new tool call
@@ -186,6 +189,13 @@ impl TurnReconstructor {
                 && let Some(content) = extract_result_content(result, &tool_call.tool_name)
             {
                 tool_call.result_content = Some(content);
+            }
+            if let Some(code) = shell_exit_code(
+                &tool_call.tool_name,
+                data.shell_execution.as_ref(),
+                data.result.as_ref(),
+            ) {
+                tool_call.exit_code = Some(code);
             }
         } else {
             tracing::debug!(
@@ -287,6 +297,7 @@ impl TurnReconstructor {
                 result_content: None,
                 args_summary: None,
                 skill_invocation: None,
+                exit_code: None,
             });
             if let Some(id) = &data.tool_call_id {
                 self.tool_call_index

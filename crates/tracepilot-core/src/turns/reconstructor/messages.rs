@@ -47,6 +47,9 @@ impl TurnReconstructor {
         );
         turn.event_index = Some(event_index);
         turn.model = self.session_model.clone();
+        turn.reasoning_effort = self.effort.current_effort().map(str::to_string);
+        turn.user_message_delivery = data.delivery.clone();
+        turn.system_initiated = !is_typed_by_user(data);
         // Flush any session events that occurred between turns
         turn.session_events.append(&mut self.pending_session_events);
         // Flush any system messages that arrived before this turn
@@ -56,7 +59,9 @@ impl TurnReconstructor {
     }
 
     pub(super) fn handle_assistant_turn_start(&mut self, event: &TypedEvent, data: &TurnStartData) {
+        let effort = self.effort.current_effort().map(str::to_string);
         let turn = self.ensure_current_turn(event.raw.timestamp);
+        turn.reasoning_effort = effort;
         if data.model.is_some() {
             turn.model = data.model.clone();
         }
@@ -173,5 +178,20 @@ impl TurnReconstructor {
                 self.pending_system_messages.push(content);
             }
         }
+    }
+}
+
+/// Whether a root user message was typed (or sent through a command) by the
+/// user. Copilot also logs its own prompts as user messages: notifications
+/// (`source: "system"`), skill context and autopilot continuations. Logs from
+/// before `source` existed are told apart by their content.
+fn is_typed_by_user(data: &UserMessageData) -> bool {
+    let content = data.content.as_deref().unwrap_or("").trim_start();
+    if content.is_empty() || data.is_autopilot_continuation == Some(true) {
+        return false;
+    }
+    match data.source.as_deref() {
+        Some(source) => source == "user" || source.starts_with("command-"),
+        None => !content.starts_with("<system_notification>"),
     }
 }

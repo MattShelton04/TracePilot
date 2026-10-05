@@ -37,7 +37,10 @@ mod types;
 
 pub use aggregate::{extract_combined_shutdown_data, extract_session_start};
 pub use raw::{RawEvent, events_to_jsonl};
-pub use session_model::{AUTO_MODEL, SessionModelTracker, current_session_model, is_auto_model};
+pub use session_model::{
+    AUTO_MODEL, SessionEffortTracker, SessionModelTracker, current_session_effort,
+    current_session_model, is_auto_model,
+};
 pub use snapshot::{EventSnapshot, load_event_snapshot};
 pub use typed::{
     ParsedEvents, TypedEvent, TypedEventData, parse_typed_events, parse_typed_events_cancellable,

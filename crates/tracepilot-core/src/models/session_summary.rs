@@ -39,6 +39,10 @@ pub struct SessionSummary {
     /// named a concrete model.
     #[serde(default)]
     pub current_model: Option<String>,
+    /// The main agent's reasoning effort the session was last on, from its
+    /// events. `None` when the model's default applies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_reasoning_effort: Option<String>,
 
     // From shutdown event (if available)
     pub shutdown_metrics: Option<ShutdownMetrics>,
@@ -119,6 +123,7 @@ mod tests {
             checkpoint_count: None,
             turn_count: None,
             current_model: None,
+            current_reasoning_effort: None,
             shutdown_metrics: None,
         }
     }

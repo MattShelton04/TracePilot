@@ -156,6 +156,7 @@ fn renders_subagent_with_rich_metadata() {
         result_content: Some("Found 3 TODOs".into()),
         args_summary: None,
         skill_invocation: None,
+        exit_code: None,
     }];
     session.conversation = Some(vec![turn]);
 

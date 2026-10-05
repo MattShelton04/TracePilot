@@ -45,6 +45,7 @@ import { computed } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import { chunkTurns } from "@/components/conversation/chatViewUtils";
+import { effortLabel } from "@/utils/sessionModel";
 
 interface ToggleSetLike<T> {
   has: (value: T) => boolean;
@@ -164,6 +165,7 @@ function onRetryFullResult(toolCallId: string) {
       <div class="compact-turn-header">
         <span class="turn-meta" style="font-weight: 700; color: var(--accent-fg);">Turn {{ turn.turnIndex }}</span>
         <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
+        <Badge v-if="turn.reasoningEffort" variant="neutral">{{ effortLabel(turn.reasoningEffort) }}</Badge>
         <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
         <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
         <span v-if="turn.outputTokens" class="token-badge"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>
@@ -278,6 +280,7 @@ function onRetryFullResult(toolCallId: string) {
       <div class="timeline-turn-body">
         <div class="timeline-meta">
           <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
+          <Badge v-if="turn.reasoningEffort" variant="neutral">{{ effortLabel(turn.reasoningEffort) }}</Badge>
           <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
           <span v-if="turn.outputTokens" class="token-badge"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>
           <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>

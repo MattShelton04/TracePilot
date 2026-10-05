@@ -42,7 +42,7 @@ import { useSdkStore } from "@/stores/sdk";
 import { isSessionNotFoundError } from "@/utils/backendErrors";
 import { logError, logWarn } from "@/utils/logger";
 import { normalizeToolPartialOutput } from "@/utils/normalizeToolPartialOutput";
-import { sessionModel } from "@/utils/sessionModel";
+import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
 
 const props = defineProps<{
   store: SessionDetailContext;
@@ -204,6 +204,7 @@ const tabs = computed(() => {
 });
 
 const currentModel = computed(() => sessionModel(props.store.detail) ?? "");
+const currentEffort = computed(() => sessionEffort(props.store.detail));
 
 function onSubTabChange(tab: string) {
   emit("update:activeSubTab", tab);
@@ -280,6 +281,7 @@ watch(isSessionActive, (active) => {
         <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
         <Badge v-if="store.detail.branch" variant="success">{{ store.detail.branch }}</Badge>
         <Badge v-if="currentModel" variant="done">{{ currentModel }}</Badge>
+        <Badge v-if="currentEffort" variant="neutral" title="Main agent reasoning effort">{{ effortLabel(currentEffort) }}</Badge>
         <Badge variant="neutral">{{ store.detail.hostType || 'cli' }}</Badge>
       </div>
 
