@@ -35,7 +35,11 @@ export async function discoverDesktop(explicitPort, instance = "") {
     if (!Number.isInteger(explicitPort) || explicitPort < 1 || explicitPort > 65535) {
       throw new Error("CDP port must be an integer between 1 and 65535.");
     }
-    return { port: explicitPort, instanceId: "" };
+    // Explicit ports can attach to untracked apps. A selected, recorded instance
+    // must still match so a typo cannot attach to another tracked app.
+    if (!existsSync(stateFile(instance))) {
+      return { port: explicitPort, instanceId: "" };
+    }
   }
   const file = stateFile(instance);
   if (!existsSync(file)) {
@@ -49,6 +53,12 @@ export async function discoverDesktop(explicitPort, instance = "") {
   const endpoint = new URL(state.endpoint);
   if (endpoint.protocol !== "http:" || endpoint.hostname !== "127.0.0.1" || !endpoint.port) {
     throw new Error("Invalid recorded CDP endpoint. Run pnpm app:stop, then pnpm app:start.");
+  }
+  if (explicitPort !== undefined && Number(endpoint.port) !== explicitPort) {
+    if (instance) {
+      throw new Error(`CDP port ${explicitPort} does not belong to instance ${instance}.`);
+    }
+    return { port: explicitPort, instanceId: "" };
   }
   // The recorded nonce proves the endpoint still belongs to the instance that wrote this state.
   return { port: Number(endpoint.port), instanceId: state.instanceId ?? "" };
@@ -65,7 +75,7 @@ export async function connect(options = {}) {
   console.log(
     `[connect] Real TracePilot backend verified on port ${port}${instance ? ` (instance ${instance})` : ""}.`,
   );
-  return { ...connection, port };
+  return { ...connection, port, instance, instanceId };
 }
 
 // ─── Telemetry Collection ────────────────────────────────────────────────────
@@ -247,23 +257,37 @@ export async function ipc(page, cmd, args = {}) {
 
 /**
  * Shut down the TracePilot app and clean up.
- * Disconnects Playwright, then runs the stop script to kill the process.
+ * Disconnects Playwright, then stops the selected tracked processes.
  *
  * @param {import('playwright-core').Browser} browser
- * @param {number} [port] - CDP port to stop (reads from port file if omitted)
+ * @param {number | { port?: number, instance?: string, instanceId?: string }} [target]
+ *   Captured connection identity, or a legacy explicit port in the default state.
  */
-export async function shutdown(browser, port) {
+export async function shutdown(browser, target) {
   console.log("[shutdown] Disconnecting Playwright...");
   await browser.close().catch(() => {});
 
+  // Only a captured nonce ties a structured connection to the app it observed.
+  // Never adopt lifecycle state that appeared after an untracked connection.
+  const legacy = target === undefined || typeof target === "number";
+  if (!legacy && !target?.instanceId) {
+    console.warn("[shutdown] No captured instance identity; leaving TracePilot running.");
+    return;
+  }
   console.log("[shutdown] Stopping TracePilot process...");
-  const { execSync } = await import("node:child_process");
+  const { execFileSync } = await import("node:child_process");
   const stopScript = resolve(__dirname, "stop.ps1");
-  const portArg = port ? `-Port ${port}` : "";
+  const { port, instance, instanceId } =
+    typeof target === "number" ? { port: target } : (target ?? {});
+  const args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", stopScript];
+  if (port !== undefined) args.push("-Port", String(port));
+  if (instance) args.push("-Instance", instance);
+  if (instanceId) args.push("-InstanceId", instanceId);
   try {
-    execSync(`powershell -ExecutionPolicy Bypass -File "${stopScript}" ${portArg}`, {
+    execFileSync("powershell.exe", args, {
       stdio: "inherit",
       timeout: 15000,
+      windowsHide: true,
     });
   } catch {
     console.warn("[shutdown] stop.ps1 failed — process may need manual cleanup.");
