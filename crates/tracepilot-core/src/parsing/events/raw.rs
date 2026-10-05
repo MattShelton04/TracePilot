@@ -111,14 +111,22 @@ pub(super) fn visit_events_jsonl(
 /// the whole line. Only after that failure is each unpaired escape replaced
 /// with U+FFFD, the same substitution a lossy UTF-16 decoder makes.
 fn parse_raw_event_line(line: &str) -> serde_json::Result<RawEvent> {
-    let error = match serde_json::from_str::<RawEvent>(line) {
-        Ok(event) => return Ok(event),
+    parse_json_line_lenient(line)
+}
+
+/// Parse one JSONL record into any shape, with the same lone-surrogate repair.
+/// Claude Code transcripts are written by `JSON.stringify` too.
+pub(crate) fn parse_json_line_lenient<T: serde::de::DeserializeOwned>(
+    line: &str,
+) -> serde_json::Result<T> {
+    let error = match serde_json::from_str::<T>(line) {
+        Ok(value) => return Ok(value),
         Err(error) => error,
     };
     // Report the original error if the repair does not help: it describes the
     // line as written, not our rewrite of it.
     replace_lone_surrogate_escapes(line)
-        .and_then(|repaired| serde_json::from_str::<RawEvent>(&repaired).ok())
+        .and_then(|repaired| serde_json::from_str::<T>(&repaired).ok())
         .ok_or(error)
 }
 

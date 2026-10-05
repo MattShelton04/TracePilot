@@ -10,6 +10,7 @@ use std::sync::Arc;
 use crate::error::Result;
 use crate::ids::SessionId;
 
+pub mod claude_code;
 pub mod copilot;
 mod types;
 

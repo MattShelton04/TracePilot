@@ -9,6 +9,8 @@
 //! See `docs/tech-debt-plan-revised-2026-04.md` §3-safety.5 for the
 //! migration plan and rationale.
 
+pub mod claude;
+pub mod claude_scenarios;
 pub mod copilot_corpus;
 pub mod fixtures;
 pub mod golden;

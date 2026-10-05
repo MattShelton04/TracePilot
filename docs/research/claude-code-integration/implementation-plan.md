@@ -313,7 +313,7 @@ Each PR keeps Copilot behaviour identical; the golden tests are the gate.
 | Todo/task tool availability | Verified: default-on only for older models, so C12 is low priority |
 | Seam design and Copilot regression gate | [architecture.md §3](architecture.md#3-the-a-design); golden tests in F2 |
 | Accounting semantics | `cost-state` snapshots are cumulative across resumes (verified on all 5 resumed sessions); reconciliation instead of a percentage gate (L0) |
-| Open questions for the spike | Turn granularity, residual hypotheses, `Read`/`Edit` rendering (S3) |
+| Open questions for the spike | Turn granularity, residual hypotheses, `Read`/`Edit` rendering (S3). The parser lives in `crates/tracepilot-core/src/provider/claude_code/`; re-run S3 with `TRACEPILOT_CLAUDE_PROBE_DIR` and `cargo test -p tracepilot-core --test claude_code_probe -- --ignored --nocapture` |
 
 ### Conventions
 

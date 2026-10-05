@@ -39,7 +39,7 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | `user` interrupt marker, `interruptedMessageId` | 9 | `abort` `{reason: "user initiated"}` | Ends the interrupted call (§1.2) |
 | `user` `isCompactSummary` | 27 | Folded into `session.compaction_complete.summaryContent`. Never `user.message` | |
 | `user` tool_result block (+ `toolUseResult`) | 11,437 | `tool.execution_complete` `{toolCallId, success: !is_error, result{content, detailedContent}}` | `detailedContent` is reshaped per tool (§2). Duration is the tool_use → tool_result timestamp |
-| `assistant` (first block of a new `message.id`) | 11,398 messages | `assistant.turn_start` `{turnId: message.id, model}` | **One API call is one TracePilot turn**, matching Copilot's round-trip granularity. To be validated in the spike |
+| `assistant` (first block of a new `message.id`) | 11,398 messages | `assistant.turn_start` `{turnId: message.id, model}` | **One API call is one TracePilot turn**, matching Copilot's round-trip granularity. S3 kept it: a median of 8 turns per interaction (p90 146), against a Copilot median of 41 turns per session |
 | `assistant` `text` block | 3,493 | `assistant.message` `{content, messageId}` | Attributed to `agentId` in subagent files |
 | `assistant` `thinking` block | 7,150 (88.8% empty) | `assistant.reasoning` when non-empty | Record a `redacted` count for the UI |
 | `assistant` `tool_use` block | 11,437 | `tool.execution_start` `{toolCallId, toolName: canonical, arguments: normalized, nativeToolName, mcpServerName?, mcpToolName?}` | §2 |
@@ -48,7 +48,7 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | `assistant` model differs from the previous call | — | `session.model_change` | |
 | `assistant` `<synthetic>` + `isApiErrorMessage` | 15 | `session.error` `{errorType: "rate_limit", statusCode: 429}` | Keeps the existing incident logic (`error_type == "rate_limit"`) working |
 | `system:compact_boundary` | 27 | `session.compaction_start` + `session.compaction_complete` `{preCompactionTokens, trigger, durationMs}` | |
-| `system:turn_duration` | 207 | Annotates the user interaction's duration | No Copilot equivalent; no promptId, so link it by position |
+| `system:turn_duration` | 207 | Ends the open call (§1.2), then shown on the Events tab | No Copilot equivalent; no promptId, so link it by position |
 | `system:informational` / `away_summary` / `local_command` | 46 / 35 / 28 | `session.info` | |
 | First record | — | **Synthesized** `session.start` `{sessionId, producer: "claude-code", version, startTime, context{cwd, gitRoot, branch, repository}}` | The VS Code study warns against fake Copilot telemetry; `session.start` is safe because it only carries context. **Never synthesize `session.shutdown`** |
 | `cost-state` | 132 | Not an event. Becomes **provider metrics** (§3) | |
@@ -86,14 +86,15 @@ synthesized only when the end is known:
 
 | Situation | Detection | Emit |
 | --- | --- | --- |
-| Completed call | A later record starts a new `message.id` or a new interaction, and every `tool_use` in the call has its `tool_result` | `assistant.turn_end` after the last `tool_result` |
+| Completed call | A later record starts a new `message.id` or a new interaction, or a `system:turn_duration` follows, and every `tool_use` in the call has its `tool_result` | `assistant.turn_end` after the last `tool_result`, emitted when the later record arrives so meta records in between (skill context) still reach the open turn |
+| Ended at EOF | The file ends after a call whose last `stop_reason` is final (`end_turn`, `stop_sequence`, `max_tokens`, `refusal`) with no tool result pending | `assistant.turn_end`, so an ended session's last turn is complete |
 | Interrupted call | Interrupt marker or `interruptedMessageId` | `abort {reason: "user initiated"}`; no `turn_end`. The open tool calls stay incomplete |
 | Missing tool result, not at EOF | Later records exist but a `tool_use` never got a `tool_result` (crash, rewind) | `assistant.turn_end`; the call stays incomplete; diagnostic `missing_tool_results += 1` |
 | Live EOF | The file ends inside a call, or with tool results still pending | Nothing. The turn stays open, as a live Copilot turn does |
 | Synthetic API error | `<synthetic>` + `isApiErrorMessage` | `session.error`; not a model call |
 
-`stop_reason` is not used to decide completeness: it is mostly `null` in subagent files
-(data-comparison rule 11).
+Apart from the EOF row, `stop_reason` is not used to decide completeness: it is mostly
+`null` in subagent files (data-comparison rule 11), and a `null` stop reason never ends a call.
 
 ### 1.3 Ordering, ids, branches and subagents
 
@@ -101,7 +102,10 @@ synthesized only when the end is known:
 - **Event ids.** An event made from a record gets `id = "<record uuid>:<n>"`, where `n` is the
   event's 0-based position among the events from that record. A synthesized event uses
   `"<anchor record uuid>:<kind>"`: `session.start` is anchored on the first record, and
-  `turn_end` / `model_change` on the record that triggered them. `parentId` is the previous
+  `turn_end` / `model_change` on the record that triggered them. A `turn_end` at EOF uses
+  `"<last record uuid>:eof_turn_end"`, because that record may already anchor the previous
+  call's `turn_end`. A record without a uuid uses `line-<n>` (prefixed with the agent id in a
+  subagent file). `parentId` is the previous
   event in the same stream unless a rule above sets it, such as the skill links. Ids are
   stable across re-parses of an unchanged file.
 - **Duplicate notifications.** One background completion can appear as a `user` record, a
