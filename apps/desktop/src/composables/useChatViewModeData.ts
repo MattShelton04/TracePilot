@@ -297,7 +297,8 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
     }
 
     nextTick(() => {
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
       el?.classList.add("cv-highlight");
       setTimeout(() => el?.classList.remove("cv-highlight"), 4000);
     });

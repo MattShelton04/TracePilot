@@ -53,7 +53,8 @@ export function useConversationDeepLinkScroll(
   let activeObserver: IntersectionObserver | null = null;
 
   function scrollAndHighlight(el: HTMLElement) {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
 
     activeObserver?.disconnect();
     const observer = new IntersectionObserver(

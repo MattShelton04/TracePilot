@@ -69,13 +69,14 @@ function makeLiveTurn(partial: Partial<SdkLiveTurn> = {}): SdkLiveTurn {
 
 describe("useChatViewModeData streaming derivations", () => {
   let wrapper: VueWrapper | undefined;
+  let reducedMotion: boolean;
 
-  function mountHarness() {
+  function mountHarness(root: HTMLElement | null = null) {
     let api!: ReturnType<typeof useChatViewModeData>;
     wrapper = mount(
       defineComponent({
         setup() {
-          api = useChatViewModeData(ref(null));
+          api = useChatViewModeData(ref(root));
           return () => null;
         },
       }),
@@ -89,9 +90,63 @@ describe("useChatViewModeData streaming derivations", () => {
     sdk.liveTurnsBySessionId = {};
     sdk.sessionStatesById = {};
     vi.clearAllMocks();
+    reducedMotion = false;
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: reducedMotion })),
+    );
   });
 
-  afterEach(() => wrapper?.unmount());
+  afterEach(() => {
+    wrapper?.unmount();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it.each([false, true])("reveals a collapsed tool with reduced motion %s", async (reduced) => {
+    vi.useFakeTimers();
+    reducedMotion = reduced;
+    const root = document.createElement("div");
+    root.innerHTML = '<div data-collapse-key="3-tools"><button data-event-idx="11"></button></div>';
+    const target = root.querySelector<HTMLElement>("[data-event-idx]")!;
+    target.scrollIntoView = vi.fn();
+    const api = mountHarness(root);
+
+    api.revealEvent(3, 11);
+    expect(api.expandedGroups.has("3-tools")).toBe(true);
+    expect(target.scrollIntoView).not.toHaveBeenCalled();
+    await nextTick();
+
+    expect(target.scrollIntoView).toHaveBeenCalledWith({
+      behavior: reduced ? "auto" : "smooth",
+      block: "center",
+    });
+    expect(target.classList.contains("cv-highlight")).toBe(true);
+    vi.advanceTimersByTime(4000);
+    expect(target.classList.contains("cv-highlight")).toBe(false);
+  });
+
+  it("reads motion changes after a missing turn is retried and before nextTick scrolling", async () => {
+    vi.useFakeTimers();
+    const root = document.createElement("div");
+    const api = mountHarness(root);
+    api.revealEvent(3);
+    await nextTick();
+
+    const target = document.createElement("div");
+    target.dataset.turnIdx = "3";
+    target.scrollIntoView = vi.fn();
+    root.appendChild(target);
+    api.revealEvent(3);
+    reducedMotion = true;
+    await nextTick();
+    expect(target.scrollIntoView).toHaveBeenLastCalledWith({ behavior: "auto", block: "center" });
+
+    api.revealEvent(3);
+    reducedMotion = false;
+    await nextTick();
+    expect(target.scrollIntoView).toHaveBeenLastCalledWith({ behavior: "smooth", block: "center" });
+  });
 
   it("does not re-segment or re-pair persisted history for each live text delta", async () => {
     detail.turns = Array.from({ length: 500 }, (_, index) => makeTurn(index));
