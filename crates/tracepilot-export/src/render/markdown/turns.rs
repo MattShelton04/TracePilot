@@ -160,17 +160,8 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
                     md.push_line(format_args!("```json\n{}\n```\n", args));
                 }
                 if let Some(result) = &tool.result_content {
-                    let preview = if result.len() > 2000 {
-                        format!(
-                            "{}…\n\n*(truncated — {} bytes total)*",
-                            tracepilot_core::utils::truncate_utf8(result, 2000),
-                            result.len()
-                        )
-                    } else {
-                        result.clone()
-                    };
                     md.push_str("**Result:**\n\n");
-                    md.push_line(format_args!("```\n{}\n```\n", preview));
+                    md.push_line(format_args!("```\n{}\n```\n", result));
                 }
             }
         }

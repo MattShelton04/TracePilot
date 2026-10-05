@@ -7,6 +7,8 @@
 )]
 //! Markdown export renderer integration tests.
 
+use std::fs;
+
 use tracepilot_export::options::*;
 use tracepilot_export::*;
 use tracepilot_test_support::fixtures::full_session_temp_dir;
@@ -101,4 +103,77 @@ fn export_markdown_preview() {
 
     assert!(preview.len() <= 200);
     assert!(preview.starts_with("# Session:"));
+}
+
+fn session_with_long_tool_result() -> (tempfile::TempDir, String) {
+    let (dir, _) = full_session_temp_dir();
+    let result = format!("{}\nTOOL_RESULT_END", "résultat ".repeat(512));
+    let events_path = dir.path().join("events.jsonl");
+    let events = fs::read_to_string(&events_path).unwrap();
+    let updated: Vec<String> = events
+        .lines()
+        .map(|line| {
+            let mut event: serde_json::Value = serde_json::from_str(line).unwrap();
+            if event["type"] == "tool.execution_complete" {
+                event["data"]["result"] = serde_json::json!(result);
+            }
+            event.to_string()
+        })
+        .collect();
+    fs::write(events_path, updated.join("\n")).unwrap();
+    (dir, result)
+}
+
+#[test]
+fn export_markdown_respects_full_tool_results() {
+    let (dir, result) = session_with_long_tool_result();
+
+    for include_full in [true, false] {
+        let mut options = ExportOptions::all(ExportFormat::Json);
+        options.sections = [SectionId::Conversation].into_iter().collect();
+        options.content_detail.include_full_tool_results = include_full;
+        let files = export_session(dir.path(), &options).unwrap();
+        let archive: SessionArchive = serde_json::from_slice(&files[0].content).unwrap();
+        let tool = &archive.sessions[0].conversation.as_ref().unwrap()[0].tool_calls[0];
+        let exported_result = tool.result_content.as_deref().unwrap();
+
+        if include_full {
+            assert_eq!(exported_result, result);
+        } else {
+            assert!(result.starts_with(exported_result.trim_end_matches("…[truncated]")));
+            assert!(exported_result.ends_with("…[truncated]"));
+            assert!(!exported_result.contains("TOOL_RESULT_END"));
+        }
+
+        options.format = ExportFormat::Markdown;
+        let files = export_session(dir.path(), &options).unwrap();
+        let markdown = files[0].as_text().unwrap();
+        assert!(
+            markdown.contains(&format!("**Result:**\n\n```\n{exported_result}\n```")),
+            "Markdown should preserve the same tool result as JSON (include_full={include_full})"
+        );
+        assert_eq!(markdown.contains("TOOL_RESULT_END"), include_full);
+    }
+}
+
+#[test]
+fn export_markdown_omits_tool_details_even_with_full_results_enabled() {
+    let (dir, _) = session_with_long_tool_result();
+    let mut options = ExportOptions::all(ExportFormat::Json);
+    options.sections = [SectionId::Conversation].into_iter().collect();
+    options.content_detail.include_full_tool_results = true;
+    options.content_detail.include_tool_details = false;
+    let files = export_session(dir.path(), &options).unwrap();
+    let archive: SessionArchive = serde_json::from_slice(&files[0].content).unwrap();
+    let tool = &archive.sessions[0].conversation.as_ref().unwrap()[0].tool_calls[0];
+    assert!(tool.arguments.is_none());
+    assert!(tool.result_content.is_none());
+
+    options.format = ExportFormat::Markdown;
+    let files = export_session(dir.path(), &options).unwrap();
+    let markdown = files[0].as_text().unwrap();
+    assert!(markdown.contains("| read_file |"));
+    assert!(!markdown.contains("**Arguments:**"));
+    assert!(!markdown.contains("**Result:**"));
+    assert!(!markdown.contains("TOOL_RESULT_END"));
 }
