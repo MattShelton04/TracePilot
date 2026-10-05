@@ -8,6 +8,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { createServer } from "node:net";
@@ -355,6 +356,20 @@ test("Windows lifecycle owns only its recorded process trees", {
     assert.equal(existsSync(stale), false);
   });
 
+  await t.test("keeps a fresh unreadable claim and prunes an old one", async () => {
+    mkdirSync(claims, { recursive: true });
+    const fresh = join(claims, `${"d".repeat(32)}.json`);
+    const old = join(claims, `${"e".repeat(32)}.json`);
+    writeFileSync(fresh, "{");
+    writeFileSync(old, "{");
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60_000);
+    utimesSync(old, tenMinutesAgo, tenMinutesAgo);
+    await run("status", "ui", ["-All"]);
+    assert.equal(existsSync(fresh), true);
+    assert.equal(existsSync(old), false);
+    rmSync(fresh);
+  });
+
   await t.test("refuses a second desktop development instance from one checkout", async () => {
     await run("start", "ui", ["-Instance", "gamma"]);
     const sibling = join(claims, `${"b".repeat(32)}.json`);
@@ -389,6 +404,10 @@ test("Windows lifecycle owns only its recorded process trees", {
       /either -Instance or -StateDirectory/,
     );
     await assert.rejects(run("start", "ui", ["-Fixtures"]), /-Fixtures requires desktop mode/);
+    await assert.rejects(
+      run("start", "desktop", ["-Instance", "first", "-FirstRun"]),
+      /-FirstRun requires -Fixtures/,
+    );
     assert.deepEqual(claimIds(), []);
   });
 });

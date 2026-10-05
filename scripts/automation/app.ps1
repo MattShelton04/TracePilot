@@ -13,6 +13,7 @@ param(
     [ValidateRange(1, 3600)][int]$TimeoutSeconds = 600,
     [string]$Instance = '',
     [switch]$Fixtures,
+    [switch]$FirstRun,
     [switch]$All
 )
 $ErrorActionPreference = 'Stop'
@@ -37,6 +38,9 @@ $statePath = Join-Path $runtimeDir "$Mode.json"
 $session = if (-not $Instance) { "tracepilot-$Mode" } elseif ($Mode -eq 'ui') { "tracepilot-$Instance-ui" } else { "tracepilot-$Instance" }
 if ($Action -eq 'start' -and $Fixtures -and ($Mode -ne 'desktop' -or -not $DataRoot)) {
     throw '-Fixtures requires desktop mode with -Instance or an isolated -DataRoot.'
+}
+if ($Action -eq 'start' -and $FirstRun -and -not $Fixtures) {
+    throw '-FirstRun requires -Fixtures; a data root without fixtures already opens the setup wizard.'
 }
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 if ($Action -eq 'start' -and $SkipBuild -and $Runtime -ne 'production') {
@@ -101,6 +105,26 @@ function Get-ResolvedPaths([string]$Root) {
     }
 }
 
+# Marks setup complete for a fixture data root so the app opens on its sessions.
+# An existing config is kept, so settings changed in the app survive restarts.
+function Write-CompletedSetupConfig($Paths) {
+    if (Test-Path -LiteralPath $Paths.config) { return }
+    New-Item -ItemType Directory -Force -Path $Paths.tracepilotHome | Out-Null
+    $quote = { param($Value) ConvertTo-Json ([string]$Value) }
+    $toml = @(
+        'version = 11'
+        '[paths]'
+        "copilotHome = $(& $quote $Paths.copilotHome)"
+        "tracepilotHome = $(& $quote $Paths.tracepilotHome)"
+        "sessionStateDir = $(& $quote $Paths.sessionState)"
+        "indexDbPath = $(& $quote $Paths.index)"
+        '[general]'
+        'setupComplete = true'
+        ''
+    ) -join "`n"
+    [IO.File]::WriteAllText($Paths.config, $toml, [Text.UTF8Encoding]::new($false))
+}
+
 function Write-Json($Path, $Value) {
     [IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
 }
@@ -155,7 +179,8 @@ function Save-OwnedProcesses {
     # The machine-wide claim stays alive through these records after this launcher exits.
     if ($script:claim) {
         $script:claim.processes = $script:state.processes
-        Save-Claim $script:claim
+        $registryLock = Enter-RegistryLock
+        try { Save-Claim $script:claim } finally { $registryLock.Dispose() }
     }
 }
 
@@ -370,9 +395,15 @@ try {
     Write-Host "Starting $Mode. Logs: $runtimeDir"
     try {
         if ($Fixtures) {
+            if ($FirstRun -and (Test-Path -LiteralPath $resolvedPaths.config)) {
+                throw "-FirstRun needs a data root that has not completed setup, but $($resolvedPaths.config) exists. Use a fresh -Instance name."
+            }
             # The generator owns its manifest and refuses edited or foreign roots.
-            & node (Join-Path $repoRoot 'scripts/fixtures/session-fixtures.mjs') "--root=$resolvedDataRoot"
+            $fixtureOutput = & node (Join-Path $repoRoot 'scripts/fixtures/session-fixtures.mjs') "--root=$resolvedDataRoot"
             if ($LASTEXITCODE -ne 0) { throw "Fixture generation failed for $resolvedDataRoot. Use a fresh -Instance or -DataRoot." }
+            $manifest = $fixtureOutput -join "`n" | ConvertFrom-Json
+            Write-Host "Synthetic fixtures: $(@($manifest.sessions).Count) sessions ($(if ($manifest.reused) { 'reused' } else { 'generated' }))."
+            if (-not $FirstRun) { Write-CompletedSetupConfig $resolvedPaths }
         }
         if ($Runtime -eq 'development' -or $Mode -eq 'ui') {
             Start-Node (Join-Path $repoRoot 'apps/desktop/node_modules/vite/bin/vite.js') @('--host', '127.0.0.1', '--port', $uiPort, '--strictPort') 'vite'

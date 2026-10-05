@@ -152,7 +152,10 @@ pnpm app:stop -Instance qa1
 
 `-Fixtures` generates the synthetic rich-tool sessions into the data root before
 launch (see [testing](testing.md#rich-tool-fixtures)); the generator refuses roots
-it does not own. Finish setup in the app, then refresh data.
+it does not own. It also writes a completed-setup `config.toml` that points at
+those sessions, so the app opens on the session list. An existing config is kept,
+so settings changed in the app survive restarts. Add `-FirstRun` to skip the
+config and start on the setup wizard instead; it needs a fresh instance name.
 
 Every start records a claim in a machine-wide registry
 (`%LOCALAPPDATA%\TracePilot\automation-registry`, or `TRACEPILOT_AUTOMATION_REGISTRY`).
@@ -241,7 +244,8 @@ existing test suites for durable regression coverage.
 Existing smoke/performance/media scripts remain supported through
 [connect.mjs](../scripts/e2e/connect.mjs), which attaches to the recorded desktop
 endpoint (or an explicit port), verifies the native target, and disconnects on
-failure. The old PowerShell entrypoints delegate to the new lifecycle owner.
+failure. Pass `--instance <name>` (or set `TRACEPILOT_INSTANCE`) to use a named
+instance's state; the recorded nonce is checked as in readiness. The old PowerShell entrypoints delegate to the new lifecycle owner.
 They no longer support broad `-All` cleanup or launching a potentially stale
 binary with `-Build`. See [testing](testing.md) and the
 [performance playbook](performance-playbook.md) for those optional diagnostics.

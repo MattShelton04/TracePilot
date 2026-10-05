@@ -60,8 +60,9 @@ pnpm app:stop -Instance <slug>
 ```
 
 It uses `.tracepilot/instances/<slug>/data` as an isolated data root, generates
-synthetic sessions, takes ports from a machine-wide registry, and verifies that
-readiness reached this exact instance. Use the instance's session name in every
+synthetic sessions with setup already complete (add `-FirstRun` with a fresh name
+to test the setup wizard), takes ports from a machine-wide registry, and verifies
+that readiness reached this exact instance. Use the instance's session name in every
 `playwright-cli` command below. Only one *development* desktop instance can run
 per checkout; use a separate worktree for another. See
 [parallel instances](../../../docs/app-automation.md#parallel-instances).

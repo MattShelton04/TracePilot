@@ -13,7 +13,7 @@ Read docs/agents/tasks/workflow-hardening.md and follow it. Focus: incremental r
 
 ## Workflows
 
-- First-run setup, then initial indexing, then browsing.
+- First-run setup, then initial indexing, then browsing. Use `-Fixtures -FirstRun` with a fresh instance name to start on the setup wizard.
 - Incremental refresh as sessions are added, edited or removed, including **running** sessions.
 - Search, then opening a hit and landing on the right turn.
 - A live session: auto-refresh, the prompt-cache countdown, and the watching state. Use synthetic sessions only, and never attach to real ones.

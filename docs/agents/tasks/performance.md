@@ -15,8 +15,8 @@ Read docs/agents/tasks/performance.md and follow it. Focus: opening a 2,000-turn
 
 Read the [performance playbook](../../performance-playbook.md), including its quick bottleneck-finding workflow, then use:
 - **Criterion benches** (`crates/tracepilot-bench/benches/`: `parsing`, `indexer`, `analytics`, `ipc_hot_path`, `batch_size`), with `pwsh -File scripts/bench.ps1 -Save|-Compare -Baseline <name>`. Run `just bench-flamegraph <bench>` if you have the profiler.
-- **IPC timings in the app.** Clear the buffer, then read `window.__TRACEPILOT_IPC_PERF__?.getIpcPerfLog()`. The budgets are in `perf-budget.json`. `node scripts/e2e/perf-profile.mjs` runs repeatable flows.
-- **A release binary** for realistic numbers: `pnpm app:start -Runtime production -DataRoot <synthetic corpus>`.
+- **IPC timings in the app.** Clear the buffer, then read `window.__TRACEPILOT_IPC_PERF__?.getIpcPerfLog()`. The budgets are in `perf-budget.json`. `node scripts/e2e/perf-profile.mjs --instance <slug>` runs repeatable flows against your named instance.
+- **A release binary** for realistic numbers: `pnpm app:start -Runtime production -Instance <slug> -DataRoot <synthetic corpus>`. Without `-Fixtures`, a new corpus opens on the setup wizard; complete it before measuring.
 - `EXPLAIN QUERY PLAN` for indexer queries, and the `scripts/perf/` probes.
 - **The `benchmark-compare` workflow**, which runs automatically on PRs that touch Rust and can also be dispatched manually. Its results on your PR are useful extra evidence.
 

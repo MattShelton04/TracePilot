@@ -136,7 +136,7 @@ Each rule links to the doc that explains it.
   # attach with the printed command; your Playwright session is -s=tracepilot-<slug>
   pnpm app:stop -Instance <slug>
   ```
-  The fixture generator refuses data it doesn't own. If it does, pick a fresh `<slug>` rather than deleting anything. See [parallel instances](../app-automation.md#parallel-instances).
+  The app opens with setup complete, on the synthetic sessions. To test first-run setup, start a fresh `<slug>` with `-Fixtures -FirstRun`. The fixture generator refuses data it doesn't own. If it does, pick a fresh `<slug>` rather than deleting anything. Diagnostic scripts in `scripts/e2e/` take `--instance <slug>`. See [parallel instances](../app-automation.md#parallel-instances).
 - **The data root isolates files, not the machine.** Process discovery and live auto-attach (on by default) work machine-wide.
   - Turn auto-attach off in Settings on your instance before exploring.
   - Never launch, resume, attach to or stop a real Copilot CLI or SDK session.

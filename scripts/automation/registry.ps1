@@ -41,15 +41,25 @@ function Test-ClaimAlive($Claim) {
     return $false
 }
 
-# Returns live claims and deletes stale ones. Call while holding the registry lock
-# when the result is used to allocate ports.
+# Returns live claims and deletes stale ones. Call while holding the registry lock.
 function Get-LiveClaims {
     $claims = Join-Path (Get-RegistryDirectory) 'claims'
-    foreach ($file in Get-ChildItem -LiteralPath $claims -Filter '*.json' -File) {
+    foreach ($file in Get-ChildItem -LiteralPath $claims -File) {
+        if ($file.Extension -ne '.json') {
+            # Leftover temporary file from an interrupted Save-Claim.
+            if ($file.LastWriteTimeUtc -lt [DateTime]::UtcNow.AddMinutes(-5)) { Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue }
+            continue
+        }
         $claim = $null
         try { $claim = Get-Content -Raw -LiteralPath $file.FullName | ConvertFrom-Json } catch { }
-        if ($claim -and (Test-ClaimAlive $claim)) { $claim }
-        else { Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue }
+        if ($claim) {
+            if (Test-ClaimAlive $claim) { $claim }
+            else { Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue }
+        } elseif ($file.LastWriteTimeUtc -lt [DateTime]::UtcNow.AddMinutes(-5)) {
+            # Claims are replaced atomically, so an unreadable file is corrupt, not mid-write.
+            # Keep a fresh one (it may still be a live instance) and prune it once it is old.
+            Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -58,7 +68,15 @@ function Get-ClaimPath([string]$Id) {
     return Join-Path (Join-Path (Get-RegistryDirectory) 'claims') "$Id.json"
 }
 
-function Save-Claim($Claim) { Write-Json (Get-ClaimPath $Claim.id) $Claim }
+# Writes a sibling temporary file, then renames it over the claim, so readers never
+# see a partial claim. Callers hold the registry lock.
+function Save-Claim($Claim) {
+    $path = Get-ClaimPath $Claim.id
+    $temporary = "$path.$PID.tmp"
+    Write-Json $temporary $Claim
+    try { Move-Item -LiteralPath $temporary -Destination $path -Force }
+    catch { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue; throw }
+}
 
 function Remove-Claim([string]$Id) {
     if (-not $Id) { return }
@@ -79,7 +97,7 @@ function Show-AllInstances {
         $ui = if ($claim.uiPort) { $claim.uiPort } else { '-' }
         $cdp = if ($claim.cdpPort) { $claim.cdpPort } else { '-' }
         $name = if ($claim.instanceName) { $claim.instanceName } else { '(default)' }
-        $data = if ($claim.dataRoot) { $claim.dataRoot } else { 'configured user data' }
+        $data = if ($claim.mode -eq 'ui') { 'frontend mocks' } elseif ($claim.dataRoot) { $claim.dataRoot } else { 'configured user data' }
         Write-Host "$name | $($claim.mode)/$($claim.runtime) | UI $ui | CDP $cdp | checkout $($claim.repoRoot) | data $data"
     }
 }
