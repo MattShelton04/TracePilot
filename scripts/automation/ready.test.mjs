@@ -54,4 +54,18 @@ test("desktop readiness rejects browser mocks and disconnects on IPC failure", {
   assert.equal(connection.installType, "source");
   await connection.browser.close();
   assert.equal(await page.title(), "TracePilot");
+
+  // A launcher-supplied nonce must match, so a port collision cannot attach to
+  // another TracePilot instance that already owns the debugging port.
+  await page.evaluate(() => {
+    window.__TRACEPILOT_AUTOMATION_INSTANCE__ = "instance-a";
+  });
+  await assert.rejects(
+    connectDesktop(endpoint, readinessTimeout, "instance-b"),
+    /belongs to another TracePilot instance \(expected instance-b, found instance-a\)/,
+  );
+  const matched = await connectDesktop(endpoint, readinessTimeout, "instance-a");
+  assert.equal(matched.installType, "source");
+  await matched.browser.close();
+  assert.equal(await page.title(), "TracePilot");
 });

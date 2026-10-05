@@ -223,6 +223,9 @@ pnpm app:start -DataRoot "$PWD/.tracepilot/rich-tool-fixtures"
 # Attach with the command printed by startup, finish setup, then Refresh data.
 ```
 
+`pnpm app:start -Instance <name> -Fixtures` does both steps for a named,
+isolated instance; see [parallel instances](app-automation.md#parallel-instances).
+
 The library contains **SYNTHETIC · Rich tool renderer gallery** with 63 scenarios
 and **SYNTHETIC · Report intent renderer** with the remaining `report_intent` case.
 Keeping that call separate prevents its session objective banner from appearing

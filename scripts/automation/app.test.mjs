@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -26,9 +27,13 @@ test("Windows lifecycle owns only its recorded process trees", {
   const launcher = join(root, "scripts/automation/app.ps1");
   const runtime = join(root, ".tracepilot/automation");
   const statePath = join(runtime, "ui.json");
+  const registry = join(root, "registry");
+  const claims = join(registry, "claims");
+  const testEnv = { ...process.env, TRACEPILOT_AUTOMATION_REGISTRY: registry };
   const vite = join(root, "apps/desktop/node_modules/vite/bin/vite.js");
   for (const path of [launcher, vite]) mkdirSync(dirname(path), { recursive: true });
   copyFileSync(new URL("./app.ps1", import.meta.url), launcher);
+  copyFileSync(new URL("./registry.ps1", import.meta.url), join(dirname(launcher), "registry.ps1"));
   writeFileSync(
     vite,
     `
@@ -41,7 +46,7 @@ test("Windows lifecycle owns only its recorded process trees", {
     else createServer((req, res) => res.end('fixture')).listen(Number(process.argv[process.argv.indexOf('--port') + 1]), '127.0.0.1');
   `,
   );
-  const run = (action, mode = "ui", extra = [], env = process.env) =>
+  const run = (action, mode = "ui", extra = [], env = testEnv) =>
     execute(
       "powershell.exe",
       [
@@ -58,6 +63,15 @@ test("Windows lifecycle owns only its recorded process trees", {
       { cwd: root, windowsHide: true, timeout: 30_000, env },
     );
   const state = () => JSON.parse(readFileSync(statePath, "utf8"));
+  const instanceState = (name, mode = "ui") =>
+    JSON.parse(readFileSync(join(root, ".tracepilot/instances", name, `${mode}.json`), "utf8"));
+  const claimIds = () =>
+    existsSync(claims)
+      ? readdirSync(claims)
+          .filter((file) => file.endsWith(".json"))
+          .map((file) => file.slice(0, -5))
+          .sort()
+      : [];
   const alive = (pid) => {
     try {
       process.kill(pid, 0);
@@ -111,7 +125,7 @@ test("Windows lifecycle owns only its recorded process trees", {
   await t.test("cleans up the complete tree after startup timeout", async () => {
     await assert.rejects(
       run("start", "ui", ["-TimeoutSeconds", "1"], {
-        ...process.env,
+        ...testEnv,
         TRACEPILOT_TEST_STALL: "1",
       }),
       /Startup timed out/,
@@ -257,5 +271,124 @@ test("Windows lifecycle owns only its recorded process trees", {
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
+  });
+
+  await t.test(
+    "concurrent named instances claim distinct ports outside the default range",
+    async () => {
+      try {
+        await Promise.all([
+          run("start", "ui", ["-Instance", "alpha"]),
+          run("start", "ui", ["-Instance", "beta"]),
+        ]);
+        const alpha = instanceState("alpha");
+        const beta = instanceState("beta");
+        assert.notEqual(alpha.url, beta.url);
+        for (const owned of [alpha, beta]) {
+          const port = Number(new URL(owned.url).port);
+          assert.ok(port >= 1440 && port <= 1479, `isolated UI port ${port}`);
+          assert.equal(await (await fetch(owned.url)).text(), "fixture");
+        }
+        assert.deepEqual(claimIds(), [alpha.instanceId, beta.instanceId].sort());
+        const { stdout } = await run("status", "ui", ["-All"]);
+        assert.match(stdout, /alpha \| ui\/development/);
+        assert.match(stdout, /beta \| ui\/development/);
+        await run("stop", "ui", ["-Instance", "alpha"]);
+        assert.deepEqual(claimIds(), [beta.instanceId]);
+        assert.equal(await (await fetch(beta.url)).text(), "fixture");
+      } finally {
+        await run("stop", "ui", ["-Instance", "alpha"]);
+        await run("stop", "ui", ["-Instance", "beta"]);
+      }
+      assert.deepEqual(claimIds(), []);
+    },
+  );
+
+  await t.test("skips ports reserved by another live claim before they are bound", async () => {
+    // Deterministic form of the race: a live instance has claimed a port that is
+    // still free to bind (its server has not started yet). A new start must skip it.
+    await run("start", "ui", ["-Instance", "holder"]);
+    const reservedClaim = join(claims, `${"c".repeat(32)}.json`);
+    try {
+      const holder = instanceState("holder");
+      const reservedPort = Number(new URL(holder.url).port) + 1;
+      writeFileSync(
+        reservedClaim,
+        JSON.stringify({
+          id: "c".repeat(32),
+          mode: "ui",
+          runtime: "development",
+          repoRoot: join(root, "other checkout"),
+          statePath: join(root, "other checkout", "ui.json"),
+          uiPort: reservedPort,
+          cdpPort: 0,
+          processes: holder.processes,
+        }),
+      );
+      await run("start", "ui", ["-Instance", "next"]);
+      const next = Number(new URL(instanceState("next").url).port);
+      assert.notEqual(next, reservedPort);
+      assert.notEqual(next, reservedPort - 1);
+    } finally {
+      rmSync(reservedClaim, { force: true });
+      await run("stop", "ui", ["-Instance", "next"]);
+      await run("stop", "ui", ["-Instance", "holder"]);
+    }
+  });
+
+  await t.test("prunes claims whose launcher and processes have exited", async () => {
+    mkdirSync(claims, { recursive: true });
+    const stale = join(claims, `${"a".repeat(32)}.json`);
+    writeFileSync(
+      stale,
+      JSON.stringify({
+        id: "a".repeat(32),
+        mode: "ui",
+        runtime: "development",
+        uiPort: 1440,
+        launcher: { pid: 999999, started: "0", executable: "C:/missing.exe" },
+        processes: [],
+      }),
+    );
+    const { stdout } = await run("status", "ui", ["-All"]);
+    assert.match(stdout, /No live TracePilot automation instances/);
+    assert.equal(existsSync(stale), false);
+  });
+
+  await t.test("refuses a second desktop development instance from one checkout", async () => {
+    await run("start", "ui", ["-Instance", "gamma"]);
+    const sibling = join(claims, `${"b".repeat(32)}.json`);
+    try {
+      // A live development desktop claim for this checkout, owned by the gamma server.
+      writeFileSync(
+        sibling,
+        JSON.stringify({
+          id: "b".repeat(32),
+          mode: "desktop",
+          runtime: "development",
+          repoRoot: resolve(root),
+          statePath: join(root, "elsewhere", "desktop.json"),
+          uiPort: 0,
+          cdpPort: 0,
+          processes: instanceState("gamma").processes,
+        }),
+      );
+      await assert.rejects(run("start", "desktop", ["-Instance", "delta"]), /its own worktree/);
+      assert.equal(existsSync(join(root, ".tracepilot/instances/delta/desktop.json")), false);
+      assert.deepEqual(claimIds(), [instanceState("gamma").instanceId, "b".repeat(32)].sort());
+    } finally {
+      rmSync(sibling, { force: true });
+      await run("stop", "ui", ["-Instance", "gamma"]);
+    }
+  });
+
+  await t.test("validates named-instance options before launching", async () => {
+    await assert.rejects(run("start", "ui", ["-Instance", "Bad_Name"]), /-Instance must be/);
+    await assert.rejects(
+      run("start", "ui", ["-Instance", "ok", "-StateDirectory", join(root, "other")]),
+      /either -Instance or -StateDirectory/,
+    );
+    await assert.rejects(run("start", "ui", ["-Fixtures"]), /-Fixtures requires desktop mode/);
+    assert.deepEqual(claimIds(), []);
   });
 });
