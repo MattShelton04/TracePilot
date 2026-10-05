@@ -20,8 +20,9 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
+const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 // Used only when this environment disallows child processes. Normal runs use
 // Git's ignore rules to include new docs without scanning ignored local data.

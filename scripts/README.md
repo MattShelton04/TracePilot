@@ -31,7 +31,7 @@ Node commands; it is not a second implementation of those tasks.
 
 | Entry point | Purpose | Status / effects |
 | --- | --- | --- |
-| `node scripts/check-doc-links.mjs` | Check relative Markdown file targets across repository docs; accepts explicit paths for staged checks. | Local `just check-docs` and lefthook; CI policy. Read-only. It does not validate anchors or paths written only in code spans. |
+| `node scripts/check-doc-links.mjs` | Check relative Markdown file targets across repository docs; accepts explicit paths for staged checks. Contracts: `node --test scripts/check-doc-links.test.mjs`. | Local `just check-docs` and lefthook; CI policy. Read-only. It does not validate anchors or paths written only in code spans. |
 | `node scripts/check-adr.mjs` | Check ADR headings, dates, status, and index membership. | Local `just check-docs` and lefthook; CI policy. Read-only. |
 | `node scripts/check-workflow-actions.mjs` | Check pinned action SHAs and comments. | CI policy; `--verify-remote` uses GitHub API in CI. Read-only without that flag. |
 | `node scripts/ci/classify-changes.mjs`, `node scripts/ci/classify-changes.mjs --verify-required` | Select application checks from the complete PR merge diff and strictly verify the required job results. | CI only; consumes GitHub event/output or `CI_NEEDS` environment data. Contracts: `node --test scripts/ci/classify-changes.test.mjs`. |
