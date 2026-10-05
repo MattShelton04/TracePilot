@@ -132,6 +132,7 @@ fn renders_subagent_with_rich_metadata() {
         tool_call_id: Some("tc_1".into()),
         parent_tool_call_id: None,
         tool_name: "task".into(),
+        native_tool_name: None,
         event_index: None,
         arguments: Some(serde_json::json!({"description": "Find all bugs"})),
         success: Some(true),

@@ -1,0 +1,118 @@
+{
+  "rawEventsJsonl": "{\"type\":\"session.start\",\"data\":{\"context\":{\"branch\":\"feature-x\",\"cwd\":\"/test\",\"hostType\":\"vscode\",\"repository\":\"org/project\"},\"producer\":\"copilot-cli\",\"sessionId\":\"sparse-session\",\"version\":\"1.0\"},\"id\":\"evt-1\",\"timestamp\":\"2026-03-10T07:14:50.780Z\",\"parentId\":null,\"agentId\":null}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Hi\",\"interactionId\":\"int-1\"},\"id\":\"evt-2\",\"timestamp\":\"2026-03-10T07:14:51Z\",\"parentId\":\"evt-1\",\"agentId\":null}",
+  "snapshot": {
+    "diagnostics": {
+      "deserializationFailures": {},
+      "fallbackEvents": 0,
+      "malformedLines": 0,
+      "totalEvents": 2,
+      "typedEvents": 2,
+      "unknownEventTypes": {}
+    },
+    "eventCount": 2,
+    "fingerprint": {
+      "events": {
+        "modified": "<mtime>",
+        "size": 409
+      },
+      "workspace": {
+        "modified": "<mtime>",
+        "size": 86
+      }
+    },
+    "ipcTurns": [
+      {
+        "assistantMessages": [],
+        "attachments": null,
+        "durationMs": null,
+        "endTimestamp": null,
+        "eventIndex": 1,
+        "interactionId": "int-1",
+        "isComplete": false,
+        "model": null,
+        "outputTokens": null,
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started",
+            "timestamp": "2026-03-10T07:14:50.780Z"
+          }
+        ],
+        "timestamp": "2026-03-10T07:14:51Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": null,
+        "turnIndex": 0,
+        "userMessage": "Hi"
+      }
+    ],
+    "summary": {
+      "branch": "feature-x",
+      "checkpointCount": null,
+      "createdAt": null,
+      "currentModel": null,
+      "cwd": "/test/project",
+      "eventCount": 2,
+      "hasCheckpoints": false,
+      "hasEvents": true,
+      "hasPlan": false,
+      "hasSessionDb": false,
+      "hostType": "vscode",
+      "id": "00000000-0000-4000-8000-000000000003",
+      "repository": "org/project",
+      "shutdownMetrics": null,
+      "summary": "Sparse session",
+      "turnCount": 1,
+      "updatedAt": null
+    },
+    "turns": [
+      {
+        "assistantMessages": [],
+        "attachments": null,
+        "durationMs": null,
+        "endTimestamp": null,
+        "eventIndex": 1,
+        "interactionId": "int-1",
+        "isComplete": false,
+        "model": null,
+        "outputTokens": null,
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started",
+            "timestamp": "2026-03-10T07:14:50.780Z"
+          }
+        ],
+        "timestamp": "2026-03-10T07:14:51Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": null,
+        "turnIndex": 0,
+        "userMessage": "Hi"
+      }
+    ]
+  },
+  "summary": {
+    "branch": "feature-x",
+    "checkpointCount": null,
+    "createdAt": null,
+    "currentModel": null,
+    "cwd": "/test/project",
+    "eventCount": 2,
+    "hasCheckpoints": false,
+    "hasEvents": true,
+    "hasPlan": false,
+    "hasSessionDb": false,
+    "hostType": "vscode",
+    "id": "00000000-0000-4000-8000-000000000003",
+    "repository": "org/project",
+    "shutdownMetrics": null,
+    "summary": "Sparse session",
+    "turnCount": 1,
+    "updatedAt": null
+  }
+}

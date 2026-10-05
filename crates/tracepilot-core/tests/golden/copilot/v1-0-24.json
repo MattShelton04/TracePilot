@@ -1,0 +1,398 @@
+{
+  "rawEventsJsonl": "{\"type\":\"session.start\",\"data\":{\"context\":{\"cwd\":\"/test\",\"gitRoot\":\"/test\"},\"copilotVersion\":\"1.0.24\",\"producer\":\"copilot-agent\",\"remoteSteerable\":true,\"sessionId\":\"test-v1_0_24\",\"startTime\":\"2026-01-01T00:00:00.000Z\",\"version\":1},\"id\":\"evt-1\",\"timestamp\":\"2026-01-01T00:00:01Z\",\"parentId\":null,\"agentId\":null}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Analyze performance\",\"interactionId\":\"int-1\"},\"id\":\"evt-2\",\"timestamp\":\"2026-01-01T00:00:02Z\",\"parentId\":\"evt-1\",\"agentId\":null}\n{\"type\":\"assistant.turn_start\",\"data\":{\"interactionId\":\"int-1\",\"turnId\":\"turn-1\"},\"id\":\"evt-3\",\"timestamp\":\"2026-01-01T00:00:03Z\",\"parentId\":\"evt-2\",\"agentId\":null}\n{\"type\":\"tool.execution_start\",\"data\":{\"arguments\":{\"command\":\"cargo bench\"},\"toolCallId\":\"tc-1\",\"toolName\":\"run_command\"},\"id\":\"evt-4\",\"timestamp\":\"2026-01-01T00:00:04Z\",\"parentId\":\"evt-3\",\"agentId\":null}\n{\"type\":\"subagent.started\",\"data\":{\"agentDescription\":\"Explores codebase\",\"agentDisplayName\":\"Explore Agent\",\"agentName\":\"explore\",\"toolCallId\":\"tc-sub-1\"},\"id\":\"evt-5\",\"timestamp\":\"2026-01-01T00:00:05Z\",\"parentId\":\"evt-4\",\"agentId\":null}\n{\"type\":\"subagent.completed\",\"data\":{\"agentDisplayName\":\"Explore Agent\",\"agentName\":\"explore\",\"durationMs\":8000,\"model\":\"claude-opus-4.6\",\"toolCallId\":\"tc-sub-1\",\"totalTokens\":75000,\"totalToolCalls\":15},\"id\":\"evt-6\",\"timestamp\":\"2026-01-01T00:00:06Z\",\"parentId\":\"evt-5\",\"agentId\":null}\n{\"type\":\"tool.execution_complete\",\"data\":{\"success\":true,\"toolCallId\":\"tc-1\"},\"id\":\"evt-7\",\"timestamp\":\"2026-01-01T00:00:07Z\",\"parentId\":\"evt-4\",\"agentId\":null}\n{\"type\":\"assistant.message\",\"data\":{\"content\":\"Analysis complete.\",\"interactionId\":\"int-1\",\"messageId\":\"msg-1\",\"requestId\":\"req-001\"},\"id\":\"evt-8\",\"timestamp\":\"2026-01-01T00:00:08Z\",\"parentId\":\"evt-3\",\"agentId\":null}\n{\"type\":\"session.remote_steerable_changed\",\"data\":{\"remoteSteerable\":true},\"id\":\"evt-9\",\"timestamp\":\"2026-01-01T00:00:09Z\",\"parentId\":\"evt-1\",\"agentId\":null}\n{\"type\":\"subagent.started\",\"data\":{\"agentDescription\":\"Reviews code changes\",\"agentDisplayName\":\"Code Review\",\"agentName\":\"code-review\",\"toolCallId\":\"tc-sub-2\"},\"id\":\"evt-10\",\"timestamp\":\"2026-01-01T00:00:10Z\",\"parentId\":\"evt-3\",\"agentId\":null}\n{\"type\":\"subagent.failed\",\"data\":{\"agentDisplayName\":\"Code Review\",\"agentName\":\"code-review\",\"durationMs\":30000,\"error\":\"Timeout exceeded\",\"model\":\"gpt-5.4\",\"toolCallId\":\"tc-sub-2\",\"totalTokens\":12000,\"totalToolCalls\":3},\"id\":\"evt-11\",\"timestamp\":\"2026-01-01T00:00:11Z\",\"parentId\":\"evt-10\",\"agentId\":null}\n{\"type\":\"assistant.turn_end\",\"data\":{\"turnId\":\"turn-1\"},\"id\":\"evt-12\",\"timestamp\":\"2026-01-01T00:00:12Z\",\"parentId\":\"evt-3\",\"agentId\":null}\n{\"type\":\"session.shutdown\",\"data\":{\"conversationTokens\":50000,\"currentTokens\":80000,\"modelMetrics\":{\"claude-opus-4.6\":{\"requests\":{\"cost\":2.5,\"count\":10},\"usage\":{\"cacheReadTokens\":1000,\"cacheWriteTokens\":500,\"inputTokens\":5000,\"outputTokens\":2000,\"reasoningTokens\":300}}},\"systemTokens\":15000,\"toolDefinitionsTokens\":15000,\"totalApiDurationMs\":40000,\"totalPremiumRequests\":20},\"id\":\"evt-13\",\"timestamp\":\"2026-01-01T00:00:13Z\",\"parentId\":\"evt-1\",\"agentId\":null}",
+  "snapshot": {
+    "diagnostics": {
+      "deserializationFailures": {},
+      "fallbackEvents": 0,
+      "malformedLines": 0,
+      "totalEvents": 13,
+      "typedEvents": 13,
+      "unknownEventTypes": {}
+    },
+    "eventCount": 13,
+    "fingerprint": {
+      "events": {
+        "modified": "<mtime>",
+        "size": 2924
+      },
+      "workspace": {
+        "modified": "<mtime>",
+        "size": 198
+      }
+    },
+    "ipcTurns": [
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Analysis complete.",
+            "eventIndex": 7,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 10000,
+        "endTimestamp": "2026-01-01T00:00:12Z",
+        "eventIndex": 1,
+        "interactionId": "int-1",
+        "isComplete": true,
+        "model": null,
+        "outputTokens": null,
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started",
+            "timestamp": "2026-01-01T00:00:01Z"
+          }
+        ],
+        "timestamp": "2026-01-01T00:00:02Z",
+        "toolCalls": [
+          {
+            "agentDescription": null,
+            "agentDisplayName": null,
+            "arguments": {
+              "command": "cargo bench"
+            },
+            "completedAt": "2026-01-01T00:00:07Z",
+            "durationMs": 3000,
+            "error": null,
+            "eventIndex": 3,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": false,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": null,
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:04Z",
+            "success": true,
+            "toolCallId": "tc-1",
+            "toolName": "run_command"
+          },
+          {
+            "agentDescription": "Explores codebase",
+            "agentDisplayName": "Explore Agent",
+            "agentStatus": "completed",
+            "arguments": null,
+            "completedAt": "2026-01-01T00:00:06Z",
+            "durationMs": 8000,
+            "error": null,
+            "eventIndex": 4,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "claude-opus-4.6",
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:05Z",
+            "success": true,
+            "toolCallId": "tc-sub-1",
+            "toolName": "explore",
+            "totalTokens": 75000,
+            "totalToolCalls": 15
+          },
+          {
+            "agentDescription": "Reviews code changes",
+            "agentDisplayName": "Code Review",
+            "agentStatus": "failed",
+            "arguments": null,
+            "completedAt": "2026-01-01T00:00:11Z",
+            "durationMs": 30000,
+            "error": "Timeout exceeded",
+            "eventIndex": 9,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.4",
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:10Z",
+            "success": false,
+            "toolCallId": "tc-sub-2",
+            "toolName": "code-review",
+            "totalTokens": 12000,
+            "totalToolCalls": 3
+          }
+        ],
+        "transformedUserMessage": null,
+        "turnId": "turn-1",
+        "turnIndex": 0,
+        "userMessage": "Analyze performance"
+      }
+    ],
+    "summary": {
+      "branch": "main",
+      "checkpointCount": null,
+      "createdAt": "2026-03-10T07:14:50Z",
+      "currentModel": null,
+      "cwd": "/golden/v1-0-24",
+      "eventCount": 13,
+      "hasCheckpoints": false,
+      "hasEvents": true,
+      "hasPlan": false,
+      "hasSessionDb": false,
+      "hostType": null,
+      "id": "00000000-0000-4000-8000-000000000005",
+      "repository": "golden/v1-0-24",
+      "shutdownMetrics": {
+        "codeChanges": null,
+        "conversationTokens": 50000,
+        "currentModel": null,
+        "currentTokens": 80000,
+        "modelMetrics": {
+          "claude-opus-4.6": {
+            "requests": {
+              "cost": 2.5,
+              "count": 10
+            },
+            "tokenDetails": null,
+            "totalNanoAiu": null,
+            "usage": {
+              "cacheReadTokens": 1000,
+              "cacheWriteTokens": 500,
+              "inputTokens": 5000,
+              "outputTokens": 2000,
+              "reasoningTokens": 300
+            }
+          }
+        },
+        "sessionSegments": [
+          {
+            "apiDurationMs": 40000,
+            "currentModel": null,
+            "endTimestamp": "2026-01-01T00:00:13+00:00",
+            "modelMetrics": {
+              "claude-opus-4.6": {
+                "requests": {
+                  "cost": 2.5,
+                  "count": 10
+                },
+                "tokenDetails": null,
+                "totalNanoAiu": null,
+                "usage": {
+                  "cacheReadTokens": 1000,
+                  "cacheWriteTokens": 500,
+                  "inputTokens": 5000,
+                  "outputTokens": 2000,
+                  "reasoningTokens": 300
+                }
+              }
+            },
+            "premiumRequests": 20.0,
+            "startTimestamp": "2026-01-01T00:00:01+00:00",
+            "tokens": 7000,
+            "totalNanoAiu": null,
+            "totalRequests": 10
+          }
+        ],
+        "sessionStartTime": null,
+        "shutdownCount": 1,
+        "shutdownType": null,
+        "sourceMetricsScope": "segment",
+        "systemTokens": 15000,
+        "tokenDetails": null,
+        "toolDefinitionsTokens": 15000,
+        "totalApiDurationMs": 40000,
+        "totalNanoAiu": null,
+        "totalPremiumRequests": 20.0
+      },
+      "summary": "Golden v1-0-24",
+      "turnCount": 1,
+      "updatedAt": "2026-03-10T07:15:00Z"
+    },
+    "turns": [
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Analysis complete.",
+            "eventIndex": 7,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 10000,
+        "endTimestamp": "2026-01-01T00:00:12Z",
+        "eventIndex": 1,
+        "interactionId": "int-1",
+        "isComplete": true,
+        "model": null,
+        "outputTokens": null,
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started",
+            "timestamp": "2026-01-01T00:00:01Z"
+          }
+        ],
+        "timestamp": "2026-01-01T00:00:02Z",
+        "toolCalls": [
+          {
+            "agentDescription": null,
+            "agentDisplayName": null,
+            "arguments": {
+              "command": "cargo bench"
+            },
+            "completedAt": "2026-01-01T00:00:07Z",
+            "durationMs": 3000,
+            "error": null,
+            "eventIndex": 3,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": false,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": null,
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:04Z",
+            "success": true,
+            "toolCallId": "tc-1",
+            "toolName": "run_command"
+          },
+          {
+            "agentDescription": "Explores codebase",
+            "agentDisplayName": "Explore Agent",
+            "agentStatus": "completed",
+            "arguments": null,
+            "completedAt": "2026-01-01T00:00:06Z",
+            "durationMs": 8000,
+            "error": null,
+            "eventIndex": 4,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "claude-opus-4.6",
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:05Z",
+            "success": true,
+            "toolCallId": "tc-sub-1",
+            "toolName": "explore",
+            "totalTokens": 75000,
+            "totalToolCalls": 15
+          },
+          {
+            "agentDescription": "Reviews code changes",
+            "agentDisplayName": "Code Review",
+            "agentStatus": "failed",
+            "arguments": null,
+            "completedAt": "2026-01-01T00:00:11Z",
+            "durationMs": 30000,
+            "error": "Timeout exceeded",
+            "eventIndex": 9,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.4",
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:10Z",
+            "success": false,
+            "toolCallId": "tc-sub-2",
+            "toolName": "code-review",
+            "totalTokens": 12000,
+            "totalToolCalls": 3
+          }
+        ],
+        "transformedUserMessage": null,
+        "turnId": "turn-1",
+        "turnIndex": 0,
+        "userMessage": "Analyze performance"
+      }
+    ]
+  },
+  "summary": {
+    "branch": "main",
+    "checkpointCount": null,
+    "createdAt": "2026-03-10T07:14:50Z",
+    "currentModel": null,
+    "cwd": "/golden/v1-0-24",
+    "eventCount": 13,
+    "hasCheckpoints": false,
+    "hasEvents": true,
+    "hasPlan": false,
+    "hasSessionDb": false,
+    "hostType": null,
+    "id": "00000000-0000-4000-8000-000000000005",
+    "repository": "golden/v1-0-24",
+    "shutdownMetrics": {
+      "codeChanges": null,
+      "conversationTokens": 50000,
+      "currentModel": null,
+      "currentTokens": 80000,
+      "modelMetrics": {
+        "claude-opus-4.6": {
+          "requests": {
+            "cost": 2.5,
+            "count": 10
+          },
+          "tokenDetails": null,
+          "totalNanoAiu": null,
+          "usage": {
+            "cacheReadTokens": 1000,
+            "cacheWriteTokens": 500,
+            "inputTokens": 5000,
+            "outputTokens": 2000,
+            "reasoningTokens": 300
+          }
+        }
+      },
+      "sessionSegments": [
+        {
+          "apiDurationMs": 40000,
+          "currentModel": null,
+          "endTimestamp": "2026-01-01T00:00:13+00:00",
+          "modelMetrics": {
+            "claude-opus-4.6": {
+              "requests": {
+                "cost": 2.5,
+                "count": 10
+              },
+              "tokenDetails": null,
+              "totalNanoAiu": null,
+              "usage": {
+                "cacheReadTokens": 1000,
+                "cacheWriteTokens": 500,
+                "inputTokens": 5000,
+                "outputTokens": 2000,
+                "reasoningTokens": 300
+              }
+            }
+          },
+          "premiumRequests": 20.0,
+          "startTimestamp": "2026-01-01T00:00:01+00:00",
+          "tokens": 7000,
+          "totalNanoAiu": null,
+          "totalRequests": 10
+        }
+      ],
+      "sessionStartTime": null,
+      "shutdownCount": 1,
+      "shutdownType": null,
+      "sourceMetricsScope": "segment",
+      "systemTokens": 15000,
+      "tokenDetails": null,
+      "toolDefinitionsTokens": 15000,
+      "totalApiDurationMs": 40000,
+      "totalNanoAiu": null,
+      "totalPremiumRequests": 20.0
+    },
+    "summary": "Golden v1-0-24",
+    "turnCount": 1,
+    "updatedAt": "2026-03-10T07:15:00Z"
+  }
+}

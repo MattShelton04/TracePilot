@@ -1,0 +1,460 @@
+{
+  "rawEventsJsonl": "{\"type\":\"session.start\",\"data\":{\"copilotVersion\":\"1.0.83\",\"selectedModel\":\"gpt-5.6-luna\"},\"id\":\"event-0\",\"timestamp\":\"2026-09-12T00:00:00Z\",\"parentId\":null,\"agentId\":null}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Delegate a small check.\"},\"id\":\"event-1\",\"timestamp\":\"2026-09-12T00:00:01Z\",\"parentId\":\"event-0\",\"agentId\":null}\n{\"type\":\"assistant.turn_start\",\"data\":{\"model\":\"gpt-5.6-luna\",\"turnId\":\"0\"},\"id\":\"event-2\",\"timestamp\":\"2026-09-12T00:00:02Z\",\"parentId\":\"event-1\",\"agentId\":null}\n{\"type\":\"tool.execution_start\",\"data\":{\"arguments\":{\"agent_type\":\"general-purpose\",\"mode\":\"background\",\"model\":\"gpt-5.6-luna\",\"name\":\"Worker A\",\"prompt\":\"Check the fixture.\"},\"model\":\"gpt-5.6-luna\",\"toolCallId\":\"launch-a\",\"toolName\":\"task\"},\"id\":\"event-3\",\"timestamp\":\"2026-09-12T00:00:03Z\",\"parentId\":\"event-2\",\"agentId\":null}\n{\"type\":\"tool.execution_complete\",\"data\":{\"model\":\"gpt-5.6-luna\",\"result\":{\"content\":\"Started in background.\"},\"success\":true,\"toolCallId\":\"launch-a\",\"toolTelemetry\":{\"restrictedProperties\":{\"agent_id\":\"uuid-a\"}}},\"id\":\"event-4\",\"timestamp\":\"2026-09-12T00:00:04Z\",\"parentId\":\"event-3\",\"agentId\":null}\n{\"type\":\"assistant.message\",\"data\":{\"content\":\"Waiting for the worker.\",\"model\":\"gpt-5.6-luna\"},\"id\":\"event-5\",\"timestamp\":\"2026-09-12T00:00:05Z\",\"parentId\":\"event-4\",\"agentId\":null}\n{\"type\":\"assistant.turn_end\",\"data\":{\"turnId\":\"0\"},\"id\":\"event-6\",\"timestamp\":\"2026-09-12T00:00:06Z\",\"parentId\":\"event-5\",\"agentId\":null}\n{\"type\":\"subagent.started\",\"data\":{\"agentDisplayName\":\"Worker A\",\"agentName\":\"general-purpose\",\"executionMode\":\"background\",\"model\":\"gpt-5.6-luna\",\"toolCallId\":\"launch-a\"},\"id\":\"event-7\",\"timestamp\":\"2026-09-12T00:00:07Z\",\"parentId\":\"event-6\",\"agentId\":\"uuid-a\"}\n{\"type\":\"subagent.configured\",\"data\":{\"model\":\"gpt-5.6-luna\",\"multiTurn\":true,\"reasoningEffort\":\"low\"},\"id\":\"event-8\",\"timestamp\":\"2026-09-12T00:00:08Z\",\"parentId\":\"event-7\",\"agentId\":\"uuid-a\"}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Private worker prompt.\"},\"id\":\"event-9\",\"timestamp\":\"2026-09-12T00:00:09Z\",\"parentId\":\"event-8\",\"agentId\":\"uuid-a\"}\n{\"type\":\"system.message\",\"data\":{\"content\":\"Private worker system prompt.\",\"role\":\"system\"},\"id\":\"event-10\",\"timestamp\":\"2026-09-12T00:00:10Z\",\"parentId\":\"event-9\",\"agentId\":\"uuid-a\"}\n{\"type\":\"assistant.turn_start\",\"data\":{\"model\":\"gpt-5.6-luna\",\"turnId\":\"0\"},\"id\":\"event-11\",\"timestamp\":\"2026-09-12T00:00:11Z\",\"parentId\":\"event-10\",\"agentId\":\"uuid-a\"}\n{\"type\":\"assistant.reasoning\",\"data\":{\"content\":\"Private worker reasoning.\"},\"id\":\"event-12\",\"timestamp\":\"2026-09-12T00:00:12Z\",\"parentId\":\"event-11\",\"agentId\":\"uuid-a\"}\n{\"type\":\"assistant.message\",\"data\":{\"content\":\"Worker progress.\",\"model\":\"gpt-5.6-luna\"},\"id\":\"event-13\",\"timestamp\":\"2026-09-12T00:00:13Z\",\"parentId\":\"event-12\",\"agentId\":\"uuid-a\"}\n{\"type\":\"tool.execution_start\",\"data\":{\"arguments\":{\"path\":\"fixture.txt\"},\"model\":\"gpt-5.6-luna\",\"toolCallId\":\"child-tool\",\"toolName\":\"view\"},\"id\":\"event-14\",\"timestamp\":\"2026-09-12T00:00:14Z\",\"parentId\":\"event-13\",\"agentId\":\"uuid-a\"}\n{\"type\":\"tool.execution_complete\",\"data\":{\"model\":\"gpt-5.6-luna\",\"result\":{\"content\":\"Fixture content.\"},\"success\":true,\"toolCallId\":\"child-tool\"},\"id\":\"event-15\",\"timestamp\":\"2026-09-12T00:00:15Z\",\"parentId\":\"event-14\",\"agentId\":\"uuid-a\"}\n{\"type\":\"assistant.turn_end\",\"data\":{\"turnId\":\"0\"},\"id\":\"event-16\",\"timestamp\":\"2026-09-12T00:00:16Z\",\"parentId\":\"event-15\",\"agentId\":\"uuid-a\"}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Continue independent work.\"},\"id\":\"event-17\",\"timestamp\":\"2026-09-12T00:00:17Z\",\"parentId\":\"event-16\",\"agentId\":null}\n{\"type\":\"assistant.turn_start\",\"data\":{\"model\":\"gpt-5.6-luna\",\"turnId\":\"1\"},\"id\":\"event-18\",\"timestamp\":\"2026-09-12T00:00:18Z\",\"parentId\":\"event-17\",\"agentId\":null}\n{\"type\":\"tool.execution_start\",\"data\":{\"arguments\":{\"agent_type\":\"general-purpose\",\"mode\":\"background\",\"model\":\"gpt-5.6-luna\"},\"toolCallId\":\"launch-b\",\"toolName\":\"task\"},\"id\":\"event-19\",\"timestamp\":\"2026-09-12T00:00:19Z\",\"parentId\":\"event-18\",\"agentId\":\"uuid-a\"}\n{\"type\":\"subagent.started\",\"data\":{\"agentDisplayName\":\"Worker B\",\"agentName\":\"general-purpose\",\"model\":\"gpt-5.6-luna\",\"parentId\":\"uuid-a\",\"toolCallId\":\"launch-b\"},\"id\":\"event-20\",\"timestamp\":\"2026-09-12T00:00:20Z\",\"parentId\":\"event-19\",\"agentId\":\"uuid-b\"}\n{\"type\":\"assistant.message\",\"data\":{\"content\":\"Nested output.\",\"model\":\"gpt-5.6-luna\"},\"id\":\"event-21\",\"timestamp\":\"2026-09-12T00:00:21Z\",\"parentId\":\"event-20\",\"agentId\":\"uuid-b\"}\n{\"type\":\"subagent.completed\",\"data\":{\"cancelled\":true,\"durationMs\":3000,\"model\":\"gpt-5.6-luna\",\"toolCallId\":\"launch-b\"},\"id\":\"event-22\",\"timestamp\":\"2026-09-12T00:00:22Z\",\"parentId\":\"event-21\",\"agentId\":\"uuid-b\"}\n{\"type\":\"subagent.completed\",\"data\":{\"durationMs\":20000,\"model\":\"gpt-5.6-luna\",\"toolCallId\":\"launch-a\",\"totalTokens\":123,\"totalToolCalls\":2},\"id\":\"event-23\",\"timestamp\":\"2026-09-12T00:00:23Z\",\"parentId\":\"event-22\",\"agentId\":\"uuid-a\"}\n{\"type\":\"tool.execution_start\",\"data\":{\"arguments\":{\"agent_id\":\"uuid-a\"},\"model\":\"gpt-5.6-luna\",\"toolCallId\":\"read-a\",\"toolName\":\"read_agent\"},\"id\":\"event-24\",\"timestamp\":\"2026-09-12T00:00:24Z\",\"parentId\":\"event-23\",\"agentId\":null}\n{\"type\":\"tool.execution_complete\",\"data\":{\"model\":\"gpt-5.6-luna\",\"result\":{\"content\":\"Worker finished.\"},\"success\":true,\"toolCallId\":\"read-a\"},\"id\":\"event-25\",\"timestamp\":\"2026-09-12T00:00:25Z\",\"parentId\":\"event-24\",\"agentId\":null}\n{\"type\":\"assistant.message\",\"data\":{\"content\":\"All done.\",\"model\":\"gpt-5.6-luna\"},\"id\":\"event-26\",\"timestamp\":\"2026-09-12T00:00:26Z\",\"parentId\":\"event-25\",\"agentId\":null}\n{\"type\":\"assistant.turn_end\",\"data\":{\"turnId\":\"1\"},\"id\":\"event-27\",\"timestamp\":\"2026-09-12T00:00:27Z\",\"parentId\":\"event-26\",\"agentId\":null}",
+  "snapshot": {
+    "diagnostics": {
+      "deserializationFailures": {},
+      "fallbackEvents": 0,
+      "malformedLines": 0,
+      "totalEvents": 28,
+      "typedEvents": 28,
+      "unknownEventTypes": {}
+    },
+    "eventCount": 28,
+    "fingerprint": {
+      "events": {
+        "modified": "<mtime>",
+        "size": 5430
+      },
+      "workspace": {
+        "modified": "<mtime>",
+        "size": 195
+      }
+    },
+    "ipcTurns": [
+      {
+        "agentMessages": [
+          {
+            "content": "Private worker prompt.",
+            "eventIndex": 9,
+            "isLaunch": true,
+            "recipientToolCallId": "launch-a",
+            "timestamp": "2026-09-12T00:00:09Z"
+          }
+        ],
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Waiting for the worker.",
+            "eventIndex": 5,
+            "parentToolCallId": null
+          },
+          {
+            "agentDisplayName": "Worker A",
+            "content": "Worker progress.",
+            "eventIndex": 13,
+            "parentToolCallId": "launch-a"
+          },
+          {
+            "agentDisplayName": "Worker B",
+            "content": "Nested output.",
+            "eventIndex": 21,
+            "parentToolCallId": "launch-b"
+          }
+        ],
+        "attachments": null,
+        "durationMs": 5000,
+        "endTimestamp": "2026-09-12T00:00:06Z",
+        "eventIndex": 1,
+        "interactionId": null,
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningTexts": [
+          {
+            "agentDisplayName": "Worker A",
+            "content": "Private worker reasoning.",
+            "eventIndex": 12,
+            "parentToolCallId": "launch-a"
+          }
+        ],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started (model: gpt-5.6-luna)",
+            "timestamp": "2026-09-12T00:00:00Z"
+          }
+        ],
+        "timestamp": "2026-09-12T00:00:01Z",
+        "toolCalls": [
+          {
+            "agentDescription": null,
+            "agentDisplayName": "Worker A",
+            "agentId": "uuid-a",
+            "agentStatus": "completed",
+            "arguments": {
+              "agent_type": "general-purpose",
+              "mode": "background",
+              "model": "gpt-5.6-luna",
+              "name": "Worker A",
+              "prompt": "Check the fixture."
+            },
+            "completedAt": "2026-09-12T00:00:23Z",
+            "durationMs": 20000,
+            "error": null,
+            "eventIndex": 3,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": null,
+            "requestedModel": "gpt-5.6-luna",
+            "resultContent": "Started in background.",
+            "startedAt": "2026-09-12T00:00:03Z",
+            "success": true,
+            "toolCallId": "launch-a",
+            "toolName": "general-purpose",
+            "totalTokens": 123,
+            "totalToolCalls": 2
+          },
+          {
+            "agentDescription": null,
+            "agentDisplayName": null,
+            "argsSummary": "fixture.txt",
+            "arguments": {
+              "path": "fixture.txt"
+            },
+            "completedAt": "2026-09-12T00:00:15Z",
+            "durationMs": 1000,
+            "error": null,
+            "eventIndex": 14,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": false,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-a",
+            "resultContent": "Fixture content.",
+            "startedAt": "2026-09-12T00:00:14Z",
+            "success": true,
+            "toolCallId": "child-tool",
+            "toolName": "view"
+          },
+          {
+            "agentDescription": null,
+            "agentDisplayName": "Worker B",
+            "agentId": "uuid-b",
+            "agentStatus": "cancelled",
+            "arguments": {
+              "agent_type": "general-purpose",
+              "mode": "background",
+              "model": "gpt-5.6-luna"
+            },
+            "cancelled": true,
+            "completedAt": "2026-09-12T00:00:22Z",
+            "durationMs": 3000,
+            "error": "Cancelled",
+            "eventIndex": 19,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-a",
+            "requestedModel": "gpt-5.6-luna",
+            "resultContent": null,
+            "startedAt": "2026-09-12T00:00:19Z",
+            "success": false,
+            "toolCallId": "launch-b",
+            "toolName": "general-purpose"
+          }
+        ],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 0,
+        "userMessage": "Delegate a small check."
+      },
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "All done.",
+            "eventIndex": 26,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 10000,
+        "endTimestamp": "2026-09-12T00:00:27Z",
+        "eventIndex": 17,
+        "interactionId": null,
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningTexts": [],
+        "sessionEvents": [],
+        "timestamp": "2026-09-12T00:00:17Z",
+        "toolCalls": [
+          {
+            "agentDescription": null,
+            "agentDisplayName": null,
+            "argsSummary": "uuid-a",
+            "arguments": {
+              "agent_id": "uuid-a"
+            },
+            "completedAt": "2026-09-12T00:00:25Z",
+            "durationMs": 1000,
+            "error": null,
+            "eventIndex": 24,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": false,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": null,
+            "resultContent": "Worker finished.",
+            "startedAt": "2026-09-12T00:00:24Z",
+            "success": true,
+            "toolCallId": "read-a",
+            "toolName": "read_agent"
+          }
+        ],
+        "transformedUserMessage": null,
+        "turnId": "1",
+        "turnIndex": 1,
+        "userMessage": "Continue independent work."
+      }
+    ],
+    "summary": {
+      "branch": "main",
+      "checkpointCount": null,
+      "createdAt": "2026-03-10T07:14:50Z",
+      "currentModel": "gpt-5.6-luna",
+      "cwd": "/golden/agents",
+      "eventCount": 28,
+      "hasCheckpoints": false,
+      "hasEvents": true,
+      "hasPlan": false,
+      "hasSessionDb": false,
+      "hostType": null,
+      "id": "00000000-0000-4000-8000-000000000006",
+      "repository": "golden/agents",
+      "shutdownMetrics": null,
+      "summary": "Golden agents",
+      "turnCount": 2,
+      "updatedAt": "2026-03-10T07:15:00Z"
+    },
+    "turns": [
+      {
+        "agentMessages": [
+          {
+            "content": "Private worker prompt.",
+            "eventIndex": 9,
+            "isLaunch": true,
+            "recipientToolCallId": "launch-a",
+            "timestamp": "2026-09-12T00:00:09Z"
+          }
+        ],
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Waiting for the worker.",
+            "eventIndex": 5,
+            "parentToolCallId": null
+          },
+          {
+            "agentDisplayName": "Worker A",
+            "content": "Worker progress.",
+            "eventIndex": 13,
+            "parentToolCallId": "launch-a"
+          },
+          {
+            "agentDisplayName": "Worker B",
+            "content": "Nested output.",
+            "eventIndex": 21,
+            "parentToolCallId": "launch-b"
+          }
+        ],
+        "attachments": null,
+        "durationMs": 5000,
+        "endTimestamp": "2026-09-12T00:00:06Z",
+        "eventIndex": 1,
+        "interactionId": null,
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningTexts": [
+          {
+            "agentDisplayName": "Worker A",
+            "content": "Private worker reasoning.",
+            "eventIndex": 12,
+            "parentToolCallId": "launch-a"
+          }
+        ],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started (model: gpt-5.6-luna)",
+            "timestamp": "2026-09-12T00:00:00Z"
+          }
+        ],
+        "timestamp": "2026-09-12T00:00:01Z",
+        "toolCalls": [
+          {
+            "agentDescription": null,
+            "agentDisplayName": "Worker A",
+            "agentId": "uuid-a",
+            "agentStatus": "completed",
+            "arguments": {
+              "agent_type": "general-purpose",
+              "mode": "background",
+              "model": "gpt-5.6-luna",
+              "name": "Worker A",
+              "prompt": "Check the fixture."
+            },
+            "completedAt": "2026-09-12T00:00:23Z",
+            "durationMs": 20000,
+            "error": null,
+            "eventIndex": 3,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": null,
+            "requestedModel": "gpt-5.6-luna",
+            "resultContent": "Started in background.",
+            "startedAt": "2026-09-12T00:00:03Z",
+            "success": true,
+            "toolCallId": "launch-a",
+            "toolName": "general-purpose",
+            "totalTokens": 123,
+            "totalToolCalls": 2
+          },
+          {
+            "agentDescription": null,
+            "agentDisplayName": null,
+            "arguments": {
+              "path": "fixture.txt"
+            },
+            "completedAt": "2026-09-12T00:00:15Z",
+            "durationMs": 1000,
+            "error": null,
+            "eventIndex": 14,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": false,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-a",
+            "resultContent": "Fixture content.",
+            "startedAt": "2026-09-12T00:00:14Z",
+            "success": true,
+            "toolCallId": "child-tool",
+            "toolName": "view"
+          },
+          {
+            "agentDescription": null,
+            "agentDisplayName": "Worker B",
+            "agentId": "uuid-b",
+            "agentStatus": "cancelled",
+            "arguments": {
+              "agent_type": "general-purpose",
+              "mode": "background",
+              "model": "gpt-5.6-luna"
+            },
+            "cancelled": true,
+            "completedAt": "2026-09-12T00:00:22Z",
+            "durationMs": 3000,
+            "error": "Cancelled",
+            "eventIndex": 19,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-a",
+            "requestedModel": "gpt-5.6-luna",
+            "resultContent": null,
+            "startedAt": "2026-09-12T00:00:19Z",
+            "success": false,
+            "toolCallId": "launch-b",
+            "toolName": "general-purpose"
+          }
+        ],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 0,
+        "userMessage": "Delegate a small check."
+      },
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "All done.",
+            "eventIndex": 26,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 10000,
+        "endTimestamp": "2026-09-12T00:00:27Z",
+        "eventIndex": 17,
+        "interactionId": null,
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningTexts": [],
+        "sessionEvents": [],
+        "timestamp": "2026-09-12T00:00:17Z",
+        "toolCalls": [
+          {
+            "agentDescription": null,
+            "agentDisplayName": null,
+            "arguments": {
+              "agent_id": "uuid-a"
+            },
+            "completedAt": "2026-09-12T00:00:25Z",
+            "durationMs": 1000,
+            "error": null,
+            "eventIndex": 24,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": false,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": null,
+            "resultContent": "Worker finished.",
+            "startedAt": "2026-09-12T00:00:24Z",
+            "success": true,
+            "toolCallId": "read-a",
+            "toolName": "read_agent"
+          }
+        ],
+        "transformedUserMessage": null,
+        "turnId": "1",
+        "turnIndex": 1,
+        "userMessage": "Continue independent work."
+      }
+    ]
+  },
+  "summary": {
+    "branch": "main",
+    "checkpointCount": null,
+    "createdAt": "2026-03-10T07:14:50Z",
+    "currentModel": "gpt-5.6-luna",
+    "cwd": "/golden/agents",
+    "eventCount": 28,
+    "hasCheckpoints": false,
+    "hasEvents": true,
+    "hasPlan": false,
+    "hasSessionDb": false,
+    "hostType": null,
+    "id": "00000000-0000-4000-8000-000000000006",
+    "repository": "golden/agents",
+    "shutdownMetrics": null,
+    "summary": "Golden agents",
+    "turnCount": 2,
+    "updatedAt": "2026-03-10T07:15:00Z"
+  }
+}

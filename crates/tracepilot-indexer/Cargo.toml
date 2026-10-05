@@ -17,6 +17,7 @@ rayon = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+tracepilot-test-support = { path = "../tracepilot-test-support" }
 
 [lints]
 workspace = true

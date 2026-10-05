@@ -6148,6 +6148,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tracepilot-core",
+ "tracepilot-test-support",
  "tracing",
 ]
 
@@ -6217,6 +6218,7 @@ dependencies = [
 name = "tracepilot-test-support"
 version = "0.9.1"
 dependencies = [
+ "serde_json",
  "tempfile",
 ]
 

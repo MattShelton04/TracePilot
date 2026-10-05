@@ -1,0 +1,378 @@
+{
+  "rawEventsJsonl": "{\"type\":\"session.start\",\"data\":{\"copilotVersion\":\"1.0.83\",\"reasoningEffort\":\"high\",\"selectedModel\":\"gpt-5.6-luna\"},\"id\":\"event-0\",\"timestamp\":\"2026-09-12T00:00:00Z\",\"parentId\":null,\"agentId\":null}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Fixture prompt.\",\"delivery\":\"idle\",\"interactionId\":\"i1\",\"parentAgentTaskId\":\"fixture-task\"},\"id\":\"event-1\",\"timestamp\":\"2026-09-12T00:00:05Z\",\"parentId\":\"event-0\",\"agentId\":null}\n{\"type\":\"assistant.turn_start\",\"data\":{\"interactionId\":\"i1\",\"model\":\"gpt-5.6-luna\",\"turnId\":\"0\"},\"id\":\"event-2\",\"timestamp\":\"2026-09-12T00:00:06Z\",\"parentId\":\"event-1\",\"agentId\":null}\n{\"type\":\"assistant.message\",\"data\":{\"content\":\"Fixture reply.\",\"interactionId\":\"i1\",\"model\":\"gpt-5.6-luna\",\"turnId\":\"0\"},\"id\":\"event-3\",\"timestamp\":\"2026-09-12T00:00:06Z\",\"parentId\":\"event-2\",\"agentId\":null}\n{\"type\":\"assistant.turn_end\",\"data\":{\"turnId\":\"0\"},\"id\":\"event-4\",\"timestamp\":\"2026-09-12T00:00:20Z\",\"parentId\":\"event-3\",\"agentId\":null}\n{\"type\":\"session.usage_checkpoint\",\"data\":{\"modelCacheState\":[{\"cacheExpiresAt\":\"2026-09-12T00:30:16Z\",\"cacheTtlSeconds\":1800,\"modelId\":\"gpt-5.6-luna\"}],\"promptCacheBreakState\":[{\"conversation\":\"main\",\"models\":{\"gpt-5.6-luna\":{\"api_endpoint\":\"ws:/responses\",\"cache_config\":{\"arm\":\"control\",\"incremental_input\":true},\"cache_details_reported\":true,\"cache_expires_at\":\"2026-09-12T00:30:16Z\",\"cache_read\":19100,\"cache_write\":900,\"completed_at\":\"2026-09-12T00:00:20Z\",\"conversation\":{\"message_count\":4,\"points\":[{\"hash\":\"h0\",\"index\":0},{\"hash\":\"h1\",\"index\":1},{\"hash\":\"h2\",\"index\":2},{\"hash\":\"h3\",\"index\":3}]},\"frontier_source\":\"reported_writes\",\"frontier_tokens\":20000,\"initiator\":\"agent\",\"model\":\"gpt-5.6-luna\",\"model_call_id\":\"fixture\",\"prompt_tokens\":20003,\"reasoning_effort\":\"high\",\"request_id\":\"fixture\",\"session_mode\":\"interactive\",\"system_segments\":[{\"hash\":\"a03fb4ce6680\",\"segment\":\"identity\",\"tokens\":755},{\"hash\":\"545359f86916\",\"segment\":\"environment_context\",\"tokens\":114}],\"tool_count\":3,\"tool_tokens\":1200,\"tools\":[{\"name\":\"view\",\"safe\":true,\"schema_hash\":\"3e73851b027b\"},{\"name\":\"powershell\",\"safe\":true,\"schema_hash\":\"283c39c42528\"},{\"name\":\"task\",\"safe\":false,\"schema_hash\":\"3a88da3ade7c\"}],\"tools_truncated\":0,\"transport\":\"websocket\",\"ttl_seconds\":1800,\"vendor\":\"openai\"}}}],\"totalNanoAiu\":1000,\"totalPremiumRequests\":0},\"id\":\"event-5\",\"timestamp\":\"2026-09-12T00:00:21Z\",\"parentId\":\"event-4\",\"agentId\":null}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Fixture prompt.\",\"delivery\":\"idle\",\"interactionId\":\"i2\",\"parentAgentTaskId\":\"fixture-task\"},\"id\":\"event-6\",\"timestamp\":\"2026-09-12T00:10:00Z\",\"parentId\":\"event-5\",\"agentId\":null}\n{\"type\":\"assistant.turn_start\",\"data\":{\"interactionId\":\"i2\",\"model\":\"gpt-5.6-luna\",\"turnId\":\"0\"},\"id\":\"event-7\",\"timestamp\":\"2026-09-12T00:10:01Z\",\"parentId\":\"event-6\",\"agentId\":null}\n{\"type\":\"assistant.message\",\"data\":{\"content\":\"Fixture reply.\",\"interactionId\":\"i2\",\"model\":\"gpt-5.6-luna\",\"turnId\":\"0\"},\"id\":\"event-8\",\"timestamp\":\"2026-09-12T00:10:01Z\",\"parentId\":\"event-7\",\"agentId\":null}\n{\"type\":\"assistant.turn_end\",\"data\":{\"turnId\":\"0\"},\"id\":\"event-9\",\"timestamp\":\"2026-09-12T00:10:30Z\",\"parentId\":\"event-8\",\"agentId\":null}\n{\"type\":\"session.usage_checkpoint\",\"data\":{\"modelCacheState\":[{\"cacheExpiresAt\":\"2026-09-12T00:40:26Z\",\"cacheTtlSeconds\":1800,\"modelId\":\"gpt-5.6-luna\"}],\"promptCacheBreakState\":[{\"conversation\":\"main\",\"models\":{\"gpt-5.6-luna\":{\"api_endpoint\":\"ws:/responses\",\"cache_config\":{\"arm\":\"control\",\"incremental_input\":true},\"cache_details_reported\":true,\"cache_expires_at\":\"2026-09-12T00:40:26Z\",\"cache_read\":20100,\"cache_write\":900,\"completed_at\":\"2026-09-12T00:10:30Z\",\"conversation\":{\"message_count\":6,\"points\":[{\"hash\":\"h0\",\"index\":0},{\"hash\":\"h1\",\"index\":1},{\"hash\":\"h2\",\"index\":2},{\"hash\":\"h3\",\"index\":3},{\"hash\":\"h4\",\"index\":4},{\"hash\":\"h5\",\"index\":5}]},\"frontier_source\":\"reported_writes\",\"frontier_tokens\":21000,\"initiator\":\"agent\",\"model\":\"gpt-5.6-luna\",\"model_call_id\":\"fixture\",\"prompt_tokens\":21003,\"reasoning_effort\":\"high\",\"request_id\":\"fixture\",\"session_mode\":\"interactive\",\"system_segments\":[{\"hash\":\"a03fb4ce6680\",\"segment\":\"identity\",\"tokens\":755},{\"hash\":\"545359f86916\",\"segment\":\"environment_context\",\"tokens\":114}],\"tool_count\":4,\"tool_tokens\":1200,\"tools\":[{\"name\":\"view\",\"safe\":true,\"schema_hash\":\"3e73851b027b\"},{\"name\":\"powershell\",\"safe\":true,\"schema_hash\":\"283c39c42528\"},{\"name\":\"task\",\"safe\":false,\"schema_hash\":\"3a88da3ade7c\"},{\"name\":\"web_fetch\",\"safe\":true,\"schema_hash\":\"a0829f05c5fd\"}],\"tools_truncated\":0,\"transport\":\"websocket\",\"ttl_seconds\":1800,\"vendor\":\"openai\"}}}],\"totalNanoAiu\":1800,\"totalPremiumRequests\":0},\"id\":\"event-10\",\"timestamp\":\"2026-09-12T00:10:31Z\",\"parentId\":\"event-9\",\"agentId\":null}\n{\"type\":\"session.compaction_complete\",\"data\":{\"preCompactionTokens\":21000,\"success\":true},\"id\":\"event-11\",\"timestamp\":\"2026-09-12T00:20:00Z\",\"parentId\":\"event-10\",\"agentId\":null}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Fixture prompt.\",\"delivery\":\"idle\",\"interactionId\":\"i3\",\"parentAgentTaskId\":\"fixture-task\"},\"id\":\"event-12\",\"timestamp\":\"2026-09-12T00:55:00Z\",\"parentId\":\"event-11\",\"agentId\":null}\n{\"type\":\"assistant.turn_start\",\"data\":{\"interactionId\":\"i3\",\"model\":\"gpt-5.6-luna\",\"turnId\":\"0\"},\"id\":\"event-13\",\"timestamp\":\"2026-09-12T00:55:01Z\",\"parentId\":\"event-12\",\"agentId\":null}\n{\"type\":\"assistant.message\",\"data\":{\"content\":\"Fixture reply.\",\"interactionId\":\"i3\",\"model\":\"gpt-5.6-luna\",\"turnId\":\"0\"},\"id\":\"event-14\",\"timestamp\":\"2026-09-12T00:55:01Z\",\"parentId\":\"event-13\",\"agentId\":null}\n{\"type\":\"assistant.turn_end\",\"data\":{\"turnId\":\"0\"},\"id\":\"event-15\",\"timestamp\":\"2026-09-12T00:55:40Z\",\"parentId\":\"event-14\",\"agentId\":null}\n{\"type\":\"session.usage_checkpoint\",\"data\":{\"modelCacheState\":[{\"cacheExpiresAt\":\"2026-09-12T01:25:36Z\",\"cacheTtlSeconds\":1800,\"modelId\":\"gpt-5.6-luna\"}],\"promptCacheBreakState\":[{\"conversation\":\"main\",\"models\":{\"gpt-5.6-luna\":{\"api_endpoint\":\"ws:/responses\",\"cache_config\":{\"arm\":\"control\",\"incremental_input\":false},\"cache_details_reported\":true,\"cache_expires_at\":\"2026-09-12T01:25:36Z\",\"cache_read\":8100,\"cache_write\":900,\"completed_at\":\"2026-09-12T00:55:40Z\",\"conversation\":{\"message_count\":3,\"points\":[{\"hash\":\"h0\",\"index\":0},{\"hash\":\"summary\",\"index\":1},{\"hash\":\"h9\",\"index\":2}]},\"frontier_source\":\"reported_writes\",\"frontier_tokens\":9000,\"initiator\":\"agent\",\"model\":\"gpt-5.6-luna\",\"model_call_id\":\"fixture\",\"prompt_tokens\":9003,\"reasoning_effort\":\"high\",\"request_id\":\"fixture\",\"session_mode\":\"interactive\",\"system_segments\":[{\"hash\":\"a03fb4ce6680\",\"segment\":\"identity\",\"tokens\":755},{\"hash\":\"545359f86916\",\"segment\":\"environment_context\",\"tokens\":114}],\"tool_count\":4,\"tool_tokens\":1200,\"tools\":[{\"name\":\"view\",\"safe\":true,\"schema_hash\":\"3e73851b027b\"},{\"name\":\"powershell\",\"safe\":true,\"schema_hash\":\"283c39c42528\"},{\"name\":\"task\",\"safe\":false,\"schema_hash\":\"3a88da3ade7c\"},{\"name\":\"web_fetch\",\"safe\":true,\"schema_hash\":\"a0829f05c5fd\"}],\"tools_truncated\":0,\"transport\":\"websocket\",\"ttl_seconds\":1800,\"vendor\":\"openai\"}}}],\"totalNanoAiu\":3000,\"totalPremiumRequests\":0},\"id\":\"event-16\",\"timestamp\":\"2026-09-12T00:55:41Z\",\"parentId\":\"event-15\",\"agentId\":null}\n{\"type\":\"session.model_change\",\"data\":{\"newModel\":\"claude-sonnet-5\",\"previousModel\":\"gpt-5.6-luna\",\"reasoningEffort\":\"high\"},\"id\":\"event-17\",\"timestamp\":\"2026-09-12T01:00:00Z\",\"parentId\":\"event-16\",\"agentId\":null}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Fixture prompt.\",\"delivery\":\"idle\",\"interactionId\":\"i4\",\"parentAgentTaskId\":\"fixture-task\"},\"id\":\"event-18\",\"timestamp\":\"2026-09-12T01:01:00Z\",\"parentId\":\"event-17\",\"agentId\":null}\n{\"type\":\"assistant.turn_start\",\"data\":{\"interactionId\":\"i4\",\"model\":\"claude-sonnet-5\",\"turnId\":\"0\"},\"id\":\"event-19\",\"timestamp\":\"2026-09-12T01:01:01Z\",\"parentId\":\"event-18\",\"agentId\":null}\n{\"type\":\"assistant.turn_end\",\"data\":{\"turnId\":\"0\"},\"id\":\"event-20\",\"timestamp\":\"2026-09-12T01:01:30Z\",\"parentId\":\"event-19\",\"agentId\":null}\n{\"type\":\"session.shutdown\",\"data\":{\"currentModel\":\"claude-sonnet-5\",\"shutdownType\":\"routine\"},\"id\":\"event-21\",\"timestamp\":\"2026-09-12T01:05:00Z\",\"parentId\":\"event-20\",\"agentId\":null}",
+  "snapshot": {
+    "diagnostics": {
+      "deserializationFailures": {},
+      "fallbackEvents": 0,
+      "malformedLines": 0,
+      "totalEvents": 22,
+      "typedEvents": 22,
+      "unknownEventTypes": {}
+    },
+    "eventCount": 22,
+    "fingerprint": {
+      "events": {
+        "modified": "<mtime>",
+        "size": 7673
+      },
+      "workspace": {
+        "modified": "<mtime>",
+        "size": 213
+      }
+    },
+    "ipcTurns": [
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Fixture reply.",
+            "eventIndex": 3,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 15000,
+        "endTimestamp": "2026-09-12T00:00:20Z",
+        "eventIndex": 1,
+        "interactionId": "i1",
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningEffort": "high",
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started (model: gpt-5.6-luna)",
+            "timestamp": "2026-09-12T00:00:00Z"
+          }
+        ],
+        "timestamp": "2026-09-12T00:00:05Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 0,
+        "userMessage": "Fixture prompt.",
+        "userMessageDelivery": "idle"
+      },
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Fixture reply.",
+            "eventIndex": 8,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 30000,
+        "endTimestamp": "2026-09-12T00:10:30Z",
+        "eventIndex": 6,
+        "interactionId": "i2",
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningEffort": "high",
+        "reasoningTexts": [],
+        "sessionEvents": [],
+        "timestamp": "2026-09-12T00:10:00Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 1,
+        "userMessage": "Fixture prompt.",
+        "userMessageDelivery": "idle"
+      },
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Fixture reply.",
+            "eventIndex": 14,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 40000,
+        "endTimestamp": "2026-09-12T00:55:40Z",
+        "eventIndex": 12,
+        "interactionId": "i3",
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningEffort": "high",
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.compaction_complete",
+            "severity": "info",
+            "summary": "Compaction complete (21000 tokens)",
+            "timestamp": "2026-09-12T00:20:00Z"
+          }
+        ],
+        "timestamp": "2026-09-12T00:55:00Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 2,
+        "userMessage": "Fixture prompt.",
+        "userMessageDelivery": "idle"
+      },
+      {
+        "assistantMessages": [],
+        "attachments": null,
+        "durationMs": 30000,
+        "endTimestamp": "2026-09-12T01:01:30Z",
+        "eventIndex": 18,
+        "interactionId": "i4",
+        "isComplete": true,
+        "model": "claude-sonnet-5",
+        "outputTokens": null,
+        "reasoningEffort": "high",
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.model_change",
+            "severity": "info",
+            "summary": "Model changed gpt-5.6-luna → claude-sonnet-5",
+            "timestamp": "2026-09-12T01:00:00Z"
+          }
+        ],
+        "timestamp": "2026-09-12T01:01:00Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 3,
+        "userMessage": "Fixture prompt.",
+        "userMessageDelivery": "idle"
+      }
+    ],
+    "summary": {
+      "branch": "main",
+      "checkpointCount": null,
+      "createdAt": "2026-03-10T07:14:50Z",
+      "currentModel": "claude-sonnet-5",
+      "currentReasoningEffort": "high",
+      "cwd": "/golden/prompt-cache",
+      "eventCount": 22,
+      "hasCheckpoints": false,
+      "hasEvents": true,
+      "hasPlan": false,
+      "hasSessionDb": false,
+      "hostType": null,
+      "id": "00000000-0000-4000-8000-000000000008",
+      "repository": "golden/prompt-cache",
+      "shutdownMetrics": {
+        "codeChanges": null,
+        "conversationTokens": null,
+        "currentModel": "claude-sonnet-5",
+        "currentTokens": null,
+        "modelMetrics": {},
+        "sessionSegments": [
+          {
+            "apiDurationMs": 0,
+            "currentModel": "claude-sonnet-5",
+            "endTimestamp": "2026-09-12T01:05:00+00:00",
+            "modelMetrics": null,
+            "premiumRequests": 0.0,
+            "startTimestamp": "2026-09-12T00:00:00+00:00",
+            "tokens": 0,
+            "totalNanoAiu": null,
+            "totalRequests": 0
+          }
+        ],
+        "sessionStartTime": null,
+        "shutdownCount": 1,
+        "shutdownType": "routine",
+        "sourceMetricsScope": "segment",
+        "systemTokens": null,
+        "tokenDetails": null,
+        "toolDefinitionsTokens": null,
+        "totalApiDurationMs": null,
+        "totalNanoAiu": null,
+        "totalPremiumRequests": null
+      },
+      "summary": "Golden prompt-cache",
+      "turnCount": 4,
+      "updatedAt": "2026-03-10T07:15:00Z"
+    },
+    "turns": [
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Fixture reply.",
+            "eventIndex": 3,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 15000,
+        "endTimestamp": "2026-09-12T00:00:20Z",
+        "eventIndex": 1,
+        "interactionId": "i1",
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningEffort": "high",
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started (model: gpt-5.6-luna)",
+            "timestamp": "2026-09-12T00:00:00Z"
+          }
+        ],
+        "timestamp": "2026-09-12T00:00:05Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 0,
+        "userMessage": "Fixture prompt.",
+        "userMessageDelivery": "idle"
+      },
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Fixture reply.",
+            "eventIndex": 8,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 30000,
+        "endTimestamp": "2026-09-12T00:10:30Z",
+        "eventIndex": 6,
+        "interactionId": "i2",
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningEffort": "high",
+        "reasoningTexts": [],
+        "sessionEvents": [],
+        "timestamp": "2026-09-12T00:10:00Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 1,
+        "userMessage": "Fixture prompt.",
+        "userMessageDelivery": "idle"
+      },
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Fixture reply.",
+            "eventIndex": 14,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 40000,
+        "endTimestamp": "2026-09-12T00:55:40Z",
+        "eventIndex": 12,
+        "interactionId": "i3",
+        "isComplete": true,
+        "model": "gpt-5.6-luna",
+        "outputTokens": null,
+        "reasoningEffort": "high",
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.compaction_complete",
+            "severity": "info",
+            "summary": "Compaction complete (21000 tokens)",
+            "timestamp": "2026-09-12T00:20:00Z"
+          }
+        ],
+        "timestamp": "2026-09-12T00:55:00Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 2,
+        "userMessage": "Fixture prompt.",
+        "userMessageDelivery": "idle"
+      },
+      {
+        "assistantMessages": [],
+        "attachments": null,
+        "durationMs": 30000,
+        "endTimestamp": "2026-09-12T01:01:30Z",
+        "eventIndex": 18,
+        "interactionId": "i4",
+        "isComplete": true,
+        "model": "claude-sonnet-5",
+        "outputTokens": null,
+        "reasoningEffort": "high",
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.model_change",
+            "severity": "info",
+            "summary": "Model changed gpt-5.6-luna → claude-sonnet-5",
+            "timestamp": "2026-09-12T01:00:00Z"
+          }
+        ],
+        "timestamp": "2026-09-12T01:01:00Z",
+        "toolCalls": [],
+        "transformedUserMessage": null,
+        "turnId": "0",
+        "turnIndex": 3,
+        "userMessage": "Fixture prompt.",
+        "userMessageDelivery": "idle"
+      }
+    ]
+  },
+  "summary": {
+    "branch": "main",
+    "checkpointCount": null,
+    "createdAt": "2026-03-10T07:14:50Z",
+    "currentModel": "claude-sonnet-5",
+    "currentReasoningEffort": "high",
+    "cwd": "/golden/prompt-cache",
+    "eventCount": 22,
+    "hasCheckpoints": false,
+    "hasEvents": true,
+    "hasPlan": false,
+    "hasSessionDb": false,
+    "hostType": null,
+    "id": "00000000-0000-4000-8000-000000000008",
+    "repository": "golden/prompt-cache",
+    "shutdownMetrics": {
+      "codeChanges": null,
+      "conversationTokens": null,
+      "currentModel": "claude-sonnet-5",
+      "currentTokens": null,
+      "modelMetrics": {},
+      "sessionSegments": [
+        {
+          "apiDurationMs": 0,
+          "currentModel": "claude-sonnet-5",
+          "endTimestamp": "2026-09-12T01:05:00+00:00",
+          "modelMetrics": null,
+          "premiumRequests": 0.0,
+          "startTimestamp": "2026-09-12T00:00:00+00:00",
+          "tokens": 0,
+          "totalNanoAiu": null,
+          "totalRequests": 0
+        }
+      ],
+      "sessionStartTime": null,
+      "shutdownCount": 1,
+      "shutdownType": "routine",
+      "sourceMetricsScope": "segment",
+      "systemTokens": null,
+      "tokenDetails": null,
+      "toolDefinitionsTokens": null,
+      "totalApiDurationMs": null,
+      "totalNanoAiu": null,
+      "totalPremiumRequests": null
+    },
+    "summary": "Golden prompt-cache",
+    "turnCount": 4,
+    "updatedAt": "2026-03-10T07:15:00Z"
+  }
+}

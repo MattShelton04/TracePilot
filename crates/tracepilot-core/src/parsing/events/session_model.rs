@@ -171,6 +171,7 @@ mod tests {
                 timestamp: None,
                 parent_id: None,
                 agent_id: None,
+                native: None,
             },
             event_type: kind,
             typed_data,

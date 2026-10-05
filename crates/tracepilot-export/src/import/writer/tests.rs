@@ -67,6 +67,7 @@ fn writes_events_jsonl() {
         timestamp: None,
         parent_id: None,
         agent_id: None,
+        native: None,
     }]);
     let archive = test_archive(session.clone());
 

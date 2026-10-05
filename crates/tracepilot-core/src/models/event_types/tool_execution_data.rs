@@ -21,6 +21,10 @@ pub struct ToolExecStartData {
     pub mcp_config_server_name: Option<String>,
     pub mcp_transport: Option<String>,
     pub mcp_config_source: Option<String>,
+    /// The source's own tool name when `tool_name` is a canonical mapping
+    /// (non-Copilot sources). Never written for Copilot events.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_tool_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

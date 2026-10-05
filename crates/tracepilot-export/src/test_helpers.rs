@@ -111,6 +111,7 @@ pub fn simple_tool_call(name: &str, success: Option<bool>, is_subagent: bool) ->
         tool_call_id: None,
         parent_tool_call_id: None,
         tool_name: name.to_string(),
+        native_tool_name: None,
         event_index: None,
         arguments: None,
         success,
