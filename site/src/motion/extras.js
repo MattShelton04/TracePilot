@@ -65,7 +65,7 @@ export function initNav() {
     end: "max",
     onUpdate: (st) => gsap.set(bar, { scaleX: st.progress }),
   });
-  $$(".nav-links a").forEach((a) => {
+  $$(".nav-links a[href^='#']").forEach((a) => {
     const sec = $(a.getAttribute("href"));
     if (!sec) return;
     ScrollTrigger.create({

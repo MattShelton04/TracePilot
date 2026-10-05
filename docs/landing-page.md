@@ -166,11 +166,14 @@ for the GSAP licence and the site's direct dependencies.
 
 ### Calls to action and social proof
 
-The hero's calls to action run Download, View on GitHub, Try the live demo,
-then Watch the tour; the closing section has Download, Star on GitHub and Try
-the live demo. "Try the live demo" also sits in the nav (hidden below 480px,
-where it no longer fits) and opens the full-screen `demo/` page, so trying the
-product takes one click and no install.
+The hero's calls to action are Download, View on GitHub and Watch the tour; the
+closing section has Download and Star on GitHub. The live demo is the accented
+"Live demo" link at the end of the nav's section links, which opens the
+full-screen `demo/` page in a new tab. It stays when the other section links
+collapse below 1240px and is hidden below 520px, where the nav has no room.
+
+Links that open a new tab get the `ext` class (a trailing arrow) and sr-only
+"(opens in a new tab)" text; add both when adding one.
 
 The hero's trust row and the closing release card show momentum rather than raw
 counts: the version with its release date (`[data-released]`, turned into

@@ -258,6 +258,43 @@ html[data-os="other"] .dl-other {
 .nav-links a.is-current {
   color: var(--text-primary);
 }
+/* the live demo stands apart from the section links: accent, a live dot and a new-tab arrow */
+.nav-links .nav-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 4px;
+  padding-left: 22px;
+  border-left: 1px solid var(--border-default);
+  color: #c7d2fe;
+  font-weight: 550;
+  --dot: 6px;
+}
+.nav-links .nav-live:hover {
+  color: #fff;
+}
+
+/* Links that open a new tab carry an arrow; each also has sr-only "(opens in a new tab)" text */
+.ext::after {
+  content: "";
+  flex: none;
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  margin-left: 0.28em;
+  vertical-align: 0.06em;
+  background: currentColor;
+  opacity: 0.75;
+  mask:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='5 5 14 14' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7'/%3E%3Cpath d='M8 7h9v9'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+/* flex parents already space their children */
+.btn.ext::after,
+.nav-live::after {
+  margin-left: -4px;
+  align-self: center;
+}
 .nav-cta {
   margin-left: auto;
   display: flex;
@@ -819,8 +856,8 @@ a.trust-pill:hover {
   color: var(--text-primary);
 }
 .live-dot {
-  width: 7px;
-  height: 7px;
+  width: var(--dot, 7px);
+  height: var(--dot, 7px);
   border-radius: 50%;
   background: var(--success-fg);
   box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.16);
@@ -1423,10 +1460,6 @@ html.pin.ready #open .stage {
 .rc-link:hover {
   color: var(--text-primary);
 }
-.rc-link .i {
-  width: 13px;
-  height: 13px;
-}
 .rc-list {
   list-style: none;
   margin: 14px 0 0;
@@ -1906,7 +1939,7 @@ html[data-os="mac"] .os-mac {
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1240px) {
-  .nav-links {
+  .nav-links a:not(.nav-live) {
     display: none;
   }
 }
@@ -2083,9 +2116,9 @@ html[data-os="mac"] .os-mac {
     gap: 2px;
   }
 }
-/* phones: the hero's own "Try the live demo" stands in for the nav button, which no longer fits */
-@media (max-width: 479px) {
-  .nav-demo {
+/* phones: no room beside the nav buttons; the demo section's own "Full screen" link remains */
+@media (max-width: 519px) {
+  .nav-links .nav-live {
     display: none;
   }
 }
