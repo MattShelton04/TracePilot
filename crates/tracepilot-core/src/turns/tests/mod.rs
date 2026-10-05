@@ -72,6 +72,7 @@ pub(super) fn make_event(
             ),
             parent_id: parent.map(str::to_string),
             agent_id: None,
+            native: None,
         },
         event_type,
         typed_data: data,

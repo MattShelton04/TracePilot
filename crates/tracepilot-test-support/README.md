@@ -15,6 +15,8 @@ Currently:
 | Module       | Purpose                                                       |
 | ------------ | ------------------------------------------------------------- |
 | `fixtures`   | Session-directory fixture builders (`TempDir` + on-disk YAML / JSONL) |
+| `copilot_corpus` | Fixed synthetic Copilot session corpus for golden regression tests |
+| `golden`     | JSON golden-file assertions (`TRACEPILOT_UPDATE_GOLDEN=1` rewrites) |
 
 Consumers add the crate as a dev-dep and import what they need:
 
@@ -31,8 +33,8 @@ let session_dir = fixtures::minimal_session(&tmp)?;
 
 ## Workspace dependencies
 
-None at runtime. Other `[dependencies]` are deliberately avoided so that
-dev-deps don't leak into release builds of downstream crates.
+Only `tempfile` and `serde_json`. Other `[dependencies]` are deliberately
+avoided so that dev-deps don't leak into release builds of downstream crates.
 
 ## Layout
 

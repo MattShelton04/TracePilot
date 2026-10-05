@@ -199,6 +199,10 @@ pub struct TurnToolCall {
     pub tool_call_id: Option<String>,
     pub parent_tool_call_id: Option<String>,
     pub tool_name: String,
+    /// The source's own tool name when it differs from the canonical
+    /// `tool_name` (non-Copilot sources). For display and filters only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_tool_name: Option<String>,
     /// Index of the ToolExecutionStart event in the session event stream.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_index: Option<usize>,

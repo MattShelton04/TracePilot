@@ -18,6 +18,14 @@ tooling, scripts, and CI status for each.
 | macOS bundle smoke (disk image install + launch) | Shell + `codesign`/`hdiutil` | `scripts/macos/bundle-smoke.sh` | ✅ Non-blocking macOS job on PRs and main; also gates the release's macOS job |
 | Interactive desktop diagnostics | Playwright agent CLI | `scripts/automation/`, `scripts/e2e/` | ❌ on-demand |
 
+Copilot output is also pinned by golden snapshots over a synthetic corpus
+(`tracepilot_test_support::copilot_corpus`): summaries, raw events, turns and
+analytics in `crates/tracepilot-core/tests/copilot_golden.rs`, and every index
+row plus the analytics and search DTOs in
+`crates/tracepilot-indexer/tests/copilot_golden.rs`. Each test lists the volatile
+values it normalizes. After an intentional output change, rerun them with
+`TRACEPILOT_UPDATE_GOLDEN=1` and review the JSON diff.
+
 The JS/TS and Rust unit suites are the primary regression gate. Component VRT
 is opt-in; native integration tests run in CI. [Desktop frontend visual comparisons](visual-regression.md)
 run in CI with synthetic backend data and report PR base/head changes; they do

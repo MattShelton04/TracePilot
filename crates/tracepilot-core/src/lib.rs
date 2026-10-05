@@ -53,6 +53,7 @@
 //! | [`error`] | Crate-wide error types |
 //! | [`models`] | Domain types: events, summaries, conversations |
 //! | [`parsing`] | Event parsing pipeline, diagnostics, workspace/DB parsers |
+//! | [`provider`] | Session sources: provider seam, locators, fingerprints |
 //! | [`session`] | Session discovery (scan, resolve, filter) |
 //! | [`summary`] | Session summary orchestration |
 //! | [`turns`] | Turn reconstruction state machine |

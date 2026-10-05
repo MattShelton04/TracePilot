@@ -150,9 +150,11 @@ impl Report {
     }
 
     fn add_interrupts(&mut self, parsed: &ClaudeParse) {
-        for (event, native) in parsed.events.iter().zip(&parsed.natives) {
-            let Some(native) = native else { continue };
-            let has_id = native.record.get("interruptedMessageId").is_some();
+        for event in &parsed.events {
+            let Some(native) = &event.raw.native else {
+                continue;
+            };
+            let has_id = native.data.get("interruptedMessageId").is_some();
             let key = match (event.raw.event_type.as_str(), has_id) {
                 ("abort", true) => "abort from a record with interruptedMessageId",
                 ("abort", false) => "abort from an interrupt marker text",
@@ -375,12 +377,14 @@ impl Report {
                 native_names.insert(id.to_string(), name.to_string());
             }
         }
-        for (event, native) in parsed.events.iter().zip(&parsed.natives) {
+        for event in &parsed.events {
             if event.raw.event_type != "tool.execution_complete" {
                 continue;
             }
-            let Some(native) = native else { continue };
-            let result = &native.record["toolUseResult"];
+            let Some(native) = &event.raw.native else {
+                continue;
+            };
+            let result = &native.data["toolUseResult"];
             let name = event.raw.data["toolCallId"]
                 .as_str()
                 .and_then(|id| native_names.get(id))
@@ -535,11 +539,11 @@ fn side_call_correlates(parsed: &ClaudeParse) -> (usize, usize) {
         .filter(|e| e.raw.data["infoType"] == "away_summary")
         .count();
     let titles: std::collections::HashSet<&str> = parsed
-        .natives
+        .events
         .iter()
-        .flatten()
-        .filter(|n| n.record["type"] == "ai-title")
-        .filter_map(|n| n.record["aiTitle"].as_str())
+        .filter_map(|e| e.raw.native.as_ref())
+        .filter(|n| n.record_type == "ai-title")
+        .filter_map(|n| n.data["aiTitle"].as_str())
         .collect();
     (away, titles.len())
 }

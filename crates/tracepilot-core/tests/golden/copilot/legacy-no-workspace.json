@@ -1,0 +1,343 @@
+{
+  "rawEventsJsonl": "{\"type\":\"session.start\",\"data\":{\"context\":{\"cwd\":\"/test\",\"gitRoot\":\"/test\"},\"copilotVersion\":\"1.0.2\",\"producer\":\"copilot-agent\",\"sessionId\":\"test-v1_0_2\",\"startTime\":\"2026-01-01T00:00:00.000Z\",\"version\":1},\"id\":\"evt-1\",\"timestamp\":\"2026-01-01T00:00:01Z\",\"parentId\":null,\"agentId\":null}\n{\"type\":\"user.message\",\"data\":{\"content\":\"Hello world\",\"interactionId\":\"int-1\"},\"id\":\"evt-2\",\"timestamp\":\"2026-01-01T00:00:02Z\",\"parentId\":\"evt-1\",\"agentId\":null}\n{\"type\":\"assistant.turn_start\",\"data\":{\"interactionId\":\"int-1\",\"turnId\":\"turn-1\"},\"id\":\"evt-3\",\"timestamp\":\"2026-01-01T00:00:03Z\",\"parentId\":\"evt-2\",\"agentId\":null}\n{\"type\":\"tool.execution_start\",\"data\":{\"arguments\":{\"path\":\"/test/file.txt\"},\"toolCallId\":\"tc-1\",\"toolName\":\"read_file\"},\"id\":\"evt-4\",\"timestamp\":\"2026-01-01T00:00:04Z\",\"parentId\":\"evt-3\",\"agentId\":null}\n{\"type\":\"subagent.started\",\"data\":{\"agentDescription\":\"Explores codebase\",\"agentDisplayName\":\"Explore Agent\",\"agentName\":\"explore\",\"toolCallId\":\"tc-sub-1\"},\"id\":\"evt-5\",\"timestamp\":\"2026-01-01T00:00:05Z\",\"parentId\":\"evt-4\",\"agentId\":null}\n{\"type\":\"subagent.completed\",\"data\":{\"agentDisplayName\":\"Explore Agent\",\"toolCallId\":\"tc-sub-1\"},\"id\":\"evt-6\",\"timestamp\":\"2026-01-01T00:00:06Z\",\"parentId\":\"evt-5\",\"agentId\":null}\n{\"type\":\"tool.execution_complete\",\"data\":{\"success\":true,\"toolCallId\":\"tc-1\"},\"id\":\"evt-7\",\"timestamp\":\"2026-01-01T00:00:07Z\",\"parentId\":\"evt-4\",\"agentId\":null}\n{\"type\":\"assistant.message\",\"data\":{\"content\":\"Done.\",\"interactionId\":\"int-1\",\"messageId\":\"msg-1\"},\"id\":\"evt-8\",\"timestamp\":\"2026-01-01T00:00:08Z\",\"parentId\":\"evt-3\",\"agentId\":null}\n{\"type\":\"assistant.turn_end\",\"data\":{\"turnId\":\"turn-1\"},\"id\":\"evt-9\",\"timestamp\":\"2026-01-01T00:00:09Z\",\"parentId\":\"evt-3\",\"agentId\":null}\n{\"type\":\"session.shutdown\",\"data\":{\"modelMetrics\":{\"gpt-4o\":{\"requests\":{\"cost\":0.5,\"count\":3},\"usage\":{\"cacheReadTokens\":200,\"cacheWriteTokens\":100,\"inputTokens\":1000,\"outputTokens\":500}}},\"totalApiDurationMs\":10000,\"totalPremiumRequests\":5},\"id\":\"evt-10\",\"timestamp\":\"2026-01-01T00:00:10Z\",\"parentId\":\"evt-1\",\"agentId\":null}",
+  "snapshot": {
+    "diagnostics": {
+      "deserializationFailures": {},
+      "fallbackEvents": 0,
+      "malformedLines": 0,
+      "totalEvents": 10,
+      "typedEvents": 10,
+      "unknownEventTypes": {}
+    },
+    "eventCount": 10,
+    "fingerprint": {
+      "events": {
+        "modified": "<mtime>",
+        "size": 1936
+      },
+      "workspace": null
+    },
+    "ipcTurns": [
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Done.",
+            "eventIndex": 7,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 7000,
+        "endTimestamp": "2026-01-01T00:00:09Z",
+        "eventIndex": 1,
+        "interactionId": "int-1",
+        "isComplete": true,
+        "model": null,
+        "outputTokens": null,
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started",
+            "timestamp": "2026-01-01T00:00:01Z"
+          }
+        ],
+        "timestamp": "2026-01-01T00:00:02Z",
+        "toolCalls": [
+          {
+            "agentDescription": null,
+            "agentDisplayName": null,
+            "arguments": {
+              "path": "/test/file.txt"
+            },
+            "completedAt": "2026-01-01T00:00:07Z",
+            "durationMs": 3000,
+            "error": null,
+            "eventIndex": 3,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": false,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": null,
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:04Z",
+            "success": true,
+            "toolCallId": "tc-1",
+            "toolName": "read_file"
+          },
+          {
+            "agentDescription": "Explores codebase",
+            "agentDisplayName": "Explore Agent",
+            "agentStatus": "completed",
+            "arguments": null,
+            "completedAt": "2026-01-01T00:00:06Z",
+            "durationMs": 1000,
+            "error": null,
+            "eventIndex": 4,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": null,
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:05Z",
+            "success": true,
+            "toolCallId": "tc-sub-1",
+            "toolName": "explore"
+          }
+        ],
+        "transformedUserMessage": null,
+        "turnId": "turn-1",
+        "turnIndex": 0,
+        "userMessage": "Hello world"
+      }
+    ],
+    "summary": {
+      "branch": null,
+      "checkpointCount": null,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "currentModel": null,
+      "cwd": "/test",
+      "eventCount": 10,
+      "hasCheckpoints": false,
+      "hasEvents": true,
+      "hasPlan": false,
+      "hasSessionDb": false,
+      "hostType": null,
+      "id": "00000000-0000-4000-8000-000000000004",
+      "repository": null,
+      "shutdownMetrics": {
+        "codeChanges": null,
+        "conversationTokens": null,
+        "currentModel": null,
+        "currentTokens": null,
+        "modelMetrics": {
+          "gpt-4o": {
+            "requests": {
+              "cost": 0.5,
+              "count": 3
+            },
+            "tokenDetails": null,
+            "totalNanoAiu": null,
+            "usage": {
+              "cacheReadTokens": 200,
+              "cacheWriteTokens": 100,
+              "inputTokens": 1000,
+              "outputTokens": 500,
+              "reasoningTokens": null
+            }
+          }
+        },
+        "sessionSegments": [
+          {
+            "apiDurationMs": 10000,
+            "currentModel": null,
+            "endTimestamp": "2026-01-01T00:00:10+00:00",
+            "modelMetrics": {
+              "gpt-4o": {
+                "requests": {
+                  "cost": 0.5,
+                  "count": 3
+                },
+                "tokenDetails": null,
+                "totalNanoAiu": null,
+                "usage": {
+                  "cacheReadTokens": 200,
+                  "cacheWriteTokens": 100,
+                  "inputTokens": 1000,
+                  "outputTokens": 500,
+                  "reasoningTokens": null
+                }
+              }
+            },
+            "premiumRequests": 5.0,
+            "startTimestamp": "2026-01-01T00:00:01+00:00",
+            "tokens": 1500,
+            "totalNanoAiu": null,
+            "totalRequests": 3
+          }
+        ],
+        "sessionStartTime": null,
+        "shutdownCount": 1,
+        "shutdownType": null,
+        "sourceMetricsScope": "segment",
+        "systemTokens": null,
+        "tokenDetails": null,
+        "toolDefinitionsTokens": null,
+        "totalApiDurationMs": 10000,
+        "totalNanoAiu": null,
+        "totalPremiumRequests": 5.0
+      },
+      "summary": null,
+      "turnCount": 1,
+      "updatedAt": null
+    },
+    "turns": [
+      {
+        "assistantMessages": [
+          {
+            "agentDisplayName": null,
+            "content": "Done.",
+            "eventIndex": 7,
+            "parentToolCallId": null
+          }
+        ],
+        "attachments": null,
+        "durationMs": 7000,
+        "endTimestamp": "2026-01-01T00:00:09Z",
+        "eventIndex": 1,
+        "interactionId": "int-1",
+        "isComplete": true,
+        "model": null,
+        "outputTokens": null,
+        "reasoningTexts": [],
+        "sessionEvents": [
+          {
+            "eventType": "session.start",
+            "severity": "info",
+            "summary": "Session started",
+            "timestamp": "2026-01-01T00:00:01Z"
+          }
+        ],
+        "timestamp": "2026-01-01T00:00:02Z",
+        "toolCalls": [
+          {
+            "agentDescription": null,
+            "agentDisplayName": null,
+            "arguments": {
+              "path": "/test/file.txt"
+            },
+            "completedAt": "2026-01-01T00:00:07Z",
+            "durationMs": 3000,
+            "error": null,
+            "eventIndex": 3,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": false,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": null,
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:04Z",
+            "success": true,
+            "toolCallId": "tc-1",
+            "toolName": "read_file"
+          },
+          {
+            "agentDescription": "Explores codebase",
+            "agentDisplayName": "Explore Agent",
+            "agentStatus": "completed",
+            "arguments": null,
+            "completedAt": "2026-01-01T00:00:06Z",
+            "durationMs": 1000,
+            "error": null,
+            "eventIndex": 4,
+            "intentionSummary": null,
+            "isComplete": true,
+            "isSubagent": true,
+            "mcpServerName": null,
+            "mcpToolName": null,
+            "model": null,
+            "parentToolCallId": null,
+            "resultContent": null,
+            "startedAt": "2026-01-01T00:00:05Z",
+            "success": true,
+            "toolCallId": "tc-sub-1",
+            "toolName": "explore"
+          }
+        ],
+        "transformedUserMessage": null,
+        "turnId": "turn-1",
+        "turnIndex": 0,
+        "userMessage": "Hello world"
+      }
+    ]
+  },
+  "summary": {
+    "branch": null,
+    "checkpointCount": null,
+    "createdAt": "2026-01-01T00:00:00Z",
+    "currentModel": null,
+    "cwd": "/test",
+    "eventCount": 10,
+    "hasCheckpoints": false,
+    "hasEvents": true,
+    "hasPlan": false,
+    "hasSessionDb": false,
+    "hostType": null,
+    "id": "00000000-0000-4000-8000-000000000004",
+    "repository": null,
+    "shutdownMetrics": {
+      "codeChanges": null,
+      "conversationTokens": null,
+      "currentModel": null,
+      "currentTokens": null,
+      "modelMetrics": {
+        "gpt-4o": {
+          "requests": {
+            "cost": 0.5,
+            "count": 3
+          },
+          "tokenDetails": null,
+          "totalNanoAiu": null,
+          "usage": {
+            "cacheReadTokens": 200,
+            "cacheWriteTokens": 100,
+            "inputTokens": 1000,
+            "outputTokens": 500,
+            "reasoningTokens": null
+          }
+        }
+      },
+      "sessionSegments": [
+        {
+          "apiDurationMs": 10000,
+          "currentModel": null,
+          "endTimestamp": "2026-01-01T00:00:10+00:00",
+          "modelMetrics": {
+            "gpt-4o": {
+              "requests": {
+                "cost": 0.5,
+                "count": 3
+              },
+              "tokenDetails": null,
+              "totalNanoAiu": null,
+              "usage": {
+                "cacheReadTokens": 200,
+                "cacheWriteTokens": 100,
+                "inputTokens": 1000,
+                "outputTokens": 500,
+                "reasoningTokens": null
+              }
+            }
+          },
+          "premiumRequests": 5.0,
+          "startTimestamp": "2026-01-01T00:00:01+00:00",
+          "tokens": 1500,
+          "totalNanoAiu": null,
+          "totalRequests": 3
+        }
+      ],
+      "sessionStartTime": null,
+      "shutdownCount": 1,
+      "shutdownType": null,
+      "sourceMetricsScope": "segment",
+      "systemTokens": null,
+      "tokenDetails": null,
+      "toolDefinitionsTokens": null,
+      "totalApiDurationMs": 10000,
+      "totalNanoAiu": null,
+      "totalPremiumRequests": 5.0
+    },
+    "summary": null,
+    "turnCount": 1,
+    "updatedAt": null
+  }
+}

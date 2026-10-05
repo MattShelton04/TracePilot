@@ -1,0 +1,54 @@
+{
+  "rawEventsJsonl": null,
+  "snapshot": {
+    "diagnostics": null,
+    "eventCount": null,
+    "fingerprint": {
+      "events": null,
+      "workspace": {
+        "modified": "<mtime>",
+        "size": 41
+      }
+    },
+    "ipcTurns": null,
+    "summary": {
+      "branch": null,
+      "checkpointCount": null,
+      "createdAt": null,
+      "currentModel": null,
+      "cwd": null,
+      "eventCount": null,
+      "hasCheckpoints": false,
+      "hasEvents": false,
+      "hasPlan": false,
+      "hasSessionDb": false,
+      "hostType": null,
+      "id": "00000000-0000-4000-8000-000000000002",
+      "repository": null,
+      "shutdownMetrics": null,
+      "summary": null,
+      "turnCount": null,
+      "updatedAt": null
+    },
+    "turns": null
+  },
+  "summary": {
+    "branch": null,
+    "checkpointCount": null,
+    "createdAt": null,
+    "currentModel": null,
+    "cwd": null,
+    "eventCount": null,
+    "hasCheckpoints": false,
+    "hasEvents": false,
+    "hasPlan": false,
+    "hasSessionDb": false,
+    "hostType": null,
+    "id": "00000000-0000-4000-8000-000000000002",
+    "repository": null,
+    "shutdownMetrics": null,
+    "summary": null,
+    "turnCount": null,
+    "updatedAt": null
+  }
+}

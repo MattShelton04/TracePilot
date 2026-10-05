@@ -8,6 +8,7 @@
 //! typed data comes from `typed_data_from_raw`, exactly as a reparse would.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -16,11 +17,12 @@ use super::reader::Line;
 use super::records::Rec;
 use super::subagents::ChildStream;
 use super::usage::{CallTable, CostSnapshot};
-use super::{ClaudeDiagnostics, ClaudeParse, NativeRecord, branch, subagents};
+use super::{ClaudeDiagnostics, ClaudeParse, NativePosition, branch, subagents};
 use crate::error::Result;
 use crate::models::event_types::SessionEventType;
 use crate::parsing::events::{RawEvent, TypedEvent, TypedEventData, typed_data_from_raw};
 use crate::parsing::snapshot::check_cancelled;
+use crate::provider::{NativeRecord, SessionSource};
 
 /// Record types without a mapping, shown on the Events tab only. The last
 /// four were first seen by the S3 probe (2.1.274–2.1.289).
@@ -53,7 +55,7 @@ pub(super) struct Translator<'a, F> {
     pub(super) agent_tool_ids: HashSet<String>,
     pub(super) inserted: HashSet<String>,
     pub(super) events: Vec<RawEvent>,
-    pub(super) natives: Vec<Option<NativeRecord>>,
+    pub(super) positions: Vec<Option<NativePosition>>,
     pub(super) calls: CallTable,
     pub(super) snapshots: Vec<CostSnapshot>,
     pub(super) diagnostics: ClaudeDiagnostics,
@@ -96,7 +98,8 @@ pub(super) struct RecCtx {
     pub(super) base: String,
     pub(super) n: usize,
     pub(super) ts: Option<DateTime<Utc>>,
-    pub(super) native: NativeRecord,
+    pub(super) record: Arc<Value>,
+    pub(super) position: NativePosition,
 }
 
 impl RecCtx {
@@ -147,7 +150,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             agent_tool_ids: links.agent_tool_ids,
             inserted: HashSet::new(),
             events: Vec::new(),
-            natives: Vec::new(),
+            positions: Vec::new(),
             calls: CallTable::default(),
             snapshots: Vec::new(),
             diagnostics,
@@ -266,10 +269,10 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             base: base_id(st, line),
             n: 0,
             ts: rec.timestamp(),
-            native: NativeRecord {
-                record: line.value.clone(),
+            record: line.value.clone(),
+            position: NativePosition {
                 line: line.line,
-                agent_id: st.agent_id.clone(),
+                file_agent_id: st.agent_id.clone(),
                 abandoned,
             },
         };
@@ -305,18 +308,9 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
 
     /// The record as an `Unknown(<native type>)` event for the Events tab.
     pub(super) fn native_only(&mut self, st: &mut Stream<'_>, ctx: &mut RecCtx) {
-        let record = ctx.native.record.clone();
-        let rec = Rec(&record);
-        let name = match rec.kind() {
-            "system" => format!("system:{}", rec.str("subtype").unwrap_or("")),
-            "attachment" => format!(
-                "attachment:{}",
-                rec.ptr_str("/attachment/type").unwrap_or("")
-            ),
-            "" => "unknown".to_string(),
-            kind => kind.to_string(),
-        };
-        self.emit_inner(st, ctx, &name, (*record).clone(), None, None);
+        let name = record_type(Rec(&ctx.record));
+        let data = (*ctx.record).clone();
+        self.emit_inner(st, ctx, &name, data, None, None);
     }
 
     pub(super) fn emit(
@@ -352,7 +346,12 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
     ) -> String {
         let id = format!("{}:{}", ctx.base, ctx.n);
         ctx.n += 1;
-        let native = Some(ctx.native.clone());
+        let native = NativeRecord {
+            source: SessionSource::ClaudeCode,
+            record_type: record_type(Rec(&ctx.record)),
+            data: (*ctx.record).clone(),
+        };
+        let native = Some((native, ctx.position.clone()));
         let event = self.push(st, id, kind, data, ctx.ts, native, parent);
         if let Some(agent) = agent_id
             && let Some(last) = self.events.last_mut()
@@ -382,18 +381,20 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
         kind: &str,
         data: Value,
         ts: Option<DateTime<Utc>>,
-        native: Option<NativeRecord>,
+        native: Option<(NativeRecord, NativePosition)>,
         parent: Option<String>,
     ) -> String {
+        let (native, position) = native.unzip();
         self.events.push(RawEvent {
             event_type: kind.to_string(),
-            data: strip_nulls(data),
+            data,
             id: Some(id.clone()),
             timestamp: ts,
             parent_id: parent.or_else(|| st.last_event.clone()),
             agent_id: st.agent_id.clone(),
+            native,
         });
-        self.natives.push(native);
+        self.positions.push(position);
         st.last_event = Some(id.clone());
         id
     }
@@ -426,11 +427,24 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
         diagnostics.events.malformed_lines = diagnostics.malformed_lines;
         ClaudeParse {
             events,
-            natives: self.natives,
+            positions: self.positions,
             calls: self.calls.calls,
             cost_snapshots: self.snapshots,
             diagnostics,
         }
+    }
+}
+
+/// The native type: `type`, with the subtype for `system` and `attachment`.
+fn record_type(rec: Rec<'_>) -> String {
+    match rec.kind() {
+        "system" => format!("system:{}", rec.str("subtype").unwrap_or("")),
+        "attachment" => format!(
+            "attachment:{}",
+            rec.ptr_str("/attachment/type").unwrap_or("")
+        ),
+        "" => "unknown".to_string(),
+        kind => kind.to_string(),
     }
 }
 

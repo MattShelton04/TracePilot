@@ -11,4 +11,6 @@
 
 pub mod claude;
 pub mod claude_scenarios;
+pub mod copilot_corpus;
 pub mod fixtures;
+pub mod golden;

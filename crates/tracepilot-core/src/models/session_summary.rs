@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::models::event_types::{
     CodeChanges, ModelMetricDetail, ShutdownMetricsScope, ShutdownTokenDetail,
 };
+use crate::provider::{CostBasis, CostUnit};
 
 /// A fully derived session summary — the primary model for session lists.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +91,14 @@ pub struct ShutdownMetrics {
     pub source_metrics_scope: Option<ShutdownMetricsScope>,
     /// Number of shutdown events that were combined (>1 means resumed session).
     pub shutdown_count: Option<u32>,
+    /// Provider-reported cost (non-Copilot sources). Copilot cost stays in
+    /// `total_nano_aiu`; these are absent, never 0, when there is no figure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_amount: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_unit: Option<CostUnit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_basis: Option<CostBasis>,
 }
 
 #[cfg(test)]

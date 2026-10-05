@@ -1,0 +1,1175 @@
+{
+  "analytics": {
+    "activityPerDay": [
+      {
+        "count": 1,
+        "date": "2026-01-01"
+      },
+      {
+        "count": 1,
+        "date": "2026-03-10"
+      },
+      {
+        "count": 1,
+        "date": "2026-09-12"
+      },
+      {
+        "count": 3,
+        "date": "2026-10-04"
+      }
+    ],
+    "apiDurationStats": {
+      "avgMs": 13214.75,
+      "maxMs": 40000,
+      "medianMs": 6428.0,
+      "minMs": 3,
+      "p95Ms": 40000.0,
+      "totalSessionsWithDuration": 4
+    },
+    "cacheStats": {
+      "cacheHitRate": 36.38127765272064,
+      "nonCachedInputTokens": 40980,
+      "totalCacheReadTokens": 23435,
+      "totalInputTokens": 64415
+    },
+    "costByDay": [
+      {
+        "cost": 20.0,
+        "date": "2026-01-01"
+      },
+      {
+        "cost": 1.0,
+        "date": "2026-03-10"
+      },
+      {
+        "cost": 0.0,
+        "date": "2026-09-12"
+      },
+      {
+        "cost": 5.0,
+        "date": "2026-10-04"
+      }
+    ],
+    "incidentsByDay": [],
+    "modelDistribution": [
+      {
+        "cacheReadTokens": 21632,
+        "cacheWriteTokens": 0,
+        "inputTokens": 58412,
+        "model": "mai-code-1.1-flash",
+        "outputTokens": 62,
+        "percentage": 87.30068677217079,
+        "premiumRequests": 2.0,
+        "reasoningTokens": 0,
+        "requestCount": 4,
+        "tokens": 58474,
+        "totalNanoAiu": 707673600,
+        "unobservedCacheReadTokens": 0,
+        "unobservedCacheWriteTokens": 0,
+        "unobservedInputTokens": 0,
+        "unobservedOutputTokens": 0
+      },
+      {
+        "cacheReadTokens": 1800,
+        "cacheWriteTokens": 500,
+        "inputTokens": 6000,
+        "model": "claude-opus-4.6",
+        "outputTokens": 2500,
+        "percentage": 12.690355329949238,
+        "premiumRequests": 3.5,
+        "reasoningTokens": 300,
+        "requestCount": 13,
+        "tokens": 8500,
+        "totalNanoAiu": 2500000000,
+        "unobservedCacheReadTokens": 1000,
+        "unobservedCacheWriteTokens": 500,
+        "unobservedInputTokens": 5000,
+        "unobservedOutputTokens": 2000
+      },
+      {
+        "cacheReadTokens": 3,
+        "cacheWriteTokens": 3,
+        "inputTokens": 3,
+        "model": "fixture",
+        "outputTokens": 3,
+        "percentage": 0.008957897879964169,
+        "premiumRequests": 3.0,
+        "reasoningTokens": 3,
+        "requestCount": 3,
+        "tokens": 6,
+        "totalNanoAiu": 3,
+        "unobservedCacheReadTokens": 0,
+        "unobservedCacheWriteTokens": 0,
+        "unobservedInputTokens": 0,
+        "unobservedOutputTokens": 0
+      }
+    ],
+    "modelUsageByDay": [
+      {
+        "cacheReadTokens": 1000,
+        "cacheWriteTokens": 500,
+        "date": "2026-01-01",
+        "inputTokens": 5000,
+        "model": "claude-opus-4.6",
+        "outputTokens": 2000,
+        "reasoningTokens": 300,
+        "totalNanoAiu": null,
+        "unobservedCacheReadTokens": 1000,
+        "unobservedCacheWriteTokens": 500,
+        "unobservedInputTokens": 5000,
+        "unobservedOutputTokens": 2000
+      },
+      {
+        "cacheReadTokens": 800,
+        "cacheWriteTokens": 0,
+        "date": "2026-03-10",
+        "inputTokens": 1000,
+        "model": "claude-opus-4.6",
+        "outputTokens": 500,
+        "reasoningTokens": null,
+        "totalNanoAiu": 2500000000,
+        "unobservedCacheReadTokens": 0,
+        "unobservedCacheWriteTokens": 0,
+        "unobservedInputTokens": 0,
+        "unobservedOutputTokens": 0
+      },
+      {
+        "cacheReadTokens": 3,
+        "cacheWriteTokens": 3,
+        "date": "2026-10-04",
+        "inputTokens": 3,
+        "model": "fixture",
+        "outputTokens": 3,
+        "reasoningTokens": 3,
+        "totalNanoAiu": 3,
+        "unobservedCacheReadTokens": 0,
+        "unobservedCacheWriteTokens": 0,
+        "unobservedInputTokens": 0,
+        "unobservedOutputTokens": 0
+      },
+      {
+        "cacheReadTokens": 21632,
+        "cacheWriteTokens": 0,
+        "date": "2026-10-04",
+        "inputTokens": 58412,
+        "model": "mai-code-1.1-flash",
+        "outputTokens": 62,
+        "reasoningTokens": 0,
+        "totalNanoAiu": 707673600,
+        "unobservedCacheReadTokens": 0,
+        "unobservedCacheWriteTokens": 0,
+        "unobservedInputTokens": 0,
+        "unobservedOutputTokens": 0
+      }
+    ],
+    "productivityMetrics": {
+      "avgTokensPerApiSecond": 1267.144667890047,
+      "avgTokensPerTurn": 2576.153846153846,
+      "avgToolCallsPerTurn": 1.0,
+      "avgTurnsPerSession": 2.888888888888889
+    },
+    "promptCache": {
+      "medianIdleSeconds": null,
+      "observedTtls": [],
+      "resentPrefixTokens": 0,
+      "resentPrefixTokensByModel": [],
+      "resumedWindows": 0,
+      "resumesAfterExpiry": 0,
+      "sessionsWithPredicted": 0,
+      "topChangeKinds": [],
+      "warmResumes": 0
+    },
+    "sessionsWithErrors": 0,
+    "sessionsWithObservedAiCredits": 3,
+    "tokenUsageByDay": [
+      {
+        "date": "2026-01-01",
+        "tokens": 7000
+      },
+      {
+        "date": "2026-03-10",
+        "tokens": 1500
+      },
+      {
+        "date": "2026-09-12",
+        "tokens": 0
+      },
+      {
+        "date": "2026-10-04",
+        "tokens": 58480
+      }
+    ],
+    "totalCompactions": 0,
+    "totalCost": 8.5,
+    "totalNanoAiu": 3207673603,
+    "totalPremiumRequests": 26.0,
+    "totalRateLimits": 0,
+    "totalSessions": 10,
+    "totalTokens": 66980,
+    "totalTruncations": 0
+  },
+  "codeImpact": {
+    "changesByDay": [
+      {
+        "additions": 13,
+        "date": "2026-03-10",
+        "deletions": 5
+      }
+    ],
+    "fileTypeBreakdown": [
+      {
+        "count": 1,
+        "extension": "(no ext)",
+        "percentage": 50.0
+      },
+      {
+        "count": 1,
+        "extension": "rs",
+        "percentage": 50.0
+      }
+    ],
+    "filesModified": 2,
+    "linesAdded": 13,
+    "linesRemoved": 5,
+    "mostModifiedFiles": [
+      {
+        "additions": 1,
+        "deletions": 0,
+        "path": "/test/foo.rs"
+      },
+      {
+        "additions": 1,
+        "deletions": 0,
+        "path": "fixture"
+      }
+    ],
+    "netChange": 8
+  },
+  "toolAnalysis": {
+    "activityHeatmap": [
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 0
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 1
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 2
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 3
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 4
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 5
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 6
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 7
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 8
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 9
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 10
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 11
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 12
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 13
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 14
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 15
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 16
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 17
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 18
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 19
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 20
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 21
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 22
+      },
+      {
+        "count": 0,
+        "day": 0,
+        "hour": 23
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 0
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 1
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 2
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 3
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 4
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 5
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 6
+      },
+      {
+        "count": 1,
+        "day": 1,
+        "hour": 7
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 8
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 9
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 10
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 11
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 12
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 13
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 14
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 15
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 16
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 17
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 18
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 19
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 20
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 21
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 22
+      },
+      {
+        "count": 0,
+        "day": 1,
+        "hour": 23
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 0
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 1
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 2
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 3
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 4
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 5
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 6
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 7
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 8
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 9
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 10
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 11
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 12
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 13
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 14
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 15
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 16
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 17
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 18
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 19
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 20
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 21
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 22
+      },
+      {
+        "count": 0,
+        "day": 2,
+        "hour": 23
+      },
+      {
+        "count": 3,
+        "day": 3,
+        "hour": 0
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 1
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 2
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 3
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 4
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 5
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 6
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 7
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 8
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 9
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 10
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 11
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 12
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 13
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 14
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 15
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 16
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 17
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 18
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 19
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 20
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 21
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 22
+      },
+      {
+        "count": 0,
+        "day": 3,
+        "hour": 23
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 0
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 1
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 2
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 3
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 4
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 5
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 6
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 7
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 8
+      },
+      {
+        "count": 11,
+        "day": 4,
+        "hour": 9
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 10
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 11
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 12
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 13
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 14
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 15
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 16
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 17
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 18
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 19
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 20
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 21
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 22
+      },
+      {
+        "count": 0,
+        "day": 4,
+        "hour": 23
+      },
+      {
+        "count": 8,
+        "day": 5,
+        "hour": 0
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 1
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 2
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 3
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 4
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 5
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 6
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 7
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 8
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 9
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 10
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 11
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 12
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 13
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 14
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 15
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 16
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 17
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 18
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 19
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 20
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 21
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 22
+      },
+      {
+        "count": 0,
+        "day": 5,
+        "hour": 23
+      },
+      {
+        "count": 1,
+        "day": 6,
+        "hour": 0
+      },
+      {
+        "count": 2,
+        "day": 6,
+        "hour": 1
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 2
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 3
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 4
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 5
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 6
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 7
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 8
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 9
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 10
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 11
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 12
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 13
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 14
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 15
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 16
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 17
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 18
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 19
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 20
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 21
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 22
+      },
+      {
+        "count": 0,
+        "day": 6,
+        "hour": 23
+      }
+    ],
+    "avgDurationMs": 5325.192307692308,
+    "mostUsedTool": "read_agent",
+    "successRate": 0.8846153846153846,
+    "tools": [
+      {
+        "avgDurationMs": 4291.0,
+        "callCount": 7,
+        "name": "read_agent",
+        "successRate": 1.0,
+        "totalDurationMs": 30037.0
+      },
+      {
+        "avgDurationMs": 13000.0,
+        "callCount": 5,
+        "name": "general-purpose",
+        "successRate": 0.8,
+        "totalDurationMs": 65000.0
+      },
+      {
+        "avgDurationMs": 250.5,
+        "callCount": 4,
+        "name": "write_agent",
+        "successRate": 1.0,
+        "totalDurationMs": 1002.0
+      },
+      {
+        "avgDurationMs": 3.5,
+        "callCount": 2,
+        "name": "list_agents",
+        "successRate": 1.0,
+        "totalDurationMs": 7.0
+      },
+      {
+        "avgDurationMs": 3.0,
+        "callCount": 2,
+        "name": "skill",
+        "successRate": 1.0,
+        "totalDurationMs": 6.0
+      },
+      {
+        "avgDurationMs": 30000.0,
+        "callCount": 1,
+        "name": "code-review",
+        "successRate": 0.0,
+        "totalDurationMs": 30000.0
+      },
+      {
+        "avgDurationMs": 8000.0,
+        "callCount": 1,
+        "name": "explore",
+        "successRate": 1.0,
+        "totalDurationMs": 8000.0
+      },
+      {
+        "avgDurationMs": 3.0,
+        "callCount": 1,
+        "name": "fixture",
+        "successRate": 0.0,
+        "totalDurationMs": 3.0
+      },
+      {
+        "avgDurationMs": 400.0,
+        "callCount": 1,
+        "name": "read_file",
+        "successRate": 1.0,
+        "totalDurationMs": 400.0
+      },
+      {
+        "avgDurationMs": 3000.0,
+        "callCount": 1,
+        "name": "run_command",
+        "successRate": 1.0,
+        "totalDurationMs": 3000.0
+      },
+      {
+        "avgDurationMs": 1000.0,
+        "callCount": 1,
+        "name": "view",
+        "successRate": 1.0,
+        "totalDurationMs": 1000.0
+      }
+    ],
+    "totalCalls": 26
+  }
+}

@@ -28,9 +28,6 @@ mod tests;
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::Arc;
-
-use serde_json::Value;
 
 use crate::error::Result;
 use crate::parsing::diagnostics::ParseDiagnostics;
@@ -44,10 +41,9 @@ pub struct ClaudeParse {
     /// Canonical TracePilot events in emission order. `raw.data` always holds the
     /// Copilot-shaped payload for `raw.event_type`, never the native record.
     pub events: Vec<TypedEvent>,
-    /// Sanitized native record per emitted event (same length and order as
-    /// `events`). `None` for synthesized events. Moves into `RawEvent.native`
-    /// once that field exists.
-    pub natives: Vec<Option<NativeRecord>>,
+    /// Where each event's native record (`raw.native`) sits, aligned with
+    /// `events`. `None` for synthesized events.
+    pub positions: Vec<Option<NativePosition>>,
     /// One entry per `message.id` (last record wins), in first-seen order.
     pub calls: Vec<ClaudeCallUsage>,
     /// Every distinct `cost-state` snapshot in the main file, in file order.
@@ -73,15 +69,16 @@ impl ClaudeParse {
     }
 }
 
-/// A native record as Claude Code wrote it, after sanitization (no image
-/// base64, no whole-file copies). Shared between the events made from it.
-#[derive(Debug, Clone)]
-pub struct NativeRecord {
-    pub record: Arc<Value>,
+/// Where an event's native record came from. The record itself is in
+/// `RawEvent.native`; this annotation has no field there yet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativePosition {
     /// 1-based line in its file.
     pub line: usize,
     /// `None` for the main transcript, else the subagent file's agent id.
-    pub agent_id: Option<String>,
+    /// This can differ from `raw.agent_id`: a hand-back in the main file is
+    /// attributed to the subagent that sent it.
+    pub file_agent_id: Option<String>,
     /// The record is on a rewound (abandoned) branch: shown on the Events tab,
     /// left out of Conversation.
     pub abandoned: bool,

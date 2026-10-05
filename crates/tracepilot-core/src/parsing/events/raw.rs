@@ -3,6 +3,7 @@
 use crate::error::{Result, TracePilotError};
 #[cfg(test)]
 use crate::parsing::EVENTS_JSONL;
+use crate::provider::NativeRecord;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -23,6 +24,10 @@ pub struct RawEvent {
     /// ID in newer logs. Root and session-level events omit this field.
     #[serde(rename = "agentId")]
     pub agent_id: Option<String>,
+    /// The sanitized source record for events translated from another
+    /// provider. Absent, and never serialized, for Copilot events.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native: Option<NativeRecord>,
 }
 
 /// Serialize a slice of events into a newline-delimited JSON string.

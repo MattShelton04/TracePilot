@@ -6148,6 +6148,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tracepilot-core",
+ "tracepilot-test-support",
  "tracing",
 ]
 

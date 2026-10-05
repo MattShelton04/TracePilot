@@ -1,0 +1,4816 @@
+{
+  "dtos": {
+    "agentUsage": {
+      "agents": [
+        {
+          "agentType": "general-purpose",
+          "cancelled": 1,
+          "completed": 4,
+          "dailyRuns": [
+            {
+              "date": "2026-09-12",
+              "runs": 3
+            },
+            {
+              "date": "2026-09-25",
+              "runs": 2
+            }
+          ],
+          "description": null,
+          "displayName": null,
+          "durationMs": {
+            "count": 5,
+            "max": 20000,
+            "min": 3000,
+            "p25": 10000,
+            "p50": 12000,
+            "p75": 20000,
+            "p90": 20000
+          },
+          "failed": 0,
+          "firstUsed": "2026-09-12T00:00:03+00:00",
+          "followUps": 3,
+          "incomplete": 0,
+          "lastUsed": "2026-09-25T09:16:53.884+00:00",
+          "maxDepth": 1,
+          "messagesReceived": 5,
+          "messagesSent": 2,
+          "messagingRuns": 3,
+          "mismatchRuns": 2,
+          "multiTurnRuns": 4,
+          "name": "general-purpose",
+          "ownNanoAiu": null,
+          "peakSiblings": 2,
+          "peerMessages": 4,
+          "previousMedianDurationMs": null,
+          "queuedMessages": 1,
+          "runs": 5,
+          "runsWithConfiguration": 4,
+          "runsWithCredits": 0,
+          "sessions": 3,
+          "toolCalls": {
+            "count": 1,
+            "max": 2,
+            "min": 2,
+            "p25": 2,
+            "p50": 2,
+            "p75": 2,
+            "p90": 2
+          },
+          "topModels": [
+            {
+              "label": "gpt-5.6-luna",
+              "runs": 3
+            },
+            {
+              "label": "claude-haiku-4.5",
+              "runs": 2
+            }
+          ],
+          "totalTokens": {
+            "count": 1,
+            "max": 123,
+            "min": 123,
+            "p25": 123,
+            "p50": 123,
+            "p75": 123,
+            "p90": 123
+          }
+        },
+        {
+          "agentType": null,
+          "cancelled": 0,
+          "completed": 2,
+          "dailyRuns": [
+            {
+              "date": "2026-01-01",
+              "runs": 2
+            }
+          ],
+          "description": "Explores codebase",
+          "displayName": "Explore Agent",
+          "durationMs": {
+            "count": 2,
+            "max": 8000,
+            "min": 1000,
+            "p25": 1000,
+            "p50": 8000,
+            "p75": 8000,
+            "p90": 8000
+          },
+          "failed": 0,
+          "firstUsed": "2026-01-01T00:00:05+00:00",
+          "followUps": 0,
+          "incomplete": 0,
+          "lastUsed": "2026-01-01T00:00:05+00:00",
+          "maxDepth": 0,
+          "messagesReceived": 0,
+          "messagesSent": 0,
+          "messagingRuns": 0,
+          "mismatchRuns": 0,
+          "multiTurnRuns": 0,
+          "name": "explore",
+          "ownNanoAiu": null,
+          "peakSiblings": 1,
+          "peerMessages": 0,
+          "previousMedianDurationMs": null,
+          "queuedMessages": 0,
+          "runs": 2,
+          "runsWithConfiguration": 0,
+          "runsWithCredits": 0,
+          "sessions": 2,
+          "toolCalls": {
+            "count": 1,
+            "max": 15,
+            "min": 15,
+            "p25": 15,
+            "p50": 15,
+            "p75": 15,
+            "p90": 15
+          },
+          "topModels": [
+            {
+              "label": "claude-opus-4.6",
+              "runs": 1
+            }
+          ],
+          "totalTokens": {
+            "count": 1,
+            "max": 75000,
+            "min": 75000,
+            "p25": 75000,
+            "p50": 75000,
+            "p75": 75000,
+            "p90": 75000
+          }
+        },
+        {
+          "agentType": null,
+          "cancelled": 0,
+          "completed": 0,
+          "dailyRuns": [
+            {
+              "date": "2026-01-01",
+              "runs": 1
+            }
+          ],
+          "description": "Reviews code changes",
+          "displayName": "Code Review",
+          "durationMs": {
+            "count": 1,
+            "max": 30000,
+            "min": 30000,
+            "p25": 30000,
+            "p50": 30000,
+            "p75": 30000,
+            "p90": 30000
+          },
+          "failed": 1,
+          "firstUsed": "2026-01-01T00:00:10+00:00",
+          "followUps": 0,
+          "incomplete": 0,
+          "lastUsed": "2026-01-01T00:00:10+00:00",
+          "maxDepth": 0,
+          "messagesReceived": 0,
+          "messagesSent": 0,
+          "messagingRuns": 0,
+          "mismatchRuns": 0,
+          "multiTurnRuns": 0,
+          "name": "code-review",
+          "ownNanoAiu": null,
+          "peakSiblings": 1,
+          "peerMessages": 0,
+          "previousMedianDurationMs": null,
+          "queuedMessages": 0,
+          "runs": 1,
+          "runsWithConfiguration": 0,
+          "runsWithCredits": 0,
+          "sessions": 1,
+          "toolCalls": {
+            "count": 1,
+            "max": 3,
+            "min": 3,
+            "p25": 3,
+            "p50": 3,
+            "p75": 3,
+            "p90": 3
+          },
+          "topModels": [
+            {
+              "label": "gpt-5.4",
+              "runs": 1
+            }
+          ],
+          "totalTokens": {
+            "count": 1,
+            "max": 12000,
+            "min": 12000,
+            "p25": 12000,
+            "p50": 12000,
+            "p75": 12000,
+            "p90": 12000
+          }
+        },
+        {
+          "agentType": "fixture",
+          "cancelled": 1,
+          "completed": 0,
+          "dailyRuns": [
+            {
+              "date": "2026-10-04",
+              "runs": 1
+            }
+          ],
+          "description": "fixture",
+          "displayName": "fixture",
+          "durationMs": {
+            "count": 1,
+            "max": 3,
+            "min": 3,
+            "p25": 3,
+            "p50": 3,
+            "p75": 3,
+            "p90": 3
+          },
+          "failed": 0,
+          "firstUsed": "2026-10-04T00:00:00+00:00",
+          "followUps": 0,
+          "incomplete": 0,
+          "lastUsed": "2026-10-04T00:00:00+00:00",
+          "maxDepth": 0,
+          "messagesReceived": 0,
+          "messagesSent": 0,
+          "messagingRuns": 0,
+          "mismatchRuns": 0,
+          "multiTurnRuns": 0,
+          "name": "fixture",
+          "ownNanoAiu": null,
+          "peakSiblings": 1,
+          "peerMessages": 0,
+          "previousMedianDurationMs": null,
+          "queuedMessages": 0,
+          "runs": 1,
+          "runsWithConfiguration": 1,
+          "runsWithCredits": 0,
+          "sessions": 1,
+          "toolCalls": {
+            "count": 1,
+            "max": 3,
+            "min": 3,
+            "p25": 3,
+            "p50": 3,
+            "p75": 3,
+            "p90": 3
+          },
+          "topModels": [
+            {
+              "label": "fixture",
+              "runs": 1
+            }
+          ],
+          "totalTokens": {
+            "count": 1,
+            "max": 3,
+            "min": 3,
+            "p25": 3,
+            "p50": 3,
+            "p75": 3,
+            "p90": 3
+          }
+        }
+      ],
+      "cancelledRuns": 2,
+      "failedRuns": 1,
+      "incompleteRuns": 0,
+      "mainAgentSelections": [
+        {
+          "displayName": "fixture",
+          "lastSelected": "2026-10-04T00:00:00+00:00",
+          "name": "fixture",
+          "sessions": 1
+        }
+      ],
+      "maxDepth": 1,
+      "peakParallelism": 2,
+      "runsWithCredits": 0,
+      "totalOwnNanoAiu": 0,
+      "totalRuns": 9,
+      "totalSessions": 6
+    },
+    "analytics": {
+      "activityPerDay": [
+        {
+          "count": 2,
+          "date": "2026-01-01"
+        },
+        {
+          "count": 1,
+          "date": "2026-03-10"
+        },
+        {
+          "count": 1,
+          "date": "2026-09-12"
+        },
+        {
+          "count": 3,
+          "date": "2026-10-04"
+        }
+      ],
+      "apiDurationStats": {
+        "avgMs": 12571.8,
+        "maxMs": 40000,
+        "medianMs": 7856.0,
+        "minMs": 3,
+        "p95Ms": 40000.0,
+        "totalSessionsWithDuration": 5
+      },
+      "cacheStats": {
+        "cacheHitRate": 36.13085683711687,
+        "nonCachedInputTokens": 41780,
+        "totalCacheReadTokens": 23635,
+        "totalInputTokens": 65415
+      },
+      "costByDay": [
+        {
+          "cost": 25.0,
+          "date": "2026-01-01"
+        },
+        {
+          "cost": 1.0,
+          "date": "2026-03-10"
+        },
+        {
+          "cost": 0.0,
+          "date": "2026-09-12"
+        },
+        {
+          "cost": 5.0,
+          "date": "2026-10-04"
+        }
+      ],
+      "incidentsByDay": [
+        {
+          "compactions": 0,
+          "date": "2026-01-01",
+          "errors": 0,
+          "rateLimits": 0,
+          "truncations": 0
+        },
+        {
+          "compactions": 2,
+          "date": "2026-03-10",
+          "errors": 1,
+          "rateLimits": 0,
+          "truncations": 1
+        }
+      ],
+      "modelDistribution": [
+        {
+          "cacheReadTokens": 21632,
+          "cacheWriteTokens": 0,
+          "inputTokens": 58412,
+          "model": "mai-code-1.1-flash",
+          "outputTokens": 62,
+          "percentage": 85.38843457943925,
+          "premiumRequests": 2.0,
+          "reasoningTokens": 0,
+          "requestCount": 4,
+          "tokens": 58474,
+          "totalNanoAiu": 707673600,
+          "unobservedCacheReadTokens": 0,
+          "unobservedCacheWriteTokens": 0,
+          "unobservedInputTokens": 0,
+          "unobservedOutputTokens": 0
+        },
+        {
+          "cacheReadTokens": 1800,
+          "cacheWriteTokens": 500,
+          "inputTokens": 6000,
+          "model": "claude-opus-4.6",
+          "outputTokens": 2500,
+          "percentage": 12.412383177570094,
+          "premiumRequests": 3.5,
+          "reasoningTokens": 300,
+          "requestCount": 13,
+          "tokens": 8500,
+          "totalNanoAiu": 2500000000,
+          "unobservedCacheReadTokens": 1000,
+          "unobservedCacheWriteTokens": 500,
+          "unobservedInputTokens": 5000,
+          "unobservedOutputTokens": 2000
+        },
+        {
+          "cacheReadTokens": 200,
+          "cacheWriteTokens": 100,
+          "inputTokens": 1000,
+          "model": "gpt-4o",
+          "outputTokens": 500,
+          "percentage": 2.1904205607476634,
+          "premiumRequests": 0.5,
+          "reasoningTokens": null,
+          "requestCount": 3,
+          "tokens": 1500,
+          "totalNanoAiu": null,
+          "unobservedCacheReadTokens": 200,
+          "unobservedCacheWriteTokens": 100,
+          "unobservedInputTokens": 1000,
+          "unobservedOutputTokens": 500
+        },
+        {
+          "cacheReadTokens": 3,
+          "cacheWriteTokens": 3,
+          "inputTokens": 3,
+          "model": "fixture",
+          "outputTokens": 3,
+          "percentage": 0.008761682242990653,
+          "premiumRequests": 3.0,
+          "reasoningTokens": 3,
+          "requestCount": 3,
+          "tokens": 6,
+          "totalNanoAiu": 3,
+          "unobservedCacheReadTokens": 0,
+          "unobservedCacheWriteTokens": 0,
+          "unobservedInputTokens": 0,
+          "unobservedOutputTokens": 0
+        }
+      ],
+      "modelUsageByDay": [
+        {
+          "cacheReadTokens": 1000,
+          "cacheWriteTokens": 500,
+          "date": "2026-01-01",
+          "inputTokens": 5000,
+          "model": "claude-opus-4.6",
+          "outputTokens": 2000,
+          "reasoningTokens": 300,
+          "totalNanoAiu": null,
+          "unobservedCacheReadTokens": 1000,
+          "unobservedCacheWriteTokens": 500,
+          "unobservedInputTokens": 5000,
+          "unobservedOutputTokens": 2000
+        },
+        {
+          "cacheReadTokens": 200,
+          "cacheWriteTokens": 100,
+          "date": "2026-01-01",
+          "inputTokens": 1000,
+          "model": "gpt-4o",
+          "outputTokens": 500,
+          "reasoningTokens": null,
+          "totalNanoAiu": null,
+          "unobservedCacheReadTokens": 200,
+          "unobservedCacheWriteTokens": 100,
+          "unobservedInputTokens": 1000,
+          "unobservedOutputTokens": 500
+        },
+        {
+          "cacheReadTokens": 800,
+          "cacheWriteTokens": 0,
+          "date": "2026-03-10",
+          "inputTokens": 1000,
+          "model": "claude-opus-4.6",
+          "outputTokens": 500,
+          "reasoningTokens": null,
+          "totalNanoAiu": 2500000000,
+          "unobservedCacheReadTokens": 0,
+          "unobservedCacheWriteTokens": 0,
+          "unobservedInputTokens": 0,
+          "unobservedOutputTokens": 0
+        },
+        {
+          "cacheReadTokens": 3,
+          "cacheWriteTokens": 3,
+          "date": "2026-10-04",
+          "inputTokens": 3,
+          "model": "fixture",
+          "outputTokens": 3,
+          "reasoningTokens": 3,
+          "totalNanoAiu": 3,
+          "unobservedCacheReadTokens": 0,
+          "unobservedCacheWriteTokens": 0,
+          "unobservedInputTokens": 0,
+          "unobservedOutputTokens": 0
+        },
+        {
+          "cacheReadTokens": 21632,
+          "cacheWriteTokens": 0,
+          "date": "2026-10-04",
+          "inputTokens": 58412,
+          "model": "mai-code-1.1-flash",
+          "outputTokens": 62,
+          "reasoningTokens": 0,
+          "totalNanoAiu": 707673600,
+          "unobservedCacheReadTokens": 0,
+          "unobservedCacheWriteTokens": 0,
+          "unobservedInputTokens": 0,
+          "unobservedOutputTokens": 0
+        }
+      ],
+      "productivityMetrics": {
+        "avgTokensPerApiSecond": 1089.422357975787,
+        "avgTokensPerTurn": 2536.296296296296,
+        "avgToolCallsPerTurn": 1.037037037037037,
+        "avgTurnsPerSession": 2.7
+      },
+      "promptCache": {
+        "medianIdleSeconds": 319,
+        "observedTtls": [
+          {
+            "model": "fixture",
+            "observations": 1,
+            "ttlSeconds": 3
+          },
+          {
+            "model": "gpt-5.6-luna",
+            "observations": 3,
+            "ttlSeconds": 1800
+          },
+          {
+            "model": "mai-code-1.1-flash",
+            "observations": 2,
+            "ttlSeconds": 1800
+          }
+        ],
+        "resentPrefixTokens": 30000,
+        "resentPrefixTokensByModel": [
+          {
+            "model": "gpt-5.6-luna",
+            "tokens": 21000
+          },
+          {
+            "model": "claude-sonnet-5",
+            "tokens": 9000
+          }
+        ],
+        "resumedWindows": 5,
+        "resumesAfterExpiry": 3,
+        "sessionsWithPredicted": 3,
+        "topChangeKinds": [
+          {
+            "count": 1,
+            "kind": "model"
+          },
+          {
+            "count": 1,
+            "kind": "tools"
+          }
+        ],
+        "warmResumes": 2
+      },
+      "sessionsWithErrors": 1,
+      "sessionsWithObservedAiCredits": 3,
+      "tokenUsageByDay": [
+        {
+          "date": "2026-01-01",
+          "tokens": 8500
+        },
+        {
+          "date": "2026-03-10",
+          "tokens": 1500
+        },
+        {
+          "date": "2026-09-12",
+          "tokens": 0
+        },
+        {
+          "date": "2026-10-04",
+          "tokens": 58480
+        }
+      ],
+      "totalCompactions": 2,
+      "totalCost": 9.0,
+      "totalNanoAiu": 3207673603,
+      "totalPremiumRequests": 31.0,
+      "totalRateLimits": 0,
+      "totalSessions": 11,
+      "totalTokens": 68480,
+      "totalTruncations": 1
+    },
+    "codeImpact": {
+      "changesByDay": [
+        {
+          "additions": 0,
+          "date": "2026-01-01",
+          "deletions": 0
+        },
+        {
+          "additions": 13,
+          "date": "2026-03-10",
+          "deletions": 5
+        }
+      ],
+      "fileTypeBreakdown": [
+        {
+          "count": 1,
+          "extension": "rs",
+          "percentage": 50.0
+        },
+        {
+          "count": 1,
+          "extension": "(no ext)",
+          "percentage": 50.0
+        }
+      ],
+      "filesModified": 2,
+      "linesAdded": 13,
+      "linesRemoved": 5,
+      "mostModifiedFiles": [
+        {
+          "additions": 1,
+          "deletions": 0,
+          "path": "fixture"
+        },
+        {
+          "additions": 1,
+          "deletions": 0,
+          "path": "/test/foo.rs"
+        }
+      ],
+      "netChange": 8
+    },
+    "observedCacheTtls": [
+      {
+        "model": "fixture",
+        "observations": 1,
+        "ttlSeconds": 3
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "observations": 3,
+        "ttlSeconds": 1800
+      },
+      {
+        "model": "mai-code-1.1-flash",
+        "observations": 2,
+        "ttlSeconds": 1800
+      }
+    ],
+    "searchFacets": "SearchFacets { by_content_type: [(\"assistant_message\", 26), (\"user_message\", 24), (\"tool_call\", 16), (\"system_message\", 13), (\"subagent\", 9), (\"tool_result\", 7), (\"reasoning\", 3), (\"compaction_summary\", 1), (\"error\", 1), (\"tool_error\", 1)], by_repository: [(\"golden/agent-messaging\", 30), (\"golden/multiturn\", 16), (\"golden/agents\", 15), (\"golden/schema-v1-0-91\", 10), (\"golden/skill-refs\", 9), (\"golden/prompt-cache\", 7), (\"golden/v1-0-24\", 5), (\"user/repo\", 4), (\"org/project\", 1)], by_tool_name: [(\"write_agent\", 7), (\"task\", 5), (\"skill\", 4), (\"read_file\", 3), (\"fixture\", 2), (\"view\", 2), (\"run_command\", 1)], total_matches: 101, session_count: 10 }",
+    "searchHello": [
+      {
+        "contentType": "user_message",
+        "eventIndex": 1,
+        "metadataJson": null,
+        "sessionBranch": "main",
+        "sessionId": "00000000-0000-4000-8000-000000000001",
+        "sessionRepository": "user/repo",
+        "sessionSummary": "Test session",
+        "sessionUpdatedAt": "2026-03-10T07:15:00+00:00",
+        "snippet": "<mark>Hello</mark> world",
+        "timestampUnix": 1773126891,
+        "toolName": null,
+        "turnNumber": 0
+      },
+      {
+        "contentType": "user_message",
+        "eventIndex": 1,
+        "metadataJson": null,
+        "sessionBranch": null,
+        "sessionId": "00000000-0000-4000-8000-000000000004",
+        "sessionRepository": null,
+        "sessionSummary": null,
+        "sessionUpdatedAt": null,
+        "snippet": "<mark>Hello</mark> world",
+        "timestampUnix": 1767225602,
+        "toolName": null,
+        "turnNumber": 0
+      }
+    ],
+    "searchStats": "SearchStats { total_rows: 101, indexed_sessions: 11, total_sessions: 11, content_type_counts: [(\"assistant_message\", 26), (\"user_message\", 24), (\"tool_call\", 16), (\"system_message\", 13), (\"subagent\", 9), (\"tool_result\", 7), (\"reasoning\", 3), (\"compaction_summary\", 1), (\"error\", 1), (\"tool_error\", 1)] }",
+    "sessionListOrder": [
+      "00000000-0000-4000-8000-00000000000b",
+      "00000000-0000-4000-8000-00000000000a",
+      "00000000-0000-4000-8000-000000000009",
+      "00000000-0000-4000-8000-000000000008",
+      "00000000-0000-4000-8000-000000000007",
+      "00000000-0000-4000-8000-000000000006",
+      "00000000-0000-4000-8000-000000000005",
+      "00000000-0000-4000-8000-000000000001",
+      "00000000-0000-4000-8000-000000000004",
+      "00000000-0000-4000-8000-000000000003",
+      "00000000-0000-4000-8000-000000000002"
+    ],
+    "skillUsage": {
+      "fallbackUses": 0,
+      "skills": [
+        {
+          "agentInvoked": 0,
+          "contentVersions": 1,
+          "dailyUses": [
+            {
+              "date": "2026-10-04",
+              "uses": 2
+            }
+          ],
+          "description": "fixture",
+          "fallbackUses": 0,
+          "firstUsed": "2026-10-04T00:00:00+00:00",
+          "lastUsed": "2026-10-04T00:00:00+00:00",
+          "latestContentSha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "mainAgentUses": 2,
+          "medianContentTokens": 2,
+          "name": "fixture",
+          "normalizedName": "fixture",
+          "paths": [
+            {
+              "directory": "fixture",
+              "path": "fixture",
+              "uses": 2
+            }
+          ],
+          "pluginName": "fixture",
+          "repositories": 1,
+          "sessions": 1,
+          "source": "fixture",
+          "subagentUses": 0,
+          "topModels": [
+            {
+              "label": "fixture",
+              "uses": 2
+            }
+          ],
+          "topRepositories": [
+            {
+              "label": "golden/schema-v1-0-91",
+              "uses": 2
+            }
+          ],
+          "unknownTrigger": 0,
+          "userInvoked": 2,
+          "uses": 2,
+          "usesWithContent": 1
+        },
+        {
+          "agentInvoked": 2,
+          "contentVersions": 1,
+          "dailyUses": [
+            {
+              "date": "2026-10-04",
+              "uses": 2
+            }
+          ],
+          "description": "Returns the probe codeword. Use whenever the user asks for the probe codeword.",
+          "fallbackUses": 0,
+          "firstUsed": "2026-10-04T01:39:47.415+00:00",
+          "lastUsed": "2026-10-04T01:40:12.558+00:00",
+          "latestContentSha256": "c32dfee28e3b61c4c6dab35314241534124d9667ad8e191338f604d851c0621e",
+          "mainAgentUses": 2,
+          "medianContentTokens": 28,
+          "name": "probe-notes",
+          "normalizedName": "probe-notes",
+          "paths": [
+            {
+              "directory": "c:/fixture/skill-spike/.github/skills/probe-notes",
+              "path": "C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\\SKILL.md",
+              "uses": 2
+            }
+          ],
+          "pluginName": null,
+          "repositories": 1,
+          "sessions": 1,
+          "source": "project",
+          "subagentUses": 0,
+          "topModels": [
+            {
+              "label": "mai-code-1.1-flash",
+              "uses": 2
+            }
+          ],
+          "topRepositories": [
+            {
+              "label": "golden/skill-refs",
+              "uses": 2
+            }
+          ],
+          "unknownTrigger": 0,
+          "userInvoked": 0,
+          "uses": 2,
+          "usesWithContent": 2
+        }
+      ],
+      "totalContentTokens": 58,
+      "totalSessions": 2,
+      "totalUses": 4,
+      "unknownTriggerUses": 0,
+      "usesWithContent": 3
+    },
+    "toolAnalysis": {
+      "activityHeatmap": [
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 0
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 1
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 2
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 3
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 4
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 5
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 6
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 7
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 8
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 9
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 10
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 11
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 12
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 13
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 14
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 15
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 16
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 17
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 18
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 19
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 20
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 21
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 22
+        },
+        {
+          "count": 0,
+          "day": 0,
+          "hour": 23
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 0
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 1
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 2
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 3
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 4
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 5
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 6
+        },
+        {
+          "count": 1,
+          "day": 1,
+          "hour": 7
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 8
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 9
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 10
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 11
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 12
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 13
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 14
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 15
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 16
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 17
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 18
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 19
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 20
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 21
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 22
+        },
+        {
+          "count": 0,
+          "day": 1,
+          "hour": 23
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 0
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 1
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 2
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 3
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 4
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 5
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 6
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 7
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 8
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 9
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 10
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 11
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 12
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 13
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 14
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 15
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 16
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 17
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 18
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 19
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 20
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 21
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 22
+        },
+        {
+          "count": 0,
+          "day": 2,
+          "hour": 23
+        },
+        {
+          "count": 5,
+          "day": 3,
+          "hour": 0
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 1
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 2
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 3
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 4
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 5
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 6
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 7
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 8
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 9
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 10
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 11
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 12
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 13
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 14
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 15
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 16
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 17
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 18
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 19
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 20
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 21
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 22
+        },
+        {
+          "count": 0,
+          "day": 3,
+          "hour": 23
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 0
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 1
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 2
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 3
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 4
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 5
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 6
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 7
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 8
+        },
+        {
+          "count": 11,
+          "day": 4,
+          "hour": 9
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 10
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 11
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 12
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 13
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 14
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 15
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 16
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 17
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 18
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 19
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 20
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 21
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 22
+        },
+        {
+          "count": 0,
+          "day": 4,
+          "hour": 23
+        },
+        {
+          "count": 8,
+          "day": 5,
+          "hour": 0
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 1
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 2
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 3
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 4
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 5
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 6
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 7
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 8
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 9
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 10
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 11
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 12
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 13
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 14
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 15
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 16
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 17
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 18
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 19
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 20
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 21
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 22
+        },
+        {
+          "count": 0,
+          "day": 5,
+          "hour": 23
+        },
+        {
+          "count": 1,
+          "day": 6,
+          "hour": 0
+        },
+        {
+          "count": 2,
+          "day": 6,
+          "hour": 1
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 2
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 3
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 4
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 5
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 6
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 7
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 8
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 9
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 10
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 11
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 12
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 13
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 14
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 15
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 16
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 17
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 18
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 19
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 20
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 21
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 22
+        },
+        {
+          "count": 0,
+          "day": 6,
+          "hour": 23
+        }
+      ],
+      "avgDurationMs": 5087.678571428572,
+      "mostUsedTool": "read_agent",
+      "successRate": 0.8928571428571429,
+      "tools": [
+        {
+          "avgDurationMs": 4291.0,
+          "callCount": 7,
+          "name": "read_agent",
+          "successRate": 1.0,
+          "totalDurationMs": 30037.0
+        },
+        {
+          "avgDurationMs": 13000.0,
+          "callCount": 5,
+          "name": "general-purpose",
+          "successRate": 0.8,
+          "totalDurationMs": 65000.0
+        },
+        {
+          "avgDurationMs": 250.5,
+          "callCount": 4,
+          "name": "write_agent",
+          "successRate": 1.0,
+          "totalDurationMs": 1002.0
+        },
+        {
+          "avgDurationMs": 4500.0,
+          "callCount": 2,
+          "name": "explore",
+          "successRate": 1.0,
+          "totalDurationMs": 9000.0
+        },
+        {
+          "avgDurationMs": 3.5,
+          "callCount": 2,
+          "name": "list_agents",
+          "successRate": 1.0,
+          "totalDurationMs": 7.0
+        },
+        {
+          "avgDurationMs": 1700.0,
+          "callCount": 2,
+          "name": "read_file",
+          "successRate": 1.0,
+          "totalDurationMs": 3400.0
+        },
+        {
+          "avgDurationMs": 3.0,
+          "callCount": 2,
+          "name": "skill",
+          "successRate": 1.0,
+          "totalDurationMs": 6.0
+        },
+        {
+          "avgDurationMs": 30000.0,
+          "callCount": 1,
+          "name": "code-review",
+          "successRate": 0.0,
+          "totalDurationMs": 30000.0
+        },
+        {
+          "avgDurationMs": 3.0,
+          "callCount": 1,
+          "name": "fixture",
+          "successRate": 0.0,
+          "totalDurationMs": 3.0
+        },
+        {
+          "avgDurationMs": 3000.0,
+          "callCount": 1,
+          "name": "run_command",
+          "successRate": 1.0,
+          "totalDurationMs": 3000.0
+        },
+        {
+          "avgDurationMs": 1000.0,
+          "callCount": 1,
+          "name": "view",
+          "successRate": 1.0,
+          "totalDurationMs": 1000.0
+        }
+      ],
+      "totalCalls": 28
+    }
+  },
+  "indexedSessions": 11,
+  "searchIndexedSessions": 11,
+  "tables": {
+    "maintenance_state": [
+      {
+        "key": "last_run_epoch",
+        "value": "<wall-clock>"
+      }
+    ],
+    "schema_version": [
+      {
+        "applied_at": "<wall-clock>",
+        "version": 10
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 11
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 13
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 14
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 15
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 16
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 17
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 18
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 19
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 1
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 20
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 21
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 2
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 3
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 4
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 5
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 6
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 7
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 8
+      },
+      {
+        "applied_at": "<wall-clock>",
+        "version": 9
+      }
+    ],
+    "search_content": [
+      {
+        "content": "/test/file.txt",
+        "content_type": "tool_call",
+        "event_index": 3,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "timestamp_unix": 1767225604,
+        "tool_name": "read_file",
+        "turn_number": 0
+      },
+      {
+        "content": "/test/foo.rs",
+        "content_type": "tool_call",
+        "event_index": 4,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "timestamp_unix": 1773126892,
+        "tool_name": "read_file",
+        "turn_number": 0
+      },
+      {
+        "content": "6 * 7 = 42.",
+        "content_type": "user_message",
+        "event_index": 65,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327826,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "All done.",
+        "content_type": "assistant_message",
+        "event_index": 26,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171226,
+        "tool_name": null,
+        "turn_number": 1
+      },
+      {
+        "content": "Analysis complete.",
+        "content_type": "assistant_message",
+        "event_index": 7,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "timestamp_unix": 1767225608,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Analyze performance",
+        "content_type": "user_message",
+        "event_index": 1,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "timestamp_unix": 1767225602,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Awaiting alpha's message.",
+        "content_type": "assistant_message",
+        "event_index": 35,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327818,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Beta answered: **42**.",
+        "content_type": "assistant_message",
+        "event_index": 44,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327822,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Beta’s answer was **42**.",
+        "content_type": "assistant_message",
+        "event_index": 80,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327830,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Call the skill tool again now with skill probe-notes (you must call the tool, do not answer from memory), then give the codeword.",
+        "content_type": "user_message",
+        "event_index": 18,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791078009,
+        "tool_name": null,
+        "turn_number": 2
+      },
+      {
+        "content": "Continue independent work.",
+        "content_type": "user_message",
+        "event_index": 17,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171217,
+        "tool_name": null,
+        "turn_number": 1
+      },
+      {
+        "content": "DONE",
+        "content_type": "assistant_message",
+        "event_index": 76,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327828,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "DONE",
+        "content_type": "assistant_message",
+        "event_index": 85,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327834,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Delegate a small check.",
+        "content_type": "user_message",
+        "event_index": 1,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171201,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Done.",
+        "content_type": "assistant_message",
+        "event_index": 7,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "timestamp_unix": 1767225608,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Final check: reply with the single word DONE.",
+        "content_type": "user_message",
+        "event_index": 73,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327827,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Final check: reply with the single word DONE.",
+        "content_type": "user_message",
+        "event_index": 82,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327830,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Final check: reply with the single word DONE.\nchildren",
+        "content_type": "tool_call",
+        "event_index": 69,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327827,
+        "tool_name": "write_agent",
+        "turn_number": 3
+      },
+      {
+        "content": "Fixture content.",
+        "content_type": "tool_result",
+        "event_index": 15,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171215,
+        "tool_name": "view",
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "assistant_message",
+        "event_index": 10,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171210,
+        "tool_name": null,
+        "turn_number": 1
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "assistant_message",
+        "event_index": 17,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171217,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "assistant_message",
+        "event_index": 23,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171223,
+        "tool_name": null,
+        "turn_number": 2
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "assistant_message",
+        "event_index": 28,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171228,
+        "tool_name": null,
+        "turn_number": 3
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "assistant_message",
+        "event_index": 33,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171233,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "assistant_message",
+        "event_index": 38,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171238,
+        "tool_name": null,
+        "turn_number": 4
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "assistant_message",
+        "event_index": 5,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171205,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "system_message",
+        "event_index": 15,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171215,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "system_message",
+        "event_index": 3,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171203,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "system_message",
+        "event_index": 31,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171231,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "user_message",
+        "event_index": 14,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171214,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "user_message",
+        "event_index": 2,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171202,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture message.",
+        "content_type": "user_message",
+        "event_index": 30,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171230,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture prompt.",
+        "content_type": "user_message",
+        "event_index": 1,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "timestamp_unix": 1789171205,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture prompt.",
+        "content_type": "user_message",
+        "event_index": 12,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "timestamp_unix": 1789174500,
+        "tool_name": null,
+        "turn_number": 2
+      },
+      {
+        "content": "Fixture prompt.",
+        "content_type": "user_message",
+        "event_index": 18,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "timestamp_unix": 1789174860,
+        "tool_name": null,
+        "turn_number": 3
+      },
+      {
+        "content": "Fixture prompt.",
+        "content_type": "user_message",
+        "event_index": 6,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "timestamp_unix": 1789171800,
+        "tool_name": null,
+        "turn_number": 1
+      },
+      {
+        "content": "Fixture reply.",
+        "content_type": "assistant_message",
+        "event_index": 14,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "timestamp_unix": 1789174501,
+        "tool_name": null,
+        "turn_number": 2
+      },
+      {
+        "content": "Fixture reply.",
+        "content_type": "assistant_message",
+        "event_index": 3,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "timestamp_unix": 1789171206,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture reply.",
+        "content_type": "assistant_message",
+        "event_index": 8,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "timestamp_unix": 1789171801,
+        "tool_name": null,
+        "turn_number": 1
+      },
+      {
+        "content": "Fixture system prompt.",
+        "content_type": "system_message",
+        "event_index": 22,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327814,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture system prompt.",
+        "content_type": "system_message",
+        "event_index": 25,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327814,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture system prompt.",
+        "content_type": "system_message",
+        "event_index": 4,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327808,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture system prompt.",
+        "content_type": "system_message",
+        "event_index": 51,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327823,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture system prompt.",
+        "content_type": "system_message",
+        "event_index": 66,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327826,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture system prompt.",
+        "content_type": "system_message",
+        "event_index": 74,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327827,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Fixture system prompt.",
+        "content_type": "system_message",
+        "event_index": 83,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327830,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Hello world",
+        "content_type": "user_message",
+        "event_index": 1,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "timestamp_unix": 1773126891,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Hello world",
+        "content_type": "user_message",
+        "event_index": 1,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "timestamp_unix": 1767225602,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Hi there!",
+        "content_type": "assistant_message",
+        "event_index": 3,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "timestamp_unix": 1773126892,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Hi",
+        "content_type": "user_message",
+        "event_index": 1,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000003",
+        "timestamp_unix": 1773126891,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Nested output.",
+        "content_type": "assistant_message",
+        "event_index": 21,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171221,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Private worker prompt.",
+        "content_type": "user_message",
+        "event_index": 9,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171209,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Private worker reasoning.",
+        "content_type": "reasoning",
+        "event_index": 12,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171212,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Private worker system prompt.",
+        "content_type": "system_message",
+        "event_index": 10,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171210,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "TANGERINE-42",
+        "content_type": "assistant_message",
+        "event_index": 27,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791078014,
+        "tool_name": null,
+        "turn_number": 3
+      },
+      {
+        "content": "TANGERINE-42\n\nTANGERINE-42",
+        "content_type": "assistant_message",
+        "event_index": 12,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791077988,
+        "tool_name": null,
+        "turn_number": 1
+      },
+      {
+        "content": "This is a protocol probe of inter-agent messaging. Do not edit files, run shell commands or access the network. Use only the model claude-haiku-4.5 for yourself and for every subagent (pass model claude-haiku-4.5 and reasoning_effort low explicitly).\n\n1. Launch TWO background general-purpose subagents in parallel:\n   - name \"alpha\": tell it: \"You are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.\"\n   - name \"beta\": tell it: \"You are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.\"\n2. While they work, use list_agents (no scope) once.\n3. Use read_agent with wait true on alpha, then on beta.\n4. Then use write_agent with scope \"children\" to send both agents the same message: \"Final check: reply with the single word DONE.\"\n5. Use read_agent with wait true on both agents again, then finish with a one-line summary.",
+        "content_type": "user_message",
+        "event_index": 3,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327808,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Use the probe-notes skill to get the probe codeword and tell me it. Then invoke the probe-notes skill a second time (call the skill tool again) and repeat the codeword.",
+        "content_type": "user_message",
+        "event_index": 2,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791077984,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Waiting for the worker.",
+        "content_type": "assistant_message",
+        "event_index": 5,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171205,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "Worker progress.",
+        "content_type": "assistant_message",
+        "event_index": 13,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171213,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "You are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.",
+        "content_type": "user_message",
+        "event_index": 24,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327814,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "You are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.",
+        "content_type": "user_message",
+        "event_index": 21,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327814,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "[system prompt omitted]",
+        "content_type": "system_message",
+        "event_index": 3,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791077984,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "agent-alpha\n6 * 7 = 42.",
+        "content_type": "tool_call",
+        "event_index": 56,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327825,
+        "tool_name": "write_agent",
+        "turn_number": 0
+      },
+      {
+        "content": "agent-beta\nalpha asks: what is 6*7?",
+        "content_type": "tool_call",
+        "event_index": 39,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327819,
+        "tool_name": "write_agent",
+        "turn_number": 0
+      },
+      {
+        "content": "alpha and beta exchanged the question successfully; both replied **DONE** in the final check.",
+        "content_type": "assistant_message",
+        "event_index": 94,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327835,
+        "tool_name": null,
+        "turn_number": 5
+      },
+      {
+        "content": "alpha asks: what is 6*7?",
+        "content_type": "user_message",
+        "event_index": 50,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327823,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "cargo bench",
+        "content_type": "tool_call",
+        "event_index": 3,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "timestamp_unix": 1767225604,
+        "tool_name": "run_command",
+        "turn_number": 0
+      },
+      {
+        "content": "code-review — Code Review",
+        "content_type": "subagent",
+        "event_index": 9,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "timestamp_unix": 1767225610,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "content: Message delivered to 2 agents.\n- agent-alpha, delivered, task_status=running\n- agent-beta, delivered, task_status=running",
+        "content_type": "tool_result",
+        "event_index": 70,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327827,
+        "tool_name": "write_agent",
+        "turn_number": 3
+      },
+      {
+        "content": "content: Message delivered to agent agent-alpha. The recipient can reply with write_agent.\ndetailedContent: Message to agent-alpha:\n6 * 7 = 42.",
+        "content_type": "tool_result",
+        "event_index": 57,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327825,
+        "tool_name": "write_agent",
+        "turn_number": 0
+      },
+      {
+        "content": "content: Message delivered to agent agent-beta. The recipient can reply with write_agent.\ndetailedContent: Message to agent-beta:\nalpha asks: what is 6*7?",
+        "content_type": "tool_result",
+        "event_index": 40,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327819,
+        "tool_name": "write_agent",
+        "turn_number": 0
+      },
+      {
+        "content": "content: Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
+        "content_type": "tool_result",
+        "event_index": 22,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791078012,
+        "tool_name": "skill",
+        "turn_number": 2
+      },
+      {
+        "content": "content: Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
+        "content_type": "tool_result",
+        "event_index": 7,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791077987,
+        "tool_name": "skill",
+        "turn_number": 0
+      },
+      {
+        "content": "explore — Explore Agent",
+        "content_type": "subagent",
+        "event_index": 4,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "timestamp_unix": 1767225605,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "explore — Explore Agent",
+        "content_type": "subagent",
+        "event_index": 4,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "timestamp_unix": 1767225605,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "file contents",
+        "content_type": "tool_result",
+        "event_index": 5,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "timestamp_unix": 1773126892,
+        "tool_name": "read_file",
+        "turn_number": 0
+      },
+      {
+        "content": "fixture — fixture",
+        "content_type": "subagent",
+        "event_index": 51,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": null,
+        "turn_number": 1
+      },
+      {
+        "content": "fixture",
+        "content_type": "assistant_message",
+        "event_index": 40,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "fixture",
+        "content_type": "compaction_summary",
+        "event_index": 26,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "checkpoint": 3
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "fixture",
+        "content_type": "reasoning",
+        "event_index": 39,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "fixture",
+        "content_type": "reasoning",
+        "event_index": 40,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "fixture",
+        "content_type": "system_message",
+        "event_index": 60,
+        "id": "<wall-clock>",
+        "metadata_json": {
+          "json": {
+            "role": "system"
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": null,
+        "turn_number": 1
+      },
+      {
+        "content": "fixture",
+        "content_type": "tool_call",
+        "event_index": 44,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": "fixture",
+        "turn_number": 1
+      },
+      {
+        "content": "fixture",
+        "content_type": "user_message",
+        "event_index": 35,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "fixture.txt",
+        "content_type": "tool_call",
+        "event_index": 14,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171214,
+        "tool_name": "view",
+        "turn_number": 0
+      },
+      {
+        "content": "fixture: fixture",
+        "content_type": "error",
+        "event_index": 3,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "fixture\nfixture\nsign_in",
+        "content_type": "tool_error",
+        "event_index": 45,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp_unix": 1791072000,
+        "tool_name": "fixture",
+        "turn_number": 1
+      },
+      {
+        "content": "general-purpose — Worker A",
+        "content_type": "subagent",
+        "event_index": 7,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171207,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "general-purpose — Worker B",
+        "content_type": "subagent",
+        "event_index": 20,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171220,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "general-purpose — alpha",
+        "content_type": "subagent",
+        "event_index": 10,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327813,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "general-purpose — beta",
+        "content_type": "subagent",
+        "event_index": 11,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327813,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "general-purpose — probe-worker",
+        "content_type": "subagent",
+        "event_index": 12,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171212,
+        "tool_name": null,
+        "turn_number": 0
+      },
+      {
+        "content": "general-purpose\nAnswer alpha question\nbackground\nclaude-haiku-4.5\nbeta\nYou are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.\nlow",
+        "content_type": "tool_call",
+        "event_index": 8,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327813,
+        "tool_name": "task",
+        "turn_number": 0
+      },
+      {
+        "content": "general-purpose\nCoordinate alpha messaging\nbackground\nclaude-haiku-4.5\nalpha\nYou are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.\nlow",
+        "content_type": "tool_call",
+        "event_index": 7,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "timestamp_unix": 1790327813,
+        "tool_name": "task",
+        "turn_number": 0
+      },
+      {
+        "content": "general-purpose\nbackground\ngpt-5.6-luna",
+        "content_type": "tool_call",
+        "event_index": 19,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171219,
+        "tool_name": "task",
+        "turn_number": 0
+      },
+      {
+        "content": "general-purpose\nbackground\ngpt-5.6-luna\nWorker A\nCheck the fixture.",
+        "content_type": "tool_call",
+        "event_index": 3,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "timestamp_unix": 1789171203,
+        "tool_name": "task",
+        "turn_number": 0
+      },
+      {
+        "content": "general-purpose\nbackground\ngpt-5.6-luna\nprobe-worker",
+        "content_type": "tool_call",
+        "event_index": 6,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171206,
+        "tool_name": "task",
+        "turn_number": 0
+      },
+      {
+        "content": "probe-notes",
+        "content_type": "tool_call",
+        "event_index": 21,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791078012,
+        "tool_name": "skill",
+        "turn_number": 2
+      },
+      {
+        "content": "probe-notes",
+        "content_type": "tool_call",
+        "event_index": 6,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "timestamp_unix": 1791077987,
+        "tool_name": "skill",
+        "turn_number": 0
+      },
+      {
+        "content": "worker-uuid",
+        "content_type": "tool_call",
+        "event_index": 24,
+        "id": "<wall-clock>",
+        "metadata_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "timestamp_unix": 1789171224,
+        "tool_name": "write_agent",
+        "turn_number": 2
+      }
+    ],
+    "session_activity": [
+      {
+        "day_of_week": 1,
+        "hour": 7,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "tool_call_count": 1
+      },
+      {
+        "day_of_week": 3,
+        "hour": 0,
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "tool_call_count": 2
+      },
+      {
+        "day_of_week": 3,
+        "hour": 0,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "tool_call_count": 3
+      },
+      {
+        "day_of_week": 4,
+        "hour": 9,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "tool_call_count": 11
+      },
+      {
+        "day_of_week": 5,
+        "hour": 0,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "tool_call_count": 4
+      },
+      {
+        "day_of_week": 5,
+        "hour": 0,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "tool_call_count": 4
+      },
+      {
+        "day_of_week": 6,
+        "hour": 0,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "tool_call_count": 1
+      },
+      {
+        "day_of_week": 6,
+        "hour": 1,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "tool_call_count": 2
+      }
+    ],
+    "session_agent_runs": [
+      {
+        "agent_id": "agent-alpha",
+        "agent_name": "general-purpose",
+        "agent_type": "general-purpose",
+        "configured_effort": "low",
+        "configured_matches_actual": null,
+        "configured_model": "claude-haiku-4.5",
+        "configured_model_preference": null,
+        "context_tier": null,
+        "depth": 0,
+        "description": "Coordinate alpha messaging",
+        "display_name": "alpha",
+        "duration_ms": 20000,
+        "ended_at": "2026-09-25T09:17:14.361+00:00",
+        "error_text": null,
+        "event_index": 7,
+        "execution_mode": "background",
+        "explicit_model_override": "claude-haiku-4.5",
+        "first_dispatched_model": "gpt-5.6-luna",
+        "follow_up_count": 1,
+        "messages_received": 2,
+        "messages_sent": 1,
+        "model": "claude-haiku-4.5",
+        "model_override_reason": null,
+        "multi_turn": 1,
+        "outcome": "completed",
+        "own_nano_aiu": null,
+        "parent_agent_name": null,
+        "parent_run_key": null,
+        "peak_siblings": 2,
+        "peer_messages": 2,
+        "queued_messages": 1,
+        "requested_model": "claude-haiku-4.5",
+        "run_key": "launch-alpha",
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "source": "events",
+        "started_at": "2026-09-25T09:16:53.883+00:00",
+        "tool_call_id": "launch-alpha",
+        "total_tokens": null,
+        "total_tool_calls": null,
+        "turn_index": 0
+      },
+      {
+        "agent_id": "agent-beta",
+        "agent_name": "general-purpose",
+        "agent_type": "general-purpose",
+        "configured_effort": "low",
+        "configured_matches_actual": null,
+        "configured_model": "claude-haiku-4.5",
+        "configured_model_preference": null,
+        "context_tier": null,
+        "depth": 0,
+        "description": "Answer alpha question",
+        "display_name": "beta",
+        "duration_ms": 12000,
+        "ended_at": "2026-09-25T09:17:06.062+00:00",
+        "error_text": null,
+        "event_index": 8,
+        "execution_mode": "background",
+        "explicit_model_override": "claude-haiku-4.5",
+        "first_dispatched_model": "gpt-5.6-luna",
+        "follow_up_count": 1,
+        "messages_received": 2,
+        "messages_sent": 1,
+        "model": "claude-haiku-4.5",
+        "model_override_reason": null,
+        "multi_turn": 1,
+        "outcome": "completed",
+        "own_nano_aiu": null,
+        "parent_agent_name": null,
+        "parent_run_key": null,
+        "peak_siblings": 2,
+        "peer_messages": 2,
+        "queued_messages": 0,
+        "requested_model": "claude-haiku-4.5",
+        "run_key": "launch-beta",
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "source": "events",
+        "started_at": "2026-09-25T09:16:53.884+00:00",
+        "tool_call_id": "launch-beta",
+        "total_tokens": null,
+        "total_tool_calls": null,
+        "turn_index": 0
+      },
+      {
+        "agent_id": "uuid-a",
+        "agent_name": "general-purpose",
+        "agent_type": "general-purpose",
+        "configured_effort": "low",
+        "configured_matches_actual": null,
+        "configured_model": "gpt-5.6-luna",
+        "configured_model_preference": null,
+        "context_tier": null,
+        "depth": 0,
+        "description": null,
+        "display_name": "Worker A",
+        "duration_ms": 20000,
+        "ended_at": "2026-09-12T00:00:23+00:00",
+        "error_text": null,
+        "event_index": 3,
+        "execution_mode": "background",
+        "explicit_model_override": null,
+        "first_dispatched_model": null,
+        "follow_up_count": 0,
+        "messages_received": 0,
+        "messages_sent": 0,
+        "model": "gpt-5.6-luna",
+        "model_override_reason": null,
+        "multi_turn": 1,
+        "outcome": "completed",
+        "own_nano_aiu": null,
+        "parent_agent_name": null,
+        "parent_run_key": null,
+        "peak_siblings": 1,
+        "peer_messages": 0,
+        "queued_messages": 0,
+        "requested_model": "gpt-5.6-luna",
+        "run_key": "launch-a",
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "source": "events",
+        "started_at": "2026-09-12T00:00:03+00:00",
+        "tool_call_id": "launch-a",
+        "total_tokens": 123,
+        "total_tool_calls": 2,
+        "turn_index": 0
+      },
+      {
+        "agent_id": "uuid-b",
+        "agent_name": "general-purpose",
+        "agent_type": "general-purpose",
+        "configured_effort": null,
+        "configured_matches_actual": null,
+        "configured_model": null,
+        "configured_model_preference": null,
+        "context_tier": null,
+        "depth": 1,
+        "description": null,
+        "display_name": "Worker B",
+        "duration_ms": 3000,
+        "ended_at": "2026-09-12T00:00:22+00:00",
+        "error_text": null,
+        "event_index": 19,
+        "execution_mode": "background",
+        "explicit_model_override": null,
+        "first_dispatched_model": null,
+        "follow_up_count": 0,
+        "messages_received": 0,
+        "messages_sent": 0,
+        "model": "gpt-5.6-luna",
+        "model_override_reason": null,
+        "multi_turn": null,
+        "outcome": "cancelled",
+        "own_nano_aiu": null,
+        "parent_agent_name": "general-purpose",
+        "parent_run_key": "launch-a",
+        "peak_siblings": 1,
+        "peer_messages": 0,
+        "queued_messages": 0,
+        "requested_model": "gpt-5.6-luna",
+        "run_key": "launch-b",
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "source": "events",
+        "started_at": "2026-09-12T00:00:19+00:00",
+        "tool_call_id": "launch-b",
+        "total_tokens": null,
+        "total_tool_calls": null,
+        "turn_index": 0
+      },
+      {
+        "agent_id": "worker-uuid",
+        "agent_name": "general-purpose",
+        "agent_type": "general-purpose",
+        "configured_effort": null,
+        "configured_matches_actual": null,
+        "configured_model": "gpt-5.6-luna",
+        "configured_model_preference": null,
+        "context_tier": null,
+        "depth": 0,
+        "description": "Prime probe worker",
+        "display_name": "probe-worker",
+        "duration_ms": 10000,
+        "ended_at": "2026-09-12T00:00:35+00:00",
+        "error_text": null,
+        "event_index": 6,
+        "execution_mode": "background",
+        "explicit_model_override": null,
+        "first_dispatched_model": null,
+        "follow_up_count": 1,
+        "messages_received": 1,
+        "messages_sent": 0,
+        "model": "gpt-5.6-luna",
+        "model_override_reason": null,
+        "multi_turn": 1,
+        "outcome": "completed",
+        "own_nano_aiu": null,
+        "parent_agent_name": null,
+        "parent_run_key": null,
+        "peak_siblings": 1,
+        "peer_messages": 0,
+        "queued_messages": 0,
+        "requested_model": "gpt-5.6-luna",
+        "run_key": "launch",
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "source": "events",
+        "started_at": "2026-09-12T00:00:06+00:00",
+        "tool_call_id": "launch",
+        "total_tokens": null,
+        "total_tool_calls": null,
+        "turn_index": 0
+      },
+      {
+        "agent_id": null,
+        "agent_name": "code-review",
+        "agent_type": null,
+        "configured_effort": null,
+        "configured_matches_actual": null,
+        "configured_model": null,
+        "configured_model_preference": null,
+        "context_tier": null,
+        "depth": 0,
+        "description": "Reviews code changes",
+        "display_name": "Code Review",
+        "duration_ms": 30000,
+        "ended_at": "2026-01-01T00:00:11+00:00",
+        "error_text": "Timeout exceeded",
+        "event_index": 9,
+        "execution_mode": null,
+        "explicit_model_override": null,
+        "first_dispatched_model": null,
+        "follow_up_count": 0,
+        "messages_received": 0,
+        "messages_sent": 0,
+        "model": "gpt-5.4",
+        "model_override_reason": null,
+        "multi_turn": null,
+        "outcome": "failed",
+        "own_nano_aiu": null,
+        "parent_agent_name": null,
+        "parent_run_key": null,
+        "peak_siblings": 1,
+        "peer_messages": 0,
+        "queued_messages": 0,
+        "requested_model": null,
+        "run_key": "tc-sub-2",
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "source": "events",
+        "started_at": "2026-01-01T00:00:10+00:00",
+        "tool_call_id": "tc-sub-2",
+        "total_tokens": 12000,
+        "total_tool_calls": 3,
+        "turn_index": 0
+      },
+      {
+        "agent_id": null,
+        "agent_name": "explore",
+        "agent_type": null,
+        "configured_effort": null,
+        "configured_matches_actual": null,
+        "configured_model": null,
+        "configured_model_preference": null,
+        "context_tier": null,
+        "depth": 0,
+        "description": "Explores codebase",
+        "display_name": "Explore Agent",
+        "duration_ms": 1000,
+        "ended_at": "2026-01-01T00:00:06+00:00",
+        "error_text": null,
+        "event_index": 4,
+        "execution_mode": null,
+        "explicit_model_override": null,
+        "first_dispatched_model": null,
+        "follow_up_count": 0,
+        "messages_received": 0,
+        "messages_sent": 0,
+        "model": null,
+        "model_override_reason": null,
+        "multi_turn": null,
+        "outcome": "completed",
+        "own_nano_aiu": null,
+        "parent_agent_name": null,
+        "parent_run_key": null,
+        "peak_siblings": 1,
+        "peer_messages": 0,
+        "queued_messages": 0,
+        "requested_model": null,
+        "run_key": "tc-sub-1",
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "source": "events",
+        "started_at": "2026-01-01T00:00:05+00:00",
+        "tool_call_id": "tc-sub-1",
+        "total_tokens": null,
+        "total_tool_calls": null,
+        "turn_index": 0
+      },
+      {
+        "agent_id": null,
+        "agent_name": "explore",
+        "agent_type": null,
+        "configured_effort": null,
+        "configured_matches_actual": null,
+        "configured_model": null,
+        "configured_model_preference": null,
+        "context_tier": null,
+        "depth": 0,
+        "description": "Explores codebase",
+        "display_name": "Explore Agent",
+        "duration_ms": 8000,
+        "ended_at": "2026-01-01T00:00:06+00:00",
+        "error_text": null,
+        "event_index": 4,
+        "execution_mode": null,
+        "explicit_model_override": null,
+        "first_dispatched_model": null,
+        "follow_up_count": 0,
+        "messages_received": 0,
+        "messages_sent": 0,
+        "model": "claude-opus-4.6",
+        "model_override_reason": null,
+        "multi_turn": null,
+        "outcome": "completed",
+        "own_nano_aiu": null,
+        "parent_agent_name": null,
+        "parent_run_key": null,
+        "peak_siblings": 1,
+        "peer_messages": 0,
+        "queued_messages": 0,
+        "requested_model": null,
+        "run_key": "tc-sub-1",
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "source": "events",
+        "started_at": "2026-01-01T00:00:05+00:00",
+        "tool_call_id": "tc-sub-1",
+        "total_tokens": 75000,
+        "total_tool_calls": 15,
+        "turn_index": 0
+      },
+      {
+        "agent_id": null,
+        "agent_name": "fixture",
+        "agent_type": "fixture",
+        "configured_effort": null,
+        "configured_matches_actual": 1,
+        "configured_model": null,
+        "configured_model_preference": "fixture",
+        "context_tier": null,
+        "depth": 0,
+        "description": "fixture",
+        "display_name": "fixture",
+        "duration_ms": 3,
+        "ended_at": "2026-10-04T00:00:00+00:00",
+        "error_text": null,
+        "event_index": 44,
+        "execution_mode": "fixture",
+        "explicit_model_override": "fixture",
+        "first_dispatched_model": "fixture",
+        "follow_up_count": 0,
+        "messages_received": 0,
+        "messages_sent": 0,
+        "model": "fixture",
+        "model_override_reason": "fixture",
+        "multi_turn": null,
+        "outcome": "cancelled",
+        "own_nano_aiu": null,
+        "parent_agent_name": null,
+        "parent_run_key": null,
+        "peak_siblings": 1,
+        "peer_messages": 0,
+        "queued_messages": 0,
+        "requested_model": null,
+        "run_key": "fixture",
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "source": "events",
+        "started_at": "2026-10-04T00:00:00+00:00",
+        "tool_call_id": "fixture",
+        "total_tokens": 3,
+        "total_tool_calls": 3,
+        "turn_index": 1
+      }
+    ],
+    "session_agent_selections": [
+      {
+        "agent_name": "fixture",
+        "display_name": "fixture",
+        "event_index": 55,
+        "selected": 1,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp": "2026-10-04T00:00:00+00:00"
+      },
+      {
+        "agent_name": null,
+        "display_name": null,
+        "event_index": 56,
+        "selected": 0,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "timestamp": "2026-10-04T00:00:00+00:00"
+      }
+    ],
+    "session_cache_ttls": [
+      {
+        "model": "fixture",
+        "observation_count": 1,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "ttl_seconds": 3
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "observation_count": 3,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "ttl_seconds": 1800
+      },
+      {
+        "model": "mai-code-1.1-flash",
+        "observation_count": 2,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "ttl_seconds": 1800
+      }
+    ],
+    "session_cache_windows": [
+      {
+        "change_kinds": "model",
+        "expires_at": null,
+        "idle_seconds": 319,
+        "idle_start": "2026-09-12T00:55:41.000Z",
+        "interaction_nano_aiu": null,
+        "model": "claude-sonnet-5",
+        "outcome": "modelChanged",
+        "prefix_tokens": 9000,
+        "resume_at": "2026-09-12T01:01:00.000Z",
+        "resume_source": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "ttl_seconds": null,
+        "window_index": 2
+      },
+      {
+        "change_kinds": "tools",
+        "expires_at": "2026-09-12T00:30:16.000Z",
+        "idle_seconds": 579,
+        "idle_start": "2026-09-12T00:00:21.000Z",
+        "interaction_nano_aiu": 800,
+        "model": "gpt-5.6-luna",
+        "outcome": "warm",
+        "prefix_tokens": 20000,
+        "resume_at": "2026-09-12T00:10:00.000Z",
+        "resume_source": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "ttl_seconds": 1800,
+        "window_index": 0
+      },
+      {
+        "change_kinds": null,
+        "expires_at": "2026-09-12T00:40:26.000Z",
+        "idle_seconds": 2669,
+        "idle_start": "2026-09-12T00:10:31.000Z",
+        "interaction_nano_aiu": 1200,
+        "model": "gpt-5.6-luna",
+        "outcome": "expired",
+        "prefix_tokens": 21000,
+        "resume_at": "2026-09-12T00:55:00.000Z",
+        "resume_source": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "ttl_seconds": 1800,
+        "window_index": 1
+      },
+      {
+        "change_kinds": null,
+        "expires_at": "2026-10-04T00:00:00.000Z",
+        "idle_seconds": 0,
+        "idle_start": "2026-10-04T00:00:00.000Z",
+        "interaction_nano_aiu": null,
+        "model": "fixture",
+        "outcome": "expired",
+        "prefix_tokens": null,
+        "resume_at": "2026-10-04T00:00:00.000Z",
+        "resume_source": "fixture",
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "ttl_seconds": 3,
+        "window_index": 0
+      },
+      {
+        "change_kinds": null,
+        "expires_at": "2026-10-04T02:09:47.457Z",
+        "idle_seconds": 20,
+        "idle_start": "2026-10-04T01:39:48.877Z",
+        "interaction_nano_aiu": 416026800,
+        "model": "mai-code-1.1-flash",
+        "outcome": "warm",
+        "prefix_tokens": null,
+        "resume_at": "2026-10-04T01:40:09.330Z",
+        "resume_source": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "ttl_seconds": 1800,
+        "window_index": 0
+      },
+      {
+        "change_kinds": null,
+        "expires_at": "2026-10-04T02:10:12.599Z",
+        "idle_seconds": null,
+        "idle_start": "2026-10-04T01:40:14.141Z",
+        "interaction_nano_aiu": null,
+        "model": "mai-code-1.1-flash",
+        "outcome": "sessionEnded",
+        "prefix_tokens": null,
+        "resume_at": null,
+        "resume_source": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "ttl_seconds": 1800,
+        "window_index": 1
+      }
+    ],
+    "session_incidents": [
+      {
+        "detail_json": {
+          "json": {
+            "activeFactorySummary": "fixture",
+            "activeWorkflowSummary": "fixture",
+            "behaviorModelId": "fixture",
+            "checkpointNumber": 3,
+            "checkpointPath": "fixture",
+            "compactionTokensUsed": {
+              "cacheReadTokens": 3,
+              "cacheWriteTokens": 3,
+              "copilotUsage": {
+                "model": "fixture",
+                "tokenDetails": [
+                  {
+                    "batchSize": 3,
+                    "costPerBatch": 3,
+                    "model": "fixture",
+                    "tokenCount": 3,
+                    "tokenType": "fixture"
+                  }
+                ],
+                "totalNanoAiu": 3
+              },
+              "duration": 3,
+              "inputTokens": 3,
+              "model": "fixture",
+              "outputTokens": 3
+            },
+            "conversationTokens": 3,
+            "customInstructions": "fixture",
+            "error": "fixture",
+            "messagesRemoved": 3,
+            "postCompactionTokens": 3,
+            "preCompactionMessagesLength": 3,
+            "preCompactionTokens": 3,
+            "requestId": "fixture",
+            "responsesReasoning": {
+              "effort": "fixture",
+              "initialEffort": "fixture",
+              "model": "fixture"
+            },
+            "serviceRequestId": "fixture",
+            "statusCode": 3,
+            "success": true,
+            "summaryContent": "fixture",
+            "systemTokens": 3,
+            "tokenLimit": 3,
+            "tokensRemoved": 3,
+            "toolDefinitionsTokens": 3,
+            "trigger": "threshold"
+          }
+        },
+        "event_type": "compaction",
+        "id": 5,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "severity": "info",
+        "source_event_type": "session.compaction_complete",
+        "summary": "Compaction succeeded (checkpoint #3): 3 tokens before compaction",
+        "timestamp": "2026-10-04T00:00:00+00:00"
+      },
+      {
+        "detail_json": {
+          "json": {
+            "eligibleForAutoSwitch": true,
+            "errorCode": "fixture",
+            "errorType": "fixture",
+            "message": "fixture",
+            "providerCallId": "fixture",
+            "remediation": "sign_in",
+            "serviceRequestId": "fixture",
+            "stack": "fixture",
+            "statusCode": 3,
+            "url": "fixture"
+          }
+        },
+        "event_type": "error",
+        "id": 2,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "severity": "error",
+        "source_event_type": "session.error",
+        "summary": "fixture",
+        "timestamp": "2026-10-04T00:00:00+00:00"
+      },
+      {
+        "detail_json": {
+          "json": {
+            "message": "fixture",
+            "remediation": "sign_in",
+            "url": "fixture",
+            "warningType": "fixture"
+          }
+        },
+        "event_type": "warning",
+        "id": 3,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "severity": "warning",
+        "source_event_type": "session.warning",
+        "summary": "fixture",
+        "timestamp": "2026-10-04T00:00:00+00:00"
+      },
+      {
+        "detail_json": {
+          "json": {
+            "messagesRemovedDuringTruncation": 3,
+            "performedBy": "fixture",
+            "postTruncationMessagesLength": 3,
+            "postTruncationTokensInMessages": 3,
+            "preTruncationMessagesLength": 3,
+            "preTruncationTokensInMessages": 3,
+            "tokenLimit": 3,
+            "tokensRemovedDuringTruncation": 3
+          }
+        },
+        "event_type": "truncation",
+        "id": 4,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "severity": "warning",
+        "source_event_type": "session.truncation",
+        "summary": "Truncated 3 tokens (3 messages) by fixture",
+        "timestamp": "2026-10-04T00:00:00+00:00"
+      },
+      {
+        "detail_json": {
+          "json": {
+            "preCompactionTokens": 21000,
+            "success": true
+          }
+        },
+        "event_type": "compaction",
+        "id": 1,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "severity": "info",
+        "source_event_type": "session.compaction_complete",
+        "summary": "Compaction succeeded (checkpoint #0): 21000 tokens before compaction",
+        "timestamp": "2026-09-12T00:20:00+00:00"
+      }
+    ],
+    "session_model_metrics": [
+      {
+        "cache_read_tokens": 1000,
+        "cache_write_tokens": 500,
+        "cost": 2.5,
+        "input_tokens": 5000,
+        "model_name": "claude-opus-4.6",
+        "output_tokens": 2000,
+        "reasoning_tokens": 300,
+        "request_count": 10,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "total_nano_aiu": null
+      },
+      {
+        "cache_read_tokens": 200,
+        "cache_write_tokens": 100,
+        "cost": 0.5,
+        "input_tokens": 1000,
+        "model_name": "gpt-4o",
+        "output_tokens": 500,
+        "reasoning_tokens": null,
+        "request_count": 3,
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "total_nano_aiu": null
+      },
+      {
+        "cache_read_tokens": 21632,
+        "cache_write_tokens": 0,
+        "cost": 2.0,
+        "input_tokens": 58412,
+        "model_name": "mai-code-1.1-flash",
+        "output_tokens": 62,
+        "reasoning_tokens": 0,
+        "request_count": 4,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "total_nano_aiu": 707673600
+      },
+      {
+        "cache_read_tokens": 3,
+        "cache_write_tokens": 3,
+        "cost": 3.0,
+        "input_tokens": 3,
+        "model_name": "fixture",
+        "output_tokens": 3,
+        "reasoning_tokens": 3,
+        "request_count": 3,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "total_nano_aiu": 3
+      },
+      {
+        "cache_read_tokens": 800,
+        "cache_write_tokens": 0,
+        "cost": 1.0,
+        "input_tokens": 1000,
+        "model_name": "claude-opus-4.6",
+        "output_tokens": 500,
+        "reasoning_tokens": null,
+        "request_count": 3,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "total_nano_aiu": 2500000000
+      }
+    ],
+    "session_modified_files": [
+      {
+        "extension": "rs",
+        "file_path": "/test/foo.rs",
+        "session_id": "00000000-0000-4000-8000-000000000001"
+      },
+      {
+        "extension": null,
+        "file_path": "fixture",
+        "session_id": "00000000-0000-4000-8000-00000000000b"
+      }
+    ],
+    "session_segments": [
+      {
+        "current_model": "claude-opus-4.6",
+        "end_timestamp": "2026-03-10T07:15:00+00:00",
+        "model_metrics_json": {
+          "json": {
+            "claude-opus-4.6": {
+              "requests": {
+                "cost": 1.0,
+                "count": 3
+              },
+              "tokenDetails": null,
+              "totalNanoAiu": 2500000000,
+              "usage": {
+                "cacheReadTokens": 800,
+                "cacheWriteTokens": 0,
+                "inputTokens": 1000,
+                "outputTokens": 500,
+                "reasoningTokens": null
+              }
+            }
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "start_timestamp": "2026-03-10T07:14:50.780+00:00",
+        "total_api_duration_ms": 5000,
+        "total_nano_aiu": 2500000000,
+        "total_premium_requests": 1.0,
+        "total_requests": 3,
+        "total_tokens": 1500
+      },
+      {
+        "current_model": "claude-sonnet-5",
+        "end_timestamp": "2026-09-12T01:05:00+00:00",
+        "model_metrics_json": null,
+        "session_id": "00000000-0000-4000-8000-000000000008",
+        "start_timestamp": "2026-09-12T00:00:00+00:00",
+        "total_api_duration_ms": 0,
+        "total_nano_aiu": null,
+        "total_premium_requests": 0.0,
+        "total_requests": 0,
+        "total_tokens": 0
+      },
+      {
+        "current_model": "fixture",
+        "end_timestamp": "2026-10-04T00:00:00+00:00",
+        "model_metrics_json": {
+          "json": {
+            "fixture": {
+              "requests": {
+                "cost": 3.0,
+                "count": 3
+              },
+              "tokenDetails": {
+                "fixture": {
+                  "tokenCount": 3
+                }
+              },
+              "totalNanoAiu": 3,
+              "usage": {
+                "cacheReadTokens": 3,
+                "cacheWriteTokens": 3,
+                "inputTokens": 3,
+                "outputTokens": 3,
+                "reasoningTokens": 3
+              }
+            }
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "start_timestamp": "2026-10-04T00:00:00+00:00",
+        "total_api_duration_ms": 3,
+        "total_nano_aiu": 3,
+        "total_premium_requests": 3.0,
+        "total_requests": 3,
+        "total_tokens": 6
+      },
+      {
+        "current_model": "mai-code-1.1-flash",
+        "end_timestamp": "2026-10-04T01:39:48.905+00:00",
+        "model_metrics_json": {
+          "json": {
+            "mai-code-1.1-flash": {
+              "requests": {
+                "cost": 1.0,
+                "count": 2
+              },
+              "tokenDetails": {
+                "cache_read": {
+                  "tokenCount": 14336
+                },
+                "cache_write": {
+                  "tokenCount": 0
+                },
+                "input": {
+                  "tokenCount": 14565
+                },
+                "output": {
+                  "tokenCount": 34
+                }
+              },
+              "totalNanoAiu": 291646800,
+              "usage": {
+                "cacheReadTokens": 14336,
+                "cacheWriteTokens": 0,
+                "inputTokens": 28901,
+                "outputTokens": 34,
+                "reasoningTokens": 0
+              }
+            }
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "start_timestamp": "2026-10-04T01:39:40.867+00:00",
+        "total_api_duration_ms": 3814,
+        "total_nano_aiu": 291646800,
+        "total_premium_requests": 1.0,
+        "total_requests": 2,
+        "total_tokens": 28935
+      },
+      {
+        "current_model": "mai-code-1.1-flash",
+        "end_timestamp": "2026-10-04T01:40:14.168+00:00",
+        "model_metrics_json": {
+          "json": {
+            "mai-code-1.1-flash": {
+              "requests": {
+                "cost": 1.0,
+                "count": 2
+              },
+              "tokenDetails": {
+                "cache_read": {
+                  "tokenCount": 7296
+                },
+                "cache_write": {
+                  "tokenCount": 0
+                },
+                "input": {
+                  "tokenCount": 22215
+                },
+                "output": {
+                  "tokenCount": 28
+                }
+              },
+              "totalNanoAiu": 416026800,
+              "usage": {
+                "cacheReadTokens": 7296,
+                "cacheWriteTokens": 0,
+                "inputTokens": 29511,
+                "outputTokens": 28,
+                "reasoningTokens": 0
+              }
+            }
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "start_timestamp": "2026-10-04T01:40:05.614+00:00",
+        "total_api_duration_ms": 4042,
+        "total_nano_aiu": 416026800,
+        "total_premium_requests": 1.0,
+        "total_requests": 2,
+        "total_tokens": 29539
+      },
+      {
+        "current_model": null,
+        "end_timestamp": "2026-01-01T00:00:10+00:00",
+        "model_metrics_json": {
+          "json": {
+            "gpt-4o": {
+              "requests": {
+                "cost": 0.5,
+                "count": 3
+              },
+              "tokenDetails": null,
+              "totalNanoAiu": null,
+              "usage": {
+                "cacheReadTokens": 200,
+                "cacheWriteTokens": 100,
+                "inputTokens": 1000,
+                "outputTokens": 500,
+                "reasoningTokens": null
+              }
+            }
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "start_timestamp": "2026-01-01T00:00:01+00:00",
+        "total_api_duration_ms": 10000,
+        "total_nano_aiu": null,
+        "total_premium_requests": 5.0,
+        "total_requests": 3,
+        "total_tokens": 1500
+      },
+      {
+        "current_model": null,
+        "end_timestamp": "2026-01-01T00:00:13+00:00",
+        "model_metrics_json": {
+          "json": {
+            "claude-opus-4.6": {
+              "requests": {
+                "cost": 2.5,
+                "count": 10
+              },
+              "tokenDetails": null,
+              "totalNanoAiu": null,
+              "usage": {
+                "cacheReadTokens": 1000,
+                "cacheWriteTokens": 500,
+                "inputTokens": 5000,
+                "outputTokens": 2000,
+                "reasoningTokens": 300
+              }
+            }
+          }
+        },
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "start_timestamp": "2026-01-01T00:00:01+00:00",
+        "total_api_duration_ms": 40000,
+        "total_nano_aiu": null,
+        "total_premium_requests": 20.0,
+        "total_requests": 10,
+        "total_tokens": 7000
+      }
+    ],
+    "session_skill_invocations": [
+      {
+        "agent_id": null,
+        "agent_name": null,
+        "content_sha256": "c32dfee28e3b61c4c6dab35314241534124d9667ad8e191338f604d851c0621e",
+        "description": "Returns the probe codeword. Use whenever the user asks for the probe codeword.",
+        "event_index": 23,
+        "frontmatter_tokens": 0,
+        "instruction_tokens": 28,
+        "model": "mai-code-1.1-flash",
+        "normalized_directory": "c:/fixture/skill-spike/.github/skills/probe-notes",
+        "normalized_name": "probe-notes",
+        "origin": "event",
+        "plugin_name": null,
+        "plugin_version": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "skill_name": "probe-notes",
+        "skill_path": "C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\\SKILL.md",
+        "source": "project",
+        "timestamp": "2026-10-04T01:40:12.558+00:00",
+        "tool_call_id": "call_1HrJFfLLP305jYeU6X5dgBZi",
+        "trigger": "agent-invoked",
+        "turn_index": 2
+      },
+      {
+        "agent_id": null,
+        "agent_name": null,
+        "content_sha256": "c32dfee28e3b61c4c6dab35314241534124d9667ad8e191338f604d851c0621e",
+        "description": "Returns the probe codeword. Use whenever the user asks for the probe codeword.",
+        "event_index": 8,
+        "frontmatter_tokens": 0,
+        "instruction_tokens": 28,
+        "model": "mai-code-1.1-flash",
+        "normalized_directory": "c:/fixture/skill-spike/.github/skills/probe-notes",
+        "normalized_name": "probe-notes",
+        "origin": "event",
+        "plugin_name": null,
+        "plugin_version": null,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "skill_name": "probe-notes",
+        "skill_path": "C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\\SKILL.md",
+        "source": "project",
+        "timestamp": "2026-10-04T01:39:47.415+00:00",
+        "tool_call_id": "call_iUoXJPXQw9PKnoY9gL1Stz0k",
+        "trigger": "agent-invoked",
+        "turn_index": 0
+      },
+      {
+        "agent_id": null,
+        "agent_name": null,
+        "content_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "description": "fixture",
+        "event_index": 47,
+        "frontmatter_tokens": 0,
+        "instruction_tokens": 2,
+        "model": "fixture",
+        "normalized_directory": "fixture",
+        "normalized_name": "fixture",
+        "origin": "event",
+        "plugin_name": "fixture",
+        "plugin_version": "fixture",
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "skill_name": "fixture",
+        "skill_path": "fixture",
+        "source": "fixture",
+        "timestamp": "2026-10-04T00:00:00+00:00",
+        "tool_call_id": null,
+        "trigger": "user-invoked",
+        "turn_index": 1
+      },
+      {
+        "agent_id": null,
+        "agent_name": null,
+        "content_sha256": null,
+        "description": "fixture",
+        "event_index": 48,
+        "frontmatter_tokens": null,
+        "instruction_tokens": null,
+        "model": "fixture",
+        "normalized_directory": "fixture",
+        "normalized_name": "fixture",
+        "origin": "event",
+        "plugin_name": "fixture",
+        "plugin_version": "fixture",
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "skill_name": "fixture",
+        "skill_path": "fixture",
+        "source": "fixture",
+        "timestamp": "2026-10-04T00:00:00+00:00",
+        "tool_call_id": null,
+        "trigger": "user-invoked",
+        "turn_index": 1
+      }
+    ],
+    "session_tool_calls": [
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "success_count": 1,
+        "tool_name": "read_file",
+        "total_duration_ms": 400
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "success_count": 1,
+        "tool_name": "explore",
+        "total_duration_ms": 1000
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000004",
+        "success_count": 1,
+        "tool_name": "read_file",
+        "total_duration_ms": 3000
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "success_count": 1,
+        "tool_name": "explore",
+        "total_duration_ms": 8000
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "success_count": 1,
+        "tool_name": "run_command",
+        "total_duration_ms": 3000
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "success_count": 1,
+        "tool_name": "read_agent",
+        "total_duration_ms": 1000
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "success_count": 1,
+        "tool_name": "view",
+        "total_duration_ms": 1000
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "success_count": 1,
+        "tool_name": "general-purpose",
+        "total_duration_ms": 10000
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "success_count": 1,
+        "tool_name": "write_agent",
+        "total_duration_ms": 1000
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 1,
+        "session_id": "00000000-0000-4000-8000-000000000005",
+        "success_count": 0,
+        "tool_name": "code-review",
+        "total_duration_ms": 30000
+      },
+      {
+        "call_count": 1,
+        "calls_with_duration": 1,
+        "failure_count": 1,
+        "session_id": "00000000-0000-4000-8000-00000000000b",
+        "success_count": 0,
+        "tool_name": "fixture",
+        "total_duration_ms": 3
+      },
+      {
+        "call_count": 2,
+        "calls_with_duration": 2,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000007",
+        "success_count": 2,
+        "tool_name": "read_agent",
+        "total_duration_ms": 15000
+      },
+      {
+        "call_count": 2,
+        "calls_with_duration": 2,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "success_count": 2,
+        "tool_name": "general-purpose",
+        "total_duration_ms": 32000
+      },
+      {
+        "call_count": 2,
+        "calls_with_duration": 2,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "success_count": 2,
+        "tool_name": "list_agents",
+        "total_duration_ms": 7
+      },
+      {
+        "call_count": 2,
+        "calls_with_duration": 2,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-00000000000a",
+        "success_count": 2,
+        "tool_name": "skill",
+        "total_duration_ms": 6
+      },
+      {
+        "call_count": 2,
+        "calls_with_duration": 2,
+        "failure_count": 1,
+        "session_id": "00000000-0000-4000-8000-000000000006",
+        "success_count": 1,
+        "tool_name": "general-purpose",
+        "total_duration_ms": 23000
+      },
+      {
+        "call_count": 3,
+        "calls_with_duration": 3,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "success_count": 3,
+        "tool_name": "write_agent",
+        "total_duration_ms": 2
+      },
+      {
+        "call_count": 4,
+        "calls_with_duration": 4,
+        "failure_count": 0,
+        "session_id": "00000000-0000-4000-8000-000000000009",
+        "success_count": 4,
+        "tool_name": "read_agent",
+        "total_duration_ms": 14037
+      }
+    ],
+    "sessions": [
+      {
+        "analytics_version": 17,
+        "branch": "feature-x",
+        "compaction_count": 0,
+        "copilot_version": null,
+        "created_at": null,
+        "current_model": null,
+        "cwd": "/test/project",
+        "error_count": 0,
+        "event_count": 2,
+        "events_mtime": "<wall-clock>",
+        "events_size": 409,
+        "host_type": "vscode",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "indexed_at": "<wall-clock>",
+        "lines_added": null,
+        "lines_removed": null,
+        "path": "<sessions>/00000000-0000-4000-8000-000000000003",
+        "rate_limit_count": 0,
+        "repository": "org/project",
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 409
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 409
+            },
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 86
+            }
+          }
+        },
+        "summary": "Sparse session",
+        "tool_call_count": 0,
+        "total_api_duration_ms": null,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 0.0,
+        "total_nano_aiu": null,
+        "total_premium_requests": null,
+        "total_tokens": 0,
+        "truncation_count": 0,
+        "turn_count": 1,
+        "updated_at": null,
+        "workspace_mtime": "<wall-clock>"
+      },
+      {
+        "analytics_version": 17,
+        "branch": "main",
+        "compaction_count": 0,
+        "copilot_version": "1.0.24",
+        "created_at": "2026-03-10T07:14:50+00:00",
+        "current_model": null,
+        "cwd": "/golden/v1-0-24",
+        "error_count": 0,
+        "event_count": 13,
+        "events_mtime": "<wall-clock>",
+        "events_size": 2924,
+        "host_type": null,
+        "id": "00000000-0000-4000-8000-000000000005",
+        "indexed_at": "<wall-clock>",
+        "lines_added": null,
+        "lines_removed": null,
+        "path": "<sessions>/00000000-0000-4000-8000-000000000005",
+        "rate_limit_count": 0,
+        "repository": "golden/v1-0-24",
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 2924
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 2924
+            },
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 198
+            }
+          }
+        },
+        "summary": "Golden v1-0-24",
+        "tool_call_count": 3,
+        "total_api_duration_ms": 40000,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 2.5,
+        "total_nano_aiu": null,
+        "total_premium_requests": 20.0,
+        "total_tokens": 7000,
+        "truncation_count": 0,
+        "turn_count": 1,
+        "updated_at": "2026-03-10T07:15:00+00:00",
+        "workspace_mtime": "<wall-clock>"
+      },
+      {
+        "analytics_version": 17,
+        "branch": "main",
+        "compaction_count": 0,
+        "copilot_version": "1.0.83",
+        "created_at": "2026-03-10T07:14:50+00:00",
+        "current_model": "gpt-5.6-luna",
+        "cwd": "/golden/agents",
+        "error_count": 0,
+        "event_count": 28,
+        "events_mtime": "<wall-clock>",
+        "events_size": 5430,
+        "host_type": null,
+        "id": "00000000-0000-4000-8000-000000000006",
+        "indexed_at": "<wall-clock>",
+        "lines_added": null,
+        "lines_removed": null,
+        "path": "<sessions>/00000000-0000-4000-8000-000000000006",
+        "rate_limit_count": 0,
+        "repository": "golden/agents",
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 5430
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 5430
+            },
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 195
+            }
+          }
+        },
+        "summary": "Golden agents",
+        "tool_call_count": 4,
+        "total_api_duration_ms": null,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 0.0,
+        "total_nano_aiu": null,
+        "total_premium_requests": null,
+        "total_tokens": 0,
+        "truncation_count": 0,
+        "turn_count": 2,
+        "updated_at": "2026-03-10T07:15:00+00:00",
+        "workspace_mtime": "<wall-clock>"
+      },
+      {
+        "analytics_version": 17,
+        "branch": "main",
+        "compaction_count": 0,
+        "copilot_version": "1.0.83",
+        "created_at": "2026-03-10T07:14:50+00:00",
+        "current_model": "gpt-5.6-luna",
+        "cwd": "/golden/multiturn",
+        "error_count": 0,
+        "event_count": 40,
+        "events_mtime": "<wall-clock>",
+        "events_size": 7589,
+        "host_type": null,
+        "id": "00000000-0000-4000-8000-000000000007",
+        "indexed_at": "<wall-clock>",
+        "lines_added": null,
+        "lines_removed": null,
+        "path": "<sessions>/00000000-0000-4000-8000-000000000007",
+        "rate_limit_count": 0,
+        "repository": "golden/multiturn",
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 7589
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 7589
+            },
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 204
+            }
+          }
+        },
+        "summary": "Golden multiturn",
+        "tool_call_count": 4,
+        "total_api_duration_ms": null,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 0.0,
+        "total_nano_aiu": null,
+        "total_premium_requests": null,
+        "total_tokens": 0,
+        "truncation_count": 0,
+        "turn_count": 5,
+        "updated_at": "2026-03-10T07:15:00+00:00",
+        "workspace_mtime": "<wall-clock>"
+      },
+      {
+        "analytics_version": 17,
+        "branch": "main",
+        "compaction_count": 0,
+        "copilot_version": "1.0.88",
+        "created_at": "2026-03-10T07:14:50+00:00",
+        "current_model": "gpt-5.6-luna",
+        "cwd": "/golden/agent-messaging",
+        "error_count": 0,
+        "event_count": 96,
+        "events_mtime": "<wall-clock>",
+        "events_size": 33360,
+        "host_type": null,
+        "id": "00000000-0000-4000-8000-000000000009",
+        "indexed_at": "<wall-clock>",
+        "lines_added": null,
+        "lines_removed": null,
+        "path": "<sessions>/00000000-0000-4000-8000-000000000009",
+        "rate_limit_count": 0,
+        "repository": "golden/agent-messaging",
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 33360
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 33360
+            },
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 222
+            }
+          }
+        },
+        "summary": "Golden agent-messaging",
+        "tool_call_count": 11,
+        "total_api_duration_ms": null,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 0.0,
+        "total_nano_aiu": null,
+        "total_premium_requests": null,
+        "total_tokens": 0,
+        "truncation_count": 0,
+        "turn_count": 6,
+        "updated_at": "2026-03-10T07:15:00+00:00",
+        "workspace_mtime": "<wall-clock>"
+      },
+      {
+        "analytics_version": 17,
+        "branch": "main",
+        "compaction_count": 0,
+        "copilot_version": "1.0.91",
+        "created_at": "2026-03-10T07:14:50+00:00",
+        "current_model": "mai-code-1.1-flash",
+        "cwd": "/golden/skill-refs",
+        "error_count": 0,
+        "event_count": 31,
+        "events_mtime": "<wall-clock>",
+        "events_size": 18032,
+        "host_type": null,
+        "id": "00000000-0000-4000-8000-00000000000a",
+        "indexed_at": "<wall-clock>",
+        "lines_added": 0,
+        "lines_removed": 0,
+        "path": "<sessions>/00000000-0000-4000-8000-00000000000a",
+        "rate_limit_count": 0,
+        "repository": "golden/skill-refs",
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 18032
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 18032
+            },
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 207
+            }
+          }
+        },
+        "summary": "Golden skill-refs",
+        "tool_call_count": 2,
+        "total_api_duration_ms": 7856,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 2.0,
+        "total_nano_aiu": 707673600,
+        "total_premium_requests": 2.0,
+        "total_tokens": 58474,
+        "truncation_count": 0,
+        "turn_count": 4,
+        "updated_at": "2026-03-10T07:15:00+00:00",
+        "workspace_mtime": "<wall-clock>"
+      },
+      {
+        "analytics_version": 17,
+        "branch": "main",
+        "compaction_count": 0,
+        "copilot_version": null,
+        "created_at": "2026-03-10T07:14:50+00:00",
+        "current_model": "claude-opus-4.6",
+        "cwd": "/test/project",
+        "error_count": 0,
+        "event_count": 8,
+        "events_mtime": "<wall-clock>",
+        "events_size": 1840,
+        "host_type": "cli",
+        "id": "00000000-0000-4000-8000-000000000001",
+        "indexed_at": "<wall-clock>",
+        "lines_added": 10,
+        "lines_removed": 2,
+        "path": "<sessions>/00000000-0000-4000-8000-000000000001",
+        "rate_limit_count": 0,
+        "repository": "user/repo",
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 1840
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 1840
+            },
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 189
+            }
+          }
+        },
+        "summary": "Test session",
+        "tool_call_count": 1,
+        "total_api_duration_ms": 5000,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 1.0,
+        "total_nano_aiu": 2500000000,
+        "total_premium_requests": 1.0,
+        "total_tokens": 1500,
+        "truncation_count": 0,
+        "turn_count": 1,
+        "updated_at": "2026-03-10T07:15:00+00:00",
+        "workspace_mtime": "<wall-clock>"
+      },
+      {
+        "analytics_version": 17,
+        "branch": "main",
+        "compaction_count": 1,
+        "copilot_version": "1.0.83",
+        "created_at": "2026-03-10T07:14:50+00:00",
+        "current_model": "claude-sonnet-5",
+        "cwd": "/golden/prompt-cache",
+        "error_count": 0,
+        "event_count": 22,
+        "events_mtime": "<wall-clock>",
+        "events_size": 7673,
+        "host_type": null,
+        "id": "00000000-0000-4000-8000-000000000008",
+        "indexed_at": "<wall-clock>",
+        "lines_added": null,
+        "lines_removed": null,
+        "path": "<sessions>/00000000-0000-4000-8000-000000000008",
+        "rate_limit_count": 0,
+        "repository": "golden/prompt-cache",
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 7673
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 7673
+            },
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 213
+            }
+          }
+        },
+        "summary": "Golden prompt-cache",
+        "tool_call_count": 0,
+        "total_api_duration_ms": null,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 0.0,
+        "total_nano_aiu": null,
+        "total_premium_requests": null,
+        "total_tokens": 0,
+        "truncation_count": 0,
+        "turn_count": 4,
+        "updated_at": "2026-03-10T07:15:00+00:00",
+        "workspace_mtime": "<wall-clock>"
+      },
+      {
+        "analytics_version": 17,
+        "branch": "main",
+        "compaction_count": 1,
+        "copilot_version": "1.0.91",
+        "created_at": "2026-03-10T07:14:50+00:00",
+        "current_model": "fixture",
+        "cwd": "/golden/schema-v1-0-91",
+        "error_count": 1,
+        "event_count": 74,
+        "events_mtime": "<wall-clock>",
+        "events_size": 28760,
+        "host_type": "github",
+        "id": "00000000-0000-4000-8000-00000000000b",
+        "indexed_at": "<wall-clock>",
+        "lines_added": 3,
+        "lines_removed": 3,
+        "path": "<sessions>/00000000-0000-4000-8000-00000000000b",
+        "rate_limit_count": 0,
+        "repository": "golden/schema-v1-0-91",
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 28760
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 28760
+            },
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 219
+            }
+          }
+        },
+        "summary": "Golden schema-v1-0-91",
+        "tool_call_count": 1,
+        "total_api_duration_ms": 3,
+        "total_compaction_input_tokens": 3,
+        "total_compaction_output_tokens": 3,
+        "total_cost": 3.0,
+        "total_nano_aiu": 3,
+        "total_premium_requests": 3.0,
+        "total_tokens": 6,
+        "truncation_count": 1,
+        "turn_count": 2,
+        "updated_at": "2026-03-10T07:15:00+00:00",
+        "workspace_mtime": "<wall-clock>"
+      },
+      {
+        "analytics_version": 17,
+        "branch": null,
+        "compaction_count": 0,
+        "copilot_version": "1.0.2",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "current_model": null,
+        "cwd": "/test",
+        "error_count": 0,
+        "event_count": 10,
+        "events_mtime": "<wall-clock>",
+        "events_size": 1936,
+        "host_type": null,
+        "id": "00000000-0000-4000-8000-000000000004",
+        "indexed_at": "<wall-clock>",
+        "lines_added": null,
+        "lines_removed": null,
+        "path": "<sessions>/00000000-0000-4000-8000-000000000004",
+        "rate_limit_count": 0,
+        "repository": null,
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": {
+            "modified": "<mtime>",
+            "size": 1936
+          }
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": {
+              "modified": "<mtime>",
+              "size": 1936
+            },
+            "workspace": null
+          }
+        },
+        "summary": null,
+        "tool_call_count": 2,
+        "total_api_duration_ms": 10000,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 0.5,
+        "total_nano_aiu": null,
+        "total_premium_requests": 5.0,
+        "total_tokens": 1500,
+        "truncation_count": 0,
+        "turn_count": 1,
+        "updated_at": null,
+        "workspace_mtime": null
+      },
+      {
+        "analytics_version": 17,
+        "branch": null,
+        "compaction_count": 0,
+        "copilot_version": null,
+        "created_at": null,
+        "current_model": null,
+        "cwd": null,
+        "error_count": 0,
+        "event_count": null,
+        "events_mtime": null,
+        "events_size": null,
+        "host_type": null,
+        "id": "00000000-0000-4000-8000-000000000002",
+        "indexed_at": "<wall-clock>",
+        "lines_added": null,
+        "lines_removed": null,
+        "path": "<sessions>/00000000-0000-4000-8000-000000000002",
+        "rate_limit_count": 0,
+        "repository": null,
+        "search_extractor_version": 4,
+        "search_indexed_at": "<wall-clock>",
+        "search_source_fingerprint": {
+          "json": null
+        },
+        "source_fingerprint": {
+          "json": {
+            "events": null,
+            "workspace": {
+              "modified": "<mtime>",
+              "size": 41
+            }
+          }
+        },
+        "summary": null,
+        "tool_call_count": null,
+        "total_api_duration_ms": null,
+        "total_compaction_input_tokens": 0,
+        "total_compaction_output_tokens": 0,
+        "total_cost": 0.0,
+        "total_nano_aiu": null,
+        "total_premium_requests": null,
+        "total_tokens": 0,
+        "truncation_count": 0,
+        "turn_count": null,
+        "updated_at": null,
+        "workspace_mtime": "<wall-clock>"
+      }
+    ]
+  }
+}

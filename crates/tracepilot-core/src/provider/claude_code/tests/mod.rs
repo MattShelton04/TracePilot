@@ -59,6 +59,9 @@ fn reparsed_events_reconstruct_identical_turns() {
         let reparsed = parse_typed_events(&path).unwrap();
         assert_eq!(reparsed.diagnostics.malformed_lines, 0, "{name}");
         assert_eq!(reparsed.events.len(), parsed.events.len(), "{name}");
+        for (a, b) in parsed.events.iter().zip(&reparsed.events) {
+            assert_eq!(a.raw.native, b.raw.native, "{name}: native record lost");
+        }
         let direct = serde_json::to_value(reconstruct_turns(&parsed.events)).unwrap();
         let again = serde_json::to_value(reconstruct_turns(&reparsed.events)).unwrap();
         assert_eq!(direct, again, "{name}: turns differ after a round trip");
@@ -70,7 +73,10 @@ fn ids_are_unique_stable_and_natives_align() {
     for (name, files) in all_fixtures() {
         let first = parse(&files);
         let second = parse(&files);
-        assert_eq!(first.natives.len(), first.events.len(), "{name}");
+        assert_eq!(first.positions.len(), first.events.len(), "{name}");
+        for (event, position) in first.events.iter().zip(&first.positions) {
+            assert_eq!(event.raw.native.is_some(), position.is_some(), "{name}");
+        }
         let ids: Vec<_> = first
             .events
             .iter()
@@ -104,11 +110,12 @@ fn no_image_base64_survives_anywhere() {
     assert!(parsed.diagnostics.sanitized_images >= 2);
     let raws: Vec<&RawEvent> = parsed.events.iter().map(|e| &e.raw).collect();
     let natives: Vec<_> = parsed
-        .natives
+        .events
         .iter()
-        .flatten()
-        .map(|n| n.record.to_string())
+        .filter_map(|e| e.raw.native.as_ref())
+        .map(|n| n.data.to_string())
         .collect();
+    assert!(!natives.is_empty());
     let haystacks = [
         events_to_jsonl(&raws),
         natives.join("\n"),

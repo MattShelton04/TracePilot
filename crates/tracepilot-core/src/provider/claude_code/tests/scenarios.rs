@@ -37,6 +37,7 @@ fn tool_hazards_map_to_one_turn_per_call() {
 
     let failed = tool_call(&turns, "toolu_t1");
     assert_eq!(failed.tool_name, "Bash");
+    assert_eq!(failed.native_tool_name.as_deref(), Some("Bash"));
     assert_eq!(failed.success, Some(false));
     assert!(failed.error.as_deref().unwrap().contains("Exit code 1"));
     assert_eq!(tool_call(&turns, "toolu_t2").success, Some(true));
@@ -140,6 +141,9 @@ fn subagents_attach_to_their_launching_calls() {
     assert_eq!(owner_of("Tests mapped.").as_deref(), Some("toolu_C"));
     assert_eq!(owner_of("Stray agent.").as_deref(), Some("agentD"));
 
+    let launch = tool_call(&turns, "toolu_A");
+    assert!(launch.is_subagent, "Agent maps to task with agent_type");
+    assert_eq!(launch.native_tool_name.as_deref(), Some("Agent"));
     let nested = tool_call(&turns, "toolu_C");
     assert!(nested.is_subagent);
     assert_eq!(nested.parent_tool_call_id.as_deref(), Some("toolu_A"));
@@ -189,11 +193,11 @@ fn rewound_branch_stays_out_of_conversation() {
     assert_eq!(prompts, ["Write a haiku.", "Make it about snow."]);
     assert_eq!(parsed.diagnostics.abandoned_records, 2);
     let abandoned: Vec<_> = parsed
-        .natives
+        .events
         .iter()
-        .flatten()
-        .filter(|n| n.abandoned)
-        .map(|n| n.record["type"].as_str().unwrap())
+        .zip(&parsed.positions)
+        .filter(|(_, position)| position.as_ref().is_some_and(|p| p.abandoned))
+        .map(|(event, _)| event.raw.native.as_ref().unwrap().record_type.as_str())
         .collect();
     assert_eq!(abandoned, ["user", "assistant"]);
 }
