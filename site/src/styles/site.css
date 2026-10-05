@@ -169,6 +169,20 @@ html[data-os="other"] .dl-other {
   background: rgba(255, 255, 255, 0.06);
   border-color: var(--border-emphasis);
 }
+/* second in line to Download: the live demo, which needs no install */
+.btn-secondary {
+  color: #e0e7ff;
+  background: var(--accent-subtle);
+  border: 1px solid var(--border-accent);
+}
+.btn-secondary:hover {
+  transform: translateY(-1px);
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(129, 140, 248, 0.75);
+}
+.btn-secondary .i {
+  color: #a5b4fc;
+}
 .btn-sm {
   height: 32px;
   padding: 0 14px;
@@ -322,8 +336,7 @@ html[data-os="other"] .dl-other {
   color: var(--text-secondary);
   max-width: 40em;
 }
-.lede code,
-.fine code {
+.lede code {
   font-size: 0.88em;
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.05);
@@ -754,47 +767,63 @@ html.pin #winOpen {
   flex-wrap: wrap;
   justify-content: center;
 }
-.hero-meta {
-  margin-top: 18px;
+/* Trust row: latest release, licence, stars. Count slots stay empty until worth showing
+   (SHOW_COUNTS_FROM in scripts/html-facts.mjs). */
+.trust {
+  margin-top: 20px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--text-tertiary);
-  flex-wrap: wrap;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.copy-chip {
+.trust-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 26px;
-  padding: 0 8px 0 9px;
-  background: transparent;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
   border: 1px solid var(--border-muted);
-  border-radius: 7px;
-  color: var(--text-tertiary);
-  cursor: pointer;
+  border-radius: 999px;
+  background: rgba(9, 9, 11, 0.5);
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
   transition:
     border-color 160ms ease,
     color 160ms ease;
 }
-.copy-chip code {
-  color: var(--text-primary);
-  font-size: 12px;
-}
-.copy-chip .i {
-  width: 13px;
-  height: 13px;
-}
-.copy-chip:hover {
+a.trust-pill:hover {
   border-color: var(--border-emphasis);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
-.copy-chip.is-copied::after {
-  content: "copied";
-  font-size: 11.5px;
-  color: var(--success-fg);
+.trust-pill .i {
+  width: 14px;
+  height: 14px;
+  color: var(--text-tertiary);
+}
+.trust-pill .mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+[data-count=""],
+.count:empty {
+  display: none;
+}
+.count {
+  margin-left: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-default);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success-fg);
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.16);
 }
 
 html.pin .hero-copy {
@@ -847,13 +876,13 @@ html.motion.fonts .hero-title .line > span {
 html.motion.fonts .hero-title .line + .line > span {
   animation-delay: 0.28s;
 }
-html.motion.fonts :is(.hero-sub, .hero-ctas, .hero-meta) {
+html.motion.fonts :is(.hero-sub, .hero-ctas, .trust) {
   animation: hero-rise 0.9s var(--ease-out-expo) 0.45s backwards;
 }
 html.motion.fonts .hero-ctas {
   animation-delay: 0.53s;
 }
-html.motion.fonts .hero-meta {
+html.motion.fonts .trust {
   animation-delay: 0.61s;
 }
 html.pin:not(.ready) #open .stage {
@@ -867,7 +896,7 @@ html.pin.ready #open .stage {
   .hero-eye {
     width: clamp(110px, 18vh, 200px);
   }
-  .hero-meta {
+  .trust {
     display: none;
   }
   .hero-sub {
@@ -925,6 +954,134 @@ html.pin.ready #open .stage {
   padding: 6px 12px;
   border: 1px solid var(--border-muted);
   border-radius: 999px;
+}
+
+/* Export, led by Markdown: the copy and use cases beside an excerpt of a real export */
+.export-band {
+  margin-top: 36px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  align-items: center;
+  gap: 28px 56px;
+  padding: 32px 36px;
+  border: 1px solid var(--border-muted);
+  border-radius: 14px;
+  background: linear-gradient(160deg, #111114 0%, #0b0b0d 60%);
+}
+.eb-k {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.eb-k .i,
+.eb-uses .i {
+  width: 15px;
+  height: 15px;
+  color: var(--accent-fg);
+}
+.eb-copy h3 {
+  margin: 10px 0 10px;
+  font-size: 26px;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+.eb-copy > p:not([class]) {
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+.eb-copy code {
+  font-size: 0.9em;
+  color: var(--text-primary);
+}
+.eb-uses {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.eb-uses li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 1px 12px;
+  align-items: start;
+}
+.eb-uses .i {
+  grid-row: span 2;
+  width: 30px;
+  height: 30px;
+  padding: 7px;
+  border-radius: 8px;
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.25);
+}
+.eb-uses b {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.eb-uses span {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+.eb-file {
+  margin: 0;
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: var(--canvas-inset);
+  box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+.eb-file figcaption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.eb-file figcaption .i {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.eb-file pre {
+  margin: 0;
+  padding: 16px 18px 18px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  /* the excerpt trails off rather than ending on a cut line */
+  mask-image: linear-gradient(180deg, #000 82%, transparent);
+}
+.eb-file b,
+.eb-file i {
+  font-style: normal;
+  font-weight: inherit;
+}
+.eb-file .md-h {
+  color: #c7d2fe;
+  font-weight: 600;
+}
+.eb-file .md-q {
+  color: var(--text-tertiary);
+}
+.eb-file .md-e {
+  color: #a78bfa;
+}
+.eb-file .md-s {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 /* ---------- Live demo ---------- */
@@ -1213,6 +1370,357 @@ html.pin.ready #open .stage {
   color: var(--text-tertiary);
   max-width: 46em;
   text-wrap: balance;
+}
+.fine a {
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-decoration-color: var(--border-emphasis);
+  text-underline-offset: 3px;
+}
+.fine a:hover {
+  color: var(--text-primary);
+  text-decoration-color: currentColor;
+}
+
+/* The latest release's notes: momentum without raw counts */
+.release-card {
+  margin-top: 40px;
+  width: min(640px, 100%);
+  padding: 18px 20px;
+  border: 1px solid var(--border-muted);
+  border-radius: 14px;
+  background: rgba(12, 12, 15, 0.72);
+  text-align: left;
+}
+.release-card:has(.rc-list:empty) {
+  display: none;
+}
+.rc-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 13.5px;
+}
+.rc-k {
+  font-weight: 600;
+}
+.rc-k .mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--accent-fg);
+}
+.rc-when {
+  color: var(--text-tertiary);
+}
+.rc-link {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+.rc-link:hover {
+  color: var(--text-primary);
+}
+.rc-link .i {
+  width: 13px;
+  height: 13px;
+}
+.rc-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rc-list li {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(129, 140, 248, 0.22);
+  background: var(--accent-subtle);
+}
+.rc-foot {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+.rc-foot:empty {
+  display: none;
+}
+
+/* ---------- Build-from-source dialog ---------- */
+.src-dialog {
+  width: min(680px, 100% - 32px);
+  max-height: min(860px, 100dvh - 48px);
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: linear-gradient(160deg, #131317 0%, #0b0b0d 65%);
+  color: var(--text-primary);
+  box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.95);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(12px) scale(0.985);
+  transition:
+    opacity 220ms ease,
+    transform 320ms var(--ease-out-expo),
+    overlay 320ms allow-discrete,
+    display 320ms allow-discrete;
+}
+.src-dialog[open] {
+  display: flex;
+  opacity: 1;
+  transform: none;
+}
+@starting-style {
+  .src-dialog[open] {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+}
+.src-dialog::backdrop {
+  background: rgba(5, 5, 7, 0);
+  backdrop-filter: blur(0);
+  transition:
+    background-color 260ms ease,
+    backdrop-filter 260ms ease,
+    overlay 320ms allow-discrete,
+    display 320ms allow-discrete;
+}
+.src-dialog[open]::backdrop {
+  background: rgba(5, 5, 7, 0.72);
+  backdrop-filter: blur(6px);
+}
+@starting-style {
+  .src-dialog[open]::backdrop {
+    background: rgba(5, 5, 7, 0);
+    backdrop-filter: blur(0);
+  }
+}
+.sd-panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 30px 32px 26px;
+}
+.sd-head {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding-right: 40px;
+}
+.sd-head h2 {
+  font-size: 30px;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.sd-lede {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+.sd-close {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: rgba(24, 24, 27, 0.8);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease;
+}
+.sd-close:hover {
+  color: var(--text-primary);
+  border-color: var(--border-emphasis);
+}
+.sd-close .i {
+  width: 16px;
+  height: 16px;
+}
+.sd-steps {
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 0;
+  counter-reset: step;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+}
+.sd-steps > li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 42px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.sd-steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: -2px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #c7d2fe;
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.4);
+}
+/* the line that joins the step numbers */
+.sd-steps > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 12.5px;
+  top: 30px;
+  bottom: -18px;
+  width: 1px;
+  background: var(--border-muted);
+}
+.sd-steps h3 {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+.sd-steps p + .sd-cmd,
+.sd-steps .sd-cmd + p {
+  margin-top: 10px;
+}
+.sd-steps a,
+.sd-foot a {
+  color: var(--accent-fg);
+  text-underline-offset: 3px;
+}
+.sd-steps a:hover,
+.sd-foot a:hover {
+  text-decoration: underline;
+}
+.sd-reqs {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.sd-reqs li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+}
+.sd-reqs b {
+  color: var(--text-primary);
+  font-weight: 550;
+}
+.sd-os {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.sd-os > div {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-muted);
+  background: rgba(255, 255, 255, 0.015);
+}
+.sd-os h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+.sd-os p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.sd-os b {
+  color: var(--text-primary);
+  font-weight: 550;
+}
+/* the visitor's platform first (html[data-os], set by the head script) */
+html[data-os="mac"] .os-mac {
+  order: -1;
+}
+.sd-foot {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 13.5px;
+}
+.sd-cmd {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  border-radius: 9px;
+  border: 1px solid var(--border-muted);
+  background: var(--canvas-inset);
+}
+.sd-cmd pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 14px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+.sd-copy {
+  flex: none;
+  margin: 4px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+.sd-copy:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+.sd-copy .i {
+  width: 14px;
+  height: 14px;
+}
+.sd-copy.is-copied {
+  color: var(--success-fg);
+}
+.sd-copy.is-copied::after {
+  content: "Copied";
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--canvas-inset);
+  font-size: 11.5px;
+  color: var(--success-fg);
+  pointer-events: none;
 }
 
 .footer {
@@ -1538,6 +2046,28 @@ html.pin.ready #open .stage {
   .footer-links {
     justify-content: flex-start;
   }
+  .export-band {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 22px 18px;
+  }
+  .eb-copy h3 {
+    font-size: 22px;
+  }
+  .eb-file pre {
+    font-size: 11px;
+  }
+  .sd-panel {
+    padding: 24px 20px 20px;
+  }
+  .sd-head h2 {
+    font-size: 26px;
+  }
+  .sd-steps > li {
+    padding-left: 38px;
+  }
+  .sd-os {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .tour-pill {
     width: calc(100% - 32px);
   }
@@ -1551,6 +2081,12 @@ html.pin.ready #open .stage {
   .tp-ctrls {
     padding-left: 6px;
     gap: 2px;
+  }
+}
+/* phones: the hero's own "Try the live demo" stands in for the nav button, which no longer fits */
+@media (max-width: 479px) {
+  .nav-demo {
+    display: none;
   }
 }
 @media (max-width: 420px) {

@@ -2,6 +2,10 @@
 import "./styles/index.css";
 import { mqDesk, mqReduce } from "./motion/env.js";
 import { wire } from "./motion/wire.js";
+import { initPage } from "./page.js";
+
+// copy buttons, the build-from-source dialog and release dates need no layout: ready at once
+initPage();
 
 // a breakpoint or motion-preference change needs a different layout: rebuild cleanly
 const reload = () => location.reload();
