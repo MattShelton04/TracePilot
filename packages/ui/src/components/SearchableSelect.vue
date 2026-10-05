@@ -68,7 +68,9 @@ function openDropdown() {
 }
 
 function close() {
+  if (!isOpen.value) return;
   isOpen.value = false;
+  selectedIndex.value = -1;
   if (!searchQuery.value && props.clearable) {
     if (props.modelValue !== "") {
       emit("update:modelValue", "");
@@ -84,16 +86,14 @@ function selectOption(option: string) {
   searchQuery.value = option;
   emit("update:modelValue", option);
   isOpen.value = false;
-  inputRef.value?.blur();
 }
 
 function clear(e: Event) {
+  if (props.disabled) return;
   e.stopPropagation();
   searchQuery.value = "";
   emit("update:modelValue", "");
-  if (!isOpen.value) {
-    inputRef.value?.focus();
-  }
+  inputRef.value?.focus();
 }
 
 function handleInput() {
@@ -104,7 +104,7 @@ function handleInput() {
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (!isOpen.value && e.key !== "Escape" && e.key !== "Tab") {
+  if (!isOpen.value) {
     if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") {
       openDropdown();
       e.preventDefault();
@@ -120,15 +120,17 @@ function handleKeydown(e: KeyboardEvent) {
       break;
     case "ArrowUp":
       e.preventDefault();
-      selectedIndex.value = Math.max(selectedIndex.value - 1, 0);
+      selectedIndex.value = filteredOptions.value.length
+        ? Math.max(selectedIndex.value - 1, 0)
+        : -1;
       scrollIntoView();
       break;
     case "Enter":
       e.preventDefault();
-      if (!searchQuery.value && props.clearable) {
-        selectOption("");
-      } else if (selectedIndex.value >= 0) {
+      if (selectedIndex.value >= 0 && selectedIndex.value < filteredOptions.value.length) {
         selectOption(filteredOptions.value[selectedIndex.value]);
+      } else if (!searchQuery.value && props.clearable) {
+        selectOption("");
       } else if (filteredOptions.value.length === 1 && !props.allowCustom && searchQuery.value) {
         selectOption(filteredOptions.value[0]);
       } else if (props.allowCustom && searchQuery.value) {
@@ -137,8 +139,11 @@ function handleKeydown(e: KeyboardEvent) {
       break;
     case "Escape":
       e.preventDefault();
-      close();
-      inputRef.value?.blur();
+      e.stopPropagation();
+      inputRef.value?.focus();
+      isOpen.value = false;
+      selectedIndex.value = -1;
+      searchQuery.value = props.modelValue;
       break;
   }
 }
@@ -164,6 +169,17 @@ function handleClickOutside(e: MouseEvent) {
   }
 }
 
+function handleFocusOut(e: FocusEvent) {
+  const target = e.relatedTarget;
+  if (
+    target instanceof Node &&
+    (containerRef.value?.contains(target) || dropdownRef.value?.contains(target))
+  ) {
+    return;
+  }
+  close();
+}
+
 function handleScrollOrResize() {
   if (isOpen.value) updateDropdownPosition();
 }
@@ -186,7 +202,7 @@ watch(filteredOptions, () => {
 </script>
 
 <template>
-  <div ref="containerRef" class="searchable-select" :class="{ 'is-open': isOpen, 'is-disabled': disabled }">
+  <div ref="containerRef" class="searchable-select" :class="{ 'is-open': isOpen, 'is-disabled': disabled }" @focusout="handleFocusOut" @keydown.esc="handleKeydown">
     <div class="select-trigger-wrapper">
       <input
         :id="inputId"
@@ -203,10 +219,13 @@ watch(filteredOptions, () => {
       <span class="trigger-actions">
         <button
           v-if="clearable && searchQuery"
+          type="button"
           class="clear-btn"
           title="Clear selection"
           aria-label="Clear selection"
-          @mousedown.prevent="clear"
+          :disabled="disabled"
+          @mousedown.prevent
+          @click="clear"
         >
           <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
         </button>
@@ -217,7 +236,7 @@ watch(filteredOptions, () => {
     </div>
 
     <Teleport to="body">
-      <div v-if="isOpen" ref="dropdownRef" class="tp-select-dropdown" :style="dropdownStyle">
+      <div v-if="isOpen" ref="dropdownRef" class="tp-select-dropdown" :style="dropdownStyle" @focusout="handleFocusOut">
         <div ref="listRef" class="options-list">
           <div
             v-for="(opt, idx) in filteredOptions"
@@ -310,9 +329,19 @@ watch(filteredOptions, () => {
   flex-shrink: 0;
 }
 
-.clear-btn:hover {
+.clear-btn:hover:not(:disabled) {
   color: var(--text-primary);
   background: var(--neutral-subtle);
+}
+
+.clear-btn:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
+}
+
+.clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
 
