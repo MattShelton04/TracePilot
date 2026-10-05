@@ -14,6 +14,14 @@ For synthetic fixtures and focused capture commands, see
 [visual regression](docs/visual-regression.md). Keep renderer fixture coverage
 current when adding rich tools; keep one-off stress data and captures untracked.
 
+# Autonomous improvement tasks
+
+Reusable task cards for autonomous agents live in [docs/agents](docs/agents/README.md).
+Launch one with `Read docs/agents/tasks/<card>.md and follow it.` The shared rules
+(isolated named app instances, proportionate verification, PR format) are in
+[docs/agents/protocol.md](docs/agents/protocol.md). When several agents share this
+machine, start the app with `pnpm app:start -Instance <name> -Fixtures`.
+
 # Repository notes
 
 For site work, read [the landing-page guide](docs/landing-page.md) and run `pnpm site:check` after building.
