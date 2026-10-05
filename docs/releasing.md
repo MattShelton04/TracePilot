@@ -33,8 +33,8 @@ Feature work or fixes found along the way belong in their own PRs.
    .\scripts\bump-version.ps1 -Version X.Y.Z
    ```
 
-   Requires pnpm and `cargo-edit` (`cargo install cargo-edit`). Ignore the
-   script's printed next steps; this guide replaces them.
+   Requires pnpm and `cargo-edit` (`cargo install cargo-edit`). The script
+   prints a short reminder of the remaining steps in this guide.
 4. **Write `CHANGELOG.md`.** Insert `## [X.Y.Z] - <today>` directly below
    `## [Unreleased]`, leaving `[Unreleased]` empty. Group entries under
    `### Added`, `### Changed` and `### Fixed` (omit empty groups).

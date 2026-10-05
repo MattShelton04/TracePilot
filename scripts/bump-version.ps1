@@ -55,16 +55,10 @@ cargo check --workspace --quiet
 if ($LASTEXITCODE -ne 0) { Write-Error "cargo check failed. Resolve the errors before releasing."; exit 1 }
 Write-Host "  ✓ Cargo.lock updated" -ForegroundColor Green
 
-# 4. Show next steps (do NOT auto-commit — let developer review CHANGELOG first)
+# 4. Show next steps (do NOT auto-commit — the release notes come next)
 Write-Host ""
-Write-Host "Version bumped to $Version. Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Update CHANGELOG.md: rename [Unreleased] -> [$Version] - $(Get-Date -Format 'yyyy-MM-dd')"
-Write-Host "  2. Add a new empty [Unreleased] section at the top"
-Write-Host "  3. Update apps/desktop/public/release-manifest.json with release notes"
-Write-Host "  4. Run: git checkout -b release/v$Version"
-Write-Host "  5. Run: git add -A && git commit -m 'chore: release v$Version'"
-Write-Host "  6. Run: git push -u origin release/v$Version"
-Write-Host "  7. Open a PR to main, let CI pass, then merge"
-Write-Host "  8. Run: git checkout main && git pull"
-Write-Host "  9. Run: git tag -s v$Version -m 'Release v$Version'"
-Write-Host " 10. Run: git push --tags"
+Write-Host "Version bumped to $Version. Continue with docs/releasing.md:" -ForegroundColor Yellow
+Write-Host "  1. CHANGELOG.md: add [$Version] - $(Get-Date -Format 'yyyy-MM-dd') below an empty [Unreleased]"
+Write-Host "  2. apps/desktop/public/release-manifest.json: add the $Version entry and reset 'unreleased'"
+Write-Host "  3. Validate, commit 'chore: release v$Version', push the release branch and open a PR to main"
+Write-Host "  4. After merge: tag the merged commit v$Version and push only that tag"
