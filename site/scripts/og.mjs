@@ -25,8 +25,10 @@ try {
   await page.evaluate(() => document.fonts.ready);
   // let the trace field converge and the eye blink before capturing
   await page.waitForTimeout(4500);
-  // no nav, and no version number that would go stale after the next release
-  await page.addStyleTag({ content: ".nav, .hero-eyebrow { visibility: hidden !important; }" });
+  // no nav, and no release pill (version and date) that would go stale after the next release
+  await page.addStyleTag({
+    content: ".nav { visibility: hidden !important; } .trust-release { display: none !important; }",
+  });
   await page.screenshot({ path: join(root, "public/og.png") });
   console.log("wrote site/public/og.png");
 } finally {

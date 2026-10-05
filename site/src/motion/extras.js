@@ -65,7 +65,7 @@ export function initNav() {
     end: "max",
     onUpdate: (st) => gsap.set(bar, { scaleX: st.progress }),
   });
-  $$(".nav-links a").forEach((a) => {
+  $$(".nav-links a[href^='#']").forEach((a) => {
     const sec = $(a.getAttribute("href"));
     if (!sec) return;
     ScrollTrigger.create({
@@ -95,16 +95,6 @@ export function initNav() {
     const el = document.getElementById(location.hash.slice(1));
     if (el) scrollTo(0, anchorY(el));
   }
-  $$(".copy-chip").forEach((b) => {
-    b.addEventListener("click", () => {
-      (navigator.clipboard
-        ? navigator.clipboard.writeText(b.dataset.copy)
-        : Promise.reject()
-      ).catch(() => {});
-      b.classList.add("is-copied");
-      setTimeout(() => b.classList.remove("is-copied"), 1600);
-    });
-  });
 }
 
 export function initEye() {

@@ -20,3 +20,12 @@ export function dateTime(iso) {
   const h = d.getUTCHours();
   return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}, ${h % 12 || 12}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} ${h >= 12 ? "pm" : "am"}`;
 }
+
+const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+/** How long ago an ISO date was: "today", "yesterday", "8 days ago", "3 weeks ago", "2 months ago". */
+export function ago(iso, now = Date.now()) {
+  const days = Math.min(0, Math.round((Date.parse(iso) - now) / 864e5));
+  if (days > -14) return relative.format(days, "day");
+  if (days > -60) return relative.format(Math.round(days / 7), "week");
+  return relative.format(Math.round(days / 30.44), "month");
+}

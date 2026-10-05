@@ -253,6 +253,38 @@ async function checkDialog(page, where) {
   else fail(where, "focus did not return to the tile after closing the dialog");
 }
 
+/** Footer "Build from source" opens the steps in place; Escape closes them and focus returns. */
+async function checkSourceDialog(page, where) {
+  const link = page.locator(".footer a[data-source-dialog]");
+  await link.scrollIntoViewIfNeeded();
+  await link.click();
+  const dialog = page.locator("#sourceDialog");
+  await dialog.waitFor({ state: "visible", timeout: 4000 });
+  const state = await page.evaluate(() => {
+    const d = document.getElementById("sourceDialog");
+    const r = d.getBoundingClientRect();
+    return {
+      inside: d.contains(document.activeElement),
+      fits: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight,
+      overflow: d.querySelector(".sd-panel").scrollWidth - d.querySelector(".sd-panel").clientWidth,
+    };
+  });
+  if (!state.inside) fail(where, "focus did not move into the build-from-source dialog");
+  else if (!state.fits || state.overflow > 0)
+    fail(where, `build-from-source dialog does not fit (overflow ${state.overflow}px)`);
+  else ok("build-from-source dialog opens, fits and takes focus");
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "hidden", timeout: 4000 });
+  const back = await page.evaluate(
+    () =>
+      document.activeElement === document.querySelector(".footer a[data-source-dialog]") &&
+      !document.documentElement.classList.contains("has-dialog"),
+  );
+  if (back) ok("Escape closes it and returns focus to its link");
+  else
+    fail(where, "focus or scrolling was not restored after closing the build-from-source dialog");
+}
+
 async function checkDemo(page, where) {
   await page.evaluate(() => document.getElementById("demo").scrollIntoView());
   await page.locator("#demoHost .rp").waitFor({ timeout: 8000 });
@@ -339,6 +371,7 @@ async function run() {
       await screenshots(page, vp);
       if (vp.full) {
         await checkDialog(page, vp.name);
+        await checkSourceDialog(page, vp.name);
         await checkDemo(page, vp.name);
         if (!vp.mobile) await checkTour(page, vp.name);
       }

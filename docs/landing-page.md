@@ -32,8 +32,8 @@ viewports: 1440×960 first, then 960×640, 2560×1440, 390×844 and 1440×960 wi
 motion. It covers both pages for console/page errors, failed or cross-origin
 requests (other than the analytics beacon), HTTP errors and overflow; checks
 the beacon is present exactly when `CF_BEACON_TOKEN` is set; verifies five desktop pins and no mobile or
-reduced-motion pins; exercises dialog focus/Escape, the Search demo step and
-wheel cancellation of the tour. Reduced motion keeps the hero visible and
+reduced-motion pins; exercises bento and build-from-source dialog focus/Escape,
+the Search demo step and wheel cancellation of the tour. Reduced motion keeps the hero visible and
 disables the tour. It saves 50 section screenshots in ignored `site/.check/`.
 Review these images when changing layout or choreography.
 
@@ -56,7 +56,7 @@ pnpm --filter @tracepilot/site og
 pnpm site:build
 ```
 
-The generator uses port 4188 and hides navigation and the version label so the
+The generator uses port 4188 and hides navigation and the release pill so the
 image can survive release updates. Inspect `site/public/og.png` before committing.
 The browser scripts fail if their preview port is occupied.
 
@@ -118,10 +118,14 @@ fresh fixtures so validation tests also run on a clean checkout.
 
 [`release-data.mjs`](../site/scripts/release-data.mjs) reads GitHub's latest
 published release at build time, using `GITHUB_TOKEN` in CI; drafts and
-prereleases are never "latest". It records the Windows installer (the
+prereleases are never "latest". It records the release-note highlights (the bold
+"Added" entry titles, which mirror the CHANGELOG section) and the Windows installer (the
 `*_x64-setup.exe` NSIS installer, then the MSI, never the standalone binary)
-and the macOS `*_aarch64.dmg`, either of which may be missing. API failure falls
-back to the root package version with no installers, with a warning. Local
+and the macOS `*_aarch64.dmg`, either of which may be missing. It also records repository
+stats: stars, installer downloads summed over every release (`.exe`, `.msi`,
+`.dmg`, not updater metadata) and the release count since the first release.
+API failure falls back to the root package version with no installers, with a
+warning; stats fail separately and leave the page without cadence or counts. Local
 release data is cached for six hours; use
 `pnpm --filter @tracepilot/site exec node scripts/release-data.mjs --refresh`
 to refresh it. CI always refreshes. The page makes no runtime API calls; its
@@ -159,6 +163,37 @@ social tags. Relative asset URLs (`base: './'`) work under `/TracePilot/`.
 `robots.txt` at the project path does not control the host's root crawler rules.
 See the [dependency inventory](dependencies/javascript.md#sitepackagejson)
 for the GSAP licence and the site's direct dependencies.
+
+### Calls to action and social proof
+
+The hero's calls to action are Download, View on GitHub and Watch the tour; the
+closing section has Download and Star on GitHub. The live demo is the accented
+"Live demo" link at the end of the nav's section links. Like the others it
+scrolls to its section, whose "Full screen" link opens `demo/` in a new tab. It
+stays when the other section links collapse below 1240px and is hidden below
+520px, where the nav has no room.
+
+Links that open a new tab get the `ext` class (a trailing arrow) and sr-only
+"(opens in a new tab)" text; add both when adding one.
+
+The hero's trust row and the closing release card show momentum rather than raw
+counts: the version with its release date (`[data-released]`, turned into
+"released 8 days ago" by `src/page.js`), the licence, the latest release's highlights and the release cadence. Stars (on the GitHub buttons) and downloads (in the trust row)
+are filled in at build time but stay empty, and hidden, until they reach
+`SHOW_COUNTS_FROM` in [`html-facts.mjs`](../site/scripts/html-facts.mjs)
+(100 stars, 1,000 downloads). The next build after a count crosses its threshold
+shows it with no other change; edit a threshold to show or hide a count sooner.
+Short desktop viewports (under 780px tall) hide the trust row, as they did the
+line it replaced, so the library window stays in view.
+
+"Build from source" in the closing section and the footer opens a `<dialog>`
+with the prerequisites and commands; without JavaScript the links go to the
+README. Keep its steps aligned with README "Option C", the root `engines` and
+`packageManager` fields and `.node-version`.
+
+The export band in "And the rest" leads with Markdown. Its excerpt follows the
+real renderer (`crates/tracepilot-export/src/render/markdown`) and file name
+(`buildExportFilename`); update it if either changes.
 
 ### Analytics
 
@@ -218,11 +253,12 @@ is supplied because it would affect gallery misses too.
 
 | Change | How the site updates |
 | --- | --- |
-| Published release | Successful `Release` completion triggers a rebuild with the latest version and installers. Publishing is that workflow's last job, so the release is live before the rebuild reads it; a version-bump merge rebuilds earlier but still sees the previous release. A release published by hand from a draft does not trigger a rebuild; dispatch the Site workflow. |
+| Published release | Successful `Release` completion triggers a rebuild with the latest version, highlights, installers and stats. Publishing is that workflow's last job, so the release is live before the rebuild reads it; a version-bump merge rebuilds earlier but still sees the previous release. A release published by hand from a draft does not trigger a rebuild; dispatch the Site workflow. |
 | Showcase fixtures or shared pricing/types | Matching main push rebuilds figures/charts; incompatible fixture shapes fail validation. |
 | App tokens or assets | Matching main push rebuilds the directly imported assets. |
 | Site source, build configuration or budgets | PR build/check artifacts support review; merging to main deploys. |
 | App view layout | Manual renderer updates using the view map above, reviewed through screenshots. |
+| Stars or downloads reach `SHOW_COUNTS_FROM` | The next build (any release, site change or dispatch) shows the count. |
 | Illustrative agent-definition usage | Manual update to `AGENT_RUNS` in `src/data.js`. |
 | Concurrent visual publication | Shared deploy concurrency and fetch/reapply retries preserve both publishers' changes. |
 | Manual refresh | Dispatch the Site workflow on main. |

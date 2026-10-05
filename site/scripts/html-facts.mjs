@@ -28,6 +28,49 @@ const fmtK = (n) => {
   return String(Math.round(n));
 };
 
+/**
+ * Raw counts work against a young project, so the page leaves them out until they pass these
+ * thresholds; the next build after that shows them with no other change. Lower a threshold to 0
+ * to show a count now, or raise it to Infinity to keep it hidden.
+ */
+export const SHOW_COUNTS_FROM = { stars: 100, downloads: 1000 };
+
+const MONTHS =
+  "January February March April May June July August September October November December".split(
+    " ",
+  );
+const day = (iso) => {
+  const d = new Date(iso);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)} ${d.getUTCFullYear()}`;
+};
+const month = (iso) => {
+  const d = new Date(iso);
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+};
+const esc = (s) =>
+  s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+/** Momentum and credibility facts from the release data; empty strings leave an element out. */
+export function socialFacts(r) {
+  const s = r.stats;
+  const shown = (key) => (s && s[key] >= SHOW_COUNTS_FROM[key] ? fmtK(s[key]) : "");
+  const downloads = shown("downloads");
+  return {
+    // the page turns this into "released 8 days ago" (src/page.js)
+    releaseDate: r.publishedAt ?? "",
+    releaseWhen: r.publishedAt ? `released ${day(r.publishedAt)}` : "latest release",
+    releaseHighlights: (r.highlights ?? [])
+      .map((h) => `<li>${esc(h.replaceAll("`", ""))}</li>`)
+      .join(""),
+    releaseCadence:
+      s?.releases > 1 && s.firstReleaseAt
+        ? `${s.releases} releases since ${month(s.firstReleaseAt)}`
+        : "",
+    starCount: shown("stars"),
+    downloadCount: downloads && `${downloads} downloads`,
+  };
+}
+
 export function htmlFacts(showcaseFile, releaseFile, _mode) {
   const d = JSON.parse(readFileSync(showcaseFile, "utf8"));
   const r = JSON.parse(readFileSync(releaseFile, "utf8"));
@@ -38,6 +81,7 @@ export function htmlFacts(showcaseFile, releaseFile, _mode) {
     version: r.version,
     // download links point here until the head script picks this visitor's installer
     releaseUrl: r.page,
+    ...socialFacts(r),
     platforms: r.installers.macos ? "Windows and macOS (Apple Silicon)" : "Windows",
     sessionCount: String(d.sessionCount),
     turnCount: String(d.heroContextTimeline.turnCount),
