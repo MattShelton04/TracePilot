@@ -10,17 +10,38 @@ param(
     [switch]$SkipBuild,
     [ValidateRange(0, 65535)][int]$Port = 0,
     [ValidateRange(0, 65535)][int]$UiPort = 0,
-    [ValidateRange(1, 3600)][int]$TimeoutSeconds = 600
+    [ValidateRange(1, 3600)][int]$TimeoutSeconds = 600,
+    [string]$Instance = '',
+    [switch]$Fixtures,
+    [switch]$FirstRun,
+    [switch]$All
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+. (Join-Path $PSScriptRoot 'registry.ps1')
 $runtimeDir = Join-Path $repoRoot '.tracepilot/automation'
+if ($Instance) {
+    # A named instance owns its lifecycle state, default data root and CLI session,
+    # so several agents can run side by side without hand-picked paths.
+    if ($Instance -cnotmatch '^[a-z0-9][a-z0-9-]{0,31}$') {
+        throw '-Instance must be 1-32 lowercase letters, digits or hyphens, starting with a letter or digit.'
+    }
+    if ($StateDirectory) { throw 'Use either -Instance or -StateDirectory, not both.' }
+    $runtimeDir = Join-Path $repoRoot ".tracepilot/instances/$Instance"
+    if (-not $DataRoot -and $Mode -eq 'desktop') { $DataRoot = Join-Path $runtimeDir 'data' }
+}
 if ($StateDirectory) {
     if (-not [IO.Path]::IsPathRooted($StateDirectory)) { throw '-StateDirectory must be absolute.' }
     $runtimeDir = [IO.Path]::GetFullPath($StateDirectory)
 }
 $statePath = Join-Path $runtimeDir "$Mode.json"
-$session = "tracepilot-$Mode"
+$session = if (-not $Instance) { "tracepilot-$Mode" } elseif ($Mode -eq 'ui') { "tracepilot-$Instance-ui" } else { "tracepilot-$Instance" }
+if ($Action -eq 'start' -and $Fixtures -and ($Mode -ne 'desktop' -or -not $DataRoot)) {
+    throw '-Fixtures requires desktop mode with -Instance or an isolated -DataRoot.'
+}
+if ($Action -eq 'start' -and $FirstRun -and -not $Fixtures) {
+    throw '-FirstRun requires -Fixtures; a data root without fixtures already opens the setup wizard.'
+}
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 if ($Action -eq 'start' -and $SkipBuild -and $Runtime -ne 'production') {
     throw "-SkipBuild is valid only with -Runtime production."
@@ -84,6 +105,26 @@ function Get-ResolvedPaths([string]$Root) {
     }
 }
 
+# Marks setup complete for a fixture data root so the app opens on its sessions.
+# An existing config is kept, so settings changed in the app survive restarts.
+function Write-CompletedSetupConfig($Paths) {
+    if (Test-Path -LiteralPath $Paths.config) { return }
+    New-Item -ItemType Directory -Force -Path $Paths.tracepilotHome | Out-Null
+    $quote = { param($Value) ConvertTo-Json ([string]$Value) }
+    $toml = @(
+        'version = 11'
+        '[paths]'
+        "copilotHome = $(& $quote $Paths.copilotHome)"
+        "tracepilotHome = $(& $quote $Paths.tracepilotHome)"
+        "sessionStateDir = $(& $quote $Paths.sessionState)"
+        "indexDbPath = $(& $quote $Paths.index)"
+        '[general]'
+        'setupComplete = true'
+        ''
+    ) -join "`n"
+    [IO.File]::WriteAllText($Paths.config, $toml, [Text.UTF8Encoding]::new($false))
+}
+
 function Write-Json($Path, $Value) {
     [IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
 }
@@ -124,13 +165,30 @@ function Stop-OwnedProcesses($State) {
     }
 }
 
-function Get-FreePort([int]$First, [int]$Last, [int]$Exclude = 0) {
+function Get-FreePort([int]$First, [int]$Last, [int]$Exclude = 0, [int[]]$Reserved = @()) {
     for ($candidate = $First; $candidate -le $Last; $candidate++) {
-        if ($candidate -eq $Exclude) { continue }
+        if ($candidate -eq $Exclude -or $Reserved -contains $candidate) { continue }
         $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $candidate)
         try { $listener.Start(); return $candidate } catch { } finally { $listener.Stop() }
     }
     throw "No free loopback port in $First-$Last. No existing process was stopped."
+}
+
+function Save-OwnedProcesses {
+    Write-Json $statePath $script:state
+    # The machine-wide claim stays alive through these records after this launcher exits.
+    if ($script:claim) {
+        $script:claim.processes = $script:state.processes
+        $registryLock = Enter-RegistryLock
+        try { Save-Claim $script:claim } finally { $registryLock.Dispose() }
+    }
+}
+
+function Invoke-Readiness($Endpoint, $InstanceId) {
+    $arguments = @((Join-Path $PSScriptRoot 'ready.mjs'), $Endpoint)
+    if ($InstanceId) { $arguments += $InstanceId }
+    & node @arguments | Out-Host
+    return $LASTEXITCODE -eq 0
 }
 
 function Start-Node($Entry, $Arguments, $Name) {
@@ -148,7 +206,7 @@ function Start-Node($Entry, $Arguments, $Name) {
     $process = Get-Process -Id $process.Id
     $record = @{ pid = $process.Id; started = $process.StartTime.ToUniversalTime().Ticks.ToString(); executable = $process.Path }
     $script:state.processes += $record
-    Write-Json $statePath $script:state
+    Save-OwnedProcesses
 }
 
 function Start-NativeApp($Executable, $Name) {
@@ -162,7 +220,7 @@ function Start-NativeApp($Executable, $Name) {
     $process = Get-Process -Id $process.Id
     $record = @{ pid = $process.Id; started = $process.StartTime.ToUniversalTime().Ticks.ToString(); executable = $process.Path }
     $script:state.processes += $record
-    Write-Json $statePath $script:state
+    Save-OwnedProcesses
 }
 
 function Build-ProductionApp {
@@ -180,6 +238,7 @@ function Build-ProductionApp {
 
 function Show-Connection($State) {
     Write-Host "Mode: $Mode | Runtime: $($State.runtime) | UI: $($State.url) | Logs: $runtimeDir"
+    if ($State.instanceName) { Write-Host "Instance: $($State.instanceName) | stop with: pnpm app:stop -Instance $($State.instanceName)$(if ($Mode -eq 'ui') { ' -Mode ui' })" }
     if ($Mode -eq 'desktop') {
         if ($State.dataRoot) {
             Write-Host "Real Tauri backend with isolated application data."
@@ -199,6 +258,8 @@ function Show-Connection($State) {
     Write-Host "pnpm exec playwright-cli -s=$session snapshot --filename=.playwright-cli/current.yml"
 }
 
+if ($Action -eq 'status' -and $All) { Show-AllInstances; exit 0 }
+
 # Serialize start/stop/status for this mode, including slow first builds.
 try { $lock = [IO.File]::Open((Join-Path $runtimeDir "$Mode.lock"), 'OpenOrCreate', 'ReadWrite', 'None') }
 catch { throw "Another $Mode lifecycle command is running. Logs: $runtimeDir" }
@@ -207,6 +268,7 @@ try {
     if ($Action -eq 'stop') {
         if ($state) {
             Stop-OwnedProcesses $state
+            Remove-Claim $state.instanceId
             Remove-Item -LiteralPath $statePath -Force
         }
         Write-Host "Stopped tracked $Mode processes. Browser sessions can be detached/closed separately."
@@ -234,8 +296,7 @@ try {
                 }
             }
             if ($Mode -eq 'desktop') {
-                & node (Join-Path $PSScriptRoot 'ready.mjs') $state.endpoint
-                if ($LASTEXITCODE -ne 0) { throw "Tracked desktop is not ready. Inspect logs or run pnpm app:stop." }
+                if (-not (Invoke-Readiness $state.endpoint $state.instanceId)) { throw "Tracked desktop is not ready. Inspect logs or run pnpm app:stop." }
             } else {
                 Invoke-WebRequest -UseBasicParsing -Uri $state.url -TimeoutSec 5 | Out-Null
             }
@@ -244,6 +305,7 @@ try {
         }
         if ($Action -eq 'status') { throw "Tracked $Mode process has exited. Run pnpm app:stop$(if ($Mode -eq 'ui') { ' -Mode ui' })." }
         Stop-OwnedProcesses $state
+        Remove-Claim $state.instanceId
         Remove-Item -LiteralPath $statePath -Force
     }
     if ($Action -eq 'status') { Write-Host "No tracked $Mode instance."; exit 0 }
@@ -252,14 +314,49 @@ try {
         throw "Frontend-only UI mode supports only -Runtime development."
     }
 
-    $uiPort = if ($Runtime -eq 'development' -or $Mode -eq 'ui') {
-        if ($UiPort) { Get-FreePort $UiPort $UiPort } else { Get-FreePort 1420 1430 }
-    } else { 0 }
-    $cdpPort = if ($Mode -eq 'desktop') {
-        if ($Port) { Get-FreePort $Port $Port $uiPort } else { Get-FreePort 9222 9232 $uiPort }
-    } else { 0 }
     $resolvedDataRoot = if ($Mode -eq 'desktop') { Resolve-DataRoot $DataRoot } else { $null }
     $resolvedPaths = if ($resolvedDataRoot) { Get-ResolvedPaths $resolvedDataRoot } else { $null }
+    # Named and isolated instances use their own ranges so agents never take the
+    # ports a developer's own `pnpm tauri dev` (1420) or default launcher expects.
+    $isolatedRange = [bool]($Instance -or $resolvedDataRoot)
+    $instanceId = [guid]::NewGuid().ToString('N')
+    $registryLock = Enter-RegistryLock
+    try {
+        $live = @(Get-LiveClaims)
+        if ($Mode -eq 'desktop' -and $Runtime -eq 'development') {
+            $sibling = $live | Where-Object {
+                $_.mode -eq 'desktop' -and $_.runtime -eq 'development' -and (Test-SamePath $_.repoRoot $repoRoot) -and -not (Test-SamePath $_.statePath $statePath)
+            } | Select-Object -First 1
+            if ($sibling) {
+                throw "Another desktop development instance from this checkout is running (state: $($sibling.statePath)). Both would rebuild and run the same target/debug executable; start a parallel instance from its own worktree (git worktree add ../TracePilot-<name> -b <branch> origin/main)."
+            }
+        }
+        $reserved = [int[]]@($live | ForEach-Object { $_.uiPort; $_.cdpPort } | Where-Object { $_ })
+        $uiPort = if ($Runtime -eq 'development' -or $Mode -eq 'ui') {
+            if ($UiPort) { Get-FreePort $UiPort $UiPort 0 $reserved }
+            elseif ($isolatedRange) { Get-FreePort 1440 1479 0 $reserved }
+            else { Get-FreePort 1420 1430 0 $reserved }
+        } else { 0 }
+        $cdpPort = if ($Mode -eq 'desktop') {
+            if ($Port) { Get-FreePort $Port $Port $uiPort $reserved }
+            elseif ($isolatedRange) { Get-FreePort 9240 9279 $uiPort $reserved }
+            else { Get-FreePort 9222 9232 $uiPort $reserved }
+        } else { 0 }
+        $claim = @{
+            id = $instanceId
+            instanceName = $Instance
+            repoRoot = $repoRoot
+            statePath = $statePath
+            mode = $Mode
+            runtime = $Runtime
+            uiPort = $uiPort
+            cdpPort = $cdpPort
+            dataRoot = $resolvedDataRoot
+            launcher = Get-LauncherRecord
+            processes = @()
+        }
+        Save-Claim $claim
+    } finally { $registryLock.Dispose() }
     $uiUrl = if ($Runtime -eq 'development' -or $Mode -eq 'ui') { "http://127.0.0.1:$uiPort" } else { 'built frontend assets' }
     $buildMetadata = if ($Runtime -eq 'production') {
         @{
@@ -285,6 +382,8 @@ try {
         build = $buildMetadata
         url = $uiUrl
         endpoint = "http://127.0.0.1:$cdpPort"
+        instanceId = $instanceId
+        instanceName = $Instance
         processes = @()
     }
     $savedArgs = $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
@@ -292,8 +391,20 @@ try {
     $savedAutomationPort = $env:TRACEPILOT_AUTOMATION_PORT
     $savedAutomationProfile = $env:TRACEPILOT_AUTOMATION_PROFILE
     $savedDataRoot = $env:TRACEPILOT_DATA_ROOT
+    $savedInstance = $env:TRACEPILOT_AUTOMATION_INSTANCE
     Write-Host "Starting $Mode. Logs: $runtimeDir"
     try {
+        if ($Fixtures) {
+            if ($FirstRun -and (Test-Path -LiteralPath $resolvedPaths.config)) {
+                throw "-FirstRun needs a data root that has not completed setup, but $($resolvedPaths.config) exists. Use a fresh -Instance name."
+            }
+            # The generator owns its manifest and refuses edited or foreign roots.
+            $fixtureOutput = & node (Join-Path $repoRoot 'scripts/fixtures/session-fixtures.mjs') "--root=$resolvedDataRoot"
+            if ($LASTEXITCODE -ne 0) { throw "Fixture generation failed for $resolvedDataRoot. Use a fresh -Instance or -DataRoot." }
+            $manifest = $fixtureOutput -join "`n" | ConvertFrom-Json
+            Write-Host "Synthetic fixtures: $(@($manifest.sessions).Count) sessions ($(if ($manifest.reused) { 'reused' } else { 'generated' }))."
+            if (-not $FirstRun) { Write-CompletedSetupConfig $resolvedPaths }
+        }
         if ($Runtime -eq 'development' -or $Mode -eq 'ui') {
             Start-Node (Join-Path $repoRoot 'apps/desktop/node_modules/vite/bin/vite.js') @('--host', '127.0.0.1', '--port', $uiPort, '--strictPort') 'vite'
         }
@@ -302,6 +413,8 @@ try {
             $env:WEBVIEW2_USER_DATA_FOLDER = if ($resolvedPaths) { $resolvedPaths.webviewProfile } else { Join-Path $runtimeDir 'webview-profile' }
             $env:TRACEPILOT_AUTOMATION_PORT = "$cdpPort"
             $env:TRACEPILOT_AUTOMATION_PROFILE = $env:WEBVIEW2_USER_DATA_FOLDER
+            # The webview exposes this nonce so readiness can prove it reached this instance.
+            $env:TRACEPILOT_AUTOMATION_INSTANCE = $instanceId
             if ($resolvedDataRoot) { $env:TRACEPILOT_DATA_ROOT = $resolvedDataRoot } else { Remove-Item Env:TRACEPILOT_DATA_ROOT -ErrorAction SilentlyContinue }
             if ($Runtime -eq 'development') {
                 $configPath = Join-Path $runtimeDir 'tauri.dev.json'
@@ -350,12 +463,12 @@ try {
         } until ($ready -or [DateTime]::UtcNow -ge $deadline)
         if (-not $ready) { throw "Startup timed out after ${TimeoutSeconds}s. Logs: $runtimeDir" }
         if ($Mode -eq 'desktop') {
-            & node (Join-Path $PSScriptRoot 'ready.mjs') $state.endpoint
-            if ($LASTEXITCODE -ne 0) { throw "Desktop readiness failed. Logs: $runtimeDir" }
+            if (-not (Invoke-Readiness $state.endpoint $instanceId)) { throw "Desktop readiness failed. Logs: $runtimeDir" }
         }
         Show-Connection $state
     } catch {
         Stop-OwnedProcesses $state
+        Remove-Claim $instanceId
         Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
         throw
     } finally {
@@ -364,5 +477,6 @@ try {
         $env:TRACEPILOT_AUTOMATION_PORT = $savedAutomationPort
         $env:TRACEPILOT_AUTOMATION_PROFILE = $savedAutomationProfile
         $env:TRACEPILOT_DATA_ROOT = $savedDataRoot
+        $env:TRACEPILOT_AUTOMATION_INSTANCE = $savedInstance
     }
 } finally { $lock.Dispose() }

@@ -39,17 +39,11 @@ real-app proof of concept and before/after UI captures.
 On macOS/Linux use `pnpm dev` and open the printed URL with an installed browser.
 The managed launcher is Windows-only, matching the desktop CDP target.
 
-To run a second development clone concurrently, start it from that clone with
-separate loopback ports:
-
-```powershell
-pnpm app:start -Port 9327 -UiPort 1437
-```
-
-`-Port` selects desktop CDP and `-UiPort` selects Vite. A busy requested port
-fails without stopping its owner. `-UiPort` also works with `pnpm app:ui` and
-is unavailable for the production runtime. Omit either option to keep its
-automatic default range.
+To run several instances side by side (for example, one per agent), use named
+instances; see [parallel instances](#parallel-instances). `-Port` selects desktop
+CDP and `-UiPort` selects Vite. A busy requested port fails without stopping its
+owner. `-UiPort` also works with `pnpm app:ui` and is unavailable for the
+production runtime. Omit either option to use the automatic range.
 
 ## Why this integration
 
@@ -122,7 +116,10 @@ reject an accidental development comparison. Without `-DataRoot`, desktop
 interactions retain their usual real effects on configured application data.
 
 Desktop readiness checks the existing rendered TracePilot webview and makes a
-read-only `get_install_type` Rust IPC call, which also works before setup. A listening port, page title, mock
+read-only `get_install_type` Rust IPC call, which also works before setup. The
+launcher also passes a per-start instance nonce (`TRACEPILOT_AUTOMATION_INSTANCE`)
+that automation builds expose to the main webview; readiness fails if the CDP
+endpoint answers with a different instance. A listening port, page title, mock
 data, or performance hook alone cannot pass this check. Route-specific readiness
 still belongs to the caller: wait for the result you need using Playwright
 locators/assertions rather than sleeps. First-time setup is an inspectable state.
@@ -131,6 +128,63 @@ CDP is enabled only in the launched child environment and bound to loopback.
 It gives local clients full access to that development app. Stop it when finished.
 Runtime logs, profiles, snapshots, and traces are ignored by Git. Review evidence
 for session text, paths, secrets, and other private content before publishing.
+
+## Parallel instances
+
+Several instances can run on one machine at once, from the same or different
+checkouts. A named instance owns its lifecycle state, data root and Playwright CLI
+session, so each agent needs one command:
+
+```powershell
+pnpm app:start -Instance qa1 -Fixtures
+# Attach with the printed command, e.g.:
+pnpm exec playwright-cli -s=tracepilot-qa1 attach --cdp=http://127.0.0.1:9240
+pnpm app:status -All            # every live instance on this machine
+pnpm app:stop -Instance qa1
+```
+
+| Item | Named instance `<name>` |
+| --- | --- |
+| Lifecycle state and logs | `.tracepilot/instances/<name>/` |
+| Default data root (desktop) | `.tracepilot/instances/<name>/data` (override with `-DataRoot`) |
+| Playwright CLI session | `tracepilot-<name>` (`tracepilot-<name>-ui` for `-Mode ui`) |
+| Automatic ports | Vite 1440–1479, CDP 9240–9279 (also used for any `-DataRoot` start) |
+
+`-Fixtures` generates the synthetic rich-tool sessions into the data root before
+launch (see [testing](testing.md#rich-tool-fixtures)); the generator refuses roots
+it does not own. It also writes a completed-setup `config.toml` that points at
+those sessions, so the app opens on the session list. An existing config is kept,
+so settings changed in the app survive restarts. Add `-FirstRun` to skip the
+config and start on the setup wizard instead; it needs a fresh instance name.
+
+Every start records a claim in a machine-wide registry
+(`%LOCALAPPDATA%\TracePilot\automation-registry`, or `TRACEPILOT_AUTOMATION_REGISTRY`).
+Port selection holds a short exclusive lock while it reads live claims and writes
+its own, so concurrent starts in different worktrees cannot choose the same port.
+Claims whose processes and launcher have exited are pruned automatically. The
+readiness nonce described above is a second guard against attaching to another
+instance.
+
+Limits:
+
+- **One development desktop per checkout.** Two `tauri dev` processes would rebuild
+  and run the same `target/debug` executable, which Windows locks while running.
+  The launcher refuses a second one and asks for a separate worktree
+  (`git worktree add ../TracePilot-<name> -b <branch> origin/main`, then
+  `pnpm install`). Each worktree has its own `target/`, which costs disk space and
+  a first build.
+- **Frontend-only and production instances can share a checkout.** `-Mode ui`
+  starts only Vite. For read-only exploration by several agents, build one release
+  executable, copy it out of `target/` (a rebuild cannot replace a running file),
+  and launch each instance from the copy:
+
+  ```powershell
+  pnpm app:start -Runtime production -SkipBuild -Executable C:\agents\bin\tracepilot-desktop.exe -Instance explore1 -Fixtures
+  ```
+
+  These instances run the frontend and Rust code of the build, not later edits.
+- Data isolation covers files. Copilot CLI process discovery for live attach is
+  machine-wide; turn live auto-attach off in Settings on isolated instances.
 
 ## Native indexing measurements
 
@@ -190,7 +244,8 @@ existing test suites for durable regression coverage.
 Existing smoke/performance/media scripts remain supported through
 [connect.mjs](../scripts/e2e/connect.mjs), which attaches to the recorded desktop
 endpoint (or an explicit port), verifies the native target, and disconnects on
-failure. The old PowerShell entrypoints delegate to the new lifecycle owner.
+failure. Pass `--instance <name>` (or set `TRACEPILOT_INSTANCE`) to use a named
+instance's state; the recorded nonce is checked as in readiness. The old PowerShell entrypoints delegate to the new lifecycle owner.
 They no longer support broad `-All` cleanup or launching a potentially stale
 binary with `-Build`. See [testing](testing.md) and the
 [performance playbook](performance-playbook.md) for those optional diagnostics.

@@ -47,6 +47,26 @@ For repeat fresh-process measurements of the same existing executable, add
 `-SkipBuild`; the launcher records its hash/timestamp and current source state.
 The default production command always rebuilds.
 
+## Parallel or isolated instances (agents)
+
+When other agents may be running TracePilot on this machine, or you need
+disposable data, start a named instance instead of the default one:
+
+```powershell
+pnpm app:start -Instance <slug> -Fixtures
+# Use the printed attach command; its session is -s=tracepilot-<slug>.
+pnpm app:status -All
+pnpm app:stop -Instance <slug>
+```
+
+It uses `.tracepilot/instances/<slug>/data` as an isolated data root, generates
+synthetic sessions with setup already complete (add `-FirstRun` with a fresh name
+to test the setup wizard), takes ports from a machine-wide registry, and verifies
+that readiness reached this exact instance. Use the instance's session name in every
+`playwright-cli` command below. Only one *development* desktop instance can run
+per checkout; use a separate worktree for another. See
+[parallel instances](../../../docs/app-automation.md#parallel-instances).
+
 ## Observe, act, verify
 
 Read the snapshot file named in each response. Use references from the **current**

@@ -172,8 +172,9 @@ node scripts/e2e/capture-readme-media.mjs
 pnpm app:stop
 ```
 
-`connect.mjs` discovers only this checkout's recorded desktop endpoint, or uses
-an explicit `--port`; it verifies the native target and disconnects on failure.
+`connect.mjs` discovers only this checkout's recorded desktop endpoint (or a named
+instance's, with `--instance <name>`), or uses an explicit `--port`; it verifies the
+native target and disconnects on failure.
 `launch.ps1` and `stop.ps1` are compatibility shims for the new lifecycle owner.
 The smoke flow checks sessions, detail, search, analytics, settings and timing
 budgets. It exits non-zero on assertion failures and reports budget overruns as
@@ -222,6 +223,11 @@ node scripts/fixtures/session-fixtures.mjs
 pnpm app:start -DataRoot "$PWD/.tracepilot/rich-tool-fixtures"
 # Attach with the command printed by startup, finish setup, then Refresh data.
 ```
+
+`pnpm app:start -Instance <name> -Fixtures` does both steps for a named,
+isolated instance and marks setup complete, so it opens on the fixtures (add
+`-FirstRun` to start on the setup wizard); see
+[parallel instances](app-automation.md#parallel-instances).
 
 The library contains **SYNTHETIC · Rich tool renderer gallery** with 63 scenarios
 and **SYNTHETIC · Report intent renderer** with the remaining `report_intent` case.

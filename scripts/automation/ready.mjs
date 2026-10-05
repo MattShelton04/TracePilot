@@ -3,24 +3,31 @@ import { chromium } from "playwright-core";
 
 // A CDP listener alone does not prove that Vue or the real Rust backend is ready.
 // Connect to the existing main webview; never create a browser tab in Tauri.
-export async function connectDesktop(endpoint, timeout = 30_000) {
+// When the launcher passes an instance nonce, the webview must report the same one:
+// otherwise a port collision could silently attach to another TracePilot instance.
+export async function connectDesktop(endpoint, timeout = 30_000, instance = "") {
   const browser = await chromium.connectOverCDP(endpoint, { timeout });
   try {
     const deadline = Date.now() + timeout;
     let page;
     while (!page && Date.now() < deadline) {
       for (const candidate of browser.contexts().flatMap((context) => context.pages())) {
-        const matches = await candidate
-          .evaluate(
-            () =>
+        const identity = await candidate
+          .evaluate(() => ({
+            main:
               document.title === "TracePilot" &&
               window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label === "main",
-          )
-          .catch(() => false);
-        if (matches) {
-          page = candidate;
-          break;
+            instance: window.__TRACEPILOT_AUTOMATION_INSTANCE__ ?? null,
+          }))
+          .catch(() => ({ main: false, instance: null }));
+        if (!identity.main) continue;
+        if (instance && identity.instance !== instance) {
+          throw new Error(
+            `Endpoint ${endpoint} belongs to another TracePilot instance (expected ${instance}, found ${identity.instance ?? "none"}).`,
+          );
         }
+        page = candidate;
+        break;
       }
       if (!page) await new Promise((resolve) => setTimeout(resolve, 100));
     }
@@ -49,7 +56,7 @@ export async function connectDesktop(endpoint, timeout = 30_000) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const { browser, installType } = await connectDesktop(process.argv[2]);
+    const { browser, installType } = await connectDesktop(process.argv[2], 30_000, process.argv[3]);
     console.log(`TracePilot ready: real Rust IPC verified (${installType} installation).`);
     await browser.close(); // Disconnect CDP; the app stays running.
   } catch (error) {

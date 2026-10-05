@@ -15,6 +15,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [Testing Guide](testing.md) | Canonical testing layers, commands, VRT/E2E scope, and caveats. |
 | [Script and Command Index](../scripts/README.md) | Supported commands, diagnostics, CI helpers, prerequisites, and side effects. |
 | [Running-App Automation](app-automation.md) | Playwright agent CLI for the real Tauri app and frontend-only UI server. |
+| [Agent Task Playbook](agents/README.md) | Task cards and the shared protocol for autonomous coding agents, including hands-off orchestration. |
 | [Visual Regression](visual-regression.md) | Synthetic frontend comparisons, CI publisher, and interpretation limits. |
 | [Architecture Overview](architecture/overview.md) | Crate/package structure, data flow, and major boundaries. |
 | [ADRs](adr/README.md) | Accepted architecture decisions and decision-writing conventions. |

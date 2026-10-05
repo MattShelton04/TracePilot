@@ -5,29 +5,66 @@ import { fileURLToPath } from "node:url";
 import { connectDesktop } from "../automation/ready.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const STATE_FILE = resolve(__dirname, "../../.tracepilot/automation/desktop.json");
+const REPO_ROOT = resolve(__dirname, "../..");
+
+/** `--instance <name>`, `--instance=<name>`, or TRACEPILOT_INSTANCE selects a named app instance. */
+export function instanceFromArgs(argv = process.argv.slice(2), env = process.env) {
+  const index = argv.findIndex((arg) => arg === "--instance" || arg.startsWith("--instance="));
+  const name =
+    index < 0
+      ? env.TRACEPILOT_INSTANCE || ""
+      : argv[index].includes("=")
+        ? argv[index].slice("--instance=".length)
+        : (argv[index + 1] ?? "");
+  if (index >= 0 && !name) throw new Error("--instance needs a name.");
+  if (name && !/^[a-z0-9][a-z0-9-]{0,31}$/.test(name)) {
+    throw new Error(`Invalid instance name "${name}".`);
+  }
+  return name;
+}
+
+export function stateFile(instance = "") {
+  return instance
+    ? resolve(REPO_ROOT, ".tracepilot/instances", instance, "desktop.json")
+    : resolve(REPO_ROOT, ".tracepilot/automation/desktop.json");
+}
 
 /** Use an explicit endpoint or this checkout's recorded one; never scan browsers. */
-export async function discoverPort(explicitPort) {
+export async function discoverDesktop(explicitPort, instance = "") {
   if (explicitPort !== undefined) {
     if (!Number.isInteger(explicitPort) || explicitPort < 1 || explicitPort > 65535) {
       throw new Error("CDP port must be an integer between 1 and 65535.");
     }
-    return explicitPort;
+    return { port: explicitPort, instanceId: "" };
   }
-  if (!existsSync(STATE_FILE)) throw new Error("No tracked desktop. Run pnpm app:start.");
-  const state = JSON.parse(readFileSync(STATE_FILE, "utf8"));
+  const file = stateFile(instance);
+  if (!existsSync(file)) {
+    throw new Error(
+      instance
+        ? `No tracked desktop for instance ${instance}. Run pnpm app:start -Instance ${instance}.`
+        : "No tracked desktop. Run pnpm app:start.",
+    );
+  }
+  const state = JSON.parse(readFileSync(file, "utf8"));
   const endpoint = new URL(state.endpoint);
   if (endpoint.protocol !== "http:" || endpoint.hostname !== "127.0.0.1" || !endpoint.port) {
     throw new Error("Invalid recorded CDP endpoint. Run pnpm app:stop, then pnpm app:start.");
   }
-  return Number(endpoint.port);
+  // The recorded nonce proves the endpoint still belongs to the instance that wrote this state.
+  return { port: Number(endpoint.port), instanceId: state.instanceId ?? "" };
 }
 
 export async function connect(options = {}) {
-  const port = await discoverPort(options.port);
-  const connection = await connectDesktop(`http://127.0.0.1:${port}`, options.readyTimeout);
-  console.log(`[connect] Real TracePilot backend verified on port ${port}.`);
+  const instance = options.instance ?? instanceFromArgs();
+  const { port, instanceId } = await discoverDesktop(options.port, instance);
+  const connection = await connectDesktop(
+    `http://127.0.0.1:${port}`,
+    options.readyTimeout,
+    instanceId,
+  );
+  console.log(
+    `[connect] Real TracePilot backend verified on port ${port}${instance ? ` (instance ${instance})` : ""}.`,
+  );
   return { ...connection, port };
 }
 
