@@ -2,7 +2,7 @@
 import { type SearchResult } from "@tracepilot/types";
 import { Heading, ModalDialog } from "@tracepilot/ui";
 import { ArrowRight, Clock, Search } from "lucide-vue-next";
-import { onUnmounted, ref } from "vue";
+import { nextTick, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import SearchPaletteResults from "@/components/search/SearchPaletteResults.vue";
 import { useSearchPaletteController } from "@/composables/useSearchPaletteController";
@@ -10,7 +10,7 @@ import { useShortcut } from "@/composables/useShortcut";
 
 const router = useRouter();
 const inputRef = ref<HTMLInputElement | null>(null);
-const resultsRef = ref<InstanceType<typeof SearchPaletteResults> | null>(null);
+const listboxRef = ref<HTMLElement | null>(null);
 
 const c = useSearchPaletteController(router, inputRef);
 const {
@@ -41,7 +41,11 @@ useShortcut("Mod+K", toggle, { description: "Open command palette", group: "Glob
 
 function move(delta: number) {
   moveSelection(delta);
-  resultsRef.value?.scrollSelectedIntoView();
+  nextTick(() => {
+    listboxRef.value
+      ?.querySelector<HTMLElement>('[role="option"][aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest" });
+  });
 }
 
 function clearQuery() {
@@ -122,7 +126,7 @@ onUnmounted(() => search.dispose());
         <kbd class="palette-kbd">Esc</kbd>
       </div>
 
-      <div id="palette-listbox" class="palette-body" role="listbox" aria-label="Search results">
+      <div ref="listboxRef" id="palette-listbox" class="palette-body" role="listbox" aria-label="Search results">
         <section v-if="navMatches.length" class="palette-section">
           <Heading :level="3" size="sm" class="palette-section-label">Jump to</Heading>
           <ul class="palette-list">
@@ -165,10 +169,10 @@ onUnmounted(() => search.dispose());
 
         <SearchPaletteResults
           v-if="hasQuery"
-          ref="resultsRef"
           :grouped-results="groupedResults"
           :flat-results="flatResults"
-          :selected-index="Math.max(0, selectedIndex - resultsOffset)"
+          :selected-index="selectedIndex - resultsOffset"
+          :results-offset="resultsOffset"
           :loading="loading"
           :has-query="hasQuery"
           :has-results="hasResults"

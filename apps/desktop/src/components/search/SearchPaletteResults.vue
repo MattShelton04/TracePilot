@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { SearchResult } from "@tracepilot/types";
 import { formatRelativeTime } from "@tracepilot/ui";
-import { nextTick, ref } from "vue";
 import type { ResultGroup } from "@/composables/useSearchPaletteSearch";
 
 defineProps<{
   groupedResults: ResultGroup[];
   flatResults: SearchResult[];
   selectedIndex: number;
+  resultsOffset: number;
   loading: boolean;
   hasQuery: boolean;
   hasResults: boolean;
@@ -19,17 +19,6 @@ const emit = defineEmits<{
   select: [result: SearchResult];
   hover: [index: number];
 }>();
-
-const containerRef = ref<HTMLElement | null>(null);
-
-function scrollSelectedIntoView() {
-  nextTick(() => {
-    const container = containerRef.value;
-    if (!container) return;
-    const selected = container.querySelector(".palette-item.selected") as HTMLElement | null;
-    if (selected) selected.scrollIntoView({ block: "nearest" });
-  });
-}
 
 function resultIndex(result: SearchResult, flat: SearchResult[]): number {
   return flat.indexOf(result);
@@ -45,12 +34,10 @@ function hexToRgb(hex: string): string {
   const b = Number.parseInt(hex.slice(5, 7), 16);
   return `${r}, ${g}, ${b}`;
 }
-
-defineExpose({ scrollSelectedIntoView });
 </script>
 
 <template>
-  <div ref="containerRef" class="palette-results">
+  <div class="palette-results">
     <!-- Loading shimmer -->
     <div v-if="loading" class="palette-loading" role="status" aria-label="Loading results">
       <div v-for="g in 3" :key="g" class="shimmer-group">
@@ -102,7 +89,7 @@ defineExpose({ scrollSelectedIntoView });
     </div>
 
     <!-- Grouped results -->
-    <div v-else id="palette-listbox" role="listbox" aria-label="Search results">
+    <div v-else>
       <div
         v-for="group in groupedResults"
         :key="group.contentType"
@@ -118,7 +105,7 @@ defineExpose({ scrollSelectedIntoView });
         <div
           v-for="result in group.results"
           :key="result.id"
-          :id="`palette-item-${resultIndex(result, flatResults)}`"
+          :id="`palette-item-${resultsOffset + resultIndex(result, flatResults)}`"
           class="palette-item"
           role="option"
           :aria-selected="resultIndex(result, flatResults) === selectedIndex"

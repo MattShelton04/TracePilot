@@ -1,7 +1,9 @@
+import type { SearchResult, SessionListItem } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import SearchPalette from "@/components/chrome/SearchPalette.vue";
+import type { ResultGroup } from "@/composables/useSearchPaletteSearch";
 import { pushRoute } from "@/router/navigation";
 
 // Mock the search composable so we don't hit the real search IPC.
@@ -11,8 +13,8 @@ const paletteState = {
   latencyMs: ref(0),
   loading: ref(false),
   searchError: ref<string | null>(null),
-  groupedResults: ref([]),
-  flatResults: ref([]),
+  groupedResults: ref<ResultGroup[]>([]),
+  flatResults: ref<SearchResult[]>([]),
   hasResults: ref(false),
   hasQuery: ref(false),
   uniqueSessionCount: () => 0,
@@ -23,8 +25,9 @@ vi.mock("@/composables/useSearchPaletteSearch", () => ({
   useSearchPaletteSearch: () => paletteState,
 }));
 
+const sessionsState = { sessions: [] as SessionListItem[] };
 vi.mock("@/stores/sessions", () => ({
-  useSessionsStore: () => ({ sessions: [] }),
+  useSessionsStore: () => sessionsState,
 }));
 
 vi.mock("@/stores/preferences", () => ({
@@ -61,13 +64,151 @@ vi.mock("@/utils/keyboardShortcuts", () => ({
   shouldIgnoreGlobalShortcut: () => false,
 }));
 
-describe("SearchPalette focus trap (FU-25)", () => {
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  "scrollIntoView",
+);
+const scrollIntoView = vi.fn();
+
+function searchResult(id: number): SearchResult {
+  return {
+    id,
+    sessionId: `session-${id}`,
+    contentType: "user_message",
+    turnNumber: 1,
+    eventIndex: 2,
+    timestampUnix: null,
+    toolName: null,
+    snippet: `Session match ${id}`,
+    metadataJson: null,
+    sessionSummary: "Synthetic session",
+    sessionRepository: null,
+    sessionBranch: null,
+    sessionUpdatedAt: null,
+  };
+}
+
+async function press(input: HTMLInputElement, key: string) {
+  const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+  input.dispatchEvent(event);
+  await flushPromises();
+  expect(event.defaultPrevented).toBe(true);
+}
+
+describe("SearchPalette keyboard interaction", () => {
   beforeEach(() => {
     paletteState.query.value = "";
+    paletteState.hasQuery.value = false;
+    paletteState.hasResults.value = false;
+    paletteState.groupedResults.value = [];
+    paletteState.flatResults.value = [];
+    sessionsState.sessions = [];
     paletteState.reset.mockClear();
     vi.mocked(pushRoute).mockClear();
+    scrollIntoView.mockClear();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
     // Clean DOM between runs so Teleport targets don't accumulate.
     document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    if (originalScrollIntoView) {
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScrollIntoView);
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+    }
+  });
+
+  it("keeps one selected option and unique IDs across navigation and session results", async () => {
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    const wrapper = mount(SearchPalette, { attachTo: document.body });
+    try {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+      await flushPromises();
+      paletteState.query.value = "session";
+      paletteState.hasQuery.value = true;
+      paletteState.hasResults.value = true;
+      paletteState.flatResults.value = [searchResult(1), searchResult(2)];
+      paletteState.groupedResults.value = [
+        {
+          contentType: "user_message",
+          label: "Messages",
+          color: "var(--accent-fg)",
+          results: paletteState.flatResults.value,
+        },
+      ];
+      await flushPromises();
+
+      const input = document.querySelector<HTMLInputElement>(".palette-input")!;
+      const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+      expect.soft(document.querySelectorAll('[role="listbox"]')).toHaveLength(1);
+      expect.soft(new Set(options.map((option) => option.id)).size).toBe(options.length);
+
+      const expectSelection = (index: number) => {
+        expect(document.querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
+        expect(document.querySelector('[aria-selected="true"]')).toBe(options[index]);
+        expect(document.getElementById(input.getAttribute("aria-activedescendant")!)).toBe(
+          options[index],
+        );
+        expect(document.activeElement).toBe(input);
+      };
+      expect(options).toHaveLength(4);
+      expectSelection(0);
+      for (const index of [1, 2, 3, 0]) {
+        await press(input, "ArrowDown");
+        expectSelection(index);
+        expect(scrollIntoView.mock.contexts.at(-1)).toBe(options[index]);
+      }
+      await press(input, "ArrowUp");
+      expectSelection(3);
+      await press(input, "Enter");
+      expect(pushRoute).toHaveBeenCalledWith(expect.anything(), "session-conversation", {
+        params: { id: "session-2" },
+        query: { turn: "1", event: "2" },
+      });
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      expect(document.activeElement).toBe(opener);
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
+  it("scrolls navigation and recent-session options when arrows cross and wrap sections", async () => {
+    sessionsState.sessions = [
+      { id: "recent-session", summary: "Recent synthetic session", isRunning: false },
+    ];
+    const wrapper = mount(SearchPalette, { attachTo: document.body });
+    try {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+      await flushPromises();
+      const input = document.querySelector<HTMLInputElement>(".palette-input")!;
+      const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+      expect(options).toHaveLength(3);
+      for (const [key, index] of [
+        ["ArrowUp", 2],
+        ["ArrowDown", 0],
+        ["ArrowDown", 1],
+      ] as const) {
+        await press(input, key);
+        expect(document.querySelector('[aria-selected="true"]')).toBe(options[index]);
+        expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "nearest" });
+        expect(scrollIntoView.mock.contexts.at(-1)).toBe(options[index]);
+        expect(document.activeElement).toBe(input);
+      }
+      await press(input, "ArrowDown");
+      await press(input, "Enter");
+      expect(pushRoute).toHaveBeenCalledWith(expect.anything(), "session-conversation", {
+        params: { id: "recent-session" },
+      });
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+    } finally {
+      wrapper.unmount();
+    }
   });
 
   it("Tab key cycles focus from input to clear button when the palette is open", async () => {
