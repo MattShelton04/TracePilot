@@ -21,6 +21,7 @@ fn event(event_type: SessionEventType, typed_data: TypedEventData) -> TypedEvent
             timestamp: Some(Utc::now()),
             parent_id: None,
             agent_id: None,
+            native: None,
         },
         event_type,
         typed_data,

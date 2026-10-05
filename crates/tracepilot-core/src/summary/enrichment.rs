@@ -75,5 +75,8 @@ fn shutdown_data_to_metrics(data: &ShutdownData, shutdown_count: u32) -> Shutdow
         session_segments: data.session_segments.clone(),
         source_metrics_scope: data.source_metrics_scope,
         shutdown_count: Some(shutdown_count),
+        cost_amount: None,
+        cost_unit: None,
+        cost_basis: None,
     }
 }

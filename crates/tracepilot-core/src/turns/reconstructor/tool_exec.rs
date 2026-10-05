@@ -66,6 +66,7 @@ impl TurnReconstructor {
                 .tool_name
                 .clone()
                 .unwrap_or_else(|| "unknown".to_string()),
+            native_tool_name: data.native_tool_name.clone(),
             event_index: Some(event_index),
             arguments: data.arguments.clone(),
             success: None,
@@ -273,6 +274,7 @@ impl TurnReconstructor {
                     .clone()
                     .or_else(|| data.agent_display_name.clone())
                     .unwrap_or_else(|| "subagent".to_string()),
+                native_tool_name: None,
                 event_index: Some(event_index),
                 arguments: None,
                 success: None,

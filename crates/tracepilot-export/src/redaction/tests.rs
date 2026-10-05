@@ -89,6 +89,7 @@ fn redacts_conversation_content() {
             tool_call_id: Some("tc-1".into()),
             parent_tool_call_id: None,
             tool_name: "read_file".into(),
+            native_tool_name: None,
             event_index: None,
             arguments: Some(serde_json::json!({"path": "/home/user/secret.txt"})),
             success: Some(true),

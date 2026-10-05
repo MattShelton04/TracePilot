@@ -48,6 +48,9 @@ pub(in crate::builder) fn build_metrics(
         session_segments: sd.session_segments,
         source_metrics_scope: sd.source_metrics_scope,
         shutdown_count: Some(count),
+        cost_amount: None,
+        cost_unit: None,
+        cost_basis: None,
     })
 }
 
