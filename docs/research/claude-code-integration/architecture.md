@@ -67,9 +67,10 @@ pub struct SourceFingerprint {       // replaces SessionFingerprint {workspace, 
 
 pub struct ProviderSnapshot {
     pub summary: SessionSummary,     // provider fills title, repo, branch, cwd, created/updated_at
-    pub events: Vec<TypedEvent>,     // normalized IR
+    pub events: Option<Vec<TypedEvent>>, // normalized IR; None = no event log yet
+    pub turns: Option<Vec<ConversationTurn>>, // reconstructed while summarizing, kept for reuse
     pub metrics: Option<SessionMetrics>, // provider-reported totals (Claude cost-state); None for Copilot
-    pub diagnostics: ParseDiagnostics,
+    pub diagnostics: Option<ParseDiagnostics>,
     pub fingerprint: SourceFingerprint,  // read before parsing; strict contract as today
 }
 
@@ -81,12 +82,16 @@ pub trait SessionProvider: Send + Sync {
     fn load_snapshot(&self, s: &SessionLocator, strict: bool, cancel: &dyn Fn() -> bool)
         -> Result<ProviderSnapshot>;
     fn liveness(&self, s: &SessionLocator) -> Liveness; // Running{pid, status} | Idle | Unknown
-    fn artifacts(&self, s: &SessionLocator) -> SessionArtifacts { Default::default() } // todos, plan, checkpoints, file roots
+    fn artifacts(&self, s: &SessionLocator) -> Result<SessionArtifacts> { Ok(Default::default()) } // todos, plan, checkpoints, rewind, file roots
     fn resolve(&self, id: &SessionId) -> Result<Option<SessionLocator>>; // used when the index is empty
 }
 
-pub struct ProviderRegistry { providers: Vec<Arc<dyn SessionProvider>> } // built from SourcesConfig
+pub struct ProviderRegistry { providers: Vec<Arc<dyn SessionProvider>> } // one per source; built from SourcesConfig
+// discover_each() returns a per-source Result, so one failed source never hides another's inventory
 ```
+
+This is implemented (WP2). The Rust in `crates/tracepilot-core/src/provider/` is the
+reference; the sketch above is kept in sync with it.
 
 - **`CopilotProvider`** wraps today's functions with **no behaviour change**:
   `discover_sessions_cancellable`, `SessionFingerprint` as a 2-entry `SourceFingerprint`,
