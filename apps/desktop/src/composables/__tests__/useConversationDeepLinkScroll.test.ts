@@ -31,9 +31,15 @@ describe("useConversationDeepLinkScroll", () => {
   let root: HTMLElement;
   let scrollSpy: Mock<typeof Element.prototype.scrollIntoView>;
   let scope: EffectScope;
+  let reducedMotion: boolean;
 
   beforeEach(() => {
     vi.useFakeTimers();
+    reducedMotion = false;
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: reducedMotion })),
+    );
     FakeIntersectionObserver.instances = [];
     (
       globalThis as unknown as { IntersectionObserver: typeof IntersectionObserver }
@@ -50,6 +56,7 @@ describe("useConversationDeepLinkScroll", () => {
     scope.stop();
     document.body.removeChild(root);
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   function inScope<T>(fn: () => T): T {
@@ -77,6 +84,7 @@ describe("useConversationDeepLinkScroll", () => {
     scrollToTurn(7, null);
 
     expect(scrollSpy).toHaveBeenCalledTimes(1);
+    expect(scrollSpy).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
     expect(currentDeepLinkTarget.value).toBe("7-null");
     expect(turn.classList.contains("turn-highlight")).toBe(false);
 
@@ -103,6 +111,31 @@ describe("useConversationDeepLinkScroll", () => {
     FakeIntersectionObserver.instances[0]!.trigger(true);
     expect((observed as HTMLElement).classList.contains("turn-highlight")).toBe(true);
     expect(turn.classList.contains("turn-highlight")).toBe(false);
+  });
+
+  it.each([null, 11])("scrolls instantly with reduced motion for event %s", (eventIndex) => {
+    makeTurn(3, [11]);
+    reducedMotion = true;
+    const { scrollToTurn } = inScope(() => useConversationDeepLinkScroll(ref(root)));
+
+    scrollToTurn(3, eventIndex);
+
+    expect(scrollSpy).toHaveBeenCalledWith({ behavior: "auto", block: "center" });
+  });
+
+  it("reads the current motion preference when a missing target is retried", () => {
+    const { scrollToTurn } = inScope(() => useConversationDeepLinkScroll(ref(root)));
+    scrollToTurn(3, 11);
+    expect(scrollSpy).not.toHaveBeenCalled();
+
+    makeTurn(3, [11]);
+    reducedMotion = true;
+    scrollToTurn(3, 11);
+    expect(scrollSpy).toHaveBeenLastCalledWith({ behavior: "auto", block: "center" });
+
+    reducedMotion = false;
+    scrollToTurn(3, 11);
+    expect(scrollSpy).toHaveBeenLastCalledWith({ behavior: "smooth", block: "center" });
   });
 
   it("falls back to the turn node when the event-id is not found", () => {
