@@ -79,6 +79,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [VS Code Sessions](research/vscode-agent-sessions-feasibility.md) | Where VS Code agent sessions are stored today, what TracePilot already covers, and the remaining gaps. |
 | [VS Code Support (March 2026)](research/vscode-session-support-feasibility.md) | Superseded classic-chat feasibility study; its chat file-format notes remain accurate. |
 | [Codex and Claude Code Sessions](research/codex-claude-code-session-support-feasibility.md) | Feasibility and effort of indexing Codex and Claude Code sessions. |
+| [Claude Code Integration Plan](research/claude-code-integration/README.md) | Deeper Claude Code study: data comparison, mapping tables, multi-source provider architecture, analytics mixing, and a leveled task plan. |
 | [Pricing Model](pricing-model.md) | Copilot rates, historical estimates, deterministic update workflow, and validation. |
 | [Performance Evidence](reports/performance-mission.md) | Native measurements, methods, and limitations; retain alongside its JSON evidence. |
 | [Usability Audit](reports/usability-audit-2026-09-12/findings.md) | Dated findings with linked coverage, validation, and screenshots. |

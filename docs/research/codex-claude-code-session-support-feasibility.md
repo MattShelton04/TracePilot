@@ -2,6 +2,11 @@
 
 > **Status:** Research only; nothing implemented.
 > **Date:** 2026-10-04
+> **Follow-up:** The [Claude Code integration plan](claude-code-integration/README.md)
+> (2026-10-05) re-measures the Claude Code data and corrects §3.2. Do **not** follow
+> `leafUuid`/`parentUuid` chains to reconstruct turns: they skip records and cycle after
+> compaction. Take usage from the *last* record per message. That plan also refines §6 and
+> §8 into a provider design and a task plan.
 > **Evidence:** the TracePilot source at `606f5997` and the real session stores on
 > one Windows machine (`~/.copilot`, `~/.claude`, `~/.codex`). All counts below
 > come from scanning those stores read-only.
