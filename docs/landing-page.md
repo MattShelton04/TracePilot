@@ -168,9 +168,10 @@ for the GSAP licence and the site's direct dependencies.
 
 The hero's calls to action are Download, View on GitHub and Watch the tour; the
 closing section has Download and Star on GitHub. The live demo is the accented
-"Live demo" link at the end of the nav's section links, which opens the
-full-screen `demo/` page in a new tab. It stays when the other section links
-collapse below 1240px and is hidden below 520px, where the nav has no room.
+"Live demo" link at the end of the nav's section links. Like the others it
+scrolls to its section, whose "Full screen" link opens `demo/` in a new tab. It
+stays when the other section links collapse below 1240px and is hidden below
+520px, where the nav has no room.
 
 Links that open a new tab get the `ext` class (a trailing arrow) and sr-only
 "(opens in a new tab)" text; add both when adding one.

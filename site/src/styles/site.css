@@ -290,8 +290,7 @@ html[data-os="other"] .dl-other {
     center / contain no-repeat;
 }
 /* flex parents already space their children */
-.btn.ext::after,
-.nav-live::after {
+.btn.ext::after {
   margin-left: -4px;
   align-self: center;
 }
