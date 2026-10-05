@@ -1,7 +1,7 @@
 import { searchContent } from "@tracepilot/client";
 import type { SearchContentType, SearchResult, SearchResultsResponse } from "@tracepilot/types";
 import { CONTENT_TYPE_CONFIG, getDesignToken, toErrorMessage } from "@tracepilot/ui";
-import { computed, ref, watch } from "vue";
+import { computed, onScopeDispose, ref, watch } from "vue";
 
 export interface ResultGroup {
   contentType: SearchContentType;
@@ -31,15 +31,25 @@ export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: n
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let searchGeneration = 0;
 
+  function invalidateSearch() {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = null;
+    ++searchGeneration;
+  }
+
+  function clearSearchState() {
+    results.value = [];
+    totalCount.value = 0;
+    latencyMs.value = 0;
+    loading.value = false;
+    searchError.value = null;
+  }
+
   async function executeSearch() {
     const q = query.value.trim();
     if (!q) {
-      ++searchGeneration;
-      results.value = [];
-      totalCount.value = 0;
-      latencyMs.value = 0;
-      loading.value = false;
-      searchError.value = null;
+      invalidateSearch();
+      clearSearchState();
       return;
     }
 
@@ -63,13 +73,19 @@ export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: n
   }
 
   function debouncedSearch() {
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(executeSearch, debounceMs);
+    // Invalidate on input, before an older response can complete while the
+    // replacement request is still waiting for its debounce.
+    invalidateSearch();
+    clearSearchState();
+    if (!query.value.trim()) return;
+    loading.value = true;
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      void executeSearch();
+    }, debounceMs);
   }
 
-  watch(query, () => {
-    debouncedSearch();
-  });
+  const stopWatching = watch(query, debouncedSearch, { flush: "sync" });
 
   const groupedResults = computed<ResultGroup[]>(() => {
     const groups = new Map<SearchContentType, SearchResult[]>();
@@ -99,25 +115,18 @@ export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: n
   const hasQuery = computed(() => query.value.trim().length > 0);
 
   function reset() {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-      debounceTimer = null;
-    }
-    ++searchGeneration;
+    invalidateSearch();
     query.value = "";
-    results.value = [];
-    totalCount.value = 0;
-    latencyMs.value = 0;
-    loading.value = false;
-    searchError.value = null;
+    clearSearchState();
   }
 
   function dispose() {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-      debounceTimer = null;
-    }
+    invalidateSearch();
+    stopWatching();
+    loading.value = false;
   }
+
+  onScopeDispose(dispose);
 
   function uniqueSessionCount(): number {
     const ids = new Set(results.value.map((r) => r.sessionId));
