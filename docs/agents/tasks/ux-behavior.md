@@ -32,7 +32,7 @@ Candidate surfaces:
 - The analytics pages when the time range has no data.
 - Session tabs on sessions that lack data, such as old CLI versions or running sessions.
 - The Explorer with unreadable or oversized files.
-- Agents, Skills and MCP when a dependency is missing.
+- Agents and Skills when a dependency is missing.
 
 Keep existing data visible while refreshing. Offer a next action only when it is valid. Prevent spinners that never stop and messages that contradict each other.
 
@@ -49,7 +49,7 @@ Candidates:
 Walk through the interaction with the keyboard only (Tab, Shift+Tab, Enter, Escape, arrows), taking a fresh snapshot each step. Prefer native elements to ARIA. Test the whole journey, including where focus ends up, with `@vue/test-utils` keyboard events. Don't claim WCAG compliance or screen-reader testing you didn't do.
 
 ### `form`
-Candidates: Settings sections, the setup wizard, the Session Launcher, the Agent and Skill editors, MCP servers, the Config Injector, and export options. **Trace the real persistence destination for your flow before editing.** It can be TracePilot's `config.toml`, Copilot's `settings.json` or `config.json`, an MCP config file, or agent and skill files. Every native save, reset or restore runs only against an isolated `-DataRoot`. Exercise a valid save, an invalid input, and failure followed by retry. Never rely only on frontend validation where the backend should validate, never clear the user's input on failure, and never make the business rules stricter on your own initiative.
+Candidates: Settings sections, the setup wizard, the Session Launcher, the Agent and Skill editors, and export options. **Trace the real persistence destination for your flow before editing.** It can be TracePilot's `config.toml`, Copilot's `settings.json` or `config.json`, or agent and skill files. Every native save, reset or restore runs only against an isolated `-DataRoot`. Exercise a valid save, an invalid input, and failure followed by retry. Never rely only on frontend validation where the backend should validate, never clear the user's input on failure, and never make the business rules stricter on your own initiative.
 
 ### `collection`
 Candidates: the session list's filters and sort, the Search view, Events tab filters and paging, the analytics tables, and the Worktree Manager. Problems to look for:

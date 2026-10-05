@@ -20,7 +20,7 @@ Read docs/agents/tasks/tests.md and follow it. Preset: subsystem. Focus: export 
 - **Copilot CLI parsing and reconstruction.** Unknown or new events, missing optional fields, a truncated last line, subagent and turn boundaries, model switches and compactions. See `crates/tracepilot-core/tests/`, which holds the schema compatibility, accounting contract and CLI turn parity tests.
 - **The indexer.** Incremental add, edit and remove; FTS edge cases (quotes, operators, non-ASCII); migrations; analytics queries.
 - **Export and import.** Redaction, the section filters, and `.tpx.json` round trips.
-- **The orchestrator.** Config-injector backup and restore, worktree operations against temporary git repositories, launcher argument construction, and MCP config parsing.
+- **The orchestrator.** Worktree operations against temporary git repositories, and launcher argument construction.
 - **tauri-bindings.** File-browser path security and config migration.
 - **Desktop stores.** Hydration, error slots and stale-response guards. Use `@tracepilot/test-utils`: `builders`, `deferred` and `pinia`.
 

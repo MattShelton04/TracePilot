@@ -13,7 +13,7 @@ Read docs/agents/tasks/trust-boundary.md and follow it. Focus: .tpx.json import.
 
 ## Boundaries
 
-First read [CSP](../../security/csp.md), [permissions](../../security/permissions.md), and ADRs [0008](../../adr/0008-mcp-server-hosting-model.md), [0011](../../adr/0011-tauri-capability-scoping.md), [0012](../../adr/0012-filesystem-trust-boundary.md) and [0014](../../adr/0014-bounded-loopback-context-capture.md).
+First read [CSP](../../security/csp.md), [permissions](../../security/permissions.md), and ADRs [0011](../../adr/0011-tauri-capability-scoping.md), [0012](../../adr/0012-filesystem-trust-boundary.md) and [0014](../../adr/0014-bounded-loopback-context-capture.md).
 
 - **Session files** (JSONL, YAML, SQLite) can be malformed, truncated, huge or hostile.
 - **The Explorer.** The path jail is in `crates/tracepilot-tauri-bindings/src/commands/file_browser/security.rs`. Also check the SQLite, JSON, CSV, Markdown and image viewers.
@@ -21,7 +21,7 @@ First read [CSP](../../security/csp.md), [permissions](../../security/permission
 - **Export redaction** (`crates/tracepilot-export/src/redaction`).
 - **`.tpx.json` import.** The pipeline is parse, migrate, validate, then write a session directory, with no archive extraction. Check the identifiers and paths it rebuilds when writing, its JSON size and resource limits, its schema validation, and where it writes.
 - **Launcher and worktree command construction.** Look for argument injection and missing canonicalization (ADR 0004 and ADR 0012).
-- **MCP config and probes**, which fall under the SSRF policy. Also skill import through `gh`, the loopback context-capture server, and Tauri capabilities.
+- **Other boundaries:** skill import through `gh`, the loopback context-capture server, and Tauri capabilities.
 
 ## Do
 

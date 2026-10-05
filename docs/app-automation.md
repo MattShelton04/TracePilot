@@ -170,7 +170,7 @@ Limits:
 - **One development desktop per checkout.** Two `tauri dev` processes would rebuild
   and run the same `target/debug` executable, which Windows locks while running.
   The launcher refuses a second one and asks for a separate worktree
-  (`git worktree add ../TracePilot-<name> -b <branch> origin/main`, then
+  (`git worktree add .agent/worktrees/<name> -b <branch> origin/main`, then
   `pnpm install`). Each worktree has its own `target/`, which costs disk space and
   a first build.
 - **Frontend-only and production instances can share a checkout.** `-Mode ui`

@@ -10,7 +10,7 @@ Every launch is a one-line message to an agent started at the repository root:
 Read docs/agents/tasks/<card>.md and follow it. [Preset: <preset>.] [Focus: <area>.] [Delivery: pr|draft|local|report.]
 ```
 
-You can leave out Preset and Focus, and the agent will choose using evidence. Use `Delivery: report` to get findings without any code changes, which is a cheap way to scout. Use `local` to review the result before anything is pushed.
+You can leave out Preset and Focus, and the agent will choose using evidence. It skips the deprioritized areas listed in [focus.md](focus.md); see *Steering what agents work on* below. Use `Delivery: report` to get findings without any code changes, which is a cheap way to scout. Use `local` to review the result before anything is pushed.
 
 ## Cards
 
@@ -34,7 +34,7 @@ You can leave out Preset and Focus, and the agent will choose using evidence. Us
 | [orchestrate](tasks/orchestrate.md) | – | You want several PRs from one hands-off run. | Weekly batch |
 | [review](tasks/review.md) | modes `report`, `comment`, `fix` | You want a second opinion on a PR, ideally from a different model. | After each agent PR |
 
-Focused presets produce small PRs and run only targeted checks. Larger presets (`hotspot`, `surface`, `subsystem`, `tooling`, `dead-code`, and the workflow-hardening, performance, qa-pass, cli-compat and trust-boundary cards) run the full gate once, at the end.
+Focused presets produce small PRs. Larger presets (`hotspot`, `surface`, `subsystem`, `tooling`, `dead-code`, and the workflow-hardening, performance, qa-pass, cli-compat and trust-boundary cards) explore and verify more. Every card runs the checks that match its change, and runs the full gate only for IPC, build, dependency or shared-package API changes.
 
 ## Playbooks
 
@@ -48,9 +48,9 @@ Focused presets produce small PRs and run only targeted checks. Larger presets (
 2. The lead then works through these steps:
    1. Chooses candidates backed by evidence.
    2. Plans workstreams that don't touch the same files.
-   3. Runs workers in isolated worktrees, each with a named app instance (`-Instance`) that has its own ports and synthetic data.
-   4. Has a fresh agent review each workstream, with one fix-and-recheck round.
-   5. Runs the full gate once on all the work merged together.
+   3. Runs workers in isolated worktrees under `.agent/worktrees/`, each with a named app instance (`-Instance`) that has its own ports and synthetic data.
+   4. Reviews every diff itself, and adds one fresh reviewer only for risky changes (concurrency, deletion, trust boundaries, migrations, IPC, widely shared code). Only demonstrated failures block a workstream.
+   5. Runs the full gate on the merged work only when a workstream needs it; otherwise CI covers it.
    6. Opens one PR per workstream, each with a **Review** and a **Changelog** section.
 3. Afterwards, you:
    - Read the final report.
@@ -77,11 +77,17 @@ Run `Read docs/agents/tasks/review.md and follow it. Target: #N.` It reports in 
 | Before a release | `qa-pass`, then `workflow-hardening` on whatever it finds |
 | After a migration lands | `maintainability` with `Preset: dead-code` |
 
+## Steering what agents work on
+
+[focus.md](focus.md) lists what to prefer and which experimental areas (Replay, MCP servers and others) to leave alone. Agents never pick a target there, though a broad change can still touch those areas as far as it needs to. Edit the list when priorities change. To target a deprioritized area on purpose, name it in the launch message.
+
 ## Keeping runs proportionate
 
 - **Every card can end in a no-change outcome.** Discovery is bounded (about 15–25% of the effort), and spare capacity goes to verification rather than extra scope.
-- **Checks match the change.** Focused work runs targeted checks only. The full gate runs once, at the end of a larger task or orchestration run, and CI runs everything again anyway.
-- **Ceremony is limited.** "Prove the test fails on the old code" applies only to bug fixes and regression tests. A fresh-context reviewer is only used for larger or risky changes.
+- **Checks match the change.** Work runs the checks for the paths it changed. The full gate (about 15 minutes) runs only for IPC, build, dependency or shared-package API changes, because CI runs everything on the PR anyway.
+- **Each check runs once.** Whoever runs a check records the commit and result, and later steps reuse it unless the code changes. "Prove the test fails on the old code" is done once, for bug fixes and regression tests only.
+- **Review is proportional.** A fresh-context reviewer is used only for risky changes, and only a demonstrated failure blocks. Speculative concerns and cleanups go in the PR as follow-ups.
+- **Prefer what users hit.** A reproduced problem in an everyday workflow beats a hardened edge case. `Workstreams` is a ceiling, not a quota.
 - **To spend less,** use `Delivery: report` for a findings-only pass, choose focused presets, or lower `Workstreams`.
 
 ## Harness notes
