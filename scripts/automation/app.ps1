@@ -14,7 +14,8 @@ param(
     [string]$Instance = '',
     [switch]$Fixtures,
     [switch]$FirstRun,
-    [switch]$All
+    [switch]$All,
+    [string]$ExpectedInstanceId = ''
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -266,6 +267,9 @@ catch { throw "Another $Mode lifecycle command is running. Logs: $runtimeDir" }
 try {
     $state = if (Test-Path -LiteralPath $statePath) { Get-Content -Raw -LiteralPath $statePath | ConvertFrom-Json } else { $null }
     if ($Action -eq 'stop') {
+        if ($ExpectedInstanceId -and (-not $state -or $state.instanceId -cne $ExpectedInstanceId)) {
+            throw 'The selected desktop instance has changed since connection. No processes were stopped.'
+        }
         if ($state) {
             Stop-OwnedProcesses $state
             Remove-Claim $state.instanceId
