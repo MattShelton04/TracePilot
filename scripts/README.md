@@ -49,7 +49,7 @@ Node commands; it is not a second implementation of those tasks.
 | --- | --- | --- |
 | `pwsh -File scripts/build.ps1` | Run `cargo build --workspace` and `pnpm -r build`. | PowerShell; writes build outputs. It is not a release installer command. |
 | `pwsh -File scripts/clean.ps1` | Remove selected build caches or outputs. | PowerShell; destructive to generated files. Review `-Frontend`, `-Full`, and `-Deep` before use. |
-| `pwsh -File scripts/bump-version.ps1 -Version X.Y.Z` | Synchronise workspace versions and lockfiles. | PowerShell; requires pnpm and cargo-edit; modifies manifests and lockfiles. See [current release steps](../README.md#versioning-and-releases). |
+| `pwsh -File scripts/bump-version.ps1 -Version X.Y.Z` | Synchronise workspace versions and lockfiles. | PowerShell; requires pnpm and cargo-edit; modifies manifests and lockfiles. See the [release guide](../docs/releasing.md). |
 | `pwsh -File scripts/bench.ps1` | Run Criterion benchmarks, optionally saving/comparing a baseline. | PowerShell, Rust; writes `target/criterion/`. Use synthetic fixtures. |
 | `just bench-flamegraph <bench>` or `pwsh -File scripts/bench-flamegraph.ps1 <bench>` | Profile a selected benchmark. | Opt-in profiler (`cargo flamegraph` and platform support); writes profiling output. |
 | `pwsh -File scripts/pgo-build.ps1` or `bash scripts/pgo-build.sh` | Profile-guided Rust build. | PowerShell/POSIX; Rust LLVM tools; runs benchmarks and writes profiles/build outputs. |

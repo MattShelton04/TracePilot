@@ -6,7 +6,7 @@
 > **Historical proposal:** The "Current State" below describes the March 2026
 > baseline, not today's release setup. TracePilot now has a changelog,
 > installer releases, and `.github/workflows/release.yml`. For current steps,
-> use [Versioning and releases](../README.md#versioning-and-releases).
+> use the [release guide](releasing.md).
 
 ---
 

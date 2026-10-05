@@ -7,21 +7,29 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-05
+
 ### Added
 
-- **macOS preview build** — Releases include an Apple Silicon disk image. The app isn't notarized, so the first launch needs **Open Anyway** in Privacy & Security. After that it updates in one click from inside the app. The update dialog explains macOS steps, including moving the app out of the disk image so it can update itself. A Copilot CLI installed through Homebrew, npm or a version manager is found even when TracePilot is opened from Finder.
-- **Reasoning effort** — The session header, Overview and Metrics show the reasoning effort the session is using, and each turn in the Compact and Timeline views shows the effort it ran at.
+- **macOS preview build** — Releases include an Apple Silicon disk image. The app isn't notarized, so the first launch needs **Open Anyway** in Privacy & Security. After that it updates in one click from inside the app. The update dialog explains macOS steps, including moving the app out of the disk image so it can update itself. A Copilot CLI installed through Homebrew, npm or a version manager is found even when TracePilot is opened from Finder (#877).
+- **Reasoning effort** — The session header, Overview and Metrics show the reasoning effort the session is using, and each turn in the Compact and Timeline views shows the effort it ran at (#882).
+- **Motion** — Charts draw in the first time their data appears, headline numbers count up, and tab underlines slide between tabs. The system reduced-motion setting is now respected across the whole app (#873).
+- **Website** — TracePilot has a [landing page](https://mattshelton04.github.io/TracePilot/) with a live demo and platform-aware download buttons (#871, #872, #878, #883).
 
 ### Changed
 
-- **Shell exit codes** — A shell command that exits non-zero now shows an amber `exit N` chip instead of a success tick. It isn't marked as a failed tool, because agents often run tests and linters that are expected to fail.
-- **Timeline phases** — Steering messages and background-agent notifications no longer start a new phase in the Timeline swimlanes.
-- **Copilot CLI 1.0.91 support** — All persisted event types are recognized, including repeated skill invocations and the skill context the model received. Existing indexes refresh once on launch.
+- **Copilot CLI 1.0.91 support** — All persisted event types are recognized, including repeated skill invocations and the skill context the model received. Existing indexes refresh once on launch (#876).
+- **Shell exit codes** — A shell command that exits non-zero now shows an amber `exit N` chip instead of a success tick. It isn't marked as a failed tool, because agents often run tests and linters that are expected to fail (#882).
+- **Timeline phases** — Steering messages and background-agent notifications no longer start a new phase in the Timeline swimlanes (#882).
+- **Model pricing** — Refreshed Copilot rates for 4 October 2026, adding Claude Sonnet 5.5 and GPT-6.1 Sol. Models GitHub no longer lists keep their last known rates for estimates (#874).
+- **Development workflow** — Faster CI with stronger validation, and parallel isolated app instances with task cards for autonomous agents (#879, #884, #885).
 
 ### Fixed
 
-- **Indexing and skill accuracy** — Sessions with fractional AI Credit totals or truncated emoji output index again, and unedited skills are no longer marked "Changed since used".
-- **Quieter logs** — A disabled SDK, a deleted open session and overlapping indexing are no longer reported as failures.
+- **Indexing and skill accuracy** — Sessions with fractional AI Credit totals or truncated emoji output index again, and unedited skills are no longer marked "Changed since used" (#876).
+- **Analytics and metrics consistency** — Tool and daily activity figures agree between Analytics and session Metrics, sessions with missing usage telemetry show as unavailable rather than zero, and cost estimates are complete. Live conversations reuse already-rendered turns while streaming (#881).
+- **Search palette** — Results from an earlier query no longer replace those for the current one (#886).
+- **Quieter logs** — A disabled SDK, a deleted open session and overlapping indexing are no longer reported as failures (#876).
 
 ## [0.9.0] - 2026-09-27
 
