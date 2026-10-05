@@ -263,14 +263,22 @@ export async function ipc(page, cmd, args = {}) {
  * @param {number | { port?: number, instance?: string, instanceId?: string }} [target]
  *   Captured connection identity, or a legacy explicit port in the default state.
  */
-export async function shutdown(browser, target = {}) {
+export async function shutdown(browser, target) {
   console.log("[shutdown] Disconnecting Playwright...");
   await browser.close().catch(() => {});
 
+  // Only a captured nonce ties a structured connection to the app it observed.
+  // Never adopt lifecycle state that appeared after an untracked connection.
+  const legacy = target === undefined || typeof target === "number";
+  if (!legacy && !target?.instanceId) {
+    console.warn("[shutdown] No captured instance identity; leaving TracePilot running.");
+    return;
+  }
   console.log("[shutdown] Stopping TracePilot process...");
   const { execFileSync } = await import("node:child_process");
   const stopScript = resolve(__dirname, "stop.ps1");
-  const { port, instance, instanceId } = typeof target === "number" ? { port: target } : target;
+  const { port, instance, instanceId } =
+    typeof target === "number" ? { port: target } : (target ?? {});
   const args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", stopScript];
   if (port !== undefined) args.push("-Port", String(port));
   if (instance) args.push("-Instance", instance);

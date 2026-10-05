@@ -41,7 +41,7 @@ exit 0
     join(root, "scripts/automation/ready.mjs"),
     `import { appendFileSync } from 'node:fs';
 const log = (event, extra = {}) => appendFileSync(process.env.TRACEPILOT_TEST_EVENTS, JSON.stringify({ event, ...extra }) + '\\n');
-const fail = (step) => { if (process.env.TRACEPILOT_TEST_FAIL === step) throw new Error('fixture failure: ' + step); };
+const fail = (step) => { if ((process.env.TRACEPILOT_TEST_FAIL ?? '').split(',').includes(step)) throw new Error('fixture failure: ' + step); };
 export async function connectDesktop(endpoint, timeout, instanceId) {
   log('connect', { endpoint, instanceId });
   // Cleanup must use the connection selection even if arguments/environment change.
@@ -225,10 +225,11 @@ test("legacy shutdown guards explicit ports and continues after disconnect failu
     `import { shutdown } from './connect.mjs';
 await shutdown({ close: async () => { throw new Error('disconnect failed'); } }, 9230);
 await shutdown({ close: async () => {} }, 9222);
+await shutdown({ close: async () => {} });
 `,
   );
   const { stderr } = await f.runNode(caller);
-  assert.equal(f.log().filter((event) => event.event === "stop").length, 1);
+  assert.equal(f.log().filter((event) => event.event === "stop").length, 2);
   assert.match(stderr, /stop.ps1 failed/);
 });
 
@@ -269,7 +270,7 @@ await shutdown(connection.browser, connection);
           f.log().filter((event) => event.event === "stop"),
           stops ? [{ event: "stop", instance, instanceId: trackedId }] : [],
         );
-        if (!stops) assert.match(stderr, /stop.ps1 failed/);
+        if (!stops) assert.match(stderr, /No captured instance identity/);
       }
     });
   }
@@ -314,4 +315,72 @@ test("the real launcher checks the expected start identity under its lifecycle l
       assert.deepEqual(f.log(), []);
     });
   }
+});
+
+test("structured cleanup never adopts lifecycle state created after connection", {
+  skip: process.platform !== "win32",
+}, async (t) => {
+  for (const [name, instance, initialPort] of [
+    ["absent default state appears", "", undefined],
+    ["mismatched default state is replaced", "", 9230],
+    ["absent named state appears", "profile", undefined],
+  ]) {
+    await t.test(name, async (t) => {
+      const f = fixture(t);
+      if (initialPort !== undefined) f.state(instance, initialPort, "original-start");
+      const path = instance
+        ? join(f.root, ".tracepilot/instances", instance, "desktop.json")
+        : join(f.root, ".tracepilot/automation/desktop.json");
+      const caller = join(f.root, "scripts/e2e/caller.mjs");
+      writeFileSync(
+        caller,
+        `import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { connect, shutdown } from './connect.mjs';
+const connection = await connect({ port: 9245, instance: ${JSON.stringify(instance)} });
+const statePath = ${JSON.stringify(path)};
+mkdirSync(dirname(statePath), { recursive: true });
+writeFileSync(statePath, JSON.stringify({ endpoint: 'http://127.0.0.1:9245', instanceId: 'new-start' }));
+await shutdown(connection.browser, connection);
+`,
+      );
+      const { stderr } = await f.runNode(caller);
+      assert.equal(f.log()[0].instanceId, "");
+      assert.equal(f.log().filter((event) => event.event === "disconnect").length, 1);
+      assert.deepEqual(
+        f.log().filter((event) => event.event === "stop"),
+        [],
+      );
+      assert.match(stderr, /No captured instance identity/);
+      assert.equal(JSON.parse(readFileSync(path, "utf8")).instanceId, "new-start");
+    });
+  }
+});
+
+test("primary profiling failure survives a simultaneous capture cleanup failure", {
+  skip: process.platform !== "win32",
+}, async (t) => {
+  const f = fixture(t);
+  f.state("profile", 9245, "profile-start");
+  await assert.rejects(
+    f.runNode(
+      join(f.root, "scripts/e2e/perf-profile.mjs"),
+      {
+        TRACEPILOT_TEST_FAIL: "evaluate,capture-stop",
+      },
+      ["--instance", "profile"],
+    ),
+    (error) => {
+      assert.match(error.stderr, /Error: fixture failure: evaluate/);
+      assert.match(error.stderr, /Console capture cleanup failed: fixture failure: capture-stop/);
+      return true;
+    },
+  );
+  assert.deepEqual(
+    f.log().filter((event) => event.event === "stop"),
+    [{ event: "stop", instance: "profile", instanceId: "profile-start" }],
+  );
+  assert.equal(f.log().filter((event) => event.event === "capture-stop").length, 1);
+  assert.equal(f.log().filter((event) => event.event === "detach").length, 1);
+  assert.equal(f.log().filter((event) => event.event === "disconnect").length, 1);
 });

@@ -91,6 +91,8 @@ const connection = await connect();
 const { browser, page, context } = connection;
 let cdp;
 let consoleLogs;
+let profilingFailed = false;
+let captureCleanupError;
 try {
   cdp = await context.newCDPSession(page);
   await cdp.send("Performance.enable");
@@ -262,12 +264,22 @@ try {
     console.log("=".repeat(72));
     for (const l of noteworthy.slice(0, 30)) console.log(`  [${l.type}] ${l.text?.slice(0, 130)}`);
   }
+} catch (error) {
+  profilingFailed = true;
+  throw error;
 } finally {
   try {
     consoleLogs?.stop();
-  } finally {
-    if (cdp) await cdp.detach().catch(() => {});
-    await shutdown(browser, connection);
+  } catch (error) {
+    captureCleanupError = error;
+    if (profilingFailed) {
+      console.warn(`[profile] Console capture cleanup failed: ${error.message}`);
+    }
   }
+  if (cdp) await cdp.detach().catch(() => {});
+  await shutdown(browser, connection);
 }
+// A primary failure propagates through finally; only a successful profile gets
+// here, so surfacing its cleanup error cannot replace the profiling error.
+if (captureCleanupError) throw captureCleanupError;
 console.log("\nProfile complete.");
