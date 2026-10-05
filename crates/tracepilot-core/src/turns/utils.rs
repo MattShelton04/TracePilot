@@ -72,10 +72,9 @@ fn exit_code_from_output(text: &str) -> Option<i64> {
             .strip_suffix('>')?
     } else if let Some(rest) = line.strip_prefix("<exited with exit code ") {
         rest.strip_suffix('>')?
-    } else if let Some(rest) = line.strip_prefix("Process exited with code ") {
-        rest.strip_suffix('.').unwrap_or(rest)
     } else {
-        return None;
+        let rest = line.strip_prefix("Process exited with code ")?;
+        rest.strip_suffix('.').unwrap_or(rest)
     };
     code.trim().parse().ok()
 }
