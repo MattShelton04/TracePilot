@@ -290,7 +290,7 @@ html[data-os="other"] .dl-other {
     center / contain no-repeat;
 }
 /* flex parents already space their children */
-.btn.ext::after {
+:is(.btn, .trust-pill, .nav-gh).ext::after {
   margin-left: -4px;
   align-self: center;
 }
@@ -1952,7 +1952,8 @@ html[data-os="mac"] .os-mac {
   .nav-inner {
     gap: 14px;
   }
-  .nav-gh span {
+  .nav-gh span,
+  .nav-gh::after {
     display: none;
   }
   .nav-cta {
