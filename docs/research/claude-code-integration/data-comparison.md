@@ -53,6 +53,10 @@ These are requirements for `ClaudeCodeProvider`. Each one is backed by a measure
      parent is a preserved record written *after* the boundary.
    - Use uuids only for annotation, with a cycle guard.
    - This **refutes** the earlier study's "follow `leafUuid`" advice.
+   - Having no forks in this corpus does not show forks are handled. Event order stays file
+     order. Conversation shows the visible branch, defined in
+     [mapping.md §1.3](mapping.md#13-ordering-ids-branches-and-subagents) and tested with a
+     synthetic rewind fixture.
 3. **De-duplicate usage by `message.id`, taking the *last* record.**
    - 24,670 assistant records collapse to 11,398 messages (up to 19 records per message).
    - Naive sums inflate by 2.15× for input, 2.16× for cache read, 2.36× for cache creation and
@@ -73,8 +77,17 @@ These are requirements for `ClaudeCodeProvider`. Each one is backed by a measure
    - Example session: cost-state output was 1,048,530; the main transcript had 383,519 and
      its subagents 377,141.
    - Never add subagent usage on top of `cost-state`; it already includes it.
-   - A live session has no `cost-state` yet. Fall back to the de-duplicated transcript sum and
-     label it partial.
+   - Unpersisted calls make the gap legitimately large. Two ended sessions are 7% and 13%
+     above their transcript sums on the *same* model, so reconcile rather than gate on a
+     percentage ([implementation-plan.md L0](implementation-plan.md#l0--spike-validate-before-building)).
+   - **Snapshots are cumulative across resumes.** In all 5 resumed sessions, the later
+     snapshot equals the earlier one plus the calls written between them, exactly to the
+     token. Each exit writes an identical pair.
+   - A snapshot covers the records before its file position. Current total = last snapshot +
+     de-duplicated calls after it (the tail).
+   - A session never yet exited has no `cost-state`, and a resumed one that is still running
+     has a non-empty tail. In both cases, add or fall back to the de-duplicated transcript sum
+     and label the total partial.
 6. **Classify `user` records before treating them as prompts.** In main files there are:
 
    | Kind | Count |

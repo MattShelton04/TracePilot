@@ -18,26 +18,33 @@
 
 The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire names in
 `raw.event_type`. The turn reconstructor dispatches on those names and on prefixes such as
-`user.`/`assistant.` (`turns/reconstructor/mod.rs:131-170`). Every emitted event also carries
-the **native record** in a new `RawEvent` field, so the Events tab can show what Claude Code
-actually wrote. Records with no mapping become `Unknown(<native type>)` events.
+`user.`/`assistant.` (`turns/reconstructor/mod.rs:131-170`).
+
+- **`raw.data` always holds the canonical, Copilot-shaped payload** for `raw.event_type`. A
+  serialized event stream must reconstruct the same turns when reparsed, because
+  `parse_typed_events` derives `typed_data` from `raw.data` (`parsing/events/typed.rs:435`).
+- Every emitted event also carries the sanitized **native record**, in `RawEvent.native` once
+  F7a lands (in `ClaudeParse.natives` until then). The Events tab can then show what Claude
+  Code actually wrote.
+- Records with no mapping become `Unknown(<native type>)` events. Their `raw.data` is the
+  sanitized native record, which reparses to the same `Other` payload.
 
 | Claude Code record | Count (main) | Emitted event(s) | Notes |
 | --- | ---: | --- | --- |
 | `user` human prompt (string/text, not meta, no tool_result) | 194 | `user.message` `{content, interactionId: promptId, source: "user", attachments}` | Opens a user turn. Pasted images become attachments |
 | `user` slash command / `local-command-stdout` | 22 / 19 | `user.message` `{source: "command-<name>"}` | Matches Copilot's `command-*` sources (`messages.rs:188-197`) |
-| `user` isMeta (skill context, auto-continuation) | 101 | `user.message` `{source: "system"}` or folded into the skill invocation | The skill context follows the `Skill` call |
-| `user` hand-back (`origin.kind: peer`, `handback: true`) | 10 | `subagent.completed` for `origin.from` (agentId → `toolUseId` via meta) plus the agent message | The result text is the subagent's report |
-| `user` / `queue-operation` / `attachment:queued_command` with `<task-notification>` | 25 + 50 + 24 | `system.notification` `{kind.type: agent_completed \| shell_completed, agentId, status}` | Same shape Copilot uses. `<usage>` gives subagent totals |
-| `user` interrupt marker, `interruptedMessageId` | 9 | `abort` `{reason: "user initiated"}` | |
-| `user` `isCompactSummary` | 27 | Folded into `session.compaction_complete.summaryContent` | |
+| `user` isMeta (skill context, auto-continuation) | 101 | Never `user.message`. Skill context → `skill.context_delivered`; other meta → `system.message` (§1.1) | A `user.message` always closes the active turn, whatever its `source` (§1.1) |
+| `user` hand-back (`origin.kind: peer`, `handback: true`) | 10 | `subagent.completed` for `origin.from` (agentId → `toolUseId` via meta) plus the agent message | The result text is the subagent's report. No turn |
+| `user` / `queue-operation` / `attachment:queued_command` with `<task-notification>` | 25 + 50 + 24 | One `system.notification` `{kind.type: agent_completed \| shell_completed, agentId, status}` per notification, de-duplicated across the three carriers (§1.3). Plus `user.message {source: "system"}` only when the notification wakes an idle session (§1.1) | Same shape Copilot uses. `<usage>` gives subagent totals |
+| `user` interrupt marker, `interruptedMessageId` | 9 | `abort` `{reason: "user initiated"}` | Ends the interrupted call (§1.2) |
+| `user` `isCompactSummary` | 27 | Folded into `session.compaction_complete.summaryContent`. Never `user.message` | |
 | `user` tool_result block (+ `toolUseResult`) | 11,437 | `tool.execution_complete` `{toolCallId, success: !is_error, result{content, detailedContent}}` | `detailedContent` is reshaped per tool (§2). Duration is the tool_use → tool_result timestamp |
 | `assistant` (first block of a new `message.id`) | 11,398 messages | `assistant.turn_start` `{turnId: message.id, model}` | **One API call is one TracePilot turn**, matching Copilot's round-trip granularity. To be validated in the spike |
 | `assistant` `text` block | 3,493 | `assistant.message` `{content, messageId}` | Attributed to `agentId` in subagent files |
 | `assistant` `thinking` block | 7,150 (88.8% empty) | `assistant.reasoning` when non-empty | Record a `redacted` count for the UI |
 | `assistant` `tool_use` block | 11,437 | `tool.execution_start` `{toolCallId, toolName: canonical, arguments: normalized, nativeToolName, mcpServerName?, mcpToolName?}` | §2 |
 | `assistant` usage (last record per `message.id`) | 11,398 | **New** `tracepilot.model_call` `{model, input (inclusive), cacheRead, cacheWrite, cacheWrite5m, cacheWrite1h, output, reasoning, stopReason, agentId}` | Feeds metrics, context, prompt cache and per-turn usage. Also sets `output_tokens` on the turn |
-| End of a message's tool results / next message | — | `assistant.turn_end` | |
+| End of a call (§1.2) | — | `assistant.turn_end`, only for completed calls | Not at live EOF and not after an interrupt |
 | `assistant` model differs from the previous call | — | `session.model_change` | |
 | `assistant` `<synthetic>` + `isApiErrorMessage` | 15 | `session.error` `{errorType: "rate_limit", statusCode: 429}` | Keeps the existing incident logic (`error_type == "rate_limit"`) working |
 | `system:compact_boundary` | 27 | `session.compaction_start` + `session.compaction_complete` `{preCompactionTokens, trigger, durationMs}` | |
@@ -48,7 +55,93 @@ actually wrote. Records with no mapping become `Unknown(<native type>)` events.
 | `ai-title`, `agent-name`, `pr-link`, `last-prompt`, `mode`, `permission-mode`, `atis-latch` | about 4.4k each | Summary fields (latest wins) and PR links. Hidden from the Events tab by default | |
 | `attachment:*` (29 types) | 17,575 | `Unknown("attachment:<type>")`, shown on the Events tab only. **Not indexed for FTS** | `edited_text_file`, `plan_mode`, `task_status` can feed later features |
 | `file-history-snapshot` / `-delta` | 203 / 1,034 | L3: checkpoint/rewind view | |
-| Subagent file records | 26 files | The same mapping with envelope `agentId`, plus `parentToolCallId = meta.toolUseId` | Merged into the parent stream in file order, after the Agent launch |
+| Subagent file records | 26 files | The same mapping with envelope `agentId`, plus `parentToolCallId = meta.toolUseId` | Inserted into the parent stream as described in §1.3 |
+
+### 1.1 User records that must not open a turn
+
+The reconstructor treats every `user.message` as a new interaction. It finalizes the active turn
+and opens another (`turns/reconstructor/messages.rs:39`). `source` only changes the label
+(`system_initiated`, `messages.rs:188-197`). So "emit `user.message` with `source: system`"
+would split one prompt's work into several turns. Each meta kind therefore maps to an event
+that keeps the active interaction:
+
+| Meta record | Emit | Why it keeps the turn |
+| --- | --- | --- |
+| Skill context (the `isMeta` record after a `Skill` call) | At the `Skill` `tool_use`: `tool.execution_start {toolName: "skill"}`, then `skill.invoked {name}` with `parentId` = that start event. At the meta record: `skill.context_delivered {content}` with `parentId` = the `skill.invoked` id | The reconstructor attaches the skill to the tool call and folds the delivered context (`reconstructor/skills.rs:23-37`) |
+| Auto-continuation and other `isMeta` text | `system.message {content}` | Appended to the current turn's system messages (`messages.rs:168-181`) |
+| Compaction summary (`isCompactSummary`) | `session.compaction_complete.summaryContent` | Session event, attached to the current turn |
+| Subagent hand-back | `subagent.completed` (+ agent message attributed to the subagent) | Subagent events are owned by the tool call |
+| Task notification **while a call is running**, or queued (`queue-operation`, `attachment:queued_command`) | `system.notification` only | Session event, no new interaction |
+| Task notification that **wakes an idle session**: a standalone `user` record after the previous call ended with `end_turn`, which the model then answers | `system.notification` + `user.message {source: "system", content}` | It really starts a new model interaction. This matches how Copilot logs its own notifications (a system-initiated turn) |
+| Slash command output (`local-command-stdout`) | `user.message {source: "command-<name>"}`, only when it is the first record of a new interaction; otherwise `system.message` | Matches Copilot's `command-*` prompts |
+
+**WP1 test:** a fixture holding one human prompt, plus every meta kind above except the
+idle-session notification, produces exactly one user turn. Adding an idle-session notification
+produces exactly one more turn, with `system_initiated = true`.
+
+### 1.2 Turn boundaries
+
+One API call (`message.id`) is one TracePilot assistant turn. `assistant.turn_end` is
+synthesized only when the end is known:
+
+| Situation | Detection | Emit |
+| --- | --- | --- |
+| Completed call | A later record starts a new `message.id` or a new interaction, and every `tool_use` in the call has its `tool_result` | `assistant.turn_end` after the last `tool_result` |
+| Interrupted call | Interrupt marker or `interruptedMessageId` | `abort {reason: "user initiated"}`; no `turn_end`. The open tool calls stay incomplete |
+| Missing tool result, not at EOF | Later records exist but a `tool_use` never got a `tool_result` (crash, rewind) | `assistant.turn_end`; the call stays incomplete; diagnostic `missing_tool_results += 1` |
+| Live EOF | The file ends inside a call, or with tool results still pending | Nothing. The turn stays open, as a live Copilot turn does |
+| Synthetic API error | `<synthetic>` + `isApiErrorMessage` | `session.error`; not a model call |
+
+`stop_reason` is not used to decide completeness: it is mostly `null` in subagent files
+(data-comparison rule 11).
+
+### 1.3 Ordering, ids, branches and subagents
+
+- **Native order.** Records are read in file order, and the Events tab shows them in that order.
+- **Event ids.** An event made from a record gets `id = "<record uuid>:<n>"`, where `n` is the
+  event's 0-based position among the events from that record. A synthesized event uses
+  `"<anchor record uuid>:<kind>"`: `session.start` is anchored on the first record, and
+  `turn_end` / `model_change` on the record that triggered them. `parentId` is the previous
+  event in the same stream unless a rule above sets it, such as the skill links. Ids are
+  stable across re-parses of an unchanged file.
+- **Duplicate notifications.** One background completion can appear as a `user` record, a
+  `queue-operation` and an `attachment:queued_command`. Key it by (`agentId` or task id,
+  status) and emit one `system.notification` at the first carrier. Later carriers stay
+  native-only on the Events tab; count them in `duplicate_notifications`.
+- **Visible branch (rewind and edit forks).**
+  - A **fork** is a parent record whose children start different interactions, or different
+    `message.id`s that are not parallel `tool_use` blocks of one call.
+  - Parallel-tool siblings are the normal shape, not forks: children share a `message.id`,
+    or are `tool_result`s of one call.
+  - The **visible leaf** is the last main-chain record in file order. Walk `parentUuid` from
+    it with a cycle guard, only to learn which child each **fork** kept;
+    `logicalParentUuid` is followed only across compaction boundaries.
+  - **Abandoned** = the subtrees of a fork's other children. Every other record is visible,
+    including the parallel-tool siblings the walk itself never visits. A plain leaf walk
+    loses about 9.2k records (data-comparison rule 2), so the walk must never define the
+    visible set directly.
+  - Records on abandoned branches stay on the Events tab, marked as abandoned in the native
+    annotation. They are left out of Conversation turns and counted in diagnostics.
+  - Calls on abandoned branches still count toward usage, because they were billed.
+  - The corpus had no forks, so a synthetic rewind fixture defines this behaviour. Claude's
+    own session reader (the Agent SDK's `get_session_messages`) can be a dev-only comparison
+    oracle in S3. It is never a runtime dependency.
+- **Subagent insertion.** All observed `Agent` launches are asynchronous
+  (`status: "async_launched"`): the `tool_result` comes back immediately and completion
+  arrives as a hand-back or notification.
+  - Each child stream is inserted as one contiguous block right after its launching
+    `tool.execution_start`. It opens with a synthesized `subagent.started`.
+  - This position never depends on whether the result exists yet, so live files behave the
+    same as ended ones. Ownership comes from `parentToolCallId`, not position.
+  - Several children of one launch point are ordered by first-record timestamp, then by
+    `agentId`.
+  - A nested child (a subagent launched from a subagent file) follows the same rule inside
+    its parent child's block.
+  - **Missing `meta.json`:** link the child through the `agentId` in the parent's `Agent`
+    `toolUseResult`. If neither exists, append it at the end of the stream, owned by its
+    `agentId` and with no `parentToolCallId`, and count it in `orphan_subagents`.
+  - **Test:** two parallel children and one nested child reconstruct with every child
+    attached to the right tool call.
 
 ## 2. Tools → canonical kinds → renderers
 
@@ -128,13 +221,13 @@ Copilot-only renderers with no Claude source:
 | Side-model usage (Haiku) | in shutdown | **Only in `cost-state`** | 🟡: per-turn charts won't sum to the session total; show "other / unattributed" |
 | AI Credits (`total_nano_aiu`) | observed | `None` | ⛔ |
 | Premium requests | `requests.cost` | `None` | ⛔ |
-| **Cost** | AIC (billed, or estimated from GitHub rates) | `cost-state.totalCostUSD`, an **API-equivalent estimate** (`cost_basis = provider-estimate-usd`). Fallback: price de-duplicated usage with Anthropic API rates (1h writes at 2× input, 5m at 1.25×) | 🟡: labelled estimate |
+| **Cost** | AIC: `costBasis: billed` from shutdown, or `tracepilotEstimate` from GitHub rates | `cost-state.totalCostUSD`: `costBasis: providerEstimate`, `costUnit: usd`, an API-equivalent estimate and not a bill. With a tail or no snapshot: price the de-duplicated usage with Anthropic API rates (1h writes at 2× input, 5m at 1.25×), `costBasis: tracepilotEstimate`. Vocabulary in [architecture §3.2](architecture.md#32-source-neutral-ir-additions) | 🟡: labelled estimate |
 | API duration | `totalApiDurationMs` | `cost-state.totalAPIDuration` (+ `WithoutRetries`) | ✅ |
 | Tool duration | per tool | per tool (ts delta) + `cost-state.totalToolDuration` | ✅ |
 | Code changes (lines ±) | `codeChanges` | `cost-state.totalLinesAdded/Removed` | ✅ |
 | Files modified | `codeChanges.filesModified` | Distinct `filePath` from Edit/Write `toolUseResult` + `attachment:edited_text_file` | ✅ |
 | Context gauges (system/tools/conversation) | shutdown / compaction | ❌ split. Exact **total** per call | 🟡 total only |
-| Cache windows / TTL | predicted (`usage_checkpoint`) | **Observed** per call; TTL 1h | ✅⭐ |
+| Cache windows / TTL | predicted (`usage_checkpoint`) | **Observed** reads and writes per call, with the TTL tier from the `cache_creation` split (all 1h in this corpus). Expiry is still an estimate ([architecture §3.7](architecture.md#37-prompt-cache-expiry-is-an-estimate)) | ✅⭐ |
 | Incidents | `session.error`, `abort`, compaction failures | `<synthetic>` 429s, interrupts, `toolDenialKind`, tool errors | ✅ |
 | Agent runs | `subagent.*` + `task` calls | `Agent` calls + subagent files + hand-backs + notifications | ✅ |
 | Skills | `skill` tool + `skill.invoked` | `Skill` tool + meta context | ✅ |
@@ -154,7 +247,7 @@ Copilot-only renderers with no Claude source:
 | Overview | 🟡 | L1 | No checkpoints, `plan.md` or shutdown type. Plan from `ExitPlanMode` at L3 |
 | Metrics tab | ✅ | L2 | Exact tokens and cache; USD estimate; no AIC or premium requests |
 | Context tab | 🟡 | L2 | Exact total per call; no category split. Estimated split from `prompt_snapshot` at L4 |
-| Prompt cache (header countdown, windows) | ✅⭐ | L2 | Observed writes and reads, 1h TTL |
+| Prompt cache (header countdown, windows) | ✅⭐ | L2 | Observed writes and reads; estimated expiry from the recorded TTL tier, or "unknown" |
 | Todos tab | 🟡 | L3 | Only when the task tools were used (older models by default). Otherwise hidden |
 | Checkpoints / rewind | 🟡 | L3 | From file-history (no Copilot-style checkpoint summaries) |
 | Explorer tab | 🟡 | L3 | `subagents/`, `tool-results/`, plans; there is no session directory per se |
