@@ -1,6 +1,6 @@
 # Orchestrate parallel improvements
 
-Lead a batch of independent improvements. Workers implement them in isolated worktrees, fresh reviewers try to break each one, and you integrate the results and open one PR per workstream.
+Lead a batch of independent improvements. Workers implement them in isolated worktrees, fresh reviewers try to break each one, and you integrate the results and open one PR per workstream (see **Delivery modes** for the alternatives).
 
 **Protocol:** read [protocol.md](../protocol.md) sections Core, Running the app, and Ship. Workers read their own card's sections.
 <!-- protocol: core app ship -->
@@ -20,9 +20,20 @@ Any setting in the launch message overrides these defaults.
 | Workstreams | 3. Use at most 5. |
 | Tasks | _Choose them yourself._ You can also be given a list, for example `ui-polish/surface: Analytics; tests/subsystem: export; robustness/error-path`. |
 | Theme | _Any._ |
-| Delivery | `pr` for each workstream that passes review |
+| Delivery | `pr`. Applies to the whole run; see **Delivery modes** below. |
 | Approve plan first | No. If Yes, stop after **Plan** and wait. |
 | Pack folder | _None._ Only used when `docs/agents/` isn't in the checkout. |
+
+### Delivery modes
+
+| Delivery | Run up to | Ship (step 7) |
+| --- | --- | --- |
+| `pr` | Every step | Open a ready PR for each approved workstream; draft the ones with open issues. |
+| `draft` | Every step | Open every PR as a draft. |
+| `local` | Every step | Push nothing. Keep each approved branch and its worktree, and list them in the final report. |
+| `report` | Step 3 | Change nothing: no worktrees or workers. The plan and the candidate list are the final report. |
+
+Workers always get `Delivery: local`, whatever the run's mode, because only you ship.
 
 You are accountable for every PR, and you read every final diff yourself. If your harness can start parallel agents (subagents, agent-manager workspaces, or headless agent CLIs running in a worktree), use them. A reviewer must never be the same agent instance as the worker it reviews. If you can choose the model, give the reviewer a different family. **With no parallelism,** run the workstreams one after another and review each in a separate pass that relies only on the diff and the report, not on your memory.
 
@@ -53,7 +64,7 @@ Choose workstreams whose **file ownership doesn't overlap**. A good batch mixes 
 - `scripts/visual/manifest.mjs` or `scripts/fixtures/`;
 - CI workflows.
 
-Write `<run>/plan.md` with one row per workstream: slug, card and preset, focus, evidence, owned paths, verification, and whether it needs Rust or a native build.
+Write `<run>/plan.md` with one row per workstream: slug, card and preset, focus, evidence, owned paths, verification, and whether it needs Rust or a native build. With `Delivery: report`, stop here and give the final report.
 
 ## 4. Dispatch
 
@@ -103,12 +114,12 @@ Then read the diff yourself. If you still have a substantive concern, resolve it
 ## 7. Ship and clean up
 
 - Before removing any worktree, **copy the evidence each report references** (screenshots, measurements) into `<run>/<slug>/evidence/`.
-- Push each approved branch and open one independent PR per workstream, following Ship. Put the CHANGELOG line in the PR body under **Changelog**, not in the file; this avoids merge conflicts between the PRs. Add a **Review** section listing what the reviewer independently verified and any minors still open. When CI starts, run `gh pr checks`, and route any failure your branch caused back to a worker for a new commit.
-- Stop the app instances you started (`pnpm app:status -All` lists them; run `pnpm app:stop -Instance <slug>` in their worktree). Then `git worktree remove` every pushed or dropped worktree. Keep any that has unpushed commits, and report it.
+- **`local`:** skip the rest of this bullet and keep the worktrees of approved branches. **`pr` or `draft`:** push each approved branch and open one independent PR per workstream, following Ship (all as drafts for `draft`). Put the CHANGELOG line in the PR body under **Changelog**, not in the file; this avoids merge conflicts between the PRs. Add a **Review** section listing what the reviewer independently verified and any minors still open. When CI starts, run `gh pr checks`, and route any failure your branch caused back to a worker for a new commit.
+- Stop the app instances you started (`pnpm app:status -All` lists them; run `pnpm app:stop -Instance <slug>` in their worktree). Then `git worktree remove` every pushed or dropped worktree. Keep any that has unpushed commits (all approved ones under `local`), and report it.
 
 ## Final report (in your reply, not in a file)
 
-- A table with columns: workstream | PR | ready / draft / dropped | review outcome | validation | notes.
+- A table with columns: workstream | PR, or branch and worktree for `local` | ready / draft / local / dropped | review outcome | validation | notes.
 - The candidates you dropped, each with its reason.
 - Good candidates you didn't pick, each written as a one-line launch message for a future run.
 - Anything the maintainer needs to decide.

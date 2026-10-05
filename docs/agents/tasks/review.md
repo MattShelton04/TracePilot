@@ -33,7 +33,11 @@ Then read the PR body, its comments, its CI status (`gh pr checks`), the full di
 
 Assume nothing is proven until you have checked it.
 - Re-run the checks the PR claims, plus the checks that match the changed paths.
-- **Bug fixes and regression tests:** confirm the new test fails for the behavioral reason on the old code. Check out `origin/main` versions of the production files (`git checkout origin/main -- <files>`), run the test, then restore the files (`git checkout HEAD -- <files>`). End with `git status --porcelain` clean. A compile failure caused by an old interface doesn't count as proof.
+- **Bug fixes and regression tests:** confirm the new test fails for the behavioral reason on the old code. A compile failure caused by an old interface doesn't count as proof. These commands overwrite files, so run them **only in a review worktree you created whose `git status --porcelain` is empty**:
+  1. Check out the `origin/main` versions of the production files (`git checkout origin/main -- <files>`) and run the test.
+  2. Restore them (`git checkout HEAD -- <files>`) and confirm `git status --porcelain` is empty again.
+
+  If you're reviewing read-only in someone else's worktree, create a disposable one at the same commit (`git worktree add --detach ../TracePilot-revert-<n> <branch>`, then install dependencies), run the experiment there, and remove it afterwards.
 - **UI:** reproduce the before and after states on synthetic data and look at the images. **Performance:** re-run the measurement. **IPC:** run `pnpm gen:bindings` and confirm it produces no diff.
 
 ## 3. Try to break it
