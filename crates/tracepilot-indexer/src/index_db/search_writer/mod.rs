@@ -19,8 +19,10 @@ use crate::Result;
 use rusqlite::params;
 use std::path::Path;
 use tracepilot_core::ids::SessionId;
+use tracepilot_core::provider::SessionSource;
 
 use super::IndexDb;
+use super::session_writer::ensure_same_source;
 
 // Re-export the public extraction function so external callers
 // (e.g. lib.rs) can continue using `search_writer::extract_search_content`.
@@ -65,14 +67,14 @@ impl IndexDb {
         })
     }
 
-    /// Index search content for a single session.
+    /// Index search content for a single Copilot session.
     /// Deletes existing content and inserts new rows, all within a transaction.
     pub fn upsert_search_content(
         &self,
         session_id: &SessionId,
         rows: &[SearchContentRow],
     ) -> Result<usize> {
-        self.upsert_search_snapshot(session_id, rows, None, &|| false)
+        self.upsert_search_snapshot(SessionSource::Copilot, session_id, rows, None, &|| false)
     }
 
     /// Commit one bounded preparation batch together to amortize commit cost, while
@@ -80,6 +82,7 @@ impl IndexDb {
     /// Cancellation or unwinding rolls back the entire current batch.
     pub(crate) fn upsert_search_snapshots(
         &self,
+        source: SessionSource,
         session_rows: &[(SessionId, Vec<SearchContentRow>)],
         fingerprints: &[String],
         is_cancelled: &impl Fn() -> bool,
@@ -88,7 +91,13 @@ impl IndexDb {
         let mut indexed = 0;
         for ((session_id, rows), fingerprint) in session_rows.iter().zip(fingerprints) {
             tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
-            match self.upsert_search_snapshot(session_id, rows, Some(fingerprint), is_cancelled) {
+            match self.upsert_search_snapshot(
+                source,
+                session_id,
+                rows,
+                Some(fingerprint),
+                is_cancelled,
+            ) {
                 Ok(_) => indexed += 1,
                 Err(error) => {
                     // SQLITE_FULL/IOERR and RAISE(ROLLBACK) can end the outer
@@ -109,6 +118,7 @@ impl IndexDb {
 
     pub(crate) fn upsert_search_snapshot(
         &self,
+        source: SessionSource,
         session_id: &SessionId,
         rows: &[SearchContentRow],
         source_fingerprint: Option<&str>,
@@ -119,8 +129,13 @@ impl IndexDb {
             // subjournal across all statements of a large session replacement.
             // A standalone RAII transaction already provides atomic rollback.
             let transaction = self.conn.unchecked_transaction()?;
-            let count =
-                self.write_search_snapshot(session_id, rows, source_fingerprint, is_cancelled)?;
+            let count = self.write_search_snapshot(
+                source,
+                session_id,
+                rows,
+                source_fingerprint,
+                is_cancelled,
+            )?;
             tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
             transaction.commit()?;
             return Ok(count);
@@ -128,7 +143,8 @@ impl IndexDb {
 
         // A shared batch needs session-level isolation inside its transaction.
         self.conn.execute_batch("SAVEPOINT upsert_search")?;
-        match self.write_search_snapshot(session_id, rows, source_fingerprint, is_cancelled) {
+        match self.write_search_snapshot(source, session_id, rows, source_fingerprint, is_cancelled)
+        {
             Ok(count) => {
                 self.conn.execute_batch("RELEASE upsert_search")?;
                 Ok(count)
@@ -147,13 +163,16 @@ impl IndexDb {
     }
 
     /// Replace one snapshot inside the transaction owned by the caller.
+    /// Refuses a session another source owns, like the metadata upsert.
     fn write_search_snapshot(
         &self,
+        source: SessionSource,
         session_id: &SessionId,
         rows: &[SearchContentRow],
         source_fingerprint: Option<&str>,
         is_cancelled: &impl Fn() -> bool,
     ) -> Result<usize> {
+        ensure_same_source(&self.conn, session_id.as_str(), source)?;
         self.conn.execute(
             "DELETE FROM search_content WHERE session_id = ?1",
             [session_id.as_str()],
@@ -234,11 +253,14 @@ impl IndexDb {
         &self,
         session_rows: &[(SessionId, Vec<SearchContentRow>)],
     ) -> Result<usize> {
-        self.bulk_write_search_snapshots(session_rows, &[], &|| false)
+        self.bulk_write_search_snapshots(SessionSource::Copilot, session_rows, &[], &|| false)
     }
 
+    /// Fails the whole batch if any session belongs to another source; the
+    /// caller then retries per session, which skips only the conflict.
     pub(crate) fn bulk_write_search_snapshots(
         &self,
+        source: SessionSource,
         session_rows: &[(SessionId, Vec<SearchContentRow>)],
         fingerprints: &[String],
         is_cancelled: &impl Fn() -> bool,
@@ -260,6 +282,7 @@ impl IndexDb {
 
             for (index, (session_id, rows)) in session_rows.iter().enumerate() {
                 tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+                ensure_same_source(&self.conn, session_id.as_str(), source)?;
                 // Delete existing content for this session
                 self.conn.execute(
                     "DELETE FROM search_content WHERE session_id = ?1",

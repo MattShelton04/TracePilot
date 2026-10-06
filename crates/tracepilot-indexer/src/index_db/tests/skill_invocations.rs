@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::index_db::IndexDb;
+use tracepilot_core::provider::SessionSource;
 
 fn write_raw_session(root: &Path, session_id: &str, repo: &str, events: &[String]) -> PathBuf {
     let dir = root.join(session_id);
@@ -327,7 +328,8 @@ fn pruning_a_session_removes_its_invocations() {
 
     // The session is gone from disk, so nothing is live any more.
     assert_eq!(
-        db.prune_deleted(&std::collections::HashSet::new()).unwrap(),
+        db.prune_deleted(SessionSource::Copilot, &std::collections::HashSet::new())
+            .unwrap(),
         1
     );
 

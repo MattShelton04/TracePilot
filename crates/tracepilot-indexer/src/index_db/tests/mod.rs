@@ -13,3 +13,4 @@ mod search_content;
 mod sessions;
 mod skill_invocations;
 mod snapshots;
+mod sources;

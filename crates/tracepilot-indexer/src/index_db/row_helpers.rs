@@ -5,6 +5,8 @@
 //! resilient to schema changes.
 
 use rusqlite::Row;
+use rusqlite::types::Type;
+use tracepilot_core::provider::SessionSource;
 
 use super::search_reader::ContextSnippet;
 use super::types::*;
@@ -13,7 +15,7 @@ use super::types::*;
 ///
 /// Expected columns: id, path, summary, repository, branch, cwd, host_type,
 /// created_at, updated_at, event_count, turn_count, current_model, copilot_version,
-/// error_count, rate_limit_count, compaction_count, truncation_count
+/// error_count, rate_limit_count, compaction_count, truncation_count, source
 pub(super) fn indexed_session_from_row(row: &Row) -> rusqlite::Result<IndexedSession> {
     Ok(IndexedSession {
         id: row.get("id")?,
@@ -33,6 +35,20 @@ pub(super) fn indexed_session_from_row(row: &Row) -> rusqlite::Result<IndexedSes
         rate_limit_count: row.get("rate_limit_count")?,
         compaction_count: row.get("compaction_count")?,
         truncation_count: row.get("truncation_count")?,
+        source: session_source_from_row(row)?,
+    })
+}
+
+/// Read `sessions.source`. An unknown name can only come from a newer build.
+fn session_source_from_row(row: &Row) -> rusqlite::Result<SessionSource> {
+    let index = row.as_ref().column_index("source")?;
+    let name: String = row.get(index)?;
+    SessionSource::from_stored(&name).ok_or_else(|| {
+        rusqlite::Error::FromSqlConversionFailure(
+            index,
+            Type::Text,
+            format!("unknown session source '{name}'").into(),
+        )
     })
 }
 
