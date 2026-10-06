@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SessionListItem } from "@tracepilot/types";
-import { formatRelativeTime } from "@tracepilot/types";
+import { formatRelativeTime, isNonCopilotSource, sourceLabel } from "@tracepilot/types";
 import Badge from "./Badge.vue";
 
 const props = defineProps<{
@@ -59,10 +59,11 @@ function activeTitle(): string {
     </div>
 
     <div class="card-badges-new">
+      <Badge v-if="isNonCopilotSource(session.source)" variant="neutral" title="Session source">{{ sourceLabel(session.source) }}</Badge>
       <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
       <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
       <Badge v-if="session.currentModel" variant="done">{{ session.currentModel }}</Badge>
-      <Badge variant="neutral">{{ session.hostType || 'cli' }}</Badge>
+      <Badge v-if="session.hostType || !isNonCopilotSource(session.source)" variant="neutral">{{ session.hostType || 'cli' }}</Badge>
     </div>
 
     <div class="card-footer-new">

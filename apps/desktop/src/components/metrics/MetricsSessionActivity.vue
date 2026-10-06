@@ -23,6 +23,8 @@ import { modelTokenBreakdown, shutdownTokenBreakdown } from "@/utils/metricsToke
 
 const props = defineProps<{
   metrics: ShutdownMetrics;
+  /** Show only recorded AI Credits, never GitHub-rate estimates. */
+  observedOnly?: boolean;
 }>();
 
 const prefs = usePreferencesStore();
@@ -37,13 +39,14 @@ const visibleSegments = computed(() =>
     index: page.value * PAGE_SIZE + offset,
     duration: segmentDurationMs(seg),
     tokens: shutdownTokenBreakdown(seg).total,
-    credits: shutdownAiCreditUsage(seg, prefs),
+    credits: shutdownAiCreditUsage(seg, prefs, props.observedOnly),
     models: sortedSegmentModels(seg.modelMetrics).map(([name, metric]) => ({
       name,
       tokens: modelTokenBreakdown(metric).total,
       credits: shutdownAiCreditUsage(
         { totalNanoAiu: metric.totalNanoAiu, modelMetrics: { [name]: metric } },
         prefs,
+        props.observedOnly,
       ),
     })),
   })),

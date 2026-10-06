@@ -7,6 +7,7 @@ import {
   matchesSessionFilters,
   uniqueBranches,
   uniqueRepositories,
+  uniqueSources,
 } from "../filtering";
 
 function s(overrides: Partial<SessionListItem> & { id: string }): SessionListItem {
@@ -21,6 +22,7 @@ function s(overrides: Partial<SessionListItem> & { id: string }): SessionListIte
     eventCount: overrides.eventCount ?? 0,
     turnCount: overrides.turnCount ?? 0,
     currentModel: overrides.currentModel ?? null,
+    ...(overrides.source ? { source: overrides.source } : {}),
   } as SessionListItem;
 }
 
@@ -202,5 +204,32 @@ describe("stores/sessions/filtering – uniqueRepositories / uniqueBranches", ()
     expect(uniqueBranches(sample, null)).toEqual(["feat/x", "main"]);
     expect(uniqueBranches(sample, "Org/Repo-One")).toEqual(["main"]);
     expect(uniqueBranches(sample, "org/repo-two")).toEqual(["feat/x"]);
+  });
+});
+
+describe("stores/sessions/filtering – source", () => {
+  const mixed = [s({ id: "cop-1" }), s({ id: "cc-1", source: "claudeCode" })];
+  const base = { searchTerm: null, repository: null, branch: null, hideEmptySessions: false };
+  const cache = buildSearchFieldCache(mixed);
+
+  it("treats sessions without a source as Copilot", () => {
+    const out = filterAndSortSessions(mixed, { ...base, source: "copilot" }, cache, "updated");
+    expect(out.map((x) => x.id)).toEqual(["cop-1"]);
+  });
+
+  it("keeps every source when the filter is unset", () => {
+    expect(filterAndSortSessions(mixed, base, cache, "updated")).toHaveLength(2);
+    const claude = filterAndSortSessions(
+      mixed,
+      { ...base, source: "claudeCode" },
+      cache,
+      "updated",
+    );
+    expect(claude.map((x) => x.id)).toEqual(["cc-1"]);
+  });
+
+  it("lists present sources in display order", () => {
+    expect(uniqueSources(sample)).toEqual(["copilot"]);
+    expect(uniqueSources([...mixed].reverse())).toEqual(["copilot", "claudeCode"]);
   });
 });

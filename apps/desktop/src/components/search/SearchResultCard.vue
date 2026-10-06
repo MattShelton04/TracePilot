@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ContextSnippet } from "@tracepilot/client";
 import { getResultContext } from "@tracepilot/client";
-import type { SearchResult } from "@tracepilot/types";
+import { isNonCopilotSource, type SearchResult, sourceLabel } from "@tracepilot/types";
 import { CONTENT_TYPE_CONFIG, formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
 import { ref, watch } from "vue";
 import SearchResultActions from "./SearchResultActions.vue";
@@ -60,6 +60,9 @@ watch(
     @click="$emit('toggle')"
   >
     <div class="result-header">
+      <span v-if="isNonCopilotSource(result.source)" class="badge badge-neutral badge-xs" title="Session source">
+        {{ sourceLabel(result.source) }}
+      </span>
       <span v-if="result.sessionRepository" class="badge badge-accent badge-xs">
         {{ result.sessionRepository }}
       </span>

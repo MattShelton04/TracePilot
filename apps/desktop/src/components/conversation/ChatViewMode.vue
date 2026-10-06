@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
+import { type CacheWindow, type PromptCacheTimeline, sourceCapabilities } from "@tracepilot/types";
 import { provideAgentOpener } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
@@ -65,6 +65,9 @@ const {
   gapCount,
   revealEvent,
 } = useChatViewModeData(cvRootEl);
+
+// Steering talks to the Copilot SDK, so other sources never show it.
+const canSteer = computed(() => sourceCapabilities(store.detail?.source).canSteer);
 
 // Agent chips in tool renderers open that agent in the slide-out panel.
 provideAgentOpener((key) => panel.openSubagent(key));
@@ -170,7 +173,7 @@ defineExpose({ revealEvent });
 
       <div class="cv-bottom-stack">
         <!-- SDK Steering Panel (appears at bottom of chat when SDK is active) -->
-        <SdkSteeringPanel :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
+        <SdkSteeringPanel v-if="canSteer" :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
       </div>
     </div>
 

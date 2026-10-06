@@ -150,6 +150,7 @@ export {
   useExternalLinkHandler,
 } from "./composables/externalLinks";
 export { LIVE_TOOL_PARTIAL_OUTPUT_KEY } from "./composables/liveToolPartialOutput";
+export { MAIN_AGENT_LABEL_KEY, useMainAgentLabel } from "./composables/mainAgentLabel";
 export type { AgentDirectoryContext } from "./composables/useAgentDirectory";
 export {
   provideAgentDirectory,

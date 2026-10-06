@@ -2,6 +2,8 @@
 // Types for the full-text search (FTS) index: content types, results,
 // filters, facets, statistics, and indexing progress events.
 
+import type { SessionSource } from "./sources.js";
+
 /** Content types that can be indexed for full-text search. */
 export type SearchContentType =
   | "user_message"
@@ -32,6 +34,8 @@ export interface SearchResult {
   sessionRepository: string | null;
   sessionBranch: string | null;
   sessionUpdatedAt: string | null;
+  /** Which tool wrote the session. Absent from older backends; means Copilot. */
+  source?: SessionSource;
 }
 
 /** Paginated search results response from the backend. */
@@ -50,6 +54,8 @@ export interface SearchFilters {
   repositories?: string[];
   toolNames?: string[];
   sessionId?: string;
+  /** Limit results to these sources; absent means every source. */
+  sources?: SessionSource[];
   dateFromUnix?: number;
   dateToUnix?: number;
   limit?: number;

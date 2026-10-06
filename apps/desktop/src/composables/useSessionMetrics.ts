@@ -8,7 +8,9 @@ import {
   type ModelMetricDetail,
   resolveAiCreditUsage,
   type SessionDetail,
+  type SessionSource,
   type ShutdownMetrics,
+  sourceCapabilities,
   sumTokenCosts,
   type TokenCostBreakdown,
 } from "@tracepilot/types";
@@ -53,6 +55,23 @@ export function hasObservedCreditsWithZeroTokens(model: ModelMetricDetail): bool
   return observed.credits != null && observed.credits > 0 && modelTokenBreakdown(model).total === 0;
 }
 
+/** False when the metrics carry a provider cost in a unit other than AI Credits. */
+export function costUnitAllowsAiCredits(metrics: ShutdownMetrics | null | undefined): boolean {
+  return metrics?.costUnit == null || metrics.costUnit === "aic";
+}
+
+/**
+ * Whether missing AI Credits may be estimated from GitHub rates. Only sources
+ * billed in AI Credits qualify; estimating them for another source would show
+ * "estimated AI Credits" for usage that was never billed that way.
+ */
+export function allowsAiCreditEstimate(
+  source: SessionSource | null | undefined,
+  metrics?: ShutdownMetrics | null,
+): boolean {
+  return sourceCapabilities(source).hasAic && costUnitAllowsAiCredits(metrics);
+}
+
 /** Both session views use observed credits first, then a complete token estimate. */
 export function shutdownAiCreditUsage(
   metrics: ShutdownMetrics | null | undefined,
@@ -60,7 +79,9 @@ export function shutdownAiCreditUsage(
   observedOnly = false,
 ): AiCreditUsage {
   const observed = resolveAiCreditUsage(metrics?.totalNanoAiu);
-  if (observed.source === "observed" || observedOnly) return observed;
+  if (observed.source === "observed" || observedOnly || !costUnitAllowsAiCredits(metrics)) {
+    return observed;
+  }
   // Partial input/output counts cannot establish a session-wide cost. Optional
   // cache counts retain the historical zero fallback used by the pricing API.
   if (shutdownTokenBreakdown(metrics).total == null) return observed;

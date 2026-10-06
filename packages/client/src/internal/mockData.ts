@@ -287,7 +287,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_session_todos: mocks.MOCK_TODOS,
     get_session_checkpoints: mocks.MOCK_CHECKPOINTS,
     get_session_plan: { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
-    get_shutdown_metrics: mocks.MOCK_SHUTDOWN_METRICS,
+    get_shutdown_metrics: mocks.getMockShutdownMetrics(mockSessionId),
     get_session_prompt_cache: {
       timeline: mocks.MOCK_PROMPT_CACHE,
       eventsFileSize: 1024,

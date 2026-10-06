@@ -54,9 +54,40 @@ export const MOCK_SESSIONS: SessionListItem[] = [
     updatedAt: new Date(new Date(NOW).getTime() - ONE_HOUR * 6).toISOString(),
     isRunning: false,
   },
+  // Copilot mocks omit `source`, as today's backend does; this one sets it.
+  {
+    id: "sess-claude-code-review",
+    source: "claudeCode",
+    summary: "Review indexing retries",
+    repository: "tracepilot/app",
+    branch: "fix/index-retry",
+    eventCount: 96,
+    turnCount: 5,
+    currentModel: "claude-opus-4.6",
+    createdAt: new Date(new Date(NOW).getTime() - ONE_HOUR * 30).toISOString(),
+    updatedAt: new Date(new Date(NOW).getTime() - ONE_HOUR * 3).toISOString(),
+    isRunning: false,
+  },
 ];
 
 export function getMockSessionDetail(sessionId: string): SessionDetail {
+  const source = MOCK_SESSIONS.find((s) => s.id === sessionId)?.source;
+  if (source === "claudeCode") {
+    return {
+      id: sessionId,
+      source,
+      summary: "Review indexing retries",
+      repository: "tracepilot/app",
+      branch: "fix/index-retry",
+      cwd: "/home/user/project",
+      eventCount: 96,
+      turnCount: 5,
+      hasPlan: false,
+      hasCheckpoints: false,
+      createdAt: new Date(new Date(NOW).getTime() - ONE_HOUR * 30).toISOString(),
+      updatedAt: new Date(new Date(NOW).getTime() - ONE_HOUR * 3).toISOString(),
+    };
+  }
   return {
     id: sessionId,
     summary: "Mock session detail",
@@ -372,3 +403,38 @@ export const MOCK_SHUTDOWN_METRICS: ShutdownMetrics = {
     },
   ],
 };
+
+/**
+ * Claude Code totals: a USD provider estimate with no AI Credits or premium
+ * requests. The model is priced, so an unguarded AI Credit fallback would
+ * show an estimate here.
+ */
+const MOCK_CLAUDE_CODE_METRICS: ShutdownMetrics = {
+  totalApiDurationMs: 8_400,
+  sessionStartTime: Date.parse(NOW) - ONE_HOUR * 30,
+  currentModel: "claude-opus-4.6",
+  codeChanges: {
+    filesModified: ["crates/tracepilot-indexer/src/indexing/retry.rs"],
+    linesAdded: 84,
+    linesRemoved: 21,
+  },
+  modelMetrics: {
+    "claude-opus-4.6": {
+      requests: { count: 14, cost: 0 },
+      usage: {
+        inputTokens: 210_000,
+        outputTokens: 6_200,
+        cacheReadTokens: 180_000,
+        cacheWriteTokens: 24_000,
+      },
+    },
+  },
+  costAmount: 1.84,
+  costUnit: "usd",
+  costBasis: "providerEstimate",
+};
+
+export function getMockShutdownMetrics(sessionId: string): ShutdownMetrics {
+  const source = MOCK_SESSIONS.find((s) => s.id === sessionId)?.source;
+  return source === "claudeCode" ? MOCK_CLAUDE_CODE_METRICS : MOCK_SHUTDOWN_METRICS;
+}

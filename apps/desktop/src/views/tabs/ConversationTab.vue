@@ -10,6 +10,7 @@
  * Per the B2-D2 split: `useToolResultLoader` is instantiated *here* — its
  * in-memory cache must outlive any conditional re-mount of the turn list.
  */
+import { sourceCapabilities } from "@tracepilot/types";
 import {
   EmptyState,
   ErrorAlert,
@@ -52,16 +53,19 @@ const sdk = useSdkStore();
  * turn before anything is saved, so the chat view (and its live panel) stays
  * mounted even with zero persisted turns.
  */
+const canSteer = computed(() => sourceCapabilities(store.detail?.source).canSteer);
 const liveCapable = computed(() => {
   const sid = store.sessionId;
-  if (!sid || !preferences.isFeatureEnabled("copilotSdk")) return false;
+  if (!sid || !canSteer.value || !preferences.isFeatureEnabled("copilotSdk")) return false;
   const host = sdk.liveHostsById[sid];
   return sdk.isAttached(sid) || (host != null && host.state !== "idle");
 });
 watch(
-  () => store.sessionId,
-  (sid) => {
-    if (sid && preferences.isFeatureEnabled("copilotSdk")) void sdk.refreshLiveHosts([sid]);
+  [() => store.sessionId, canSteer],
+  ([sid, steerable]) => {
+    if (sid && steerable && preferences.isFeatureEnabled("copilotSdk")) {
+      void sdk.refreshLiveHosts([sid]);
+    }
   },
   { immediate: true },
 );

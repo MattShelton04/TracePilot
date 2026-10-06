@@ -111,4 +111,18 @@ describe("SessionCard", () => {
     expect(wrapper.text()).toContain("0");
     expect(wrapper.text()).toContain("Untitled Session");
   });
+
+  it("shows no source badge and keeps the host badge for Copilot sessions", () => {
+    const wrapper = mount(SessionCard, { props: { session: makeSession({ id: "c" }) } });
+    expect(wrapper.find('[title="Session source"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain("cli");
+  });
+
+  it("badges a Claude Code session instead of a default host", () => {
+    const wrapper = mount(SessionCard, {
+      props: { session: makeSession({ id: "cc", source: "claudeCode" }) },
+    });
+    expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
+    expect(wrapper.text()).not.toContain("cli");
+  });
 });

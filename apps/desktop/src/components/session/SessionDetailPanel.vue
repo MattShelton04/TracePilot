@@ -9,10 +9,12 @@
  * The inner content area is provided via the default slot.
  */
 import { isSessionRunning, openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
+import { isNonCopilotSource, sourceCapabilities, sourceLabel } from "@tracepilot/types";
 import {
   Badge,
   ErrorAlert,
   LIVE_TOOL_PARTIAL_OUTPUT_KEY,
+  MAIN_AGENT_LABEL_KEY,
   PageShell,
   SkeletonLoader,
   TabNav,
@@ -79,6 +81,10 @@ const { copy, copied } = useClipboard();
 
 const isSessionActive = ref(false);
 const sdk = useSdkStore();
+const source = computed(() => props.store.detail?.source);
+const capabilities = computed(() => sourceCapabilities(source.value));
+const sourceName = computed(() => sourceLabel(source.value));
+provide(MAIN_AGENT_LABEL_KEY, sourceName);
 // Every tool-detail surface (including compact, waterfall and swimlanes) can
 // display partial output for persisted in-flight calls in this session.
 provide(
@@ -195,7 +201,7 @@ function cancelResume() {
 }
 
 const tabs = computed(() => {
-  return mapSessionTabs(props.tabMode).map((t) => {
+  return mapSessionTabs(props.tabMode, capabilities.value).map((t) => {
     if (t.name === "conversation")
       return { ...t, count: props.store.detail?.turnCount ?? undefined };
     if (t.name === "events") return { ...t, count: props.store.detail?.eventCount ?? undefined };
@@ -278,53 +284,56 @@ watch(isSessionActive, (active) => {
         </Transition>
       </h1>
       <div class="detail-badges">
+        <Badge v-if="isNonCopilotSource(source)" variant="neutral" title="Session source">{{ sourceName }}</Badge>
         <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
         <Badge v-if="store.detail.branch" variant="success">{{ store.detail.branch }}</Badge>
         <Badge v-if="currentModel" variant="done">{{ currentModel }}</Badge>
         <Badge v-if="currentEffort" variant="neutral" title="Main agent reasoning effort">{{ effortLabel(currentEffort) }}</Badge>
-        <Badge variant="neutral">{{ store.detail.hostType || 'cli' }}</Badge>
+        <Badge v-if="store.detail.hostType || !isNonCopilotSource(source)" variant="neutral">{{ store.detail.hostType || 'cli' }}</Badge>
       </div>
 
       <div class="detail-actions">
         <div class="detail-actions-left">
-          <template v-if="confirmingCopy">
-            <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
-            <button class="resume-btn resume-btn--confirm" @click="copyResumeCommand">
-              Copy Anyway
-            </button>
-            <button class="resume-btn resume-btn--cancel" @click="cancelCopy">Cancel</button>
-          </template>
-          <button
-            v-else
-            class="resume-btn"
-            @click="copyResumeCommand"
-            :title="`Copy: ${prefs.cliCommand} --resume ${sessionId}`"
-          >
-            <component :is="copied ? Check : Clipboard" :size="14" aria-hidden="true" />
-            {{ copied ? 'Copied!' : 'Copy Resume Command' }}
-          </button>
-
-          <template v-if="!isViewer()">
-            <template v-if="confirmingResume">
+          <template v-if="capabilities.canResume">
+            <template v-if="confirmingCopy">
               <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
-              <button class="resume-btn resume-btn--confirm" @click="resumeInTerminal">
-                Resume Anyway
+              <button class="resume-btn resume-btn--confirm" @click="copyResumeCommand">
+                Copy Anyway
               </button>
-              <button class="resume-btn resume-btn--cancel" @click="cancelResume">Cancel</button>
+              <button class="resume-btn resume-btn--cancel" @click="cancelCopy">Cancel</button>
             </template>
             <button
               v-else
               class="resume-btn"
-              @click="resumeInTerminal"
-              :title="`Resume session ${sessionId} in a new terminal`"
+              @click="copyResumeCommand"
+              :title="`Copy: ${prefs.cliCommand} --resume ${sessionId}`"
             >
-              <Play :size="14" aria-hidden="true" />
-              Resume in Terminal
+              <component :is="copied ? Check : Clipboard" :size="14" aria-hidden="true" />
+              {{ copied ? 'Copied!' : 'Copy Resume Command' }}
             </button>
+
+            <template v-if="!isViewer()">
+              <template v-if="confirmingResume">
+                <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
+                <button class="resume-btn resume-btn--confirm" @click="resumeInTerminal">
+                  Resume Anyway
+                </button>
+                <button class="resume-btn resume-btn--cancel" @click="cancelResume">Cancel</button>
+              </template>
+              <button
+                v-else
+                class="resume-btn"
+                @click="resumeInTerminal"
+                :title="`Resume session ${sessionId} in a new terminal`"
+              >
+                <Play :size="14" aria-hidden="true" />
+                Resume in Terminal
+              </button>
+            </template>
           </template>
 
           <button
-            v-if="!isViewer()"
+            v-if="!isViewer() && capabilities.hasExplorer"
             class="resume-btn"
             @click="openSessionFolder"
             title="Open session state folder in file explorer"

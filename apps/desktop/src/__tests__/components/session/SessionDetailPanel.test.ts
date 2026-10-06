@@ -182,4 +182,53 @@ describe("SessionDetailPanel", () => {
     expect(wrapper.find('[data-testid="prompt-cache-chip"]').exists()).toBe(false);
     wrapper.unmount();
   });
+
+  function mountForSource(source?: "copilot" | "claudeCode") {
+    const store = createStore();
+    if (source) store.detail = { ...store.detail!, source, hostType: null };
+    return mount(SessionDetailPanel, {
+      props: {
+        store,
+        sessionId: "session-1",
+        tabMode: "local",
+        activeSubTab: "overview",
+        refreshEnabled: false,
+      },
+    });
+  }
+
+  it("keeps every tab and Copilot action for a session without a source", async () => {
+    const wrapper = mountForSource();
+    await flushPromises();
+
+    const tabs = wrapper.findAll("[role='tab']").map((t) => t.text());
+    const text = wrapper.text();
+    expect(tabs).toHaveLength(8);
+    expect(text).toContain("Copy Resume Command");
+    expect(text).toContain("Resume in Terminal");
+    expect(text).toContain("Open Folder");
+    expect(text).toContain("cli");
+    expect(text).not.toContain("Claude Code");
+    wrapper.unmount();
+  });
+
+  it("hides Copilot-only tabs and actions for a Claude Code session", async () => {
+    const wrapper = mountForSource("claudeCode");
+    await flushPromises();
+
+    const tabs = wrapper.findAll("[role='tab']").map((t) => t.text());
+    const text = wrapper.text();
+    expect(tabs.map((t) => t.replace(/\d+$/, "").trim())).toEqual([
+      "Overview",
+      "Conversation",
+      "Events",
+      "Metrics",
+      "Timeline",
+    ]);
+    expect(text).not.toContain("Copy Resume Command");
+    expect(text).not.toContain("Resume in Terminal");
+    expect(text).not.toContain("Open Folder");
+    expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
+    wrapper.unmount();
+  });
 });

@@ -180,4 +180,27 @@ describe("useMetricsTabData", () => {
       ).toBeGreaterThan(0);
     }
   });
+
+  it.each([
+    ["a USD provider cost", { costUnit: "usd" as const }, false],
+    ["a non-Copilot source", {}, true],
+  ])("never estimates AIC for %s", (_, extra, observedOnly) => {
+    const metrics: ShutdownMetrics = {
+      modelMetrics: { "gpt-5.5": { usage: { inputTokens: 1_000, outputTokens: 500 } } },
+      ...extra,
+    };
+    const result = useMetricsTabData(
+      computed(() => metrics),
+      usePreferencesStore(),
+      () => observedOnly,
+    );
+
+    expect(result.aiCreditUsage.value.source).toBe("unavailable");
+    expect(result.modelEntries.value[0]).toMatchObject({
+      aiCredits: null,
+      aiCreditSource: "unavailable",
+    });
+    // The wholesale API-rate column is not an AI Credit figure and stays.
+    expect(result.modelEntries.value[0].directApiCost).not.toBeNull();
+  });
 });

@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-rou
 import { ROUTE_NAMES } from "@/config/routes";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logError } from "@/utils/logger";
+import { sessionTabGuard } from "./sessionTabGuard";
 import type {} from "./types";
 
 // Lazy-loaded view imports for code splitting
@@ -335,6 +336,9 @@ router.beforeEach(async (to) => {
     }
   }
 });
+
+// Keep deep links off session tabs the session's source cannot show.
+router.beforeEach(sessionTabGuard);
 
 // Handle lazy-load chunk failures (e.g., network errors, stale deploys)
 // Guard against infinite reload loops with a sessionStorage timestamp

@@ -18,6 +18,7 @@ import { computed, ref } from "vue";
 import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
 import { usePreferencesStore } from "@/stores/preferences";
 import { formatObjectResult } from "@/utils/formatResult";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
@@ -40,7 +41,11 @@ const currentEffort = computed(() => sessionEffort(detail.value));
 const metrics = computed(() => store.shutdownMetrics);
 const incidents = computed(() => store.incidents);
 const prefs = usePreferencesStore();
-const { aiCreditUsage } = useMetricsTabData(metrics, prefs);
+const { aiCreditUsage } = useMetricsTabData(
+  metrics,
+  prefs,
+  () => !allowsAiCreditEstimate(store.detail?.source),
+);
 
 const sessionInfoItems = computed(() => {
   const d = detail.value;

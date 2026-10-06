@@ -1,6 +1,7 @@
+import { sourceCapabilities } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
 import { ROUTE_NAMES } from "../routes";
-import { mapSessionTabs, type SessionTab } from "../sessionTabs";
+import { isSessionTabHidden, mapSessionTabs, type SessionTab } from "../sessionTabs";
 
 const EXPECTED_ORDER = [
   "overview",
@@ -53,5 +54,38 @@ describe("mapSessionTabs", () => {
     const patched: SessionTab = { ...a[1], label: "Mutated" };
     expect(b[1].label).toBe("Conversation");
     expect(patched.label).toBe("Mutated");
+  });
+
+  it("keeps every tab for Copilot capabilities", () => {
+    expect(mapSessionTabs("router", sourceCapabilities("copilot"))).toEqual(
+      mapSessionTabs("router"),
+    );
+  });
+
+  it("leaves out tabs the source cannot fill", () => {
+    const tabs = mapSessionTabs("local", sourceCapabilities("claudeCode"));
+    expect(tabs.map((t) => t.name)).toEqual([
+      "overview",
+      "conversation",
+      "events",
+      "metrics",
+      "timeline",
+    ]);
+  });
+});
+
+describe("isSessionTabHidden", () => {
+  const claude = sourceCapabilities("claudeCode");
+
+  it("matches tab names and route names", () => {
+    expect(isSessionTabHidden("todos", claude)).toBe(true);
+    expect(isSessionTabHidden(ROUTE_NAMES.sessionExplorer, claude)).toBe(true);
+    expect(isSessionTabHidden(ROUTE_NAMES.sessionContext, claude)).toBe(true);
+    expect(isSessionTabHidden("conversation", claude)).toBe(false);
+  });
+
+  it("hides nothing for Copilot or for unknown names", () => {
+    expect(isSessionTabHidden("todos", sourceCapabilities("copilot"))).toBe(false);
+    expect(isSessionTabHidden("not-a-tab", claude)).toBe(false);
   });
 });

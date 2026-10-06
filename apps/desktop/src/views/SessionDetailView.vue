@@ -7,6 +7,7 @@
  * router-view (child routes).
  */
 
+import { resolveSessionSource } from "@tracepilot/types";
 import type { Ref } from "vue";
 import { computed, inject, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -20,6 +21,7 @@ import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { hiddenSessionTabRedirect } from "@/router/sessionTabGuard";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 
 const route = useRoute();
@@ -37,6 +39,18 @@ const routeViewVisible = inject<Ref<boolean>>("routeViewVisible", ref(true));
 watch(sessionId, (newId) => {
   if (newId) store.loadDetail(newId);
 });
+
+// A deep link can reach a tab before the session's source is known; leave it
+// once the detail shows the source cannot fill that tab.
+watch(
+  () => [store.detail, route.name] as const,
+  ([detail]) => {
+    if (detail?.id !== sessionId.value) return;
+    const redirect = hiddenSessionTabRedirect(route, resolveSessionSource(detail.source));
+    if (redirect) void router.replace(redirect);
+  },
+  { immediate: true },
+);
 
 // Note: we intentionally do NOT call store.reset() on unmount.
 // The store handles re-initialization when switching sessions via loadDetail(newId).
