@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type CacheWindow, type PromptCacheTimeline, sourceCapabilities } from "@tracepilot/types";
+import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
 import { provideAgentOpener } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
@@ -12,6 +12,7 @@ import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
 import { useChatViewModeData } from "@/composables/useChatViewModeData";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useRenderBudget } from "@/composables/useRenderBudget";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { chunkTurns } from "./chatViewUtils";
 import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 import SubagentPanel from "./SubagentPanel.vue";
@@ -67,7 +68,11 @@ const {
 } = useChatViewModeData(cvRootEl);
 
 // Steering talks to the Copilot SDK, so other sources never show it.
-const canSteer = computed(() => sourceCapabilities(store.detail?.source).canSteer);
+const { capabilities } = useSessionSource(
+  () => store.sessionId,
+  () => store.detail,
+);
+const canSteer = computed(() => capabilities.value.canSteer);
 
 // Agent chips in tool renderers open that agent in the slide-out panel.
 provideAgentOpener((key) => panel.openSubagent(key));

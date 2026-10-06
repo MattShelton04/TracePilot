@@ -7,7 +7,6 @@
  * router-view (child routes).
  */
 
-import { resolveSessionSource } from "@tracepilot/types";
 import type { Ref } from "vue";
 import { computed, inject, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -19,6 +18,7 @@ import {
 } from "@/composables/useConversationNavigation";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { hiddenSessionTabRedirect } from "@/router/sessionTabGuard";
@@ -41,12 +41,16 @@ watch(sessionId, (newId) => {
 });
 
 // A deep link can reach a tab before the session's source is known; leave it
-// once the detail shows the source cannot fill that tab.
+// once the detail loads if the source cannot fill that tab.
+const { source } = useSessionSource(
+  () => sessionId.value,
+  () => store.detail,
+);
 watch(
-  () => [store.detail, route.name] as const,
-  ([detail]) => {
+  () => [store.detail, source.value, route.name] as const,
+  ([detail, known]) => {
     if (detail?.id !== sessionId.value) return;
-    const redirect = hiddenSessionTabRedirect(route, resolveSessionSource(detail.source));
+    const redirect = hiddenSessionTabRedirect(route, known);
     if (redirect) void router.replace(redirect);
   },
   { immediate: true },

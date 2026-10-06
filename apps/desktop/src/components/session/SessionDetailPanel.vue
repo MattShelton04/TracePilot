@@ -9,7 +9,7 @@
  * The inner content area is provided via the default slot.
  */
 import { isSessionRunning, openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
-import { isNonCopilotSource, sourceCapabilities, sourceLabel } from "@tracepilot/types";
+import { isNonCopilotSource, sourceLabel } from "@tracepilot/types";
 import {
   Badge,
   ErrorAlert,
@@ -37,6 +37,7 @@ import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
 import { useLivePersistedSync } from "@/composables/useLivePersistedSync";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -81,8 +82,10 @@ const { copy, copied } = useClipboard();
 
 const isSessionActive = ref(false);
 const sdk = useSdkStore();
-const source = computed(() => props.store.detail?.source);
-const capabilities = computed(() => sourceCapabilities(source.value));
+const { source, capabilities } = useSessionSource(
+  () => props.sessionId,
+  () => props.store.detail,
+);
 const sourceName = computed(() => sourceLabel(source.value));
 provide(MAIN_AGENT_LABEL_KEY, sourceName);
 // Every tool-detail surface (including compact, waterfall and swimlanes) can

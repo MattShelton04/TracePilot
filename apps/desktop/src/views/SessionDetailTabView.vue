@@ -9,7 +9,6 @@
  *
  * This enables multiple concurrent session detail views, each with isolated state.
  */
-import { sourceCapabilities } from "@tracepilot/types";
 import { computed, defineAsyncComponent, provide, watch } from "vue";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { NAVIGATE_CHECKPOINT_KEY } from "@/composables/useCheckpointNavigation";
@@ -22,6 +21,7 @@ import {
   SESSION_DETAIL_KEY,
   toSessionDetailContext,
 } from "@/composables/useSessionDetail";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { DEFAULT_SESSION_TAB, isSessionTabHidden } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -67,11 +67,15 @@ const currentInnerComponent = computed(
 );
 
 // A restored or linked sub-tab may be one this session's source hides.
+const { capabilities } = useSessionSource(
+  () => props.sessionId,
+  () => store.detail,
+);
 watch(
-  () => [store.detail, props.activeSubTab] as const,
-  ([detail, tab]) => {
+  () => [store.detail, capabilities.value, props.activeSubTab] as const,
+  ([detail, caps, tab]) => {
     if (detail?.id !== props.sessionId) return;
-    if (isSessionTabHidden(tab, sourceCapabilities(detail.source))) {
+    if (isSessionTabHidden(tab, caps)) {
       emit("update:activeSubTab", DEFAULT_SESSION_TAB);
     }
   },

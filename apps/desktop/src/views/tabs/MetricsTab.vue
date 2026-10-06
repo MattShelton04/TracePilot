@@ -17,6 +17,7 @@ import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { usePromptCache } from "@/composables/usePromptCache";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { usePreferencesStore } from "@/stores/preferences";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
@@ -53,7 +54,11 @@ function retryLoadTurns() {
 }
 
 const metrics = computed(() => store.shutdownMetrics);
-const creditsObservedOnly = computed(() => !allowsAiCreditEstimate(store.detail?.source));
+const { source } = useSessionSource(
+  () => store.sessionId,
+  () => store.detail,
+);
+const creditsObservedOnly = computed(() => !allowsAiCreditEstimate(source.value));
 const { revealing } = useFirstReveal({
   key: () => store.sessionId && `metrics:${store.sessionId}`,
   ready: () => !!metrics.value,

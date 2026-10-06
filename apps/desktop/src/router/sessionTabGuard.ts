@@ -1,5 +1,6 @@
-import { resolveSessionSource, type SessionSource, sourceCapabilities } from "@tracepilot/types";
+import { type SessionSource, sourceCapabilities } from "@tracepilot/types";
 import type { RouteLocationNormalized, RouteLocationRaw } from "vue-router";
+import { knownSessionSource } from "@/composables/useSessionSource";
 import { ROUTE_NAMES } from "@/config/routes";
 import { isSessionTabHidden } from "@/config/sessionTabs";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
@@ -19,19 +20,16 @@ export function hiddenSessionTabRedirect(
   return { name: ROUTE_NAMES.sessionOverview, params: to.params };
 }
 
-/** The session's source from data already loaded, without fetching. */
-export function knownSessionSource(sessionId: string): SessionSource | undefined {
-  const detail = useSessionDetailStore().detail;
-  if (detail?.id === sessionId) return resolveSessionSource(detail.source);
-  const item = useSessionsStore().sessions.find((s) => s.id === sessionId);
-  return item ? resolveSessionSource(item.source) : undefined;
-}
-
 /** Router guard: keep deep links off tabs the session's source hides. */
 export function sessionTabGuard(to: RouteLocationNormalized): RouteLocationRaw | undefined {
   const id = to.params.id;
   if (typeof id !== "string" || !to.matched.some((r) => r.path === "/session/:id")) {
     return undefined;
   }
-  return hiddenSessionTabRedirect(to, knownSessionSource(id));
+  const source = knownSessionSource(
+    id,
+    useSessionDetailStore().detail,
+    useSessionsStore().sessions,
+  );
+  return hiddenSessionTabRedirect(to, source);
 }

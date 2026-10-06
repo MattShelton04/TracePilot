@@ -10,7 +10,6 @@
  * Per the B2-D2 split: `useToolResultLoader` is instantiated *here* — its
  * in-memory cache must outlive any conditional re-mount of the turn list.
  */
-import { sourceCapabilities } from "@tracepilot/types";
 import {
   EmptyState,
   ErrorAlert,
@@ -34,6 +33,7 @@ import { useConversationDeepLinkScroll } from "@/composables/useConversationDeep
 import { usePromptCache } from "@/composables/usePromptCache";
 import { provideSessionAgentDirectory } from "@/composables/useSessionAgentDirectory";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -53,7 +53,11 @@ const sdk = useSdkStore();
  * turn before anything is saved, so the chat view (and its live panel) stays
  * mounted even with zero persisted turns.
  */
-const canSteer = computed(() => sourceCapabilities(store.detail?.source).canSteer);
+const { capabilities } = useSessionSource(
+  () => store.sessionId,
+  () => store.detail,
+);
+const canSteer = computed(() => capabilities.value.canSteer);
 const liveCapable = computed(() => {
   const sid = store.sessionId;
   if (!sid || !canSteer.value || !preferences.isFeatureEnabled("copilotSdk")) return false;

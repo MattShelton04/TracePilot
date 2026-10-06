@@ -197,7 +197,7 @@ function onRetryFullResult(toolCallId: string) {
                 :style="{ backgroundColor: getAgentColor(section.agentType) }"
                 :title="section.agentDisplayName"
               />
-              {{ section.agentId ? section.agentDisplayName + ':' : 'Copilot:' }}
+              {{ section.agentId ? section.agentDisplayName : mainAgentLabel }}:
             </span>
             {{ truncateText(msg, 300) }}
           </div>

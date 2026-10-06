@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionsStore } from "@/stores/sessions";
 import { makeTimeline, makeWindow } from "@/utils/__tests__/promptCacheFixtures";
 
 const mocks = vi.hoisted(() => ({
@@ -228,6 +229,22 @@ describe("SessionDetailPanel", () => {
     expect(text).not.toContain("Copy Resume Command");
     expect(text).not.toContain("Resume in Terminal");
     expect(text).not.toContain("Open Folder");
+    expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
+    wrapper.unmount();
+  });
+
+  it("keeps Claude Code gating when the detail omits a source the list knows", async () => {
+    useSessionsStore().sessions = [
+      { id: "session-1", source: "claudeCode", isRunning: false },
+    ] as never;
+    const wrapper = mountForSource();
+    await flushPromises();
+
+    const tabs = wrapper.findAll("[role='tab']");
+    expect(tabs).toHaveLength(5);
+    expect(wrapper.text()).not.toContain("Copy Resume Command");
+    expect(wrapper.text()).not.toContain("Resume in Terminal");
+    expect(wrapper.text()).not.toContain("Open Folder");
     expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
     wrapper.unmount();
   });
