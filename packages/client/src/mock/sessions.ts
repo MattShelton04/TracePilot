@@ -80,6 +80,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetail {
       repository: "tracepilot/app",
       branch: "fix/index-retry",
       cwd: "/home/user/project",
+      currentModel: "claude-opus-4.6",
       eventCount: 96,
       turnCount: 5,
       hasPlan: false,
