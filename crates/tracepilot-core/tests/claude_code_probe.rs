@@ -34,6 +34,15 @@ use tracepilot_core::provider::claude_code::{
 };
 use tracepilot_core::reconstruct_turns;
 
+#[path = "claude_code_probe/census.rs"]
+mod census;
+#[path = "claude_code_probe/liveness.rs"]
+mod liveness;
+#[path = "claude_code_probe/memory.rs"]
+mod memory;
+#[path = "claude_code_probe/provider.rs"]
+mod provider;
+
 #[test]
 #[ignore = "reads real Claude Code transcripts; set TRACEPILOT_CLAUDE_PROBE_DIR"]
 fn claude_code_probe_reports_aggregates() {
@@ -44,13 +53,21 @@ fn claude_code_probe_reports_aggregates() {
     let projects = if dir.join("projects").is_dir() {
         dir.join("projects")
     } else {
-        dir
+        dir.clone()
     };
     let mut report = Report::default();
     for (ordinal, path) in discover(&projects).iter().enumerate() {
         report.add(ordinal + 1, path);
     }
     report.print();
+    let ids = discover(&projects)
+        .iter()
+        .filter_map(|p| p.file_stem()?.to_str().map(str::to_string))
+        .collect();
+    liveness::LivenessShapes::read(&dir, &ids).print();
+    if dir.join("projects").is_dir() {
+        provider::report(&dir, report.sessions);
+    }
     assert_eq!(report.residuals.get("negative").copied().unwrap_or(0), 0);
     assert_eq!(report.round_trip_mismatches, 0);
 }
@@ -121,6 +138,8 @@ struct Report {
     unexplained: Vec<String>,
     // Tool rendering inputs
     tools: BTreeMap<&'static str, usize>,
+    census: census::Census,
+    memory: memory::Memory,
 }
 
 impl Report {
@@ -143,10 +162,12 @@ impl Report {
             self.round_trip_mismatches += 1;
         }
         self.add_events(&parsed);
-        self.add_turns(&turns);
+        self.add_turns(&parsed, &turns);
         self.add_usage(ordinal, &parsed);
         self.add_tools(&parsed);
         self.add_interrupts(&parsed);
+        self.census.add(&parsed);
+        self.memory.add(path, &parsed);
     }
 
     fn add_interrupts(&mut self, parsed: &ClaudeParse) {
@@ -178,6 +199,7 @@ impl Report {
         let d = &parsed.diagnostics;
         for (key, n) in [
             ("malformed lines", d.malformed_lines),
+            ("oversized lines", d.oversized_lines),
             ("partial tails", d.partial_tails),
             ("redacted thinking", d.redacted_thinking),
             ("orphan subagents", d.orphan_subagents),
@@ -223,7 +245,7 @@ impl Report {
         }
     }
 
-    fn add_turns(&mut self, turns: &[ConversationTurn]) {
+    fn add_turns(&mut self, parsed: &ClaudeParse, turns: &[ConversationTurn]) {
         self.turns += turns.len();
         let mut current: Option<usize> = None;
         for (index, turn) in turns.iter().enumerate() {
@@ -242,7 +264,11 @@ impl Report {
             if !turn.is_complete && index + 1 < turns.len() {
                 self.incomplete_not_last += 1;
                 let message = turn.user_message.as_deref().unwrap_or("").trim_start();
-                let cause = if message.starts_with("<command-")
+                let source = turn
+                    .event_index
+                    .and_then(|i| parsed.events.get(i))
+                    .and_then(|e| e.raw.data["source"].as_str());
+                let cause = if source.is_some_and(|s| s.starts_with("command-"))
                     || message.starts_with("<local-command-stdout>")
                 {
                     "slash command (no model call)"
@@ -469,6 +495,7 @@ impl Report {
             self.incomplete_not_last, self.incomplete_causes
         );
         println!("- Interrupt shapes: {:?}", self.interrupts);
+        self.census.print();
         println!(
             "- Turns per interaction: {}",
             distribution(&self.turns_per_prompt)
@@ -526,6 +553,7 @@ impl Report {
         for (key, n) in &self.tools {
             println!("- {key}: {n}");
         }
+        self.memory.print();
     }
 }
 

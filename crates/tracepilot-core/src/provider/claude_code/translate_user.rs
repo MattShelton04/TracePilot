@@ -7,6 +7,7 @@
 use serde_json::{Value, json};
 
 use super::notify::{TaskNotification, contains_notification, parse_notifications};
+use super::reader::Line;
 use super::records::{Blocks, Rec, block_type, tool_result_text};
 use super::translate::{Custom, RecCtx, Stream, Translator};
 
@@ -96,7 +97,17 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             self.emit(st, ctx, "user.message", json!({"content": text}));
             return;
         }
+        let mut echo = None;
         let (source, command) = if let Some(name) = command_name(&text) {
+            if st.echoed_command.as_ref() == Some(&name) {
+                // The typed echo already opened this command's interaction.
+                st.echoed_command = None;
+                self.emit(st, ctx, "system.message", json!({"content": text}));
+                return;
+            }
+            (format!("command-{name}"), Some(name))
+        } else if let Some(name) = echoed_command(&text, &st.lines[st.cursor + 1..]) {
+            echo = Some(name.clone());
             (format!("command-{name}"), Some(name))
         } else if text.starts_with("<local-command-stdout>") {
             if st.last_command.take().is_some() {
@@ -109,6 +120,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         };
         self.new_interaction(st, ctx, rec);
         st.last_command = command;
+        st.echoed_command = echo;
         let data = json!({
             "content": text,
             "interactionId": st.interaction,
@@ -148,6 +160,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         self.close_call(st, ctx);
         st.interaction = rec.str("promptId").map(str::to_string);
         st.pending_skill = None;
+        st.echoed_command = None;
         st.last_closed_end_turn = false;
     }
 
@@ -374,6 +387,34 @@ fn command_name(text: &str) -> Option<String> {
     Some(name.trim().trim_start_matches('/').to_string()).filter(|n| !n.is_empty())
 }
 
+/// A slash command as typed, `/compact` → `compact`, when the
+/// `<command-name>` record for the same command follows before the next
+/// model call or prompt. Claude Code writes the typed text first when the
+/// command runs before its record is written: in the S3 census all 15 such
+/// records were `/compact`, followed by the compaction and then the record.
+fn echoed_command(text: &str, rest: &[Line]) -> Option<String> {
+    let name = text.trim().strip_prefix('/')?.split_whitespace().next()?;
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':'))
+    {
+        return None;
+    }
+    for line in rest {
+        let rec = Rec(&line.value);
+        match rec.kind() {
+            "assistant" => return None,
+            "user" if rec.flag("isMeta") || rec.flag("isCompactSummary") => {}
+            "user" => {
+                let next = command_name(&rec.text().unwrap_or_default())?;
+                return (next == name).then_some(next);
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 /// Pasted images, without their (already sanitized) data.
 fn prompt_attachments(rec: Rec<'_>) -> Option<Vec<Value>> {
     let Blocks::Array(blocks) = rec.blocks() else {
@@ -389,7 +430,55 @@ fn prompt_attachments(rec: Rec<'_>) -> Option<Vec<Value>> {
 
 #[cfg(test)]
 mod tests {
-    use super::command_name;
+    use std::sync::Arc;
+
+    use serde_json::{Value, json};
+
+    use super::{Line, command_name, echoed_command};
+
+    fn lines(records: Vec<Value>) -> Vec<Line> {
+        records
+            .into_iter()
+            .enumerate()
+            .map(|(i, value)| Line {
+                line: i + 1,
+                value: Arc::new(value),
+            })
+            .collect()
+    }
+
+    fn user(content: &str) -> Value {
+        json!({"type": "user", "message": {"role": "user", "content": content}})
+    }
+
+    #[test]
+    fn typed_command_is_an_echo_only_when_its_record_follows() {
+        let record = "<command-name>/compact</command-name>";
+        let confirmed = lines(vec![
+            json!({"type": "system", "subtype": "compact_boundary"}),
+            json!({"type": "user", "isCompactSummary": true, "message": {"content": "S"}}),
+            json!({"type": "user", "isMeta": true, "message": {"content": "Caveat"}}),
+            user(record),
+        ]);
+        assert_eq!(
+            echoed_command("/compact", &confirmed).as_deref(),
+            Some("compact")
+        );
+        assert_eq!(
+            echoed_command(" /compact keep tests ", &confirmed).as_deref(),
+            Some("compact")
+        );
+        // Another command's record, a model call first, or nothing at all.
+        assert_eq!(echoed_command("/clear", &confirmed), None);
+        let answered = lines(vec![json!({"type": "assistant"}), user(record)]);
+        assert_eq!(echoed_command("/compact", &answered), None);
+        let prompt = lines(vec![user("Why?"), user(record)]);
+        assert_eq!(echoed_command("/compact", &prompt), None);
+        assert_eq!(echoed_command("/compact", &[]), None);
+        // Prose that starts with a slash.
+        assert_eq!(echoed_command("/usr/bin is missing", &confirmed), None);
+        assert_eq!(echoed_command("compact", &confirmed), None);
+    }
 
     #[test]
     fn command_name_accepts_either_tag_order() {

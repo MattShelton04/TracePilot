@@ -12,7 +12,7 @@
 #![allow(clippy::expect_used)]
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
 use tempfile::TempDir;
@@ -214,6 +214,15 @@ impl Transcript {
         )
     }
 
+    /// Start a new `promptId` without writing a record, for prompts that are
+    /// not plain human text (a typed slash command).
+    pub fn next_prompt_id(&mut self) -> String {
+        self.prompts += 1;
+        let prompt_id = format!("22222222-2222-4222-8222-{:012x}", self.prompts);
+        self.prompt_id = Some(prompt_id.clone());
+        prompt_id
+    }
+
     /// A `user` record in the current prompt with `body` merged in.
     pub fn user(&mut self, body: Value) -> String {
         let mut body = body;
@@ -294,15 +303,26 @@ impl Transcript {
         self.record("system", body)
     }
 
-    /// A compaction boundary (`parentUuid: null`) with its logical parent.
+    /// An automatic compaction boundary (`parentUuid: null`) with its logical parent.
     pub fn compact_boundary(&mut self, logical_parent: &str, pre: u64, post: u64) -> String {
+        self.compact_boundary_with(logical_parent, "auto", pre, post)
+    }
+
+    /// A compaction boundary with its `trigger` (`auto` or `manual`).
+    pub fn compact_boundary_with(
+        &mut self,
+        logical_parent: &str,
+        trigger: &str,
+        pre: u64,
+        post: u64,
+    ) -> String {
         self.parent_next(None);
         self.system(
             "compact_boundary",
             json!({
                 "logicalParentUuid": logical_parent,
                 "content": "Conversation compacted",
-                "compactMetadata": {"trigger": "auto", "preTokens": pre, "postTokens": post,
+                "compactMetadata": {"trigger": trigger, "preTokens": pre, "postTokens": post,
                     "durationMs": 5000},
             }),
         )
@@ -395,6 +415,24 @@ pub struct Subagent<'a> {
 pub struct SessionFiles {
     pub root: TempDir,
     pub main: PathBuf,
+}
+
+/// `<config>/sessions/<pid>.json`, which Claude Code writes while a process
+/// runs. `proc_start` is the process start time it recorded.
+pub fn write_pid_file(
+    config_dir: &Path,
+    pid: u32,
+    session_id: &str,
+    proc_start: &str,
+    status: &str,
+) {
+    let dir = config_dir.join("sessions");
+    fs::create_dir_all(&dir).expect("create sessions dir");
+    let record = json!({"pid": pid, "sessionId": session_id, "cwd": "C:\\work\\demo",
+        "startedAt": 1_790_000_000_000_u64, "procStart": proc_start, "version": "2.1.289",
+        "kind": "interactive", "entrypoint": "cli", "status": status,
+        "updatedAt": 1_790_000_300_000_u64});
+    fs::write(dir.join(format!("{pid}.json")), record.to_string()).expect("write pid file");
 }
 
 pub fn write_session(main: &Transcript, subagents: &[Subagent<'_>]) -> SessionFiles {

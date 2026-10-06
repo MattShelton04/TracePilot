@@ -17,3 +17,5 @@ pub use loader::{
 };
 pub use snapshot::{SessionFingerprint, load_session_snapshot};
 pub use types::SessionLoadResult;
+
+pub(crate) use enrichment::apply_event_enrichment;
