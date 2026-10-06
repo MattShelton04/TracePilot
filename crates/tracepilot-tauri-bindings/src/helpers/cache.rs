@@ -24,6 +24,8 @@ pub(crate) fn summary_to_list_item(
     let is_running = tracepilot_core::session::discovery::has_lock_file(session_path);
     SessionListItem {
         id: SessionId::from_validated(summary.id),
+        // The disk-scan fallback only discovers Copilot sessions.
+        source: tracepilot_core::provider::SessionSource::Copilot,
         summary: summary.summary,
         repository: summary.repository,
         branch: summary.branch,
@@ -63,6 +65,7 @@ pub(crate) fn indexed_session_to_list_item(
     let is_running = tracepilot_core::session::discovery::has_lock_file(Path::new(&session.path));
     SessionListItem {
         id: SessionId::from_validated(session.id),
+        source: session.source,
         summary: session.summary,
         repository: session.repository,
         branch: session.branch,
