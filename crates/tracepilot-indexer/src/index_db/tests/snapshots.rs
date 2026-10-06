@@ -2,6 +2,7 @@ use std::cell::Cell;
 use std::io::Write;
 
 use tracepilot_core::ids::SessionId;
+use tracepilot_core::provider::SessionSource;
 
 use super::common::write_session_with_tools;
 use crate::index_db::{IndexDb, search_writer, session_writer};
@@ -86,8 +87,14 @@ fn newer_analytics_cannot_certify_old_search_content() {
     let fingerprint = serde_json::to_string(&old.fingerprint).unwrap();
     append(&path);
     db.upsert_session(&path).unwrap();
-    db.upsert_search_snapshot(&id, &rows, Some(&fingerprint), &|| false)
-        .unwrap();
+    db.upsert_search_snapshot(
+        SessionSource::Copilot,
+        &id,
+        &rows,
+        Some(&fingerprint),
+        &|| false,
+    )
+    .unwrap();
     assert!(!db.needs_reindex(&id, &path));
     assert!(db.needs_search_reindex(&id, &path));
     let new =
@@ -97,8 +104,14 @@ fn newer_analytics_cannot_certify_old_search_content() {
         .unwrap();
     let rows = search_writer::extract_search_content(&id, &new.parsed.unwrap().events);
     let fingerprint = serde_json::to_string(&new.fingerprint).unwrap();
-    db.upsert_search_snapshot(&id, &rows, Some(&fingerprint), &|| false)
-        .unwrap();
+    db.upsert_search_snapshot(
+        SessionSource::Copilot,
+        &id,
+        &rows,
+        Some(&fingerprint),
+        &|| false,
+    )
+    .unwrap();
     assert!(!db.needs_search_reindex(&id, &path));
 }
 
@@ -116,12 +129,18 @@ fn cancellation_rolls_back_content_and_freshness_together() {
         .unwrap();
     let rows = search_writer::extract_search_content(&id, &old.parsed.unwrap().events);
     let fingerprint = serde_json::to_string(&old.fingerprint).unwrap();
-    db.upsert_search_snapshot(&id, &rows, Some(&fingerprint), &|| false)
-        .unwrap();
+    db.upsert_search_snapshot(
+        SessionSource::Copilot,
+        &id,
+        &rows,
+        Some(&fingerprint),
+        &|| false,
+    )
+    .unwrap();
     let before = db.search_content_row_count().unwrap();
     let checks = Cell::new(0);
     assert!(
-        db.upsert_search_snapshot(&id, &rows, Some("wrong"), &|| {
+        db.upsert_search_snapshot(SessionSource::Copilot, &id, &rows, Some("wrong"), &|| {
             checks.set(checks.get() + 1);
             checks.get() > 1
         })
@@ -131,10 +150,15 @@ fn cancellation_rolls_back_content_and_freshness_together() {
     assert!(!db.needs_search_reindex(&id, &path));
     checks.set(0);
     assert!(
-        db.bulk_write_search_snapshots(&[(id.clone(), rows)], &["wrong".to_string()], &|| {
-            checks.set(checks.get() + 1);
-            checks.get() > 2
-        })
+        db.bulk_write_search_snapshots(
+            SessionSource::Copilot,
+            &[(id.clone(), rows)],
+            &["wrong".to_string()],
+            &|| {
+                checks.set(checks.get() + 1);
+                checks.get() > 2
+            }
+        )
         .is_err()
     );
     assert_eq!(before, db.search_content_row_count().unwrap());

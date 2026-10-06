@@ -33,6 +33,24 @@ pub enum SessionSource {
     ClaudeCode,
 }
 
+impl SessionSource {
+    /// Every source, in a stable order.
+    pub const ALL: [Self; 2] = [Self::Copilot, Self::ClaudeCode];
+
+    /// The stored name, matching the serde wire name (`sessions.source`).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Copilot => "copilot",
+            Self::ClaudeCode => "claudeCode",
+        }
+    }
+
+    /// Parse a stored name written by [`Self::as_str`].
+    pub fn from_stored(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|source| source.as_str() == name)
+    }
+}
+
 /// A session's place in its family. Drives default visibility.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(Type))]
@@ -45,6 +63,22 @@ pub enum SessionRole {
     Subagent,
     /// An automatic reviewer thread, hidden by default.
     Guardian,
+}
+
+impl SessionRole {
+    /// The stored name, matching the serde wire name (`sessions.role`).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Primary => "primary",
+            Self::Subagent => "subagent",
+            Self::Guardian => "guardian",
+        }
+    }
+
+    /// Whether lists hide sessions with this role by default.
+    pub fn hidden_by_default(self) -> bool {
+        matches!(self, Self::Guardian)
+    }
 }
 
 /// What a source supports. Static per source; a provider may narrow it per

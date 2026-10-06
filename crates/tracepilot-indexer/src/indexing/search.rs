@@ -5,6 +5,7 @@ use std::path::Path;
 use crate::Result;
 use crate::index_db;
 use crate::indexing::progress::SearchIndexingProgress;
+use tracepilot_core::provider::SessionSource;
 
 /// Minimum session count for amortizing a shared search-write transaction.
 const BULK_MIN_SESSIONS: usize = 10;
@@ -108,7 +109,12 @@ pub fn reindex_search_content(
         let existing_rows = db.search_content_row_count()?;
         let bulk = use_bulk_write(prepared.len(), new_rows, existing_rows);
         let bulk_done = if bulk {
-            match db.bulk_write_search_snapshots(&prepared, &fingerprints, &is_cancelled) {
+            match db.bulk_write_search_snapshots(
+                SessionSource::Copilot,
+                &prepared,
+                &fingerprints,
+                &is_cancelled,
+            ) {
                 Ok(_) => {
                     indexed += prepared.len();
                     true
@@ -123,7 +129,12 @@ pub fn reindex_search_content(
         };
         if !bulk_done {
             if prepared.len() >= BULK_MIN_SESSIONS {
-                match db.upsert_search_snapshots(&prepared, &fingerprints, &is_cancelled) {
+                match db.upsert_search_snapshots(
+                    SessionSource::Copilot,
+                    &prepared,
+                    &fingerprints,
+                    &is_cancelled,
+                ) {
                     Ok(count) => indexed += count,
                     Err(error) => tracing::warn!(error = %error,
                         "Search batch not committed; retaining previous content"),
@@ -136,6 +147,7 @@ pub fn reindex_search_content(
                         return Ok((indexed, skipped));
                     }
                     match db.upsert_search_snapshot(
+                        SessionSource::Copilot,
                         &snapshot.0,
                         &snapshot.1,
                         Some(fingerprint),

@@ -16,6 +16,23 @@ fn session_source_wire_names() {
 }
 
 #[test]
+fn stored_names_match_wire_names() {
+    for source in SessionSource::ALL {
+        assert_eq!(json!(source), json!(source.as_str()));
+        assert_eq!(SessionSource::from_stored(source.as_str()), Some(source));
+    }
+    assert_eq!(SessionSource::from_stored("codex"), None);
+    for role in [
+        SessionRole::Primary,
+        SessionRole::Subagent,
+        SessionRole::Guardian,
+    ] {
+        assert_eq!(json!(role), json!(role.as_str()));
+        assert_eq!(role.hidden_by_default(), role == SessionRole::Guardian);
+    }
+}
+
+#[test]
 fn liveness_is_tagged_by_state() {
     let running = Liveness::Running {
         pid: Some(42),

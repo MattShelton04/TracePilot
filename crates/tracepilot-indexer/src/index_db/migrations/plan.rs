@@ -130,6 +130,18 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
               ALTER TABLE sessions ADD COLUMN search_source_fingerprint TEXT;",
         pre_hook: None,
     },
+    Migration {
+        version: 22,
+        name: "session source identity",
+        // Existing rows are all Copilot sessions; the defaults backfill them.
+        sql: "ALTER TABLE sessions ADD COLUMN source TEXT NOT NULL DEFAULT 'copilot';
+              ALTER TABLE sessions ADD COLUMN parent_session_id TEXT;
+              ALTER TABLE sessions ADD COLUMN role TEXT NOT NULL DEFAULT 'primary';
+              ALTER TABLE sessions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;
+              ALTER TABLE sessions ADD COLUMN source_format_version TEXT;
+              CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions(source);",
+        pre_hook: None,
+    },
 ];
 
 pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
@@ -138,9 +150,36 @@ pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
 
 #[cfg(test)]
 mod tests {
-    use super::INDEX_DB_PLAN;
+    use super::{INDEX_DB_MIGRATIONS, INDEX_DB_PLAN};
     use rusqlite::Connection;
-    use tracepilot_core::utils::migrator::{MigratorOptions, run_migrations};
+    use tracepilot_core::utils::migrator::{MigrationPlan, MigratorOptions, run_migrations};
+
+    #[test]
+    fn source_migration_backfills_existing_rows_as_copilot() {
+        let (last, before) = INDEX_DB_MIGRATIONS.split_last().expect("non-empty plan");
+        assert_eq!(last.version, 22);
+        let v21 = MigrationPlan { migrations: before };
+        let mut conn = Connection::open_in_memory().expect("open in-memory db");
+        run_migrations(&mut conn, None, &v21, &MigratorOptions::default()).expect("migrate to 21");
+        conn.execute(
+            "INSERT INTO sessions (id, path) VALUES ('s1', '/sessions/s1')",
+            [],
+        )
+        .expect("insert v21 row");
+
+        run_migrations(&mut conn, None, &INDEX_DB_PLAN, &MigratorOptions::default())
+            .expect("migrate to 22");
+
+        let row: (String, Option<String>, String, i64, Option<String>) = conn
+            .query_row(
+                "SELECT source, parent_session_id, role, hidden, source_format_version
+                 FROM sessions WHERE id = 's1'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            )
+            .expect("read migrated row");
+        assert_eq!(row, ("copilot".into(), None, "primary".into(), 0, None));
+    }
 
     #[test]
     fn index_db_plan_is_strictly_monotonic() {

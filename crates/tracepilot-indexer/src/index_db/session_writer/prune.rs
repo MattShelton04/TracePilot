@@ -1,15 +1,22 @@
 use crate::Result;
 use std::collections::HashSet;
+use tracepilot_core::provider::SessionSource;
 
 use super::super::IndexDb;
 
 impl IndexDb {
-    /// Remove sessions from the index whose IDs are not in the given set of live IDs.
+    /// Remove `source`'s sessions whose IDs are not in `live_ids`, the
+    /// source's complete inventory. Other sources' rows are never touched.
     ///
     /// Uses a batch DELETE with temp table to avoid exceeding SQLITE_MAX_VARIABLE_NUMBER.
     /// Child tables cascade via foreign keys.
-    pub fn prune_deleted(&self, live_ids: &HashSet<&str>) -> Result<usize> {
-        let indexed_ids = self.all_indexed_ids()?;
+    pub fn prune_deleted(&self, source: SessionSource, live_ids: &HashSet<&str>) -> Result<usize> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id FROM sessions WHERE source = ?1")?;
+        let indexed_ids = stmt
+            .query_map([source.as_str()], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         let stale: Vec<&String> = indexed_ids
             .iter()
             .filter(|id| !live_ids.contains(id.as_str()))
@@ -28,8 +35,9 @@ impl IndexDb {
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
 
             self.conn.execute(
-                "DELETE FROM sessions WHERE id IN (SELECT value FROM json_each(?1))",
-                [&stale_json],
+                "DELETE FROM sessions
+                 WHERE source = ?1 AND id IN (SELECT value FROM json_each(?2))",
+                [source.as_str(), &stale_json],
             )?;
             Ok(())
         })();

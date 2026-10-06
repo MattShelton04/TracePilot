@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use rayon::prelude::*;
+use tracepilot_core::provider::SessionSource;
 
 use crate::Result;
 use crate::index_db;
@@ -61,7 +62,7 @@ pub fn reindex_all_with_rich_progress(
     );
 
     // Remove stale entries for sessions that no longer exist on disk
-    match db.prune_deleted(&live_ids) {
+    match db.prune_deleted(SessionSource::Copilot, &live_ids) {
         Ok(pruned) if pruned > 0 => {
             tracing::info!(pruned, "Pruned deleted sessions from index");
         }
@@ -141,7 +142,7 @@ pub fn reindex_incremental_with_rich_progress(
     );
 
     // Prune sessions that no longer exist on disk
-    match db.prune_deleted(&live_ids) {
+    match db.prune_deleted(SessionSource::Copilot, &live_ids) {
         Ok(pruned) if pruned > 0 => {
             tracing::info!(pruned, "Pruned deleted sessions from index");
         }
