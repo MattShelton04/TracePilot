@@ -98,7 +98,11 @@ pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessio
 /// Refuse to overwrite a row another source wrote. Ids are native UUIDs, so a
 /// clash means two sources claim one id; the row already indexed is kept and
 /// the clash is logged.
-fn ensure_same_source(conn: &Connection, session_id: &str, incoming: SessionSource) -> Result<()> {
+pub(crate) fn ensure_same_source(
+    conn: &Connection,
+    session_id: &str,
+    incoming: SessionSource,
+) -> Result<()> {
     let existing: Option<String> = conn
         .query_row(
             "SELECT source FROM sessions WHERE id = ?1",

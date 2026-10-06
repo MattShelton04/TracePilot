@@ -4,6 +4,7 @@ use std::cell::Cell;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use tracepilot_core::ids::SessionId;
+use tracepilot_core::provider::SessionSource;
 
 use super::common::write_session;
 use crate::index_db::{IndexDb, search_writer::SearchContentRow};
@@ -34,9 +35,13 @@ fn fixture_with_sessions(count: usize) -> (tempfile::TempDir, IndexDb, Vec<Sessi
             let path = write_session(temp.path(), &id, "batch", "repo", "main", "user", "reply");
             db.upsert_session(&path).unwrap();
             let id = SessionId::from_validated(id);
-            db.upsert_search_snapshot(&id, &[row(&id, "original sentinel")], Some("old"), &|| {
-                false
-            })
+            db.upsert_search_snapshot(
+                SessionSource::Copilot,
+                &id,
+                &[row(&id, "original sentinel")],
+                Some("old"),
+                &|| false,
+            )
             .unwrap();
             id
         })
@@ -88,8 +93,13 @@ fn batch_commits_valid_sessions_while_failed_session_keeps_its_content_and_finge
          WHEN new.content = 'rejected sentinel' BEGIN SELECT RAISE(ABORT, 'injected failure'); END;",
     ).unwrap();
     assert_eq!(
-        db.upsert_search_snapshots(&rows, &vec!["new".into(); 3], &|| false)
-            .unwrap(),
+        db.upsert_search_snapshots(
+            SessionSource::Copilot,
+            &rows,
+            &vec!["new".into(); 3],
+            &|| false
+        )
+        .unwrap(),
         2
     );
     assert!(db.conn.is_autocommit());
@@ -109,8 +119,13 @@ fn sqlite_automatic_rollback_does_not_allow_later_sessions_to_commit_alone() {
          WHEN new.content = 'rejected sentinel' BEGIN SELECT RAISE(ROLLBACK, 'injected failure'); END;",
     ).unwrap();
     assert!(
-        db.upsert_search_snapshots(&rows, &vec!["new".into(); 3], &|| false)
-            .is_err()
+        db.upsert_search_snapshots(
+            SessionSource::Copilot,
+            &rows,
+            &vec!["new".into(); 3],
+            &|| false
+        )
+        .is_err()
     );
     assert_original(&db);
 }
@@ -120,11 +135,16 @@ fn cancellation_after_a_released_session_savepoint_rolls_back_the_whole_batch() 
     let (_temp, db, ids) = fixture();
     let rows = replacement_rows(&ids);
     let saw_uncommitted_write = Cell::new(false);
-    let result = db.upsert_search_snapshots(&rows, &vec!["new".into(); 3], &|| {
-        let cancel = fingerprints(&db)[0] == "new";
-        saw_uncommitted_write.set(saw_uncommitted_write.get() || cancel);
-        cancel
-    });
+    let result = db.upsert_search_snapshots(
+        SessionSource::Copilot,
+        &rows,
+        &vec!["new".into(); 3],
+        &|| {
+            let cancel = fingerprints(&db)[0] == "new";
+            saw_uncommitted_write.set(saw_uncommitted_write.get() || cancel);
+            cancel
+        },
+    );
     assert!(result.is_err());
     assert!(saw_uncommitted_write.get());
     assert_original(&db);
@@ -135,16 +155,26 @@ fn panic_after_a_released_session_savepoint_rolls_back_and_allows_retry() {
     let (_temp, db, ids) = fixture();
     let rows = replacement_rows(&ids);
     let result = catch_unwind(AssertUnwindSafe(|| {
-        db.upsert_search_snapshots(&rows, &vec!["new".into(); 3], &|| {
-            assert_ne!(fingerprints(&db)[0], "new", "injected callback panic");
-            false
-        })
+        db.upsert_search_snapshots(
+            SessionSource::Copilot,
+            &rows,
+            &vec!["new".into(); 3],
+            &|| {
+                assert_ne!(fingerprints(&db)[0], "new", "injected callback panic");
+                false
+            },
+        )
     }));
     assert!(result.is_err());
     assert_original(&db);
     assert_eq!(
-        db.upsert_search_snapshots(&rows, &vec!["new".into(); 3], &|| false)
-            .unwrap(),
+        db.upsert_search_snapshots(
+            SessionSource::Copilot,
+            &rows,
+            &vec!["new".into(); 3],
+            &|| false
+        )
+        .unwrap(),
         3
     );
     assert_eq!(hits(&db, "replacement"), 3);
@@ -161,8 +191,13 @@ fn commit_failure_rolls_back_rows_fingerprints_and_fts() {
         .unwrap();
     rows[2].1[0].session_id = "missing-session".to_string();
     assert!(
-        db.upsert_search_snapshots(&rows, &vec!["new".into(); 3], &|| false)
-            .is_err()
+        db.upsert_search_snapshots(
+            SessionSource::Copilot,
+            &rows,
+            &vec!["new".into(); 3],
+            &|| false
+        )
+        .is_err()
     );
     assert_original(&db);
 }
@@ -172,6 +207,7 @@ fn standalone_cancellation_after_fingerprint_update_retains_last_good_snapshot()
     let (_temp, db, ids) = fixture();
     let saw_uncommitted_write = Cell::new(false);
     let result = db.upsert_search_snapshot(
+        SessionSource::Copilot,
         &ids[0],
         &[row(&ids[0], "replacement sentinel")],
         Some("new"),
@@ -191,7 +227,7 @@ fn standalone_panic_after_replacement_rolls_back_and_allows_retry() {
     let (_temp, db, ids) = fixture();
     let rows = [row(&ids[0], "replacement sentinel")];
     let result = catch_unwind(AssertUnwindSafe(|| {
-        db.upsert_search_snapshot(&ids[0], &rows, Some("new"), &|| {
+        db.upsert_search_snapshot(SessionSource::Copilot, &ids[0], &rows, Some("new"), &|| {
             assert_eq!(hits(&db, "replacement"), 0, "injected callback panic");
             false
         })
@@ -199,8 +235,10 @@ fn standalone_panic_after_replacement_rolls_back_and_allows_retry() {
     assert!(result.is_err());
     assert_original(&db);
     assert_eq!(
-        db.upsert_search_snapshot(&ids[0], &rows, Some("new"), &|| false)
-            .unwrap(),
+        db.upsert_search_snapshot(SessionSource::Copilot, &ids[0], &rows, Some("new"), &|| {
+            false
+        })
+        .unwrap(),
         1
     );
     assert!(db.conn.is_autocommit());
@@ -218,8 +256,14 @@ fn standalone_commit_failure_rolls_back_rows_fingerprint_and_fts() {
     let mut invalid_row = row(&ids[0], "replacement sentinel");
     invalid_row.session_id = "missing-session".to_string();
     assert!(
-        db.upsert_search_snapshot(&ids[0], &[invalid_row], Some("new"), &|| false)
-            .is_err()
+        db.upsert_search_snapshot(
+            SessionSource::Copilot,
+            &ids[0],
+            &[invalid_row],
+            Some("new"),
+            &|| false
+        )
+        .is_err()
     );
     assert_original(&db);
 }
@@ -271,8 +315,14 @@ fn ten_small_trigger_updates_remain_one_atomic_batch() {
     let old_rows: Vec<_> = (0..100)
         .map(|_| row(&ids[0], "original sentinel"))
         .collect();
-    db.upsert_search_snapshot(&ids[0], &old_rows, Some("old"), &|| false)
-        .unwrap();
+    db.upsert_search_snapshot(
+        SessionSource::Copilot,
+        &ids[0],
+        &old_rows,
+        Some("old"),
+        &|| false,
+    )
+    .unwrap();
     let result = crate::reindex_search_content(
         temp.path(),
         &temp.path().join("index.db"),
