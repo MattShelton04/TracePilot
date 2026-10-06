@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "b95e3d2744f870534b325fa12772f758f5ae7a3c",
-  "headSha": "a951e159a3c6abd23a96931c87641f1bf52c3a0b",
+  "baseSha": "a7c66db2f8844340025022aecd9559f2ab93ba85",
+  "headSha": "ad44884bdd35edcf62a080e1b5d14b4f6985b8fb",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -46,8 +46,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/d70cb7112443fdb4b725f06c654ec677b517b301d6db49a783497b0b4a2feed6.png",
-        "after": "../../img/d70cb7112443fdb4b725f06c654ec677b517b301d6db49a783497b0b4a2feed6.png",
+        "before": "../../img/a049a800cb6c6a40f2454f1e8b9c02acebb44446a8197890a3aeb3d936a38e75.png",
+        "after": "../../img/a049a800cb6c6a40f2454f1e8b9c02acebb44446a8197890a3aeb3d936a38e75.png",
         "difference": null,
         "closeUps": []
       },
