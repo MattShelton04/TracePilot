@@ -126,6 +126,8 @@ export type SessionId = string;
 
 export type SessionListItem = {
 	id: SessionId,
+	// Which tool wrote the session.
+	source: SessionSource,
 	summary: string | null,
 	repository: string | null,
 	branch: string | null,
@@ -144,6 +146,9 @@ export type SessionListItem = {
 	compactionCount: number | null,
 	truncationCount: number | null,
 };
+
+// Which tool wrote a session.
+export type SessionSource = "copilot" | "claudeCode";
 
 export type UpdateCheckResult = {
 	currentVersion: string,

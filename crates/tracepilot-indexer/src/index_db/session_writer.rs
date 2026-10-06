@@ -1,10 +1,12 @@
 //! Session write operations: upsert, reindex detection, pruning.
 
 use crate::Result;
-use rusqlite::params;
+use crate::error::IndexerError;
+use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
 
 use tracepilot_core::ids::SessionId;
+use tracepilot_core::provider::{SessionRole, SessionSource};
 
 use super::IndexDb;
 use super::types::*;
@@ -28,6 +30,29 @@ pub(crate) struct PreparedSessionData {
     pub analytics: SessionAnalytics,
     pub index_info: SessionIndexInfo,
     pub fingerprint: tracepilot_core::summary::SessionFingerprint,
+    pub identity: SessionIdentity,
+}
+
+/// Which source wrote a session and where it sits in its family.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SessionIdentity {
+    pub source: SessionSource,
+    pub parent_session_id: Option<String>,
+    pub role: SessionRole,
+    /// The source's own format or tool version, when it records one.
+    pub source_format_version: Option<String>,
+}
+
+impl SessionIdentity {
+    /// Copilot sessions are always primary and have no parent.
+    pub(crate) fn copilot() -> Self {
+        Self {
+            source: SessionSource::Copilot,
+            parent_session_id: None,
+            role: SessionRole::Primary,
+            source_format_version: None,
+        }
+    }
 }
 
 /// Parse and compute analytics for a session without any database interaction.
@@ -66,7 +91,37 @@ pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessio
         analytics,
         index_info,
         fingerprint,
+        identity: SessionIdentity::copilot(),
     })
+}
+
+/// Refuse to overwrite a row another source wrote. Ids are native UUIDs, so a
+/// clash means two sources claim one id; the row already indexed is kept and
+/// the clash is logged.
+fn ensure_same_source(conn: &Connection, session_id: &str, incoming: SessionSource) -> Result<()> {
+    let existing: Option<String> = conn
+        .query_row(
+            "SELECT source FROM sessions WHERE id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    match existing {
+        Some(existing) if existing != incoming.as_str() => {
+            tracing::warn!(
+                session_id,
+                existing = %existing,
+                incoming = incoming.as_str(),
+                "Session id already indexed from another source; keeping the existing row"
+            );
+            Err(IndexerError::SourceConflict {
+                session_id: session_id.to_string(),
+                existing,
+                incoming: incoming.as_str().to_string(),
+            })
+        }
+        _ => Ok(()),
+    }
 }
 
 impl IndexDb {
@@ -94,6 +149,7 @@ impl IndexDb {
         let analytics = &prepared.analytics;
         let session_path = &prepared.session_path;
 
+        let identity = &prepared.identity;
         let index_info = prepared.index_info.clone();
         let session_id = summary.id.clone();
 
@@ -101,6 +157,7 @@ impl IndexDb {
         self.conn.execute_batch("SAVEPOINT upsert_session")?;
 
         let result = (|| -> Result<()> {
+            ensure_same_source(&self.conn, &session_id, identity.source)?;
             // Delete child table rows first
             child_rows::delete_child_rows(&self.conn, &session_id)?;
             // NOTE: search_content is NOT deleted here — it's managed by Phase 2 (search_writer).
@@ -120,12 +177,13 @@ impl IndexDb {
                     events_mtime, events_size, analytics_version,
                     error_count, rate_limit_count, compaction_count, truncation_count,
                     total_compaction_input_tokens, total_compaction_output_tokens,
-                    source_fingerprint, indexed_at
+                    source_fingerprint, source, parent_session_id, role, hidden,
+                    source_format_version, indexed_at
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
                     ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
                     ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30,
-                    ?31, ?32,
+                    ?31, ?32, ?33, ?34, ?35, ?36, ?37,
                     datetime('now')
                 )
                 ON CONFLICT(id) DO UPDATE SET
@@ -150,6 +208,9 @@ impl IndexDb {
                     total_compaction_input_tokens=excluded.total_compaction_input_tokens,
                     total_compaction_output_tokens=excluded.total_compaction_output_tokens,
                     source_fingerprint=excluded.source_fingerprint,
+                    parent_session_id=excluded.parent_session_id,
+                    role=excluded.role, hidden=excluded.hidden,
+                    source_format_version=excluded.source_format_version,
                     indexed_at=excluded.indexed_at",
                 params![
                     summary.id,
@@ -184,6 +245,11 @@ impl IndexDb {
                     analytics.total_compaction_input,
                     analytics.total_compaction_output,
                     source_fingerprint,
+                    identity.source.as_str(),
+                    identity.parent_session_id,
+                    identity.role.as_str(),
+                    identity.role.hidden_by_default(),
+                    identity.source_format_version,
                 ],
             )?;
 

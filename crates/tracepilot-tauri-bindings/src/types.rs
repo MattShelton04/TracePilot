@@ -108,6 +108,8 @@ pub struct SearchStatsResponse {
 #[serde(rename_all = "camelCase")]
 pub struct SessionListItem {
     pub id: SessionId,
+    /// Which tool wrote the session.
+    pub source: tracepilot_core::provider::SessionSource,
     pub summary: Option<String>,
     pub repository: Option<String>,
     pub branch: Option<String>,

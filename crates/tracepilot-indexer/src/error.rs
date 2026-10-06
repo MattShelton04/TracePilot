@@ -40,6 +40,15 @@ pub enum IndexerError {
     /// JSON parsing failed for structured analytics payloads stored in the index.
     #[error(transparent)]
     Json(#[from] serde_json::Error),
+
+    /// A session id is already indexed from another source. The existing row
+    /// is kept.
+    #[error("session {session_id} is indexed from source '{existing}', not '{incoming}'")]
+    SourceConflict {
+        session_id: String,
+        existing: String,
+        incoming: String,
+    },
 }
 
 pub type Result<T> = std::result::Result<T, IndexerError>;

@@ -75,6 +75,7 @@ pub struct IndexedSession {
     pub rate_limit_count: Option<i64>,
     pub compaction_count: Option<i64>,
     pub truncation_count: Option<i64>,
+    pub source: tracepilot_core::provider::SessionSource,
 }
 
 /// Public return struct for session incident queries.

@@ -6,6 +6,7 @@ use crate::index_db::IndexDb;
 use std::collections::HashSet;
 use std::{fs, thread, time::Duration};
 use tracepilot_core::ids::SessionId;
+use tracepilot_core::provider::SessionSource;
 
 fn sid(s: &str) -> SessionId {
     SessionId::from_validated(s)
@@ -29,8 +30,8 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v1, 21);
-    assert_eq!(count1, 20);
+    assert_eq!(v1, 22);
+    assert_eq!(count1, 21);
     drop(db1);
 
     let db2 = IndexDb::open_or_create(&db_path).unwrap();
@@ -38,7 +39,7 @@ fn test_migrations_run_once() {
         .conn
         .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(count2, 20);
+    assert_eq!(count2, 21);
 }
 
 #[test]
@@ -393,7 +394,7 @@ fn test_prune_deleted_removes_stale_sessions() {
     let mut live_ids = HashSet::new();
     live_ids.insert("55555555-5555-5555-5555-555555555555");
 
-    let pruned = db.prune_deleted(&live_ids).unwrap();
+    let pruned = db.prune_deleted(SessionSource::Copilot, &live_ids).unwrap();
     assert_eq!(pruned, 1);
     assert_eq!(db.session_count().unwrap(), 1);
 
@@ -425,7 +426,7 @@ fn test_prune_deleted_with_all_live() {
     let mut live_ids = HashSet::new();
     live_ids.insert("77777777-7777-7777-7777-777777777777");
 
-    let pruned = db.prune_deleted(&live_ids).unwrap();
+    let pruned = db.prune_deleted(SessionSource::Copilot, &live_ids).unwrap();
     assert_eq!(pruned, 0);
     assert_eq!(db.session_count().unwrap(), 1);
 }
@@ -534,7 +535,7 @@ fn test_cascade_deletes_child_tables() {
 
     // Prune the session
     let live_ids = HashSet::new(); // empty = everything is stale
-    db.prune_deleted(&live_ids).unwrap();
+    db.prune_deleted(SessionSource::Copilot, &live_ids).unwrap();
 
     // Verify cascade deleted child rows
     let tool_count_after: i64 = db
