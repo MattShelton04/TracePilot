@@ -1,0 +1,2038 @@
+{
+  "schema": 1,
+  "baseSha": "b92bdb510e968243319785132faa30b31a676ac1",
+  "headSha": "42a973ea28c82c7f8fe09c9c89f9879b378034fb",
+  "viewport": {
+    "width": 1440,
+    "height": 960,
+    "theme": "dark",
+    "scale": 1
+  },
+  "summary": {
+    "changed": 4,
+    "unchanged": 101,
+    "subtle": 0,
+    "incomplete": 0,
+    "baseUnavailable": 0,
+    "total": 105
+  },
+  "views": [
+    {
+      "id": "sessions",
+      "group": "overview",
+      "route": "/",
+      "state": "populated",
+      "change": "changed",
+      "changedPixels": 13153,
+      "percent": 0.9514612268518519,
+      "areas": [
+        {
+          "x": 675,
+          "y": 221,
+          "width": 298,
+          "height": 47,
+          "pixels": 8269
+        },
+        {
+          "x": 905,
+          "y": 93,
+          "width": 232,
+          "height": 36,
+          "pixels": 4884
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ee3f7672799437804cd9863f311c7dad98b788579b67ebf76f1e18266eeee7e6.png",
+        "after": "../../img/d021ac519996832e3a96c1ae8ecdc0e22c11c872fe5ef06cc18b00a7c80a6f5a.png",
+        "difference": "../../img/6afa21c529a7f094ea8b2d3024ca9200fdc689dcc94056c7e1d163625273cbec.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 584,
+              "y": 145,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/1ad7de9365a673c0d0465d025dd2c78a7bf895ae300325dcf58e2da6ee2c2d89.png",
+            "after": "../../img/f8a3330f00beeb1c7ad19271ebe58462ed0d19a47ecf3050cf32841ec81f92e0.png"
+          },
+          {
+            "rect": {
+              "x": 781,
+              "y": 11,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/00bbb3d5697492c907f077d64fccc939a5b6807319745fd5d74936ee0bc7b2d4.png",
+            "after": "../../img/dcd64a06566aecbe47b15f44d6b7a722f8170fb499e4153841537765dca07e37.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-overview",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/overview",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/b20623b1b9d165626fd67ce2050862fb7f332010e4a4cd7c8f2c51512cd1d737.png",
+        "after": "../../img/b20623b1b9d165626fd67ce2050862fb7f332010e4a4cd7c8f2c51512cd1d737.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-conversation",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/conversation",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/8b8283c9649b8c5aed10c8824362a68912e9e48bda97d5ba3a126b7f22130fdf.png",
+        "after": "../../img/8b8283c9649b8c5aed10c8824362a68912e9e48bda97d5ba3a126b7f22130fdf.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-events",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/events",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/a04da84ea8076760001992c2cf4cc900820ea527819e4c86e1e627f105796593.png",
+        "after": "../../img/a04da84ea8076760001992c2cf4cc900820ea527819e4c86e1e627f105796593.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-todos",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/todos",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9e4ac3c83984b418381ed893a9c436571a2572d10af215f3a674b6e57720bfe5.png",
+        "after": "../../img/9e4ac3c83984b418381ed893a9c436571a2572d10af215f3a674b6e57720bfe5.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-metrics",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/metrics",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/99be4a1394be7c73613190a4a30afa09179bc629251ba5c5e3d7e17bd017a3f1.png",
+        "after": "../../img/99be4a1394be7c73613190a4a30afa09179bc629251ba5c5e3d7e17bd017a3f1.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-context",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/context",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c219b89a99a6b4dca838ebd9864996d00b3e027baddf7e2b400f39fdad699d7e.png",
+        "after": "../../img/c219b89a99a6b4dca838ebd9864996d00b3e027baddf7e2b400f39fdad699d7e.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-explorer",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/93181aa1b71071b5a6990b784b0377b514cc4ed9fd84989eaece5efa4f8857e7.png",
+        "after": "../../img/93181aa1b71071b5a6990b784b0377b514cc4ed9fd84989eaece5efa4f8857e7.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-timeline",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/timeline",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/1627fe976a20d37ac48d1d8f3b7a844cefa67b30ed113d049703e98042445321.png",
+        "after": "../../img/1627fe976a20d37ac48d1d8f3b7a844cefa67b30ed113d049703e98042445321.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-explorer-file",
+      "group": "overview",
+      "route": "/session/sess-auth-refactor/explorer",
+      "state": "synthetic plan.md selected in the file reader",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/922aa1922d09a9bf80ed68295e18d3b0821757f34a8b3d17fb7d7555fed1fbbd.png",
+        "after": "../../img/922aa1922d09a9bf80ed68295e18d3b0821757f34a8b3d17fb7d7555fed1fbbd.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "search",
+      "group": "overview",
+      "route": "/search",
+      "state": "empty search prompt; indexed fixtures",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ec85f67b1179db994fdaeb6958fefa5f53586d277514ead31b0ea6eeeda99cea.png",
+        "after": "../../img/ec85f67b1179db994fdaeb6958fefa5f53586d277514ead31b0ea6eeeda99cea.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "search-results",
+      "group": "overview",
+      "route": "/search?q=auth",
+      "state": "populated search results",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/db2321763971c9d2d0d3961f9fad664295c134538aa6970ec83852d6deea8f83.png",
+        "after": "../../img/db2321763971c9d2d0d3961f9fad664295c134538aa6970ec83852d6deea8f83.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "analytics",
+      "group": "overview",
+      "route": "/analytics",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/d920253c04e83c70e2c826a42069ee7b16b6b3b2bc41bb3e19dd91b682b212c2.png",
+        "after": "../../img/d920253c04e83c70e2c826a42069ee7b16b6b3b2bc41bb3e19dd91b682b212c2.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "tools",
+      "group": "overview",
+      "route": "/tools",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/72fd01634882486cb218670278fe75c3b834525ce3cb93bd067b9d8a7cc88b42.png",
+        "after": "../../img/72fd01634882486cb218670278fe75c3b834525ce3cb93bd067b9d8a7cc88b42.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "code",
+      "group": "overview",
+      "route": "/code",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/89df27a3bc8d4191a6ed7178565724725be2bf60c2e76bbb29210e6297c20c6c.png",
+        "after": "../../img/89df27a3bc8d4191a6ed7178565724725be2bf60c2e76bbb29210e6297c20c6c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "model-comparison",
+      "group": "overview",
+      "route": "/models",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0fc1872d536205afc38b5316b7af34271bae149ec8bbd477c3c69af6a61ce4eb.png",
+        "after": "../../img/0fc1872d536205afc38b5316b7af34271bae149ec8bbd477c3c69af6a61ce4eb.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "compare",
+      "group": "overview",
+      "route": "/compare",
+      "state": "session picker",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/b3e0654e5c5c00e8182116ef7b171724052a1a54e10cb5d45d340874de7051f1.png",
+        "after": "../../img/b3e0654e5c5c00e8182116ef7b171724052a1a54e10cb5d45d340874de7051f1.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "compare-populated",
+      "group": "overview",
+      "route": "/compare",
+      "state": "two synthetic sessions compared; zero file-count baseline",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/b20f13f9ff63f2c02e00f8df1c85ed905e96826a9c7fdf392f22dfaddae0b36b.png",
+        "after": "../../img/b20f13f9ff63f2c02e00f8df1c85ed905e96826a9c7fdf392f22dfaddae0b36b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "replay",
+      "group": "overview",
+      "route": "/replay/sess-auth-refactor",
+      "state": "Experimental · explicitly enabled; populated paused replay",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/06af765902e7d73319a439400321cf20e050c6068381086148eff0f74d7306bc.png",
+        "after": "../../img/06af765902e7d73319a439400321cf20e050c6068381086148eff0f74d7306bc.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "export",
+      "group": "overview",
+      "route": "/export",
+      "state": "Experimental · explicitly enabled; session picker",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/995786e69bd948af2dd0a2cecbc42f462b640a52dc25e28e7146c3a274e613ef.png",
+        "after": "../../img/995786e69bd948af2dd0a2cecbc42f462b640a52dc25e28e7146c3a274e613ef.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "export-preview",
+      "group": "overview",
+      "route": "/export?sessionId=sess-auth-refactor&preset=minimal-team-log",
+      "state": "Experimental · explicitly enabled; selected session and populated Markdown preview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9dda06de122e10d1e2265dda7628634cf35962fab005e69940799d34424c385d.png",
+        "after": "../../img/9dda06de122e10d1e2265dda7628634cf35962fab005e69940799d34424c385d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "settings",
+      "group": "overview",
+      "route": "/settings",
+      "state": "configured defaults",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e56627756b540621f92590c644e4f3f8f059debd864e7eb837d8978c61ef4a40.png",
+        "after": "../../img/e56627756b540621f92590c644e4f3f8f059debd864e7eb837d8978c61ef4a40.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "settings-pricing",
+      "group": "overview",
+      "route": "/settings",
+      "state": "configured pricing",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/d1832b1d164d604afdf7dfba6f1ac9d5e87b350779648185cea044f3d6603a43.png",
+        "after": "../../img/d1832b1d164d604afdf7dfba6f1ac9d5e87b350779648185cea044f3d6603a43.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "orchestration",
+      "group": "overview",
+      "route": "/orchestration",
+      "state": "SDK disabled; fixture sessions",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/9e58e8407420f58e424f1abb7fa9bd19df522d52810b30a658bf68aab7d3cd00.png",
+        "after": "../../img/9e58e8407420f58e424f1abb7fa9bd19df522d52810b30a658bf68aab7d3cd00.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "worktree-manager",
+      "group": "overview",
+      "route": "/orchestration/worktrees",
+      "state": "populated fixture repositories",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e5cb93c4c546e40a9b49f280d623bb5ddb586c0d630cbe6c703f27057037e9a0.png",
+        "after": "../../img/e5cb93c4c546e40a9b49f280d623bb5ddb586c0d630cbe6c703f27057037e9a0.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "session-launcher",
+      "group": "overview",
+      "route": "/orchestration/launcher",
+      "state": "launch form; no process launched",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/41d2cbd735190c5448da9f5ed7bd214d0125e6977e4266e5ba9da0f1fbd7ca8e.png",
+        "after": "../../img/41d2cbd735190c5448da9f5ed7bd214d0125e6977e4266e5ba9da0f1fbd7ca8e.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "config-injector",
+      "group": "overview",
+      "route": "/orchestration/config",
+      "state": "Experimental · explicitly enabled; fixture configuration",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f1fa0ebfa1f7290910071caff9ed8b810f22e6db99a788131ade298bbe2b7154.png",
+        "after": "../../img/f1fa0ebfa1f7290910071caff9ed8b810f22e6db99a788131ade298bbe2b7154.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "mcp-manager",
+      "group": "overview",
+      "route": "/mcp",
+      "state": "Experimental · explicitly enabled; populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/4eec65b930bcda25b20fdb21641e52fe541c614afcbc8754a7378bdb62011ce1.png",
+        "after": "../../img/4eec65b930bcda25b20fdb21641e52fe541c614afcbc8754a7378bdb62011ce1.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "mcp-server-detail",
+      "group": "overview",
+      "route": "/mcp/visual-files",
+      "state": "Experimental · explicitly enabled; configured; no network health check",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/a4dc910db64f5de046521c70bdc535adb02c14962ecb0e54628878f055252b03.png",
+        "after": "../../img/a4dc910db64f5de046521c70bdc535adb02c14962ecb0e54628878f055252b03.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skills-manager",
+      "group": "overview",
+      "route": "/skills",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/65fa053679fd3d31ee26bf8d1c68a42a5f7951a6c27d84e2bc1ad5af0fa969f1.png",
+        "after": "../../img/65fa053679fd3d31ee26bf8d1c68a42a5f7951a6c27d84e2bc1ad5af0fa969f1.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skill-editor",
+      "group": "overview",
+      "route": "/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review",
+      "state": "populated synthetic skill",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/11ddffab307733ebd010dbd55eb28a5d498b1258733361dc28db042b160550f4.png",
+        "after": "../../img/11ddffab307733ebd010dbd55eb28a5d498b1258733361dc28db042b160550f4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "skill-usage",
+      "group": "overview",
+      "route": "/skills/%2Fvisual-fixtures%2Fskills%2Fvisual-review?tab=usage",
+      "state": "synthetic skill with cross-session usage",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/3c0a7a1ae13bfd0c7a626cd257fcab3c2182a35ceaa4d5e3fe3e9f691142ab8d.png",
+        "after": "../../img/3c0a7a1ae13bfd0c7a626cd257fcab3c2182a35ceaa4d5e3fe3e9f691142ab8d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "agents-manager",
+      "group": "overview",
+      "route": "/agents",
+      "state": "populated",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/474a373933204136a4dd3840c14ccbc373b7104fe2cf5f2776117b84b1f73221.png",
+        "after": "../../img/474a373933204136a4dd3840c14ccbc373b7104fe2cf5f2776117b84b1f73221.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "agent-editor",
+      "group": "overview",
+      "route": "/agents/detail?id=/home/dev/.copilot/agents/reviewer.agent.md",
+      "state": "populated synthetic personal agent",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/98f1df7916aa5cdcb8a63bccf275bea2a5d85454365bee39204fbc193b2638f4.png",
+        "after": "../../img/98f1df7916aa5cdcb8a63bccf275bea2a5d85454365bee39204fbc193b2638f4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "agent-usage",
+      "group": "overview",
+      "route": "/agents/detail?id=/home/dev/.copilot/pkg/linux-x64/1.0.79/definitions/explore.agent.yaml",
+      "state": "agent usage and model breakdown",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/35d3aed35903f19c34591e89922999ba82c5fa9f458fbef1cffc648e5f46fed0.png",
+        "after": "../../img/35d3aed35903f19c34591e89922999ba82c5fa9f458fbef1cffc648e5f46fed0.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "cli-context",
+      "group": "overview",
+      "route": "/cli-context",
+      "state": "Experimental · explicitly enabled; no captured external context",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f3dd3080863f1f58d9e0aa93856f5f8af952c9eca86e3667cfbc52e8e3246f64.png",
+        "after": "../../img/f3dd3080863f1f58d9e0aa93856f5f8af952c9eca86e3667cfbc52e8e3246f64.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "update-available",
+      "group": "overview",
+      "route": "/settings",
+      "state": "installer build with a newer release; sidebar notice and Settings → Updates",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/968b3a0d3cc352099db18c4e0e5d9e86711b85d1ea56de4a2212ff8610015547.png",
+        "after": "../../img/968b3a0d3cc352099db18c4e0e5d9e86711b85d1ea56de4a2212ff8610015547.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "update-whats-new",
+      "group": "overview",
+      "route": "/",
+      "state": "release notes preview from the GitHub release body",
+      "change": "changed",
+      "changedPixels": 21994,
+      "percent": 1.5910011574074074,
+      "areas": [
+        {
+          "x": 655,
+          "y": 201,
+          "width": 338,
+          "height": 42,
+          "pixels": 11429
+        },
+        {
+          "x": 889,
+          "y": 74,
+          "width": 261,
+          "height": 72,
+          "pixels": 10565
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/165ea7a5b307b24ab09f24c03c7c2ac80fe3f9ae6742f925b594b1ad1fd362d6.png",
+        "after": "../../img/f87e8bdae963540d22cc1d715b0c97a1ee24891f91e0e2578f6dd7aada2a1f05.png",
+        "difference": "../../img/ed189176a8dba4efbfbcee5554b6abd1259b459bc022629e17d9f57db0a27c19.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 584,
+              "y": 122,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/fce80093d90255c6cef4aed57562ac98f171beb2927380cd622ffe4d1c22a0ba.png",
+            "after": "../../img/cdddd81f6c7f436760deae0551830417f68841ca6b3f26daea5199905fe80470.png"
+          },
+          {
+            "rect": {
+              "x": 780,
+              "y": 10,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/4daa83d4d4045770b6f07d649c85930b0bc60439d4fd11b2e1f1e20f91f06e22.png",
+            "after": "../../img/903ad42494f21d56a21aa14e53e43c8b65821f6a0ee6c7ea152371b9c1b56d6b.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "update-install",
+      "group": "overview",
+      "route": "/",
+      "state": "installer build; one-click update dialog before download",
+      "change": "changed",
+      "changedPixels": 29635,
+      "percent": 2.1437355324074074,
+      "areas": [
+        {
+          "x": 660,
+          "y": 201,
+          "width": 328,
+          "height": 88,
+          "pixels": 19070
+        },
+        {
+          "x": 889,
+          "y": 74,
+          "width": 261,
+          "height": 72,
+          "pixels": 10565
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e01a08d5a5568ba2708647a0a1c7cbd8be67001c885dac23358292c84681df49.png",
+        "after": "../../img/12ea9f92f6596cafd38be47d52e58bf7d76725c7a330762bb81c99c3dba8e8fc.png",
+        "difference": "../../img/b47df81be91e51be6a44e89f3530c073e7a936446088e418d87564700e4d5910.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 584,
+              "y": 145,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/61c34d516a666e0276f7b391c6e815422f3e88c340e428e331a1c1746eb42ad4.png",
+            "after": "../../img/9a9d29299547ca7a1881d954e35db1e67ab75441f8c7736afe83b37e8b9329a6.png"
+          },
+          {
+            "rect": {
+              "x": 780,
+              "y": 10,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/4daa83d4d4045770b6f07d649c85930b0bc60439d4fd11b2e1f1e20f91f06e22.png",
+            "after": "../../img/903ad42494f21d56a21aa14e53e43c8b65821f6a0ee6c7ea152371b9c1b56d6b.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "release-notes",
+      "group": "overview",
+      "route": "/",
+      "state": "installed version's release history from a fixture manifest",
+      "change": "changed",
+      "changedPixels": 10565,
+      "percent": 0.7642505787037037,
+      "areas": [
+        {
+          "x": 889,
+          "y": 74,
+          "width": 261,
+          "height": 72,
+          "pixels": 10565
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/a5d793a99afef43f96e725536d1147d0df160bd54892f62fa57e03ba3b2ff419.png",
+        "after": "../../img/a9f3576ec8c6a05711d12a389e1a95779850ca7e714ebb2c51898d1d6c7b783a.png",
+        "difference": "../../img/85204518a9e67d6f00214dd889878bda52470eaf9525f126985c9cf5db06532c.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 780,
+              "y": 10,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/95812c98c10b649a99b038b50d7b142c6039704821da87d4a4e1f4e08fe1e7c4.png",
+            "after": "../../img/91bfd7e20eb16e0764147f085b70b2b870892b31a91d5f144e17675a51c0516f.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "not-found",
+      "group": "overview",
+      "route": "/visual-route-does-not-exist",
+      "state": "not found",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/2c31d50fbf380c8930aec50c02e9ffadf3f2de8bb21ed9ebf8e29ee8e77ec529.png",
+        "after": "../../img/2c31d50fbf380c8930aec50c02e9ffadf3f2de8bb21ed9ebf8e29ee8e77ec529.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-edit",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/038c38ebbdaa3fae14ae907f2af34d9ecfc076db406cc0a4a2b89a0ddd584714.png",
+        "after": "../../img/038c38ebbdaa3fae14ae907f2af34d9ecfc076db406cc0a4a2b89a0ddd584714.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-view",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic view · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e4078b35f8be8bf47f36fecdf1ec6866f41583feada53f4d3da2e1f12dd3df7b.png",
+        "after": "../../img/e4078b35f8be8bf47f36fecdf1ec6866f41583feada53f4d3da2e1f12dd3df7b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/69e7ab7771480c031e8fb2d52b11b21286b1d04681eb2118c3f0808d005b4db1.png",
+        "after": "../../img/69e7ab7771480c031e8fb2d52b11b21286b1d04681eb2118c3f0808d005b4db1.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-grep",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic grep · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/a49f9fd3bcea2a9d5db5ca0e9b6c10c906b26251a2f44959847ddbba21890eba.png",
+        "after": "../../img/a49f9fd3bcea2a9d5db5ca0e9b6c10c906b26251a2f44959847ddbba21890eba.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-rg",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic rg · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/fe623d857615d39ac1bb604eaa4a9e6eadc96289c74cb060322205a769c8cadd.png",
+        "after": "../../img/fe623d857615d39ac1bb604eaa4a9e6eadc96289c74cb060322205a769c8cadd.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-glob",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic glob · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/1078f52929a1fad1a3e299ecf109a2d6dcb8ec2c2366342c636cd6de6cdf4b70.png",
+        "after": "../../img/1078f52929a1fad1a3e299ecf109a2d6dcb8ec2c2366342c636cd6de6cdf4b70.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-powershell",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c3ca91d86811fce15b16e3c3cc6b262e69f8bb604ed67d9ebbb01042b2270c72.png",
+        "after": "../../img/c3ca91d86811fce15b16e3c3cc6b262e69f8bb604ed67d9ebbb01042b2270c72.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-powershell",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_powershell · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/bf45d2fe677172f62d9ed41bb942c9544160bd98c8c41059d8a5c38d20251fc8.png",
+        "after": "../../img/bf45d2fe677172f62d9ed41bb942c9544160bd98c8c41059d8a5c38d20251fc8.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-powershell",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_powershell · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f978720e0407a788827ac5fd2d17e52c8f057ea4f4061709f5b3aaefbbce649d.png",
+        "after": "../../img/f978720e0407a788827ac5fd2d17e52c8f057ea4f4061709f5b3aaefbbce649d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/84398b1ebd0d6ae5cc6b682a8a56d2346c966214ed36ade49648e359fb43be18.png",
+        "after": "../../img/84398b1ebd0d6ae5cc6b682a8a56d2346c966214ed36ade49648e359fb43be18.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-search",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_search · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/180de70709149638762bcd41fe6fd2d911b0dc4326b6536bdb9ed1ccb4486bac.png",
+        "after": "../../img/180de70709149638762bcd41fe6fd2d911b0dc4326b6536bdb9ed1ccb4486bac.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-store-memory",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic store_memory · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ca975bc9da41ff9dad40809b843e96bc06737f31f533c645d8cc9088871227be.png",
+        "after": "../../img/ca975bc9da41ff9dad40809b843e96bc06737f31f533c645d8cc9088871227be.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-report-intent",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic report_intent · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/2b8e543e956c7a9e2b2c5a4cf04d98f965c1898b8f62e356ac3f150ed0ef4af6.png",
+        "after": "../../img/2b8e543e956c7a9e2b2c5a4cf04d98f965c1898b8f62e356ac3f150ed0ef4af6.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-user",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/a4b366c62bfe624de6e10d40737b41a829c66cebb81ff5bc4d09ce7d755100e6.png",
+        "after": "../../img/a4b366c62bfe624de6e10d40737b41a829c66cebb81ff5bc4d09ce7d755100e6.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-user-schema",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f1cbbe06645c7de51e4f845a4e2701e62f4b03445dc44542d3529d33f83a15bd.png",
+        "after": "../../img/f1cbbe06645c7de51e4f845a4e2701e62f4b03445dc44542d3529d33f83a15bd.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-agent",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_agent · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ced8821efd47123e6998b287b591be690c633b69955f2bc15ac51ec1f3470f3d.png",
+        "after": "../../img/ced8821efd47123e6998b287b591be690c633b69955f2bc15ac51ec1f3470f3d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-agent",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_agent · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/4cc002aab6e435205d5e7b17b005aacec0a462512274fd59034b81aecb67a20b.png",
+        "after": "../../img/4cc002aab6e435205d5e7b17b005aacec0a462512274fd59034b81aecb67a20b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-list-agents",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic list_agents · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0e703574e377b7ea6acb35e0c70f184a146cbe09adad5af29012c0b7a767387b.png",
+        "after": "../../img/0e703574e377b7ea6acb35e0c70f184a146cbe09adad5af29012c0b7a767387b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-apply-patch",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · complete result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/94adf52e03a30b8d5ec34dcfad664d3bb37dde2a62540496691dcbe123c71690.png",
+        "after": "../../img/94adf52e03a30b8d5ec34dcfad664d3bb37dde2a62540496691dcbe123c71690.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-fetch-fallback",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_fetch · complete result · Markdown fallback (no registered renderer)",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/81755902d31e1008eb47b1d09d71e636adab394a68dfbf6d15d7c6dd5ea0083f.png",
+        "after": "../../img/81755902d31e1008eb47b1d09d71e636adab394a68dfbf6d15d7c6dd5ea0083f.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-task-fallback",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic task · complete result · delegated Markdown fallback (no registered renderer)",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/fcaa1352d742c82be04d1b3d2788567746dda58c9c6314a449999885a4c21ec0.png",
+        "after": "../../img/fcaa1352d742c82be04d1b3d2788567746dda58c9c6314a449999885a4c21ec0.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · error result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/1b7e0e4eb22c2c57dca85a5705b0353132d5b483f5dcd0eca4e075e0b4bccf12.png",
+        "after": "../../img/1b7e0e4eb22c2c57dca85a5705b0353132d5b483f5dcd0eca4e075e0b4bccf12.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-user-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · pending arguments",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e92c1742406c5606979169cd14cf357536b52ef13e4d2db0d1d153615a469ec8.png",
+        "after": "../../img/e92c1742406c5606979169cd14cf357536b52ef13e4d2db0d1d153615a469ec8.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-edit-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · pending arguments",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/2eb98445b261959c1297287f5dd05ad71463196159987c607a7a9f646ff3cc90.png",
+        "after": "../../img/2eb98445b261959c1297287f5dd05ad71463196159987c607a7a9f646ff3cc90.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · pending arguments",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c3f6d6f2e22d202a6eeaa331d6cf13c4090cd364b565abc59abc81debe101f09.png",
+        "after": "../../img/c3f6d6f2e22d202a6eeaa331d6cf13c4090cd364b565abc59abc81debe101f09.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-agent-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_agent · pending arguments",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/36bdfb4b30b9c6d5b2ab28e3bfa8634d4ae86c028a338560e18b2b216b211508.png",
+        "after": "../../img/36bdfb4b30b9c6d5b2ab28e3bfa8634d4ae86c028a338560e18b2b216b211508.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-apply-patch-pending",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · pending arguments",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/79113de010a823f094ba7d2d35d4f6613dc4b33ee51f8af1850b97dea638a41c.png",
+        "after": "../../img/79113de010a823f094ba7d2d35d4f6613dc4b33ee51f8af1850b97dea638a41c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-edit-deletion",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · empty replacement deletes selected excerpt",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/39f6000ca38b76749535c6a4e6639fa166b8e0719ee54eec82031a9f6df78165.png",
+        "after": "../../img/39f6000ca38b76749535c6a4e6639fa166b8e0719ee54eec82031a9f6df78165.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-edit-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic edit · failed edit retains proposed source and response",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e2990598de9bbcb2a0c32f143d09ef26c93b6d5a0ff05c4f3db7af4809900f8e.png",
+        "after": "../../img/e2990598de9bbcb2a0c32f143d09ef26c93b6d5a0ff05c4f3db7af4809900f8e.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-view-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic view · 1024-byte source preview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/904b5c0ebcae677f65ec4bee098f0d81b586ad6c60909f904738fdb234f7ab8f.png",
+        "after": "../../img/904b5c0ebcae677f65ec4bee098f0d81b586ad6c60909f904738fdb234f7ab8f.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-view-full",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic view · fetched source · first page",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
+        "after": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-view-page",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic view · fetched source · final nonoverlapping page",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/22b247aa6dad083db74a487d6fbd3c4a47dfc142b5c09112f51368f6f66c814c.png",
+        "after": "../../img/22b247aa6dad083db74a487d6fbd3c4a47dfc142b5c09112f51368f6f66c814c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · empty file",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/21012e4ad705f56cbd7c1b72362ec17895d7dc8f45ca5b5a8268225a8de1a8b2.png",
+        "after": "../../img/21012e4ad705f56cbd7c1b72362ec17895d7dc8f45ca5b5a8268225a8de1a8b2.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · failed create retains proposed contents",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e7bc412a638c6ec7411b85802e78f2e9df6a31a1a9f2d4f9e8635faf2878971f.png",
+        "after": "../../img/e7bc412a638c6ec7411b85802e78f2e9df6a31a1a9f2d4f9e8635faf2878971f.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-create-args-long",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic create · complete pending source parameters",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0e5e410a2be64facf1c0b65fc9b46f24b38c77e9b0b409459bdf838f74abfd6d.png",
+        "after": "../../img/0e5e410a2be64facf1c0b65fc9b46f24b38c77e9b0b409459bdf838f74abfd6d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-grep-count",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic grep · count mode and root filenames",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/34939e2f66f3d400254a120fd888099ff1ae6cba972e6573c564508109e9e6e6.png",
+        "after": "../../img/34939e2f66f3d400254a120fd888099ff1ae6cba972e6573c564508109e9e6e6.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-grep-no-match",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic grep · no matches",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/4330d5e9c6136978cf26fd6c6f49bd5b5304fba28f552ec0952e896dcba0274d.png",
+        "after": "../../img/4330d5e9c6136978cf26fd6c6f49bd5b5304fba28f552ec0952e896dcba0274d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-grep-long",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic grep · long match and context tails",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/63c24103659705ef308410aaa5ff4b6cdef10523025a865f99716f1574722c7c.png",
+        "after": "../../img/63c24103659705ef308410aaa5ff4b6cdef10523025a865f99716f1574722c7c.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-glob-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic glob · no matching files",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/8f36541c01b19b425833f6afb885c7941746889c9dd32a51b98db9b61325bd48.png",
+        "after": "../../img/8f36541c01b19b425833f6afb885c7941746889c9dd32a51b98db9b61325bd48.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-running-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · running invocation before first output",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/de436803b917407550fcfcca4ccf24e51e5c091deb71b0075e35e34f32811e34.png",
+        "after": "../../img/de436803b917407550fcfcca4ccf24e51e5c091deb71b0075e35e34f32811e34.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-async-running",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · completed async invocation with process still running",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/05954b93dd96a0651c985cff097660f3bbce42412c13d73c3acc59cb80fdbc3d.png",
+        "after": "../../img/05954b93dd96a0651c985cff097660f3bbce42412c13d73c3acc59cb80fdbc3d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-empty-completed",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · completed invocation with empty output",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/6539fb9ae3dcde2a052b250c0f577c9b672bb049ecedce2e2894d69a61974bd0.png",
+        "after": "../../img/6539fb9ae3dcde2a052b250c0f577c9b672bb049ecedce2e2894d69a61974bd0.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · 1024-byte terminal preview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/674b998a257f6d741ff4def60cb2610fc4e92af1e3e6a66ff156af24b5ef0db1.png",
+        "after": "../../img/674b998a257f6d741ff4def60cb2610fc4e92af1e3e6a66ff156af24b5ef0db1.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-shell-full",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic powershell · fetched full terminal output · expanded end",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/453ae43fb69db6fb19dbaef7fa6e050dbdaf5b92c07717d22effc58c085d1be3.png",
+        "after": "../../img/453ae43fb69db6fb19dbaef7fa6e050dbdaf5b92c07717d22effc58c085d1be3.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-shell-running",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_powershell · read completed while shell runs",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/3063bc48f6b4f66420b853290f900f1f4c8c1c92500e9c2795ec8e54e51cd56d.png",
+        "after": "../../img/3063bc48f6b4f66420b853290f900f1f4c8c1c92500e9c2795ec8e54e51cd56d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql-mixed",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · heterogeneous columns, null, empty, missing and nested values",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/12fcb842c48249390a4ac59496ad6ad34208b1650e08343f4132d59f94305274.png",
+        "after": "../../img/12fcb842c48249390a4ac59496ad6ad34208b1650e08343f4132d59f94305274.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · empty query result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/8dfafe116a12996d59fc5c5374db4c7ac01f2f82f10ce32262543d9579e88ff9.png",
+        "after": "../../img/8dfafe116a12996d59fc5c5374db4c7ac01f2f82f10ce32262543d9579e88ff9.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · truncated JSON preview remains faithful",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/31595c6b86f575d60c97c405a0a241149c97d70db4035e58701bc90bbe0c5968.png",
+        "after": "../../img/31595c6b86f575d60c97c405a0a241149c97d70db4035e58701bc90bbe0c5968.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql-expanded",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · fetched table · expanded final page",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0785a596985c51bc297a6182d3f77eadd3f4c89bc6a93c756686fdca253b4566.png",
+        "after": "../../img/0785a596985c51bc297a6182d3f77eadd3f4c89bc6a93c756686fdca253b4566.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-sql-prose",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic sql · escaped pipes and surrounding response text",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/5c5a1111d2a9dbbbb5cae51b1d574250a927f7d07a80296b850de6a0a2b06cd4.png",
+        "after": "../../img/5c5a1111d2a9dbbbb5cae51b1d574250a927f7d07a80296b850de6a0a2b06cd4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-search-expanded",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_search · complete search body · expanded end",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c1b17e79f28cd5f2be66a6ae5fbace73f8505a7a067ffed145c152fda921a803.png",
+        "after": "../../img/c1b17e79f28cd5f2be66a6ae5fbace73f8505a7a067ffed145c152fda921a803.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-search-text-array",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_search · text-array envelope with five annotation-only citations",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/c6a6278bb2427f240cb4a97f7c2d70e830c0512986fe8ec2848b2b0f125707a4.png",
+        "after": "../../img/c6a6278bb2427f240cb4a97f7c2d70e830c0512986fe8ec2848b2b0f125707a4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-web-search-unknown",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic web_search · unknown JSON envelope remains readable",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/1a3a2b536b7f1e14b5ae83f82e806a3440a0278ddb6b0951450aad8af2a3234a.png",
+        "after": "../../img/1a3a2b536b7f1e14b5ae83f82e806a3440a0278ddb6b0951450aad8af2a3234a.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-memory-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic store_memory · failed memory with citation array",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/ee441b2c8b2219d0d5efc514109232b54c3e6756c8b309d202f4fa36bdda8407.png",
+        "after": "../../img/ee441b2c8b2219d0d5efc514109232b54c3e6756c8b309d202f4fa36bdda8407.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-ask-schema-unknown",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic ask_user · schema answers retain unmatched fields",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/d3dd26e4f3f4ab4f1e67fd0fd974b842cf015e7cabf888f1805c1da1ded50398.png",
+        "after": "../../img/d3dd26e4f3f4ab4f1e67fd0fd974b842cf015e7cabf888f1805c1da1ded50398.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-agent-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_agent · partial transcript preview",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/0a8c208453625fa45e42bb62546083d53502e479746a9f5d73bb1c66b8c1453d.png",
+        "after": "../../img/0a8c208453625fa45e42bb62546083d53502e479746a9f5d73bb1c66b8c1453d.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-read-agent-expanded",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic read_agent · complete seven-turn transcript · expanded end",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/b0b3e18d5312286fe51d05a83ac789df3a1e1ce22024528b10d05bc181bceb83.png",
+        "after": "../../img/b0b3e18d5312286fe51d05a83ac789df3a1e1ce22024528b10d05bc181bceb83.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-write-agent-unparsed",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic write_agent · unknown delivery response remains visible",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/d64fc7893e44a7b54d0d08cf46ef5c689fe67b54b0fbf95a9d81fbbc4e6a44ef.png",
+        "after": "../../img/d64fc7893e44a7b54d0d08cf46ef5c689fe67b54b0fbf95a9d81fbbc4e6a44ef.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-list-agents-long",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic list_agents · full long roster with distinct identifiers",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/4c3a6a56f50e37673c5be17c033347ed644af9d924d78064d32d4368ad2823c1.png",
+        "after": "../../img/4c3a6a56f50e37673c5be17c033347ed644af9d924d78064d32d4368ad2823c1.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-patch-error",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · failed patch preserves actual result",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/e8c79dd2f3fe329887e86eabddde208f7a6cbb05d04f39191c47870d9e2b326f.png",
+        "after": "../../img/e8c79dd2f3fe329887e86eabddde208f7a6cbb05d04f39191c47870d9e2b326f.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-patch-raw-expanded",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic apply_patch · raw patch disclosure open",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/59a95485af04c1b626a4e646357c04abf643f7f1c14a7826b70331c6105bd5f2.png",
+        "after": "../../img/59a95485af04c1b626a4e646357c04abf643f7f1c14a7826b70331c6105bd5f2.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-fallback-preview",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic fixture_tool · unknown renderer · 1024-byte preview · plain fallback (no registered renderer)",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/38645d54428b260ce4b6040b832c223992b92081bea7f41d2a0bafff47252b3b.png",
+        "after": "../../img/38645d54428b260ce4b6040b832c223992b92081bea7f41d2a0bafff47252b3b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-fallback-full",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic fixture_tool · unknown renderer · fetched expanded end · plain fallback (no registered renderer)",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/b1d12c1cdef327ec5cfd92e6fc3bfa1d2347f4c6bb40aa46ce0a931d779e12d4.png",
+        "after": "../../img/b1d12c1cdef327ec5cfd92e6fc3bfa1d2347f4c6bb40aa46ce0a931d779e12d4.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "rich-tool-fallback-empty",
+      "group": "rich-tools",
+      "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
+      "state": "Synthetic fixture_tool · unknown renderer · completed empty output · plain fallback (no registered renderer)",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/bc5b6c5c13b779c8fd77d36005a57b10c35211b5bfeca3f535a9a9210ece8659.png",
+        "after": "../../img/bc5b6c5c13b779c8fd77d36005a57b10c35211b5bfeca3f535a9a9210ece8659.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    }
+  ]
+}
