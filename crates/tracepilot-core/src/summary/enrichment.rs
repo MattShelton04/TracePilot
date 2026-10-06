@@ -11,7 +11,7 @@ use crate::turns::{reconstruct_turns, turn_stats};
 ///
 /// Returns the reconstructed turns so callers that need them (the indexer)
 /// do not reconstruct a second time.
-pub(super) fn apply_event_enrichment(
+pub(crate) fn apply_event_enrichment(
     summary: &mut SessionSummary,
     typed_events: &[TypedEvent],
 ) -> Vec<ConversationTurn> {

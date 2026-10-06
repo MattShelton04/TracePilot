@@ -279,3 +279,46 @@ fn slash_command_opens_a_command_turn_and_its_output_folds() {
         .expect("command user.message");
     assert_eq!(command.raw.event_type, "user.message");
 }
+
+/// The S3 census: a typed `/compact` is written as plain text before the
+/// compaction, and its `<command-name>` record only after it.
+#[test]
+fn typed_compact_echo_opens_one_command_turn_holding_the_compaction() {
+    let parsed = parse(&fixtures::typed_compact());
+    let turns = reconstruct_turns(&parsed.events);
+    let users = user_turns(&turns);
+    let prompts: Vec<_> = users.iter().map(|t| t.user_message.as_deref()).collect();
+    assert_eq!(
+        prompts,
+        [Some("Start."), Some("/compact"), Some("Continue.")]
+    );
+    let command = users[1];
+    assert!(
+        !command.system_initiated,
+        "commands count as typed by the user"
+    );
+    assert!(
+        command
+            .session_events
+            .iter()
+            .any(|e| e.event_type == "session.compaction_complete"),
+        "the compaction belongs to the command's turn"
+    );
+    assert_eq!(
+        command.system_messages.len(),
+        3,
+        "meta, command record, output"
+    );
+    assert!(command.system_messages[1].starts_with("<command-name>/compact"));
+    assert_eq!(
+        command.system_messages[2],
+        "<local-command-stdout>Compacted.</local-command-stdout>"
+    );
+    let sources: Vec<_> = parsed
+        .events
+        .iter()
+        .filter(|e| e.raw.event_type == "user.message")
+        .map(|e| e.raw.data["source"].as_str().unwrap_or(""))
+        .collect();
+    assert_eq!(sources, ["user", "command-compact", "user"]);
+}

@@ -4,6 +4,7 @@
 //! `<uuid>/subagents/`. [`parse_claude_session`] reads them in file order and
 //! emits the Copilot-shaped [`TypedEvent`]s the turn reconstructor already
 //! understands, so a serialized stream reparses to identical turns.
+//! [`ClaudeCodeProvider`] serves them through the `SessionProvider` seam.
 //!
 //! The record → event mapping and its rules are documented in
 //! `docs/research/claude-code-integration/mapping.md` §1; the parser rules the
@@ -13,7 +14,9 @@
 //! opened, and image base64 never leaves the reader.
 
 mod branch;
+mod liveness;
 mod notify;
+mod provider;
 mod reader;
 mod records;
 mod subagents;
@@ -33,6 +36,8 @@ use crate::error::Result;
 use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::parsing::events::TypedEvent;
 
+pub use liveness::ProcessStart;
+pub use provider::ClaudeCodeProvider;
 pub use usage::{ClaudeCallUsage, CostModelUsage, CostSnapshot, TokenTotals, sum_calls_by_model};
 
 /// Everything parsed from one Claude Code session.
@@ -94,6 +99,8 @@ pub struct ClaudeDiagnostics {
     pub malformed_lines: usize,
     /// Files whose last line was cut off mid-write (tolerated, not an error).
     pub partial_tails: usize,
+    /// Lines longer than the reader's bound, skipped without being buffered.
+    pub oversized_lines: usize,
     /// Thinking blocks with no visible text (signature only).
     pub redacted_thinking: usize,
     /// Subagent files with no launching `Agent` call to attach to.

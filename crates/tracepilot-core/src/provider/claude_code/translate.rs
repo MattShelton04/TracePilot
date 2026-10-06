@@ -73,6 +73,8 @@ pub(super) struct Stream<'s> {
     /// Main-file line of the launching call, for usage anchoring.
     pub(super) anchor: Option<usize>,
     pub(super) lines: &'s [Line],
+    /// Index in `lines` of the record being translated.
+    pub(super) cursor: usize,
     pub(super) abandoned: HashSet<String>,
     pub(super) summaries: HashMap<usize, String>,
     pub(super) last_event: Option<String>,
@@ -83,6 +85,8 @@ pub(super) struct Stream<'s> {
     pub(super) last_model: Option<String>,
     pub(super) pending_skill: Option<String>,
     pub(super) last_command: Option<String>,
+    /// A typed slash command whose `<command-name>` record is still to come.
+    pub(super) echoed_command: Option<String>,
     pub(super) prompt_seen: bool,
 }
 
@@ -173,6 +177,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             owner_tool,
             anchor,
             lines,
+            cursor: 0,
             abandoned,
             summaries: super::translate_assistant::compact_summaries(lines),
             last_event: None,
@@ -183,13 +188,16 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             last_model: None,
             pending_skill: None,
             last_command: None,
+            echoed_command: None,
             prompt_seen: false,
         }
     }
 
     fn run(&mut self, st: &mut Stream<'_>) -> Result<()> {
-        for line in st.lines {
+        let lines = st.lines;
+        for (index, line) in lines.iter().enumerate() {
             check_cancelled(self.is_cancelled)?;
+            st.cursor = index;
             self.record(st, line)?;
         }
         if let Some(call) = &st.open_call

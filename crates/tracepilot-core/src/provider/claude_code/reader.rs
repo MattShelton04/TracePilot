@@ -5,6 +5,9 @@
 //! line without its newline is a live file mid-append: it is kept if it
 //! parses and otherwise counted as a partial tail, even when it ends inside a
 //! UTF-8 sequence. Image base64 is replaced before a line is retained.
+//!
+//! Memory is bounded per line: a line longer than [`MAX_LINE_BYTES`] is
+//! skipped without being buffered and counted as oversized.
 
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -24,8 +27,21 @@ pub(super) struct Line {
     pub(super) value: Arc<Value>,
 }
 
+/// The longest line kept. The longest real line seen is 1.3 MiB, an image
+/// Read whose base64 is stored twice (data-comparison rule 8).
+pub(super) const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
+
 pub(super) fn read_jsonl(
     path: &Path,
+    is_cancelled: &impl Fn() -> bool,
+    diagnostics: &mut ClaudeDiagnostics,
+) -> Result<Vec<Line>> {
+    read_jsonl_bounded(path, MAX_LINE_BYTES, is_cancelled, diagnostics)
+}
+
+pub(super) fn read_jsonl_bounded(
+    path: &Path,
+    max_line_bytes: usize,
     is_cancelled: &impl Fn() -> bool,
     diagnostics: &mut ClaudeDiagnostics,
 ) -> Result<Vec<Line>> {
@@ -38,10 +54,20 @@ pub(super) fn read_jsonl(
     loop {
         check_cancelled(is_cancelled)?;
         bytes.clear();
-        if reader.read_until(b'\n', &mut bytes)? == 0 {
+        let read = read_line_bounded(&mut reader, &mut bytes, max_line_bytes)?;
+        if read.consumed == 0 {
             break;
         }
         number += 1;
+        if read.oversized {
+            tracing::warn!(
+                line = number,
+                bytes = read.consumed,
+                "Skipping oversized Claude Code line"
+            );
+            diagnostics.oversized_lines += 1;
+            continue;
+        }
         let complete = bytes.last() == Some(&b'\n');
         let parsed = std::str::from_utf8(&bytes)
             .ok()
@@ -65,6 +91,46 @@ pub(super) fn read_jsonl(
         }
     }
     Ok(lines)
+}
+
+struct LineRead {
+    consumed: usize,
+    oversized: bool,
+}
+
+/// Read one line, newline included, into `bytes`. A line longer than `max`
+/// is consumed without being kept, leaving `bytes` empty.
+fn read_line_bounded(
+    reader: &mut impl BufRead,
+    bytes: &mut Vec<u8>,
+    max: usize,
+) -> std::io::Result<LineRead> {
+    let mut read = LineRead {
+        consumed: 0,
+        oversized: false,
+    };
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            return Ok(read);
+        }
+        let newline = available.iter().position(|b| *b == b'\n');
+        let chunk = &available[..newline.map_or(available.len(), |i| i + 1)];
+        if !read.oversized {
+            if bytes.len() + chunk.len() > max {
+                read.oversized = true;
+                *bytes = Vec::new();
+            } else {
+                bytes.extend_from_slice(chunk);
+            }
+        }
+        let n = chunk.len();
+        reader.consume(n);
+        read.consumed += n;
+        if newline.is_some() {
+            return Ok(read);
+        }
+    }
 }
 
 const OMITTED: &str = "[omitted by TracePilot]";
@@ -114,4 +180,57 @@ fn sanitize_images(value: &mut Value) -> usize {
 fn omitted_bytes(data: &Value) -> String {
     let len = data.as_str().map_or(0, str::len);
     format!("[image omitted by TracePilot: {len} base64 bytes]")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ClaudeDiagnostics, read_jsonl_bounded};
+
+    fn record(n: usize, pad: usize) -> String {
+        format!(
+            "{{\"type\":\"user\",\"n\":{n},\"pad\":\"{}\"}}",
+            "x".repeat(pad)
+        )
+    }
+
+    #[test]
+    fn lines_over_the_bound_are_skipped_without_buffering_and_counted() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.jsonl");
+        let body = [
+            record(1, 10),
+            record(2, 4096),
+            record(3, 10),
+            record(4, 4096), // an oversized partial tail: no newline
+        ];
+        std::fs::write(
+            &path,
+            format!("{}\n{}\n{}\n{}", body[0], body[1], body[2], body[3]),
+        )
+        .unwrap();
+        let mut diagnostics = ClaudeDiagnostics::default();
+        let lines = read_jsonl_bounded(&path, 1024, &|| false, &mut diagnostics).unwrap();
+        let kept: Vec<_> = lines
+            .iter()
+            .map(|l| (l.line, l.value["n"].as_u64()))
+            .collect();
+        assert_eq!(kept, [(1, Some(1)), (3, Some(3))]);
+        assert_eq!(diagnostics.oversized_lines, 2);
+        assert_eq!(diagnostics.malformed_lines, 0);
+        assert_eq!(diagnostics.partial_tails, 0);
+    }
+
+    #[test]
+    fn a_line_exactly_at_the_bound_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.jsonl");
+        let line = format!("{}\n", record(1, 100));
+        std::fs::write(&path, &line).unwrap();
+        let mut diagnostics = ClaudeDiagnostics::default();
+        let kept = read_jsonl_bounded(&path, line.len(), &|| false, &mut diagnostics).unwrap();
+        assert_eq!(kept.len(), 1);
+        let skipped = read_jsonl_bounded(&path, line.len() - 1, &|| false, &mut diagnostics);
+        assert!(skipped.unwrap().is_empty());
+        assert_eq!(diagnostics.oversized_lines, 1);
+    }
 }

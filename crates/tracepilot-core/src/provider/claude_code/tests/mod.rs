@@ -2,6 +2,7 @@
 //! `tracepilot_test_support::claude_scenarios`.
 
 mod accounting;
+mod provider;
 mod scenarios;
 
 use std::collections::HashSet;
@@ -43,6 +44,7 @@ fn all_fixtures() -> Vec<(&'static str, SessionFiles)> {
         ("resumed_ended", fixtures::resumed(false)),
         ("resumed_running", fixtures::resumed(true)),
         ("slash_command", fixtures::slash_command()),
+        ("typed_compact", fixtures::typed_compact()),
     ]
 }
 
