@@ -33,6 +33,7 @@ import { useConversationDeepLinkScroll } from "@/composables/useConversationDeep
 import { usePromptCache } from "@/composables/usePromptCache";
 import { provideSessionAgentDirectory } from "@/composables/useSessionAgentDirectory";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -52,16 +53,23 @@ const sdk = useSdkStore();
  * turn before anything is saved, so the chat view (and its live panel) stays
  * mounted even with zero persisted turns.
  */
+const { capabilities } = useSessionSource(
+  () => store.sessionId,
+  () => store.detail,
+);
+const canSteer = computed(() => capabilities.value.canSteer);
 const liveCapable = computed(() => {
   const sid = store.sessionId;
-  if (!sid || !preferences.isFeatureEnabled("copilotSdk")) return false;
+  if (!sid || !canSteer.value || !preferences.isFeatureEnabled("copilotSdk")) return false;
   const host = sdk.liveHostsById[sid];
   return sdk.isAttached(sid) || (host != null && host.state !== "idle");
 });
 watch(
-  () => store.sessionId,
-  (sid) => {
-    if (sid && preferences.isFeatureEnabled("copilotSdk")) void sdk.refreshLiveHosts([sid]);
+  [() => store.sessionId, canSteer],
+  ([sid, steerable]) => {
+    if (sid && steerable && preferences.isFeatureEnabled("copilotSdk")) {
+      void sdk.refreshLiveHosts([sid]);
+    }
   },
   { immediate: true },
 );

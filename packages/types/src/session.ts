@@ -2,6 +2,8 @@
 // Core session management types: list items, detail views, shutdown metrics,
 // and session artifacts (todos, plans, checkpoints).
 
+import type { SessionSource } from "./sources.js";
+
 /**
  * Session list item (enriched from workspace.yaml + events)
  *
@@ -10,6 +12,8 @@
  */
 export interface SessionListItem {
   id: string;
+  /** Which tool wrote the session. Absent from older backends; means Copilot. */
+  source?: SessionSource;
   summary?: string | null;
   repository?: string | null;
   branch?: string | null;
@@ -42,6 +46,8 @@ export interface SessionIncident {
 /** Full session detail from load_session_summary */
 export interface SessionDetail {
   id: string;
+  /** Which tool wrote the session. Absent from older backends; means Copilot. */
+  source?: SessionSource;
   summary?: string | null;
   repository?: string | null;
   branch?: string | null;
@@ -89,7 +95,20 @@ export interface ShutdownMetrics {
   sessionSegments?: SessionSegment[] | null;
   /** Source shutdown snapshots detected in the event log. */
   sourceMetricsScope?: "segment" | "cumulative" | "mixed" | null;
+  /**
+   * Provider-reported cost for non-Copilot sources. Copilot cost stays in
+   * `totalNanoAiu`; these are absent, never 0, when there is no figure.
+   */
+  costAmount?: number;
+  costUnit?: CostUnit;
+  costBasis?: CostBasis;
 }
+
+/** The unit of a provider-reported cost. */
+export type CostUnit = "aic" | "usd";
+
+/** Who produced a cost figure, and whether it is a bill. */
+export type CostBasis = "billed" | "providerEstimate" | "tracepilotEstimate";
 
 export interface ShutdownTokenDetail {
   tokenCount?: number | null;

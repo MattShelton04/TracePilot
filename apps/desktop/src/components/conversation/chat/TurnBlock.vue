@@ -5,6 +5,7 @@ import {
   formatTime,
   MarkdownContent,
   ReasoningBlock,
+  useMainAgentLabel,
   type useToggleSet,
 } from "@tracepilot/ui";
 import { Bot } from "lucide-vue-next";
@@ -54,6 +55,7 @@ const emit = defineEmits<{
 }>();
 
 const preferences = usePreferencesStore();
+const mainAgentLabel = useMainAgentLabel();
 
 function tcProps(tc: TurnToolCall) {
   const idx = props.findToolCallIndex(props.turn, tc);
@@ -104,7 +106,7 @@ function toggleToolDetail(tc: TurnToolCall) {
     >
       <div class="cv-agent-bubble-header">
         <span class="cv-agent-avatar" aria-hidden="true"><Bot :size="16" /></span>
-        <span class="cv-agent-name">Copilot</span>
+        <span class="cv-agent-name">{{ mainAgentLabel }}</span>
         <span v-if="turn.timestamp" class="cv-agent-time">
           {{ formatTime(turn.timestamp) }}
         </span>

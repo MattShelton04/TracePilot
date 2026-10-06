@@ -4,8 +4,9 @@ import {
   type ShutdownMetrics,
   sumTokenCosts,
 } from "@tracepilot/types";
-import { type ComputedRef, computed } from "vue";
+import { type ComputedRef, computed, type MaybeRefOrGetter, toValue } from "vue";
 import {
+  costUnitAllowsAiCredits,
   hasObservedCreditsWithZeroTokens,
   shutdownAiCreditUsage,
 } from "@/composables/useSessionMetrics";
@@ -36,13 +37,21 @@ export interface MetricsModelEntry {
   tokens: MetricsTokenBreakdown;
 }
 
+/**
+ * `observedOnly` turns off AI Credit estimates, for agent snapshots and for
+ * sources that are not billed in AI Credits.
+ */
 export function useMetricsTabData(
   metrics: ComputedRef<ShutdownMetrics | null | undefined>,
   prefs: PreferencesStore,
-  observedOnly = false,
+  observedOnly: MaybeRefOrGetter<boolean> = false,
 ) {
+  const creditsObservedOnly = computed(
+    () => toValue(observedOnly) || !costUnitAllowsAiCredits(metrics.value),
+  );
   const modelEntries = computed<MetricsModelEntry[]>(() => {
     if (!metrics.value?.modelMetrics) return [];
+    const noEstimate = creditsObservedOnly.value;
     return Object.entries(metrics.value.modelMetrics)
       .map(([name, data]) => {
         const inputTokens = data.usage?.inputTokens ?? 0;
@@ -82,8 +91,8 @@ export function useMetricsTabData(
               : sumTokenCosts([]);
         const aiCreditUsage = resolveAiCreditUsage(
           data.totalNanoAiu,
-          observedOnly ? null : usageBased,
-          observedOnly ? null : wholesale,
+          noEstimate ? null : usageBased,
+          noEstimate ? null : wholesale,
         );
         return {
           name,
@@ -144,7 +153,9 @@ export function useMetricsTabData(
     return total;
   });
 
-  const aiCreditUsage = computed(() => shutdownAiCreditUsage(metrics.value, prefs, observedOnly));
+  const aiCreditUsage = computed(() =>
+    shutdownAiCreditUsage(metrics.value, prefs, creditsObservedOnly.value),
+  );
 
   const cacheHitRatio = computed(() =>
     totalInputTokens.value > 0 ? totalCacheReadTokens.value / totalInputTokens.value : 0,

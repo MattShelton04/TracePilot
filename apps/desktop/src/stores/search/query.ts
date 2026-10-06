@@ -1,4 +1,4 @@
-import type { SearchContentType, SearchResult } from "@tracepilot/types";
+import type { SearchContentType, SearchResult, SessionSource } from "@tracepilot/types";
 import { toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, shallowRef } from "vue";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
@@ -59,6 +59,7 @@ export interface SessionGroup {
   sessionSummary: string | null;
   sessionRepository: string | null;
   sessionBranch: string | null;
+  sessionSource?: SessionSource;
   results: SearchResult[];
 }
 
@@ -129,6 +130,7 @@ export function createQuerySlice() {
           sessionSummary: r.sessionSummary ?? null,
           sessionRepository: r.sessionRepository ?? null,
           sessionBranch: r.sessionBranch ?? null,
+          sessionSource: r.source,
           results: [],
         };
         map.set(r.sessionId, group);

@@ -1,6 +1,11 @@
 import { calculateTokenCost, type ShutdownMetrics } from "@tracepilot/types";
 import { describe, expect, it, vi } from "vitest";
-import { shutdownAiCreditUsage, totalTokens, wholesaleCost } from "../useSessionMetrics";
+import {
+  allowsAiCreditEstimate,
+  shutdownAiCreditUsage,
+  totalTokens,
+  wholesaleCost,
+} from "../useSessionMetrics";
 
 describe("useSessionMetrics", () => {
   describe("totalTokens", () => {
@@ -70,6 +75,35 @@ describe("useSessionMetrics", () => {
       computeUsageBasedCostBreakdown: vi.fn(calculate),
       computeWholesaleCostBreakdown: vi.fn(calculate),
     };
+
+    const usage = { "gpt-5.5": { usage: { inputTokens: 1_000, outputTokens: 500 } } };
+
+    it("estimates credits for a priced Copilot session", () => {
+      expect(shutdownAiCreditUsage({ modelMetrics: usage }, pricing).source).toBe(
+        "estimated-token-usage",
+      );
+    });
+
+    it("never estimates credits for metrics priced in another unit", () => {
+      const metrics: ShutdownMetrics = {
+        modelMetrics: usage,
+        costAmount: 1.5,
+        costUnit: "usd",
+        costBasis: "providerEstimate",
+      };
+      expect(shutdownAiCreditUsage(metrics, pricing)).toEqual({
+        credits: null,
+        usdEquivalent: null,
+        source: "unavailable",
+      });
+    });
+
+    it("allows estimates only for sources billed in AI Credits", () => {
+      expect(allowsAiCreditEstimate(undefined)).toBe(true);
+      expect(allowsAiCreditEstimate("copilot", { costUnit: "aic" })).toBe(true);
+      expect(allowsAiCreditEstimate("claudeCode")).toBe(false);
+      expect(allowsAiCreditEstimate("copilot", { costUnit: "usd" })).toBe(false);
+    });
 
     it("preserves observed zero even without token coverage", () => {
       expect(shutdownAiCreditUsage({ totalNanoAiu: 0 }, pricing)).toEqual({

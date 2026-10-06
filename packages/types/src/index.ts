@@ -300,6 +300,8 @@ export type {
   ContextToolCallContribution,
   ContextToolTypeContribution,
   ContextWindowPoint,
+  CostBasis,
+  CostUnit,
   ModelMetricDetail,
   SessionDbColumn,
   SessionDbIndex,
@@ -362,6 +364,17 @@ export type {
   SkillUsageStats,
   SkillUsageSummary,
 } from "./skillUsage.js";
+// ── sources.js ─────────────────────────────────────────────────────
+export {
+  DEFAULT_SESSION_SOURCE,
+  isNonCopilotSource,
+  resolveSessionSource,
+  SESSION_SOURCES,
+  type SessionSource,
+  type SourceCapabilities,
+  sourceCapabilities,
+  sourceLabel,
+} from "./sources.js";
 export type { ToolArgs } from "./tool-args.js";
 // ── tool-args.js ───────────────────────────────────────────────────
 export { getToolArgs, toolArgString } from "./tool-args.js";

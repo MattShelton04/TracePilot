@@ -39,6 +39,7 @@ import {
   toolCategory,
   toolIcon,
   truncateText,
+  useMainAgentLabel,
 } from "@tracepilot/ui";
 import { Coins, User } from "lucide-vue-next";
 import { computed } from "vue";
@@ -72,6 +73,7 @@ const props = defineProps<{
 
 // Turns render in `content-visibility: auto` chunks (see conversation.css).
 const turnChunks = computed(() => chunkTurns(props.turns));
+const mainAgentLabel = useMainAgentLabel();
 
 const emit = defineEmits<{
   (e: "load-full-result", toolCallId: string): void;
@@ -195,7 +197,7 @@ function onRetryFullResult(toolCallId: string) {
                 :style="{ backgroundColor: getAgentColor(section.agentType) }"
                 :title="section.agentDisplayName"
               />
-              {{ section.agentId ? section.agentDisplayName + ':' : 'Copilot:' }}
+              {{ section.agentId ? section.agentDisplayName : mainAgentLabel }}:
             </span>
             {{ truncateText(msg, 300) }}
           </div>
@@ -335,7 +337,7 @@ function onRetryFullResult(toolCallId: string) {
           <div v-for="(msg, idx) in section.messages.filter(m => m.trim())" :key="`tl-msg-${sIdx}-${idx}`" class="timeline-block assistant">
             <div class="timeline-block-label assistant">
               <AgentBadge v-if="section.agentId" :agent-name="section.agentDisplayName" :agent-type="section.agentType" compact />
-              <template v-else>Copilot</template>
+              <template v-else>{{ mainAgentLabel }}</template>
             </div>
             <div class="timeline-block-text">{{ truncateText(msg, 500) }}</div>
           </div>

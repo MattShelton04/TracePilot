@@ -1,5 +1,5 @@
 import { listSessions } from "@tracepilot/client";
-import type { SessionListItem } from "@tracepilot/types";
+import type { SessionListItem, SessionSource } from "@tracepilot/types";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import { usePreferencesStore } from "./preferences";
@@ -8,6 +8,7 @@ import {
   filterAndSortSessions,
   uniqueBranches,
   uniqueRepositories,
+  uniqueSources,
 } from "./sessions/filtering";
 import { createIndexingLifecycle } from "./sessions/indexingLifecycle";
 
@@ -38,6 +39,7 @@ export const useSessionsStore = defineStore("sessions", () => {
   const searchQuery = ref("");
   const filterRepo = ref<string | null>(null);
   const filterBranch = ref<string | null>(null);
+  const filterSource = ref<SessionSource | null>(null);
   const sortBy = ref<SortOption>("updated");
 
   // Pre-compute lowercased search fields — rebuilt only when session list changes,
@@ -53,6 +55,7 @@ export const useSessionsStore = defineStore("sessions", () => {
         searchTerm: term,
         repository: filterRepo.value,
         branch: filterBranch.value,
+        source: filterSource.value,
         hideEmptySessions: prefs.hideEmptySessions,
       },
       searchFieldCache.value,
@@ -62,12 +65,13 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   const repositories = computed(() => uniqueRepositories(sessions.value));
   const branches = computed(() => uniqueBranches(sessions.value, filterRepo.value));
+  const sources = computed(() => uniqueSources(sessions.value));
 
   const emptySessionCount = computed(() => {
     return sessions.value.filter((s) => (s.turnCount ?? 0) === 0).length;
   });
 
-  /** Session count respecting hideEmptySessions but not search/repo/branch filters. */
+  /** Session count respecting hideEmptySessions but not search/repo/branch/source filters. */
   const visibleSessionCount = computed(() => {
     const prefs = usePreferencesStore();
     if (prefs.hideEmptySessions) {
@@ -96,10 +100,12 @@ export const useSessionsStore = defineStore("sessions", () => {
     searchQuery,
     filterRepo,
     filterBranch,
+    filterSource,
     sortBy,
     filteredSessions,
     repositories,
     branches,
+    sources,
     emptySessionCount,
     visibleSessionCount,
     fetchSessions: lifecycle.fetchSessions,

@@ -12,6 +12,7 @@ import SessionEventRow from "@/components/conversation/SessionEventRow.vue";
 import { useChatViewModeData } from "@/composables/useChatViewModeData";
 import { useChatViewPanelOffset } from "@/composables/useChatViewPanelOffset";
 import { useRenderBudget } from "@/composables/useRenderBudget";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { chunkTurns } from "./chatViewUtils";
 import SdkSteeringPanel from "./SdkSteeringPanel.vue";
 import SubagentPanel from "./SubagentPanel.vue";
@@ -65,6 +66,13 @@ const {
   gapCount,
   revealEvent,
 } = useChatViewModeData(cvRootEl);
+
+// Steering talks to the Copilot SDK, so other sources never show it.
+const { capabilities } = useSessionSource(
+  () => store.sessionId,
+  () => store.detail,
+);
+const canSteer = computed(() => capabilities.value.canSteer);
 
 // Agent chips in tool renderers open that agent in the slide-out panel.
 provideAgentOpener((key) => panel.openSubagent(key));
@@ -170,7 +178,7 @@ defineExpose({ revealEvent });
 
       <div class="cv-bottom-stack">
         <!-- SDK Steering Panel (appears at bottom of chat when SDK is active) -->
-        <SdkSteeringPanel :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
+        <SdkSteeringPanel v-if="canSteer" :session-id="store.sessionId" :session-cwd="store.detail?.cwd ?? undefined" @message-sent="handleSteeringMessage" />
       </div>
     </div>
 

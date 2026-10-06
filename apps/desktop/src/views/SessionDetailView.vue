@@ -18,8 +18,10 @@ import {
 } from "@/composables/useConversationNavigation";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { hiddenSessionTabRedirect } from "@/router/sessionTabGuard";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 
 const route = useRoute();
@@ -37,6 +39,22 @@ const routeViewVisible = inject<Ref<boolean>>("routeViewVisible", ref(true));
 watch(sessionId, (newId) => {
   if (newId) store.loadDetail(newId);
 });
+
+// A deep link can reach a tab before the session's source is known; leave it
+// once the detail loads if the source cannot fill that tab.
+const { source } = useSessionSource(
+  () => sessionId.value,
+  () => store.detail,
+);
+watch(
+  () => [store.detail, source.value, route.name] as const,
+  ([detail, known]) => {
+    if (detail?.id !== sessionId.value) return;
+    const redirect = hiddenSessionTabRedirect(route, known);
+    if (redirect) void router.replace(redirect);
+  },
+  { immediate: true },
+);
 
 // Note: we intentionally do NOT call store.reset() on unmount.
 // The store handles re-initialization when switching sessions via loadDetail(newId).

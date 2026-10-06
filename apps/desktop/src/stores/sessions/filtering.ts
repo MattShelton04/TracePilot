@@ -1,4 +1,9 @@
-import type { SessionListItem } from "@tracepilot/types";
+import {
+  resolveSessionSource,
+  SESSION_SOURCES,
+  type SessionListItem,
+  type SessionSource,
+} from "@tracepilot/types";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
@@ -7,6 +12,8 @@ export interface SessionFilterPredicates {
   searchTerm: string | null;
   repository: string | null;
   branch: string | null;
+  /** Only sessions from this source; `null` or absent means every source. */
+  source?: SessionSource | null;
   hideEmptySessions: boolean;
 }
 
@@ -69,6 +76,7 @@ export function matchesSessionFilters(
 
   if (predicates.repository && s.repository !== predicates.repository) return false;
   if (predicates.branch && s.branch !== predicates.branch) return false;
+  if (predicates.source && resolveSessionSource(s.source) !== predicates.source) return false;
 
   return true;
 }
@@ -111,6 +119,12 @@ export function filterAndSortSessions(
 export function uniqueRepositories(sessions: readonly SessionListItem[]): string[] {
   const repos = new Set(sessions.map((s) => s.repository).filter((r): r is string => !!r));
   return [...repos].sort();
+}
+
+/** Sources present in the session set, in display order. */
+export function uniqueSources(sessions: readonly SessionListItem[]): SessionSource[] {
+  const present = new Set(sessions.map((s) => resolveSessionSource(s.source)));
+  return SESSION_SOURCES.filter((source) => present.has(source));
 }
 
 /**

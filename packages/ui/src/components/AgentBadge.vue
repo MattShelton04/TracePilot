@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useMainAgentLabel } from "../composables/mainAgentLabel";
 import {
   type AgentStatus,
   type AgentType,
@@ -25,8 +26,9 @@ const props = withDefaults(
 const color = computed(() => getAgentColor(props.agentType));
 const icon = computed(() => getAgentIcon(props.agentType));
 const statusIcon = computed(() => (props.status ? STATUS_ICONS[props.status] : undefined));
+const mainAgentLabel = useMainAgentLabel();
 const displayName = computed(
-  () => props.agentName ?? (props.agentType === "main" ? "Copilot" : "Subagent"),
+  () => props.agentName ?? (props.agentType === "main" ? mainAgentLabel.value : "Subagent"),
 );
 </script>
 

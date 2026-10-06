@@ -14,6 +14,7 @@ import {
 } from "@tracepilot/ui";
 import { computed, type InjectionKey, inject, onMounted, reactive, ref } from "vue";
 import {
+  allowsAiCreditEstimate,
   filesModified,
   linesChanged,
   sessionDurationMs,
@@ -243,8 +244,16 @@ export function useSessionComparison() {
 
     const tokA = totalTokens(dataA.metrics);
     const tokB = totalTokens(dataB.metrics);
-    const aiA = shutdownAiCreditUsage(dataA.metrics, prefs).credits;
-    const aiB = shutdownAiCreditUsage(dataB.metrics, prefs).credits;
+    const aiA = shutdownAiCreditUsage(
+      dataA.metrics,
+      prefs,
+      !allowsAiCreditEstimate(dataA.detail?.source),
+    ).credits;
+    const aiB = shutdownAiCreditUsage(
+      dataB.metrics,
+      prefs,
+      !allowsAiCreditEstimate(dataB.detail?.source),
+    ).credits;
     const tcA = totalToolCalls(dataA.turns);
     const tcB = totalToolCalls(dataB.turns);
     const srA = successRate(dataA.turns);

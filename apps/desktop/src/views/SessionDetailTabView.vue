@@ -21,7 +21,9 @@ import {
   SESSION_DETAIL_KEY,
   toSessionDetailContext,
 } from "@/composables/useSessionDetail";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { useWindowRole } from "@/composables/useWindowRole";
+import { DEFAULT_SESSION_TAB, isSessionTabHidden } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 
@@ -62,6 +64,22 @@ const tabStore = useSessionTabsStore();
 
 const currentInnerComponent = computed(
   () => innerTabComponents[props.activeSubTab] ?? innerTabComponents.overview,
+);
+
+// A restored or linked sub-tab may be one this session's source hides.
+const { capabilities } = useSessionSource(
+  () => props.sessionId,
+  () => store.detail,
+);
+watch(
+  () => [store.detail, capabilities.value, props.activeSubTab] as const,
+  ([detail, caps, tab]) => {
+    if (detail?.id !== props.sessionId) return;
+    if (isSessionTabHidden(tab, caps)) {
+      emit("update:activeSubTab", DEFAULT_SESSION_TAB);
+    }
+  },
+  { immediate: true },
 );
 
 // ── Auto-refresh gate: pauses when this tab is not the active one ────

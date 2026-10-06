@@ -1,6 +1,8 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
+import { computed } from "vue";
 import AgentBadge from "../components/AgentBadge.vue";
+import { MAIN_AGENT_LABEL_KEY } from "../composables/mainAgentLabel";
 
 describe("AgentBadge", () => {
   it("renders with default props", () => {
@@ -70,5 +72,12 @@ describe("AgentBadge", () => {
     });
     const dot = wrapper.find(".agent-dot");
     expect(dot.attributes("style")).toContain("background-color");
+  });
+
+  it("labels the main agent from the provided session source", () => {
+    const wrapper = mount(AgentBadge, {
+      global: { provide: { [MAIN_AGENT_LABEL_KEY as symbol]: computed(() => "Claude Code") } },
+    });
+    expect(wrapper.find(".agent-name").text()).toBe("Claude Code");
   });
 });
