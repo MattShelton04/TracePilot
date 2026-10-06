@@ -54,7 +54,7 @@ pub(super) fn read_jsonl_bounded(
     loop {
         check_cancelled(is_cancelled)?;
         bytes.clear();
-        let read = read_line_bounded(&mut reader, &mut bytes, max_line_bytes)?;
+        let read = read_line_bounded(&mut reader, &mut bytes, max_line_bytes, is_cancelled)?;
         if read.consumed == 0 {
             break;
         }
@@ -99,17 +99,22 @@ struct LineRead {
 }
 
 /// Read one line, newline included, into `bytes`. A line longer than `max`
-/// is consumed without being kept, leaving `bytes` empty.
+/// is consumed without being kept, leaving `bytes` empty. Cancellation is
+/// checked between buffer fills, so a huge line cannot delay it.
 fn read_line_bounded(
     reader: &mut impl BufRead,
     bytes: &mut Vec<u8>,
     max: usize,
-) -> std::io::Result<LineRead> {
+    is_cancelled: &impl Fn() -> bool,
+) -> Result<LineRead> {
     let mut read = LineRead {
         consumed: 0,
         oversized: false,
     };
     loop {
+        if read.consumed > 0 {
+            check_cancelled(is_cancelled)?;
+        }
         let available = reader.fill_buf()?;
         if available.is_empty() {
             return Ok(read);
@@ -218,6 +223,29 @@ mod tests {
         assert_eq!(diagnostics.oversized_lines, 2);
         assert_eq!(diagnostics.malformed_lines, 0);
         assert_eq!(diagnostics.partial_tails, 0);
+    }
+
+    /// The per-line check alone would run twice here (before the line and at
+    /// EOF); cancellation must also land while one huge line drains.
+    #[test]
+    fn cancellation_interrupts_a_huge_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.jsonl");
+        std::fs::write(&path, format!("{}\n", record(1, 4 << 20))).unwrap();
+        let checks = std::cell::Cell::new(0);
+        let is_cancelled = || {
+            checks.set(checks.get() + 1);
+            checks.get() > 2
+        };
+        let mut diagnostics = ClaudeDiagnostics::default();
+        let result = read_jsonl_bounded(&path, 1024, &is_cancelled, &mut diagnostics);
+        let error = result.expect_err("cancelled mid-line");
+        assert!(error.to_string().contains("cancelled"), "{error}");
+        assert_eq!(
+            checks.get(),
+            3,
+            "stopped at the first check inside the line"
+        );
     }
 
     #[test]

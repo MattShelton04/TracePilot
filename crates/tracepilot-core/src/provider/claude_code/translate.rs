@@ -432,7 +432,9 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
                 }
             })
             .collect();
-        diagnostics.events.malformed_lines = diagnostics.malformed_lines;
+        // The shared counter is every skipped line, so `has_warnings` sees them.
+        diagnostics.events.malformed_lines =
+            diagnostics.malformed_lines + diagnostics.oversized_lines;
         ClaudeParse {
             events,
             positions: self.positions,

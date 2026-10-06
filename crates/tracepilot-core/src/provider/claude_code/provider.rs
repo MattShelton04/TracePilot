@@ -194,12 +194,14 @@ impl SessionProvider for ClaudeCodeProvider {
             let files = std::fs::read_dir(&project)
                 .map_err(|e| TracePilotError::io_context("Failed to read", project.display(), e))?;
             for file in files {
+                check_cancelled(&is_cancelled)?;
                 let path = file?.path();
                 if let Some(id) = session_id(&path).filter(|_| path.is_file()) {
                     sessions.push(Self::locator(id, path)?);
                 }
             }
         }
+        check_cancelled(&is_cancelled)?;
         sessions.sort_by(|a, b| a.primary_path.cmp(&b.primary_path));
         Ok(sessions)
     }
@@ -212,9 +214,10 @@ impl SessionProvider for ClaudeCodeProvider {
         Ok(SourceFingerprint::new(files, None))
     }
 
-    /// Strict loads fail on malformed lines and on a partial last line (a
-    /// live file mid-append), like Copilot's, so a later pass retries them.
-    /// Oversized lines are skipped on every pass, so they do not fail it.
+    /// Strict loads fail when any record was skipped (malformed, oversized,
+    /// or a partial last line of a live file mid-append), like Copilot's, so
+    /// a skipped record never reaches a durable index. Best-effort loads
+    /// keep the rest and report the skipped lines in their diagnostics.
     fn load_snapshot(
         &self,
         session: &SessionLocator,
@@ -228,6 +231,7 @@ impl SessionProvider for ClaudeCodeProvider {
         let diagnostics = &parsed.diagnostics;
         if strict
             && (diagnostics.malformed_lines > 0
+                || diagnostics.oversized_lines > 0
                 || diagnostics.partial_tails > 0
                 || !diagnostics.events.deserialization_failures.is_empty())
         {

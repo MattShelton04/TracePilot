@@ -3,9 +3,12 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use tracepilot_test_support::claude::{OPUS, SESSION_ID, write_pid_file};
+use tracepilot_test_support::claude::{
+    OPUS, SESSION_ID, Transcript, Usage, text, write_pid_file, write_session,
+};
 use tracepilot_test_support::claude_scenarios as fixtures;
 
+use super::super::reader::MAX_LINE_BYTES;
 use super::super::{ClaudeCodeProvider, ProcessStart};
 use crate::ids::SessionId;
 use crate::provider::{Liveness, RunStatus, SessionProvider, SessionRole, SessionSource};
@@ -65,6 +68,49 @@ fn discover_fails_on_a_missing_root_and_on_cancellation() {
 
     let files = fixtures::tool_hazards();
     assert!(provider(files.root.path()).discover(&|| true).is_err());
+}
+
+/// Cancellation that arrives after the last per-project check still stops
+/// discovery: one project, so checks 1 and 2 are the entry and project checks.
+#[test]
+fn discover_honors_cancellation_inside_a_project() {
+    let files = fixtures::tool_hazards();
+    let checks = std::cell::Cell::new(0);
+    let is_cancelled = || {
+        checks.set(checks.get() + 1);
+        checks.get() > 2
+    };
+    let result = provider(files.root.path()).discover(&is_cancelled);
+    assert!(
+        result.is_err(),
+        "cancelled discovery must not return an inventory"
+    );
+}
+
+/// A valid record over the reader's bound is skipped: strict loads refuse
+/// the snapshot, and best-effort loads report the skipped line.
+#[test]
+fn oversized_records_fail_strict_loads_and_warn_best_effort_ones() {
+    let mut t = Transcript::main();
+    t.prompt(&"x".repeat(MAX_LINE_BYTES));
+    t.call(
+        "msg_o1",
+        OPUS,
+        vec![text("Done.")],
+        Usage::new(1, 0, 0, 1),
+        "end_turn",
+    );
+    let files = write_session(&t, &[]);
+    let provider = provider(files.root.path());
+    let session = provider.discover(&|| false).unwrap().remove(0);
+    assert!(provider.load_snapshot(&session, true, &|| false).is_err());
+    let snapshot = provider.load_snapshot(&session, false, &|| false).unwrap();
+    let diagnostics = snapshot.diagnostics.expect("diagnostics");
+    assert!(diagnostics.has_warnings());
+    assert_eq!(
+        diagnostics.malformed_lines, 1,
+        "the skipped line is reported"
+    );
 }
 
 #[test]
