@@ -6,7 +6,7 @@
 //! file history) are never read. Nothing registers this provider until the
 //! experimental flag (F8) does.
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 
@@ -43,13 +43,17 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
 /// Sessions under one Claude Code config directory.
 pub struct ClaudeCodeProvider {
     config_dir: PathBuf,
+    /// `<config_dir>/projects`, the root every transcript lives under.
+    projects_dir: PathBuf,
     process_start: Option<ProcessStart>,
 }
 
 impl ClaudeCodeProvider {
     pub fn new(config_dir: impl Into<PathBuf>) -> Self {
+        let config_dir = config_dir.into();
         Self {
-            config_dir: config_dir.into(),
+            projects_dir: config_dir.join("projects"),
+            config_dir,
             process_start: None,
         }
     }
@@ -64,10 +68,6 @@ impl ClaudeCodeProvider {
 
     pub fn config_dir(&self) -> &Path {
         &self.config_dir
-    }
-
-    fn projects_dir(&self) -> PathBuf {
-        self.config_dir.join("projects")
     }
 
     fn locator(id: SessionId, main: PathBuf) -> Result<SessionLocator> {
@@ -172,8 +172,8 @@ impl SessionProvider for ClaudeCodeProvider {
                 std::io::Error::from(std::io::ErrorKind::NotFound),
             ));
         }
-        let projects_dir = self.projects_dir();
-        let projects = match std::fs::read_dir(&projects_dir) {
+        let projects_dir = &self.projects_dir;
+        let projects = match std::fs::read_dir(projects_dir) {
             Ok(entries) => entries,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(error) => {
@@ -263,12 +263,31 @@ impl SessionProvider for ClaudeCodeProvider {
         )
     }
 
+    fn root(&self) -> Option<&Path> {
+        Some(&self.projects_dir)
+    }
+
+    /// Only a main transcript exactly where [`Self::resolve`] looks:
+    /// `<projects>/<one project dir>/<id>.jsonl`, and a regular file.
+    fn owns(&self, session: &SessionLocator) -> bool {
+        let Ok(relative) = session.primary_path.strip_prefix(&self.projects_dir) else {
+            return false;
+        };
+        let mut components = relative.components();
+        let expected = format!("{}.jsonl", session.id.as_str());
+        session.source == SessionSource::ClaudeCode
+            && matches!(components.next(), Some(Component::Normal(_)))
+            && matches!(components.next(), Some(Component::Normal(name)) if name == expected.as_str())
+            && components.next().is_none()
+            && session.primary_path.is_file()
+    }
+
     fn resolve(&self, id: &SessionId) -> Result<Option<SessionLocator>> {
         // Only a UUID can name a transcript; never join anything else to a path.
         if uuid::Uuid::parse_str(id.as_str()).is_err() {
             return Ok(None);
         }
-        let projects = match std::fs::read_dir(self.projects_dir()) {
+        let projects = match std::fs::read_dir(&self.projects_dir) {
             Ok(entries) => entries,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(error) => return Err(error.into()),
