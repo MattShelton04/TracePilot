@@ -2,13 +2,13 @@
 
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
-use crate::helpers::with_session_path;
+use crate::helpers::with_session_locator;
 use crate::types::{EventCache, EventItem, EventsResponse, FreshnessResponse};
-use tracepilot_core::parsing::EVENTS_JSONL;
 
-use super::shared::{load_cached_typed_events, system_time_to_unix_millis};
+use super::shared::{load_cached_typed_events, source_stamp, system_time_to_unix_millis};
 
-/// Lightweight freshness probe— returns just the events.jsonl file size.
+/// Lightweight freshness probe: the session's `source_version` plus the
+/// legacy event-log size and mtime.
 #[tauri::command]
 #[specta::specta]
 pub async fn check_session_freshness(
@@ -16,13 +16,12 @@ pub async fn check_session_freshness(
     session_id: String,
 ) -> CmdResult<FreshnessResponse> {
     let sid = crate::validators::validate_session_id(&session_id)?;
-    with_session_path(&state, sid, |path| {
-        let meta = std::fs::metadata(path.join(EVENTS_JSONL)).ok();
-        let file_size = meta.as_ref().map_or(0, |m| m.len());
-        let file_mtime = meta.and_then(|m| m.modified().ok());
+    with_session_locator(&state, sid, |session| {
+        let stamp = source_stamp(&session)?;
         Ok(FreshnessResponse {
-            events_file_size: file_size,
-            events_file_mtime: system_time_to_unix_millis(file_mtime),
+            events_file_size: stamp.events_file_size,
+            events_file_mtime: system_time_to_unix_millis(stamp.events_file_mtime),
+            source_version: stamp.version,
         })
     })
     .await
@@ -42,11 +41,9 @@ pub async fn get_session_events(
     let limit = crate::validators::clamp_limit(limit, crate::validators::MAX_EVENTS_PAGE_LIMIT);
     let sid = crate::validators::validate_session_id(&session_id)?;
     let cache = cache.inner().clone();
-    let cache_session_id = session_id.clone();
 
-    with_session_path(&state, sid, move |path| {
-        let events_path = path.join(EVENTS_JSONL);
-        let (all_events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
+    with_session_locator(&state, sid, move |session| {
+        let (all_events, _) = load_cached_typed_events(&cache, &session)?;
 
         let all_event_types: Vec<String> = {
             let mut types = std::collections::BTreeSet::new();
@@ -103,11 +100,9 @@ pub async fn get_tool_result(
 ) -> CmdResult<Option<serde_json::Value>> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     let cache = cache.inner().clone();
-    let cache_session_id = session_id.clone();
 
-    with_session_path(&state, sid, move |path| {
-        let events_path = path.join(EVENTS_JSONL);
-        let (events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
+    with_session_locator(&state, sid, move |session| {
+        let (events, _) = load_cached_typed_events(&cache, &session)?;
 
         let mut last_result: Option<serde_json::Value> = None;
         for event in events.iter() {

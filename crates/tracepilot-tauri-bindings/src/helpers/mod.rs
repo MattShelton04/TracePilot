@@ -2,7 +2,8 @@
 //!
 //! Organised into focused sub-modules:
 //! - [`path`]: filesystem path validation & copilot-home resolution
-//! - [`db`]: session/index DB access wrappers
+//! - [`db`]: index DB access wrappers
+//! - [`locator`]: session id → provider and locator
 //! - [`cache`]: config readers and `SessionListItem` conversions
 //! - [`emit`]: Tauri event payload construction
 
@@ -12,7 +13,11 @@ mod cache;
 mod db;
 mod definition_repos;
 mod emit;
+mod locator;
 mod path;
+
+#[cfg(test)]
+mod locator_tests;
 
 #[cfg(test)]
 mod path_within_any_tests;
@@ -38,7 +43,11 @@ pub(crate) struct OpenIndexDb {
 }
 
 pub(crate) use cache::{indexed_session_to_list_item, load_summary_list_item, read_config};
-pub(crate) use db::{open_index_db, remove_index_db_files, with_session_path};
+pub(crate) use db::{open_index_db, remove_index_db_files};
 pub(crate) use definition_repos::definition_repo_roots;
 pub(crate) use emit::{emit_best_effort, emit_indexing_progress};
+pub(crate) use locator::{
+    explorer_root, require_capability, require_copilot_layout, resolve_session,
+    with_session_locator,
+};
 pub(crate) use path::{validate_path_within, validate_path_within_any, validate_write_path_within};

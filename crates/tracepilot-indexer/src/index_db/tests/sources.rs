@@ -361,3 +361,52 @@ fn bulk_search_write_rolls_back_on_a_conflicting_session() {
         .unwrap();
     assert_eq!(triggers, 3, "FTS triggers restored after rollback");
 }
+
+#[test]
+fn session_locator_reads_the_stored_source_path_and_family() {
+    let (temp, db) = setup();
+    let copilot = db
+        .get_session_locator(&SessionId::from_validated(COPILOT_ID))
+        .unwrap()
+        .unwrap();
+    assert_eq!(copilot.source, SessionSource::Copilot);
+    assert_eq!(copilot.primary_path, temp.path().join(COPILOT_ID));
+    assert_eq!(copilot.role, SessionRole::Primary);
+    assert_eq!(copilot.parent_id, None);
+
+    claim_for_claude(&db, OTHER_ID);
+    db.conn
+        .execute(
+            "UPDATE sessions SET role = 'subagent', parent_session_id = ?1 WHERE id = ?2",
+            [COPILOT_ID, OTHER_ID],
+        )
+        .unwrap();
+    let other = db
+        .get_session_locator(&SessionId::from_validated(OTHER_ID))
+        .unwrap()
+        .unwrap();
+    assert_eq!(other.source, SessionSource::ClaudeCode);
+    assert_eq!(other.role, SessionRole::Subagent);
+    assert_eq!(
+        other.parent_id.as_ref().map(SessionId::as_str),
+        Some(COPILOT_ID)
+    );
+
+    // A source only a newer build knows is not resolvable here.
+    db.conn
+        .execute(
+            "UPDATE sessions SET source = 'codex' WHERE id = ?1",
+            [OTHER_ID],
+        )
+        .unwrap();
+    let unknown = SessionId::from_validated(OTHER_ID);
+    assert_eq!(db.get_session_locator(&unknown).unwrap(), None);
+    // The raw name stays readable so import can still refuse the id.
+    assert_eq!(
+        db.get_session_source_name(&unknown).unwrap().as_deref(),
+        Some("codex")
+    );
+    let missing = SessionId::from_validated("33333333-3333-4333-8333-333333333333");
+    assert_eq!(db.get_session_locator(&missing).unwrap(), None);
+    assert_eq!(db.get_session_source_name(&missing).unwrap(), None);
+}

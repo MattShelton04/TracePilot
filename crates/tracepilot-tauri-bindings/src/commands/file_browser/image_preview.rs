@@ -10,7 +10,7 @@ use super::types::{
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::read_config;
+use crate::helpers::{explorer_root, read_config, resolve_session};
 use base64::Engine as _;
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader, Limits};
 use std::io::{Cursor, Read as _};
@@ -125,11 +125,11 @@ pub async fn session_read_image_preview(
     session_id: String,
     relative_path: String,
 ) -> CmdResult<SessionImagePreview> {
-    crate::validators::validate_session_id(&session_id)?;
-    let session_state_dir = read_config(&state).session_state_dir();
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    let config = read_config(&state);
 
     blocking_cmd!({
-        let session_dir = session_state_dir.join(&session_id);
+        let session_dir = explorer_root(&resolve_session(&config, &sid)?)?;
         let file_path = safe_session_file_path(&session_dir, &relative_path)?;
         if !file_path.exists() {
             return Err(BindingsError::Validation(format!(

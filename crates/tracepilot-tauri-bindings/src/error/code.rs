@@ -33,6 +33,8 @@ pub enum ErrorCode {
     // ── Business / user-visible ─────────────────────────────────
     AlreadyIndexing,
     Validation,
+    /// The session's source does not support the requested action.
+    Unsupported,
 }
 
 impl ErrorCode {
@@ -52,6 +54,7 @@ impl ErrorCode {
             Self::Export => "EXPORT",
             Self::AlreadyIndexing => "ALREADY_INDEXING",
             Self::Validation => "VALIDATION",
+            Self::Unsupported => "UNSUPPORTED",
         }
     }
 }

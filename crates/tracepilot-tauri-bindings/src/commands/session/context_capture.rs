@@ -30,14 +30,12 @@ fn capture_config(state: &SharedConfig) -> CmdResult<TracePilotConfig> {
     Ok(config)
 }
 
+/// Capture resumes the session in its CLI, so only resumable sources can.
 fn resolve_session(config: &TracePilotConfig, session_id: &str) -> CmdResult<std::path::PathBuf> {
-    let validated = uuid::Uuid::parse_str(session_id)?.to_string();
-    Ok(
-        tracepilot_core::session::discovery::resolve_session_path_direct(
-            &validated,
-            &config.session_state_dir(),
-        )?,
-    )
+    let validated = crate::validators::validate_session_id(session_id)?;
+    let session = crate::helpers::resolve_session(config, &validated)?;
+    crate::helpers::require_capability(&session, |caps| caps.can_resume, "Context capture")?;
+    Ok(session.locator.primary_path)
 }
 
 #[tauri::command]

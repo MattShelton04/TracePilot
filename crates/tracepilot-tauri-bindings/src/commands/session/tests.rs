@@ -5,9 +5,29 @@ use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use tracepilot_core::ids::SessionId;
+use tracepilot_core::provider::{
+    CopilotProvider, ResolvedSession, SessionLocator, SessionRole, SessionSource,
+};
+
 use crate::types::EventCache;
 
-use super::shared::load_cached_typed_events;
+use super::shared::{load_cached_typed_events, source_stamp};
+
+/// The Copilot session at `dir`, as the locator would resolve it.
+fn copilot_session(dir: &Path, id: &str) -> ResolvedSession {
+    ResolvedSession {
+        provider: Arc::new(CopilotProvider::new(dir.parent().unwrap())),
+        locator: SessionLocator {
+            source: SessionSource::Copilot,
+            id: SessionId::from_validated(id),
+            primary_path: dir.to_path_buf(),
+            parent_id: None,
+            role: SessionRole::Primary,
+            source_bytes_hint: 0,
+        },
+    }
+}
 
 fn event_cache(capacity: usize) -> EventCache {
     Arc::new(Mutex::new(lru::LruCache::new(
@@ -81,15 +101,14 @@ fn load_cached_typed_events_returns_cached_arc_on_hit() {
         ("user.message", serde_json::json!({ "content": "hello" })),
     ]);
     let cache = event_cache(2);
-    let events_path = session_path.join("events.jsonl");
+    let session = copilot_session(&session_path, "session-a");
 
-    let (first, first_size, first_mtime) =
-        load_cached_typed_events(&cache, "session-a", &events_path).expect("cache miss loads");
-    let (second, second_size, second_mtime) =
-        load_cached_typed_events(&cache, "session-a", &events_path).expect("cache hit loads");
+    let (first, first_stamp) =
+        load_cached_typed_events(&cache, &session).expect("cache miss loads");
+    let (second, second_stamp) =
+        load_cached_typed_events(&cache, &session).expect("cache hit loads");
 
-    assert_eq!(first_size, second_size);
-    assert_eq!(first_mtime, second_mtime);
+    assert_eq!(first_stamp, second_stamp);
     assert_eq!(first.len(), 2);
     assert!(Arc::ptr_eq(&first, &second));
 }
@@ -102,9 +121,9 @@ fn load_cached_typed_events_invalidates_stale_entries_when_file_changes() {
     ]);
     let cache = event_cache(2);
     let events_path = session_path.join("events.jsonl");
+    let session = copilot_session(&session_path, "session-a");
 
-    let (first, first_size, _first_mtime) =
-        load_cached_typed_events(&cache, "session-a", &events_path).expect("initial load");
+    let (first, first_stamp) = load_cached_typed_events(&cache, &session).expect("initial load");
 
     append_event_line(
         &events_path,
@@ -118,10 +137,11 @@ fn load_cached_typed_events_invalidates_stale_entries_when_file_changes() {
         "2025-01-01T00:00:02.000Z",
     );
 
-    let (second, second_size, _second_mtime) =
-        load_cached_typed_events(&cache, "session-a", &events_path).expect("reload after append");
+    let (second, second_stamp) =
+        load_cached_typed_events(&cache, &session).expect("reload after append");
 
-    assert!(second_size > first_size);
+    assert!(second_stamp.events_file_size > first_stamp.events_file_size);
+    assert_ne!(second_stamp.version, first_stamp.version);
     assert_eq!(second.len(), 3);
     assert!(!Arc::ptr_eq(&first, &second));
 }
@@ -133,17 +153,16 @@ fn load_cached_typed_events_returns_empty_when_file_missing() {
     // event log was cleaned up. Best-effort callers (prefetch, shutdown
     // metrics) should get empty events rather than a "Failed to open" error.
     let dir = tempfile::tempdir().expect("failed to create temp dir");
-    let events_path = dir.path().join("events.jsonl");
-    assert!(!events_path.exists());
+    assert!(!dir.path().join("events.jsonl").exists());
 
     let cache = event_cache(2);
-    let (events, file_size, file_mtime) =
-        load_cached_typed_events(&cache, "session-missing", &events_path)
-            .expect("missing file should not error");
+    let session = copilot_session(dir.path(), "session-missing");
+    let (events, stamp) =
+        load_cached_typed_events(&cache, &session).expect("missing file should not error");
 
     assert!(events.is_empty());
-    assert_eq!(file_size, 0);
-    assert!(file_mtime.is_none());
+    assert_eq!(stamp.events_file_size, 0);
+    assert!(stamp.events_file_mtime.is_none());
 }
 
 #[test]
@@ -153,7 +172,7 @@ fn load_cached_typed_events_recovers_from_poisoned_mutex() {
         ("user.message", serde_json::json!({ "content": "hello" })),
     ]);
     let cache = event_cache(2);
-    let events_path = session_path.join("events.jsonl");
+    let session = copilot_session(&session_path, "session-a");
 
     let poisoned_cache = Arc::clone(&cache);
     let _ = std::thread::spawn(move || {
@@ -162,9 +181,79 @@ fn load_cached_typed_events_recovers_from_poisoned_mutex() {
     })
     .join();
 
-    let (events, file_size, _mtime) =
-        load_cached_typed_events(&cache, "session-a", &events_path).expect("poison fallback");
+    let (events, stamp) = load_cached_typed_events(&cache, &session).expect("poison fallback");
 
     assert_eq!(events.len(), 2);
-    assert!(file_size > 0);
+    assert!(stamp.events_file_size > 0);
+}
+
+#[test]
+fn copilot_stamp_keeps_the_legacy_events_jsonl_fields() {
+    let (_dir, session_path) =
+        temp_session(&[("session.start", serde_json::json!({ "cwd": "/repo" }))]);
+    let events = std::fs::metadata(session_path.join("events.jsonl")).unwrap();
+    let session = copilot_session(&session_path, "session-a");
+    let stamp = source_stamp(&session).unwrap();
+    assert_eq!(stamp.events_file_size, events.len());
+    assert_eq!(stamp.events_file_mtime, Some(events.modified().unwrap()));
+    let fingerprint = session.provider.fingerprint(&session.locator).unwrap();
+    assert_eq!(stamp.version, fingerprint.source_version());
+
+    // workspace.yaml is part of the source version but not the legacy size.
+    std::fs::write(session_path.join("workspace.yaml"), "id: changed\n").unwrap();
+    let changed = source_stamp(&session).unwrap();
+    assert_eq!(changed.events_file_size, stamp.events_file_size);
+    assert_ne!(changed.version, stamp.version);
+}
+
+#[test]
+fn stamp_falls_back_to_the_event_log_when_fingerprinting_fails() {
+    let (_dir, session_path) =
+        temp_session(&[("session.start", serde_json::json!({ "cwd": "/repo" }))]);
+    // A directory where workspace.yaml should be makes the fingerprint fail.
+    std::fs::remove_file(session_path.join("workspace.yaml")).unwrap();
+    std::fs::create_dir(session_path.join("workspace.yaml")).unwrap();
+    let session = copilot_session(&session_path, "session-a");
+    assert!(session.provider.fingerprint(&session.locator).is_err());
+
+    let events = std::fs::metadata(session_path.join("events.jsonl")).unwrap();
+    let stamp = source_stamp(&session).unwrap();
+    assert_eq!(stamp.events_file_size, events.len());
+    assert_eq!(stamp.events_file_mtime, Some(events.modified().unwrap()));
+    assert_eq!(source_stamp(&session).unwrap().version, stamp.version);
+}
+
+#[test]
+fn other_sources_report_totals_over_their_files() {
+    let temp = tempfile::tempdir().unwrap();
+    let id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890";
+    let main = temp
+        .path()
+        .join("projects")
+        .join("p")
+        .join(format!("{id}.jsonl"));
+    let subagents = main.with_extension("").join("subagents");
+    std::fs::create_dir_all(&subagents).unwrap();
+    std::fs::write(&main, "{}\n").unwrap();
+    std::fs::write(subagents.join("agent-1.jsonl"), "{}\n{}\n").unwrap();
+    let session = ResolvedSession {
+        provider: Arc::new(
+            tracepilot_core::provider::claude_code::ClaudeCodeProvider::new(temp.path()),
+        ),
+        locator: SessionLocator {
+            source: SessionSource::ClaudeCode,
+            id: SessionId::from_validated(id),
+            primary_path: main.clone(),
+            parent_id: None,
+            role: SessionRole::Primary,
+            source_bytes_hint: 0,
+        },
+    };
+    let stamp = source_stamp(&session).unwrap();
+    assert_eq!(stamp.events_file_size, 9);
+    let latest = [&main, &subagents.join("agent-1.jsonl")]
+        .iter()
+        .map(|path| std::fs::metadata(path).unwrap().modified().unwrap())
+        .max();
+    assert_eq!(stamp.events_file_mtime, latest);
 }

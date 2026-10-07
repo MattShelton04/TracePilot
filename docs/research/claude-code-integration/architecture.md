@@ -172,6 +172,16 @@ The reshape has to happen in Rust:
 - **Resolution:** `with_session_path` becomes `with_session_locator(state, id, |provider, locator| …)`.
   It resolves via the index (`get_session_path` + new `get_session_source`) and falls back to
   `registry.resolve`. All 25 call sites move.
+  - Implemented (WP6) as `IndexDb::get_session_locator` plus `ProviderRegistry::locate`. A
+    stored locator is trusted only when its source is registered, that provider `owns` it (a
+    path under the provider's current `root`, named by the id; Copilot requires exactly
+    `<session-state>/<id>`) and it still exists. Anything else re-resolves through the
+    providers, so a row from a disabled source or an older root never reaches a command.
+  - Commands that need a capability refuse with the typed `UNSUPPORTED` error: resume and
+    context capture (`canResume`), SDK steering (`canSteer`) and the file browser
+    (`hasExplorer`, rooted at the provider's first file root, which must lie under its root).
+    Export still reads Copilot's layout and refuses other sources until C14. Import refuses
+    to keep an id the index holds for another source.
 - **Pruning is per source**, so one source can never delete another's rows.
   - A source is pruned only after a **complete inventory** of its configured root. If
     discovery was cancelled, hit an I/O error, or found the root missing or unreadable, that
@@ -195,7 +205,8 @@ The reshape has to happen in Rust:
 - **Freshness** becomes an opaque `source_version` (a hash of the serialized
   `SourceFingerprint`) in the caches and in `FreshnessResponse`. The old `events_file_*` fields
   stay populated for Copilot during the transition. The frontend already compares them only for
-  equality.
+  equality. Implemented (WP6) as `SourceFingerprint::source_version`; for other sources the
+  legacy fields carry the total size and latest mtime of the fingerprinted files.
 
 ### 3.5 Config and setup
 

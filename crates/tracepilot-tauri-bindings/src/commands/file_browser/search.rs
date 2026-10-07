@@ -10,7 +10,7 @@ use super::types::{
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::read_config;
+use crate::helpers::{explorer_root, read_config, resolve_session};
 use std::io::Read as _;
 
 const MAX_EXCERPT_CHARS: usize = 240;
@@ -38,7 +38,7 @@ pub async fn session_search_files(
     session_id: String,
     query: String,
 ) -> CmdResult<SessionFileSearchResponse> {
-    crate::validators::validate_session_id(&session_id)?;
+    let sid = crate::validators::validate_session_id(&session_id)?;
     let query = query.trim();
     if query.chars().count() < 2 {
         return Err(BindingsError::Validation(
@@ -51,10 +51,10 @@ pub async fn session_search_files(
         ));
     }
     let query = query.to_lowercase();
-    let session_state_dir = read_config(&state).session_state_dir();
+    let config = read_config(&state);
 
     blocking_cmd!({
-        let session_dir = session_state_dir.join(&session_id);
+        let session_dir = explorer_root(&resolve_session(&config, &sid)?)?;
         let canonical_dir = session_dir.canonicalize().map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 BindingsError::Validation(format!("Session directory not found: {session_id}"))

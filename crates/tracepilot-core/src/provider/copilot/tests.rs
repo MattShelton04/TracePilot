@@ -193,3 +193,54 @@ fn resolve_matches_direct_resolution() {
     let missing = SessionId::from_validated("ffffffff-ffff-4fff-8fff-ffffffffffff");
     assert_eq!(provider.resolve(&missing).unwrap(), None);
 }
+
+#[test]
+fn event_and_summary_loads_match_the_direct_readers() {
+    let (_temp, provider) = corpus_provider();
+    for locator in provider.discover(&|| false).unwrap() {
+        let dir = &locator.primary_path;
+        let name = dir.display().to_string();
+        let direct = crate::parsing::events::parse_typed_events_if_exists(
+            &SessionPaths::from_root(dir).events_jsonl(),
+        )
+        .unwrap()
+        .map(|parsed| parsed.events);
+        let events = provider.load_events(&locator, &|| false).unwrap();
+        assert_eq!(
+            canonical(events_json(events.as_ref())),
+            canonical(events_json(direct.as_ref())),
+            "{name}: events"
+        );
+        let events = events.unwrap_or_default();
+        let summary = provider.summary_from_events(&locator, &events).unwrap();
+        let direct = crate::summary::load_session_summary_from_events(dir, &events).unwrap();
+        assert!(same(&summary, &direct), "{name}: summary");
+        assert_eq!(provider.file_roots(&locator).unwrap(), vec![dir.clone()]);
+    }
+}
+
+#[test]
+fn owns_only_the_directory_resolve_would_build() {
+    let (temp, provider) = corpus_provider();
+    assert_eq!(provider.root(), Some(temp.path()));
+    let locator = provider.discover(&|| false).unwrap().remove(0);
+    assert!(provider.owns(&locator));
+    let id = locator.id.as_str();
+    for path in [
+        temp.path().join("nested").join(id),
+        temp.path().join(id).join(id),
+        temp.path().join("..").join(id),
+        Path::new("elsewhere").join(id),
+    ] {
+        let moved = SessionLocator {
+            primary_path: path,
+            ..locator.clone()
+        };
+        assert!(!provider.owns(&moved), "{}", moved.primary_path.display());
+    }
+    let foreign = SessionLocator {
+        source: SessionSource::ClaudeCode,
+        ..locator
+    };
+    assert!(!provider.owns(&foreign));
+}
