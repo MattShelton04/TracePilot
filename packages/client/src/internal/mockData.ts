@@ -282,6 +282,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     check_session_freshness: {
       eventsFileSize: 1024,
       eventsFileMtime: MOCK_EVENTS_MTIME,
+      sourceVersion: "mock-source-version",
     } as FreshnessResponse,
     get_session_events: mocks.MOCK_EVENTS,
     get_session_todos: mocks.MOCK_TODOS,

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
-use crate::helpers::with_session_path;
+use crate::helpers::{require_copilot_layout, with_session_locator};
 
 /// Export a session folder as a raw zip archive.
 ///
@@ -18,7 +18,9 @@ pub async fn export_session_folder_zip(
     dest_path: String,
 ) -> CmdResult<()> {
     let sid = crate::validators::validate_session_id(&session_id)?;
-    with_session_path(&state, sid, move |session_path| {
+    with_session_locator(&state, sid, move |session| {
+        require_copilot_layout(&session, "Folder export")?;
+        let session_path = session.locator.primary_path;
         let dest = PathBuf::from(&dest_path);
         tracepilot_core::utils::fs::ensure_parent_dir(&dest)?;
 

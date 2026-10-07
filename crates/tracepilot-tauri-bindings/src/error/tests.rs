@@ -9,6 +9,20 @@ fn already_indexing_serializes_with_stable_code() {
 }
 
 #[test]
+fn unsupported_names_the_source_and_action() {
+    let err = BindingsError::Unsupported {
+        session_source: tracepilot_core::provider::SessionSource::ClaudeCode,
+        action: "Resume",
+    };
+    let json = serde_json::to_string(&err).unwrap();
+    assert!(json.contains(r#""code":"UNSUPPORTED""#), "got: {json}");
+    assert!(
+        json.contains(r#""message":"Resume is not available for Claude Code sessions.""#),
+        "got: {json}"
+    );
+}
+
+#[test]
 fn validation_emits_message_verbatim() {
     let err = BindingsError::Validation("bad input".into());
     let json = serde_json::to_string(&err).unwrap();

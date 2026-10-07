@@ -6,7 +6,7 @@
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{open_index_db, read_config, with_session_path};
+use crate::helpers::{open_index_db, read_config, with_session_locator};
 use crate::services;
 use crate::types::{GitInfo, UpdateCheckResult};
 
@@ -20,7 +20,7 @@ pub async fn get_db_size(state: tauri::State<'_, SharedConfig>) -> CmdResult<u64
     })
 }
 
-/// Check if a session is currently running by looking for `inuse.*.lock` files.
+/// Check if a live process owns a session (Copilot: an `inuse.*.lock` file).
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
 #[specta::specta]
@@ -29,8 +29,11 @@ pub async fn is_session_running(
     session_id: String,
 ) -> CmdResult<bool> {
     let sid = crate::validators::validate_session_id(&session_id)?;
-    with_session_path(&state, sid, |path| {
-        Ok(tracepilot_core::session::discovery::has_lock_file(&path))
+    with_session_locator(&state, sid, |session| {
+        Ok(matches!(
+            session.provider.liveness(&session.locator),
+            tracepilot_core::provider::Liveness::Running { .. }
+        ))
     })
     .await
 }

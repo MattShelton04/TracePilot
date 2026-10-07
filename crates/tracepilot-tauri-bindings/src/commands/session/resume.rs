@@ -5,7 +5,7 @@ use tracepilot_core::parsing::WORKSPACE_YAML;
 
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::read_config;
+use crate::helpers::{read_config, require_capability, resolve_session};
 
 /// Open a new terminal window and run the configured CLI resume command.
 #[tauri::command]
@@ -16,7 +16,7 @@ pub async fn resume_session_in_terminal(
     cli_command: Option<String>,
 ) -> CmdResult<()> {
     // Validate UUID format (also prevents command injection via session_id)
-    crate::validators::validate_session_id(&session_id)?;
+    let sid = crate::validators::validate_session_id(&session_id)?;
 
     let cli =
         cli_command.unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string());
@@ -28,17 +28,13 @@ pub async fn resume_session_in_terminal(
 
     // Resolve the session's original working directory from workspace.yaml
     let config = read_config(&state);
-    let session_state_dir = config.session_state_dir();
     // Live sessions (ADR-0016): start the resumed terminal with `--ui-server`
     // so TracePilot can attach to it and stream it live.
     let attachable = config.features.copilot_sdk && config.live.launch_attachable;
-    let sid = session_id.clone();
     let session_cwd = tokio::task::spawn_blocking(move || {
-        let session_path = tracepilot_core::session::discovery::resolve_session_path_direct(
-            &sid,
-            &session_state_dir,
-        )?;
-        let workspace_path = session_path.join(WORKSPACE_YAML);
+        let session = resolve_session(&config, &sid)?;
+        require_capability(&session, |caps| caps.can_resume, "Resume")?;
+        let workspace_path = session.locator.primary_path.join(WORKSPACE_YAML);
         let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)?;
         Ok::<Option<std::path::PathBuf>, BindingsError>(metadata.cwd.map(std::path::PathBuf::from))
     })

@@ -2,10 +2,9 @@
 //! parent module's `pub(crate)` re-exports.
 
 use super::*;
-use crate::config::SharedConfig;
-use crate::error::{BindingsError, CmdResult};
+use crate::error::BindingsError;
 use std::fs;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use tempfile::tempdir;
 use tracing_subscriber::fmt::MakeWriter;
 
@@ -53,18 +52,6 @@ impl std::io::Write for LogWriter {
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
-}
-
-fn make_shared_config(session_state_dir: &str) -> SharedConfig {
-    Arc::new(RwLock::new(Some(crate::config::TracePilotConfig {
-        paths: crate::config::PathsConfig {
-            copilot_home: String::new(),
-            tracepilot_home: String::new(),
-            session_state_dir: session_state_dir.to_string(),
-            index_db_path: String::new(),
-        },
-        ..Default::default()
-    })))
 }
 
 #[test]
@@ -159,77 +146,6 @@ fn remove_index_files_succeeds_when_no_files_exist() {
 
     // None of the files exist — should succeed without error.
     remove_index_db_files(&index_path).unwrap();
-}
-
-#[tokio::test]
-async fn with_session_path_propagates_missing_session_error() {
-    let dir = tempfile::tempdir().unwrap();
-    let state = make_shared_config(dir.path().to_str().unwrap());
-
-    // Valid UUID that doesn't exist on disk
-    let result = with_session_path(
-        &state,
-        tracepilot_core::ids::SessionId::from_validated("00000000-0000-0000-0000-000000000000"),
-        |_path| Ok("should not reach here".to_string()),
-    )
-    .await;
-
-    assert!(result.is_err(), "missing session should produce an error");
-    let err_msg = result.unwrap_err().to_string();
-    assert!(
-        err_msg.contains("00000000-0000-0000-0000-000000000000"),
-        "error should reference the session id: {err_msg}"
-    );
-}
-
-#[tokio::test]
-async fn with_session_path_runs_closure_on_resolved_path() {
-    // Session directories must be valid UUIDs (discover_sessions filters by uuid::Uuid::parse_str)
-    let dir = tempfile::tempdir().unwrap();
-    let session_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
-    let session_dir = dir.path().join(session_id);
-    std::fs::create_dir_all(&session_dir).unwrap();
-
-    let state = make_shared_config(dir.path().to_str().unwrap());
-
-    let result = with_session_path(
-        &state,
-        tracepilot_core::ids::SessionId::from_validated(session_id),
-        |path| Ok(path.to_string_lossy().to_string()),
-    )
-    .await;
-
-    assert!(
-        result.is_ok(),
-        "valid session should succeed: {:?}",
-        result.err()
-    );
-    let resolved = result.unwrap();
-    assert!(
-        resolved.contains(session_id),
-        "resolved path should contain session id: {resolved}"
-    );
-}
-
-#[tokio::test]
-async fn with_session_path_propagates_closure_error() {
-    let dir = tempfile::tempdir().unwrap();
-    let session_id = "b2c3d4e5-f6a7-8901-bcde-f12345678901";
-    let session_dir = dir.path().join(session_id);
-    std::fs::create_dir_all(&session_dir).unwrap();
-
-    let state = make_shared_config(dir.path().to_str().unwrap());
-
-    let result: CmdResult<()> = with_session_path(
-        &state,
-        tracepilot_core::ids::SessionId::from_validated(session_id),
-        |_path| Err(BindingsError::Validation("deliberate test error".into())),
-    )
-    .await;
-
-    assert!(result.is_err());
-    let err_msg = result.unwrap_err().to_string();
-    assert_eq!(err_msg, "deliberate test error");
 }
 
 // ── validate_path_within tests ──────────────────────────────────────

@@ -22,11 +22,14 @@ export const commands = {
 	 */
 	sdkBridgeMetrics: () => typedError<BridgeMetricsSnapshot, BindingsErrorIpc>(__TAURI_INVOKE("sdk_bridge_metrics")),
 	listSessions: (limit: number | null, repo: string | null, branch: string | null, hideEmpty: boolean | null) => typedError<SessionListItem[], BindingsErrorIpc>(__TAURI_INVOKE("list_sessions", { limit, repo, branch, hideEmpty })),
-	// Lightweight freshness probe— returns just the events.jsonl file size.
+	/**
+	 *  Lightweight freshness probe: the session's `source_version` plus the
+	 *  legacy event-log size and mtime.
+	 */
 	checkSessionFreshness: (sessionId: string) => typedError<FreshnessResponse, BindingsErrorIpc>(__TAURI_INVOKE("check_session_freshness", { sessionId })),
 	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
 	getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
-	// Check if a session is currently running by looking for `inuse.*.lock` files.
+	// Check if a live process owns a session (Copilot: an `inuse.*.lock` file).
 	isSessionRunning: (sessionId: string) => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("is_session_running", { sessionId })),
 	// Returns the installation type: "source", "installed", or "portable".
 	getInstallType: () => __TAURI_INVOKE<string>("get_install_type"),
@@ -92,11 +95,15 @@ export type CaptureStage = "preflight" | "copyingSession" | "preparingEnvironmen
  *  change for the desktop app. Add new variants instead of renaming existing
  *  ones. The discriminant is written to the IPC envelope as `code`.
  */
-export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "INTERNAL" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION";
+export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "INTERNAL" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION" | 
+// The session's source does not support the requested action.
+"UNSUPPORTED";
 
 export type FreshnessResponse = {
 	eventsFileSize: number,
 	eventsFileMtime: number | null,
+	// Opaque; changes whenever any file the session reads changes.
+	sourceVersion: string,
 };
 
 export type GitInfo = {

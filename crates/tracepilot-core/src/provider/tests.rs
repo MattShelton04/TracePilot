@@ -117,14 +117,14 @@ fn provider_metrics_never_report_aic_or_premium_requests() {
 
 // ── Registry smoke test with a test-only second source ─────────────
 
-const FIXTURE_ID: &str = "11111111-2222-4333-8444-555555555555";
+pub(super) const FIXTURE_ID: &str = "11111111-2222-4333-8444-555555555555";
 
 /// A stand-in for a non-Copilot source that emits a hand-written event
 /// stream from memory.
-struct FixtureProvider;
+pub(super) struct FixtureProvider;
 
 impl FixtureProvider {
-    fn locator() -> SessionLocator {
+    pub(super) fn locator() -> SessionLocator {
         SessionLocator {
             source: SessionSource::ClaudeCode,
             id: SessionId::from_validated(FIXTURE_ID),
@@ -136,7 +136,7 @@ impl FixtureProvider {
     }
 }
 
-fn fixture_events() -> Vec<crate::parsing::events::TypedEvent> {
+pub(super) fn fixture_events() -> Vec<crate::parsing::events::TypedEvent> {
     use crate::models::event_types::SessionEventType;
     use crate::parsing::events::{TypedEvent, typed_data_from_raw};
     [

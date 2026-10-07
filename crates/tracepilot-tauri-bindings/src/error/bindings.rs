@@ -78,6 +78,14 @@ pub enum BindingsError {
         session_id: tracepilot_core::ids::SessionId,
     },
 
+    /// The session's source does not support this action. Refused before
+    /// any source-specific file is touched.
+    #[error("{action} is not available for {} sessions.", source_label(*.session_source))]
+    Unsupported {
+        session_source: tracepilot_core::provider::SessionSource,
+        action: &'static str,
+    },
+
     /// Input validation failed (user-facing message).
     #[error("{0}")]
     Validation(String),
@@ -119,9 +127,18 @@ impl BindingsError {
             Self::TomlSerialize(_) | Self::TomlDeserialize(_) => ErrorCode::Serialization,
             Self::AlreadyIndexing => ErrorCode::AlreadyIndexing,
             Self::AlreadyIndexingSession { .. } => ErrorCode::AlreadyIndexing,
+            Self::Unsupported { .. } => ErrorCode::Unsupported,
             Self::Validation(_) => ErrorCode::Validation,
             Self::Internal(_) => ErrorCode::Internal,
         }
+    }
+}
+
+fn source_label(source: tracepilot_core::provider::SessionSource) -> &'static str {
+    use tracepilot_core::provider::SessionSource;
+    match source {
+        SessionSource::Copilot => "Copilot",
+        SessionSource::ClaudeCode => "Claude Code",
     }
 }
 
