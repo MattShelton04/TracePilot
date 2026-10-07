@@ -62,13 +62,13 @@
     }
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.7",
-    "@playwright/cli": "0.1.19",
-    "@playwright/test": "1.59.1",
-    "lefthook": "2.1.14",
-    "playwright-core": "^1.58.2",
+    "@biomejs/biome": "^2.5.15",
+    "@playwright/cli": "0.1.22",
+    "@playwright/test": "1.63.0",
+    "lefthook": "2.1.16",
+    "playwright-core": "^1.63.0",
     "rimraf": "^6.1.3",
     "tsx": "catalog:",
-    "yaml": "2.9.0"
+    "yaml": "2.9.1"
   }
 }
