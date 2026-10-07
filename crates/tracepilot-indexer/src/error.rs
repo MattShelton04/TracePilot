@@ -49,6 +49,16 @@ pub enum IndexerError {
         existing: String,
         incoming: String,
     },
+
+    /// The source's configuration changed while a pass ran; the pass's
+    /// writes for it were rolled back.
+    #[error("configuration of source '{name}' changed during indexing")]
+    StaleSource { name: String },
+
+    /// A source's sessions could not all be listed, so an index rebuilt now
+    /// would lose its rows.
+    #[error("sessions of source '{name}' are unavailable; the existing index was kept")]
+    IncompleteInventory { name: String },
 }
 
 pub type Result<T> = std::result::Result<T, IndexerError>;

@@ -19,9 +19,11 @@ use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{
     emit_best_effort, emit_indexing_progress, open_index_db, read_config, remove_index_db_files,
 };
+use crate::types::SourceProgressPayload;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::OwnedSemaphorePermit;
+use tracepilot_indexer::IndexScope;
 
 /// Returns (updated, total) session counts.
 #[tauri::command]
@@ -53,7 +55,7 @@ pub(crate) async fn run_incremental_reindex(
     }
     let seq = gates.jobs().begin_job();
 
-    let session_state_dir = target.session_state_dir.clone();
+    let scope = target.scope.clone();
     let index_path = target.index_path.clone();
     let app_handle = app.clone();
     let gates_for_job = Arc::clone(gates);
@@ -69,27 +71,20 @@ pub(crate) async fn run_incremental_reindex(
             .then(|| InitialBuildGuard::start(Arc::clone(&gates_for_job)));
         let start = std::time::Instant::now();
         let app_fallback = app_handle.clone();
-        let res = match tracepilot_indexer::reindex_incremental_with_rich_progress(
-            &session_state_dir,
-            &index_path,
-            |progress| {
+        let res =
+            match tracepilot_indexer::reindex_incremental_scoped(&scope, &index_path, |progress| {
                 emit_indexing_progress(&app_handle, progress);
-            },
-        ) {
-            Ok((indexed, skipped)) => Ok((indexed, indexed + skipped)),
-            Err(e) => {
-                tracing::warn!(error = %e, "Incremental reindex failed; running full reindex");
-                tracepilot_indexer::reindex_all_with_rich_progress(
-                    &session_state_dir,
-                    &index_path,
-                    |progress| {
+            }) {
+                Ok((indexed, skipped)) => Ok((indexed, indexed + skipped)),
+                Err(e) => {
+                    tracing::warn!(error = %e, "Incremental reindex failed; running full reindex");
+                    tracepilot_indexer::reindex_all_scoped(&scope, &index_path, |progress| {
                         emit_indexing_progress(&app_fallback, progress);
-                    },
-                )
-                .map(|n| (n, n))
-                .map_err(Into::into)
-            }
-        };
+                    })
+                    .map(|n| (n, n))
+                    .map_err(Into::into)
+                }
+            };
         tracing::debug!(
             elapsed_ms = start.elapsed().as_millis(),
             "reindex_sessions Phase 1 wall time"
@@ -181,7 +176,7 @@ pub async fn reindex_sessions_full(
     let seq = gates.jobs().begin_job();
 
     let target = IndexTarget::capture(&state, &gates, generation)?;
-    let session_state_dir = target.session_state_dir.clone();
+    let scope = target.scope.clone();
     let index_path = target.index_path.clone();
     let app_handle = app.clone();
     let gates_for_job = Arc::clone(gates.inner());
@@ -194,15 +189,13 @@ pub async fn reindex_sessions_full(
 
         // Both permits belong to the worker even if its caller is cancelled.
         let result = (|| {
+            // Never discard rows that this rebuild could not restore.
+            tracepilot_indexer::ensure_complete_inventory(&scope)?;
             remove_index_db_files(&index_path)?;
 
-            let counts = tracepilot_indexer::reindex_all_with_rich_progress(
-                &session_state_dir,
-                &index_path,
-                |progress| {
-                    emit_indexing_progress(&app_handle, progress);
-                },
-            )
+            let counts = tracepilot_indexer::reindex_all_scoped(&scope, &index_path, |progress| {
+                emit_indexing_progress(&app_handle, progress);
+            })
             .map(|n| (n, n))?;
             gates_for_job.jobs().complete_job(seq, counts);
             Ok::<_, BindingsError>(counts)
@@ -245,7 +238,7 @@ pub async fn rebuild_search_index(
         .map_err(|_busy| BindingsError::AlreadyIndexing)?;
 
     let target = IndexTarget::capture(&state, &gates, generation)?;
-    let session_state_dir = target.session_state_dir;
+    let scope = target.scope;
     let index_path = target.index_path;
     let app_handle = app.clone();
     let gates_for_job = Arc::clone(gates.inner());
@@ -254,8 +247,8 @@ pub async fn rebuild_search_index(
 
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        tracepilot_indexer::rebuild_search_content(
-            &session_state_dir,
+        tracepilot_indexer::rebuild_search_content_scoped(
+            &scope,
             &index_path,
             |progress| emit_search_progress(&app_handle, progress),
             || gates_for_job.jobs().search_cancelled(),
@@ -289,20 +282,20 @@ enum SearchPass {
 impl SearchPass {
     fn run(
         self,
-        session_state_dir: &Path,
+        scope: &IndexScope,
         index_path: &Path,
         on_progress: impl FnMut(&tracepilot_indexer::SearchIndexingProgress),
         is_cancelled: impl Fn() -> bool,
     ) -> tracepilot_indexer::Result<(usize, usize)> {
         match self {
-            Self::Incremental => tracepilot_indexer::reindex_search_content(
-                session_state_dir,
+            Self::Incremental => tracepilot_indexer::reindex_search_content_scoped(
+                scope,
                 index_path,
                 on_progress,
                 is_cancelled,
             ),
-            Self::Rebuild => tracepilot_indexer::rebuild_search_content(
-                session_state_dir,
+            Self::Rebuild => tracepilot_indexer::rebuild_search_content_scoped(
+                scope,
                 index_path,
                 on_progress,
                 is_cancelled,
@@ -320,7 +313,8 @@ fn emit_search_progress(
         crate::events::SEARCH_INDEXING_PROGRESS,
         serde_json::json!({
             "current": progress.current,
-            "total": progress.total
+            "total": progress.total,
+            "source": progress.source.map(SourceProgressPayload::from),
         }),
     );
 }
@@ -358,7 +352,7 @@ fn spawn_search_content_phase2(
             let start = std::time::Instant::now();
             emit_best_effort(&app, crate::events::SEARCH_INDEXING_STARTED, ());
             let result = pass.run(
-                &target.session_state_dir,
+                &target.scope,
                 &target.index_path,
                 |progress| emit_search_progress(&app, progress),
                 || gates.jobs().search_cancelled(),

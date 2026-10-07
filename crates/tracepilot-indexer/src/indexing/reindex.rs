@@ -1,13 +1,20 @@
-//! Full and incremental reindex of session metadata and analytics.
+//! Full and incremental reindex of session metadata and analytics, across
+//! every source of an [`IndexScope`].
 
+use std::collections::HashSet;
 use std::path::Path;
+use std::sync::Arc;
 
 use rayon::prelude::*;
-use tracepilot_core::provider::SessionSource;
+use tracepilot_core::provider::{SessionLocator, SessionProvider, SessionSource};
 
 use crate::Result;
+use crate::error::IndexerError;
 use crate::index_db;
+use crate::index_db::session_writer::prepare_snapshot;
+use crate::indexing::inventory::{self, SourcePass};
 use crate::indexing::progress::{IndexingProgress, ProgressTracker};
+use crate::indexing::scope::{IndexScope, stale_source};
 
 /// Perform a full reindex of all sessions, pruning any that no longer exist on disk.
 pub fn reindex_all(session_state_dir: &Path, index_db_path: &Path) -> Result<usize> {
@@ -25,54 +32,47 @@ pub fn reindex_all_with_progress(
     })
 }
 
-/// Full reindex with enriched progress callback including per-session data.
+/// Full reindex of the Copilot sessions under `session_state_dir`.
+pub fn reindex_all_with_rich_progress(
+    session_state_dir: &Path,
+    index_db_path: &Path,
+    on_progress: impl FnMut(&IndexingProgress),
+) -> Result<usize> {
+    reindex_all_scoped(
+        &IndexScope::copilot(session_state_dir),
+        index_db_path,
+        on_progress,
+    )
+}
+
+/// Full reindex of every source in `scope`, with enriched progress.
 ///
 /// Uses Rayon to parse sessions in parallel (CPU/IO-bound), then writes
 /// results to SQLite sequentially (rusqlite::Connection is !Send).
 #[tracing::instrument(skip_all)]
-pub fn reindex_all_with_rich_progress(
-    session_state_dir: &Path,
+pub fn reindex_all_scoped(
+    scope: &IndexScope,
     index_db_path: &Path,
-    mut on_progress: impl FnMut(&IndexingProgress),
+    on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<usize> {
-    let reindex_start = std::time::Instant::now();
-    let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
-    let db = index_db::IndexDb::open_or_create(index_db_path)?;
+    reindex_sources(scope, index_db_path, false, on_progress).map(|(indexed, _)| indexed)
+}
 
-    let live_ids: std::collections::HashSet<&str> =
-        sessions.iter().map(|s| s.id.as_str()).collect();
-
-    let total = sessions.len();
-    let mut tracker = ProgressTracker::new(total);
-
-    // Emit initial progress so UI loading screen initializes immediately
-    tracker.emit(&mut on_progress, None);
-
-    let session_refs: Vec<_> = sessions.iter().collect();
-    let indexed = index_batches(&db, &session_refs, &mut tracker, &mut on_progress)?;
-
-    // Note: Final 100% emission is guaranteed by is_complete() check in emit_if_ready.
-    // For zero sessions, the initial emit above covers it (current=0, total=0).
-
-    tracing::debug!(
-        indexed,
-        total,
-        elapsed_ms = reindex_start.elapsed().as_millis(),
-        "Full reindex complete"
-    );
-
-    // Remove stale entries for sessions that no longer exist on disk
-    match db.prune_deleted(SessionSource::Copilot, &live_ids) {
-        Ok(pruned) if pruned > 0 => {
-            tracing::info!(pruned, "Pruned deleted sessions from index");
+/// Fail unless every source in `scope` can list its whole root. Check this
+/// before discarding an index: a rebuild restores only what it can read, and
+/// an unavailable source's rows would be lost.
+pub fn ensure_complete_inventory(scope: &IndexScope) -> Result<()> {
+    for provider in scope.registry().providers() {
+        let complete = provider.root_exists()
+            && provider.discover(&|| false).is_ok()
+            && provider.root_exists();
+        if !complete {
+            return Err(IndexerError::IncompleteInventory {
+                name: provider.source().as_str().to_string(),
+            });
         }
-        Err(e) => {
-            tracing::warn!(error = %e, "Failed to prune deleted sessions");
-        }
-        _ => {}
     }
-
-    Ok(indexed)
+    Ok(())
 }
 
 /// Reindex only sessions whose workspace.yaml/events.jsonl changed or analytics version bumped.
@@ -94,93 +94,167 @@ pub fn reindex_incremental_with_progress(
     })
 }
 
-/// Incremental reindex with enriched progress callback including per-session data.
+/// Incremental reindex of the Copilot sessions under `session_state_dir`.
+pub fn reindex_incremental_with_rich_progress(
+    session_state_dir: &Path,
+    index_db_path: &Path,
+    on_progress: impl FnMut(&IndexingProgress),
+) -> Result<(usize, usize)> {
+    reindex_incremental_scoped(
+        &IndexScope::copilot(session_state_dir),
+        index_db_path,
+        on_progress,
+    )
+}
+
+/// Incremental reindex of every source in `scope`: only sessions whose
+/// source fingerprint changed, or whose analytics version is old.
 ///
 /// Emits progress for every session (including skipped ones) so the loading
 /// screen tracks smoothly. Stale sessions are parsed in parallel via Rayon,
 /// then written sequentially.
 #[tracing::instrument(skip_all)]
-pub fn reindex_incremental_with_rich_progress(
-    session_state_dir: &Path,
+pub fn reindex_incremental_scoped(
+    scope: &IndexScope,
     index_db_path: &Path,
+    on_progress: impl FnMut(&IndexingProgress),
+) -> Result<(usize, usize)> {
+    reindex_sources(scope, index_db_path, true, on_progress)
+}
+
+fn reindex_sources(
+    scope: &IndexScope,
+    index_db_path: &Path,
+    incremental: bool,
     mut on_progress: impl FnMut(&IndexingProgress),
 ) -> Result<(usize, usize)> {
-    let phase1_start = std::time::Instant::now();
-    let sessions = tracepilot_core::session::discovery::discover_sessions(session_state_dir)?;
+    let start = std::time::Instant::now();
+    let passes = inventory::discover(scope, &|| false)?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
 
-    let live_ids: std::collections::HashSet<&str> =
-        sessions.iter().map(|s| s.id.as_str()).collect();
-
-    let total = sessions.len();
+    let total = passes.iter().map(|pass| pass.sessions.len()).sum();
     let mut tracker = ProgressTracker::new(total);
-
-    // Step 1: Check staleness (sequential DB reads), emit throttled progress for skipped
-    let mut stale_sessions = Vec::new();
-    let mut skipped = 0;
-    for session in &sessions {
-        if db.needs_reindex(&session.id, &session.path) {
-            stale_sessions.push(session);
-        } else {
-            skipped += 1;
-            tracker.increment();
-            tracker.emit_if_ready(&mut on_progress, None);
-        }
+    if !incremental {
+        // Emit initial progress so UI loading screen initializes immediately.
+        // For zero sessions this is also the final emission.
+        tracker.emit(&mut on_progress, None);
     }
 
-    // Note: is_complete() in should_emit() guarantees the last emit_if_ready
-    // in the skip loop fires unconditionally, so no explicit final emit needed.
-
-    let indexed = index_batches(&db, &stale_sessions, &mut tracker, &mut on_progress)?;
+    let (mut indexed, mut skipped) = (0, 0);
+    for pass in &passes {
+        let source = pass.provider.source();
+        tracker.begin_source(source, pass.sessions.len());
+        let mut stale = Vec::new();
+        for session in &pass.sessions {
+            if !incremental || db.session_is_stale(pass.provider.as_ref(), session) {
+                stale.push(session);
+            } else {
+                skipped += 1;
+                tracker.increment();
+                tracker.emit_if_ready(&mut on_progress, None);
+            }
+        }
+        match index_batches(
+            &db,
+            scope,
+            &pass.provider,
+            &stale,
+            &mut tracker,
+            &mut on_progress,
+        ) {
+            Ok(count) => indexed += count,
+            Err(IndexerError::StaleSource { .. }) => {
+                tracing::info!(
+                    source = source.as_str(),
+                    "Source configuration changed; its sessions were not indexed"
+                );
+                tracker.finish_source();
+                tracker.emit_if_ready(&mut on_progress, None);
+                continue;
+            }
+            Err(error) => return Err(error),
+        }
+        prune(&db, scope, pass);
+    }
+    // Final 100% emission is guaranteed by is_complete() in emit_if_ready.
 
     tracing::debug!(
         indexed,
         skipped,
         total,
-        elapsed_ms = phase1_start.elapsed().as_millis(),
-        "Incremental reindex complete"
+        incremental,
+        elapsed_ms = start.elapsed().as_millis(),
+        "Reindex complete"
     );
+    Ok((indexed, skipped))
+}
 
-    // Prune sessions that no longer exist on disk
-    match db.prune_deleted(SessionSource::Copilot, &live_ids) {
+/// Remove a source's sessions that no longer exist, but only after a
+/// complete inventory of its root.
+fn prune(db: &index_db::IndexDb, scope: &IndexScope, pass: &SourcePass) {
+    let source = pass.provider.source();
+    if !pass.complete {
+        return;
+    }
+    let live_ids: HashSet<&str> = pass.sessions.iter().map(|s| s.id.as_str()).collect();
+    match db.prune_source(source, &live_ids, &|| scope.is_current(source)) {
         Ok(pruned) if pruned > 0 => {
-            tracing::info!(pruned, "Pruned deleted sessions from index");
+            tracing::info!(
+                source = source.as_str(),
+                pruned,
+                "Pruned deleted sessions from index"
+            );
+        }
+        Err(IndexerError::StaleSource { .. }) => {
+            tracing::info!(
+                source = source.as_str(),
+                "Source configuration changed; prune rolled back"
+            );
         }
         Err(e) => {
-            tracing::warn!(error = %e, "Failed to prune deleted sessions");
+            tracing::warn!(source = source.as_str(), error = %e, "Failed to prune deleted sessions");
         }
         _ => {}
     }
-
-    Ok((indexed, skipped))
 }
 
 /// Preparation and database writes alternate so memory is independent of the
 /// total number of sessions. SQLite transactions are bounded by the same batch.
+///
+/// Fails with [`IndexerError::StaleSource`], after rolling back the current
+/// batch, when the source's configuration changes.
 fn index_batches(
     db: &index_db::IndexDb,
-    sessions: &[&tracepilot_core::session::discovery::DiscoveredSession],
+    scope: &IndexScope,
+    provider: &Arc<dyn SessionProvider>,
+    sessions: &[&SessionLocator],
     tracker: &mut ProgressTracker,
     on_progress: &mut impl FnMut(&IndexingProgress),
 ) -> Result<usize> {
+    let source: SessionSource = provider.source();
+    let is_stale = || !scope.is_current(source);
     let mut remaining = sessions;
     let mut indexed = 0;
     while !remaining.is_empty() {
+        if is_stale() {
+            return Err(stale_source(source));
+        }
         let batch = super::batches::take_batch(&mut remaining);
         let prepared: Vec<_> = batch
             .par_iter()
             .map(|session| {
                 (
                     session.id.clone(),
-                    index_db::session_writer::prepare_session_data(&session.path),
+                    prepare_snapshot(provider, session, &is_stale),
                 )
             })
             .collect();
-        db.with_transaction(|db| {
+        indexed += db.with_transaction(|db| {
+            let mut written = 0;
             for (session_id, result) in prepared {
                 let info = match result.and_then(|data| db.write_prepared_session(&data)) {
                     Ok(info) => {
-                        indexed += 1;
+                        written += 1;
                         tracker.accumulate(&info);
                         Some(info)
                     }
@@ -192,7 +266,12 @@ fn index_batches(
                 tracker.increment();
                 tracker.emit_if_ready(on_progress, info);
             }
-            Ok(())
+            // The writes above hold the write lock, so a purge that follows a
+            // generation bump waits for this commit and then removes its rows.
+            if is_stale() {
+                return Err(stale_source(source));
+            }
+            Ok(written)
         })?;
     }
     Ok(indexed)

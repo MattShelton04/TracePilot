@@ -1,5 +1,9 @@
 //! Types and constants for the index database.
 
+use std::path::Path;
+
+use tracepilot_core::provider::SourceFingerprint;
+
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
@@ -239,12 +243,25 @@ pub(crate) struct SessionFileMeta {
 }
 
 /// Reuse the snapshot identity; never sample newer metadata after parsing.
+///
+/// The columns predate other sources: `workspace_*` is Copilot's
+/// `workspace.yaml`, and `events_*` is `events.jsonl` or, for a source whose
+/// session is one main file, that file.
 impl SessionFileMeta {
-    pub fn from_fingerprint(source: &tracepilot_core::summary::SessionFingerprint) -> Self {
+    pub fn from_fingerprint(source: &SourceFingerprint, primary_path: &Path) -> Self {
+        let file = |found: &dyn Fn(&Path) -> bool| {
+            source
+                .files
+                .iter()
+                .find(|(path, _)| found(path))
+                .and_then(|(_, file)| file.as_ref())
+        };
+        let workspace = file(&|path| path.ends_with("workspace.yaml"));
+        let events = file(&|path| path.ends_with("events.jsonl") || path == primary_path);
         Self {
-            workspace_mtime: source.workspace.as_ref().map(|file| file.mtime()),
-            events_mtime: source.events.as_ref().map(|file| file.mtime()),
-            events_size: source.events.as_ref().map(|file| file.size as i64),
+            workspace_mtime: workspace.map(|file| file.mtime()),
+            events_mtime: events.map(|file| file.mtime()),
+            events_size: events.map(|file| file.size as i64),
         }
     }
 }

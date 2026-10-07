@@ -19,7 +19,7 @@ use crate::Result;
 use rusqlite::params;
 use std::path::Path;
 use tracepilot_core::ids::SessionId;
-use tracepilot_core::provider::SessionSource;
+use tracepilot_core::provider::{SessionLocator, SessionProvider, SessionSource};
 
 use super::IndexDb;
 use super::session_writer::ensure_same_source;
@@ -47,20 +47,31 @@ pub struct SearchContentRow {
 }
 
 impl IndexDb {
-    /// Check whether a session needs its search content re-indexed.
+    /// Check whether the Copilot session at `session_path` needs its search
+    /// content re-indexed.
     pub fn needs_search_reindex(&self, session_id: &SessionId, session_path: &Path) -> bool {
-        let Ok(current) = tracepilot_core::parsing::snapshot::FileFingerprint::read(
-            &session_path.join("events.jsonl"),
-        ) else {
-            return true;
-        };
-        let Ok(current) = serde_json::to_string(&current) else {
+        let (provider, mut locator) = super::session_writer::copilot_session(session_path);
+        locator.id = session_id.clone();
+        self.search_is_stale(provider.as_ref(), &locator)
+    }
+
+    /// Whether the files search content comes from changed since it was
+    /// extracted, or the extractor version was bumped.
+    pub(crate) fn search_is_stale(
+        &self,
+        provider: &dyn SessionProvider,
+        locator: &SessionLocator,
+    ) -> bool {
+        let Ok(current) = provider
+            .fingerprint(locator)
+            .and_then(|fingerprint| provider.stored_search_fingerprint(&fingerprint))
+        else {
             return true;
         };
         self.conn.query_row(
             "SELECT CASE WHEN search_indexed_at IS NULL THEN NULL ELSE search_source_fingerprint END,
                     search_extractor_version FROM sessions WHERE id = ?1",
-            [session_id.as_str()],
+            [locator.id.as_str()],
             |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<i64>>(1)?)),
         ).is_ok_and(|(source, version)| {
             source.as_deref() != Some(current.as_str()) || version.unwrap_or(0) < CURRENT_EXTRACTOR_VERSION

@@ -2,14 +2,19 @@
 use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
+use crate::providers::registry_for;
 use std::path::PathBuf;
+use tracepilot_indexer::IndexScope;
 
+/// The configuration a pass indexes: the provider registry built from it and
+/// each source's configuration generation, captured together.
 #[derive(Clone)]
 pub(super) struct IndexTarget {
     state: SharedConfig,
     pub generation: u64,
-    pub session_state_dir: PathBuf,
+    session_state_dir: PathBuf,
     pub index_path: PathBuf,
+    pub scope: IndexScope,
 }
 
 impl IndexTarget {
@@ -29,11 +34,18 @@ impl IndexTarget {
         let config = guard
             .as_ref()
             .ok_or_else(|| BindingsError::Validation("Complete setup before indexing.".into()))?;
+        // Under the config lock, so a source change cannot land between the
+        // registry and the generations it is checked against.
+        let scope = IndexScope::new(
+            registry_for(config),
+            gates.jobs().source_generations().clone(),
+        );
         Ok(Self {
             state: state.clone(),
             generation,
             session_state_dir: config.session_state_dir(),
             index_path: config.index_db_path(),
+            scope,
         })
     }
 

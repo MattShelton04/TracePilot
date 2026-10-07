@@ -2,16 +2,29 @@
 
 use std::time::{Duration, Instant};
 
+use tracepilot_core::provider::SessionSource;
+
 use crate::index_db::SessionIndexInfo;
 
 /// Minimum interval between progress events to avoid flooding IPC.
 pub(crate) const PROGRESS_THROTTLE: Duration = Duration::from_millis(80);
 
+/// Progress through one source's sessions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceProgress {
+    pub source: SessionSource,
+    pub current: usize,
+    pub total: usize,
+}
+
 /// Accumulated progress info emitted per session during indexing.
 #[derive(Debug, Clone)]
 pub struct IndexingProgress {
+    /// Sessions processed across every source.
     pub current: usize,
     pub total: usize,
+    /// The source being indexed; `None` before the first one starts.
+    pub source: Option<SourceProgress>,
     /// Info about the session just processed (None if indexing failed for this session).
     pub session_info: Option<SessionIndexInfo>,
     /// Running totals across all successfully indexed sessions so far.
@@ -23,8 +36,11 @@ pub struct IndexingProgress {
 /// Progress info for search content indexing (Phase 2).
 #[derive(Debug, Clone)]
 pub struct SearchIndexingProgress {
+    /// Sessions processed across every source.
     pub current: usize,
     pub total: usize,
+    /// The source just processed; `None` when nothing needed indexing.
+    pub source: Option<SourceProgress>,
 }
 
 /// Tracks and emits throttled progress during indexing operations.
@@ -46,6 +62,7 @@ pub struct SearchIndexingProgress {
 pub(crate) struct ProgressTracker {
     pub(crate) current: usize,
     pub(crate) total: usize,
+    pub(crate) source: Option<SourceProgress>,
     pub(crate) running_tokens: u64,
     pub(crate) running_events: u64,
     pub(crate) seen_repos: std::collections::HashSet<String>,
@@ -59,6 +76,7 @@ impl ProgressTracker {
         Self {
             current: 0,
             total,
+            source: None,
             running_tokens: 0,
             running_events: 0,
             seen_repos: std::collections::HashSet::new(),
@@ -87,15 +105,41 @@ impl ProgressTracker {
     /// indexed or skipped.
     pub(crate) fn increment(&mut self) {
         self.current += 1;
+        if let Some(source) = &mut self.source {
+            source.current += 1;
+        }
+    }
+
+    /// Start counting `total` sessions of `source`.
+    pub(crate) fn begin_source(&mut self, source: SessionSource, total: usize) {
+        self.source = Some(SourceProgress {
+            source,
+            current: 0,
+            total,
+        });
+    }
+
+    /// Count the current source's unprocessed sessions as processed, when a
+    /// pass gives up on that source.
+    pub(crate) fn finish_source(&mut self) {
+        if let Some(source) = &mut self.source {
+            self.current += source.total.saturating_sub(source.current);
+            source.current = source.total;
+        }
     }
 
     /// Check if enough time has elapsed to emit the next progress event.
     ///
     /// Returns true if either:
-    /// - We've reached the final session (always emit completion)
+    /// - We've reached the final session, overall or of the current source
+    ///   (always emit completion)
     /// - Sufficient time has passed since the last emission
     pub(crate) fn should_emit(&self) -> bool {
-        self.is_complete() || self.last_emit.elapsed() >= self.throttle
+        self.is_complete()
+            || self
+                .source
+                .is_some_and(|source| source.current >= source.total)
+            || self.last_emit.elapsed() >= self.throttle
     }
 
     /// Check if we've reached the final session.
@@ -139,6 +183,7 @@ impl ProgressTracker {
         on_progress(&IndexingProgress {
             current: self.current,
             total: self.total,
+            source: self.source,
             session_info: info,
             running_tokens: self.running_tokens,
             running_events: self.running_events,

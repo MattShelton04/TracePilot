@@ -27,6 +27,7 @@ pub(crate) fn emit_indexing_progress(
     let payload = IndexingProgressPayload {
         current: progress.current,
         total: progress.total,
+        source: progress.source.map(Into::into),
         session_repo: session.and_then(|s| s.repository.clone()),
         session_branch: session.and_then(|s| s.branch.clone()),
         session_model: session.and_then(|s| s.current_model.clone()),

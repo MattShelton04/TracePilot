@@ -205,12 +205,34 @@ pub struct GitInfo {
     pub branch: Option<String>,
 }
 
+/// Progress through one source's sessions.
+#[derive(Debug, Clone, Copy, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceProgressPayload {
+    pub source: tracepilot_core::provider::SessionSource,
+    pub current: usize,
+    pub total: usize,
+}
+
+impl From<tracepilot_indexer::SourceProgress> for SourceProgressPayload {
+    fn from(progress: tracepilot_indexer::SourceProgress) -> Self {
+        Self {
+            source: progress.source,
+            current: progress.current,
+            total: progress.total,
+        }
+    }
+}
+
 /// Enriched indexing progress payload emitted via Tauri events.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexingProgressPayload {
+    /// Sessions processed across every source.
     pub current: usize,
     pub total: usize,
+    /// The source being indexed; `None` before the first one starts.
+    pub source: Option<SourceProgressPayload>,
     /// Per-session info (None if this session was skipped or failed).
     pub session_repo: Option<String>,
     pub session_branch: Option<String>,
