@@ -130,4 +130,44 @@ mod tests {
         assert!(wire.get("coverage").is_none());
         assert!(wire.get("costAmount").is_none());
     }
+
+    #[test]
+    fn metrics_ipc_modified_files_use_native_editing_provenance() {
+        for (tool, rewind) in [("Edit", true), ("ExitPlanMode", false)] {
+            let dir = tempfile::tempdir().unwrap();
+            let project = dir.path().join("projects").join("demo");
+            std::fs::create_dir_all(&project).unwrap();
+            let id = "11111111-1111-4111-8111-111111111111";
+            let mut records = vec![
+                json!({"type":"user","uuid":"first","sessionId":id,
+                    "message":{"role":"user","content":"Start."}}),
+                json!({"type":"assistant","uuid":"call","parentUuid":"first","sessionId":id,
+                    "message":{"id":"call","role":"assistant","model":"claude-opus-5-5",
+                        "usage":{"input_tokens":1,"output_tokens":1},"stop_reason":"tool_use",
+                        "content":[{"type":"tool_use","id":"tool","name":tool,"input":{}}]}}),
+                json!({"type":"user","uuid":"result","parentUuid":"call","sessionId":id,
+                    "message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tool",
+                        "is_error":false,"content":"Done."}]},"toolUseResult":{"filePath":"src/file.rs"}}),
+            ];
+            if rewind {
+                records.push(
+                    json!({"type":"user","uuid":"replacement","parentUuid":"first","sessionId":id,
+                    "message":{"role":"user","content":"Replace the conversation."}}),
+                );
+            }
+            let jsonl = records
+                .iter()
+                .map(serde_json::Value::to_string)
+                .collect::<Vec<_>>()
+                .join("\n");
+            std::fs::write(project.join(format!("{id}.jsonl")), format!("{jsonl}\n")).unwrap();
+            let provider = Arc::new(ClaudeCodeProvider::new(dir.path()));
+            let locator = provider.discover(&|| false).unwrap().remove(0);
+            let response = metrics_for_session(&ResolvedSession { provider, locator }, &[])
+                .unwrap()
+                .unwrap();
+            let files = response.code_changes.and_then(|code| code.files_modified);
+            assert_eq!(files, rewind.then(|| vec!["src/file.rs".into()]), "{tool}");
+        }
+    }
 }

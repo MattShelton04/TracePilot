@@ -1,10 +1,11 @@
 //! C5: recorded metadata and cumulative snapshot + de-duplicated tail usage.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 
 use super::ClaudeParse;
+use super::records::{Blocks, Rec, block_type};
 use crate::ids::SessionId;
 use crate::models::conversation::ConversationTurn;
 use crate::models::event_types::{CodeChanges, ModelMetricDetail, RequestMetrics, UsageMetrics};
@@ -204,23 +205,7 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
             unit: CostUnit::Usd,
             basis: CostBasis::ProviderEstimate,
         });
-    let files: BTreeSet<String> = parsed
-        .events
-        .iter()
-        .filter(|e| {
-            e.raw.event_type == "attachment:edited_text_file" || e.raw.data["success"] == true
-        })
-        .filter_map(|e| e.raw.native.as_ref())
-        .filter_map(|n| {
-            if n.data.pointer("/toolUseResult/filePath").is_some() {
-                nonempty(&n.data["toolUseResult"]["filePath"])
-            } else if n.record_type == "attachment:edited_text_file" {
-                nonempty(&n.data["attachment"]["filename"])
-            } else {
-                None
-            }
-        })
-        .collect();
+    let files = modified_files(parsed);
     let code_changes = (snapshot.is_some() || !files.is_empty()).then(|| CodeChanges {
         lines_added: snapshot.and_then(|s| s.total_lines_added),
         lines_removed: snapshot.and_then(|s| s.total_lines_removed),
@@ -250,4 +235,60 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
             snapshot_cost,
         }),
     })
+}
+
+fn modified_files(parsed: &ClaudeParse) -> BTreeSet<String> {
+    let mut files = BTreeSet::new();
+    let mut edits = HashSet::new();
+    let mut seen = HashSet::new();
+    for (event, position) in parsed.events.iter().zip(&parsed.positions) {
+        let (Some(native), Some(position)) = (&event.raw.native, position) else {
+            continue;
+        };
+        let owner = position.file_agent_id.as_deref();
+        // One native record can back multiple canonical events. Rewound
+        // records still changed disk, even though they have no canonical success.
+        if !seen.insert((owner, position.line)) {
+            continue;
+        }
+        let data = &native.data;
+        if native.record_type == "attachment:edited_text_file" {
+            if let Some(path) = nonempty(&data["attachment"]["filename"]) {
+                files.insert(path);
+            }
+            continue;
+        }
+        let Blocks::Array(blocks) = Rec(data).blocks() else {
+            continue;
+        };
+        if native.record_type == "assistant" {
+            for block in blocks {
+                if block_type(block) == "tool_use"
+                    && matches!(
+                        block["name"].as_str(),
+                        Some("Edit" | "Write" | "MultiEdit" | "NotebookEdit")
+                    )
+                    && let Some(id) = block["id"].as_str().filter(|id| !id.is_empty())
+                {
+                    edits.insert((owner, id));
+                }
+            }
+        } else if native.record_type == "user" {
+            let mut results = blocks.iter().filter(|b| block_type(b) == "tool_result");
+            // A record-level toolUseResult cannot identify which result owns
+            // it when several results share that record (the WP9 rule).
+            let (Some(result), None) = (results.next(), results.next()) else {
+                continue;
+            };
+            if result["is_error"] != true
+                && result["tool_use_id"]
+                    .as_str()
+                    .is_some_and(|id| edits.contains(&(owner, id)))
+                && let Some(path) = nonempty(&data["toolUseResult"]["filePath"])
+            {
+                files.insert(path);
+            }
+        }
+    }
+    files
 }

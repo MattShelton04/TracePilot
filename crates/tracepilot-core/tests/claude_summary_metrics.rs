@@ -315,6 +315,36 @@ fn recorded_modified_files_are_distinct_and_failed_edits_are_excluded() {
 }
 
 #[test]
+fn modified_files_include_successful_edits_on_rewound_branches() {
+    let loaded = load(&claude_metrics::rewound_edit());
+    let metrics = loaded.summary.shutdown_metrics.unwrap();
+    assert_usage(&metrics, OPUS, [3, 0, 0, 3, 3]);
+    let files = metrics.code_changes.and_then(|code| code.files_modified);
+    assert_eq!(files, Some(vec!["src/rewound.rs".into()]));
+    assert!(loaded.events.unwrap().iter().any(|event| {
+        event.raw.event_type == "user"
+            && event
+                .raw
+                .native
+                .as_ref()
+                .is_some_and(|native| native.data["toolUseResult"]["filePath"] == "src/rewound.rs")
+    }));
+    assert!(
+        !serde_json::to_string(&loaded.turns)
+            .unwrap()
+            .contains("src/rewound.rs")
+    );
+}
+
+#[test]
+fn modified_files_exclude_existing_plans_without_editing_calls() {
+    let loaded = load(&claude_metrics::existing_plan());
+    let metrics = loaded.summary.shutdown_metrics.unwrap();
+    assert_usage(&metrics, OPUS, [1, 0, 0, 1, 1]);
+    assert!(metrics.code_changes.is_none());
+}
+
+#[test]
 fn a_subagent_launched_by_a_later_block_of_a_covered_call_is_tail_usage() {
     use tracepilot_test_support::claude::{Subagent, subagent_meta, tool_use};
     let mut t = Transcript::main();

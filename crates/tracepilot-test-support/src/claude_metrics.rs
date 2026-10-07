@@ -124,3 +124,54 @@ pub fn recorded_only() -> SessionFiles {
         }],
     )
 }
+
+/// A successful edit remains a code change after its conversation is rewound.
+pub fn rewound_edit() -> SessionFiles {
+    let mut t = Transcript::main();
+    let usage = Usage::new(1, 0, 0, 1);
+    t.prompt("Start.");
+    t.call("first", OPUS, vec![text("Ready.")], usage, "end_turn");
+    let fork = t.last_uuid();
+    t.prompt("Edit a file.");
+    t.call(
+        "edit",
+        OPUS,
+        vec![tool_use(
+            "edit",
+            "Edit",
+            json!({"file_path":"src/rewound.rs"}),
+        )],
+        usage,
+        "tool_use",
+    );
+    t.tool_result(
+        "edit",
+        json!("Edited."),
+        json!({"filePath":"src/rewound.rs"}),
+        false,
+    );
+    t.parent_next(fork.as_deref());
+    t.prompt("Replace the conversation.");
+    t.call("replacement", OPUS, vec![text("Done.")], usage, "end_turn");
+    write_session(&t, &[])
+}
+
+/// A plan's recorded filePath identifies a reference, not a file mutation.
+pub fn existing_plan() -> SessionFiles {
+    let mut t = Transcript::main();
+    t.prompt("Use the existing plan.");
+    t.call(
+        "plan",
+        OPUS,
+        vec![tool_use("plan", "ExitPlanMode", json!({}))],
+        Usage::new(1, 0, 0, 1),
+        "tool_use",
+    );
+    t.tool_result(
+        "plan",
+        json!("Approved."),
+        json!({"filePath":"plans/existing.md","plan":"Existing plan."}),
+        false,
+    );
+    write_session(&t, &[])
+}
