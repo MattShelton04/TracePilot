@@ -247,6 +247,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::config_cmds::save_config,
             commands::config_cmds::update_config,
             commands::config_cmds::validate_session_dir,
+            commands::config_sources::validate_claude_config_dir,
             commands::config_cmds::factory_reset,
             commands::config_cmds::get_agent_definitions,
             commands::config_cmds::save_agent_definition,

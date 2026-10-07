@@ -9,4 +9,6 @@
 
 pub(crate) mod app_info;
 pub(crate) mod config;
+mod config_home;
+pub(crate) mod source_change;
 pub(crate) mod update;

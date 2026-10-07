@@ -182,5 +182,6 @@
   "toggle_repo_favourite",
   "unlock_worktree",
   "update_config",
+  "validate_claude_config_dir",
   "validate_session_dir"
 ]

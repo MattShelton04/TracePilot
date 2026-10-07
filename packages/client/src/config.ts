@@ -35,6 +35,12 @@ export async function validateSessionDir(path: string): Promise<ValidateSessionD
   return invoke<ValidateSessionDirResult>("validate_session_dir", { path });
 }
 
+/** Validate a Claude Code config folder and count its sessions. */
+export async function validateClaudeConfigDir(path: string): Promise<ValidateSessionDirResult> {
+  if (!isTauri()) return { valid: true, sessionCount: 3, error: null };
+  return invoke<ValidateSessionDirResult>("validate_claude_config_dir", { path });
+}
+
 /** Check if a session is currently running (has an inuse.*.lock file). */
 export async function isSessionRunning(sessionId: string): Promise<boolean> {
   if (!isTauri()) return false;

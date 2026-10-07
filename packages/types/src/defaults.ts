@@ -10,7 +10,7 @@ import type { TracePilotConfig } from "./config.js";
 import { DEFAULT_FAVOURITE_MODELS } from "./models.js";
 
 /** Current config schema version. */
-export const CONFIG_VERSION = 11;
+export const CONFIG_VERSION = 12;
 
 /** Default cost per premium request (USD). */
 export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
@@ -55,6 +55,7 @@ export const DEFAULT_FEATURES: TracePilotConfig["features"] = {
   configInjector: false,
   promptCacheInsights: true,
   agents: true,
+  claudeCodeSessions: false,
 };
 
 /**
@@ -82,6 +83,7 @@ export function createDefaultConfig(
     alerts: Partial<TracePilotConfig["alerts"]>;
     performance: Partial<TracePilotConfig["performance"]>;
     live: Partial<TracePilotConfig["live"]>;
+    sources: Partial<TracePilotConfig["sources"]>;
   }>,
 ): TracePilotConfig {
   return {
@@ -150,6 +152,11 @@ export function createDefaultConfig(
       autoAttach: true,
       launchAttachable: true,
       ...overrides?.live,
+    },
+    sources: {
+      // Empty until the backend normalizes it to CLAUDE_CONFIG_DIR or ~/.claude.
+      claudeCode: { configDir: "" },
+      ...overrides?.sources,
     },
   };
 }

@@ -24,6 +24,7 @@ import {
   useToast,
 } from "@tracepilot/ui";
 import { computed, nextTick, onMounted, ref } from "vue";
+import SettingsClaudeCodeFolder from "@/components/settings/SettingsClaudeCodeFolder.vue";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { STORAGE_KEYS } from "@/config/storageKeys";
@@ -386,6 +387,11 @@ defineExpose({ databaseSize, indexedSessionCount });
           </ActionButton>
         </div>
       </div>
+
+      <SettingsClaudeCodeFolder
+        v-if="preferencesStore.isFeatureEnabled('claudeCodeSessions')"
+        :disabled="pathControlsDisabled"
+      />
 
       <div v-if="!pathsLoading && !pathsReady" class="setting-row">
         <div class="setting-info">

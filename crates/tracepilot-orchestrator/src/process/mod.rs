@@ -7,7 +7,7 @@
 //!
 //! Submodules:
 //! - [`hidden`]   — hidden-window spawning (`CREATE_NO_WINDOW`), `run_hidden*`,
-//!   `find_executable`, `is_alive`, base64 / win32 encoding helpers.
+//!   `find_executable`, `is_alive`, `process_start_time`, base64 / win32 encoding helpers.
 //! - [`login_path`] — login-shell `PATH` restore for Finder-launched macOS apps.
 //! - [`terminal`] — user-facing detached terminal spawning.
 //! - [`timeout`]  — wall-clock timeout policy for captured child processes.
@@ -29,8 +29,9 @@ mod tests_async_limits;
 // ─── Public API re-exports (byte-for-byte stable) ──────────────────
 
 pub use hidden::{
-    find_executable, find_executables, hidden_command, hidden_std_command, is_alive, run_hidden,
-    run_hidden_stdout, run_hidden_stdout_timeout, run_hidden_via_cmd,
+    find_executable, find_executables, hidden_command, hidden_std_command, is_alive,
+    process_start_time, run_hidden, run_hidden_stdout, run_hidden_stdout_timeout,
+    run_hidden_via_cmd,
 };
 
 pub(crate) use timeout::run_async_with_limits;

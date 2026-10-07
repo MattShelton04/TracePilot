@@ -79,6 +79,7 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "save_config",
     "update_config",
     "validate_session_dir",
+    "validate_claude_config_dir",
     "get_db_size",
     "get_session_count",
     "is_session_running",

@@ -352,6 +352,23 @@ pub fn default_session_state_dir() -> PathBuf {
     default_copilot_paths().session_state_dir()
 }
 
+/// Claude Code's own override for its config directory.
+pub const CLAUDE_CONFIG_DIR_ENV: &str = "CLAUDE_CONFIG_DIR";
+
+/// The Claude Code config directory this machine would use: `claude` under
+/// the isolation root when one is set, then `CLAUDE_CONFIG_DIR`, then
+/// `~/.claude`.
+pub fn default_claude_config_dir_opt() -> Option<PathBuf> {
+    match isolated_data_root() {
+        Ok(Some(root)) => Some(root.join("claude")),
+        Ok(None) => std::env::var_os(CLAUDE_CONFIG_DIR_ENV)
+            .map(PathBuf::from)
+            .filter(|path| !path.as_os_str().is_empty())
+            .or_else(|| crate::utils::home_dir_opt().map(|home| home.join(CLAUDE_DIR_NAME))),
+        Err(_) => None,
+    }
+}
+
 pub fn default_tracepilot_root() -> PathBuf {
     match isolated_data_root() {
         Ok(Some(root)) => TracePilotPaths::from_root(root.join(TRACEPILOT_DIR_NAME))

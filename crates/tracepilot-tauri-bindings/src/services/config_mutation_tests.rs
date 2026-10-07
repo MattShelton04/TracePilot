@@ -287,8 +287,8 @@ async fn changing_session_source_excludes_indexers_without_blocking_capture_writ
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(saved.session_state_dir(), new_source);
-    assert_eq!(saved.index_db_path(), initial.index_db_path());
+    assert_eq!(saved.config.session_state_dir(), new_source);
+    assert_eq!(saved.config.index_db_path(), initial.index_db_path());
     assert_ne!(gates.jobs().generation(), generation);
 }
 

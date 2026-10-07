@@ -34,45 +34,72 @@ impl IndexDb {
             .iter()
             .filter(|id| !live_ids.contains(id.as_str()))
             .collect();
-        let count = stale.len();
-        if count == 0 {
+        if stale.is_empty() {
             return Ok(0);
         }
 
-        self.conn.execute_batch("SAVEPOINT prune_deleted")?;
-        let result = (|| -> Result<()> {
-            // Target only the IDs already known to be stale. In the common case
-            // this keeps the JSON payload and DELETE work proportional to the
-            // number of removed sessions rather than the full live corpus.
-            let stale_json = serde_json::to_string(&stale)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-
+        // Target only the IDs already known to be stale. In the common case
+        // this keeps the JSON payload and DELETE work proportional to the
+        // number of removed sessions rather than the full live corpus.
+        let stale_json = serde_json::to_string(&stale)?;
+        self.delete_guarded(source, is_current, || {
             self.conn.execute(
                 "DELETE FROM sessions
                  WHERE source = ?1 AND id IN (SELECT value FROM json_each(?2))",
                 [source.as_str(), &stale_json],
-            )?;
+            )
+        })
+    }
+
+    /// Remove every session of `source`, for a source that was disabled or
+    /// moved. Analytics, search content and FTS rows go with them (foreign
+    /// key cascades and triggers). Other sources' rows are never touched.
+    ///
+    /// Rolled back unless `is_current` still holds once the delete holds the
+    /// write lock.
+    pub fn purge_source(
+        &self,
+        source: SessionSource,
+        is_current: &dyn Fn() -> bool,
+    ) -> Result<usize> {
+        self.delete_guarded(source, is_current, || {
+            self.conn
+                .execute("DELETE FROM sessions WHERE source = ?1", [source.as_str()])
+        })
+    }
+
+    /// Run `delete` in a savepoint that commits only while `is_current`.
+    fn delete_guarded(
+        &self,
+        source: SessionSource,
+        is_current: &dyn Fn() -> bool,
+        delete: impl FnOnce() -> rusqlite::Result<usize>,
+    ) -> Result<usize> {
+        self.conn.execute_batch("SAVEPOINT delete_sessions")?;
+        let result = (|| -> Result<usize> {
+            let deleted = delete()?;
             if !is_current() {
                 return Err(stale_source(source));
             }
-            Ok(())
+            Ok(deleted)
         })();
 
         match result {
-            Ok(()) => {
-                self.conn.execute_batch("RELEASE SAVEPOINT prune_deleted")?;
-                Ok(count)
+            Ok(deleted) => {
+                self.conn
+                    .execute_batch("RELEASE SAVEPOINT delete_sessions")?;
+                Ok(deleted)
             }
             Err(e) => {
                 if let Err(rb_err) = self
                     .conn
-                    .execute_batch("ROLLBACK TO SAVEPOINT prune_deleted")
+                    .execute_batch("ROLLBACK TO SAVEPOINT delete_sessions")
                 {
-                    tracing::warn!(error = %rb_err, "ROLLBACK after prune_deleted failed");
+                    tracing::warn!(error = %rb_err, "ROLLBACK after session delete failed");
                 }
                 // An unreleased savepoint would keep the transaction open.
-                if let Err(rel_err) = self.conn.execute_batch("RELEASE SAVEPOINT prune_deleted") {
-                    tracing::warn!(error = %rel_err, "RELEASE after prune_deleted failed");
+                if let Err(rel_err) = self.conn.execute_batch("RELEASE SAVEPOINT delete_sessions") {
+                    tracing::warn!(error = %rel_err, "RELEASE after session delete failed");
                 }
                 Err(e)
             }

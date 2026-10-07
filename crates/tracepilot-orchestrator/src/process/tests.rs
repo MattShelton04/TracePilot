@@ -405,3 +405,25 @@ fn test_execute_with_timeout_missing_both_pipes() {
         err_msg
     );
 }
+
+#[test]
+fn parse_filetime_accepts_only_a_positive_decimal() {
+    assert_eq!(
+        hidden::parse_filetime("134358336789918215\r\n").as_deref(),
+        Some("134358336789918215")
+    );
+    for stray in ["", "0", "-5", "12.5", "Get-Process : error"] {
+        assert_eq!(hidden::parse_filetime(stray), None, "{stray:?}");
+    }
+    // Leading zeros are re-rendered, so the result is canonical.
+    assert_eq!(hidden::parse_filetime("0134").as_deref(), Some("134"));
+}
+
+#[cfg(windows)]
+#[test]
+fn process_start_time_reads_a_live_process_and_rejects_a_missing_one() {
+    let own = process_start_time(std::process::id()).expect("own start time");
+    assert!(own.len() >= 17, "a FILETIME in decimal, got {own}");
+    assert_eq!(process_start_time(std::process::id()), Some(own));
+    assert_eq!(process_start_time(u32::MAX), None);
+}

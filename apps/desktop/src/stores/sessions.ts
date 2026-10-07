@@ -1,7 +1,8 @@
-import { listSessions } from "@tracepilot/client";
+import { IPC_EVENTS, listSessions } from "@tracepilot/client";
 import type { SessionListItem, SessionSource } from "@tracepilot/types";
 import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
+import { useScopedEventListener } from "@/composables/useScopedEventListener";
 import { usePreferencesStore } from "./preferences";
 import {
   buildSearchFieldCache,
@@ -92,6 +93,12 @@ export const useSessionsStore = defineStore("sessions", () => {
     sortBy.value = option;
   }
 
+  // Passes and source purges (turning Claude Code on or off) change the
+  // list; keep the loaded list and the sidebar count in step with the index.
+  const watchIndexUpdates = useScopedEventListener(IPC_EVENTS.INDEXING_FINISHED, () => {
+    void lifecycle.refreshSessions();
+  });
+
   return {
     sessions,
     loading,
@@ -112,6 +119,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     refreshSessions: lifecycle.refreshSessions,
     reindex: lifecycle.reindex,
     ensureIndex: lifecycle.ensureIndex,
+    watchIndexUpdates,
     setSortBy,
   };
 });

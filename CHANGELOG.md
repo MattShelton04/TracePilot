@@ -7,6 +7,10 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added
+
+- **Claude Code sessions (experimental)** — Turn on **Claude Code Sessions** in Settings → Experimental to index and view Claude Code sessions alongside Copilot CLI sessions, with a source badge and filter. The folder defaults to `CLAUDE_CONFIG_DIR`, else `~/.claude`, and can be changed in Data & Storage. Turning it off removes those sessions from the index and leaves your Claude Code files untouched.
+
 ## [0.9.1] - 2026-10-05
 
 ### Added
