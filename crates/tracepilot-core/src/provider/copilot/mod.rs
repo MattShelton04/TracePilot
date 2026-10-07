@@ -7,8 +7,9 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{Result, TracePilotError};
 use crate::ids::SessionId;
+use crate::models::session_summary::SessionSummary;
 use crate::parsing::checkpoints::parse_checkpoints;
-use crate::parsing::events::load_event_snapshot;
+use crate::parsing::events::{TypedEvent, load_event_snapshot, parse_typed_events_if_exists};
 use crate::parsing::rewind_snapshots::parse_rewind_index;
 use crate::parsing::session_db::{read_todo_deps, read_todos};
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled};
@@ -17,7 +18,8 @@ use crate::session::discovery::{
     discover_sessions_cancellable, has_lock_file, resolve_session_path_direct,
 };
 use crate::summary::{
-    SessionFingerprint, SessionLoadResult, load_session_snapshot, load_session_summary_with_events,
+    SessionFingerprint, SessionLoadResult, load_session_snapshot, load_session_summary_from_events,
+    load_session_summary_with_events,
 };
 
 use super::{
@@ -162,7 +164,7 @@ impl SessionProvider for CopilotProvider {
     }
 
     /// Events only: search needs neither `workspace.yaml` nor turns.
-    fn load_events(
+    fn load_events_strict(
         &self,
         session: &SessionLocator,
         is_cancelled: &dyn Fn() -> bool,
@@ -229,6 +231,39 @@ impl SessionProvider for CopilotProvider {
             rewind: parse_rewind_index(dir)?,
             file_roots: vec![dir.clone()],
         })
+    }
+
+    fn root(&self) -> Option<&Path> {
+        Some(&self.session_state_dir)
+    }
+
+    /// Only `<session-state>/<id>` itself, exactly as [`Self::resolve`]
+    /// builds it.
+    fn owns(&self, session: &SessionLocator) -> bool {
+        session.source == SessionSource::Copilot
+            && session.primary_path == self.session_state_dir.join(session.id.as_str())
+    }
+
+    fn file_roots(&self, session: &SessionLocator) -> Result<Vec<PathBuf>> {
+        Ok(vec![session.primary_path.clone()])
+    }
+
+    fn load_events(
+        &self,
+        session: &SessionLocator,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<Option<Vec<TypedEvent>>> {
+        check_cancelled(&is_cancelled)?;
+        let events = SessionPaths::from_root(&session.primary_path).events_jsonl();
+        Ok(parse_typed_events_if_exists(&events)?.map(|parsed| parsed.events))
+    }
+
+    fn summary_from_events(
+        &self,
+        session: &SessionLocator,
+        events: &[TypedEvent],
+    ) -> Result<SessionSummary> {
+        load_session_summary_from_events(&session.primary_path, events)
     }
 
     fn resolve(&self, id: &SessionId) -> Result<Option<SessionLocator>> {

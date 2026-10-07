@@ -84,7 +84,7 @@ fn prepare_search(
     session: &SessionLocator,
     is_cancelled: &impl Fn() -> bool,
 ) -> Result<PreparedSearch> {
-    let loaded = provider.load_events(session, is_cancelled)?;
+    let loaded = provider.load_events_strict(session, is_cancelled)?;
     let rows = loaded.events.map_or_else(
         || Some(Vec::new()),
         |events| extract_search_content_cancellable(&session.id, &events, is_cancelled),

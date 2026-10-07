@@ -193,6 +193,12 @@ export interface TurnsResponse {
 export interface FreshnessResponse {
   eventsFileSize: number;
   eventsFileMtime?: number | null;
+  /**
+   * Opaque; changes whenever any file the session reads changes. Compare
+   * only for equality. Optional here until the frontend switches to it from
+   * the legacy `eventsFileSize`/`eventsFileMtime` pair.
+   */
+  sourceVersion?: string;
 }
 
 /** Paginated events response */

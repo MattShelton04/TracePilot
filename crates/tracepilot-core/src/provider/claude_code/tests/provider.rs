@@ -11,7 +11,10 @@ use tracepilot_test_support::claude_scenarios as fixtures;
 use super::super::reader::MAX_LINE_BYTES;
 use super::super::{ClaudeCodeProvider, ProcessStart};
 use crate::ids::SessionId;
-use crate::provider::{Liveness, RunStatus, SessionProvider, SessionRole, SessionSource};
+use crate::provider::{
+    Liveness, ProviderRegistry, RunStatus, SessionLocator, SessionProvider, SessionRole,
+    SessionSource,
+};
 
 const PID: u32 = 4242;
 const STARTED: &str = "134000000000000000";
@@ -188,6 +191,80 @@ fn resolve_finds_sessions_by_id_only() {
     assert!(provider.resolve(&other).unwrap().is_none());
     let traversal = SessionId::from_validated("../../outside");
     assert!(provider.resolve(&traversal).unwrap().is_none());
+}
+
+#[test]
+fn locate_prefers_the_indexed_transcript_when_an_id_is_duplicated() {
+    let files = fixtures::tool_hazards();
+    let projects = files.root.path().join("projects");
+    // The same id in a second project dir: a scan may find either copy.
+    let copy = projects
+        .join("C--work-other")
+        .join(format!("{SESSION_ID}.jsonl"));
+    std::fs::create_dir_all(copy.parent().unwrap()).unwrap();
+    std::fs::copy(&files.main, &copy).unwrap();
+    let elsewhere = files.root.path().join("elsewhere.jsonl");
+    std::fs::copy(&files.main, &elsewhere).unwrap();
+
+    let provider = Arc::new(provider(files.root.path()));
+    assert_eq!(provider.root(), Some(projects.as_path()));
+    let mut registry = ProviderRegistry::new();
+    registry.register(provider.clone());
+    let stored = |path: std::path::PathBuf| SessionLocator {
+        source: SessionSource::ClaudeCode,
+        id: session_id(),
+        primary_path: path,
+        parent_id: None,
+        role: SessionRole::Primary,
+        source_bytes_hint: 0,
+    };
+    let locate = |path| {
+        registry
+            .locate(&session_id(), Some(stored(path)))
+            .unwrap()
+            .expect("resolved")
+            .locator
+            .primary_path
+    };
+
+    for indexed in [&files.main, &copy] {
+        assert!(provider.owns(&stored(indexed.clone())));
+        assert_eq!(&locate(indexed.clone()), indexed, "the indexed copy wins");
+    }
+
+    // Rows that are not exactly `<projects>/<dir>/<id>.jsonl` are never
+    // trusted; resolution falls back to a scan of the real transcripts.
+    let subagent = files
+        .main
+        .with_extension("")
+        .join("subagents")
+        .join(format!("{SESSION_ID}.jsonl"));
+    std::fs::write(
+        &subagent, "{}
+",
+    )
+    .unwrap();
+    let untrusted = [
+        elsewhere,
+        projects.join(format!("{SESSION_ID}.jsonl")),
+        subagent,
+        projects
+            .join("C--work-demo")
+            .join(format!("{SESSION_ID}.json")),
+        projects
+            .join("C--work-other")
+            .join("..")
+            .join("C--work-demo")
+            .join(format!("{SESSION_ID}.jsonl")),
+        projects
+            .join("C--work-gone")
+            .join(format!("{SESSION_ID}.jsonl")),
+    ];
+    for row in untrusted {
+        assert!(!provider.owns(&stored(row.clone())), "{}", row.display());
+        let found = locate(row);
+        assert!(found == files.main || found == copy, "{}", found.display());
+    }
 }
 
 fn live(started: &'static str) -> ProcessStart {

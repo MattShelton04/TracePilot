@@ -3,7 +3,7 @@
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{read_config, with_session_path};
+use crate::helpers::{read_config, with_session_locator};
 use crate::types::{EventCache, SessionIncidentItem};
 
 use super::shared::load_cached_typed_events;
@@ -15,44 +15,32 @@ pub async fn get_session_detail(
     event_cache: tauri::State<'_, EventCache>,
     session_id: String,
 ) -> CmdResult<tracepilot_core::SessionSummary> {
-    crate::validators::validate_session_id(&session_id)?;
-
-    let session_state_dir = read_config(&state).session_state_dir();
+    let sid = crate::validators::validate_session_id(&session_id)?;
     let event_cache = event_cache.inner().clone();
 
-    blocking_cmd!({
-        let path = tracepilot_core::session::discovery::resolve_session_path_direct(
-            &session_id,
-            &session_state_dir,
-        )?;
-        let sp = tracepilot_core::paths::SessionPaths::from_root(&path);
-        let events_path = sp.events_jsonl();
-
-        // Use cached events — avoids re-parsing events.jsonl on every call.
-        // Cache key is (session_id, file_size, mtime) so active sessions
-        // (append-only) always get fresh data when the file changes.
-        // On cache/parse error, gracefully degrade to empty events (matches
-        // original load_session_summary behaviour of proceeding without event data).
-        let events = if events_path.exists() {
-            match load_cached_typed_events(&event_cache, &session_id, &events_path) {
-                Ok((cached, _, _)) => cached,
-                Err(e) => {
-                    tracing::warn!(
-                        path = %events_path.display(),
-                        error = %e,
-                        "Failed to load cached events for session detail; proceeding without event data"
-                    );
-                    std::sync::Arc::new(vec![])
-                }
+    with_session_locator(&state, sid, move |session| {
+        // Use cached events — avoids re-parsing the event log on every call.
+        // The cache is keyed on the session's source_version, so active
+        // sessions always get fresh data when a file changes. On cache or
+        // parse error, gracefully degrade to empty events (matches original
+        // load_session_summary behaviour of proceeding without event data).
+        let events = match load_cached_typed_events(&event_cache, &session) {
+            Ok((cached, _)) => cached,
+            Err(e) => {
+                tracing::warn!(
+                    path = %session.locator.primary_path.display(),
+                    error = %e,
+                    "Failed to load cached events for session detail; proceeding without event data"
+                );
+                std::sync::Arc::new(vec![])
             }
-        } else {
-            std::sync::Arc::new(vec![])
         };
 
-        Ok::<_, BindingsError>(tracepilot_core::summary::load_session_summary_from_events(
-            &path, &events,
-        )?)
+        Ok(session
+            .provider
+            .summary_from_events(&session.locator, &events)?)
     })
+    .await
 }
 
 #[tauri::command]
@@ -96,11 +84,9 @@ pub async fn get_shutdown_metrics(
 ) -> CmdResult<Option<tracepilot_core::models::event_types::ShutdownData>> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     let cache = cache.inner().clone();
-    let cache_session_id = session_id.clone();
 
-    with_session_path(&state, sid, move |path| {
-        let events_path = tracepilot_core::paths::SessionPaths::from_root(path).events_jsonl();
-        let (events, _, _) = load_cached_typed_events(&cache, &cache_session_id, &events_path)?;
+    with_session_locator(&state, sid, move |session| {
+        let (events, _) = load_cached_typed_events(&cache, &session)?;
         Ok(
             tracepilot_core::parsing::events::extract_combined_shutdown_data(events.as_ref())
                 .map(|(data, _count)| data),

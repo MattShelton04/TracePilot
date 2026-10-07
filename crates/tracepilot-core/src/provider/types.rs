@@ -6,9 +6,11 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 #[cfg(feature = "specta")]
 use specta::Type;
@@ -73,6 +75,13 @@ impl SessionRole {
             Self::Subagent => "subagent",
             Self::Guardian => "guardian",
         }
+    }
+
+    /// Parse a stored name written by [`Self::as_str`].
+    pub fn from_stored(name: &str) -> Option<Self> {
+        [Self::Primary, Self::Subagent, Self::Guardian]
+            .into_iter()
+            .find(|role| role.as_str() == name)
     }
 
     /// Whether lists hide sessions with this role by default.
@@ -168,6 +177,45 @@ impl SourceFingerprint {
             files,
             version_token,
         }
+    }
+
+    /// An opaque token that changes whenever the fingerprint does. Caches
+    /// and the frontend compare it only for equality.
+    pub fn source_version(&self) -> String {
+        let mut hasher = Sha256::new();
+        for (path, file) in &self.files {
+            let path = path.as_os_str().as_encoded_bytes();
+            hasher.update((path.len() as u64).to_le_bytes());
+            hasher.update(path);
+            match file {
+                None => hasher.update([0]),
+                Some(file) => {
+                    hasher.update([1]);
+                    hasher.update(file.size.to_le_bytes());
+                    // Times before the epoch hash with a different tag, so
+                    // they never collide with the same offset after it.
+                    let (tag, offset) = match file.modified.duration_since(UNIX_EPOCH) {
+                        Ok(after) => (1u8, after),
+                        Err(before) => (2u8, before.duration()),
+                    };
+                    hasher.update([tag]);
+                    hasher.update(offset.as_secs().to_le_bytes());
+                    hasher.update(offset.subsec_nanos().to_le_bytes());
+                }
+            }
+        }
+        match &self.version_token {
+            None => hasher.update([0]),
+            Some(token) => {
+                hasher.update([1]);
+                hasher.update(token.as_bytes());
+            }
+        }
+        let digest = hasher.finalize();
+        digest[..16]
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
     }
 }
 

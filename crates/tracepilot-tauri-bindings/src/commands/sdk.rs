@@ -8,7 +8,7 @@
 
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
-use crate::helpers::read_config;
+use crate::helpers::{read_config, require_capability, resolve_session};
 use tracepilot_orchestrator::bridge::manager::{BridgeMetricsSnapshot, SharedBridgeManager};
 use tracepilot_orchestrator::bridge::{
     BridgeAuthStatus, BridgeConnectConfig, BridgeError, BridgeHydrationSnapshot,
@@ -115,6 +115,7 @@ pub async fn sdk_resume_session(
     // resuming it through TracePilot's own connection would load an isolated
     // copy and fork its history (F9). Route attachable sessions to live
     // attach and refuse the rest.
+    refuse_unsteerable(&config, &session_id).await?;
     let already_tracked = bridge.read().await.is_tracked(&session_id);
     if !already_tracked {
         // A failed probe refuses: resuming a session a terminal still holds
@@ -183,6 +184,7 @@ pub async fn sdk_attach_session(
     config: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<BridgeSessionInfo> {
+    refuse_unsteerable(&config, &session_id).await?;
     let host = locate_one(&config, &session_id).await?;
     let Some(address) = host
         .address
@@ -198,6 +200,20 @@ pub async fn sdk_attach_session(
         .attach_session(&session_id, &address)
         .await
         .map_err(Into::into)
+}
+
+/// Refuse to steer a session whose source cannot be steered. An id no
+/// source resolves is left to the bridge, which reports it as not running.
+async fn refuse_unsteerable(config: &SharedConfig, session_id: &str) -> CmdResult<()> {
+    let Ok(sid) = crate::validators::validate_session_id(session_id) else {
+        return Ok(());
+    };
+    let config = read_config(config);
+    let session = tokio::task::spawn_blocking(move || resolve_session(&config, &sid).ok()).await?;
+    match session {
+        Some(session) => require_capability(&session, |caps| caps.can_steer, "Live steering"),
+        None => Ok(()),
+    }
 }
 
 async fn locate_one(

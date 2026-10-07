@@ -20,7 +20,7 @@ pub mod error;
 pub mod events;
 mod helpers;
 pub mod ipc_command_names;
-pub mod providers;
+mod providers;
 mod services;
 pub mod types;
 mod validators;

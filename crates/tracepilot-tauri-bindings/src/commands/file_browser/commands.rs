@@ -11,7 +11,7 @@ use super::types::{
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::read_config;
+use crate::helpers::{explorer_root, read_config, resolve_session};
 
 /// List all files in a session's directory tree.
 ///
@@ -23,12 +23,11 @@ pub async fn session_list_files(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
 ) -> CmdResult<Vec<SessionFileEntry>> {
-    crate::validators::validate_session_id(&session_id)?;
-
-    let session_state_dir = read_config(&state).session_state_dir();
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    let config = read_config(&state);
 
     blocking_cmd!({
-        let session_dir = session_state_dir.join(&session_id);
+        let session_dir = explorer_root(&resolve_session(&config, &sid)?)?;
 
         let mut entries = Vec::new();
         // Canonicalize before walking so we have an authoritative prefix to
@@ -65,12 +64,11 @@ pub async fn session_read_file(
     relative_path: String,
     full: Option<bool>,
 ) -> CmdResult<String> {
-    crate::validators::validate_session_id(&session_id)?;
-
-    let session_state_dir = read_config(&state).session_state_dir();
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    let config = read_config(&state);
 
     blocking_cmd!({
-        let session_dir = session_state_dir.join(&session_id);
+        let session_dir = explorer_root(&resolve_session(&config, &sid)?)?;
         let file_path = safe_session_file_path(&session_dir, &relative_path)?;
 
         if !file_path.exists() {
@@ -161,12 +159,11 @@ pub async fn session_read_sqlite(
 ) -> CmdResult<Vec<tracepilot_core::parsing::session_db::CustomTableInfo>> {
     use tracepilot_core::parsing::session_db::{list_tables, read_custom_table_bounded};
 
-    crate::validators::validate_session_id(&session_id)?;
-
-    let session_state_dir = read_config(&state).session_state_dir();
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    let config = read_config(&state);
 
     blocking_cmd!({
-        let session_dir = session_state_dir.join(&session_id);
+        let session_dir = explorer_root(&resolve_session(&config, &sid)?)?;
         let file_path = safe_session_file_path(&session_dir, &relative_path)?;
 
         if !file_path.exists() {

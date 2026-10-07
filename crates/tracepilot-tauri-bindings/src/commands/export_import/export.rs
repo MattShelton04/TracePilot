@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{read_config, with_session_path};
+use crate::helpers::{read_config, require_copilot_layout, resolve_session, with_session_locator};
 use crate::types::{ExportPreviewResult, ExportSessionsResult, SessionSectionsInfo};
 
 use tracepilot_core::SessionId;
@@ -16,6 +16,10 @@ use tracepilot_export::SectionId;
 use tracepilot_export::options::{
     ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
 };
+
+/// Export reads Copilot's session layout; other sources export from their
+/// provider snapshot once C14 lands.
+const EXPORT: &str = "Export";
 
 // ── Helper Functions ──────────────────────────────────────────────────────
 
@@ -143,7 +147,6 @@ pub async fn export_sessions(
     crate::validators::validate_session_id_list(&session_ids)?;
 
     let cfg = read_config(&state);
-    let session_state_dir = cfg.session_state_dir();
     let export_format = parse_format(&format)?;
     let section_set = parse_sections(&sections)?;
 
@@ -168,12 +171,12 @@ pub async fn export_sessions(
         let session_paths: Vec<PathBuf> = session_ids
             .iter()
             .map(|id| {
-                tracepilot_core::session::discovery::resolve_session_path_direct(
-                    id,
-                    &session_state_dir,
-                )
+                let id = crate::validators::validate_session_id(id)?;
+                let session = resolve_session(&cfg, &id)?;
+                require_copilot_layout(&session, EXPORT)?;
+                Ok(session.locator.primary_path)
             })
-            .collect::<std::result::Result<Vec<_>, _>>()?;
+            .collect::<CmdResult<Vec<_>>>()?;
 
         let path_refs: Vec<&Path> = session_paths.iter().map(|p| p.as_path()).collect();
         let files = tracepilot_export::export_sessions_batch(&path_refs, &options)?;
@@ -234,7 +237,9 @@ pub async fn preview_export(
     let section_set = parse_sections(&sections)?;
     let sid = crate::validators::validate_session_id(&session_id)?;
 
-    with_session_path(&state, sid, move |session_path| {
+    with_session_locator(&state, sid, move |session| {
+        require_copilot_layout(&session, EXPORT)?;
+        let session_path = session.locator.primary_path;
         let (content_detail, redaction) = build_export_detail_options(
             include_subagent_internals,
             include_tool_details,
@@ -280,7 +285,9 @@ pub async fn get_session_sections(
     session_id: String,
 ) -> CmdResult<SessionSectionsInfo> {
     let sid = crate::validators::validate_session_id(&session_id)?;
-    with_session_path(&state, sid, move |session_path| {
+    with_session_locator(&state, sid, move |session| {
+        require_copilot_layout(&session, EXPORT)?;
+        let session_path = session.locator.primary_path;
         let sp = tracepilot_core::paths::SessionPaths::from_root(&session_path);
         let events_path = sp.events_jsonl();
         let db_path = sp.session_db();

@@ -1,12 +1,40 @@
 //! Tauri commands for importing sessions from `.tpx.json` archives.
 
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use tracepilot_core::provider::SessionSource;
+use tracepilot_indexer::index_db::IndexDb;
 
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::read_config;
 use crate::types::{ImportIssue, ImportPreviewResult, ImportSessionPreview, ImportSessionsResult};
+
+/// Archive ids the index already holds for a source other than Copilot,
+/// with that source (`None` when this build does not know it). Import writes
+/// Copilot sessions, so keeping such an id would claim another source's
+/// session.
+fn ids_owned_by_other_sources<'a>(
+    index_path: &Path,
+    ids: impl Iterator<Item = &'a str>,
+) -> HashMap<String, Option<SessionSource>> {
+    let Some(db) = index_path
+        .exists()
+        .then(|| IndexDb::open_readonly(index_path).ok())
+        .flatten()
+    else {
+        return HashMap::new();
+    };
+    ids.filter_map(|id| {
+        let sid = crate::validators::validate_session_id(id).ok()?;
+        let stored = db.get_session_source_name(&sid).ok()??;
+        let source = SessionSource::from_stored(&stored);
+        (source != Some(SessionSource::Copilot)).then(|| (id.to_string(), source))
+    })
+    .collect()
+}
 
 /// Preview an import file — validate and show what would be imported.
 #[tauri::command]
@@ -17,11 +45,14 @@ pub async fn preview_import(
 ) -> CmdResult<ImportPreviewResult> {
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
+    let index_path = cfg.index_db_path();
 
     blocking_cmd!({
         let path = PathBuf::from(file_path);
 
         let preview = tracepilot_export::import::preview_import(&path, Some(&session_state_dir))?;
+        let foreign =
+            ids_owned_by_other_sources(&index_path, preview.sessions.iter().map(|s| s.id.as_str()));
 
         let needs_migration = matches!(
             preview.migration_status,
@@ -34,12 +65,12 @@ pub async fn preview_import(
             .sessions
             .into_iter()
             .map(|s| ImportSessionPreview {
+                already_exists: s.already_exists || foreign.contains_key(&s.id),
                 id: s.id,
                 summary: s.summary,
                 repository: s.repository,
                 created_at: None,
                 section_count: s.available_sections.len(),
-                already_exists: s.already_exists,
             })
             .collect();
 
@@ -69,6 +100,7 @@ pub async fn import_sessions(
 
     let cfg = read_config(&state);
     let session_state_dir = cfg.session_state_dir();
+    let index_path = cfg.index_db_path();
 
     let strategy = match conflict_strategy.as_deref() {
         Some("replace") => tracepilot_export::import::ConflictStrategy::Replace,
@@ -84,6 +116,29 @@ pub async fn import_sessions(
             session_filter: session_filter.unwrap_or_default(),
             dry_run: dry_run.unwrap_or(false),
         };
+
+        // Every strategy can write an archive id unchanged (Duplicate renames
+        // only when a Copilot directory already exists), so refuse ids that
+        // another source owns.
+        let preview = tracepilot_export::import::preview_import(&path, None)?;
+        let selected = preview.sessions.iter().map(|s| s.id.as_str()).filter(|id| {
+            options.session_filter.is_empty()
+                || options.session_filter.iter().any(|wanted| wanted == id)
+        });
+        if let Some((id, source)) = ids_owned_by_other_sources(&index_path, selected)
+            .into_iter()
+            .next()
+        {
+            return Err(match source {
+                Some(session_source) => BindingsError::Unsupported {
+                    session_source,
+                    action: "Import",
+                },
+                None => BindingsError::Validation(format!(
+                    "Session {id} belongs to a session source this version does not support."
+                )),
+            });
+        }
 
         let result =
             tracepilot_export::import::import_sessions(&path, &session_state_dir, &options)?;

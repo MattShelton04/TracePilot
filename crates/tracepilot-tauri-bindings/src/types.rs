@@ -6,11 +6,22 @@ use tracepilot_core::SessionId;
 
 // ── LRU Turn Cache ──────────────────────────────────────────────────
 
+/// The source state a cached entry was built from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SourceStamp {
+    /// Opaque `SourceFingerprint::source_version`; entries are valid only
+    /// while it is unchanged.
+    pub version: String,
+    /// The legacy freshness fields: Copilot's `events.jsonl` size and mtime,
+    /// or the total size and latest mtime of another source's files.
+    pub events_file_size: u64,
+    pub events_file_mtime: Option<std::time::SystemTime>,
+}
+
 /// Cached turns for a single session, keyed by session ID in the LRU.
 pub(crate) struct CachedTurns {
     pub turns: Vec<tracepilot_core::ConversationTurn>,
-    pub events_file_size: u64,
-    pub events_file_mtime: Option<std::time::SystemTime>,
+    pub stamp: SourceStamp,
 }
 
 pub(crate) type TurnCache = Arc<Mutex<lru::LruCache<String, CachedTurns>>>;
@@ -18,8 +29,7 @@ pub(crate) type TurnCache = Arc<Mutex<lru::LruCache<String, CachedTurns>>>;
 /// Cached typed events for a single session, keyed by session ID in the LRU.
 pub(crate) struct CachedEvents {
     pub events: Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>,
-    pub events_file_size: u64,
-    pub events_file_mtime: Option<std::time::SystemTime>,
+    pub stamp: SourceStamp,
 }
 
 pub(crate) type EventCache = Arc<Mutex<lru::LruCache<String, CachedEvents>>>;
@@ -55,6 +65,8 @@ pub struct PromptCacheResponse {
 pub struct FreshnessResponse {
     pub events_file_size: u64,
     pub events_file_mtime: Option<i64>,
+    /// Opaque; changes whenever any file the session reads changes.
+    pub source_version: String,
 }
 
 #[derive(Debug, Serialize)]

@@ -1,10 +1,11 @@
 //! Read-only session query methods.
 
 use crate::Result;
-use rusqlite::{params_from_iter, types::ToSql};
+use rusqlite::{OptionalExtension, params_from_iter, types::ToSql};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use tracepilot_core::ids::SessionId;
+use tracepilot_core::provider::{SessionLocator, SessionRole, SessionSource};
 
 use super::IndexDb;
 use super::row_helpers::*;
@@ -109,6 +110,52 @@ impl IndexDb {
             )
             .ok();
         Ok(path.map(PathBuf::from))
+    }
+
+    /// The raw `source` column for a session, including names this build
+    /// does not know. `None` when there is no row.
+    pub fn get_session_source_name(&self, session_id: &SessionId) -> Result<Option<String>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT source FROM sessions WHERE id = ?1",
+                [session_id.as_str()],
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    /// The locator the index stored for a session, for IPC resolution.
+    ///
+    /// `None` when there is no row, or when the row names a source or role
+    /// this build does not know (only a newer build writes those). The size
+    /// hint is 0: IPC never batches.
+    pub fn get_session_locator(&self, session_id: &SessionId) -> Result<Option<SessionLocator>> {
+        let row: Option<(String, String, String, Option<String>)> = self
+            .conn
+            .query_row(
+                "SELECT path, source, role, parent_session_id FROM sessions WHERE id = ?1",
+                [session_id.as_str()],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()?;
+        let Some((path, source, role, parent_id)) = row else {
+            return Ok(None);
+        };
+        let (Some(source), Some(role)) = (
+            SessionSource::from_stored(&source),
+            SessionRole::from_stored(&role),
+        ) else {
+            return Ok(None);
+        };
+        Ok(Some(SessionLocator {
+            source,
+            id: session_id.clone(),
+            primary_path: PathBuf::from(path),
+            parent_id: parent_id.map(SessionId::from_validated),
+            role,
+            source_bytes_hint: 0,
+        }))
     }
 
     /// Full-text search across session metadata (toolbar quick search).

@@ -2,10 +2,9 @@
 
 use std::path::Path;
 
-use crate::blocking_cmd;
 use crate::config::SharedConfig;
-use crate::error::{BindingsError, CmdResult};
-use crate::helpers::read_config;
+use crate::error::CmdResult;
+use crate::helpers::{read_config, with_session_locator};
 use crate::types::{EventCache, PromptCacheResponse};
 
 use super::shared::{load_cached_typed_events, system_time_to_unix_millis};
@@ -17,21 +16,12 @@ pub async fn get_session_prompt_cache(
     event_cache: tauri::State<'_, EventCache>,
     session_id: String,
 ) -> CmdResult<PromptCacheResponse> {
-    crate::validators::validate_session_id(&session_id)?;
-
-    let config = read_config(&state);
-    let session_state_dir = config.session_state_dir();
-    let index_path = config.index_db_path();
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    let index_path = read_config(&state).index_db_path();
     let event_cache = event_cache.inner().clone();
 
-    blocking_cmd!({
-        let path = tracepilot_core::session::discovery::resolve_session_path_direct(
-            &session_id,
-            &session_state_dir,
-        )?;
-        let events_path = tracepilot_core::paths::SessionPaths::from_root(&path).events_jsonl();
-        let (events, events_file_size, events_file_mtime) =
-            load_cached_typed_events(&event_cache, &session_id, &events_path)?;
+    with_session_locator(&state, sid, move |session| {
+        let (events, stamp) = load_cached_typed_events(&event_cache, &session)?;
 
         // Sessions with checkpoints never consult the registry, so the index
         // is only opened for older sessions that need an estimate.
@@ -45,12 +35,13 @@ pub async fn get_session_prompt_cache(
                     .map(|(_, ttl)| *ttl)
             });
 
-        Ok::<_, BindingsError>(PromptCacheResponse {
+        Ok(PromptCacheResponse {
             timeline,
-            events_file_size,
-            events_file_mtime: system_time_to_unix_millis(events_file_mtime),
+            events_file_size: stamp.events_file_size,
+            events_file_mtime: system_time_to_unix_millis(stamp.events_file_mtime),
         })
     })
+    .await
 }
 
 /// The most common TTL per model across indexed sessions. An unavailable

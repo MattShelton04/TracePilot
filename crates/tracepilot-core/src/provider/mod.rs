@@ -5,10 +5,13 @@
 //! [`TypedEvent`](crate::parsing::events::TypedEvent)s, never on a source's
 //! file layout.
 
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 use crate::error::Result;
 use crate::ids::SessionId;
+use crate::models::session_summary::SessionSummary;
+use crate::parsing::events::TypedEvent;
 
 pub mod claude_code;
 pub mod copilot;
@@ -48,7 +51,7 @@ pub trait SessionProvider: Send + Sync {
     /// A strict load of the events alone, for durable consumers that need
     /// no summary (search). Sources whose summary costs more than their
     /// events override it.
-    fn load_events(
+    fn load_events_strict(
         &self,
         session: &SessionLocator,
         is_cancelled: &dyn Fn() -> bool,
@@ -86,9 +89,73 @@ pub trait SessionProvider: Send + Sync {
         Ok(SessionArtifacts::default())
     }
 
+    /// The directory every session of this source lives under. `None`
+    /// means stored locators are never trusted and every lookup resolves
+    /// afresh through [`Self::resolve`].
+    fn root(&self) -> Option<&Path> {
+        None
+    }
+
+    /// Whether a locator read from the index still names one of this
+    /// source's sessions under its current root. A stale root, a foreign
+    /// path or a path naming another session is never trusted.
+    fn owns(&self, session: &SessionLocator) -> bool {
+        session.source == self.source()
+            && self
+                .root()
+                .is_some_and(|root| names_session_under(root, &session.primary_path, &session.id))
+    }
+
+    /// Directories the file browser and image preview may read.
+    fn file_roots(&self, session: &SessionLocator) -> Result<Vec<PathBuf>> {
+        Ok(self.artifacts(session)?.file_roots)
+    }
+
+    /// Only the normalized events, for display. `None` when the source has
+    /// no event log yet.
+    fn load_events(
+        &self,
+        session: &SessionLocator,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<Option<Vec<TypedEvent>>> {
+        Ok(self.load_snapshot(session, false, is_cancelled)?.events)
+    }
+
+    /// The display summary, built from events the caller already holds
+    /// (for example, cached ones). The default reloads the session.
+    fn summary_from_events(
+        &self,
+        session: &SessionLocator,
+        _events: &[TypedEvent],
+    ) -> Result<SessionSummary> {
+        Ok(self.load_snapshot(session, false, &|| false)?.summary)
+    }
+
     /// Find a session by id without the index. `None` when the source has no
     /// such session.
     fn resolve(&self, id: &SessionId) -> Result<Option<SessionLocator>>;
+}
+
+/// `path` lies strictly under `root` through plain names only, and its last
+/// component (minus any extension) is the session id.
+fn names_session_under(root: &Path, path: &Path, id: &SessionId) -> bool {
+    let Ok(relative) = path.strip_prefix(root) else {
+        return false;
+    };
+    relative.components().next().is_some()
+        && relative
+            .components()
+            .all(|component| matches!(component, Component::Normal(_)))
+        && path
+            .file_stem()
+            .is_some_and(|stem| stem == std::ffi::OsStr::new(id.as_str()))
+}
+
+/// A session id resolved to the provider that owns it.
+#[derive(Clone)]
+pub struct ResolvedSession {
+    pub provider: Arc<dyn SessionProvider>,
+    pub locator: SessionLocator,
 }
 
 /// The outcome of one source's discovery pass.
@@ -145,14 +212,49 @@ impl ProviderRegistry {
 
     /// Resolve an id through each provider in registration order.
     pub fn resolve(&self, id: &SessionId) -> Result<Option<SessionLocator>> {
+        Ok(self
+            .resolve_with_provider(id)?
+            .map(|resolved| resolved.locator))
+    }
+
+    /// Resolve an id, preferring the locator the index stored for it.
+    ///
+    /// The stored locator is used only when its source is registered, that
+    /// provider [owns](SessionProvider::owns) it, and its path still exists.
+    /// Otherwise every provider resolves the id afresh, so a row left over
+    /// from a disabled source or an older root never reaches a command.
+    pub fn locate(
+        &self,
+        id: &SessionId,
+        stored: Option<SessionLocator>,
+    ) -> Result<Option<ResolvedSession>> {
+        if let Some(locator) = stored.filter(|locator| locator.id == *id)
+            && let Some(provider) = self.get(locator.source)
+            && provider.owns(&locator)
+            && locator.primary_path.exists()
+        {
+            return Ok(Some(ResolvedSession {
+                provider: Arc::clone(provider),
+                locator,
+            }));
+        }
+        self.resolve_with_provider(id)
+    }
+
+    fn resolve_with_provider(&self, id: &SessionId) -> Result<Option<ResolvedSession>> {
         for provider in &self.providers {
             if let Some(locator) = provider.resolve(id)? {
-                return Ok(Some(locator));
+                return Ok(Some(ResolvedSession {
+                    provider: Arc::clone(provider),
+                    locator,
+                }));
             }
         }
         Ok(None)
     }
 }
 
+#[cfg(test)]
+mod locate_tests;
 #[cfg(test)]
 mod tests;
