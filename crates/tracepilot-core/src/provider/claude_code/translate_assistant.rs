@@ -147,6 +147,8 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             "parentToolCallId": st.owner_tool,
         });
         let start = self.emit(st, ctx, "tool.execution_start", data);
+        self.tool_starts
+            .insert(id.to_string(), self.events.len() - 1);
         if tool.name == "skill" {
             let name = input.get("skill").and_then(Value::as_str);
             let skill = self.emit(st, ctx, "skill.invoked", json!({"name": name}));

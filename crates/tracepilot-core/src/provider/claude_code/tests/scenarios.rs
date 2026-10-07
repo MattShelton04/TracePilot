@@ -36,12 +36,14 @@ fn tool_hazards_map_to_one_turn_per_call() {
     assert_eq!(count(&types, "assistant.turn_end"), 3);
 
     let failed = tool_call(&turns, "toolu_t1");
-    assert_eq!(failed.tool_name, "Bash");
+    assert_eq!(failed.tool_name, "shell");
     assert_eq!(failed.native_tool_name.as_deref(), Some("Bash"));
     assert_eq!(failed.success, Some(false));
+    assert_eq!(failed.exit_code, Some(1));
     assert!(failed.error.as_deref().unwrap().contains("Exit code 1"));
     assert_eq!(tool_call(&turns, "toolu_t2").success, Some(true));
     assert_eq!(tool_call(&turns, "toolu_t3").success, Some(true));
+    assert_eq!(tool_call(&turns, "toolu_t3").exit_code, Some(0));
     assert!(turns.iter().all(|t| t.reasoning_texts.is_empty()));
     assert_eq!(parsed.diagnostics.redacted_thinking, 1);
     assert_eq!(parsed.diagnostics.persisted_outputs, 1);

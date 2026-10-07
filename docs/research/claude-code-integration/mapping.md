@@ -191,6 +191,32 @@ Abbreviations in the table: **TUR** = `toolUseResult` (Claude's structured tool 
 | `mcp__<server>__<tool>` (not observed) | 0 | unchanged | — | — | Generic; backend fills `mcpServerName`/`mcpToolName` (split on `__`, which is unambiguous unlike Copilot's `-`) | L2 |
 | Harness tools (`SubagentHandback`, `Artifact`, `ScheduleWakeup`, …) | 23 | unchanged | — | — | Generic | — |
 
+**Implementation rules (C4).** The table lives in `provider/claude_code/tools.rs` (arguments)
+and `tool_results.rs` (results).
+- A record's TUR is used only when the record carries one `tool_result` and TUR is an object.
+  Otherwise the `tool_result` text is the content.
+- Shell exit codes go in `shellExecution.exitCode`:
+  - success → 0, or 1 when `returnCodeInterpretation` is set (Claude Code writes it only for
+    exit code 1);
+  - failure → the `Exit code N` first line;
+  - background commands (including timed-out ones, which Claude Code backgrounds) and
+    interrupts → unknown.
+- Shell content is `stdout` then `stderr`. Image output (`isImage`) keeps the `[image]` text,
+  and the reader also drops that `stdout`. `persistedOutputPath`/`persistedOutputSize` are
+  copied into the result as values; the file is never opened.
+- Read content is `N. line` numbered from `file.startLine`. An empty file keeps Claude's text.
+- Edit adds `detailedContent` with `@@ -a,b +c,d @@` hunks from `SP`.
+- Two names depend on the result, so the start event is rewritten when the result arrives.
+  Until then, the start mapping stands:
+  - `Write` with TUR `type: update` (and `MultiEdit`) → `apply_patch`, whose argument is
+    Copilot's `*** Begin Patch` grammar with the `SP` hunks;
+  - `TaskStop` with `task_type: local_bash` → `stop_powershell` with `shellId`; any other
+    `task_type` stays `stop_agent`.
+- AskUserQuestion questions become `q1`, `q2`, … properties. `multiSelect` uses
+  `type: array` with `items.anyOf`. Answers are keyed the same way.
+- WebSearch becomes `{text: {value, annotations}}`: string results are joined, and links
+  become `url_citation` annotations.
+
 Claude Code tools with no Copilot counterpart render generically (wrench icon, JSON args, plain
 text). That is already the fallback.
 

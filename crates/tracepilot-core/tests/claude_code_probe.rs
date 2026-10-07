@@ -42,6 +42,8 @@ mod liveness;
 mod memory;
 #[path = "claude_code_probe/provider.rs"]
 mod provider;
+#[path = "claude_code_probe/tools.rs"]
+mod tools;
 
 #[test]
 #[ignore = "reads real Claude Code transcripts; set TRACEPILOT_CLAUDE_PROBE_DIR"]
@@ -140,6 +142,7 @@ struct Report {
     tools: BTreeMap<&'static str, usize>,
     census: census::Census,
     memory: memory::Memory,
+    tool_census: tools::ToolCensus,
 }
 
 impl Report {
@@ -165,6 +168,7 @@ impl Report {
         self.add_turns(&parsed, &turns);
         self.add_usage(ordinal, &parsed);
         self.add_tools(&parsed);
+        self.tool_census.add(&parsed, &turns);
         self.add_interrupts(&parsed);
         self.census.add(&parsed);
         self.memory.add(path, &parsed);
@@ -553,6 +557,7 @@ impl Report {
         for (key, n) in &self.tools {
             println!("- {key}: {n}");
         }
+        self.tool_census.print();
         self.memory.print();
     }
 }
