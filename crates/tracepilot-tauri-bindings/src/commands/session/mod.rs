@@ -16,6 +16,7 @@ mod detail;
 mod events;
 mod list;
 mod prompt_cache;
+mod provider_metrics;
 mod resume;
 mod shared;
 mod turns;

@@ -351,3 +351,65 @@ fn a_subagent_launched_by_a_later_block_of_a_covered_call_is_tail_usage() {
     assert_eq!(m.coverage.as_ref().unwrap().tail_calls, 1);
     assert!(m.cost_amount.is_none());
 }
+
+#[test]
+fn rewound_subagent_launches_keep_their_billed_tail_usage_and_stay_hidden() {
+    use tracepilot_test_support::claude::{Subagent, subagent_meta, tool_use};
+    let mut t = Transcript::main();
+    t.prompt("First.");
+    t.call(
+        "first",
+        OPUS,
+        vec![text("First answer.")],
+        Usage::new(1, 10, 100, 2),
+        "end_turn",
+    );
+    let fork = t.last_uuid().unwrap();
+    t.cost_state(&[(OPUS, Usage::new(1, 10, 100, 2), 0.5)]);
+    t.prompt("Abandoned prompt.");
+    t.call(
+        "abandoned",
+        OPUS,
+        vec![tool_use(
+            "abandoned_child",
+            "Agent",
+            json!({"prompt":"Check."}),
+        )],
+        Usage::new(3, 30, 300, 4),
+        "tool_use",
+    );
+    let mut child = Transcript::subagent("abandoned_child", 5);
+    child.prompt("Check.");
+    child.call(
+        "child",
+        OPUS,
+        vec![text("Hidden child answer.")],
+        Usage::new(9, 90, 900, 10),
+        "end_turn",
+    );
+    t.parent_next(Some(&fork));
+    t.prompt("Replacement.");
+    t.call(
+        "replacement",
+        OPUS,
+        vec![text("Replacement answer.")],
+        Usage::new(5, 50, 500, 6),
+        "end_turn",
+    );
+    let files = write_session(
+        &t,
+        &[Subagent {
+            agent_id: "abandoned_child",
+            transcript: &child,
+            meta: Some(subagent_meta("abandoned_child", "general-purpose", 1)),
+        }],
+    );
+    let loaded = load(&files);
+    // 111 + 333 + 999 + 555 = 1998 inclusive; outputs 2 + 4 + 10 + 6 = 22.
+    let m = loaded.summary.shutdown_metrics.as_ref().unwrap();
+    assert_usage(m, OPUS, [1998, 180, 1800, 22, 4]);
+    assert_eq!(m.coverage.as_ref().unwrap().tail_calls, 3);
+    let turns = serde_json::to_string(&loaded.turns).unwrap();
+    assert!(!turns.contains("Hidden child answer."));
+    assert!(!turns.contains("Abandoned prompt."));
+}

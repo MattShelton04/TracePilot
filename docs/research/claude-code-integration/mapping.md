@@ -242,8 +242,9 @@ Copilot-only renderers with no Claude source:
 
 ## 3. Metrics, cost and analytics fields
 
-C5 returns totals in both the provider snapshot and the consuming summary's
-`shutdownMetrics`, without emitting a `session.shutdown` event. Its optional
+C5 returns totals in the provider snapshot, the consuming summary's
+`shutdownMetrics`, and the existing metrics IPC response, without emitting a
+`session.shutdown` event. Its optional
 `coverage` records the snapshot position, observed call count and tail call count.
 `coverage.partial` is always true: even a snapshot with no tail does not prove the
 session ended or that every call was persisted. Request counts cover recorded calls

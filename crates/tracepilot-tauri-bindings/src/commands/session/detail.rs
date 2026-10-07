@@ -87,10 +87,9 @@ pub async fn get_shutdown_metrics(
 
     with_session_locator(&state, sid, move |session| {
         let (events, _) = load_cached_typed_events(&cache, &session)?;
-        Ok(
-            tracepilot_core::parsing::events::extract_combined_shutdown_data(events.as_ref())
-                .map(|(data, _count)| data),
-        )
+        Ok(super::provider_metrics::metrics_for_session(
+            &session, &events,
+        )?)
     })
     .await
 }
