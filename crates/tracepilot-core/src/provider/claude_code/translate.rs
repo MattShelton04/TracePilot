@@ -78,6 +78,7 @@ pub(super) struct Stream<'s> {
     /// Index in `lines` of the record being translated.
     pub(super) cursor: usize,
     pub(super) abandoned: HashSet<String>,
+    pub(super) inherited_abandoned: bool,
     pub(super) summaries: HashMap<usize, String>,
     pub(super) last_event: Option<String>,
     pub(super) last_record: Option<(String, Option<DateTime<Utc>>)>,
@@ -166,7 +167,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
         }
     }
 
-    fn stream<'s>(
+    pub(super) fn stream<'s>(
         &mut self,
         agent_id: Option<String>,
         owner_tool: Option<String>,
@@ -182,6 +183,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             lines,
             cursor: 0,
             abandoned,
+            inherited_abandoned: false,
             summaries: super::translate_assistant::compact_summaries(lines),
             last_event: None,
             last_record: None,
@@ -196,7 +198,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
         }
     }
 
-    fn run(&mut self, st: &mut Stream<'_>) -> Result<()> {
+    pub(super) fn run(&mut self, st: &mut Stream<'_>) -> Result<()> {
         let lines = st.lines;
         for (index, line) in lines.iter().enumerate() {
             check_cancelled(self.is_cancelled)?;
@@ -275,7 +277,8 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
 
     fn record(&mut self, st: &mut Stream<'_>, line: &Line) -> Result<()> {
         let rec = Rec(&line.value);
-        let abandoned = rec.uuid().is_some_and(|uuid| st.abandoned.contains(uuid));
+        let abandoned =
+            st.inherited_abandoned || rec.uuid().is_some_and(|uuid| st.abandoned.contains(uuid));
         let mut ctx = RecCtx {
             base: base_id(st, line),
             n: 0,
@@ -294,7 +297,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
                 self.observe_call(st, rec, line, true);
             }
             self.native_only(st, &mut ctx);
-            return Ok(());
+            return self.abandoned_children(st, rec, line.line);
         }
         match rec.kind() {
             "assistant" => self.assistant(st, &mut ctx, rec, line)?,

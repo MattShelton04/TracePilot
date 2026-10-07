@@ -51,6 +51,7 @@ pub(in crate::builder) fn build_metrics(
         cost_amount: None,
         cost_unit: None,
         cost_basis: None,
+        ..ShutdownMetrics::default()
     })
 }
 

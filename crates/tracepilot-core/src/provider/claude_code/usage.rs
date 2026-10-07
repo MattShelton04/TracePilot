@@ -91,6 +91,9 @@ pub struct CostSnapshot {
     pub line: usize,
     pub total_cost_usd: Option<f64>,
     pub total_api_duration_ms: Option<u64>,
+    pub total_api_duration_without_retries_ms: Option<u64>,
+    pub total_tool_duration_ms: Option<u64>,
+    pub start_time: Option<u64>,
     pub total_duration_ms: Option<u64>,
     pub total_lines_added: Option<u64>,
     pub total_lines_removed: Option<u64>,
@@ -103,6 +106,7 @@ pub struct CostSnapshot {
 pub struct CostModelUsage {
     pub input_tokens: u64,
     pub output_tokens: u64,
+    pub thinking_tokens: Option<u64>,
     pub cache_read_input_tokens: u64,
     pub cache_creation_input_tokens: u64,
     pub web_search_requests: u64,
@@ -117,6 +121,10 @@ struct WireCostState {
     total_cost_usd: Option<f64>,
     #[serde(rename = "totalAPIDuration")]
     total_api_duration: Option<u64>,
+    #[serde(rename = "totalAPIDurationWithoutRetries")]
+    total_api_duration_without_retries: Option<u64>,
+    total_tool_duration: Option<u64>,
+    start_time: Option<u64>,
     total_duration: Option<u64>,
     total_lines_added: Option<u64>,
     total_lines_removed: Option<u64>,
@@ -130,6 +138,9 @@ impl CostSnapshot {
             line,
             total_cost_usd: wire.total_cost_usd,
             total_api_duration_ms: wire.total_api_duration,
+            total_api_duration_without_retries_ms: wire.total_api_duration_without_retries,
+            total_tool_duration_ms: wire.total_tool_duration,
+            start_time: wire.start_time,
             total_duration_ms: wire.total_duration,
             total_lines_added: wire.total_lines_added,
             total_lines_removed: wire.total_lines_removed,

@@ -254,12 +254,32 @@ pub struct CostFigure {
 #[derive(Debug, Clone, Default)]
 pub struct SessionMetrics {
     pub total_api_duration_ms: Option<u64>,
+    pub total_api_duration_without_retries_ms: Option<u64>,
+    pub total_tool_duration_ms: Option<u64>,
+    pub total_duration_ms: Option<u64>,
     /// Epoch milliseconds.
     pub session_start_time: Option<u64>,
     pub current_model: Option<String>,
     pub model_metrics: HashMap<String, ModelMetricDetail>,
     pub code_changes: Option<CodeChanges>,
     pub cost: Option<CostFigure>,
+    pub coverage: Option<MetricsCoverage>,
+}
+
+/// Coverage of provider totals. Recorded calls cannot prove that all usage
+/// was persisted or that a session ended. Request counts cover recorded calls
+/// only; durations and line counts cover the snapshot when one is available.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricsCoverage {
+    pub partial: bool,
+    pub snapshot_line: Option<usize>,
+    pub recorded_calls: usize,
+    pub tail_calls: usize,
+    /// Cost of the covered snapshot, retained separately when the current
+    /// total cannot be priced (C11). Never treated as the cost of the tail.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot_cost: Option<CostFigure>,
 }
 
 impl From<SessionMetrics> for ShutdownMetrics {
@@ -267,6 +287,9 @@ impl From<SessionMetrics> for ShutdownMetrics {
     fn from(metrics: SessionMetrics) -> Self {
         Self {
             total_api_duration_ms: metrics.total_api_duration_ms,
+            total_api_duration_without_retries_ms: metrics.total_api_duration_without_retries_ms,
+            total_tool_duration_ms: metrics.total_tool_duration_ms,
+            total_duration_ms: metrics.total_duration_ms,
             session_start_time: metrics.session_start_time,
             current_model: metrics.current_model,
             model_metrics: metrics.model_metrics,
@@ -274,6 +297,7 @@ impl From<SessionMetrics> for ShutdownMetrics {
             cost_amount: metrics.cost.map(|cost| cost.amount),
             cost_unit: metrics.cost.map(|cost| cost.unit),
             cost_basis: metrics.cost.map(|cost| cost.basis),
+            coverage: metrics.coverage,
             ..Self::default()
         }
     }

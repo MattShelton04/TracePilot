@@ -122,8 +122,14 @@ pub(crate) fn extract_session_analytics(
             let model_tokens = input_t + output_t;
             total_tokens += model_tokens;
 
-            let cost = detail.requests.as_ref().and_then(|r| r.cost).unwrap_or(0.0);
-            total_cost += cost;
+            let cost = if metrics.coverage.is_some() {
+                // These columns hold legacy premium-request cost, not USD.
+                // C11/C10 will index provider costs with their unit and basis.
+                None
+            } else {
+                Some(detail.requests.as_ref().and_then(|r| r.cost).unwrap_or(0.0))
+            };
+            total_cost += cost.unwrap_or(0.0);
 
             let req_count = detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0) as i64;
 
@@ -342,7 +348,15 @@ pub(crate) fn extract_session_analytics(
 
     SessionAnalytics {
         total_tokens,
-        total_cost,
+        total_cost: if summary
+            .shutdown_metrics
+            .as_ref()
+            .is_some_and(|m| m.coverage.is_some())
+        {
+            None
+        } else {
+            Some(total_cost)
+        },
         total_nano_aiu,
         lines_added,
         lines_removed,

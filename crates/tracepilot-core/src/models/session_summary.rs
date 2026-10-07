@@ -68,6 +68,14 @@ impl SessionSummary {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownMetrics {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coverage: Option<crate::provider::MetricsCoverage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_api_duration_without_retries_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_tool_duration_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_duration_ms: Option<u64>,
     pub shutdown_type: Option<String>,
     pub total_premium_requests: Option<f64>,
     pub total_api_duration_ms: Option<u64>,

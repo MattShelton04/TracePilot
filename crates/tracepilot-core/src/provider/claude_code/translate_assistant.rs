@@ -223,11 +223,16 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         let Some(snapshot) = CostSnapshot::from_record(rec.0, line.line) else {
             return;
         };
-        if !self
+        if let Some(last) = self
             .snapshots
-            .last()
-            .is_some_and(|last| last.same_totals(&snapshot))
+            .last_mut()
+            .filter(|last| last.same_totals(&snapshot))
         {
+            // Keep the first coverage boundary, but the latest recorded durations.
+            let line = last.line;
+            *last = snapshot;
+            last.line = line;
+        } else {
             self.snapshots.push(snapshot);
         }
     }

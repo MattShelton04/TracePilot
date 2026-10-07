@@ -10,6 +10,7 @@
 //! migration plan and rationale.
 
 pub mod claude;
+pub mod claude_metrics;
 pub mod claude_scenarios;
 pub mod copilot_corpus;
 pub mod fixtures;

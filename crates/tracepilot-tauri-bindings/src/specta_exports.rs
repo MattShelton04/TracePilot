@@ -72,6 +72,7 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
     let exporter = Typescript::default().header(HEADER);
     builder.export(exporter, out_path)?;
+    normalize_generated_whitespace(out_path)?;
     Ok(())
 }
 
@@ -89,7 +90,13 @@ pub fn export_contracts(out_path: &Path) -> Result<(), Box<dyn std::error::Error
     Typescript::default()
         .header(HEADER)
         .export_to(out_path, &resolved)?;
-    // Specta preserves blank Rust doc lines as " * "; keep generated artifacts
+    normalize_generated_whitespace(out_path)?;
+    Ok(())
+}
+
+fn normalize_generated_whitespace(out_path: &Path) -> Result<(), std::io::Error> {
+    // Specta preserves blank doc lines and multiline intersections' spaces;
+    // keep generated artifacts
     // whitespace-clean while preserving deterministic output across platforms.
     let generated = std::fs::read_to_string(out_path)?;
     let mut normalized = generated

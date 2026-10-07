@@ -47,6 +47,22 @@ pub struct SessionContext {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownData {
+    // Provider metrics responses carry these without a shutdown event.
+    // Absent on Copilot records, preserving their serialized wire shape.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coverage: Option<crate::provider::MetricsCoverage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_amount: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_unit: Option<crate::provider::CostUnit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_basis: Option<crate::provider::CostBasis>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_api_duration_without_retries_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_tool_duration_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_duration_ms: Option<u64>,
     pub shutdown_type: Option<String>,
     pub error_reason: Option<String>,
     pub total_premium_requests: Option<f64>,

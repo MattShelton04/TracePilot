@@ -242,6 +242,23 @@ Copilot-only renderers with no Claude source:
 
 ## 3. Metrics, cost and analytics fields
 
+C5 returns totals in the provider snapshot, the consuming summary's
+`shutdownMetrics`, and the existing metrics IPC response, without emitting a
+`session.shutdown` event. Its optional
+`coverage` records the snapshot position, observed call count and tail call count.
+`coverage.partial` is always true: even a snapshot with no tail does not prove the
+session ended or that every call was persisted. Request counts cover recorded calls
+only; side-model token usage from `cost-state` has no recorded request count.
+Snapshot durations and line counts retain their recorded coverage; distinct modified
+files come from recorded results and edited-file attachments. Indexed Claude catalog
+rows expose `metricsPartial: true`, including rows written before C5.
+
+Until C11 prices the tail, a snapshot-plus-tail total has no current `costAmount`.
+The covered estimate remains available as `coverage.snapshotCost` with unit `usd`
+and basis `providerEstimate`. No-snapshot totals have no cost figure. Existing index
+billing columns retain only their Copilot meaning; Claude USD costs are not written
+into those columns. Source-aware cost analytics and presentation remain C10/U2/U3.
+
 | TracePilot field | Copilot source | Claude Code source | Fidelity |
 | --- | --- | --- | --- |
 | Per-model requests | `shutdown.modelMetrics.*.requests.count` | Count of unique `message.id`s per model (transcript); `cost-state` has no count | ✅ |

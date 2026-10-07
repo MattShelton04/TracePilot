@@ -76,13 +76,16 @@ impl PreparedSessionData {
             ..
         } = snapshot;
         let file_meta = SessionFileMeta::from_fingerprint(&fingerprint, &locator.primary_path);
-        let analytics = extract_session_analytics(
+        let mut analytics = extract_session_analytics(
             &summary,
             &events,
             turns.as_deref(),
             diagnostics.as_ref(),
             &file_meta,
         );
+        if identity.source == SessionSource::ClaudeCode {
+            analytics.total_cost = None;
+        }
         let index_info = SessionIndexInfo {
             repository: summary.repository.clone(),
             branch: summary.branch.clone(),
@@ -281,7 +284,7 @@ impl IndexDb {
                     analytics.lines_removed,
                     analytics.events_mtime,
                     analytics.events_size,
-                    CURRENT_ANALYTICS_VERSION,
+                    analytics_version(identity.source),
                     analytics.error_count,
                     analytics.rate_limit_count,
                     analytics.compaction_count,
@@ -362,7 +365,15 @@ impl IndexDb {
             )
             .map_or(true, |(source, version)| {
                 source.as_deref() != Some(current.as_str())
-                    || version.unwrap_or(0) < CURRENT_ANALYTICS_VERSION
+                    || version.unwrap_or(0) < analytics_version(locator.source)
             })
+    }
+}
+
+fn analytics_version(source: SessionSource) -> i64 {
+    match source {
+        // Refresh pre-C5 Claude rows without changing Copilot's golden rows.
+        SessionSource::ClaudeCode => CURRENT_ANALYTICS_VERSION.max(18),
+        SessionSource::Copilot => CURRENT_ANALYTICS_VERSION,
     }
 }
