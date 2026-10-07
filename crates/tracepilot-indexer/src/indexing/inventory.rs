@@ -18,8 +18,9 @@ pub(super) struct SourcePass {
 
 /// Discover each source independently. A source whose discovery fails or is
 /// cancelled is left out: it is neither indexed nor pruned this pass. A
-/// source whose root is missing is kept but marked incomplete. Fails only
-/// when every source's discovery failed.
+/// source whose root is missing, before or after its scan, is kept but marked
+/// incomplete. A source whose configuration changed is skipped silently.
+/// Fails only when every remaining source's discovery failed.
 pub(super) fn discover(
     scope: &IndexScope,
     is_cancelled: &dyn Fn() -> bool,
@@ -29,9 +30,10 @@ pub(super) fn discover(
     for provider in scope.registry().providers() {
         let source = provider.source();
         let cancelled = || is_cancelled() || !scope.is_current(source);
+        let root_before = provider.root_exists();
         match provider.discover(&cancelled) {
             Ok(sessions) => {
-                let complete = provider.root_exists();
+                let complete = root_before && provider.root_exists();
                 if !complete {
                     tracing::warn!(
                         source = source.as_str(),
@@ -43,6 +45,12 @@ pub(super) fn discover(
                     sessions,
                     complete,
                 });
+            }
+            Err(_) if !scope.is_current(source) => {
+                tracing::info!(
+                    source = source.as_str(),
+                    "Source configuration changed; source skipped this pass"
+                );
             }
             Err(error) => {
                 tracing::warn!(source = source.as_str(), error = %error,

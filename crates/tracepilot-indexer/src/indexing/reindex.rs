@@ -58,6 +58,23 @@ pub fn reindex_all_scoped(
     reindex_sources(scope, index_db_path, false, on_progress).map(|(indexed, _)| indexed)
 }
 
+/// Fail unless every source in `scope` can list its whole root. Check this
+/// before discarding an index: a rebuild restores only what it can read, and
+/// an unavailable source's rows would be lost.
+pub fn ensure_complete_inventory(scope: &IndexScope) -> Result<()> {
+    for provider in scope.registry().providers() {
+        let complete = provider.root_exists()
+            && provider.discover(&|| false).is_ok()
+            && provider.root_exists();
+        if !complete {
+            return Err(IndexerError::IncompleteInventory {
+                name: provider.source().as_str().to_string(),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Reindex only sessions whose workspace.yaml/events.jsonl changed or analytics version bumped.
 pub fn reindex_incremental(
     session_state_dir: &Path,
@@ -186,6 +203,12 @@ fn prune(db: &index_db::IndexDb, scope: &IndexScope, pass: &SourcePass) {
                 source = source.as_str(),
                 pruned,
                 "Pruned deleted sessions from index"
+            );
+        }
+        Err(IndexerError::StaleSource { .. }) => {
+            tracing::info!(
+                source = source.as_str(),
+                "Source configuration changed; prune rolled back"
             );
         }
         Err(e) => {

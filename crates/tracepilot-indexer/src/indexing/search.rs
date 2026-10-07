@@ -129,6 +129,16 @@ pub fn reindex_search_content_scoped(
         if cancelled {
             return Ok((indexed, skipped));
         }
+        if progress.current < progress.total {
+            // The source went stale; count what it left as processed.
+            processed += progress.total - progress.current;
+            progress.current = progress.total;
+            on_progress(&SearchIndexingProgress {
+                current: processed,
+                total,
+                source: Some(progress),
+            });
+        }
     }
 
     // Time-gated maintenance: fires on the first indexing pass after startup

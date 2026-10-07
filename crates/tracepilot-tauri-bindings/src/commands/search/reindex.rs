@@ -189,6 +189,8 @@ pub async fn reindex_sessions_full(
 
         // Both permits belong to the worker even if its caller is cancelled.
         let result = (|| {
+            // Never discard rows that this rebuild could not restore.
+            tracepilot_indexer::ensure_complete_inventory(&scope)?;
             remove_index_db_files(&index_path)?;
 
             let counts = tracepilot_indexer::reindex_all_scoped(&scope, &index_path, |progress| {

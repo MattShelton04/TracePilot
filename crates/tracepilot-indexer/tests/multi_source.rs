@@ -19,8 +19,8 @@ use tracepilot_core::provider::{
 };
 use tracepilot_indexer::index_db::IndexDb;
 use tracepilot_indexer::{
-    IndexScope, SearchFilters, SourceGenerations, reindex_all_scoped, reindex_incremental_scoped,
-    reindex_search_content_scoped,
+    IndexScope, SearchFilters, SourceGenerations, ensure_complete_inventory, reindex_all_scoped,
+    reindex_incremental_scoped, reindex_search_content_scoped,
 };
 use tracepilot_test_support::claude::{OPUS, Transcript, Usage, image, text, thinking, tool_use};
 use tracepilot_test_support::copilot_corpus::write_copilot_corpus;
@@ -218,6 +218,7 @@ fn a_missing_root_keeps_its_sources_sessions() {
     let fixture = Fixture::new();
     fixture.index(&fixture.scope());
 
+    assert!(ensure_complete_inventory(&fixture.scope()).is_ok());
     // Claude: the config directory itself is gone (an unmounted drive).
     std::fs::rename(
         &fixture.claude_config,
@@ -227,6 +228,8 @@ fn a_missing_root_keeps_its_sources_sessions() {
     fixture.index(&fixture.scope());
     assert_eq!(fixture.ids("claudeCode"), [CLAUDE_A, CLAUDE_B]);
     assert_eq!(fixture.search("alphazprompt"), [CLAUDE_A]);
+    // A full rebuild, which deletes the index first, must refuse.
+    assert!(ensure_complete_inventory(&fixture.scope()).is_err());
 
     // Copilot: its session-state directory is gone too. Neither source is
     // pruned.
@@ -314,6 +317,16 @@ fn a_bumped_generation_stops_only_that_source() {
     fixture.index(&scope);
     assert!(fixture.ids("claudeCode").is_empty());
     assert_eq!(fixture.ids("copilot"), fixture.sorted_copilot_ids());
+
+    // A stale source is skipped, not a failure, even when it is the only one.
+    let mut claude_only = ProviderRegistry::new();
+    claude_only.register(Arc::new(ClaudeCodeProvider::new(&fixture.claude_config)));
+    let stale_only = IndexScope::new(claude_only, Arc::clone(&generations));
+    generations.bump(SessionSource::ClaudeCode);
+    assert_eq!(
+        reindex_all_scoped(&stale_only, &fixture.db_path, |_| {}).unwrap(),
+        0
+    );
 
     // A scope captured after the change indexes it.
     fixture.index(&IndexScope::new(fixture.registry(), generations));

@@ -14,9 +14,9 @@ pub mod search;
 
 pub use progress::{IndexingProgress, SearchIndexingProgress, SourceProgress};
 pub use reindex::{
-    reindex_all, reindex_all_scoped, reindex_all_with_progress, reindex_all_with_rich_progress,
-    reindex_incremental, reindex_incremental_scoped, reindex_incremental_with_progress,
-    reindex_incremental_with_rich_progress,
+    ensure_complete_inventory, reindex_all, reindex_all_scoped, reindex_all_with_progress,
+    reindex_all_with_rich_progress, reindex_incremental, reindex_incremental_scoped,
+    reindex_incremental_with_progress, reindex_incremental_with_rich_progress,
 };
 pub use scope::{IndexScope, SourceGenerations};
 pub use search::{
