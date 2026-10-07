@@ -121,6 +121,7 @@ async fn moving_the_folder_purges_and_reindexes_while_enabling_never_deletes() {
     let harness = Harness::new();
     let running = harness.pass();
     let moved = harness.temp.path().join("claude-elsewhere");
+    std::fs::create_dir(&moved).unwrap();
 
     let changes = harness
         .patch(serde_json::json!({"sources": {"claudeCode": {"configDir": moved}}}))
@@ -145,6 +146,29 @@ async fn moving_the_folder_purges_and_reindexes_while_enabling_never_deletes() {
     assert!(!changes.purged_any());
     assert_eq!(changes.to_reindex().count(), 1);
     assert!(!before_enable.is_current(SessionSource::ClaudeCode));
+    assert_eq!(ids(&harness.index()).len(), 2);
+}
+
+#[tokio::test]
+async fn a_folder_that_fails_validation_is_not_saved() {
+    let harness = Harness::new();
+    let running = harness.pass();
+    let missing = harness.temp.path().join("missing");
+    let result = mutate_config(
+        &harness.state,
+        Arc::clone(&harness.gates),
+        &harness.coordinator,
+        ConfigMutation::Patch(
+            serde_json::from_value(
+                serde_json::json!({"sources": {"claudeCode": {"configDir": missing}}}),
+            )
+            .unwrap(),
+        ),
+        |_| panic!("an invalid folder must not be persisted"),
+    )
+    .await;
+    assert!(matches!(result, Err(BindingsError::Validation(_))));
+    assert!(running.is_current(SessionSource::ClaudeCode));
     assert_eq!(ids(&harness.index()).len(), 2);
 }
 

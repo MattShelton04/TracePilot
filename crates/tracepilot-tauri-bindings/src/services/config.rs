@@ -21,7 +21,7 @@ use crate::services::config_home::{
     copy_file_if_absent, copy_file_if_absent_with, copy_sqlite_db_if_absent,
     copy_sqlite_db_if_absent_with,
 };
-use crate::services::source_change::SourceChanges;
+use crate::services::source_change::{PendingPurge, SourceChanges};
 
 /// Remove index database files through the shared filesystem helper.
 pub(crate) fn delete_index_db_files(path: &std::path::Path) -> Result<(), BindingsError> {
@@ -44,6 +44,8 @@ enum ConfigMutation {
 pub(crate) struct SavedConfig {
     pub config: TracePilotConfig,
     pub sources: SourceChanges,
+    /// Purges that failed; the caller retries them in the background.
+    pub failed_purges: Vec<PendingPurge>,
 }
 
 pub(crate) async fn save_config(
@@ -106,7 +108,9 @@ async fn mutate_config(
         .as_ref()
         .map(|config| (config.session_state_dir(), config.index_db_path()));
     let loaded_config = loaded.clone();
-    let previous = loaded.unwrap_or_default();
+    let mut previous = loaded.unwrap_or_default();
+    previous.normalize_paths();
+    let previous_claude_dir = previous.sources.claude_code.config_dir.clone();
     let mut cfg = match mutation {
         ConfigMutation::Replace(config) => config,
         ConfigMutation::Patch(patch) => {
@@ -116,6 +120,13 @@ async fn mutate_config(
         }
     };
     cfg.normalize_paths();
+    // A folder the user picked crosses the filesystem trust boundary; the
+    // default is checked when indexing, since it may not exist yet.
+    if cfg.sources.claude_code.config_dir != previous_claude_dir {
+        let dir = config::canonical_claude_config_dir(&cfg.sources.claude_code.config_dir)
+            .map_err(|error| BindingsError::Validation(format!("Claude Code folder: {error}")))?;
+        cfg.sources.claude_code.config_dir = dir.to_string_lossy().into_owned();
+    }
     validate_configured_roots(&cfg)?;
     let sources = SourceChanges::between(loaded_config.as_ref(), &cfg);
     let new_tracepilot_home = cfg.tracepilot_home();
@@ -161,10 +172,11 @@ async fn mutate_config(
             // can pair the new configuration with an old generation.
             sources.bump(&generations);
         }
-        sources.purge(&cfg.index_db_path());
+        let failed_purges = sources.purge(&cfg.index_db_path(), &generations);
         Ok(SavedConfig {
             config: cfg,
             sources,
+            failed_purges,
         })
     })
     .await?

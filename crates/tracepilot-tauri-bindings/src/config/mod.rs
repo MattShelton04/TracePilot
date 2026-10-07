@@ -62,6 +62,7 @@ pub use performance::{
     clamp_session_cache_size,
 };
 pub use pricing::{ModelPriceEntry, PricingConfig};
+pub(crate) use sources::canonical_claude_config_dir;
 pub use sources::{ClaudeCodeSourceConfig, SourcesConfig};
 pub use tool_rendering::ToolRenderingConfig;
 pub use ui::UiConfig;
