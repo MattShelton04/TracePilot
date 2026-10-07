@@ -49,7 +49,7 @@ semver = "1"
 # protocol closely, so bumps are deliberate and smoke-tested. The bundled CLI
 # is disabled; TracePilot drives the user's installed `copilot` and
 # `.cargo/config.toml` sets COPILOT_SKIP_CLI_DOWNLOAD so builds stay offline.
-github-copilot-sdk = { version = "=1.0.14", default-features = false }
+github-copilot-sdk = { version = "=1.0.16", default-features = false }
 rayon = "1.10"
 dashmap = "6"
 base64 = "0.22"
