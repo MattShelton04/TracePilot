@@ -36,6 +36,8 @@ use tracepilot_core::reconstruct_turns;
 
 #[path = "claude_code_probe/census.rs"]
 mod census;
+#[path = "claude_code_probe/hypotheses.rs"]
+mod hypotheses;
 #[path = "claude_code_probe/liveness.rs"]
 mod liveness;
 #[path = "claude_code_probe/memory.rs"]
@@ -143,6 +145,7 @@ struct Report {
     census: census::Census,
     memory: memory::Memory,
     tool_census: tools::ToolCensus,
+    hypotheses: hypotheses::Hypotheses,
 }
 
 impl Report {
@@ -167,6 +170,7 @@ impl Report {
         self.add_events(&parsed);
         self.add_turns(&parsed, &turns);
         self.add_usage(ordinal, &parsed);
+        self.hypotheses.add(&parsed);
         self.add_tools(&parsed);
         self.tool_census.add(&parsed, &turns);
         self.add_interrupts(&parsed);
@@ -559,6 +563,7 @@ impl Report {
         }
         self.tool_census.print();
         self.memory.print();
+        self.hypotheses.print();
     }
 }
 

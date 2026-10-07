@@ -20,6 +20,7 @@ mod provider;
 mod reader;
 mod records;
 mod subagents;
+mod summary;
 mod tool_results;
 mod tools;
 mod translate;

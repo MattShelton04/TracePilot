@@ -15,7 +15,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	/**
 	 *  Point-in-time counters for the bridge broadcast channels.
-	 * 
+	 *
 	 *  Cheap (atomic loads only, no lock on the manager). Exposed for debug
 	 *  panels + ad-hoc troubleshooting of `RecvError::Lagged` events.
 	 *  See Phase 1A.6 in `docs/tech-debt-plan-revised-2026-04.md`.
@@ -56,7 +56,7 @@ export type BindingsErrorIpc = {
 
 /**
  *  Plain-data snapshot of [`BridgeMetrics`] for IPC / logging.
- * 
+ *
  *  Serialised in camelCase for frontend consumption (matches the rest of the
  *  IPC DTOs; see `packages/types/src/sdk.ts::BridgeMetricsSnapshot`).
  */
@@ -90,12 +90,12 @@ export type CaptureStage = "preflight" | "copyingSession" | "preparingEnvironmen
 
 /**
  *  Stable error-code identifiers surfaced to the frontend.
- * 
+ *
  *  These are a **public contract** — changing a variant name is a breaking
  *  change for the desktop app. Add new variants instead of renaming existing
  *  ones. The discriminant is written to the IPC envelope as `code`.
  */
-export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "INTERNAL" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION" | 
+export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "INTERNAL" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION" |
 // The session's source does not support the requested action.
 "UNSUPPORTED";
 
@@ -131,6 +131,10 @@ export type IndexingProgressPayload = {
 	totalRepos: number,
 };
 
+export type ProviderMetricsStatus = {
+	metricsPartial?: boolean,
+};
+
 //Validated session identifier (UUID format).
 export type SessionId = string;
 
@@ -155,7 +159,12 @@ export type SessionListItem = {
 	rateLimitCount: number | null,
 	compactionCount: number | null,
 	truncationCount: number | null,
-};
+} &
+/**
+ *  Provider usage does not establish that a session ended or that all
+ *  calls were persisted. Absent for Copilot to preserve its wire output.
+ */
+(ProviderMetricsStatus | null);
 
 // Which tool wrote a session.
 export type SessionSource = "copilot" | "claudeCode";

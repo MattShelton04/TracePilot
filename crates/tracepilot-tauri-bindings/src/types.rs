@@ -122,6 +122,12 @@ pub struct SessionListItem {
     pub id: SessionId,
     /// Which tool wrote the session.
     pub source: tracepilot_core::provider::SessionSource,
+    /// Provider usage does not establish that a session ended or that all
+    /// calls were persisted. Absent for Copilot to preserve its wire output.
+    // Flattening None omits the key. The pinned command exporter cannot
+    // validate skip_serializing_if on a command result (unified serde mode).
+    #[serde(default, flatten)]
+    pub metrics_status: Option<ProviderMetricsStatus>,
     pub summary: Option<String>,
     pub repository: Option<String>,
     pub branch: Option<String>,
@@ -140,6 +146,13 @@ pub struct SessionListItem {
     pub rate_limit_count: Option<usize>,
     pub compaction_count: Option<usize>,
     pub truncation_count: Option<usize>,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderMetricsStatus {
+    #[specta(optional)]
+    pub metrics_partial: bool,
 }
 
 #[derive(Debug, Serialize)]

@@ -163,7 +163,8 @@ fn load_snapshot_builds_summary_events_and_turns() {
         summary.turn_count,
         Some(snapshot.turns.as_ref().unwrap().len())
     );
-    assert!(snapshot.metrics.is_none(), "metrics are C5");
+    assert!(snapshot.metrics.is_some());
+    assert!(summary.shutdown_metrics.is_some());
     assert_eq!(
         snapshot.fingerprint,
         provider.fingerprint(&session).unwrap()

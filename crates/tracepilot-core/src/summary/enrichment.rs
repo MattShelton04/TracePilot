@@ -78,5 +78,6 @@ fn shutdown_data_to_metrics(data: &ShutdownData, shutdown_count: u32) -> Shutdow
         cost_amount: None,
         cost_unit: None,
         cost_basis: None,
+        ..ShutdownMetrics::default()
     }
 }

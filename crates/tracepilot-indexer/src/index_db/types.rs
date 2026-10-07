@@ -80,6 +80,9 @@ pub struct IndexedSession {
     pub compaction_count: Option<i64>,
     pub truncation_count: Option<i64>,
     pub source: tracepilot_core::provider::SessionSource,
+    /// Claude's recorded usage is always partial; a snapshot alone cannot
+    /// prove exit. Derived from source, so old indexed Claude rows are safe too.
+    pub metrics_partial: Option<bool>,
 }
 
 /// Public return struct for session incident queries.
@@ -102,7 +105,7 @@ pub(crate) struct ModelMetricsRow {
     pub output_tokens: i64,
     pub cache_read_tokens: i64,
     pub cache_write_tokens: i64,
-    pub cost: f64,
+    pub cost: Option<f64>,
     pub premium_requests: i64,
     pub reasoning_tokens: Option<i64>,
     pub total_nano_aiu: Option<i64>,
@@ -193,7 +196,7 @@ pub struct IndexedSkillCallCandidate {
 pub(crate) struct SessionAnalytics {
     // Aggregate token/cost metrics
     pub total_tokens: i64,
-    pub total_cost: f64,
+    pub total_cost: Option<f64>,
     pub total_nano_aiu: Option<i64>,
     pub lines_added: Option<i64>,
     pub lines_removed: Option<i64>,

@@ -26,6 +26,7 @@ pub(crate) fn summary_to_list_item(
         id: SessionId::from_validated(summary.id),
         // The disk-scan fallback only discovers Copilot sessions.
         source: tracepilot_core::provider::SessionSource::Copilot,
+        metrics_status: None,
         summary: summary.summary,
         repository: summary.repository,
         branch: summary.branch,
@@ -66,6 +67,9 @@ pub(crate) fn indexed_session_to_list_item(
     SessionListItem {
         id: SessionId::from_validated(session.id),
         source: session.source,
+        metrics_status: session
+            .metrics_partial
+            .map(|metrics_partial| crate::types::ProviderMetricsStatus { metrics_partial }),
         summary: session.summary,
         repository: session.repository,
         branch: session.branch,
@@ -82,5 +86,29 @@ pub(crate) fn indexed_session_to_list_item(
         rate_limit_count: maybe_i64_to_usize(session.rate_limit_count),
         compaction_count: maybe_i64_to_usize(session.compaction_count),
         truncation_count: maybe_i64_to_usize(session.truncation_count),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn provider_status_is_flattened_and_absent_from_copilot_wire_output() {
+        let summary = serde_json::from_value(serde_json::json!({"id":"synthetic"})).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let mut item = summary_to_list_item(summary, dir.path());
+        let copilot = serde_json::to_value(&item).unwrap();
+        assert!(copilot.get("metricsPartial").is_none());
+        assert!(copilot.get("metricsStatus").is_none());
+        item.metrics_status = Some(crate::types::ProviderMetricsStatus {
+            metrics_partial: true,
+        });
+        let claude = serde_json::to_value(&item).unwrap();
+        assert_eq!(
+            claude.get("metricsPartial"),
+            Some(&serde_json::Value::Bool(true))
+        );
+        assert!(claude.get("metricsStatus").is_none());
     }
 }

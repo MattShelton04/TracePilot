@@ -14,6 +14,8 @@ export interface SessionListItem {
   id: string;
   /** Which tool wrote the session. Absent from older backends; means Copilot. */
   source?: SessionSource;
+  /** Claude's recorded metrics are partial even when no tail is present. */
+  metricsPartial?: boolean;
   summary?: string | null;
   repository?: string | null;
   branch?: string | null;
@@ -75,6 +77,11 @@ export interface SessionDetail {
 
 /** Shutdown metrics from session.shutdown event */
 export interface ShutdownMetrics {
+  /** Recorded provider totals are partial, including a snapshot with no tail. */
+  coverage?: MetricsCoverage;
+  totalApiDurationWithoutRetriesMs?: number;
+  totalToolDurationMs?: number;
+  totalDurationMs?: number;
   /** Per-agent billing is a shutdown snapshot, not a live request stream. */
   agentUsage?: import("./agentUsage.js").AgentUsageSnapshot | null;
   metricsTimestamp?: string | null;
@@ -109,6 +116,14 @@ export type CostUnit = "aic" | "usd";
 
 /** Who produced a cost figure, and whether it is a bill. */
 export type CostBasis = "billed" | "providerEstimate" | "tracepilotEstimate";
+
+export interface MetricsCoverage {
+  partial: boolean;
+  snapshotLine: number | null;
+  recordedCalls: number;
+  tailCalls: number;
+  snapshotCost?: { amount: number; unit: CostUnit; basis: CostBasis };
+}
 
 export interface ShutdownTokenDetail {
   tokenCount?: number | null;

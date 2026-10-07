@@ -37,7 +37,9 @@ pub(in crate::index_db) fn query_model_distribution(
             row.get::<_, i64>(3)?,
             row.get::<_, i64>(4)?,
             row.get::<_, i64>(5)?,
-            row.get::<_, f64>(6)?,
+            // This legacy DTO aggregates Copilot premium-request charges,
+            // not provider USD costs. No contributing charges is an empty sum.
+            row.get::<_, Option<f64>>(6)?.unwrap_or(0.0),
             row.get::<_, i64>(7)?,
             row.get::<_, i64>(8)?,
             row.get::<_, i64>(9)?,

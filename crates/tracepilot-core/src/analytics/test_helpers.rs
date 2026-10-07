@@ -90,6 +90,7 @@ pub(super) fn make_input(
                 cost_amount: None,
                 cost_unit: None,
                 cost_basis: None,
+                ..ShutdownMetrics::default()
             }),
         },
         turns: None,

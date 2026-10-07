@@ -8,21 +8,16 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use chrono::{DateTime, Utc};
-
 use super::liveness::{ProcessStart, liveness};
 use super::parse_claude_session;
+use super::summary::summarize;
 use crate::error::{Result, TracePilotError};
 use crate::ids::SessionId;
-use crate::models::conversation::ConversationTurn;
-use crate::models::session_summary::SessionSummary;
-use crate::parsing::events::TypedEvent;
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled, ensure_unchanged};
 use crate::provider::{
     Liveness, ProviderSnapshot, SessionLocator, SessionProvider, SessionRole, SessionSource,
     SourceCapabilities, SourceFingerprint,
 };
-use crate::summary::apply_event_enrichment;
 
 /// Nothing Copilot-specific, and no todos, plan, checkpoints or explorer
 /// roots yet (C12, C13).
@@ -125,32 +120,6 @@ fn session_id(path: &Path) -> Option<SessionId> {
     Some(SessionId::from_validated(id.to_string()))
 }
 
-fn summarize(id: &SessionId, events: &[TypedEvent]) -> (SessionSummary, Vec<ConversationTurn>) {
-    let updated_at: Option<DateTime<Utc>> = events.iter().filter_map(|e| e.raw.timestamp).max();
-    let mut summary = SessionSummary {
-        id: id.to_string(),
-        summary: None,
-        repository: None,
-        branch: None,
-        cwd: None,
-        host_type: None,
-        created_at: None,
-        updated_at,
-        event_count: None,
-        has_events: true,
-        has_session_db: false,
-        has_plan: false,
-        has_checkpoints: false,
-        checkpoint_count: None,
-        turn_count: None,
-        current_model: None,
-        current_reasoning_effort: None,
-        shutdown_metrics: None,
-    };
-    let turns = apply_event_enrichment(&mut summary, events);
-    (summary, turns)
-}
-
 impl SessionProvider for ClaudeCodeProvider {
     fn source(&self) -> SessionSource {
         SessionSource::ClaudeCode
@@ -240,7 +209,7 @@ impl SessionProvider for ClaudeCodeProvider {
                 source: None,
             });
         }
-        let (summary, turns) = summarize(&session.id, &parsed.events);
+        let (summary, turns, metrics) = summarize(&session.id, &parsed);
         check_cancelled(&is_cancelled)?;
         if strict {
             ensure_unchanged(&fingerprint, &self.fingerprint(session)?, main)?;
@@ -249,7 +218,7 @@ impl SessionProvider for ClaudeCodeProvider {
             summary,
             events: Some(parsed.events),
             turns: Some(turns),
-            metrics: None,
+            metrics,
             diagnostics: Some(parsed.diagnostics.events),
             fingerprint,
         })

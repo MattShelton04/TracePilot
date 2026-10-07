@@ -5,6 +5,7 @@ mod agent_runs;
 mod agent_usage;
 mod analytics;
 mod analytics_parity;
+mod claude_metrics;
 mod common;
 mod maintenance;
 mod prompt_cache;
