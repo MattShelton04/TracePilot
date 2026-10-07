@@ -413,3 +413,89 @@ fn rewound_subagent_launches_keep_their_billed_tail_usage_and_stay_hidden() {
     assert!(!turns.contains("Hidden child answer."));
     assert!(!turns.contains("Abandoned prompt."));
 }
+
+#[test]
+fn orphan_descendants_never_use_child_file_lines_as_snapshot_anchors() {
+    use tracepilot_test_support::claude::{Subagent, subagent_meta, tool_use};
+    let mut t = Transcript::main();
+    t.prompt("First.");
+    t.call(
+        "main",
+        OPUS,
+        vec![text("Done.")],
+        Usage::new(1, 10, 100, 2),
+        "end_turn",
+    );
+    t.cost_state(&[(OPUS, Usage::new(1, 10, 100, 2), 0.5)]); // main-file line 3
+    let mut parent = Transcript::subagent("a_parent", 6);
+    parent.prompt("Orphan.");
+    parent.call(
+        "orphan_first",
+        OPUS,
+        vec![text("Done.")],
+        Usage::new(2, 20, 200, 3),
+        "end_turn",
+    );
+    let fork = parent.last_uuid().unwrap();
+    for _ in 0..3 {
+        parent.system("turn_duration", json!({"durationMs":1}));
+    }
+    parent.prompt("Rewound.");
+    parent.call(
+        "orphan_launch",
+        OPUS,
+        vec![tool_use(
+            "local_launch",
+            "Agent",
+            json!({"prompt":"Check."}),
+        )],
+        Usage::new(3, 30, 300, 4),
+        "tool_use",
+    ); // child-file line 7, not main-file line 7
+    parent.parent_next(Some(&fork));
+    parent.prompt("Replacement.");
+    parent.call(
+        "orphan_replacement",
+        OPUS,
+        vec![text("Done.")],
+        Usage::new(5, 50, 500, 6),
+        "end_turn",
+    );
+    let mut child = Transcript::subagent("z_grandchild", 7);
+    child.prompt("Check.");
+    child.call(
+        "grandchild",
+        OPUS,
+        vec![text("Done.")],
+        Usage::new(4, 40, 400, 5),
+        "end_turn",
+    );
+    let files = write_session(
+        &t,
+        &[
+            Subagent {
+                agent_id: "a_parent",
+                transcript: &parent,
+                meta: None,
+            },
+            Subagent {
+                agent_id: "z_grandchild",
+                transcript: &child,
+                meta: Some(subagent_meta("local_launch", "general-purpose", 2)),
+            },
+        ],
+    );
+    let parsed =
+        tracepilot_core::provider::claude_code::parse_claude_session(&files.main, &|| false)
+            .unwrap();
+    assert!(
+        parsed
+            .calls
+            .iter()
+            .filter(|c| c.agent_id.is_some())
+            .all(|c| c.snapshot_anchor.is_none())
+    );
+    let m = load(&files).summary.shutdown_metrics.unwrap();
+    assert_usage(&m, OPUS, [111, 10, 100, 2, 5]);
+    assert_eq!(m.coverage.unwrap().tail_calls, 0);
+}

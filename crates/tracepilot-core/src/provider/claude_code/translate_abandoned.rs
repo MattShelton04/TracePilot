@@ -32,7 +32,11 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                 let mut child_stream = self.stream(
                     Some(child.agent_id.clone()),
                     Some(id.to_string()),
-                    Some(st.anchor.unwrap_or(line)),
+                    if st.agent_id.is_none() {
+                        Some(line)
+                    } else {
+                        st.anchor
+                    },
                     &child.lines,
                 );
                 child_stream.inherited_abandoned = true;
