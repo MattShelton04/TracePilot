@@ -65,6 +65,18 @@ fn shell_exit_codes_come_from_shell_execution_or_the_result_footer() {
             "data": { "toolCallId": "tc-2", "success": true,
                       "result": { "content": "fatal: not a git repository\r\n<exited with exit code 128>\n" } },
         })),
+        // The provider-neutral `shell` (Claude Code's Bash) parses the same footer.
+        ev(json!({
+            "type": "tool.execution_start",
+            "data": { "toolCallId": "tc-4", "toolName": "shell",
+                      "arguments": { "command": "make" } },
+        })),
+        ev(json!({
+            "type": "tool.execution_complete",
+            "data": { "toolCallId": "tc-4", "success": true,
+                      "result": { "content": "make: done
+        Process exited with code 2" } },
+        })),
         ev(json!({
             "type": "tool.execution_start",
             "data": { "toolCallId": "tc-3", "toolName": "view", "arguments": { "path": "a.txt" } },
@@ -79,7 +91,7 @@ fn shell_exit_codes_come_from_shell_execution_or_the_result_footer() {
     let turns = reconstruct_turns(&events);
     let codes: Vec<_> = turns[0].tool_calls.iter().map(|tc| tc.exit_code).collect();
     // A non-zero exit is not a tool failure; `view` output is never parsed.
-    assert_eq!(codes, vec![Some(3), Some(128), None]);
+    assert_eq!(codes, vec![Some(3), Some(128), Some(2), None]);
     assert!(
         turns[0]
             .tool_calls

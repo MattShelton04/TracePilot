@@ -36,7 +36,7 @@ pub fn compute_args_summary(tool_name: &str, args: &serde_json::Value) -> String
                 return p;
             }
         }
-        "powershell" => {
+        "powershell" | "shell" => {
             if let Some(cmd) = get_str("command") {
                 return crate::utils::truncate_utf8_with_marker(&cmd, 150, Some("…"));
             }
@@ -155,5 +155,13 @@ mod tests {
             "scope: siblings"
         );
         assert_eq!(compute_args_summary("list_agents", &json!({})), "");
+    }
+
+    #[test]
+    fn summarizes_every_shell_family_member_by_command() {
+        let args = json!({ "command": "cargo test" });
+        for tool in ["powershell", "shell"] {
+            assert_eq!(compute_args_summary(tool, &args), "cargo test");
+        }
     }
 }

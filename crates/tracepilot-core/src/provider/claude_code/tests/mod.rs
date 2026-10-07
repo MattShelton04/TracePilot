@@ -4,6 +4,7 @@
 mod accounting;
 mod provider;
 mod scenarios;
+mod tools;
 
 use std::collections::HashSet;
 
@@ -45,6 +46,7 @@ fn all_fixtures() -> Vec<(&'static str, SessionFiles)> {
         ("resumed_running", fixtures::resumed(true)),
         ("slash_command", fixtures::slash_command()),
         ("typed_compact", fixtures::typed_compact()),
+        ("tool_catalog", fixtures::tool_catalog()),
     ]
 }
 
@@ -107,25 +109,28 @@ fn ids_are_unique_stable_and_natives_align() {
 
 #[test]
 fn no_image_base64_survives_anywhere() {
-    let files = fixtures::tool_hazards();
-    let parsed = parse(&files);
-    assert!(parsed.diagnostics.sanitized_images >= 2);
-    let raws: Vec<&RawEvent> = parsed.events.iter().map(|e| &e.raw).collect();
-    let natives: Vec<_> = parsed
-        .events
-        .iter()
-        .filter_map(|e| e.raw.native.as_ref())
-        .map(|n| n.data.to_string())
-        .collect();
-    assert!(!natives.is_empty());
-    let haystacks = [
-        events_to_jsonl(&raws),
-        natives.join("\n"),
-        format!("{:?}", parsed.diagnostics),
-        format!("{:?}", parsed.events),
-    ];
-    for haystack in haystacks {
-        assert!(!haystack.contains(fixtures::IMAGE_BASE64));
+    // tool_catalog adds image Reads and a shell whose stdout is an image.
+    for (files, images) in [(fixtures::tool_hazards(), 2), (fixtures::tool_catalog(), 4)] {
+        let parsed = parse(&files);
+        assert!(parsed.diagnostics.sanitized_images >= images);
+        let raws: Vec<&RawEvent> = parsed.events.iter().map(|e| &e.raw).collect();
+        let natives: Vec<_> = parsed
+            .events
+            .iter()
+            .filter_map(|e| e.raw.native.as_ref())
+            .map(|n| n.data.to_string())
+            .collect();
+        assert!(!natives.is_empty());
+        let haystacks = [
+            events_to_jsonl(&raws),
+            natives.join("\n"),
+            format!("{:?}", parsed.diagnostics),
+            format!("{:?}", parsed.events),
+            format!("{:?}", reconstruct_turns(&parsed.events)),
+        ];
+        for haystack in haystacks {
+            assert!(!haystack.contains(fixtures::IMAGE_BASE64));
+        }
     }
 }
 

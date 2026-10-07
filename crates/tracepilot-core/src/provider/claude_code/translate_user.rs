@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 
 use super::notify::{TaskNotification, contains_notification, parse_notifications};
 use super::reader::Line;
-use super::records::{Blocks, Rec, block_type, tool_result_text};
+use super::records::{Blocks, Rec, block_type};
 use super::translate::{Custom, RecCtx, Stream, Translator};
 
 /// Attachment types seen so far (record-shapes.md and the S3 probe on
@@ -164,54 +164,11 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         st.last_closed_end_turn = false;
     }
 
-    fn interrupt(&mut self, st: &mut Stream<'_>, ctx: &mut RecCtx) {
+    pub(super) fn interrupt(&mut self, st: &mut Stream<'_>, ctx: &mut RecCtx) {
         if let Some(call) = st.open_call.as_mut() {
             call.interrupted = true;
         }
         self.emit(st, ctx, "abort", json!({"reason": "user initiated"}));
-    }
-
-    fn tool_results(&mut self, st: &mut Stream<'_>, ctx: &mut RecCtx, rec: Rec<'_>) {
-        let Blocks::Array(blocks) = rec.blocks() else {
-            return;
-        };
-        let persisted = rec.ptr_str("/toolUseResult/persistedOutputPath").is_some();
-        let mut interrupted = false;
-        for block in blocks {
-            match block_type(block) {
-                "tool_result" => {
-                    let id = block
-                        .get("tool_use_id")
-                        .and_then(Value::as_str)
-                        .unwrap_or("");
-                    if let Some(call) = st.open_call.as_mut() {
-                        call.pending.retain(|pending| pending != id);
-                    }
-                    let content = tool_result_text(block);
-                    if persisted || content.contains("<persisted-output>") {
-                        self.diagnostics.persisted_outputs += 1;
-                    }
-                    let failed = block.get("is_error").and_then(Value::as_bool) == Some(true);
-                    let data = json!({
-                        "toolCallId": id,
-                        "success": !failed,
-                        "result": (!failed).then(|| json!({"content": content})),
-                        "error": failed.then(|| json!({"message": content})),
-                        "interactionId": st.interaction,
-                        "parentToolCallId": st.owner_tool,
-                    });
-                    self.emit(st, ctx, "tool.execution_complete", data);
-                }
-                "text" => {
-                    let text = block.get("text").and_then(Value::as_str).unwrap_or("");
-                    interrupted |= text.starts_with("[Request interrupted by user");
-                }
-                _ => {}
-            }
-        }
-        if interrupted {
-            self.interrupt(st, ctx);
-        }
     }
 
     /// A subagent's report (`origin.kind: peer`, `handback: true`).

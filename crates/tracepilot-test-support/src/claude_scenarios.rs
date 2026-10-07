@@ -3,8 +3,10 @@
 //! tests that use them; usage numbers are chosen to be easy to sum by hand.
 
 mod agents;
+mod tools;
 
 pub use agents::{meta_records, subagents};
+pub use tools::{PERSISTED_PATH, tool_catalog};
 
 use serde_json::json;
 

@@ -53,6 +53,8 @@ pub(super) struct Translator<'a, F> {
     /// Agent id → launching `tool_use` id.
     pub(super) agent_owner: HashMap<String, String>,
     pub(super) agent_tool_ids: HashSet<String>,
+    /// `tool_use` id → index of its `tool.execution_start` in `events`.
+    pub(super) tool_starts: HashMap<String, usize>,
     pub(super) inserted: HashSet<String>,
     pub(super) events: Vec<RawEvent>,
     pub(super) positions: Vec<Option<NativePosition>>,
@@ -152,6 +154,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             launches: links.launches,
             agent_owner: links.agent_owner,
             agent_tool_ids: links.agent_tool_ids,
+            tool_starts: HashMap::new(),
             inserted: HashSet::new(),
             events: Vec::new(),
             positions: Vec::new(),

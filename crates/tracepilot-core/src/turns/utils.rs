@@ -25,8 +25,10 @@ pub(crate) fn json_value_to_string(value: &serde_json::Value) -> String {
         .unwrap_or_else(|| value.to_string())
 }
 
-/// Shell tools whose results end with the process exit code.
+/// Shell tools whose results end with the process exit code. `shell` is the
+/// provider-neutral name (Claude Code's `Bash`, mapping.md §2).
 const SHELL_TOOLS: &[&str] = &[
+    "shell",
     "bash",
     "powershell",
     "local_shell",

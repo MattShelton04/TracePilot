@@ -147,15 +147,24 @@ const OMITTED: &str = "[omitted by TracePilot]";
 /// - Any `base64` string (`toolUseResult.file.base64` stores the image again).
 /// - `toolUseResult.originalFile`: the full file before an Edit or Write;
 ///   `structuredPatch` carries the change.
+/// - `toolUseResult.stdout` of a shell whose output is an image (`isImage`).
 pub(super) fn sanitize(value: &mut Value) -> usize {
-    if let Some(original) = value
-        .get_mut("toolUseResult")
-        .and_then(|result| result.get_mut("originalFile"))
-        .filter(|original| original.is_string())
-    {
-        *original = Value::String(OMITTED.into());
+    let mut count = 0;
+    if let Some(result) = value.get_mut("toolUseResult") {
+        if let Some(original) = result
+            .get_mut("originalFile")
+            .filter(|original| original.is_string())
+        {
+            *original = Value::String(OMITTED.into());
+        }
+        if result.get("isImage").and_then(Value::as_bool) == Some(true)
+            && let Some(stdout) = result.get_mut("stdout").filter(|out| out.is_string())
+        {
+            *stdout = Value::String(omitted_bytes(stdout));
+            count += 1;
+        }
     }
-    sanitize_images(value)
+    count + sanitize_images(value)
 }
 
 fn sanitize_images(value: &mut Value) -> usize {
