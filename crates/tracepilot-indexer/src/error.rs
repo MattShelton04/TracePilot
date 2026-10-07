@@ -49,6 +49,11 @@ pub enum IndexerError {
         existing: String,
         incoming: String,
     },
+
+    /// The source's configuration changed while a pass ran; the pass's
+    /// writes for it were rolled back.
+    #[error("configuration of source '{name}' changed during indexing")]
+    StaleSource { name: String },
 }
 
 pub type Result<T> = std::result::Result<T, IndexerError>;

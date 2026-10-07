@@ -8,9 +8,10 @@ use std::path::{Path, PathBuf};
 use crate::error::{Result, TracePilotError};
 use crate::ids::SessionId;
 use crate::parsing::checkpoints::parse_checkpoints;
+use crate::parsing::events::load_event_snapshot;
 use crate::parsing::rewind_snapshots::parse_rewind_index;
 use crate::parsing::session_db::{read_todo_deps, read_todos};
-use crate::parsing::snapshot::check_cancelled;
+use crate::parsing::snapshot::{FileFingerprint, check_cancelled};
 use crate::paths::SessionPaths;
 use crate::session::discovery::{
     discover_sessions_cancellable, has_lock_file, resolve_session_path_direct,
@@ -20,8 +21,8 @@ use crate::summary::{
 };
 
 use super::{
-    Liveness, ProviderSnapshot, SessionArtifacts, SessionLocator, SessionProvider, SessionRole,
-    SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
+    Liveness, ProviderEvents, ProviderSnapshot, SessionArtifacts, SessionLocator, SessionProvider,
+    SessionRole, SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
 };
 
 const CAPABILITIES: SourceCapabilities = SourceCapabilities {
@@ -54,6 +55,15 @@ impl CopilotProvider {
         &self.session_state_dir
     }
 
+    /// The locator of the session directory `dir`, named by its directory.
+    pub fn session_at(dir: impl Into<PathBuf>) -> SessionLocator {
+        let dir = dir.into();
+        let name = dir
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned());
+        Self::locator(SessionId::from_validated(name.unwrap_or_default()), dir)
+    }
+
     fn locator(id: SessionId, dir: PathBuf) -> SessionLocator {
         let source_bytes_hint = std::fs::metadata(SessionPaths::from_root(&dir).events_jsonl())
             .map_or(0, |metadata| metadata.len());
@@ -81,6 +91,21 @@ pub fn source_fingerprint(
         ],
         None,
     )
+}
+
+/// The inverse of [`source_fingerprint`]: the stored Copilot form.
+fn session_fingerprint(fingerprint: &SourceFingerprint) -> SessionFingerprint {
+    let entry = |name: &str| {
+        fingerprint
+            .files
+            .iter()
+            .find(|(path, _)| path.file_name().is_some_and(|file| file == name))
+            .and_then(|(_, file)| file.clone())
+    };
+    SessionFingerprint {
+        workspace: entry("workspace.yaml"),
+        events: entry("events.jsonl"),
+    }
 }
 
 fn snapshot(load: SessionLoadResult, fingerprint: SourceFingerprint) -> ProviderSnapshot {
@@ -134,6 +159,43 @@ impl SessionProvider for CopilotProvider {
             load_session_summary_with_events(dir)?,
             fingerprint,
         ))
+    }
+
+    /// Events only: search needs neither `workspace.yaml` nor turns.
+    fn load_events(
+        &self,
+        session: &SessionLocator,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<ProviderEvents> {
+        let paths = SessionPaths::from_root(&session.primary_path);
+        let workspace = FileFingerprint::read(&paths.workspace_yaml())?;
+        let snapshot = load_event_snapshot(&paths.events_jsonl(), &is_cancelled)?;
+        let fingerprint = SessionFingerprint {
+            workspace,
+            events: snapshot.fingerprint,
+        };
+        Ok(ProviderEvents {
+            events: snapshot.parsed.map(|parsed| parsed.events),
+            fingerprint: source_fingerprint(&session.primary_path, fingerprint),
+        })
+    }
+
+    /// An absent `session-state` directory has no sessions to list, but it
+    /// is not a complete inventory either.
+    fn root_exists(&self) -> bool {
+        self.session_state_dir.is_dir()
+    }
+
+    /// Kept in the `SessionFingerprint` form existing indexes store.
+    fn stored_fingerprint(&self, fingerprint: &SourceFingerprint) -> Result<String> {
+        Ok(serde_json::to_string(&session_fingerprint(fingerprint))?)
+    }
+
+    /// Search content comes from `events.jsonl` alone.
+    fn stored_search_fingerprint(&self, fingerprint: &SourceFingerprint) -> Result<String> {
+        Ok(serde_json::to_string(
+            &session_fingerprint(fingerprint).events,
+        )?)
     }
 
     fn liveness(&self, session: &SessionLocator) -> Liveness {

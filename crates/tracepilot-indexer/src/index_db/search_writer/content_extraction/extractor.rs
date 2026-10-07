@@ -11,6 +11,12 @@ use tracepilot_core::utils::truncate_utf8;
 /// This is a pure function with no database interaction — safe to call
 /// outside of a transaction to avoid holding locks during CPU work.
 ///
+/// The rule is the same for every source: prompts, messages, visible
+/// reasoning and tool text are searchable. Only canonical event types are
+/// matched, so prompt attachments (never read from `UserMessage`) and the
+/// native-only records a source keeps for the Events tab (`Unknown` types
+/// with `Other` data: attachments, bookkeeping) are not.
+///
 /// Accepts a validated [`SessionId`](tracepilot_core::ids::SessionId) so
 /// callers cannot accidentally stamp rows with a task/job identifier.
 pub fn extract_search_content(

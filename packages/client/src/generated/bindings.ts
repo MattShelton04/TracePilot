@@ -106,8 +106,11 @@ export type GitInfo = {
 
 // Enriched indexing progress payload emitted via Tauri events.
 export type IndexingProgressPayload = {
+	// Sessions processed across every source.
 	current: number,
 	total: number,
+	// The source being indexed; `None` before the first one starts.
+	source: SourceProgressPayload | null,
 	// Per-session info (None if this session was skipped or failed).
 	sessionRepo: string | null,
 	sessionBranch: string | null,
@@ -149,6 +152,13 @@ export type SessionListItem = {
 
 // Which tool wrote a session.
 export type SessionSource = "copilot" | "claudeCode";
+
+// Progress through one source's sessions.
+export type SourceProgressPayload = {
+	source: SessionSource,
+	current: number,
+	total: number,
+};
 
 export type UpdateCheckResult = {
 	currentVersion: string,

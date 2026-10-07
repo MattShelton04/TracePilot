@@ -20,16 +20,20 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::watch;
+use tracepilot_indexer::SourceGenerations;
 
 /// Job-coordination state. One instance lives inside
 /// [`super::IndexingSemaphores`].
 pub struct IndexJobState {
     /// Invalidates work queued before a reset or root relocation.
     generation: AtomicU64,
+    /// Per-source configuration generations: index writes for a source
+    /// commit only while the generation their pass captured is current.
+    source_generations: Arc<SourceGenerations>,
     /// Sequence number of the most recently *started* session reindex.
     started_seq: AtomicU64,
     /// Start sequence and result of the most recently *completed* reindex.
@@ -49,6 +53,7 @@ impl IndexJobState {
         let (initial_build, _) = watch::channel(false);
         Self {
             generation: AtomicU64::new(1),
+            source_generations: Arc::default(),
             started_seq: AtomicU64::new(0),
             last_completed: Mutex::new(None),
             initial_build,
@@ -62,6 +67,10 @@ impl IndexJobState {
 
     pub fn generation(&self) -> u64 {
         self.generation.load(Ordering::Acquire)
+    }
+
+    pub fn source_generations(&self) -> &Arc<SourceGenerations> {
+        &self.source_generations
     }
 
     /// Caller must hold both indexing permits before invalidating work.

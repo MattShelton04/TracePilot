@@ -256,6 +256,15 @@ pub struct ProviderSnapshot {
     pub fingerprint: SourceFingerprint,
 }
 
+/// A session's events without its summary.
+pub struct ProviderEvents {
+    /// Normalized events; `None` when the source has no event log yet.
+    pub events: Option<Vec<TypedEvent>>,
+    /// Read before parsing; a successful load certifies the files did not
+    /// change.
+    pub fingerprint: SourceFingerprint,
+}
+
 /// A source's todo list.
 #[derive(Debug, Clone)]
 pub struct TodoList {

@@ -2,10 +2,15 @@
 
 use std::path::Path;
 
+use tracepilot_core::ids::SessionId;
+use tracepilot_core::provider::{SessionLocator, SessionSource};
+
 use crate::Result;
 use crate::index_db;
-use crate::indexing::progress::SearchIndexingProgress;
-use tracepilot_core::provider::SessionSource;
+use crate::index_db::search_writer::SearchContentRow;
+use crate::indexing::inventory::{self, SourcePass};
+use crate::indexing::progress::{SearchIndexingProgress, SourceProgress};
+use crate::indexing::scope::IndexScope;
 
 /// Minimum session count for amortizing a shared search-write transaction.
 const BULK_MIN_SESSIONS: usize = 10;
@@ -26,148 +31,104 @@ fn use_bulk_write(stale_sessions: usize, new_rows: usize, existing_rows: usize) 
     stale_sessions >= BULK_MIN_SESSIONS && new_rows.saturating_mul(5) >= existing_rows
 }
 
-/// Index search content for sessions that need it (Phase 2 — background).
+/// Index search content for the Copilot sessions under `session_state_dir`
+/// (Phase 2 — background). Returns (indexed_count, skipped_count).
+pub fn reindex_search_content(
+    session_state_dir: &Path,
+    index_db_path: &Path,
+    on_progress: impl FnMut(&SearchIndexingProgress),
+    is_cancelled: impl Fn() -> bool,
+) -> Result<(usize, usize)> {
+    reindex_search_content_scoped(
+        &IndexScope::copilot(session_state_dir),
+        index_db_path,
+        on_progress,
+        is_cancelled,
+    )
+}
+
+/// Index search content for every source in `scope` that needs it.
 ///
 /// This should be called AFTER Phase 1 (main reindex) completes.
 /// Alternates bounded source preparation and transactional search writes.
-/// Returns (indexed_count, skipped_count).
+/// A source whose configuration changes mid-pass is skipped, and its current
+/// batch rolled back. Returns (indexed_count, skipped_count).
 #[tracing::instrument(skip_all)]
-pub fn reindex_search_content(
-    session_state_dir: &Path,
+pub fn reindex_search_content_scoped(
+    scope: &IndexScope,
     index_db_path: &Path,
     mut on_progress: impl FnMut(&SearchIndexingProgress),
     is_cancelled: impl Fn() -> bool,
 ) -> Result<(usize, usize)> {
     let phase2_start = std::time::Instant::now();
-    let discovery = tracepilot_core::session::discovery::discover_sessions_cancellable(
-        session_state_dir,
-        &is_cancelled,
-    );
+    let discovery = inventory::discover(scope, &is_cancelled);
     if is_cancelled() {
         return Ok((0, 0));
     }
-    let sessions = discovery?;
+    let passes = discovery?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
+    let total = passes.iter().map(|pass| pass.sessions.len()).sum();
     tracing::debug!(
-        sessions = sessions.len(),
+        sessions = total,
         "Phase 2: starting search content indexing"
     );
 
-    let total = sessions.len();
-
     // Step 1: Collect sessions needing search reindex (sequential DB reads)
-    let mut to_index = Vec::new();
+    let mut to_index = Vec::with_capacity(passes.len());
     let mut skipped = 0;
-
-    for session in &sessions {
-        if is_cancelled() {
-            tracing::info!(skipped, "Search indexing cancelled during staleness check");
-            return Ok((0, skipped));
+    for pass in &passes {
+        let mut stale = Vec::new();
+        for session in &pass.sessions {
+            if is_cancelled() {
+                tracing::info!(skipped, "Search indexing cancelled during staleness check");
+                return Ok((0, skipped));
+            }
+            if db.search_is_stale(pass.provider.as_ref(), session) {
+                stale.push(session);
+            } else {
+                skipped += 1;
+            }
         }
-        if db.needs_search_reindex(&session.id, &session.path) {
-            to_index.push(session);
-        } else {
-            skipped += 1;
-        }
+        to_index.push(stale);
     }
 
     tracing::debug!(
-        to_index = to_index.len(),
+        to_index = to_index.iter().map(Vec::len).sum::<usize>(),
         skipped,
         total,
         "Search reindex: staleness check complete"
     );
 
-    if to_index.is_empty() {
+    if to_index.iter().all(Vec::is_empty) {
         on_progress(&SearchIndexingProgress {
             current: total,
             total,
+            source: None,
         });
         return Ok((0, skipped));
     }
 
-    // Keep only a bounded source batch resident. The calling thread polls
-    // cancellation while workers parse and extract each source snapshot.
-    let mut remaining = to_index.as_slice();
     let mut indexed = 0;
     let mut processed = skipped;
-    while !remaining.is_empty() {
-        if is_cancelled() {
-            return Ok((indexed, skipped));
-        }
-        let batch = super::batches::take_batch(&mut remaining);
-        let mut prepared = Vec::new();
-        let mut fingerprints = Vec::new();
-        for snapshot in super::search_prepare::prepare_batch(batch, &is_cancelled) {
-            prepared.push((snapshot.session_id, snapshot.rows));
-            fingerprints.push(snapshot.fingerprint);
-        }
-        if is_cancelled() {
-            return Ok((indexed, skipped));
-        }
-        let new_rows = prepared.iter().map(|(_, rows)| rows.len()).sum();
-        let existing_rows = db.search_content_row_count()?;
-        let bulk = use_bulk_write(prepared.len(), new_rows, existing_rows);
-        let bulk_done = if bulk {
-            match db.bulk_write_search_snapshots(
-                SessionSource::Copilot,
-                &prepared,
-                &fingerprints,
-                &is_cancelled,
-            ) {
-                Ok(_) => {
-                    indexed += prepared.len();
-                    true
-                }
-                Err(error) => {
-                    tracing::warn!(error = %error, "Bulk search write failed; retrying individually");
-                    false
-                }
-            }
-        } else {
-            false
+    for (pass, stale) in passes.iter().zip(&to_index) {
+        let mut progress = SourceProgress {
+            source: pass.provider.source(),
+            current: pass.sessions.len() - stale.len(),
+            total: pass.sessions.len(),
         };
-        if !bulk_done {
-            if prepared.len() >= BULK_MIN_SESSIONS {
-                match db.upsert_search_snapshots(
-                    SessionSource::Copilot,
-                    &prepared,
-                    &fingerprints,
-                    &is_cancelled,
-                ) {
-                    Ok(count) => indexed += count,
-                    Err(error) => tracing::warn!(error = %error,
-                        "Search batch not committed; retaining previous content"),
-                }
-            } else {
-                // A few large sessions do not amortize transaction coalescing:
-                // release SQLite/FTS write state between their individual commits.
-                for (snapshot, fingerprint) in prepared.iter().zip(&fingerprints) {
-                    if is_cancelled() {
-                        return Ok((indexed, skipped));
-                    }
-                    match db.upsert_search_snapshot(
-                        SessionSource::Copilot,
-                        &snapshot.0,
-                        &snapshot.1,
-                        Some(fingerprint),
-                        &is_cancelled,
-                    ) {
-                        Ok(_) => indexed += 1,
-                        Err(error) => tracing::warn!(session_id = %snapshot.0, error = %error,
-                            "Search content not written; retaining previous content"),
-                    }
-                }
-            }
-        }
-        if is_cancelled() {
+        let (written, cancelled) = index_source(&db, scope, pass, stale, &is_cancelled, |batch| {
+            processed += batch;
+            progress.current += batch;
+            on_progress(&SearchIndexingProgress {
+                current: processed,
+                total,
+                source: Some(progress),
+            });
+        })?;
+        indexed += written;
+        if cancelled {
             return Ok((indexed, skipped));
         }
-        processed += batch.len();
-        on_progress(&SearchIndexingProgress {
-            current: processed,
-            total,
-        });
     }
 
     // Time-gated maintenance: fires on the first indexing pass after startup
@@ -186,10 +147,110 @@ pub fn reindex_search_content(
     Ok((indexed, skipped))
 }
 
-/// Full rebuild: invalidate freshness, then atomically replace each complete snapshot.
-#[tracing::instrument(skip_all)]
+/// Keep only a bounded source batch resident. The calling thread polls
+/// cancellation while workers parse and extract each source snapshot.
+///
+/// Returns the sessions committed and whether the pass was cancelled. Stops
+/// early, without failing, when the source's configuration changes.
+fn index_source(
+    db: &index_db::IndexDb,
+    scope: &IndexScope,
+    pass: &SourcePass,
+    sessions: &[&SessionLocator],
+    is_cancelled: &impl Fn() -> bool,
+    mut on_batch: impl FnMut(usize),
+) -> Result<(usize, bool)> {
+    let source = pass.provider.source();
+    // Writers check this after their writes and before committing.
+    let stop = || is_cancelled() || !scope.is_current(source);
+    let mut remaining = sessions;
+    let mut indexed = 0;
+    while !remaining.is_empty() && !stop() {
+        let batch = super::batches::take_batch(&mut remaining);
+        let mut prepared = Vec::new();
+        let mut fingerprints = Vec::new();
+        for snapshot in super::search_prepare::prepare_batch(&pass.provider, batch, &stop) {
+            prepared.push((snapshot.session_id, snapshot.rows));
+            fingerprints.push(snapshot.fingerprint);
+        }
+        if stop() {
+            break;
+        }
+        indexed += write_batch(db, source, &prepared, &fingerprints, &stop)?;
+        if stop() {
+            break;
+        }
+        on_batch(batch.len());
+    }
+    Ok((indexed, is_cancelled()))
+}
+
+/// Write one prepared batch, choosing the bulk or the per-session path.
+fn write_batch(
+    db: &index_db::IndexDb,
+    source: SessionSource,
+    prepared: &[(SessionId, Vec<SearchContentRow>)],
+    fingerprints: &[String],
+    stop: &impl Fn() -> bool,
+) -> Result<usize> {
+    let new_rows = prepared.iter().map(|(_, rows)| rows.len()).sum();
+    let existing_rows = db.search_content_row_count()?;
+    if use_bulk_write(prepared.len(), new_rows, existing_rows) {
+        match db.bulk_write_search_snapshots(source, prepared, fingerprints, stop) {
+            Ok(_) => return Ok(prepared.len()),
+            Err(_) if stop() => return Ok(0),
+            Err(error) => {
+                tracing::warn!(error = %error, "Bulk search write failed; retrying individually");
+            }
+        }
+    }
+    if prepared.len() >= BULK_MIN_SESSIONS {
+        return Ok(
+            match db.upsert_search_snapshots(source, prepared, fingerprints, stop) {
+                Ok(count) => count,
+                Err(error) => {
+                    tracing::warn!(error = %error,
+                        "Search batch not committed; retaining previous content");
+                    0
+                }
+            },
+        );
+    }
+    // A few large sessions do not amortize transaction coalescing:
+    // release SQLite/FTS write state between their individual commits.
+    let mut indexed = 0;
+    for ((session_id, rows), fingerprint) in prepared.iter().zip(fingerprints) {
+        if stop() {
+            break;
+        }
+        match db.upsert_search_snapshot(source, session_id, rows, Some(fingerprint), stop) {
+            Ok(_) => indexed += 1,
+            Err(error) => tracing::warn!(session_id = %session_id, error = %error,
+                "Search content not written; retaining previous content"),
+        }
+    }
+    Ok(indexed)
+}
+
+/// Full rebuild of the Copilot sessions under `session_state_dir`.
 pub fn rebuild_search_content(
     session_state_dir: &Path,
+    index_db_path: &Path,
+    on_progress: impl FnMut(&SearchIndexingProgress),
+    is_cancelled: impl Fn() -> bool,
+) -> Result<(usize, usize)> {
+    rebuild_search_content_scoped(
+        &IndexScope::copilot(session_state_dir),
+        index_db_path,
+        on_progress,
+        is_cancelled,
+    )
+}
+
+/// Full rebuild: invalidate freshness, then atomically replace each complete snapshot.
+#[tracing::instrument(skip_all)]
+pub fn rebuild_search_content_scoped(
+    scope: &IndexScope,
     index_db_path: &Path,
     on_progress: impl FnMut(&SearchIndexingProgress),
     is_cancelled: impl Fn() -> bool,
@@ -198,8 +259,7 @@ pub fn rebuild_search_content(
     db.invalidate_search_content()?;
     drop(db);
 
-    let result =
-        reindex_search_content(session_state_dir, index_db_path, on_progress, is_cancelled);
+    let result = reindex_search_content_scoped(scope, index_db_path, on_progress, is_cancelled);
 
     // Force full maintenance after rebuild — clear_search_content frees many
     // pages that should be reclaimed immediately, not deferred to next startup.

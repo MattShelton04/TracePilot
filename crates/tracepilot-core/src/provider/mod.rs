@@ -16,8 +16,8 @@ mod types;
 
 pub use copilot::CopilotProvider;
 pub use types::{
-    CostBasis, CostFigure, CostUnit, Liveness, NativeRecord, ProviderSnapshot, RunStatus,
-    SessionArtifacts, SessionLocator, SessionMetrics, SessionRole, SessionSource,
+    CostBasis, CostFigure, CostUnit, Liveness, NativeRecord, ProviderEvents, ProviderSnapshot,
+    RunStatus, SessionArtifacts, SessionLocator, SessionMetrics, SessionRole, SessionSource,
     SourceCapabilities, SourceFingerprint, TodoList,
 };
 
@@ -44,6 +44,40 @@ pub trait SessionProvider: Send + Sync {
         strict: bool,
         is_cancelled: &dyn Fn() -> bool,
     ) -> Result<ProviderSnapshot>;
+
+    /// A strict load of the events alone, for durable consumers that need
+    /// no summary (search). Sources whose summary costs more than their
+    /// events override it.
+    fn load_events(
+        &self,
+        session: &SessionLocator,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<ProviderEvents> {
+        let snapshot = self.load_snapshot(session, true, is_cancelled)?;
+        Ok(ProviderEvents {
+            events: snapshot.events,
+            fingerprint: snapshot.fingerprint,
+        })
+    }
+
+    /// Whether the configured root exists. A source that reports a missing
+    /// root as an empty inventory must say so here, so that no caller prunes
+    /// against it.
+    fn root_exists(&self) -> bool {
+        true
+    }
+
+    /// The stored form of a fingerprint (`sessions.source_fingerprint`),
+    /// compared only for equality.
+    fn stored_fingerprint(&self, fingerprint: &SourceFingerprint) -> Result<String> {
+        Ok(serde_json::to_string(fingerprint)?)
+    }
+
+    /// The stored form of the files search content is extracted from
+    /// (`sessions.search_source_fingerprint`).
+    fn stored_search_fingerprint(&self, fingerprint: &SourceFingerprint) -> Result<String> {
+        self.stored_fingerprint(fingerprint)
+    }
 
     fn liveness(&self, session: &SessionLocator) -> Liveness;
 

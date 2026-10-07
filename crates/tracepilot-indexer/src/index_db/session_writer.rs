@@ -4,9 +4,13 @@ use crate::Result;
 use crate::error::IndexerError;
 use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
+use std::sync::Arc;
 
 use tracepilot_core::ids::SessionId;
-use tracepilot_core::provider::{SessionRole, SessionSource};
+use tracepilot_core::provider::{
+    CopilotProvider, ProviderSnapshot, SessionLocator, SessionProvider, SessionRole, SessionSource,
+    SourceFingerprint,
+};
 
 use super::IndexDb;
 use super::types::*;
@@ -22,14 +26,15 @@ pub(crate) use analytics::extract_session_analytics;
 
 /// Pre-computed session data ready for DB insertion.
 ///
-/// Produced by [`prepare_session_data`] (pure, no DB access — safe to run in parallel),
+/// Produced by [`prepare_snapshot`] (pure, no DB access — safe to run in parallel),
 /// consumed by [`IndexDb::write_prepared_session`] (requires DB — must run sequentially).
 pub(crate) struct PreparedSessionData {
-    pub session_path: std::path::PathBuf,
+    pub provider: Arc<dyn SessionProvider>,
+    pub locator: SessionLocator,
     pub summary: tracepilot_core::SessionSummary,
     pub analytics: SessionAnalytics,
     pub index_info: SessionIndexInfo,
-    pub fingerprint: tracepilot_core::summary::SessionFingerprint,
+    pub fingerprint: SourceFingerprint,
     pub identity: SessionIdentity,
 }
 
@@ -44,55 +49,88 @@ pub(crate) struct SessionIdentity {
 }
 
 impl SessionIdentity {
-    /// Copilot sessions are always primary and have no parent.
-    pub(crate) fn copilot() -> Self {
+    pub(crate) fn from_locator(locator: &SessionLocator) -> Self {
         Self {
-            source: SessionSource::Copilot,
-            parent_session_id: None,
-            role: SessionRole::Primary,
+            source: locator.source,
+            parent_session_id: locator.parent_id.as_ref().map(|id| id.as_str().to_string()),
+            role: locator.role,
             source_format_version: None,
         }
     }
 }
 
-/// Parse and compute analytics for a session without any database interaction.
-///
-/// This is the CPU/IO-bound portion of indexing that can be safely parallelized
-/// with Rayon since it only reads files and runs pure computation.
+impl PreparedSessionData {
+    /// Compute analytics for a loaded snapshot without any database interaction.
+    pub(crate) fn from_snapshot(
+        provider: Arc<dyn SessionProvider>,
+        locator: SessionLocator,
+        snapshot: ProviderSnapshot,
+        identity: SessionIdentity,
+    ) -> Self {
+        let ProviderSnapshot {
+            summary,
+            events,
+            turns,
+            diagnostics,
+            fingerprint,
+            ..
+        } = snapshot;
+        let file_meta = SessionFileMeta::from_fingerprint(&fingerprint, &locator.primary_path);
+        let analytics = extract_session_analytics(
+            &summary,
+            &events,
+            turns.as_deref(),
+            diagnostics.as_ref(),
+            &file_meta,
+        );
+        let index_info = SessionIndexInfo {
+            repository: summary.repository.clone(),
+            branch: summary.branch.clone(),
+            current_model: analytics.current_model.clone(),
+            total_tokens: analytics.total_tokens.max(0) as u64,
+            event_count: summary.event_count.unwrap_or(0),
+            turn_count: summary.turn_count.unwrap_or(0),
+        };
+        Self {
+            provider,
+            locator,
+            summary,
+            analytics,
+            index_info,
+            fingerprint,
+            identity,
+        }
+    }
+}
+
+/// Strictly load and analyze one session: the CPU/IO-bound part of indexing,
+/// safe to run in parallel because it never touches the database.
+pub(crate) fn prepare_snapshot(
+    provider: &Arc<dyn SessionProvider>,
+    locator: &SessionLocator,
+    is_cancelled: &dyn Fn() -> bool,
+) -> Result<PreparedSessionData> {
+    let snapshot = provider.load_snapshot(locator, true, is_cancelled)?;
+    Ok(PreparedSessionData::from_snapshot(
+        Arc::clone(provider),
+        locator.clone(),
+        snapshot,
+        SessionIdentity::from_locator(locator),
+    ))
+}
+
+/// A Copilot session directory outside any registry (`upsert_session`).
+pub(crate) fn copilot_session(session_path: &Path) -> (Arc<dyn SessionProvider>, SessionLocator) {
+    let root = session_path.parent().unwrap_or(session_path);
+    (
+        Arc::new(CopilotProvider::new(root)),
+        CopilotProvider::session_at(session_path),
+    )
+}
+
 pub(crate) fn prepare_session_data(session_path: &Path) -> Result<PreparedSessionData> {
-    let (load_result, fingerprint) =
-        tracepilot_core::summary::load_session_snapshot(session_path, &|| false)?;
-    let summary = load_result.summary;
-    let typed_events = load_result.typed_events;
-    let diagnostics = load_result.diagnostics;
-
-    let file_meta = SessionFileMeta::from_fingerprint(&fingerprint);
-
-    let analytics = extract_session_analytics(
-        &summary,
-        &typed_events,
-        load_result.turns.as_deref(),
-        diagnostics.as_ref(),
-        &file_meta,
-    );
-
-    let index_info = SessionIndexInfo {
-        repository: summary.repository.clone(),
-        branch: summary.branch.clone(),
-        current_model: analytics.current_model.clone(),
-        total_tokens: analytics.total_tokens.max(0) as u64,
-        event_count: summary.event_count.unwrap_or(0),
-        turn_count: summary.turn_count.unwrap_or(0),
-    };
-
-    Ok(PreparedSessionData {
-        session_path: session_path.to_path_buf(),
-        summary,
-        analytics,
-        index_info,
-        fingerprint,
-        identity: SessionIdentity::copilot(),
-    })
+    let (provider, locator) = copilot_session(session_path);
+    prepare_snapshot(&provider, &locator, &|| false)
 }
 
 /// Refuse to overwrite a row another source wrote. Ids are native UUIDs, so a
@@ -143,15 +181,17 @@ impl IndexDb {
         &self,
         prepared: &PreparedSessionData,
     ) -> Result<SessionIndexInfo> {
+        let session_path = &prepared.locator.primary_path;
         tracepilot_core::parsing::snapshot::ensure_unchanged(
             &prepared.fingerprint,
-            &tracepilot_core::summary::SessionFingerprint::read(&prepared.session_path)?,
-            &prepared.session_path,
+            &prepared.provider.fingerprint(&prepared.locator)?,
+            session_path,
         )?;
-        let source_fingerprint = serde_json::to_string(&prepared.fingerprint)?;
+        let source_fingerprint = prepared
+            .provider
+            .stored_fingerprint(&prepared.fingerprint)?;
         let summary = &prepared.summary;
         let analytics = &prepared.analytics;
-        let session_path = &prepared.session_path;
 
         let identity = &prepared.identity;
         let index_info = prepared.index_info.clone();
@@ -286,23 +326,33 @@ impl IndexDb {
         }
     }
 
-    /// Determine whether the session should be re-indexed.
-    ///
-    /// Checks workspace.yaml mtime, events.jsonl mtime+size, and analytics_version.
+    /// Determine whether the Copilot session at `session_path` should be re-indexed.
     ///
     /// Accepts a validated [`SessionId`] so callers cannot accidentally pass a
     /// task/job ID or some other opaque string.
     pub fn needs_reindex(&self, session_id: &SessionId, session_path: &Path) -> bool {
-        let Ok(current) = tracepilot_core::summary::SessionFingerprint::read(session_path) else {
-            return true;
-        };
-        let Ok(current) = serde_json::to_string(&current) else {
+        let (provider, mut locator) = copilot_session(session_path);
+        locator.id = session_id.clone();
+        self.session_is_stale(provider.as_ref(), &locator)
+    }
+
+    /// Whether the source fingerprint changed since the session was indexed,
+    /// or the analytics version was bumped.
+    pub(crate) fn session_is_stale(
+        &self,
+        provider: &dyn SessionProvider,
+        locator: &SessionLocator,
+    ) -> bool {
+        let Ok(current) = provider
+            .fingerprint(locator)
+            .and_then(|fingerprint| provider.stored_fingerprint(&fingerprint))
+        else {
             return true;
         };
         self.conn
             .query_row(
                 "SELECT source_fingerprint, analytics_version FROM sessions WHERE id = ?1",
-                [session_id.as_str()],
+                [locator.id.as_str()],
                 |row| {
                     Ok((
                         row.get::<_, Option<String>>(0)?,
