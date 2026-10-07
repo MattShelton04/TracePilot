@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildClaudeCodeSessions } from "./claude-code.mjs";
 import { buildReportIntentSession, buildRichToolsSession } from "./rich-tools.mjs";
 
 const owner = "tracepilot-rich-tool-fixtures-v1";
@@ -33,7 +34,11 @@ export function generateSessionFixtures(root) {
   const sessions = [buildRichToolsSession(), buildReportIntentSession()];
   const manifestPath = join(root, "synthetic-fixtures.json");
   const sessionRoot = join(root, "copilot/session-state");
-  const files = sessions.flatMap((session) => {
+  // The isolated default for the Claude Code folder; indexed only after
+  // Settings → Experimental → Claude Code Sessions is turned on.
+  const claudeRoot = join(root, "claude");
+  const claudeSessions = buildClaudeCodeSessions();
+  const copilotFiles = sessions.flatMap((session) => {
     const directory = join(sessionRoot, session.id);
     return [
       {
@@ -46,6 +51,10 @@ export function generateSessionFixtures(root) {
       },
     ];
   });
+  const claudeFiles = claudeSessions.flatMap((session) =>
+    session.files.map((file) => ({ path: join(claudeRoot, file.path), content: file.content })),
+  );
+  const files = [...copilotFiles, ...claudeFiles];
   const manifest = {
     owner,
     sessions: sessions.map(({ id, title, events, expected }) => ({
@@ -54,6 +63,7 @@ export function generateSessionFixtures(root) {
       eventCount: events.length,
       expected,
     })),
+    claudeSessions: claudeSessions.map(({ id, title }) => ({ id, title })),
     files: files.map(({ path, content }) => ({
       path: relative(root, path).split(sep).join("/"),
       sha256: hash(content),
@@ -85,6 +95,8 @@ export function generateSessionFixtures(root) {
       !existsSync(join(sessionRoot, session.id)),
       `Unowned fixture session already exists: ${session.id}`,
     );
+  for (const file of claudeFiles)
+    assert(!existsSync(file.path), `Unowned fixture file already exists: ${file.path}`);
   ensureDirectory(sessionRoot);
   for (const file of files) {
     ensureDirectory(dirname(file.path));

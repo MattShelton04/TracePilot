@@ -21,6 +21,7 @@ impl TracePilotConfig {
             ("TracePilot data directory", self.tracepilot_home()),
             ("session-state directory", self.session_state_dir()),
             ("index database", self.index_db_path()),
+            ("Claude Code folder", self.claude_config_dir()),
         ] {
             if !tracepilot_core::paths::path_is_within_data_root(root, &path) {
                 return Err(BindingsError::Validation(format!(
@@ -48,6 +49,10 @@ impl TracePilotConfig {
                 self.paths.session_state_dir.as_str(),
             ),
             ("index database", self.paths.index_db_path.as_str()),
+            (
+                "Claude Code folder",
+                self.sources.claude_code.config_dir.as_str(),
+            ),
         ] {
             if configured.trim().is_empty() {
                 continue;
@@ -80,9 +85,16 @@ mod tests {
             .join("copilot/session-state")
             .to_string_lossy()
             .to_string();
+        config.sources.claude_code.config_dir = root.join("claude").to_string_lossy().to_string();
         config.normalize_paths();
 
         assert!(config.validate_paths_within_data_root(&root).is_ok());
+
+        let mut outside = config.clone();
+        outside.sources.claude_code.config_dir =
+            dir.path().join(".claude").to_string_lossy().to_string();
+        let error = outside.validate_paths_within_data_root(&root).unwrap_err();
+        assert!(error.to_string().contains("Claude Code folder"));
 
         config.paths.session_state_dir = dir
             .path()

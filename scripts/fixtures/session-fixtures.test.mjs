@@ -4,6 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
+  buildClaudeCodeSessions,
+  claudeLanternSessionId,
+  claudeOrchardSessionId,
+} from "./claude-code.mjs";
+import {
   buildReportIntentSession,
   buildRichToolsSession,
   reportIntentSessionId,
@@ -155,7 +160,16 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
     generated.sessions.map((session) => session.id),
     [richToolsSessionId, reportIntentSessionId],
   );
-  assert.equal(generated.files.length, 4);
+  assert.deepEqual(
+    generated.claudeSessions.map((session) => session.id),
+    [claudeOrchardSessionId, claudeLanternSessionId],
+  );
+  assert.equal(generated.files.length, 8);
+  assert(
+    existsSync(
+      join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),
+    ),
+  );
   assert.equal(generateSessionFixtures(root).reused, true);
   assert.equal(readFileSync(config, "utf8"), "# Launcher-owned config\n");
   writeFileSync(
@@ -163,6 +177,48 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
     "user modification",
   );
   assert.throws(() => generateSessionFixtures(root), /Fixture was edited/);
+});
+
+test("Claude Code sessions are deterministic, linked and shaped as Claude Code writes them", () => {
+  const sessions = buildClaudeCodeSessions();
+  assert.deepEqual(sessions, buildClaudeCodeSessions());
+  for (const session of sessions) {
+    const [main, ...rest] = session.files;
+    assert.equal(main.path.split("/").at(-1), `${session.id}.jsonl`);
+    const records = main.content
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const enveloped = records.filter((record) => record.uuid);
+    assert(enveloped.every((record) => record.sessionId === session.id && !record.isSidechain));
+    assert.equal(enveloped[0].parentUuid, null);
+    for (const [index, record] of enveloped.entries())
+      if (index > 0) assert.equal(record.parentUuid, enveloped[index - 1].uuid);
+    // Every tool call has exactly one result.
+    const uses = enveloped.flatMap((r) =>
+      r.type === "assistant" ? r.message.content.filter((b) => b.type === "tool_use") : [],
+    );
+    const results = enveloped.flatMap((r) =>
+      Array.isArray(r.message?.content)
+        ? r.message.content.filter((b) => b.type === "tool_result")
+        : [],
+    );
+    assert.deepEqual(
+      uses.map((u) => u.id),
+      results.map((r) => r.tool_use_id),
+    );
+    assert(records.some((r) => r.type === "ai-title" && r.aiTitle === session.title));
+    assert(records.some((r) => r.type === "cost-state"));
+    for (const file of rest.filter((f) => f.path.endsWith(".jsonl"))) {
+      const agent = file.content
+        .trimEnd()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      assert(agent.every((r) => r.isSidechain && r.agentId && r.sessionId === session.id));
+      const meta = JSON.parse(rest.find((f) => f.path.endsWith(".meta.json")).content);
+      assert(uses.some((u) => u.name === "Agent" && u.id === meta.toolUseId));
+    }
+  }
 });
 
 test("generation refuses either unowned session before writing the other", (t) => {

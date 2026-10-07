@@ -345,3 +345,48 @@ pub fn is_alive(pid: u32) -> bool {
             .unwrap_or(false)
     }
 }
+
+// ─── process_start_time ─────────────────────────────────────────────
+
+/// When the process `pid` started, in the format Claude Code records as
+/// `procStart`: on Windows, its creation FILETIME (100 ns ticks since 1601,
+/// UTC) as a decimal string. `None` when no such process exists or the time
+/// cannot be read, and always on other platforms, whose format is unknown.
+///
+/// Spawns one hidden PowerShell, so call it only for a pid a session's pid
+/// file names, never in a loop over every session.
+pub fn process_start_time(pid: u32) -> Option<String> {
+    #[cfg(windows)]
+    {
+        let script = format!(
+            "[System.Diagnostics.Process]::GetProcessById({pid}).StartTime.ToFileTimeUtc()"
+        );
+        let stdout = run_hidden_stdout(
+            "powershell",
+            &["-NoProfile", "-NonInteractive", "-Command", &script],
+            None,
+            Some(PROCESS_START_TIMEOUT_SECS),
+        )
+        .ok()?;
+        parse_filetime(&stdout)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = pid;
+        None
+    }
+}
+
+#[cfg(windows)]
+const PROCESS_START_TIMEOUT_SECS: u64 = 10;
+
+/// A FILETIME in decimal, re-rendered so stray output never matches.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn parse_filetime(stdout: &str) -> Option<String> {
+    stdout
+        .trim()
+        .parse::<u64>()
+        .ok()
+        .filter(|ticks| *ticks > 0)
+        .map(|ticks| ticks.to_string())
+}

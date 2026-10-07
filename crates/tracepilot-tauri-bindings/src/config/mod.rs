@@ -15,6 +15,7 @@
 //! - [`AlertsConfig`] — notification/toast/sound preferences.
 //! - [`LiveConfig`] — live session attach preferences.
 //! - [`PerformanceConfig`] — bounded runtime cache retention.
+//! - [`SourcesConfig`] — roots of session sources other than Copilot.
 //!
 //! Wire-format rule: every sub-config must carry `#[serde(default)]` on its
 //! field in [`TracePilotConfig`] so missing TOML sections round-trip cleanly.
@@ -23,11 +24,11 @@
 
 use crate::error::BindingsError;
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 mod alerts;
+mod atomic_write;
 mod coordination;
 mod defaults;
 mod features;
@@ -39,6 +40,7 @@ mod patch;
 mod paths;
 mod performance;
 mod pricing;
+mod sources;
 mod tool_rendering;
 mod ui;
 
@@ -60,6 +62,8 @@ pub use performance::{
     clamp_session_cache_size,
 };
 pub use pricing::{ModelPriceEntry, PricingConfig};
+pub(crate) use sources::canonical_claude_config_dir;
+pub use sources::{ClaudeCodeSourceConfig, SourcesConfig};
 pub use tool_rendering::ToolRenderingConfig;
 pub use ui::UiConfig;
 
@@ -102,6 +106,8 @@ pub struct TracePilotConfig {
     pub performance: PerformanceConfig,
     #[serde(default)]
     pub live: LiveConfig,
+    #[serde(default)]
+    pub sources: SourcesConfig,
 }
 
 impl Default for TracePilotConfig {
@@ -136,13 +142,21 @@ impl Default for TracePilotConfig {
             alerts: AlertsConfig::default(),
             performance: PerformanceConfig::default(),
             live: LiveConfig::default(),
+            sources: SourcesConfig {
+                claude_code: ClaudeCodeSourceConfig {
+                    config_dir: tracepilot_core::paths::default_claude_config_dir_opt()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string(),
+                },
+            },
         }
     }
 }
 
 impl TracePilotConfig {
     /// Current schema version. Bump this when adding migrations.
-    pub const CURRENT_VERSION: u32 = 11;
+    pub const CURRENT_VERSION: u32 = 12;
 
     /// Apply any pending migrations to bring the config up to the current version.
     /// Returns true if any migrations were applied.
@@ -228,6 +242,13 @@ impl TracePilotConfig {
         if self.version < 11 {
             self.version = 11;
             tracing::info!("Migrated config from v10 → v11 (session cache size setting)");
+        }
+
+        // Migration from v11 → v12: added the Claude Code sessions flag and
+        // `sources.claudeCode.configDir` (serde defaults; normalized above).
+        if self.version < 12 {
+            self.version = 12;
+            tracing::info!("Migrated config from v11 → v12 (Claude Code source)");
         }
 
         self.performance.normalize();
@@ -351,7 +372,7 @@ impl TracePilotConfig {
         tracepilot_core::utils::fs::ensure_parent_dir(path)?;
         let content = toml::to_string_pretty(self)?;
         let existing_is_valid = Self::load_from(path).is_ok();
-        atomic_replace_config(path, content.as_bytes(), existing_is_valid)
+        atomic_write::atomic_replace_config(path, content.as_bytes(), existing_is_valid)
     }
 
     pub fn session_state_dir(&self) -> PathBuf {
@@ -368,6 +389,11 @@ impl TracePilotConfig {
 
     pub fn tracepilot_home(&self) -> PathBuf {
         PathBuf::from(&self.paths.tracepilot_home)
+    }
+
+    /// Claude Code's config directory, whether or not its source is enabled.
+    pub fn claude_config_dir(&self) -> PathBuf {
+        PathBuf::from(&self.sources.claude_code.config_dir)
     }
 
     pub fn index_db_path(&self) -> PathBuf {
@@ -413,6 +439,9 @@ impl TracePilotConfig {
                 .to_string();
         }
         self.paths.index_db_path = self.index_db_path().to_string_lossy().to_string();
+        if self.sources.claude_code.config_dir.trim().is_empty() {
+            self.sources.claude_code.config_dir = defaults.sources.claude_code.config_dir;
+        }
     }
 }
 
@@ -422,79 +451,4 @@ pub type SharedConfig = Arc<RwLock<Option<TracePilotConfig>>>;
 pub fn create_shared_config() -> SharedConfig {
     let config = TracePilotConfig::load();
     Arc::new(RwLock::new(config))
-}
-
-fn atomic_replace_config(
-    path: &Path,
-    content: &[u8],
-    backup_existing: bool,
-) -> Result<(), BindingsError> {
-    let mut temp_name = path.as_os_str().to_os_string();
-    temp_name.push(format!(".tmp-{}", uuid::Uuid::new_v4()));
-    let temp_path = PathBuf::from(temp_name);
-    let mut backup_temp_path_to_cleanup = None;
-
-    let write_result = (|| {
-        let mut temp = std::fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&temp_path)?;
-        temp.write_all(content)?;
-        temp.sync_all()?;
-        drop(temp);
-
-        let backup_path = config_backup_file_path(path);
-        if backup_existing {
-            let mut backup_temp_name = backup_path.as_os_str().to_os_string();
-            backup_temp_name.push(format!(".tmp-{}", uuid::Uuid::new_v4()));
-            let backup_temp_path = PathBuf::from(backup_temp_name);
-            backup_temp_path_to_cleanup = Some(backup_temp_path.clone());
-
-            std::fs::copy(path, &backup_temp_path)?;
-            std::fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(&backup_temp_path)?
-                .sync_all()?;
-            replace_file(&backup_temp_path, &backup_path, None)?;
-            backup_temp_path_to_cleanup = None;
-        }
-
-        replace_file(
-            &temp_path,
-            path,
-            backup_existing.then_some(backup_path.as_path()),
-        )
-    })();
-
-    if write_result.is_err() {
-        let _ = std::fs::remove_file(&temp_path);
-        if let Some(backup_temp_path) = backup_temp_path_to_cleanup {
-            let _ = std::fs::remove_file(backup_temp_path);
-        }
-    }
-    write_result
-}
-
-fn replace_file(
-    source: &Path,
-    destination: &Path,
-    recovery: Option<&Path>,
-) -> Result<(), BindingsError> {
-    #[cfg(windows)]
-    if destination.exists() {
-        std::fs::remove_file(destination)?;
-    }
-
-    if let Err(error) = std::fs::rename(source, destination) {
-        if !destination.exists()
-            && let Some(recovery) = recovery
-            && recovery.exists()
-        {
-            let _ = std::fs::copy(recovery, destination);
-        }
-        return Err(error.into());
-    }
-
-    Ok(())
 }

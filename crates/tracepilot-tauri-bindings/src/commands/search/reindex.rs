@@ -23,6 +23,7 @@ use crate::types::SourceProgressPayload;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::OwnedSemaphorePermit;
+use tracepilot_core::provider::SessionSource;
 use tracepilot_indexer::IndexScope;
 
 /// Returns (updated, total) session counts.
@@ -57,6 +58,7 @@ pub(crate) async fn run_incremental_reindex(
 
     let scope = target.scope.clone();
     let index_path = target.index_path.clone();
+    let sweep = target.clone();
     let app_handle = app.clone();
     let gates_for_job = Arc::clone(gates);
 
@@ -64,6 +66,7 @@ pub(crate) async fn run_incremental_reindex(
 
     let result = tokio::task::spawn_blocking(move || {
         let _permit = permit;
+        sweep.purge_disabled_sources();
         // Readers wait for a build that starts from an empty index rather
         // than serving partial results or scanning every session from disk.
         let _initial = open_index_db(&index_path)
@@ -108,6 +111,52 @@ pub(crate) async fn run_incremental_reindex(
             Arc::clone(gates),
             None,
             target,
+            app.clone(),
+            SearchPass::Incremental,
+        );
+    }
+    result
+}
+
+/// Index one source that was just enabled or moved, then refresh search
+/// content. Waits behind a running pass. Other sources are not rescanned, and
+/// the result never satisfies a caller waiting for a full pass.
+pub(crate) async fn run_source_reindex(
+    state: &SharedConfig,
+    gates: &Arc<IndexingSemaphores>,
+    app: &tauri::AppHandle,
+    source: SessionSource,
+) -> CmdResult<(usize, usize)> {
+    let generation = gates.jobs().generation();
+    let permit = gates.acquire_sessions().await;
+    let target = IndexTarget::capture_source(state, gates, generation, source)?;
+    let scope = target.scope.clone();
+    let index_path = target.index_path.clone();
+    let app_handle = app.clone();
+
+    emit_best_effort(app, crate::events::INDEXING_STARTED, ());
+    let result = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        tracepilot_indexer::reindex_incremental_scoped(&scope, &index_path, |progress| {
+            emit_indexing_progress(&app_handle, progress);
+        })
+        .map(|(indexed, skipped)| (indexed, indexed + skipped))
+        .map_err(BindingsError::from)
+    })
+    .await;
+    emit_best_effort(app, crate::events::INDEXING_FINISHED, ());
+    invalidate_facets_cache();
+
+    let result = result?;
+    // Search covers every source, not just this one. If a search pass is
+    // already running, it re-captures its target before the rerun.
+    if result.is_ok()
+        && let Ok(full) = IndexTarget::capture(state, gates, generation)
+    {
+        spawn_search_content_phase2(
+            Arc::clone(gates),
+            None,
+            full,
             app.clone(),
             SearchPass::Incremental,
         );
@@ -348,6 +397,7 @@ fn spawn_search_content_phase2(
     }
     tokio::task::spawn_blocking(move || {
         let mut pass = pass;
+        let mut target = target;
         loop {
             let start = std::time::Instant::now();
             emit_best_effort(&app, crate::events::SEARCH_INDEXING_STARTED, ());
@@ -390,11 +440,19 @@ fn spawn_search_content_phase2(
                 break;
             }
             pass = SearchPass::Incremental;
+            // A source turned on or moved since the capture asked for this rerun.
+            match target.refreshed(&gates) {
+                Ok(current) => target = current,
+                Err(_) => break,
+            }
         }
         drop(permit);
         // A request that raced with the release above must not be lost: start
         // another pass (which re-flags the rerun if someone else got the gate).
-        if !gates.jobs().search_cancelled() && gates.jobs().take_search_rerun(target.generation) {
+        if !gates.jobs().search_cancelled()
+            && gates.jobs().take_search_rerun(target.generation)
+            && let Ok(target) = target.refreshed(&gates)
+        {
             spawn_search_content_phase2(gates, None, target, app, SearchPass::Incremental);
         }
     });

@@ -84,6 +84,8 @@ const { visiblePrimaryNav, visibleAdvancedNav, orchestrationNav, visibleConfigNa
 
 const activeSidebarId = computed(() => (route.meta?.sidebarId as string) || "sessions");
 const sessionCount = computed(() => sessionsStore.visibleSessionCount);
+// The count follows the index, including sources turned on or off in Settings.
+void sessionsStore.watchIndexUpdates();
 const currentTheme = computed(() => prefsStore.theme);
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 

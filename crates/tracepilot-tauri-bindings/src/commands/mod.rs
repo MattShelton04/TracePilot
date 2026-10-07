@@ -5,6 +5,7 @@ pub mod analytics;
 pub mod analytics_executor;
 pub mod blocking_helper;
 pub mod config_cmds;
+pub mod config_sources;
 pub mod export_import;
 pub mod file_browser;
 pub mod logging;

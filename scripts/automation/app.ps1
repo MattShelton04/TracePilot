@@ -406,7 +406,7 @@ try {
             $fixtureOutput = & node (Join-Path $repoRoot 'scripts/fixtures/session-fixtures.mjs') "--root=$resolvedDataRoot"
             if ($LASTEXITCODE -ne 0) { throw "Fixture generation failed for $resolvedDataRoot. Use a fresh -Instance or -DataRoot." }
             $manifest = $fixtureOutput -join "`n" | ConvertFrom-Json
-            Write-Host "Synthetic fixtures: $(@($manifest.sessions).Count) sessions ($(if ($manifest.reused) { 'reused' } else { 'generated' }))."
+            Write-Host "Synthetic fixtures: $(@($manifest.sessions).Count) Copilot and $(@($manifest.claudeSessions).Count) Claude Code sessions ($(if ($manifest.reused) { 'reused' } else { 'generated' }))."
             if (-not $FirstRun) { Write-CompletedSetupConfig $resolvedPaths }
         }
         if ($Runtime -eq 'development' -or $Mode -eq 'ui') {

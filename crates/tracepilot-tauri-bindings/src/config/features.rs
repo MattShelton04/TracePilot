@@ -29,6 +29,9 @@ pub struct FeaturesConfig {
     /// Agents explorer: agent definitions, overrides and cross-session usage.
     #[serde(default = "default_true")]
     pub agents: bool,
+    /// Index and view Claude Code sessions next to Copilot CLI sessions.
+    #[serde(default)]
+    pub claude_code_sessions: bool,
 }
 
 impl Default for FeaturesConfig {
@@ -44,6 +47,7 @@ impl Default for FeaturesConfig {
             config_injector: false,
             prompt_cache_insights: true,
             agents: true,
+            claude_code_sessions: false,
         }
     }
 }
@@ -57,10 +61,12 @@ mod tests {
         let defaults = FeaturesConfig::default();
         assert!(!defaults.mcp_servers);
         assert!(!defaults.config_injector);
+        assert!(!defaults.claude_code_sessions);
 
         let missing_fields: FeaturesConfig =
             toml::from_str("").expect("an empty features table should use field defaults");
         assert!(!missing_fields.mcp_servers);
         assert!(!missing_fields.config_injector);
+        assert!(!missing_fields.claude_code_sessions);
     }
 }

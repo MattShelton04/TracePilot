@@ -43,7 +43,7 @@ section_patch!(ToolRenderingPatch, ToolRenderingConfig, {
 section_patch!(FeaturesPatch, FeaturesConfig, {
     export_view: bool, session_replay: bool, render_markdown: bool, mcp_servers: bool,
     skills: bool, copilot_sdk: bool, exact_context_capture: bool, config_injector: bool,
-    prompt_cache_insights: bool, agents: bool,
+    prompt_cache_insights: bool, agents: bool, claude_code_sessions: bool,
 });
 section_patch!(LoggingPatch, LoggingConfig, { level: String });
 section_patch!(AlertsPatch, AlertsConfig, {
@@ -56,6 +56,7 @@ section_patch!(PerformancePatch, PerformanceConfig, {
     session_cache_size: usize,
 });
 section_patch!(LivePatch, LiveConfig, { auto_attach: bool, launch_attachable: bool });
+section_patch!(SourcesPatch, SourcesConfig, { claude_code: ClaudeCodeSourceConfig });
 
 macro_rules! config_patch {
     ($($field:ident: $type:ty),* $(,)?) => {
@@ -76,7 +77,7 @@ macro_rules! config_patch {
 config_patch! {
     paths: PathsPatch, general: GeneralPatch, ui: UiPatch, pricing: PricingPatch,
     tool_rendering: ToolRenderingPatch, features: FeaturesPatch, logging: LoggingPatch,
-    alerts: AlertsPatch, performance: PerformancePatch, live: LivePatch,
+    alerts: AlertsPatch, performance: PerformancePatch, live: LivePatch, sources: SourcesPatch,
 }
 
 #[cfg(test)]

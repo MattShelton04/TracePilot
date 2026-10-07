@@ -63,10 +63,11 @@ describe("settings feature groups", () => {
       "Session Replay",
       "Copilot SDK Bridge",
       "Config Injector",
+      "Claude Code Sessions",
     ]);
   });
 
-  it("explains the experimental stability risk and defaults MCP and Config Injector off", async () => {
+  it("explains the experimental stability risk and defaults experimental integrations off", async () => {
     const wrapper = mount(SettingsExperimental);
     await flushPromises();
 
@@ -78,6 +79,9 @@ describe("settings feature groups", () => {
     ).toBe("false");
     expect(
       wrapper.get('[role="switch"][aria-label="Config Injector"]').attributes("aria-checked"),
+    ).toBe("false");
+    expect(
+      wrapper.get('[role="switch"][aria-label="Claude Code Sessions"]').attributes("aria-checked"),
     ).toBe("false");
   });
 

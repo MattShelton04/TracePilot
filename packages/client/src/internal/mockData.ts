@@ -370,6 +370,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_code_impact: mocks.MOCK_CODE_IMPACT,
     check_config_exists: true,
     validate_session_dir: { valid: true, sessionCount: 47, error: null },
+    validate_claude_config_dir: { valid: true, sessionCount: 3, error: null },
     get_db_size: 44564480,
     get_session_count: 47,
     factory_reset: undefined,

@@ -79,6 +79,27 @@ fn deserialize_missing_optional_sections_uses_defaults() {
 }
 
 #[test]
+fn claude_code_source_defaults_off_and_normalizes_an_empty_folder() {
+    let mut config: TracePilotConfig =
+        toml::from_str("version = 11\n[paths]\n").expect("parse config without sources");
+    assert!(!config.features.claude_code_sessions);
+    assert!(config.sources.claude_code.config_dir.is_empty());
+
+    config.normalize_paths();
+    assert_eq!(
+        config.sources.claude_code.config_dir,
+        TracePilotConfig::default().sources.claude_code.config_dir
+    );
+    assert!(config.migrate());
+    assert_eq!(config.version, TracePilotConfig::CURRENT_VERSION);
+
+    let custom = "/data/claude-config";
+    config.sources.claude_code.config_dir = custom.into();
+    config.normalize_paths();
+    assert_eq!(config.claude_config_dir(), std::path::PathBuf::from(custom));
+}
+
+#[test]
 fn normalize_clamps_session_cache_size_to_safe_range() {
     let mut too_small = TracePilotConfig::default();
     too_small.performance.session_cache_size = 0;

@@ -78,6 +78,9 @@ describe("createDefaultConfig", () => {
       autoAttach: true,
       launchAttachable: true,
     },
+    sources: {
+      claudeCode: { configDir: "" },
+    },
   };
 
   it("should return identical defaults for no args and empty object", () => {

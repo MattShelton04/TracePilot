@@ -1,6 +1,7 @@
 //! Configuration Tauri commands (24 commands).
 
 use crate::blocking_cmd;
+use crate::commands::config_sources::{after_source_change, clear_session_caches};
 use crate::concurrency::IndexingSemaphores;
 use crate::config::{
     self, ConfigCoordinator, SharedConfig, TracePilotConfig, TracePilotConfigPatch,
@@ -29,15 +30,6 @@ fn resize_session_caches(turn_cache: &TurnCache, event_cache: &EventCache, capac
     }
 }
 
-fn clear_session_caches(turn_cache: &TurnCache, event_cache: &EventCache) {
-    if let Ok(mut cache) = turn_cache.lock() {
-        cache.clear();
-    }
-    if let Ok(mut cache) = event_cache.lock() {
-        cache.clear();
-    }
-}
-
 #[tauri::command]
 #[specta::specta]
 pub async fn check_config_exists() -> CmdResult<bool> {
@@ -60,12 +52,15 @@ pub async fn save_config(
     gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
     turn_cache: tauri::State<'_, TurnCache>,
     event_cache: tauri::State<'_, EventCache>,
+    app: tauri::AppHandle,
     config: TracePilotConfig,
 ) -> CmdResult<()> {
     let cache_size = config::clamp_session_cache_size(config.performance.session_cache_size);
-    services::config::save_config(&state, std::sync::Arc::clone(&*gates), &coordinator, config)
-        .await?;
+    let saved =
+        services::config::save_config(&state, std::sync::Arc::clone(&*gates), &coordinator, config)
+            .await?;
     resize_session_caches(&turn_cache, &event_cache, cache_size);
+    after_source_change(&saved, &state, &gates, &turn_cache, &event_cache, &app);
     Ok(())
 }
 
@@ -78,9 +73,10 @@ pub async fn update_config(
     gates: tauri::State<'_, std::sync::Arc<IndexingSemaphores>>,
     turn_cache: tauri::State<'_, TurnCache>,
     event_cache: tauri::State<'_, EventCache>,
+    app: tauri::AppHandle,
     patch: TracePilotConfigPatch,
 ) -> CmdResult<TracePilotConfig> {
-    let config = services::config::update_config(
+    let saved = services::config::update_config(
         &state,
         std::sync::Arc::clone(&*gates),
         &coordinator,
@@ -90,9 +86,10 @@ pub async fn update_config(
     resize_session_caches(
         &turn_cache,
         &event_cache,
-        config.performance.session_cache_size,
+        saved.config.performance.session_cache_size,
     );
-    Ok(config)
+    after_source_change(&saved, &state, &gates, &turn_cache, &event_cache, &app);
+    Ok(saved.config)
 }
 
 #[tauri::command]

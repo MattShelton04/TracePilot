@@ -67,6 +67,14 @@ export type CaptureProgress = {
 
 export type CaptureStage = "preflight" | "copyingSession" | "preparingEnvironment" | "startingListener" | "resumingClone" | "waitingForRequest" | "parsingSnapshot" | "savingSnapshot" | "cleaningUp" | "complete" | "cancelled";
 
+export type ClaudeCodeSourceConfig = {
+	/**
+	 *  Claude Code's config directory (`projects/` lives under it). Empty
+	 *  until normalized to `CLAUDE_CONFIG_DIR`, else `~/.claude`.
+	 */
+	configDir?: string,
+};
+
 export type FeaturesConfig = {
 	exportView?: boolean,
 	sessionReplay?: boolean,
@@ -80,6 +88,8 @@ export type FeaturesConfig = {
 	promptCacheInsights?: boolean,
 	// Agents explorer: agent definitions, overrides and cross-session usage.
 	agents?: boolean,
+	// Index and view Claude Code sessions next to Copilot CLI sessions.
+	claudeCodeSessions?: boolean,
 };
 
 export type FeaturesPatch = FeaturesPatch_Serialize | FeaturesPatch_Deserialize;
@@ -95,6 +105,7 @@ export type FeaturesPatch_Deserialize = {
 	configInjector?: boolean | null,
 	promptCacheInsights?: boolean | null,
 	agents?: boolean | null,
+	claudeCodeSessions?: boolean | null,
 };
 
 export type FeaturesPatch_Serialize = {
@@ -108,6 +119,7 @@ export type FeaturesPatch_Serialize = {
 	configInjector?: boolean | null,
 	promptCacheInsights?: boolean | null,
 	agents?: boolean | null,
+	claudeCodeSessions?: boolean | null,
 };
 
 export type GeneralConfig = {
@@ -288,6 +300,20 @@ export type PricingPatch_Serialize = {
 	removedModels?: string[] | null,
 };
 
+export type SourcesConfig = {
+	claudeCode?: ClaudeCodeSourceConfig,
+};
+
+export type SourcesPatch = SourcesPatch_Serialize | SourcesPatch_Deserialize;
+
+export type SourcesPatch_Deserialize = {
+	claudeCode?: ClaudeCodeSourceConfig | null,
+};
+
+export type SourcesPatch_Serialize = {
+	claudeCode?: ClaudeCodeSourceConfig | null,
+};
+
 export type ToolRenderingConfig = {
 	enabled?: boolean,
 	toolOverrides?: { [key in string]: boolean },
@@ -328,6 +354,7 @@ export type TracePilotConfigPatch_Deserialize = {
 	alerts?: AlertsPatch_Deserialize | null,
 	performance?: PerformancePatch_Deserialize | null,
 	live?: LivePatch_Deserialize | null,
+	sources?: SourcesPatch_Deserialize | null,
 };
 
 export type TracePilotConfigPatch_Serialize = {
@@ -341,6 +368,7 @@ export type TracePilotConfigPatch_Serialize = {
 	alerts?: AlertsPatch_Serialize | null,
 	performance?: PerformancePatch_Serialize | null,
 	live?: LivePatch_Serialize | null,
+	sources?: SourcesPatch_Serialize | null,
 };
 
 /**
@@ -363,6 +391,7 @@ export type TracePilotConfig_Deserialize = {
 	alerts?: AlertsConfig,
 	performance?: PerformanceConfig,
 	live?: LiveConfig,
+	sources?: SourcesConfig,
 };
 
 /**
@@ -385,6 +414,7 @@ export type TracePilotConfig_Serialize = {
 	alerts: AlertsConfig,
 	performance: PerformanceConfig,
 	live: LiveConfig,
+	sources: SourcesConfig,
 };
 
 export type UiConfig = {

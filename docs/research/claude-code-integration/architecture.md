@@ -202,6 +202,11 @@ The reshape has to happen in Rust:
 
   A job that started before the disable can no longer write Claude rows back after the purge.
   A root change is a disable of the old root followed by an enable of the new one.
+  - Implemented (WP10) in `mutate_config`: the config is published and the generation bumped
+    under one write lock, so no pass pairs the new config with an old generation. The purge
+    (`IndexDb::purge_source`) runs after the lock drops, then the commands clear the caches and
+    start a reindex of that source only. Every full incremental pass also sweeps rows of
+    disabled sources, in case a purge failed.
 - **Freshness** becomes an opaque `source_version` (a hash of the serialized
   `SourceFingerprint`) in the caches and in `FreshnessResponse`. The old `events_file_*` fields
   stay populated for Copilot during the transition. The frontend already compares them only for

@@ -69,6 +69,12 @@ const experimentalFlags: readonly FeatureOption[] = [
     description:
       "Edit Copilot CLI agent model assignments and configuration, with backup and restore support.",
   },
+  {
+    key: "claudeCodeSessions",
+    label: "Claude Code Sessions",
+    description:
+      "Index and view Claude Code sessions from ~/.claude alongside Copilot CLI sessions. Turning this off removes them from the index; your Claude Code files are not changed.",
+  },
 ] as const;
 
 function handleToggle(key: FeatureFlag) {
