@@ -35,6 +35,26 @@ pub(super) fn build_points(
     deltas: &[TurnDelta],
     anchors: &[Anchor],
 ) -> Vec<ContextWindowPoint> {
+    if anchors.iter().any(|anchor| anchor.total.is_some()) {
+        return anchors
+            .iter()
+            .filter_map(|anchor| {
+                let total = anchor.total?;
+                let mut point = make_point(
+                    anchor.turn,
+                    anchor.phase,
+                    anchor.timestamp.clone(),
+                    0,
+                    0,
+                    0,
+                    ContextPointSource::Observed,
+                );
+                point.total_tokens = total;
+                point.total_only = Some(true);
+                Some(point)
+            })
+            .collect();
+    }
     if turn_count == 0 {
         return Vec::new();
     }
@@ -77,6 +97,7 @@ pub(super) fn build_points(
 
     if interval_start <= turn_count {
         let fallback = Anchor {
+            total: None,
             turn: turn_count,
             timestamp: deltas
                 .get(turn_count)
@@ -193,6 +214,7 @@ pub(super) fn anchor_from_compaction_start(
     data: &CompactionStartData,
 ) -> Option<Anchor> {
     Some(Anchor {
+        total: None,
         turn,
         timestamp,
         system: data.system_tokens?,
@@ -209,6 +231,7 @@ pub(super) fn anchor_from_shutdown(
     data: &ShutdownData,
 ) -> Option<Anchor> {
     Some(Anchor {
+        total: None,
         turn,
         timestamp,
         system: data.system_tokens?,
@@ -275,6 +298,7 @@ fn make_point(
         conversation_tokens,
         context_change_tokens: None,
         total_tokens: system_tokens + tool_definition_tokens + conversation_tokens,
+        total_only: None,
         source,
     }
 }

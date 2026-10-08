@@ -53,6 +53,35 @@ describe("PromptCacheHeaderChip", () => {
     });
     expect(wrapper.find('[data-testid="prompt-cache-chip"]').exists()).toBe(false);
   });
+
+  it("labels recorded-tier countdowns as estimated and ticks to expiry", async () => {
+    const wrapper = mount(PromptCacheHeaderChip, {
+      props: {
+        timeline: makeTimeline([{ ...pending, confidence: "estimated" }], { source: "modelCalls" }),
+      },
+    });
+    const chip = () => wrapper.get('[data-testid="prompt-cache-chip"]');
+    expect(chip().text()).toBe("Estimated cache expiry · 17:42");
+    expect(chip().attributes("aria-label")).toContain(
+      "the next request may use a different prefix",
+    );
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    expect(chip().text()).toBe("Cache likely expired 12m ago");
+    wrapper.unmount();
+  });
+
+  it("shows unknown when recorded calls lack a tier", () => {
+    const wrapper = mount(PromptCacheHeaderChip, {
+      props: {
+        timeline: makeTimeline(
+          [{ ...pending, confidence: "unavailable", expiresAt: null, ttlSeconds: null }],
+          { source: "modelCalls" },
+        ),
+      },
+    });
+    expect(wrapper.get('[data-testid="prompt-cache-chip"]').text()).toBe("Cache expiry unknown");
+    wrapper.unmount();
+  });
 });
 
 describe("CacheLiveDivider", () => {
@@ -125,6 +154,23 @@ describe("CacheLiveDivider", () => {
 });
 
 describe("CacheResumeDivider", () => {
+  it("keeps observed cache reads and writes distinct from estimated timing", async () => {
+    const wrapper = mount(CacheResumeDivider, {
+      props: {
+        window: makeWindow({
+          confidence: "observed",
+          observedResume: { cacheRead: 0, cacheWrite: 54000, hit: false },
+        }),
+      },
+    });
+    expect(wrapper.text()).toContain("Estimated");
+    await wrapper.get(".cache-divider__label").trigger("click");
+    const detail = wrapper.get('[data-testid="cache-resume-detail"]');
+    expect(detail.text()).toContain("Estimated expiry");
+    expect(detail.text()).toContain("0 of 54,000 tokens (recorded)");
+    expect(detail.text()).toContain("Written to cache");
+    expect(detail.text()).toContain("54,000 tokens (recorded)");
+  });
   it("marks warm resumes and lists likely cache breaks", async () => {
     const warm = mount(CacheResumeDivider, { props: { window: makeWindow() } });
     expect(warm.classes()).toContain("cache-divider--warm");

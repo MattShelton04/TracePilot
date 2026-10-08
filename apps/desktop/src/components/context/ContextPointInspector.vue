@@ -110,7 +110,7 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
           <dt>Change from previous point</dt>
           <dd>{{ formatContextChange(selectedPoint.contextChangeTokens) }}</dd>
         </div>
-        <div>
+        <div v-if="!selectedPoint.totalOnly">
           <dt class="context-tab__stat-label">
             System prompt
             <button
@@ -124,7 +124,7 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
           </dt>
           <dd>{{ formatNumberFull(selectedPoint.systemTokens) }}</dd>
         </div>
-        <div>
+        <div v-if="!selectedPoint.totalOnly">
           <dt class="context-tab__stat-label">
             Tool definitions
             <button
@@ -138,7 +138,7 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
           </dt>
           <dd>{{ formatNumberFull(selectedPoint.toolDefinitionTokens) }}</dd>
         </div>
-        <div>
+        <div v-if="!selectedPoint.totalOnly">
           <dt>Conversation</dt>
           <dd>{{ formatNumberFull(selectedPoint.conversationTokens) }}</dd>
         </div>
@@ -160,7 +160,10 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
       <p class="context-tab__footnote">
         Change is the current displayed total minus the previous displayed point.
       </p>
-      <p v-if="selectedPoint.source === 'observed'" class="context-tab__footnote">
+      <p v-if="selectedPoint.totalOnly" class="context-tab__footnote">
+        This request recorded inclusive input tokens. The system, tool-definition and conversation breakdown is unknown.
+      </p>
+      <p v-else-if="selectedPoint.source === 'observed'" class="context-tab__footnote">
         Copilot reported all three displayed layers for this point.
       </p>
       <button

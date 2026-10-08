@@ -29,6 +29,11 @@ pub fn build_prompt_cache_timeline(
     events: &[TypedEvent],
     mut estimated_ttl: impl FnMut(&str) -> Option<u64>,
 ) -> PromptCacheTimeline {
+    if events.iter().any(|event| {
+        event.raw.agent_id.is_none() && matches!(event.typed_data, TypedEventData::ModelCall(_))
+    }) {
+        return super::model_calls::build(events);
+    }
     let mut walker = Walker::default();
     for (index, event) in events.iter().enumerate() {
         walker.process(index, event);

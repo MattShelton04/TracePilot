@@ -105,4 +105,5 @@ pub(super) fn build(events: &[TypedEvent]) -> PromptCacheTimeline {
 }
 
 mod changes;
+mod model_calls;
 mod windows;

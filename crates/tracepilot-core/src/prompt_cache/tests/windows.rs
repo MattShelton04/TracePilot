@@ -526,7 +526,8 @@ fn an_observed_cache_hit_is_not_a_break() {
     assert_eq!(
         hit.observed_resume,
         Some(ObservedResume {
-            cache_read: 19_000,
+            cache_read: Some(19_000),
+            cache_write: None,
             hit: Some(true)
         })
     );
@@ -539,7 +540,8 @@ fn an_observed_cache_hit_is_not_a_break() {
     assert_eq!(
         miss.observed_resume,
         Some(ObservedResume {
-            cache_read: 1_000,
+            cache_read: Some(1_000),
+            cache_write: None,
             hit: Some(false)
         })
     );

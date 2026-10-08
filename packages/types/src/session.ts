@@ -145,6 +145,8 @@ export interface SessionSegment {
 export type ContextPointPhase = "turn" | "preCompaction" | "postCompaction" | "shutdown";
 export type ContextPointSource = "observed" | "estimated";
 export interface ContextWindowPoint {
+  /** Inclusive input total with no recorded layer breakdown. */
+  totalOnly?: boolean;
   /** Zero-based turn index, aligned with ConversationTurn and Search deep links. */
   turn: number;
   phase: ContextPointPhase;

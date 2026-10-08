@@ -8,7 +8,7 @@
  * - `estimated`: idle gap plus a TTL observed in other sessions.
  * - `unavailable`: no TTL source, so nothing is claimed.
  */
-export type CacheConfidence = "predicted" | "estimated" | "unavailable";
+export type CacheConfidence = "observed" | "predicted" | "estimated" | "unavailable";
 
 /**
  * What happened to the prompt cache across one idle window.
@@ -47,7 +47,9 @@ export interface PrefixChange {
  */
 export interface ObservedResume {
   /** Tokens the resume request read from the prompt cache. */
-  cacheRead: number;
+  cacheRead: number | null;
+  /** Recorded cache writes; absent on Copilot checkpoint observations. */
+  cacheWrite?: number | null;
   /** Whether it read most of the idle prefix; `null` when the prefix is unknown. */
   hit: boolean | null;
 }
@@ -102,7 +104,7 @@ export interface PromptCacheSummary {
 }
 
 /** `checkpoints` (CLI 1.0.75+), `turnGaps` (older logs) or `none`. */
-export type PromptCacheSource = "checkpoints" | "turnGaps" | "none";
+export type PromptCacheSource = "modelCalls" | "checkpoints" | "turnGaps" | "none";
 
 export interface PromptCacheTimeline {
   source: PromptCacheSource;

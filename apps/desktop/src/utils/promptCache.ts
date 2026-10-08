@@ -22,6 +22,7 @@ export const AGENT_RESUME_SOURCE = "agent";
 export const EXPIRING_THRESHOLD_MS = 5 * 60_000;
 
 export const CONFIDENCE_LABELS: Record<CacheConfidence, string> = {
+  observed: "Observed usage · estimated expiry",
   predicted: "Copilot CLI",
   estimated: "Estimated",
   unavailable: "Unavailable",
@@ -29,6 +30,8 @@ export const CONFIDENCE_LABELS: Record<CacheConfidence, string> = {
 
 /** One-line explanations, short enough for a tooltip. */
 export const CONFIDENCE_EXPLANATIONS: Record<CacheConfidence, string> = {
+  observed:
+    "Cache reads and writes are recorded. Expiry is estimated from the recorded TTL tier and last request that read or wrote cache; the next request may use a different prefix.",
   predicted: "Expiry recorded by Copilot CLI when the session went idle.",
   estimated: "Estimated from the idle gap and the model's usual cache TTL.",
   unavailable: "No cache TTL is known for this model.",
@@ -100,7 +103,9 @@ export function formatApproxTokens(tokens: number | null | undefined): string {
 /**
  * The latest unresumed window with an expiry recorded by the CLI. Ending the
  * session does not end its cache TTL. Never reuse an earlier resumed window
- * or show an estimated expiry as a live countdown.
+ * or show a cross-session estimate as a live countdown. Sessions timed by
+ * recorded model calls (`modelCalls`) always return their last window: its
+ * expiry is a labelled estimate from the recorded tier, or unknown.
  */
 export function findLiveWindow(timeline: PromptCacheTimeline | null | undefined) {
   const last = timeline?.windows.at(-1);
@@ -108,8 +113,7 @@ export function findLiveWindow(timeline: PromptCacheTimeline | null | undefined)
     !last ||
     (last.outcome !== "pending" && last.outcome !== "sessionEnded") ||
     last.resumeAt != null ||
-    last.confidence !== "predicted" ||
-    !last.expiresAt ||
+    (timeline?.source !== "modelCalls" && (last.confidence !== "predicted" || !last.expiresAt)) ||
     last.ttlSeconds === 0
   ) {
     return null;
@@ -260,7 +264,10 @@ export function windowDetailRows(window: CacheWindow): WindowDetailRow[] {
         : offset > 0
           ? ` · ${formatIdle(offset)} before reply`
           : ` · ${formatIdle(-offset)} after reply`;
-    rows.push({ label: "Expiry", value: `${formatTime(window.expiresAt)}${relative}` });
+    rows.push({
+      label: window.confidence === "observed" ? "Estimated expiry" : "Expiry",
+      value: `${formatTime(window.expiresAt)}${relative}`,
+    });
   }
   const model = [window.model, window.ttlSeconds ? `TTL ${formatIdle(window.ttlSeconds)}` : null]
     .filter(Boolean)
@@ -272,16 +279,28 @@ export function windowDetailRows(window: CacheWindow): WindowDetailRow[] {
   if (window.resumeSource === AGENT_RESUME_SOURCE) {
     rows.push({ label: "Resumed by", value: "Agent" });
   }
-  if ((window.outcome === "expired" || window.outcome === "modelChanged") && window.prefixTokens) {
+  // A recorded hit overrules the estimated expiry: nothing was re-sent.
+  const observedHit = window.confidence === "observed" && window.observedResume?.hit === true;
+  if (
+    (window.outcome === "expired" || window.outcome === "modelChanged") &&
+    window.prefixTokens &&
+    !observedHit
+  ) {
     rows.push({ label: "Re-sent", value: formatApproxTokens(window.prefixTokens) });
   }
-  if (window.observedResume) {
+  if (window.observedResume?.cacheRead != null) {
     const read = formatNumberFull(window.observedResume.cacheRead);
     rows.push({
       label: "Read from cache",
       value: window.prefixTokens
         ? `${read} of ${formatNumberFull(window.prefixTokens)} tokens (recorded)`
         : `${read} tokens (recorded)`,
+    });
+  }
+  if (window.observedResume?.cacheWrite != null) {
+    rows.push({
+      label: "Written to cache",
+      value: `${formatNumberFull(window.observedResume.cacheWrite)} tokens (recorded)`,
     });
   }
   return rows;
