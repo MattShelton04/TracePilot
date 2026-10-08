@@ -1,5 +1,10 @@
 import { skillsUsageSummary } from "@tracepilot/client";
-import type { SkillSummary, SkillUsageStats, SkillUsageSummary } from "@tracepilot/types";
+import type {
+  SessionSource,
+  SkillSummary,
+  SkillUsageStats,
+  SkillUsageSummary,
+} from "@tracepilot/types";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive } from "vue";
@@ -74,11 +79,14 @@ const summary: SkillUsageSummary = {
   skills: [stats("frontend-design", { uses: 20 }), stats("pdf", { uses: 10 })],
 };
 
-function setStores(options: { repo?: string | null; skills?: SkillSummary[] } = {}) {
+function setStores(
+  options: { repo?: string | null; source?: SessionSource | null; skills?: SkillSummary[] } = {},
+) {
   getAnalyticsStore.mockReturnValue(
     reactive({
       dateRange: { fromDate: "2026-09-01", toDate: null },
       selectedRepo: options.repo ?? null,
+      selectedSource: options.source ?? null,
     }),
   );
   getSkillsStore.mockReturnValue(
@@ -93,14 +101,15 @@ beforeEach(() => {
 });
 
 describe("AnalyticsSkillsPanel", () => {
-  it("queries the dashboard's range and repository", async () => {
-    setStores({ repo: "TracePilot" });
+  it("queries the dashboard's range, repository and source", async () => {
+    setStores({ repo: "TracePilot", source: "claudeCode" });
     mount(AnalyticsSkillsPanel);
     await flushPromises();
     expect(skillsUsageSummary).toHaveBeenCalledWith({
       fromDate: "2026-09-01",
       toDate: null,
       repo: "TracePilot",
+      source: "claudeCode",
     });
   });
 
@@ -149,11 +158,11 @@ describe("AnalyticsSkillsPanel", () => {
     expect(wrapper.text()).toContain("400 listing tokens across all projects");
   });
 
-  it("withholds the unused line under a repository filter, where it would be a guess", async () => {
-    setStores({
-      repo: "TracePilot",
-      skills: [installed("frontend-design"), installed("never-used")],
-    });
+  it.each([
+    { repo: "TracePilot" },
+    { source: "copilot" as const },
+  ])("withholds the unused line under a filter, where it would be a guess (%o)", async (filter) => {
+    setStores({ ...filter, skills: [installed("frontend-design"), installed("never-used")] });
     const wrapper = mount(AnalyticsSkillsPanel);
     await flushPromises();
     expect(wrapper.text()).not.toContain("went unused here");

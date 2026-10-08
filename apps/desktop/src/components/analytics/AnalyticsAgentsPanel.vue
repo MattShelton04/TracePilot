@@ -56,7 +56,7 @@ watch(
         fromDate: range.fromDate ?? null,
         toDate: range.toDate ?? null,
         repo: repo ?? null,
-        source,
+        source: source ?? null,
       });
       if (active) summary.value = result;
     } catch (cause) {
