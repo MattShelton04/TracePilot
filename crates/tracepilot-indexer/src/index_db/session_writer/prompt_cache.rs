@@ -121,8 +121,10 @@ fn window(
     ttl: Option<u64>,
     resume: Option<(DateTime<Utc>, &ModelCallData)>,
 ) -> CacheWindowRow {
-    let expires_at =
-        ttl.map(|seconds| idle_start + chrono::Duration::seconds(saturating_i64(seconds)));
+    // The tier comes from event data: an out-of-range one has no expiry.
+    let expires_at = ttl
+        .and_then(|seconds| chrono::TimeDelta::try_seconds(saturating_i64(seconds)))
+        .and_then(|ttl| idle_start.checked_add_signed(ttl));
     let model_changed = resume.is_some_and(|(_, next)| next.model != call.model);
     let outcome = match (resume, expires_at) {
         (None, _) => "pending",
