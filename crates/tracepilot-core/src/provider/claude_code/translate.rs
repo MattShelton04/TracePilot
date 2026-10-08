@@ -59,6 +59,8 @@ pub(super) struct Translator<'a, F> {
     pub(super) events: Vec<RawEvent>,
     pub(super) positions: Vec<Option<NativePosition>>,
     pub(super) calls: CallTable,
+    /// `tracepilot.model_call` events by message id, filled in by `finish`.
+    pub(super) model_calls: HashMap<String, usize>,
     pub(super) snapshots: Vec<CostSnapshot>,
     pub(super) diagnostics: ClaudeDiagnostics,
     /// Notification keys already emitted.
@@ -160,6 +162,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             events: Vec::new(),
             positions: Vec::new(),
             calls: CallTable::default(),
+            model_calls: HashMap::new(),
             snapshots: Vec::new(),
             diagnostics,
             notifications: HashSet::new(),
@@ -413,7 +416,8 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
         id
     }
 
-    fn finish(self) -> ClaudeParse {
+    fn finish(mut self) -> ClaudeParse {
+        super::usage::fill_model_calls(&mut self.events, &self.model_calls, &self.calls.calls);
         let mut diagnostics = self.diagnostics;
         let events = self
             .events

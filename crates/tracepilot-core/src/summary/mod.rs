@@ -6,6 +6,7 @@
 mod artifacts;
 mod enrichment;
 mod loader;
+mod model_calls;
 mod snapshot;
 #[cfg(test)]
 mod tests;
@@ -18,4 +19,5 @@ pub use loader::{
 pub use snapshot::{SessionFingerprint, load_session_snapshot};
 pub use types::SessionLoadResult;
 
-pub(crate) use enrichment::apply_event_enrichment;
+pub use enrichment::summary_from_events;
+pub use model_calls::metrics_from_model_calls;

@@ -396,10 +396,9 @@ pub(crate) fn typed_data_from_raw(
         | SessionEventType::PermissionMessageAuthorizationRead
         | SessionEventType::PermissionMessageAuthorizationDegraded
         | SessionEventType::PermissionAssentDetected
-        | SessionEventType::PermissionContextualAuthorization) => {
-            super::typed_extended::typed_extended(other, data)
-                .unwrap_or_else(|| (TypedEventData::Other(data.clone()), None))
-        }
+        | SessionEventType::PermissionContextualAuthorization
+        | SessionEventType::ModelCall) => super::typed_extended::typed_extended(other, data)
+            .unwrap_or_else(|| (TypedEventData::Other(data.clone()), None)),
         SessionEventType::Unknown(name) => (
             TypedEventData::Other(data.clone()),
             Some(EventParseWarning::UnknownEventType {

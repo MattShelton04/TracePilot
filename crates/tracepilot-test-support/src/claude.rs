@@ -117,6 +117,12 @@ impl Transcript {
         self
     }
 
+    /// Advance the clock by `seconds` before the next record (an idle gap).
+    pub fn idle(&mut self, seconds: u64) -> &mut Self {
+        self.clock_s += seconds;
+        self
+    }
+
     /// The uuid the record `ahead` records from now will get (1 = next).
     pub fn upcoming_uuid(&self, ahead: u64) -> String {
         format!(

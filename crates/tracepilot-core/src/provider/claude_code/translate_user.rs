@@ -72,7 +72,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             return;
         }
         if is_interrupt(rec, &text) {
-            self.interrupt(st, ctx);
+            self.interrupt(st, ctx, true);
             return;
         }
         if rec.flag("isMeta") {
@@ -164,9 +164,16 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         st.last_closed_end_turn = false;
     }
 
-    pub(super) fn interrupt(&mut self, st: &mut Stream<'_>, ctx: &mut RecCtx) {
+    /// End the open call. `warn` adds an incident warning, in the interrupted
+    /// turn; a denial that interrupts already has its own.
+    pub(super) fn interrupt(&mut self, st: &mut Stream<'_>, ctx: &mut RecCtx, warn: bool) {
         if let Some(call) = st.open_call.as_mut() {
             call.interrupted = true;
+        }
+        if warn {
+            let data =
+                json!({"warningType": "user_interrupt", "message": "Interrupted by the user"});
+            self.emit(st, ctx, "session.warning", data);
         }
         self.emit(st, ctx, "abort", json!({"reason": "user initiated"}));
     }

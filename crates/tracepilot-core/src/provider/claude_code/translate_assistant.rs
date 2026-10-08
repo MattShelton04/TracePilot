@@ -74,6 +74,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                 "parentToolCallId": st.owner_tool,
             });
             self.emit(st, ctx, "assistant.turn_start", data);
+            self.model_call(st, ctx, rec, id);
             st.open_call = Some(OpenCall {
                 id: id.to_string(),
                 pending: Vec::new(),
@@ -118,6 +119,21 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             self.native_only(st, ctx);
         }
         Ok(())
+    }
+
+    /// A `tracepilot.model_call` for the call `id`, once per call. Its usage
+    /// is filled in when the file is done, because the last record of a call
+    /// carries the final counts. It leaves the parent chain of the stream's
+    /// other events unchanged.
+    fn model_call(&mut self, st: &mut Stream<'_>, ctx: &RecCtx, rec: Rec<'_>, id: &str) {
+        if self.model_calls.contains_key(id) {
+            return;
+        }
+        self.model_calls.insert(id.to_string(), self.events.len());
+        let last_event = st.last_event.clone();
+        let data = json!({"requestId": rec.str("requestId").unwrap_or(id)});
+        self.synth(st, ctx, "model_call", "tracepilot.model_call", data);
+        st.last_event = last_event;
     }
 
     fn tool_use(

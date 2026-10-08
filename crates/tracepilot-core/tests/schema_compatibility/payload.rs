@@ -80,6 +80,7 @@ pub fn payload(data: &TypedEventData) -> Value {
         }
         TypedEventData::PermissionAssentDetected(d) => serde_json::to_value(d).unwrap(),
         TypedEventData::PermissionContextualAuthorization(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::ModelCall(d) => serde_json::to_value(d).unwrap(),
         TypedEventData::Other(d) => serde_json::to_value(d).unwrap(),
     }
 }

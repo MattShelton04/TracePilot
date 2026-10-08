@@ -44,6 +44,17 @@ use tracepilot_core::provider::SourceFingerprint;
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
 pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 
+/// The analytics version of Claude Code rows, bumped on its own so Copilot
+/// rows (and their golden snapshot) are not re-derived for a Claude-only
+/// change. Never below [`CURRENT_ANALYTICS_VERSION`].
+///
+/// v19: per-call `tracepilot.model_call` events and turn usage, native tool
+/// names (`session_native_tool_calls`), interrupt and denial incidents, and
+/// cache windows timed by recorded calls.
+///
+/// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 19;
+
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
 
@@ -119,6 +130,16 @@ pub(crate) struct ToolCallRow {
     pub failure: i64,
     pub duration_ms: i64,
     pub calls_with_duration: i64,
+}
+
+/// Calls of one canonical tool under one source-native name, for sources
+/// whose tools are normalized (`TurnToolCall::native_tool_name`).
+pub(crate) struct NativeToolCallRow {
+    pub name: String,
+    pub native_name: String,
+    pub calls: i64,
+    pub success: i64,
+    pub failure: i64,
 }
 
 /// Named row for activity heatmap data.
@@ -216,6 +237,7 @@ pub(crate) struct SessionAnalytics {
     // Child table rows
     pub model_rows: Vec<ModelMetricsRow>,
     pub tool_call_rows: Vec<ToolCallRow>,
+    pub native_tool_call_rows: Vec<NativeToolCallRow>,
     pub activity_rows: Vec<ActivityRow>,
     pub modified_file_rows: Vec<ModifiedFileRow>,
     pub session_segment_rows: Vec<SessionSegmentRow>,

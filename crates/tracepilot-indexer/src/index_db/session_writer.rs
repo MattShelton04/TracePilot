@@ -372,8 +372,7 @@ impl IndexDb {
 
 fn analytics_version(source: SessionSource) -> i64 {
     match source {
-        // Refresh pre-C5 Claude rows without changing Copilot's golden rows.
-        SessionSource::ClaudeCode => CURRENT_ANALYTICS_VERSION.max(18),
+        SessionSource::ClaudeCode => CLAUDE_CODE_ANALYTICS_VERSION.max(CURRENT_ANALYTICS_VERSION),
         SessionSource::Copilot => CURRENT_ANALYTICS_VERSION,
     }
 }

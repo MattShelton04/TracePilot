@@ -154,7 +154,7 @@ pub fn interrupted_and_live() -> SessionFiles {
     t.user(json!({"message": {"role": "user", "content": [
         {"type": "tool_result", "tool_use_id": "toolu_i1", "is_error": true, "content": refused},
         {"type": "text", "text": "[Request interrupted by user for tool use]"}]},
-        "toolUseResult": format!("Error: {refused}")}));
+        "toolUseResult": format!("Error: {refused}"), "toolDenialKind": "user-rejected"}));
     t.prompt("Read the config instead.");
     t.call(
         "msg_i2",

@@ -55,7 +55,8 @@ export interface ConversationTurn {
   isComplete: boolean;
   /** Reasoning/thinking texts with agent attribution. */
   reasoningTexts?: AttributedMessage[];
-  /** Total output tokens consumed during this turn. */
+  /** Total output tokens consumed during this turn: from its assistant
+   *  messages, or from its recorded model calls (`usage`) when messages carry none. */
   outputTokens?: number;
   /** The transformed/enriched user message content (includes system-injected context). */
   transformedUserMessage?: string;
@@ -76,6 +77,20 @@ export interface ConversationTurn {
   /** True when Copilot injected the user message (a notification, reminder or
    *  autopilot continuation) rather than the user typing it. */
   systemInitiated?: boolean;
+  /** Usage of the model calls recorded while this turn ran, subagents included.
+   *  Absent for sources that record usage per session only (Copilot). */
+  usage?: TurnUsage;
+}
+
+/** Token totals of a turn's recorded model calls. */
+export interface TurnUsage {
+  modelCalls: number;
+  /** All input, including cache reads and writes. */
+  inputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
 }
 
 /** Severity level for session events embedded in a conversation turn. */

@@ -89,8 +89,21 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                 _ => {}
             }
         }
+        let denial = rec.str("toolDenialKind");
+        if let Some(kind) = denial {
+            let message = match kind {
+                "user-rejected" => "Tool use rejected by the user".to_string(),
+                "permission-rule" => "Tool use denied by a permission rule".to_string(),
+                "automode-blocked" => "Tool use blocked by auto mode".to_string(),
+                "automode-unavailable" => "Tool use denied: auto mode unavailable".to_string(),
+                other => format!("Tool use denied ({other})"),
+            };
+            let data =
+                json!({"warningType": "tool_denied", "message": message, "denialKind": kind});
+            self.emit(st, ctx, "session.warning", data);
+        }
         if interrupted {
-            self.interrupt(st, ctx);
+            self.interrupt(st, ctx, denial.is_none());
         }
     }
 }

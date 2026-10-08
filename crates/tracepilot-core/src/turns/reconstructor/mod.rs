@@ -246,6 +246,10 @@ impl TurnReconstructor {
             ) => {
                 self.handle_auto_mode_resolved(event, data);
             }
+            (SessionEventType::ModelCall, TypedEventData::ModelCall(data)) => {
+                let (turn, _) = self.turn_for_event(event);
+                turn.usage.get_or_insert_with(Default::default).add(data);
+            }
             (SessionEventType::Abort, TypedEventData::Abort(_data)) => {
                 self.finalize_current_turn(false, event.raw.timestamp);
             }
@@ -349,6 +353,13 @@ impl TurnReconstructor {
         finalize_subagent_completion(&mut self.turns);
         correct_turn_models(&mut self.turns, &self.explicit_turn_models);
         resolve_agent_display_names(&mut self.turns);
+        for turn in &mut self.turns {
+            if turn.output_tokens.is_none()
+                && let Some(usage) = turn.usage
+            {
+                turn.output_tokens = Some(usage.output_tokens);
+            }
+        }
         self.turns
     }
 }

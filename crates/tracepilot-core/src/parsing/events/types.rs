@@ -1,6 +1,7 @@
 //! Typed event payloads and parser results.
 
 use super::raw::RawEvent;
+use crate::models::event_types::ModelCallData;
 use crate::models::event_types::{
     AbortData, AssistantMessageData, AssistantReasoningData, CompactionCompleteData,
     CompactionStartData, ExternalToolRequestedData, HookEndData, HookStartData, ModelChangeData,
@@ -124,6 +125,7 @@ pub enum TypedEventData {
     PermissionMessageAuthorizationDegraded(PermissionMessageAuthorizationDegradedData),
     PermissionAssentDetected(PermissionAssentDetectedData),
     PermissionContextualAuthorization(PermissionContextualAuthorizationData),
+    ModelCall(ModelCallData),
     Other(Value),
 }
 

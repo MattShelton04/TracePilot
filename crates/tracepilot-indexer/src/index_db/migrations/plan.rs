@@ -142,6 +142,22 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
               CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions(source);",
         pre_hook: None,
     },
+    Migration {
+        version: 23,
+        name: "native tool names",
+        // Filled only by sources that normalize tool names; Copilot writes none.
+        sql: "CREATE TABLE IF NOT EXISTS session_native_tool_calls (
+                  session_id TEXT NOT NULL,
+                  tool_name TEXT NOT NULL,
+                  native_tool_name TEXT NOT NULL,
+                  call_count INTEGER NOT NULL DEFAULT 0,
+                  success_count INTEGER NOT NULL DEFAULT 0,
+                  failure_count INTEGER NOT NULL DEFAULT 0,
+                  PRIMARY KEY (session_id, tool_name, native_tool_name),
+                  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+              );",
+        pre_hook: None,
+    },
 ];
 
 pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {
@@ -156,9 +172,13 @@ mod tests {
 
     #[test]
     fn source_migration_backfills_existing_rows_as_copilot() {
-        let (last, before) = INDEX_DB_MIGRATIONS.split_last().expect("non-empty plan");
-        assert_eq!(last.version, 22);
-        let v21 = MigrationPlan { migrations: before };
+        let at = INDEX_DB_MIGRATIONS
+            .iter()
+            .position(|m| m.version == 22)
+            .expect("migration 22");
+        let v21 = MigrationPlan {
+            migrations: &INDEX_DB_MIGRATIONS[..at],
+        };
         let mut conn = Connection::open_in_memory().expect("open in-memory db");
         run_migrations(&mut conn, None, &v21, &MigratorOptions::default()).expect("migrate to 21");
         conn.execute(

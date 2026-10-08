@@ -2,6 +2,7 @@
 //! `tracepilot_test_support::claude_scenarios`.
 
 mod accounting;
+mod model_calls;
 mod provider;
 mod scenarios;
 mod tools;

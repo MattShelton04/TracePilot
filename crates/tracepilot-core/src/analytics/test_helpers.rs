@@ -186,5 +186,6 @@ pub(super) fn make_turn_with_tools(tool_calls: Vec<TurnToolCall>) -> Conversatio
         reasoning_effort: None,
         user_message_delivery: None,
         system_initiated: false,
+        usage: None,
     }
 }
