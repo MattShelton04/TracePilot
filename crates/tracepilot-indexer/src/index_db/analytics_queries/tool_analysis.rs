@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use tracepilot_core::analytics::types::*;
 use tracepilot_core::analytics::utils::*;
+use tracepilot_core::provider::SessionSource;
 
 use super::super::helpers::*;
 
@@ -13,8 +14,11 @@ pub(super) fn query_tool_analysis(
     to_date: Option<&str>,
     repo: Option<&str>,
     hide_empty: bool,
+    source: Option<SessionSource>,
 ) -> Result<ToolAnalysisData> {
-    let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo, hide_empty);
+    let (mut where_clause, mut bind_values) =
+        build_date_repo_filter(from_date, to_date, repo, hide_empty);
+    append_source_filter(&mut where_clause, &mut bind_values, source);
 
     // Per-tool aggregation
     let sql = format!(

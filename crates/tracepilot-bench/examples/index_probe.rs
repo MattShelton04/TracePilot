@@ -139,13 +139,19 @@ fn main() {
         "analytics-sql" => {
             let idx = tracepilot_indexer::index_db::IndexDb::open_readonly(db).expect("open");
             let t = Instant::now();
-            let a = idx.query_analytics(None, None, None, true).expect("a");
+            let a = idx
+                .query_analytics(None, None, None, true, None)
+                .expect("a");
             let a_ms = t.elapsed().as_millis();
             let t = Instant::now();
-            let _ = idx.query_tool_analysis(None, None, None, true).expect("t");
+            let _ = idx
+                .query_tool_analysis(None, None, None, true, None)
+                .expect("t");
             let t_ms = t.elapsed().as_millis();
             let t = Instant::now();
-            let _ = idx.query_code_impact(None, None, None, true).expect("c");
+            let _ = idx
+                .query_code_impact(None, None, None, true, None)
+                .expect("c");
             let c_ms = t.elapsed().as_millis();
             format!(
                 "sessions={} analytics_ms={a_ms} tools_ms={t_ms} code_ms={c_ms}",

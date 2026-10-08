@@ -136,7 +136,9 @@ fn indexing_stores_invocations_once_and_summarizes_them() {
         "re-indexing replaces rows rather than appending"
     );
 
-    let summary = db.query_skill_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_skill_usage_summary(None, None, None, None)
+        .unwrap();
     assert_eq!(summary.total_uses, 3);
     assert_eq!(summary.total_sessions, 1);
     assert_eq!(summary.fallback_uses, 1, "the pdf call had no event");
@@ -169,7 +171,9 @@ fn indexing_stores_invocations_once_and_summarizes_them() {
 #[test]
 fn a_subagent_invocation_is_attributed_to_it() {
     let (_tmp, db) = indexed("2026-09-12");
-    let summary = db.query_skill_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_skill_usage_summary(None, None, None, None)
+        .unwrap();
 
     let playwright = summary
         .skills
@@ -180,7 +184,7 @@ fn a_subagent_invocation_is_attributed_to_it() {
     assert_eq!(playwright.main_agent_uses, 0);
 
     let detail = db
-        .query_skill_usage_detail("playwright-cli", None, None, None)
+        .query_skill_usage_detail("playwright-cli", None, None, None, None)
         .unwrap();
     assert_eq!(detail.invoked_by[0].label, "explore");
 }
@@ -188,7 +192,9 @@ fn a_subagent_invocation_is_attributed_to_it() {
 #[test]
 fn a_missing_trigger_is_unknown_rather_than_user_invoked() {
     let (_tmp, db) = indexed("2026-09-12");
-    let summary = db.query_skill_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_skill_usage_summary(None, None, None, None)
+        .unwrap();
 
     let playwright = summary
         .skills
@@ -204,7 +210,9 @@ fn a_missing_trigger_is_unknown_rather_than_user_invoked() {
 #[test]
 fn a_fallback_invocation_reports_no_cost_or_fingerprint() {
     let (_tmp, db) = indexed("2026-09-12");
-    let summary = db.query_skill_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_skill_usage_summary(None, None, None, None)
+        .unwrap();
 
     let pdf = summary
         .skills
@@ -222,7 +230,9 @@ fn a_fallback_invocation_reports_no_cost_or_fingerprint() {
 #[test]
 fn the_injected_total_counts_only_the_uses_that_recorded_content() {
     let (_tmp, db) = indexed("2026-09-12");
-    let summary = db.query_skill_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_skill_usage_summary(None, None, None, None)
+        .unwrap();
 
     let with_content: u64 = summary
         .skills
@@ -244,7 +254,7 @@ fn the_injected_total_counts_only_the_uses_that_recorded_content() {
 fn detail_links_back_to_the_turn_that_used_it() {
     let (_tmp, db) = indexed("2026-09-12");
     let detail = db
-        .query_skill_usage_detail("Frontend-Design", None, None, None)
+        .query_skill_usage_detail("Frontend-Design", None, None, None, None)
         .unwrap();
 
     assert_eq!(detail.stats.uses, 1, "the name matches case-insensitively");
@@ -273,16 +283,18 @@ fn the_range_and_repository_filters_apply() {
         db.upsert_session(&session).unwrap();
     }
 
-    let all = db.query_skill_usage_summary(None, None, None).unwrap();
+    let all = db
+        .query_skill_usage_summary(None, None, None, None)
+        .unwrap();
     assert_eq!(all.total_uses, 6);
 
     let recent = db
-        .query_skill_usage_summary(Some("2026-09-01"), Some("2026-09-30"), None)
+        .query_skill_usage_summary(Some("2026-09-01"), Some("2026-09-30"), None, None)
         .unwrap();
     assert_eq!(recent.total_uses, 3);
 
     let by_repo = db
-        .query_skill_usage_summary(None, None, Some("org/b"))
+        .query_skill_usage_summary(None, None, Some("org/b"), None)
         .unwrap();
     assert_eq!(by_repo.total_uses, 3);
     assert_eq!(by_repo.total_sessions, 1);
@@ -306,7 +318,9 @@ fn the_same_skill_used_from_two_clones_keeps_both_directories() {
         db.upsert_session(&session).unwrap();
     }
 
-    let summary = db.query_skill_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_skill_usage_summary(None, None, None, None)
+        .unwrap();
     let frontend = summary
         .skills
         .iter()
@@ -335,7 +349,7 @@ fn pruning_a_session_removes_its_invocations() {
 
     assert_eq!(count(&db, "session_skill_invocations"), 0);
     assert_eq!(
-        db.query_skill_usage_summary(None, None, None)
+        db.query_skill_usage_summary(None, None, None, None)
             .unwrap()
             .total_uses,
         0
@@ -347,12 +361,14 @@ fn an_empty_index_returns_an_empty_summary() {
     let tmp = tempfile::tempdir().unwrap();
     let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
 
-    let summary = db.query_skill_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_skill_usage_summary(None, None, None, None)
+        .unwrap();
     assert_eq!(summary.total_uses, 0);
     assert!(summary.skills.is_empty());
 
     let detail = db
-        .query_skill_usage_detail("nothing", None, None, None)
+        .query_skill_usage_detail("nothing", None, None, None, None)
         .unwrap();
     assert_eq!(detail.stats.uses, 0);
     assert!(detail.recent_invocations.is_empty());

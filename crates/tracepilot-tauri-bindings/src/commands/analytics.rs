@@ -2,7 +2,7 @@
 //!
 //! All commands follow a consistent pattern using the `analytics_executor` module:
 //! 1. Extract context and params from Tauri state
-//! 2. Execute with SQL fast-path and disk scan fallback
+//! 2. Execute with SQL fast-path and disk scan fallback (Copilot sessions only)
 //!
 //! This eliminates ~80 lines of duplicated code compared to the original implementation.
 
@@ -13,6 +13,7 @@ use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
 use std::sync::Arc;
+use tracepilot_core::provider::SessionSource;
 
 #[tauri::command]
 #[tracing::instrument(skip_all)]
@@ -24,10 +25,11 @@ pub async fn get_analytics(
     to_date: Option<String>,
     repo: Option<String>,
     hide_empty: Option<bool>,
+    source: Option<SessionSource>,
 ) -> CmdResult<tracepilot_core::analytics::AnalyticsData> {
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
     let ctx = AnalyticsContext::prepare(&state, &gates, &app).await;
-    let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty);
+    let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty, source);
 
     execute_analytics_query(
         ctx,
@@ -35,12 +37,12 @@ pub async fn get_analytics(
         "Analytics",
         // SQL fast path
         |db, params| {
-            let (from, to, repo, hide) = params.as_refs();
-            Ok(db.query_analytics(from, to, repo, hide)?)
+            let (from, to, repo, hide, source) = params.as_refs();
+            Ok(db.query_analytics(from, to, repo, hide, source)?)
         },
         // Disk scan fallback
         |session_dir, params| {
-            let (from, to, repo, hide) = params.as_refs();
+            let (from, to, repo, hide, _) = params.as_refs();
             let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
                 session_dir,
                 from,
@@ -64,10 +66,11 @@ pub async fn get_tool_analysis(
     to_date: Option<String>,
     repo: Option<String>,
     hide_empty: Option<bool>,
+    source: Option<SessionSource>,
 ) -> CmdResult<tracepilot_core::analytics::ToolAnalysisData> {
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
     let ctx = AnalyticsContext::prepare(&state, &gates, &app).await;
-    let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty);
+    let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty, source);
 
     execute_analytics_query(
         ctx,
@@ -75,12 +78,12 @@ pub async fn get_tool_analysis(
         "Tool analysis",
         // SQL fast path
         |db, params| {
-            let (from, to, repo, hide) = params.as_refs();
-            Ok(db.query_tool_analysis(from, to, repo, hide)?)
+            let (from, to, repo, hide, source) = params.as_refs();
+            Ok(db.query_tool_analysis(from, to, repo, hide, source)?)
         },
         // Disk scan fallback
         |session_dir, params| {
-            let (from, to, repo, hide) = params.as_refs();
+            let (from, to, repo, hide, _) = params.as_refs();
             let inputs = tracepilot_core::analytics::load_full_sessions_filtered(
                 session_dir,
                 from,
@@ -104,10 +107,11 @@ pub async fn get_code_impact(
     to_date: Option<String>,
     repo: Option<String>,
     hide_empty: Option<bool>,
+    source: Option<SessionSource>,
 ) -> CmdResult<tracepilot_core::analytics::CodeImpactData> {
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
     let ctx = AnalyticsContext::prepare(&state, &gates, &app).await;
-    let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty);
+    let params = AnalyticsQueryParams::from_options(from_date, to_date, repo, hide_empty, source);
 
     execute_analytics_query(
         ctx,
@@ -115,12 +119,12 @@ pub async fn get_code_impact(
         "Code impact",
         // SQL fast path
         |db, params| {
-            let (from, to, repo, hide) = params.as_refs();
-            Ok(db.query_code_impact(from, to, repo, hide)?)
+            let (from, to, repo, hide, source) = params.as_refs();
+            Ok(db.query_code_impact(from, to, repo, hide, source)?)
         },
         // Disk scan fallback
         |session_dir, params| {
-            let (from, to, repo, hide) = params.as_refs();
+            let (from, to, repo, hide, _) = params.as_refs();
             let inputs = tracepilot_core::analytics::load_session_summaries_filtered(
                 session_dir,
                 from,

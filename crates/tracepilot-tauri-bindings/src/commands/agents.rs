@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use tracepilot_core::analytics::{AgentUsageDetail, AgentUsageSummary};
+use tracepilot_core::provider::SessionSource;
 use tracepilot_orchestrator::agents::write::BuiltinWrites;
 use tracepilot_orchestrator::agents::{
     AgentCatalog, AgentCreateScope, AgentDefinitionDetail, AgentFields, AgentRoots,
@@ -239,6 +240,7 @@ pub async fn agents_usage_summary(
     from_date: Option<String>,
     to_date: Option<String>,
     repo: Option<String>,
+    source: Option<SessionSource>,
 ) -> CmdResult<AgentUsageSummary> {
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
     let index_path = read_config(&state).index_db_path();
@@ -250,6 +252,7 @@ pub async fn agents_usage_summary(
             from_date.as_deref(),
             to_date.as_deref(),
             repo.as_deref(),
+            source,
         )?)
     })
 }
@@ -262,6 +265,7 @@ pub async fn agents_usage_detail(
     from_date: Option<String>,
     to_date: Option<String>,
     repo: Option<String>,
+    source: Option<SessionSource>,
 ) -> CmdResult<AgentUsageDetail> {
     validate_agent_name(&agent_name)?;
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
@@ -275,6 +279,7 @@ pub async fn agents_usage_detail(
             from_date.as_deref(),
             to_date.as_deref(),
             repo.as_deref(),
+            source,
         )?)
     })
 }

@@ -12,17 +12,19 @@ use rusqlite::{Connection, params_from_iter};
 
 use crate::Result;
 use tracepilot_core::analytics::{AgentSelectionStats, AgentUsageDetail, AgentUsageSummary};
+use tracepilot_core::provider::SessionSource;
 
-use super::super::helpers::to_refs;
+use super::super::helpers::{append_source_filter, to_refs};
 
 pub(super) use detail::build_detail;
 
-/// Date range (inclusive `YYYY-MM-DD`, UTC) and repository filter.
+/// Date range (inclusive `YYYY-MM-DD`, UTC), repository and source filter.
 #[derive(Debug, Clone, Copy, Default)]
 pub(super) struct AgentRunFilter<'a> {
     pub from_date: Option<&'a str>,
     pub to_date: Option<&'a str>,
     pub repo: Option<&'a str>,
+    pub source: Option<SessionSource>,
 }
 
 impl AgentRunFilter<'_> {
@@ -118,6 +120,7 @@ pub(super) fn load_runs(
         clause.push_str(" AND s.repository = ?");
         values.push(repo.to_string());
     }
+    append_source_filter(&mut clause, &mut values, filter.source);
     if let Some(name) = agent_name {
         clause.push_str(" AND r.agent_name = ? COLLATE NOCASE");
         values.push(name.to_string());
@@ -225,6 +228,7 @@ fn query_selections(
         clause.push_str(" AND s.repository = ?");
         values.push(repo.to_string());
     }
+    append_source_filter(&mut clause, &mut values, filter.source);
     let sql = format!(
         "SELECT MAX(a.agent_name), MAX(a.display_name), COUNT(DISTINCT a.session_id),
                 MAX({timestamp})

@@ -135,7 +135,9 @@ fn indexing_stores_runs_once_and_summarizes_them() {
         "re-indexing replaces rows"
     );
 
-    let summary = db.query_agent_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_agent_usage_summary(None, None, None, None)
+        .unwrap();
     assert_eq!(summary.total_runs, 3);
     assert_eq!(summary.total_sessions, 1);
     assert_eq!(summary.failed_runs, 1);
@@ -192,7 +194,9 @@ fn messaging_survives_indexing_and_appears_in_agent_usage() {
     );
 
     db.upsert_session(&session).unwrap();
-    let summary = db.query_agent_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_agent_usage_summary(None, None, None, None)
+        .unwrap();
     let agent = summary
         .agents
         .iter()
@@ -206,7 +210,7 @@ fn messaging_survives_indexing_and_appears_in_agent_usage() {
     assert_eq!(agent.queued_messages, 1);
 
     let detail = db
-        .query_agent_usage_detail("general-purpose", None, None, None)
+        .query_agent_usage_detail("general-purpose", None, None, None, None)
         .unwrap();
     assert_eq!(detail.stats.messages_received, 4);
 }
@@ -231,7 +235,9 @@ fn detail_keeps_models_beyond_the_managers_top_three() {
         );
         db.upsert_session(&session).unwrap();
     }
-    let summary = db.query_agent_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_agent_usage_summary(None, None, None, None)
+        .unwrap();
     assert_eq!(
         summary
             .agents
@@ -243,7 +249,7 @@ fn detail_keeps_models_beyond_the_managers_top_three() {
         3
     );
     let detail = db
-        .query_agent_usage_detail("explore", None, None, None)
+        .query_agent_usage_detail("explore", None, None, None, None)
         .unwrap();
     assert_eq!(detail.stats.top_models.len(), 4);
     assert_eq!(
@@ -270,7 +276,7 @@ fn detail_breaks_down_parents_failures_and_recent_runs() {
     db.upsert_session(&session).unwrap();
 
     let detail = db
-        .query_agent_usage_detail("CODE-REVIEW", None, None, None)
+        .query_agent_usage_detail("CODE-REVIEW", None, None, None, None)
         .unwrap();
     assert_eq!(detail.stats.runs, 1);
     assert_eq!(detail.invoked_by[0].parent.as_deref(), Some("explore"));
@@ -281,7 +287,7 @@ fn detail_breaks_down_parents_failures_and_recent_runs() {
     assert_eq!(detail.repositories[0].label, "org/agents");
 
     let explore = db
-        .query_agent_usage_detail("explore", None, None, None)
+        .query_agent_usage_detail("explore", None, None, None, None)
         .unwrap();
     assert_eq!(
         explore.invoked_by[0].parent, None,
@@ -308,14 +314,16 @@ fn date_range_splits_runs_from_the_trend_window() {
     }
 
     let summary = db
-        .query_agent_usage_summary(Some("2026-09-10"), Some("2026-09-19"), None)
+        .query_agent_usage_summary(Some("2026-09-10"), Some("2026-09-19"), None, None)
         .unwrap();
     assert_eq!(summary.total_runs, 3, "the earlier session is trend-only");
     let explore = &summary.agents[0];
     assert_eq!(explore.runs, 2);
     assert_eq!(explore.previous_median_duration_ms, Some(6000));
 
-    let everything = db.query_agent_usage_summary(None, None, None).unwrap();
+    let everything = db
+        .query_agent_usage_summary(None, None, None, None)
+        .unwrap();
     assert_eq!(everything.total_runs, 6);
     assert_eq!(everything.agents[0].previous_median_duration_ms, None);
 }
@@ -347,7 +355,9 @@ fn main_agent_selections_are_counted_per_session() {
     );
     db.upsert_session(&session).unwrap();
 
-    let summary = db.query_agent_usage_summary(None, None, None).unwrap();
+    let summary = db
+        .query_agent_usage_summary(None, None, None, None)
+        .unwrap();
     assert_eq!(summary.main_agent_selections.len(), 1);
     assert_eq!(summary.main_agent_selections[0].name, "reviewer");
     assert_eq!(summary.main_agent_selections[0].sessions, 1);

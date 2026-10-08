@@ -46,16 +46,16 @@ fn failed_source_reads_keep_analytics_and_child_rows() {
     let path = write_session_with_tools(temp.path(), ID, "org/repo", "2026-03-10T07:15:00Z");
     let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
     db.upsert_session(&path).unwrap();
-    let before = db.query_analytics(None, None, None, false).unwrap();
+    let before = db.query_analytics(None, None, None, false, None).unwrap();
     for bad_bytes in [vec![0xff, 0xfe], b"{broken".to_vec()] {
         std::fs::write(path.join("events.jsonl"), bad_bytes).unwrap();
         assert!(db.upsert_session(&path).is_err());
         assert!(db.needs_reindex(&SessionId::from_validated(ID), &path));
-        let after = db.query_analytics(None, None, None, false).unwrap();
+        let after = db.query_analytics(None, None, None, false, None).unwrap();
         assert_eq!(before.total_tokens, after.total_tokens);
         assert_eq!(before.total_sessions, after.total_sessions);
         assert_eq!(
-            db.query_tool_analysis(None, None, None, false)
+            db.query_tool_analysis(None, None, None, false, None)
                 .unwrap()
                 .total_calls,
             2

@@ -187,7 +187,10 @@ fn bench_tool_analysis(c: &mut Criterion) {
         let (_sg, _dg, db) = build_indexed_corpus(count);
         group.throughput(Throughput::Elements(count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), &db, |b, db| {
-            b.iter(|| db.query_tool_analysis(None, None, None, false).unwrap());
+            b.iter(|| {
+                db.query_tool_analysis(None, None, None, false, None)
+                    .unwrap()
+            });
         });
     }
     group.finish();
@@ -199,7 +202,7 @@ fn bench_code_impact(c: &mut Criterion) {
         let (_sg, _dg, db) = build_indexed_corpus(count);
         group.throughput(Throughput::Elements(count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), &db, |b, db| {
-            b.iter(|| db.query_code_impact(None, None, None, false).unwrap());
+            b.iter(|| db.query_code_impact(None, None, None, false, None).unwrap());
         });
     }
     group.finish();
@@ -212,9 +215,11 @@ fn bench_analytics_serialization(c: &mut Criterion) {
     let mut group = c.benchmark_group("ipc_analytics_serialize");
     for &count in CORPUS_SIZES {
         let (_sg, _dg, db) = build_indexed_corpus(count);
-        let analytics = db.query_analytics(None, None, None, false).unwrap();
-        let tool = db.query_tool_analysis(None, None, None, false).unwrap();
-        let impact = db.query_code_impact(None, None, None, false).unwrap();
+        let analytics = db.query_analytics(None, None, None, false, None).unwrap();
+        let tool = db
+            .query_tool_analysis(None, None, None, false, None)
+            .unwrap();
+        let impact = db.query_code_impact(None, None, None, false, None).unwrap();
 
         group.throughput(Throughput::Elements(count as u64));
         group.bench_with_input(

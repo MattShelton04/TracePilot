@@ -7,7 +7,8 @@ type AnalyticsFetchMethod = "fetchAnalytics" | "fetchToolAnalysis" | "fetchCodeI
  * Shared lifecycle boilerplate for analytics pages.
  *
  * Fetches available repositories on mount, invokes the named fetch method,
- * and re-fetches whenever the selected repository or date range changes.
+ * and re-fetches whenever the selected repository, source or date range
+ * changes.
  * Results are cached per filter combination, so switching back to a range
  * that was already loaded is instant; the store drops those caches when a
  * reindex finishes and bumps `dataRevision`, which triggers one refetch here.
@@ -25,7 +26,12 @@ export function useAnalyticsPage(method: AnalyticsFetchMethod) {
   });
 
   watch(
-    [() => store.selectedRepo, () => store.dateRange, () => store.dataRevision],
+    [
+      () => store.selectedRepo,
+      () => store.selectedSource,
+      () => store.dateRange,
+      () => store.dataRevision,
+    ],
     () => {
       store[method]();
     },

@@ -220,11 +220,11 @@ fn copilot_corpus_index_matches_golden_snapshot() {
     let db = IndexDb::open_readonly(&db_path).unwrap();
     let filters = SearchFilters::default();
     let dtos = json!({
-        "analytics": db.query_analytics(None, None, None, false).unwrap(),
-        "toolAnalysis": db.query_tool_analysis(None, None, None, false).unwrap(),
-        "codeImpact": db.query_code_impact(None, None, None, false).unwrap(),
-        "agentUsage": db.query_agent_usage_summary(None, None, None).unwrap(),
-        "skillUsage": db.query_skill_usage_summary(None, None, None).unwrap(),
+        "analytics": db.query_analytics(None, None, None, false, None).unwrap(),
+        "toolAnalysis": db.query_tool_analysis(None, None, None, false, None).unwrap(),
+        "codeImpact": db.query_code_impact(None, None, None, false, None).unwrap(),
+        "agentUsage": db.query_agent_usage_summary(None, None, None, None).unwrap(),
+        "skillUsage": db.query_skill_usage_summary(None, None, None, None).unwrap(),
         "observedCacheTtls": db.query_observed_cache_ttls().unwrap(),
         "sessionListOrder": db
             .list_sessions(None, None, None, false)
