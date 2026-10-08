@@ -17,6 +17,7 @@ use tracepilot_core::provider::SessionSource;
 
 #[tauri::command]
 #[tracing::instrument(skip_all)]
+#[allow(clippy::too_many_arguments)] // Tauri maps each argument to an IPC field.
 pub async fn get_analytics(
     state: tauri::State<'_, SharedConfig>,
     gates: tauri::State<'_, Arc<IndexingSemaphores>>,
@@ -58,6 +59,7 @@ pub async fn get_analytics(
 
 #[tauri::command]
 #[tracing::instrument(skip_all)]
+#[allow(clippy::too_many_arguments)] // Tauri maps each argument to an IPC field.
 pub async fn get_tool_analysis(
     state: tauri::State<'_, SharedConfig>,
     gates: tauri::State<'_, Arc<IndexingSemaphores>>,
@@ -99,6 +101,7 @@ pub async fn get_tool_analysis(
 
 #[tauri::command]
 #[tracing::instrument(skip_all)]
+#[allow(clippy::too_many_arguments)] // Tauri maps each argument to an IPC field.
 pub async fn get_code_impact(
     state: tauri::State<'_, SharedConfig>,
     gates: tauri::State<'_, Arc<IndexingSemaphores>>,
