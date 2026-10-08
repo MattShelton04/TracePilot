@@ -83,6 +83,7 @@ export type {
   TurnSessionEvent,
   TurnsResponse,
   TurnToolCall,
+  TurnUsage,
 } from "./conversation.js";
 // ── defaults.js ────────────────────────────────────────────────────
 export {

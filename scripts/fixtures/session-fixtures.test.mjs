@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   buildClaudeCodeSessions,
+  claudeHarborSessionId,
   claudeLanternSessionId,
   claudeOrchardSessionId,
 } from "./claude-code.mjs";
@@ -162,9 +163,9 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
   );
   assert.deepEqual(
     generated.claudeSessions.map((session) => session.id),
-    [claudeOrchardSessionId, claudeLanternSessionId],
+    [claudeOrchardSessionId, claudeLanternSessionId, claudeHarborSessionId],
   );
-  assert.equal(generated.files.length, 8);
+  assert.equal(generated.files.length, 9);
   assert(
     existsSync(
       join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),

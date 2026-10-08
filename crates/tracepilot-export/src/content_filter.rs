@@ -241,6 +241,7 @@ mod tests {
             reasoning_effort: None,
             user_message_delivery: None,
             system_initiated: false,
+            usage: None,
         }
     }
 

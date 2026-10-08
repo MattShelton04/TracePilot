@@ -1,3 +1,4 @@
+use crate::ids::SessionId;
 use crate::models::conversation::ConversationTurn;
 use crate::models::event_types::ShutdownData;
 use crate::models::session_summary::{SessionSummary, ShutdownMetrics};
@@ -6,6 +7,41 @@ use crate::parsing::events::{
     extract_session_start,
 };
 use crate::turns::{reconstruct_turns, turn_stats};
+
+use super::model_calls::metrics_from_model_calls;
+
+/// A summary built from a session's normalized events alone, for providers
+/// whose metadata lives in the event stream. Fields the events do not carry
+/// (title, artifacts) are left for the provider to fill.
+///
+/// Returns the reconstructed turns for reuse.
+pub fn summary_from_events(
+    id: &SessionId,
+    events: &[TypedEvent],
+) -> (SessionSummary, Vec<ConversationTurn>) {
+    let mut summary = SessionSummary {
+        id: id.to_string(),
+        summary: None,
+        repository: None,
+        branch: None,
+        cwd: None,
+        host_type: None,
+        created_at: None,
+        updated_at: None,
+        event_count: None,
+        has_events: !events.is_empty(),
+        has_session_db: false,
+        has_plan: false,
+        has_checkpoints: false,
+        checkpoint_count: None,
+        turn_count: None,
+        current_model: None,
+        current_reasoning_effort: None,
+        shutdown_metrics: None,
+    };
+    let turns = apply_event_enrichment(&mut summary, events);
+    (summary, turns)
+}
 
 /// Enrich summary fields derivable from parsed events.
 ///
@@ -19,6 +55,8 @@ pub(crate) fn apply_event_enrichment(
 
     if let Some((sd, count)) = extract_combined_shutdown_data(typed_events) {
         summary.shutdown_metrics = Some(shutdown_data_to_metrics(&sd, count));
+    } else if let Some(metrics) = metrics_from_model_calls(typed_events) {
+        summary.shutdown_metrics = Some(metrics.into());
     }
 
     summary.current_model = current_session_model(typed_events);

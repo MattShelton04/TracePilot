@@ -11,7 +11,7 @@ use crate::models::conversation::ConversationTurn;
 use crate::models::event_types::{CodeChanges, ModelMetricDetail, RequestMetrics, UsageMetrics};
 use crate::models::session_summary::SessionSummary;
 use crate::provider::{CostBasis, CostFigure, CostUnit, MetricsCoverage, SessionMetrics};
-use crate::summary::apply_event_enrichment;
+use crate::summary::summary_from_events;
 
 pub(super) fn summarize(
     id: &SessionId,
@@ -21,27 +21,8 @@ pub(super) fn summarize(
     Vec<ConversationTurn>,
     Option<SessionMetrics>,
 ) {
-    let mut summary = SessionSummary {
-        id: id.to_string(),
-        summary: None,
-        repository: None,
-        branch: None,
-        cwd: None,
-        host_type: None,
-        created_at: None,
-        updated_at: None,
-        event_count: None,
-        has_events: true,
-        has_session_db: false,
-        has_plan: false,
-        has_checkpoints: false,
-        checkpoint_count: None,
-        turn_count: None,
-        current_model: None,
-        current_reasoning_effort: None,
-        shutdown_metrics: None,
-    };
-    let turns = apply_event_enrichment(&mut summary, &parsed.events);
+    let (mut summary, turns) = summary_from_events(id, &parsed.events);
+    summary.has_events = true;
     let mut title = None;
     let mut agent_name = None;
     let mut prompt = None;

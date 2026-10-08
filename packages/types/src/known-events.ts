@@ -91,6 +91,8 @@ export const TRACEPILOT_KNOWN_EVENTS = [
   "permission.messageAuthorizationDegraded",
   "permission.assentDetected",
   "permission.contextualAuthorization",
+  // Source-neutral additions (non-Copilot providers)
+  "tracepilot.model_call",
 ] as const;
 
 export type TracePilotKnownEvent = (typeof TRACEPILOT_KNOWN_EVENTS)[number];

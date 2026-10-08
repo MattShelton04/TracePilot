@@ -115,6 +115,12 @@ These are the only additions to the normalized model. Each one also serves Codex
 | **`SessionMetrics` from the provider** | Maps into `ShutdownMetrics` with AIC and premium requests **`None`, not 0**, plus a cost figure: `cost_amount`, `cost_unit` (`aic \| usd`) and `cost_basis` (below) | Metrics tab, analytics, comparisons |
 | **`SourceCapabilities`** | `can_resume`, `can_launch`, `can_steer`, `has_aic`, `has_premium_requests`, `has_context_breakdown`, `has_todos`, `has_checkpoints`, `has_plan`, `has_explorer`, `has_hidden_roles`, … Static per source, with optional per-session overrides (e.g. "todos tool used") | Tab gating, IPC refusal, KPI visibility |
 
+Implemented (WP11, C7): `ModelCallData` and `SessionEventType::ModelCall`;
+`summary::metrics_from_model_calls` (always partial coverage, no cost) is the fallback in
+`summary_from_events` when there is no `session.shutdown`; the reconstructor sums calls into
+`ConversationTurn.usage` through the same ownership as messages. The context anchor and
+`CacheConfidence::Observed` remain C8.
+
 **Wire compatibility.** Every new field is optional, with
 `#[serde(default, skip_serializing_if = "Option::is_none")]`. Copilot `events.jsonl` lines and
 IPC JSON therefore serialize exactly as before; F7a proves this with a round-trip test.
@@ -261,6 +267,11 @@ not say whether the cache is still warm. Following
 - A cache read refreshes the entry's lifetime. Expiry therefore counts from the start of the
   last request that read or wrote that prefix, not from the first write.
 - With no recorded tier, the state is **unknown**, not expired.
+- Indexed analytics (C10) store one window per main-agent prompt that follows a call: from the
+  last call before it to the first call after it, with the tier of the latest call that wrote
+  cache (the shorter one when a call wrote both). The outcome compares the resume with that
+  estimate. Recorded tiers never feed the cross-session TTL registry
+  (`session_cache_ttls`), which estimates Copilot windows.
 - An observed hit only shows the prefix matched *then*. The next request may change tools,
   system prompt or model and miss. The UI says "estimated" and never promises a hit.
 
@@ -381,3 +392,8 @@ provider-aware only in F4–F6:
 2. **Q1 (pipeline):** a stub `FixtureProvider` (test-only) that emits a hand-written event
    stream gets through discovery, indexing, search, Conversation and analytics with **zero
    changes outside `provider/`**. If it doesn't, the seam leaks.
+   - Implemented (WP11) in `tracepilot-indexer/tests/foundation_acceptance.rs`, outside
+     `tracepilot-core` and against public APIs only. It found one leak: the summary builder
+     was crate-private, so `summary::summary_from_events` is now public. A new source still
+     adds its `SessionSource` variant, which the compiler routes to the per-source analytics
+     version and the bindings registry.

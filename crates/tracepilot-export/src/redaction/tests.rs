@@ -128,6 +128,7 @@ fn redacts_conversation_content() {
         reasoning_effort: None,
         user_message_delivery: None,
         system_initiated: false,
+        usage: None,
     }]);
     let mut archive = test_archive(session);
 
@@ -239,6 +240,7 @@ fn redacts_attachments() {
         reasoning_effort: None,
         user_message_delivery: None,
         system_initiated: false,
+        usage: None,
     }]);
     let mut archive = test_archive(session);
 

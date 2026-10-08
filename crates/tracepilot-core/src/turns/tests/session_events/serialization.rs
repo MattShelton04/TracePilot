@@ -63,6 +63,7 @@ fn session_events_serialization_round_trip() {
         reasoning_effort: None,
         user_message_delivery: None,
         system_initiated: false,
+        usage: None,
     };
 
     let json = serde_json::to_value(&turn).unwrap();

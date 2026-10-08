@@ -161,6 +161,7 @@ pub(super) fn typed_data_to_value(data: &TypedEventData) -> Value {
         }
         TypedEventData::PermissionAssentDetected(d) => serde_json::to_value(d).unwrap(),
         TypedEventData::PermissionContextualAuthorization(d) => serde_json::to_value(d).unwrap(),
+        TypedEventData::ModelCall(d) => serde_json::to_value(d).unwrap(),
         TypedEventData::Other(value) => value.clone(),
     }
 }

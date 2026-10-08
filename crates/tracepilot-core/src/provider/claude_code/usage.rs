@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::records::{Rec, WireUsage};
+use crate::parsing::events::RawEvent;
 
 /// Usage of one API call (`message.id`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -214,6 +215,42 @@ impl CallTable {
         call.reasoning_tokens = usage.output_tokens_details.thinking_tokens;
         if stop_reason.is_some() {
             call.stop_reason = stop_reason;
+        }
+    }
+}
+
+/// Fill each `tracepilot.model_call` placeholder with its call's final usage.
+pub(super) fn fill_model_calls(
+    events: &mut [RawEvent],
+    placeholders: &HashMap<String, usize>,
+    calls: &[ClaudeCallUsage],
+) {
+    for call in calls {
+        let Some(event) = placeholders
+            .get(&call.message_id)
+            .and_then(|&index| events.get_mut(index))
+        else {
+            continue;
+        };
+        let by_ttl: BTreeMap<&str, u64> = [
+            ("300", call.cache_write_5m_tokens),
+            ("3600", call.cache_write_1h_tokens),
+        ]
+        .into_iter()
+        .filter(|(_, tokens)| *tokens > 0)
+        .collect();
+        let usage = serde_json::json!({
+            "model": call.model,
+            "inputTokens": call.inclusive_input(),
+            "cacheReadTokens": call.cache_read_tokens,
+            "cacheWriteTokens": call.cache_write_tokens,
+            "cacheWriteByTtl": (!by_ttl.is_empty()).then_some(by_ttl),
+            "outputTokens": call.output_tokens,
+            "reasoningTokens": call.reasoning_tokens,
+            "stopReason": call.stop_reason,
+        });
+        if let (Some(data), Value::Object(usage)) = (event.data.as_object_mut(), usage) {
+            data.extend(usage.into_iter().filter(|(_, value)| !value.is_null()));
         }
     }
 }

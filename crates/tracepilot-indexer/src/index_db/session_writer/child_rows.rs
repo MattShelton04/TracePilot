@@ -13,6 +13,7 @@ pub(super) fn delete_child_rows(conn: &Connection, session_id: &str) -> Result<(
     const DELETE_SQLS: &[&str] = &[
         "DELETE FROM session_model_metrics WHERE session_id = ?1",
         "DELETE FROM session_tool_calls WHERE session_id = ?1",
+        "DELETE FROM session_native_tool_calls WHERE session_id = ?1",
         "DELETE FROM session_modified_files WHERE session_id = ?1",
         "DELETE FROM session_activity WHERE session_id = ?1",
         "DELETE FROM session_incidents WHERE session_id = ?1",
@@ -78,6 +79,23 @@ pub(super) fn write_child_rows(
             params.push(&row.failure);
             params.push(&row.duration_ms);
             params.push(&row.calls_with_duration);
+        },
+    )?;
+
+    batched_insert(
+        conn,
+        "INSERT INTO session_native_tool_calls \
+        (session_id, tool_name, native_tool_name, call_count, success_count, \
+         failure_count) VALUES",
+        6,
+        &analytics.native_tool_call_rows,
+        |row, params| {
+            params.push(&session_id as &dyn rusqlite::ToSql);
+            params.push(&row.name);
+            params.push(&row.native_name);
+            params.push(&row.calls);
+            params.push(&row.success);
+            params.push(&row.failure);
         },
     )?;
 

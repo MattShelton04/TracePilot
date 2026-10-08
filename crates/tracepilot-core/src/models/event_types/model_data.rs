@@ -128,3 +128,24 @@ pub struct AssistantReasoningData {
     pub content: Option<String>,
     pub rte: Option<bool>,
 }
+
+/// Data for `tracepilot.model_call`: the usage of one model request, for
+/// sources that record usage per call instead of in `session.shutdown`.
+/// The envelope `agentId` names the subagent that made the call.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelCallData {
+    pub model: Option<String>,
+    pub request_id: Option<String>,
+    /// All input, including cache reads and writes (Copilot's convention).
+    pub input_tokens: Option<u64>,
+    pub cache_read_tokens: Option<u64>,
+    pub cache_write_tokens: Option<u64>,
+    /// Cache writes by TTL in seconds (`"300"`, `"3600"`), when recorded.
+    pub cache_write_by_ttl: Option<std::collections::BTreeMap<String, u64>>,
+    pub output_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
+    pub duration_ms: Option<u64>,
+    pub stop_reason: Option<String>,
+    pub context_window_tokens: Option<u64>,
+}

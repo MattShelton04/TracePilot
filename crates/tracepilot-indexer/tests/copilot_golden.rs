@@ -61,6 +61,10 @@ fn post_golden_session_columns() -> [(&'static str, Value); 5] {
     ]
 }
 
+/// Tables added after [`GOLDEN_SCHEMA_VERSION`] that only other sources fill.
+/// Copilot must leave them empty, so they stay out of the snapshot.
+const POST_GOLDEN_EMPTY_TABLES: &[&str] = &["session_native_tool_calls"];
+
 fn golden_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/copilot-index.json")
 }
@@ -129,7 +133,19 @@ fn dump_tables(db_path: &Path, root: &Path) -> Value {
         .collect::<Result<_, _>>()
         .unwrap();
     let mut dump = Map::new();
+    for name in POST_GOLDEN_EMPTY_TABLES {
+        assert!(tables.iter().any(|t| t == name), "missing table {name}");
+    }
     for table in tables {
+        if POST_GOLDEN_EMPTY_TABLES.contains(&table.as_str()) {
+            let rows: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM \"{table}\""), [], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            assert_eq!(rows, 0, "Copilot wrote rows to {table}");
+            continue;
+        }
         let mut stmt = conn.prepare(&format!("SELECT * FROM \"{table}\"")).unwrap();
         let columns: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
         let post_golden = post_golden_session_columns();
@@ -159,7 +175,7 @@ fn dump_tables(db_path: &Path, root: &Path) -> Value {
         }
         if table == "schema_version" {
             let newest = rows.iter().filter_map(|r| r["version"].as_i64()).max();
-            assert_eq!(newest, Some(22));
+            assert_eq!(newest, Some(23));
             rows.retain(|r| r["version"].as_i64() <= Some(GOLDEN_SCHEMA_VERSION));
         }
         rows.sort_by_key(|row| row.to_string());

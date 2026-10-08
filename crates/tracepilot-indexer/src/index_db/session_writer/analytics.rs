@@ -11,6 +11,7 @@ use super::super::types::*;
 struct ConversationToolUsage {
     call_count: i64,
     tool_call_rows: Vec<ToolCallRow>,
+    native_tool_call_rows: Vec<NativeToolCallRow>,
     activity_rows: Vec<ActivityRow>,
 }
 
@@ -22,6 +23,7 @@ fn conversation_tool_usage(turns: &[tracepilot_core::ConversationTurn]) -> Conve
 
     let mut call_count = 0;
     let mut tools: HashMap<&str, ToolCallRow> = HashMap::new();
+    let mut native_tools: HashMap<(&str, &str), NativeToolCallRow> = HashMap::new();
     let mut heatmap: HashMap<(i64, i64), i64> = HashMap::new();
     for call in turns.iter().flat_map(|turn| &turn.tool_calls) {
         call_count += 1;
@@ -41,6 +43,23 @@ fn conversation_tool_usage(turns: &[tracepilot_core::ConversationTurn]) -> Conve
             Some(false) => row.failure += 1,
             None => {}
         }
+        if let Some(native) = call.native_tool_name.as_deref() {
+            let row = native_tools
+                .entry((call.tool_name.as_str(), native))
+                .or_insert_with(|| NativeToolCallRow {
+                    name: call.tool_name.clone(),
+                    native_name: native.to_string(),
+                    calls: 0,
+                    success: 0,
+                    failure: 0,
+                });
+            row.calls += 1;
+            match call.success {
+                Some(true) => row.success += 1,
+                Some(false) => row.failure += 1,
+                None => {}
+            }
+        }
         if let Some(duration) = call.duration_ms {
             row.duration_ms = row
                 .duration_ms
@@ -57,6 +76,7 @@ fn conversation_tool_usage(turns: &[tracepilot_core::ConversationTurn]) -> Conve
     ConversationToolUsage {
         call_count,
         tool_call_rows: tools.into_values().collect(),
+        native_tool_call_rows: native_tools.into_values().collect(),
         activity_rows: heatmap
             .into_iter()
             .map(|((day_of_week, hour), tool_call_count)| ActivityRow {
@@ -188,6 +208,7 @@ pub(crate) fn extract_session_analytics(
     let ConversationToolUsage {
         call_count,
         tool_call_rows,
+        native_tool_call_rows,
         activity_rows,
     } = turns.map(conversation_tool_usage).unwrap_or_default();
     let tool_call_count = turns.is_some().then_some(call_count);
@@ -370,6 +391,7 @@ pub(crate) fn extract_session_analytics(
         events_size: file_meta.events_size,
         model_rows,
         tool_call_rows,
+        native_tool_call_rows,
         activity_rows,
         modified_file_rows,
         session_segment_rows,

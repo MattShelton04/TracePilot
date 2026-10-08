@@ -163,6 +163,9 @@ pub enum SessionEventType {
     PermissionAssentDetected,
     #[strum(serialize = "permission.contextualAuthorization")]
     PermissionContextualAuthorization,
+    // ── Source-neutral additions (non-Copilot providers) ──
+    #[strum(serialize = "tracepilot.model_call")]
+    ModelCall,
     /// Catch-all for unrecognized event types from newer Copilot CLI versions.
     /// The contained string is the original wire-format type name.
     #[strum(default)]
@@ -247,6 +250,7 @@ pub const KNOWN_EVENT_TYPES: &[&str] = &[
     "permission.messageAuthorizationDegraded",
     "permission.assentDetected",
     "permission.contextualAuthorization",
+    "tracepilot.model_call",
 ];
 
 impl fmt::Display for SessionEventType {

@@ -161,7 +161,9 @@ pub struct ConversationTurn {
     /// Visible chain-of-thought reasoning with agent attribution.
     #[serde(default)]
     pub reasoning_texts: Vec<AttributedMessage>,
-    /// Total output tokens across all assistant messages in this turn.
+    /// Total output tokens across all assistant messages in this turn, or
+    /// across its recorded model calls ([`Self::usage`]) when no message
+    /// reports them.
     pub output_tokens: Option<u64>,
     /// System-decorated version of the user message (includes datetime, reminders, SQL state).
     pub transformed_user_message: Option<String>,
@@ -190,6 +192,35 @@ pub struct ConversationTurn {
     /// reminder or autopilot continuation) rather than the user typing it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub system_initiated: bool,
+    /// Recorded usage of the model calls made while this turn ran, its
+    /// subagents included, from `tracepilot.model_call` events. `None` for
+    /// sources that record usage only per session (Copilot).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usage: Option<TurnUsage>,
+}
+
+/// Token totals of a turn's recorded model calls.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TurnUsage {
+    pub model_calls: u64,
+    /// All input, including cache reads and writes.
+    pub input_tokens: u64,
+    pub cache_read_tokens: u64,
+    pub cache_write_tokens: u64,
+    pub output_tokens: u64,
+    pub reasoning_tokens: u64,
+}
+
+impl TurnUsage {
+    pub fn add(&mut self, call: &crate::models::event_types::ModelCallData) {
+        self.model_calls += 1;
+        self.input_tokens += call.input_tokens.unwrap_or(0);
+        self.cache_read_tokens += call.cache_read_tokens.unwrap_or(0);
+        self.cache_write_tokens += call.cache_write_tokens.unwrap_or(0);
+        self.output_tokens += call.output_tokens.unwrap_or(0);
+        self.reasoning_tokens += call.reasoning_tokens.unwrap_or(0);
+    }
 }
 
 /// A tool call within a conversation turn.

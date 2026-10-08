@@ -77,6 +77,7 @@ pub(super) fn typed_extended(event_type: &SessionEventType, data: &Value) -> Opt
             event_type,
             TypedEventData::PermissionContextualAuthorization,
         ),
+        SessionEventType::ModelCall => deser(data, event_type, TypedEventData::ModelCall),
         _ => return None,
     })
 }

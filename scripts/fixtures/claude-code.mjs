@@ -51,6 +51,11 @@ class Transcript {
     this.lastUuid = uuid;
   }
 
+  /** An idle gap before the next record. */
+  idle(seconds) {
+    this.clock += seconds;
+  }
+
   bookkeeping(body) {
     this.lines.push({ ...body, sessionId: this.sessionId });
   }
@@ -107,6 +112,64 @@ class Transcript {
     });
   }
 
+  /** A tool use the user or a permission rule refused. */
+  denied(toolUseId, kind) {
+    this.record("user", {
+      promptId: this.promptId,
+      message: {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: toolUseId,
+            is_error: true,
+            content: "The user doesn't want to proceed with this tool use.",
+          },
+        ],
+      },
+      toolUseResult: "User rejected tool use",
+      toolDenialKind: kind,
+    });
+  }
+
+  /** The user pressed Esc while a tool ran. */
+  interrupted(toolUseId) {
+    const marker = "[Request interrupted by user for tool use]";
+    this.record("user", {
+      promptId: this.promptId,
+      message: {
+        role: "user",
+        content: [
+          { type: "tool_result", tool_use_id: toolUseId, is_error: true, content: marker },
+          { type: "text", text: marker },
+        ],
+      },
+      toolUseResult: `Error: ${marker}`,
+    });
+  }
+
+  /** A `<synthetic>` 429 Claude Code writes when a usage limit is hit. */
+  rateLimited() {
+    this.record("assistant", {
+      isApiErrorMessage: true,
+      error: "rate_limit",
+      apiErrorStatus: 429,
+      message: {
+        id: `msg_synthetic_${this.seq}`,
+        model: "<synthetic>",
+        role: "assistant",
+        stop_reason: "stop_sequence",
+        content: [text("You've hit your usage limit · resets 6pm")],
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
+      },
+    });
+  }
+
   costState(cost, usage) {
     this.bookkeeping({
       type: "cost-state",
@@ -148,6 +211,7 @@ const toolUse = (id, name, input) => ({
 
 export const claudeOrchardSessionId = "c1a0de00-0000-4000-8000-000000000001";
 export const claudeLanternSessionId = "c1a0de00-0000-4000-8000-000000000002";
+export const claudeHarborSessionId = "c1a0de00-0000-4000-8000-000000000003";
 
 function orchardSession() {
   const cwd = "C:\\synthetic\\orchard";
@@ -326,7 +390,72 @@ function lanternSession() {
   };
 }
 
+/**
+ * Incidents and prompt-cache windows: a refused push, an interrupted push
+ * after a 12-minute pause (cache still warm), then a 429 and a reply after an
+ * 80-minute pause (past the 1-hour cache tier).
+ */
+function harborSession() {
+  const t = new Transcript({
+    sessionId: claudeHarborSessionId,
+    cwd: "C:\\synthetic\\harbor",
+    branch: "release/2.4",
+    namespace: "0c1a0004",
+    start: "2026-03-16T16:20:00.000Z",
+  });
+  const usage = { input: 2, cacheRead: 15000, cacheWrite: 1200, output: 90 };
+  const push = { command: "git push origin v2.4.0", description: "Push the tag" };
+  t.prompt("Tag the 2.4 release and push the tag.");
+  t.call(
+    "msg_harbor_1",
+    [
+      text("I'll create the tag first."),
+      toolUse("toolu_harbor_tag", "Bash", { command: "git tag v2.4.0", description: "Tag" }),
+    ],
+    usage,
+    "tool_use",
+  );
+  t.toolResult("toolu_harbor_tag", "", {
+    stdout: "",
+    stderr: "",
+    interrupted: false,
+    isImage: false,
+    noOutputExpected: true,
+  });
+  t.call("msg_harbor_2", [toolUse("toolu_harbor_push", "Bash", push)], usage, "tool_use");
+  t.denied("toolu_harbor_push", "user-rejected");
+  t.call(
+    "msg_harbor_3",
+    [text("Tagged v2.4.0 locally; I won't push until you say so.")],
+    usage,
+    "end_turn",
+  );
+  t.record("system", { subtype: "turn_duration", durationMs: 21000, messageCount: 6 });
+  t.idle(12 * 60);
+  t.prompt("Go ahead and push it now.");
+  t.call(
+    "msg_harbor_4",
+    [text("Pushing the tag."), toolUse("toolu_harbor_push_again", "Bash", push)],
+    usage,
+    "tool_use",
+  );
+  t.interrupted("toolu_harbor_push_again");
+  t.idle(80 * 60);
+  t.prompt("Is the tag on the remote?");
+  t.rateLimited();
+  t.idle(60);
+  t.prompt("Try again.");
+  t.call("msg_harbor_5", [text("Yes: v2.4.0 is on origin.")], usage, "end_turn");
+  t.bookkeeping({ type: "ai-title", aiTitle: "Tag the 2.4 release" });
+  t.costState(0.31, { input: 10, cacheRead: 75000, cacheWrite: 6000, output: 450 });
+  return {
+    id: claudeHarborSessionId,
+    title: "Tag the 2.4 release",
+    files: [{ path: `projects/C--synthetic-harbor/${t.sessionId}.jsonl`, content: t.toJsonl() }],
+  };
+}
+
 /** Claude Code sessions, with file paths relative to its config directory. */
 export function buildClaudeCodeSessions() {
-  return [orchardSession(), lanternSession()];
+  return [orchardSession(), lanternSession(), harborSession()];
 }
