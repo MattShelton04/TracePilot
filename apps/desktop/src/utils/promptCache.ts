@@ -279,7 +279,13 @@ export function windowDetailRows(window: CacheWindow): WindowDetailRow[] {
   if (window.resumeSource === AGENT_RESUME_SOURCE) {
     rows.push({ label: "Resumed by", value: "Agent" });
   }
-  if ((window.outcome === "expired" || window.outcome === "modelChanged") && window.prefixTokens) {
+  // A recorded hit overrules the estimated expiry: nothing was re-sent.
+  const observedHit = window.confidence === "observed" && window.observedResume?.hit === true;
+  if (
+    (window.outcome === "expired" || window.outcome === "modelChanged") &&
+    window.prefixTokens &&
+    !observedHit
+  ) {
     rows.push({ label: "Re-sent", value: formatApproxTokens(window.prefixTokens) });
   }
   if (window.observedResume?.cacheRead != null) {
