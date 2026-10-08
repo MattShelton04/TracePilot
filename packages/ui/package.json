@@ -39,11 +39,11 @@
     "dompurify": "^3.4.16",
     "lucide-vue-next": "^1.0.0",
     "markdown-it": "^14.3.0",
-    "papaparse": "^5.5.3",
+    "papaparse": "^5.7.0",
     "vue": "catalog:"
   },
   "devDependencies": {
-    "@playwright/experimental-ct-vue": "^1.48.0",
+    "@playwright/experimental-ct-vue": "^1.62.1",
     "@types/markdown-it": "^14.1.2",
     "@types/papaparse": "^5.3.16",
     "@vitejs/plugin-vue": "catalog:",
