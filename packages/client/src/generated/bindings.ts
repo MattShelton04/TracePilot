@@ -37,8 +37,8 @@ export const commands = {
 	getGitInfo: () => __TAURI_INVOKE<GitInfo>("get_git_info"),
 	validateSessionDir: (path: string) => typedError<ValidateSessionDirResult, BindingsErrorIpc>(__TAURI_INVOKE("validate_session_dir", { path })),
 	/**
-	 *  Check a Claude Code config folder and count its sessions, like
-	 *  `validate_session_dir` does for Copilot.
+	 *  Check a Claude Code config folder the way saving it will (ADR 0012), and
+	 *  count its sessions.
 	 */
 	validateClaudeConfigDir: (path: string) => typedError<ValidateSessionDirResult, BindingsErrorIpc>(__TAURI_INVOKE("validate_claude_config_dir", { path })),
 	checkConfigExists: () => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("check_config_exists")),

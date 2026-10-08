@@ -61,6 +61,8 @@ dependencies, and upload captures even when a view fails. This reduces capture
 wall time at the cost of four dependency/browser installations; no Rust build
 is needed. The publisher installs only its isolated, lockfile-pinned PNG decoder with
 lifecycle scripts disabled and consumes no PR cache.
+Its package manifest explicitly declares npm so Dependabot updates its own
+`package-lock.json` without discovering the parent pnpm workspace.
 Concurrency cancels superseded capture runs; publication is serialized.
 Publication queues pending reports so an unrelated PR cannot replace a waiting report.
 On the development Windows/Edge host, repeated warmed single-shard 33-view captures
