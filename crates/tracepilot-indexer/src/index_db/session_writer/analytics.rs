@@ -200,6 +200,27 @@ pub(crate) fn extract_session_analytics(
                     total_nano_aiu: seg.total_nano_aiu.map(|v| v as i64),
                 });
             }
+        } else if metrics.coverage.is_some()
+            && let Some(end) = summary.updated_at.or(summary.created_at)
+        {
+            // Provider totals (Claude Code) have no shutdown segments. Record
+            // them as one segment ending at the last update, like the
+            // model-usage-by-day fallback, so the per-day charts include them.
+            let mut requests: i64 = 0;
+            for detail in metrics.model_metrics.values() {
+                requests += detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0) as i64;
+            }
+            session_segment_rows.push(SessionSegmentRow {
+                start_timestamp: summary.created_at.unwrap_or(end).to_rfc3339(),
+                end_timestamp: end.to_rfc3339(),
+                tokens: total_tokens,
+                total_requests: requests,
+                premium_requests: 0.0,
+                api_duration_ms: total_api_duration_ms.unwrap_or(0),
+                current_model: current_model.clone(),
+                model_metrics_json: serde_json::to_string(&metrics.model_metrics).ok(),
+                total_nano_aiu: None,
+            });
         }
     }
 

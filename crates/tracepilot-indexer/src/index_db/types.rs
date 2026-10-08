@@ -48,6 +48,9 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
 ///
+/// v21: one session-level segment per Claude session, so the per-day
+/// dashboard charts (tokens, activity, cost) include Claude totals.
+///
 /// v20: cache windows come from the core prompt-cache timeline: expiry counts
 /// from the last call that read or wrote cache, tiers are tracked per model,
 /// the last call leaves a pending window, and timestamps use milliseconds.
@@ -57,7 +60,7 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 20;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 21;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
