@@ -5,7 +5,6 @@ import {
   compareSessions,
   filterAndSortSessions,
   matchesSessionFilters,
-  uniqueBranches,
   uniqueRepositories,
   uniqueSources,
 } from "../filtering";
@@ -69,7 +68,6 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
         {
           searchTerm: null,
           repository: null,
-          branch: null,
           hideEmptySessions: false,
         },
         cache,
@@ -84,7 +82,6 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
         {
           searchTerm: null,
           repository: null,
-          branch: null,
           hideEmptySessions: true,
         },
         cache,
@@ -96,7 +93,6 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
     const p = {
       searchTerm: "search",
       repository: null,
-      branch: null,
       hideEmptySessions: false,
     };
     expect(matchesSessionFilters(sample[0], p, cache)).toBe(true);
@@ -105,7 +101,6 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
     const idMatch = {
       searchTerm: "ccc",
       repository: null,
-      branch: null,
       hideEmptySessions: false,
     };
     expect(matchesSessionFilters(sample[2], idMatch, cache)).toBe(true);
@@ -118,7 +113,6 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
         {
           searchTerm: "anything",
           repository: null,
-          branch: null,
           hideEmptySessions: false,
         },
         cache,
@@ -126,14 +120,13 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
     ).toBe(false);
   });
 
-  it("repository and branch filters are exact-match", () => {
+  it("repository filter is exact-match", () => {
     expect(
       matchesSessionFilters(
         sample[0],
         {
           searchTerm: null,
           repository: "Org/Repo-One",
-          branch: "main",
           hideEmptySessions: false,
         },
         cache,
@@ -145,7 +138,6 @@ describe("stores/sessions/filtering – matchesSessionFilters", () => {
         {
           searchTerm: null,
           repository: "Org/Repo-One",
-          branch: null,
           hideEmptySessions: false,
         },
         cache,
@@ -184,7 +176,6 @@ describe("stores/sessions/filtering – filterAndSortSessions integration", () =
       {
         searchTerm: null,
         repository: null,
-        branch: null,
         hideEmptySessions: true,
       },
       cache,
@@ -195,21 +186,15 @@ describe("stores/sessions/filtering – filterAndSortSessions integration", () =
   });
 });
 
-describe("stores/sessions/filtering – uniqueRepositories / uniqueBranches", () => {
+describe("stores/sessions/filtering – uniqueRepositories", () => {
   it("returns sorted distinct repositories ignoring null", () => {
     expect(uniqueRepositories(sample)).toEqual(["Org/Repo-One", "org/repo-one", "org/repo-two"]);
-  });
-
-  it("scopes branches to a repository when one is provided", () => {
-    expect(uniqueBranches(sample, null)).toEqual(["feat/x", "main"]);
-    expect(uniqueBranches(sample, "Org/Repo-One")).toEqual(["main"]);
-    expect(uniqueBranches(sample, "org/repo-two")).toEqual(["feat/x"]);
   });
 });
 
 describe("stores/sessions/filtering – source", () => {
   const mixed = [s({ id: "cop-1" }), s({ id: "cc-1", source: "claudeCode" })];
-  const base = { searchTerm: null, repository: null, branch: null, hideEmptySessions: false };
+  const base = { searchTerm: null, repository: null, hideEmptySessions: false };
   const cache = buildSearchFieldCache(mixed);
 
   it("treats sessions without a source as Copilot", () => {

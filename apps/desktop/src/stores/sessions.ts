@@ -7,7 +7,6 @@ import { usePreferencesStore } from "./preferences";
 import {
   buildSearchFieldCache,
   filterAndSortSessions,
-  uniqueBranches,
   uniqueRepositories,
   uniqueSources,
 } from "./sessions/filtering";
@@ -39,7 +38,6 @@ export const useSessionsStore = defineStore("sessions", () => {
   // approach is correct for this use case.
   const searchQuery = ref("");
   const filterRepo = ref<string | null>(null);
-  const filterBranch = ref<string | null>(null);
   const filterSource = ref<SessionSource | null>(null);
   const sortBy = ref<SortOption>("updated");
 
@@ -55,7 +53,6 @@ export const useSessionsStore = defineStore("sessions", () => {
       {
         searchTerm: term,
         repository: filterRepo.value,
-        branch: filterBranch.value,
         source: filterSource.value,
         hideEmptySessions: prefs.hideEmptySessions,
       },
@@ -65,14 +62,13 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   const repositories = computed(() => uniqueRepositories(sessions.value));
-  const branches = computed(() => uniqueBranches(sessions.value, filterRepo.value));
   const sources = computed(() => uniqueSources(sessions.value));
 
   const emptySessionCount = computed(() => {
     return sessions.value.filter((s) => (s.turnCount ?? 0) === 0).length;
   });
 
-  /** Session count respecting hideEmptySessions but not search/repo/branch/source filters. */
+  /** Session count respecting hideEmptySessions but not search/repo/source filters. */
   const visibleSessionCount = computed(() => {
     const prefs = usePreferencesStore();
     if (prefs.hideEmptySessions) {
@@ -106,12 +102,10 @@ export const useSessionsStore = defineStore("sessions", () => {
     error,
     searchQuery,
     filterRepo,
-    filterBranch,
     filterSource,
     sortBy,
     filteredSessions,
     repositories,
-    branches,
     sources,
     emptySessionCount,
     visibleSessionCount,

@@ -90,11 +90,11 @@ describe("Session list empty-state recovery", () => {
     expect(routerPush).toHaveBeenCalledWith({ name: "settings" });
   });
 
-  it("clears search, repository and branch filters without changing sorting or empty visibility", async () => {
+  it("clears search, repository and source filters without changing sorting or empty visibility", async () => {
     store.sessions = [session];
     store.searchQuery = "No matching result";
     store.filterRepo = "audit/other";
-    store.filterBranch = "missing-branch";
+    store.filterSource = "claudeCode";
     store.sortBy = "oldest";
     wrapper = render();
     await flushPromises();
@@ -105,7 +105,7 @@ describe("Session list empty-state recovery", () => {
 
     expect(store.searchQuery).toBe("");
     expect(store.filterRepo).toBeNull();
-    expect(store.filterBranch).toBeNull();
+    expect(store.filterSource).toBeNull();
     expect(store.sortBy).toBe("oldest");
     expect(preferences.hideEmptySessions).toBe(true);
     expect(wrapper.findAll('[data-testid="session-card"]')).toHaveLength(1);
@@ -133,13 +133,13 @@ describe("Session list empty-state recovery", () => {
 
   it("keeps a clear-filters recovery available when hidden empty sessions also have filters", async () => {
     store.sessions = [{ ...session, turnCount: 0 }];
-    store.filterBranch = "missing-branch";
+    store.filterRepo = "audit/other";
     wrapper = render();
     await flushPromises();
 
     expect(wrapper.get("h2").text()).toBe("Empty sessions are hidden");
     await wrapper.get(".empty-state-btn--secondary").trigger("click");
-    expect(store.filterBranch).toBeNull();
+    expect(store.filterRepo).toBeNull();
     expect(preferences.hideEmptySessions).toBe(true);
   });
 
