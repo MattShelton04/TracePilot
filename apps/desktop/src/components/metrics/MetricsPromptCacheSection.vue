@@ -42,6 +42,16 @@ const { windowMissCredits, totalMissCredits } = usePromptCacheCost();
 const showEstimate = ref(false);
 const expanded = ref(new Set<number>());
 const isTurnGaps = computed(() => props.timeline.source === "turnGaps");
+const timingExplanation = computed(
+  () =>
+    CONFIDENCE_EXPLANATIONS[
+      props.timeline.source === "modelCalls"
+        ? "observed"
+        : isTurnGaps.value
+          ? "estimated"
+          : "predicted"
+    ],
+);
 const hasEstimate = computed(() =>
   props.timeline.windows.some((w) => w.confidence === "estimated"),
 );
@@ -143,7 +153,7 @@ function rowCredits(window: CacheWindow) {
   <SectionPanel title="Prompt Cache" class="mb-6" data-testid="prompt-cache-section">
     <template #actions>
       <Badge v-if="isTurnGaps && showEstimate" variant="warning">Estimated</Badge>
-      <Tooltip :text="CONFIDENCE_EXPLANATIONS[isTurnGaps ? 'estimated' : 'predicted']">
+      <Tooltip :text="timingExplanation">
         <button type="button" aria-label="About prompt-cache timing" class="text-[var(--text-tertiary)]">
           <Info :size="14" />
         </button>
@@ -279,6 +289,7 @@ function rowCredits(window: CacheWindow) {
                     </Badge>
                     <span v-if="window.resumeSource === AGENT_RESUME_SOURCE" class="prompt-cache__tag">Agent</span>
                     <span v-if="window.confidence === 'estimated' && !isTurnGaps" class="prompt-cache__tag">Estimated</span>
+                    <span v-else-if="window.confidence === 'observed'" class="prompt-cache__tag">Estimated expiry</span>
                   </span>
                 </td>
                 <td>

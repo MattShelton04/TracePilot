@@ -21,7 +21,7 @@ const emit = defineEmits<{
   clearSelection: [];
 }>();
 
-type LayerKey = "systemTokens" | "toolDefinitionTokens" | "conversationTokens";
+type LayerKey = "systemTokens" | "toolDefinitionTokens" | "conversationTokens" | "totalTokens";
 type AxisMode = "turn" | "time";
 type LayerDefinition = {
   key: LayerKey;
@@ -29,7 +29,7 @@ type LayerDefinition = {
   color: string;
   description: string;
 };
-const layers: LayerDefinition[] = [
+const breakdownLayers: LayerDefinition[] = [
   {
     key: "systemTokens",
     label: "System prompt",
@@ -49,10 +49,23 @@ const layers: LayerDefinition[] = [
     description: "Accumulated messages, reasoning, tool arguments, and returned tool results.",
   },
 ];
+const layers = computed<LayerDefinition[]>(() =>
+  props.timeline.points.some((point) => point.totalOnly)
+    ? [
+        {
+          key: "totalTokens",
+          label: "Total input",
+          color: "var(--chart-primary)",
+          description: "Recorded inclusive input tokens. The layer breakdown is unknown.",
+        },
+      ]
+    : breakdownLayers,
+);
 const enabled = ref<Record<LayerKey, boolean>>({
   systemTokens: true,
   toolDefinitionTokens: true,
   conversationTokens: true,
+  totalTokens: true,
 });
 const axisMode = ref<AxisMode>("turn");
 const hoverPoint = ref<ContextWindowPoint | null>(null);
@@ -91,7 +104,7 @@ watch([zoom, () => props.timeline.points.length], () => {
 });
 
 const visibleTotal = (point: ContextWindowPoint) =>
-  layers.reduce((sum, layer) => sum + (enabled.value[layer.key] ? point[layer.key] : 0), 0);
+  layers.value.reduce((sum, layer) => sum + (enabled.value[layer.key] ? point[layer.key] : 0), 0);
 
 const observedCompactionLevel = computed(() => {
   const values = props.timeline.compactions
@@ -194,7 +207,7 @@ const y = (tokens: number) => margin.top + plotHeight - (tokens / maxTokens.valu
 
 const layerPolygons = computed(() => {
   let baseline = points.value.map(() => 0);
-  return layers.map((layer) => {
+  return layers.value.map((layer) => {
     const top = points.value.map(
       (point, index) => baseline[index] + (enabled.value[layer.key] ? point[layer.key] : 0),
     );

@@ -151,6 +151,28 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
         deltas[turn].timestamp = timestamp.clone().or_else(|| deltas[turn].timestamp.clone());
 
         match &event.typed_data {
+            TypedEventData::ModelCall(data) => {
+                reported_token_limit = data.context_window_tokens.or(reported_token_limit);
+                if let Some(total) = data.input_tokens {
+                    // One point per turn: its last call carries the most context.
+                    if anchors
+                        .last()
+                        .is_some_and(|last| last.total.is_some() && last.turn == turn)
+                    {
+                        anchors.pop();
+                    }
+                    anchors.push(Anchor {
+                        turn,
+                        timestamp: timestamp.clone(),
+                        total: Some(total),
+                        system: 0,
+                        tools: 0,
+                        conversation: 0,
+                        phase: ContextPointPhase::Turn,
+                        source: ContextPointSource::Observed,
+                    });
+                }
+            }
             TypedEventData::UserMessage(data) => {
                 let context_content = data
                     .transformed_content
@@ -296,6 +318,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                     let start_anchor = pending.and_then(|item| item.anchor);
                     if let Some((system, conversation, tools)) = explicit {
                         anchors.push(Anchor {
+                            total: None,
                             turn,
                             timestamp: timestamp.clone(),
                             system,
@@ -306,6 +329,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                         });
                     } else if let Some(start) = start_anchor {
                         anchors.push(Anchor {
+                            total: None,
                             turn,
                             timestamp: timestamp.clone(),
                             system: start.system,
@@ -370,6 +394,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
             && right.system == left.system
             && right.tools == left.tools
             && right.conversation == left.conversation
+            && right.total == left.total
     });
 
     let mut points = build_points(turn_count, &deltas, &anchors);
@@ -419,6 +444,10 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
         compaction_complete_count,
         paired_compaction_count,
         reported_token_limit,
-        methodology: METHODOLOGY,
+        methodology: if anchors.iter().any(|anchor| anchor.total.is_some()) {
+            "Main-agent model calls record inclusive input tokens: uncached input plus cache reads and writes. These are observed total-only anchors; system, tool-definition and conversation layers are unknown. Output tokens and subagent calls are excluded. Expiry and cache reuse are separate from context size."
+        } else {
+            METHODOLOGY
+        },
     }
 }

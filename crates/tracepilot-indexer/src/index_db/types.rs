@@ -48,12 +48,16 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
 ///
+/// v20: cache windows come from the core prompt-cache timeline: expiry counts
+/// from the last call that read or wrote cache, tiers are tracked per model,
+/// the last call leaves a pending window, and timestamps use milliseconds.
+///
 /// v19: per-call `tracepilot.model_call` events and turn usage, native tool
 /// names (`session_native_tool_calls`), interrupt and denial incidents, and
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 19;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 20;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -168,7 +172,8 @@ pub(crate) struct ModifiedFileRow {
     pub extension: Option<String>,
 }
 
-/// Row for the session_cache_windows table (predicted windows only).
+/// Row for the session_cache_windows table: Copilot's predicted windows and
+/// Claude Code's windows timed by recorded model calls.
 pub(crate) struct CacheWindowRow {
     pub window_index: i64,
     pub idle_start: String,

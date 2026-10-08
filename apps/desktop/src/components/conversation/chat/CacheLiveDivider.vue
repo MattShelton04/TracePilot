@@ -12,13 +12,20 @@ import { useLiveCacheStatus } from "@/composables/useLiveCacheStatus";
 
 const props = defineProps<{ timeline: PromptCacheTimeline | null }>();
 
-const { status, description, tooltip } = useLiveCacheStatus(() => props.timeline);
+const { status, unknown, estimated, description, tooltip } = useLiveCacheStatus(
+  () => props.timeline,
+);
 
 const chip = computed(() => {
+  if (unknown.value) return "Cache expiry unknown";
+  if (estimated.value) {
+    return status.value?.state === "expired" ? "Cache likely expired" : "Estimated cache expiry";
+  }
   if (status.value?.state === "expired") return "Cache expired";
   return status.value?.state === "expiring" ? "Cache expiring" : "Cache warm";
 });
 const tone = computed(() => {
+  if (unknown.value) return "cold";
   if (status.value?.state === "expired") return "cold";
   return status.value?.state === "expiring" ? "attention" : "warm";
 });
@@ -26,7 +33,7 @@ const tone = computed(() => {
 
 <template>
   <div
-    v-if="status"
+    v-if="status || unknown"
     class="cache-live"
     :class="`cache-live--${tone}`"
     role="timer"

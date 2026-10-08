@@ -173,7 +173,7 @@ pub(super) fn prefix_changes(
 
 /// Share of the idle prefix the resume request must read from cache to count
 /// as a hit when the CLI recorded that request.
-const OBSERVED_HIT_SHARE: f64 = 0.9;
+pub(super) const OBSERVED_HIT_SHARE: f64 = 0.9;
 
 /// Keep only the changes that could have broken the cache. An expired cache
 /// was lost whatever changed, and a model switch starts a new cache. When the
@@ -216,7 +216,11 @@ pub(super) fn observe_resume(
         .and_then(|idle| idle.frontier_tokens.or(idle.prompt_tokens))
         .filter(|prefix| *prefix > 0)
         .map(|prefix| cache_read as f64 >= prefix as f64 * OBSERVED_HIT_SHARE);
-    Some(ObservedResume { cache_read, hit })
+    Some(ObservedResume {
+        cache_read: Some(cache_read),
+        cache_write: None,
+        hit,
+    })
 }
 
 pub(super) fn summarize(windows: &[CacheWindow]) -> PromptCacheSummary {
