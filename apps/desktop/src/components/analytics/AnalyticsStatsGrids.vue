@@ -43,7 +43,7 @@ function sourceLabel(summary: AnalyticsAiCreditSummary | null): string {
       :tooltip="sourceLabel(aiCreditSummary)"
     />
     <StatCard
-      :value="formatCost(aiCreditSummary?.usdEquivalent)"
+      :value="aiCreditSummary?.usdEquivalent == null ? '—' : formatCost(aiCreditSummary.usdEquivalent)"
       label="AIC USD Equivalent"
       color="success"
       :tooltip="sourceLabel(aiCreditSummary)"

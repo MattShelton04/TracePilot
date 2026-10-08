@@ -90,8 +90,11 @@ export function useModelComparison() {
 
   const totalTokens = computed(() => modelRows.value.reduce((sum, m) => sum + m.tokens, 0));
   const totalCost = computed(() => modelRows.value.reduce((sum, m) => sum + (m.cost ?? 0), 0));
+  // Null when no model is priced in AI Credits (e.g. only Claude Code models).
   const totalAiCredits = computed(() =>
-    modelRows.value.reduce((sum, model) => sum + (model.aiCredits ?? 0), 0),
+    modelRows.value.some((model) => model.aiCredits != null)
+      ? modelRows.value.reduce((sum, model) => sum + (model.aiCredits ?? 0), 0)
+      : null,
   );
   const totalCopilotCost = computed(() =>
     modelRows.value.reduce((sum, m) => sum + m.copilotCost, 0),

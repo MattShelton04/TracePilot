@@ -120,6 +120,27 @@ describe("useModelComparison", () => {
     expect(gpt4.copilotCost).toBeCloseTo(0.08);
   });
 
+  it("leaves totalAiCredits empty, not zero, when no model is priced in AI Credits", () => {
+    seedDistribution([
+      {
+        model: "claude-opus-5-5",
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadTokens: 200,
+        premiumRequests: 0,
+      },
+    ]);
+    const priced = prefsStoreMock.computeWholesaleCost.getMockImplementation();
+    prefsStoreMock.computeWholesaleCost.mockImplementation(() => null as unknown as number);
+    try {
+      const { comp } = mountHook();
+      expect(comp.modelRows[0].aiCredits).toBeNull();
+      expect(comp.totalAiCredits).toBeNull();
+    } finally {
+      if (priced) prefsStoreMock.computeWholesaleCost.mockImplementation(priced);
+    }
+  });
+
   it("toggleSort flips direction on same key and resets on new key", () => {
     const { comp } = mountHook();
     expect(comp.sortKey).toBe("tokens");

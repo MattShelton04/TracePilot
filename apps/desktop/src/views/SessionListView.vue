@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type IndexingProgressPayload, type SessionSource, sourceLabel } from "@tracepilot/types";
+import type { IndexingProgressPayload } from "@tracepilot/types";
 import {
   Badge,
   EmptyState,
@@ -18,6 +18,7 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
+import SourceSwitch from "@/components/sources/SourceSwitch.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { useLiveSessionBadges } from "@/composables/useLiveSessionBadges";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
@@ -215,17 +216,13 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
         </div>
         <div class="toolbar-filters">
           <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
-          <select
+          <SourceSwitch
             v-if="showSourceFilter"
-            :value="store.filterSource ?? ''"
-            class="filter-select"
-            aria-label="Filter by source"
+            :model-value="store.filterSource"
+            :sources="store.sources"
             data-testid="session-source-filter"
-            @change="store.filterSource = (($event.target as HTMLSelectElement).value || null) as SessionSource | null"
-          >
-            <option value="">All Sources</option>
-            <option v-for="source in store.sources" :key="source" :value="source">{{ sourceLabel(source) }}</option>
-          </select>
+            @update:model-value="store.filterSource = $event"
+          />
           <select
             :value="store.sortBy"
             class="filter-select"

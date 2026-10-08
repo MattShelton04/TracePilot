@@ -15,6 +15,14 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 - **Claude Code sessions (experimental)** — Turn on **Claude Code Sessions** in Settings → Experimental to index and view Claude Code sessions alongside Copilot CLI sessions, with a source badge and filter. The folder defaults to `CLAUDE_CONFIG_DIR`, else `~/.claude`, and can be changed in Data & Storage. Turning it off removes those sessions from the index and leaves your Claude Code files untouched. Their turns show token usage, refused tool uses and interrupts are listed as incidents, and they count in Analytics, including prompt-cache timing estimated from each call's recorded cache tier. Their Context tab charts each turn's recorded input total, and the session header shows an estimated prompt-cache countdown (or "unknown" when no cache tier was recorded). Once both sources have sessions, a source filter on each Analytics page shows all sessions, Copilot only or Claude Code only.
 
+### Changed
+
+- **Session source switch** — The Sessions toolbar and Analytics pages switch between All, Copilot and Claude with a logo switch instead of a dropdown.
+
+### Fixed
+
+- **Claude Code analytics** — The Analytics token, activity and cost-by-day charts include Claude Code sessions, which they previously left out. With the Claude filter, AI Credit totals show a dash instead of $0.00, and the AI Credit cost trend is not drawn. A prompt-cache miss in a Claude conversation is priced in USD. Existing indexes refresh Claude rows once on launch.
+
 ### Removed
 
 - **Sessions branch filter** — Removed the branch dropdown from the Sessions toolbar. Branch names remain searchable and visible on session cards.

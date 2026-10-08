@@ -57,9 +57,21 @@ fn claude_summary_metrics_and_partial_status_reach_index_consumers() {
         let dashboard = db.query_analytics(None, None, None, false, None).unwrap();
         assert_eq!(dashboard.total_tokens, if tail { 2805 } else { 1011 });
         assert_eq!(dashboard.model_distribution.len(), 2);
+        // Per-day charts need a segment; Claude totals land on the last update day.
+        let day_tokens: u64 = dashboard.token_usage_by_day.iter().map(|d| d.tokens).sum();
+        assert_eq!(day_tokens, if tail { 2805 } else { 1011 });
+        assert_eq!(dashboard.activity_per_day.len(), 1);
+        assert_eq!(dashboard.activity_per_day[0].count, 1);
+        assert_eq!(dashboard.model_usage_by_day.len(), 2);
         // Pre-C5 unchanged Claude rows must be refreshed; Copilot stays at v17.
         db.conn
             .execute("UPDATE sessions SET analytics_version=17", [])
+            .unwrap();
+        assert!(db.session_is_stale(provider.as_ref(), &locator));
+        // Pre-segment Claude rows (v20) are refreshed too.
+        db.write_prepared_session(&prepared).unwrap();
+        db.conn
+            .execute("UPDATE sessions SET analytics_version=20", [])
             .unwrap();
         assert!(db.session_is_stale(provider.as_ref(), &locator));
     }
