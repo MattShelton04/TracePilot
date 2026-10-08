@@ -137,6 +137,18 @@ Each semantic palette has four tokens: `-fg` (text), `-emphasis` (strong fill), 
 | `--neutral-muted` | `rgba(113,113,122,0.25)` | `rgba(113,113,122,0.15)` |
 | `--neutral-subtle` | `rgba(113,113,122,0.10)` | `rgba(113,113,122,0.06)` |
 
+#### Claude (Clay) — Claude Code session source
+
+Tints Claude Code session cards and colours their source badge.
+
+| Token | Dark | Light |
+|-------|------|-------|
+| `--claude-fg` | `#e8916f` | `#b9562f` |
+| `--claude-emphasis` | `#d97757` | `#c15f3c` |
+| `--claude-muted` | `rgba(217,119,87,0.25)` | `rgba(217,119,87,0.18)` |
+| `--claude-subtle` | `rgba(217,119,87,0.08)` | `rgba(217,119,87,0.08)` |
+| `--claude-border` | `rgba(217,119,87,0.30)` | `rgba(193,95,60,0.38)` |
+
 ### Shadows & Glows
 
 | Token | Value |
@@ -207,6 +219,7 @@ Variant C uses `-0.02em` letter-spacing globally — relaxed from Linear's -0.03
 | `.badge-neutral` | Gray | Host type, misc |
 | `.badge-warning` | Amber | Costs, premium |
 | `.badge-danger` | Rose | Errors, failures |
+| `.badge-claude` | Clay | Claude Code session source |
 
 Event badges (`.event-badge`) use a smaller 0.625rem size with prefix-based coloring:
 

@@ -91,6 +91,10 @@
   background: var(--neutral-muted);
   color: var(--neutral-fg);
 }
+.badge-claude {
+  background: var(--claude-muted);
+  color: var(--claude-fg);
+}
 
 /* ============================
    STAT CARDS

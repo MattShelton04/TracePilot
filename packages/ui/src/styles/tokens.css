@@ -99,6 +99,13 @@
   --neutral-muted: rgba(113, 113, 122, 0.25);
   --neutral-subtle: rgba(113, 113, 122, 0.1);
 
+  /* --- Claude Code source (Clay) — tints Claude Code sessions --- */
+  --claude-fg: #e8916f;
+  --claude-emphasis: #d97757;
+  --claude-muted: rgba(217, 119, 87, 0.25);
+  --claude-subtle: rgba(217, 119, 87, 0.08);
+  --claude-border: rgba(217, 119, 87, 0.3);
+
   /* --- Shadows --- */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
@@ -260,6 +267,12 @@
   --neutral-emphasis: #3f3f46;
   --neutral-muted: rgba(113, 113, 122, 0.15);
   --neutral-subtle: rgba(113, 113, 122, 0.06);
+
+  --claude-fg: #b9562f;
+  --claude-emphasis: #c15f3c;
+  --claude-muted: rgba(217, 119, 87, 0.18);
+  --claude-subtle: rgba(217, 119, 87, 0.08);
+  --claude-border: rgba(193, 95, 60, 0.38);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
