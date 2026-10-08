@@ -27,12 +27,16 @@ const mode = computed(() => (typeof props.args.mode === "string" ? props.args.mo
 const status = computed(() => toolCallStatus(props.tc));
 // The recorded exit code outlives result text the CLI may strip.
 const exitCode = computed(() => props.tc.exitCode ?? terminal.value.exitCode);
-const title = computed(() =>
-  props.tc.toolName === "read_powershell"
-    ? "Read shell"
-    : props.tc.toolName === "write_powershell"
-      ? "Write to shell"
-      : "PowerShell",
+const title = computed(
+  () =>
+    props.tc.nativeToolName ??
+    (props.tc.toolName === "read_powershell"
+      ? "Read shell"
+      : props.tc.toolName === "write_powershell"
+        ? "Write to shell"
+        : props.tc.toolName === "powershell"
+          ? "PowerShell"
+          : props.tc.toolName),
 );
 const processLabel = computed(() => {
   if (exitCode.value != null) return `Exit ${exitCode.value}`;

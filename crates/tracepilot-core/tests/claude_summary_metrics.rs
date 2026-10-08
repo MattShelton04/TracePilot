@@ -91,9 +91,12 @@ fn snapshot_plus_tail_counts_only_new_main_and_launched_child_calls() {
     assert_eq!(m.total_duration_ms, Some(2100)); // latest duplicate, not sum
     assert_eq!(m.code_changes.as_ref().unwrap().lines_added, Some(12));
     assert_eq!(m.code_changes.as_ref().unwrap().lines_removed, Some(3));
-    assert!(m.cost_amount.is_none());
-    assert!(m.cost_unit.is_none());
-    assert!(m.cost_basis.is_none());
+    assert!(m.cost_amount.is_some());
+    assert_eq!(m.cost_unit, Some(tracepilot_core::provider::CostUnit::Usd));
+    assert_eq!(
+        m.cost_basis,
+        Some(tracepilot_core::provider::CostBasis::TracepilotEstimate)
+    );
     let coverage = m.coverage.as_ref().unwrap();
     assert!(coverage.partial);
     assert_eq!(coverage.recorded_calls, 4);
@@ -106,7 +109,7 @@ fn snapshot_plus_tail_counts_only_new_main_and_launched_child_calls() {
 }
 
 #[test]
-fn no_snapshot_includes_deduplicated_calls_and_orphans_and_remains_unpriced() {
+fn no_snapshot_prices_deduplicated_calls_and_orphans() {
     let loaded = load(&claude_metrics::recorded_only());
     let m = loaded.summary.shutdown_metrics.unwrap();
     assert_usage(&m, OPUS, [32, 20, 10, 4, 1]);
@@ -124,7 +127,7 @@ fn no_snapshot_includes_deduplicated_calls_and_orphans_and_remains_unpriced() {
     assert_eq!(coverage.snapshot_line, None);
     assert_eq!(coverage.tail_calls, 2);
     assert!(coverage.snapshot_cost.is_none());
-    assert!(m.cost_amount.is_none());
+    assert!((m.cost_amount.unwrap() - 0.000203).abs() < 1e-12);
     assert!(m.total_api_duration_ms.is_none());
 }
 
@@ -142,7 +145,7 @@ fn resumed_ended_and_resumed_running_use_last_cumulative_snapshot_once() {
         };
         assert_usage(&m, OPUS, expected);
         assert_eq!(coverage.tail_calls, usize::from(running));
-        assert_eq!(m.cost_amount.is_none(), running);
+        assert!(m.cost_amount.is_some());
     }
 }
 
@@ -379,7 +382,7 @@ fn a_subagent_launched_by_a_later_block_of_a_covered_call_is_tail_usage() {
     let m = load(&files).summary.shutdown_metrics.unwrap();
     assert_usage(&m, OPUS, [444, 40, 400, 6, 2]);
     assert_eq!(m.coverage.as_ref().unwrap().tail_calls, 1);
-    assert!(m.cost_amount.is_none());
+    assert!(m.cost_amount.is_some());
 }
 
 #[test]

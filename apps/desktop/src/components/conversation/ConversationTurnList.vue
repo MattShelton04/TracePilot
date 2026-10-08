@@ -225,11 +225,11 @@ function onRetryFullResult(toolCallId: string) {
               }"
               :style="section.agentId ? { borderLeft: `3px solid ${getAgentColor(section.agentType)}` } : {}"
               :aria-expanded="expandedToolDetails.has(`compact-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
-              :title="section.agentId ? `${section.agentDisplayName} → ${tc.toolName}` : tc.toolName"
+              :title="section.agentId ? `${section.agentDisplayName} → ${tc.nativeToolName ?? tc.toolName}` : (tc.nativeToolName ?? tc.toolName)"
               @click="expandedToolDetails.toggle(`compact-${turn.turnIndex}-${findToolCallIndex(turn, tc)}`)"
             >
               <component :is="resolveLucideIcon(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
-              {{ tc.toolName }}
+              {{ tc.nativeToolName ?? tc.toolName }}
               <span v-if="tc.durationMs" class="turn-meta">{{ formatDuration(tc.durationMs) }}</span>
             </button>
           </div>
@@ -240,7 +240,7 @@ function onRetryFullResult(toolCallId: string) {
           <div v-if="expandedToolDetails.has(`compact-${turn.turnIndex}-${tcIdx}`)" class="tool-calls-container" style="margin-top: 4px;">
             <div class="tool-call-header">
               <component :is="resolveLucideIcon(toolIcon(tc.toolName))" :size="14" :stroke-width="1.5" aria-hidden="true" />
-              <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.toolName }}</span>
+              <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">{{ tc.nativeToolName ?? tc.toolName }}</span>
               <span v-if="getArgsSummary(turn.turnIndex, tcIdx)" class="tool-call-args" style="font-family: var(--font-mono, monospace);">{{ getArgsSummary(turn.turnIndex, tcIdx) }}</span>
             </div>
             <ToolCallDetail

@@ -52,7 +52,7 @@ test("two shards cover the inventory exactly once and support focused tool group
   for (const shard of ["0/2", "3/2", "1/0", "1/100", "x"]) assert.throws(() => selectCases(shard));
   assert.equal(selectCases("1/1", { caseIds: ["rich-tool-web-search"] }).length, 1);
   const tools = selectCases("1/1", { group: "rich-tools" });
-  assert.equal(tools.length, 64);
+  assert.equal(tools.length, 84);
   assert(cases.length <= 128, "capture inventory exceeds the trusted publisher bound");
   assert.deepEqual(
     [...selectCases("1/2", { group: "rich-tools" }), ...selectCases("2/2", { group: "rich-tools" })]

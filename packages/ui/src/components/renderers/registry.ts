@@ -63,6 +63,10 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     label: "Glob (File Tree)",
     resultComponent: defineAsyncComponent(() => import("./GlobTreeRenderer.vue")),
   },
+  shell: {
+    label: "Shell (Terminal Output)",
+    resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
+  },
   powershell: {
     label: "Shell (Terminal Output)",
     resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),

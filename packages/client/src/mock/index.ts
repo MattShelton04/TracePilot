@@ -14,6 +14,7 @@ export { MOCK_EXPORT_RESULT } from "./export.js";
 export { MOCK_PROMPT_CACHE } from "./promptCache.js";
 export {
   getMockSessionDetail,
+  getMockSessionTurns,
   getMockShutdownMetrics,
   MOCK_CHECKPOINTS,
   MOCK_EVENTS,

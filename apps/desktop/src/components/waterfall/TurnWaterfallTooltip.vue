@@ -18,7 +18,7 @@ const props = defineProps<{
 const displayName = computed(() => {
   const tc = props.row.call;
   if (tc.isSubagent && tc.agentDisplayName) return tc.agentDisplayName;
-  return tc.toolName;
+  return tc.nativeToolName ?? tc.toolName;
 });
 
 const argsSummary = computed(() =>

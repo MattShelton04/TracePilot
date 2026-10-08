@@ -143,6 +143,8 @@ export interface SkillInvocationEvent {
 
 /** A tool call within a turn */
 export interface TurnToolCall {
+  /** Provider's recorded name; toolName remains canonical for rendering. */
+  nativeToolName?: string | null;
   toolCallId?: string;
   parentToolCallId?: string;
   toolName: string;

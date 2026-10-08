@@ -54,7 +54,7 @@ const iconComponent = computed(() => {
         <span class="detail-icon" :data-icon-name="toolIcon(tc.toolName)">
           <component :is="iconComponent" :size="14" :stroke-width="1.5" aria-hidden="true" />
         </span>
-        <strong>{{ tc.agentDisplayName ?? tc.toolName }}</strong>
+        <strong>{{ tc.agentDisplayName ?? tc.nativeToolName ?? tc.toolName }}</strong>
       </span>
       <div class="detail-badges">
         <Badge v-if="callStatus === 'error'" variant="danger">failed</Badge>

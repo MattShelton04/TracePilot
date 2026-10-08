@@ -16,6 +16,7 @@
 mod branch;
 mod liveness;
 mod notify;
+pub(crate) mod pricing;
 mod provider;
 mod reader;
 mod records;

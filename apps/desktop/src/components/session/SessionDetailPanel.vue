@@ -172,14 +172,18 @@ const { refreshing, refresh } = useAutoRefresh({
 
 defineExpose({ isSessionActive, refresh });
 
+const resumeCommand = computed(
+  () =>
+    `${source.value === "claudeCode" ? "claude" : prefs.cliCommand} --resume ${resolvedSessionId.value}`,
+);
+
 async function copyResumeCommand() {
   if (isSessionActive.value && !confirmingCopy.value) {
     confirmingCopy.value = true;
     return;
   }
   confirmingCopy.value = false;
-  const text = `${prefs.cliCommand} --resume ${resolvedSessionId.value}`;
-  await copy(text);
+  await copy(resumeCommand.value);
 }
 
 function cancelCopy() {
@@ -297,7 +301,7 @@ watch(isSessionActive, (active) => {
 
       <div class="detail-actions">
         <div class="detail-actions-left">
-          <template v-if="capabilities.canResume">
+          <template v-if="capabilities.canResume || source === 'claudeCode'">
             <template v-if="confirmingCopy">
               <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
               <button class="resume-btn resume-btn--confirm" @click="copyResumeCommand">
@@ -309,13 +313,13 @@ watch(isSessionActive, (active) => {
               v-else
               class="resume-btn"
               @click="copyResumeCommand"
-              :title="`Copy: ${prefs.cliCommand} --resume ${sessionId}`"
+              :title="`Copy: ${resumeCommand}`"
             >
               <component :is="copied ? Check : Clipboard" :size="14" aria-hidden="true" />
               {{ copied ? 'Copied!' : 'Copy Resume Command' }}
             </button>
 
-            <template v-if="!isViewer()">
+            <template v-if="!isViewer() && capabilities.canResume">
               <template v-if="confirmingResume">
                 <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
                 <button class="resume-btn resume-btn--confirm" @click="resumeInTerminal">

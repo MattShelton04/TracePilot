@@ -1,4 +1,6 @@
+import { claudeGallerySessionId } from "../fixtures/claude-gallery.mjs";
 import {
+  claudeToolSamples,
   fixtureTime,
   richToolSamples,
   richToolsSessionId,
@@ -7,13 +9,17 @@ import {
 
 /** Return undefined for commands owned by the existing shared mock corpus. */
 export function richToolFixture(cmd, args, sampleId) {
-  if (args?.sessionId !== richToolsSessionId) return undefined;
-  const sample = richToolSamples.find((item) => item.id === sampleId);
+  if (args?.sessionId !== richToolsSessionId && args?.sessionId !== claudeGallerySessionId)
+    return undefined;
+  const sample = [...richToolSamples, ...claudeToolSamples].find((item) => item.id === sampleId);
   if (!sample) throw new Error(`Unknown rich tool fixture: ${sampleId}`);
   if (cmd === "get_session_detail")
     return {
-      id: richToolsSessionId,
-      summary: "SYNTHETIC · Rich tool renderer gallery",
+      id: args.sessionId,
+      ...(sample.nativeToolName ? { source: "claudeCode" } : {}),
+      summary: sample.nativeToolName
+        ? "SYNTHETIC · Claude Code renderer gallery"
+        : "SYNTHETIC · Rich tool renderer gallery",
       repository: "example/orchard",
       branch: "fixture/rich-tools",
       cwd: "C:/synthetic/orchard",

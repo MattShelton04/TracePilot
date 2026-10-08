@@ -177,7 +177,7 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
               :title="toolTooltip(tc)"
               role="button"
               tabindex="0"
-              :aria-label="`Select tool: ${tc.toolName}`"
+              :aria-label="`Select tool: ${tc.nativeToolName ?? tc.toolName}`"
               @click.stop="emit('select-tool', tc)"
               @keydown.enter.space.prevent="emit('select-tool', tc)"
             >
@@ -188,7 +188,7 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
                 :stroke-width="1.5"
                 aria-hidden="true"
               />
-              <span class="bar-label">{{ tc.toolName }}</span>
+              <span class="bar-label">{{ tc.nativeToolName ?? tc.toolName }}</span>
             </div>
           </div>
         </div>

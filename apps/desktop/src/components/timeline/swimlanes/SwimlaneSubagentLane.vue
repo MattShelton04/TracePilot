@@ -47,7 +47,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
       :class="{ 'subagent-header--selected': selected }"
       role="button"
       tabindex="0"
-      :aria-label="`Select agent: ${agent.agentDisplayName ?? agent.toolName}`"
+      :aria-label="`Select agent: ${agent.agentDisplayName ?? agent.nativeToolName ?? agent.toolName}`"
       :aria-expanded="!collapsed"
       @click="emit('select-agent')"
       @keydown.enter.space.prevent="emit('select-agent')"
@@ -56,7 +56,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
         class="subagent-chevron"
         role="button"
         tabindex="0"
-        :aria-label="`Toggle ${agent.agentDisplayName ?? agent.toolName} expansion`"
+        :aria-label="`Toggle ${agent.agentDisplayName ?? agent.nativeToolName ?? agent.toolName} expansion`"
         @click.stop="emit('toggle-collapsed')"
         @keydown.enter.space.stop.prevent="emit('toggle-collapsed')"
       >
@@ -71,7 +71,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
         />
       </span>
       <span class="subagent-name">
-        {{ agent.agentDisplayName ?? agent.toolName }}
+        {{ agent.agentDisplayName ?? agent.nativeToolName ?? agent.toolName }}
       </span>
       <span class="subagent-meta">
         <span v-if="liveDurationMs" class="subagent-duration">
@@ -108,7 +108,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
             :title="toolTooltip(tc)"
             role="button"
             tabindex="0"
-            :aria-label="`Select tool: ${tc.toolName}`"
+            :aria-label="`Select tool: ${tc.nativeToolName ?? tc.toolName}`"
             @click.stop="emit('select-tool', tc)"
             @keydown.enter.space.prevent="emit('select-tool', tc)"
           >
@@ -119,7 +119,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
               :stroke-width="1.5"
               aria-hidden="true"
             />
-            <span class="bar-label">{{ tc.toolName }}</span>
+            <span class="bar-label">{{ tc.nativeToolName ?? tc.toolName }}</span>
           </div>
         </div>
       </div>
