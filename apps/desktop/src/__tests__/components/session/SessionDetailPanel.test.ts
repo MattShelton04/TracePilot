@@ -231,6 +231,7 @@ describe("SessionDetailPanel", () => {
       "Conversation",
       "Events",
       "Metrics",
+      "Context",
       "Timeline",
     ]);
     expect(text).toContain("Copy Resume Command");
@@ -252,7 +253,7 @@ describe("SessionDetailPanel", () => {
     await flushPromises();
 
     const tabs = wrapper.findAll("[role='tab']");
-    expect(tabs).toHaveLength(5);
+    expect(tabs).toHaveLength(6);
     expect(wrapper.find('[title="Copy: claude --resume session-1"]').exists()).toBe(true);
     expect(wrapper.text()).not.toContain("Resume in Terminal");
     expect(wrapper.text()).not.toContain("Open Folder");

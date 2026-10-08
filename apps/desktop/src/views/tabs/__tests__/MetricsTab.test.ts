@@ -7,6 +7,7 @@ import MetricsTab from "../MetricsTab.vue";
 
 const store = reactive({
   sessionId: "retry-session",
+  detail: null as { id: string; source?: "claudeCode" } | null,
   shutdownMetrics: {},
   turns: [],
   loaded: new Set(["metrics", "turns"]),
@@ -63,4 +64,35 @@ it("distinguishes loading metrics from a completed empty response", async () => 
   expect(wrapper.find('[role="status"]').exists()).toBe(false);
   expect(wrapper.getComponent(EmptyState).text()).toContain("No shutdown metrics");
   wrapper.unmount();
+});
+
+it("presents a Claude Code session in USD without AI Credit columns", async () => {
+  setupPinia();
+  store.sessionId = "claude-session";
+  store.detail = { id: "claude-session", source: "claudeCode" };
+  store.loaded.add("metrics");
+  store.shutdownMetrics = {
+    costAmount: 0.42,
+    costUnit: "usd",
+    costBasis: "providerEstimate",
+    coverage: { partial: true, snapshotLine: 9, recordedCalls: 4, tailCalls: 0 },
+    modelMetrics: {
+      "claude-opus-4-6": {
+        requests: { count: 4 },
+        usage: { inputTokens: 100, outputTokens: 10, cacheReadTokens: 80, cacheWriteTokens: 10 },
+      },
+    },
+  } as unknown as typeof store.shutdownMetrics;
+  const wrapper = mount(MetricsTab, {
+    global: { stubs: { SubagentPanel: true, MetricsSessionActivity: true } },
+  });
+  expect(wrapper.text()).toContain("Est. Cost (USD)");
+  expect(wrapper.text()).toContain("Claude Code estimate");
+  expect(wrapper.text()).not.toMatch(/AI Credits|Legacy/);
+  store.shutdownMetrics = null as unknown as typeof store.shutdownMetrics;
+  await wrapper.vm.$nextTick();
+  expect(wrapper.getComponent(EmptyState).text()).toContain("No model usage has been recorded");
+  wrapper.unmount();
+  store.detail = null;
+  store.sessionId = "retry-session";
 });

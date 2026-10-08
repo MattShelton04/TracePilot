@@ -3,7 +3,6 @@ import {
   type ContextCompaction,
   type ContextTimelineEvent,
   type ContextWindowPoint,
-  formatAiCredits,
   type TurnToolCall,
 } from "@tracepilot/types";
 import { Badge, formatNumberFull, formatTime, LoadingSpinner, ToolCallItem } from "@tracepilot/ui";
@@ -13,7 +12,8 @@ defineProps<{
   selectedPoint: ContextWindowPoint | null;
   selectedCompaction: ContextCompaction | null;
   pointModel: string | null;
-  cachedInputAiCredits: number | null;
+  /** Formatted in the source's unit (AI Credits or USD). */
+  cachedInputCost: string | null;
   selectedTurnToolCalls: TurnToolCall[];
   selectedTurnToolCall: TurnToolCall | null;
   loadingTurnTools: boolean;
@@ -142,7 +142,7 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
           <dt>Conversation</dt>
           <dd>{{ formatNumberFull(selectedPoint.conversationTokens) }}</dd>
         </div>
-        <div v-if="cachedInputAiCredits != null">
+        <div v-if="cachedInputCost != null">
           <dt class="context-tab__stat-label">
             Cached-input equivalent
             <button
@@ -154,7 +154,7 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
               ?
             </button>
           </dt>
-          <dd>{{ formatAiCredits(cachedInputAiCredits) }}</dd>
+          <dd>{{ cachedInputCost }}</dd>
         </div>
       </dl>
       <p class="context-tab__footnote">

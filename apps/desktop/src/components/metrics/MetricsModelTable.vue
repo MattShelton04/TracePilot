@@ -12,12 +12,17 @@ import { Info } from "lucide-vue-next";
 import { computed } from "vue";
 import type { MetricsModelEntry } from "@/composables/useMetricsTabData";
 
-const props = defineProps<{
-  modelEntries: MetricsModelEntry[];
-  totalTokens: number;
-  hasReasoningData: boolean;
-  hideDistribution?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    modelEntries: MetricsModelEntry[];
+    totalTokens: number;
+    hasReasoningData: boolean;
+    hideDistribution?: boolean;
+    /** False for sources not billed in AI Credits. */
+    showCredits?: boolean;
+  }>(),
+  { showCredits: true },
+);
 const tokenColumns = computed(() => [
   { key: "input", label: "Input total", align: "right" as const },
   { key: "cacheRead", label: "Cache read", align: "right" as const },
@@ -31,8 +36,12 @@ const tokenColumns = computed(() => [
 const columns = computed(() => [
   { key: "name", label: "Model" },
   { key: "requests", label: "Requests", align: "right" as const },
-  { key: "aiCredits", label: "AI Credits", align: "right" as const },
-  { key: "aiCreditSource", label: "Source" },
+  ...(props.showCredits
+    ? [
+        { key: "aiCredits", label: "AI Credits", align: "right" as const },
+        { key: "aiCreditSource", label: "Source" },
+      ]
+    : []),
   ...tokenColumns.value,
 ]);
 const rows = computed(() => props.modelEntries.map((entry) => ({ ...entry, ...entry.tokens })));

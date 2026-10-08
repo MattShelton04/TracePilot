@@ -12,6 +12,7 @@ import {
   Badge,
   EmptyState,
   ErrorAlert,
+  formatAiCredits,
   formatNumber,
   LoadingSpinner,
   SectionPanel,
@@ -29,8 +30,10 @@ import { getCachedContextTimeline, loadContextTimeline } from "@/composables/use
 import { useConversationNavigation } from "@/composables/useConversationNavigation";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionSource } from "@/composables/useSessionSource";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
+import { formatUsd, sourceTokenUsd } from "@/utils/sourceCost";
 
 const store = useSessionDetailContext();
 const preferences = usePreferencesStore();
@@ -42,8 +45,16 @@ const isMainWindow = (() => {
     return true;
   }
 })();
+const { source, capabilities } = useSessionSource(
+  () => store.sessionId,
+  () => store.detail,
+);
+// Exact capture resumes the session, so only sources that can resume offer it.
 const showContextCapture = computed(
-  () => isMainWindow && (preferences.isFeatureEnabled?.("exactContextCapture") ?? false),
+  () =>
+    isMainWindow &&
+    capabilities.value.canResume &&
+    (preferences.isFeatureEnabled?.("exactContextCapture") ?? false),
 );
 const contextView = ref<"timeline" | "snapshots">("timeline");
 const contextViews = [
@@ -200,6 +211,8 @@ const compactionsFullyPaired = computed(
     timeline.value.compactionStartCount === timeline.value.compactionCompleteCount &&
     timeline.value.pairedCompactionCount === timeline.value.compactionStartCount,
 );
+/** Recorded request totals with no system/tool/conversation layers. */
+const totalOnly = computed(() => timeline.value?.points.some((point) => point.totalOnly) ?? false);
 type InfoPopoverKey = "methodology" | "observed" | "estimated" | "paired";
 const activeInfo = ref<InfoPopoverKey | null>(null);
 const infoPinned = ref(false);
@@ -209,8 +222,9 @@ const confidenceItems = computed(() => [
     label: `${timeline.value?.observedPointCount ?? 0} observed`,
     variant: "neutral" as const,
     class: "context-tab__confidence-badge--observed",
-    explanation:
-      "Exact context-layer snapshots reported by Copilot at compaction starts or session shutdowns.",
+    explanation: totalOnly.value
+      ? "Inclusive input tokens recorded by each turn's last main-agent model call. The layer breakdown is unknown."
+      : "Exact context-layer snapshots reported by Copilot at compaction starts or session shutdowns.",
   },
   {
     id: "estimated" as const,
@@ -235,12 +249,21 @@ const selectedTurn = computed(() => {
   const turnIndex = selectedPoint.value?.turn;
   return turnIndex == null ? undefined : store.turns.find((turn) => turn.turnIndex === turnIndex);
 });
-const selectedCachedInputAiCredits = computed(() => {
+const selectedCachedInputCost = computed(() => {
   const point = selectedPoint.value;
   const model = selectedTurn.value?.model;
   if (!point || !model) return null;
-  return preferences.computeUsageBasedCostBreakdown(model, point.totalTokens, point.totalTokens, 0)
-    .aiCredits;
+  const tokens = point.totalTokens;
+  if (!capabilities.value.hasAic) {
+    const usd = sourceTokenUsd(source.value, model, {
+      inputTokens: tokens,
+      cacheReadTokens: tokens,
+      outputTokens: 0,
+    });
+    return usd == null ? null : formatUsd(usd);
+  }
+  const credits = preferences.computeUsageBasedCostBreakdown(model, tokens, tokens, 0).aiCredits;
+  return credits == null ? null : formatAiCredits(credits);
 });
 const selectedTurnToolCalls = computed(
   () => selectedTurn.value?.toolCalls.filter((toolCall) => !toolCall.parentToolCallId) ?? [],
@@ -469,7 +492,7 @@ function retryLoad() {
           >
             <strong>Source-aware reconstruction</strong>
             <p>{{ timeline.methodology }}</p>
-            <p>
+            <p v-if="!totalOnly">
               Cache telemetry is aggregate-only; tool payload estimates do not identify individual
               cache reads or writes.
             </p>
@@ -512,8 +535,18 @@ function retryLoad() {
       </div>
 
       <div class="context-tab__stats">
-        <StatCard :value="formatNumber(peakTokens)" label="Peak Context" :gradient="true" />
-        <StatCard :value="formatNumber(latestTokens)" label="Latest Context" color="done" />
+        <StatCard
+          :value="formatNumber(peakTokens)"
+          label="Peak Context"
+          :gradient="true"
+          :tooltip="totalOnly ? 'Largest recorded input of a main-agent request' : undefined"
+        />
+        <StatCard
+          :value="formatNumber(latestTokens)"
+          label="Latest Context"
+          color="done"
+          :tooltip="totalOnly ? 'Input recorded by the latest main-agent request' : undefined"
+        />
         <StatCard :value="timeline.compactions.length" label="Compactions" color="warning" />
       </div>
 
@@ -535,7 +568,7 @@ function retryLoad() {
           :selected-point="selectedPoint"
           :selected-compaction="selectedCompaction"
           :point-model="selectedTurn?.model ?? null"
-          :cached-input-ai-credits="selectedCachedInputAiCredits"
+          :cached-input-cost="selectedCachedInputCost"
           :selected-turn-tool-calls="selectedTurnToolCalls"
           :selected-turn-tool-call="selectedTurnToolCall"
           :loading-turn-tools="loadingTurnTools"
