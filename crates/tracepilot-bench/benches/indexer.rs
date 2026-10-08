@@ -130,7 +130,7 @@ fn bench_query_analytics(c: &mut Criterion) {
 
         populate_db(&db, &sessions_path, count);
         assert_eq!(
-            db.query_analytics(None, None, None, false)
+            db.query_analytics(None, None, None, false, None)
                 .expect("verify benchmark analytics")
                 .total_sessions,
             count as u32
@@ -138,7 +138,7 @@ fn bench_query_analytics(c: &mut Criterion) {
 
         group.throughput(criterion::Throughput::Elements(count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), &db, |b, db| {
-            b.iter(|| db.query_analytics(None, None, None, false).unwrap());
+            b.iter(|| db.query_analytics(None, None, None, false, None).unwrap());
         });
     }
     group.finish();

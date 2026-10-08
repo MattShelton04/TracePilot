@@ -92,7 +92,7 @@ fn dashboard_reports_resumes_after_expiry_and_change_causes() {
     db.upsert_session(&session).unwrap();
 
     let cache = db
-        .query_analytics(None, None, None, false)
+        .query_analytics(None, None, None, false, None)
         .unwrap()
         .prompt_cache;
     assert_eq!(cache.sessions_with_predicted, 1);
@@ -119,7 +119,7 @@ fn dashboard_reports_resumes_after_expiry_and_change_causes() {
     assert_eq!(kinds, vec![("model", 1), ("tools", 1)]);
 
     let other_repo = db
-        .query_analytics(None, None, Some("org/other"), false)
+        .query_analytics(None, None, Some("org/other"), false, None)
         .unwrap()
         .prompt_cache;
     assert_eq!(other_repo.resumed_windows, 0);

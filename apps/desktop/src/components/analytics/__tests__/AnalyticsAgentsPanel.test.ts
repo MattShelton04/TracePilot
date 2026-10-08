@@ -32,7 +32,11 @@ const summary: AgentUsageSummary = {
 beforeEach(() => {
   vi.clearAllMocks();
   getStore.mockReturnValue(
-    reactive({ dateRange: { fromDate: "2026-09-01", toDate: null }, selectedRepo: null }),
+    reactive({
+      dateRange: { fromDate: "2026-09-01", toDate: null },
+      selectedRepo: null,
+      selectedSource: null,
+    }),
   );
   vi.mocked(agentsUsageSummary).mockResolvedValue(summary);
 });
@@ -45,6 +49,7 @@ describe("AnalyticsAgentsPanel", () => {
       fromDate: "2026-09-01",
       toDate: null,
       repo: null,
+      source: null,
     });
     expect(wrapper.findAll(".agents-panel__value").map((el) => el.text())).toEqual([
       "100",
@@ -96,6 +101,19 @@ describe("AnalyticsAgentsPanel", () => {
     await flushPromises();
     expect(wrapper.findAll(".agents-panel__value")[0].text()).toBe("100");
     expect(wrapper.find("[role=alert]").exists()).toBe(false);
+  });
+
+  it("refetches for the selected source", async () => {
+    mount(AnalyticsAgentsPanel);
+    await flushPromises();
+    getStore().selectedSource = "claudeCode";
+    await flushPromises();
+    expect(agentsUsageSummary).toHaveBeenLastCalledWith({
+      fromDate: "2026-09-01",
+      toDate: null,
+      repo: null,
+      source: "claudeCode",
+    });
   });
 
   it("shows empty and error states", async () => {

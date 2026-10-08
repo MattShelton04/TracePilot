@@ -15,7 +15,7 @@ const NOTES: &str = "C:\\work\\demo\\NOTES.md";
 
 /// An edit, a rejected push, an interrupt and a 429 across three prompts,
 /// with a 10-minute and a 70-minute pause before the later ones.
-fn release_session() -> SessionFiles {
+pub(super) fn release_session() -> SessionFiles {
     let mut t = Transcript::main();
     t.prompt("Update the notes and push.");
     let edit = json!({"file_path": NOTES, "old_string": "v1", "new_string": "v2"});
@@ -241,7 +241,7 @@ fn claude_cache_windows_use_the_recorded_ttl_tier() {
     let ttls: Vec<i64> = rows(&db, "SELECT COUNT(*) FROM session_cache_ttls");
     assert_eq!(ttls, [0]);
     let analytics = db
-        .query_analytics(None, None, None, false)
+        .query_analytics(None, None, None, false, None)
         .unwrap()
         .prompt_cache;
     assert_eq!(

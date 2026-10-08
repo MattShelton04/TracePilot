@@ -8,6 +8,7 @@ import type {
   AgentUsageDetail,
   AgentUsageSummary,
   AgentWriteResult,
+  SessionSource,
   SubagentOverride,
   SubagentSettings,
 } from "@tracepilot/types";
@@ -18,11 +19,13 @@ const invoke = createInvoke("Agents", async (cmd, args) => {
   return agentsMock(cmd, args);
 });
 
-/** Date range (`YYYY-MM-DD`, inclusive) and repository filter for usage. */
+/** Date range (`YYYY-MM-DD`, inclusive), repository and source filter for usage. */
 export interface AgentUsageFilter {
   fromDate?: string | null;
   toDate?: string | null;
   repo?: string | null;
+  /** Only sessions from this source; absent or `null` means every source. */
+  source?: SessionSource | null;
 }
 
 // -- Definitions --
@@ -100,6 +103,7 @@ export async function agentsUsageSummary(
     fromDate: filter.fromDate ?? null,
     toDate: filter.toDate ?? null,
     repo: filter.repo ?? null,
+    source: filter.source ?? null,
   });
 }
 
@@ -112,5 +116,6 @@ export async function agentsUsageDetail(
     fromDate: filter.fromDate ?? null,
     toDate: filter.toDate ?? null,
     repo: filter.repo ?? null,
+    source: filter.source ?? null,
   });
 }

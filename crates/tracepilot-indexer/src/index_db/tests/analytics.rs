@@ -25,7 +25,7 @@ fn test_query_analytics_basic() {
     db.upsert_session(&s1).unwrap();
     db.upsert_session(&s2).unwrap();
 
-    let result = db.query_analytics(None, None, None, false).unwrap();
+    let result = db.query_analytics(None, None, None, false, None).unwrap();
     assert_eq!(result.total_sessions, 2);
     assert_eq!(result.total_nano_aiu, 5_000_000_000);
     assert_eq!(result.sessions_with_observed_ai_credits, 2);
@@ -65,7 +65,7 @@ fn test_query_analytics_model_usage_by_day_from_segments() {
         )
         .unwrap();
 
-    let result = db.query_analytics(None, None, None, false).unwrap();
+    let result = db.query_analytics(None, None, None, false, None).unwrap();
 
     assert_eq!(result.model_usage_by_day.len(), 2);
     let day_one = result
@@ -112,11 +112,11 @@ fn test_query_analytics_repo_filter() {
     db.upsert_session(&s2).unwrap();
 
     let filtered = db
-        .query_analytics(None, None, Some("org/repo-a"), false)
+        .query_analytics(None, None, Some("org/repo-a"), false, None)
         .unwrap();
     assert_eq!(filtered.total_sessions, 1);
 
-    let all = db.query_analytics(None, None, None, false).unwrap();
+    let all = db.query_analytics(None, None, None, false, None).unwrap();
     assert_eq!(all.total_sessions, 2);
 }
 
@@ -133,7 +133,9 @@ fn test_query_tool_analysis_aggregates_tool_calls() {
     );
     db.upsert_session(&s).unwrap();
 
-    let result = db.query_tool_analysis(None, None, None, false).unwrap();
+    let result = db
+        .query_tool_analysis(None, None, None, false, None)
+        .unwrap();
     assert_eq!(result.total_calls, 2, "should count 2 tool calls");
     assert!(
         result.tools.len() >= 2,
@@ -157,7 +159,7 @@ fn test_query_code_impact_empty() {
     let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
 
     // No sessions → zero impact
-    let result = db.query_code_impact(None, None, None, false).unwrap();
+    let result = db.query_code_impact(None, None, None, false, None).unwrap();
     assert_eq!(result.files_modified, 0);
     assert_eq!(result.lines_added, 0);
     assert_eq!(result.lines_removed, 0);
@@ -185,19 +187,19 @@ fn test_query_analytics_date_filtering() {
 
     // Only sessions from/after March 15
     let after = db
-        .query_analytics(Some("2026-03-15"), None, None, false)
+        .query_analytics(Some("2026-03-15"), None, None, false, None)
         .unwrap();
     assert_eq!(after.total_sessions, 1);
 
     // Only sessions before March 15
     let before = db
-        .query_analytics(None, Some("2026-03-15"), None, false)
+        .query_analytics(None, Some("2026-03-15"), None, false, None)
         .unwrap();
     assert_eq!(before.total_sessions, 1);
 
     // All sessions in range
     let all = db
-        .query_analytics(Some("2026-03-01"), Some("2026-03-31"), None, false)
+        .query_analytics(Some("2026-03-01"), Some("2026-03-31"), None, false, None)
         .unwrap();
     assert_eq!(all.total_sessions, 2);
 }
@@ -287,7 +289,7 @@ fn test_incident_indexing_and_retrieval() {
     assert!(incidents[3].summary.contains("5000 tokens"));
 
     // Verify analytics aggregation includes incident data
-    let analytics = db.query_analytics(None, None, None, false).unwrap();
+    let analytics = db.query_analytics(None, None, None, false, None).unwrap();
     assert_eq!(analytics.sessions_with_errors, 1);
     assert_eq!(analytics.total_rate_limits, 1);
     assert_eq!(analytics.total_compactions, 1);

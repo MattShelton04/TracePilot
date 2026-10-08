@@ -5,6 +5,7 @@ use tracepilot_core::analytics::types::*;
 use tracepilot_core::analytics::{
     AgentUsageDetail, AgentUsageSummary, SkillUsageDetail, SkillUsageSummary,
 };
+use tracepilot_core::provider::SessionSource;
 
 use super::IndexDb;
 
@@ -18,14 +19,17 @@ mod tool_analysis;
 
 impl IndexDb {
     /// Query aggregate analytics from pre-computed per-session data.
+    ///
+    /// Every query here takes a `source`; `None` covers all sources.
     pub fn query_analytics(
         &self,
         from_date: Option<&str>,
         to_date: Option<&str>,
         repo: Option<&str>,
         hide_empty: bool,
+        source: Option<SessionSource>,
     ) -> Result<AnalyticsData> {
-        dashboard::query_analytics(&self.conn, from_date, to_date, repo, hide_empty)
+        dashboard::query_analytics(&self.conn, from_date, to_date, repo, hide_empty, source)
     }
 
     /// The most common prompt-cache TTL observed per model across all indexed
@@ -40,6 +44,7 @@ impl IndexDb {
         from_date: Option<&str>,
         to_date: Option<&str>,
         repo: Option<&str>,
+        source: Option<SessionSource>,
     ) -> Result<AgentUsageSummary> {
         agents::query_agent_usage_summary(
             &self.conn,
@@ -47,6 +52,7 @@ impl IndexDb {
                 from_date,
                 to_date,
                 repo,
+                source,
             },
         )
     }
@@ -58,6 +64,7 @@ impl IndexDb {
         from_date: Option<&str>,
         to_date: Option<&str>,
         repo: Option<&str>,
+        source: Option<SessionSource>,
     ) -> Result<AgentUsageDetail> {
         agents::query_agent_usage_detail(
             &self.conn,
@@ -65,6 +72,7 @@ impl IndexDb {
                 from_date,
                 to_date,
                 repo,
+                source,
             },
             agent_name,
         )
@@ -77,6 +85,7 @@ impl IndexDb {
         from_date: Option<&str>,
         to_date: Option<&str>,
         repo: Option<&str>,
+        source: Option<SessionSource>,
     ) -> Result<SkillUsageSummary> {
         skills::query_skill_usage_summary(
             &self.conn,
@@ -84,6 +93,7 @@ impl IndexDb {
                 from_date,
                 to_date,
                 repo,
+                source,
             },
         )
     }
@@ -96,6 +106,7 @@ impl IndexDb {
         from_date: Option<&str>,
         to_date: Option<&str>,
         repo: Option<&str>,
+        source: Option<SessionSource>,
     ) -> Result<SkillUsageDetail> {
         skills::query_skill_usage_detail(
             &self.conn,
@@ -103,6 +114,7 @@ impl IndexDb {
                 from_date,
                 to_date,
                 repo,
+                source,
             },
             skill_name,
         )
@@ -115,8 +127,9 @@ impl IndexDb {
         to_date: Option<&str>,
         repo: Option<&str>,
         hide_empty: bool,
+        source: Option<SessionSource>,
     ) -> Result<ToolAnalysisData> {
-        tool_analysis::query_tool_analysis(&self.conn, from_date, to_date, repo, hide_empty)
+        tool_analysis::query_tool_analysis(&self.conn, from_date, to_date, repo, hide_empty, source)
     }
 
     /// Query code impact from per-session columns.
@@ -126,7 +139,8 @@ impl IndexDb {
         to_date: Option<&str>,
         repo: Option<&str>,
         hide_empty: bool,
+        source: Option<SessionSource>,
     ) -> Result<CodeImpactData> {
-        code_impact::query_code_impact(&self.conn, from_date, to_date, repo, hide_empty)
+        code_impact::query_code_impact(&self.conn, from_date, to_date, repo, hide_empty, source)
     }
 }

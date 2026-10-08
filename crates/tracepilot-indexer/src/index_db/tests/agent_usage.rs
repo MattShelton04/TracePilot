@@ -36,7 +36,7 @@ fn agent_shutdown_totals_reach_models_and_analytics_exactly_once() {
     )
     .unwrap();
     db.upsert_session(&session).unwrap();
-    let data = db.query_analytics(None, None, None, false).unwrap();
+    let data = db.query_analytics(None, None, None, false, None).unwrap();
     assert_eq!(data.total_tokens, 1320);
     assert_eq!(data.total_nano_aiu, 3_000_000_000);
     assert_eq!(data.model_distribution.len(), 2);

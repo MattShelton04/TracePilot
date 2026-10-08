@@ -290,7 +290,7 @@ fn search(db: &IndexDb, query: &str) -> Vec<String> {
 }
 
 fn dashboard(db: &IndexDb) -> AnalyticsData {
-    db.query_analytics(None, None, None, false).unwrap()
+    db.query_analytics(None, None, None, false, None).unwrap()
 }
 
 #[test]
@@ -376,7 +376,10 @@ fn a_new_provider_reaches_every_consumer_through_the_seam() {
         with.prompt_cache.warm_resumes,
         without.prompt_cache.warm_resumes + 1
     );
-    let tools = |db: &IndexDb| db.query_tool_analysis(None, None, None, false).unwrap();
+    let tools = |db: &IndexDb| {
+        db.query_tool_analysis(None, None, None, false, None)
+            .unwrap()
+    };
     assert_eq!(tools(&db).total_calls, tools(&copilot_only).total_calls + 1);
     let conn = rusqlite::Connection::open(corpus.db_dir.join("index-true.db")).unwrap();
     let incidents: i64 = conn

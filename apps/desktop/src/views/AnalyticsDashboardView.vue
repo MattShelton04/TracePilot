@@ -46,9 +46,9 @@ const { revealing } = useFirstReveal({
 });
 
 const pageSubtitle = computed(() => {
-  const allPrefix = store.selectedRepo ? "" : "all ";
+  const allPrefix = store.selectedRepo || store.selectedSource ? "" : "all ";
   const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
-  return `Aggregate metrics across ${allPrefix}${data.value?.totalSessions ?? 0} sessions${repoSuffix}`;
+  return `Aggregate metrics across ${allPrefix}${data.value?.totalSessions ?? 0} ${store.sourcePrefix}sessions${repoSuffix}`;
 });
 
 const aiCreditSummary = computed(() =>

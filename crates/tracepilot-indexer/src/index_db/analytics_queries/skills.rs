@@ -10,15 +10,17 @@ use rusqlite::{Connection, params_from_iter};
 
 use crate::Result;
 use tracepilot_core::analytics::{SkillUsageDetail, SkillUsageSummary};
+use tracepilot_core::provider::SessionSource;
 
-use super::super::helpers::to_refs;
+use super::super::helpers::{append_source_filter, to_refs};
 
-/// Date range (inclusive `YYYY-MM-DD`, UTC) and repository filter.
+/// Date range (inclusive `YYYY-MM-DD`, UTC), repository and source filter.
 #[derive(Debug, Clone, Copy, Default)]
 pub(super) struct SkillUsageFilter<'a> {
     pub from_date: Option<&'a str>,
     pub to_date: Option<&'a str>,
     pub repo: Option<&'a str>,
+    pub source: Option<SessionSource>,
 }
 
 /// One indexed invocation joined with its session.
@@ -84,6 +86,7 @@ fn load_invocations(
         clause.push_str(" AND s.repository = ?");
         values.push(repo.to_string());
     }
+    append_source_filter(&mut clause, &mut values, filter.source);
     if let Some(name) = normalized_name {
         clause.push_str(" AND i.normalized_name = ?");
         values.push(name.to_string());

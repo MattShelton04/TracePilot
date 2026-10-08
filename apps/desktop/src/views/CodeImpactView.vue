@@ -38,9 +38,9 @@ const { revealing } = useFirstReveal({
 });
 
 const pageSubtitle = computed(() => {
-  const allPrefix = store.selectedRepo ? "" : "all ";
+  const allPrefix = store.selectedRepo || store.selectedSource ? "" : "all ";
   const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
-  return `Code changes and file modifications across ${allPrefix}sessions${repoSuffix}`;
+  return `Code changes and file modifications across ${allPrefix}${store.sourcePrefix}sessions${repoSuffix}`;
 });
 
 function formatModificationCount(count: number): string {
