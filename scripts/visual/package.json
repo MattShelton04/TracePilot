@@ -2,6 +2,7 @@
   "name": "tracepilot-visual-report",
   "private": true,
   "type": "module",
+  "packageManager": "npm@10.9.3",
   "dependencies": {
     "pngjs": "7.0.0"
   }
