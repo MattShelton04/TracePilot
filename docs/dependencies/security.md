@@ -96,6 +96,17 @@ The full audit's `devDependencies: 0` metadata is not a reliable production clas
 
 ## Gates and final reconciliation
 
+The workspace now requires Vue 3.5.43 in its catalog and test-utils peer range,
+with the UI compiler on the same version. This clears the server-renderer
+attribute-name finding [GHSA-g2v6-rqmx-r4w6](https://github.com/advisories/GHSA-g2v6-rqmx-r4w6)
+(patched from 3.5.42). A root override pins every `source-map-js` path to 1.2.2,
+including PostCSS and Tailwind, clearing the indexed-map denial of service
+[GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).
+Both pnpm audits pass the high-severity gate with these changes. They retain
+the moderate `markdown-it` finding
+[GHSA-253c-mchw-3w2r](https://github.com/advisories/GHSA-253c-mchw-3w2r), below
+the CI threshold; the historical zero-finding scans below predate this advisory.
+
 The security CI job keeps the production audit and adds a full workspace audit and an isolated npm lock audit, all with `--audit-level=high` and no ignores:
 
 ```sh
