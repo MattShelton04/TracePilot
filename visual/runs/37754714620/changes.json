@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "a7c66db2f8844340025022aecd9559f2ab93ba85",
-  "headSha": "258e178eb259e43c0f5eea9dcfba2cc77410d5d8",
+  "baseSha": "6afafc59444804519ec65feb066a92ff72b59367",
+  "headSha": "dce24a913eae35a87ac1d170f70e536e7930d9b8",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -22,52 +22,16 @@
       "group": "overview",
       "route": "/",
       "state": "populated",
-      "change": "changed",
-      "changedPixels": 13153,
-      "percent": 0.9514612268518519,
-      "areas": [
-        {
-          "x": 675,
-          "y": 221,
-          "width": 298,
-          "height": 47,
-          "pixels": 8269
-        },
-        {
-          "x": 905,
-          "y": 93,
-          "width": 232,
-          "height": 36,
-          "pixels": 4884
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/ee3f7672799437804cd9863f311c7dad98b788579b67ebf76f1e18266eeee7e6.png",
+        "before": "../../img/d021ac519996832e3a96c1ae8ecdc0e22c11c872fe5ef06cc18b00a7c80a6f5a.png",
         "after": "../../img/d021ac519996832e3a96c1ae8ecdc0e22c11c872fe5ef06cc18b00a7c80a6f5a.png",
-        "difference": "../../img/6afa21c529a7f094ea8b2d3024ca9200fdc689dcc94056c7e1d163625273cbec.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 584,
-              "y": 145,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/1ad7de9365a673c0d0465d025dd2c78a7bf895ae300325dcf58e2da6ee2c2d89.png",
-            "after": "../../img/f8a3330f00beeb1c7ad19271ebe58462ed0d19a47ecf3050cf32841ec81f92e0.png"
-          },
-          {
-            "rect": {
-              "x": 781,
-              "y": 11,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/00bbb3d5697492c907f077d64fccc939a5b6807319745fd5d74936ee0bc7b2d4.png",
-            "after": "../../img/dcd64a06566aecbe47b15f44d6b7a722f8170fb499e4153841537765dca07e37.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -274,16 +238,35 @@
       "group": "overview",
       "route": "/analytics",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 5810,
+      "percent": 0.4202835648148148,
+      "areas": [
+        {
+          "x": 1154,
+          "y": 76,
+          "width": 233,
+          "height": 36,
+          "pixels": 5810
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/d920253c04e83c70e2c826a42069ee7b16b6b3b2bc41bb3e19dd91b682b212c2.png",
-        "after": "../../img/d920253c04e83c70e2c826a42069ee7b16b6b3b2bc41bb3e19dd91b682b212c2.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/473f9de652b303dd39851bd1775ca6bddedd3b72a095f94f0471c0a6e27c0ac1.png",
+        "difference": "../../img/bd79e1c2497b41df4c5d993686dc646f8abc80b618271fc56cbbd0fb13b458ad.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 0,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/8c88329bdf88f701ca2df7bedcd99aec582ad2d2636cd69ad2e43db3eb3f1e51.png",
+            "after": "../../img/7800873f46f69b777c3a4baa34eac789693e64827a6b8fb3abdf01ac5b708058.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -292,16 +275,35 @@
       "group": "overview",
       "route": "/tools",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5810,
+      "percent": 0.4202835648148148,
+      "areas": [
+        {
+          "x": 1154,
+          "y": 76,
+          "width": 233,
+          "height": 36,
+          "pixels": 5810
+        }
+      ],
+      "sameAreasAs": "analytics",
       "images": {
         "before": "../../img/72fd01634882486cb218670278fe75c3b834525ce3cb93bd067b9d8a7cc88b42.png",
-        "after": "../../img/72fd01634882486cb218670278fe75c3b834525ce3cb93bd067b9d8a7cc88b42.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/42587e88db7790f99626697417644101a94538db009ddc54e568290bae5d59b7.png",
+        "difference": "../../img/4701c3e2d7b89d212f241c538d292bb945c345b31042296d1fd6d3bb81cdb0dd.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 0,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/8c88329bdf88f701ca2df7bedcd99aec582ad2d2636cd69ad2e43db3eb3f1e51.png",
+            "after": "../../img/7800873f46f69b777c3a4baa34eac789693e64827a6b8fb3abdf01ac5b708058.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -310,16 +312,35 @@
       "group": "overview",
       "route": "/code",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5810,
+      "percent": 0.4202835648148148,
+      "areas": [
+        {
+          "x": 1154,
+          "y": 76,
+          "width": 233,
+          "height": 36,
+          "pixels": 5810
+        }
+      ],
+      "sameAreasAs": "analytics",
       "images": {
         "before": "../../img/89df27a3bc8d4191a6ed7178565724725be2bf60c2e76bbb29210e6297c20c6c.png",
-        "after": "../../img/89df27a3bc8d4191a6ed7178565724725be2bf60c2e76bbb29210e6297c20c6c.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/b0960a26ee534e2258adec730c4d0889d47b0128c8907ef0255fafd17cd51019.png",
+        "difference": "../../img/7d012ce477acb1501309739026b9f4e108f06311bc4e62cf8e32adab1562a6ac.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 0,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/8c88329bdf88f701ca2df7bedcd99aec582ad2d2636cd69ad2e43db3eb3f1e51.png",
+            "after": "../../img/7800873f46f69b777c3a4baa34eac789693e64827a6b8fb3abdf01ac5b708058.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -328,16 +349,35 @@
       "group": "overview",
       "route": "/models",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5810,
+      "percent": 0.4202835648148148,
+      "areas": [
+        {
+          "x": 1154,
+          "y": 76,
+          "width": 233,
+          "height": 36,
+          "pixels": 5810
+        }
+      ],
+      "sameAreasAs": "analytics",
       "images": {
         "before": "../../img/0fc1872d536205afc38b5316b7af34271bae149ec8bbd477c3c69af6a61ce4eb.png",
-        "after": "../../img/0fc1872d536205afc38b5316b7af34271bae149ec8bbd477c3c69af6a61ce4eb.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/1f56461aada719c8fc85a4cd8fd419d5ceb44f66706ed28b10c073abae78786d.png",
+        "difference": "../../img/75ca17f8d39f6a8ac3e23a05a59b9d98bf80d592867c6749e442685993a9ff1c.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 0,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/8c88329bdf88f701ca2df7bedcd99aec582ad2d2636cd69ad2e43db3eb3f1e51.png",
+            "after": "../../img/7800873f46f69b777c3a4baa34eac789693e64827a6b8fb3abdf01ac5b708058.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -724,52 +764,16 @@
       "group": "overview",
       "route": "/",
       "state": "release notes preview from the GitHub release body",
-      "change": "changed",
-      "changedPixels": 21994,
-      "percent": 1.5910011574074074,
-      "areas": [
-        {
-          "x": 655,
-          "y": 201,
-          "width": 338,
-          "height": 42,
-          "pixels": 11429
-        },
-        {
-          "x": 889,
-          "y": 74,
-          "width": 261,
-          "height": 72,
-          "pixels": 10565
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/165ea7a5b307b24ab09f24c03c7c2ac80fe3f9ae6742f925b594b1ad1fd362d6.png",
+        "before": "../../img/f87e8bdae963540d22cc1d715b0c97a1ee24891f91e0e2578f6dd7aada2a1f05.png",
         "after": "../../img/f87e8bdae963540d22cc1d715b0c97a1ee24891f91e0e2578f6dd7aada2a1f05.png",
-        "difference": "../../img/ed189176a8dba4efbfbcee5554b6abd1259b459bc022629e17d9f57db0a27c19.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 584,
-              "y": 122,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/fce80093d90255c6cef4aed57562ac98f171beb2927380cd622ffe4d1c22a0ba.png",
-            "after": "../../img/cdddd81f6c7f436760deae0551830417f68841ca6b3f26daea5199905fe80470.png"
-          },
-          {
-            "rect": {
-              "x": 780,
-              "y": 10,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4daa83d4d4045770b6f07d649c85930b0bc60439d4fd11b2e1f1e20f91f06e22.png",
-            "after": "../../img/903ad42494f21d56a21aa14e53e43c8b65821f6a0ee6c7ea152371b9c1b56d6b.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -778,52 +782,16 @@
       "group": "overview",
       "route": "/",
       "state": "installer build; one-click update dialog before download",
-      "change": "changed",
-      "changedPixels": 29635,
-      "percent": 2.1437355324074074,
-      "areas": [
-        {
-          "x": 660,
-          "y": 201,
-          "width": 328,
-          "height": 88,
-          "pixels": 19070
-        },
-        {
-          "x": 889,
-          "y": 74,
-          "width": 261,
-          "height": 72,
-          "pixels": 10565
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/e01a08d5a5568ba2708647a0a1c7cbd8be67001c885dac23358292c84681df49.png",
+        "before": "../../img/12ea9f92f6596cafd38be47d52e58bf7d76725c7a330762bb81c99c3dba8e8fc.png",
         "after": "../../img/12ea9f92f6596cafd38be47d52e58bf7d76725c7a330762bb81c99c3dba8e8fc.png",
-        "difference": "../../img/b47df81be91e51be6a44e89f3530c073e7a936446088e418d87564700e4d5910.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 584,
-              "y": 145,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/61c34d516a666e0276f7b391c6e815422f3e88c340e428e331a1c1746eb42ad4.png",
-            "after": "../../img/9a9d29299547ca7a1881d954e35db1e67ab75441f8c7736afe83b37e8b9329a6.png"
-          },
-          {
-            "rect": {
-              "x": 780,
-              "y": 10,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/4daa83d4d4045770b6f07d649c85930b0bc60439d4fd11b2e1f1e20f91f06e22.png",
-            "after": "../../img/903ad42494f21d56a21aa14e53e43c8b65821f6a0ee6c7ea152371b9c1b56d6b.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -832,35 +800,16 @@
       "group": "overview",
       "route": "/",
       "state": "installed version's release history from a fixture manifest",
-      "change": "changed",
-      "changedPixels": 10565,
-      "percent": 0.7642505787037037,
-      "areas": [
-        {
-          "x": 889,
-          "y": 74,
-          "width": 261,
-          "height": 72,
-          "pixels": 10565
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/a5d793a99afef43f96e725536d1147d0df160bd54892f62fa57e03ba3b2ff419.png",
+        "before": "../../img/a9f3576ec8c6a05711d12a389e1a95779850ca7e714ebb2c51898d1d6c7b783a.png",
         "after": "../../img/a9f3576ec8c6a05711d12a389e1a95779850ca7e714ebb2c51898d1d6c7b783a.png",
-        "difference": "../../img/85204518a9e67d6f00214dd889878bda52470eaf9525f126985c9cf5db06532c.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 780,
-              "y": 10,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/95812c98c10b649a99b038b50d7b142c6039704821da87d4a4e1f4e08fe1e7c4.png",
-            "after": "../../img/91bfd7e20eb16e0764147f085b70b2b870892b31a91d5f144e17675a51c0516f.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
