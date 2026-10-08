@@ -27,6 +27,8 @@ const props = defineProps<{
   onChartMouseMove: ReturnType<typeof useChartTooltip>["onChartMouseMove"];
   onChartClick: ReturnType<typeof useChartTooltip>["onChartClick"];
   dismissTooltip: ReturnType<typeof useChartTooltip>["dismissTooltip"];
+  /** False when the filtered source is not billed in AI Credits (Claude Code). */
+  billedInAic?: boolean;
 }>();
 
 const prefs = usePreferencesStore();
@@ -169,7 +171,7 @@ const tooltipFormatter = (i: number) => {
 
     <!-- Cost Trend -->
     <SectionPanel title="Cost Trend">
-      <template #actions>
+      <template v-if="billedInAic !== false" #actions>
         <div
           class="cost-basis-switch"
           role="radiogroup"
@@ -198,8 +200,12 @@ const tooltipFormatter = (i: number) => {
           </button>
         </div>
       </template>
+      <p v-if="billedInAic === false" class="cost-trend-note" data-testid="cost-trend-unbilled">
+        These sessions are not billed in AI Credits. Their estimated USD cost is shown on each
+        session's Metrics tab.
+      </p>
       <LineAreaChart
-        v-if="costChart"
+        v-else-if="costChart"
         :chart-data="costChart"
         :chart-layout="chartLayout"
         :grid-lines="gridLines"
@@ -224,6 +230,13 @@ const tooltipFormatter = (i: number) => {
   gap: 24px;
   padding: 18px;
   min-width: 0;
+}
+
+.cost-trend-note {
+  margin: 0;
+  padding: 24px 18px;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
 }
 
 .analytics-distribution-grid {

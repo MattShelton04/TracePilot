@@ -3,11 +3,13 @@
  * Divider shown before a prompt that resumed the session after an idle
  * window: how long it was idle and whether the prompt cache was still warm.
  * Clicking it expands a detail card. Estimated windows use a dashed style.
+ * A miss is priced in the open session's unit (AI Credits or USD).
  */
 import type { CacheWindow } from "@tracepilot/types";
-import { formatAiCredits } from "@tracepilot/ui";
 import { computed, ref, useId } from "vue";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionSource } from "@/composables/useSessionSource";
 import {
   changeKindLabel,
   describeResume,
@@ -19,7 +21,12 @@ const props = defineProps<{ window: CacheWindow }>();
 
 const expanded = ref(false);
 const cardId = useId();
-const { windowMissCredits } = usePromptCacheCost();
+const store = useSessionDetailContext();
+const { source } = useSessionSource(
+  () => store.sessionId,
+  () => store.detail,
+);
+const { windowMissCost, formatMissCost } = usePromptCacheCost(source);
 
 const tone = computed(() => {
   const { outcome, prefixChanges } = props.window;
@@ -34,8 +41,8 @@ const text = computed(() => describeResume(props.window));
 const chip = computed(() => resumeChipLabel(props.window));
 const rows = computed(() => {
   const result = windowDetailRows(props.window);
-  const credits = windowMissCredits(props.window);
-  if (credits != null) result.push({ label: "Est. extra cost", value: formatAiCredits(credits) });
+  const cost = windowMissCost(props.window);
+  if (cost != null) result.push({ label: "Est. extra cost", value: formatMissCost(cost) });
   return result;
 });
 </script>

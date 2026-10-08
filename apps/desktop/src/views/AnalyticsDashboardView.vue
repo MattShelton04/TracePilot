@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sourceCapabilities } from "@tracepilot/types";
 import {
   computeGridLines,
   createChartLayout,
@@ -108,6 +109,7 @@ const timeRangeLabel = computed(() => {
         />
         <AnalyticsDistributionRow
           :data="data"
+          :billed-in-aic="sourceCapabilities(store.selectedSource ?? undefined).hasAic"
           :chart-layout="chartLayout"
           :grid-lines="gridLines"
           :time-range-label="timeRangeLabel"

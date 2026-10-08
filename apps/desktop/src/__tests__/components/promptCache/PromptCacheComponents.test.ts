@@ -6,6 +6,7 @@ import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vu
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import MetricsPromptCacheSection from "@/components/metrics/MetricsPromptCacheSection.vue";
 import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
+import { SESSION_DETAIL_KEY } from "@/composables/session/contextKey";
 import { makeTimeline, makeWindow } from "@/utils/__tests__/promptCacheFixtures";
 
 beforeEach(() => setupPinia());
@@ -193,6 +194,35 @@ describe("CacheResumeDivider", () => {
     expect(detail.text()).toContain("Tools");
     expect(detail.text()).toContain("+1 tool");
     expect(detail.text()).toContain("gpt-5.6-luna · TTL 30m");
+  });
+
+  it("prices a miss in the open session's unit", async () => {
+    const miss = makeWindow({
+      outcome: "expired",
+      model: "claude-opus-4-6",
+      prefixTokens: 100_000,
+      ttlSeconds: 3600,
+    });
+    const claude = mount(CacheResumeDivider, {
+      props: { window: miss },
+      global: {
+        provide: {
+          [SESSION_DETAIL_KEY]: { sessionId: "c1", detail: { id: "c1", source: "claudeCode" } },
+        },
+      },
+    });
+    await claude.get(".cache-divider__label").trigger("click");
+    expect(claude.get('[data-testid="cache-resume-detail"]').text()).toMatch(
+      /Est\. extra cost\s*\$\d/,
+    );
+
+    const copilot = mount(CacheResumeDivider, {
+      props: { window: makeWindow({ outcome: "expired", prefixTokens: 100_000 }) },
+    });
+    await copilot.get(".cache-divider__label").trigger("click");
+    const detail = copilot.get('[data-testid="cache-resume-detail"]').text();
+    expect(detail).toContain("Est. extra cost");
+    expect(detail).not.toContain("$");
   });
 
   it("uses a dashed, labelled style for estimates", () => {
