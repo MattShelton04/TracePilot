@@ -10,18 +10,22 @@ use crate::provider::{MetricsCoverage, SessionMetrics};
 /// source that never writes one. `None` when no call was recorded.
 ///
 /// Coverage is always partial, because recorded calls cannot prove that all
-/// usage was persisted or that the session ended. There is no cost: pricing
-/// recorded usage is the pricing registry's job.
+/// usage was persisted or that the session ended. A cost estimate is present
+/// only when the registry can price every recorded call.
 pub fn metrics_from_model_calls(events: &[TypedEvent]) -> Option<SessionMetrics> {
     let mut models: HashMap<String, ModelMetricDetail> = HashMap::new();
     let mut calls = 0;
     let mut duration: Option<u64> = None;
     let mut current_model = None;
+    let mut cost = Some(0.0);
     for event in events {
         let TypedEventData::ModelCall(call) = &event.typed_data else {
             continue;
         };
         calls += 1;
+        cost = cost.and_then(|total| {
+            crate::provider::claude_code::pricing::estimate_call(call).map(|amount| total + amount)
+        });
         let model = call.model.clone().unwrap_or_default();
         if event.raw.agent_id.is_none() && !model.is_empty() {
             current_model = Some(model.clone());
@@ -62,6 +66,7 @@ pub fn metrics_from_model_calls(events: &[TypedEvent]) -> Option<SessionMetrics>
         total_api_duration_ms: duration,
         current_model,
         model_metrics: models,
+        cost: cost.map(crate::provider::claude_code::pricing::estimate),
         coverage: Some(MetricsCoverage {
             partial: true,
             snapshot_line: None,

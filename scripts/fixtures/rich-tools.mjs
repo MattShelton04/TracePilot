@@ -5,6 +5,8 @@
  * renderer parser tests; no user session text, paths, credentials or URLs.
  * Keep the registry coverage test in sync when adding a renderer.
  */
+export { claudeToolSamples } from "./claude-tool-samples.mjs";
+
 import { richToolVariants } from "./rich-tool-variants.mjs";
 
 export const richToolsSessionId = "72510000-0000-4000-8000-000000000001";
@@ -324,12 +326,13 @@ export function richToolTurn(item, index = 0) {
     turnIndex: index,
     userMessage: `Rich tool fixture: ${item.id}. All content is synthetic.`,
     assistantMessages: [],
-    model: "gpt-4.1",
+    model: item.nativeToolName ? "claude-opus-5-5" : "gpt-4.1",
     isComplete: true,
     toolCalls: [
       {
         toolCallId: `fixture-${item.id}`,
         toolName: item.subagent?.agentName ?? item.toolName,
+        ...(item.nativeToolName ? { nativeToolName: item.nativeToolName } : {}),
         arguments: item.arguments,
         success: item.content == null ? null : item.success !== false,
         isComplete: item.content != null,

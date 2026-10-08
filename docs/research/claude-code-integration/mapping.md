@@ -254,9 +254,12 @@ Snapshot durations and line counts retain their recorded coverage; distinct modi
 files come from recorded results and edited-file attachments. Indexed Claude catalog
 rows expose `metricsPartial: true`, including rows written before C5.
 
-Until C11 prices the tail, a snapshot-plus-tail total has no current `costAmount`.
-The covered estimate remains available as `coverage.snapshotCost` with unit `usd`
-and basis `providerEstimate`. No-snapshot totals have no cost figure. Existing index
+WP13 (C11) prices the tail from recorded calls at verified Anthropic API rates, including
+each call's 5m/1h cache-write split. A snapshot-only cost keeps `providerEstimate`; adding
+a priced tail or pricing calls without a snapshot uses `tracepilotEstimate`. If any required
+model, usage or write tier is unknown, the current `costAmount` is absent. The covered
+estimate remains available as `coverage.snapshotCost` with unit `usd` and basis
+`providerEstimate`. Existing index
 billing columns retain only their Copilot meaning; Claude USD costs are not written
 into those columns. Source-aware cost analytics and presentation remain C10/U2/U3.
 

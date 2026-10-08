@@ -14,6 +14,7 @@ const TOOL_ICONS: Record<string, LucideName> = {
   rg: "search",
   glob: "folder-search",
   powershell: "terminal",
+  shell: "terminal",
   read_powershell: "terminal",
   write_powershell: "terminal",
   task: "bot",
@@ -37,7 +38,11 @@ export type ToolCategory = "file" | "shell" | "agent" | "github" | "web" | "data
 
 export function toolCategory(toolName: string): ToolCategory {
   if (["view", "edit", "create", "grep", "rg", "glob"].includes(toolName)) return "file";
-  if (["powershell", "read_powershell", "write_powershell", "stop_powershell"].includes(toolName))
+  if (
+    ["shell", "powershell", "read_powershell", "write_powershell", "stop_powershell"].includes(
+      toolName,
+    )
+  )
     return "shell";
   if (["task", "read_agent", "write_agent", "list_agents"].includes(toolName)) return "agent";
   if (toolName.startsWith("github-mcp-server")) return "github";
@@ -78,7 +83,7 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
     return `/${a.pattern}/${summary ? ` in ${summary}` : ""}`;
   }
   if (toolName === "glob" && a.pattern) return String(a.pattern);
-  if (toolName === "powershell" && a.command) {
+  if ((toolName === "powershell" || toolName === "shell") && a.command) {
     const cmd = String(a.command);
     return cmd.length > 150 ? `${cmd.slice(0, 150)}…` : cmd;
   }

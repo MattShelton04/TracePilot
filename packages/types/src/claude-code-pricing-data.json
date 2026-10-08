@@ -1,0 +1,146 @@
+{
+  "source": {
+    "label": "Anthropic Claude API pricing",
+    "url": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "verifiedAt": "2026-10-08"
+  },
+  "anthropicUsage": [
+    {
+      "model": "claude-opus-5.5",
+      "inputPerM": 4,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 5,
+      "cacheWrite1hPerM": 8,
+      "outputPerM": 20
+    },
+    {
+      "model": "claude-sonnet-5.5",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 2.5,
+      "cacheWrite1hPerM": 4,
+      "outputPerM": 10
+    },
+    {
+      "model": "claude-opus-5",
+      "inputPerM": 5,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": 6.25,
+      "cacheWrite1hPerM": 10,
+      "outputPerM": 25
+    },
+    {
+      "model": "claude-opus-4.8",
+      "inputPerM": 5,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": 6.25,
+      "cacheWrite1hPerM": 10,
+      "outputPerM": 25
+    },
+    {
+      "model": "claude-opus-4.7",
+      "inputPerM": 5,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": 6.25,
+      "cacheWrite1hPerM": 10,
+      "outputPerM": 25
+    },
+    {
+      "model": "claude-opus-4.6",
+      "inputPerM": 5,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": 6.25,
+      "cacheWrite1hPerM": 10,
+      "outputPerM": 25
+    },
+    {
+      "model": "claude-opus-4.5",
+      "inputPerM": 5,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": 6.25,
+      "cacheWrite1hPerM": 10,
+      "outputPerM": 25
+    },
+    {
+      "model": "claude-opus-4.1",
+      "inputPerM": 15,
+      "cachedInputPerM": 1.5,
+      "cacheWritePerM": 18.75,
+      "cacheWrite1hPerM": 30,
+      "outputPerM": 75
+    },
+    {
+      "model": "claude-opus-4",
+      "inputPerM": 15,
+      "cachedInputPerM": 1.5,
+      "cacheWritePerM": 18.75,
+      "cacheWrite1hPerM": 30,
+      "outputPerM": 75
+    },
+    {
+      "model": "claude-sonnet-5",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 2.5,
+      "cacheWrite1hPerM": 4,
+      "outputPerM": 10
+    },
+    {
+      "model": "claude-sonnet-4.6",
+      "inputPerM": 3,
+      "cachedInputPerM": 0.3,
+      "cacheWritePerM": 3.75,
+      "cacheWrite1hPerM": 6,
+      "outputPerM": 15
+    },
+    {
+      "model": "claude-sonnet-4.5",
+      "inputPerM": 3,
+      "cachedInputPerM": 0.3,
+      "cacheWritePerM": 3.75,
+      "cacheWrite1hPerM": 6,
+      "outputPerM": 15
+    },
+    {
+      "model": "claude-sonnet-4",
+      "inputPerM": 3,
+      "cachedInputPerM": 0.3,
+      "cacheWritePerM": 3.75,
+      "cacheWrite1hPerM": 6,
+      "outputPerM": 15
+    },
+    {
+      "model": "claude-haiku-4.5",
+      "inputPerM": 1,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 1.25,
+      "cacheWrite1hPerM": 2,
+      "outputPerM": 5
+    },
+    {
+      "model": "claude-haiku-3.5",
+      "aliases": ["claude-3-5-haiku"],
+      "inputPerM": 0.8,
+      "cachedInputPerM": 0.08,
+      "cacheWritePerM": 1,
+      "cacheWrite1hPerM": 1.6,
+      "outputPerM": 4
+    },
+    {
+      "model": "claude-fable-5",
+      "inputPerM": 10,
+      "cachedInputPerM": 1,
+      "cacheWritePerM": 12.5,
+      "cacheWrite1hPerM": 20,
+      "outputPerM": 50
+    },
+    {
+      "model": "claude-fable-5.1",
+      "inputPerM": 10,
+      "cachedInputPerM": 0.25,
+      "cacheWritePerM": 12.5,
+      "cacheWrite1hPerM": 20,
+      "outputPerM": 50
+    }
+  ]
+}

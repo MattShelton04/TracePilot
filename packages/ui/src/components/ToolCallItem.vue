@@ -195,7 +195,7 @@ watch(
       <template v-if="tc.intentionSummary">
         <span class="tool-call-name-group">
           <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">
-            {{ tc.toolName }}
+            {{ tc.nativeToolName ?? tc.toolName }}
           </span>
           <span class="tool-call-intent" :title="tc.intentionSummary">
             {{ tc.intentionSummary }}
@@ -206,7 +206,7 @@ watch(
       <!-- Without intention: flat layout -->
       <template v-else>
         <span class="tool-call-name" :class="categoryColor(toolCategory(tc.toolName))">
-          {{ tc.toolName }}
+          {{ tc.nativeToolName ?? tc.toolName }}
         </span>
         <span
           v-if="summary"

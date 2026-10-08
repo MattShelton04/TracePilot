@@ -12,7 +12,14 @@ const mocks = vi.hoisted(() => ({
   isSessionRunning: vi.fn(),
   openInExplorer: vi.fn(),
   resumeSessionInTerminal: vi.fn(),
+  copy: vi.fn(),
 }));
+
+vi.mock("@tracepilot/ui", async (original) => {
+  const module = await original<typeof import("@tracepilot/ui")>();
+  const { ref } = await import("vue");
+  return { ...module, useClipboard: () => ({ copy: mocks.copy, copied: ref(false) }) };
+});
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");
@@ -226,7 +233,11 @@ describe("SessionDetailPanel", () => {
       "Metrics",
       "Timeline",
     ]);
-    expect(text).not.toContain("Copy Resume Command");
+    expect(text).toContain("Copy Resume Command");
+    const copyButton = wrapper.get('[title="Copy: claude --resume session-1"]');
+    await copyButton.trigger("click");
+    expect(mocks.copy).toHaveBeenCalledWith("claude --resume session-1");
+    expect(mocks.resumeSessionInTerminal).not.toHaveBeenCalled();
     expect(text).not.toContain("Resume in Terminal");
     expect(text).not.toContain("Open Folder");
     expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
@@ -242,7 +253,7 @@ describe("SessionDetailPanel", () => {
 
     const tabs = wrapper.findAll("[role='tab']");
     expect(tabs).toHaveLength(5);
-    expect(wrapper.text()).not.toContain("Copy Resume Command");
+    expect(wrapper.find('[title="Copy: claude --resume session-1"]').exists()).toBe(true);
     expect(wrapper.text()).not.toContain("Resume in Terminal");
     expect(wrapper.text()).not.toContain("Open Folder");
     expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");

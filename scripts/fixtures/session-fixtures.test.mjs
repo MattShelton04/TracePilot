@@ -10,8 +10,14 @@ import {
   claudeOrchardSessionId,
 } from "./claude-code.mjs";
 import {
+  claudeGallerySessionId,
+  claudeRecordedCostSessionId,
+  claudeRunningCostSessionId,
+} from "./claude-gallery.mjs";
+import {
   buildReportIntentSession,
   buildRichToolsSession,
+  claudeToolSamples,
   reportIntentSessionId,
   richToolPreview,
   richToolSamples,
@@ -30,7 +36,9 @@ test("every registered result and argument renderer has an explicit visual fixtu
   for (const [, tool, entry] of entries) {
     if (entry.includes("resultComponent"))
       assert(
-        richToolSamples.some((s) => s.toolName === tool && s.content != null),
+        [...richToolSamples, ...claudeToolSamples].some(
+          (s) => s.toolName === tool && s.content != null,
+        ),
         `${tool} result has no fixture`,
       );
     if (entry.includes("argsComponent"))
@@ -43,6 +51,35 @@ test("every registered result and argument renderer has an explicit visual fixtu
   const search = richToolSamples.find((s) => s.toolName === "web_search");
   assert(search.content.length > 1024, "web_search must cross the backend preview boundary");
   assert.match(JSON.parse(search.content).text.value, /Fixture response format/);
+});
+
+test("Claude canonical mappings have native renderer samples, including result-dependent names", () => {
+  const names = new Set(claudeToolSamples.map((sample) => sample.toolName));
+  for (const canonical of [
+    "shell",
+    "powershell",
+    "view",
+    "edit",
+    "create",
+    "apply_patch",
+    "grep",
+    "glob",
+    "task",
+    "write_agent",
+    "stop_agent",
+    "stop_powershell",
+    "web_fetch",
+    "web_search",
+    "skill",
+    "ask_user",
+  ]) {
+    assert(names.has(canonical), `${canonical} has no Claude renderer fixture`);
+  }
+  for (const sample of claudeToolSamples) {
+    const nativeTurn = richToolTurn(sample).toolCalls[0];
+    assert.equal(nativeTurn.nativeToolName, sample.nativeToolName);
+    assert.equal(nativeTurn.toolName, sample.toolName);
+  }
 });
 
 test("native sessions are deterministic, have unique ancestry and match every browser payload", () => {
@@ -163,9 +200,16 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
   );
   assert.deepEqual(
     generated.claudeSessions.map((session) => session.id),
-    [claudeOrchardSessionId, claudeLanternSessionId, claudeHarborSessionId],
+    [
+      claudeOrchardSessionId,
+      claudeLanternSessionId,
+      claudeHarborSessionId,
+      claudeGallerySessionId,
+      claudeRunningCostSessionId,
+      claudeRecordedCostSessionId,
+    ],
   );
-  assert.equal(generated.files.length, 9);
+  assert.equal(generated.files.length, 12);
   assert(
     existsSync(
       join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),
@@ -209,7 +253,8 @@ test("Claude Code sessions are deterministic, linked and shaped as Claude Code w
       results.map((r) => r.tool_use_id),
     );
     assert(records.some((r) => r.type === "ai-title" && r.aiTitle === session.title));
-    assert(records.some((r) => r.type === "cost-state"));
+    if (!session.title.includes("Recorded usage"))
+      assert(records.some((r) => r.type === "cost-state"));
     for (const file of rest.filter((f) => f.path.endsWith(".jsonl"))) {
       const agent = file.content
         .trimEnd()

@@ -9,6 +9,8 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
+- **Claude Code tools** — Claude sessions show their recorded tool names in conversations and timelines, render Bash output as a terminal, and offer a command to copy for resuming in Claude Code. Their recorded cost estimates now include usage after the last cost snapshot.
+
 - **Claude Code sessions (experimental)** — Turn on **Claude Code Sessions** in Settings → Experimental to index and view Claude Code sessions alongside Copilot CLI sessions, with a source badge and filter. The folder defaults to `CLAUDE_CONFIG_DIR`, else `~/.claude`, and can be changed in Data & Storage. Turning it off removes those sessions from the index and leaves your Claude Code files untouched. Their turns show token usage, refused tool uses and interrupts are listed as incidents, and they count in Analytics, including prompt-cache timing estimated from each call's recorded cache tier. Their Context tab charts each turn's recorded input total, and the session header shows an estimated prompt-cache countdown (or "unknown" when no cache tier was recorded). Once both sources have sessions, a source filter on each Analytics page shows all sessions, Copilot only or Claude Code only.
 
 ## [0.9.1] - 2026-10-05

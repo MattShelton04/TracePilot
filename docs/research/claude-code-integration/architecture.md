@@ -116,13 +116,19 @@ These are the only additions to the normalized model. Each one also serves Codex
 | **`SourceCapabilities`** | `can_resume`, `can_launch`, `can_steer`, `has_aic`, `has_premium_requests`, `has_context_breakdown`, `has_todos`, `has_checkpoints`, `has_plan`, `has_explorer`, `has_hidden_roles`, … Static per source, with optional per-session overrides (e.g. "todos tool used") | Tab gating, IPC refusal, KPI visibility |
 
 Implemented (WP11, C7): `ModelCallData` and `SessionEventType::ModelCall`;
-`summary::metrics_from_model_calls` (always partial coverage, no cost) is the fallback in
+`summary::metrics_from_model_calls` (always partial coverage) is the fallback in
 `summary_from_events` when there is no `session.shutdown`; the reconstructor sums calls into
 `ConversationTurn.usage` through the same ownership as messages.
 
 Implemented (WP14, C8): `build_context_timeline` keeps one total-only point per turn (the
 turn's last main-agent call, `totalOnly: true`, layers unknown). `build_prompt_cache_timeline`
 switches to `PromptCacheSource::ModelCalls` when a session has main-agent calls; see §3.7.
+
+WP13 (C11) prices known Claude calls with a complete recorded cache-write TTL split.
+Snapshot-only cost keeps `providerEstimate`; snapshot plus priced tail, or recorded calls
+without a snapshot, uses `tracepilotEstimate`. An unknown model or missing TTL leaves the
+current cost absent while preserving token totals and `coverage.snapshotCost`. Missing
+input or output usage also stays unpriced; a recorded zero remains a known zero.
 
 **Wire compatibility.** Every new field is optional, with
 `#[serde(default, skip_serializing_if = "Option::is_none")]`. Copilot `events.jsonl` lines and
@@ -336,8 +342,18 @@ Implementation:
 
 ### Pricing
 
+WP13 keeps Claude Code pricing in `packages/types/src/claude-code-pricing-data.json`,
+separate from Copilot's registry, persisted defaults and pricing settings. The Rust Claude
+provider embeds that same data; the frontend opts in through `calculateClaudeCodeTokenCost`.
+The rows have `provider-wholesale` provenance, an Anthropic source URL and verification
+date. `claudeCodeCostBasisLabel` supplies **Claude Code estimate** and **TracePilot estimate**
+labels for the source-aware USD presentation in U2. These are API-equivalent token estimates,
+not subscription charges, and exclude unrecorded server-tool fees and pricing modifiers.
+New or unsupported variants stay unpriced until their rates are verified. Copilot's lookup
+and rate data stay unchanged.
+
 - **Model ids:** `claude-opus-5-5` / `claude-haiku-4-5-20251001` need an alias rule to match
-  `pricing-data.json` (`claude-opus-5.5`, …). Prefer `cost-state.totalCostUSD` when present.
+  the Claude pricing rows (`claude-opus-5.5`, …). Prefer `cost-state.totalCostUSD` when present.
 - **Cache-write rate:** when TracePilot must price Claude usage itself (live session, missing
   `cost-state`), it needs the 1-hour rate. Anthropic's published API rates are 1h writes at
   2× base input and 5m writes at 1.25×. The registry's single `cacheWritePerM` is the 5m rate.

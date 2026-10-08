@@ -29,6 +29,12 @@ pub struct ClaudeCallUsage {
     pub cache_write_5m_tokens: u64,
     pub cache_write_1h_tokens: u64,
     pub output_tokens: u64,
+    /// Missing native counters are not evidence of free usage. Kept out of
+    /// reconciliation JSON; the canonical model call preserves their absence.
+    #[serde(skip)]
+    pub input_tokens_recorded: bool,
+    #[serde(skip)]
+    pub output_tokens_recorded: bool,
     pub reasoning_tokens: u64,
     pub stop_reason: Option<String>,
     /// 1-based line of the call's first record in its own file.
@@ -180,11 +186,12 @@ impl CallTable {
         if rec.is_synthetic_error() {
             return;
         }
-        let usage = rec
+        let recorded_usage = rec
             .0
             .pointer("/message/usage")
-            .and_then(|u| WireUsage::deserialize(u).ok())
-            .unwrap_or_default();
+            .and_then(|u| WireUsage::deserialize(u).ok());
+        let usage_valid = recorded_usage.is_some();
+        let usage = recorded_usage.unwrap_or_default();
         let stop_reason = rec.ptr_str("/message/stop_reason").map(str::to_string);
         let slot = *self.index.entry(id.to_string()).or_insert_with(|| {
             self.calls.push(ClaudeCallUsage {
@@ -197,6 +204,8 @@ impl CallTable {
                 cache_write_5m_tokens: 0,
                 cache_write_1h_tokens: 0,
                 output_tokens: 0,
+                input_tokens_recorded: false,
+                output_tokens_recorded: false,
                 reasoning_tokens: 0,
                 stop_reason: None,
                 line: site.line,
@@ -206,6 +215,18 @@ impl CallTable {
             self.calls.len() - 1
         });
         let call = &mut self.calls[slot];
+        call.input_tokens_recorded = usage_valid
+            && rec
+                .0
+                .pointer("/message/usage/input_tokens")
+                .and_then(Value::as_u64)
+                .is_some();
+        call.output_tokens_recorded = usage_valid
+            && rec
+                .0
+                .pointer("/message/usage/output_tokens")
+                .and_then(Value::as_u64)
+                .is_some();
         call.input_tokens = usage.input_tokens;
         call.cache_read_tokens = usage.cache_read_input_tokens;
         call.cache_write_tokens = usage.cache_creation_input_tokens;
@@ -241,11 +262,11 @@ pub(super) fn fill_model_calls(
         .collect();
         let usage = serde_json::json!({
             "model": call.model,
-            "inputTokens": call.inclusive_input(),
+            "inputTokens": call.input_tokens_recorded.then(|| call.inclusive_input()),
             "cacheReadTokens": call.cache_read_tokens,
             "cacheWriteTokens": call.cache_write_tokens,
             "cacheWriteByTtl": (!by_ttl.is_empty()).then_some(by_ttl),
-            "outputTokens": call.output_tokens,
+            "outputTokens": call.output_tokens_recorded.then_some(call.output_tokens),
             "reasoningTokens": call.reasoning_tokens,
             "stopReason": call.stop_reason,
         });

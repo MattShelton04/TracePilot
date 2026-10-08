@@ -1,6 +1,6 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
-import { chunkTurns, segmentToolCalls } from "./chatViewUtils";
+import { chunkTurns, getCollapsedToolNames, segmentToolCalls } from "./chatViewUtils";
 
 function makeToolCall(overrides: Partial<TurnToolCall>): TurnToolCall {
   return {
@@ -9,6 +9,18 @@ function makeToolCall(overrides: Partial<TurnToolCall>): TurnToolCall {
     ...overrides,
   };
 }
+
+it("shows native collapsed-tool tags while retaining Copilot names", () => {
+  expect(
+    getCollapsedToolNames(
+      [
+        { type: "tool", toolCall: makeToolCall({ nativeToolName: "Read" }) },
+        { type: "tool", toolCall: makeToolCall({ toolName: "powershell" }) },
+      ],
+      0,
+    ),
+  ).toEqual(["Read", "powershell"]);
+});
 
 describe("segmentToolCalls", () => {
   it("keeps top-level read_agent visible as a tool-group item", () => {

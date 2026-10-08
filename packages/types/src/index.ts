@@ -39,6 +39,11 @@ export type {
   ToolAnalysisData,
   ToolUsageEntry,
 } from "./analytics.js";
+export {
+  CLAUDE_CODE_PRICING,
+  calculateClaudeCodeTokenCost,
+  claudeCodeCostBasisLabel,
+} from "./claude-code-pricing.js";
 // ── config.js ──────────────────────────────────────────────────────
 export type {
   ModelPriceEntry,

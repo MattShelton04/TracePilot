@@ -186,6 +186,21 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
             unit: CostUnit::Usd,
             basis: CostBasis::ProviderEstimate,
         });
+    let cost = if tail.is_empty() {
+        snapshot_cost
+    } else {
+        let base = if snapshot.is_some() {
+            snapshot_cost.map(|c| c.amount)
+        } else {
+            Some(0.0)
+        };
+        base.and_then(|base| {
+            tail.iter().try_fold(base, |total, call| {
+                super::pricing::estimate_native(call).map(|amount| total + amount)
+            })
+        })
+        .map(super::pricing::estimate)
+    };
     let files = modified_files(parsed);
     let code_changes = (snapshot.is_some() || !files.is_empty()).then(|| CodeChanges {
         lines_added: snapshot.and_then(|s| s.total_lines_added),
@@ -206,8 +221,7 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
         current_model: summary.current_model.clone(),
         model_metrics: models,
         code_changes,
-        // C11 will price the tail. An old snapshot is not the current USD cost.
-        cost: tail.is_empty().then_some(snapshot_cost).flatten(),
+        cost,
         coverage: Some(MetricsCoverage {
             partial: true,
             snapshot_line: snapshot.map(|s| s.line),

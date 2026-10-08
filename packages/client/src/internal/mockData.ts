@@ -270,7 +270,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       },
     ],
     get_session_turns: {
-      turns: mocks.MOCK_TURNS,
+      turns: mocks.getMockSessionTurns(mockSessionId),
       eventsFileSize: 1024,
       eventsFileMtime: Date.now(),
     } as TurnsResponse,
@@ -284,7 +284,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       eventsFileMtime: MOCK_EVENTS_MTIME,
       sourceVersion: "mock-source-version",
     } as FreshnessResponse,
-    get_session_events: mocks.MOCK_EVENTS,
+    get_session_events: mocks.getMockSessionEvents(mockSessionId),
     get_session_todos: mocks.MOCK_TODOS,
     get_session_checkpoints: mocks.MOCK_CHECKPOINTS,
     get_session_plan: { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
@@ -376,7 +376,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     factory_reset: undefined,
     get_tool_result: (() => {
       const toolCallId = typeof args?.toolCallId === "string" ? args.toolCallId : "";
-      for (const turn of mocks.MOCK_TURNS) {
+      for (const turn of mocks.getMockSessionTurns(mockSessionId)) {
         const tc = turn.toolCalls?.find((t) => t.toolCallId === toolCallId);
         if (tc && tc.resultContent != null) return tc.resultContent;
       }

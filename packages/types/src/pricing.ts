@@ -24,6 +24,7 @@ export interface TokenRateSet {
   cachedInputPerM: number;
   outputPerM: number;
   cacheWritePerM?: number;
+  cacheWrite1hPerM?: number;
   reasoningPerM?: number;
 }
 
@@ -52,6 +53,7 @@ export interface TokenUsageForCost {
   outputTokens?: number | null;
   cacheReadTokens?: number | null;
   cacheWriteTokens?: number | null;
+  cacheWriteByTtl?: Record<string, number> | null;
   reasoningTokens?: number | null;
 }
 
@@ -62,6 +64,8 @@ export interface PricingLookupOptions {
   inputTokens?: number | null;
   rateMode?: PricingRateMode;
   userOverrides?: readonly PricingRegistryEntry[];
+  /** Explicit scoped rates; omitted for the existing Copilot registry. */
+  registry?: readonly PricingRegistryEntry[];
 }
 
 export type CostBreakdownStatus = "priced" | "unknown-model" | "missing-rate";
@@ -223,7 +227,7 @@ export function resolvePricingEntry(
   const latest = rateMode === "latest" || parseEffectiveDate(options.at) == null;
   const registry = [
     ...(options.userOverrides ?? []),
-    ...(latest ? LATEST_PRICING_REGISTRY : PRICING_REGISTRY),
+    ...(options.registry ?? (latest ? LATEST_PRICING_REGISTRY : PRICING_REGISTRY)),
   ];
   const matches = registry
     .filter(
@@ -306,13 +310,27 @@ export function calculateTokenCost(
   const nonCachedInputTokens = Math.max(inputTokens - cacheReadTokens - cacheWriteTokens, 0);
   const inputCost = (nonCachedInputTokens / 1_000_000) * entry.rates.inputPerM;
   const cachedInputCost = (cacheReadTokens / 1_000_000) * entry.rates.cachedInputPerM;
-  const cacheWriteCost = (cacheWriteTokens / 1_000_000) * (entry.rates.cacheWritePerM ?? 0);
+  const oneHourWrites = usage.cacheWriteByTtl?.["3600"] ?? 0;
+  const fiveMinuteWrites = usage.cacheWriteByTtl?.["300"] ?? 0;
+  const invalidSplit =
+    usage.cacheWriteByTtl != null &&
+    (oneHourWrites + fiveMinuteWrites !== cacheWriteTokens ||
+      Object.entries(usage.cacheWriteByTtl).some(
+        ([ttl, tokens]) => tokens < 0 || (tokens > 0 && ttl !== "300" && ttl !== "3600"),
+      ));
+  const missingHourlyRate = oneHourWrites > 0 && entry.rates.cacheWrite1hPerM == null;
+  const cacheWriteCost =
+    ((cacheWriteTokens - oneHourWrites) / 1_000_000) * (entry.rates.cacheWritePerM ?? 0) +
+    (oneHourWrites / 1_000_000) * (entry.rates.cacheWrite1hPerM ?? 0);
   const reasoningCost = (reasoningTokens / 1_000_000) * (entry.rates.reasoningPerM ?? 0);
   const outputCost = (outputTokens / 1_000_000) * entry.rates.outputPerM;
-  const totalCost = inputCost + cachedInputCost + cacheWriteCost + outputCost + reasoningCost;
+  const totalCost =
+    invalidSplit || missingHourlyRate
+      ? null
+      : inputCost + cachedInputCost + cacheWriteCost + outputCost + reasoningCost;
 
   return {
-    status: "priced",
+    status: totalCost == null ? "missing-rate" : "priced",
     model: modelName,
     matchedModel: entry.model,
     entry,
@@ -322,11 +340,14 @@ export function calculateTokenCost(
     outputCost,
     reasoningCost,
     totalCost,
-    aiCredits: totalCost / AI_CREDIT_USD,
-    warnings:
-      cacheWriteTokens > 0 && entry.rates.cacheWritePerM == null
-        ? ["Cache-write tokens were present but this price entry has no cache-write rate."]
-        : [],
+    aiCredits: totalCost == null ? null : totalCost / AI_CREDIT_USD,
+    warnings: invalidSplit
+      ? ["Cache-write TTL split is incomplete or unsupported."]
+      : missingHourlyRate
+        ? ["No 1-hour cache-write rate."]
+        : cacheWriteTokens > 0 && entry.rates.cacheWritePerM == null
+          ? ["Cache-write tokens were present but this price entry has no cache-write rate."]
+          : [],
   };
 }
 

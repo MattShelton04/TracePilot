@@ -8,6 +8,7 @@ import type {
   TodosResponse,
 } from "@tracepilot/types";
 
+import { MOCK_CLAUDE_EVENTS, MOCK_CLAUDE_TURNS } from "./claudeSessions.js";
 import { NOW, NOW_MS, ONE_HOUR, ts } from "./common.js";
 
 export const MOCK_SESSIONS: SessionListItem[] = [
@@ -421,7 +422,7 @@ const MOCK_CLAUDE_CODE_METRICS: ShutdownMetrics = {
   },
   modelMetrics: {
     "claude-opus-4.6": {
-      requests: { count: 14, cost: 0 },
+      requests: { count: 14 },
       usage: {
         inputTokens: 210_000,
         outputTokens: 6_200,
@@ -433,9 +434,28 @@ const MOCK_CLAUDE_CODE_METRICS: ShutdownMetrics = {
   costAmount: 1.84,
   costUnit: "usd",
   costBasis: "providerEstimate",
+  coverage: {
+    partial: true,
+    snapshotLine: 90,
+    recordedCalls: 14,
+    tailCalls: 0,
+    snapshotCost: { amount: 1.84, unit: "usd", basis: "providerEstimate" },
+  },
 };
 
 export function getMockShutdownMetrics(sessionId: string): ShutdownMetrics {
   const source = MOCK_SESSIONS.find((s) => s.id === sessionId)?.source;
   return source === "claudeCode" ? MOCK_CLAUDE_CODE_METRICS : MOCK_SHUTDOWN_METRICS;
+}
+
+export function getMockSessionTurns(sessionId: string): ConversationTurn[] {
+  return MOCK_SESSIONS.find((s) => s.id === sessionId)?.source === "claudeCode"
+    ? MOCK_CLAUDE_TURNS
+    : MOCK_TURNS;
+}
+
+export function getMockSessionEvents(sessionId: string): EventsResponse {
+  return MOCK_SESSIONS.find((s) => s.id === sessionId)?.source === "claudeCode"
+    ? MOCK_CLAUDE_EVENTS
+    : MOCK_EVENTS;
 }

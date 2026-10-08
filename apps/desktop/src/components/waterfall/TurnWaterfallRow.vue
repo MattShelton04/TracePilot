@@ -29,6 +29,7 @@ const emit = defineEmits<{
 
 const displayName = computed(() => {
   const tc = props.row.call;
+  if (tc.nativeToolName != null) return tc.nativeToolName;
   if (tc.isSubagent && tc.agentDisplayName) return tc.agentDisplayName;
   return tc.toolName;
 });

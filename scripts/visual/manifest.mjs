@@ -1,7 +1,8 @@
 // Every named desktop route has an entry. These are browser fixture states,
 // never evidence that Rust, the SDK, native dialogs or external services work.
 
-import { richToolSamples, richToolsSessionId } from "../fixtures/rich-tools.mjs";
+import { claudeGallerySessionId } from "../fixtures/claude-gallery.mjs";
+import { claudeToolSamples, richToolSamples, richToolsSessionId } from "../fixtures/rich-tools.mjs";
 import { skill } from "./fixtures.mjs";
 import { sectionId, visualSections } from "./sections.mjs";
 import { updateAvailableFixture } from "./update-fixtures.mjs";
@@ -217,16 +218,16 @@ export const cases = [
     state: "installed version's release history from a fixture manifest",
   },
   { id: "not-found", route: "/visual-route-does-not-exist", ready: "h2", state: "not found" },
-  ...richToolSamples.map((sample) => ({
+  ...[...richToolSamples, ...claudeToolSamples].map((sample) => ({
     id: `rich-tool-${sample.id}`,
     group: "rich-tools",
     fixture: sample.id,
-    route: `/session/${richToolsSessionId}/conversation`,
+    route: `/session/${sample.nativeToolName ? claudeGallerySessionId : richToolsSessionId}/conversation`,
     start: ".detail-title",
     prepare: "rich-tool",
     ready: sample.selector,
     command: "get_session_turns",
-    state: `Synthetic ${sample.toolName} · ${sample.viewState ?? (sample.content == null ? "pending arguments" : sample.success === false ? "error result" : "complete result")}${sample.registered === false ? ` · ${sample.fallback ?? "plain"} fallback (no registered renderer)` : ""}`,
+    state: `Synthetic ${sample.nativeToolName ?? sample.toolName} · ${sample.viewState ?? (sample.content == null ? "pending arguments" : sample.success === false ? "error result" : "complete result")}${sample.registered === false ? ` · ${sample.fallback ?? "plain"} fallback (no registered renderer)` : ""}`,
     openArgs: sample.openArgs,
     assertion: sample.assertion,
     actions: sample.actions,
