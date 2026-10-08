@@ -118,8 +118,11 @@ These are the only additions to the normalized model. Each one also serves Codex
 Implemented (WP11, C7): `ModelCallData` and `SessionEventType::ModelCall`;
 `summary::metrics_from_model_calls` (always partial coverage, no cost) is the fallback in
 `summary_from_events` when there is no `session.shutdown`; the reconstructor sums calls into
-`ConversationTurn.usage` through the same ownership as messages. The context anchor and
-`CacheConfidence::Observed` remain C8.
+`ConversationTurn.usage` through the same ownership as messages.
+
+Implemented (WP14, C8): `build_context_timeline` keeps one total-only point per turn (the
+turn's last main-agent call, `totalOnly: true`, layers unknown). `build_prompt_cache_timeline`
+switches to `PromptCacheSource::ModelCalls` when a session has main-agent calls; see §3.7.
 
 **Wire compatibility.** Every new field is optional, with
 `#[serde(default, skip_serializing_if = "Option::is_none")]`. Copilot `events.jsonl` lines and
@@ -272,6 +275,10 @@ not say whether the cache is still warm. Following
   cache (the shorter one when a call wrote both). The outcome compares the resume with that
   estimate. Recorded tiers never feed the cross-session TTL registry
   (`session_cache_ttls`), which estimates Copilot windows.
+- Implemented in `prompt_cache/model_calls.rs` (C8), which the indexer also uses. A resumed
+  window is `CacheConfidence::Observed` when the resuming call recorded its cache reads or
+  writes (`observedResume`); the outcome stays the timing estimate. Tiers are tracked per
+  model, and the last call leaves a pending window that drives the header countdown.
 - An observed hit only shows the prefix matched *then*. The next request may change tools,
   system prompt or model and miss. The UI says "estimated" and never promises a hit.
 

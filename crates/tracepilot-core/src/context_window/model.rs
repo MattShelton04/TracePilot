@@ -11,6 +11,9 @@ pub struct ContextWindowPoint {
     pub conversation_tokens: u64,
     pub context_change_tokens: Option<i64>,
     pub total_tokens: u64,
+    /// The request records a total but no system/tool/conversation split.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_only: Option<bool>,
     pub source: ContextPointSource,
 }
 
@@ -125,6 +128,7 @@ pub(super) struct TurnDelta {
 
 #[derive(Debug, Clone)]
 pub(super) struct Anchor {
+    pub(super) total: Option<u64>,
     pub(super) turn: usize,
     pub(super) timestamp: Option<String>,
     pub(super) system: u64,

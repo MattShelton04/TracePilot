@@ -206,7 +206,8 @@ fn claude_cache_windows_use_the_recorded_ttl_tier() {
         .collect::<rusqlite::Result<_>>()
         .unwrap();
     // msg_1 wrote 1h entries; the later calls only read them. Each window
-    // runs from the last call before a prompt to the first call after it.
+    // runs from the last call before a prompt to the first call after it,
+    // and the last call leaves a pending window for the countdown.
     assert_eq!(
         windows,
         [
@@ -224,6 +225,14 @@ fn claude_cache_windows_use_the_recorded_ttl_tier() {
                 "expired".into(),
                 Some(4205),
                 Some(1000),
+                Some(OPUS.into())
+            ),
+            (
+                2,
+                Some(3600),
+                "pending".into(),
+                None,
+                Some(900),
                 Some(OPUS.into())
             ),
         ]

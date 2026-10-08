@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
  * Prompt-cache countdown for the next resume, including ended sessions, driven
- * by the expiry Copilot CLI records when the agent goes idle. Ticks on the client
- * between refreshes; hidden unless the CLI recorded the expiry.
+ * by the expiry Copilot CLI records when the agent goes idle, or by an estimate
+ * from recorded model calls ("unknown" without a recorded tier). Ticks on the
+ * client between refreshes; hidden when neither exists.
  */
 import type { PromptCacheTimeline } from "@tracepilot/types";
 import { Tooltip } from "@tracepilot/ui";
@@ -11,14 +12,14 @@ import { useLiveCacheStatus } from "@/composables/useLiveCacheStatus";
 
 const props = defineProps<{ timeline: PromptCacheTimeline | null }>();
 
-const { status, label, tooltip } = useLiveCacheStatus(() => props.timeline);
+const { status, unknown, label, tooltip } = useLiveCacheStatus(() => props.timeline);
 </script>
 
 <template>
-  <Tooltip v-if="status" :text="tooltip" position="bottom">
+  <Tooltip v-if="status || unknown" :text="tooltip" position="bottom">
     <span
       class="cache-chip"
-      :class="`cache-chip--${status.state}`"
+      :class="`cache-chip--${status?.state ?? 'unknown'}`"
       role="timer"
       :aria-label="`${label}. ${tooltip}`"
       data-testid="prompt-cache-chip"
