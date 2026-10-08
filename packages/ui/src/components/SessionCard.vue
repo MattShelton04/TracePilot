@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { SessionListItem } from "@tracepilot/types";
-import { formatRelativeTime, isNonCopilotSource, sourceLabel } from "@tracepilot/types";
+import {
+  formatRelativeTime,
+  isNonCopilotSource,
+  resolveSessionSource,
+  sourceLabel,
+} from "@tracepilot/types";
 import Badge from "./Badge.vue";
 
 const props = defineProps<{
@@ -15,6 +20,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [event: MouseEvent, sessionId: string];
 }>();
+
+function isClaude(session: SessionListItem): boolean {
+  return resolveSessionSource(session.source) === "claudeCode";
+}
 
 function isActive(session: SessionListItem): boolean {
   return session.isRunning === true;
@@ -36,7 +45,7 @@ function activeTitle(): string {
 <template>
   <div
     class="card card-interactive session-card-new"
-    :class="{ 'card--active': isActive(session) }"
+    :class="{ 'card--active': isActive(session), 'session-card--claude': isClaude(session) }"
     role="link"
     tabindex="0"
     @click="emit('select', $event, session.id)"
@@ -59,7 +68,7 @@ function activeTitle(): string {
     </div>
 
     <div class="card-badges-new">
-      <Badge v-if="isNonCopilotSource(session.source)" variant="neutral" title="Session source">{{ sourceLabel(session.source) }}</Badge>
+      <Badge v-if="isNonCopilotSource(session.source)" :variant="isClaude(session) ? 'claude' : 'neutral'" title="Session source">{{ sourceLabel(session.source) }}</Badge>
       <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
       <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
       <Badge v-if="session.currentModel" variant="done">{{ session.currentModel }}</Badge>
@@ -176,6 +185,20 @@ function activeTitle(): string {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-tertiary);
+}
+
+/* --- Claude Code source: a faint clay wash so these sessions stand apart --- */
+.session-card--claude {
+  border-color: var(--claude-border);
+  background-image:
+    linear-gradient(135deg, var(--claude-subtle) 0%, transparent 55%),
+    var(--gradient-card);
+}
+.session-card--claude:hover {
+  border-color: var(--claude-emphasis);
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 1px var(--claude-muted);
 }
 
 /* --- Active State Animations --- */

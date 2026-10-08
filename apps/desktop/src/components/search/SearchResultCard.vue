@@ -60,7 +60,7 @@ watch(
     @click="$emit('toggle')"
   >
     <div class="result-header">
-      <span v-if="isNonCopilotSource(result.source)" class="badge badge-neutral badge-xs" title="Session source">
+      <span v-if="isNonCopilotSource(result.source)" class="badge badge-claude badge-xs" title="Session source">
         {{ sourceLabel(result.source) }}
       </span>
       <span v-if="result.sessionRepository" class="badge badge-accent badge-xs">

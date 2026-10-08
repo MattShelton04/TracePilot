@@ -125,4 +125,15 @@ describe("SessionCard", () => {
     expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
     expect(wrapper.text()).not.toContain("cli");
   });
+
+  it("tints Claude Code session cards and their source badge with the clay palette", () => {
+    const claude = mount(SessionCard, {
+      props: { session: makeSession({ id: "cc", source: "claudeCode" }) },
+    });
+    expect(claude.classes()).toContain("session-card--claude");
+    expect(claude.get('[title="Session source"]').classes()).toContain("badge-claude");
+
+    const copilot = mount(SessionCard, { props: { session: makeSession({ id: "c" }) } });
+    expect(copilot.classes()).not.toContain("session-card--claude");
+  });
 });

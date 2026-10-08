@@ -59,6 +59,14 @@ describe("Badge", () => {
     expect(wrapper.classes()).toContain("badge-neutral");
   });
 
+  it("applies claude variant styling", () => {
+    const wrapper = mount(Badge, {
+      props: { variant: "claude" },
+      slots: { default: "Claude Code" },
+    });
+    expect(wrapper.classes()).toContain("badge-claude");
+  });
+
   it("uses default/neutral variant when no prop passed", () => {
     const wrapper = mount(Badge, {
       slots: { default: "Default" },
