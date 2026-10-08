@@ -183,12 +183,21 @@ export const claudeToolSamples = [
     "WebSearch",
     "web_search",
     { query: "synthetic readiness" },
-    { results: [{ title: "Readiness", url: "https://example.com/ready" }] },
+    {
+      query: "synthetic readiness",
+      results: [
+        "Readiness",
+        { content: [{ title: "Readiness", url: "https://example.com/ready" }] },
+      ],
+    },
     JSON.stringify({
       text: {
         value: "Readiness",
         annotations: [
-          { type: "url_citation", url: "https://example.com/ready", title: "Readiness" },
+          {
+            type: "url_citation",
+            url_citation: { url: "https://example.com/ready", title: "Readiness" },
+          },
         ],
       },
     }),

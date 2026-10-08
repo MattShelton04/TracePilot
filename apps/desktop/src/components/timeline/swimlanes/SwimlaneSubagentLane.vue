@@ -47,7 +47,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
       :class="{ 'subagent-header--selected': selected }"
       role="button"
       tabindex="0"
-      :aria-label="`Select agent: ${agent.agentDisplayName ?? agent.nativeToolName ?? agent.toolName}`"
+      :aria-label="`Select agent: ${agent.nativeToolName ?? agent.agentDisplayName ?? agent.toolName}`"
       :aria-expanded="!collapsed"
       @click="emit('select-agent')"
       @keydown.enter.space.prevent="emit('select-agent')"
@@ -56,7 +56,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
         class="subagent-chevron"
         role="button"
         tabindex="0"
-        :aria-label="`Toggle ${agent.agentDisplayName ?? agent.nativeToolName ?? agent.toolName} expansion`"
+        :aria-label="`Toggle ${agent.nativeToolName ?? agent.agentDisplayName ?? agent.toolName} expansion`"
         @click.stop="emit('toggle-collapsed')"
         @keydown.enter.space.stop.prevent="emit('toggle-collapsed')"
       >
@@ -71,7 +71,7 @@ const maxMs = computed(() => turnMaxDuration(props.turn));
         />
       </span>
       <span class="subagent-name">
-        {{ agent.agentDisplayName ?? agent.nativeToolName ?? agent.toolName }}
+        {{ agent.nativeToolName ?? agent.agentDisplayName ?? agent.toolName }}
       </span>
       <span class="subagent-meta">
         <span v-if="liveDurationMs" class="subagent-duration">

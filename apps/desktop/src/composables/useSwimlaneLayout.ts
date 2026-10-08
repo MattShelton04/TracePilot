@@ -117,7 +117,7 @@ export function agentStatusIcon(agent: TurnToolCall): string {
 }
 
 export function toolTooltip(tc: TurnToolCall): string {
-  const parts = [tc.toolName];
+  const parts = [tc.nativeToolName ?? tc.toolName];
   if (tc.arguments) parts.push(formatArgsSummary(tc.arguments, tc.toolName));
   if (tc.durationMs != null) parts.push(formatDuration(tc.durationMs));
   parts.push(tc.success === false ? "Failed" : tc.success === true ? "Success" : "In Progress");

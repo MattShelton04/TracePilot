@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { getRendererEntry } from "../components/renderers/registry";
 import ShellOutputRenderer from "../components/renderers/ShellOutputRenderer.vue";
 import ToolCallItem from "../components/ToolCallItem.vue";
+import { formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
 
 describe("native tool presentation", () => {
   const tc: TurnToolCall = {
@@ -15,6 +16,9 @@ describe("native tool presentation", () => {
     resultContent: "PASS",
   };
   it("renders Bash through the shell family and shows its recorded title", () => {
+    expect(toolIcon("shell")).toBe("terminal");
+    expect(toolCategory("shell")).toBe("shell");
+    expect(formatArgsSummary(tc.arguments, "shell")).toBe("pnpm test");
     expect(getRendererEntry("shell")?.resultComponent).toBeDefined();
     const wrapper = mount(ShellOutputRenderer, {
       props: { tc, content: "PASS", args: tc.arguments as Record<string, unknown> },

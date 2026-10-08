@@ -10,9 +10,9 @@ import type { CostBasis } from "./session.js";
 /** Claude Code API-equivalent rates, kept outside Copilot's registry,
  * persisted defaults and pricing controls. */
 export const CLAUDE_CODE_PRICING: readonly PricingRegistryEntry[] = data.anthropicUsage.map(
-  ({ model, ...rates }) => ({
+  ({ model, aliases, ...rates }) => ({
     model,
-    aliases: [model.replace(/\.(\d+)/, "-$1")],
+    aliases: [model.replace(/\.(\d+)/, "-$1"), ...(aliases ?? [])],
     billingProvider: "provider-wholesale",
     pricingKind: "usage-token-rate",
     rates,

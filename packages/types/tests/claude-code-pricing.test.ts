@@ -47,4 +47,13 @@ describe("isolated Claude Code pricing", () => {
     ).toBe(0.00001);
     expect(resolvePricingEntry("claude-opus-5-5")).toBeUndefined();
   });
+
+  it("prices the historical Haiku native alias and keeps estimates out of AI Credits", () => {
+    const cost = calculateClaudeCodeTokenCost("claude-3-5-haiku-20241022", {
+      inputTokens: 10,
+      outputTokens: 5,
+    });
+    expect(cost.totalCost).toBeCloseTo((10 * 0.8 + 5 * 4) / 1e6, 12);
+    expect(cost.aiCredits).toBeNull();
+  });
 });

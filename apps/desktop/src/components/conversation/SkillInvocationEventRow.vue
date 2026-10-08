@@ -68,6 +68,7 @@ const timestamp = computed(() => props.event?.timestamp ?? props.toolCall?.start
 const durationMs = computed(() => props.toolCall?.durationMs);
 const success = computed(() => props.toolCall?.success);
 const headerLabel = computed(() => skillName.value || props.event?.summary || "Skill invoked");
+const toolLabel = computed(() => props.toolCall?.nativeToolName ?? "skill");
 const sourceSessionId = computed(() => {
   const injected = sessionCtx?.sessionId;
   if (injected) return injected;
@@ -75,7 +76,7 @@ const sourceSessionId = computed(() => {
   return typeof routeId === "string" ? routeId : "";
 });
 const ariaLabel = computed(
-  () => `${expanded.value ? "Collapse" : "Expand"} skill ${headerLabel.value}`,
+  () => `${expanded.value ? "Collapse" : "Expand"} ${toolLabel.value} ${headerLabel.value}`,
 );
 
 function toggle() {
@@ -118,7 +119,7 @@ function openUsage(e: MouseEvent) {
       @click="toggle"
     >
       <span class="skill-row__icon" aria-hidden="true"><Zap :size="14" /></span>
-      <span class="skill-row__tag">skill</span>
+      <span class="skill-row__tag">{{ toolLabel }}</span>
       <span class="skill-row__name">{{ headerLabel }}</span>
       <span v-if="skillDescription" class="skill-row__desc">— {{ skillDescription }}</span>
       <span v-if="timestamp" class="skill-row__time">

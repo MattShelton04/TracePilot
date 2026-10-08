@@ -18,6 +18,8 @@ struct Registry {
 #[serde(rename_all = "camelCase")]
 struct Rates {
     model: String,
+    #[serde(default)]
+    aliases: Vec<String>,
     input_per_m: f64,
     cached_input_per_m: f64,
     cache_write_per_m: f64,
@@ -57,11 +59,9 @@ fn matches_model(model: &str, canonical: &str) -> bool {
 /// Thinking is already included in Claude's output, so never charge it twice.
 pub(crate) fn estimate_call(call: &ModelCallData) -> Option<f64> {
     let model = call.model.as_deref()?;
-    let rates = REGISTRY
-        .as_ref()?
-        .anthropic_usage
-        .iter()
-        .find(|r| matches_model(model, &r.model))?;
+    let rates = REGISTRY.as_ref()?.anthropic_usage.iter().find(|r| {
+        matches_model(model, &r.model) || r.aliases.iter().any(|alias| matches_model(model, alias))
+    })?;
     let input = call.input_tokens?;
     let read = call.cache_read_tokens.unwrap_or(0);
     let write = call.cache_write_tokens.unwrap_or(0);
@@ -99,6 +99,9 @@ pub(crate) fn estimate_call(call: &ModelCallData) -> Option<f64> {
 }
 
 pub(super) fn estimate_native(call: &super::ClaudeCallUsage) -> Option<f64> {
+    if !call.input_tokens_recorded || !call.output_tokens_recorded {
+        return None;
+    }
     estimate_call(&ModelCallData {
         model: call.model.clone(),
         input_tokens: Some(call.inclusive_input()),

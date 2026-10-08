@@ -103,6 +103,16 @@ describe("SkillInvocationEventRow", () => {
     expect(wrapper.text()).toContain("✓");
   });
 
+  it("uses the native tool label for a Claude Skill invocation", () => {
+    const wrapper = mount(SkillInvocationEventRow, {
+      props: { toolCall: skillTool({ nativeToolName: "Skill" }) },
+    });
+    expect(wrapper.get(".skill-row__tag").text()).toBe("Skill");
+    expect(wrapper.get(".skill-row__header").attributes("aria-label")).toBe(
+      "Expand Skill trace-skill",
+    );
+  });
+
   it("expands to show the skill content and path metadata when toggled", async () => {
     const wrapper = mount(SkillInvocationEventRow, {
       props: {

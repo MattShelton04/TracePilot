@@ -284,7 +284,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       eventsFileMtime: MOCK_EVENTS_MTIME,
       sourceVersion: "mock-source-version",
     } as FreshnessResponse,
-    get_session_events: mocks.MOCK_EVENTS,
+    get_session_events: mocks.getMockSessionEvents(mockSessionId),
     get_session_todos: mocks.MOCK_TODOS,
     get_session_checkpoints: mocks.MOCK_CHECKPOINTS,
     get_session_plan: { content: "# Mock Plan\n\n1. Task one\n2. Task two" },

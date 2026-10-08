@@ -124,7 +124,8 @@ Implemented (WP11, C7): `ModelCallData` and `SessionEventType::ModelCall`;
 WP13 (C11) prices known Claude calls with a complete recorded cache-write TTL split.
 Snapshot-only cost keeps `providerEstimate`; snapshot plus priced tail, or recorded calls
 without a snapshot, uses `tracepilotEstimate`. An unknown model or missing TTL leaves the
-current cost absent while preserving token totals and `coverage.snapshotCost`.
+current cost absent while preserving token totals and `coverage.snapshotCost`. Missing
+input or output usage also stays unpriced; a recorded zero remains a known zero.
 
 **Wire compatibility.** Every new field is optional, with
 `#[serde(default, skip_serializing_if = "Option::is_none")]`. Copilot `events.jsonl` lines and
@@ -345,7 +346,7 @@ New or unsupported variants stay unpriced until their rates are verified. Copilo
 and rate data stay unchanged.
 
 - **Model ids:** `claude-opus-5-5` / `claude-haiku-4-5-20251001` need an alias rule to match
-  `pricing-data.json` (`claude-opus-5.5`, …). Prefer `cost-state.totalCostUSD` when present.
+  the Claude pricing rows (`claude-opus-5.5`, …). Prefer `cost-state.totalCostUSD` when present.
 - **Cache-write rate:** when TracePilot must price Claude usage itself (live session, missing
   `cost-state`), it needs the 1-hour rate. Anthropic's published API rates are 1h writes at
   2× base input and 5m writes at 1.25×. The registry's single `cacheWritePerM` is the 5m rate.

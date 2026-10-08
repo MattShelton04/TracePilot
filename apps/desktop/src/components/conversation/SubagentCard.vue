@@ -29,7 +29,12 @@ const agentIcon = computed(() => getAgentIcon(agentType.value));
 const status = computed(() => agentStatusFromToolCall(props.toolCall));
 
 const displayName = computed(() => {
-  return props.toolCall.agentDisplayName || props.toolCall.toolName || "Subagent";
+  return (
+    props.toolCall.nativeToolName ||
+    props.toolCall.agentDisplayName ||
+    props.toolCall.toolName ||
+    "Subagent"
+  );
 });
 
 const description = computed(() => {

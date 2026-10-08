@@ -1,4 +1,4 @@
-import type { ConversationTurn } from "@tracepilot/types";
+import type { ConversationTurn, EventsResponse } from "@tracepilot/types";
 import { ts } from "./common.js";
 
 /** Claude-specific conversation data; never reuse Copilot turns in source demos. */
@@ -61,3 +61,41 @@ export const MOCK_CLAUDE_TURNS: ConversationTurn[] = [
     },
   },
 ];
+
+export const MOCK_CLAUDE_EVENTS: EventsResponse = {
+  events: [
+    {
+      id: "claude-prompt",
+      eventType: "user.message",
+      timestamp: ts(-61000),
+      data: { content: "Review indexing retries." },
+    },
+    {
+      id: "claude-read-start",
+      eventType: "tool.execution_start",
+      timestamp: ts(-60000),
+      data: {
+        toolCallId: "claude-read",
+        toolName: "view",
+        nativeToolName: "Read",
+        arguments: { path: "src/retry.rs" },
+      },
+    },
+    {
+      id: "claude-model-call",
+      eventType: "tracepilot.model_call",
+      timestamp: ts(-58000),
+      data: {
+        model: "claude-opus-4-6",
+        inputTokens: 130,
+        cacheReadTokens: 100,
+        cacheWriteTokens: 20,
+        cacheWriteByTtl: { "3600": 20 },
+        outputTokens: 5,
+      },
+    },
+  ],
+  totalCount: 3,
+  hasMore: false,
+  allEventTypes: ["user.message", "tool.execution_start", "tracepilot.model_call"],
+};

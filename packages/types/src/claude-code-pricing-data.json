@@ -119,6 +119,7 @@
     },
     {
       "model": "claude-haiku-3.5",
+      "aliases": ["claude-3-5-haiku"],
       "inputPerM": 0.8,
       "cachedInputPerM": 0.08,
       "cacheWritePerM": 1,

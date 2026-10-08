@@ -71,6 +71,62 @@ fn unknown_tail_does_not_hide_tokens_or_relabel_the_snapshot_as_current_cost() {
 }
 
 #[test]
+fn native_missing_usage_stays_unpriced_with_and_without_a_snapshot() {
+    use serde_json::json;
+    for snapshot in [false, true] {
+        for usage in [
+            json!(null),
+            json!({"input_tokens":10}),
+            json!({"output_tokens":5}),
+        ] {
+            let mut t = Transcript::main();
+            t.prompt("Start.");
+            if snapshot {
+                t.cost_state(&[(OPUS, Usage::new(10, 100, 20, 5), 0.42)]);
+            }
+            t.record(
+                "assistant",
+                json!({"message":{"id":"unfinished", "model":OPUS,
+                "role":"assistant", "content":[text("Still working.")], "usage":usage}}),
+            );
+            let m = metrics(&t);
+            assert!(
+                m.cost_amount.is_none(),
+                "missing native usage must not mean zero cost"
+            );
+            assert_eq!(
+                m.coverage.unwrap().snapshot_cost.map(|c| c.amount),
+                snapshot.then_some(0.42)
+            );
+            let files = write_session(&t, &[]);
+            let provider = ClaudeCodeProvider::new(files.root.path());
+            let locator = provider.discover(&|| false).unwrap().remove(0);
+            let events = provider.load_events(&locator, &|| false).unwrap().unwrap();
+            assert!(
+                tracepilot_core::summary::metrics_from_model_calls(&events)
+                    .unwrap()
+                    .cost
+                    .is_none()
+            );
+        }
+    }
+}
+
+#[test]
+fn historical_haiku_native_alias_is_priced() {
+    let mut t = Transcript::main();
+    t.prompt("Check.");
+    t.call(
+        "haiku",
+        "claude-3-5-haiku-20241022",
+        vec![text("Done.")],
+        Usage::new(10, 0, 0, 5),
+        "end_turn",
+    );
+    assert!((metrics(&t).cost_amount.unwrap() - 0.000028).abs() < 1e-12);
+}
+
+#[test]
 fn a_known_zero_cost_is_preserved_but_missing_usage_and_ttl_are_not_zero_costs() {
     use serde_json::json;
     use tracepilot_core::models::SessionEventType;

@@ -126,7 +126,7 @@ export function getCollapsedToolNames(items: ToolGroupItem[], maxVisible: number
     if (item.type === "tool") {
       toolIdx++;
       if (toolIdx > maxVisible) {
-        names.add(item.toolCall.toolName);
+        names.add(item.toolCall.nativeToolName ?? item.toolCall.toolName);
       }
     }
   }

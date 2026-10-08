@@ -8,7 +8,7 @@ import type {
   TodosResponse,
 } from "@tracepilot/types";
 
-import { MOCK_CLAUDE_TURNS } from "./claudeSessions.js";
+import { MOCK_CLAUDE_EVENTS, MOCK_CLAUDE_TURNS } from "./claudeSessions.js";
 import { NOW, NOW_MS, ONE_HOUR, ts } from "./common.js";
 
 export const MOCK_SESSIONS: SessionListItem[] = [
@@ -452,4 +452,10 @@ export function getMockSessionTurns(sessionId: string): ConversationTurn[] {
   return MOCK_SESSIONS.find((s) => s.id === sessionId)?.source === "claudeCode"
     ? MOCK_CLAUDE_TURNS
     : MOCK_TURNS;
+}
+
+export function getMockSessionEvents(sessionId: string): EventsResponse {
+  return MOCK_SESSIONS.find((s) => s.id === sessionId)?.source === "claudeCode"
+    ? MOCK_CLAUDE_EVENTS
+    : MOCK_EVENTS;
 }
