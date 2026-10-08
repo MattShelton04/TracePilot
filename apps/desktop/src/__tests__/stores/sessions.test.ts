@@ -50,7 +50,7 @@ describe("useSessionsStore", () => {
   it("has filters initially null", () => {
     const store = useSessionsStore();
     expect(store.filterRepo).toBeNull();
-    expect(store.filterBranch).toBeNull();
+    expect(store.filterSource).toBeNull();
   });
 
   it("defaults sortBy to updated", () => {
@@ -66,11 +66,6 @@ describe("useSessionsStore", () => {
   it("computes repositories as empty when no sessions", () => {
     const store = useSessionsStore();
     expect(store.repositories).toEqual([]);
-  });
-
-  it("computes branches as empty when no sessions", () => {
-    const store = useSessionsStore();
-    expect(store.branches).toEqual([]);
   });
 
   it("fetchSessions sets loading and populates sessions", async () => {
@@ -160,7 +155,7 @@ describe("useSessionsStore", () => {
     expect(store.filteredSessions[0].id).toBe("1");
   });
 
-  it("computes unique repositories and branches", async () => {
+  it("computes unique repositories", async () => {
     mockListSessions.mockResolvedValue([
       { ...MOCK_SESSION, id: "1", repository: "org/web", branch: "main" },
       { ...MOCK_SESSION, id: "2", repository: "org/api", branch: "dev" },
@@ -170,7 +165,6 @@ describe("useSessionsStore", () => {
     await store.fetchSessions();
 
     expect(store.repositories).toEqual(["org/api", "org/web"]);
-    expect(store.branches).toEqual(["dev", "main"]);
   });
 
   it("ensureIndex silently reindexes and refreshes list", async () => {

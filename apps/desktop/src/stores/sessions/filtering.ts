@@ -11,7 +11,6 @@ export interface SessionFilterPredicates {
   /** Lower-cased substring match across id/summary/repository/branch. */
   searchTerm: string | null;
   repository: string | null;
-  branch: string | null;
   /** Only sessions from this source; `null` or absent means every source. */
   source?: SessionSource | null;
   hideEmptySessions: boolean;
@@ -75,7 +74,6 @@ export function matchesSessionFilters(
   }
 
   if (predicates.repository && s.repository !== predicates.repository) return false;
-  if (predicates.branch && s.branch !== predicates.branch) return false;
   if (predicates.source && resolveSessionSource(s.source) !== predicates.source) return false;
 
   return true;
@@ -125,18 +123,4 @@ export function uniqueRepositories(sessions: readonly SessionListItem[]): string
 export function uniqueSources(sessions: readonly SessionListItem[]): SessionSource[] {
   const present = new Set(sessions.map((s) => resolveSessionSource(s.source)));
   return SESSION_SOURCES.filter((source) => present.has(source));
-}
-
-/**
- * Sorted unique branch list, optionally scoped to a single repository.
- * Mirrors the store's previous semantics where a non-null `repository`
- * filter narrows the branch set.
- */
-export function uniqueBranches(
-  sessions: readonly SessionListItem[],
-  repository: string | null,
-): string[] {
-  const scoped = repository ? sessions.filter((s) => s.repository === repository) : sessions;
-  const set = new Set(scoped.map((s) => s.branch).filter((b): b is string => !!b));
-  return [...set].sort();
 }

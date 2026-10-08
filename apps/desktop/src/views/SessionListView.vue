@@ -74,7 +74,6 @@ async function prefetchTopSessions() {
 }
 
 const repoOptions = computed(() => store.repositories as string[]);
-const branchOptions = computed(() => store.branches as string[]);
 // The source filter appears only once more than one source has sessions.
 const showSourceFilter = computed(() => store.sources.length > 1 || store.filterSource !== null);
 const sortOptions = [
@@ -128,7 +127,6 @@ function focusSearch() {
 function clearFilters() {
   store.searchQuery = "";
   store.filterRepo = null;
-  store.filterBranch = null;
   store.filterSource = null;
   focusSearch();
 }
@@ -139,7 +137,7 @@ function showEmptySessions() {
 }
 
 const hasSessionFilters = computed(
-  () => !!store.searchQuery || !!store.filterRepo || !!store.filterBranch || !!store.filterSource,
+  () => !!store.searchQuery || !!store.filterRepo || !!store.filterSource,
 );
 
 const emptyState = computed(() => {
@@ -217,7 +215,6 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
         </div>
         <div class="toolbar-filters">
           <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
-          <FilterSelect v-model="store.filterBranch" :options="branchOptions" placeholder="All Branches" />
           <select
             v-if="showSourceFilter"
             :value="store.filterSource ?? ''"
