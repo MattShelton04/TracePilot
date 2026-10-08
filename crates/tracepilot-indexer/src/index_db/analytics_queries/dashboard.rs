@@ -5,6 +5,7 @@ use rusqlite::{Connection, params_from_iter};
 
 use tracepilot_core::analytics::types::*;
 use tracepilot_core::models::event_types::ModelMetricDetail;
+use tracepilot_core::provider::SessionSource;
 
 use super::super::helpers::*;
 use super::day_bucket::{DayBucketSpec, query_day_bucketed};
@@ -18,8 +19,11 @@ pub(super) fn query_analytics(
     to_date: Option<&str>,
     repo: Option<&str>,
     hide_empty: bool,
+    source: Option<SessionSource>,
 ) -> Result<AnalyticsData> {
-    let (where_clause, bind_values) = build_date_repo_filter(from_date, to_date, repo, hide_empty);
+    let (mut where_clause, mut bind_values) =
+        build_date_repo_filter(from_date, to_date, repo, hide_empty);
+    append_source_filter(&mut where_clause, &mut bind_values, source);
 
     // Aggregate session-level stats.
     //
@@ -166,7 +170,6 @@ pub(super) fn query_analytics(
     let model_usage_by_day =
         query_model_usage_by_day(conn, &where_clause, &bind_values, from_date, to_date)?;
 
-    // Model distribution from session_model_metrics
     let mdist_sql = format!(
         "SELECT m.model_name,
                     SUM(m.input_tokens + m.output_tokens),
@@ -192,7 +195,6 @@ pub(super) fn query_analytics(
     let refs = to_refs(&bind_values);
     let model_distribution = query_model_distribution(conn, &mdist_sql, &refs)?;
 
-    // Cache stats from session_model_metrics
     let cache_sql = format!(
         "SELECT COALESCE(SUM(m.cache_read_tokens), 0), COALESCE(SUM(m.input_tokens), 0)
              FROM session_model_metrics m
@@ -218,7 +220,6 @@ pub(super) fn query_analytics(
         non_cached_input_tokens: total_input_tokens.saturating_sub(total_cache_read_tokens),
     };
 
-    // Duration statistics
     let dur_sql = format!(
         "SELECT s.total_api_duration_ms FROM sessions s{} AND s.total_api_duration_ms IS NOT NULL AND s.total_api_duration_ms > 0",
         where_clause
@@ -227,7 +228,6 @@ pub(super) fn query_analytics(
     let durations = query_durations(conn, &dur_sql, &refs)?;
     let api_duration_stats = compute_duration_stats(&durations);
 
-    // Productivity metrics
     let avg_turns_per_session = if sessions_with_turns > 0 {
         total_turns as f64 / sessions_with_turns as f64
     } else {

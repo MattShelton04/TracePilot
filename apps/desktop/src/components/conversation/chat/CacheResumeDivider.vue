@@ -27,7 +27,9 @@ const tone = computed(() => {
   if (outcome === "expired" || outcome === "modelChanged") return "cold";
   return "neutral";
 });
-const estimated = computed(() => props.window.confidence === "estimated");
+const estimated = computed(
+  () => props.window.confidence === "estimated" || props.window.confidence === "observed",
+);
 const text = computed(() => describeResume(props.window));
 const chip = computed(() => resumeChipLabel(props.window));
 const rows = computed(() => {

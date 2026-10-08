@@ -20,6 +20,7 @@ const analyticsStoreMock: {
   analyticsLoading: boolean;
   analyticsError: string | null;
   selectedRepo: string | null;
+  sourcePrefix: string;
   fetchAnalytics: ReturnType<typeof vi.fn>;
   fetchAvailableRepos: ReturnType<typeof vi.fn>;
 } = {
@@ -27,6 +28,7 @@ const analyticsStoreMock: {
   analyticsLoading: false,
   analyticsError: null,
   selectedRepo: null,
+  sourcePrefix: "",
   fetchAnalytics: vi.fn(),
   fetchAvailableRepos: vi.fn(),
 };
@@ -72,6 +74,7 @@ describe("useModelComparison", () => {
     analyticsStoreMock.analyticsLoading = false;
     analyticsStoreMock.analyticsError = null;
     analyticsStoreMock.selectedRepo = null;
+    analyticsStoreMock.sourcePrefix = "";
     analyticsStoreMock.fetchAnalytics = vi.fn();
     analyticsStoreMock.fetchAvailableRepos = vi.fn();
   });
@@ -234,6 +237,12 @@ describe("useModelComparison", () => {
     analyticsStoreMock.selectedRepo = "foo/bar";
     const { comp } = mountHook();
     expect(comp.pageSubtitle).toContain("in foo/bar");
+  });
+
+  it("pageSubtitle names the selected source", () => {
+    analyticsStoreMock.sourcePrefix = "Claude Code ";
+    const { comp } = mountHook();
+    expect(comp.pageSubtitle).toBe("Performance and cost metrics across all Claude Code models");
   });
 
   it("passes cacheWriteTokens through to computeWholesaleCost (regression)", () => {

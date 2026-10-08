@@ -201,6 +201,29 @@ describe("copy", () => {
     expect(windowDetailRows(makeWindow()).some((r) => r.label === "Read from cache")).toBe(false);
   });
 
+  it("does not claim a re-send when recorded usage shows a hit", () => {
+    const labels = (w: Parameters<typeof windowDetailRows>[0]) =>
+      windowDetailRows(w).map((r) => r.label);
+    const expired = { outcome: "expired" as const, prefixTokens: 16_200 };
+    const hit = labels(
+      makeWindow({
+        ...expired,
+        confidence: "observed",
+        observedResume: { cacheRead: 15_000, cacheWrite: 1_200, hit: true },
+      }),
+    );
+    expect(hit).not.toContain("Re-sent");
+    expect(hit).toContain("Read from cache");
+    const miss = labels(
+      makeWindow({
+        ...expired,
+        confidence: "observed",
+        observedResume: { cacheRead: 0, cacheWrite: 16_200, hit: false },
+      }),
+    );
+    expect(miss).toContain("Re-sent");
+  });
+
   it("labels only estimates and lists re-sent tokens after a miss", () => {
     const rows = (w: Parameters<typeof windowDetailRows>[0]) =>
       Object.fromEntries(windowDetailRows(w).map((r) => [r.label, r.value]));

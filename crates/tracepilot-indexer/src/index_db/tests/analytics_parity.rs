@@ -59,13 +59,15 @@ fn assert_tool_parity(events: Vec<Value>, expected_calls: u32) -> Value {
     db.upsert_session(&path).unwrap();
     let inputs = load_full_sessions_filtered(temp.path(), None, None, None, false).unwrap();
     let fallback = compute_tool_analysis(&inputs);
-    let indexed = db.query_tool_analysis(None, None, None, false).unwrap();
+    let indexed = db
+        .query_tool_analysis(None, None, None, false, None)
+        .unwrap();
     assert_eq!(fallback.total_calls, expected_calls);
     assert_eq!(
         serde_json::to_value(&indexed).unwrap(),
         serde_json::to_value(&fallback).unwrap()
     );
-    let indexed_dashboard = db.query_analytics(None, None, None, false).unwrap();
+    let indexed_dashboard = db.query_analytics(None, None, None, false, None).unwrap();
     let fallback_dashboard = compute_analytics(&inputs);
     assert_eq!(
         indexed_dashboard
@@ -228,7 +230,7 @@ fn activity_and_segment_charts_use_the_end_day_and_respect_the_date_filter() {
         let inputs =
             load_full_sessions_filtered(temp.path(), from, to, Some("org/repo"), true).unwrap();
         let indexed = db
-            .query_analytics(from, to, Some("org/repo"), true)
+            .query_analytics(from, to, Some("org/repo"), true, None)
             .unwrap();
         let fallback = compute_analytics(&inputs);
         let indexed = serde_json::to_value(indexed).unwrap();
@@ -282,7 +284,8 @@ fn undated_shutdowns_keep_lifetime_totals_without_daily_chart_points() {
     for from in [None, Some("2026-03-10")] {
         let inputs = load_full_sessions_filtered(temp.path(), from, None, None, false).unwrap();
         let indexed =
-            serde_json::to_value(db.query_analytics(from, None, None, false).unwrap()).unwrap();
+            serde_json::to_value(db.query_analytics(from, None, None, false, None).unwrap())
+                .unwrap();
         let fallback = serde_json::to_value(compute_analytics(&inputs)).unwrap();
         for field in [
             "activityPerDay",
@@ -330,7 +333,7 @@ fn a_stale_analytics_version_refreshes_tool_counts_without_source_changes() {
     );
     assert!(!db.needs_reindex(&id, &path));
     assert_eq!(
-        db.query_tool_analysis(None, None, None, false)
+        db.query_tool_analysis(None, None, None, false, None)
             .unwrap()
             .total_calls,
         1

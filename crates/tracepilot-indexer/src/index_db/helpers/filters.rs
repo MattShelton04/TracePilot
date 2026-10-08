@@ -1,4 +1,5 @@
 use rusqlite::types::ToSql;
+use tracepilot_core::provider::SessionSource;
 use tracepilot_core::utils::InfallibleWrite;
 
 /// Build a WHERE clause for date range + repo filtering on the sessions table.
@@ -40,6 +41,21 @@ pub(in crate::index_db) fn build_date_repo_filter(
     }
 
     (clause, values)
+}
+
+/// Restrict a WHERE clause over the `sessions s` alias to one source.
+///
+/// `None` means every source and leaves the clause untouched, so unfiltered
+/// queries keep their exact SQL.
+pub(in crate::index_db) fn append_source_filter(
+    clause: &mut String,
+    values: &mut Vec<String>,
+    source: Option<SessionSource>,
+) {
+    if let Some(source) = source {
+        values.push(source.as_str().to_string());
+        clause.push_str(" AND s.source = ?");
+    }
 }
 
 /// Append timestamp-range conditions for a specific column to an existing WHERE clause.

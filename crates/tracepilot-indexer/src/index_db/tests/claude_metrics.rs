@@ -54,7 +54,7 @@ fn claude_summary_metrics_and_partial_status_reach_index_consumers() {
         }
         assert!(!db.session_is_stale(provider.as_ref(), &locator));
         // The existing dashboard must tolerate absent Copilot-only charges.
-        let dashboard = db.query_analytics(None, None, None, false).unwrap();
+        let dashboard = db.query_analytics(None, None, None, false, None).unwrap();
         assert_eq!(dashboard.total_tokens, if tail { 2805 } else { 1011 });
         assert_eq!(dashboard.model_distribution.len(), 2);
         // Pre-C5 unchanged Claude rows must be refreshed; Copilot stays at v17.

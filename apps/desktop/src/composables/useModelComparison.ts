@@ -62,7 +62,7 @@ export function useModelComparison() {
 
   const pageSubtitle = computed(() => {
     const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
-    return `Performance and cost metrics across all models${repoSuffix}`;
+    return `Performance and cost metrics across all ${store.sourcePrefix}models${repoSuffix}`;
   });
 
   const modelRows = computed<ModelRow[]>(() => {

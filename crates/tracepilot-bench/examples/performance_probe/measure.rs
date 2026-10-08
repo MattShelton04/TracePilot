@@ -165,8 +165,9 @@ fn measure_queries(
         json!({"sessionCount": sessions.len()}),
     ));
 
-    let (samples, analytics) =
-        sample(repeats, || Ok(db.query_analytics(None, None, None, false)?))?;
+    let (samples, analytics) = sample(repeats, || {
+        Ok(db.query_analytics(None, None, None, false, None)?)
+    })?;
     if analytics.total_sessions as usize != manifest.totals.session_count {
         return fail(format!(
             "analytics returned {} sessions, expected {}",
@@ -182,7 +183,7 @@ fn measure_queries(
     ));
 
     let (samples, tools) = sample(repeats, || {
-        Ok(db.query_tool_analysis(None, None, None, false)?)
+        Ok(db.query_tool_analysis(None, None, None, false, None)?)
     })?;
     if tools.total_calls as usize != manifest.totals.tool_call_count {
         return fail(format!(
@@ -199,7 +200,7 @@ fn measure_queries(
     ));
 
     let (samples, impact) = sample(repeats, || {
-        Ok(db.query_code_impact(None, None, None, false)?)
+        Ok(db.query_code_impact(None, None, None, false, None)?)
     })?;
     if impact.lines_added == 0 || impact.files_modified == 0 {
         return fail("code impact unexpectedly contained no changes");

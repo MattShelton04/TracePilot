@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * Agents summary on the Analytics dashboard. It queries
- * `agents_usage_summary` directly with the dashboard's range and
- * repository rather than widening `AnalyticsData`, because agent runs come
+ * `agents_usage_summary` directly with the dashboard's range, repository
+ * and source rather than widening `AnalyticsData`, because agent runs come
  * from their own index table and need no disk fallback.
  *
  * The shape follows the skills-analytics plan: headline figures, the
@@ -43,8 +43,8 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 
 watch(
-  [() => store.dateRange, () => store.selectedRepo],
-  async ([range, repo], _previous, onCleanup) => {
+  [() => store.dateRange, () => store.selectedRepo, () => store.selectedSource],
+  async ([range, repo, source], _previous, onCleanup) => {
     let active = true;
     onCleanup(() => {
       active = false;
@@ -56,6 +56,7 @@ watch(
         fromDate: range.fromDate ?? null,
         toDate: range.toDate ?? null,
         repo: repo ?? null,
+        source: source ?? null,
       });
       if (active) summary.value = result;
     } catch (cause) {

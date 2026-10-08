@@ -13,6 +13,7 @@ use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{open_index_db, read_config};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tracepilot_core::provider::SessionSource;
 use tracepilot_indexer::index_db::IndexDb;
 
 /// Result type alias for analytics operations.
@@ -30,6 +31,8 @@ pub struct AnalyticsQueryParams {
     pub to_date: Option<String>,
     pub repo: Option<String>,
     pub hide_empty: bool,
+    /// `None` covers every source.
+    pub source: Option<SessionSource>,
 }
 
 impl AnalyticsQueryParams {
@@ -39,22 +42,40 @@ impl AnalyticsQueryParams {
         to_date: Option<String>,
         repo: Option<String>,
         hide_empty: Option<bool>,
+        source: Option<SessionSource>,
     ) -> Self {
         Self {
             from_date,
             to_date,
             repo,
             hide_empty: hide_empty.unwrap_or(false),
+            source,
         }
     }
 
+    /// The disk scan reads only Copilot session files, so it can stand in
+    /// for the index only when the request covers Copilot sessions alone or
+    /// every source.
+    fn disk_scan_covers_source(&self) -> bool {
+        matches!(self.source, None | Some(SessionSource::Copilot))
+    }
+
     /// Convert to references for passing to SQL query functions.
-    pub fn as_refs(&self) -> (Option<&str>, Option<&str>, Option<&str>, bool) {
+    pub fn as_refs(
+        &self,
+    ) -> (
+        Option<&str>,
+        Option<&str>,
+        Option<&str>,
+        bool,
+        Option<SessionSource>,
+    ) {
         (
             self.from_date.as_deref(),
             self.to_date.as_deref(),
             self.repo.as_deref(),
             self.hide_empty,
+            self.source,
         )
     }
 }
@@ -92,7 +113,9 @@ impl AnalyticsContext {
 ///
 /// This generic function encapsulates the two-phase pattern used by all analytics commands:
 /// 1. If the index database is available, try the SQL query (fast path)
-/// 2. If unavailable or query fails, fall back to loading from disk and computing
+/// 2. If unavailable or query fails, fall back to loading from disk and computing.
+///    The disk scan sees only Copilot sessions, so a request for another source
+///    fails instead of returning Copilot numbers.
 ///
 /// # Type Parameters
 ///
@@ -116,11 +139,11 @@ impl AnalyticsContext {
 ///     params,
 ///     "analytics",
 ///     |db, p| {
-///         let (from, to, repo, hide) = p.as_refs();
-///         db.query_analytics(from, to, repo, hide)
+///         let (from, to, repo, hide, source) = p.as_refs();
+///         db.query_analytics(from, to, repo, hide, source)
 ///     },
 ///     |session_dir, p| {
-///         let (from, to, repo, hide) = p.as_refs();
+///         let (from, to, repo, hide, _) = p.as_refs();
 ///         let inputs = load_full_sessions_filtered(session_dir, from, to, repo, hide)?;
 ///         Ok(compute_analytics(&inputs))
 ///     },
@@ -164,6 +187,11 @@ where
         Some(Err(params)) => params,
         None => params_for_fallback,
     };
+    if !params.disk_scan_covers_source() {
+        return Err(BindingsError::Internal(
+            "Analytics for this source need the session index".into(),
+        ));
+    }
 
     // Phase 2: disk-scan fallback, one at a time — each scan parses the whole
     // corpus and concurrent scans multiply peak memory.
@@ -186,22 +214,25 @@ mod tests {
             Some("2026-01-31".to_string()),
             Some("myrepo".to_string()),
             Some(true),
+            Some(SessionSource::ClaudeCode),
         );
 
         assert_eq!(params.from_date, Some("2026-01-01".to_string()));
         assert_eq!(params.to_date, Some("2026-01-31".to_string()));
         assert_eq!(params.repo, Some("myrepo".to_string()));
         assert!(params.hide_empty);
+        assert_eq!(params.source, Some(SessionSource::ClaudeCode));
     }
 
     #[test]
     fn test_analytics_query_params_defaults() {
-        let params = AnalyticsQueryParams::from_options(None, None, None, None);
+        let params = AnalyticsQueryParams::from_options(None, None, None, None, None);
 
         assert!(params.from_date.is_none());
         assert!(params.to_date.is_none());
         assert!(params.repo.is_none());
         assert!(!params.hide_empty);
+        assert!(params.source.is_none());
     }
 
     #[test]
@@ -211,14 +242,60 @@ mod tests {
             to_date: Some("2026-01-31".to_string()),
             repo: Some("myrepo".to_string()),
             hide_empty: true,
+            source: Some(SessionSource::Copilot),
         };
 
-        let (from, to, repo, hide) = params.as_refs();
+        let (from, to, repo, hide, source) = params.as_refs();
 
         assert_eq!(from, Some("2026-01-01"));
         assert_eq!(to, Some("2026-01-31"));
         assert_eq!(repo, Some("myrepo"));
         assert!(hide);
+        assert_eq!(source, Some(SessionSource::Copilot));
+    }
+
+    /// Without an index, run the query and report whether the disk scan ran.
+    async fn run_without_index(source: Option<SessionSource>) -> (CmdResult<u32>, bool) {
+        let dir = tempfile::tempdir().unwrap();
+        let ctx = AnalyticsContext {
+            index_path: dir.path().join("missing.db"),
+            session_state_dir: dir.path().to_path_buf(),
+            gates: None,
+        };
+        let params = AnalyticsQueryParams::from_options(None, None, None, None, source);
+        let scanned = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = Arc::clone(&scanned);
+        let result = execute_analytics_query(
+            ctx,
+            params,
+            "Test",
+            |_, _| Ok(0),
+            move |_, _| {
+                flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                Ok(7)
+            },
+        )
+        .await;
+        (result, scanned.load(std::sync::atomic::Ordering::SeqCst))
+    }
+
+    #[tokio::test]
+    async fn disk_scan_stands_in_for_copilot_and_all_sources() {
+        for source in [None, Some(SessionSource::Copilot)] {
+            let (result, scanned) = run_without_index(source).await;
+            assert_eq!(result.unwrap(), 7);
+            assert!(scanned);
+        }
+    }
+
+    #[tokio::test]
+    async fn disk_scan_never_answers_for_other_sources() {
+        let (result, scanned) = run_without_index(Some(SessionSource::ClaudeCode)).await;
+        assert!(result.is_err());
+        assert!(
+            !scanned,
+            "the Copilot-only scan must not stand in for Claude Code"
+        );
     }
 
     #[test]

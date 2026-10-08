@@ -9,6 +9,7 @@ use crate::parsing::events::{RawEvent, TypedEvent, TypedEventData};
 use chrono::Utc;
 use serde_json::json;
 
+mod model_calls;
 mod ownership;
 mod system;
 

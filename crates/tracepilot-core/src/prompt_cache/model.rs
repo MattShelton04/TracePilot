@@ -5,6 +5,8 @@ use serde::Serialize;
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub enum CacheConfidence {
+    /// Cache reads/writes recorded by the resuming request. Expiry is still estimated.
+    Observed,
     /// Expiry recorded by Copilot CLI in a `session.usage_checkpoint`.
     Predicted,
     /// Expiry derived from an idle gap and a TTL observed in other sessions.
@@ -51,6 +53,7 @@ impl CacheWindowOutcome {
 impl CacheConfidence {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Observed => "observed",
             Self::Predicted => "predicted",
             Self::Estimated => "estimated",
             Self::Unavailable => "unavailable",
@@ -117,7 +120,10 @@ pub struct PrefixChange {
 #[serde(rename_all = "camelCase")]
 pub struct ObservedResume {
     /// Tokens the resume request read from the prompt cache.
-    pub cache_read: u64,
+    pub cache_read: Option<u64>,
+    /// Tokens written by the request, when the source records them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_write: Option<u64>,
     /// Whether it read most of the idle prefix; `None` when the prefix size
     /// is unknown.
     pub hit: Option<bool>,
@@ -175,6 +181,8 @@ pub struct ObservedCacheTtl {
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum PromptCacheSource {
+    /// Recorded per-request usage; TTL tiers stay local to this session.
+    ModelCalls,
     /// At least one `session.usage_checkpoint` exists.
     Checkpoints,
     /// Older CLI: windows reconstructed from turn gaps.

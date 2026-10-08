@@ -1,5 +1,11 @@
 import { getAnalytics, getCodeImpact, getToolAnalysis, IPC_EVENTS } from "@tracepilot/client";
-import type { AnalyticsData, CodeImpactData, ToolAnalysisData } from "@tracepilot/types";
+import {
+  type AnalyticsData,
+  type CodeImpactData,
+  type SessionSource,
+  sourceLabel,
+  type ToolAnalysisData,
+} from "@tracepilot/types";
 import { useCachedFetch } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
@@ -13,6 +19,7 @@ interface AnalyticsFetchParams {
   toDate?: string;
   repo?: string;
   hideEmpty?: boolean;
+  source?: SessionSource;
 }
 
 // Each analytics payload can be substantial. Eight recent filter combinations
@@ -37,6 +44,15 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     const sessionsStore = useSessionsStore();
     return sessionsStore.repositories as string[];
   });
+
+  // Source filter: `null` covers every source. The choices come from the
+  // sessions store, like the repository list.
+  const selectedSource = ref<SessionSource | null>(null);
+  const availableSources = computed(() => useSessionsStore().sources);
+  /** `"Claude Code "` while a source filter is set, for page subtitles. */
+  const sourcePrefix = computed(() =>
+    selectedSource.value ? `${sourceLabel(selectedSource.value)} ` : "",
+  );
 
   // Time range filter
   const selectedTimeRange = ref<AnalyticsTimeRange>("all");
@@ -75,21 +91,21 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   const analyticsFetcher = useCachedFetch<AnalyticsData, AnalyticsFetchParams>({
     fetcher: (params) => getAnalytics(params),
     cacheKeyFn: (params) =>
-      `analytics:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}`,
+      `analytics:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}:${params.source ?? ""}`,
     maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
   });
 
   const toolAnalysisFetcher = useCachedFetch<ToolAnalysisData, AnalyticsFetchParams>({
     fetcher: (params) => getToolAnalysis(params),
     cacheKeyFn: (params) =>
-      `toolAnalysis:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}`,
+      `toolAnalysis:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}:${params.source ?? ""}`,
     maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
   });
 
   const codeImpactFetcher = useCachedFetch<CodeImpactData, AnalyticsFetchParams>({
     fetcher: (params) => getCodeImpact(params),
     cacheKeyFn: (params) =>
-      `codeImpact:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}`,
+      `codeImpact:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}:${params.source ?? ""}`,
     maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
   });
 
@@ -115,6 +131,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
         toDate: merged.toDate,
         repo: merged.repo ?? selectedRepo.value ?? undefined,
         hideEmpty: prefs.hideEmptySessions,
+        source: selectedSource.value ?? undefined,
       };
       await fetcher.fetch(params, { force: options?.force });
     };
@@ -137,11 +154,17 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     selectedRepo.value = repo;
   }
 
+  /** Change the active source filter. Cache keys include the source. */
+  function setSource(source: SessionSource | null) {
+    selectedSource.value = source;
+  }
+
   function $reset() {
     analyticsFetcher.reset();
     toolAnalysisFetcher.reset();
     codeImpactFetcher.reset();
     selectedRepo.value = null;
+    selectedSource.value = null;
     selectedTimeRange.value = "all";
     customFromDate.value = undefined;
     customToDate.value = undefined;
@@ -180,6 +203,9 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     codeImpactError: codeImpactFetcher.error,
     selectedRepo,
     availableRepos,
+    selectedSource,
+    availableSources,
+    sourcePrefix,
     selectedTimeRange,
     customFromDate,
     customToDate,
@@ -193,6 +219,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     fetchAvailableRepos,
     refreshAll,
     setRepo,
+    setSource,
     setTimeRange,
     watchIndexUpdates,
     $reset,

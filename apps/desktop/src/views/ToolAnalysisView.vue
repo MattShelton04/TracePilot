@@ -26,7 +26,7 @@ const { revealing } = useFirstReveal({
 
 const pageSubtitle = computed(() => {
   const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
-  return `Performance and usage metrics across all tool invocations${repoSuffix}`;
+  return `Performance and usage metrics across all ${store.sourcePrefix}tool invocations${repoSuffix}`;
 });
 
 const uniqueToolCount = computed(() => data.value?.tools.length ?? 0);

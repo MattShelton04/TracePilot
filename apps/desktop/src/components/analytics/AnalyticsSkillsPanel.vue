@@ -2,17 +2,17 @@
 /**
  * Skills summary on the Analytics dashboard.
  *
- * It queries `skills_usage_summary` directly with the dashboard's range and
- * repository, the way the Agents panel does, because skill invocations come
- * from their own index table.
+ * It queries `skills_usage_summary` directly with the dashboard's range,
+ * repository and source, the way the Agents panel does, because skill
+ * invocations come from their own index table.
  *
  * The question this answers is what skills cost and what that bought. The
  * injected total is a floor — only invocations that recorded their content
  * contribute — so its denominator is always on screen. The listing overhead
  * of never-used skills is the one line worth acting on, and it appears only
- * when no repository filter is applied: the catalog is machine-wide, so
- * comparing it against one repository's usage would call skills unused that
- * are used constantly elsewhere.
+ * when no repository or source filter is applied: the catalog is
+ * machine-wide, so comparing it against one repository's or source's usage
+ * would call skills unused that are used constantly elsewhere.
  */
 import { skillsUsageSummary } from "@tracepilot/client";
 import type { SkillUsageSummary } from "@tracepilot/types";
@@ -43,8 +43,8 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 
 watch(
-  [() => store.dateRange, () => store.selectedRepo],
-  async ([range, repo], _previous, onCleanup) => {
+  [() => store.dateRange, () => store.selectedRepo, () => store.selectedSource],
+  async ([range, repo, source], _previous, onCleanup) => {
     let active = true;
     onCleanup(() => {
       active = false;
@@ -56,6 +56,7 @@ watch(
         fromDate: range.fromDate ?? null,
         toDate: range.toDate ?? null,
         repo: repo ?? null,
+        source: source ?? null,
       });
       if (active) summary.value = result;
     } catch (cause) {
@@ -108,10 +109,12 @@ const topSkills = computed(() => {
 
 /**
  * Enabled skills with no use in this range, and what they cost per turn.
- * Suppressed under a repository filter, where "unused" would be a guess.
+ * Suppressed under a repository or source filter, where "unused" would be a
+ * guess.
  */
 const unused = computed(() => {
-  if (store.selectedRepo || !summary.value || skillsStore.skills.length === 0) return null;
+  if (store.selectedRepo || store.selectedSource) return null;
+  if (!summary.value || skillsStore.skills.length === 0) return null;
   const entries = buildSkillEntries(skillsStore.skills, summary.value, "all");
   const idle = entries.filter((entry) => entry.flags.includes("unused"));
   if (idle.length === 0) return null;
