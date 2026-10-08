@@ -68,6 +68,8 @@ pre-push:
 commit-msg:
   commands:
     conventional-commit:
+      # Git supplies its own merge message; validate ordinary commits only.
+      skip: merge
       run: node scripts/check-commit-msg.mjs {1}
 
 # Named "fix" bundle — run manually with `lefthook run fix` for a one-shot
