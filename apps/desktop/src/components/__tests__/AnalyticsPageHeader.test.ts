@@ -31,16 +31,14 @@ describe("AnalyticsPageHeader source filter", () => {
 
   it("offers All, Copilot and Claude Code once both sources have sessions", async () => {
     useSessionsStore().sessions = [copilot, claude];
-    const select = render().get("[data-testid=analytics-source-filter]");
-    expect(select.findAll("option").map((o) => o.text())).toEqual([
-      "All Sources",
-      "Copilot",
-      "Claude Code",
-    ]);
+    const filter = render().get("[data-testid=analytics-source-filter]");
+    const options = filter.findAll('[role="radio"]');
+    expect(options.map((o) => o.text())).toEqual(["All", "Copilot", "Claude"]);
+    expect(options[0].attributes("aria-checked")).toBe("true");
 
-    await select.setValue("claudeCode");
+    await options[2].trigger("click");
     expect(useAnalyticsStore().selectedSource).toBe("claudeCode");
-    await select.setValue("");
+    await options[0].trigger("click");
     expect(useAnalyticsStore().selectedSource).toBeNull();
   });
 });

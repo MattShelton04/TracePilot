@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { type SessionSource, sourceLabel } from "@tracepilot/types";
 import { PageHeader } from "@tracepilot/ui";
 import { computed } from "vue";
 import { useAnalyticsStore } from "@/stores/analytics";
+import SourceSwitch from "./sources/SourceSwitch.vue";
 import TimeRangeFilter from "./TimeRangeFilter.vue";
 
 defineProps<{
@@ -30,19 +30,13 @@ const showSourceFilter = computed(
         <option value="">All Repositories</option>
         <option v-for="repo in store.availableRepos" :key="repo" :value="repo">{{ repo }}</option>
       </select>
-      <select
+      <SourceSwitch
         v-if="showSourceFilter"
-        :value="store.selectedSource ?? ''"
-        class="filter-select"
-        aria-label="Filter by source"
+        :model-value="store.selectedSource"
+        :sources="store.availableSources"
         data-testid="analytics-source-filter"
-        @change="store.setSource((($event.target as HTMLSelectElement).value || null) as SessionSource | null)"
-      >
-        <option value="">All Sources</option>
-        <option v-for="source in store.availableSources" :key="source" :value="source">
-          {{ sourceLabel(source) }}
-        </option>
-      </select>
+        @update:model-value="store.setSource"
+      />
     </template>
     <TimeRangeFilter />
   </PageHeader>
