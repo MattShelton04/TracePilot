@@ -1,3 +1,4 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { ContextTimeline, ContextTimelineResponse, TurnToolCall } from "@tracepilot/types";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -67,6 +68,7 @@ function makeDetailStore() {
     sessionId: "session-a",
     detail: {
       id: "session-a",
+      source: undefined as "claudeCode" | undefined,
       eventCount: 10,
       turnCount: 1,
       updatedAt: "2026-07-18T00:00:00Z",
@@ -192,6 +194,7 @@ function mountTab() {
 
 describe("ContextTab", () => {
   beforeEach(() => {
+    setupPinia();
     detailStore = makeDetailStore();
     loadTimeline.mockReset();
     loadFullResult.mockReset();
@@ -267,6 +270,32 @@ describe("ContextTab", () => {
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).toContain("Exact context-layer snapshots");
     wrapper.unmount();
+  });
+
+  it("charts a Claude Code session's recorded totals with USD and no request snapshots", async () => {
+    contextCaptureEnabled = true;
+    detailStore.detail.source = "claudeCode";
+    const value = timeline();
+    value.points = value.points.map((point) => ({ ...point, totalOnly: true, source: "observed" }));
+    loadTimeline.mockResolvedValue(response(value));
+    const wrapper = mountTab();
+    await flushPromises();
+
+    expect(wrapper.find(".context-tab__view-nav").exists()).toBe(false);
+    const observed = wrapper
+      .find('[aria-label="Explain observed context telemetry"]')
+      .element.closest(".context-tab__confidence-anchor");
+    observed?.dispatchEvent(new MouseEvent("mouseenter"));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).toContain("recorded by each turn's last main-agent model call");
+
+    await detailStore.loadTurns();
+    detailStore.turns[0].model = "claude-opus-4-6";
+    await wrapper.find(".select-chart-point").trigger("click");
+    await flushPromises();
+    expect(wrapper.text()).toContain("Cached-input equivalent");
+    expect(wrapper.text()).toContain("< $0.01");
+    expect(wrapper.text()).not.toContain("AIC");
   });
 
   it("loads and displays tool calls for the selected turn", async () => {

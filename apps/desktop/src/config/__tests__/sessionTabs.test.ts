@@ -69,6 +69,7 @@ describe("mapSessionTabs", () => {
       "conversation",
       "events",
       "metrics",
+      "context",
       "timeline",
     ]);
   });
@@ -80,7 +81,7 @@ describe("isSessionTabHidden", () => {
   it("matches tab names and route names", () => {
     expect(isSessionTabHidden("todos", claude)).toBe(true);
     expect(isSessionTabHidden(ROUTE_NAMES.sessionExplorer, claude)).toBe(true);
-    expect(isSessionTabHidden(ROUTE_NAMES.sessionContext, claude)).toBe(true);
+    expect(isSessionTabHidden(ROUTE_NAMES.sessionContext, claude)).toBe(false);
     expect(isSessionTabHidden("conversation", claude)).toBe(false);
   });
 

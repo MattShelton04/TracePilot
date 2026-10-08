@@ -8,7 +8,7 @@
  * versions do not record cache timing, so their estimate is only shown on
  * request.
  */
-import type { CacheWindow, PromptCacheTimeline } from "@tracepilot/types";
+import type { CacheWindow, PromptCacheTimeline, SessionSource } from "@tracepilot/types";
 import { calculateObservedAiCredits, formatNumber, formatTime } from "@tracepilot/types";
 import {
   Badge,
@@ -35,9 +35,9 @@ import {
   windowDetailRows,
 } from "@/utils/promptCache";
 
-const props = defineProps<{ timeline: PromptCacheTimeline }>();
+const props = defineProps<{ timeline: PromptCacheTimeline; source?: SessionSource }>();
 
-const { windowMissCredits, totalMissCredits } = usePromptCacheCost();
+const { windowMissCost, totalMissCost, formatMissCost } = usePromptCacheCost(() => props.source);
 
 const showEstimate = ref(false);
 const expanded = ref(new Set<number>());
@@ -89,7 +89,7 @@ const windowCountLabel = computed(() => {
 
 const summary = computed(() => props.timeline.summary);
 const afterExpiry = computed(() => summary.value.expired + summary.value.modelChanged);
-const extraCredits = computed(() => totalMissCredits(visibleWindows.value));
+const extraCost = computed(() => totalMissCost(visibleWindows.value));
 const resentTooltip = computed(() => {
   const base = "Replies after the cache expired or on another model.";
   const tokens = summary.value.resentPrefixTokens;
@@ -143,9 +143,9 @@ function detailRows(window: CacheWindow) {
   return rows;
 }
 
-function rowCredits(window: CacheWindow) {
-  const credits = windowMissCredits(window);
-  return credits == null ? "—" : formatAiCredits(credits);
+function rowCost(window: CacheWindow) {
+  const cost = windowMissCost(window);
+  return cost == null ? "—" : formatMissCost(cost);
 }
 </script>
 
@@ -209,8 +209,8 @@ function rowCredits(window: CacheWindow) {
           mini
         />
         <StatCard
-          v-if="extraCredits != null"
-          :value="formatAiCredits(extraCredits)"
+          v-if="extraCost != null"
+          :value="formatMissCost(extraCost)"
           label="Est. extra cost"
           tooltip="Re-caching the prefix after each miss, from model prices."
           mini
@@ -300,7 +300,7 @@ function rowCredits(window: CacheWindow) {
                   </span>
                   <span v-else class="text-[var(--text-tertiary)]">—</span>
                 </td>
-                <td style="text-align: right"><span class="tabular">{{ rowCredits(window) }}</span></td>
+                <td style="text-align: right"><span class="tabular">{{ rowCost(window) }}</span></td>
               </tr>
               <tr v-if="expanded.has(window.index)" class="prompt-cache__detail" data-testid="prompt-cache-detail">
                 <td />

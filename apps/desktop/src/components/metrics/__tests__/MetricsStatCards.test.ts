@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { computed } from "vue";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { usePreferencesStore } from "@/stores/preferences";
+import { sessionCostEstimate } from "@/utils/sourceCost";
 import MetricsStatCards from "../MetricsStatCards.vue";
 
 describe("MetricsStatCards direct API fallback", () => {
@@ -60,5 +61,42 @@ describe("MetricsStatCards direct API fallback", () => {
     expect(card("Legacy Premium Requests")?.props("value")).toBe("3.0");
     expect(card("Direct API Estimate")?.props("value")).toBe("—");
     if (withObservedModel) expect(data.modelEntries.value[0]?.aiCredits).toBe(1);
+  });
+});
+
+describe("MetricsStatCards source cost", () => {
+  it("shows the labelled USD estimate and partial coverage instead of AI Credits", () => {
+    const metrics: ShutdownMetrics = {
+      totalApiDurationMs: 48_000,
+      costAmount: 0.5,
+      costUnit: "usd",
+      costBasis: "tracepilotEstimate",
+      coverage: { partial: true, snapshotLine: 9, recordedCalls: 2, tailCalls: 1 },
+    };
+    const wrapper = mount(MetricsStatCards, {
+      props: {
+        metrics,
+        totalRequests: 2,
+        copilotCost: 0,
+        totalWholesaleCost: null,
+        totalTokens: 300,
+        aiCreditUsage: { credits: null, usdEquivalent: null, source: "unavailable" },
+        sourceCost: sessionCostEstimate("claudeCode", metrics),
+      },
+    });
+    const labels = wrapper.findAllComponents(StatCard).map((card) => card.props("label"));
+    expect(labels).toEqual([
+      "Est. Cost (USD)",
+      "Total Tokens",
+      "Recorded Requests",
+      "API Duration",
+    ]);
+    const cost = wrapper.findAllComponents(StatCard)[0];
+    expect(cost.props("value")).toBe("$0.50");
+    expect(cost.props("trend")).toBe("TracePilot estimate");
+    const legend = wrapper.get('[data-testid="source-cost-legend"]').text();
+    expect(legend).toContain("Partial");
+    expect(legend).toContain("not a bill");
+    expect(wrapper.text()).not.toMatch(/AI Credits|Premium|Legacy/);
   });
 });

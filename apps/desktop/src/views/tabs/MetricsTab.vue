@@ -21,6 +21,7 @@ import { useSessionSource } from "@/composables/useSessionSource";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { usePreferencesStore } from "@/stores/preferences";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
+import { sessionCostEstimate } from "@/utils/sourceCost";
 
 const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
@@ -54,9 +55,13 @@ function retryLoadTurns() {
 }
 
 const metrics = computed(() => store.shutdownMetrics);
-const { source } = useSessionSource(
+const { source, capabilities } = useSessionSource(
   () => store.sessionId,
   () => store.detail,
+);
+const showCredits = computed(() => capabilities.value.hasAic);
+const sourceCost = computed(() =>
+  showCredits.value ? null : sessionCostEstimate(source.value, metrics.value),
 );
 const creditsObservedOnly = computed(() => !allowsAiCreditEstimate(source.value));
 const { revealing } = useFirstReveal({
@@ -104,7 +109,7 @@ const {
     />
 
     <p v-if="!metrics && !store.loaded.has('metrics') && !store.metricsError" role="status" class="text-sm text-[var(--text-tertiary)] mb-4">Loading session metrics…</p>
-    <EmptyState v-else-if="!metrics && !store.metricsError" description="No shutdown metrics available for this session. Metrics are only generated after the first session shutdown." />
+    <EmptyState v-else-if="!metrics && !store.metricsError" :description="showCredits ? 'No shutdown metrics available for this session. Metrics are only generated after the first session shutdown.' : 'No model usage has been recorded for this session yet.'" />
 
     <template v-if="promptCacheEnabled">
       <ErrorAlert
@@ -115,7 +120,7 @@ const {
         class="mb-4"
         @retry="retryPromptCache"
       />
-      <MetricsPromptCacheSection v-if="promptCache && !metrics" :key="store.sessionId ?? undefined" :timeline="promptCache" class="mt-4" />
+      <MetricsPromptCacheSection v-if="promptCache && !metrics" :key="store.sessionId ?? undefined" :timeline="promptCache" :source="source" class="mt-4" />
     </template>
 
     <template v-if="metrics">
@@ -126,6 +131,7 @@ const {
         :total-wholesale-cost="totalWholesaleCost"
         :ai-credit-usage="aiCreditUsage"
         :total-tokens="tokenBreakdown.total"
+        :source-cost="sourceCost"
       />
 
       <div class="flex gap-2 mb-4" role="group" aria-label="Metrics breakdown">
@@ -134,7 +140,7 @@ const {
       </div>
       <ErrorAlert v-if="mode === 'agent' && store.turnsError" :message="store.turnsError" variant="inline" class="mb-4" retryable @retry="retryLoadTurns" />
       <p v-if="mode === 'agent' && !store.loaded.has('turns') && !store.turnsError" class="text-sm text-[var(--text-tertiary)] mb-4">Loading agent activity…</p>
-      <MetricsAgentBreakdown v-if="mode === 'agent' && store.loaded.has('turns')" :key="store.sessionId ?? undefined" :metrics="metrics" :turns="turns" @activity="selectSubagent" />
+      <MetricsAgentBreakdown v-if="mode === 'agent' && store.loaded.has('turns')" :key="store.sessionId ?? undefined" :metrics="metrics" :turns="turns" :show-credits="showCredits" @activity="selectSubagent" />
       <MetricsCacheBreakdown v-if="mode === 'model'" :breakdown="tokenBreakdown" />
 
       <MetricsModelTable
@@ -142,11 +148,12 @@ const {
         :model-entries="modelEntries"
         :total-tokens="totalTokens"
         :has-reasoning-data="hasReasoningData"
+        :show-credits="showCredits"
       />
 
       <MetricsSessionActivity :key="store.sessionId ?? undefined" :metrics="metrics" :observed-only="creditsObservedOnly" />
 
-      <MetricsPromptCacheSection v-if="promptCacheEnabled && promptCache" :key="store.sessionId ?? undefined" :timeline="promptCache" />
+      <MetricsPromptCacheSection v-if="promptCacheEnabled && promptCache" :key="store.sessionId ?? undefined" :timeline="promptCache" :source="source" />
 
       <MetricsTokenBudget :metrics="metrics" :has-token-budget="hasTokenBudget" />
 

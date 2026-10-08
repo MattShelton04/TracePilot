@@ -18,7 +18,15 @@ import { agentUsageCoverage, buildAgentUsageRows } from "@/utils/agentUsageRows"
 import MetricsCacheBreakdown from "./MetricsCacheBreakdown.vue";
 import MetricsModelTable from "./MetricsModelTable.vue";
 
-const props = defineProps<{ metrics: ShutdownMetrics; turns: ConversationTurn[] }>();
+const props = withDefaults(
+  defineProps<{
+    metrics: ShutdownMetrics;
+    turns: ConversationTurn[];
+    /** False for sources not billed in AI Credits. */
+    showCredits?: boolean;
+  }>(),
+  { showCredits: true },
+);
 defineEmits<{ activity: [toolCallId: string] }>();
 const descendants = ref(false);
 type SortKey = "name" | "credits" | "share" | "total" | "requests" | "tools" | "apiMs";
@@ -76,7 +84,10 @@ const columns = (
     { key: "tools", label: "Tools", align: "right" as const },
     { key: "apiMs", label: "API time", align: "right" as const },
   ] satisfies Array<{ key: SortKey; label: string; align?: "right" }>
-).map((column) => ({ ...column, sortable: true }));
+)
+  // Credit share means nothing for a source not billed in AI Credits.
+  .filter((column) => props.showCredits || (column.key !== "credits" && column.key !== "share"))
+  .map((column) => ({ ...column, sortable: true }));
 function toggleSort(key: string) {
   const column = columns.find((column) => column.key === key);
   if (!column) return;
@@ -141,7 +152,7 @@ const snapshotDate = computed(() =>
     <p v-if="!Object.keys(selected.models).length" class="text-sm text-[var(--text-secondary)]">Model usage is unavailable for this agent.</p>
     <template v-else>
       <MetricsCacheBreakdown :breakdown="selected.own.tokens" :scope="`${selected.name} only`" />
-      <MetricsModelTable :model-entries="detail.modelEntries.value" :total-tokens="detail.totalTokens.value" :has-reasoning-data="detail.hasReasoningData.value" hide-distribution />
+      <MetricsModelTable :model-entries="detail.modelEntries.value" :total-tokens="detail.totalTokens.value" :has-reasoning-data="detail.hasReasoningData.value" :show-credits="showCredits" hide-distribution />
     </template>
   </SectionPanel>
 </template>

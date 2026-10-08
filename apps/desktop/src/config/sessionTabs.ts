@@ -48,12 +48,8 @@ const SESSION_TABS: readonly SessionTabDefinition[] = [
   { name: "events", label: "Events", routeName: ROUTE_NAMES.sessionEvents },
   { name: "todos", label: "Todos", routeName: ROUTE_NAMES.sessionTodos, requires: "hasTodos" },
   { name: "metrics", label: "Metrics", routeName: ROUTE_NAMES.sessionMetrics },
-  {
-    name: "context",
-    label: "Context",
-    routeName: ROUTE_NAMES.sessionContext,
-    requires: "hasContextBreakdown",
-  },
+  // Sources without a layer breakdown still chart their recorded input totals.
+  { name: "context", label: "Context", routeName: ROUTE_NAMES.sessionContext },
   {
     name: "explorer",
     label: "Explorer",

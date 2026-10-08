@@ -23,6 +23,7 @@ import { useSessionSource } from "@/composables/useSessionSource";
 import { usePreferencesStore } from "@/stores/preferences";
 import { formatObjectResult } from "@/utils/formatResult";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
+import { API_EQUIVALENT_NOTE, formatSessionCost, sessionCostEstimate } from "@/utils/sourceCost";
 
 const store = useSessionDetailContext();
 
@@ -42,10 +43,15 @@ const currentEffort = computed(() => sessionEffort(detail.value));
 const metrics = computed(() => store.shutdownMetrics);
 const incidents = computed(() => store.incidents);
 const prefs = usePreferencesStore();
-const { source } = useSessionSource(
+const { source, capabilities } = useSessionSource(
   () => store.sessionId,
   () => store.detail,
 );
+const sourceCost = computed(() =>
+  capabilities.value.hasAic ? null : sessionCostEstimate(source.value, metrics.value),
+);
+// Copilot always reports its host; other sources show it only when recorded.
+const showHost = computed(() => source.value === "copilot" || detail.value?.hostType != null);
 const { aiCreditUsage } = useMetricsTabData(
   metrics,
   prefs,
@@ -60,7 +66,7 @@ const sessionInfoItems = computed(() => {
     { label: "Branch", value: d?.branch ?? "—" },
     { label: "Model", value: currentModel.value ?? "—" },
     { label: "Reasoning effort", value: currentEffort.value ?? "Model default" },
-    { label: "Host", value: d?.hostType ?? "—" },
+    ...(showHost.value ? [{ label: "Host", value: d?.hostType ?? "—" }] : []),
     { label: "Duration", value: formatDuration(metrics.value?.totalApiDurationMs) },
     { label: "Created", value: formatDate(d?.createdAt) },
     { label: "Updated", value: formatDate(d?.updatedAt) },
@@ -176,8 +182,24 @@ function retryLoadSection(section: string) {
     <div class="grid-4 mb-6">
       <StatCard :value="detail?.eventCount ?? 0" label="Events" :gradient="true" />
       <StatCard :value="detail?.turnCount ?? 0" label="Turns" :gradient="true" />
-      <StatCard :value="detail?.checkpointCount ?? 0" label="Checkpoints" color="success" />
+      <StatCard v-if="capabilities.hasCheckpoints" :value="detail?.checkpointCount ?? 0" label="Checkpoints" color="success" />
       <StatCard
+        v-else
+        :value="metrics?.coverage?.recordedCalls ?? '—'"
+        label="Recorded Requests"
+        color="success"
+        tooltip="Model calls recorded in the transcript"
+      />
+      <StatCard
+        v-if="sourceCost"
+        :value="formatSessionCost(sourceCost)"
+        label="Est. Cost (USD)"
+        color="done"
+        :trend="sourceCost.partial ? `${sourceCost.basisLabel} · partial` : sourceCost.basisLabel"
+        :tooltip="`${sourceCost.coverage} ${API_EQUIVALENT_NOTE}`"
+      />
+      <StatCard
+        v-else
         :value="formatAiCredits(aiCreditUsage.credits)"
         label="AI Credits"
         color="done"
@@ -205,8 +227,10 @@ function retryLoadSection(section: string) {
             <span v-else>—</span>
             <Badge v-if="currentEffort" variant="neutral">{{ effortLabel(currentEffort) }}</Badge>
           </dd>
-          <dt>Shutdown Type</dt>
-          <dd>{{ metrics?.shutdownType ?? "—" }}</dd>
+          <template v-if="source === 'copilot'">
+            <dt>Shutdown Type</dt>
+            <dd>{{ metrics?.shutdownType ?? "—" }}</dd>
+          </template>
           <template v-if="metrics?.codeChanges">
             <dt>Code Changes</dt>
             <dd>

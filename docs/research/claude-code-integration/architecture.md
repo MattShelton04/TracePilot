@@ -305,6 +305,15 @@ not say whether the cache is still warm. Following
 - **Cost:** `useSessionMetrics` must **not** fall back to Copilot AIC estimation when
   `cost_basis` is not GitHub. That fallback would silently show "estimated AI Credits" for
   Claude sessions.
+
+  Implemented (WP16, U2): sources without `has_aic` get a USD card from
+  `utils/sourceCost.ts` in Overview and Metrics instead of AI Credit, premium and direct-API
+  cards. It shows the `cost_basis` label and the coverage: snapshot only, snapshot plus a
+  priced tail (partial), recorded calls without a snapshot (partial), or an unpriced tail
+  shown as "≥ snapshot". The Context tab is no longer gated on `has_context_breakdown`;
+  total-only timelines explain their observed points, and request snapshots stay gated on
+  `can_resume` like the backend. Prompt-cache miss cost and the cached-input comparison use
+  the source's API rates in USD, with the write priced at the window's recorded TTL tier.
 - **Renderers:** show `nativeToolName` in the tool header, waterfall and swimlanes. The
   ShellOutput title comes from the tool, not a hard-coded "PowerShell". Add one new
   `TodoListRenderer`. No other renderer duplication.

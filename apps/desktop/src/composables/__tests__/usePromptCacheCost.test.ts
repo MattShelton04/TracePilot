@@ -45,3 +45,36 @@ describe("usePromptCacheCost", () => {
     );
   });
 });
+
+describe("usePromptCacheCost for sources priced in USD", () => {
+  const miss = makeWindow({
+    outcome: "expired",
+    model: "claude-opus-4-6",
+    prefixTokens: 1_000_000,
+    ttlSeconds: 3600,
+  });
+
+  it("prices a miss as a write at the recorded TTL tier minus a cache read", () => {
+    const { windowMissCost, totalMissCost, formatMissCost } = usePromptCacheCost("claudeCode");
+    const hourly = windowMissCost(miss);
+    const fiveMinute = windowMissCost({ ...miss, ttlSeconds: 300 });
+    expect(hourly).toBeGreaterThan(fiveMinute ?? Number.POSITIVE_INFINITY);
+    expect(fiveMinute).toBeGreaterThan(0);
+    expect(totalMissCost([miss, makeWindow()])).toBeCloseTo(hourly ?? Number.NaN);
+    expect(formatMissCost(hourly ?? 0)).toMatch(/^\$\d/);
+  });
+
+  it("leaves a miss without a 5m or 1h tier unpriced", () => {
+    const { windowMissCost, totalMissCost } = usePromptCacheCost("claudeCode");
+    expect(windowMissCost({ ...miss, ttlSeconds: null })).toBeNull();
+    expect(windowMissCost({ ...miss, ttlSeconds: 1800 })).toBeNull();
+    expect(totalMissCost([{ ...miss, ttlSeconds: null }])).toBeNull();
+  });
+
+  it("keeps Copilot misses in AI Credits", () => {
+    const { windowMissCost, windowMissCredits, formatMissCost } = usePromptCacheCost("copilot");
+    const window = makeWindow({ outcome: "expired", prefixTokens: 100_000 });
+    expect(windowMissCost(window)).toBe(windowMissCredits(window));
+    expect(formatMissCost(2.3)).not.toContain("$");
+  });
+});
