@@ -182,7 +182,7 @@ Abbreviations in the table: **TUR** = `toolUseResult` (Claude's structured tool 
 | `TaskStop` / `KillShell` | 13 | `stop_agent` or `stop_powershell` by `task_type` | `task_id → agent_id`/`shellId` | | Generic | L2 |
 | `TaskOutput` / `BashOutput` (not observed) | 0 | `read_agent` / `read_powershell` | rename | `<retrieval_status>` → body | ReadAgent / ShellOutput | L3 |
 | `Monitor` | 12 | generic | — | — | Generic | — |
-| `TaskCreate/Update/List/Get`, legacy `TodoWrite` (default-on only for Opus 4–4.7, Sonnet 4–4.6, Haiku 4.5; not observed) | 0 | `todo` *(new)* | as-is | Latest list. `blockedBy` → dependencies | **New TodoListRenderer**; also synthesizes the Todos tab | L3 |
+| `TaskCreate/Update/List/Get`, legacy `TodoWrite` (default-on only for older models; not observed) | 0 | generic | — | — | Generic. Out of scope: no todo parsing or Todos tab | — |
 | `EnterPlanMode` / `ExitPlanMode` | 8 / 8 | `plan` *(new)* | `plan` | TUR `plan`, `filePath` → Overview plan | Markdown | L3 |
 | `WebFetch` | 32 | `web_fetch` | `url`, `prompt` | `result` | Markdown | L2 |
 | `WebSearch` | 20 | `web_search` | `query` | `results` → annotation JSON for source cards | WebSearch | L2 |
@@ -299,7 +299,7 @@ into those columns. Source-aware cost analytics and presentation remain C10/U2/U
 | Metrics tab | ✅ | L2 | Exact tokens and cache; USD estimate; no AIC or premium requests |
 | Context tab | 🟡 | L2 | Exact total per call; no category split. Estimated split from `prompt_snapshot` at L4 |
 | Prompt cache (header countdown, windows) | ✅⭐ | L2 | Observed writes and reads; estimated expiry from the recorded TTL tier, or "unknown" |
-| Todos tab | 🟡 | L3 | Only when the task tools were used (older models by default). Otherwise hidden |
+| Todos tab | ❌ | — | Out of scope: Claude Code's task tools are off by default on current models. Hidden for Claude sessions |
 | Checkpoints / rewind | 🟡 | L3 | From file-history (no Copilot-style checkpoint summaries) |
 | Explorer tab | 🟡 | L3 | `subagents/`, `tool-results/`, plans; there is no session directory per se |
 | Timeline (swimlane, waterfall) | ✅ | L2 | Per-call timestamps; tool durations |
@@ -329,10 +329,11 @@ into those columns. Source-aware cost analytics and presentation remain C10/U2/U
 4. **Cost** is an API-equivalent estimate, not a bill. Subscription users pay differently.
 5. **Side-model usage** (Haiku) appears only in session totals, not per turn.
 6. **Background task output** in `%TEMP%` may be gone. Show the notification summary only.
-7. **No todos** unless Claude Code's task tools were used. They are default-on only for older models.
+7. **No todos.** Claude Code's task tools are default-on only for older models, so TracePilot
+   doesn't parse them. Calls from older or opt-in sessions show as generic tools.
 8. **No launching or steering** from TracePilot.
 9. **Fast-moving format.** Unknown records show up on the Events tab, and a per-source
    diagnostics panel reports unmapped types.
-10. **The corpus is one user's.** MCP, `Task*`/`TodoWrite`, team tools and macOS paths were
+10. **The corpus is one user's.** MCP, team tools and macOS paths were
     not observed. Handling for them is designed from public docs and must be
     flagged as unverified until real samples exist.

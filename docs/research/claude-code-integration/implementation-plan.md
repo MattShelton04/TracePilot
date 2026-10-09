@@ -21,7 +21,7 @@
 | L0 Spike | S1–S3 | 4–6 | 4–6 | 1 wk | 1 wk |
 | L1 Basic (internal milestone) | F1–F10a, C1–C6, Q1 | 33–45 | 37–51 | 8–10 wks | 3–4 wks |
 | **L2 Good (first release, Experimental)** | C4, C7–C11, U1–U3, F10b, Q2 | 25–35 | 62–86 | 12–17 wks | 5–7 wks |
-| L3 Parity | C12–C14, U4, U5, Q3, Q4 | 17–25 | 79–111 | 16–22 wks | 7–10 wks |
+| L3 Parity | C12–C14, U4, U5, Q3, Q4 | 15–23 | 77–109 | 16–22 wks | 7–10 wks |
 | Codex provider (after L2) | X1–X6 | 15–25 | — | 3–5 wks | 2–3 wks |
 
 **Why this is higher than the earlier estimate.** The earlier study gave 5–8 weeks for Claude
@@ -148,7 +148,7 @@ transcript sums on the *same* model. A fixed "within N%" gate would fail correct
 
 | ID | Task | Est | Depends on | Lane |
 | --- | --- | ---: | --- | --- |
-| C12 | Todos and tasks. `TaskCreate/Update/List/Get` and legacy `TodoWrite` are on by default only for older models (Opus 4–4.7, Sonnet 4–4.6, Haiku 4.5) and unobserved here, so handle them defensively. Add a `TodoListRenderer`, synthesize the Todos tab via `artifacts()` only when those tools were used, and build a background-task list from notifications and `task_status` | 3–4 | C4 | B |
+| C12 | Background tasks: build a background-task list from task notifications and `task_status`. Todo tools are out of scope (see [Readiness](#readiness)) | 1–2 | C4 | B |
 | C13 | Plan (`ExitPlanMode`, `plans/<slug>.md`), file-history → checkpoint/rewind view, Explorer roots (`subagents/`, `tool-results/`) | 3–4 | F2 | B |
 | C14 | Export: `source` on the document, export from `ProviderSnapshot` (`workspace.yaml` optional), record-level redaction ([data-comparison §5](data-comparison.md#5-privacy-inventory)), import gated to Copilot | 2–3 | F2, F7a | A |
 | U4 | Tool analysis by canonical kind with native drill-down; code impact; cross-source model comparison; session comparison suppressing billing deltas across sources | 4–5 | U3, C10 | C |
@@ -276,7 +276,7 @@ Each PR keeps Copilot behaviour identical; the golden tests are the gate.
     after its last pair
 
   Never commit real transcripts. They contain emails, org ids and full system prompts.
-- **Unverified shapes.** `TodoWrite`/`Task*`, MCP and `MultiEdit` get fixtures built from public
+- **Unverified shapes.** MCP and `MultiEdit` get fixtures built from public
   docs, marked `// unverified shape` until real samples exist.
 - **Renderers.** Each canonical mapping gets a sample in `scripts/fixtures/rich-tools.mjs`;
   the registry coverage test enforces this. Per [visual regression](../../visual-regression.md),
@@ -296,7 +296,7 @@ Each PR keeps Copilot behaviour identical; the golden tests are the gate.
 | Foundation refactor regresses Copilot | High | Golden tests gate every F PR; `CopilotProvider` is a wrapper, not a rewrite |
 | Transcript retention removes sessions after 30 days | Low (accepted, D3) | Sessions lapse with Claude Code's window, like deleted Copilot sessions; document it; E1 deferred |
 | Turn granularity feels wrong (per API call vs per prompt) | Medium | Decide in S3 with real sessions before C3 hardens |
-| Single-user corpus (no MCP, todos, macOS) | Medium | Unverified-shape fixtures; ask Experimental users for redacted census output (Q3 script) |
+| Single-user corpus (no MCP, macOS) | Medium | Unverified-shape fixtures; ask Experimental users for redacted census output (Q3 script) |
 | Privacy (email, org ids, system prompt) | Medium | FTS exclusions (C6), export redaction (C14) |
 | Merge conflicts across lanes | Medium | PR sequence and lane ownership in §4 |
 
@@ -310,7 +310,7 @@ Each PR keeps Copilot behaviour identical; the golden tests are the gate.
 | Enable/disable UX | Specified ([README §5](README.md#5-enabling-and-disabling-claude-code), task F8) |
 | Data format, parser rules, record shapes | [data-comparison.md](data-comparison.md), [record-shapes.md](record-shapes.md) (synthetic, safe for fixtures) |
 | Retention default | Verified: 30 days, `cleanupPeriodDays`; Desktop/Cowork sessions exempt |
-| Todo/task tool availability | Verified: default-on only for older models, so C12 is low priority |
+| Todo/task tools | **Out of scope** (2026-10-09). Since v2.1.268, `TaskCreate/Update/List/Get` and legacy `TodoWrite` are on by default only on Claude 3.x, Opus 4–4.7, Sonnet 4–4.6 and Haiku 4.5, and opt-in elsewhere (`CLAUDE_CODE_ENABLE_TODO_TOOLS=1`) ([tools reference](https://code.claude.com/docs/en/tools-reference#task-tool-availability)). None appear in the corpus, so they can't be tested locally. Calls from older or opt-in sessions render as generic tools and Claude sessions have no Todos tab |
 | Seam design and Copilot regression gate | [architecture.md §3](architecture.md#3-the-a-design); golden tests in F2 |
 | Accounting semantics | `cost-state` snapshots are cumulative across resumes (verified on all 5 resumed sessions); reconciliation instead of a percentage gate (L0) |
 | Open questions for the spike | Turn granularity, residual hypotheses, `Read`/`Edit` rendering (S3). The parser lives in `crates/tracepilot-core/src/provider/claude_code/`; re-run S3 with `TRACEPILOT_CLAUDE_PROBE_DIR` and `cargo test -p tracepilot-core --test claude_code_probe -- --ignored --nocapture` |

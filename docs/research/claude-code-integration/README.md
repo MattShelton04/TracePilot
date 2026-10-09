@@ -71,7 +71,7 @@ golden tests.
   reshaped to fit.
 - The native name is kept for display.
 - About 9 of the 15 existing renderers are reused as-is.
-- One new renderer is needed (todo/task list).
+- No new renderer is needed.
 - The shell renderer needs a small fix: its title is hard-coded to "PowerShell".
 
 Doing this in the frontend would not work, because the structured `toolUseResult` never
@@ -97,9 +97,10 @@ main ones:
    index the same way deleted Copilot sessions do.
 2. **88.8% of thinking blocks are redacted.**
 3. **No context breakdown** into system / tools / conversation; only exact totals per call.
-4. **Usually no todo data.** Claude Code turns its task tools (`TaskCreate`/`TaskUpdate`/
-   `TodoWrite`) on by default only for older models: Opus 4–4.7, Sonnet 4–4.6 and Haiku 4.5.
-   None were called in the observed Opus 5.x corpus.
+4. **No todos.** Claude Code turns its task tools (`TaskCreate`/`TaskUpdate`/`TodoWrite`) on
+   by default only for older models (Claude 3.x, Opus 4–4.7, Sonnet 4–4.6, Haiku 4.5). None
+   were called in the observed Opus 5.x corpus, so TracePilot doesn't parse them: calls show
+   as generic tools and Claude sessions have no Todos tab.
 5. Background task output is written under `%TEMP%`, outside `~/.claude`.
 6. No launching, steering or SDK features. Only "copy resume command" is cheap.
 7. The format changes fast: 12 versions in 18 days.
@@ -114,7 +115,7 @@ included. Detail and task IDs are in [implementation-plan.md](implementation-pla
 | **L0 Spike** | Parser emits `TypedEvent`s; dev dump plus a throwaway mirror into the real UI. Validates turn grouping, usage de-duplication and subagent stitching. The parser is kept. | 4–6 | 1 wk | 1 wk |
 | **L1 Basic** *(internal milestone)* | Claude sessions appear in the list (source badge and filter), search, Conversation and Events. Generic tool rendering plus subagents. Session totals from `cost-state`. Copilot-only tabs hidden. Enabled from Settings → Experimental. | +33–45 (cumulative 37–51) | 8–10 wks | 3–4 wks |
 | **L2 Good** *(first release target, Experimental flag)* | Normalized tools on the rich renderers. Metrics with exact per-model token and cache totals and an API-equivalent USD estimate. Context chart (totals). Observed prompt-cache windows with estimated expiry from the recorded TTL tier. Timeline/agent tree. Live badge. Source filter on analytics. Pricing aliases. Fixtures and VRT. | +25–35 (cumulative 62–86) | 12–17 wks | 5–7 wks |
-| **L3 Parity** | Source-aware analytics everywhere (tool analysis by canonical kind, code impact, model comparison across sources, session comparison), todos/tasks, file-history checkpoints, Explorer, export with redaction, copy and branding pass, docs | +17–25 (cumulative 79–111) | 16–22 wks | 7–10 wks |
+| **L3 Parity** | Source-aware analytics everywhere (tool analysis by canonical kind, code impact, model comparison across sources, session comparison), file-history checkpoints, Explorer, export with redaction, copy and branding pass, docs | +15–23 (cumulative 77–109) | 16–22 wks | 7–10 wks |
 | **L4 Extras** | Opt-in archive of expiring transcripts; estimated context breakdown from `prompt_snapshot`; "resume in terminal"; cross-source repo views; Node CLI support | 3–8 each | — | — |
 | **Codex provider** (after L2 foundation) | Same as L2 for Codex | 15–25 | 3–5 wks | 2–3 wks |
 
