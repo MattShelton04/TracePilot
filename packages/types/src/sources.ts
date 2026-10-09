@@ -26,6 +26,8 @@ export interface SourceCapabilities {
   hasPlan: boolean;
   hasExplorer: boolean;
   hasHiddenRoles: boolean;
+  /** The source records background subagents and shells. */
+  hasBackgroundTasks: boolean;
 }
 
 const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
@@ -41,6 +43,7 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
     hasPlan: true,
     hasExplorer: true,
     hasHiddenRoles: false,
+    hasBackgroundTasks: false,
   },
   claudeCode: {
     canResume: false,
@@ -54,6 +57,7 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
     hasPlan: false,
     hasExplorer: false,
     hasHiddenRoles: false,
+    hasBackgroundTasks: true,
   },
 };
 

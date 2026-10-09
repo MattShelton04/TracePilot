@@ -9,6 +9,7 @@
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
+use super::background::read_background_tasks;
 use super::liveness::{ProcessStart, StalePidFiles, liveness, liveness_many};
 use super::parse_claude_session;
 use super::summary::summarize;
@@ -16,12 +17,12 @@ use crate::error::{Result, TracePilotError};
 use crate::ids::SessionId;
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled, ensure_unchanged};
 use crate::provider::{
-    Liveness, ProviderSnapshot, SessionLocator, SessionProvider, SessionRole, SessionSource,
-    SourceCapabilities, SourceFingerprint,
+    Liveness, ProviderSnapshot, SessionArtifacts, SessionLocator, SessionProvider, SessionRole,
+    SessionSource, SourceCapabilities, SourceFingerprint,
 };
 
 /// Nothing Copilot-specific, and no todos, plan, checkpoints or explorer
-/// roots yet (C12, C13).
+/// roots yet (C13).
 const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     can_resume: false,
     can_launch: false,
@@ -34,6 +35,7 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_plan: false,
     has_explorer: false,
     has_hidden_roles: false,
+    has_background_tasks: true,
 };
 
 /// Sessions under one Claude Code config directory.
@@ -252,6 +254,15 @@ impl SessionProvider for ClaudeCodeProvider {
             self.process_start.as_ref(),
             &self.stale_pid_files,
         )
+    }
+
+    /// Background tasks only so far; plan, checkpoints and explorer roots
+    /// come with C13.
+    fn artifacts(&self, session: &SessionLocator) -> Result<SessionArtifacts> {
+        Ok(SessionArtifacts {
+            background_tasks: read_background_tasks(&session.primary_path)?,
+            ..SessionArtifacts::default()
+        })
     }
 
     fn root(&self) -> Option<&Path> {

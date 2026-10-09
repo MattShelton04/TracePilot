@@ -1,4 +1,4 @@
-//! Session artifact commands: todos, checkpoints, plan.
+//! Session artifact commands: todos, checkpoints, plan, background tasks.
 
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
@@ -8,7 +8,7 @@ use crate::types::TodosResponse;
 // A source without an artifact has nothing to show, so these read-only
 // commands return it empty rather than refusing. They read Copilot's layout
 // directly; a source that gains the capability routes through
-// `SessionProvider::artifacts` (C12, C13).
+// `SessionProvider::artifacts` (C13).
 
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err, fields(session_id = %session_id))]
@@ -79,6 +79,28 @@ pub async fn get_session_plan(
         tracepilot_core::utils::truncate_string_utf8(&mut content, MAX_CHECKPOINT_CONTENT_BYTES);
 
         Ok(Some(serde_json::json!({ "content": content })))
+    })
+    .await
+}
+
+/// Subagents and shells the session ran in the background. Empty for a
+/// source that does not record them.
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(skip_all, level = "debug", err)]
+pub async fn get_session_background_tasks(
+    state: tauri::State<'_, SharedConfig>,
+    session_id: String,
+) -> CmdResult<Vec<tracepilot_core::provider::BackgroundTask>> {
+    let sid = crate::validators::validate_session_id(&session_id)?;
+    with_session_locator(&state, sid, |session| {
+        if !session.provider.capabilities().has_background_tasks {
+            return Ok(Vec::new());
+        }
+        Ok(session
+            .provider
+            .artifacts(&session.locator)?
+            .background_tasks)
     })
     .await
 }

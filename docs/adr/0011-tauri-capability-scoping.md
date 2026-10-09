@@ -53,6 +53,7 @@ Audited by tracing the viewer mount path:
 | `get_session_todos` | `useSessionDetail` todos section (Todos tab) | yes |
 | `get_session_checkpoints` | `useSessionDetail` checkpoints (Overview) | yes |
 | `get_session_plan` | `useSessionDetail` plan (Overview) | yes |
+| `get_session_background_tasks` | `useSessionDetail` background tasks (Overview, sources that record them) | yes |
 | `get_shutdown_metrics` | `useSessionDetail` metrics (Metrics) | yes |
 | `check_session_freshness` | `useSessionDetail` auto-refresh gate | yes |
 | `get_session_liveness` | `SessionDetailPanel.checkRunning` (active badge, running refresh) | yes |

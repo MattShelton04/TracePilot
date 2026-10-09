@@ -248,6 +248,9 @@ This is undocumented, so fall back to `pr-link.prRepository`.
   `attachment:queued_command.prompt`.
 - `<usage>` is present for subagents.
 - `<status>` is `completed`, `failed` or `stopped`.
+- `attachment:task_status` reports a task's state between notifications:
+  `{ "type": "task_status", "taskId": "…", "taskType": "local_bash" | "local_agent", "status": "running" | "completed", "description": "…", "deltaSummary": "…", "outputFilePath": "…", "shell": …, "canContinueAgent": … }`
+  (keys confirmed on real data, 2026-10-09). The background-task list reads all but the last three.
 
 ## Subagent files
 
