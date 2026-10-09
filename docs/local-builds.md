@@ -27,6 +27,10 @@ holding the dependencies from another checkout.
 | revert the edit, rebuild tests | 277 s | 31 s |
 | `target/` after these steps and `cargo test -p tracepilot-core` | 23.8 GB | 8.8 GB |
 
+A brand-new worktree with a warm sccache took 10 s for `pnpm install`, 191 s
+for its first workspace test build (71% cache hits) and 21 s for the desktop
+build after it, using 6.2 GB.
+
 ### Workspace-hack
 
 Cargo unifies dependency features only across the packages selected by one
