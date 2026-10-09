@@ -40,7 +40,7 @@ export const cases = [
     ready: '[data-testid="background-task"]',
     command: "get_session_background_tasks",
     scrollText: "cargo watch -x check",
-    state: "ended Claude Code session: a finished subagent, a failed shell, a shell with no final report",
+    state: "ended Claude Code session: done, failed and unreported tasks",
   },
   {
     id: "session-explorer-file",
