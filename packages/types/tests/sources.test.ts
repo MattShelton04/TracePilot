@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isNonCopilotSource,
   resolveSessionSource,
+  resumeCommand,
   sourceCapabilities,
   sourceLabel,
 } from "../src/sources.js";
@@ -38,5 +39,18 @@ describe("session sources", () => {
     expect(caps.hasPlan).toBe(true);
     expect(caps.hasFileHistory).toBe(true);
     expect(caps.hasExplorer).toBe(true);
+  });
+
+  it.each([
+    ["copilot", "copilot --resume s-1"],
+    [undefined, "copilot --resume s-1"],
+    ["claudeCode", "claude --resume s-1"],
+  ] as const)("builds the copyable resume command for %s", (source, expected) => {
+    expect(resumeCommand(source, "s-1", "copilot")).toBe(expected);
+  });
+
+  it("resumes Copilot through the configured CLI command and Claude Code through claude", () => {
+    expect(resumeCommand("copilot", "s-1", "gh copilot")).toBe("gh copilot --resume s-1");
+    expect(resumeCommand("claudeCode", "s-1", "gh copilot")).toBe("claude --resume s-1");
   });
 });
