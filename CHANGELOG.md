@@ -23,6 +23,8 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 - **Claude Code analytics** — The Analytics token, activity and cost-by-day charts include Claude Code sessions, which they previously left out. With the Claude filter, AI Credit totals show a dash instead of $0.00, and the AI Credit cost trend is not drawn. A prompt-cache miss in a Claude conversation is priced in USD. Existing indexes refresh Claude rows once on launch.
 
+- **Claude Code conversations** — Slash commands read as typed (`/model opus`) instead of raw tags, their output drops terminal colour codes, and pasted text sits in its own collapsible block. A session of slash commands only is named after its first command, and a session without a cost snapshot shows Duration and API Duration estimated from its timestamps. Large Claude sessions no longer re-read their transcript each time Overview or Metrics loads.
+
 ### Removed
 
 - **Sessions branch filter** — Removed the branch dropdown from the Sessions toolbar. Branch names remain searchable and visible on session cards.

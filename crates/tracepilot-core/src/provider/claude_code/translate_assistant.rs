@@ -29,6 +29,8 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                 st.anchor
             },
             abandoned,
+            requested_at: st.previous_ts,
+            at: rec.timestamp(),
         };
         self.calls.observe(rec, site);
     }
