@@ -104,6 +104,16 @@ pub trait SessionProvider: Send + Sync {
 
     fn liveness(&self, session: &SessionLocator) -> Liveness;
 
+    /// [`Self::liveness`] for each session, in order, for lists. Sources
+    /// that can answer many sessions with less work than one call each (for
+    /// example, one directory read) override it.
+    fn liveness_many(&self, sessions: &[SessionLocator]) -> Vec<Liveness> {
+        sessions
+            .iter()
+            .map(|session| self.liveness(session))
+            .collect()
+    }
+
     /// Todos, plan, checkpoints and browsable roots.
     fn artifacts(&self, _session: &SessionLocator) -> Result<SessionArtifacts> {
         Ok(SessionArtifacts::default())

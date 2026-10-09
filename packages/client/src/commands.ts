@@ -52,7 +52,7 @@ export const IPC_COMMANDS = [
   "validate_claude_config_dir",
   "get_db_size",
   "get_session_count",
-  "is_session_running",
+  "get_session_liveness",
   "factory_reset",
   "get_tool_result",
   "resume_session_in_terminal",

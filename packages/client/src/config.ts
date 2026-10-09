@@ -1,4 +1,4 @@
-import type { TracePilotConfig, TracePilotConfigPatch } from "@tracepilot/types";
+import type { SessionLiveness, TracePilotConfig, TracePilotConfigPatch } from "@tracepilot/types";
 
 export type { TracePilotConfigPatch } from "@tracepilot/types";
 
@@ -41,10 +41,10 @@ export async function validateClaudeConfigDir(path: string): Promise<ValidateSes
   return invoke<ValidateSessionDirResult>("validate_claude_config_dir", { path });
 }
 
-/** Check if a session is currently running (has an inuse.*.lock file). */
-export async function isSessionRunning(sessionId: string): Promise<boolean> {
-  if (!isTauri()) return false;
-  return invoke<boolean>("is_session_running", { sessionId });
+/** Whether a live process owns a session, and what it is doing when the source records it. */
+export async function getSessionLiveness(sessionId: string): Promise<SessionLiveness> {
+  if (!isTauri()) return { state: "idle" };
+  return invoke<SessionLiveness>("get_session_liveness", { sessionId });
 }
 
 /** Check GitHub for a newer TracePilot release. Opt-in only. */

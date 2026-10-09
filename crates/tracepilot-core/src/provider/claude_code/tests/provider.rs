@@ -337,3 +337,61 @@ fn liveness_never_reads_key_files() {
     let provider = provider(root).with_process_start(live(STARTED));
     assert_eq!(provider.liveness(&session), Liveness::Idle);
 }
+
+fn locator(id: &str) -> SessionLocator {
+    SessionLocator {
+        source: SessionSource::ClaudeCode,
+        id: SessionId::from_validated(id),
+        primary_path: Path::new("unused.jsonl").to_path_buf(),
+        parent_id: None,
+        role: SessionRole::Primary,
+        source_bytes_hint: 0,
+    }
+}
+
+#[test]
+fn liveness_many_checks_only_sessions_a_pid_file_names() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    const STALE: &str = "22222222-2222-4222-8222-222222222222";
+    const NO_FILE: &str = "33333333-3333-4333-8333-333333333333";
+    const UNLISTED: &str = "44444444-4444-4444-8444-444444444444";
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let sessions = [locator(SESSION_ID), locator(STALE), locator(NO_FILE)];
+    let lookups = Arc::new(AtomicUsize::new(0));
+    let counted = |lookups: &Arc<AtomicUsize>| -> ProcessStart {
+        let lookups = Arc::clone(lookups);
+        Arc::new(move |pid| {
+            lookups.fetch_add(1, Ordering::SeqCst);
+            (pid == PID).then(|| STARTED.to_string())
+        })
+    };
+
+    // No `sessions/` directory: every session is idle, with no lookups.
+    let provider = provider(root).with_process_start(counted(&lookups));
+    assert_eq!(provider.liveness_many(&sessions), [Liveness::Idle; 3]);
+    assert_eq!(lookups.load(Ordering::SeqCst), 0);
+
+    write_pid_file(root, PID, SESSION_ID, STARTED, "busy");
+    // Stale: the pid is reused by another process, and the pid is gone.
+    write_pid_file(root, PID + 4, STALE, "1", "busy");
+    write_pid_file(root, PID + 8, STALE, STARTED, "idle");
+    // A file for a session the list does not show costs no lookup.
+    write_pid_file(root, PID + 12, UNLISTED, STARTED, "busy");
+    let running = Liveness::Running {
+        pid: Some(PID),
+        status: Some(RunStatus::Busy),
+    };
+    let batch = provider.liveness_many(&sessions);
+    assert_eq!(batch, [running, Liveness::Idle, Liveness::Idle]);
+    assert_eq!(lookups.load(Ordering::SeqCst), 3, "one per named pid file");
+    let single: Vec<_> = sessions.iter().map(|s| provider.liveness(s)).collect();
+    assert_eq!(batch, single);
+
+    // An unreadable `sessions` path cannot tell.
+    let blocked = tempfile::tempdir().unwrap();
+    std::fs::write(blocked.path().join("sessions"), "not a directory").unwrap();
+    let provider = self::provider(blocked.path()).with_process_start(counted(&lookups));
+    assert_eq!(provider.liveness_many(&sessions), [Liveness::Unknown; 3]);
+}

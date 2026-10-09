@@ -37,24 +37,58 @@ pub(super) fn liveness(
     session_id: &str,
     process_start: Option<&ProcessStart>,
 ) -> Liveness {
+    match read_pid_files(sessions_dir) {
+        Some(files) => liveness_in(&files, session_id, process_start),
+        None => Liveness::Unknown,
+    }
+}
+
+/// [`liveness`] for many sessions, reading `sessions_dir` once. Only a
+/// session that a pid file names costs a process lookup.
+pub(super) fn liveness_many<'a>(
+    sessions_dir: &Path,
+    session_ids: impl IntoIterator<Item = &'a str>,
+    process_start: Option<&ProcessStart>,
+) -> Vec<Liveness> {
+    let files = read_pid_files(sessions_dir);
+    session_ids
+        .into_iter()
+        .map(|id| match &files {
+            Some(files) => liveness_in(files, id, process_start),
+            None => Liveness::Unknown,
+        })
+        .collect()
+}
+
+/// Every readable pid file in `sessions_dir`. A missing directory has none;
+/// `None` means the directory could not be listed.
+fn read_pid_files(sessions_dir: &Path) -> Option<Vec<PidFile>> {
     let entries = match std::fs::read_dir(sessions_dir) {
         Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Liveness::Idle,
-        Err(_) => return Liveness::Unknown,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Some(Vec::new()),
+        Err(_) => return None,
     };
-    let mut unverified = false;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().is_none_or(|ext| ext != "json") {
-            continue;
-        }
+    let files = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
         // A file mid-write or of another shape belongs to no session we can name.
-        let Some(file) = std::fs::read(&path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<PidFile>(&bytes).ok())
-        else {
-            continue;
-        };
+        .filter_map(|path| {
+            std::fs::read(&path)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<PidFile>(&bytes).ok())
+        })
+        .collect();
+    Some(files)
+}
+
+fn liveness_in(
+    files: &[PidFile],
+    session_id: &str,
+    process_start: Option<&ProcessStart>,
+) -> Liveness {
+    let mut unverified = false;
+    for file in files {
         if file.session_id.as_deref() != Some(session_id) {
             continue;
         }

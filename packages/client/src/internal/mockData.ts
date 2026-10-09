@@ -10,6 +10,7 @@ import type {
   SearchFacetsResponse,
   SearchResultsResponse,
   SearchStatsResponse,
+  SessionLiveness,
   SessionSectionsInfo,
   TurnsResponse,
 } from "@tracepilot/types";
@@ -395,7 +396,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       releaseNotes: null,
     } as UpdateCheckResult,
     get_git_info: { commitHash: "abc1234", branch: "main" } as GitInfo,
-    is_session_running: false,
+    get_session_liveness: { state: "idle" } as SessionLiveness,
     get_log_path: "~/.local/share/dev.tracepilot.app/logs",
     export_logs: "Exported 1 log file(s) to /tmp/tracepilot-logs.txt",
     // Search commands

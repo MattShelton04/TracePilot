@@ -3,13 +3,14 @@ import { setupPinia } from "@tracepilot/test-utils";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
+import { RUNNING_SESSION_POLL_MS } from "@/composables/useRunningSessionPoll";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { makeTimeline, makeWindow } from "@/utils/__tests__/promptCacheFixtures";
 
 const mocks = vi.hoisted(() => ({
-  isSessionRunning: vi.fn(),
+  getSessionLiveness: vi.fn(),
   openInExplorer: vi.fn(),
   resumeSessionInTerminal: vi.fn(),
   copy: vi.fn(),
@@ -24,7 +25,7 @@ vi.mock("@tracepilot/ui", async (original) => {
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");
   return createClientMock({
-    isSessionRunning: mocks.isSessionRunning,
+    getSessionLiveness: mocks.getSessionLiveness,
     openInExplorer: mocks.openInExplorer,
     resumeSessionInTerminal: mocks.resumeSessionInTerminal,
   });
@@ -85,7 +86,7 @@ describe("SessionDetailPanel", () => {
   beforeEach(() => {
     setupPinia();
     vi.clearAllMocks();
-    mocks.isSessionRunning.mockResolvedValue(false);
+    mocks.getSessionLiveness.mockResolvedValue({ state: "idle" });
   });
 
   it("keeps Explorer fill-content mode inside the standard constrained page shell", () => {
@@ -148,13 +149,13 @@ describe("SessionDetailPanel", () => {
   });
 
   it("pauses auto-refresh once the open session no longer exists", async () => {
-    mocks.isSessionRunning.mockRejectedValue({
+    mocks.getSessionLiveness.mockRejectedValue({
       code: "CORE",
       message: "Session not found: session-1",
     });
     const store = await autoRefreshCalls();
     expect(store.refreshAll).not.toHaveBeenCalled();
-    expect(mocks.isSessionRunning).toHaveBeenCalledTimes(1);
+    expect(mocks.getSessionLiveness).toHaveBeenCalledTimes(1);
   });
 
   it("shows recorded cache expiry beside resume controls for an ended session", async () => {
@@ -189,6 +190,54 @@ describe("SessionDetailPanel", () => {
     await wrapper.setProps({ sessionId: "session-2" });
     expect(wrapper.find('[data-testid="prompt-cache-chip"]').exists()).toBe(false);
     wrapper.unmount();
+  });
+
+  async function runningPoll(source: "copilot" | "claudeCode") {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    try {
+      await flushPromises(); // let config hydration finish (auto-refresh stays off)
+      const store = createStore();
+      store.detail = { ...store.detail!, source };
+      // Only sources that record it report what the process is doing.
+      const status = source === "claudeCode" ? "busy" : null;
+      mocks.getSessionLiveness.mockResolvedValue({ state: "running", pid: 7, status });
+      const wrapper = mount(SessionDetailPanel, {
+        props: {
+          store,
+          sessionId: "session-1",
+          tabMode: "local",
+          activeSubTab: "overview",
+          refreshEnabled: true,
+        },
+      });
+      await flushPromises();
+      await vi.advanceTimersByTimeAsync(RUNNING_SESSION_POLL_MS * 2);
+      const whileRunning = vi.mocked(store.refreshAll).mock.calls.length;
+      const badge = wrapper.find(".active-badge-inline");
+      const label = badge.exists() ? badge.text() : null;
+      mocks.getSessionLiveness.mockResolvedValue({ state: "idle" });
+      await vi.advanceTimersByTimeAsync(RUNNING_SESSION_POLL_MS * 4);
+      const afterIdle = vi.mocked(store.refreshAll).mock.calls.length;
+      wrapper.unmount();
+      return { whileRunning, afterIdle, label };
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it("refreshes a running Claude Code session until it goes idle", async () => {
+    const { whileRunning, afterIdle, label } = await runningPoll("claudeCode");
+    expect(label).toBe("● Busy");
+    expect(whileRunning).toBe(2);
+    // The poll that saw it go idle refreshed once more, then polling stopped.
+    expect(afterIdle).toBe(3);
+  });
+
+  it("never polls a running Copilot session, which refreshes from the live stream", async () => {
+    const { whileRunning, afterIdle, label } = await runningPoll("copilot");
+    expect(label).toBe("● Active");
+    expect(whileRunning).toBe(0);
+    expect(afterIdle).toBe(0);
   });
 
   function mountForSource(source?: "copilot" | "claudeCode") {

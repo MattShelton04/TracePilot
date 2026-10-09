@@ -81,3 +81,27 @@ export function sourceLabel(source: SessionSource | null | undefined): string {
 export function isNonCopilotSource(source: SessionSource | null | undefined): boolean {
   return resolveSessionSource(source) !== "copilot";
 }
+
+/** What a running session's process is doing. Mirrors `RunStatus`. */
+export type RunStatus = "busy" | "waiting";
+
+/** Whether a live process owns a session. Mirrors `Liveness`. */
+export type SessionLiveness =
+  | { state: "running"; pid: number | null; status: RunStatus | null }
+  | { state: "idle" }
+  | { state: "unknown" };
+
+/**
+ * The running badge for a source that reports what its process is doing.
+ * `null` when it does not, so callers keep their generic badge.
+ */
+export function runStatusBadge(
+  status: RunStatus | null | undefined,
+  source: SessionSource | null | undefined,
+): { label: string; title: string } | null {
+  if (status === "busy") return { label: "Busy", title: `${sourceLabel(source)} is working` };
+  if (status === "waiting") {
+    return { label: "Waiting", title: `${sourceLabel(source)} is waiting for input` };
+  }
+  return null;
+}

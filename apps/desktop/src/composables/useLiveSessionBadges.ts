@@ -1,4 +1,4 @@
-import type { SessionListItem } from "@tracepilot/types";
+import { isNonCopilotSource, type SessionListItem } from "@tracepilot/types";
 import { computed, onScopeDispose, type Ref, watch } from "vue";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
@@ -18,7 +18,10 @@ export function useLiveSessionBadges(sessions: Ref<readonly SessionListItem[]>) 
   const sdk = useSdkStore();
   const prefs = usePreferencesStore();
   const enabled = computed(() => prefs.isFeatureEnabled("copilotSdk"));
-  const runningIds = computed(() => sessions.value.filter((s) => s.isRunning).map((s) => s.id));
+  // Live attach is Copilot-only; other running sessions are never located.
+  const runningIds = computed(() =>
+    sessions.value.filter((s) => s.isRunning && !isNonCopilotSource(s.source)).map((s) => s.id),
+  );
   let timer: ReturnType<typeof setInterval> | null = null;
 
   function refresh() {

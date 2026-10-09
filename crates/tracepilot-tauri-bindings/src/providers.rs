@@ -1,7 +1,9 @@
 //! The session providers the app reads from, built from config.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
+use std::time::{Duration, Instant};
 
 use tracepilot_core::provider::claude_code::ClaudeCodeProvider;
 use tracepilot_core::provider::{CopilotProvider, ProviderRegistry, SessionSource};
@@ -14,11 +16,56 @@ pub(crate) fn registry_for(config: &TracePilotConfig) -> ProviderRegistry {
     let mut registry = ProviderRegistry::new();
     registry.register(Arc::new(CopilotProvider::new(config.session_state_dir())));
     if let Some(root) = claude_code_root(config) {
-        registry.register(Arc::new(ClaudeCodeProvider::new(root).with_process_start(
-            Arc::new(tracepilot_orchestrator::process::process_start_time),
-        )));
+        registry.register(Arc::new(
+            ClaudeCodeProvider::new(root).with_process_start(Arc::new(cached_process_start)),
+        ));
     }
     registry
+}
+
+/// How long a process start time is reused. Each lookup spawns a hidden
+/// PowerShell (about 160 ms), and the session list and a running session's
+/// detail view both poll. A Claude Code process removes its pid file on exit,
+/// so this only delays noticing a crash.
+const PROCESS_START_TTL: Duration = Duration::from_secs(5);
+
+type ProcessStarts = Mutex<HashMap<u32, (Instant, Option<String>)>>;
+
+static PROCESS_STARTS: LazyLock<ProcessStarts> = LazyLock::new(Default::default);
+
+fn cached_process_start(pid: u32) -> Option<String> {
+    reuse_process_start(
+        &PROCESS_STARTS,
+        pid,
+        Instant::now(),
+        tracepilot_orchestrator::process::process_start_time,
+    )
+}
+
+/// `lookup(pid)`, reusing an answer younger than [`PROCESS_START_TTL`].
+fn reuse_process_start(
+    cache: &ProcessStarts,
+    pid: u32,
+    now: Instant,
+    lookup: impl FnOnce(u32) -> Option<String>,
+) -> Option<String> {
+    let fresh = |at: &Instant| now.saturating_duration_since(*at) < PROCESS_START_TTL;
+    let cached = cache.lock().ok().and_then(|cache| {
+        cache
+            .get(&pid)
+            .filter(|(at, _)| fresh(at))
+            .map(|(_, start)| start.clone())
+    });
+    if let Some(start) = cached {
+        return start;
+    }
+    // Look up without the lock, so one slow lookup never blocks others.
+    let start = lookup(pid);
+    if let Ok(mut cache) = cache.lock() {
+        cache.retain(|_, (at, _)| fresh(at));
+        cache.insert(pid, (now, start.clone()));
+    }
+    start
 }
 
 /// `registry_for`, limited to `source`.
@@ -51,6 +98,29 @@ mod tests {
             .iter()
             .map(|provider| provider.source())
             .collect()
+    }
+
+    #[test]
+    fn process_starts_are_reused_briefly() {
+        let cache = ProcessStarts::default();
+        let start = Instant::now();
+        let calls = std::cell::Cell::new(0);
+        let lookup = |pid: u32| {
+            calls.set(calls.get() + 1);
+            Some(format!("{pid}-{}", calls.get()))
+        };
+        let first = reuse_process_start(&cache, 7, start, lookup);
+        assert_eq!(first.as_deref(), Some("7-1"));
+        let soon = start + PROCESS_START_TTL / 2;
+        assert_eq!(reuse_process_start(&cache, 7, soon, lookup), first);
+        assert_eq!(calls.get(), 1);
+        let later = start + PROCESS_START_TTL;
+        assert_eq!(
+            reuse_process_start(&cache, 7, later, lookup).as_deref(),
+            Some("7-2")
+        );
+        assert_eq!(reuse_process_start(&cache, 8, later, |_| None), None);
+        assert_eq!(cache.lock().unwrap().len(), 2);
     }
 
     #[test]

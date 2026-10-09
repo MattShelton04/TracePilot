@@ -42,7 +42,7 @@ pub(crate) struct OpenIndexDb {
     pub session_count: usize,
 }
 
-pub(crate) use cache::{indexed_session_to_list_item, load_summary_list_item, read_config};
+pub(crate) use cache::{indexed_sessions_to_list_items, load_summary_list_item, read_config};
 pub(crate) use db::{open_index_db, remove_index_db_files};
 pub(crate) use definition_repos::definition_repo_roots;
 pub(crate) use emit::{emit_best_effort, emit_indexing_progress};

@@ -4,6 +4,7 @@ import {
   formatRelativeTime,
   isNonCopilotSource,
   resolveSessionSource,
+  runStatusBadge,
   sourceLabel,
 } from "@tracepilot/types";
 import Badge from "./Badge.vue";
@@ -32,13 +33,16 @@ function isActive(session: SessionListItem): boolean {
 function activeLabel(): string {
   if (props.live === "watching") return "Watching";
   if (props.live === "attachable") return "Live";
-  return "Active";
+  return runStatusBadge(props.session.runStatus, props.session.source)?.label ?? "Active";
 }
 
 function activeTitle(): string {
   if (props.live === "watching") return "TracePilot is streaming this session live";
   if (props.live === "attachable") return "Running in a terminal TracePilot can stream live";
-  return "Session is currently active";
+  return (
+    runStatusBadge(props.session.runStatus, props.session.source)?.title ??
+    "Session is currently active"
+  );
 }
 </script>
 

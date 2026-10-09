@@ -29,8 +29,12 @@ export const commands = {
 	checkSessionFreshness: (sessionId: string) => typedError<FreshnessResponse, BindingsErrorIpc>(__TAURI_INVOKE("check_session_freshness", { sessionId })),
 	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
 	getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
-	// Check if a live process owns a session (Copilot: an `inuse.*.lock` file).
-	isSessionRunning: (sessionId: string) => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("is_session_running", { sessionId })),
+	/**
+	 *  Whether a live process owns a session (Copilot: an `inuse.*.lock` file;
+	 *  Claude Code: a verified `sessions/<pid>.json`), and what it is doing when
+	 *  the source records it.
+	 */
+	getSessionLiveness: (sessionId: string) => typedError<Liveness, BindingsErrorIpc>(__TAURI_INVOKE("get_session_liveness", { sessionId })),
 	// Returns the installation type: "source", "installed", or "portable".
 	getInstallType: () => __TAURI_INVOKE<string>("get_install_type"),
 	checkForUpdates: () => typedError<UpdateCheckResult, BindingsErrorIpc>(__TAURI_INVOKE("check_for_updates")),
@@ -136,9 +140,28 @@ export type IndexingProgressPayload = {
 	totalRepos: number,
 };
 
+// Whether a live process owns a session.
+export type Liveness =
+/**
+ *  A live process owns the session. Fields are `None` when the source
+ *  does not record them.
+ */
+{ state: "running"; pid: number | null; status: RunStatus | null } |
+// No live process owns the session.
+{ state: "idle" } |
+// The source cannot tell.
+{ state: "unknown" };
+
 export type ProviderMetricsStatus = {
 	metricsPartial?: boolean,
 };
+
+export type ProviderRunState = {
+	runStatus?: RunStatus,
+};
+
+// What a running session's process is doing, when the source records it.
+export type RunStatus = "busy" | "waiting";
 
 //Validated session identifier (UUID format).
 export type SessionId = string;
@@ -158,7 +181,10 @@ export type SessionListItem = {
 	turnCount: number | null,
 	currentModel: string | null,
 	copilotVersion: string | null,
-	// Whether this session is currently running (has an `inuse.*.lock` file).
+	/**
+	 *  Whether a live process owns this session (Copilot: an `inuse.*.lock`
+	 *  file; Claude Code: a verified `sessions/<pid>.json`).
+	 */
 	isRunning: boolean,
 	errorCount: number | null,
 	rateLimitCount: number | null,
@@ -169,7 +195,12 @@ export type SessionListItem = {
  *  Provider usage does not establish that a session ended or that all
  *  calls were persisted. Absent for Copilot to preserve its wire output.
  */
-(ProviderMetricsStatus | null);
+(ProviderMetricsStatus | null) &
+/**
+ *  What the running process is doing, when its source records it. Absent
+ *  for Copilot to preserve its wire output.
+ */
+(ProviderRunState | null);
 
 // Which tool wrote a session.
 export type SessionSource = "copilot" | "claudeCode";

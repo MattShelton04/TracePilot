@@ -8,7 +8,7 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use super::liveness::{ProcessStart, liveness};
+use super::liveness::{ProcessStart, liveness, liveness_many};
 use super::parse_claude_session;
 use super::summary::summarize;
 use crate::error::{Result, TracePilotError};
@@ -228,6 +228,14 @@ impl SessionProvider for ClaudeCodeProvider {
         liveness(
             &self.config_dir.join("sessions"),
             session.id.as_str(),
+            self.process_start.as_ref(),
+        )
+    }
+
+    fn liveness_many(&self, sessions: &[SessionLocator]) -> Vec<Liveness> {
+        liveness_many(
+            &self.config_dir.join("sessions"),
+            sessions.iter().map(|session| session.id.as_str()),
             self.process_start.as_ref(),
         )
     }

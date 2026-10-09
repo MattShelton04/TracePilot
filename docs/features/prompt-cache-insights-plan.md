@@ -357,7 +357,7 @@ What shipped, and where it deliberately differs from the plan above.
   then a prompt), the window is classified normally, since the provider cache does not depend
   on the CLI process. `sessionEnded` is only reported when nothing followed.
 - **Liveness is not an input to the core.** The final unanswered window is `pending`; the
-  header shows a countdown only while `is_session_running` is true, and the Metrics table
+  header shows a countdown only while `get_session_liveness` reports it running, and the Metrics table
   labels it "No reply yet". This keeps the reconstruction pure and cacheable.
 - **Checkpoints exist before 1.0.83.** 1.0.75+ writes `modelCacheState` without
   `promptCacheBreakState`, so those sessions get predicted timing without prefix changes.
