@@ -41,7 +41,7 @@ Granted a **per-command allowlist** — no `tracepilot:default`. Roughly:
 - Read-only session inspection: `list_sessions`, `get_session_detail`,
   `get_session_turns`, `get_session_events`, `get_session_incidents`,
   `get_session_todos`, `get_session_checkpoints`, `get_session_plan`,
-  `get_shutdown_metrics`, `check_session_freshness`, `is_session_running`,
+  `get_shutdown_metrics`, `check_session_freshness`, `get_session_liveness`,
   `get_tool_result`, `check_config_exists`, `get_config`,
   `close_session_window`.
 - Session workspace browsing: `session_list_files`, `session_read_file`,

@@ -273,7 +273,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             // State commands (6)
             commands::state::get_db_size,
             commands::state::get_session_count,
-            commands::state::is_session_running,
+            commands::state::get_session_liveness,
             commands::state::get_install_type,
             commands::state::check_for_updates,
             commands::state::get_git_info,

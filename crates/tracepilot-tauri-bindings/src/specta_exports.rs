@@ -46,7 +46,7 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             // wave 98 — state/system commands
             crate::commands::state::get_db_size,
             crate::commands::state::get_session_count,
-            crate::commands::state::is_session_running,
+            crate::commands::state::get_session_liveness,
             crate::commands::state::get_install_type,
             crate::commands::state::check_for_updates,
             crate::commands::state::get_git_info,

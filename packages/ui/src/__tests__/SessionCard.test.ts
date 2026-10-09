@@ -136,4 +136,27 @@ describe("SessionCard", () => {
     const copilot = mount(SessionCard, { props: { session: makeSession({ id: "c" }) } });
     expect(copilot.classes()).not.toContain("session-card--claude");
   });
+
+  it("labels a running session Active unless its source reports what it is doing", () => {
+    const badge = (session: SessionListItem) => {
+      const wrapper = mount(SessionCard, { props: { session } });
+      const active = wrapper.find(".active-badge");
+      return active.exists() ? [active.text(), active.attributes("title")] : null;
+    };
+    expect(badge(makeSession({ id: "idle", source: "claudeCode" }))).toBeNull();
+    expect(badge(makeSession({ id: "c", isRunning: true }))).toEqual([
+      "Active",
+      "Session is currently active",
+    ]);
+    const claude = { source: "claudeCode", isRunning: true } as const;
+    expect(badge(makeSession({ id: "b", ...claude, runStatus: "busy" }))).toEqual([
+      "Busy",
+      "Claude Code is working",
+    ]);
+    expect(badge(makeSession({ id: "w", ...claude, runStatus: "waiting" }))).toEqual([
+      "Waiting",
+      "Claude Code is waiting for input",
+    ]);
+    expect(badge(makeSession({ id: "u", ...claude }))?.[0]).toBe("Active");
+  });
 });

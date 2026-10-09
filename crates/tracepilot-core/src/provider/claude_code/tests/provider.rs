@@ -337,3 +337,110 @@ fn liveness_never_reads_key_files() {
     let provider = provider(root).with_process_start(live(STARTED));
     assert_eq!(provider.liveness(&session), Liveness::Idle);
 }
+
+fn locator(id: &str) -> SessionLocator {
+    SessionLocator {
+        source: SessionSource::ClaudeCode,
+        id: SessionId::from_validated(id),
+        primary_path: Path::new("unused.jsonl").to_path_buf(),
+        parent_id: None,
+        role: SessionRole::Primary,
+        source_bytes_hint: 0,
+    }
+}
+
+#[test]
+fn liveness_many_checks_only_sessions_a_pid_file_names() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    const STALE: &str = "22222222-2222-4222-8222-222222222222";
+    const NO_FILE: &str = "33333333-3333-4333-8333-333333333333";
+    const UNLISTED: &str = "44444444-4444-4444-8444-444444444444";
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let sessions = [locator(SESSION_ID), locator(STALE), locator(NO_FILE)];
+    let lookups = Arc::new(AtomicUsize::new(0));
+    let counted = |lookups: &Arc<AtomicUsize>| -> ProcessStart {
+        let lookups = Arc::clone(lookups);
+        Arc::new(move |pid| {
+            lookups.fetch_add(1, Ordering::SeqCst);
+            (pid == PID).then(|| STARTED.to_string())
+        })
+    };
+
+    // No `sessions/` directory: every session is idle, with no lookups.
+    let provider = provider(root).with_process_start(counted(&lookups));
+    assert_eq!(provider.liveness_many(&sessions), [Liveness::Idle; 3]);
+    assert_eq!(lookups.load(Ordering::SeqCst), 0);
+
+    write_pid_file(root, PID, SESSION_ID, STARTED, "busy");
+    // Stale: the pid is reused by another process, and the pid is gone.
+    write_pid_file(root, PID + 4, STALE, "1", "busy");
+    write_pid_file(root, PID + 8, STALE, STARTED, "idle");
+    // A file for a session the list does not show costs no lookup.
+    write_pid_file(root, PID + 12, UNLISTED, STARTED, "busy");
+    let running = Liveness::Running {
+        pid: Some(PID),
+        status: Some(RunStatus::Busy),
+    };
+    let batch = provider.liveness_many(&sessions);
+    assert_eq!(batch, [running, Liveness::Idle, Liveness::Idle]);
+    assert_eq!(lookups.load(Ordering::SeqCst), 3, "one per named pid file");
+    let single: Vec<_> = sessions.iter().map(|s| provider.liveness(s)).collect();
+    assert_eq!(batch, single);
+
+    // An unreadable `sessions` path cannot tell.
+    let blocked = tempfile::tempdir().unwrap();
+    std::fs::write(blocked.path().join("sessions"), "not a directory").unwrap();
+    let provider = self::provider(blocked.path()).with_process_start(counted(&lookups));
+    assert_eq!(provider.liveness_many(&sessions), [Liveness::Unknown; 3]);
+}
+
+#[test]
+fn a_pid_file_whose_pid_was_reused_costs_one_lookup() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    const REUSED: &str = "55555555-5555-4555-8555-555555555555";
+    const GONE: &str = "66666666-6666-4666-8666-666666666666";
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    // An earlier process with this pid left its file; the pid now belongs to
+    // a process that started at STARTED.
+    write_pid_file(root, PID, REUSED, "134000000000000001", "busy");
+    let sessions = root.join("sessions");
+    std::fs::rename(
+        sessions.join(format!("{PID}.json")),
+        sessions.join("earlier.json"),
+    )
+    .unwrap();
+    // No process has this pid: a failed lookup looks the same, so it is
+    // checked again each time.
+    write_pid_file(root, PID + 4, GONE, STARTED, "busy");
+    let lookups = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&lookups);
+    let provider = provider(root).with_process_start(Arc::new(move |pid| {
+        counted.fetch_add(1, Ordering::SeqCst);
+        (pid == PID).then(|| STARTED.to_string())
+    }));
+    let listed = [locator(REUSED), locator(GONE)];
+
+    for _ in 0..3 {
+        assert_eq!(provider.liveness_many(&listed), [Liveness::Idle; 2]);
+        assert_eq!(provider.liveness(&listed[0]), Liveness::Idle);
+    }
+    // Reused: one lookup ever. Gone: one per batch.
+    assert_eq!(lookups.load(Ordering::SeqCst), 1 + 3);
+
+    // A provider sharing the set skips the reused file too.
+    let shared = Arc::new(super::super::StalePidFiles::default());
+    let first = self::provider(root)
+        .with_process_start(Arc::new(|pid| (pid == PID).then(|| STARTED.to_string())))
+        .with_stale_pid_files(Arc::clone(&shared));
+    assert_eq!(first.liveness(&listed[0]), Liveness::Idle);
+    let never = self::provider(root)
+        .with_process_start(Arc::new(|_| {
+            panic!("a known stale file is never looked up")
+        }))
+        .with_stale_pid_files(shared);
+    assert_eq!(never.liveness(&listed[0]), Liveness::Idle);
+}

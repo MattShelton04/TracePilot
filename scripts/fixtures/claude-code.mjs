@@ -17,6 +17,33 @@ export const claudeOrchardSessionId = "c1a0de00-0000-4000-8000-000000000001";
 export const claudeLanternSessionId = "c1a0de00-0000-4000-8000-000000000002";
 export const claudeHarborSessionId = "c1a0de00-0000-4000-8000-000000000003";
 
+/** Never a Windows pid (those are multiples of 4), so its process is gone. */
+export const claudeGonePid = 4294967291;
+/** The Windows System process: alive, but never started at `procStart` "1". */
+export const claudeReusedPid = 4;
+
+/**
+ * A `sessions/<pid>.json` that outlived its Claude Code process
+ * (record-shapes.md, "Liveness"), so the session must not read as running.
+ */
+function stalePidFile(pid, sessionId, cwd, procStart) {
+  const at = Date.parse("2026-03-16T17:00:00.000Z");
+  const record = {
+    pid,
+    sessionId,
+    cwd,
+    startedAt: at,
+    procStart,
+    version: "2.1.289",
+    kind: "interactive",
+    entrypoint: "cli",
+    status: "busy",
+    updatedAt: at,
+    statusUpdatedAt: at,
+  };
+  return { path: `sessions/${pid}.json`, content: `${JSON.stringify(record)}\n` };
+}
+
 function orchardSession() {
   const cwd = "C:\\synthetic\\orchard";
   const file = `${cwd}\\src\\upload.ts`;
@@ -103,7 +130,11 @@ function orchardSession() {
   return {
     id: claudeOrchardSessionId,
     title: "Add upload retries",
-    files: [{ path: `projects/C--synthetic-orchard/${t.sessionId}.jsonl`, content: t.toJsonl() }],
+    files: [
+      { path: `projects/C--synthetic-orchard/${t.sessionId}.jsonl`, content: t.toJsonl() },
+      // The pid now belongs to a process with another start time.
+      stalePidFile(claudeReusedPid, t.sessionId, cwd, "1"),
+    ],
   };
 }
 
@@ -255,7 +286,11 @@ function harborSession() {
   return {
     id: claudeHarborSessionId,
     title: "Tag the 2.4 release",
-    files: [{ path: `projects/C--synthetic-harbor/${t.sessionId}.jsonl`, content: t.toJsonl() }],
+    files: [
+      { path: `projects/C--synthetic-harbor/${t.sessionId}.jsonl`, content: t.toJsonl() },
+      // No process has this pid any more.
+      stalePidFile(claudeGonePid, t.sessionId, t.cwd, "134000000000000000"),
+    ],
   };
 }
 

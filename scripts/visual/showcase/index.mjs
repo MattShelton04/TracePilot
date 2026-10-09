@@ -50,7 +50,10 @@ const global = {
   get_tool_analysis: showcaseToolAnalysis,
   get_code_impact: showcaseCodeImpact,
   get_session_count: () => sessionListItems().length,
-  is_session_running: (args) => findSession(args.sessionId).isRunning,
+  get_session_liveness: (args) =>
+    findSession(args.sessionId).isRunning
+      ? { state: "running", pid: null, status: null }
+      : { state: "idle" },
   get_tool_result: (args) => heroToolResult(args.toolCallId),
   skills_list_all: () => ({ skills: showcaseSkills, diagnostics: [] }),
   skills_usage_summary: () => showcaseSkillUsage,

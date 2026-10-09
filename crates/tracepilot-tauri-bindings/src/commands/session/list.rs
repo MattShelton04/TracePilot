@@ -5,7 +5,7 @@ use crate::commands::search::ensure_index_ready;
 use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{indexed_session_to_list_item, load_summary_list_item, read_config};
+use crate::helpers::{indexed_sessions_to_list_items, load_summary_list_item, read_config};
 use crate::types::SessionListItem;
 use std::sync::Arc;
 
@@ -50,10 +50,7 @@ pub async fn list_sessions(
                     hide_empty.unwrap_or(false),
                 )?;
 
-                return Ok(indexed
-                    .into_iter()
-                    .map(indexed_session_to_list_item)
-                    .collect());
+                return Ok(indexed_sessions_to_list_items(&cfg, indexed));
             }
         }
 
