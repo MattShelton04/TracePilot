@@ -10,7 +10,7 @@ use tracepilot_core::provider::claude_code::ClaudeCodeProvider;
 use tracepilot_core::provider::{SessionProvider, SessionSource};
 use tracepilot_export::document::SessionArchive;
 use tracepilot_export::import::{ImportOptions, import_sessions, preview_import};
-use tracepilot_export::options::{ExportFormat, ExportOptions};
+use tracepilot_export::options::{ExportFormat, ExportOptions, RedactionOptions};
 use tracepilot_export::{ExportInput, ProviderSession, export_inputs, preview_export_input};
 use tracepilot_test_support::claude::{
     OPUS, SESSION_ID, SessionFiles, Transcript, Usage, text, tool_use, write_session,
@@ -20,6 +20,8 @@ use tracepilot_test_support::fixtures::full_session_temp_dir;
 /// Every private value below contains this marker.
 const PRIVATE: &str = "PRIVATE";
 const EMAIL: &str = "private-user@example.com";
+/// A secret in tool output, which only the user's secret redaction removes.
+const TOKEN: &str = "ghp_0123456789abcdefghijklmnopqrstuvwxyzAB";
 
 /// A session holding one of each private record kind, beside ordinary content.
 fn session_with_private_records() -> SessionFiles {
@@ -67,8 +69,9 @@ fn session_with_private_records() -> SessionFiles {
     );
     t.user(json!({
         "message": {"role": "user", "content": [{"type": "tool_result",
-            "tool_use_id": "toolu_01", "is_error": false, "content": "ok"}]},
-        "toolUseResult": {"stdout": "ok\n", "stderr": "", "interrupted": false, "isImage": false},
+            "tool_use_id": "toolu_01", "is_error": false, "content": format!("ok {TOKEN}")}]},
+        "toolUseResult": {"stdout": format!("ok {TOKEN}\n"), "stderr": "", "interrupted": false,
+            "isImage": false},
         "wireToolInputs": {"command": "PRIVATE duplicate input"},
         "bashEditDiff": "PRIVATE duplicate diff",
     }));
@@ -95,6 +98,10 @@ fn session_with_private_records() -> SessionFiles {
 
 /// Export the fixture session through the Claude Code provider.
 fn export_claude(files: &SessionFiles, format: ExportFormat) -> String {
+    export_claude_with(files, &ExportOptions::all(format))
+}
+
+fn export_claude_with(files: &SessionFiles, options: &ExportOptions) -> String {
     let provider = ClaudeCodeProvider::new(files.root.path());
     let locator = provider
         .resolve(&SessionId::from_validated(SESSION_ID))
@@ -121,9 +128,8 @@ fn export_claude(files: &SessionFiles, format: ExportFormat) -> String {
         snapshot: &snapshot,
         artifacts: &artifacts,
     });
-    let options = ExportOptions::all(format);
-    let preview = preview_export_input(&input, &options, None).unwrap();
-    let files = export_inputs(std::slice::from_ref(&input), &options).unwrap();
+    let preview = preview_export_input(&input, options, None).unwrap();
+    let files = export_inputs(std::slice::from_ref(&input), options).unwrap();
     let output = files[0].as_text().unwrap().to_string();
     assert!(!preview.contains(PRIVATE) && !preview.contains(EMAIL));
     output
@@ -165,6 +171,26 @@ fn json_export_carries_the_source_and_drops_private_fields() {
     // Provider totals become the metrics section.
     let metrics = session.shutdown_metrics.as_ref().expect("metrics");
     assert_eq!(metrics.cost_amount, Some(0.25));
+}
+
+#[test]
+fn user_redaction_covers_the_source_records() {
+    let files = session_with_private_records();
+    let mut options = ExportOptions::all(ExportFormat::Json);
+    options.redaction = RedactionOptions {
+        anonymize_paths: true,
+        strip_secrets: true,
+        strip_pii: true,
+    };
+    let output = export_claude_with(&files, &options);
+
+    // Every record repeats the tool output and the working directory.
+    // As JSON escapes it.
+    let path = r"C:\\work\\demo";
+    assert!(!output.contains(TOKEN), "the token leaked");
+    assert!(!output.contains(path), "a path leaked");
+    let unredacted = export_claude(&files, ExportFormat::Json);
+    assert!(unredacted.contains(TOKEN) && unredacted.contains(path));
 }
 
 #[test]

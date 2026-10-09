@@ -48,6 +48,10 @@ fn redact_session(
     if let Some(events) = &mut session.events {
         for event in events.iter_mut() {
             redact_json_value(&mut event.data, patterns, stats);
+            // Another source's record behind the event repeats its content.
+            if let Some(native) = &mut event.native {
+                redact_json_value(&mut native.data, patterns, stats);
+            }
         }
     }
 
