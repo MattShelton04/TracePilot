@@ -19,7 +19,7 @@ A launch message may set any of these, overriding the card's defaults:
 - Read `AGENTS.md`, then only the docs your change needs.
 - If your harness gave you a branch, worktree or sandbox, use it. Otherwise run `git fetch origin` and set one up:
   - **Clean checkout:** `git switch -c <type>/<slug> origin/main`.
-  - **Dirty or shared checkout:** `git worktree add .agent/worktrees/<slug> -b <type>/<slug> origin/main`, then `pnpm install --frozen-lockfile` inside it. `.agent/` is ignored, and staying inside the checkout avoids sandbox prompts for writes outside it.
+  - **Dirty or shared checkout:** `git worktree add .agent/worktrees/<slug> -b <type>/<slug> origin/main`, then `pnpm install --frozen-lockfile --prefer-offline` inside it. `.agent/` is ignored, and staying inside the checkout avoids sandbox prompts for writes outside it. Its first Rust build compiles every dependency; see [local builds](../local-builds.md).
 
   Never stash, reset or clean changes that aren't yours. If fetching fails, branch from local `main` and say so.
 - Skim `gh pr list --state open` and `git log --oneline -15 origin/main` so you don't duplicate work in flight.

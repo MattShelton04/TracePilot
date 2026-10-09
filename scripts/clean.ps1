@@ -2,7 +2,7 @@
 # Removes build artifacts to reclaim disk space
 #
 # Usage:
-#   .\scripts\clean.ps1             - Smart clean: remove stale caches, keep compiled deps
+#   .\scripts\clean.ps1             - Smart clean: remove incremental caches, keep compiled deps
 #   .\scripts\clean.ps1 -Full       - Remove entire target/ folder (full rebuild next time)
 #   .\scripts\clean.ps1 -Frontend   - Clean only frontend dist/ folders
 #   .\scripts\clean.ps1 -Deep       - Clean everything including node_modules
@@ -36,7 +36,11 @@ if ($smartClean) {
     Write-Host "Smart clean: removing caches while preserving compiled dependencies..." -ForegroundColor Cyan
     $targetPath = Join-Path $repoRoot "target"
 
-    # Remove incremental compilation caches (biggest space hog, rebuilds quickly)
+    # Remove incremental compilation caches (biggest space hog). Cargo does not
+    # track them, so the next edit of each workspace crate simply compiles it
+    # once without reuse. build/, deps/ and .pdb files are build outputs Cargo
+    # does track: deleting them reruns build scripts and recompiles nearly
+    # every dependency, so they are left alone (see docs/local-builds.md).
     foreach ($profile in @("debug", "release")) {
         $incPath = Join-Path $targetPath "$profile\incremental"
         if (Test-Path $incPath) {
@@ -46,25 +50,9 @@ if ($smartClean) {
             Write-Host "  Removed $profile\incremental ($sizeMB MB)" -ForegroundColor Green
         }
     }
-
-    # Remove debug symbols (.pdb files) — large, only needed for debugging
-    $pdbFiles = Get-ChildItem $targetPath -Filter "*.pdb" -Recurse -ErrorAction SilentlyContinue
-    if ($pdbFiles) {
-        $pdbSize = [math]::Round(($pdbFiles | Measure-Object -Property Length -Sum).Sum / 1MB, 1)
-        $pdbFiles | Remove-Item -Force -ErrorAction SilentlyContinue
-        $totalReclaimed += $pdbSize
-        Write-Host "  Removed .pdb debug symbols ($pdbSize MB)" -ForegroundColor Green
-    }
-
-    # Remove build script output caches
-    foreach ($profile in @("debug", "release")) {
-        $buildPath = Join-Path $targetPath "$profile\build"
-        if (Test-Path $buildPath) {
-            $sizeMB = Get-FolderSizeMB $buildPath
-            Remove-Item $buildPath -Recurse -Force -ErrorAction SilentlyContinue
-            $totalReclaimed += $sizeMB
-            Write-Host "  Removed $profile\build ($sizeMB MB)" -ForegroundColor Green
-        }
+    $remainingMB = Get-FolderSizeMB $targetPath
+    if ($remainingMB -gt 0) {
+        Write-Host "  target/ still holds $remainingMB MB, including superseded dependency builds" -ForegroundColor DarkGray
     }
 
     # Clean frontend dist too
@@ -77,7 +65,7 @@ if ($smartClean) {
     Write-Host ""
     Write-Host "Smart clean complete! ~$totalReclaimed MB reclaimed." -ForegroundColor Green
     Write-Host "Compiled dependencies preserved — next build will be fast." -ForegroundColor DarkGray
-    Write-Host "Tip: Use -Full to remove everything (forces full rebuild)." -ForegroundColor DarkGray
+    Write-Host "Tip: Cargo never deletes superseded builds; use -Full periodically (with sccache the rebuild is mostly cache hits)." -ForegroundColor DarkGray
     exit 0
 }
 

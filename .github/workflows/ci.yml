@@ -114,10 +114,6 @@ jobs:
     if: needs.changes.outputs.desktop == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
-    env:
-      # Full debug symbols inflate the Windows cache/link work. Line tables
-      # retain file:line backtraces and assertions without variable/type info.
-      CARGO_PROFILE_DEV_DEBUG: "line-tables-only"
     # macOS is tier 2 (ADR 0010) and some timing-sensitive tests were flaky
     # there, so its leg reports failures without failing `required`.
     continue-on-error: ${{ matrix.os == 'macos-15' }}
@@ -318,6 +314,25 @@ jobs:
 
       - name: Rust format
         run: cargo fmt --all -- --check
+
+      - name: Install pinned cargo-hakari binary
+        shell: bash
+        run: |
+          # Curl pins are maintained manually; see docs/testing.md#pinned-ci-binaries.
+          archive="$RUNNER_TEMP/cargo-hakari.tar.gz"
+          curl --fail --location --retry 3 --max-time 90 \
+            https://github.com/guppy-rs/guppy/releases/download/cargo-hakari-0.9.39/cargo-hakari-0.9.39-x86_64-unknown-linux-gnu.tar.gz \
+            --output "$archive"
+          echo "699a3193a9bd1a8d914b970d3f50f3385f24fbd8b1294d0c0ff31fbe7c2c9f48  $archive" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$HOME/.cargo/bin" cargo-hakari
+          cargo hakari --version
+
+      # A stale workspace-hack silently reintroduces duplicate dependency
+      # builds between workspace, per-crate and desktop commands.
+      - name: Workspace-hack freshness
+        run: |
+          cargo hakari generate --diff
+          cargo hakari manage-deps --dry-run
 
       - name: Repository contract checks
         run: |

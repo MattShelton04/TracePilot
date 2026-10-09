@@ -40,6 +40,7 @@ specta = { workspace = true, features = ["derive"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 specta-typescript = { workspace = true }
 specta-serde = { workspace = true }
+tracepilot-workspace-hack = { version = "0.1", path = "../tracepilot-workspace-hack" }
 
 [dev-dependencies]
 rusqlite = { workspace = true }

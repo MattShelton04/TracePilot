@@ -172,7 +172,7 @@ Limits:
   The launcher refuses a second one and asks for a separate worktree
   (`git worktree add .agent/worktrees/<name> -b <branch> origin/main`, then
   `pnpm install`). Each worktree has its own `target/`, which costs disk space and
-  a first build.
+  a first build; see [local builds](local-builds.md) to keep both down.
 - **Frontend-only and production instances can share a checkout.** `-Mode ui`
   starts only Vite. For read-only exploration by several agents, build one release
   executable, copy it out of `target/` (a rebuild cannot replace a running file),

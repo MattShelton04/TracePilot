@@ -6,3 +6,9 @@
 # user's installed `copilot` via `CliProgram::Path`, so builds must never
 # fetch or embed CLI artifacts.
 COPILOT_SKIP_CLI_DOWNLOAD = "1"
+
+# The toolchain's bundled LLD links far faster, and with much less memory, than
+# MSVC link.exe — most of an incremental rebuild is relinking test binaries and
+# the desktop executable (docs/local-builds.md).
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"

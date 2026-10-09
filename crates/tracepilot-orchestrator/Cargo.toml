@@ -41,6 +41,7 @@ github-copilot-sdk = { workspace = true }
 # Phase 1B.1 codegen pilot: derive `specta::Type` on `BridgeMetricsSnapshot`
 # so tauri-specta can emit a TS mirror. Zero runtime cost.
 specta = { workspace = true, features = ["derive"] }
+tracepilot-workspace-hack = { version = "0.1", path = "../tracepilot-workspace-hack" }
 
 [dev-dependencies]
 tempfile = { workspace = true }
