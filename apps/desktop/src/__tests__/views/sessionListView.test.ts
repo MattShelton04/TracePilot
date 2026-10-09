@@ -7,7 +7,9 @@ import { useSessionsStore } from "@/stores/sessions";
 import SessionListView from "@/views/SessionListView.vue";
 
 const routerPush = vi.fn();
+const enabledFeatures = new Set<string>();
 const preferences = reactive({
+  isFeatureEnabled: (feature: string) => enabledFeatures.has(feature),
   whenReady: Promise.resolve(),
   autoRefreshEnabled: false,
   autoRefreshIntervalSeconds: 5,
@@ -68,6 +70,7 @@ describe("Session list empty-state recovery", () => {
     setupPinia();
     vi.clearAllMocks();
     preferences.hideEmptySessions = true;
+    enabledFeatures.clear();
     store = useSessionsStore();
     vi.spyOn(store, "fetchSessions").mockResolvedValue(undefined);
     vi.spyOn(store, "reindex").mockResolvedValue(undefined);
@@ -88,6 +91,15 @@ describe("Session list empty-state recovery", () => {
     expect(wrapper.text()).not.toContain("Try a different search");
     await wrapper.get(".empty-state-btn--primary").trigger("click");
     expect(routerPush).toHaveBeenCalledWith({ name: "settings" });
+  });
+
+  it("names both sources when Claude Code sessions are enabled", async () => {
+    enabledFeatures.add("claudeCodeSessions");
+    wrapper = render();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Start a Copilot CLI or Claude Code session");
+    expect(wrapper.text()).toContain("check the session folders in Settings");
   });
 
   it("clears search, repository and source filters without changing sorting or empty visibility", async () => {

@@ -145,8 +145,9 @@ const emptyState = computed(() => {
   if (store.sessions.length === 0) {
     return {
       title: "No sessions yet",
-      description:
-        "Start a Copilot session to see it here. If you already have sessions, check the session directory in Settings.",
+      description: prefs.isFeatureEnabled("claudeCodeSessions")
+        ? "Start a Copilot CLI or Claude Code session to see it here. If you already have sessions, check the session folders in Settings."
+        : "Start a Copilot session to see it here. If you already have sessions, check the session directory in Settings.",
       primaryAction: {
         label: "Open Settings",
         onClick: () => {
@@ -277,7 +278,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           <div class="loading-text">
             <div class="text-sm font-medium text-[var(--text-primary)]">Loading sessions…</div>
             <div class="text-xs text-[var(--text-tertiary)] mt-1">
-              {{ indexingProgress ? "Building the session index. This only happens once." : "Fetching your recent Copilot sessions." }}
+              {{ indexingProgress ? "Building the session index. This only happens once." : "Fetching your recent sessions." }}
             </div>
           </div>
         </div>

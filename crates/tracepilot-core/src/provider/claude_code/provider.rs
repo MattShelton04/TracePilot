@@ -4,8 +4,8 @@
 //! A session is `projects/<cwd-slug>/<uuid>.jsonl` plus the files in
 //! `<uuid>/subagents/`. Parsing never reads the other files a transcript
 //! references (`tool-results/`, file history, plan files): only the
-//! artifact views open them, on request. Nothing registers this provider
-//! until the experimental flag (F8) does.
+//! artifact views open them, on request. The app registers this provider
+//! only while the experimental `claudeCodeSessions` flag is on.
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;

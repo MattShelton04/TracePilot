@@ -262,7 +262,9 @@ model, usage or write tier is unknown, the current `costAmount` is absent. The c
 estimate remains available as `coverage.snapshotCost` with unit `usd` and basis
 `providerEstimate`. Existing index
 billing columns retain only their Copilot meaning; Claude USD costs are not written
-into those columns. Source-aware cost analytics and presentation remain C10/U2/U3.
+into those columns. They go into the separate, nullable `cost_usd` columns on `sessions`,
+`session_segments` and `session_model_metrics` (migration 24, U4), one segment per run.
+Source-aware presentation shipped in U2, U3 and U4.
 
 | TracePilot field | Copilot source | Claude Code source | Fidelity |
 | --- | --- | --- | --- |
@@ -297,6 +299,8 @@ into those columns. Source-aware cost analytics and presentation remain C10/U2/U
 | Subagents (cards, agent tree, Messages view) | ✅ | L1/L2 | Cards at L1; tree, Timeline and Messages at L2 |
 | Events tab | ✅ | L1 | Native records; bookkeeping hidden by default |
 | Overview | 🟡 | L1 | No Copilot checkpoint summaries or shutdown type. Plan from `ExitPlanMode` and file-history checkpoints since C13 |
+| Background tasks | ✅ | L3 | Overview list of background subagents and shells from task notifications and `task_status` (C12). Output files in the temp folder are never read |
+| Format diagnostics | ✅ | L3 | Settings → Data & Storage lists unmapped record and attachment types and versions seen, as names and counts only; `node scripts/claude-census.mjs` prints the same (Q3) |
 | Metrics tab | ✅ | L2 | Exact tokens and cache; USD estimate; no AIC or premium requests |
 | Context tab | 🟡 | L2 | Exact total per call; no category split. Estimated split from `prompt_snapshot` at L4 |
 | Prompt cache (header countdown, windows) | ✅⭐ | L2 | Observed writes and reads; estimated expiry from the recorded TTL tier, or "unknown" |
@@ -304,8 +308,8 @@ into those columns. Source-aware cost analytics and presentation remain C10/U2/U
 | Checkpoints / rewind | 🟡 | L3 | Read-only, from file-history (`has_file_history`; no Copilot-style checkpoint summaries, no restore) |
 | Explorer tab | 🟡 | L3 | `subagents/` and `tool-results/` as top-level folders; there is no session directory per se. No Open Folder action |
 | Timeline (swimlane, waterfall) | ✅ | L2 | Per-call timestamps; tool durations |
-| Live refresh / running badge | ✅⭐ | L2 | `sessions/<pid>.json` busy/idle |
-| Alerts / notifications | 🟡 | L3 | Based on the liveness status change |
+| Live refresh / running badge | ✅⭐ | L2 | `sessions/<pid>.json` busy/idle, shown as Busy or Waiting. A running session's detail view refreshes every 3 s until it goes idle. Windows only: elsewhere Claude sessions never show as running |
+| Alerts / notifications | ⛔ | — | Dropped (Q4, maintainer decision): no alerts for Claude Code sessions |
 | Analytics dashboard | ✅ | L2 | Source filter; cost split by source |
 | Tool analysis | ✅ | L3 | Group by canonical kind with native-name breakdown |
 | Code impact | ✅ | L3 | |
