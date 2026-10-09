@@ -189,9 +189,9 @@ fn resumed_claude_runs_land_on_their_own_days_with_usd() {
     let usd: Vec<_> = filtered.cost_usd_by_day.iter().map(|d| d.cost).collect();
     assert!(usd.len() == 2 && close(Some(usd[0]), 0.75));
 
-    // Rows indexed before per-run segments (v21) are refreshed.
+    // Rows indexed before per-run segments (v22) are refreshed.
     db.conn
-        .execute("UPDATE sessions SET analytics_version=21", [])
+        .execute("UPDATE sessions SET analytics_version=22", [])
         .unwrap();
     assert!(db.session_is_stale(provider.as_ref(), &locator));
 }

@@ -48,10 +48,14 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
 ///
-/// v22: one segment per run, from the difference between consecutive
+/// v23: one segment per run, from the difference between consecutive
 /// `cost-state` snapshots plus the tail, so a resumed session's usage lands
 /// on the day of each run. USD cost per session, run and model
 /// (`cost_usd`), and native tool durations.
+///
+/// v22: slash-command prompts as typed (`/model opus`), a title for sessions
+/// of commands only, and durations estimated from timestamps for sessions
+/// without a `cost-state` snapshot.
 ///
 /// v21: one session-level segment per Claude session, so the per-day
 /// dashboard charts (tokens, activity, cost) include Claude totals.
@@ -65,7 +69,7 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 22;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 23;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

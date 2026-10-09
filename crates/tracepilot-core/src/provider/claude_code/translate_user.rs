@@ -7,7 +7,9 @@
 use serde_json::{Value, json};
 
 use super::notify::{TaskNotification, contains_notification, parse_notifications};
-use super::reader::Line;
+use super::prompts::{
+    command_name, command_output, command_prompt, echoed_command, is_command_caveat,
+};
 use super::records::{Blocks, Rec, block_type};
 use super::translate::{Custom, RecCtx, Stream, Translator};
 
@@ -76,6 +78,11 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             return;
         }
         if rec.flag("isMeta") {
+            if is_command_caveat(&text) {
+                // An instruction to the model, not something anyone typed or read.
+                self.native_only(st, ctx);
+                return;
+            }
             let data = json!({"content": text});
             match st.pending_skill.take() {
                 Some(skill) => {
@@ -98,22 +105,30 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             return;
         }
         let mut echo = None;
+        let mut content = text.clone();
         let (source, command) = if let Some(name) = command_name(&text) {
             if st.echoed_command.as_ref() == Some(&name) {
                 // The typed echo already opened this command's interaction.
                 st.echoed_command = None;
-                self.emit(st, ctx, "system.message", json!({"content": text}));
+                self.native_only(st, ctx);
                 return;
             }
+            content = command_prompt(&name, &text);
             (format!("command-{name}"), Some(name))
         } else if let Some(name) = echoed_command(&text, &st.lines[st.cursor + 1..]) {
             echo = Some(name.clone());
             (format!("command-{name}"), Some(name))
-        } else if text.starts_with("<local-command-stdout>") {
-            if st.last_command.take().is_some() {
-                self.emit(st, ctx, "system.message", json!({"content": text}));
+        } else if let Some(output) = command_output(&text) {
+            let folds = st.last_command.take().is_some();
+            if output.is_empty() {
+                self.native_only(st, ctx);
                 return;
             }
+            if folds {
+                self.emit(st, ctx, "system.message", json!({"content": output}));
+                return;
+            }
+            content = output;
             ("command-local".to_string(), None)
         } else {
             ("user".to_string(), None)
@@ -122,7 +137,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         st.last_command = command;
         st.echoed_command = echo;
         let data = json!({
-            "content": text,
+            "content": content,
             "interactionId": st.interaction,
             "source": source,
             "attachments": prompt_attachments(rec),
@@ -340,45 +355,6 @@ fn is_interrupt(rec: Rec<'_>, text: &str) -> bool {
     rec.str("interruptedMessageId").is_some() || text.starts_with("[Request interrupted by user")
 }
 
-/// A slash command record, `<command-name>/review</command-name>…` → `review`.
-/// The tags may come in any order (`<command-message>` often comes first).
-fn command_name(text: &str) -> Option<String> {
-    if !text.trim_start().starts_with("<command-") {
-        return None;
-    }
-    let start = text.find("<command-name>")? + "<command-name>".len();
-    let name = &text[start..start + text[start..].find("</command-name>")?];
-    Some(name.trim().trim_start_matches('/').to_string()).filter(|n| !n.is_empty())
-}
-
-/// A slash command as typed, `/compact` → `compact`, when the
-/// `<command-name>` record for the same command follows before the next
-/// model call or prompt. Claude Code writes the typed text first when the
-/// command runs before its record is written: in the S3 census all 15 such
-/// records were `/compact`, followed by the compaction and then the record.
-fn echoed_command(text: &str, rest: &[Line]) -> Option<String> {
-    let name = text.trim().strip_prefix('/')?.split_whitespace().next()?;
-    if !name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':'))
-    {
-        return None;
-    }
-    for line in rest {
-        let rec = Rec(&line.value);
-        match rec.kind() {
-            "assistant" => return None,
-            "user" if rec.flag("isMeta") || rec.flag("isCompactSummary") => {}
-            "user" => {
-                let next = command_name(&rec.text().unwrap_or_default())?;
-                return (next == name).then_some(next);
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
 /// Pasted images, without their (already sanitized) data.
 fn prompt_attachments(rec: Rec<'_>) -> Option<Vec<Value>> {
     let Blocks::Array(blocks) = rec.blocks() else {
@@ -390,68 +366,4 @@ fn prompt_attachments(rec: Rec<'_>) -> Option<Vec<Value>> {
         .map(|b| json!({"type": "image", "mediaType": b.pointer("/source/media_type")}))
         .collect();
     (!images.is_empty()).then_some(images)
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-
-    use serde_json::{Value, json};
-
-    use super::{Line, command_name, echoed_command};
-
-    fn lines(records: Vec<Value>) -> Vec<Line> {
-        records
-            .into_iter()
-            .enumerate()
-            .map(|(i, value)| Line {
-                line: i + 1,
-                value: Arc::new(value),
-            })
-            .collect()
-    }
-
-    fn user(content: &str) -> Value {
-        json!({"type": "user", "message": {"role": "user", "content": content}})
-    }
-
-    #[test]
-    fn typed_command_is_an_echo_only_when_its_record_follows() {
-        let record = "<command-name>/compact</command-name>";
-        let confirmed = lines(vec![
-            json!({"type": "system", "subtype": "compact_boundary"}),
-            json!({"type": "user", "isCompactSummary": true, "message": {"content": "S"}}),
-            json!({"type": "user", "isMeta": true, "message": {"content": "Caveat"}}),
-            user(record),
-        ]);
-        assert_eq!(
-            echoed_command("/compact", &confirmed).as_deref(),
-            Some("compact")
-        );
-        assert_eq!(
-            echoed_command(" /compact keep tests ", &confirmed).as_deref(),
-            Some("compact")
-        );
-        // Another command's record, a model call first, or nothing at all.
-        assert_eq!(echoed_command("/clear", &confirmed), None);
-        let answered = lines(vec![json!({"type": "assistant"}), user(record)]);
-        assert_eq!(echoed_command("/compact", &answered), None);
-        let prompt = lines(vec![user("Why?"), user(record)]);
-        assert_eq!(echoed_command("/compact", &prompt), None);
-        assert_eq!(echoed_command("/compact", &[]), None);
-        // Prose that starts with a slash.
-        assert_eq!(echoed_command("/usr/bin is missing", &confirmed), None);
-        assert_eq!(echoed_command("compact", &confirmed), None);
-    }
-
-    #[test]
-    fn command_name_accepts_either_tag_order() {
-        let review = "<command-name>/review</command-name>
-<command-args></command-args>";
-        assert_eq!(command_name(review).as_deref(), Some("review"));
-        let compact = "<command-message>compact</command-message>
-<command-name>/compact</command-name>";
-        assert_eq!(command_name(compact).as_deref(), Some("compact"));
-        assert_eq!(command_name("Run <command-name>/x</command-name>"), None);
-    }
 }

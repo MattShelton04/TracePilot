@@ -8,6 +8,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -45,9 +46,23 @@ pub struct ClaudeCallUsage {
     pub snapshot_anchor: Option<usize>,
     /// The call is on a rewound branch. It still counts: it was billed.
     pub abandoned: bool,
+    /// The latest timestamp before the call's first record in its file: when
+    /// the request was sent, as near as the transcript records it.
+    #[serde(skip)]
+    pub requested_at: Option<DateTime<Utc>>,
+    /// The latest timestamp of the call's own records.
+    #[serde(skip)]
+    pub responded_at: Option<DateTime<Utc>>,
 }
 
 impl ClaudeCallUsage {
+    /// Request to last response record, estimated from transcript timestamps.
+    /// `None` when either end is missing or the clock went backwards.
+    pub fn api_duration_ms(&self) -> Option<u64> {
+        let elapsed = self.responded_at? - self.requested_at?;
+        u64::try_from(elapsed.num_milliseconds()).ok()
+    }
+
     /// Input including cache reads and writes, matching Copilot's `inputTokens`.
     pub fn inclusive_input(&self) -> u64 {
         self.input_tokens + self.cache_read_tokens + self.cache_write_tokens
@@ -168,6 +183,9 @@ pub(super) struct CallSite<'a> {
     pub(super) line: usize,
     pub(super) snapshot_anchor: Option<usize>,
     pub(super) abandoned: bool,
+    /// The latest timestamp before this record in its file.
+    pub(super) requested_at: Option<DateTime<Utc>>,
+    pub(super) at: Option<DateTime<Utc>>,
 }
 
 #[derive(Default)]
@@ -211,10 +229,13 @@ impl CallTable {
                 line: site.line,
                 snapshot_anchor: site.snapshot_anchor,
                 abandoned: site.abandoned,
+                requested_at: site.requested_at,
+                responded_at: None,
             });
             self.calls.len() - 1
         });
         let call = &mut self.calls[slot];
+        call.responded_at = call.responded_at.max(site.at);
         call.input_tokens_recorded = usage_valid
             && rec
                 .0

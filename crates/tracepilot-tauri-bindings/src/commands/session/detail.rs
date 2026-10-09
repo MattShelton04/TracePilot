@@ -6,7 +6,7 @@ use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, with_session_locator};
 use crate::types::{EventCache, SessionIncidentItem};
 
-use super::shared::load_cached_typed_events;
+use super::shared::load_cached_summary;
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%session_id))]
@@ -19,26 +19,22 @@ pub async fn get_session_detail(
     let event_cache = event_cache.inner().clone();
 
     with_session_locator(&state, sid, move |session| {
-        // Use cached events — avoids re-parsing the event log on every call.
-        // The cache is keyed on the session's source_version, so active
-        // sessions always get fresh data when a file changes. On cache or
-        // parse error, gracefully degrade to empty events (matches original
-        // load_session_summary behaviour of proceeding without event data).
-        let events = match load_cached_typed_events(&event_cache, &session) {
-            Ok((cached, _)) => cached,
+        // Cached per source_version, so active sessions get fresh data when
+        // any of their files changes. On a load error, degrade to a summary
+        // without event data (the original load_session_summary behaviour).
+        match load_cached_summary(&event_cache, &session) {
+            Ok(summary) => Ok(summary),
             Err(e) => {
                 tracing::warn!(
                     path = %session.locator.primary_path.display(),
                     error = %e,
                     "Failed to load cached events for session detail; proceeding without event data"
                 );
-                std::sync::Arc::new(vec![])
+                Ok(session
+                    .provider
+                    .summary_from_events(&session.locator, &[])?)
             }
-        };
-
-        Ok(session
-            .provider
-            .summary_from_events(&session.locator, &events)?)
+        }
     })
     .await
 }
@@ -86,10 +82,7 @@ pub async fn get_shutdown_metrics(
     let cache = cache.inner().clone();
 
     with_session_locator(&state, sid, move |session| {
-        let (events, _) = load_cached_typed_events(&cache, &session)?;
-        Ok(super::provider_metrics::metrics_for_session(
-            &session, &events,
-        )?)
+        super::provider_metrics::metrics_for_session(&session, &cache)
     })
     .await
 }

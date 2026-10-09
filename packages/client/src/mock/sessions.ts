@@ -443,6 +443,10 @@ const MOCK_CLAUDE_CODE_METRICS: ShutdownMetrics = {
   },
 };
 
+export function isMockClaudeSession(sessionId: string): boolean {
+  return MOCK_SESSIONS.find((s) => s.id === sessionId)?.source === "claudeCode";
+}
+
 export function getMockShutdownMetrics(sessionId: string): ShutdownMetrics {
   const source = MOCK_SESSIONS.find((s) => s.id === sessionId)?.source;
   return source === "claudeCode" ? MOCK_CLAUDE_CODE_METRICS : MOCK_SHUTDOWN_METRICS;

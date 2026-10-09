@@ -10,9 +10,11 @@ import {
   claudeOrchardSessionId,
 } from "./claude-code.mjs";
 import {
+  claudeCommandsSessionId,
   claudeGallerySessionId,
   claudeRecordedCostSessionId,
   claudeRunningCostSessionId,
+  claudeUntieredCacheSessionId,
 } from "./claude-gallery.mjs";
 import {
   buildReportIntentSession,
@@ -207,9 +209,11 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
       claudeGallerySessionId,
       claudeRunningCostSessionId,
       claudeRecordedCostSessionId,
+      claudeUntieredCacheSessionId,
+      claudeCommandsSessionId,
     ],
   );
-  assert.equal(generated.files.length, 12);
+  assert.equal(generated.files.length, 14);
   assert(
     existsSync(
       join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),
@@ -252,9 +256,28 @@ test("Claude Code sessions are deterministic, linked and shaped as Claude Code w
       uses.map((u) => u.id),
       results.map((r) => r.tool_use_id),
     );
-    assert(records.some((r) => r.type === "ai-title" && r.aiTitle === session.title));
-    if (!session.title.includes("Recorded usage"))
-      assert(records.some((r) => r.type === "cost-state"));
+    if (session.id === claudeCommandsSessionId) {
+      // Titled from its first command: no prompt, model call or ai-title.
+      assert(!records.some((r) => r.type === "ai-title" || r.type === "assistant"));
+      const typed = records.filter((r) => r.type === "user" && !r.isMeta);
+      assert(typed[0].message.content.startsWith("<command-name>/model</command-name>"));
+    } else {
+      assert(records.some((r) => r.type === "ai-title" && r.aiTitle === session.title));
+    }
+    const snapshotless = [
+      claudeRecordedCostSessionId,
+      claudeUntieredCacheSessionId,
+      claudeCommandsSessionId,
+    ];
+    assert.equal(
+      records.some((r) => r.type === "cost-state"),
+      !snapshotless.includes(session.id),
+    );
+    if (session.id === claudeUntieredCacheSessionId) {
+      const usages = records.filter((r) => r.type === "assistant").map((r) => r.message.usage);
+      assert(usages.length && usages.every((u) => u.cache_creation_input_tokens > 0));
+      assert(usages.every((u) => u.cache_creation === undefined));
+    }
     for (const file of rest.filter((f) => f.path.endsWith(".jsonl"))) {
       const agent = file.content
         .trimEnd()

@@ -155,7 +155,7 @@ figure for snapshot runs, TracePilot's for calls after the last snapshot, and
 in AI Credits. Analytics never adds the two units: `costBySource` reports each
 source's sessions, tokens and cost in its own unit, `costUsdByDay` charts the
 USD estimates alone, and model rows are grouped by model and source so AI Credit
-estimates apply only to Copilot rows. Claude Code analytics version 22 rebuilds
+estimates apply only to Copilot rows. Claude Code analytics version 23 rebuilds
 indexed Claude sessions with these rows; Copilot's version is unchanged.
 
 ### Successful source snapshots

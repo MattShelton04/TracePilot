@@ -5,6 +5,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use chrono::{DateTime, Utc};
 
 use super::ClaudeParse;
+use super::prompts::without_paste_tags;
 use super::records::{Blocks, Rec, block_type};
 use crate::ids::SessionId;
 use crate::models::conversation::ConversationTurn;
@@ -26,6 +27,7 @@ pub(super) fn summarize(
     let mut title = None;
     let mut agent_name = None;
     let mut prompt = None;
+    let mut command = None;
     let mut origin = None;
     let mut pr_repository = None;
     for (event, position) in parsed.events.iter().zip(&parsed.positions) {
@@ -78,15 +80,19 @@ pub(super) fn summarize(
             }
             _ => {}
         }
-        if prompt.is_none()
-            && event.raw.event_type == "user.message"
-            && event.raw.data["source"] == "user"
-            && !position.abandoned
-        {
-            prompt = nonempty(&event.raw.data["content"]);
+        if event.raw.event_type == "user.message" && !position.abandoned {
+            let source = event.raw.data["source"].as_str().unwrap_or("");
+            if prompt.is_none() && source == "user" {
+                prompt = nonempty(&event.raw.data["content"])
+                    .map(|text| without_paste_tags(&text))
+                    .filter(|text| !text.is_empty());
+            } else if command.is_none() && source.starts_with("command-") {
+                command = nonempty(&event.raw.data["content"]);
+            }
         }
     }
-    summary.summary = title.or(agent_name).or(prompt);
+    // A session of slash commands only is named after its first command.
+    summary.summary = title.or(agent_name).or(prompt).or(command);
     summary.repository = origin.or(pr_repository);
     if let Some(start) = parsed
         .cost_snapshots
@@ -207,12 +213,27 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
         lines_removed: snapshot.and_then(|s| s.total_lines_removed),
         files_modified: (!files.is_empty()).then(|| files.into_iter().collect()),
     });
+    // Without a snapshot, estimate durations from transcript timestamps.
+    let (api_duration, duration) = match snapshot {
+        Some(s) => (s.total_api_duration_ms, s.total_duration_ms),
+        None => (
+            parsed
+                .calls
+                .iter()
+                .filter_map(|call| call.api_duration_ms())
+                .reduce(|total, ms| total + ms),
+            summary
+                .created_at
+                .zip(summary.updated_at)
+                .and_then(|(start, end)| u64::try_from((end - start).num_milliseconds()).ok()),
+        ),
+    };
     Some(SessionMetrics {
-        total_api_duration_ms: snapshot.and_then(|s| s.total_api_duration_ms),
+        total_api_duration_ms: api_duration,
         total_api_duration_without_retries_ms: snapshot
             .and_then(|s| s.total_api_duration_without_retries_ms),
         total_tool_duration_ms: snapshot.and_then(|s| s.total_tool_duration_ms),
-        total_duration_ms: snapshot.and_then(|s| s.total_duration_ms),
+        total_duration_ms: duration,
         session_start_time: snapshot.and_then(|s| s.start_time).or_else(|| {
             summary
                 .created_at

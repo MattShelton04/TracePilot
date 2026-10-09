@@ -8,6 +8,7 @@ import { sectionId, visualSections } from "./sections.mjs";
 import { updateAvailableFixture } from "./update-fixtures.mjs";
 
 const session = "/session/sess-auth-refactor";
+const claudeSession = "/session/sess-claude-code-review";
 const skillEditor = `/skills/${encodeURIComponent(skill.directory)}`;
 export const cases = [
   { id: "sessions", route: "/", ready: '[data-testid="session-card"]', state: "populated" },
@@ -25,6 +26,13 @@ export const cases = [
     route: `${session}/${tab}`,
     ready: tab === "explorer" ? ".fb-tree" : ".detail-title",
     state: "populated",
+  })),
+  // The source-aware tabs of a Claude Code session (mock data).
+  ...["overview", "metrics", "context"].map((tab) => ({
+    id: `claude-session-${tab}`,
+    route: `${claudeSession}/${tab}`,
+    ready: ".detail-title",
+    state: "populated Claude Code session",
   })),
   {
     id: "session-explorer-file",
