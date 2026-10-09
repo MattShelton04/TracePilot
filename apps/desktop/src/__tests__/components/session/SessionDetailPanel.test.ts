@@ -240,6 +240,32 @@ describe("SessionDetailPanel", () => {
     expect(afterIdle).toBe(0);
   });
 
+  it("ignores a running answer for a session the panel has left", async () => {
+    let answerFirst: (value: unknown) => void = () => {};
+    mocks.getSessionLiveness
+      .mockImplementationOnce(() => new Promise((resolve) => (answerFirst = resolve)))
+      .mockResolvedValue({ state: "idle" });
+    const wrapper = mount(SessionDetailPanel, {
+      props: {
+        store: createStore(),
+        sessionId: "session-1",
+        tabMode: "local",
+        activeSubTab: "overview",
+        refreshEnabled: false,
+      },
+    });
+    await flushPromises();
+    await wrapper.setProps({ sessionId: "session-2" });
+    await flushPromises();
+    answerFirst({ state: "running", pid: 7, status: "busy" });
+    await flushPromises();
+
+    expect(mocks.getSessionLiveness).toHaveBeenLastCalledWith("session-2");
+    expect(wrapper.find(".active-badge-inline").exists()).toBe(false);
+    expect(wrapper.emitted("update:isActive")).toEqual([[false]]);
+    wrapper.unmount();
+  });
+
   function mountForSource(source?: "copilot" | "claudeCode") {
     const store = createStore();
     if (source) store.detail = { ...store.detail!, source, hostType: null };

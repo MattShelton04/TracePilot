@@ -18,6 +18,7 @@ import {
   PageShell,
   SkeletonLoader,
   TabNav,
+  useAsyncGuard,
   useAutoRefresh,
   useClipboard,
 } from "@tracepilot/ui";
@@ -145,8 +146,11 @@ async function openSessionFolder() {
  * refresh checks again and resumes it if the session reappears.
  */
 const sessionMissing = ref(false);
+/** The newest liveness check wins; a session switch drops any in flight. */
+const runningGuard = useAsyncGuard();
 
 async function checkRunning() {
+  const token = runningGuard.start();
   if (!props.sessionId) {
     isSessionActive.value = false;
     runStatus.value = null;
@@ -154,11 +158,13 @@ async function checkRunning() {
   }
   try {
     const liveness = await getSessionLiveness(props.sessionId);
+    if (!runningGuard.isValid(token)) return;
     isSessionActive.value = liveness.state === "running";
     runStatus.value = liveness.state === "running" ? liveness.status : null;
     sessionMissing.value = false;
     emit("update:isActive", isSessionActive.value);
   } catch (e) {
+    if (!runningGuard.isValid(token)) return;
     isSessionActive.value = false;
     runStatus.value = null;
     if (isSessionNotFoundError(e)) {
