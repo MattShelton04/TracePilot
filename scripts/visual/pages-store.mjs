@@ -5,7 +5,7 @@
 import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { renderHistory } from "./gallery-template.mjs";
-import { historyEntry, retainedHistory } from "./history.mjs";
+import { historyEntry, maxViews, retainedHistory } from "./history.mjs";
 import { classifyPixels } from "./pixels.mjs";
 import { decodePng } from "./png.mjs";
 import {
@@ -79,7 +79,7 @@ export async function migrateLegacyRun(runDir, store) {
   if (![2, 3].includes(data?.schema) || !Array.isArray(data.rows))
     throw new Error("Unsupported legacy report");
   const files = new Set();
-  const rows = data.rows.filter((row) => idPattern.test(row?.id)).slice(0, 128);
+  const rows = data.rows.filter((row) => idPattern.test(row?.id)).slice(0, maxViews);
   for (const row of rows) {
     const decoded = {};
     for (const side of ["base", "head"]) {

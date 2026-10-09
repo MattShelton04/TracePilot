@@ -239,7 +239,7 @@ symlinks/path traversal and validates screenshot dimensions. The reporter
 validates every PNG chunk before decoding, accepts only bounded 1440×960
 8-bit noninterlaced RGB/RGBA screenshots without ancillary metadata, rejects
 duplicate headers, verifies PNG checksums, uses bounded safe case IDs for paths, escapes all
-artifact text, bounds the combined inventory to 128 views, and generates its own
+artifact text, bounds the combined inventory to 256 views (`maxViews`), and generates its own
 HTML. Embedded JSON cannot close its script element; the gallery permits only its
 trusted, hash-authorized JavaScript under a Content Security Policy. History
 entries are also normalized before creating paths or display data. PR numbers come from GitHub API
@@ -382,7 +382,7 @@ its trusted paired reporter does not accept arbitrary viewport dimensions.
 For a focused initial/expanded comparison, use
 `--case=rich-tool-shell-preview,rich-tool-shell-full` or
 `--case=rich-tool-web-search,rich-tool-web-search-expanded`. The fixture test
-enforces the publisher's 128-view inventory limit when adding cases.
+enforces the publisher's 256-view inventory limit when adding cases.
 
 The worktree case also asserts all header/body columns align at all three
 desktop sizes, including selected active and stale rows. This catches generated
