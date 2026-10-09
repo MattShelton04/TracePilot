@@ -422,8 +422,15 @@ fn parse_filetime_accepts_only_a_positive_decimal() {
 #[cfg(windows)]
 #[test]
 fn process_start_time_reads_a_live_process_and_rejects_a_missing_one() {
-    let own = process_start_time(std::process::id()).expect("own start time");
+    // The app's 10 s bound reads a slow PowerShell as a missing process. A
+    // loaded CI runner can take longer than that to start one, so the test
+    // allows far more and still checks the same answers.
+    const GENEROUS_SECS: u64 = 120;
+    let lookup = |pid| hidden::process_start_time_within(pid, GENEROUS_SECS);
+    let own = lookup(std::process::id()).expect("own start time");
     assert!(own.len() >= 17, "a FILETIME in decimal, got {own}");
-    assert_eq!(process_start_time(std::process::id()), Some(own));
-    assert_eq!(process_start_time(u32::MAX), None);
+    assert_eq!(lookup(std::process::id()), Some(own));
+    // Windows hands out pids in multiples of 4, so this odd one is never live.
+    assert_eq!(lookup(i32::MAX as u32), None);
+    assert_eq!(lookup(u32::MAX), None);
 }
