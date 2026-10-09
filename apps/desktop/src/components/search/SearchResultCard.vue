@@ -3,7 +3,8 @@ import type { ContextSnippet } from "@tracepilot/client";
 import { getResultContext } from "@tracepilot/client";
 import { isNonCopilotSource, type SearchResult, sourceLabel } from "@tracepilot/types";
 import { CONTENT_TYPE_CONFIG, formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
+import { useSessionSourceLookup } from "@/composables/useSessionSource";
 import SearchResultActions from "./SearchResultActions.vue";
 import SearchResultExpandedDetails from "./SearchResultExpandedDetails.vue";
 import SearchResultMeta from "./SearchResultMeta.vue";
@@ -24,6 +25,10 @@ defineEmits<{
 }>();
 
 const ctConfig = CONTENT_TYPE_CONFIG;
+
+// The backend's search rows carry no source yet, so fall back to the session list.
+const sourceOf = useSessionSourceLookup();
+const source = computed(() => sourceOf(props.result.sessionId, props.result.source));
 
 function ctLookup(type: string) {
   return ctConfig[type as keyof typeof ctConfig];
@@ -60,8 +65,8 @@ watch(
     @click="$emit('toggle')"
   >
     <div class="result-header">
-      <span v-if="isNonCopilotSource(result.source)" class="badge badge-claude badge-xs" title="Session source">
-        {{ sourceLabel(result.source) }}
+      <span v-if="isNonCopilotSource(source)" class="badge badge-claude badge-xs" title="Session source">
+        {{ sourceLabel(source) }}
       </span>
       <span v-if="result.sessionRepository" class="badge badge-accent badge-xs">
         {{ result.sessionRepository }}

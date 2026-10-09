@@ -93,7 +93,7 @@ describe("AnalyticsDashboardView", () => {
 
     await flushPromises();
 
-    expect(wrapper.text()).toContain("API Duration");
+    expect(wrapper.text()).toContain("API Time per Session");
     expect(wrapper.text()).toContain("Average");
     expect(wrapper.text()).toContain("Median");
     expect(wrapper.text()).toContain("P95");
@@ -208,7 +208,7 @@ describe("AnalyticsDashboardView", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("10");
-    expect(wrapper.text()).not.toContain("API Duration");
+    expect(wrapper.text()).not.toContain("API Time per Session");
   });
 
   it("renders the USD-first cost trend with an AI Credit compatibility toggle", async () => {

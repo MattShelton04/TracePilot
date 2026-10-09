@@ -2,11 +2,12 @@
 import { isNonCopilotSource, sourceLabel } from "@tracepilot/types";
 import type { ContentTypeStyle } from "@tracepilot/ui";
 import { formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
-import { useId } from "vue";
+import { computed, useId } from "vue";
+import { useSessionSourceLookup } from "@/composables/useSessionSource";
 import type { SessionGroup } from "@/stores/search";
 import SearchResultExpandedDetails from "./SearchResultExpandedDetails.vue";
 
-defineProps<{
+const props = defineProps<{
   groupedResults: SessionGroup[];
   collapsedGroups: Set<string>;
   expandedResults: Set<number>;
@@ -24,6 +25,12 @@ defineEmits<{
 }>();
 
 const groupId = useId();
+// The backend's search rows carry no source yet, so fall back to the session list.
+const sourceOf = useSessionSourceLookup();
+const groupSources = computed(
+  () =>
+    new Map(props.groupedResults.map((g) => [g.sessionId, sourceOf(g.sessionId, g.sessionSource)])),
+);
 </script>
 
 <template>
@@ -48,8 +55,8 @@ const groupId = useId();
             {{ group.sessionSummary || group.sessionId.slice(0, 12) + '…' }}
           </span>
         </button>
-        <div v-if="group.sessionRepository || group.sessionBranch || isNonCopilotSource(group.sessionSource)" class="session-group-badges">
-          <span v-if="isNonCopilotSource(group.sessionSource)" class="badge badge-claude badge-xxs" title="Session source">{{ sourceLabel(group.sessionSource) }}</span>
+        <div v-if="group.sessionRepository || group.sessionBranch || isNonCopilotSource(groupSources.get(group.sessionId))" class="session-group-badges">
+          <span v-if="isNonCopilotSource(groupSources.get(group.sessionId))" class="badge badge-claude badge-xxs" title="Session source">{{ sourceLabel(groupSources.get(group.sessionId)) }}</span>
           <span v-if="group.sessionRepository" class="badge badge-accent badge-xxs">{{ group.sessionRepository }}</span>
           <span v-if="group.sessionBranch" class="badge badge-success badge-xxs">{{ group.sessionBranch }}</span>
         </div>

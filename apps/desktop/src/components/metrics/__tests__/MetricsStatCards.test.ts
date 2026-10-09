@@ -85,12 +85,7 @@ describe("MetricsStatCards source cost", () => {
       },
     });
     const labels = wrapper.findAllComponents(StatCard).map((card) => card.props("label"));
-    expect(labels).toEqual([
-      "Est. Cost (USD)",
-      "Total Tokens",
-      "Recorded Requests",
-      "API Duration",
-    ]);
+    expect(labels).toEqual(["Est. Cost (USD)", "Total Tokens", "Recorded Requests", "API Time"]);
     const cost = wrapper.findAllComponents(StatCard)[0];
     expect(cost.props("value")).toBe("$0.50");
     expect(cost.props("trend")).toBe("TracePilot estimate");
@@ -120,11 +115,12 @@ describe("MetricsStatCards source cost", () => {
       });
       const card = wrapper
         .findAllComponents(StatCard)
-        .find((item) => item.props("label") === "API Duration");
+        .find((item) => item.props("label") === "API Time");
       expect(card?.props("value")).toBe("3s");
       return card?.props("tooltip");
     };
-    expect(tooltip(9)).toBe("Reported with the last cost snapshot");
-    expect(tooltip(null)).toBe("Estimated from transcript timestamps");
+    expect(tooltip(9)).toContain("Reported with the last cost snapshot.");
+    expect(tooltip(null)).toContain("Estimated from transcript timestamps.");
+    expect(tooltip(null)).toContain("longer than the session span");
   });
 });

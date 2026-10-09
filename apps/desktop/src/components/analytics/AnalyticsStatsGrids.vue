@@ -22,6 +22,23 @@ const usdSource = computed(() => {
   return entries.length === 1 && !sourceCapabilities(only.source).hasAic ? only : null;
 });
 
+/**
+ * With several sources, the credit cards cover only the sources billed in AI
+ * Credits; they say so, and the others' estimates stay in Cost by Source.
+ */
+const creditScope = computed(() => {
+  const entries = props.data.costBySource ?? [];
+  const billed = entries.filter((e) => sourceCapabilities(e.source).hasAic);
+  if (billed.length === 0 || billed.length === entries.length) return null;
+  return billed.map((e) => sourceLabel(e.source)).join(", ");
+});
+
+const creditScopeNote = computed(() =>
+  creditScope.value
+    ? ` Covers ${creditScope.value} sessions only; other sources' estimates are in Cost by Source.`
+    : "",
+);
+
 const usdTooltip = computed(() => {
   const entry = usdSource.value;
   if (!entry) return "";
@@ -71,15 +88,15 @@ function aiCreditTooltip(summary: AnalyticsAiCreditSummary | null): string {
     <template v-else>
       <StatCard
         :value="formatAiCredits(aiCreditSummary?.credits)"
-        label="AI Credits"
+        :label="creditScope ? `AI Credits (${creditScope})` : 'AI Credits'"
         color="done"
-        :tooltip="aiCreditTooltip(aiCreditSummary)"
+        :tooltip="aiCreditTooltip(aiCreditSummary) + creditScopeNote"
       />
       <StatCard
         :value="aiCreditSummary?.usdEquivalent == null ? '—' : formatCost(aiCreditSummary.usdEquivalent)"
-        label="AIC USD Equivalent"
+        :label="creditScope ? `AIC USD Equivalent (${creditScope})` : 'AIC USD Equivalent'"
         color="success"
-        :tooltip="aiCreditTooltip(aiCreditSummary)"
+        :tooltip="aiCreditTooltip(aiCreditSummary) + creditScopeNote"
       />
     </template>
   </div>
