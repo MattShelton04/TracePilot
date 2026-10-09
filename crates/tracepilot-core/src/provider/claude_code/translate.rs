@@ -27,6 +27,7 @@ use crate::provider::{NativeRecord, SessionSource};
 /// Record types without a mapping, shown on the Events tab only. The last
 /// four were first seen by the S3 probe (2.1.274–2.1.289).
 const BOOKKEEPING: &[&str] = &[
+    "custom-title",
     "ai-title",
     "agent-name",
     "pr-link",

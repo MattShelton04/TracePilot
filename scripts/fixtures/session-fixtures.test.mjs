@@ -213,7 +213,7 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
       claudeCommandsSessionId,
     ],
   );
-  assert.equal(generated.files.length, 17);
+  assert.equal(generated.files.length, 19);
   assert(
     existsSync(
       join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),
@@ -262,7 +262,11 @@ test("Claude Code sessions are deterministic, linked and shaped as Claude Code w
       const typed = records.filter((r) => r.type === "user" && !r.isMeta);
       assert(typed[0].message.content.startsWith("<command-name>/model</command-name>"));
     } else {
-      assert(records.some((r) => r.type === "ai-title" && r.aiTitle === session.title));
+      // The latest custom title (a `/rename`) names the session, else the ai-title.
+      const custom = records.filter((r) => r.type === "custom-title").at(-1)?.customTitle;
+      assert(
+        custom === session.title || (!custom && records.some((r) => r.aiTitle === session.title)),
+      );
     }
     const snapshotless = [
       claudeRecordedCostSessionId,
@@ -277,6 +281,14 @@ test("Claude Code sessions are deterministic, linked and shaped as Claude Code w
       const usages = records.filter((r) => r.type === "assistant").map((r) => r.message.usage);
       assert(usages.length && usages.every((u) => u.cache_creation_input_tokens > 0));
       assert(usages.every((u) => u.cache_creation === undefined));
+    }
+    // Stale pid files name their own session; nothing writes a `.key` file.
+    for (const file of rest.filter((f) => f.path.startsWith("sessions/"))) {
+      assert.match(file.path, /^sessions\/\d+\.json$/);
+      const pidFile = JSON.parse(file.content);
+      assert.equal(file.path, `sessions/${pidFile.pid}.json`);
+      assert.equal(pidFile.sessionId, session.id);
+      assert.equal(typeof pidFile.procStart, "string");
     }
     for (const file of rest.filter((f) => f.path.endsWith(".jsonl"))) {
       const agent = file.content

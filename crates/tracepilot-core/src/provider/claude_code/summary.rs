@@ -24,6 +24,7 @@ pub(super) fn summarize(
 ) {
     let (mut summary, turns) = summary_from_events(id, &parsed.events);
     summary.has_events = true;
+    let mut custom_title = None;
     let mut title = None;
     let mut agent_name = None;
     let mut prompt = None;
@@ -63,6 +64,11 @@ pub(super) fn summarize(
             origin = Some(repository);
         }
         match native.record_type.as_str() {
+            "custom-title" => {
+                if let Some(value) = nonempty(&data["customTitle"]) {
+                    custom_title = Some(value);
+                }
+            }
             "ai-title" => {
                 if let Some(value) = nonempty(&data["aiTitle"]) {
                     title = Some(value);
@@ -91,8 +97,9 @@ pub(super) fn summarize(
             }
         }
     }
-    // A session of slash commands only is named after its first command.
-    summary.summary = title.or(agent_name).or(prompt).or(command);
+    // The user's own name (`/rename`) beats the generated one, whichever came
+    // last. A session of slash commands only is named after its first command.
+    summary.summary = custom_title.or(title).or(agent_name).or(prompt).or(command);
     summary.repository = origin.or(pr_repository);
     if let Some(start) = parsed
         .cost_snapshots

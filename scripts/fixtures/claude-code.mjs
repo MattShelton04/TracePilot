@@ -17,6 +17,33 @@ export const claudeOrchardSessionId = "c1a0de00-0000-4000-8000-000000000001";
 export const claudeLanternSessionId = "c1a0de00-0000-4000-8000-000000000002";
 export const claudeHarborSessionId = "c1a0de00-0000-4000-8000-000000000003";
 
+/** Never a Windows pid (those are multiples of 4), so its process is gone. */
+export const claudeGonePid = 4294967291;
+/** The Windows System process: alive, but never started at `procStart` "1". */
+export const claudeReusedPid = 4;
+
+/**
+ * A `sessions/<pid>.json` that outlived its Claude Code process
+ * (record-shapes.md, "Liveness"), so the session must not read as running.
+ */
+function stalePidFile(pid, sessionId, cwd, procStart) {
+  const at = Date.parse("2026-03-16T17:00:00.000Z");
+  const record = {
+    pid,
+    sessionId,
+    cwd,
+    startedAt: at,
+    procStart,
+    version: "2.1.289",
+    kind: "interactive",
+    entrypoint: "cli",
+    status: "busy",
+    updatedAt: at,
+    statusUpdatedAt: at,
+  };
+  return { path: `sessions/${pid}.json`, content: `${JSON.stringify(record)}\n` };
+}
+
 /** A `file-history-snapshot` record: the tracked files before a prompt ran. */
 function fileHistory(messageId, backups, update = false) {
   const timestamp = "2026-03-14T09:30:00.000Z";
@@ -146,6 +173,8 @@ function orchardSession() {
       { path: `${dir}/tool-results/toolu_orchard_test.txt`, content: "12 passing\n" },
       { path: `${history}/0c1a0001deadbeef@v1`, content: original },
       { path: `${history}/0c1a0001deadbeef@v2`, content: retried },
+      // The pid now belongs to a process with another start time.
+      stalePidFile(claudeReusedPid, t.sessionId, cwd, "1"),
     ],
   };
 }
@@ -293,12 +322,19 @@ function harborSession() {
   t.idle(60);
   t.prompt("Try again.");
   t.call("msg_harbor_5", [text("Yes: v2.4.0 is on origin.")], usage, "end_turn");
+  // Renamed with `/rename`: the latest custom title beats the later ai-title.
+  t.bookkeeping({ type: "custom-title", customTitle: "Release tagging" });
+  t.bookkeeping({ type: "custom-title", customTitle: "Ship 2.4" });
   t.bookkeeping({ type: "ai-title", aiTitle: "Tag the 2.4 release" });
   t.costState(0.31, { input: 10, cacheRead: 75000, cacheWrite: 6000, output: 450 });
   return {
     id: claudeHarborSessionId,
-    title: "Tag the 2.4 release",
-    files: [{ path: `projects/C--synthetic-harbor/${t.sessionId}.jsonl`, content: t.toJsonl() }],
+    title: "Ship 2.4",
+    files: [
+      { path: `projects/C--synthetic-harbor/${t.sessionId}.jsonl`, content: t.toJsonl() },
+      // No process has this pid any more.
+      stalePidFile(claudeGonePid, t.sessionId, t.cwd, "134000000000000000"),
+    ],
   };
 }
 

@@ -142,8 +142,13 @@ pub struct SessionListItem {
     pub turn_count: Option<usize>,
     pub current_model: Option<String>,
     pub copilot_version: Option<String>,
-    /// Whether this session is currently running (has an `inuse.*.lock` file).
+    /// Whether a live process owns this session (Copilot: an `inuse.*.lock`
+    /// file; Claude Code: a verified `sessions/<pid>.json`).
     pub is_running: bool,
+    /// What the running process is doing, when its source records it. Absent
+    /// for Copilot to preserve its wire output.
+    #[serde(default, flatten)]
+    pub run_state: Option<ProviderRunState>,
     // Incident counts (populated from index DB; None in fallback disk-scan path)
     pub error_count: Option<usize>,
     pub rate_limit_count: Option<usize>,
@@ -156,6 +161,13 @@ pub struct SessionListItem {
 pub struct ProviderMetricsStatus {
     #[specta(optional)]
     pub metrics_partial: bool,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderRunState {
+    #[specta(optional)]
+    pub run_status: tracepilot_core::provider::RunStatus,
 }
 
 #[derive(Debug, Serialize)]

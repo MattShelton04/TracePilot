@@ -377,8 +377,11 @@ export type {
 export {
   DEFAULT_SESSION_SOURCE,
   isNonCopilotSource,
+  type RunStatus,
   resolveSessionSource,
+  runStatusBadge,
   SESSION_SOURCES,
+  type SessionLiveness,
   type SessionSource,
   type SourceCapabilities,
   sourceCapabilities,

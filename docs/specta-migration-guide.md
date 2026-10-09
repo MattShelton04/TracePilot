@@ -75,7 +75,7 @@ outright (consumers import the generated shapes from `@tracepilot/client`):
 | `ValidateSessionDirResult` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]`; hand-written mirror's `error?: string` is now `error: string \| null` (generated form). The `if (result.error)` truthy check in `SetupWizard.vue` works identically with either shape. |
 | `get_db_size` command | `crates/tracepilot-tauri-bindings/src/commands/state.rs` | `#[specta::specta]` |
 | `get_session_count` command | same | `#[specta::specta]` |
-| `is_session_running` command | same | `#[specta::specta]` (attribute **after** `#[tracing::instrument(..., fields(%session_id))]` — see troubleshooting) |
+| `is_session_running` command (now `get_session_liveness`) | same | `#[specta::specta]` (attribute **after** `#[tracing::instrument(..., fields(%session_id))]` — see troubleshooting) |
 | `get_install_type` command | same | `#[specta::specta]` on a sync fn |
 | `check_for_updates` command | same | `#[specta::specta]` |
 | `get_git_info` command | same | `#[specta::specta]` |
@@ -292,7 +292,7 @@ migration before code generation can protect it.
 
 ## Troubleshooting
 
-- **`error: expected an expression` on a `#[tracing::instrument(..., fields(foo = %foo))]`-decorated command** when you add `#[specta::specta]`: place the specta attribute **after** `tracing::instrument` (i.e. below it in source order). Specta's macro re-reads the remaining attribute list and chokes on the `%` / `?` tracing sigils in `fields(...)`. Order in `state::is_session_running` for a concrete example.
+- **`error: expected an expression` on a `#[tracing::instrument(..., fields(foo = %foo))]`-decorated command** when you add `#[specta::specta]`: place the specta attribute **after** `tracing::instrument` (i.e. below it in source order). Specta's macro re-reads the remaining attribute list and chokes on the `%` / `?` tracing sigils in `fields(...)`. Order in `state::get_session_liveness` for a concrete example.
 - **`STATUS_ENTRYPOINT_NOT_FOUND` when running the bin on Windows**:
   the `embed-manifest` build-dep should prevent this. If it resurfaces
   (e.g. after a tauri major upgrade pulls in new comctl32 symbols),

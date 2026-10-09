@@ -53,7 +53,7 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | `system:informational` / `away_summary` / `local_command` | 46 / 35 / 28 | `session.info` | |
 | First record | — | **Synthesized** `session.start` `{sessionId, producer: "claude-code", version, startTime, context{cwd, gitRoot, branch, repository}}` | The VS Code study warns against fake Copilot telemetry; `session.start` is safe because it only carries context. **Never synthesize `session.shutdown`** |
 | `cost-state` | 132 | Not an event. Becomes **provider metrics** (§3) | |
-| `ai-title`, `agent-name`, `pr-link`, `last-prompt`, `mode`, `permission-mode`, `atis-latch` | about 4.4k each | Summary fields (latest wins) and PR links. Hidden from the Events tab by default | |
+| `custom-title`, `ai-title`, `agent-name`, `pr-link`, `last-prompt`, `mode`, `permission-mode`, `atis-latch` | about 4.4k each (`custom-title`: 102, in 2 of 92 sessions) | Summary fields (latest wins) and PR links. Hidden from the Events tab by default | |
 | `attachment:*` (29 types) | 17,575 | `Unknown("attachment:<type>")`, shown on the Events tab only. **Not indexed for FTS** | `task_status` and the task notifications feed the background-task list (C12); `edited_text_file`, `plan_mode` can feed later features |
 | `file-history-snapshot` / `-delta` | 203 / 1,034 | Shown on the Events tab; also the read-only checkpoint list (C13, `claude_code/file_history.rs`) | One checkpoint per `messageId`, carrying the files tracked so far; later records for the same prompt update it. Backups are read only when a user opens one |
 | Subagent file records | 26 files | The same mapping with envelope `agentId`, plus `parentToolCallId = meta.toolUseId` | Inserted into the parent stream as described in §1.3 |
@@ -289,7 +289,7 @@ into those columns. Source-aware cost analytics and presentation remain C10/U2/U
 | TracePilot feature | Claude Code | Level | Notes / limitation |
 | --- | --- | --- | --- |
 | Session list, cards, search (FTS) | ✅ | L1 | Source badge and filter. Attachments are excluded from FTS |
-| Title / summary | ✅ | L1 | Latest `ai-title` → `agent-name` → first prompt |
+| Title / summary | ✅ | L1 | Latest `custom-title` (a user rename) → latest `ai-title` → `agent-name` → first prompt |
 | Repository / branch / cwd | ✅ / ✅ / ✅ | L1 | Repository from `git_state` origin → `pr-link` → none |
 | Conversation (prompts, messages, tools) | ✅ | L1 | Generic tool rendering at L1; rich at L2 |
 | Reasoning | 🟡 | L1 | 88.8% redacted; show a "redacted" count |

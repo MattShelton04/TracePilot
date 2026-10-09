@@ -2,7 +2,7 @@
 // Core session management types: list items, detail views, shutdown metrics,
 // and session artifacts (todos, plans, checkpoints).
 
-import type { SessionSource } from "./sources.js";
+import type { RunStatus, SessionSource } from "./sources.js";
 
 /**
  * Session list item (enriched from workspace.yaml + events)
@@ -27,8 +27,10 @@ export interface SessionListItem {
   turnCount?: number | null;
   currentModel?: string | null;
   copilotVersion?: string | null;
-  /** Whether this session is currently running (has an `inuse.*.lock` file). */
+  /** Whether a live process owns this session (Copilot: an `inuse.*.lock` file). */
   isRunning: boolean;
+  /** What the running process is doing, when its source records it (not Copilot). */
+  runStatus?: RunStatus;
   errorCount?: number | null;
   rateLimitCount?: number | null;
   compactionCount?: number | null;

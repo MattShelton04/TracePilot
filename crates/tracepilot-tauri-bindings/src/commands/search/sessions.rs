@@ -3,7 +3,7 @@
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
-use crate::helpers::{indexed_session_to_list_item, read_config};
+use crate::helpers::{indexed_sessions_to_list_items, read_config};
 use crate::types::SessionListItem;
 
 #[tauri::command]
@@ -22,11 +22,6 @@ pub async fn search_sessions(
 
         let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
         let indexed = db.search_sessions(&query)?;
-        Ok::<_, crate::error::BindingsError>(
-            indexed
-                .into_iter()
-                .map(indexed_session_to_list_item)
-                .collect(),
-        )
+        Ok::<_, crate::error::BindingsError>(indexed_sessions_to_list_items(&cfg, indexed))
     })
 }

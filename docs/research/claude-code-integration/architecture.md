@@ -271,6 +271,15 @@ The reshape has to happen in Rust:
 
   It returns `Running { status: busy | idle }`. This is richer than Copilot's lock-plus-24h
   heuristic.
+- The session list asks each provider once per load (`SessionProvider::liveness_many`), so
+  Claude Code reads `sessions/*.json` once and looks up a process only for a listed session
+  that a pid file names. Each lookup spawns a hidden PowerShell (about 160 ms), so lookups
+  run concurrently and the app reuses a pid's start time for 5 s. A file whose pid now belongs to a
+  process with another start time is remembered as stale and never looked up again. Busy shows as "Busy", idle as "Waiting" (for input).
+- Copilot's running sessions refresh from the live stream. A running session of a source
+  TracePilot cannot stream refreshes its detail view every 3 s and stops once it goes idle
+  (`useRunningSessionPoll`). Unchanged sessions are cheap, because events are cached by
+  source fingerprint.
 - **Incremental parse of an appended file** is an optimization, not a requirement. The current
   full re-parse on freshness change is acceptable at observed sizes (median 4.6 MB, max 52 MB).
   Add it only if the perf budget (`perf-budget.json`) shows a regression.
