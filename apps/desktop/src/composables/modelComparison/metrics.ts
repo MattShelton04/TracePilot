@@ -223,6 +223,12 @@ export function formatRowCost(row: ModelRow): string {
   return row.costUsd == null ? "—" : `${formatCost(row.costUsd)} est.`;
 }
 
+/** A row's cost for the narrow matrix column: the header says it is an estimate. */
+export function formatRowCostShort(row: ModelRow): string {
+  if (row.billedInAiCredits) return formatAiCredits(row.aiCredits);
+  return row.costUsd == null ? "—" : formatCost(row.costUsd);
+}
+
 /**
  * Where a row's cost comes from. An unpriced row says so instead of
  * claiming an estimate.
@@ -417,13 +423,28 @@ export function buildCompareMetrics(
       valueB: formatPercent(b.cacheHitRate),
       ...formatModelDelta(a.cacheHitRate, b.cacheHitRate, true),
     },
-    {
-      label: "Legacy Premium Cost",
-      valueA: fmtNorm(a.copilotCost, true),
-      valueB: fmtNorm(b.copilotCost, true),
-      ...formatModelDelta(a.copilotCost, b.copilotCost, false),
-    },
+    premiumMetric(a, b, fmtNorm),
   ];
+}
+
+/**
+ * Copilot's legacy premium-request cost. It does not apply to a row billed
+ * in another unit, which shows "—" rather than a $0 that looks cheaper.
+ */
+function premiumMetric(
+  a: ModelRow,
+  b: ModelRow,
+  fmtNorm: (value: number | null, isCost?: boolean) => string,
+): CompareMetric {
+  const value = (row: ModelRow) => (row.billedInAiCredits ? fmtNorm(row.copilotCost, true) : "—");
+  return {
+    label: "Legacy Premium Cost",
+    valueA: value(a),
+    valueB: value(b),
+    ...(a.billedInAiCredits && b.billedInAiCredits
+      ? formatModelDelta(a.copilotCost, b.copilotCost, false)
+      : { delta: "—", direction: "neutral" as const, better: "neutral" as const }),
+  };
 }
 
 /**

@@ -105,7 +105,6 @@ const timeRangeLabel = computed(() => {
           :data="data"
           :ai-credit-summary="aiCreditSummary"
         />
-        <AnalyticsSourceCostPanel v-if="sourceCostRows.length" :rows="sourceCostRows" />
         <AnalyticsMetricPanels :data="data" />
         <AnalyticsTokenActivityRow
           :data="data"
@@ -129,6 +128,7 @@ const timeRangeLabel = computed(() => {
           :dismiss-tooltip="dismissTooltip"
         />
         <AnalyticsCacheHealthRow :data="data" />
+        <AnalyticsSourceCostPanel v-if="sourceCostRows.length" :rows="sourceCostRows" />
         <AnalyticsAgentsPanel v-if="prefs.isFeatureEnabled('agents')" />
         <AnalyticsSkillsPanel v-if="prefs.isFeatureEnabled('skills')" />
         <AnalyticsIncidentChart

@@ -155,6 +155,25 @@ describe("ModelLeaderboard", () => {
 
     expect(wrapper.find(".matrix-cost-value").text()).toBe("111,123,141 AIC");
   });
+
+  it("heads the column Cost when a model is priced in USD", () => {
+    const copilot = makeRow({ model: "gpt-5", aiCredits: 3 });
+    const claude = makeRow({
+      model: "claude-opus-5-5",
+      aiCredits: null,
+      billedInAiCredits: false,
+      costUsd: 1064.3,
+    });
+    const ctx = makeCtxStub({ modelRows: [copilot, claude], displayRows: [copilot, claude] });
+    const wrapper = mount(hostFor(ModelLeaderboard, ctx));
+    const header = wrapper.get('button[aria-label="Sort by Cost"]');
+    expect(header.element.closest("th")?.getAttribute("title")).toContain("estimated USD");
+    // The narrow column drops the "est." suffix; the header carries it.
+    expect(wrapper.findAll(".matrix-cost-value").map((cell) => cell.text())).toEqual([
+      "3 AIC",
+      "$1,064.30",
+    ]);
+  });
 });
 
 describe("ModelCharts", () => {

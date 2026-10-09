@@ -150,6 +150,12 @@ describe("models priced per source", () => {
     ]);
     const fmt = (value: number | null, isCost = false) => formatNorm(value, isCost, "raw");
     const crossSource = buildCompareMetrics(copilot, claude, fmt);
+    // Premium-request cost is Copilot's alone: no $0 that reads as cheaper.
+    expect(crossSource.find((m) => m.label === "Legacy Premium Cost")).toMatchObject({
+      valueB: "—",
+      delta: "—",
+      better: "neutral",
+    });
     expect(crossSource.find((m) => m.label === "Cost")).toMatchObject({
       valueB: "$1.00 est.",
       delta: "Different units",
