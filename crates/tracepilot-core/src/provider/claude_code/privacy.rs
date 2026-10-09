@@ -48,8 +48,9 @@ pub(crate) fn redact_record(record_type: &str, record: &mut Value) {
         }
     }
     if record_type == "system:bridge_status" {
-        // A remote-control URL.
+        // A remote-control URL, which the status text repeats.
         redact_member(map, "url", REDACTED);
+        redact_member(map, "content", REDACTED);
     }
     redact_keys(record);
 }
@@ -165,9 +166,11 @@ mod tests {
 
         let status = redacted(
             "system:bridge_status",
-            json!({"subtype": "bridge_status", "url": "https://remote.example/s/1"}),
+            json!({"subtype": "bridge_status", "url": "https://remote.example/s/1",
+                "content": "Remote control at https://remote.example/s/1"}),
         );
         assert_eq!(status["url"], REDACTED);
+        assert_eq!(status["content"], REDACTED);
         let frame = redacted(
             "frame-link",
             json!({"frameUrl": "https://remote.example/f"}),

@@ -55,7 +55,8 @@ fn session_with_private_records() -> SessionFiles {
     t.bookkeeping(json!({"type": "artifact-autoreact-ledger", "accountUuid": "PRIVATE-ledger"}));
     t.system(
         "bridge_status",
-        json!({"url": "https://remote.example/PRIVATE-bridge"}),
+        json!({"url": "https://remote.example/PRIVATE-bridge",
+            "content": "Remote control at https://remote.example/PRIVATE-bridge"}),
     );
 
     t.prompt("Add a retry to the upload client.");
