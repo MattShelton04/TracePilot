@@ -1,5 +1,5 @@
 use super::*;
-use crate::document::CheckpointExport;
+use crate::document::{CheckpointExport, SessionSource};
 use crate::test_helpers::{minimal_session, test_archive};
 
 #[test]
@@ -414,5 +414,32 @@ fn warnings_do_not_block_import() {
     assert!(issues.iter().any(|i| i.severity == IssueSeverity::Warning));
     assert!(!issues.iter().any(|i| i.is_error()));
     // Import should succeed
+    assert!(validate_archive(&archive).is_ok());
+}
+
+#[test]
+fn rejects_sessions_from_other_sources() {
+    let mut session = minimal_session();
+    session.metadata.source = SessionSource::ClaudeCode;
+    let archive = test_archive(session);
+    assert!(validate_archive(&archive).is_err());
+    let issues = collect_issues(&archive);
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.is_error() && i.message.contains("Claude Code"))
+    );
+}
+
+#[test]
+fn archive_without_a_source_is_copilot() {
+    let mut value = serde_json::to_value(test_archive(minimal_session())).unwrap();
+    assert!(value["sessions"][0]["metadata"].get("source").is_none());
+    value["sessions"][0]["metadata"]
+        .as_object_mut()
+        .unwrap()
+        .remove("source");
+    let archive: crate::document::SessionArchive = serde_json::from_value(value).unwrap();
+    assert_eq!(archive.sessions[0].metadata.source, SessionSource::Copilot);
     assert!(validate_archive(&archive).is_ok());
 }

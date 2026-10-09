@@ -2,7 +2,7 @@
 
 use tracepilot_core::utils::InfallibleWrite;
 
-use crate::document::{PortableSession, PortableSessionMetadata, SessionArchive};
+use crate::document::{PortableSession, PortableSessionMetadata, SessionArchive, SessionSource};
 
 use super::format_dt;
 
@@ -34,6 +34,10 @@ pub(super) fn write_metadata(md: &mut String, meta: &PortableSessionMetadata) {
     md.push_line(format_args!("| Field | Value |"));
     md.push_line(format_args!("|-------|-------|"));
     md.push_line(format_args!("| ID | `{}` |", meta.id));
+    // Copilot is the default and stays unlabelled, as before other sources.
+    if let Some(source) = source_label(meta.source) {
+        md.push_line(format_args!("| Source | {} |", source));
+    }
 
     if let Some(repo) = &meta.repository {
         md.push_line(format_args!("| Repository | {} |", repo));
@@ -60,6 +64,13 @@ pub(super) fn write_metadata(md: &mut String, meta: &PortableSessionMetadata) {
         md.push_line(format_args!("| Turns | {} |", turns));
     }
     md.push('\n');
+}
+
+fn source_label(source: SessionSource) -> Option<&'static str> {
+    match source {
+        SessionSource::Copilot => None,
+        SessionSource::ClaudeCode => Some("Claude Code"),
+    }
 }
 
 pub(super) fn write_plan(md: &mut String, plan: &str) {

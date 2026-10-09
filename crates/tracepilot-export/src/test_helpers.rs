@@ -39,6 +39,7 @@ pub fn minimal_session() -> PortableSession {
     PortableSession {
         metadata: PortableSessionMetadata {
             id: "test-12345678".to_string(),
+            source: SessionSource::Copilot,
             summary: Some("Test session".to_string()),
             repository: Some("user/repo".to_string()),
             branch: Some("main".to_string()),

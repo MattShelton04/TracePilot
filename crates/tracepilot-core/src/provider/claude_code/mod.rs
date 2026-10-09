@@ -17,6 +17,7 @@ mod branch;
 mod liveness;
 mod notify;
 pub(crate) mod pricing;
+mod privacy;
 mod provider;
 mod reader;
 mod records;
@@ -41,6 +42,7 @@ use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::parsing::events::TypedEvent;
 
 pub use liveness::ProcessStart;
+pub(crate) use privacy::redact_record;
 pub use provider::ClaudeCodeProvider;
 pub use usage::{ClaudeCallUsage, CostModelUsage, CostSnapshot, TokenTotals, sum_calls_by_model};
 

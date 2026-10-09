@@ -8,6 +8,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::schema::SchemaVersion;
+use tracepilot_core::parsing::checkpoints::CheckpointEntry;
+use tracepilot_core::parsing::session_db::{TodoDep, TodoItem};
 
 // ── Re-export core types that already have Serialize + Deserialize ───────────
 
@@ -18,6 +20,7 @@ pub use tracepilot_core::models::session_summary::ShutdownMetrics;
 pub use tracepilot_core::parsing::diagnostics::{DeserFailureInfo, EventParseWarning};
 pub use tracepilot_core::parsing::events::RawEvent;
 pub use tracepilot_core::parsing::rewind_snapshots::{RewindIndex, RewindSnapshot};
+pub use tracepilot_core::provider::SessionSource;
 
 // ── Top-level archive ───────────────────────────────────────────────────────
 
@@ -136,6 +139,11 @@ pub struct PortableSession {
 #[serde(rename_all = "camelCase")]
 pub struct PortableSessionMetadata {
     pub id: String,
+    /// The tool that wrote the session. Omitted for Copilot, so archives
+    /// from before other sources keep their meaning and Copilot output is
+    /// unchanged.
+    #[serde(default = "copilot", skip_serializing_if = "is_copilot")]
+    pub source: SessionSource,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -161,6 +169,14 @@ pub struct PortableSessionMetadata {
     /// Import provenance chain — tracks export/import lineage.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lineage: Option<Vec<LineageEntry>>,
+}
+
+fn copilot() -> SessionSource {
+    SessionSource::Copilot
+}
+
+fn is_copilot(source: &SessionSource) -> bool {
+    *source == SessionSource::Copilot
 }
 
 /// Tracks the export/import history of a session for provenance.
@@ -262,12 +278,34 @@ pub struct TodoItemExport {
     pub updated_at: Option<String>,
 }
 
+impl From<TodoItem> for TodoItemExport {
+    fn from(t: TodoItem) -> Self {
+        Self {
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            created_at: t.created_at,
+            updated_at: t.updated_at,
+        }
+    }
+}
+
 /// A todo dependency edge (mirrors core `TodoDep`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TodoDepExport {
     pub todo_id: String,
     pub depends_on: String,
+}
+
+impl From<TodoDep> for TodoDepExport {
+    fn from(d: TodoDep) -> Self {
+        Self {
+            todo_id: d.todo_id,
+            depends_on: d.depends_on,
+        }
+    }
 }
 
 /// A checkpoint entry (mirrors core `CheckpointEntry` with Deserialize).
@@ -279,6 +317,17 @@ pub struct CheckpointExport {
     pub filename: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+}
+
+impl From<CheckpointEntry> for CheckpointExport {
+    fn from(cp: CheckpointEntry) -> Self {
+        Self {
+            number: cp.number,
+            title: cp.title,
+            filename: cp.filename,
+            content: cp.content,
+        }
+    }
 }
 
 /// A session incident extracted from events.

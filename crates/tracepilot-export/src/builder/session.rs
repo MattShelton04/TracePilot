@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::document::{PortableSession, PortableSessionMetadata, SectionId};
+use crate::document::{PortableSession, PortableSessionMetadata, SectionId, SessionSource};
 use crate::error::{ExportError, Result};
 use crate::options::ExportOptions;
 use tracepilot_core::paths::SessionPaths;
@@ -56,6 +56,7 @@ pub(super) fn build_portable_session(
     let display_summary = ws.display_summary();
     let metadata = PortableSessionMetadata {
         id: ws.id,
+        source: SessionSource::Copilot,
         summary: display_summary,
         repository: ws.repository,
         branch: ws.branch,

@@ -171,5 +171,13 @@ Redact these from export, and exclude them from FTS by default:
 | Tool I/O | Duplicated 2–4× per call (`input`, `wireToolInputs`, `toolUseResult`, `bashEditDiff`). Secrets in tool I/O were seen in 2 sessions |
 
 The export redaction engine is generic regex over all JSON strings
-(`tracepilot-export/src/redaction/engine.rs`). It already covers the content. The record-level
-exclusions above still need explicit rules.
+(`tracepilot-export/src/redaction/engine.rs`). It covers the content when the user turns it on.
+The record-level rules (C14, `tracepilot-core/src/provider/claude_code/privacy.rs`) apply to
+every Claude Code export, whatever the user's redaction options:
+- The email, org and account ids, `quotaLimits` and `frameUrl` are redacted at any depth.
+- Attachment `rendered[]` and the `system:bridge_status` URL are redacted.
+- `prompt_snapshot`, `instructions` and `nested_memory` attachments keep only their `type`.
+- The `wireToolInputs` and `bashEditDiff` copies are omitted. `input` and `toolUseResult`
+  stay, so secrets in tool I/O still need the user's secret redaction.
+
+FTS never indexes these records (C6).

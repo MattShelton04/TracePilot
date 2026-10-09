@@ -5,12 +5,12 @@
 //! # Architecture
 //!
 //! ```text
-//!   Session dir(s) ──▶ Builder ──▶ SessionArchive ──▶ Renderer ──▶ ExportFile(s)
+//!   Session dir(s) / provider snapshots ──▶ Builder ──▶ SessionArchive ──▶ Renderer ──▶ ExportFile(s)
 //! ```
 //!
 //! The [`SessionArchive`] is the canonical intermediate representation consumed
-//! by all renderers. The builder assembles it from session files using
-//! `tracepilot-core` parsers. Each renderer implements [`render::ExportRenderer`]
+//! by all renderers. The builder assembles it from Copilot session files using
+//! `tracepilot-core` parsers, or from another source's [`ProviderSession`]. Each renderer implements [`render::ExportRenderer`]
 //! to produce format-specific output.
 
 pub mod builder;
@@ -27,6 +27,7 @@ pub mod schema;
 pub(crate) mod test_helpers;
 
 // Re-export key types for ergonomic API usage.
+pub use builder::{ExportInput, ProviderSession};
 pub use document::{PortableSession, SectionId, SessionArchive};
 pub use error::{ExportError, Result};
 pub use options::{
@@ -72,6 +73,15 @@ pub fn export_sessions_batch(
     apply_export_pipeline(&mut archive, options)
 }
 
+/// Export sessions of any source in a single archive.
+pub fn export_inputs(
+    inputs: &[ExportInput<'_>],
+    options: &ExportOptions,
+) -> Result<Vec<ExportFile>> {
+    let mut archive = builder::build_archive(inputs, options)?;
+    apply_export_pipeline(&mut archive, options)
+}
+
 /// Generate a preview of the export output without writing to disk.
 ///
 /// Returns the rendered content as a string, truncated to `max_bytes` if specified.
@@ -80,7 +90,16 @@ pub fn preview_export(
     options: &ExportOptions,
     max_bytes: Option<usize>,
 ) -> Result<String> {
-    let mut archive = builder::build_session_archive(session_dir, options)?;
+    preview_export_input(&ExportInput::Directory(session_dir), options, max_bytes)
+}
+
+/// [`preview_export`] for a session of any source.
+pub fn preview_export_input(
+    input: &ExportInput<'_>,
+    options: &ExportOptions,
+    max_bytes: Option<usize>,
+) -> Result<String> {
+    let mut archive = builder::build_archive(std::slice::from_ref(input), options)?;
     let files = apply_export_pipeline(&mut archive, options)?;
 
     let content = files
