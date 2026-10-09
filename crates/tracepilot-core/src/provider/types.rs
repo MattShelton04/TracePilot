@@ -15,6 +15,7 @@ use sha2::{Digest, Sha256};
 #[cfg(feature = "specta")]
 use specta::Type;
 
+use super::artifacts::{FileHistory, PlanArtifact};
 use crate::ids::SessionId;
 use crate::models::conversation::ConversationTurn;
 use crate::models::event_types::{CodeChanges, ModelMetricDetail};
@@ -110,6 +111,9 @@ pub struct SourceCapabilities {
     /// The source records background subagents and shells
     /// ([`SessionArtifacts::background_tasks`]).
     pub has_background_tasks: bool,
+    /// The source backs up files before changing them
+    /// ([`SessionArtifacts::file_history`]).
+    pub has_file_history: bool,
 }
 
 /// What a running session's process is doing, when the source records it.
@@ -448,7 +452,7 @@ pub struct BackgroundTask {
 #[derive(Debug, Clone, Default)]
 pub struct SessionArtifacts {
     pub todos: Option<TodoList>,
-    pub plan: Option<PathBuf>,
+    pub plan: Option<PlanArtifact>,
     pub checkpoints: Option<CheckpointIndex>,
     pub rewind: Option<RewindIndex>,
     /// Directories the file browser and image preview may read.
@@ -456,4 +460,6 @@ pub struct SessionArtifacts {
     /// Subagents and shells the session ran in the background, in the order
     /// they were first reported.
     pub background_tasks: Vec<BackgroundTask>,
+    /// Backups of the files the session changed, as rewind points.
+    pub file_history: Option<FileHistory>,
 }

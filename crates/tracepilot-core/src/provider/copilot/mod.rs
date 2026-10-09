@@ -23,8 +23,8 @@ use crate::summary::{
 };
 
 use super::{
-    Liveness, ProviderEvents, ProviderSnapshot, SessionArtifacts, SessionLocator, SessionProvider,
-    SessionRole, SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
+    Liveness, PlanArtifact, ProviderEvents, ProviderSnapshot, SessionArtifacts, SessionLocator,
+    SessionProvider, SessionRole, SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
 };
 
 const CAPABILITIES: SourceCapabilities = SourceCapabilities {
@@ -40,6 +40,7 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_explorer: true,
     has_hidden_roles: false,
     has_background_tasks: false,
+    has_file_history: false,
 };
 
 /// Sessions under one Copilot `session-state` directory.
@@ -228,11 +229,12 @@ impl SessionProvider for CopilotProvider {
         let plan = paths.plan_md();
         Ok(SessionArtifacts {
             todos,
-            plan: plan.exists().then_some(plan),
+            plan: plan.exists().then_some(PlanArtifact::File(plan)),
             checkpoints: parse_checkpoints(dir)?,
             rewind: parse_rewind_index(dir)?,
             file_roots: vec![dir.clone()],
             background_tasks: Vec::new(),
+            file_history: None,
         })
     }
 

@@ -15,6 +15,7 @@ import {
 } from "@tracepilot/ui";
 import { computed, ref, watch } from "vue";
 import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
+import FileHistoryPanel from "@/components/checkpoints/FileHistoryPanel.vue";
 import BackgroundTasksPanel from "@/components/session/BackgroundTasksPanel.vue";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
@@ -53,11 +54,18 @@ const sessions = useSessionsStore();
 const sessionLive = computed(
   () => sessions.sessions.find((s) => s.id === store.sessionId)?.isRunning ?? false,
 );
-// Only sources that record background work are asked for it.
+// Only sources that record background work or back up files are asked for them.
 watch(
   () => (capabilities.value.hasBackgroundTasks ? store.sessionId : null),
   (id) => {
     if (id) store.loadBackgroundTasks();
+  },
+  { immediate: true },
+);
+watch(
+  () => (capabilities.value.hasFileHistory ? store.sessionId : null),
+  (id) => {
+    if (id) store.loadFileHistory();
   },
   { immediate: true },
 );
@@ -148,6 +156,9 @@ function retryLoadSection(section: string) {
     case "backgroundTasks":
       store.loadBackgroundTasks();
       break;
+    case "fileHistory":
+      store.loadFileHistory();
+      break;
     case "metrics":
       store.loadShutdownMetrics();
       break;
@@ -184,6 +195,14 @@ function retryLoadSection(section: string) {
       :retryable="true"
       class="mb-4"
       @retry="retryLoadSection('backgroundTasks')"
+    />
+    <ErrorAlert
+      v-if="store.fileHistoryError"
+      :message="`Checkpoints: ${store.fileHistoryError}`"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('fileHistory')"
     />
     <ErrorAlert
       v-if="store.metricsError"
@@ -341,6 +360,14 @@ function retryLoadSection(section: string) {
         <MarkdownContent :content="store.plan.content" />
       </div>
     </SectionPanel>
+
+    <!-- File-history checkpoints (sources that back up files) -->
+    <FileHistoryPanel
+      v-if="capabilities.hasFileHistory && store.fileHistory.length > 0"
+      :checkpoints="store.fileHistory"
+      :session-id="store.sessionId"
+      class="mb-6"
+    />
 
     <!-- Checkpoints -->
     <SectionPanel

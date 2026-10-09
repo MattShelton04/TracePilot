@@ -225,7 +225,8 @@ Other subtypes: `informational`, `away_summary`, `local_command`, `bridge_status
 | `pr-link` | `{ "type": "pr-link", "prNumber": 12, "prUrl": "https://github.com/acme/demo/pull/12", "prRepository": "acme/demo", "timestamp": "…" }` | |
 | `queue-operation` | `{ "type": "queue-operation", "operation": "enqueue" \| "dequeue" \| "remove" \| "popAll", "content"?: "<task-notification>…", "timestamp": "…" }` | |
 | `last-prompt`, `mode`, `permission-mode`, `atis-latch` | Latest value only | Events tab only |
-| `file-history-snapshot` / `-delta` | `snapshot.trackedFileBackups[path].backupFileName` → `file-history/<sid>/<name>` | Null means the file did not exist yet |
+| `file-history-snapshot` | `{ "type": "file-history-snapshot", "messageId": "<prompt uuid>", "isSnapshotUpdate": false, "snapshot": { "messageId": "…", "timestamp": "…", "trackedFileBackups": { "<path>": { "backupFileName": "0123456789abcdef@v2", "version": 2, "backupTime": "…", "realParentDir": "…" } } } }` | One checkpoint per prompt (`messageId`); an `isSnapshotUpdate` record adds to that prompt's. `backupFileName` → `file-history/<sid>/<name>`; null means the file did not exist yet |
+| `file-history-delta` | `{ "type": "file-history-delta", "messageId": "…", "snapshotMessageId": "<prompt uuid>", "trackingPath": "<path>", "backup": { "backupFileName": "…" | null, "version": 1, "backupTime": "…", "realParentDir": "…" }, "timestamp": "…" }`. No `snapshot` field | One file for the prompt `snapshotMessageId` names; its own `messageId` (never equal to it) is not a checkpoint. `realParentDir` is never followed |
 | `attachment` | `{ "type": "attachment", "attachment": { "type": "<one of 29>", … }, "rendered"?: [ … ] }` | Events tab only; never FTS |
 
 **Repository** comes from `user.serverClassifierContext.context.git_state`, which looks like

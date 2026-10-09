@@ -1,11 +1,12 @@
 //! Session file browser Tauri commands.
 //!
 //! Provides read-only, sandboxed access to files within a session's
-//! directory. All paths are validated and canonicalized to prevent
-//! traversal attacks.
+//! browsable directories ([`scope::ExplorerScope`]). All paths are validated
+//! and canonicalized to prevent traversal attacks.
 
 mod commands;
 mod image_preview;
+mod scope;
 mod search;
 mod security;
 mod types;

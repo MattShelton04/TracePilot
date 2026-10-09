@@ -261,3 +261,147 @@ fn mixed_batch_keeps_copilot_sessions_unlabelled() {
         SessionSource::ClaudeCode
     );
 }
+
+/// A session with a plan, a file-history backup, a persisted tool result and
+/// a subagent folder. Only the backup and tool-result files hold their
+/// markers; the transcript never does.
+fn session_with_side_files() -> SessionFiles {
+    let mut t = Transcript::main();
+    let prompt = t.prompt("Plan the retry.");
+    let backup = |name: &str| {
+        json!({"backupFileName": name, "version": 1,
+            "backupTime": "2026-09-20T10:00:00.000Z", "realParentDir": "C:\\work\\demo\\src"})
+    };
+    t.bookkeeping(json!({"type": "file-history-snapshot", "messageId": prompt,
+        "isSnapshotUpdate": false, "snapshot": {"messageId": prompt,
+            "timestamp": "2026-09-20T10:00:00.000Z",
+            "trackedFileBackups": {"src/upload.ts": backup("0123456789abcdef@v1")}}}));
+    t.bookkeeping(json!({"type": "file-history-delta",
+        "messageId": "00000000-0000-4000-8000-00000000d001", "snapshotMessageId": prompt,
+        "trackingPath": "src/retry.ts", "backup": backup("fedcba9876543210@v1"),
+        "timestamp": "2026-09-20T10:00:05.000Z"}));
+    let usage = Usage::new(10, 1000, 200, 50);
+    let plan = format!("# Plan\n\n1. Retry uploads.\n2. Rotate {TOKEN}.");
+    t.call(
+        "msg_plan",
+        OPUS,
+        vec![tool_use(
+            "toolu_plan",
+            "ExitPlanMode",
+            json!({"plan": plan}),
+        )],
+        usage,
+        "tool_use",
+    );
+    t.tool_result(
+        "toolu_plan",
+        json!("User approved the plan."),
+        json!({"plan": plan, "isAgent": false}),
+        false,
+    );
+    t.call("msg_done", OPUS, vec![text("Planned.")], usage, "end_turn");
+    let files = write_session(&t, &[]);
+    let config = files.root.path();
+    let history = config.join("file-history").join(SESSION_ID);
+    std::fs::create_dir_all(&history).unwrap();
+    std::fs::write(history.join("0123456789abcdef@v1"), "BACKUP-CONTENT\n").unwrap();
+    std::fs::write(
+        history.join("fedcba9876543210@v1"),
+        "DELTA-BACKUP-CONTENT\n",
+    )
+    .unwrap();
+    let results = files.main.with_extension("").join("tool-results");
+    std::fs::create_dir_all(&results).unwrap();
+    std::fs::write(results.join("toolu_big.txt"), "TOOL-RESULT-CONTENT\n").unwrap();
+    files
+}
+
+/// The plan exports like Copilot's `plan.md`, under the user's redaction;
+/// file-history backups and Explorer files never leave the machine.
+#[test]
+fn side_files_stay_out_of_export_and_the_plan_is_redacted() {
+    let files = session_with_side_files();
+    let provider = ClaudeCodeProvider::new(files.root.path());
+    let locator = provider
+        .resolve(&SessionId::from_validated(SESSION_ID))
+        .unwrap()
+        .unwrap();
+    let snapshot = provider.load_snapshot(&locator, false, &|| false).unwrap();
+    let artifacts = provider.artifacts(&locator).unwrap();
+    let history = artifacts.file_history.as_ref().expect("file history");
+    assert!(history.contains("0123456789abcdef@v1") && history.contains("fedcba9876543210@v1"));
+    assert_eq!(artifacts.file_roots.len(), 2);
+    let input = ExportInput::Provider(ProviderSession {
+        source: SessionSource::ClaudeCode,
+        snapshot: &snapshot,
+        artifacts: &artifacts,
+    });
+    let export = |options: &ExportOptions| {
+        let files = export_inputs(std::slice::from_ref(&input), options).unwrap();
+        files[0].as_text().unwrap().to_string()
+    };
+
+    for format in [ExportFormat::Json, ExportFormat::Markdown] {
+        let output = export(&ExportOptions::all(format));
+        assert!(
+            output.contains("Retry uploads."),
+            "{format:?}: the plan is exported"
+        );
+        assert!(
+            !output.contains("BACKUP-CONTENT"),
+            "{format:?}: a backup leaked"
+        );
+        assert!(
+            !output.contains("TOOL-RESULT-CONTENT"),
+            "{format:?}: a tool result leaked"
+        );
+    }
+    let archive: SessionArchive =
+        serde_json::from_str(&export(&ExportOptions::all(ExportFormat::Json))).unwrap();
+    assert!(archive.sessions[0].checkpoints.is_none());
+
+    let mut options = ExportOptions::all(ExportFormat::Json);
+    options.redaction.strip_secrets = true;
+    let archive: SessionArchive = serde_json::from_str(&export(&options)).unwrap();
+    let plan = archive.sessions[0].plan.as_deref().expect("plan section");
+    assert!(
+        plan.contains("Retry uploads.") && !plan.contains(TOKEN),
+        "{plan}"
+    );
+}
+
+/// A plan recorded in the transcript is capped like the plan view.
+#[test]
+fn inline_plans_are_capped_in_export() {
+    let mut t = Transcript::main();
+    t.prompt("Plan it.");
+    let plan = format!("# Plan\n\n{}", "x".repeat(80 * 1024));
+    t.call(
+        "msg_plan",
+        OPUS,
+        vec![tool_use(
+            "toolu_plan",
+            "ExitPlanMode",
+            json!({"plan": plan}),
+        )],
+        Usage::new(1, 1, 1, 1),
+        "tool_use",
+    );
+    let files = write_session(&t, &[]);
+    let provider = ClaudeCodeProvider::new(files.root.path());
+    let locator = provider
+        .resolve(&SessionId::from_validated(SESSION_ID))
+        .unwrap()
+        .unwrap();
+    let snapshot = provider.load_snapshot(&locator, false, &|| false).unwrap();
+    let artifacts = provider.artifacts(&locator).unwrap();
+    let input = ExportInput::Provider(ProviderSession {
+        source: SessionSource::ClaudeCode,
+        snapshot: &snapshot,
+        artifacts: &artifacts,
+    });
+    let files = export_inputs(&[input], &ExportOptions::all(ExportFormat::Json)).unwrap();
+    let archive: SessionArchive = serde_json::from_str(files[0].as_text().unwrap()).unwrap();
+    let exported = archive.sessions[0].plan.as_deref().expect("plan section");
+    assert!(exported.starts_with("# Plan") && exported.len() == 50 * 1024);
+}
