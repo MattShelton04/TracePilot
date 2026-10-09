@@ -250,6 +250,8 @@ This is undocumented, so fall back to `pr-link.prRepository`.
   `attachment:queued_command.prompt`.
 - `<usage>` is present for subagents.
 - `<status>` is `completed`, `failed` or `stopped`.
+- Tag text is XML-escaped (`&gt;`, `&amp;`, `&quot;`, …), so a shell command in
+  `<summary>` reads `"x &gt; out.txt"`. The parser decodes it once.
 - `attachment:task_status` reports a task's state between notifications:
   `{ "type": "task_status", "taskId": "…", "taskType": "local_bash" | "local_agent", "status": "running" | "completed", "description": "…", "deltaSummary": "…", "outputFilePath": "…", "shell": …, "canContinueAgent": … }`
   (keys confirmed on real data, 2026-10-09). The background-task list reads all but the last three.

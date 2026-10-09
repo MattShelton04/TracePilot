@@ -72,7 +72,57 @@ fn tag_value(body: &str, tag: &str) -> Option<String> {
     let close = format!("</{tag}>");
     let start = body.find(&open)? + open.len();
     let end = body[start..].find(&close)? + start;
-    Some(body[start..end].trim().to_string()).filter(|v| !v.is_empty())
+    Some(decode_entities(body[start..end].trim())).filter(|v| !v.is_empty())
+}
+
+/// Decodes XML character references (`&lt;`, `&#62;`, `&#x3E;`, …) in one
+/// left-to-right pass, so `&amp;gt;` becomes `&gt;`, not `>`. Anything that
+/// isn't a well-formed reference is kept as written.
+fn decode_entities(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(amp) = rest.find('&') {
+        out.push_str(&rest[..amp]);
+        let after = &rest[amp + 1..];
+        let decoded = after
+            .find(';')
+            .filter(|&semi| semi <= 8)
+            .and_then(|semi| Some((entity_char(&after[..semi])?, semi)));
+        match decoded {
+            Some((ch, semi)) => {
+                out.push(ch);
+                rest = &after[semi + 1..];
+            }
+            None => {
+                out.push('&');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+fn entity_char(name: &str) -> Option<char> {
+    match name {
+        "lt" => Some('<'),
+        "gt" => Some('>'),
+        "amp" => Some('&'),
+        "quot" => Some('"'),
+        "apos" => Some('\''),
+        _ => {
+            let digits = name.strip_prefix('#')?;
+            let (digits, radix) = match digits.strip_prefix(['x', 'X']) {
+                Some(hex) => (hex, 16),
+                None => (digits, 10),
+            };
+            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
+                return None;
+            }
+            let code = u32::from_str_radix(digits, radix).ok()?;
+            char::from_u32(code)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -96,5 +146,39 @@ mod tests {
         assert!(parsed[0].text.ends_with(CLOSE));
         assert_eq!(parsed[1].key(), ("b2".into(), "failed".into()));
         assert!(parse_notifications("no notification").is_empty());
+    }
+
+    #[test]
+    fn decodes_xml_entities_in_tag_values_once() {
+        // Claude Code escapes tag text the way XML does.
+        let text = "<task-notification>\n<task-id>b3</task-id>\n<status>completed</status>\n\
+            <summary>Background command \"uv run x &gt; out.txt &amp;&amp; echo &lt;ok&gt;\" \
+            completed (exit code 0)</summary>\n</task-notification>";
+        let note = &parse_notifications(text)[0];
+        assert_eq!(
+            note.summary.as_deref(),
+            Some("Background command \"uv run x > out.txt && echo <ok>\" completed (exit code 0)")
+        );
+        // The block itself stays as written.
+        assert!(note.text.contains("&gt; out.txt"));
+
+        // Quotes, apostrophes and numeric references; an escaped entity
+        // decodes one level only.
+        let text = "<task-notification><task-id>b4</task-id><summary>&quot;a&quot; &apos;b&apos; \
+            &#60;c&#x3E; &#65; &amp;gt; &amp;amp;</summary></task-notification>";
+        assert_eq!(
+            parse_notifications(text)[0].summary.as_deref(),
+            Some("\"a\" 'b' <c> A &gt; &amp;")
+        );
+    }
+
+    #[test]
+    fn leaves_unknown_or_malformed_entities_alone() {
+        let text = "<task-notification><summary>AT&T &nbsp; &#xZZ; &#; &#+65; &#1114112; &amp</summary>\
+            </task-notification>";
+        assert_eq!(
+            parse_notifications(text)[0].summary.as_deref(),
+            Some("AT&T &nbsp; &#xZZ; &#; &#+65; &#1114112; &amp")
+        );
     }
 }
