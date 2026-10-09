@@ -1,6 +1,6 @@
 # On-disk path inventory and centralization plan
 
-TracePilot reads data owned by the GitHub Copilot CLI and writes its own local state beside that data. The goal is to keep every product path shape in one place, make configured paths explicit, and avoid losing user data when a path changes.
+TracePilot reads data owned by the GitHub Copilot CLI and writes its own local state beside that data. With the experimental Claude Code source on, it also reads Claude Code's config folder, read-only ([Claude Code](#claude-code-experimental)). The goal is to keep every product path shape in one place, make configured paths explicit, and avoid losing user data when a path changes.
 
 ## Single sources of truth
 
@@ -49,6 +49,47 @@ TracePilot reads data owned by the GitHub Copilot CLI and writes its own local s
 | User repository/worktree paths | User/git | Source repositories and generated git worktrees. | Session launcher, worktree commands, repo registry, file browser. | User-provided paths must remain explicit, canonicalized, and not derived from app data roots. Never move without explicit user action. |
 | OS temp directories | OS/test tooling | Profiling/test session fixtures and temporary files. | Tests/profiling helpers. | Test-only or OS-managed; do not centralize into product config. |
 | Build outputs: `dist/`, `target/`, `.tauri/`, generated clients | Build tooling | Build artifacts. | package scripts, workflows, Biome excludes. | Build/test-only; centralize through package scripts/workflows, not runtime path registry. |
+
+## Claude Code (experimental)
+
+Read only while **Settings → Experimental → Claude Code Sessions** is on. TracePilot
+never writes, creates, renames or deletes anything under the Claude Code folder.
+Its index rows, search content and format diagnostics live in TracePilot's own
+`index.db`. User-facing behavior is in [Claude Code sessions](claude-code-sessions.md).
+
+**The folder.** `TracePilotConfig.sources.claudeCode.configDir`, shown as **Claude Code
+folder** in Settings → Data & Storage. When TracePilot first writes its config, it is set
+from `CLAUDE_CONFIG_DIR`, else `~/.claude`
+(`tracepilot_core::paths::default_claude_config_dir_opt`). Under `TRACEPILOT_DATA_ROOT`
+isolation it is `<data root>/claude`. A chosen folder must be an existing, local,
+absolute directory; it is canonicalized and network (UNC) paths are refused
+(`canonical_claude_config_dir`, ADR 0012). Changing it disables the source, purges its
+rows, then re-enables it.
+
+Paths below are relative to that folder. `<project>` is Claude Code's slug of the working
+directory and `<session>` is the session UUID. Code lives in
+`crates/tracepilot-core/src/provider/claude_code/`.
+
+| Path | Owner | Contents | TracePilot reads it | When |
+| --- | --- | --- | --- | --- |
+| `projects/` | Claude Code | One folder per working directory. | Lists `projects/*/` for `<uuid>.jsonl` files. | Discovery, at index time and when resolving a session id. |
+| `projects/<project>/<session>.jsonl` | Claude Code | The main transcript. | Parsed in full; fingerprinted for staleness. | Index time (sessions, then search), opening a session, export, artifact views. |
+| `projects/<project>/<session>/subagents/agent-*.jsonl`, `agent-*.meta.json` | Claude Code | Subagent transcripts and their metadata. | Parsed and folded into the parent; fingerprinted. | Same as the main transcript. Also browsable in the Explorer tab. |
+| `projects/<project>/<session>/tool-results/` | Claude Code | Large tool output persisted outside the transcript. | Never while parsing or indexing (the transcript's `persistedOutputPath` is recorded, not opened). | On demand: only when a user opens a file in the Explorer tab. |
+| `file-history/<session>/` | Claude Code | Backups of files before Claude Code changed them. | One backup named by the session's own records, from directly inside this folder; canonicalized, capped at 1 MiB, binary detected. The checkpoint list itself comes from the transcript. | On demand: only when a user clicks **View** on a checkpoint file. Never by indexing or export. |
+| `plans/<slug>.md` | Claude Code | Plan-mode plan files. | Only when the transcript used plan mode but recorded no plan text. The slug must be a plain name and the file must resolve inside `plans/`; a record's `filePath` is never followed. | On demand: the Overview plan and export. |
+| `sessions/<pid>.json` | Claude Code | One file per running process: pid, start time, session id, busy/idle status. | Read and verified against the live process (pid and `procStart`). | Session list loads, and every 3 s while a running session's detail view is open. The process check is Windows-only; elsewhere these sessions never show as running. |
+| `sessions/<pid>.<hash>.key` | Claude Code | A per-process secret. | **Never opened.** Only `*.json` is read. | Never. |
+| Everything else (`settings.json`, `history.jsonl`, `stats-cache.json`, credentials, …) | Claude Code | Settings, prompt history, aggregates, auth. | Never read. | Never. |
+| System temp folder (background task output) | Claude Code | Output of `run_in_background` tasks. | Never read; background tasks come from transcript notifications. | Never. |
+
+`node scripts/claude-census.mjs` reads only `projects/**/*.jsonl` and their `subagents/`,
+never `sessions/` ([script index](../scripts/README.md)).
+
+Claude Code deletes transcripts after its `cleanupPeriodDays` (default 30). TracePilot
+keeps no copy: a deleted transcript's session is pruned from the index on the next pass
+for that source (decision D3). If the folder itself is missing, discovery fails instead
+of returning an empty list, so nothing is pruned.
 
 ## Copilot CLI installation layouts
 

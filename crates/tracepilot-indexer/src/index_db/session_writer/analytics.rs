@@ -154,7 +154,7 @@ pub(crate) fn extract_session_analytics(
 
             let cost = if metrics.coverage.is_some() {
                 // These columns hold legacy premium-request cost, not USD.
-                // C11/C10 will index provider costs with their unit and basis.
+                // Provider USD costs go in `cost_usd` below.
                 None
             } else {
                 Some(detail.requests.as_ref().and_then(|r| r.cost).unwrap_or(0.0))

@@ -89,7 +89,7 @@ const sortColumns = computed<{ key: SortKey; label: string; title?: string }[]>(
                 v-if="column.key === 'cacheReadTokens' && ctx.showCacheTtl"
                 scope="col"
                 class="num-cell"
-                title="Prompt-cache TTL most often reported by Copilot CLI for this model"
+                title="Prompt-cache TTL most often reported by Copilot CLI for this model. Not measured for other sources."
               >
                 Cache TTL
               </th>

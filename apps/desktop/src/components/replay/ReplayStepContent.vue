@@ -212,7 +212,7 @@ const hasAssistantContent = computed(() =>
           class="step-message assistant-message"
         >
           <div class="message-header">
-            <span class="author-badge assistant">🤖 Copilot</span>
+            <span class="author-badge assistant">🤖 Assistant</span>
             <Badge v-if="step.model" variant="done" style="font-size: 0.6rem; padding: 1px 5px;">{{ step.model }}</Badge>
             <span v-if="step.durationMs" class="msg-meta">{{ formatDuration(step.durationMs) }}</span>
             <span v-if="step.timestamp" class="msg-time">{{ formatTime(step.timestamp) }}</span>

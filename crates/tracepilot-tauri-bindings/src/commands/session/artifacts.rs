@@ -5,6 +5,7 @@ use tracepilot_core::provider::{
     FileCheckpoint, FileVersionContent, PlanArtifact, SessionSource, is_safe_backup_name,
 };
 
+use super::artifact_cache::session_artifacts;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{MAX_CHECKPOINT_CONTENT_BYTES, with_session_locator};
@@ -83,7 +84,7 @@ pub async fn get_session_plan(
                 session.locator.primary_path.join("plan.md"),
             ))
         } else {
-            session.provider.plan(&session.locator)?
+            session_artifacts(&session)?.plan.clone()
         };
         let Some(mut content) = plan.map(|plan| plan.read()).transpose()?.flatten() else {
             return Ok(None);
@@ -109,10 +110,7 @@ pub async fn get_session_background_tasks(
         if !session.provider.capabilities().has_background_tasks {
             return Ok(Vec::new());
         }
-        Ok(session
-            .provider
-            .artifacts(&session.locator)?
-            .background_tasks)
+        Ok(session_artifacts(&session)?.background_tasks.clone())
     })
     .await
 }
@@ -131,10 +129,10 @@ pub async fn get_session_file_history(
         if !session.provider.capabilities().has_file_history {
             return Ok(Vec::new());
         }
-        Ok(session
-            .provider
-            .file_history(&session.locator)?
-            .map(|history| history.checkpoints)
+        Ok(session_artifacts(&session)?
+            .file_history
+            .as_ref()
+            .map(|history| history.checkpoints.clone())
             .unwrap_or_default())
     })
     .await
