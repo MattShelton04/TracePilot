@@ -14,13 +14,15 @@ import {
   truncateText,
   useSessionTabLoader,
 } from "@tracepilot/ui";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
+import BackgroundTasksPanel from "@/components/session/BackgroundTasksPanel.vue";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionsStore } from "@/stores/sessions";
 import { formatObjectResult } from "@/utils/formatResult";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
 import { API_EQUIVALENT_NOTE, formatSessionCost, sessionCostEstimate } from "@/utils/sourceCost";
@@ -46,6 +48,18 @@ const prefs = usePreferencesStore();
 const { source, capabilities } = useSessionSource(
   () => store.sessionId,
   () => store.detail,
+);
+const sessions = useSessionsStore();
+const sessionLive = computed(
+  () => sessions.sessions.find((s) => s.id === store.sessionId)?.isRunning ?? false,
+);
+// Only sources that record background work are asked for it.
+watch(
+  () => (capabilities.value.hasBackgroundTasks ? store.sessionId : null),
+  (id) => {
+    if (id) store.loadBackgroundTasks();
+  },
+  { immediate: true },
 );
 const sourceCost = computed(() =>
   capabilities.value.hasAic ? null : sessionCostEstimate(source.value, metrics.value),
@@ -131,6 +145,9 @@ function retryLoadSection(section: string) {
     case "plan":
       store.loadPlan();
       break;
+    case "backgroundTasks":
+      store.loadBackgroundTasks();
+      break;
     case "metrics":
       store.loadShutdownMetrics();
       break;
@@ -159,6 +176,14 @@ function retryLoadSection(section: string) {
       :retryable="true"
       class="mb-4"
       @retry="retryLoadSection('plan')"
+    />
+    <ErrorAlert
+      v-if="store.backgroundTasksError"
+      :message="`Background tasks: ${store.backgroundTasksError}`"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadSection('backgroundTasks')"
     />
     <ErrorAlert
       v-if="store.metricsError"
@@ -293,6 +318,13 @@ function retryLoadSection(section: string) {
         No incidents recorded for this session.
       </p>
     </div>
+
+    <BackgroundTasksPanel
+      v-if="capabilities.hasBackgroundTasks && store.backgroundTasks.length > 0"
+      :tasks="store.backgroundTasks"
+      :live="sessionLive"
+      class="mb-6"
+    />
 
     <!-- Session Plan -->
     <SectionPanel

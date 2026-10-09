@@ -27,6 +27,11 @@ export const commands = {
 	 *  legacy event-log size and mtime.
 	 */
 	checkSessionFreshness: (sessionId: string) => typedError<FreshnessResponse, BindingsErrorIpc>(__TAURI_INVOKE("check_session_freshness", { sessionId })),
+	/**
+	 *  Subagents and shells the session ran in the background. Empty for a
+	 *  source that does not record them.
+	 */
+	getSessionBackgroundTasks: (sessionId: string) => typedError<BackgroundTask[], BindingsErrorIpc>(__TAURI_INVOKE("get_session_background_tasks", { sessionId })),
 	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
 	getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
 	// Check if a live process owns a session (Copilot: an `inuse.*.lock` file).
@@ -59,6 +64,41 @@ export const commands = {
 };
 
 /* Types */
+// Work a session started in the background, as the source last reported it.
+export type BackgroundTask = {
+	// The source's task id (a subagent or shell id).
+	id: string,
+	kind: BackgroundTaskKind,
+	status: BackgroundTaskStatus,
+	// What the task was asked to do.
+	description: string | null,
+	// The source's report of how it ended.
+	summary: string | null,
+	// The tool call that launched it.
+	toolCallId: string | null,
+	// RFC 3339 time of the launching call.
+	startedAt: string | null,
+	// RFC 3339 time of the first report of its final status.
+	finishedAt: string | null,
+	durationMs: number | null,
+	// Tokens a subagent used, when reported.
+	totalTokens: number | null,
+	// Tool calls a subagent made, when reported.
+	toolCalls: number | null,
+};
+
+// What a background task runs.
+export type BackgroundTaskKind =
+// A subagent.
+"agent" |
+// A shell command.
+"shell" |
+// Another kind the source reported.
+"other";
+
+// A background task's last reported state.
+export type BackgroundTaskStatus = "running" | "completed" | "failed" | "stopped" | "unknown";
+
 export type BindingsErrorIpc = {
 	code: ErrorCode,
 	message: string,

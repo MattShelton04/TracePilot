@@ -54,7 +54,7 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | First record | — | **Synthesized** `session.start` `{sessionId, producer: "claude-code", version, startTime, context{cwd, gitRoot, branch, repository}}` | The VS Code study warns against fake Copilot telemetry; `session.start` is safe because it only carries context. **Never synthesize `session.shutdown`** |
 | `cost-state` | 132 | Not an event. Becomes **provider metrics** (§3) | |
 | `ai-title`, `agent-name`, `pr-link`, `last-prompt`, `mode`, `permission-mode`, `atis-latch` | about 4.4k each | Summary fields (latest wins) and PR links. Hidden from the Events tab by default | |
-| `attachment:*` (29 types) | 17,575 | `Unknown("attachment:<type>")`, shown on the Events tab only. **Not indexed for FTS** | `edited_text_file`, `plan_mode`, `task_status` can feed later features |
+| `attachment:*` (29 types) | 17,575 | `Unknown("attachment:<type>")`, shown on the Events tab only. **Not indexed for FTS** | `task_status` and the task notifications feed the background-task list (C12); `edited_text_file`, `plan_mode` can feed later features |
 | `file-history-snapshot` / `-delta` | 203 / 1,034 | L3: checkpoint/rewind view | |
 | Subagent file records | 26 files | The same mapping with envelope `agentId`, plus `parentToolCallId = meta.toolUseId` | Inserted into the parent stream as described in §1.3 |
 

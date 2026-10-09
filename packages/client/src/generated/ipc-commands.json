@@ -62,6 +62,7 @@
   "get_search_repositories",
   "get_search_stats",
   "get_search_tool_names",
+  "get_session_background_tasks",
   "get_session_checkpoints",
   "get_session_context_timeline",
   "get_session_count",

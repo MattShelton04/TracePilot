@@ -107,6 +107,9 @@ pub struct SourceCapabilities {
     pub has_plan: bool,
     pub has_explorer: bool,
     pub has_hidden_roles: bool,
+    /// The source records background subagents and shells
+    /// ([`SessionArtifacts::background_tasks`]).
+    pub has_background_tasks: bool,
 }
 
 /// What a running session's process is doing, when the source records it.
@@ -380,6 +383,67 @@ pub struct TodoList {
     pub deps: Option<Vec<TodoDep>>,
 }
 
+/// What a background task runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(Type))]
+#[serde(rename_all = "camelCase")]
+pub enum BackgroundTaskKind {
+    /// A subagent.
+    Agent,
+    /// A shell command.
+    Shell,
+    /// Another kind the source reported.
+    Other,
+}
+
+/// A background task's last reported state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(Type))]
+#[serde(rename_all = "camelCase")]
+pub enum BackgroundTaskStatus {
+    Running,
+    Completed,
+    Failed,
+    Stopped,
+    Unknown,
+}
+
+impl BackgroundTaskStatus {
+    /// The task has finished; a later "running" report never reopens it.
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Completed | Self::Failed | Self::Stopped)
+    }
+}
+
+/// Work a session started in the background, as the source last reported it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(Type))]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundTask {
+    /// The source's task id (a subagent or shell id).
+    pub id: String,
+    pub kind: BackgroundTaskKind,
+    pub status: BackgroundTaskStatus,
+    /// What the task was asked to do.
+    pub description: Option<String>,
+    /// The source's report of how it ended.
+    pub summary: Option<String>,
+    /// The tool call that launched it.
+    pub tool_call_id: Option<String>,
+    /// RFC 3339 time of the launching call.
+    pub started_at: Option<String>,
+    /// RFC 3339 time of the first report of its final status.
+    pub finished_at: Option<String>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
+    pub duration_ms: Option<u64>,
+    /// Tokens a subagent used, when reported.
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
+    pub total_tokens: Option<u64>,
+    /// Tool calls a subagent made, when reported.
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
+    pub tool_calls: Option<u64>,
+}
+
 /// Side files a session may have. Absent artifacts are `None` or empty.
 #[derive(Debug, Clone, Default)]
 pub struct SessionArtifacts {
@@ -389,4 +453,7 @@ pub struct SessionArtifacts {
     pub rewind: Option<RewindIndex>,
     /// Directories the file browser and image preview may read.
     pub file_roots: Vec<PathBuf>,
+    /// Subagents and shells the session ran in the background, in the order
+    /// they were first reported.
+    pub background_tasks: Vec<BackgroundTask>,
 }

@@ -15,10 +15,11 @@ describe("session sources", () => {
     expect(sourceCapabilities(undefined)).toBe(sourceCapabilities("copilot"));
   });
 
-  it("gives Copilot every capability except hidden roles", () => {
+  it("gives Copilot every capability except hidden roles and background tasks", () => {
     const caps = sourceCapabilities("copilot");
-    const { hasHiddenRoles, ...rest } = caps;
+    const { hasHiddenRoles, hasBackgroundTasks, ...rest } = caps;
     expect(hasHiddenRoles).toBe(false);
+    expect(hasBackgroundTasks).toBe(false);
     expect(Object.values(rest).every(Boolean)).toBe(true);
   });
 
@@ -31,5 +32,6 @@ describe("session sources", () => {
     expect(caps.hasAic).toBe(false);
     expect(caps.hasTodos).toBe(false);
     expect(caps.hasExplorer).toBe(false);
+    expect(caps.hasBackgroundTasks).toBe(true);
   });
 });

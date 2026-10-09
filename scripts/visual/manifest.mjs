@@ -35,6 +35,14 @@ export const cases = [
     state: "populated Claude Code session",
   })),
   {
+    id: "claude-session-background-tasks",
+    route: `${claudeSession}/overview`,
+    ready: '[data-testid="background-task"]',
+    command: "get_session_background_tasks",
+    scrollText: "cargo watch -x check",
+    state: "ended Claude Code session: done, failed and unreported tasks",
+  },
+  {
     id: "session-explorer-file",
     route: `${session}/explorer`,
     start: ".fb-tree",

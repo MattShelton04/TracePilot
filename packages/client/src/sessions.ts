@@ -18,6 +18,7 @@ import type {
   TurnsResponse,
 } from "@tracepilot/types";
 
+import type { BackgroundTask } from "./generated/bindings.js";
 import { invoke } from "./internal/core.js";
 import { toRustOptional } from "./internal/optional.js";
 
@@ -91,6 +92,11 @@ export async function getSessionCheckpoints(sessionId: string): Promise<Checkpoi
 
 export async function getSessionPlan(sessionId: string): Promise<SessionPlan | null> {
   return invoke<SessionPlan | null>("get_session_plan", { sessionId });
+}
+
+/** Subagents and shells the session ran in the background; empty when none. */
+export async function getSessionBackgroundTasks(sessionId: string): Promise<BackgroundTask[]> {
+  return invoke<BackgroundTask[]>("get_session_background_tasks", { sessionId });
 }
 
 export async function getShutdownMetrics(sessionId: string): Promise<ShutdownMetrics | null> {
