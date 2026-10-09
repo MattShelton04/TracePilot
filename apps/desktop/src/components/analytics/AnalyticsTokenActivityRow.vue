@@ -9,7 +9,6 @@ import {
   formatNumber,
   formatNumberFull,
   generateXLabels,
-  generateYLabels,
   SectionPanel,
   useChartTooltip,
 } from "@tracepilot/ui";
@@ -17,6 +16,7 @@ import { computed } from "vue";
 import LineAreaChart from "@/components/charts/LineAreaChart.vue";
 import { useLineAreaChartData } from "@/composables/useLineAreaChartData";
 import { CHART_COLORS } from "@/utils/chartColors";
+import { niceTicks } from "@/utils/niceTicks";
 
 const props = defineProps<{
   data: AnalyticsData;
@@ -45,7 +45,8 @@ const activityChart = computed(() => {
     width: CHART_W,
     height: CHART_H,
   } = props.chartLayout;
-  const max = Math.max(...pts.map((p) => p.count), 1);
+  const axis = niceTicks(Math.max(...pts.map((p) => p.count), 1), { integer: true });
+  const max = axis.max;
   const spacing = CHART_W / pts.length;
   const barW = computeBarWidth(CHART_W, pts.length);
 
@@ -54,13 +55,16 @@ const activityChart = computed(() => {
     const h = (p.count / max) * CHART_H;
     return { x, y: CHART_BOTTOM - h, width: barW, height: h, date: p.date, count: p.count };
   });
-  const yLabels = generateYLabels(max, props.chartLayout, 5, (v) => String(Math.round(v)));
+  const yLabels = axis.ticks.map((value) => ({
+    value: String(value),
+    y: CHART_BOTTOM - (value / max) * CHART_H,
+  }));
   const xLabels = generateXLabels(
     pts,
     (_, i) => CHART_LEFT + i * spacing + spacing / 2,
     (p) => formatDateShort(p.date),
   );
-  return { bars, yLabels, xLabels };
+  return { bars, yLabels, xLabels, gridLines: yLabels.map((label) => label.y) };
 });
 </script>
 
@@ -89,7 +93,7 @@ const activityChart = computed(() => {
       <ChartFrame
         v-if="activityChart"
         :chart-layout="chartLayout"
-        :grid-lines="gridLines"
+        :grid-lines="activityChart.gridLines"
         :y-labels="activityChart.yLabels"
         :x-labels="activityChart.xLabels"
         :ariaLabel="`Bar chart showing session activity per day over ${timeRangeLabel}`"

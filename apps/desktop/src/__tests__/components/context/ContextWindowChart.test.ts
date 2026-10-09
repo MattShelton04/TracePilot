@@ -92,6 +92,44 @@ describe("ContextWindowChart", () => {
     expect(turnTicks.some((node) => node.text() === "1")).toBe(true);
   });
 
+  it("labels the token axis with round, evenly spaced ticks", async () => {
+    const scale = 50;
+    const scaled: ContextTimeline = {
+      ...timeline,
+      points: timeline.points.map((point) => ({
+        ...point,
+        systemTokens: point.systemTokens * scale,
+        toolDefinitionTokens: point.toolDefinitionTokens * scale,
+        conversationTokens: point.conversationTokens * scale,
+        totalTokens: point.totalTokens * scale,
+      })),
+      compactions: timeline.compactions.map((item) => ({
+        ...item,
+        beforeTokens: (item.beforeTokens ?? 0) * scale,
+      })),
+    };
+    scaled.points[0] = { ...scaled.points[0], totalTokens: 4_420 };
+    const wrapper = mount(ContextWindowChart, { props: { timeline: scaled } });
+
+    const gridYs = wrapper
+      .findAll(".context-chart__grid line")
+      .map((line) => Number(line.attributes("y1")));
+    const yLabels = wrapper
+      .findAll(".context-chart__axes text")
+      .slice(0, gridYs.length)
+      .map((node) => node.text());
+    expect(yLabels).toEqual(["0", "2k", "4k", "6k", "8k"]);
+    const gaps = gridYs.slice(1).map((y, i) => gridYs[i] - y);
+    for (const gap of gaps) expect(gap).toBeCloseTo(gaps[0], 6);
+
+    const svg = wrapper.find("svg");
+    Object.defineProperty(svg.element, "getBoundingClientRect", {
+      value: () => ({ left: 0, top: 0, width: 900, height: 390 }),
+    });
+    await svg.trigger("mousemove", { clientX: 66, clientY: 200 });
+    expect(wrapper.find(".context-chart__tooltip").text()).toContain("4.4k tokens");
+  });
+
   it("toggles layers without mutating timeline data", async () => {
     const wrapper = mount(ContextWindowChart, { props: { timeline } });
     const firstToggle = wrapper.find(".context-chart__legend .context-chart__button");
