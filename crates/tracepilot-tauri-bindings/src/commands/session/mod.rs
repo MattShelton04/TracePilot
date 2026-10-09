@@ -9,6 +9,7 @@
 //! `__cmd__<command_name>` item that must be reachable at the same path as
 //! the command function. Glob re-exports forward both.
 
+mod artifact_cache;
 mod artifacts;
 mod context;
 mod context_capture;

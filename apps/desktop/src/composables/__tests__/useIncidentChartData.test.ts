@@ -1,7 +1,7 @@
 import { createChartLayout } from "@tracepilot/ui";
 import { describe, expect, it } from "vitest";
 import { ref } from "vue";
-import type { ActivityPoint, IncidentPoint } from "../useIncidentChartData";
+import type { ActivityPoint, IncidentBar, IncidentPoint } from "../useIncidentChartData";
 import { useIncidentChartData } from "../useIncidentChartData";
 
 const layout = createChartLayout(55, 490, 20, 175);
@@ -152,10 +152,82 @@ describe("useIncidentChartData", () => {
         layout,
       });
       expect(chartData.value).not.toBeNull();
-      // maxVal should be the floor of 0.5
-      expect(chartData.value?.maxVal).toBe(0.5);
+      // A raw count axis never shows fractions, even with no incidents.
+      expect(chartData.value?.maxVal).toBe(1);
+      expect(chartData.value?.yLabels.map((l) => l.value)).toEqual(["0", "1"]);
       // All bar heights should be zero
       expect(chartData.value?.bars[0].total).toBe(0);
+    });
+  });
+
+  describe("y-axis", () => {
+    function singleDay(total: number) {
+      return [{ date: "2025-01-01", errors: 0, rateLimits: 0, compactions: total, truncations: 0 }];
+    }
+
+    function barTop(bar: IncidentBar): number {
+      return Math.min(bar.truncRect.y, bar.compRect.y, bar.otherRect.y, bar.rlRect.y);
+    }
+
+    it.each([
+      1, 3, 5, 8, 12,
+    ])("places the tallest raw bar (%d) on the gridline labelled with its count", (total) => {
+      const { chartData } = useIncidentChartData({
+        incidents: ref(singleDay(total)),
+        activity: ref([]),
+        normalize: ref(false),
+        layout,
+      });
+      const data = chartData.value!;
+      const label = data.yLabels.find((l) => l.value === String(total));
+      expect(label, `labels: ${data.yLabels.map((l) => l.value).join(", ")}`).toBeDefined();
+      expect(barTop(data.bars[0])).toBeCloseTo(label!.y, 6);
+    });
+
+    it("scales bars against the top tick so every label matches its gridline", () => {
+      const { chartData } = useIncidentChartData({
+        incidents: ref(singleDay(5)),
+        activity: ref([]),
+        normalize: ref(false),
+        layout,
+      });
+      const data = chartData.value!;
+      const top = data.yLabels.at(-1)!;
+      expect(Number(top.value)).toBe(data.maxVal);
+      expect(top.y).toBeCloseTo(layout.top, 6);
+      for (const label of data.yLabels) {
+        expect(Number.isInteger(Number(label.value))).toBe(true);
+        expect(label.y).toBeCloseTo(
+          layout.bottom - (Number(label.value) / data.maxVal) * layout.height,
+          6,
+        );
+      }
+    });
+
+    it("draws a bar between ticks at its true height", () => {
+      const { chartData } = useIncidentChartData({
+        incidents: ref(singleDay(7)),
+        activity: ref([]),
+        normalize: ref(false),
+        layout,
+      });
+      const data = chartData.value!;
+      const six = data.yLabels.find((l) => l.value === "6")!;
+      const eight = data.yLabels.find((l) => l.value === "8")!;
+      expect(barTop(data.bars[0])).toBeCloseTo((six.y + eight.y) / 2, 6);
+    });
+
+    it("uses fractional ticks for per-session rates", () => {
+      const { chartData } = useIncidentChartData({
+        incidents: ref(singleDay(2)),
+        activity: ref([{ date: "2025-01-01", count: 4 }]),
+        normalize: ref(true),
+        layout,
+      });
+      const data = chartData.value!;
+      const label = data.yLabels.find((l) => l.value === "0.5");
+      expect(label).toBeDefined();
+      expect(barTop(data.bars[0])).toBeCloseTo(label!.y, 6);
     });
   });
 

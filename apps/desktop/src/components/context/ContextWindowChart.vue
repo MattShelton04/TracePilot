@@ -6,6 +6,7 @@ import type {
   ContextWindowPoint,
 } from "@tracepilot/types";
 import { computed, ref, watch } from "vue";
+import { niceTicks } from "@/utils/niceTicks";
 import { buildActiveTimeCoordinates } from "./contextChartScale";
 
 const props = defineProps<{
@@ -133,14 +134,17 @@ const thresholdLines = computed(() => {
   }
   return values;
 });
-const maxTokens = computed(() => {
-  const max = Math.max(
-    ...points.value.map(visibleTotal),
-    ...thresholdLines.value.map((line) => line.value),
-    1,
-  );
-  return Math.ceil(max / 10_000) * 10_000 || max;
-});
+const yAxis = computed(() =>
+  niceTicks(
+    Math.max(
+      ...points.value.map(visibleTotal),
+      ...thresholdLines.value.map((line) => line.value),
+      1,
+    ),
+    { integer: true },
+  ),
+);
+const maxTokens = computed(() => yAxis.value.max);
 
 const globalSessionBreakIndexes = computed(() => {
   const result = new Set<number>();
@@ -217,12 +221,7 @@ const layerPolygons = computed(() => {
     return { ...layer, points: [...upper, ...lower].join(" ") };
   });
 });
-const yTicks = computed(() =>
-  Array.from({ length: 5 }, (_, index) => {
-    const value = Math.round((maxTokens.value * index) / 4);
-    return { value, y: y(value) };
-  }),
-);
+const yTicks = computed(() => yAxis.value.ticks.map((value) => ({ value, y: y(value) })));
 const xTicks = computed(() => {
   const candidates = points.value
     .map((_, index) => index)
@@ -475,7 +474,7 @@ function handleChartKeydown(event: KeyboardEvent) {
 }
 function formatTick(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${Math.round(value / 1_000)}k`;
+  if (value >= 1_000) return `${Number((value / 1_000).toFixed(1))}k`;
   return String(value);
 }
 function formatTime(timestamp?: string | null): string {
