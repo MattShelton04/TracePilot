@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import type { AnalyticsData } from "@tracepilot/types";
-import { formatPercent } from "@tracepilot/types";
+import { formatPercent, sourceCapabilities } from "@tracepilot/types";
 import { formatNumber, SectionPanel } from "@tracepilot/ui";
+import { computed } from "vue";
 import AnalyticsPromptCachePanel from "@/components/analytics/AnalyticsPromptCachePanel.vue";
 import { usePreferencesStore } from "@/stores/preferences";
 
-defineProps<{
+const props = defineProps<{
   data: AnalyticsData;
 }>();
 
 const prefs = usePreferencesStore();
+const billedInAic = computed(() =>
+  (props.data.costBySource ?? []).every((entry) => sourceCapabilities(entry.source).hasAic),
+);
 </script>
 
 <template>
@@ -52,6 +56,7 @@ const prefs = usePreferencesStore();
     <AnalyticsPromptCachePanel
       v-if="data.promptCache && prefs.isFeatureEnabled('promptCacheInsights')"
       :data="data.promptCache"
+      :billed-in-aic="billedInAic"
     />
   </div>
 </template>

@@ -4,7 +4,8 @@ use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, with_session_locator};
-use crate::types::{EventCache, SessionIncidentItem};
+use crate::types::{EventCache, SessionDetailResponse, SessionIncidentItem};
+use tracepilot_core::provider::ResolvedSession;
 
 use super::shared::load_cached_summary;
 
@@ -14,29 +15,41 @@ pub async fn get_session_detail(
     state: tauri::State<'_, SharedConfig>,
     event_cache: tauri::State<'_, EventCache>,
     session_id: String,
-) -> CmdResult<tracepilot_core::SessionSummary> {
+) -> CmdResult<SessionDetailResponse> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     let event_cache = event_cache.inner().clone();
 
     with_session_locator(&state, sid, move |session| {
-        // Cached per source_version, so active sessions get fresh data when
-        // any of their files changes. On a load error, degrade to a summary
-        // without event data (the original load_session_summary behaviour).
-        match load_cached_summary(&event_cache, &session) {
-            Ok(summary) => Ok(summary),
-            Err(e) => {
-                tracing::warn!(
-                    path = %session.locator.primary_path.display(),
-                    error = %e,
-                    "Failed to load cached events for session detail; proceeding without event data"
-                );
-                Ok(session
-                    .provider
-                    .summary_from_events(&session.locator, &[])?)
-            }
-        }
+        session_detail(&event_cache, &session)
     })
     .await
+}
+
+/// The session's summary and source. Blocking.
+pub(super) fn session_detail(
+    event_cache: &EventCache,
+    session: &ResolvedSession,
+) -> Result<SessionDetailResponse, BindingsError> {
+    // Cached per source_version, so active sessions get fresh data when
+    // any of their files changes. On a load error, degrade to a summary
+    // without event data (the original load_session_summary behaviour).
+    let summary = match load_cached_summary(event_cache, session) {
+        Ok(summary) => summary,
+        Err(e) => {
+            tracing::warn!(
+                path = %session.locator.primary_path.display(),
+                error = %e,
+                "Failed to load cached events for session detail; proceeding without event data"
+            );
+            session
+                .provider
+                .summary_from_events(&session.locator, &[])?
+        }
+    };
+    Ok(SessionDetailResponse {
+        source: session.locator.source,
+        summary,
+    })
 }
 
 #[tauri::command]

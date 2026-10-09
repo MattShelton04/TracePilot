@@ -27,6 +27,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [Performance Playbook](performance-playbook.md) | Current performance investigation and profiling guidance. |
 | [Dependencies](dependencies/README.md) | Complete dependency graph, usage inventory, update decisions, security findings, and measured costs. |
 | [Exact Context Capture Guide](exact-context-capture.md) | Enable, run, inspect, store, and delete isolated model-request snapshots. |
+| [Claude Code Sessions](claude-code-sessions.md) | Experimental: enable Claude Code sessions, what is supported, costs, live state, diagnostics, and troubleshooting. |
 | [Agent Communication](features/agent-communication.md) | Timeline Messages modes, communication evidence, live refresh, and Agents usage counters. |
 
 ## Architecture and design references

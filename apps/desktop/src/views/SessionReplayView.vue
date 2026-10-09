@@ -114,7 +114,7 @@ const totalToolCalls = computed(() =>
         <header class="replay-header">
           <div class="header-left">
             <h1>Session Replay</h1>
-            <span class="header-subtitle">Step through any Copilot session operation by operation</span>
+            <span class="header-subtitle">Step through any session operation by operation</span>
           </div>
         </header>
 
@@ -141,7 +141,7 @@ const totalToolCalls = computed(() =>
         <EmptyState
           v-else
           title="No sessions found"
-          description="No indexed sessions with conversation data. Run a Copilot session first, then come back here."
+          description="No indexed sessions with conversation data. Run a session first, then come back here."
         >
           <template #icon>📭</template>
         </EmptyState>

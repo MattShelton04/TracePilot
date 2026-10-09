@@ -10,12 +10,10 @@ import { type ComputedRef, computed } from "vue";
 import { useSessionsStore } from "@/stores/sessions";
 
 /**
- * A session's source from data already loaded: the detail's explicit source,
- * then the matching list item's, then Copilot when either describes the
- * session without one. `undefined` when nothing loaded describes it.
- *
- * The list can carry `source` before the detail does, so a detail without a
- * source must not override a known source from the list.
+ * A session's source from data already loaded: the detail's, then the
+ * matching list item's while the detail loads, then Copilot when loaded data
+ * describes the session without one. `undefined` when nothing loaded
+ * describes it.
  */
 export function knownSessionSource(
   sessionId: string | null | undefined,

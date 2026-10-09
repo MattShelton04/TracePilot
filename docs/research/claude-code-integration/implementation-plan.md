@@ -21,7 +21,7 @@
 | L0 Spike | S1–S3 | 4–6 | 4–6 | 1 wk | 1 wk |
 | L1 Basic (internal milestone) | F1–F10a, C1–C6, Q1 | 33–45 | 37–51 | 8–10 wks | 3–4 wks |
 | **L2 Good (first release, Experimental)** | C4, C7–C11, U1–U3, F10b, Q2 | 25–35 | 62–86 | 12–17 wks | 5–7 wks |
-| L3 Parity | C12–C14, U4, U5, Q3, Q4 | 15–23 | 77–109 | 16–22 wks | 7–10 wks |
+| L3 Parity (done; Q4 dropped) | C12–C14, U4, U5, Q3, ~~Q4~~ | 15–23 | 77–109 | 16–22 wks | 7–10 wks |
 | Codex provider (after L2) | X1–X6 | 15–25 | — | 3–5 wks | 2–3 wks |
 
 **Why this is higher than the earlier estimate.** The earlier study gave 5–8 weeks for Claude
@@ -146,6 +146,11 @@ transcript sums on the *same* model. A fixed "within N%" gate would fail correct
 
 ### L3 — Parity
 
+**Status (2026-10-10): done.** C12, C13, C14, U4, U5 and Q3 have shipped. Q4 is dropped by
+maintainer decision: Claude Code sessions get no alerts or notifications. The integration stays
+behind the Experimental *Claude Code sessions* setting, and decisions D1–D5 are unchanged. The
+user guide is [docs/claude-code-sessions.md](../../claude-code-sessions.md).
+
 | ID | Task | Est | Depends on | Lane |
 | --- | --- | ---: | --- | --- |
 | C12 | Background tasks: build a background-task list from task notifications and `task_status`. Todo tools are out of scope (see [Readiness](#readiness)) | 1–2 | C4 | B |
@@ -154,7 +159,7 @@ transcript sums on the *same* model. A fixed "within N%" gate would fail correct
 | U4 | Tool analysis by canonical kind with native drill-down; code impact; cross-source model comparison; session comparison suppressing billing deltas across sources | 4–5 | U3, C10 | C |
 | U5 | Copy pass on shared UI only (Copilot-first, decision D1), empty states, user docs, `docs/on-disk-paths.md`, troubleshooting | 2–4 | — | C |
 | Q3 | Format-drift tooling: promote the census script to `scripts/` (with a `scripts/README.md` entry) and add a per-source diagnostics panel listing unmapped record and attachment types and versions seen | 2–3 | C3 | any |
-| Q4 | Alerts and notifications on liveness transitions (busy → idle) | 1–2 | C9 | B |
+| Q4 | **Dropped (maintainer decision): no Claude Code alerts.** ~~Alerts and notifications on liveness transitions (busy → idle)~~ | — | C9 | B |
 
 ### Later (L4, independent)
 

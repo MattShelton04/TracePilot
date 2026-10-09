@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Cross-session prompt-cache timing. Only sessions whose expiries were
- * recorded by Copilot CLI (1.0.75+) contribute, and the denominator is shown.
+ * Cross-session prompt-cache timing. Only sessions with recorded timing
+ * contribute: expiries recorded by Copilot CLI (1.0.75+), or windows timed from
+ * recorded model calls (Claude Code). The denominator is shown.
  */
 import type { PromptCacheAnalytics } from "@tracepilot/types";
 import { formatPercent } from "@tracepilot/types";
@@ -11,7 +12,14 @@ import { computed } from "vue";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
 import { changeKindLabel, formatIdle } from "@/utils/promptCache";
 
-const props = defineProps<{ data: PromptCacheAnalytics }>();
+const props = withDefaults(
+  defineProps<{
+    data: PromptCacheAnalytics;
+    /** False when the range includes a source not billed in AI Credits. */
+    billedInAic?: boolean;
+  }>(),
+  { billedInAic: true },
+);
 
 const { missCredits } = usePromptCacheCost();
 
@@ -27,8 +35,13 @@ const sessionsLabel = computed(() =>
     ? "from 1 session"
     : `from ${props.data.sessionsWithPredicted} sessions`,
 );
-/** Sum of priced models only; null when none could be priced. */
+/**
+ * Sum of priced models only; null when none could be priced. Re-sent tokens
+ * are grouped by model, not source, so the AI Credits figure is shown only
+ * when every session in range is billed in them.
+ */
 const extraCredits = computed(() => {
+  if (!props.billedInAic) return null;
   let total: number | null = null;
   for (const { model, tokens } of props.data.resentPrefixTokensByModel ?? []) {
     const credits = missCredits(model, tokens);
@@ -36,13 +49,20 @@ const extraCredits = computed(() => {
   }
   return total;
 });
+const ABOUT =
+  "Replies after idle, from sessions with recorded cache timing. Agent wakes are excluded.";
+const aboutText = computed(() =>
+  props.billedInAic
+    ? ABOUT
+    : `${ABOUT} Extra cost appears only when every session is billed in AI Credits.`,
+);
 </script>
 
 <template>
   <SectionPanel title="Prompt Cache Timing" data-testid="analytics-prompt-cache">
     <template #actions>
       <span v-if="data.resumedWindows > 0" class="text-xs text-[var(--text-tertiary)]">{{ sessionsLabel }}</span>
-      <Tooltip text="Replies after idle, from sessions where Copilot CLI recorded the cache expiry. Agent wakes are excluded.">
+      <Tooltip :text="aboutText">
         <button type="button" aria-label="About prompt cache timing" class="text-[var(--text-tertiary)]">
           <Info :size="14" />
         </button>
@@ -50,7 +70,7 @@ const extraCredits = computed(() => {
     </template>
 
     <p v-if="data.resumedWindows === 0" class="prompt-timing__empty">
-      No cache timing in this range yet. Needs Copilot CLI 1.0.75 or later.
+      No cache timing in this range yet. Copilot CLI sessions need version 1.0.75 or later.
     </p>
     <template v-else>
       <div class="prompt-timing__grid">
