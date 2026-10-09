@@ -2,10 +2,12 @@
 import {
   type FormatNameCountDto,
   getSourceFormatDiagnostics,
+  IPC_EVENTS,
   type SourceFormatDiagnostics,
 } from "@tracepilot/client";
 import { ActionButton, Heading, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import { useScopedEventListener } from "@/composables/useScopedEventListener";
 
 interface Group {
   id: string;
@@ -36,7 +38,16 @@ async function load() {
   }
 }
 
-onMounted(load);
+// Indexing (including the first index after enabling the source) records
+// new observations, so reload when it finishes.
+const watchIndexUpdates = useScopedEventListener(IPC_EVENTS.INDEXING_FINISHED, () => {
+  void load();
+});
+
+onMounted(() => {
+  void watchIndexUpdates();
+  void load();
+});
 
 const sessionsLabel = computed(() => {
   const count = diagnostics.value?.sessions ?? 0;

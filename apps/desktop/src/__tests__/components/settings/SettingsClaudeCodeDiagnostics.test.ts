@@ -1,7 +1,15 @@
-import { getSourceFormatDiagnostics } from "@tracepilot/client";
+import { getSourceFormatDiagnostics, IPC_EVENTS } from "@tracepilot/client";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SettingsClaudeCodeDiagnostics from "@/components/settings/SettingsClaudeCodeDiagnostics.vue";
+
+const listeners = vi.hoisted(() => new Map<string, () => void>());
+vi.mock("@/utils/tauriEvents", () => ({
+  safeListen: vi.fn(async (event: string, handler: () => void) => {
+    listeners.set(event, handler);
+    return () => listeners.delete(event);
+  }),
+}));
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../mocks/client");
@@ -58,5 +66,22 @@ describe("SettingsClaudeCodeDiagnostics", () => {
     expect(getSourceFormatDiagnostics).toHaveBeenCalledTimes(2);
     expect(wrapper.find('[role="alert"]').exists()).toBe(false);
     expect(wrapper.text()).toContain("brand-new-record");
+  });
+
+  it("reloads when indexing finishes", async () => {
+    vi.mocked(getSourceFormatDiagnostics)
+      .mockResolvedValueOnce({ ...diagnostics, sessions: 0, unmappedRecordTypes: [], versions: [] })
+      .mockResolvedValueOnce(diagnostics);
+    const wrapper = mount(SettingsClaudeCodeDiagnostics);
+    await flushPromises();
+    expect(wrapper.text()).toContain("0 indexed sessions");
+
+    listeners.get(IPC_EVENTS.INDEXING_FINISHED)?.();
+    await flushPromises();
+    expect(wrapper.text()).toContain("3 indexed sessions");
+    expect(wrapper.text()).toContain("brand-new-record");
+
+    wrapper.unmount();
+    expect(listeners.has(IPC_EVENTS.INDEXING_FINISHED)).toBe(false);
   });
 });
