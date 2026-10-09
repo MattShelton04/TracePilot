@@ -15,6 +15,8 @@
 
 mod background;
 mod branch;
+mod census;
+mod drift;
 mod liveness;
 mod notify;
 pub(crate) mod pricing;
@@ -44,6 +46,8 @@ use crate::error::Result;
 use crate::parsing::diagnostics::ParseDiagnostics;
 use crate::parsing::events::TypedEvent;
 
+pub use census::{FormatCensus, format_census};
+pub use drift::{safe_type_name, safe_version, version_order};
 pub use liveness::ProcessStart;
 pub(crate) use privacy::redact_record;
 pub use provider::ClaudeCodeProvider;
@@ -128,8 +132,12 @@ pub struct ClaudeDiagnostics {
     pub persisted_outputs: usize,
     /// `cost-state` records read, including repeats of the same totals.
     pub cost_state_records: usize,
+    /// Record types with no mapping, by safe name (`drift::safe_type_name`).
     pub unknown_record_types: BTreeMap<String, usize>,
+    /// Attachment types not seen before, by safe name.
     pub unknown_attachment_types: BTreeMap<String, usize>,
+    /// Records per Claude Code `version`, by safe version (`drift::safe_version`).
+    pub versions: BTreeMap<String, usize>,
 }
 
 /// Parse one Claude Code session: the main transcript at `main` and any

@@ -34,7 +34,9 @@ export type {
   BackgroundTaskStatus,
   BindingsErrorIpc,
   ErrorCode,
+  FormatNameCountDto,
   GitInfo,
+  SourceFormatDiagnostics,
   UpdateCheckResult,
   ValidateSessionDirResult,
 } from "./generated/bindings.js";

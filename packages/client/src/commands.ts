@@ -51,6 +51,7 @@ export const IPC_COMMANDS = [
   "update_config",
   "validate_session_dir",
   "validate_claude_config_dir",
+  "get_source_format_diagnostics",
   "get_db_size",
   "get_session_count",
   "is_session_running",

@@ -4,7 +4,7 @@
 //! feature. [`SessionLocator`] and [`SourceFingerprint`] stay backend-only:
 //! the index stores them, and IPC sees only ids and an opaque version.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
 
@@ -349,8 +349,21 @@ pub struct ProviderSnapshot {
     /// `session.shutdown`.
     pub metrics: Option<SessionMetrics>,
     pub diagnostics: Option<ParseDiagnostics>,
+    /// What the parser saw of the source's native format; `None` for sources
+    /// that do not report it (Copilot).
+    pub format: Option<FormatObservations>,
     /// Read before parsing. A strict load certifies the files did not change.
     pub fingerprint: SourceFingerprint,
+}
+
+/// Native names a source's parser has no mapping for, and the producer
+/// versions that wrote a session, each with its record count. Keys are
+/// type names or versions only, never paths, ids or content.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FormatObservations {
+    pub unmapped_record_types: BTreeMap<String, usize>,
+    pub unmapped_attachment_types: BTreeMap<String, usize>,
+    pub versions: BTreeMap<String, usize>,
 }
 
 /// A session's events without its summary.

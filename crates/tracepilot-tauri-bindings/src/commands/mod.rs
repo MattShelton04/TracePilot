@@ -15,5 +15,6 @@ pub mod sdk;
 pub mod search;
 pub mod session;
 pub mod skills;
+pub mod source_diagnostics;
 pub mod state;
 pub mod window;
