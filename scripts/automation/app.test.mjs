@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import {
   copyFileSync,
   existsSync,
@@ -15,9 +14,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
-import { promisify } from "node:util";
-
-const execute = promisify(execFile);
+import { fixtureRunner } from "./test-process.mjs";
 
 test("Windows lifecycle owns only its recorded process trees", {
   skip: process.platform !== "win32",
@@ -25,6 +22,7 @@ test("Windows lifecycle owns only its recorded process trees", {
   // A path with spaces exercises real Windows argument handling. No Rust build or
   // user data is involved: the fixture is an HTTP server with one child process.
   const root = mkdtempSync(join(tmpdir(), "tracepilot automation test "));
+  const execute = fixtureRunner(root);
   const launcher = join(root, "scripts/automation/app.ps1");
   const runtime = join(root, ".tracepilot/automation");
   const statePath = join(runtime, "ui.json");
@@ -61,7 +59,7 @@ test("Windows lifecycle owns only its recorded process trees", {
         mode,
         ...extra,
       ],
-      { cwd: root, windowsHide: true, timeout: 30_000, env },
+      { env },
     );
   const state = () => JSON.parse(readFileSync(statePath, "utf8"));
   const instanceState = (name, mode = "ui") =>
@@ -172,8 +170,14 @@ test("Windows lifecycle owns only its recorded process trees", {
   });
 
   await t.test("rejects invalid or production UI ports before launching", async () => {
-    await assert.rejects(run("start", "ui", ["-UiPort", "-1"]), /UiPort/);
-    await assert.rejects(run("start", "ui", ["-UiPort", "65536"]), /UiPort/);
+    const invalidUiPort = (error) => {
+      // The command line echoes UiPort even when the watchdog kills the shell.
+      assert.equal(error.killed, false);
+      assert.match(error.stderr, /Cannot validate\s+argument on parameter 'UiPort'/);
+      return true;
+    };
+    await assert.rejects(run("start", "ui", ["-UiPort", "-1"]), invalidUiPort);
+    await assert.rejects(run("start", "ui", ["-UiPort", "65536"]), invalidUiPort);
     await assert.rejects(
       run("start", "desktop", ["-Runtime", "production", "-UiPort", "1437"]),
       /-UiPort is valid only with -Runtime development/,
