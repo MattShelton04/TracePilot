@@ -18,7 +18,7 @@ import type {
   TurnsResponse,
 } from "@tracepilot/types";
 
-import type { BackgroundTask } from "./generated/bindings.js";
+import type { BackgroundTask, FileCheckpoint, FileVersionContent } from "./generated/bindings.js";
 import { invoke } from "./internal/core.js";
 import { toRustOptional } from "./internal/optional.js";
 
@@ -97,6 +97,19 @@ export async function getSessionPlan(sessionId: string): Promise<SessionPlan | n
 /** Subagents and shells the session ran in the background; empty when none. */
 export async function getSessionBackgroundTasks(sessionId: string): Promise<BackgroundTask[]> {
   return invoke<BackgroundTask[]>("get_session_background_tasks", { sessionId });
+}
+
+/** Read-only rewind points of the files the session changed; empty when none. */
+export async function getSessionFileHistory(sessionId: string): Promise<FileCheckpoint[]> {
+  return invoke<FileCheckpoint[]>("get_session_file_history", { sessionId });
+}
+
+/** One backed-up file version from the session's file history, read on request. */
+export async function getSessionFileVersion(
+  sessionId: string,
+  backup: string,
+): Promise<FileVersionContent> {
+  return invoke<FileVersionContent>("get_session_file_version", { sessionId, backup });
 }
 
 export async function getShutdownMetrics(sessionId: string): Promise<ShutdownMetrics | null> {

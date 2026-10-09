@@ -44,7 +44,7 @@ describe("sessionTabGuard", () => {
 
   it("redirects a deep link using the loaded session list", () => {
     seed([{ id: "s-1", source: "claudeCode" }]);
-    expect(sessionTabGuard(sessionRoute(ROUTE_NAMES.sessionExplorer))).toEqual({
+    expect(sessionTabGuard(sessionRoute(ROUTE_NAMES.sessionTodos))).toEqual({
       name: ROUTE_NAMES.sessionOverview,
       params: { id: "s-1" },
     });

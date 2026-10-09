@@ -1,7 +1,8 @@
 //! Bounded session-wide text-content search for the Explorer tab.
 
+use super::scope::ExplorerScope;
 use super::security::{
-    collect_entries, reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
+    reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
 };
 use super::types::{
     MAX_ENTRIES, MAX_SEARCH_BYTES_PER_FILE, MAX_SEARCH_MATCHES_PER_FILE, MAX_SEARCH_RESULTS,
@@ -10,7 +11,7 @@ use super::types::{
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{explorer_root, read_config, resolve_session};
+use crate::helpers::read_config;
 use std::io::Read as _;
 
 const MAX_EXCERPT_CHARS: usize = 240;
@@ -54,16 +55,8 @@ pub async fn session_search_files(
     let config = read_config(&state);
 
     blocking_cmd!({
-        let session_dir = explorer_root(&resolve_session(&config, &sid)?)?;
-        let canonical_dir = session_dir.canonicalize().map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                BindingsError::Validation(format!("Session directory not found: {session_id}"))
-            } else {
-                BindingsError::Validation(format!("Failed to resolve session dir: {e}"))
-            }
-        })?;
-        let mut entries = Vec::new();
-        collect_entries(&canonical_dir, &canonical_dir, 0, &mut entries)?;
+        let scope = ExplorerScope::for_session(&config, &sid)?;
+        let mut entries = scope.list(&session_id)?;
         entries.sort_by(|a, b| a.path.cmp(&b.path));
 
         let mut response = SessionFileSearchResponse {
@@ -96,8 +89,12 @@ pub async fn session_search_files(
                 continue;
             }
 
-            let file_path = match safe_session_file_path(&canonical_dir, &entry.path)
-                .and_then(|path| revalidate_within_session_dir(&canonical_dir, &path))
+            let file_path = match scope
+                .locate(&entry.path)
+                .and_then(|(dir, inner)| {
+                    let path = safe_session_file_path(&dir, inner)?;
+                    revalidate_within_session_dir(&dir, &path)
+                })
                 .and_then(|path| {
                     reject_hidden_filename(&path)?;
                     Ok(path)
