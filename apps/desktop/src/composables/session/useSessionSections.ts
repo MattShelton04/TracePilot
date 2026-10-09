@@ -35,6 +35,20 @@ import {
   defineAsyncSection,
 } from "@/stores/helpers/asyncSections";
 
+/**
+ * Sections derived from the session's source files, which a running
+ * session's poll skips while their version is unchanged. Claude Code's plan
+ * file changes only through a tool call that also writes the transcript.
+ * The poll never runs for Copilot, whose plan and todos live elsewhere.
+ */
+export const SOURCE_SECTION_KEYS: ReadonlySet<string> = new Set([
+  "backgroundTasks",
+  "fileHistory",
+  "metrics",
+  "plan",
+  "promptCache",
+]);
+
 export interface UseSessionSectionsOptions {
   sessionId: Ref<string | null>;
   loaded: Ref<Set<string>>;
@@ -171,14 +185,29 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     }
   }
 
-  function refreshLoaded(id: string, token: AsyncGuardToken): Promise<void>[] {
-    const promises: Promise<void>[] = [];
+  /**
+   * Refresh every loaded section except the source sections in `skip`
+   * (already fresh at the source's current version); todos, checkpoints
+   * and incidents come from elsewhere and always reload.
+   */
+  function refreshLoaded(
+    id: string,
+    token: AsyncGuardToken,
+    skip: ReadonlySet<string> = new Set(),
+  ): { key: string; done: Promise<void> }[] {
+    const refreshes: { key: string; done: Promise<void> }[] = [];
     for (const sec of standardSections) {
+      if (skip.has(sec.key) && SOURCE_SECTION_KEYS.has(sec.key)) continue;
       if (opts.loaded.value.has(sec.key)) {
-        promises.push(sec.buildRefresh(id, token));
+        refreshes.push({ key: sec.key, done: sec.buildRefresh(id, token) });
       }
     }
-    return promises;
+    return refreshes;
+  }
+
+  /** Whether the section's last load or refresh failed. */
+  function hasError(key: string): boolean {
+    return standardSections.some((sec) => sec.key === key && sec.section.error.value !== null);
   }
 
   return {
@@ -202,6 +231,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     clearErrors,
     resetData,
     refreshLoaded,
+    hasError,
   };
 }
 

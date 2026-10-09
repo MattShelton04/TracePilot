@@ -184,25 +184,35 @@ async function checkRunning() {
   }
 }
 
+// Copilot sessions refresh from the live stream above; sources TracePilot
+// cannot stream refresh on a timer while they run, and stop once idle.
+const runningPollActive = computed(
+  () =>
+    isSessionActive.value &&
+    isNonCopilotSource(source.value) &&
+    (props.refreshEnabled ?? true) &&
+    !sessionMissing.value,
+);
+
+// While the running poll owns refreshing, auto-refresh waits, so the two
+// never both reload the session; it resumes once the session goes idle.
 const { refreshing, refresh } = useAutoRefresh({
   onRefresh: async () => {
     await Promise.all([props.store.refreshAll(), checkRunning()]);
   },
   enabled: computed(
-    () => prefs.autoRefreshEnabled && (props.refreshEnabled ?? true) && !sessionMissing.value,
+    () =>
+      prefs.autoRefreshEnabled &&
+      (props.refreshEnabled ?? true) &&
+      !sessionMissing.value &&
+      !runningPollActive.value,
   ),
   intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
 });
 
-// Copilot sessions refresh from the live stream above; sources TracePilot
-// cannot stream refresh on a timer while they run, and stop once idle.
 useRunningSessionPoll({
-  active: () =>
-    isSessionActive.value &&
-    isNonCopilotSource(source.value) &&
-    (props.refreshEnabled ?? true) &&
-    !sessionMissing.value,
-  refresh: () => Promise.all([props.store.refreshAll(), checkRunning()]),
+  active: () => runningPollActive.value,
+  refresh: () => Promise.all([props.store.refreshIfSourceChanged(), checkRunning()]),
 });
 
 defineExpose({ isSessionActive, refresh });
