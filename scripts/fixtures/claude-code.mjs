@@ -281,11 +281,14 @@ function harborSession() {
   t.idle(60);
   t.prompt("Try again.");
   t.call("msg_harbor_5", [text("Yes: v2.4.0 is on origin.")], usage, "end_turn");
+  // Renamed with `/rename`: the latest custom title beats the later ai-title.
+  t.bookkeeping({ type: "custom-title", customTitle: "Release tagging" });
+  t.bookkeeping({ type: "custom-title", customTitle: "Ship 2.4" });
   t.bookkeeping({ type: "ai-title", aiTitle: "Tag the 2.4 release" });
   t.costState(0.31, { input: 10, cacheRead: 75000, cacheWrite: 6000, output: 450 });
   return {
     id: claudeHarborSessionId,
-    title: "Tag the 2.4 release",
+    title: "Ship 2.4",
     files: [
       { path: `projects/C--synthetic-harbor/${t.sessionId}.jsonl`, content: t.toJsonl() },
       // No process has this pid any more.

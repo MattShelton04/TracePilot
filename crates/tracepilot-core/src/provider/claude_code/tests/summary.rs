@@ -72,3 +72,58 @@ fn durations_with_a_snapshot_stay_as_reported() {
     );
     assert_eq!(metrics.total_duration_ms, snapshot.total_duration_ms);
 }
+
+/// A run, a `/rename` (when `renamed`), then a resumed run (appended to the
+/// same file) whose `ai-title` comes after the rename.
+fn resumed_session(renamed: bool) -> Transcript {
+    let u = Usage::new(1, 0, 0, 1);
+    let mut t = Transcript::main();
+    t.prompt("Add retries.");
+    t.call("m1", OPUS, vec![text("Added.")], u, "end_turn");
+    t.bookkeeping(serde_json::json!({"type": "ai-title", "aiTitle": "Add upload retries"}));
+    for _ in 0..u8::from(renamed) * 2 {
+        t.bookkeeping(serde_json::json!({"type": "custom-title", "customTitle": "Uploader work"}));
+    }
+    t.cost_state(&[(OPUS, u, 0.01)]);
+    t.idle(3600);
+    t.prompt("Now the downloader.");
+    t.call("m2", OPUS, vec![text("Done.")], u, "end_turn");
+    t.bookkeeping(serde_json::json!({"type": "ai-title", "aiTitle": "Add download retries"}));
+    t
+}
+
+#[test]
+fn a_custom_title_overrides_a_later_ai_title() {
+    let t = resumed_session(true);
+    assert_eq!(summary_of(&t).summary.as_deref(), Some("Uploader work"));
+}
+
+#[test]
+fn without_a_custom_title_the_latest_ai_title_names_the_session() {
+    let t = resumed_session(false);
+    assert_eq!(
+        summary_of(&t).summary.as_deref(),
+        Some("Add download retries")
+    );
+}
+
+#[test]
+fn the_latest_custom_title_wins_and_a_blank_one_is_ignored() {
+    let mut t = resumed_session(true);
+    t.bookkeeping(serde_json::json!({"type": "custom-title", "customTitle": "Retry work"}));
+    t.bookkeeping(serde_json::json!({"type": "custom-title", "customTitle": "  "}));
+    assert_eq!(summary_of(&t).summary.as_deref(), Some("Retry work"));
+}
+
+#[test]
+fn a_custom_title_is_bookkeeping_not_a_user_turn() {
+    let files = write_session(&resumed_session(true), &[]);
+    let parsed = parse(&files);
+    assert!(parsed.diagnostics.unknown_record_types.is_empty());
+    let (_, turns, _) = summarize(&SessionId::from_validated("s"), &parsed);
+    let prompts: Vec<_> = super::user_turns(&turns)
+        .iter()
+        .filter_map(|turn| turn.user_message.as_deref())
+        .collect();
+    assert_eq!(prompts, ["Add retries.", "Now the downloader."]);
+}

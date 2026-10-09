@@ -61,8 +61,8 @@ Field notes:
 - `agentId` appears only in subagent files.
 - `parentUuid` is `null` on the first record and on every `compact_boundary`. Do not walk it
   to rebuild order; see [data-comparison §2](data-comparison.md#2-parser-rules-the-data-forces).
-- Bookkeeping records (`ai-title`, `cost-state`, `queue-operation`, `last-prompt`, `mode`, …)
-  carry only `type`, `sessionId` and their own fields.
+- Bookkeeping records (`ai-title`, `custom-title`, `cost-state`, `queue-operation`, `last-prompt`,
+  `mode`, …) carry only `type`, `sessionId` and their own fields.
 
 ## User records
 
@@ -219,6 +219,7 @@ Other subtypes: `informational`, `away_summary`, `local_command`, `bridge_status
 | Record | Shape | Use |
 | --- | --- | --- |
 | `ai-title` | `{ "type": "ai-title", "aiTitle": "Add upload retries", "sessionId": "…" }` | Re-emitted each turn; latest wins |
+| `custom-title` | `{ "type": "custom-title", "customTitle": "Uploader work", "sessionId": "…" }` | Written when the user renames the session, then repeated many times. The latest non-blank value is the title and beats any `ai-title`, even a later one |
 | `agent-name` | `{ "type": "agent-name", … }` | Title fallback |
 | `cost-state` | `{ "type": "cost-state", "sessionId": "…", "totalCostUSD": 4.21, "totalAPIDuration": 900000, "totalAPIDurationWithoutRetries": 899000, "totalToolDuration": 600000, "totalDuration": 2400000, "totalLinesAdded": 120, "totalLinesRemoved": 30, "startTime": 1790000000000, "hasUnknownModelCost": false, "modelUsage": { "claude-opus-5-5": { "inputTokens": 40, "outputTokens": 90000, "thinkingTokens": 20000, "cacheReadInputTokens": 9000000, "cacheCreationInputTokens": 300000, "webSearchRequests": 0, "costUSD": 4.05 }, "claude-haiku-4-5-20251001": { "…": "side calls" } } }` | Written at exit, two per run. Last wins; includes subagents and side models |
 | `pr-link` | `{ "type": "pr-link", "prNumber": 12, "prUrl": "https://github.com/acme/demo/pull/12", "prRepository": "acme/demo", "timestamp": "…" }` | |

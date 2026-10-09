@@ -262,7 +262,11 @@ test("Claude Code sessions are deterministic, linked and shaped as Claude Code w
       const typed = records.filter((r) => r.type === "user" && !r.isMeta);
       assert(typed[0].message.content.startsWith("<command-name>/model</command-name>"));
     } else {
-      assert(records.some((r) => r.type === "ai-title" && r.aiTitle === session.title));
+      // The latest custom title (a `/rename`) names the session, else the ai-title.
+      const custom = records.filter((r) => r.type === "custom-title").at(-1)?.customTitle;
+      assert(
+        custom === session.title || (!custom && records.some((r) => r.aiTitle === session.title)),
+      );
     }
     const snapshotless = [
       claudeRecordedCostSessionId,
