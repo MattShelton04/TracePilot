@@ -33,6 +33,13 @@ import {
   defineAsyncSection,
 } from "@/stores/helpers/asyncSections";
 
+/** Sections derived entirely from the session's source files. */
+const SOURCE_SECTION_KEYS: ReadonlySet<string> = new Set([
+  "backgroundTasks",
+  "metrics",
+  "promptCache",
+]);
+
 export interface UseSessionSectionsOptions {
   sessionId: Ref<string | null>;
   loaded: Ref<Set<string>>;
@@ -156,9 +163,20 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     }
   }
 
-  function refreshLoaded(id: string, token: AsyncGuardToken): Promise<void>[] {
+  /**
+   * Refresh every loaded section. With `sourceUnchanged`, sections built only
+   * from the session's source files (whose version has not changed) are
+   * skipped; todos, checkpoints, plan and incidents come from elsewhere and
+   * always reload.
+   */
+  function refreshLoaded(
+    id: string,
+    token: AsyncGuardToken,
+    { sourceUnchanged = false }: { sourceUnchanged?: boolean } = {},
+  ): Promise<void>[] {
     const promises: Promise<void>[] = [];
     for (const sec of standardSections) {
+      if (sourceUnchanged && SOURCE_SECTION_KEYS.has(sec.key)) continue;
       if (opts.loaded.value.has(sec.key)) {
         promises.push(sec.buildRefresh(id, token));
       }

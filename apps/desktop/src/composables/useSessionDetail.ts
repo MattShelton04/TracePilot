@@ -22,7 +22,12 @@
  * const sd = injectSessionDetail();
  * ```
  */
-import { getSessionDetail, getSessionEvents, getSessionTurns } from "@tracepilot/client";
+import {
+  checkSessionFreshness,
+  getSessionDetail,
+  getSessionEvents,
+  getSessionTurns,
+} from "@tracepilot/client";
 import type { EventsResponse, SessionDetail } from "@tracepilot/types";
 import { runAction, runMutation, toErrorMessage, useAsyncGuard } from "@tracepilot/ui";
 import type { UnwrapNestedRefs } from "vue";
@@ -200,6 +205,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
   }
 
   function reset() {
+    refreshedSource = null;
     sessionGuard.invalidate();
     eventsGuard.invalidate();
     sessionId.value = null;
@@ -215,6 +221,41 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
   }
 
   async function refreshAll() {
+    await refreshSections(false);
+  }
+
+  /**
+   * The source version the last {@link refreshIfSourceChanged} refreshed at,
+   * for the session it refreshed.
+   */
+  let refreshedSource: { id: string; version: string } | null = null;
+
+  /**
+   * Refresh for a timer that ticks while a session runs. When the session's
+   * source files are unchanged since the last tick, sections built from them
+   * keep their data and only the others reload. A failed probe refreshes
+   * everything.
+   */
+  async function refreshIfSourceChanged() {
+    const id = sessionId.value;
+    if (!id) return;
+    const token = sessionGuard.current();
+    let version: string | null = null;
+    try {
+      version = (await checkSessionFreshness(id)).sourceVersion ?? null;
+    } catch (e) {
+      logWarn(`${LOG_PREFIX} Freshness check failed, refreshing everything`, { sessionId: id }, e);
+    }
+    if (!sessionGuard.isValid(token)) return;
+    const unchanged =
+      version !== null && refreshedSource?.id === id && refreshedSource.version === version;
+    await refreshSections(unchanged);
+    // Results describe the source at this version or later, so the next tick
+    // that sees the same version has nothing new to load.
+    if (version !== null && sessionGuard.isValid(token)) refreshedSource = { id, version };
+  }
+
+  async function refreshSections(sourceUnchanged: boolean) {
     const id = sessionId.value;
     if (!id) return;
     const token = sessionGuard.current();
@@ -222,7 +263,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
 
     const promises: Promise<unknown>[] = [];
 
-    if (loadedSections.has("detail")) {
+    if (loadedSections.has("detail") && !sourceUnchanged) {
       promises.push(
         (async () => {
           const silentError = ref<string | null>(null);
@@ -241,11 +282,11 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
       );
     }
 
-    if (loadedSections.has("turns")) {
+    if (loadedSections.has("turns") && !sourceUnchanged) {
       promises.push(turnsRefresh.refreshTurns(id, token));
     }
 
-    promises.push(...sections.refreshLoaded(id, token));
+    promises.push(...sections.refreshLoaded(id, token, { sourceUnchanged }));
 
     await Promise.allSettled(promises);
   }
@@ -347,6 +388,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     reset,
     setCacheSize,
     refreshAll,
+    refreshIfSourceChanged,
     prefetchSession,
   };
 }

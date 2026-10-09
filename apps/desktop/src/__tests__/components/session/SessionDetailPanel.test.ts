@@ -78,6 +78,7 @@ function createStore(): SessionDetailContext {
     loadPromptCache: vi.fn(),
     reset: vi.fn(),
     refreshAll: vi.fn(),
+    refreshIfSourceChanged: vi.fn(),
     prefetchSession: vi.fn(),
   } as unknown as SessionDetailContext;
 }
@@ -192,10 +193,15 @@ describe("SessionDetailPanel", () => {
     wrapper.unmount();
   });
 
-  async function runningPoll(source: "copilot" | "claudeCode") {
+  async function runningPoll(source: "copilot" | "claudeCode", autoRefreshSeconds?: number) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
     try {
+      const prefs = usePreferencesStore();
       await flushPromises(); // let config hydration finish (auto-refresh stays off)
+      if (autoRefreshSeconds) {
+        prefs.autoRefreshEnabled = true;
+        prefs.autoRefreshIntervalSeconds = autoRefreshSeconds;
+      }
       const store = createStore();
       store.detail = { ...store.detail!, source };
       // Only sources that record it report what the process is doing.
@@ -212,14 +218,18 @@ describe("SessionDetailPanel", () => {
       });
       await flushPromises();
       await vi.advanceTimersByTimeAsync(RUNNING_SESSION_POLL_MS * 2);
-      const whileRunning = vi.mocked(store.refreshAll).mock.calls.length;
+      const polls = () => vi.mocked(store.refreshIfSourceChanged).mock.calls.length;
+      const refreshes = () => vi.mocked(store.refreshAll).mock.calls.length;
+      const whileRunning = polls();
+      const autoWhileRunning = refreshes();
       const badge = wrapper.find(".active-badge-inline");
       const label = badge.exists() ? badge.text() : null;
       mocks.getSessionLiveness.mockResolvedValue({ state: "idle" });
       await vi.advanceTimersByTimeAsync(RUNNING_SESSION_POLL_MS * 4);
-      const afterIdle = vi.mocked(store.refreshAll).mock.calls.length;
+      const afterIdle = polls();
+      const autoAfterIdle = refreshes();
       wrapper.unmount();
-      return { whileRunning, afterIdle, label };
+      return { whileRunning, afterIdle, autoWhileRunning, autoAfterIdle, label };
     } finally {
       vi.useRealTimers();
     }
@@ -231,6 +241,24 @@ describe("SessionDetailPanel", () => {
     expect(whileRunning).toBe(2);
     // The poll that saw it go idle refreshed once more, then polling stopped.
     expect(afterIdle).toBe(3);
+  });
+
+  it("lets the running poll alone refresh a running Claude Code session with auto-refresh on", async () => {
+    const { whileRunning, afterIdle, autoWhileRunning, autoAfterIdle } = await runningPoll(
+      "claudeCode",
+      3,
+    );
+    expect(whileRunning).toBe(2);
+    expect(autoWhileRunning).toBe(0);
+    expect(afterIdle).toBe(3);
+    // Auto-refresh takes over once the session is idle.
+    expect(autoAfterIdle).toBeGreaterThan(0);
+  });
+
+  it("keeps auto-refreshing a running Copilot session on its interval", async () => {
+    const { whileRunning, autoWhileRunning } = await runningPoll("copilot", 3);
+    expect(whileRunning).toBe(0);
+    expect(autoWhileRunning).toBe(2);
   });
 
   it("never polls a running Copilot session, which refreshes from the live stream", async () => {
