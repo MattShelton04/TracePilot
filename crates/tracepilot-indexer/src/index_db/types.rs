@@ -48,6 +48,9 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
 ///
+/// v26: a foreground `Agent` call's result ends its agent run (completed,
+/// failed or cancelled), so such runs are no longer counted as incomplete.
+///
 /// v25: a session renamed in Claude Code (`custom-title`) keeps the user's
 /// title over the generated `ai-title`.
 ///
@@ -75,7 +78,7 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 25;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 26;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

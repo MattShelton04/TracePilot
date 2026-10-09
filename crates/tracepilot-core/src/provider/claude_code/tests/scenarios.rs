@@ -401,3 +401,47 @@ fn a_subagent_ending_on_a_null_stop_reason_still_completes() {
         .expect("the subagent's last message");
     assert_eq!(last.parent_tool_call_id.as_deref(), Some("toolu_N"));
 }
+
+/// A foreground `Agent` result comes back when the agent is done, with no
+/// hand-back or notification after it, so the result itself ends the agent:
+/// completed, failed on an error result, with a finite duration. An
+/// asynchronous launch's result does not.
+#[test]
+fn foreground_agent_results_end_their_agents() {
+    let parsed = parse(&fixtures::foreground_agents());
+    let turns = reconstruct_turns(&parsed.events);
+
+    let flag = tool_call(&turns, "toolu_F");
+    assert!(flag.is_subagent);
+    assert!(flag.is_complete, "a completed result without a transcript");
+    assert_eq!(flag.success, Some(true));
+    assert_eq!(flag.agent_status.as_deref(), Some("completed"));
+    assert_eq!(flag.duration_ms, Some(31_000), "call to result");
+
+    let exporter = tool_call(&turns, "toolu_G");
+    assert!(
+        exporter.is_complete,
+        "a completed result after a transcript"
+    );
+    assert_eq!(exporter.agent_status.as_deref(), Some("completed"));
+    assert_eq!(exporter.duration_ms, Some(61_000), "the reported duration");
+    assert_eq!(exporter.total_tokens, Some(900));
+    assert_eq!(exporter.total_tool_calls, Some(2));
+
+    let build = tool_call(&turns, "toolu_H");
+    assert!(build.is_complete, "an error result after a transcript");
+    assert_eq!(build.success, Some(false));
+    assert_eq!(build.agent_status.as_deref(), Some("failed"));
+    assert!(build.error.as_deref().unwrap().contains("unavailable"));
+
+    let tests = tool_call(&turns, "toolu_I");
+    assert!(
+        !tests.is_complete,
+        "an async launch waits for its completion"
+    );
+    assert_eq!(tests.agent_status, None);
+
+    let types = event_types(&parsed);
+    assert_eq!(count(&types, "subagent.completed"), 2);
+    assert_eq!(count(&types, "subagent.failed"), 1);
+}

@@ -3,6 +3,7 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionsStore } from "@/stores/sessions";
 import { useAgentTree } from "../useAgentTree";
 
 vi.mock("@tracepilot/client", async () => {
@@ -152,5 +153,34 @@ describe("useAgentTree", () => {
     ];
     const { api } = harness();
     expect(api.hasInProgress.value).toBe(true);
+  });
+
+  it("counts an unfinished agent up to now only while its session is live", () => {
+    store.sessionId = "s-1";
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [
+          makeTurnToolCall({
+            isSubagent: true,
+            toolCallId: "open",
+            isComplete: false,
+            success: undefined,
+            durationMs: undefined,
+            startedAt: "2025-01-01T00:00:00.000Z",
+          }),
+        ],
+      }),
+    ];
+    const sessions = useSessionsStore();
+    const item = { id: "s-1", isRunning: false };
+    sessions.sessions = [item as (typeof sessions.sessions)[number]];
+    const { api } = harness();
+    const agent = api.treeData.value!.children[0];
+    expect(agent.status).toBe("in-progress");
+    expect(api.liveDuration(agent)).toBeUndefined();
+
+    sessions.sessions = [{ ...item, isRunning: true } as (typeof sessions.sessions)[number]];
+    expect(api.liveDuration(agent)).toBeGreaterThan(0);
   });
 });
