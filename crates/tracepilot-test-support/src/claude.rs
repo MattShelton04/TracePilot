@@ -252,15 +252,17 @@ impl Transcript {
 
     /// One API call written as one record per block. `output_tokens` grows
     /// across the records and only the last one carries the final usage and
-    /// `stop_reason`, as Claude Code writes them.
-    pub fn call(
+    /// `stop_reason`, as Claude Code writes them. `None` writes a null
+    /// `stop_reason` on every record, as most subagent calls have.
+    pub fn call<'s>(
         &mut self,
         message_id: &str,
         model: &str,
         blocks: Vec<Value>,
         usage: Usage,
-        stop_reason: &str,
+        stop_reason: impl Into<Option<&'s str>>,
     ) -> Vec<String> {
+        let stop_reason = stop_reason.into();
         let count = blocks.len() as u64;
         let mut uuids = Vec::new();
         for (index, block) in blocks.into_iter().enumerate() {

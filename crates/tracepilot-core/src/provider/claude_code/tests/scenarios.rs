@@ -333,3 +333,71 @@ fn commands_only_session_shows_each_command_and_its_plain_output() {
     let natives = parsed.events.iter().filter(|e| e.raw.native.is_some());
     assert_eq!(natives.count(), 6);
 }
+
+/// data-comparison.md rule 11: most subagent calls end with `stop_reason:
+/// null`, even the last one before the hand-back. That must not leave the
+/// agent, or the parent turn that launched it, looking unfinished.
+#[test]
+fn a_subagent_ending_on_a_null_stop_reason_still_completes() {
+    use serde_json::json;
+    use tracepilot_test_support::claude::{
+        Subagent, Transcript, Usage, subagent_meta, text, tool_use, write_session,
+    };
+    let mut t = Transcript::main();
+    t.prompt("Map the indexer.");
+    let usage = Usage::new(1, 10, 0, 1);
+    let input = json!({"subagent_type": "Explore", "description": "indexer", "prompt": "Map it."});
+    let launch = vec![tool_use("toolu_N", "Agent", input)];
+    t.call("msg_n1", OPUS, launch, usage, "tool_use");
+    t.tool_result(
+        "toolu_N",
+        json!("Async agent launched successfully."),
+        json!({"status": "async_launched", "isAsync": true, "agentId": "agentN"}),
+        false,
+    );
+    t.meta(
+        "The indexer has three stages.",
+        Some(json!({"kind": "peer", "from": "agentN", "handback": true,
+            "body": "The indexer has three stages."})),
+    );
+    t.call(
+        "msg_n2",
+        OPUS,
+        vec![text("Three stages.")],
+        usage,
+        "end_turn",
+    );
+
+    let mut agent = Transcript::subagent("agentN", 1);
+    agent.prompt("Map it.");
+    let read = vec![tool_use(
+        "toolu_Nr",
+        "Read",
+        json!({"file_path": "src/lib.rs"}),
+    )];
+    agent.call("msg_s1", OPUS, read, Usage::new(2, 20, 0, 2), None);
+    agent.tool_result("toolu_Nr", json!("1\tpub mod index;"), json!(null), false);
+    let done = vec![text("Indexer mapped.")];
+    agent.call("msg_s2", OPUS, done, Usage::new(2, 20, 0, 2), None);
+    let agents = [Subagent {
+        agent_id: "agentN",
+        transcript: &agent,
+        meta: Some(subagent_meta("toolu_N", "Explore", 1)),
+    }];
+    let parsed = parse(&write_session(&t, &agents));
+    let turns = reconstruct_turns(&parsed.events);
+
+    let launched = tool_call(&turns, "toolu_N");
+    assert!(launched.is_subagent);
+    assert!(launched.is_complete, "the hand-back completes the agent");
+    assert_eq!(launched.success, Some(true));
+    assert_eq!(launched.agent_status.as_deref(), Some("completed"));
+    assert!(tool_call(&turns, "toolu_Nr").is_complete);
+    assert!(turns.iter().all(|t| t.is_complete), "no turn left open");
+    let last = turns
+        .iter()
+        .flat_map(|t| &t.assistant_messages)
+        .find(|m| m.content == "Indexer mapped.")
+        .expect("the subagent's last message");
+    assert_eq!(last.parent_tool_call_id.as_deref(), Some("toolu_N"));
+}

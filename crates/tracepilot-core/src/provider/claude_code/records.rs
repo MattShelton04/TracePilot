@@ -100,20 +100,22 @@ pub(super) fn block_type(block: &Value) -> &str {
 }
 
 /// Text of a `tool_result` block's content: a string, or text blocks joined.
-/// Images become a placeholder; their data was already sanitized.
+/// Images become a placeholder; their data was already sanitized. ToolSearch's
+/// `tool_reference` blocks become the names of the tools they loaded.
 pub(super) fn tool_result_text(block: &Value) -> String {
     match block.get("content") {
         Some(Value::String(text)) => text.clone(),
         Some(Value::Array(items)) => items
             .iter()
-            .map(|item| match block_type(item) {
-                "text" => item
+            .map(|item| match (block_type(item), item.get("tool_name")) {
+                ("text", _) => item
                     .get("text")
                     .and_then(Value::as_str)
                     .unwrap_or("")
                     .to_string(),
-                "image" => "[image]".to_string(),
-                other => format!("[{other}]"),
+                ("image", _) => "[image]".to_string(),
+                ("tool_reference", Some(Value::String(name))) => name.clone(),
+                (other, _) => format!("[{other}]"),
             })
             .collect::<Vec<_>>()
             .join("\n"),

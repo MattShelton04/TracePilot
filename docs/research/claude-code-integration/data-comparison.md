@@ -104,7 +104,7 @@ These are requirements for `ClaudeCodeProvider`. Each one is backed by a measure
    Only human prompts open a user turn.
 7. **`toolUseResult` is polymorphic**: a string exactly when `is_error`, an object otherwise.
    Content blocks may be a string, `text[]`, `image[]` (Read on images, 802) or
-   `tool_reference[]` (ToolSearch).
+   `tool_reference[]` (ToolSearch; each block names one loaded tool in `tool_name`).
 8. **Bound memory on huge lines.** The largest line is 1.36 MB and 63 lines exceed 1 MB. All
    of them are Read results on images, whose base64 is stored twice (message plus
    `toolUseResult.file.base64`). Don't keep image base64 in the turn cache or the FTS index.
@@ -114,7 +114,7 @@ These are requirements for `ClaudeCodeProvider`. Each one is backed by a measure
     types were seen, and new keys appeared within 18 days. Everything is `Option`; unknown
     records become events with the native record attached, so the Events tab stays truthful.
 11. **Subagent `stop_reason` is mostly `null`** (964 of 1,212). Don't infer "incomplete" from
-    it.
+    it. A subagent completes from its hand-back, task notification or `Agent` result.
 12. **The tool set depends on the environment.** This corpus has harness tools
     (`SubagentHandback`, `Artifact`, `ScheduleWakeup`, `Monitor`) and no MCP calls. Unknown
     tools must render generically, which already works.
