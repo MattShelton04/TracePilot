@@ -19,9 +19,9 @@ mod types;
 
 pub use copilot::CopilotProvider;
 pub use types::{
-    CostBasis, CostFigure, CostUnit, Liveness, MetricsCoverage, MetricsSegment, NativeRecord,
-    ProviderEvents, ProviderSnapshot, RunStatus, SessionArtifacts, SessionLocator, SessionMetrics,
-    SessionRole, SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
+    CostBasis, CostFigure, CostUnit, FormatObservations, Liveness, MetricsCoverage, MetricsSegment,
+    NativeRecord, ProviderEvents, ProviderSnapshot, RunStatus, SessionArtifacts, SessionLocator,
+    SessionMetrics, SessionRole, SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
 };
 
 /// Redact the fields of an event's source record that never leave the

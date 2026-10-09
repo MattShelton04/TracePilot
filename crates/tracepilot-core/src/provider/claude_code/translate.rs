@@ -17,7 +17,7 @@ use super::reader::Line;
 use super::records::Rec;
 use super::subagents::ChildStream;
 use super::usage::{CallTable, CostSnapshot};
-use super::{ClaudeDiagnostics, ClaudeParse, NativePosition, branch, subagents};
+use super::{ClaudeDiagnostics, ClaudeParse, NativePosition, branch, drift, subagents};
 use crate::error::Result;
 use crate::models::event_types::SessionEventType;
 use crate::parsing::events::{RawEvent, TypedEvent, TypedEventData, typed_data_from_raw};
@@ -284,6 +284,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
 
     fn record(&mut self, st: &mut Stream<'_>, line: &Line) -> Result<()> {
         let rec = Rec(&line.value);
+        drift::count_version(&mut self.diagnostics.versions, rec);
         let abandoned =
             st.inherited_abandoned || rec.uuid().is_some_and(|uuid| st.abandoned.contains(uuid));
         let mut ctx = RecCtx {
@@ -318,11 +319,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             "cost-state" if st.agent_id.is_none() => self.cost_state(rec, line),
             kind => {
                 if !BOOKKEEPING.contains(&kind) && kind != "cost-state" {
-                    *self
-                        .diagnostics
-                        .unknown_record_types
-                        .entry(kind.to_string())
-                        .or_default() += 1;
+                    drift::count_type(&mut self.diagnostics.unknown_record_types, kind);
                 }
                 self.native_only(st, &mut ctx);
             }

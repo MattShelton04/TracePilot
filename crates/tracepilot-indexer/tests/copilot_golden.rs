@@ -73,7 +73,8 @@ const POST_GOLDEN_COLUMNS: &[(&str, &str)] = &[
 
 /// Tables added after [`GOLDEN_SCHEMA_VERSION`] that only other sources fill.
 /// Copilot must leave them empty, so they stay out of the snapshot.
-const POST_GOLDEN_EMPTY_TABLES: &[&str] = &["session_native_tool_calls"];
+const POST_GOLDEN_EMPTY_TABLES: &[&str] =
+    &["session_native_tool_calls", "session_format_observations"];
 
 fn golden_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/copilot-index.json")
@@ -194,7 +195,7 @@ fn dump_tables(db_path: &Path, root: &Path) -> Value {
         }
         if table == "schema_version" {
             let newest = rows.iter().filter_map(|r| r["version"].as_i64()).max();
-            assert_eq!(newest, Some(24));
+            assert_eq!(newest, Some(25));
             rows.retain(|r| r["version"].as_i64() <= Some(GOLDEN_SCHEMA_VERSION));
         }
         rows.sort_by_key(|row| row.to_string());
