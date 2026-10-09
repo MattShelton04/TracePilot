@@ -9,6 +9,8 @@ defineProps<{
   contentDetail: ContentDetailOptions;
   redaction: RedactionOptions;
   sectionHasData: (sectionId: SectionId) => boolean | null;
+  /** False for sections the session's source cannot supply; they are hidden. Defaults to all. */
+  sectionAvailable?: (sectionId: SectionId) => boolean;
 }>();
 
 const emit = defineEmits<{
@@ -34,25 +36,23 @@ const emit = defineEmits<{
       </div>
       <div v-for="group in SECTION_GROUPS" :key="group.label">
         <div class="toggle-group-label">{{ group.label }}</div>
-        <div
-          v-for="sectionId in group.sections"
-          :key="sectionId"
-          class="toggle-row"
-        >
-          <span class="toggle-row-icon">{{ SECTION_ICONS[sectionId] }}</span>
-          <span class="toggle-row-label">
-            {{ SECTION_LABELS[sectionId] }}
-            <span
-              v-if="sectionHasData(sectionId) === false"
-              class="no-data-hint"
-            >(empty)</span>
-          </span>
-          <FormSwitch
-            :model-value="enabledSections.has(sectionId)"
-            :aria-label="`Include ${SECTION_LABELS[sectionId]} section`"
-            @update:model-value="emit('toggle-section', sectionId)"
-          />
-        </div>
+        <template v-for="sectionId in group.sections" :key="sectionId">
+          <div v-if="sectionAvailable?.(sectionId) ?? true" class="toggle-row">
+            <span class="toggle-row-icon">{{ SECTION_ICONS[sectionId] }}</span>
+            <span class="toggle-row-label">
+              {{ SECTION_LABELS[sectionId] }}
+              <span
+                v-if="sectionHasData(sectionId) === false"
+                class="no-data-hint"
+              >(empty)</span>
+            </span>
+            <FormSwitch
+              :model-value="enabledSections.has(sectionId)"
+              :aria-label="`Include ${SECTION_LABELS[sectionId]} section`"
+              @update:model-value="emit('toggle-section', sectionId)"
+            />
+          </div>
+        </template>
       </div>
     </section>
 

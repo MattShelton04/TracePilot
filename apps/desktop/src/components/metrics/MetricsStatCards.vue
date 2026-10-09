@@ -1,13 +1,7 @@
 <script setup lang="ts">
 import type { AiCreditUsage, ShutdownMetrics } from "@tracepilot/types";
-import {
-  Badge,
-  formatAiCredits,
-  formatCost,
-  formatDuration,
-  formatNumber,
-  StatCard,
-} from "@tracepilot/ui";
+import { Badge, formatAiCredits, formatCost, formatNumber, StatCard } from "@tracepilot/ui";
+import { DURATION_HINTS, formatRecordedDuration } from "@/utils/sessionDurations";
 import {
   API_EQUIVALENT_NOTE,
   formatSessionCost,
@@ -45,7 +39,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
       />
       <StatCard :value="totalTokens == null ? '—' : formatNumber(totalTokens)" label="Total Tokens" :gradient="true" tooltip="Input + output, including cache and reasoning tokens" />
       <StatCard :value="totalRequests" label="Recorded Requests" color="done" tooltip="Model calls recorded in the transcript" />
-      <StatCard :value="formatDuration(metrics.totalApiDurationMs) || '—'" label="API Duration" color="done" :tooltip="metrics.coverage?.snapshotLine == null ? 'Estimated from transcript timestamps' : 'Reported with the last cost snapshot'" />
+      <StatCard :value="formatRecordedDuration(metrics.totalApiDurationMs)" label="API Time" color="done" :tooltip="`${DURATION_HINTS.apiTime} ${metrics.coverage?.snapshotLine == null ? 'Estimated from transcript timestamps.' : 'Reported with the last cost snapshot.'}`" />
     </div>
     <p class="cost-legend mb-6" data-testid="source-cost-legend">
       <Badge v-if="sourceCost.partial" variant="warning">Partial</Badge>
@@ -63,7 +57,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
       />
       <StatCard :value="aiCreditUsage.usdEquivalent != null ? formatCost(aiCreditUsage.usdEquivalent) : '—'" label="AIC USD equivalent" :tooltip="sourceLabel(aiCreditUsage.source)" />
       <StatCard :value="totalTokens == null ? '—' : formatNumber(totalTokens)" label="Total Tokens" :gradient="true" tooltip="Input + output, including cache and reasoning tokens" />
-      <StatCard :value="formatDuration(metrics.totalApiDurationMs)" label="API Duration" color="done" />
+      <StatCard :value="formatRecordedDuration(metrics.totalApiDurationMs)" label="API Time" color="done" :tooltip="DURATION_HINTS.apiTime" />
     </div>
 
     <div v-if="aiCreditUsage.source === 'unavailable'" class="grid-4 mb-6">

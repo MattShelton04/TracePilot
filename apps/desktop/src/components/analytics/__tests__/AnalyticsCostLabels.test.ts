@@ -1,4 +1,5 @@
 import { setupPinia } from "@tracepilot/test-utils";
+import type { SourceCostEntry } from "@tracepilot/types";
 import { createChartLayout } from "@tracepilot/ui";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -86,6 +87,43 @@ describe("analytics cost split by source", () => {
     expect(wrapper.text()).toContain("$1.25");
     expect(wrapper.text()).toContain("2 of 3");
     expect(wrapper.text()).not.toContain("AI Credits");
+  });
+
+  it("labels the AI Credit cards with their source when another source is included", () => {
+    const summary = {
+      credits: 12.5,
+      usdEquivalent: 0.125,
+      source: "observed" as const,
+      observedCredits: 12.5,
+      estimatedCredits: 0,
+      isPartial: false,
+    };
+    const copilotEntry = {
+      source: "copilot" as const,
+      sessions: 4,
+      tokens: 2_000,
+      costUsd: null,
+      sessionsWithCostUsd: 0,
+    };
+    const labels = (costBySource: SourceCostEntry[]) =>
+      mount(AnalyticsStatsGrids, {
+        props: { data: { ...FIXTURE_ANALYTICS, costBySource }, aiCreditSummary: summary },
+      })
+        .findAllComponents({ name: "StatCard" })
+        .map((card) => [card.props("label"), card.props("tooltip")] as const);
+
+    const mixed = labels([copilotEntry, ...claudeOnly.costBySource]);
+    expect(mixed.map(([label]) => label)).toContain("AI Credits (Copilot)");
+    expect(mixed.map(([label]) => label)).toContain("AIC USD Equivalent (Copilot)");
+    expect(mixed.find(([label]) => label === "AI Credits (Copilot)")?.[1]).toContain(
+      "Cost by Source",
+    );
+    // No combined cost: the Claude Code estimate is not added to the cards.
+    expect(mixed.map(([label]) => label)).not.toContain("Estimated Cost");
+
+    const copilotOnly = labels([copilotEntry]).map(([label]) => label);
+    expect(copilotOnly).toContain("AI Credits");
+    expect(copilotOnly).toContain("AIC USD Equivalent");
   });
 
   it("lists each source in its own unit without a combined total", () => {

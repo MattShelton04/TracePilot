@@ -1,8 +1,10 @@
 import { getSessionDetail, getSessionTurns, getShutdownMetrics } from "@tracepilot/client";
 import {
   type ConversationTurn,
+  isNonCopilotSource,
   type SessionDetail,
   type SessionListItem,
+  type SessionSource,
   type ShutdownMetrics,
   sourceCapabilities,
 } from "@tracepilot/types";
@@ -34,6 +36,7 @@ import { useSessionsStore } from "@/stores/sessions";
 import { formatSessionDelta } from "@/utils/deltaFormatting";
 import { getChartColors } from "@/utils/designTokens";
 import { modelTokenBreakdown } from "@/utils/metricsTokenBreakdown";
+import { DURATION_HINTS } from "@/utils/sessionDurations";
 
 /**
  * State + derivations for `SessionComparisonView`.
@@ -54,6 +57,8 @@ export interface SessionData {
 
 export interface MetricRow {
   label: string;
+  /** What the metric measures, when the label alone is ambiguous. */
+  hint?: string;
   valueA: string;
   valueB: string;
   rawA: number | null;
@@ -188,9 +193,14 @@ export function exitBadgeVariant(
   return "warning";
 }
 
-export function exitLabel(m: ShutdownMetrics | null): string {
-  if (!m?.shutdownType) return "Unknown";
-  return m.shutdownType;
+/**
+ * The exit chip's text, or `null` to hide the chip. Only Copilot records how
+ * a session ended, so a missing exit is "Unknown" there and simply not
+ * reported for other sources.
+ */
+export function exitLabel(m: ShutdownMetrics | null, source?: SessionSource | null): string | null {
+  if (m?.shutdownType) return m.shutdownType;
+  return isNonCopilotSource(source) ? null : "Unknown";
 }
 
 export function useSessionComparison() {
@@ -330,7 +340,10 @@ export function useSessionComparison() {
     const fmtInt = (v: number) => (isNorm ? v.toFixed(1) : String(Math.round(v)));
 
     return [
-      row("Duration", durA, durB, (v) => formatDuration(v) || "0s", false),
+      {
+        ...row("Session Span", durA, durB, (v) => formatDuration(v) || "0s", false),
+        hint: DURATION_HINTS.sessionSpan,
+      },
       row("Turns", turnsA, turnsB, String, false),
       row(
         `Total Tokens${suffix}`,

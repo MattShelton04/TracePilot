@@ -8,6 +8,7 @@ import type {
   ExportFormat,
   RedactionOptions,
   SectionId,
+  SourceCapabilities,
 } from "@tracepilot/types";
 import { ALL_SECTION_IDS } from "@tracepilot/types";
 import { computed, ref, watch } from "vue";
@@ -110,6 +111,22 @@ export const SECTION_GROUPS: readonly SectionGroup[] = [
     sections: ["events", "rewind_snapshots", "custom_tables", "parse_diagnostics"],
   },
 ] as const;
+
+/** Sections only some sources can supply, keyed to the capability that gates each. */
+const SECTION_CAPABILITIES: Partial<Record<SectionId, keyof SourceCapabilities>> = {
+  plan: "hasPlan",
+  todos: "hasTodos",
+  checkpoints: "hasCheckpoints",
+};
+
+/** Whether a session whose source has these capabilities can supply the section. */
+export function sourceSupportsSection(
+  sectionId: SectionId,
+  capabilities: SourceCapabilities,
+): boolean {
+  const flag = SECTION_CAPABILITIES[sectionId];
+  return flag ? capabilities[flag] : true;
+}
 
 export const SECTION_ICONS: Record<SectionId, string> = {
   conversation: "💬",

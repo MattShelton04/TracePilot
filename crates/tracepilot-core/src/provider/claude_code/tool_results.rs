@@ -13,6 +13,8 @@
 //!
 //! `persistedOutputPath` is recorded as a string; the file is never opened.
 
+use std::fmt::Write as _;
+
 use serde_json::{Map, Value, json};
 
 use super::records::{Blocks, Rec, block_type, tool_result_text};
@@ -268,12 +270,16 @@ fn read_content(tur: &Value) -> Option<String> {
             let content = str_at(file, "content").filter(|c| !c.is_empty())?;
             let start = file.get("startLine").and_then(Value::as_u64).unwrap_or(1);
             let body = content.strip_suffix('\n').unwrap_or(content);
-            let numbered: Vec<String> = body
-                .split('\n')
-                .enumerate()
-                .map(|(i, line)| format!("{}. {line}", start + i as u64))
-                .collect();
-            Some(numbered.join("\n"))
+            // One buffer for the whole file: a `String` per line made large
+            // Reads the costliest records to translate.
+            let mut numbered = String::with_capacity(body.len() + body.len() / 8 + 8);
+            for (i, line) in body.split('\n').enumerate() {
+                if i > 0 {
+                    numbered.push('\n');
+                }
+                let _ = write!(numbered, "{}. {line}", start + i as u64);
+            }
+            Some(numbered)
         }
         "image" => {
             let dims = file.get("dimensions");

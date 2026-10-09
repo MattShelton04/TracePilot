@@ -1,8 +1,10 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { ContentTypeStyle } from "@tracepilot/ui";
 import { mount, type VueWrapper } from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SearchGroupedResults from "../../../components/search/SearchGroupedResults.vue";
 import type { SessionGroup } from "../../../stores/search";
+import { useSessionsStore } from "../../../stores/sessions";
 
 vi.mock("@tracepilot/ui", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tracepilot/ui")>();
@@ -58,6 +60,9 @@ const MOCK_GROUP: SessionGroup = {
 };
 
 const wrappers: VueWrapper[] = [];
+beforeEach(() => {
+  setupPinia();
+});
 afterEach(() => {
   for (const wrapper of wrappers.splice(0)) wrapper.unmount();
   document.body.replaceChildren();
@@ -208,6 +213,15 @@ describe("SearchGroupedResults", () => {
     };
     const wrapper = mountResults({ groupedResults: [noSummaryGroup] });
     expect(wrapper.find(".session-group-title").text()).toContain("sess-abc");
+  });
+
+  it("names a non-Copilot source from the session list when the row has none", () => {
+    useSessionsStore().sessions = [
+      { id: "sess-abc", eventCount: 1, turnCount: 1, isRunning: false, source: "claudeCode" },
+    ];
+    const wrapper = mountResults();
+    const badges = wrapper.findAll(".session-group-badges .badge");
+    expect(badges.map((b) => b.text())).toEqual(["Claude Code", "org/web", "main"]);
   });
 
   it("renders empty state when no groups", () => {
