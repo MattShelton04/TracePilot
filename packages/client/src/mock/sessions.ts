@@ -92,6 +92,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetail {
   }
   return {
     id: sessionId,
+    source: "copilot",
     summary: "Mock session detail",
     repository: "tracepilot/app",
     branch: "main",

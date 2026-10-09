@@ -50,8 +50,8 @@ export interface SessionIncident {
 /** Full session detail from load_session_summary */
 export interface SessionDetail {
   id: string;
-  /** Which tool wrote the session. Absent from older backends; means Copilot. */
-  source?: SessionSource;
+  /** Which tool wrote the session. */
+  source: SessionSource;
   summary?: string | null;
   repository?: string | null;
   branch?: string | null;

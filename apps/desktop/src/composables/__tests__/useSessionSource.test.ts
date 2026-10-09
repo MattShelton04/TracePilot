@@ -8,8 +8,8 @@ describe("knownSessionSource", () => {
     expect(knownSessionSource("s-1", { id: "s-1", source: "copilot" }, claudeItem)).toBe("copilot");
   });
 
-  it("keeps a known list source when the detail omits it", () => {
-    expect(knownSessionSource("s-1", { id: "s-1" }, claudeItem)).toBe("claudeCode");
+  it("uses the list's source before the detail loads", () => {
+    expect(knownSessionSource("s-1", null, claudeItem)).toBe("claudeCode");
   });
 
   it("ignores a detail for another session", () => {
@@ -19,7 +19,6 @@ describe("knownSessionSource", () => {
   });
 
   it("falls back to Copilot only when loaded data describes the session", () => {
-    expect(knownSessionSource("s-1", { id: "s-1" }, [])).toBe("copilot");
     expect(knownSessionSource("s-1", null, [{ id: "s-1" }])).toBe("copilot");
     expect(knownSessionSource("s-1", null, [])).toBeUndefined();
     expect(knownSessionSource(null, null, claudeItem)).toBeUndefined();

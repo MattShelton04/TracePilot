@@ -342,3 +342,26 @@ fn copilot_summary_is_still_derived_from_the_cached_events() {
     let mut lru = cache.lock().unwrap();
     assert!(lru.get("session-a").unwrap().summary.is_none());
 }
+
+#[test]
+fn detail_names_its_source_and_otherwise_matches_the_summary() {
+    use super::detail::session_detail;
+    let cache = event_cache(4);
+
+    let (_copilot_dir, session_path) =
+        temp_session(&[("session.start", serde_json::json!({ "cwd": "/repo" }))]);
+    let copilot = copilot_session(&session_path, "session-a");
+    let mut wire = serde_json::to_value(session_detail(&cache, &copilot).unwrap()).unwrap();
+    assert_eq!(wire["source"], "copilot");
+    // Copilot's wire output gains only the `source` field.
+    wire.as_object_mut().unwrap().remove("source");
+    let summary = load_cached_summary(&cache, &copilot).unwrap();
+    assert_eq!(wire, serde_json::to_value(&summary).unwrap());
+
+    let claude_dir = tempfile::tempdir().unwrap();
+    let claude = claude_session(claude_dir.path(), "A Claude title");
+    let wire = serde_json::to_value(session_detail(&cache, &claude).unwrap()).unwrap();
+    assert_eq!(wire["source"], "claudeCode");
+    assert_eq!(wire["summary"], "A Claude title");
+    assert_eq!(wire["id"], claude.locator.id.as_str());
+}

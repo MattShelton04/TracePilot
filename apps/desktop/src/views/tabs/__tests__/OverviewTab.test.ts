@@ -66,7 +66,13 @@ it("shows a Claude Code session's labelled USD estimate and recorded requests", 
 });
 
 it("keeps the Copilot cards and rows", () => {
-  store.detail = { id: "s1", hasPlan: false, hasCheckpoints: true, checkpointCount: 2 };
+  store.detail = {
+    id: "s1",
+    source: "copilot",
+    hasPlan: false,
+    hasCheckpoints: true,
+    checkpointCount: 2,
+  };
   store.shutdownMetrics = { shutdownType: "routine" };
   const { wrapper, card } = mountOverview();
   expect(card("Checkpoints")?.props("value")).toBe(2);
@@ -84,7 +90,7 @@ it("names API time as such and shows a dash when none was recorded", () => {
       .filter((dt) => dt.text() === "API Time")
       .map((dt) => dt.element.nextElementSibling?.textContent?.trim());
 
-  store.detail = { id: "s1", hasPlan: false, hasCheckpoints: true };
+  store.detail = { id: "s1", source: "copilot", hasPlan: false, hasCheckpoints: true };
   store.shutdownMetrics = { totalApiDurationMs: 0 };
   let { wrapper } = mountOverview();
   expect(apiTimes(wrapper)).toEqual(["—", "—"]);
@@ -150,7 +156,7 @@ it("shows a Claude Code session's file-history checkpoints, and never asks Copil
   claude.unmount();
 
   store.loadFileHistory.mockClear();
-  store.detail = { id: "s1", hasPlan: false, hasCheckpoints: true };
+  store.detail = { id: "s1", source: "copilot", hasPlan: false, hasCheckpoints: true };
   const copilot = mountOverview().wrapper;
   expect(store.loadFileHistory).not.toHaveBeenCalled();
   expect(copilot.text()).not.toContain("never restores");
@@ -164,7 +170,7 @@ it("hides background tasks when a session has none, and never asks Copilot", () 
   claude.unmount();
 
   store.loadBackgroundTasks.mockClear();
-  store.detail = { id: "s1", hasPlan: false, hasCheckpoints: true };
+  store.detail = { id: "s1", source: "copilot", hasPlan: false, hasCheckpoints: true };
   store.backgroundTasks = [failedShell];
   const copilot = mountOverview().wrapper;
   expect(store.loadBackgroundTasks).not.toHaveBeenCalled();
