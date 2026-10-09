@@ -47,7 +47,7 @@ pub(crate) use db::{open_index_db, remove_index_db_files};
 pub(crate) use definition_repos::definition_repo_roots;
 pub(crate) use emit::{emit_best_effort, emit_indexing_progress};
 pub(crate) use locator::{
-    explorer_root, require_capability, require_copilot_layout, resolve_session,
+    explorer_roots, require_capability, require_copilot_layout, resolve_session,
     with_session_locator,
 };
 pub(crate) use path::{validate_path_within, validate_path_within_any, validate_write_path_within};

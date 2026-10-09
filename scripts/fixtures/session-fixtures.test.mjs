@@ -213,7 +213,7 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
       claudeCommandsSessionId,
     ],
   );
-  assert.equal(generated.files.length, 14);
+  assert.equal(generated.files.length, 17);
   assert(
     existsSync(
       join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),

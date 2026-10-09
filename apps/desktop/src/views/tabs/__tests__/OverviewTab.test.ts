@@ -1,4 +1,4 @@
-import type { BackgroundTask } from "@tracepilot/client";
+import type { BackgroundTask, FileCheckpoint } from "@tracepilot/client";
 import { setupPinia } from "@tracepilot/test-utils";
 import type { SessionDetail, ShutdownMetrics } from "@tracepilot/types";
 import { StatCard } from "@tracepilot/ui";
@@ -16,11 +16,13 @@ const store = reactive({
   checkpoints: [],
   plan: null,
   backgroundTasks: [] as BackgroundTask[],
+  fileHistory: [] as FileCheckpoint[],
   loaded: new Set<string>(),
   pendingCheckpointFocus: null,
   loadCheckpoints: vi.fn(),
   loadPlan: vi.fn(),
   loadBackgroundTasks: vi.fn(),
+  loadFileHistory: vi.fn(),
   loadShutdownMetrics: vi.fn(),
   loadIncidents: vi.fn(),
   focusCheckpoint: vi.fn(),
@@ -31,7 +33,9 @@ afterEach(() => {
   store.detail = null;
   store.shutdownMetrics = null;
   store.backgroundTasks = [];
+  store.fileHistory = [];
   store.loadBackgroundTasks.mockClear();
+  store.loadFileHistory.mockClear();
 });
 
 function mountOverview() {
@@ -113,6 +117,24 @@ it("lists a Claude Code session's background tasks", () => {
   expect(rows[1].text()).toContain("Completed");
   expect(rows[1].text()).toContain("1 tool call");
   wrapper.unmount();
+});
+
+it("shows a Claude Code session's file-history checkpoints, and never asks Copilot", () => {
+  store.detail = { id: "s1", source: "claudeCode", hasPlan: false, hasCheckpoints: false };
+  store.fileHistory = [
+    { number: 1, messageId: "m1", timestamp: null, prompt: "Add a retry.", files: [] },
+  ];
+  const claude = mountOverview().wrapper;
+  expect(store.loadFileHistory).toHaveBeenCalled();
+  expect(claude.text()).toContain("Checkpoints (1)");
+  claude.unmount();
+
+  store.loadFileHistory.mockClear();
+  store.detail = { id: "s1", hasPlan: false, hasCheckpoints: true };
+  const copilot = mountOverview().wrapper;
+  expect(store.loadFileHistory).not.toHaveBeenCalled();
+  expect(copilot.text()).not.toContain("never restores");
+  copilot.unmount();
 });
 
 it("hides background tasks when a session has none, and never asks Copilot", () => {

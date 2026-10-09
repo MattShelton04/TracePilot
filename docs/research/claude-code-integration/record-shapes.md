@@ -224,7 +224,7 @@ Other subtypes: `informational`, `away_summary`, `local_command`, `bridge_status
 | `pr-link` | `{ "type": "pr-link", "prNumber": 12, "prUrl": "https://github.com/acme/demo/pull/12", "prRepository": "acme/demo", "timestamp": "…" }` | |
 | `queue-operation` | `{ "type": "queue-operation", "operation": "enqueue" \| "dequeue" \| "remove" \| "popAll", "content"?: "<task-notification>…", "timestamp": "…" }` | |
 | `last-prompt`, `mode`, `permission-mode`, `atis-latch` | Latest value only | Events tab only |
-| `file-history-snapshot` / `-delta` | `snapshot.trackedFileBackups[path].backupFileName` → `file-history/<sid>/<name>` | Null means the file did not exist yet |
+| `file-history-snapshot` / `-delta` | `{ "type": "file-history-snapshot", "messageId": "<prompt uuid>", "isSnapshotUpdate": false, "snapshot": { "messageId": "…", "timestamp": "…", "trackedFileBackups": { "src/a.ts": { "backupFileName": "0123456789abcdef@v2", "version": 2, "backupTime": "…" } } } }`; `backupFileName` → `file-history/<sid>/<name>` | Null means the file did not exist yet. C13 groups records by `messageId` into read-only checkpoints |
 | `attachment` | `{ "type": "attachment", "attachment": { "type": "<one of 29>", … }, "rendered"?: [ … ] }` | Events tab only; never FTS |
 
 **Repository** comes from `user.serverClassifierContext.context.git_state`, which looks like

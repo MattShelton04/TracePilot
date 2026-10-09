@@ -2,26 +2,28 @@
 //! directory (`CLAUDE_CONFIG_DIR`, by default `~/.claude`).
 //!
 //! A session is `projects/<cwd-slug>/<uuid>.jsonl` plus the files in
-//! `<uuid>/subagents/`. Other files a transcript references (`tool-results/`,
-//! file history) are never read. Nothing registers this provider until the
-//! experimental flag (F8) does.
+//! `<uuid>/subagents/`. Parsing never reads the other files a transcript
+//! references (`tool-results/`, file history, plan files): only the
+//! artifact views open them, on request. Nothing registers this provider
+//! until the experimental flag (F8) does.
 
 use std::path::{Component, Path, PathBuf};
 
 use super::background::read_background_tasks;
 use super::liveness::{ProcessStart, liveness};
-use super::parse_claude_session;
+use super::reader::{Line, read_jsonl};
 use super::summary::summarize;
+use super::{ClaudeDiagnostics, file_history, parse_claude_session, plans};
 use crate::error::{Result, TracePilotError};
 use crate::ids::SessionId;
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled, ensure_unchanged};
 use crate::provider::{
-    Liveness, ProviderSnapshot, SessionArtifacts, SessionLocator, SessionProvider, SessionRole,
-    SessionSource, SourceCapabilities, SourceFingerprint,
+    FileHistory, Liveness, PlanArtifact, ProviderSnapshot, SessionArtifacts, SessionLocator,
+    SessionProvider, SessionRole, SessionSource, SourceCapabilities, SourceFingerprint,
 };
 
-/// Nothing Copilot-specific, and no todos, plan, checkpoints or explorer
-/// roots yet (C13).
+/// Nothing Copilot-specific and no todos. Claude Code has no Copilot-style
+/// checkpoint summaries; its rewind points are the file history.
 const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     can_resume: false,
     can_launch: false,
@@ -31,11 +33,15 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_context_breakdown: false,
     has_todos: false,
     has_checkpoints: false,
-    has_plan: false,
-    has_explorer: false,
+    has_plan: true,
+    has_explorer: true,
     has_hidden_roles: false,
     has_background_tasks: true,
+    has_file_history: true,
 };
+
+/// The session directories the Explorer may browse, beside the transcript.
+const EXPLORER_DIRS: &[&str] = &["subagents", "tool-results"];
 
 /// Sessions under one Claude Code config directory.
 pub struct ClaudeCodeProvider {
@@ -65,6 +71,33 @@ impl ClaudeCodeProvider {
 
     pub fn config_dir(&self) -> &Path {
         &self.config_dir
+    }
+
+    /// The main transcript's records, best effort: skipped lines only lose
+    /// what they held.
+    fn read_lines(session: &SessionLocator) -> Result<Vec<Line>> {
+        read_jsonl(
+            &session.primary_path,
+            &|| false,
+            &mut ClaudeDiagnostics::default(),
+        )
+    }
+
+    fn plan_from(&self, lines: &[Line]) -> Option<PlanArtifact> {
+        plans::latest_plan(lines, &self.config_dir.join("plans"))
+    }
+
+    /// `file-history/<session id>/`. The id is a UUID, so it is one plain
+    /// path component.
+    fn file_history_from(&self, session: &SessionLocator, lines: &[Line]) -> Option<FileHistory> {
+        let checkpoints = file_history::checkpoints(lines);
+        (!checkpoints.is_empty()).then(|| FileHistory {
+            dir: self
+                .config_dir
+                .join("file-history")
+                .join(session.id.as_str()),
+            checkpoints,
+        })
     }
 
     fn locator(id: SessionId, main: PathBuf) -> Result<SessionLocator> {
@@ -235,13 +268,34 @@ impl SessionProvider for ClaudeCodeProvider {
         )
     }
 
-    /// Background tasks only so far; plan, checkpoints and explorer roots
-    /// come with C13.
+    /// The plan, file history, browsable roots and background tasks, from
+    /// one read of the transcript. No todos (out of scope) and no
+    /// Copilot-style checkpoints or rewind index.
     fn artifacts(&self, session: &SessionLocator) -> Result<SessionArtifacts> {
+        let lines = Self::read_lines(session)?;
         Ok(SessionArtifacts {
-            background_tasks: read_background_tasks(&session.primary_path)?,
+            plan: self.plan_from(&lines),
+            file_history: self.file_history_from(session, &lines),
+            file_roots: self.file_roots(session)?,
+            background_tasks: read_background_tasks(&session.primary_path, &lines)?,
             ..SessionArtifacts::default()
         })
+    }
+
+    /// `<uuid>/subagents/` and `<uuid>/tool-results/`, whether or not they
+    /// exist yet; the browser skips a missing one. Nothing is read.
+    fn file_roots(&self, session: &SessionLocator) -> Result<Vec<PathBuf>> {
+        let dir = session.primary_path.with_extension("");
+        Ok(EXPLORER_DIRS.iter().map(|name| dir.join(name)).collect())
+    }
+
+    fn plan(&self, session: &SessionLocator) -> Result<Option<PlanArtifact>> {
+        Ok(self.plan_from(&Self::read_lines(session)?))
+    }
+
+    fn file_history(&self, session: &SessionLocator) -> Result<Option<FileHistory>> {
+        let lines = Self::read_lines(session)?;
+        Ok(self.file_history_from(session, &lines))
     }
 
     fn root(&self) -> Option<&Path> {

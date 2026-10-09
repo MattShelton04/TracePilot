@@ -13,10 +13,14 @@ use crate::ids::SessionId;
 use crate::models::session_summary::SessionSummary;
 use crate::parsing::events::{RawEvent, TypedEvent};
 
+mod artifacts;
 pub mod claude_code;
 pub mod copilot;
 mod types;
 
+pub use artifacts::{
+    FileCheckpoint, FileHistory, FileVersion, FileVersionContent, PlanArtifact, is_safe_backup_name,
+};
 pub use copilot::CopilotProvider;
 pub use types::{
     BackgroundTask, BackgroundTaskKind, BackgroundTaskStatus, CostBasis, CostFigure, CostUnit,
@@ -130,6 +134,16 @@ pub trait SessionProvider: Send + Sync {
     /// Directories the file browser and image preview may read.
     fn file_roots(&self, session: &SessionLocator) -> Result<Vec<PathBuf>> {
         Ok(self.artifacts(session)?.file_roots)
+    }
+
+    /// The session's latest plan.
+    fn plan(&self, session: &SessionLocator) -> Result<Option<PlanArtifact>> {
+        Ok(self.artifacts(session)?.plan)
+    }
+
+    /// The session's file backups, as rewind points.
+    fn file_history(&self, session: &SessionLocator) -> Result<Option<FileHistory>> {
+        Ok(self.artifacts(session)?.file_history)
     }
 
     /// Only the normalized events, for display. `None` when the source has

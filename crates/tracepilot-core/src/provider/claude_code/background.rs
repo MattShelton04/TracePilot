@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use super::ClaudeDiagnostics;
 use super::notify::{TaskNotification, contains_notification, parse_notifications};
-use super::reader::{Line, read_jsonl};
+use super::reader::Line;
 use super::records::{Rec, block_type};
 use super::subagents::{self, ChildStream};
 use super::tools::is_agent_tool;
@@ -25,13 +25,13 @@ use crate::provider::{BackgroundTask, BackgroundTaskKind, BackgroundTaskStatus};
 /// The longest shell command kept as a description.
 const MAX_COMMAND_CHARS: usize = 200;
 
-/// Read the session at `main` and list its background tasks.
-pub(super) fn read_background_tasks(main: &Path) -> Result<Vec<BackgroundTask>> {
+/// List the background tasks of the session at `main`, whose transcript
+/// `lines` the caller already read.
+pub(super) fn read_background_tasks(main: &Path, lines: &[Line]) -> Result<Vec<BackgroundTask>> {
     let never = || false;
     let mut diagnostics = ClaudeDiagnostics::default();
-    let lines = read_jsonl(main, &never, &mut diagnostics)?;
     let children = subagents::load(main, &never, &mut diagnostics)?;
-    Ok(background_tasks(&lines, &children))
+    Ok(background_tasks(lines, &children))
 }
 
 /// Background tasks reported anywhere in the session: the main transcript's in

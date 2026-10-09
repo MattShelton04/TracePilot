@@ -194,7 +194,11 @@ The reshape has to happen in Rust:
     providers, so a row from a disabled source or an older root never reaches a command.
   - Commands that need a capability refuse with the typed `UNSUPPORTED` error: resume and
     context capture (`canResume`), SDK steering (`canSteer`) and the file browser
-    (`hasExplorer`, rooted at the provider's first file root, which must lie under its root).
+    (`hasExplorer`). Every file root must lie under the provider's root. One root is browsed
+    as the tree (Copilot's session directory); several sibling roots become top-level folders
+    and only those names resolve (Claude Code's `subagents/` and `tool-results/`, C13).
+    File-history versions (`hasFileHistory`) are read only when the session's own records name
+    them, from directly inside `file-history/<id>/`.
     Import refuses to keep an id the index holds for another source.
   - Implemented (C14): export reads Copilot sessions from their directory, unchanged
     (`tracepilot-export/tests/copilot_export_golden.rs` holds the bytes), and every other

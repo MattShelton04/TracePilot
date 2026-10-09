@@ -55,7 +55,7 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | `cost-state` | 132 | Not an event. Becomes **provider metrics** (§3) | |
 | `ai-title`, `agent-name`, `pr-link`, `last-prompt`, `mode`, `permission-mode`, `atis-latch` | about 4.4k each | Summary fields (latest wins) and PR links. Hidden from the Events tab by default | |
 | `attachment:*` (29 types) | 17,575 | `Unknown("attachment:<type>")`, shown on the Events tab only. **Not indexed for FTS** | `task_status` and the task notifications feed the background-task list (C12); `edited_text_file`, `plan_mode` can feed later features |
-| `file-history-snapshot` / `-delta` | 203 / 1,034 | L3: checkpoint/rewind view | |
+| `file-history-snapshot` / `-delta` | 203 / 1,034 | Shown on the Events tab; also the read-only checkpoint list (C13, `claude_code/file_history.rs`) | One checkpoint per `messageId`, carrying the files tracked so far; later records for the same prompt update it. Backups are read only when a user opens one |
 | Subagent file records | 26 files | The same mapping with envelope `agentId`, plus `parentToolCallId = meta.toolUseId` | Inserted into the parent stream as described in §1.3 |
 
 ### 1.1 User records that must not open a turn
@@ -183,7 +183,7 @@ Abbreviations in the table: **TUR** = `toolUseResult` (Claude's structured tool 
 | `TaskOutput` / `BashOutput` (not observed) | 0 | `read_agent` / `read_powershell` | rename | `<retrieval_status>` → body | ReadAgent / ShellOutput | L3 |
 | `Monitor` | 12 | generic | — | — | Generic | — |
 | `TaskCreate/Update/List/Get`, legacy `TodoWrite` (default-on only for older models; not observed) | 0 | generic | — | — | Generic. Out of scope: no todo parsing or Todos tab | — |
-| `EnterPlanMode` / `ExitPlanMode` | 8 / 8 | `plan` *(new)* | `plan` | TUR `plan`, `filePath` → Overview plan | Markdown | L3 |
+| `EnterPlanMode` / `ExitPlanMode` | 8 / 8 | `plan` *(new)* | `plan` | TUR `plan`, `filePath` → Overview plan (C13: latest `input.plan` / TUR `plan` wins; `plans/<slug>.md` only as a fallback, never `filePath`) | Markdown | L3 |
 | `WebFetch` | 32 | `web_fetch` | `url`, `prompt` | `result` | Markdown | L2 |
 | `WebSearch` | 20 | `web_search` | `query` | `results` → annotation JSON for source cards | WebSearch | L2 |
 | `Skill` | 3 | `skill` | `skill` already matches | Following isMeta context → skill invocation | Skill row | L2 |
@@ -295,13 +295,13 @@ into those columns. Source-aware cost analytics and presentation remain C10/U2/U
 | Reasoning | 🟡 | L1 | 88.8% redacted; show a "redacted" count |
 | Subagents (cards, agent tree, Messages view) | ✅ | L1/L2 | Cards at L1; tree, Timeline and Messages at L2 |
 | Events tab | ✅ | L1 | Native records; bookkeeping hidden by default |
-| Overview | 🟡 | L1 | No checkpoints, `plan.md` or shutdown type. Plan from `ExitPlanMode` at L3 |
+| Overview | 🟡 | L1 | No Copilot checkpoint summaries or shutdown type. Plan from `ExitPlanMode` and file-history checkpoints since C13 |
 | Metrics tab | ✅ | L2 | Exact tokens and cache; USD estimate; no AIC or premium requests |
 | Context tab | 🟡 | L2 | Exact total per call; no category split. Estimated split from `prompt_snapshot` at L4 |
 | Prompt cache (header countdown, windows) | ✅⭐ | L2 | Observed writes and reads; estimated expiry from the recorded TTL tier, or "unknown" |
 | Todos tab | ❌ | — | Out of scope: Claude Code's task tools are off by default on current models. Hidden for Claude sessions |
-| Checkpoints / rewind | 🟡 | L3 | From file-history (no Copilot-style checkpoint summaries) |
-| Explorer tab | 🟡 | L3 | `subagents/`, `tool-results/`, plans; there is no session directory per se |
+| Checkpoints / rewind | 🟡 | L3 | Read-only, from file-history (`has_file_history`; no Copilot-style checkpoint summaries, no restore) |
+| Explorer tab | 🟡 | L3 | `subagents/` and `tool-results/` as top-level folders; there is no session directory per se. No Open Folder action |
 | Timeline (swimlane, waterfall) | ✅ | L2 | Per-call timestamps; tool durations |
 | Live refresh / running badge | ✅⭐ | L2 | `sessions/<pid>.json` busy/idle |
 | Alerts / notifications | 🟡 | L3 | Based on the liveness status change |

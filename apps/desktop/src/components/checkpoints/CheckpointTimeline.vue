@@ -4,6 +4,8 @@
  *
  * Owns all expand/collapse state, scroll-to-focus behaviour, and timeline CSS.
  * The parent only provides the data and an optional focus request (v-model).
+ * A `body` slot replaces the markdown content view and makes every entry
+ * expandable (file-history checkpoints list their files there).
  */
 import type { CheckpointEntry } from "@tracepilot/types";
 import { ExpandChevron } from "@tracepilot/ui";
@@ -20,6 +22,14 @@ const emit = defineEmits<{
   "update:focusNumber": [value: number | null];
 }>();
 
+const slots = defineSlots<{
+  body?(props: { checkpoint: CheckpointEntry }): unknown;
+}>();
+
+function expandable(cp: CheckpointEntry): boolean {
+  return !!cp.content || !!slots.body;
+}
+
 // ── Expand / collapse ──────────────────────────────────────────────
 const expandedSet = ref<Set<number>>(new Set());
 
@@ -33,7 +43,7 @@ function toggle(num: number) {
 
 function expandAll() {
   for (const cp of props.checkpoints) {
-    if (cp.content) expandedSet.value.add(cp.number);
+    if (expandable(cp)) expandedSet.value.add(cp.number);
   }
 }
 
@@ -42,7 +52,7 @@ function collapseAll() {
 }
 
 const allExpanded = computed(() =>
-  props.checkpoints.every((cp) => !cp.content || expandedSet.value.has(cp.number)),
+  props.checkpoints.every((cp) => !expandable(cp) || expandedSet.value.has(cp.number)),
 );
 
 // ── Scroll-to-focus ────────────────────────────────────────────────
@@ -99,14 +109,16 @@ defineExpose({ allExpanded, expandAll, collapseAll });
           <div class="cp-timeline-title-row">
             <span class="cp-timeline-title">{{ cp.title }}</span>
             <ExpandChevron
-              v-if="cp.content"
+              v-if="expandable(cp)"
               :expanded="expandedSet.has(cp.number)"
               class="cp-timeline-chevron"
             />
           </div>
         </button>
-        <div v-if="expandedSet.has(cp.number) && cp.content" class="cp-timeline-body">
-          <CheckpointContentView :content="cp.content" />
+        <div v-if="expandedSet.has(cp.number) && expandable(cp)" class="cp-timeline-body">
+          <slot name="body" :checkpoint="cp">
+            <CheckpointContentView v-if="cp.content" :content="cp.content" />
+          </slot>
         </div>
       </div>
     </div>

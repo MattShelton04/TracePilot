@@ -170,7 +170,10 @@ fn artifacts_wrap_existing_readers() {
     let sessions = provider.discover(&|| false).unwrap();
     let full = &sessions[0];
     let artifacts = provider.artifacts(full).unwrap();
-    assert_eq!(artifacts.plan, Some(full.primary_path.join("plan.md")));
+    assert_eq!(
+        artifacts.plan,
+        Some(PlanArtifact::File(full.primary_path.join("plan.md")))
+    );
     assert!(same(
         &artifacts.checkpoints,
         &parse_checkpoints(&full.primary_path).unwrap()

@@ -261,3 +261,95 @@ fn mixed_batch_keeps_copilot_sessions_unlabelled() {
         SessionSource::ClaudeCode
     );
 }
+
+/// A session with a plan, a file-history backup, a persisted tool result and
+/// a subagent folder. Only the backup and tool-result files hold their
+/// markers; the transcript never does.
+fn session_with_side_files() -> SessionFiles {
+    let mut t = Transcript::main();
+    let prompt = t.prompt("Plan the retry.");
+    t.bookkeeping(json!({"type": "file-history-snapshot", "messageId": prompt,
+        "snapshot": {"messageId": prompt, "trackedFileBackups": {
+            "src/upload.ts": {"backupFileName": "0123456789abcdef@v1", "version": 1}}}}));
+    let usage = Usage::new(10, 1000, 200, 50);
+    let plan = format!("# Plan\n\n1. Retry uploads.\n2. Rotate {TOKEN}.");
+    t.call(
+        "msg_plan",
+        OPUS,
+        vec![tool_use(
+            "toolu_plan",
+            "ExitPlanMode",
+            json!({"plan": plan}),
+        )],
+        usage,
+        "tool_use",
+    );
+    t.tool_result(
+        "toolu_plan",
+        json!("User approved the plan."),
+        json!({"plan": plan, "isAgent": false}),
+        false,
+    );
+    t.call("msg_done", OPUS, vec![text("Planned.")], usage, "end_turn");
+    let files = write_session(&t, &[]);
+    let config = files.root.path();
+    let history = config.join("file-history").join(SESSION_ID);
+    std::fs::create_dir_all(&history).unwrap();
+    std::fs::write(history.join("0123456789abcdef@v1"), "BACKUP-CONTENT\n").unwrap();
+    let results = files.main.with_extension("").join("tool-results");
+    std::fs::create_dir_all(&results).unwrap();
+    std::fs::write(results.join("toolu_big.txt"), "TOOL-RESULT-CONTENT\n").unwrap();
+    files
+}
+
+/// The plan exports like Copilot's `plan.md`, under the user's redaction;
+/// file-history backups and Explorer files never leave the machine.
+#[test]
+fn side_files_stay_out_of_export_and_the_plan_is_redacted() {
+    let files = session_with_side_files();
+    let provider = ClaudeCodeProvider::new(files.root.path());
+    let locator = provider
+        .resolve(&SessionId::from_validated(SESSION_ID))
+        .unwrap()
+        .unwrap();
+    let snapshot = provider.load_snapshot(&locator, false, &|| false).unwrap();
+    let artifacts = provider.artifacts(&locator).unwrap();
+    assert!(artifacts.file_history.is_some() && artifacts.file_roots.len() == 2);
+    let input = ExportInput::Provider(ProviderSession {
+        source: SessionSource::ClaudeCode,
+        snapshot: &snapshot,
+        artifacts: &artifacts,
+    });
+    let export = |options: &ExportOptions| {
+        let files = export_inputs(std::slice::from_ref(&input), options).unwrap();
+        files[0].as_text().unwrap().to_string()
+    };
+
+    for format in [ExportFormat::Json, ExportFormat::Markdown] {
+        let output = export(&ExportOptions::all(format));
+        assert!(
+            output.contains("Retry uploads."),
+            "{format:?}: the plan is exported"
+        );
+        assert!(
+            !output.contains("BACKUP-CONTENT"),
+            "{format:?}: a backup leaked"
+        );
+        assert!(
+            !output.contains("TOOL-RESULT-CONTENT"),
+            "{format:?}: a tool result leaked"
+        );
+    }
+    let archive: SessionArchive =
+        serde_json::from_str(&export(&ExportOptions::all(ExportFormat::Json))).unwrap();
+    assert!(archive.sessions[0].checkpoints.is_none());
+
+    let mut options = ExportOptions::all(ExportFormat::Json);
+    options.redaction.strip_secrets = true;
+    let archive: SessionArchive = serde_json::from_str(&export(&options)).unwrap();
+    let plan = archive.sessions[0].plan.as_deref().expect("plan section");
+    assert!(
+        plan.contains("Retry uploads.") && !plan.contains(TOKEN),
+        "{plan}"
+    );
+}
