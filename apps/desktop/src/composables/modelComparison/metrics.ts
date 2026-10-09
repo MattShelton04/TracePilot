@@ -9,18 +9,16 @@
 import {
   AI_CREDIT_USD,
   calculateObservedAiCredits,
-  claudeCodeModelFamily,
   formatAiCredits,
   formatNumber as formatCompactNumber,
   formatCost,
   formatNumber,
   formatPercent,
   resolveSessionSource,
-  type SessionSource,
-  sourceLabel,
 } from "@tracepilot/types";
 import { billedInAiCredits } from "@/utils/analyticsCostSeries";
 import { formatModelDelta } from "@/utils/deltaFormatting";
+import { modelLabels } from "@/utils/modelLabels";
 import type {
   CompareMetric,
   ComputeWholesaleCost,
@@ -99,21 +97,10 @@ export function buildModelRows({
     return tailColor;
   };
   const grandTotal = distribution.reduce((sum, m) => sum + m.inputTokens + m.outputTokens, 0);
-  const families = distribution.map((m) => modelFamily(m.model, resolveSessionSource(m.source)));
-  const count = (family: string, sameSource?: string) =>
-    distribution.filter(
-      (m, j) =>
-        families[j] === family &&
-        (sameSource == null || resolveSessionSource(m.source) === sameSource),
-    ).length;
+  const labels = modelLabels(distribution);
   return distribution.map((m, i) => {
     const source = resolveSessionSource(m.source);
-    // Claude Code ids name the same models as Copilot's (`claude-opus-4-5-…`
-    // is `claude-opus-4.5`), so both sources line up. Two ids of one family in
-    // one source keep their own ids; a family in two sources names its source.
-    const base = count(families[i], source) > 1 ? m.model : families[i];
-    const label =
-      count(families[i]) > count(families[i], source) ? `${base} · ${sourceLabel(source)}` : base;
+    const { family, label } = labels[i];
     // A source priced in USD is never estimated in AI Credits.
     const billed = billedInAiCredits(m);
     const costUsd = m.costUsd ?? null;
@@ -193,7 +180,7 @@ export function buildModelRows({
     return {
       id: `${source}:${m.model}`,
       label,
-      family: families[i],
+      family,
       model: m.model,
       source,
       billedInAiCredits: billed,
@@ -218,11 +205,6 @@ export function buildModelRows({
       usdEquivalent: billed ? (aiCredits == null ? null : aiCredits * AI_CREDIT_USD) : costUsd,
     };
   });
-}
-
-/** The model a row's id names: the registry family for Claude Code ids. */
-export function modelFamily(model: string, source: SessionSource): string {
-  return source === "claudeCode" ? (claudeCodeModelFamily(model) ?? model) : model;
 }
 
 /**
