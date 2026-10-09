@@ -52,6 +52,7 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             // wave 98 — config validation (co-located DTO with state types)
             crate::commands::config_cmds::validate_session_dir,
             crate::commands::config_sources::validate_claude_config_dir,
+            crate::commands::source_diagnostics::get_source_format_diagnostics,
             // FU-14 — expanded specta coverage (primitives-only batch)
             crate::commands::config_cmds::check_config_exists,
             crate::commands::config_cmds::factory_reset,

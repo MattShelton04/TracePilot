@@ -172,6 +172,21 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
                   ADD COLUMN calls_with_duration INTEGER NOT NULL DEFAULT 0;",
         pre_hook: None,
     },
+    Migration {
+        version: 25,
+        name: "format observations",
+        // Format drift a source reports per session (unmapped record and
+        // attachment types, producer versions); Copilot writes none.
+        sql: "CREATE TABLE IF NOT EXISTS session_format_observations (
+                  session_id TEXT NOT NULL,
+                  kind TEXT NOT NULL,
+                  name TEXT NOT NULL,
+                  record_count INTEGER NOT NULL DEFAULT 0,
+                  PRIMARY KEY (session_id, kind, name),
+                  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+              );",
+        pre_hook: None,
+    },
 ];
 
 pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {

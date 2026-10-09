@@ -2,7 +2,13 @@ import type { SessionLiveness, TracePilotConfig, TracePilotConfigPatch } from "@
 
 export type { TracePilotConfigPatch } from "@tracepilot/types";
 
-import type { GitInfo, UpdateCheckResult, ValidateSessionDirResult } from "./generated/bindings.js";
+import type {
+  GitInfo,
+  SessionSource,
+  SourceFormatDiagnostics,
+  UpdateCheckResult,
+  ValidateSessionDirResult,
+} from "./generated/bindings.js";
 import { invoke } from "./internal/core.js";
 import { isTauri } from "./invoke.js";
 
@@ -39,6 +45,16 @@ export async function validateSessionDir(path: string): Promise<ValidateSessionD
 export async function validateClaudeConfigDir(path: string): Promise<ValidateSessionDirResult> {
   if (!isTauri()) return { valid: true, sessionCount: 3, error: null };
   return invoke<ValidateSessionDirResult>("validate_claude_config_dir", { path });
+}
+
+/**
+ * Format drift recorded when a source's sessions were indexed: unmapped record
+ * and attachment types, and the producer versions seen. Names and counts only.
+ */
+export async function getSourceFormatDiagnostics(
+  source: SessionSource,
+): Promise<SourceFormatDiagnostics> {
+  return invoke<SourceFormatDiagnostics>("get_source_format_diagnostics", { source });
 }
 
 /** Whether a live process owns a session, and what it is doing when the source records it. */

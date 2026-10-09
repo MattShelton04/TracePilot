@@ -219,6 +219,7 @@ impl SessionProvider for ClaudeCodeProvider {
             events: Some(parsed.events),
             turns: Some(turns),
             metrics,
+            format: Some(parsed.diagnostics.format_observations()),
             diagnostics: Some(parsed.diagnostics.events),
             fingerprint,
         })

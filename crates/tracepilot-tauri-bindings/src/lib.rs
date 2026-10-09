@@ -241,13 +241,14 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::analytics::get_analytics,
             commands::analytics::get_tool_analysis,
             commands::analytics::get_code_impact,
-            // Config commands (24)
+            // Config commands (25)
             commands::config_cmds::check_config_exists,
             commands::config_cmds::get_config,
             commands::config_cmds::save_config,
             commands::config_cmds::update_config,
             commands::config_cmds::validate_session_dir,
             commands::config_sources::validate_claude_config_dir,
+            commands::source_diagnostics::get_source_format_diagnostics,
             commands::config_cmds::factory_reset,
             commands::config_cmds::get_agent_definitions,
             commands::config_cmds::save_agent_definition,
