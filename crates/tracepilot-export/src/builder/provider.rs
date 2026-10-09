@@ -4,10 +4,14 @@
 //! session directory, so metadata comes from the snapshot's summary and side
 //! files from the provider's [`SessionArtifacts`]. Event records pass through
 //! [`redact_native_record`] first.
+//!
+//! Only the plan leaves the machine, and the user's redaction applies to it
+//! like any section. File-history backups and the files the Explorer browses
+//! are never read here.
 
 use tracepilot_core::parsing::events::{RawEvent, TypedEvent};
 use tracepilot_core::provider::{
-    ProviderSnapshot, SessionArtifacts, SessionSource, redact_native_record,
+    PlanArtifact, ProviderSnapshot, SessionArtifacts, SessionSource, redact_native_record,
 };
 use tracepilot_core::turns::reconstruct_turns;
 
@@ -20,6 +24,10 @@ use super::sections::{
     build_conversation, build_events, build_incidents, build_parse_diagnostics, build_plan_file,
     checkpoint_exports,
 };
+
+/// The most of a plan recorded in a transcript that is exported, the same
+/// cap the plan view applies.
+const MAX_INLINE_PLAN_BYTES: usize = 50 * 1024;
 
 /// A session loaded through its provider, for sources without Copilot's
 /// directory layout.
@@ -73,10 +81,7 @@ pub(super) fn build_provider_session(
         conversation: build_conversation(options, events, available),
         events: build_events(options, raw_events, available),
         todos: build_todos(options, artifacts, available),
-        plan: artifacts
-            .plan
-            .as_deref()
-            .and_then(|path| build_plan_file(options, path, available)),
+        plan: build_plan(options, artifacts.plan.as_ref(), available),
         checkpoints: options
             .includes(SectionId::Checkpoints)
             .then(|| artifacts.checkpoints.clone())
@@ -99,6 +104,25 @@ pub(super) fn build_provider_session(
         ),
         available_sections,
         extensions: None,
+    }
+}
+
+fn build_plan(
+    options: &ExportOptions,
+    plan: Option<&PlanArtifact>,
+    available: &mut Vec<SectionId>,
+) -> Option<String> {
+    match plan? {
+        PlanArtifact::File(path) => build_plan_file(options, path, available),
+        PlanArtifact::Inline(text) => {
+            if !options.includes(SectionId::Plan) || text.trim().is_empty() {
+                return None;
+            }
+            available.push(SectionId::Plan);
+            let mut text = text.clone();
+            tracepilot_core::utils::truncate_string_utf8(&mut text, MAX_INLINE_PLAN_BYTES);
+            Some(text)
+        }
     }
 }
 

@@ -194,15 +194,23 @@ fn copilot_only_actions_are_refused_with_a_typed_error() {
     require_capability(&copilot, |caps| caps.can_resume, "Resume").unwrap();
     require_copilot_layout(&copilot, "Export").unwrap();
     assert_eq!(
-        explorer_root(&copilot).unwrap(),
-        copilot.locator.primary_path
+        explorer_roots(&copilot).unwrap(),
+        vec![copilot.locator.primary_path.clone()]
     );
 
     let claude = claude_session(fixture.temp.path());
+    // Claude Code browses the session's subagent and tool-result folders.
+    let session_dir = claude.locator.primary_path.with_extension("");
+    assert_eq!(
+        explorer_roots(&claude).unwrap(),
+        vec![
+            session_dir.join("subagents"),
+            session_dir.join("tool-results")
+        ]
+    );
     for error in [
         require_capability(&claude, |caps| caps.can_resume, "Resume").unwrap_err(),
         require_copilot_layout(&claude, "Export").unwrap_err(),
-        explorer_root(&claude).unwrap_err(),
     ] {
         assert!(
             matches!(
@@ -274,9 +282,14 @@ fn file_roots_outside_the_source_root_are_refused() {
             }),
             locator: fixture.resolve().unwrap().locator,
         };
-        explorer_root(&session)
+        explorer_roots(&session)
     };
-    assert_eq!(browse(vec![dir.clone()]).unwrap(), dir);
+    assert_eq!(browse(vec![dir.clone()]).unwrap(), vec![dir.clone()]);
+    // One root outside refuses them all.
+    assert!(matches!(
+        browse(vec![dir.join("a"), fixture.temp.path().join("home")]),
+        Err(BindingsError::Validation(_))
+    ));
     for outside in [
         fixture.temp.path().join("home"),
         fixture.sessions(),

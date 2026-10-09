@@ -1,7 +1,8 @@
 //! Tauri IPC commands for the session file browser.
 
+use super::scope::ExplorerScope;
 use super::security::{
-    collect_entries, reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
+    reject_hidden_filename, revalidate_within_session_dir, safe_session_file_path,
 };
 use super::types::{
     MAX_FULL_READ_BYTES, MAX_READ_BYTES, MAX_SQLITE_CELL_BYTES, MAX_SQLITE_COLUMNS_PER_TABLE,
@@ -11,12 +12,12 @@ use super::types::{
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{explorer_root, read_config, resolve_session};
+use crate::helpers::read_config;
 
 /// List all files in a session's directory tree.
 ///
 /// Returns a flat list of [`SessionFileEntry`] values (files and directories)
-/// with paths relative to the session directory root.
+/// with paths relative to the browsable tree's root (see [`ExplorerScope`]).
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn session_list_files(
@@ -27,21 +28,7 @@ pub async fn session_list_files(
     let config = read_config(&state);
 
     blocking_cmd!({
-        let session_dir = explorer_root(&resolve_session(&config, &sid)?)?;
-
-        let mut entries = Vec::new();
-        // Canonicalize before walking so we have an authoritative prefix to
-        // verify subdirectories against (TOCTOU mitigation).
-        // Drop the separate `exists()` precheck — let `canonicalize()` fail
-        // with NotFound to eliminate the race window between the two calls.
-        let canonical_dir = session_dir.canonicalize().map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                BindingsError::Validation(format!("Session directory not found: {}", session_id))
-            } else {
-                BindingsError::Validation(format!("Failed to resolve session dir: {e}"))
-            }
-        })?;
-        collect_entries(&canonical_dir, &canonical_dir, 0, &mut entries)?;
+        let mut entries = ExplorerScope::for_session(&config, &sid)?.list(&session_id)?;
         entries.sort_by(|a, b| {
             b.is_directory
                 .cmp(&a.is_directory)
@@ -68,8 +55,9 @@ pub async fn session_read_file(
     let config = read_config(&state);
 
     blocking_cmd!({
-        let session_dir = explorer_root(&resolve_session(&config, &sid)?)?;
-        let file_path = safe_session_file_path(&session_dir, &relative_path)?;
+        let scope = ExplorerScope::for_session(&config, &sid)?;
+        let (session_dir, inner_path) = scope.locate(&relative_path)?;
+        let file_path = safe_session_file_path(&session_dir, inner_path)?;
 
         if !file_path.exists() {
             return Err(BindingsError::Validation(format!(
@@ -163,8 +151,9 @@ pub async fn session_read_sqlite(
     let config = read_config(&state);
 
     blocking_cmd!({
-        let session_dir = explorer_root(&resolve_session(&config, &sid)?)?;
-        let file_path = safe_session_file_path(&session_dir, &relative_path)?;
+        let scope = ExplorerScope::for_session(&config, &sid)?;
+        let (session_dir, inner_path) = scope.locate(&relative_path)?;
+        let file_path = safe_session_file_path(&session_dir, inner_path)?;
 
         if !file_path.exists() {
             return Err(BindingsError::Validation(format!(

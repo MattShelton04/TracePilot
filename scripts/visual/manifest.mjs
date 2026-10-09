@@ -43,6 +43,20 @@ export const cases = [
     state: "ended Claude Code session: done, failed and unreported tasks",
   },
   {
+    id: "claude-session-file-history",
+    route: `${claudeSession}/overview`,
+    start: ".fh-note",
+    prepare: "actions",
+    actions: [
+      { type: "button", name: "Expand all" },
+      { type: "button", name: "View", within: '[data-checkpoint="2"]' },
+      { type: "scroll", selector: '[data-checkpoint="1"]', offset: 16 },
+    ],
+    ready: ".fh-viewer .code-block",
+    command: "get_session_file_version",
+    state: "Claude Code plan-mode session: file-history checkpoints, one version open",
+  },
+  {
     id: "session-explorer-file",
     route: `${session}/explorer`,
     start: ".fb-tree",

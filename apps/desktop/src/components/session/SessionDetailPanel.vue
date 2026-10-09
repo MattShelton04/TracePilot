@@ -370,7 +370,7 @@ watch(isSessionActive, (active) => {
           </template>
 
           <button
-            v-if="!isViewer() && capabilities.hasExplorer"
+            v-if="!isViewer() && capabilities.hasExplorer && source === 'copilot'"
             class="resume-btn"
             @click="openSessionFolder"
             title="Open session state folder in file explorer"

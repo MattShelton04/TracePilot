@@ -10,15 +10,17 @@
 //! `docs/research/claude-code-integration/mapping.md` §1; the parser rules the
 //! data forces are in `data-comparison.md` §2.
 //!
-//! Referenced files (`tool-results/`, task output, file history) are never
-//! opened, and image base64 never leaves the reader.
+//! Parsing never opens referenced files (`tool-results/`, task output, file
+//! history, plans), and image base64 never leaves the reader.
 
 mod background;
 mod branch;
 mod census;
 mod drift;
+mod file_history;
 mod liveness;
 mod notify;
+mod plans;
 pub(crate) mod pricing;
 mod privacy;
 mod prompts;

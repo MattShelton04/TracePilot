@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use tracepilot_core::SessionId;
 use tracepilot_core::provider::{
-    ProviderSnapshot, ResolvedSession, SessionArtifacts, SessionSource,
+    PlanArtifact, ProviderSnapshot, ResolvedSession, SessionArtifacts, SessionSource,
 };
 use tracepilot_export::{ExportInput, ProviderSession};
 
@@ -25,7 +25,7 @@ pub(super) enum ExportSession {
     Provider {
         source: SessionSource,
         snapshot: Box<ProviderSnapshot>,
-        artifacts: SessionArtifacts,
+        artifacts: Box<SessionArtifacts>,
     },
 }
 
@@ -38,7 +38,7 @@ impl ExportSession {
             return Ok(Self::Directory(locator.primary_path));
         }
         let snapshot = provider.load_snapshot(&locator, false, &|| false)?;
-        let artifacts = provider.artifacts(&locator)?;
+        let artifacts = Box::new(provider.artifacts(&locator)?);
         Ok(Self::Provider {
             source: locator.source,
             snapshot: Box::new(snapshot),
@@ -78,10 +78,10 @@ pub(super) fn provider_sections(
             .todos
             .as_ref()
             .is_some_and(|todos| !todos.items.is_empty()),
-        has_plan: artifacts
-            .plan
-            .as_ref()
-            .is_some_and(|plan| plan.metadata().map(|meta| meta.len() > 0).unwrap_or(false)),
+        has_plan: artifacts.plan.as_ref().is_some_and(|plan| match plan {
+            PlanArtifact::File(path) => path.metadata().is_ok_and(|meta| meta.len() > 0),
+            PlanArtifact::Inline(text) => !text.trim().is_empty(),
+        }),
         has_checkpoints: artifacts
             .checkpoints
             .as_ref()

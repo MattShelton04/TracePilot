@@ -15,11 +15,12 @@ describe("session sources", () => {
     expect(sourceCapabilities(undefined)).toBe(sourceCapabilities("copilot"));
   });
 
-  it("gives Copilot every capability except hidden roles and background tasks", () => {
+  it("gives Copilot every capability except hidden roles, background tasks and file history", () => {
     const caps = sourceCapabilities("copilot");
-    const { hasHiddenRoles, hasBackgroundTasks, ...rest } = caps;
+    const { hasHiddenRoles, hasBackgroundTasks, hasFileHistory, ...rest } = caps;
     expect(hasHiddenRoles).toBe(false);
     expect(hasBackgroundTasks).toBe(false);
+    expect(hasFileHistory).toBe(false);
     expect(Object.values(rest).every(Boolean)).toBe(true);
   });
 
@@ -31,7 +32,11 @@ describe("session sources", () => {
     expect(caps.canSteer).toBe(false);
     expect(caps.hasAic).toBe(false);
     expect(caps.hasTodos).toBe(false);
-    expect(caps.hasExplorer).toBe(false);
+    expect(caps.hasCheckpoints).toBe(false);
     expect(caps.hasBackgroundTasks).toBe(true);
+    // Plans, file history and the subagent / tool-result folders (C13).
+    expect(caps.hasPlan).toBe(true);
+    expect(caps.hasFileHistory).toBe(true);
+    expect(caps.hasExplorer).toBe(true);
   });
 });
