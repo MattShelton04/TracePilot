@@ -15,7 +15,7 @@ function formatAverage(value: number): string {
 
 <template>
   <div class="metric-panels grid-2 mb-4" v-if="data.apiDurationStats || data.productivityMetrics">
-    <SectionPanel v-if="data.apiDurationStats" title="API Duration">
+    <SectionPanel v-if="data.apiDurationStats" title="API Time per Session">
       <div class="metric-grid">
         <div class="metric-item">
           <span class="metric-value">{{ formatDuration(data.apiDurationStats.avgMs) }}</span>

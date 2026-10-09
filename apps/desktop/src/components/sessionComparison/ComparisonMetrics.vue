@@ -38,7 +38,7 @@ const comp = useSessionComparisonContext();
         <tbody>
           <tr v-for="row in comp.metricsRows" :key="row.label">
             <td class="val-a">{{ row.valueA }}</td>
-            <td class="metric-name">{{ row.label }}</td>
+            <td class="metric-name" :title="row.hint">{{ row.label }}</td>
             <td class="val-b">{{ row.valueB }}</td>
             <td class="delta-col" :class="row.deltaClass">{{ row.delta }}</td>
           </tr>

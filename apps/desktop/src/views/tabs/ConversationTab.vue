@@ -13,7 +13,6 @@
 import {
   EmptyState,
   ErrorAlert,
-  formatDuration,
   getMainAgentObjective,
   ObjectiveBanner,
   StatCard,
@@ -38,6 +37,7 @@ import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
+import { DURATION_HINTS, formatRecordedDuration } from "@/utils/sessionDurations";
 
 const { isViewer } = useWindowRole();
 // useRoute() returns undefined when no router is installed (child windows).
@@ -243,7 +243,7 @@ function richEnabledFor(toolName: string): boolean {
     <div class="grid-3 mb-4">
       <StatCard :value="store.turns.length" label="Turns" color="accent" mini />
       <StatCard :value="totalToolCalls" label="Tool Calls" color="accent" mini />
-      <StatCard :value="formatDuration(totalDurationMs)" label="Total Time" color="done" mini />
+      <StatCard :value="formatRecordedDuration(totalDurationMs)" label="Turn Time" color="done" mini :tooltip="DURATION_HINTS.turnTime" />
     </div>
 
     <ObjectiveBanner

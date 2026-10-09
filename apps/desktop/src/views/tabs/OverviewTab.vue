@@ -5,7 +5,6 @@ import {
   ErrorAlert,
   formatAiCredits,
   formatDate,
-  formatDuration,
   formatNumberFull,
   formatTime,
   MarkdownContent,
@@ -24,6 +23,7 @@ import { useSessionSource } from "@/composables/useSessionSource";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionsStore } from "@/stores/sessions";
 import { formatObjectResult } from "@/utils/formatResult";
+import { formatRecordedDuration } from "@/utils/sessionDurations";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
 import { API_EQUIVALENT_NOTE, formatSessionCost, sessionCostEstimate } from "@/utils/sourceCost";
 
@@ -81,7 +81,7 @@ const sessionInfoItems = computed(() => {
     { label: "Model", value: currentModel.value ?? "—" },
     { label: "Reasoning effort", value: currentEffort.value ?? "Model default" },
     ...(showHost.value ? [{ label: "Host", value: d?.hostType ?? "—" }] : []),
-    { label: "Duration", value: formatDuration(metrics.value?.totalApiDurationMs) },
+    { label: "API Time", value: formatRecordedDuration(metrics.value?.totalApiDurationMs) },
     { label: "Created", value: formatDate(d?.createdAt) },
     { label: "Updated", value: formatDate(d?.updatedAt) },
   ];
@@ -244,8 +244,8 @@ function retryLoadSection(section: string) {
         <p v-if="summaryText" class="summary-prose">{{ summaryText }}</p>
         <p v-else class="summary-prose summary-prose--empty">No summary available.</p>
         <dl class="def-list def-list--spaced">
-          <dt>API Duration</dt>
-          <dd>{{ formatDuration(metrics?.totalApiDurationMs) }}</dd>
+          <dt>API Time</dt>
+          <dd>{{ formatRecordedDuration(metrics?.totalApiDurationMs) }}</dd>
           <dt>Current Model</dt>
           <dd class="flex flex-wrap items-center gap-1">
             <Badge v-if="currentModel" variant="done">{{ currentModel }}</Badge>

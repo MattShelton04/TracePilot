@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { exportSessionFolderZip, exportSessions, getSessionSections } from "@tracepilot/client";
-import type { SectionId, SessionSectionsInfo } from "@tracepilot/types";
+import { type SectionId, type SessionSectionsInfo, sourceCapabilities } from "@tracepilot/types";
 import { formatBytes, useToast } from "@tracepilot/ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { runUiAction } from "@/composables/useAsyncAction";
 import { browseForSavePath } from "@/composables/useBrowseDirectory";
-import { useExportConfig } from "@/composables/useExportConfig";
+import { sourceSupportsSection, useExportConfig } from "@/composables/useExportConfig";
 import { useExportPreview } from "@/composables/useExportPreview";
 import { useSessionsStore } from "@/stores/sessions";
 import { buildExportFilename, type ExportExtension } from "@/utils/exportFilename";
@@ -43,11 +43,25 @@ const {
   updateRedaction,
 } = useExportConfig();
 
+const selectedSession = computed(() =>
+  sessionsStore.sessions.find((s) => s.id === selectedSessionId.value),
+);
+
+// Sections the selected session's source cannot supply are neither offered
+// nor requested, whatever the preset enabled.
+const selectedCapabilities = computed(() => sourceCapabilities(selectedSession.value?.source));
+
+function sectionAvailable(sectionId: SectionId): boolean {
+  return sourceSupportsSection(sectionId, selectedCapabilities.value);
+}
+
+const exportSections = computed(() => sectionsArray.value.filter(sectionAvailable));
+
 const {
   preview,
   loading: previewLoading,
   error: previewError,
-} = useExportPreview(selectedSessionId, format, sectionsArray, contentDetail, redaction);
+} = useExportPreview(selectedSessionId, format, exportSections, contentDetail, redaction);
 
 // ── Session Sections Info ────────────────────────────────────
 
@@ -83,10 +97,6 @@ function sectionHasData(sectionId: SectionId): boolean | null {
 }
 
 // ── Selected Session Info ───────────────────────────────────
-
-const selectedSession = computed(() =>
-  sessionsStore.sessions.find((s) => s.id === selectedSessionId.value),
-);
 
 function selectSession(id: string) {
   selectedSessionId.value = id;
@@ -143,7 +153,7 @@ async function handleExport() {
       exportSessions({
         sessionIds: [selectedSessionId.value],
         format: fmt,
-        sections: sectionsArray.value,
+        sections: exportSections.value,
         outputPath,
         contentDetail: contentDetail.value,
         redaction: redaction.value,
@@ -240,6 +250,7 @@ watch(selectedSessionId, (id) => loadSectionsInfo(id));
         :content-detail="contentDetail"
         :redaction="redaction"
         :section-has-data="sectionHasData"
+        :section-available="sectionAvailable"
         @toggle-section="toggleSection"
         @select-all="selectAll"
         @select-none="selectNone"
@@ -251,7 +262,7 @@ watch(selectedSessionId, (id) => loadSectionsInfo(id));
       <div class="export-actions">
         <button
           class="btn btn-primary btn-export"
-          :disabled="!selectedSessionId || exporting || (!isZip && sectionsArray.length === 0)"
+          :disabled="!selectedSessionId || exporting || (!isZip && exportSections.length === 0)"
           @click="handleExport"
         >
           <template v-if="exporting">

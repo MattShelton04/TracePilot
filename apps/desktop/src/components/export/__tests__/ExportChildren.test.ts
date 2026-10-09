@@ -102,6 +102,8 @@ vi.mock("@tracepilot/ui", () => {
   };
 });
 
+import { type SectionId, sourceCapabilities } from "@tracepilot/types";
+import { sourceSupportsSection } from "@/composables/useExportConfig";
 import ExportView from "@/views/ExportView.vue";
 import ExportFormatSelector from "../ExportFormatSelector.vue";
 import ExportPresetBar from "../ExportPresetBar.vue";
@@ -233,6 +235,35 @@ describe("ExportSectionsPanel", () => {
     firstSwitch.vm.$emit("update:modelValue", false);
     expect(wrapper.emitted("toggle-section")?.[0]?.[0]).toBe("conversation");
     wrapper.unmount();
+  });
+
+  it("offers only the sections the session's source can supply", () => {
+    const labels = (source: "copilot" | "claudeCode") => {
+      const wrapper = mount(ExportSectionsPanel, {
+        props: {
+          enabledSections: new Set() as Set<never>,
+          contentDetail: {
+            includeSubagentInternals: false,
+            includeToolDetails: false,
+            includeFullToolResults: false,
+          },
+          redaction: { anonymizePaths: false, stripSecrets: false, stripPii: false },
+          sectionHasData: () => null,
+          sectionAvailable: (id: SectionId) =>
+            sourceSupportsSection(id, sourceCapabilities(source)),
+        },
+      });
+      const text = wrapper.findAll(".toggle-row-label").map((row) => row.text());
+      wrapper.unmount();
+      return text;
+    };
+    const claude = labels("claudeCode");
+    expect(claude).toContain("Conversation");
+    expect(claude).toContain("Metrics");
+    expect(claude).not.toContain("Todos");
+    expect(claude).not.toContain("Plan");
+    expect(claude).not.toContain("Checkpoints");
+    expect(labels("copilot")).toEqual(expect.arrayContaining(["Plan", "Todos", "Checkpoints"]));
   });
 
   it("emits select-all and select-none from the header actions", async () => {

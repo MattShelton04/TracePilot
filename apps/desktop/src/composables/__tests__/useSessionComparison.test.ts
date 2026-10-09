@@ -149,7 +149,8 @@ describe("useSessionComparison", () => {
     comp.selectedB = "b";
     await comp.runComparison();
     const labels = comp.metricsRows.map((r) => r.label);
-    expect(labels).toContain("Duration");
+    expect(labels).toContain("Session Span");
+    expect(comp.metricsRows.find((r) => r.label === "Session Span")?.hint).toMatch(/Wall-clock/);
     expect(labels).toContain("Turns");
     expect(labels).toContain("AI Credits");
     expect(labels).toContain("Success Rate");
@@ -365,6 +366,12 @@ describe("helpers", () => {
     expect(exitBadgeVariant({ shutdownType: "clean_exit" } as ShutdownMetrics)).toBe("success");
     expect(exitBadgeVariant({ shutdownType: "forced_kill" } as ShutdownMetrics)).toBe("danger");
     expect(exitBadgeVariant({ shutdownType: "other" } as ShutdownMetrics)).toBe("warning");
+  });
+
+  it("exitLabel hides the chip for sources that do not report an exit", () => {
+    expect(exitLabel(null, "claudeCode")).toBeNull();
+    expect(exitLabel(null, "copilot")).toBe("Unknown");
+    expect(exitLabel({ shutdownType: "routine" } as ShutdownMetrics, "claudeCode")).toBe("routine");
   });
 
   it("exitLabel returns shutdownType or Unknown", () => {

@@ -73,6 +73,26 @@ it("keeps the Copilot cards and rows", () => {
   wrapper.unmount();
 });
 
+it("names API time as such and shows a dash when none was recorded", () => {
+  const apiTimes = (wrapper: ReturnType<typeof mountOverview>["wrapper"]) =>
+    wrapper
+      .findAll("dt")
+      .filter((dt) => dt.text() === "API Time")
+      .map((dt) => dt.element.nextElementSibling?.textContent?.trim());
+
+  store.detail = { id: "s1", hasPlan: false, hasCheckpoints: true };
+  store.shutdownMetrics = { totalApiDurationMs: 0 };
+  let { wrapper } = mountOverview();
+  expect(apiTimes(wrapper)).toEqual(["—", "—"]);
+  expect(wrapper.findAll("dt").map((dt) => dt.text())).not.toContain("Duration");
+  wrapper.unmount();
+
+  store.shutdownMetrics = { totalApiDurationMs: 8_400 };
+  ({ wrapper } = mountOverview());
+  expect(apiTimes(wrapper)).toEqual(["8.4s", "8.4s"]);
+  wrapper.unmount();
+});
+
 const failedShell: BackgroundTask = {
   id: "bg_suite",
   kind: "shell",
