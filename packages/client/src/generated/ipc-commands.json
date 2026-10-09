@@ -68,6 +68,8 @@
   "get_session_count",
   "get_session_detail",
   "get_session_events",
+  "get_session_file_history",
+  "get_session_file_version",
   "get_session_incidents",
   "get_session_liveness",
   "get_session_plan",

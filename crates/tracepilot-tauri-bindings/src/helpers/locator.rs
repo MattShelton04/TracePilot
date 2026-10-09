@@ -95,11 +95,11 @@ pub(crate) fn require_copilot_layout(
     }
 }
 
-/// The directory the file browser and image preview read: the provider's
-/// browsable root for the session, which must lie under the provider's own
-/// root. Relative paths from the frontend are resolved inside it by
-/// `file_browser::security`.
-pub(crate) fn explorer_root(session: &ResolvedSession) -> CmdResult<PathBuf> {
+/// The directories the file browser and image preview read: the provider's
+/// browsable roots for the session, each of which must lie under the
+/// provider's own root. Relative paths from the frontend are resolved inside
+/// them by `file_browser::scope` and `file_browser::security`.
+pub(crate) fn explorer_roots(session: &ResolvedSession) -> CmdResult<Vec<PathBuf>> {
     const ACTION: &str = "Browsing session files";
     require_capability(session, |caps| caps.has_explorer, ACTION)?;
     let unsupported = || BindingsError::Unsupported {
@@ -107,18 +107,19 @@ pub(crate) fn explorer_root(session: &ResolvedSession) -> CmdResult<PathBuf> {
         action: ACTION,
     };
     let provider_root = session.provider.root().ok_or_else(unsupported)?;
-    let root = session
-        .provider
-        .file_roots(&session.locator)?
-        .into_iter()
-        .next()
-        .ok_or_else(unsupported)?;
-    if !is_strictly_under(provider_root, &root) {
+    let roots = session.provider.file_roots(&session.locator)?;
+    if roots.is_empty() {
+        return Err(unsupported());
+    }
+    if !roots
+        .iter()
+        .all(|root| is_strictly_under(provider_root, root))
+    {
         return Err(BindingsError::Validation(
             "Session files are outside the session source's directory".into(),
         ));
     }
-    Ok(root)
+    Ok(roots)
 }
 
 /// `path` is below `root` through plain names only (no `..`, no prefix).

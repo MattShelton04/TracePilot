@@ -44,6 +44,37 @@ function stalePidFile(pid, sessionId, cwd, procStart) {
   return { path: `sessions/${pid}.json`, content: `${JSON.stringify(record)}\n` };
 }
 
+/** A `file-history-snapshot` record: the tracked files before a prompt ran. */
+function fileHistory(messageId, backups, update = false) {
+  const timestamp = "2026-03-14T09:30:00.000Z";
+  const snapshot = { messageId, trackedFileBackups: backups, timestamp };
+  return { type: "file-history-snapshot", messageId, snapshot, isSnapshotUpdate: update };
+}
+
+const backup = (backupFileName, version) => ({
+  backupFileName,
+  version,
+  backupTime: "2026-03-14T09:30:30.000Z",
+  realParentDir: "C:\\synthetic\\orchard\\src",
+});
+
+/**
+ * A `file-history-delta` record: one file tracked for the prompt that
+ * `snapshotMessageId` names. Its own `messageId` is not a prompt.
+ */
+function fileHistoryDelta(messageId, snapshotMessageId, trackingPath, fileBackup) {
+  const timestamp = "2026-03-14T09:30:30.000Z";
+  return {
+    type: "file-history-delta",
+    messageId,
+    snapshotMessageId,
+    trackingPath,
+    backup: fileBackup,
+    timestamp,
+  };
+}
+
+/** Plan mode, file-history backups of the edited file and a persisted tool result. */
 function orchardSession() {
   const cwd = "C:\\synthetic\\orchard";
   const file = `${cwd}\\src\\upload.ts`;
@@ -56,7 +87,20 @@ function orchardSession() {
   });
   const usage = { input: 3, cacheRead: 12000, cacheWrite: 2400, output: 160 };
   const original = "export async function upload(body: Blob) {\n  return send(body);\n}\n";
+  const retried =
+    "export async function upload(body: Blob) {\n  return retry(() => send(body), { attempts: 3 });\n}\n";
+  const plan = "# Retry the upload client\n\n1. Wrap `send` in a bounded retry.\n2. Run the tests.";
+  const history = `file-history/${claudeOrchardSessionId}`;
   t.prompt("Add a retry to the upload client in src/upload.ts.");
+  const firstPrompt = t.lastUuid;
+  t.bookkeeping(fileHistory(firstPrompt, {}));
+  t.call(
+    "msg_orchard_plan",
+    [toolUse("toolu_orchard_plan", "ExitPlanMode", { plan })],
+    usage,
+    "tool_use",
+  );
+  t.toolResult("toolu_orchard_plan", "User has approved your plan.", { plan, isAgent: false });
   t.call(
     "msg_orchard_1",
     [
@@ -71,6 +115,9 @@ function orchardSession() {
     type: "text",
     file: { filePath: file, content: original, numLines: 3, startLine: 1, totalLines: 3 },
   });
+  // Claude Code backs a file up before its first edit in a prompt.
+  const edit = backup("0c1a0001deadbeef@v1", 1);
+  t.bookkeeping(fileHistoryDelta(t.lastUuid, firstPrompt, file, edit));
   t.call(
     "msg_orchard_2",
     [
@@ -125,13 +172,25 @@ function orchardSession() {
     "end_turn",
   );
   t.record("system", { subtype: "turn_duration", durationMs: 42000, messageCount: 12 });
+  t.prompt("How many attempts does it make?");
+  t.bookkeeping(fileHistory(t.lastUuid, { [file]: backup("0c1a0001deadbeef@v2", 2) }));
+  t.call(
+    "msg_orchard_5",
+    [text("Three attempts, then the last error is thrown.")],
+    usage,
+    "end_turn",
+  );
   t.bookkeeping({ type: "ai-title", aiTitle: "Add upload retries" });
   t.costState(0.42, { input: 12, cacheRead: 48000, cacheWrite: 9600, output: 640 });
+  const dir = `projects/C--synthetic-orchard/${t.sessionId}`;
   return {
     id: claudeOrchardSessionId,
     title: "Add upload retries",
     files: [
-      { path: `projects/C--synthetic-orchard/${t.sessionId}.jsonl`, content: t.toJsonl() },
+      { path: `${dir}.jsonl`, content: t.toJsonl() },
+      { path: `${dir}/tool-results/toolu_orchard_test.txt`, content: "12 passing\n" },
+      { path: `${history}/0c1a0001deadbeef@v1`, content: original },
+      { path: `${history}/0c1a0001deadbeef@v2`, content: retried },
       // The pid now belongs to a process with another start time.
       stalePidFile(claudeReusedPid, t.sessionId, cwd, "1"),
     ],

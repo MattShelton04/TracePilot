@@ -55,6 +55,22 @@ describe("useSessionDetailStore refreshIfSourceChanged", () => {
     expect(mocks.getShutdownMetrics).toHaveBeenCalledTimes(1);
   });
 
+  it("makes no plan or file-history call on an unchanged tick", async () => {
+    const store = await loadEverything();
+    await store.loadPlan();
+    await store.loadFileHistory();
+    mocks.checkSessionFreshness.mockResolvedValue(versioned("v1"));
+    await store.refreshIfSourceChanged();
+    expect(mocks.getSessionPlan).toHaveBeenCalledTimes(2); // load + first tick
+    expect(mocks.getSessionFileHistory).toHaveBeenCalledTimes(2);
+
+    vi.clearAllMocks();
+    await store.refreshIfSourceChanged();
+    expect(mocks.getSessionPlan).not.toHaveBeenCalled();
+    expect(mocks.getSessionFileHistory).not.toHaveBeenCalled();
+    expect(mocks.getSessionTodos).toHaveBeenCalledTimes(1);
+  });
+
   it("refreshes everything when the freshness probe fails", async () => {
     const store = await loadEverything();
     mocks.checkSessionFreshness.mockResolvedValue(versioned("v1"));

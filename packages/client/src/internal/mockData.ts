@@ -249,7 +249,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
 
   const searchQuery = typeof args?.query === "string" ? args.query.toLowerCase() : "";
   const claudeOnly = args?.source === "claudeCode";
-  // Claude Code records totals only and has no plan or checkpoints.
+  // Claude Code records totals only, has no checkpoint summaries, and has file history.
   const claude = mocks.isMockClaudeSession(mockSessionId);
 
   const mockMap: Record<string, unknown> = {
@@ -292,6 +292,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_session_todos: mocks.MOCK_TODOS,
     get_session_checkpoints: claude ? [] : mocks.MOCK_CHECKPOINTS,
     get_session_plan: claude ? null : { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
+    ...mocks.mockArtifactCommands(claude, args),
     get_session_background_tasks: claude ? mocks.MOCK_CLAUDE_BACKGROUND_TASKS : [],
     get_shutdown_metrics: mocks.getMockShutdownMetrics(mockSessionId),
     get_session_prompt_cache: {

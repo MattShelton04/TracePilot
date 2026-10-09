@@ -32,6 +32,17 @@ export const commands = {
 	 *  source that does not record them.
 	 */
 	getSessionBackgroundTasks: (sessionId: string) => typedError<BackgroundTask[], BindingsErrorIpc>(__TAURI_INVOKE("get_session_background_tasks", { sessionId })),
+	/**
+	 *  The points the session's changed files can be seen at, oldest first.
+	 *  Empty for a source that keeps no file history. Backups are not read.
+	 */
+	getSessionFileHistory: (sessionId: string) => typedError<FileCheckpoint[], BindingsErrorIpc>(__TAURI_INVOKE("get_session_file_history", { sessionId })),
+	/**
+	 *  One backed-up file version, read on request. Only a backup the
+	 *  session's own file history names is read, from inside its backup
+	 *  directory. Read-only: nothing is ever restored.
+	 */
+	getSessionFileVersion: (sessionId: string, backup: string) => typedError<FileVersionContent, BindingsErrorIpc>(__TAURI_INVOKE("get_session_file_version", { sessionId, backup })),
 	getDbSize: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_db_size")),
 	getSessionCount: () => typedError<number, BindingsErrorIpc>(__TAURI_INVOKE("get_session_count")),
 	/**
@@ -152,6 +163,46 @@ export type CaptureStage = "preflight" | "copyingSession" | "preparingEnvironmen
 export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "INTERNAL" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION" |
 // The session's source does not support the requested action.
 "UNSUPPORTED";
+
+// The tracked files as they were before one prompt ran.
+export type FileCheckpoint = {
+	// 1-based, in transcript order.
+	number: number,
+	// The prompt this checkpoint precedes.
+	messageId: string,
+	// RFC 3339 time the checkpoint was taken.
+	timestamp: string | null,
+	// The opening of the prompt, when the transcript still has it.
+	prompt: string | null,
+	// Sorted by path.
+	files: FileVersion[],
+};
+
+// One tracked file at a checkpoint.
+export type FileVersion = {
+	// The path as the source recorded it.
+	path: string,
+	/**
+	 *  The backup holding the file's content. `None` means the file did not
+	 *  exist yet.
+	 */
+	backup: string | null,
+	version: number | null,
+	/**
+	 *  First tracked here, or its backup differs from the previous
+	 *  checkpoint's.
+	 */
+	changed: boolean,
+};
+
+// The content of one backed-up file version.
+export type FileVersionContent = {
+	// Empty for a binary file.
+	content: string,
+	binary: boolean,
+	// Only the first `max_bytes` were read.
+	truncated: boolean,
+};
 
 // One observed name across the source's indexed sessions.
 export type FormatNameCountDto = {

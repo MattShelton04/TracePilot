@@ -11,6 +11,7 @@ type FixtureMockNames =
   | "getSessionTodos"
   | "getSessionCheckpoints"
   | "getSessionPlan"
+  | "getSessionFileHistory"
   | "getShutdownMetrics"
   | "getSessionIncidents"
   | "checkSessionFreshness";
@@ -22,6 +23,7 @@ const hoistedMocks = vi.hoisted(() => ({
   getSessionTodos: vi.fn(),
   getSessionCheckpoints: vi.fn(),
   getSessionPlan: vi.fn(),
+  getSessionFileHistory: vi.fn(),
   getShutdownMetrics: vi.fn(),
   getSessionIncidents: vi.fn(),
   checkSessionFreshness: vi.fn(),
@@ -38,6 +40,7 @@ vi.mock("@tracepilot/client", async () => {
     getSessionTodos: (...args: unknown[]) => hoistedMocks.getSessionTodos(...args),
     getSessionCheckpoints: (...args: unknown[]) => hoistedMocks.getSessionCheckpoints(...args),
     getSessionPlan: (...args: unknown[]) => hoistedMocks.getSessionPlan(...args),
+    getSessionFileHistory: (...args: unknown[]) => hoistedMocks.getSessionFileHistory(...args),
     getShutdownMetrics: (...args: unknown[]) => hoistedMocks.getShutdownMetrics(...args),
     getSessionIncidents: (...args: unknown[]) => hoistedMocks.getSessionIncidents(...args),
     checkSessionFreshness: (...args: unknown[]) => hoistedMocks.checkSessionFreshness(...args),
@@ -85,6 +88,7 @@ export function setupSessionDetailStoreTest() {
     hoistedMocks.getSessionTodos.mockResolvedValue(FIXTURE_TODOS);
     hoistedMocks.getSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
     hoistedMocks.getSessionPlan.mockResolvedValue(FIXTURE_PLAN);
+    hoistedMocks.getSessionFileHistory.mockResolvedValue([]);
     hoistedMocks.getShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
     hoistedMocks.getSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
     hoistedMocks.checkSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
