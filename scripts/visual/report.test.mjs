@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { PNG } from "pngjs";
 import { captureExitCode, stableScreenshot } from "./capture-policy.mjs";
+import { maxViews } from "./history.mjs";
 import { cases, selectCases } from "./manifest.mjs";
 import { decodePng } from "./png.mjs";
 import { buildReport, escapeHtml, validatePng } from "./report.mjs";
@@ -53,7 +54,7 @@ test("two shards cover the inventory exactly once and support focused tool group
   assert.equal(selectCases("1/1", { caseIds: ["rich-tool-web-search"] }).length, 1);
   const tools = selectCases("1/1", { group: "rich-tools" });
   assert.equal(tools.length, 84);
-  assert(cases.length <= 128, "capture inventory exceeds the trusted publisher bound");
+  assert(cases.length < maxViews, "capture inventory exceeds the trusted publisher bound");
   assert.deepEqual(
     [...selectCases("1/2", { group: "rich-tools" }), ...selectCases("2/2", { group: "rich-tools" })]
       .map((item) => item.id)
@@ -231,7 +232,7 @@ test("PNG encoding differences are unchanged pixels; invalid images become expli
   }
 });
 
-test("combined artifact inventories cannot expand beyond the trusted 128-view bound", async () => {
+test("combined artifact inventories cannot expand beyond the trusted view bound", async () => {
   const temp = await mkdtemp(join(tmpdir(), "tracepilot-visual-limits-"));
   try {
     const base = join(temp, "base"),
@@ -247,13 +248,13 @@ test("combined artifact inventories cannot expand beyond the trusted 128-view bo
           status: "captured",
         })),
       });
-    await writeFile(join(base, "capture-1-2.json"), metadata("base", 60));
-    await writeFile(join(head, "capture-1-2.json"), metadata("head", 60));
+    await writeFile(join(base, "capture-1-2.json"), metadata("base", maxViews / 2 + 2));
+    await writeFile(join(head, "capture-1-2.json"), metadata("head", maxViews / 2 + 2));
     await assert.rejects(
       buildReport({ baseDir: base, headDir: head, output }),
       /Combined capture inventory exceeds limit/,
     );
-    await writeFile(join(base, "capture-2-2.json"), metadata("extra", 70));
+    await writeFile(join(base, "capture-2-2.json"), metadata("extra", maxViews / 2));
     await assert.rejects(
       buildReport({ baseDir: base, headDir: head, output }),
       /Capture inventory exceeds limit/,

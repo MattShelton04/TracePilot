@@ -99,4 +99,32 @@ describe("MetricsStatCards source cost", () => {
     expect(legend).toContain("not a bill");
     expect(wrapper.text()).not.toMatch(/AI Credits|Premium|Legacy/);
   });
+
+  it("says where the API duration comes from", () => {
+    const tooltip = (snapshotLine: number | null) => {
+      const metrics: ShutdownMetrics = {
+        totalApiDurationMs: 3_000,
+        costUnit: "usd",
+        coverage: { partial: true, snapshotLine, recordedCalls: 2, tailCalls: 2 },
+      };
+      const wrapper = mount(MetricsStatCards, {
+        props: {
+          metrics,
+          totalRequests: 2,
+          copilotCost: 0,
+          totalWholesaleCost: null,
+          totalTokens: 300,
+          aiCreditUsage: { credits: null, usdEquivalent: null, source: "unavailable" },
+          sourceCost: sessionCostEstimate("claudeCode", metrics),
+        },
+      });
+      const card = wrapper
+        .findAllComponents(StatCard)
+        .find((item) => item.props("label") === "API Duration");
+      expect(card?.props("value")).toBe("3s");
+      return card?.props("tooltip");
+    };
+    expect(tooltip(9)).toBe("Reported with the last cost snapshot");
+    expect(tooltip(null)).toBe("Estimated from transcript timestamps");
+  });
 });

@@ -64,7 +64,11 @@ export class Transcript {
     });
   }
 
-  /** One API call, one record per content block; the last carries the usage. */
+  /**
+   * One API call, one record per content block; the last carries the usage.
+   * Cache writes are recorded in the 1h tier unless `usage.tier` is `null`
+   * (an older client that recorded no TTL split).
+   */
   call(messageId, blocks, usage, stopReason) {
     blocks.forEach((block, index) => {
       const last = index === blocks.length - 1;
@@ -80,10 +84,14 @@ export class Transcript {
             input_tokens: usage.input,
             cache_read_input_tokens: usage.cacheRead,
             cache_creation_input_tokens: usage.cacheWrite,
-            cache_creation: {
-              ephemeral_5m_input_tokens: 0,
-              ephemeral_1h_input_tokens: usage.cacheWrite,
-            },
+            ...(usage.tier === null
+              ? {}
+              : {
+                  cache_creation: {
+                    ephemeral_5m_input_tokens: 0,
+                    ephemeral_1h_input_tokens: usage.cacheWrite,
+                  },
+                }),
             output_tokens: last ? usage.output : Math.floor(usage.output / 2),
             output_tokens_details: { thinking_tokens: usage.thinking ?? 0 },
             service_tier: "standard",

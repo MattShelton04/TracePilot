@@ -247,6 +247,8 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
   const mockSessionId = typeof args?.sessionId === "string" ? args.sessionId : "mock-id";
 
   const searchQuery = typeof args?.query === "string" ? args.query.toLowerCase() : "";
+  // Claude Code records totals only and has no plan or checkpoints.
+  const claude = mocks.isMockClaudeSession(mockSessionId);
 
   const mockMap: Record<string, unknown> = {
     list_sessions: mocks.MOCK_SESSIONS,
@@ -275,7 +277,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       eventsFileMtime: Date.now(),
     } as TurnsResponse,
     get_session_context_timeline: {
-      timeline: MOCK_CONTEXT_TIMELINE,
+      timeline: claude ? mocks.MOCK_CLAUDE_CONTEXT_TIMELINE : MOCK_CONTEXT_TIMELINE,
       eventsFileSize: 1024,
       eventsFileMtime: MOCK_EVENTS_MTIME,
     } as ContextTimelineResponse,
@@ -286,11 +288,11 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     } as FreshnessResponse,
     get_session_events: mocks.getMockSessionEvents(mockSessionId),
     get_session_todos: mocks.MOCK_TODOS,
-    get_session_checkpoints: mocks.MOCK_CHECKPOINTS,
-    get_session_plan: { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
+    get_session_checkpoints: claude ? [] : mocks.MOCK_CHECKPOINTS,
+    get_session_plan: claude ? null : { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
     get_shutdown_metrics: mocks.getMockShutdownMetrics(mockSessionId),
     get_session_prompt_cache: {
-      timeline: mocks.MOCK_PROMPT_CACHE,
+      timeline: claude ? mocks.MOCK_CLAUDE_PROMPT_CACHE : mocks.MOCK_PROMPT_CACHE,
       eventsFileSize: 1024,
       eventsFileMtime: MOCK_EVENTS_MTIME,
     } as PromptCacheResponse,

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { escapeHtml, renderGallery } from "./gallery-template.mjs";
+import { maxViews } from "./history.mjs";
 import { cases } from "./manifest.mjs";
 import { classifyPixels, compare, describeBounds, thresholds } from "./pixels.mjs";
 import { decodePng, encodeHeat, encodePng } from "./png.mjs";
@@ -19,7 +20,7 @@ async function readSide(directory, side) {
     const bytes = await readFile(join(directory, file));
     if (bytes.length > 100_000) throw new Error("Capture metadata exceeds limit");
     const data = JSON.parse(bytes.toString("utf8"));
-    if (data.schema !== 1 || !Array.isArray(data.cases) || data.cases.length > 128)
+    if (data.schema !== 1 || !Array.isArray(data.cases) || data.cases.length > maxViews)
       throw new Error("Unsupported capture metadata");
     if (data.revision && data.revision !== side) throw new Error("Wrong capture revision");
     if (data.revisionSha) {
@@ -28,7 +29,7 @@ async function readSide(directory, side) {
     }
     for (const row of data.cases) {
       if (!row || typeof row.id !== "string" || !/^[a-z][a-z0-9-]{0,63}$/.test(row.id)) continue;
-      if (!records.has(row.id) && records.size >= 128)
+      if (!records.has(row.id) && records.size >= maxViews)
         throw new Error("Capture inventory exceeds limit");
       if (records.has(row.id)) throw new Error("Duplicate captured view across shards");
       records.set(row.id, {
@@ -91,7 +92,7 @@ export async function buildReport({
   const inventory = new Map(cases.map((item) => [item.id, item]));
   for (const [id, record] of [...baseRows, ...headRows]) {
     if (!inventory.has(id)) {
-      if (inventory.size >= 128) throw new Error("Combined capture inventory exceeds limit");
+      if (inventory.size >= maxViews) throw new Error("Combined capture inventory exceeds limit");
       inventory.set(id, { id, group: record.group, route: record.route, state: record.state });
     }
   }

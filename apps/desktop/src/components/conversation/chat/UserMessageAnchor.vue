@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { formatTime, MarkdownContent } from "@tracepilot/ui";
 import { User } from "lucide-vue-next";
+import { computed } from "vue";
+import { splitPastedContent } from "@/utils/pastedContent";
+import PastedContentBlock from "./PastedContentBlock.vue";
 
-defineProps<{
+const props = defineProps<{
   content: string;
   turnIndex: number;
   timestamp?: string | null;
   eventIndex?: number | null;
   renderMarkdown: boolean;
 }>();
+
+const parts = computed(() => splitPastedContent(props.content));
 </script>
 
 <template>
@@ -25,7 +30,14 @@ defineProps<{
       </span>
     </div>
     <div class="cv-user-body">
-      <MarkdownContent :content="content" :render="renderMarkdown" />
+      <template v-for="(part, index) in parts" :key="index">
+        <PastedContentBlock
+          v-if="part.kind === 'pasted'"
+          :content="part.text"
+          :render-markdown="renderMarkdown"
+        />
+        <MarkdownContent v-else :content="part.text" :render="renderMarkdown" />
+      </template>
     </div>
   </div>
 </template>

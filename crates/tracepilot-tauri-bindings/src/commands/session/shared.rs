@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use tracepilot_core::SessionSummary;
 use tracepilot_core::parsing::events::TypedEvent;
 use tracepilot_core::paths::SessionPaths;
 use tracepilot_core::provider::{ResolvedSession, SessionSource};
@@ -82,21 +83,50 @@ pub(super) fn load_cached_typed_events(
     cache: &EventCache,
     session: &ResolvedSession,
 ) -> Result<(Arc<Vec<TypedEvent>>, SourceStamp), BindingsError> {
+    let (events, _, stamp) = load_cached(cache, session)?;
+    Ok((events, stamp))
+}
+
+/// The session's display summary. Other sources build it from more than the
+/// events, so it is cached with them per `source_version`; Copilot's is
+/// derived from the cached events on each call, as before. Blocking.
+pub(super) fn load_cached_summary(
+    cache: &EventCache,
+    session: &ResolvedSession,
+) -> Result<SessionSummary, BindingsError> {
+    let (events, summary, _) = load_cached(cache, session)?;
+    match summary {
+        Some(summary) => Ok(SessionSummary::clone(&summary)),
+        None => Ok(session
+            .provider
+            .summary_from_events(&session.locator, &events)?),
+    }
+}
+
+type Cached = (
+    Arc<Vec<TypedEvent>>,
+    Option<Arc<SessionSummary>>,
+    SourceStamp,
+);
+
+fn load_cached(cache: &EventCache, session: &ResolvedSession) -> Result<Cached, BindingsError> {
     let session_id = session.locator.id.as_str();
     let stamp = source_stamp(session)?;
-    let cached_events = match cache.lock() {
-        Ok(mut lru) => lru
-            .get(session_id)
+    let hit = |lru: &mut lru::LruCache<String, CachedEvents>| {
+        lru.get(session_id)
             .filter(|cached| cached.stamp.version == stamp.version)
-            .map(|cached| Arc::clone(&cached.events)),
+            .map(|cached| (Arc::clone(&cached.events), cached.summary.clone()))
+    };
+    let cached = match cache.lock() {
+        Ok(mut lru) => hit(&mut lru),
         Err(_) => {
             tracing::warn!("Event cache Mutex poisoned — skipping cache read");
             None
         }
     };
 
-    if let Some(events) = cached_events {
-        return Ok((events, stamp));
+    if let Some((events, summary)) = cached {
+        return Ok((events, summary, stamp));
     }
 
     // Single-flight per session: concurrent misses (prefetch racing the
@@ -105,29 +135,21 @@ pub(super) fn load_cached_typed_events(
     let parse_lock = session_parse_lock(session_id);
     let _parsing = parse_lock.lock().unwrap_or_else(|p| p.into_inner());
     if let Ok(mut lru) = cache.lock()
-        && let Some(cached) = lru
-            .get(session_id)
-            .filter(|cached| cached.stamp.version == stamp.version)
+        && let Some((events, summary)) = hit(&mut lru)
     {
-        return Ok((Arc::clone(&cached.events), stamp));
+        return Ok((events, summary, stamp));
     }
 
-    // Some sessions exist in the index but have no event log yet — e.g. a
-    // freshly-created session, or one whose log was cleaned up. Providers
-    // return `Ok(None)` for that case so best-effort callers (prefetch,
-    // shutdown metrics) don't surface noise as "Failed to open" errors.
-    let events = Arc::new(
-        session
-            .provider
-            .load_events(&session.locator, &|| false)?
-            .unwrap_or_default(),
-    );
+    let (events, summary) = load_display(session)?;
+    let events = Arc::new(events);
+    let summary = summary.map(Arc::new);
 
     if let Ok(mut lru) = cache.lock() {
         lru.put(
             session_id.to_string(),
             CachedEvents {
                 events: Arc::clone(&events),
+                summary: summary.clone(),
                 stamp: stamp.clone(),
             },
         );
@@ -135,7 +157,27 @@ pub(super) fn load_cached_typed_events(
         tracing::warn!("Event cache Mutex poisoned — skipping cache write");
     }
 
-    Ok((events, stamp))
+    Ok((events, summary, stamp))
+}
+
+/// One load of the session's events, plus its summary for every source but
+/// Copilot. Their summaries need the whole parse, which a load of the events
+/// has already done.
+fn load_display(
+    session: &ResolvedSession,
+) -> Result<(Vec<TypedEvent>, Option<SessionSummary>), BindingsError> {
+    // Some sessions exist in the index but have no event log yet — e.g. a
+    // freshly-created session, or one whose log was cleaned up. Providers
+    // return `Ok(None)` for that case so best-effort callers (prefetch,
+    // shutdown metrics) don't surface noise as "Failed to open" errors.
+    if session.locator.source == SessionSource::Copilot {
+        let events = session.provider.load_events(&session.locator, &|| false)?;
+        return Ok((events.unwrap_or_default(), None));
+    }
+    let snapshot = session
+        .provider
+        .load_snapshot(&session.locator, false, &|| false)?;
+    Ok((snapshot.events.unwrap_or_default(), Some(snapshot.summary)))
 }
 
 /// Per-session parse locks. Entries are removed once no caller holds them,

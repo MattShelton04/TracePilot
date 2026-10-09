@@ -6,7 +6,11 @@
  * Every id, path, text and number is invented; never copy real transcripts.
  */
 
-import { buildClaudeCostSessions, buildClaudeGallery } from "./claude-gallery.mjs";
+import {
+  buildClaudeCommandSession,
+  buildClaudeCostSessions,
+  buildClaudeGallery,
+} from "./claude-gallery.mjs";
 import { Transcript, text, thinking, toolUse } from "./claude-transcript.mjs";
 
 export const claudeOrchardSessionId = "c1a0de00-0000-4000-8000-000000000001";
@@ -263,5 +267,6 @@ export function buildClaudeCodeSessions() {
     harborSession(),
     buildClaudeGallery(),
     ...buildClaudeCostSessions(),
+    buildClaudeCommandSession(),
   ];
 }

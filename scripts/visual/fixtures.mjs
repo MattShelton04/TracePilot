@@ -314,7 +314,7 @@ export async function visualInvoke(cmd, args, fallback) {
         ? JSON.parse(JSON.stringify(args))
         : args;
     const result = structuredClone(await fallback(cmd, fallbackArgs));
-    if (cmd === "get_session_detail") {
+    if (cmd === "get_session_detail" && result.source !== "claudeCode") {
       result.summary =
         args.sessionId === "sess-search-polish" ? "Search preset cleanup" : "Auth plugin refactor";
     }

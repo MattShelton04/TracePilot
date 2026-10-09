@@ -18,6 +18,7 @@ mod liveness;
 mod notify;
 pub(crate) mod pricing;
 mod privacy;
+mod prompts;
 mod provider;
 mod reader;
 mod records;
