@@ -6,7 +6,7 @@
  * the type surface without pulling in Vue reactivity.
  */
 
-import type { AiCreditSource } from "@tracepilot/types";
+import type { AiCreditSource, SessionSource } from "@tracepilot/types";
 
 export type CostMode = "wholesale" | "copilot" | "both";
 export type NormMode = "raw" | "per-10m-tokens" | "share";
@@ -25,7 +25,16 @@ export type SortKey =
   | "copilotCost";
 
 export interface ModelRow {
+  /** Unique across sources: `<source>:<model>`. */
+  id: string;
+  /** Display name: the model, plus its source when two sources share it. */
+  label: string;
   model: string;
+  /** The model across sources, e.g. `claude-opus-4.5` for a dated Claude id. */
+  family: string;
+  source: SessionSource;
+  /** False for sources priced in USD (Claude Code); they have no AI Credits. */
+  billedInAiCredits: boolean;
   color: string;
   tokens: number;
   inputTokens: number;
@@ -39,6 +48,9 @@ export interface ModelRow {
   aiCreditSource: AiCreditSource;
   cost: number | null;
   copilotCost: number;
+  /** Provider-priced USD for sources not billed in AI Credits. */
+  costUsd: number | null;
+  costUsdPartial: boolean;
 }
 
 export interface CompareMetric {
@@ -58,6 +70,9 @@ export interface CompareMetric {
  */
 export interface ModelDistributionEntry {
   model: string;
+  source?: SessionSource;
+  costUsd?: number | null;
+  costUsdPartial?: boolean;
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;

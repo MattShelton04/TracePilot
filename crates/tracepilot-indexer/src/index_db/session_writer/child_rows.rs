@@ -47,8 +47,8 @@ pub(super) fn write_child_rows(
         "INSERT INTO session_model_metrics \
         (session_id, model_name, input_tokens, output_tokens, \
          cache_read_tokens, cache_write_tokens, cost, request_count, reasoning_tokens, \
-         total_nano_aiu) VALUES",
-        10,
+         total_nano_aiu, cost_usd) VALUES",
+        11,
         &analytics.model_rows,
         |row, params| {
             params.push(&session_id as &dyn rusqlite::ToSql);
@@ -61,6 +61,7 @@ pub(super) fn write_child_rows(
             params.push(&row.premium_requests);
             params.push(&row.reasoning_tokens);
             params.push(&row.total_nano_aiu);
+            params.push(&row.cost_usd);
         },
     )?;
 
@@ -86,8 +87,8 @@ pub(super) fn write_child_rows(
         conn,
         "INSERT INTO session_native_tool_calls \
         (session_id, tool_name, native_tool_name, call_count, success_count, \
-         failure_count) VALUES",
-        6,
+         failure_count, total_duration_ms, calls_with_duration) VALUES",
+        8,
         &analytics.native_tool_call_rows,
         |row, params| {
             params.push(&session_id as &dyn rusqlite::ToSql);
@@ -96,6 +97,8 @@ pub(super) fn write_child_rows(
             params.push(&row.calls);
             params.push(&row.success);
             params.push(&row.failure);
+            params.push(&row.duration_ms);
+            params.push(&row.calls_with_duration);
         },
     )?;
 
@@ -131,8 +134,8 @@ pub(super) fn write_child_rows(
         "INSERT INTO session_segments \
         (session_id, start_timestamp, end_timestamp, total_tokens, \
          total_requests, total_premium_requests, total_api_duration_ms, \
-         current_model, model_metrics_json, total_nano_aiu) VALUES",
-        10,
+         current_model, model_metrics_json, total_nano_aiu, cost_usd) VALUES",
+        11,
         &analytics.session_segment_rows,
         |row, params| {
             params.push(&session_id as &dyn rusqlite::ToSql);
@@ -145,6 +148,7 @@ pub(super) fn write_child_rows(
             params.push(&row.current_model);
             params.push(&row.model_metrics_json);
             params.push(&row.total_nano_aiu);
+            params.push(&row.cost_usd);
         },
     )?;
 

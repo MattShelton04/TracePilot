@@ -16,6 +16,7 @@ import AnalyticsDistributionRow from "@/components/analytics/AnalyticsDistributi
 import AnalyticsIncidentChart from "@/components/analytics/AnalyticsIncidentChart.vue";
 import AnalyticsMetricPanels from "@/components/analytics/AnalyticsMetricPanels.vue";
 import AnalyticsSkillsPanel from "@/components/analytics/AnalyticsSkillsPanel.vue";
+import AnalyticsSourceCostPanel from "@/components/analytics/AnalyticsSourceCostPanel.vue";
 import AnalyticsStatsGrids from "@/components/analytics/AnalyticsStatsGrids.vue";
 import AnalyticsTokenActivityRow from "@/components/analytics/AnalyticsTokenActivityRow.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
@@ -23,7 +24,7 @@ import { useFirstReveal } from "@/composables/useFirstReveal";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { usePreferencesStore } from "@/stores/preferences";
-import { buildAnalyticsAiCreditSummary } from "@/utils/analyticsCostSeries";
+import { buildAnalyticsAiCreditSummary, buildSourceCostRows } from "@/utils/analyticsCostSeries";
 
 const prefs = usePreferencesStore();
 usePerfMonitor("AnalyticsDashboardView");
@@ -62,6 +63,14 @@ const aiCreditSummary = computed(() =>
     : null,
 );
 
+// Shown only when more than one source has sessions, so Copilot-only
+// dashboards are unchanged.
+const sourceCostRows = computed(() =>
+  data.value && (data.value.costBySource?.length ?? 0) > 1
+    ? buildSourceCostRows(data.value, aiCreditSummary.value)
+    : [],
+);
+
 const chartLayout = createChartLayout(55, 490, 20, 175);
 const GRID_ROWS = 4;
 const gridLines = computed(() => computeGridLines(chartLayout, GRID_ROWS));
@@ -96,6 +105,7 @@ const timeRangeLabel = computed(() => {
           :data="data"
           :ai-credit-summary="aiCreditSummary"
         />
+        <AnalyticsSourceCostPanel v-if="sourceCostRows.length" :rows="sourceCostRows" />
         <AnalyticsMetricPanels :data="data" />
         <AnalyticsTokenActivityRow
           :data="data"

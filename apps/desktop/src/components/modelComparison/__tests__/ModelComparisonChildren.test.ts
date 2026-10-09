@@ -33,7 +33,14 @@ function makeRow(overrides: Partial<ModelRow> = {}): ModelRow {
     cacheHitRate: 16.67,
     cost: 0.05,
     copilotCost: 0.08,
+    costUsd: null,
+    costUsdPartial: false,
+    source: "copilot",
+    billedInAiCredits: true,
     ...overrides,
+    id: overrides.id ?? overrides.model ?? "gpt-4",
+    label: overrides.label ?? overrides.model ?? "gpt-4",
+    family: overrides.family ?? overrides.model ?? "gpt-4",
     aiCredits: overrides.aiCredits ?? 5,
     aiCreditSource: overrides.aiCreditSource ?? "observed",
   };
@@ -77,9 +84,16 @@ function makeCtxStub(overrides: Partial<ModelComparisonContext> = {}): ModelComp
     compareRowA: undefined,
     compareRowB: undefined,
     compareMetrics: [] as ModelComparisonContext["compareMetrics"],
+    usdSource: null,
+    totalCostUsd: null,
     ...overrides,
   };
-  return reactive(base) as unknown as ModelComparisonContext;
+  const rows = base.modelRows;
+  return reactive({
+    usdRows: rows.filter((row) => !row.billedInAiCredits),
+    scatterRows: rows.filter((row) => row.billedInAiCredits),
+    ...base,
+  }) as unknown as ModelComparisonContext;
 }
 
 function hostFor<C>(child: C, ctx: ModelComparisonContext) {

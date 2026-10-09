@@ -3,9 +3,20 @@ import {
   type AiCreditSource,
   type AnalyticsData,
   calculateObservedAiCredits,
+  type SessionSource,
+  sourceCapabilities,
 } from "@tracepilot/types";
 
-export type AnalyticsCostBasis = "aiCredits" | "legacy" | "directApi";
+/** `usd` is provider-priced USD for sources not billed in AI Credits. */
+export type AnalyticsCostBasis = "aiCredits" | "legacy" | "directApi" | "usd";
+
+/**
+ * Only usage from a source billed in AI Credits is priced in AI Credits.
+ * Rows from payloads that predate sources are Copilot's.
+ */
+export function billedInAiCredits(usage: { source?: SessionSource | null }): boolean {
+  return sourceCapabilities(usage.source).hasAic;
+}
 
 export interface CostPoint {
   date: string;
@@ -115,6 +126,7 @@ export function buildAnalyticsAiCreditSummary(
   let usedDirectApi = false;
 
   for (const usage of data.modelDistribution) {
+    if (!billedInAiCredits(usage)) continue;
     const estimate = estimateCredits(usage, computeUsageBasedCost, computeDirectApiCost);
     estimatedCredits += estimate.credits;
     isPartial ||= estimate.unknown;
@@ -154,9 +166,13 @@ export function buildAnalyticsCostSeries(
       cost: p.cost * costPerPremiumRequest,
     }));
   }
+  if (basis === "usd") {
+    return (data.costUsdByDay ?? []).map((p) => ({ date: p.date, cost: p.cost }));
+  }
 
   const totalsByDate = new Map<string, number>();
   for (const usage of data.modelUsageByDay) {
+    if (!billedInAiCredits(usage)) continue;
     const value =
       basis === "directApi"
         ? (computeDirectApiCost(
@@ -174,4 +190,50 @@ export function buildAnalyticsCostSeries(
   return Array.from(totalsByDate, ([date, cost]) => ({ date, cost })).sort((a, b) =>
     a.date.localeCompare(b.date),
   );
+}
+
+export interface SourceCostRow {
+  source: SessionSource;
+  sessions: number;
+  tokens: number;
+  /** The source's own unit: AI Credits for Copilot, USD otherwise. */
+  unit: "aic" | "usd";
+  /** AI Credits or USD; null when the source has no priced usage. */
+  amount: number | null;
+  /** USD equivalent of AI Credits; null for USD rows. */
+  usdEquivalent: number | null;
+  partial: boolean;
+}
+
+/**
+ * One row per source in `costBySource`, each in its own billing unit. The
+ * AI Credit row reuses the dashboard summary, which prices only usage from
+ * sources billed in AI Credits. Rows are never summed together.
+ */
+export function buildSourceCostRows(
+  data: AnalyticsData,
+  aiCredits: AnalyticsAiCreditSummary | null,
+): SourceCostRow[] {
+  return (data.costBySource ?? []).map((entry) => {
+    if (sourceCapabilities(entry.source).hasAic) {
+      return {
+        source: entry.source,
+        sessions: entry.sessions,
+        tokens: entry.tokens,
+        unit: "aic",
+        amount: aiCredits?.credits ?? null,
+        usdEquivalent: aiCredits?.usdEquivalent ?? null,
+        partial: aiCredits?.isPartial ?? false,
+      };
+    }
+    return {
+      source: entry.source,
+      sessions: entry.sessions,
+      tokens: entry.tokens,
+      unit: "usd",
+      amount: entry.costUsd,
+      usdEquivalent: null,
+      partial: entry.costUsd != null && entry.sessionsWithCostUsd < entry.sessions,
+    };
+  });
 }

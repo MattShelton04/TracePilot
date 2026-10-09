@@ -247,6 +247,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
   const mockSessionId = typeof args?.sessionId === "string" ? args.sessionId : "mock-id";
 
   const searchQuery = typeof args?.query === "string" ? args.query.toLowerCase() : "";
+  const claudeOnly = args?.source === "claudeCode";
 
   const mockMap: Record<string, unknown> = {
     list_sessions: mocks.MOCK_SESSIONS,
@@ -365,8 +366,8 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       : mocks.MOCK_SESSIONS,
     reindex_sessions: [0, 0] as [number, number],
     reindex_sessions_full: [0, 0] as [number, number],
-    get_analytics: mocks.MOCK_ANALYTICS,
-    get_tool_analysis: mocks.MOCK_TOOL_ANALYSIS,
+    get_analytics: claudeOnly ? mocks.MOCK_CLAUDE_ANALYTICS : mocks.MOCK_ANALYTICS,
+    get_tool_analysis: claudeOnly ? mocks.MOCK_CLAUDE_TOOL_ANALYSIS : mocks.MOCK_TOOL_ANALYSIS,
     get_code_impact: mocks.MOCK_CODE_IMPACT,
     check_config_exists: true,
     validate_session_dir: { valid: true, sessionCount: 47, error: null },

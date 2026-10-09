@@ -60,6 +60,8 @@ function seedDistribution(
     cacheReadTokens: number;
     cacheWriteTokens?: number;
     premiumRequests: number;
+    source?: string;
+    costUsd?: number | null;
   }>,
 ) {
   analyticsStoreMock.analytics = {
@@ -209,11 +211,24 @@ describe("useModelComparison", () => {
       { model: "y", inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, premiumRequests: 1 },
     ]);
     const { comp } = mountHook();
-    expect(comp.compareA).toBe("x");
-    expect(comp.compareB).toBe("y");
+    expect(comp.compareA).toBe("copilot:x");
+    expect(comp.compareB).toBe("copilot:y");
     expect(comp.compareMetrics.length).toBe(8);
     expect(comp.compareMetrics.map((m) => m.label)).toContain("Total Tokens");
     expect(comp.compareMetrics.map((m) => m.label)).toContain("AI Credits");
+  });
+
+  it("opens the comparison on one model used by two sources", async () => {
+    const usage = { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, premiumRequests: 0 };
+    seedDistribution([
+      { model: "gpt-5", ...usage },
+      { model: "claude-opus-4.6", ...usage },
+      { model: "claude-opus-4-6", source: "claudeCode", costUsd: 1, ...usage },
+    ]);
+    const { comp } = mountHook();
+    expect(comp.compareA).toBe("copilot:claude-opus-4.6");
+    expect(comp.compareB).toBe("claudeCode:claude-opus-4-6");
+    expect(comp.compareMetrics.find((m) => m.label === "Cost")?.delta).toBe("Different units");
   });
 
   it("radar + scatter helpers produce valid coordinates", () => {

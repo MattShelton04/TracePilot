@@ -142,11 +142,14 @@ impl Transcript {
             self.clock_s += 1;
             self.clock_s
         });
+        // From 10:00 on 2026-09-20; an idle day rolls over to the next date.
+        let at = 10 * 3600 + seconds;
         format!(
-            "2026-09-20T{:02}:{:02}:{:02}.000Z",
-            10 + seconds / 3600,
-            seconds / 60 % 60,
-            seconds % 60
+            "2026-09-{:02}T{:02}:{:02}:{:02}.000Z",
+            20 + at / 86_400,
+            at / 3600 % 24,
+            at / 60 % 60,
+            at % 60
         )
     }
 

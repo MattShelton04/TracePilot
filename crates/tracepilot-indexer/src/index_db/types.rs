@@ -48,6 +48,11 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
 ///
+/// v22: one segment per run, from the difference between consecutive
+/// `cost-state` snapshots plus the tail, so a resumed session's usage lands
+/// on the day of each run. USD cost per session, run and model
+/// (`cost_usd`), and native tool durations.
+///
 /// v21: one session-level segment per Claude session, so the per-day
 /// dashboard charts (tokens, activity, cost) include Claude totals.
 ///
@@ -60,7 +65,7 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 21;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 22;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;
@@ -127,6 +132,8 @@ pub(crate) struct ModelMetricsRow {
     pub premium_requests: i64,
     pub reasoning_tokens: Option<i64>,
     pub total_nano_aiu: Option<i64>,
+    /// Provider-priced USD; `None` for Copilot and for unpriced models.
+    pub cost_usd: Option<f64>,
 }
 
 /// Named row for per-tool call stats.
@@ -147,6 +154,8 @@ pub(crate) struct NativeToolCallRow {
     pub calls: i64,
     pub success: i64,
     pub failure: i64,
+    pub duration_ms: i64,
+    pub calls_with_duration: i64,
 }
 
 /// Named row for activity heatmap data.
@@ -167,6 +176,7 @@ pub(crate) struct SessionSegmentRow {
     pub current_model: Option<String>,
     pub model_metrics_json: Option<String>,
     pub total_nano_aiu: Option<i64>,
+    pub cost_usd: Option<f64>,
 }
 
 /// Named row for modified file data.
@@ -226,6 +236,8 @@ pub(crate) struct SessionAnalytics {
     // Aggregate token/cost metrics
     pub total_tokens: i64,
     pub total_cost: Option<f64>,
+    /// Provider-priced USD (never AI Credits); `None` when unpriced.
+    pub total_cost_usd: Option<f64>,
     pub total_nano_aiu: Option<i64>,
     pub lines_added: Option<i64>,
     pub lines_removed: Option<i64>,

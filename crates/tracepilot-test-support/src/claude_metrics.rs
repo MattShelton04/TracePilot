@@ -175,3 +175,45 @@ pub fn existing_plan() -> SessionFiles {
     );
     write_session(&t, &[])
 }
+
+/// One run per day: day 1 (main + side model), resumed on day 2, and an
+/// optional unsnapshotted tail on day 3. Each exit writes an identical pair.
+pub fn resumed_across_days(tail: bool) -> SessionFiles {
+    let mut t = Transcript::main();
+    t.prompt("Start.");
+    t.call(
+        "first",
+        OPUS,
+        vec![text("Ready.")],
+        Usage::new(1, 10, 100, 2),
+        "end_turn",
+    );
+    let side = Usage::new(5, 50, 0, 6);
+    for _ in 0..2 {
+        t.cost_state(&[(OPUS, Usage::new(1, 10, 100, 2), 0.4), (HAIKU, side, 0.1)]);
+    }
+    t.idle(86_400);
+    t.prompt("Resume.");
+    t.call(
+        "second",
+        OPUS,
+        vec![text("Resumed.")],
+        Usage::new(7, 70, 700, 8),
+        "end_turn",
+    );
+    for _ in 0..2 {
+        t.cost_state(&[(OPUS, Usage::new(8, 80, 800, 10), 1.15), (HAIKU, side, 0.1)]);
+    }
+    if tail {
+        t.idle(86_400);
+        t.prompt("Continue.");
+        t.call(
+            "third",
+            OPUS,
+            vec![text("Continued.")],
+            Usage::new(9, 90, 900, 10),
+            "end_turn",
+        );
+    }
+    write_session(&t, &[])
+}

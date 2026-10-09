@@ -20,6 +20,7 @@ pub(crate) mod pricing;
 mod provider;
 mod reader;
 mod records;
+mod segments;
 mod subagents;
 mod summary;
 mod tool_results;

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use tracepilot_core::parsing::events::TypedEventData;
+use tracepilot_core::provider::{CostFigure, CostUnit, SessionMetrics};
 
 use super::super::types::*;
 
@@ -52,12 +53,20 @@ fn conversation_tool_usage(turns: &[tracepilot_core::ConversationTurn]) -> Conve
                     calls: 0,
                     success: 0,
                     failure: 0,
+                    duration_ms: 0,
+                    calls_with_duration: 0,
                 });
             row.calls += 1;
             match call.success {
                 Some(true) => row.success += 1,
                 Some(false) => row.failure += 1,
                 None => {}
+            }
+            if let Some(duration) = call.duration_ms {
+                row.duration_ms = row
+                    .duration_ms
+                    .saturating_add(i64::try_from(duration).unwrap_or(i64::MAX));
+                row.calls_with_duration += 1;
             }
         }
         if let Some(duration) = call.duration_ms {
@@ -95,6 +104,7 @@ pub(crate) fn extract_session_analytics(
     summary: &tracepilot_core::SessionSummary,
     typed_events: &Option<Vec<tracepilot_core::parsing::events::TypedEvent>>,
     turns: Option<&[tracepilot_core::ConversationTurn]>,
+    provider_metrics: Option<&SessionMetrics>,
     _diagnostics: Option<&tracepilot_core::parsing::diagnostics::ParseDiagnostics>,
     file_meta: &SessionFileMeta,
 ) -> SessionAnalytics {
@@ -163,6 +173,9 @@ pub(crate) fn extract_session_analytics(
                 premium_requests: req_count,
                 reasoning_tokens: reasoning,
                 total_nano_aiu: detail.total_nano_aiu.map(|v| v as i64),
+                cost_usd: provider_metrics
+                    .filter(|m| m.cost.is_none_or(|c| c.unit == CostUnit::Usd))
+                    .and_then(|m| m.model_costs.get(model_name).copied()),
             });
         }
 
@@ -198,8 +211,11 @@ pub(crate) fn extract_session_analytics(
                     current_model: seg.current_model.clone(),
                     model_metrics_json: mm_json,
                     total_nano_aiu: seg.total_nano_aiu.map(|v| v as i64),
+                    cost_usd: None,
                 });
             }
+        } else if let Some(runs) = provider_metrics.filter(|m| !m.segments.is_empty()) {
+            session_segment_rows.extend(runs.segments.iter().map(run_segment_row));
         } else if metrics.coverage.is_some()
             && let Some(end) = summary.updated_at.or(summary.created_at)
         {
@@ -220,6 +236,7 @@ pub(crate) fn extract_session_analytics(
                 current_model: current_model.clone(),
                 model_metrics_json: serde_json::to_string(&metrics.model_metrics).ok(),
                 total_nano_aiu: None,
+                cost_usd: provider_metrics.and_then(|m| usd(m.cost)),
             });
         }
     }
@@ -399,6 +416,7 @@ pub(crate) fn extract_session_analytics(
         } else {
             Some(total_cost)
         },
+        total_cost_usd: provider_metrics.and_then(|m| usd(m.cost)),
         total_nano_aiu,
         lines_added,
         lines_removed,
@@ -427,5 +445,43 @@ pub(crate) fn extract_session_analytics(
         cache_ttl_rows,
         agent_runs,
         skill_invocations,
+    }
+}
+
+fn usd(cost: Option<CostFigure>) -> Option<f64> {
+    cost.filter(|c| c.unit == CostUnit::Usd).map(|c| c.amount)
+}
+
+/// A provider run, dated like a shutdown segment so the per-day charts bucket
+/// it by the day it ended.
+fn run_segment_row(run: &tracepilot_core::provider::MetricsSegment) -> SessionSegmentRow {
+    let tokens = run
+        .model_metrics
+        .values()
+        .filter_map(|detail| detail.usage.as_ref())
+        .map(|usage| usage.input_tokens.unwrap_or(0) + usage.output_tokens.unwrap_or(0))
+        .sum::<u64>();
+    let current_model = run
+        .model_metrics
+        .iter()
+        .filter(|(_, detail)| detail.requests.is_some())
+        .max_by_key(|(model, detail)| {
+            (
+                detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0),
+                std::cmp::Reverse((*model).clone()),
+            )
+        })
+        .map(|(model, _)| model.clone());
+    SessionSegmentRow {
+        start_timestamp: run.start.to_rfc3339(),
+        end_timestamp: run.end.to_rfc3339(),
+        tokens: i64::try_from(tokens).unwrap_or(i64::MAX),
+        total_requests: i64::try_from(run.requests).unwrap_or(i64::MAX),
+        premium_requests: 0.0,
+        api_duration_ms: run.api_duration_ms.map_or(0, |ms| ms as i64),
+        current_model,
+        model_metrics_json: serde_json::to_string(&run.model_metrics).ok(),
+        total_nano_aiu: None,
+        cost_usd: usd(run.cost),
     }
 }

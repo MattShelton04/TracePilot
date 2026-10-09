@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CLAUDE_CODE_PRICING, calculateClaudeCodeTokenCost } from "../src/claude-code-pricing.js";
+import {
+  CLAUDE_CODE_PRICING,
+  calculateClaudeCodeTokenCost,
+  claudeCodeModelFamily,
+} from "../src/claude-code-pricing.js";
 import { PRICING_REGISTRY, resolvePricingEntry } from "../src/pricing.js";
 
 describe("isolated Claude Code pricing", () => {
@@ -55,5 +59,18 @@ describe("isolated Claude Code pricing", () => {
     });
     expect(cost.totalCost).toBeCloseTo((10 * 0.8 + 5 * 4) / 1e6, 12);
     expect(cost.aiCredits).toBeNull();
+  });
+});
+
+describe("claudeCodeModelFamily", () => {
+  it("names native and dated ids by their registry family, as Copilot does", () => {
+    expect(claudeCodeModelFamily("claude-opus-4-5-20251101")).toBe("claude-opus-4.5");
+    expect(claudeCodeModelFamily("claude-haiku-4-5-20251001")).toBe("claude-haiku-4.5");
+    expect(claudeCodeModelFamily("claude-opus-5-5")).toBe("claude-opus-5.5");
+    expect(claudeCodeModelFamily("claude-3-5-haiku")).toBe("claude-haiku-3.5");
+  });
+  it("leaves unknown models and variants unnamed", () => {
+    expect(claudeCodeModelFamily("claude-unpublished-9")).toBeNull();
+    expect(claudeCodeModelFamily("claude-opus-5-5-fast")).toBeNull();
   });
 });

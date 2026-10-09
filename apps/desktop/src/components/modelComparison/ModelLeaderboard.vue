@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { formatAiCredits, formatPercent } from "@tracepilot/types";
+import { formatPercent } from "@tracepilot/types";
+import { formatRowCost } from "@/composables/modelComparison/metrics";
 import { type SortKey, useModelComparisonContext } from "@/composables/useModelComparison";
 import { formatIdle } from "@/utils/promptCache";
 
@@ -86,11 +87,11 @@ const sortColumns: { key: SortKey; label: string }[] = [
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in ctx.displayRows" :key="row.model">
+          <tr v-for="row in ctx.displayRows" :key="row.id">
             <td>
-              <span class="model-name-cell">
+              <span class="model-name-cell" :title="row.model">
                 <span class="model-dot" :style="{ '--model-color': row.color }" />
-                {{ row.model }}
+                {{ row.label }}
               </span>
             </td>
             <td class="num-cell">{{ ctx.fmtNorm(row.tokens) }}</td>
@@ -112,7 +113,11 @@ const sortColumns: { key: SortKey; label: string }[] = [
             </td>
             <td class="num-cell matrix-cost-cell">
               <span class="matrix-cost-value">
-                {{ ctx.normMode === 'raw' ? formatAiCredits(row.aiCredits) : ctx.fmtNorm(row.aiCredits) }}
+                {{
+                  ctx.normMode === 'raw'
+                    ? formatRowCost(row)
+                    : ctx.fmtNorm(row.billedInAiCredits ? row.aiCredits : row.costUsd, !row.billedInAiCredits)
+                }}
               </span>
             </td>
           </tr>

@@ -1,4 +1,5 @@
 import type { PromptCacheAnalytics } from "./promptCache.js";
+import type { SessionSource } from "./sources.js";
 
 // ─── Analytics Types ──────────────────────────────────────────────
 // Aggregated analytics, tool usage analysis, and code impact metrics for dashboards.
@@ -24,6 +25,11 @@ export interface AnalyticsData {
   /** Model distribution by total tokens */
   modelDistribution: Array<{
     model: string;
+    /**
+     * The source that used the model; absent in payloads that predate
+     * sources (Copilot). Rows never merge across sources.
+     */
+    source?: SessionSource;
     tokens: number;
     percentage: number;
     inputTokens: number;
@@ -43,6 +49,10 @@ export interface AnalyticsData {
     unobservedOutputTokens?: number;
     unobservedCacheReadTokens?: number;
     unobservedCacheWriteTokens?: number;
+    /** Provider-priced USD; absent when no usage of the model is priced. */
+    costUsd?: number | null;
+    /** Some, but not all, of the model's usage is priced in USD. */
+    costUsdPartial?: boolean;
   }>;
   /** Cost per day for trend charts */
   costByDay: Array<{ date: string; cost: number }>;
@@ -50,6 +60,7 @@ export interface AnalyticsData {
   modelUsageByDay: Array<{
     date: string;
     model: string;
+    source?: SessionSource;
     inputTokens: number;
     outputTokens: number;
     cacheReadTokens: number;
@@ -83,6 +94,24 @@ export interface AnalyticsData {
    * by older builds predate it.
    */
   promptCache?: PromptCacheAnalytics;
+  /**
+   * Totals per source. Each cost stays in its source's unit and is never
+   * summed across sources. Absent in payloads from older builds.
+   */
+  costBySource?: SourceCostEntry[];
+  /** Provider-priced USD per day; days without a USD figure are absent. */
+  costUsdByDay?: Array<{ date: string; cost: number }>;
+}
+
+/** Sessions, tokens and USD cost of one source. */
+export interface SourceCostEntry {
+  source: SessionSource;
+  sessions: number;
+  tokens: number;
+  /** Provider-priced USD; null for a source billed in AI Credits. */
+  costUsd: number | null;
+  /** Sessions with a USD figure. Fewer than `sessions` is a partial total. */
+  sessionsWithCostUsd: number;
 }
 
 /** API duration statistics (avg, median, p95) computed from total_api_duration_ms */
@@ -146,6 +175,21 @@ export interface ToolUsageEntry {
   avgDurationMs: number;
   /** Total duration in milliseconds */
   totalDurationMs: number;
+  /**
+   * Source-native tools normalized to this canonical tool, most used first.
+   * Absent for sources whose tool names are already canonical.
+   */
+  nativeTools?: NativeToolUsageEntry[];
+}
+
+/** Calls of one source-native tool behind a canonical tool. */
+export interface NativeToolUsageEntry {
+  name: string;
+  source: SessionSource;
+  callCount: number;
+  /** Success rate (0-1) */
+  successRate: number;
+  avgDurationMs: number;
 }
 
 // ─── Code Impact ──────────────────────────────────────────────────

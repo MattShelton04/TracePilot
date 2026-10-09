@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::models::event_types::ModelMetricDetail;
+use crate::provider::SessionSource;
 
 use super::super::types::{CacheStats, ModelDistEntry};
 
@@ -109,6 +110,8 @@ impl ModelDistributionAccumulator {
                 };
                 ModelDistEntry {
                     model,
+                    // The disk fallback reads Copilot sessions only.
+                    source: SessionSource::Copilot,
                     tokens,
                     percentage,
                     input_tokens: totals.input_tokens,
@@ -129,6 +132,8 @@ impl ModelDistributionAccumulator {
                     unobserved_output_tokens: totals.unobserved_output_tokens,
                     unobserved_cache_read_tokens: totals.unobserved_cache_read_tokens,
                     unobserved_cache_write_tokens: totals.unobserved_cache_write_tokens,
+                    cost_usd: None,
+                    cost_usd_partial: false,
                 }
             })
             .collect();

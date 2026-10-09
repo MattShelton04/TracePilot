@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::models::event_types::{ModelMetricDetail, SessionSegment};
+use crate::provider::SessionSource;
 
 use super::super::types::{DayActivity, DayCost, DayModelUsage, DayTokens};
 use super::super::utils::segment_end_date;
@@ -153,6 +154,8 @@ impl From<DayModelUsageTotals> for DayModelUsage {
         Self {
             date: value.date,
             model: value.model,
+            // The disk fallback reads Copilot sessions only.
+            source: SessionSource::Copilot,
             input_tokens: value.input_tokens,
             output_tokens: value.output_tokens,
             cache_read_tokens: value.cache_read_tokens,

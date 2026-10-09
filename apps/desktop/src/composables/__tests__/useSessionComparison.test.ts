@@ -309,6 +309,50 @@ describe("useSessionComparison", () => {
   });
 });
 
+describe("session comparison across billing units", () => {
+  beforeEach(() => setupPinia());
+
+  const copilot = { totalNanoAiu: 2_000_000_000, modelMetrics: {} } as ShutdownMetrics;
+  const claude = (amount: number) =>
+    ({
+      costAmount: amount,
+      costUnit: "usd",
+      costBasis: "providerEstimate",
+      modelMetrics: {},
+    }) as ShutdownMetrics;
+
+  function compare(a: [string, ShutdownMetrics], b: [string, ShutdownMetrics]) {
+    const { comp } = mountHook();
+    comp.compared = true;
+    comp.dataA.detail = { id: "a", source: a[0] } as SessionDetail;
+    comp.dataA.metrics = a[1];
+    comp.dataB.detail = { id: "b", source: b[0] } as SessionDetail;
+    comp.dataB.metrics = b[1];
+    return comp.metricsRows;
+  }
+
+  it("never shows a billing delta between AI Credits and USD", () => {
+    const rows = compare(["copilot", copilot], ["claudeCode", claude(4.2)]);
+    const cost = rows.find((row) => row.label === "Cost");
+    expect(cost).toMatchObject({
+      valueA: "2 AIC",
+      valueB: "$4.20",
+      delta: "Different units",
+      deltaClass: "delta-neutral",
+      arrow: "",
+    });
+    expect(rows.some((row) => row.label === "AI Credits")).toBe(false);
+  });
+
+  it("compares two USD-priced sessions with a delta", () => {
+    const rows = compare(["claudeCode", claude(2)], ["claudeCode", claude(4)]);
+    const cost = rows.find((row) => row.label === "Estimated Cost");
+    expect(cost).toMatchObject({ valueA: "$2.00", valueB: "$4.00" });
+    expect(cost?.delta).not.toBe("Different units");
+    expect(cost?.delta).not.toBe("—");
+  });
+});
+
 describe("helpers", () => {
   it("sessionLabel prefers summary then id then Unknown", () => {
     expect(sessionLabel(null)).toBe("Unknown");

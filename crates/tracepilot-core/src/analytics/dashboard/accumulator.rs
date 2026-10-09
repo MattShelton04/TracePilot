@@ -1,9 +1,11 @@
 use super::super::types::{
     AnalyticsData, ProductivityMetrics, PromptCacheAnalytics, SessionAnalyticsInput,
+    SourceCostEntry,
 };
 use super::daily::DailySeriesAccumulator;
 use super::durations::compute_duration_stats;
 use super::models::ModelDistributionAccumulator;
+use crate::provider::SessionSource;
 
 pub(super) struct AnalyticsAccumulator {
     total_sessions: u32,
@@ -129,6 +131,18 @@ impl AnalyticsAccumulator {
             incidents_by_day: Vec::new(),
             // Cache windows are only available from the index.
             prompt_cache: PromptCacheAnalytics::default(),
+            // The disk fallback reads Copilot sessions only, which have no USD.
+            cost_by_source: (self.total_sessions > 0)
+                .then_some(SourceCostEntry {
+                    source: SessionSource::Copilot,
+                    sessions: self.total_sessions,
+                    tokens: self.total_tokens,
+                    cost_usd: None,
+                    sessions_with_cost_usd: 0,
+                })
+                .into_iter()
+                .collect(),
+            cost_usd_by_day: Vec::new(),
         }
     }
 

@@ -13,8 +13,10 @@ mod agents;
 mod code_impact;
 mod dashboard;
 mod day_bucket;
+mod model_usage_by_day;
 mod prompt_cache;
 mod skills;
+mod source_cost;
 mod tool_analysis;
 
 impl IndexDb {

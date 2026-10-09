@@ -9,6 +9,8 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
+- **Claude Code analytics** — With both sources indexed, Analytics shows cost by source, each in its own unit (AI Credits for Copilot, estimated USD for Claude Code), and charts estimated USD per day. A resumed Claude session counts its usage and cost on the day of each run. Tool Analysis expands a tool into the native tools behind it (for example, shell into Bash and PowerShell), the Models page lines up a model used by both sources and labels Claude models' cost as a USD estimate or unpriced, and Session Comparison shows no cost delta between sessions billed in different units.
+
 - **Claude Code tools** — Claude sessions show their recorded tool names in conversations and timelines, render Bash output as a terminal, and offer a command to copy for resuming in Claude Code. Their recorded cost estimates now include usage after the last cost snapshot.
 
 - **Claude Code session views** — Overview and Metrics show a Claude session's cost as a labelled USD estimate (Claude Code's own or TracePilot's), mark totals that rely on calls after the last cost snapshot as partial, and drop AI Credit and premium-request figures. Claude sessions also get the Context tab, charting each turn's recorded input total, and prompt-cache misses are priced in USD.

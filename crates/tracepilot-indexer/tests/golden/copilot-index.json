@@ -348,6 +348,15 @@
           "date": "2026-10-04"
         }
       ],
+      "costBySource": [
+        {
+          "costUsd": null,
+          "sessions": 11,
+          "sessionsWithCostUsd": 0,
+          "source": "copilot",
+          "tokens": 68480
+        }
+      ],
       "incidentsByDay": [
         {
           "compactions": 0,
@@ -375,6 +384,7 @@
           "premiumRequests": 2.0,
           "reasoningTokens": 0,
           "requestCount": 4,
+          "source": "copilot",
           "tokens": 58474,
           "totalNanoAiu": 707673600,
           "unobservedCacheReadTokens": 0,
@@ -392,6 +402,7 @@
           "premiumRequests": 3.5,
           "reasoningTokens": 300,
           "requestCount": 13,
+          "source": "copilot",
           "tokens": 8500,
           "totalNanoAiu": 2500000000,
           "unobservedCacheReadTokens": 1000,
@@ -409,6 +420,7 @@
           "premiumRequests": 0.5,
           "reasoningTokens": null,
           "requestCount": 3,
+          "source": "copilot",
           "tokens": 1500,
           "totalNanoAiu": null,
           "unobservedCacheReadTokens": 200,
@@ -426,6 +438,7 @@
           "premiumRequests": 3.0,
           "reasoningTokens": 3,
           "requestCount": 3,
+          "source": "copilot",
           "tokens": 6,
           "totalNanoAiu": 3,
           "unobservedCacheReadTokens": 0,
@@ -443,6 +456,7 @@
           "model": "claude-opus-4.6",
           "outputTokens": 2000,
           "reasoningTokens": 300,
+          "source": "copilot",
           "totalNanoAiu": null,
           "unobservedCacheReadTokens": 1000,
           "unobservedCacheWriteTokens": 500,
@@ -457,6 +471,7 @@
           "model": "gpt-4o",
           "outputTokens": 500,
           "reasoningTokens": null,
+          "source": "copilot",
           "totalNanoAiu": null,
           "unobservedCacheReadTokens": 200,
           "unobservedCacheWriteTokens": 100,
@@ -471,6 +486,7 @@
           "model": "claude-opus-4.6",
           "outputTokens": 500,
           "reasoningTokens": null,
+          "source": "copilot",
           "totalNanoAiu": 2500000000,
           "unobservedCacheReadTokens": 0,
           "unobservedCacheWriteTokens": 0,
@@ -485,6 +501,7 @@
           "model": "fixture",
           "outputTokens": 3,
           "reasoningTokens": 3,
+          "source": "copilot",
           "totalNanoAiu": 3,
           "unobservedCacheReadTokens": 0,
           "unobservedCacheWriteTokens": 0,
@@ -499,6 +516,7 @@
           "model": "mai-code-1.1-flash",
           "outputTokens": 62,
           "reasoningTokens": 0,
+          "source": "copilot",
           "totalNanoAiu": 707673600,
           "unobservedCacheReadTokens": 0,
           "unobservedCacheWriteTokens": 0,

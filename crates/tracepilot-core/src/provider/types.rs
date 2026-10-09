@@ -264,6 +264,27 @@ pub struct SessionMetrics {
     pub code_changes: Option<CodeChanges>,
     pub cost: Option<CostFigure>,
     pub coverage: Option<MetricsCoverage>,
+    /// Cost per model in `cost`'s unit. A model is absent when it cannot be
+    /// priced.
+    pub model_costs: HashMap<String, f64>,
+    /// Usage per run, in file order, for per-day analytics. Their tokens add
+    /// up to `model_metrics`. Empty when the source records no run boundaries.
+    pub segments: Vec<MetricsSegment>,
+}
+
+/// The usage of one run of a session: between two provider snapshots, or
+/// after the last one (`partial`). Durable index rows only; never IPC.
+#[derive(Debug, Clone)]
+pub struct MetricsSegment {
+    pub start: chrono::DateTime<chrono::Utc>,
+    pub end: chrono::DateTime<chrono::Utc>,
+    /// Recorded calls; side models have none.
+    pub requests: u64,
+    pub api_duration_ms: Option<u64>,
+    pub model_metrics: HashMap<String, ModelMetricDetail>,
+    pub cost: Option<CostFigure>,
+    /// Recorded calls after the last snapshot, which cannot prove completeness.
+    pub partial: bool,
 }
 
 /// Coverage of provider totals. Recorded calls cannot prove that all usage

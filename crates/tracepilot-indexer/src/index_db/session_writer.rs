@@ -71,6 +71,7 @@ impl PreparedSessionData {
             summary,
             events,
             turns,
+            metrics,
             diagnostics,
             fingerprint,
             ..
@@ -80,6 +81,7 @@ impl PreparedSessionData {
             &summary,
             &events,
             turns.as_deref(),
+            metrics.as_ref(),
             diagnostics.as_ref(),
             &file_meta,
         );
@@ -225,12 +227,12 @@ impl IndexDb {
                     error_count, rate_limit_count, compaction_count, truncation_count,
                     total_compaction_input_tokens, total_compaction_output_tokens,
                     source_fingerprint, source, parent_session_id, role, hidden,
-                    source_format_version, indexed_at
+                    source_format_version, cost_usd, indexed_at
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
                     ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
                     ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30,
-                    ?31, ?32, ?33, ?34, ?35, ?36, ?37,
+                    ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38,
                     datetime('now')
                 )
                 ON CONFLICT(id) DO UPDATE SET
@@ -258,6 +260,7 @@ impl IndexDb {
                     parent_session_id=excluded.parent_session_id,
                     role=excluded.role, hidden=excluded.hidden,
                     source_format_version=excluded.source_format_version,
+                    cost_usd=excluded.cost_usd,
                     indexed_at=excluded.indexed_at",
                 params![
                     summary.id,
@@ -297,6 +300,7 @@ impl IndexDb {
                     identity.role.as_str(),
                     identity.role.hidden_by_default(),
                     identity.source_format_version,
+                    analytics.total_cost_usd,
                 ],
             )?;
 

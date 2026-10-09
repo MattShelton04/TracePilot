@@ -1,6 +1,7 @@
 use crate::Result;
 use rusqlite::{Connection, params_from_iter, types::ToSql};
 use tracepilot_core::analytics::types::ModelDistEntry;
+use tracepilot_core::provider::SessionSource;
 
 /// Raw row type returned by model-distribution queries before the `i64` sentinel
 /// for `has_reasoning` is converted to `bool`.
@@ -21,6 +22,9 @@ type ModelDistRawRow = (
     i64,
     i64,
     i64,
+    SessionSource,
+    Option<f64>,
+    bool,
 );
 
 pub(in crate::index_db) fn query_model_distribution(
@@ -49,6 +53,9 @@ pub(in crate::index_db) fn query_model_distribution(
             row.get::<_, i64>(13)?,
             row.get::<_, i64>(14)?,
             row.get::<_, i64>(15)?,
+            row.get::<_, String>(16)?,
+            row.get::<_, Option<f64>>(17)?,
+            row.get::<_, bool>(18)?,
         ))
     })?;
     let mut entries: Vec<ModelDistRawRow> = Vec::new();
@@ -71,7 +78,14 @@ pub(in crate::index_db) fn query_model_distribution(
             unobserved_output,
             unobserved_cache_read,
             unobserved_cache_write,
+            source,
+            cost_usd,
+            cost_usd_partial,
         ) = row?;
+        // A source this build does not know is left out, not misattributed.
+        let Some(source) = SessionSource::from_stored(&source) else {
+            continue;
+        };
         grand_total += tokens;
         entries.push((
             model,
@@ -90,6 +104,9 @@ pub(in crate::index_db) fn query_model_distribution(
             unobserved_output,
             unobserved_cache_read,
             unobserved_cache_write,
+            source,
+            cost_usd,
+            cost_usd_partial,
         ));
     }
     Ok(entries
@@ -112,6 +129,9 @@ pub(in crate::index_db) fn query_model_distribution(
                 unobserved_output,
                 unobserved_cache_read,
                 unobserved_cache_write,
+                source,
+                cost_usd,
+                cost_usd_partial,
             )| {
                 let percentage = if grand_total > 0 {
                     (tokens as f64 / grand_total as f64) * 100.0
@@ -120,6 +140,7 @@ pub(in crate::index_db) fn query_model_distribution(
                 };
                 ModelDistEntry {
                     model,
+                    source,
                     tokens: tokens as u64,
                     percentage,
                     input_tokens: input_t as u64,
@@ -138,6 +159,8 @@ pub(in crate::index_db) fn query_model_distribution(
                     unobserved_output_tokens: unobserved_output.max(0) as u64,
                     unobserved_cache_read_tokens: unobserved_cache_read.max(0) as u64,
                     unobserved_cache_write_tokens: unobserved_cache_write.max(0) as u64,
+                    cost_usd,
+                    cost_usd_partial,
                 }
             },
         )
