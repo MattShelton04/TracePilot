@@ -22,6 +22,7 @@ import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionsStore } from "@/stores/sessions";
 import { formatObjectResult } from "@/utils/formatResult";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
 import { API_EQUIVALENT_NOTE, formatSessionCost, sessionCostEstimate } from "@/utils/sourceCost";
@@ -47,6 +48,10 @@ const prefs = usePreferencesStore();
 const { source, capabilities } = useSessionSource(
   () => store.sessionId,
   () => store.detail,
+);
+const sessions = useSessionsStore();
+const sessionLive = computed(
+  () => sessions.sessions.find((s) => s.id === store.sessionId)?.isRunning ?? false,
 );
 // Only sources that record background work are asked for it.
 watch(
@@ -317,6 +322,7 @@ function retryLoadSection(section: string) {
     <BackgroundTasksPanel
       v-if="capabilities.hasBackgroundTasks && store.backgroundTasks.length > 0"
       :tasks="store.backgroundTasks"
+      :live="sessionLive"
       class="mb-6"
     />
 

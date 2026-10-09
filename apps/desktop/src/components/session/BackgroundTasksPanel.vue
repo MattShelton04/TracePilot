@@ -3,7 +3,11 @@ import type { BackgroundTask, BackgroundTaskStatus } from "@tracepilot/client";
 import { Badge, formatDuration, formatTime, formatTokens, SectionPanel } from "@tracepilot/ui";
 import { Bot, SquareTerminal, Workflow } from "lucide-vue-next";
 
-defineProps<{ tasks: BackgroundTask[] }>();
+const props = defineProps<{
+  tasks: BackgroundTask[];
+  /** The session is still running, so an unfinished task may still be working. */
+  live: boolean;
+}>();
 
 type BadgeVariant = "success" | "danger" | "warning" | "accent" | "neutral";
 
@@ -14,6 +18,13 @@ const STATUS: Record<BackgroundTaskStatus, { label: string; variant: BadgeVarian
   stopped: { label: "Stopped", variant: "warning" },
   unknown: { label: "Unknown", variant: "neutral" },
 };
+
+/** Once the session has ended, a task last seen running never reported its outcome. */
+const NO_FINAL_REPORT = { label: "No final report", variant: "neutral" as const };
+
+function statusOf(task: BackgroundTask) {
+  return task.status === "running" && !props.live ? NO_FINAL_REPORT : STATUS[task.status];
+}
 
 const KIND = {
   agent: { label: "Subagent", icon: Bot },
@@ -48,7 +59,7 @@ function details(task: BackgroundTask): string[] {
           <span v-if="task.summary" class="bg-task-summary">{{ task.summary }}</span>
         </div>
         <span class="bg-task-meta">{{ details(task).join(" · ") }}</span>
-        <Badge :variant="STATUS[task.status].variant" size="sm">{{ STATUS[task.status].label }}</Badge>
+        <Badge :variant="statusOf(task).variant" size="sm">{{ statusOf(task).label }}</Badge>
         <span class="bg-task-time" :title="task.finishedAt ? 'Finished' : 'Started'">
           {{ formatTime(task.finishedAt ?? task.startedAt) }}
         </span>

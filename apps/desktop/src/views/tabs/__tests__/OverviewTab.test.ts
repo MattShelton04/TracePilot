@@ -5,6 +5,7 @@ import { StatCard } from "@tracepilot/ui";
 import { mount } from "@vue/test-utils";
 import { afterEach, expect, it, vi } from "vitest";
 import { reactive } from "vue";
+import { useSessionsStore } from "@/stores/sessions";
 import OverviewTab from "../OverviewTab.vue";
 
 const store = reactive({
@@ -127,4 +128,20 @@ it("hides background tasks when a session has none, and never asks Copilot", () 
   expect(store.loadBackgroundTasks).not.toHaveBeenCalled();
   expect(copilot.text()).not.toContain("Background Tasks");
   copilot.unmount();
+});
+
+it("shows a task last seen running as running only while the session is live", async () => {
+  store.detail = { id: "s1", source: "claudeCode", hasPlan: false, hasCheckpoints: false };
+  store.backgroundTasks = [{ ...failedShell, status: "running", finishedAt: null, summary: null }];
+  const ended = mountOverview().wrapper;
+  const row = () => ended.find('[data-testid="background-task"]').text();
+  expect(row()).toContain("No final report");
+  expect(row()).not.toContain("Running");
+  ended.unmount();
+
+  const live = mountOverview();
+  useSessionsStore().sessions = [{ id: "s1", source: "claudeCode", isRunning: true }];
+  await live.wrapper.vm.$nextTick();
+  expect(live.wrapper.find('[data-testid="background-task"]').text()).toContain("Running");
+  live.wrapper.unmount();
 });

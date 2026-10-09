@@ -8,7 +8,7 @@
 //! calls only add a kind, description and start time: a launch with no report
 //! is not listed, because its outcome is unknown.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use serde_json::Value;
@@ -34,8 +34,8 @@ pub(super) fn read_background_tasks(main: &Path) -> Result<Vec<BackgroundTask>> 
     Ok(background_tasks(&lines, &children))
 }
 
-/// Background tasks reported anywhere in the session, in the order they were
-/// first reported.
+/// Background tasks reported anywhere in the session: the main transcript's in
+/// the order they were first reported, then each subagent file's.
 pub(super) fn background_tasks(main: &[Line], children: &[ChildStream]) -> Vec<BackgroundTask> {
     let links = subagents::link(main, children);
     let streams = || std::iter::once(main).chain(children.iter().map(|c| c.lines.as_slice()));
@@ -78,6 +78,9 @@ struct TaskList {
     task_tool: HashMap<String, String>,
     /// Agent id → `meta.json` description.
     agent_descriptions: HashMap<String, String>,
+    /// Tasks whose summary came from a notification, which `task_status`
+    /// progress never replaces.
+    notified: HashSet<usize>,
 }
 
 impl TaskList {
@@ -173,7 +176,10 @@ impl TaskList {
             };
             let task = &mut self.tasks[index];
             update_status(task, parse_status(status.as_deref()), at);
-            task.summary = summary.or(task.summary.take());
+            if summary.is_some() {
+                task.summary = summary;
+                self.notified.insert(index);
+            }
             task.total_tokens = total_tokens.or(task.total_tokens);
             task.tool_calls = tool_uses.or(task.tool_calls);
             task.duration_ms = duration_ms.or(task.duration_ms);
@@ -181,7 +187,8 @@ impl TaskList {
     }
 
     /// `attachment:task_status`: `{ taskId, taskType, status, description,
-    /// deltaSummary? }`. Read leniently, since its shape is undocumented.
+    /// deltaSummary, outputFilePath, … }`. The latest `deltaSummary` is the
+    /// summary until a notification reports the outcome.
     fn task_status(&mut self, body: &Value, at: Option<&str>) {
         let field = |keys: &[&str]| {
             keys.iter()
@@ -202,8 +209,10 @@ impl TaskList {
         let task = &mut self.tasks[index];
         update_status(task, parse_status(field(&["status"]).as_deref()), at);
         task.description = field(&["description"]).or(task.description.take());
-        if task.summary.is_none() {
-            task.summary = field(&["deltaSummary", "summary"]);
+        if !self.notified.contains(&index)
+            && let Some(progress) = field(&["deltaSummary", "summary"])
+        {
+            task.summary = Some(progress);
         }
     }
 

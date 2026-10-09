@@ -101,7 +101,7 @@ export const MOCK_CLAUDE_EVENTS: EventsResponse = {
   allEventTypes: ["user.message", "tool.execution_start", "tracepilot.model_call"],
 };
 
-/** Synthetic background work: a finished subagent, a failed shell and a running shell. */
+/** Synthetic background work: a finished subagent, a failed shell and a shell last seen running. */
 export const MOCK_CLAUDE_BACKGROUND_TASKS: BackgroundTask[] = [
   {
     id: "a5c0ffee00000001",

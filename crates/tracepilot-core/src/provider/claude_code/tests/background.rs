@@ -102,6 +102,14 @@ fn task_status_reports_merge_with_notifications() {
         "attachment",
         status("w1", "local_workflow", "running", "Nightly workflow"),
     );
+    for progress in ["Stage 1 of 3", "Stage 2 of 3"] {
+        t.record(
+            "attachment",
+            json!({"attachment": {"type": "task_status", "taskId": "w1",
+                "taskType": "local_workflow", "status": "running",
+                "description": "Nightly workflow", "deltaSummary": progress}}),
+        );
+    }
     let failed = "<task-notification>\n<task-id>bg_suite</task-id>\n<tool-use-id>toolu_suite</tool-use-id>\n\
         <status>failed</status>\n<summary>Background command \"Slow suite\" failed (exit code 1)</summary>\n\
         </task-notification>";
@@ -161,6 +169,8 @@ fn task_status_reports_merge_with_notifications() {
     assert_eq!(workflow.status, BackgroundTaskStatus::Running);
     assert_eq!(workflow.description.as_deref(), Some("Nightly workflow"));
     assert_eq!(workflow.finished_at, None);
+    // The latest progress report, not the first.
+    assert_eq!(workflow.summary.as_deref(), Some("Stage 2 of 3"));
 }
 
 #[test]
