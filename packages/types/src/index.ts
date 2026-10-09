@@ -379,6 +379,7 @@ export {
   isNonCopilotSource,
   type RunStatus,
   resolveSessionSource,
+  resumeCommand,
   runStatusBadge,
   SESSION_SOURCES,
   type SessionLiveness,
