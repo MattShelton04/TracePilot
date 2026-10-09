@@ -68,9 +68,19 @@ watch(donutSegments, () => {
 });
 
 // ── Cost basis toggle ─────────────────────────────────────────────
-type CostBasis = "aiCredits" | "legacy";
+// `usd` charts provider-priced USD for sources not billed in AI Credits. It
+// is its own series: AI Credits and USD are never added together.
+type CostBasis = "aiCredits" | "legacy" | "usd";
 
-const costBasis = ref<CostBasis>("aiCredits");
+const selectedBasis = ref<CostBasis>("aiCredits");
+const hasUsdCost = computed(() => (props.data.costUsdByDay?.length ?? 0) > 0);
+const costBasis = computed<CostBasis>(() =>
+  props.billedInAic === false
+    ? "usd"
+    : selectedBasis.value === "usd" && !hasUsdCost.value
+      ? "aiCredits"
+      : selectedBasis.value,
+);
 
 const isAiCredits = computed(() => costBasis.value === "aiCredits");
 
@@ -103,10 +113,15 @@ const { chartData: costChart } = useLineAreaChartData({
   maxFloor: 0.01,
 });
 
-const costAriaLabel = computed(
-  () =>
-    `Area chart showing daily ${isAiCredits.value ? "AI Credit cost in US dollars" : "legacy premium cost"} over ${props.timeRangeLabel}`,
-);
+const costAriaLabel = computed(() => {
+  const series =
+    costBasis.value === "usd"
+      ? "estimated cost in US dollars"
+      : isAiCredits.value
+        ? "AI Credit cost in US dollars"
+        : "legacy premium cost";
+  return `Area chart showing daily ${series} over ${props.timeRangeLabel}`;
+});
 
 const tooltipFormatter = (i: number) => {
   const point = costChart.value?.coords[i];
@@ -183,7 +198,7 @@ const tooltipFormatter = (i: number) => {
             :class="{ active: costBasis === 'aiCredits' }"
             role="radio"
             :aria-checked="costBasis === 'aiCredits'"
-            @click="costBasis = 'aiCredits'"
+            @click="selectedBasis = 'aiCredits'"
           >
             AI Credits
           </button>
@@ -194,15 +209,33 @@ const tooltipFormatter = (i: number) => {
             :class="{ active: costBasis === 'legacy' }"
             role="radio"
             :aria-checked="costBasis === 'legacy'"
-            @click="costBasis = 'legacy'"
+            @click="selectedBasis = 'legacy'"
           >
             Legacy Premium
           </button>
+          <template v-if="hasUsdCost">
+            <span class="cost-basis-separator" aria-hidden="true">/</span>
+            <button
+              type="button"
+              class="cost-basis-option"
+              :class="{ active: costBasis === 'usd' }"
+              role="radio"
+              :aria-checked="costBasis === 'usd'"
+              title="Estimated USD for sessions not billed in AI Credits"
+              @click="selectedBasis = 'usd'"
+            >
+              Estimated USD
+            </button>
+          </template>
         </div>
       </template>
-      <p v-if="billedInAic === false" class="cost-trend-note" data-testid="cost-trend-unbilled">
-        These sessions are not billed in AI Credits. Their estimated USD cost is shown on each
-        session's Metrics tab.
+      <p
+        v-if="costBasis === 'usd' && !hasUsdCost"
+        class="cost-trend-note"
+        data-testid="cost-trend-unbilled"
+      >
+        These sessions are not billed in AI Credits, and none of their runs could be priced in
+        USD for this period.
       </p>
       <LineAreaChart
         v-else-if="costChart"

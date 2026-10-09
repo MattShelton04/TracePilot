@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use serde_json::json;
-use tracepilot_core::provider::{SessionProvider, claude_code::ClaudeCodeProvider};
+use tracepilot_core::provider::{SessionProvider, SessionSource, claude_code::ClaudeCodeProvider};
 use tracepilot_test_support::claude::{
     OPUS, SessionFiles, Transcript, Usage, text, tool_use, write_session,
 };
@@ -142,6 +142,33 @@ fn claude_sessions_fill_model_tool_file_and_incident_rows() {
     let mut canonical: Vec<String> = rows(&db, "SELECT tool_name FROM session_tool_calls");
     canonical.sort();
     assert_eq!(canonical, ["edit", "shell"]);
+    // Tool analysis drills down from each canonical tool to its native names.
+    let analysis = db
+        .query_tool_analysis(None, None, None, false, None)
+        .unwrap();
+    let mut drill_down: Vec<(String, String, u32, f64)> = analysis
+        .tools
+        .iter()
+        .flat_map(|tool| {
+            tool.native_tools.iter().map(|native| {
+                assert_eq!(native.source, SessionSource::ClaudeCode);
+                (
+                    tool.name.clone(),
+                    native.name.clone(),
+                    native.call_count,
+                    native.success_rate,
+                )
+            })
+        })
+        .collect();
+    drill_down.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(
+        drill_down,
+        [
+            ("edit".to_string(), "Edit".to_string(), 1, 1.0),
+            ("shell".to_string(), "Bash".to_string(), 1, 0.0),
+        ]
+    );
 
     let modified: Vec<String> = rows(&db, "SELECT file_path FROM session_modified_files");
     assert_eq!(modified, [NOTES]);

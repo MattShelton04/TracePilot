@@ -35,7 +35,9 @@ export type {
   ApiDurationStats,
   CacheStats,
   CodeImpactData,
+  NativeToolUsageEntry,
   ProductivityMetrics,
+  SourceCostEntry,
   ToolAnalysisData,
   ToolUsageEntry,
 } from "./analytics.js";
@@ -43,6 +45,7 @@ export {
   CLAUDE_CODE_PRICING,
   calculateClaudeCodeTokenCost,
   claudeCodeCostBasisLabel,
+  claudeCodeModelFamily,
 } from "./claude-code-pricing.js";
 // ── config.js ──────────────────────────────────────────────────────
 export type {

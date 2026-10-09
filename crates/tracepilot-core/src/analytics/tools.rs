@@ -102,6 +102,8 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
             success_rate: compute_success_rate(acc.success_count, acc.failure_count),
             avg_duration_ms: safe_div(acc.total_duration_ms, acc.durations_counted),
             total_duration_ms: acc.total_duration_ms,
+            // Copilot tool names are canonical; the fallback reads no other source.
+            native_tools: Vec::new(),
         })
         .collect();
     tools.sort_by(|a, b| {

@@ -158,6 +158,20 @@ pub(super) static INDEX_DB_MIGRATIONS: &[Migration] = &[
               );",
         pre_hook: None,
     },
+    Migration {
+        version: 24,
+        name: "usd cost and native tool durations",
+        // Provider-priced USD for sources that are not billed in AI Credits.
+        // NULL means no figure, never $0; Copilot writes none.
+        sql: "ALTER TABLE sessions ADD COLUMN cost_usd REAL;
+              ALTER TABLE session_segments ADD COLUMN cost_usd REAL;
+              ALTER TABLE session_model_metrics ADD COLUMN cost_usd REAL;
+              ALTER TABLE session_native_tool_calls
+                  ADD COLUMN total_duration_ms INTEGER NOT NULL DEFAULT 0;
+              ALTER TABLE session_native_tool_calls
+                  ADD COLUMN calls_with_duration INTEGER NOT NULL DEFAULT 0;",
+        pre_hook: None,
+    },
 ];
 
 pub(super) static INDEX_DB_PLAN: MigrationPlan = MigrationPlan {

@@ -24,8 +24,8 @@ const ctx = useModelComparisonContext();
         </div>
         <template v-else>
           <div class="legend">
-            <span v-for="rm in ctx.radarModels" :key="rm.model">
-              <span class="legend-dot" :style="{ '--model-color': rm.color }" />&nbsp;{{ rm.model }}
+            <span v-for="rm in ctx.radarModels" :key="rm.id">
+              <span class="legend-dot" :style="{ '--model-color': rm.color }" />&nbsp;{{ rm.label }}
             </span>
           </div>
           <svg
@@ -71,7 +71,7 @@ const ctx = useModelComparisonContext();
               <!-- Model polygons -->
               <polygon
                 v-for="rm in ctx.radarModels"
-                :key="`poly-${rm.model}`"
+                :key="`poly-${rm.id}`"
                 :points="ctx.radarPolygon(ctx.radarValues(rm))"
                 :fill="rm.color"
                 fill-opacity="0.12"
@@ -79,10 +79,10 @@ const ctx = useModelComparisonContext();
                 stroke-width="1.5"
               />
               <!-- Model dots -->
-              <template v-for="rm in ctx.radarModels" :key="`dots-${rm.model}`">
+              <template v-for="rm in ctx.radarModels" :key="`dots-${rm.id}`">
                 <circle
                   v-for="(v, vi) in ctx.radarValues(rm)"
-                  :key="`dot-${rm.model}-${vi}`"
+                  :key="`dot-${rm.id}-${vi}`"
                   :cx="ctx.radarPoint(vi, v).x"
                   :cy="ctx.radarPoint(vi, v).y"
                   r="3"
@@ -100,15 +100,19 @@ const ctx = useModelComparisonContext();
       <div class="section-panel-header">Cost vs Token Volume</div>
       <div class="section-panel-body">
         <div
-          v-if="ctx.modelRows.length < 2 || ctx.modelRows.every(m => m.cost == null)"
+          v-if="ctx.scatterRows.length < 2 || ctx.scatterRows.every(m => m.cost == null)"
           class="chart-placeholder"
         >
-          Need at least 2 models with cost data for scatter plot.
+          {{
+            ctx.scatterRows.length < ctx.modelRows.length
+              ? "This plot uses AI Credits. Needs at least 2 models billed in AI Credits."
+              : "Need at least 2 models with cost data for scatter plot."
+          }}
         </div>
         <template v-else>
           <div class="legend">
-            <span v-for="row in ctx.modelRows" :key="row.model">
-              <span class="legend-dot" :style="{ '--model-color': row.color }" />&nbsp;{{ row.model }}
+            <span v-for="row in ctx.scatterRows" :key="row.id">
+              <span class="legend-dot" :style="{ '--model-color': row.color }" />&nbsp;{{ row.label }}
             </span>
           </div>
           <svg
@@ -199,7 +203,7 @@ const ctx = useModelComparisonContext();
               font-family="Inter, sans-serif"
             >{{ formatNumber(ctx.scatterScale.maxT) }}</text>
             <!-- Data points -->
-            <g v-for="row in ctx.modelRows" :key="`scatter-${row.model}`">
+            <g v-for="row in ctx.scatterRows" :key="`scatter-${row.id}`">
               <circle
                 :cx="ctx.scatterX(row.tokens)"
                 :cy="ctx.scatterY(row.aiCredits ?? 0)"
@@ -210,7 +214,7 @@ const ctx = useModelComparisonContext();
                 :stroke="row.color"
                 stroke-width="1.5"
               >
-                <title>{{ row.model }}: {{ formatNumber(row.tokens) }} tokens, {{ formatAiCredits(row.aiCredits) }}, {{ formatPercent(row.cacheHitRate) }} cache</title>
+                <title>{{ row.label }}: {{ formatNumber(row.tokens) }} tokens, {{ formatAiCredits(row.aiCredits) }}, {{ formatPercent(row.cacheHitRate) }} cache</title>
               </circle>
               <text
                 :x="ctx.scatterX(row.tokens)"
@@ -219,7 +223,7 @@ const ctx = useModelComparisonContext();
                 font-size="8"
                 fill="var(--text-secondary)"
                 font-family="Inter, sans-serif"
-              >{{ row.model }}</text>
+              >{{ row.label }}</text>
             </g>
           </svg>
           <div class="scatter-hint">Bubble size = cache efficiency</div>

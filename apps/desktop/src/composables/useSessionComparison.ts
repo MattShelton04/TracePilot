@@ -1,12 +1,14 @@
 import { getSessionDetail, getSessionTurns, getShutdownMetrics } from "@tracepilot/client";
-import type {
-  ConversationTurn,
-  SessionDetail,
-  SessionListItem,
-  ShutdownMetrics,
+import {
+  type ConversationTurn,
+  type SessionDetail,
+  type SessionListItem,
+  type ShutdownMetrics,
+  sourceCapabilities,
 } from "@tracepilot/types";
 import {
   formatAiCredits,
+  formatCost,
   formatDuration,
   formatNumber,
   formatRate,
@@ -151,6 +153,27 @@ function timelineBlocks(turns: ConversationTurn[]): number[] {
   return durations.map((d) => (d / total) * 100);
 }
 
+/**
+ * A session's cost in its own billing unit: AI Credits for a source billed
+ * in them, otherwise the provider's USD figure.
+ */
+export function sessionCost(
+  data: SessionData,
+  pricing: Parameters<typeof shutdownAiCreditUsage>[1],
+): { unit: "aic" | "usd"; value: number | null } {
+  const source = data.detail?.source;
+  if (allowsAiCreditEstimate(source, data.metrics)) {
+    return { unit: "aic", value: shutdownAiCreditUsage(data.metrics, pricing).credits };
+  }
+  if (data.metrics?.costUnit === "usd") {
+    return { unit: "usd", value: data.metrics.costAmount ?? null };
+  }
+  // A source billed in AI Credits keeps its observed credits only.
+  return sourceCapabilities(source).hasAic
+    ? { unit: "aic", value: shutdownAiCreditUsage(data.metrics, pricing, true).credits }
+    : { unit: "usd", value: null };
+}
+
 export function sessionLabel(detail: SessionDetail | null): string {
   return detail?.summary || detail?.id || "Unknown";
 }
@@ -244,16 +267,8 @@ export function useSessionComparison() {
 
     const tokA = totalTokens(dataA.metrics);
     const tokB = totalTokens(dataB.metrics);
-    const aiA = shutdownAiCreditUsage(
-      dataA.metrics,
-      prefs,
-      !allowsAiCreditEstimate(dataA.detail?.source),
-    ).credits;
-    const aiB = shutdownAiCreditUsage(
-      dataB.metrics,
-      prefs,
-      !allowsAiCreditEstimate(dataB.detail?.source),
-    ).credits;
+    const costA = sessionCost(dataA, prefs);
+    const costB = sessionCost(dataB, prefs);
     const tcA = totalToolCalls(dataA.turns);
     const tcB = totalToolCalls(dataB.turns);
     const srA = successRate(dataA.turns);
@@ -287,6 +302,30 @@ export function useSessionComparison() {
       };
     }
 
+    /**
+     * Cost in each session's own unit. AI Credits and USD are different bills,
+     * so a cross-source pair shows both values without a delta.
+     */
+    function costRow(): MetricRow {
+      const fmt = (unit: "aic" | "usd") => (unit === "aic" ? formatAiCredits : formatCost);
+      const a = costA.value == null ? null : costA.value / divA;
+      const b = costB.value == null ? null : costB.value / divB;
+      if (costA.unit === costB.unit) {
+        const label = costA.unit === "aic" ? "AI Credits" : "Estimated Cost";
+        return row(`${label}${suffix}`, a, b, fmt(costA.unit), false);
+      }
+      return {
+        label: `Cost${suffix}`,
+        valueA: a == null ? "—" : fmt(costA.unit)(a),
+        valueB: b == null ? "—" : fmt(costB.unit)(b),
+        rawA: null,
+        rawB: null,
+        delta: "Different units",
+        deltaClass: "delta-neutral",
+        arrow: "",
+      };
+    }
+
     const fmtN = (v: number) => (isNorm ? v.toFixed(1) : formatNumber(v));
     const fmtInt = (v: number) => (isNorm ? v.toFixed(1) : String(Math.round(v)));
 
@@ -300,13 +339,7 @@ export function useSessionComparison() {
         fmtN,
         false,
       ),
-      row(
-        `AI Credits${suffix}`,
-        aiA == null ? null : aiA / divA,
-        aiB == null ? null : aiB / divB,
-        formatAiCredits,
-        false,
-      ),
+      costRow(),
       row(`Tool Calls${suffix}`, tcA / divA, tcB / divB, fmtInt, false),
       row("Success Rate", srA, srB, formatRate, true),
       row("Files Modified", fmA, fmB, String, false),

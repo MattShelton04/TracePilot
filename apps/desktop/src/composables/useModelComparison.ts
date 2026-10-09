@@ -18,6 +18,7 @@ import {
   buildModelRows,
   computeRadarValues,
   computeScatterScale,
+  crossSourcePair,
   formatNorm,
   normalizeRows,
 } from "./modelComparison/metrics";
@@ -96,6 +97,20 @@ export function useModelComparison() {
       ? modelRows.value.reduce((sum, model) => sum + (model.aiCredits ?? 0), 0)
       : null,
   );
+  // Models priced in USD rather than AI Credits. Their total is only shown
+  // when they all come from one source, so USD is never summed across sources.
+  const usdRows = computed(() => modelRows.value.filter((model) => !model.billedInAiCredits));
+  const usdSource = computed(() => {
+    const sources = new Set(usdRows.value.map((model) => model.source));
+    return sources.size === 1 ? [...sources][0] : null;
+  });
+  const totalCostUsd = computed(() =>
+    usdSource.value && usdRows.value.some((model) => model.costUsd != null)
+      ? usdRows.value.reduce((sum, model) => sum + (model.costUsd ?? 0), 0)
+      : null,
+  );
+  /** Rows the tokens-vs-AI-Credits scatter can place honestly. */
+  const scatterRows = computed(() => modelRows.value.filter((model) => model.billedInAiCredits));
   const totalCopilotCost = computed(() =>
     modelRows.value.reduce((sum, m) => sum + m.copilotCost, 0),
   );
@@ -137,7 +152,7 @@ export function useModelComparison() {
   );
   const radarValues = (row: ModelRow) => computeRadarValues(row, modelRows.value);
 
-  const scatterScale = computed(() => computeScatterScale(modelRows.value));
+  const scatterScale = computed(() => computeScatterScale(scatterRows.value));
   const scatterXBound = (tokens: number) => scatterX(tokens, scatterScale.value.maxT);
   const scatterYBound = (cost: number) => scatterY(cost, scatterScale.value.maxC);
 
@@ -148,20 +163,23 @@ export function useModelComparison() {
     modelRows,
     (rows) => {
       if (rows.length >= 2) {
-        if (!compareA.value || !rows.find((r) => r.model === compareA.value))
-          compareA.value = rows[0].model;
-        if (!compareB.value || !rows.find((r) => r.model === compareB.value))
-          compareB.value = rows[1].model;
+        const valid = (id: string) => id && rows.some((r) => r.id === id);
+        // Open on the same model across sources when one was used by both.
+        const pair =
+          !valid(compareA.value) && !valid(compareB.value) ? crossSourcePair(rows) : null;
+        if (pair) [compareA.value, compareB.value] = pair;
+        if (!valid(compareA.value)) compareA.value = rows[0].id;
+        if (!valid(compareB.value)) compareB.value = rows[1].id;
       } else if (rows.length === 1) {
-        compareA.value = rows[0].model;
+        compareA.value = rows[0].id;
         compareB.value = "";
       }
     },
     { immediate: true },
   );
 
-  const compareRowA = computed(() => displayRows.value.find((r) => r.model === compareA.value));
-  const compareRowB = computed(() => displayRows.value.find((r) => r.model === compareB.value));
+  const compareRowA = computed(() => displayRows.value.find((r) => r.id === compareA.value));
+  const compareRowB = computed(() => displayRows.value.find((r) => r.id === compareB.value));
   const compareMetrics = computed<CompareMetric[]>(() =>
     buildCompareMetrics(compareRowA.value, compareRowB.value, fmtNorm),
   );
@@ -177,6 +195,10 @@ export function useModelComparison() {
     totalTokens,
     totalCost,
     totalAiCredits,
+    usdRows,
+    usdSource,
+    totalCostUsd,
+    scatterRows,
     totalCopilotCost,
     modelCount,
     costMode,

@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import { formatAiCredits, formatPercent } from "@tracepilot/types";
+import { formatPercent } from "@tracepilot/types";
+import { computed } from "vue";
+import { formatRowCostShort } from "@/composables/modelComparison/metrics";
 import { type SortKey, useModelComparisonContext } from "@/composables/useModelComparison";
 import { formatIdle } from "@/utils/promptCache";
 
 const ctx = useModelComparisonContext();
-const sortColumns: { key: SortKey; label: string }[] = [
+// Rows billed in another unit show their USD estimate in the cost column.
+const mixedUnits = computed(() => ctx.modelRows.some((row) => !row.billedInAiCredits));
+const sortColumns = computed<{ key: SortKey; label: string; title?: string }[]>(() => [
   { key: "model", label: "Model" },
   { key: "tokens", label: "Total" },
   { key: "inputTokens", label: "Input" },
   { key: "outputTokens", label: "Output" },
   { key: "cacheReadTokens", label: "Cache" },
   { key: "percentage", label: "Share" },
-  { key: "aiCredits", label: "AI Credits" },
-];
+  mixedUnits.value
+    ? {
+        key: "aiCredits",
+        label: "Cost",
+        title: "AI Credits for Copilot models; estimated USD, not a bill, for others",
+      }
+    : { key: "aiCredits", label: "AI Credits" },
+]);
 </script>
 
 <template>
@@ -63,6 +73,7 @@ const sortColumns: { key: SortKey; label: string }[] = [
               <th
                 class="sort-header"
                 scope="col"
+                :title="column.title"
                 :aria-sort="ctx.sortKey === column.key ? (ctx.sortDir === 'asc' ? 'ascending' : 'descending') : undefined"
               >
                 <button
@@ -86,11 +97,11 @@ const sortColumns: { key: SortKey; label: string }[] = [
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in ctx.displayRows" :key="row.model">
+          <tr v-for="row in ctx.displayRows" :key="row.id">
             <td>
-              <span class="model-name-cell">
+              <span class="model-name-cell" :title="row.model">
                 <span class="model-dot" :style="{ '--model-color': row.color }" />
-                {{ row.model }}
+                {{ row.label }}
               </span>
             </td>
             <td class="num-cell">{{ ctx.fmtNorm(row.tokens) }}</td>
@@ -112,7 +123,11 @@ const sortColumns: { key: SortKey; label: string }[] = [
             </td>
             <td class="num-cell matrix-cost-cell">
               <span class="matrix-cost-value">
-                {{ ctx.normMode === 'raw' ? formatAiCredits(row.aiCredits) : ctx.fmtNorm(row.aiCredits) }}
+                {{
+                  ctx.normMode === 'raw'
+                    ? formatRowCostShort(row)
+                    : ctx.fmtNorm(row.billedInAiCredits ? row.aiCredits : row.costUsd, !row.billedInAiCredits)
+                }}
               </span>
             </td>
           </tr>

@@ -43,6 +43,7 @@ pub(super) fn query_tool_analysis(
         ))
     })?;
 
+    let mut native_tools = query_native_tools(conn, &where_clause, &bind_values)?;
     let mut tools: Vec<ToolUsageEntry> = Vec::new();
     let mut total_calls: u32 = 0;
     let mut total_success: u32 = 0;
@@ -63,11 +64,12 @@ pub(super) fn query_tool_analysis(
         total_with_duration = total_with_duration.saturating_add(dur_count_u32);
 
         tools.push(ToolUsageEntry {
-            name,
             call_count: calls_u32,
             success_rate: compute_success_rate(success_u32, failure_u32),
             avg_duration_ms: safe_div(dur.max(0) as f64, dur_count_u32),
             total_duration_ms: dur.max(0) as f64,
+            native_tools: native_tools.remove(&name).unwrap_or_default(),
+            name,
         });
     }
 
@@ -108,4 +110,55 @@ pub(super) fn query_tool_analysis(
         tools,
         activity_heatmap,
     })
+}
+
+/// Native tool names per canonical tool, most used first, from sources that
+/// normalize tool names (`session_native_tool_calls`).
+fn query_native_tools(
+    conn: &Connection,
+    where_clause: &str,
+    bind_values: &[String],
+) -> Result<HashMap<String, Vec<NativeToolUsageEntry>>> {
+    let sql = format!(
+        "SELECT n.tool_name, n.native_tool_name, s.source,
+                SUM(n.call_count), SUM(n.success_count), SUM(n.failure_count),
+                SUM(n.total_duration_ms), SUM(n.calls_with_duration)
+             FROM session_native_tool_calls n
+             JOIN sessions s ON s.id = n.session_id{}
+             GROUP BY n.tool_name, n.native_tool_name, s.source
+             ORDER BY SUM(n.call_count) DESC, n.native_tool_name ASC, s.source ASC",
+        where_clause
+    );
+    let refs = to_refs(bind_values);
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            [
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, i64>(7)?,
+            ],
+        ))
+    })?;
+    let mut native: HashMap<String, Vec<NativeToolUsageEntry>> = HashMap::new();
+    for row in rows {
+        let (tool, name, source, [calls, success, failure, duration, with_duration]) = row?;
+        let Some(source) = SessionSource::from_stored(&source) else {
+            continue;
+        };
+        let count = |value: i64| u32::try_from(value.max(0)).unwrap_or(u32::MAX);
+        native.entry(tool).or_default().push(NativeToolUsageEntry {
+            name,
+            source,
+            call_count: count(calls),
+            success_rate: compute_success_rate(count(success), count(failure)),
+            avg_duration_ms: safe_div(duration.max(0) as f64, count(with_duration)),
+        });
+    }
+    Ok(native)
 }

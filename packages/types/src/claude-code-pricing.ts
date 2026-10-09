@@ -2,6 +2,7 @@ import data from "./claude-code-pricing-data.json" with { type: "json" };
 import {
   calculateTokenCost,
   type PricingRegistryEntry,
+  resolvePricingEntry,
   type TokenCostBreakdown,
   type TokenUsageForCost,
 } from "./pricing.js";
@@ -23,6 +24,15 @@ export const CLAUDE_CODE_PRICING: readonly PricingRegistryEntry[] = data.anthrop
     status: "official",
   }),
 );
+
+/**
+ * The registry id of a Claude Code model (`claude-opus-4-5-20251101` →
+ * `claude-opus-4.5`), which is also how Copilot names it. `null` for a model
+ * the registry does not know.
+ */
+export function claudeCodeModelFamily(model: string): string | null {
+  return resolvePricingEntry(model, { registry: CLAUDE_CODE_PRICING })?.model ?? null;
+}
 
 /** A recorded write needs its TTL; missing data must not borrow a 5m rate. */
 export function calculateClaudeCodeTokenCost(

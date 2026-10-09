@@ -250,6 +250,8 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
             tail_calls: tail.len(),
             snapshot_cost,
         }),
+        model_costs: super::segments::model_costs(parsed),
+        segments: super::segments::run_segments(parsed),
     })
 }
 

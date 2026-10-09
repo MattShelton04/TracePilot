@@ -1,6 +1,10 @@
 import type { AnalyticsData } from "@tracepilot/types";
 import { describe, expect, it, vi } from "vitest";
-import { buildAnalyticsAiCreditSummary, buildAnalyticsCostSeries } from "../analyticsCostSeries";
+import {
+  buildAnalyticsAiCreditSummary,
+  buildAnalyticsCostSeries,
+  buildSourceCostRows,
+} from "../analyticsCostSeries";
 
 const baseAnalytics: AnalyticsData = {
   totalSessions: 1,
@@ -160,5 +164,78 @@ describe("buildAnalyticsAiCreditSummary", () => {
     );
     expect(summary.credits).toBe(5);
     expect(summary.source).toBe("estimated-direct-api");
+  });
+});
+
+describe("cost split by source", () => {
+  const priced = vi.fn(() => 1);
+  const claudeUsage = {
+    model: "claude-opus-5-5",
+    source: "claudeCode" as const,
+    inputTokens: 1_000,
+    outputTokens: 1_000,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  };
+  const mixed: AnalyticsData = {
+    ...baseAnalytics,
+    modelDistribution: [
+      {
+        ...claudeUsage,
+        tokens: 2_000,
+        percentage: 50,
+        premiumRequests: 0,
+        requestCount: 1,
+        costUsd: 4.2,
+      },
+      {
+        model: "gpt-5.4",
+        source: "copilot",
+        tokens: 2_000,
+        percentage: 50,
+        inputTokens: 1_000,
+        outputTokens: 1_000,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        premiumRequests: 1,
+        requestCount: 1,
+      },
+    ],
+    modelUsageByDay: [
+      { date: "2026-01-01", ...claudeUsage },
+      { ...claudeUsage, date: "2026-01-02", model: "gpt-5.4", source: "copilot" },
+    ],
+    costBySource: [
+      { source: "copilot", sessions: 3, tokens: 2_000, costUsd: null, sessionsWithCostUsd: 0 },
+      { source: "claudeCode", sessions: 2, tokens: 2_000, costUsd: 4.2, sessionsWithCostUsd: 1 },
+    ],
+    costUsdByDay: [{ date: "2026-01-01", cost: 4.2 }],
+  };
+
+  it("never estimates AI Credits from a source billed in USD", () => {
+    priced.mockClear();
+    const summary = buildAnalyticsAiCreditSummary(mixed, priced, priced);
+    expect(priced).toHaveBeenCalledTimes(1);
+    expect(priced).toHaveBeenCalledWith("gpt-5.4", 1_000, 0, 1_000, 0);
+    expect(summary.estimatedCredits).toBeCloseTo(1 / 0.01);
+
+    const trend = buildAnalyticsCostSeries(mixed, "aiCredits", 0.04, priced, priced);
+    expect(trend.map((point) => point.date)).toEqual(["2026-01-02"]);
+  });
+
+  it("charts provider USD as its own series", () => {
+    expect(buildAnalyticsCostSeries(mixed, "usd", 0.04, priced)).toEqual([
+      { date: "2026-01-01", cost: 4.2 },
+    ]);
+  });
+
+  it("keeps each source in its own unit and flags a partial USD total", () => {
+    const summary = buildAnalyticsAiCreditSummary(mixed, priced, priced);
+    const rows = buildSourceCostRows(mixed, summary);
+    expect(rows).toEqual([
+      expect.objectContaining({ source: "copilot", unit: "aic", amount: summary.credits }),
+      expect.objectContaining({ source: "claudeCode", unit: "usd", amount: 4.2, partial: true }),
+    ]);
+    expect(rows[1].usdEquivalent).toBeNull();
   });
 });

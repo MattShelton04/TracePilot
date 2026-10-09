@@ -6,8 +6,11 @@ import {
   buildModelRows,
   computeRadarValues,
   computeScatterScale,
+  crossSourcePair,
   formatNorm,
+  formatRowCost,
   normalizeRows,
+  rowCostSource,
 } from "../metrics";
 import { buildRowComparator, sortArrow, sortRows } from "../sorting";
 import type { ModelDistributionEntry, ModelRow } from "../types";
@@ -28,7 +31,14 @@ function row(overrides: Partial<ModelRow> = {}): ModelRow {
     cacheHitRate: 0,
     cost: 0,
     copilotCost: 0,
+    costUsd: null,
+    costUsdPartial: false,
+    source: "copilot",
+    billedInAiCredits: true,
     ...overrides,
+    id: overrides.id ?? overrides.model ?? "m",
+    label: overrides.label ?? overrides.model ?? "m",
+    family: overrides.family ?? overrides.model ?? "m",
     aiCredits: overrides.aiCredits ?? 0,
     aiCreditSource: overrides.aiCreditSource ?? "observed",
   };
@@ -65,6 +75,98 @@ describe("bestCostIndex", () => {
 
   it("picks the cheapest row", () => {
     expect(bestCostIndex([row({ cost: 10 }), row({ cost: 4 }), row({ cost: 7 })])).toBe(1);
+  });
+});
+
+describe("models priced per source", () => {
+  const usage = { inputTokens: 1000, outputTokens: 500, cacheReadTokens: 200, premiumRequests: 0 };
+  const build = (distribution: ModelDistributionEntry[], price: number | null = 2) =>
+    buildModelRows({
+      distribution,
+      computeWholesaleCost: () => price,
+      costPerPremiumRequest: 0.04,
+      palette: PALETTE,
+    });
+
+  it("prices a Claude Code model in USD, never in AI Credits", () => {
+    const [priced, unpriced] = build([
+      { model: "claude-opus-5-5", source: "claudeCode", costUsd: 1.5, ...usage },
+      { model: "claude-next", source: "claudeCode", costUsd: null, ...usage },
+    ]);
+    expect(priced).toMatchObject({ aiCredits: null, billedInAiCredits: false, cost: 1.5 });
+    expect(formatRowCost(priced)).toBe("$1.50 est.");
+    expect(rowCostSource(priced)).toBe("USD estimate");
+    // An unpriced model says so rather than claiming an estimate.
+    expect(formatRowCost(unpriced)).toBe("—");
+    expect(rowCostSource(unpriced)).toBe("Unpriced");
+  });
+
+  it("labels an unpriced Copilot model as unpriced, not estimated", () => {
+    const [row] = build([{ model: "mystery", ...usage }], null);
+    expect(row.aiCreditSource).toBe("unavailable");
+    expect(rowCostSource(row)).toBe("Unpriced");
+  });
+
+  it("lines up a model used by two sources under one name", () => {
+    const rows = build([
+      { model: "claude-opus-4.6", source: "copilot", ...usage },
+      { model: "claude-opus-4-6", source: "claudeCode", costUsd: 1, ...usage },
+      { model: "claude-haiku-4-5-20251001", source: "claudeCode", costUsd: 1, ...usage },
+      { model: "gpt-5", ...usage },
+    ]);
+    expect(rows.map((row) => row.label)).toEqual([
+      "claude-opus-4.6 · Copilot",
+      "claude-opus-4.6 · Claude Code",
+      "claude-haiku-4.5",
+      "gpt-5",
+    ]);
+    expect(rows.map((row) => row.id)).toEqual([
+      "copilot:claude-opus-4.6",
+      "claudeCode:claude-opus-4-6",
+      "claudeCode:claude-haiku-4-5-20251001",
+      "copilot:gpt-5",
+    ]);
+    // The comparison opens on the same model across sources.
+    expect(crossSourcePair(rows)).toEqual([
+      "copilot:claude-opus-4.6",
+      "claudeCode:claude-opus-4-6",
+    ]);
+    expect(crossSourcePair(rows.slice(2))).toBeNull();
+  });
+
+  it("keeps two ids of one family in one source apart", () => {
+    const rows = build([
+      { model: "claude-opus-4-6", source: "claudeCode", ...usage },
+      { model: "claude-opus-4-6-20260101", source: "claudeCode", ...usage },
+    ]);
+    expect(rows.map((row) => row.label)).toEqual(["claude-opus-4-6", "claude-opus-4-6-20260101"]);
+  });
+
+  it("compares cost across sources without a delta", () => {
+    const [copilot, claude, claudeToo] = build([
+      { model: "claude-opus-4.6", source: "copilot", ...usage },
+      { model: "claude-opus-5-5", source: "claudeCode", costUsd: 1, ...usage },
+      { model: "claude-haiku-4-5", source: "claudeCode", costUsd: 2, ...usage },
+    ]);
+    const fmt = (value: number | null, isCost = false) => formatNorm(value, isCost, "raw");
+    const crossSource = buildCompareMetrics(copilot, claude, fmt);
+    // Premium-request cost is Copilot's alone: no $0 that reads as cheaper.
+    expect(crossSource.find((m) => m.label === "Legacy Premium Cost")).toMatchObject({
+      valueB: "—",
+      delta: "—",
+      better: "neutral",
+    });
+    expect(crossSource.find((m) => m.label === "Cost")).toMatchObject({
+      valueB: "$1.00 est.",
+      delta: "Different units",
+      better: "neutral",
+    });
+    const sameSource = buildCompareMetrics(claude, claudeToo, fmt);
+    expect(sameSource.find((m) => m.label === "Estimated Cost")).toMatchObject({
+      valueA: "$1.00",
+      valueB: "$2.00",
+      better: "a",
+    });
   });
 });
 
@@ -250,6 +352,20 @@ describe("computeRadarValues", () => {
       expect(v).toBeLessThanOrEqual(1);
     });
   });
+
+  it("never scores a model priced in USD as free on the credit axes", () => {
+    const copilot = row({ model: "a", tokens: 1000, aiCredits: 5 });
+    const claude = row({
+      model: "b",
+      tokens: 1000,
+      aiCredits: null,
+      billedInAiCredits: false,
+      costUsd: 2,
+    });
+    const [, , creditShare, creditEfficiency] = computeRadarValues(claude, [copilot, claude]);
+    expect(creditShare).toBe(0);
+    expect(creditEfficiency).toBe(0);
+  });
 });
 
 describe("computeScatterScale", () => {
@@ -317,6 +433,30 @@ describe("sortRows / buildRowComparator", () => {
   it("pushes null costs to the end regardless of direction", () => {
     expect(sortRows(rows, "cost", "asc").map((r) => r.model)).toEqual(["gamma", "alpha", "beta"]);
     expect(sortRows(rows, "cost", "desc").map((r) => r.model)).toEqual(["alpha", "gamma", "beta"]);
+  });
+
+  it("sorts the cost column within each unit, AI Credits first", () => {
+    const mixed: ModelRow[] = [
+      row({ model: "usd-cheap", aiCredits: null, billedInAiCredits: false, costUsd: 1 }),
+      row({ model: "aic-big", aiCredits: 9 }),
+      row({ model: "usd-unpriced", aiCredits: null, billedInAiCredits: false, costUsd: null }),
+      row({ model: "usd-dear", aiCredits: null, billedInAiCredits: false, costUsd: 30 }),
+      row({ model: "aic-small", aiCredits: 2 }),
+    ];
+    expect(sortRows(mixed, "aiCredits", "desc").map((r) => r.model)).toEqual([
+      "aic-big",
+      "aic-small",
+      "usd-dear",
+      "usd-cheap",
+      "usd-unpriced",
+    ]);
+    expect(sortRows(mixed, "aiCredits", "asc").map((r) => r.model)).toEqual([
+      "aic-small",
+      "aic-big",
+      "usd-cheap",
+      "usd-dear",
+      "usd-unpriced",
+    ]);
   });
 
   it("does not mutate input", () => {

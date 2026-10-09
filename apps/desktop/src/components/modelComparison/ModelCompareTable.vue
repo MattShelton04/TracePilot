@@ -39,14 +39,14 @@ const ctx = useModelComparisonContext();
       <template v-else>
         <div class="compare-selectors">
           <select v-model="ctx.compareA" class="filter-select" aria-label="Select first model">
-            <option v-for="row in ctx.modelRows" :key="row.model" :value="row.model">
-              {{ row.model }}
+            <option v-for="row in ctx.modelRows" :key="row.id" :value="row.id">
+              {{ row.label }}
             </option>
           </select>
           <span class="compare-vs">vs</span>
           <select v-model="ctx.compareB" class="filter-select" aria-label="Select second model">
-            <option v-for="row in ctx.modelRows" :key="row.model" :value="row.model">
-              {{ row.model }}
+            <option v-for="row in ctx.modelRows" :key="row.id" :value="row.id">
+              {{ row.label }}
             </option>
           </select>
         </div>
@@ -63,14 +63,14 @@ const ctx = useModelComparisonContext();
               <th>
                 <span class="model-name-cell">
                   <span class="model-dot" :style="{ '--model-color': ctx.compareRowA?.color }" />
-                  {{ ctx.compareA }}
+                  {{ ctx.compareRowA?.label ?? ctx.compareA }}
                 </span>
               </th>
               <th>Delta</th>
               <th>
                 <span class="model-name-cell">
                   <span class="model-dot" :style="{ '--model-color': ctx.compareRowB?.color }" />
-                  {{ ctx.compareB }}
+                  {{ ctx.compareRowB?.label ?? ctx.compareB }}
                 </span>
               </th>
             </tr>

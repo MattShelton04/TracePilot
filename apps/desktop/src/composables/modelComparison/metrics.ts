@@ -9,12 +9,17 @@
 import {
   AI_CREDIT_USD,
   calculateObservedAiCredits,
+  claudeCodeModelFamily,
   formatAiCredits,
   formatNumber as formatCompactNumber,
   formatCost,
   formatNumber,
   formatPercent,
+  resolveSessionSource,
+  type SessionSource,
+  sourceLabel,
 } from "@tracepilot/types";
+import { billedInAiCredits } from "@/utils/analyticsCostSeries";
 import { formatModelDelta } from "@/utils/deltaFormatting";
 import type {
   CompareMetric,
@@ -75,7 +80,24 @@ export function buildModelRows({
   palette,
 }: BuildModelRowsOptions): ModelRow[] {
   const grandTotal = distribution.reduce((sum, m) => sum + m.inputTokens + m.outputTokens, 0);
+  const families = distribution.map((m) => modelFamily(m.model, resolveSessionSource(m.source)));
+  const count = (family: string, sameSource?: string) =>
+    distribution.filter(
+      (m, j) =>
+        families[j] === family &&
+        (sameSource == null || resolveSessionSource(m.source) === sameSource),
+    ).length;
   return distribution.map((m, i) => {
+    const source = resolveSessionSource(m.source);
+    // Claude Code ids name the same models as Copilot's (`claude-opus-4-5-…`
+    // is `claude-opus-4.5`), so both sources line up. Two ids of one family in
+    // one source keep their own ids; a family in two sources names its source.
+    const base = count(families[i], source) > 1 ? m.model : families[i];
+    const label =
+      count(families[i]) > count(families[i], source) ? `${base} · ${sourceLabel(source)}` : base;
+    // A source priced in USD is never estimated in AI Credits.
+    const billed = billedInAiCredits(m);
+    const costUsd = m.costUsd ?? null;
     const tokens = m.inputTokens + m.outputTokens;
     const percentage = grandTotal > 0 ? (tokens / grandTotal) * 100 : 0;
     const cacheHitRate = m.inputTokens > 0 ? (m.cacheReadTokens / m.inputTokens) * 100 : 0;
@@ -113,7 +135,7 @@ export function buildModelRows({
         ? (m.cacheWriteTokens ?? 0)
         : 0;
     const hasEstimateTokens =
-      estimateInput + estimateOutput + estimateCacheRead + estimateCacheWrite > 0;
+      billed && estimateInput + estimateOutput + estimateCacheRead + estimateCacheWrite > 0;
     const usageEstimate = hasEstimateTokens
       ? computeUsageBasedCost(
           m.model,
@@ -133,7 +155,7 @@ export function buildModelRows({
             estimateCacheWrite,
           )
         : null;
-    const observedCredits = calculateObservedAiCredits(m.totalNanoAiu);
+    const observedCredits = billed ? calculateObservedAiCredits(m.totalNanoAiu) : null;
     const estimatedCredits = (usageEstimate ?? directEstimate ?? 0) / AI_CREDIT_USD;
     const aiCredits =
       observedCredits != null || usageEstimate != null || directEstimate != null
@@ -150,7 +172,12 @@ export function buildModelRows({
               ? ("estimated-direct-api" as const)
               : ("unavailable" as const);
     return {
+      id: `${source}:${m.model}`,
+      label,
+      family: families[i],
       model: m.model,
+      source,
+      billedInAiCredits: billed,
       color: palette[i % palette.length],
       tokens,
       inputTokens: m.inputTokens,
@@ -162,10 +189,65 @@ export function buildModelRows({
       cacheHitRate,
       aiCredits,
       aiCreditSource,
-      cost,
+      // A USD-priced source has a provider estimate that includes cache
+      // tiers a token-rate estimate cannot see.
+      cost: billed ? cost : costUsd,
       copilotCost,
+      costUsd,
+      costUsdPartial: m.costUsdPartial ?? false,
     };
   });
+}
+
+/** The model a row's id names: the registry family for Claude Code ids. */
+export function modelFamily(model: string, source: SessionSource): string {
+  return source === "claudeCode" ? (claudeCodeModelFamily(model) ?? model) : model;
+}
+
+/**
+ * The first model used by two sources, as a [Copilot, other] pair of row
+ * ids, so the comparison opens on the same model across sources.
+ */
+export function crossSourcePair(rows: readonly ModelRow[]): [string, string] | null {
+  for (const row of rows) {
+    if (row.source !== "copilot") continue;
+    const other = rows.find((r) => r.family === row.family && r.source !== row.source);
+    if (other) return [row.id, other.id];
+  }
+  return null;
+}
+
+/** The cost a row is priced in, in that row's own unit. */
+export function formatRowCost(row: ModelRow): string {
+  if (row.billedInAiCredits) return formatAiCredits(row.aiCredits);
+  return row.costUsd == null ? "—" : `${formatCost(row.costUsd)} est.`;
+}
+
+/** A row's cost for the narrow matrix column: the header says it is an estimate. */
+export function formatRowCostShort(row: ModelRow): string {
+  if (row.billedInAiCredits) return formatAiCredits(row.aiCredits);
+  return row.costUsd == null ? "—" : formatCost(row.costUsd);
+}
+
+/**
+ * Where a row's cost comes from. An unpriced row says so instead of
+ * claiming an estimate.
+ */
+export function rowCostSource(row: ModelRow): string {
+  if (!row.billedInAiCredits) {
+    if (row.costUsd == null) return "Unpriced";
+    return row.costUsdPartial ? "Partial USD" : "USD estimate";
+  }
+  switch (row.aiCreditSource) {
+    case "observed":
+      return "Observed";
+    case "mixed-observed-estimated":
+      return "Mixed";
+    case "unavailable":
+      return "Unpriced";
+    default:
+      return "Estimated";
+  }
 }
 
 /**
@@ -195,6 +277,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
         aiCredits: r.aiCredits != null ? r.aiCredits / divisor : null,
         cost: r.cost != null ? r.cost / divisor : null,
         copilotCost: r.copilotCost / divisor,
+        costUsd: r.costUsd != null ? r.costUsd / divisor : null,
       };
     });
   }
@@ -209,6 +292,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
       aiCredits: acc.aiCredits + (r.aiCredits ?? 0),
       cost: acc.cost + (r.cost ?? 0),
       copilotCost: acc.copilotCost + r.copilotCost,
+      costUsd: acc.costUsd + (r.costUsd ?? 0),
     }),
     {
       tokens: 0,
@@ -219,6 +303,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
       aiCredits: 0,
       cost: 0,
       copilotCost: 0,
+      costUsd: 0,
     },
   );
 
@@ -234,6 +319,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
     aiCredits: sums.aiCredits > 0 ? ((r.aiCredits ?? 0) / sums.aiCredits) * 100 : 0,
     cost: sums.cost > 0 ? ((r.cost ?? 0) / sums.cost) * 100 : 0,
     copilotCost: sums.copilotCost > 0 ? (r.copilotCost / sums.copilotCost) * 100 : 0,
+    costUsd: r.costUsd != null && sums.costUsd > 0 ? (r.costUsd / sums.costUsd) * 100 : null,
   }));
 }
 
@@ -258,7 +344,9 @@ export function formatNorm(value: number | null, isCost: boolean, mode: NormMode
 /**
  * Compute the five radar-chart axis values (each in `[0, 1]`) for a row:
  * token volume, cache efficiency, premium-request share, cost efficiency
- * and token share. Cost efficiency is inverted so higher = cheaper.
+ * and token share. Cost efficiency is inverted so higher = cheaper. A row
+ * not billed in AI Credits scores 0 on both credit axes rather than looking
+ * free.
  */
 export function computeRadarValues(row: ModelRow, rows: readonly ModelRow[]): number[] {
   const maxTokens = Math.max(...rows.map((m) => m.tokens), 1);
@@ -271,7 +359,7 @@ export function computeRadarValues(row: ModelRow, rows: readonly ModelRow[]): nu
     ...rows.map((m) => (m.aiCredits ?? 0) / Math.max(m.tokens, 1)),
     0.0001,
   );
-  const costEff = 1 - Math.min(costPerToken / maxCostPerToken, 1);
+  const costEff = row.billedInAiCredits ? 1 - Math.min(costPerToken / maxCostPerToken, 1) : 0;
   const share = row.percentage / 100;
   return [tokenVol, cacheEff, aiCreditShare, costEff, share];
 }
@@ -328,23 +416,70 @@ export function buildCompareMetrics(
       valueB: formatPercent(b.percentage),
       ...formatModelDelta(a.percentage, b.percentage, true),
     },
-    {
-      label: "AI Credits",
-      valueA: formatAiCredits(a.aiCredits),
-      valueB: formatAiCredits(b.aiCredits),
-      ...formatModelDelta(a.aiCredits ?? 0, b.aiCredits ?? 0, false),
-    },
+    costMetric(a, b, fmtNorm),
     {
       label: "Cache Hit Rate",
       valueA: formatPercent(a.cacheHitRate),
       valueB: formatPercent(b.cacheHitRate),
       ...formatModelDelta(a.cacheHitRate, b.cacheHitRate, true),
     },
-    {
-      label: "Legacy Premium Cost",
-      valueA: fmtNorm(a.copilotCost, true),
-      valueB: fmtNorm(b.copilotCost, true),
-      ...formatModelDelta(a.copilotCost, b.copilotCost, false),
-    },
+    premiumMetric(a, b, fmtNorm),
   ];
+}
+
+/**
+ * Copilot's legacy premium-request cost. It does not apply to a row billed
+ * in another unit, which shows "—" rather than a $0 that looks cheaper.
+ */
+function premiumMetric(
+  a: ModelRow,
+  b: ModelRow,
+  fmtNorm: (value: number | null, isCost?: boolean) => string,
+): CompareMetric {
+  const value = (row: ModelRow) => (row.billedInAiCredits ? fmtNorm(row.copilotCost, true) : "—");
+  return {
+    label: "Legacy Premium Cost",
+    valueA: value(a),
+    valueB: value(b),
+    ...(a.billedInAiCredits && b.billedInAiCredits
+      ? formatModelDelta(a.copilotCost, b.copilotCost, false)
+      : { delta: "—", direction: "neutral" as const, better: "neutral" as const }),
+  };
+}
+
+/**
+ * Cost in each row's own unit. AI Credits and USD are different bills, so a
+ * cross-source pair shows both values without a delta.
+ */
+function costMetric(
+  a: ModelRow,
+  b: ModelRow,
+  fmtNorm: (value: number | null, isCost?: boolean) => string,
+): CompareMetric {
+  if (a.billedInAiCredits && b.billedInAiCredits) {
+    return {
+      label: "AI Credits",
+      valueA: formatAiCredits(a.aiCredits),
+      valueB: formatAiCredits(b.aiCredits),
+      ...formatModelDelta(a.aiCredits ?? 0, b.aiCredits ?? 0, false),
+    };
+  }
+  if (!a.billedInAiCredits && !b.billedInAiCredits) {
+    return {
+      label: "Estimated Cost",
+      valueA: fmtNorm(a.costUsd, true),
+      valueB: fmtNorm(b.costUsd, true),
+      ...(a.costUsd == null || b.costUsd == null
+        ? { delta: "—", direction: "neutral" as const, better: "neutral" as const }
+        : formatModelDelta(a.costUsd, b.costUsd, false)),
+    };
+  }
+  return {
+    label: "Cost",
+    valueA: formatRowCost(a),
+    valueB: formatRowCost(b),
+    delta: "Different units",
+    direction: "neutral",
+    better: "neutral",
+  };
 }

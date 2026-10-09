@@ -133,6 +133,31 @@ midnight. The legacy daily cost series counts premium requests; the headline
 totals without producing daily chart points. Differential fixtures in the
 indexer's `analytics_parity` tests cover these semantics against the disk fallback.
 
+### Claude Code runs and USD cost
+
+Claude Code writes a cumulative `cost-state` snapshot at each exit, so a
+resumed session holds one snapshot per run. Each run becomes its own segment:
+its usage, requests, API time and USD cost are its snapshot minus the previous
+one, and it is dated by the main-file records between them. Calls after the
+last snapshot form a final, partial segment priced by TracePilot. A run with no
+timestamped record folds into the next run (or the previous one when it is
+last). A call whose model a snapshot leaves out still counts as a request in
+its run. While the snapshot counters only grow, the segments add up to the
+session totals, so a session resumed on later days shows its usage on each of
+those days. A Claude session with no recorded usage costs $0 rather than
+counting as unpriced.
+
+[Migration 24](../../crates/tracepilot-indexer/src/index_db/migrations/plan.rs)
+adds a nullable `cost_usd` to `sessions`, `session_segments` and
+`session_model_metrics`. It holds the estimate in US dollars: Claude Code's own
+figure for snapshot runs, TracePilot's for calls after the last snapshot, and
+`NULL` when any part is unpriced. Copilot rows leave it `NULL`; their cost stays
+in AI Credits. Analytics never adds the two units: `costBySource` reports each
+source's sessions, tokens and cost in its own unit, `costUsdByDay` charts the
+USD estimates alone, and model rows are grouped by model and source so AI Credit
+estimates apply only to Copilot rows. Claude Code analytics version 23 rebuilds
+indexed Claude sessions with these rows; Copilot's version is unchanged.
+
 ### Successful source snapshots
 
 [Migration 21](../../crates/tracepilot-indexer/src/index_db/migrations/plan.rs)

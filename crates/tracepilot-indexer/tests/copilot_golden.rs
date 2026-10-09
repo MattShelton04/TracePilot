@@ -22,9 +22,10 @@
 //!   sorted, because some are serialized from a `HashMap`.
 //!
 //! Schema added after the snapshot was captured (migration 22's session
-//! source columns and its `schema_version` row) is left out of the dump and
-//! asserted directly instead, so the snapshot still proves every pre-existing
-//! value is unchanged.
+//! source columns, migration 24's USD cost columns, and their
+//! `schema_version` rows) is left out of the dump and asserted directly
+//! instead, so the snapshot still proves every pre-existing value is
+//! unchanged.
 //!
 //! Regenerate after an intentional change with `TRACEPILOT_UPDATE_GOLDEN=1`.
 
@@ -60,6 +61,15 @@ fn post_golden_session_columns() -> [(&'static str, Value); 5] {
         ("source_format_version", Value::Null),
     ]
 }
+
+/// Columns added after [`GOLDEN_SCHEMA_VERSION`] to other tables, with the
+/// value every Copilot row must hold: Copilot is billed in AI Credits, so it
+/// has no USD figure.
+const POST_GOLDEN_COLUMNS: &[(&str, &str)] = &[
+    ("sessions", "cost_usd"),
+    ("session_segments", "cost_usd"),
+    ("session_model_metrics", "cost_usd"),
+];
 
 /// Tables added after [`GOLDEN_SCHEMA_VERSION`] that only other sources fill.
 /// Copilot must leave them empty, so they stay out of the snapshot.
@@ -161,6 +171,10 @@ fn dump_tables(db_path: &Path, root: &Path) -> Value {
                         assert_eq!(&value, expected, "sessions.{column}");
                         continue;
                     }
+                    if POST_GOLDEN_COLUMNS.contains(&(table.as_str(), column.as_str())) {
+                        assert_eq!(value, Value::Null, "{table}.{column}");
+                        continue;
+                    }
                     object.insert(column.clone(), value);
                 }
                 Ok(Value::Object(object))
@@ -173,9 +187,14 @@ fn dump_tables(db_path: &Path, root: &Path) -> Value {
                 assert!(columns.iter().any(|c| c == name), "missing sessions.{name}");
             }
         }
+        for (owner, name) in POST_GOLDEN_COLUMNS {
+            if *owner == table {
+                assert!(columns.iter().any(|c| c == name), "missing {table}.{name}");
+            }
+        }
         if table == "schema_version" {
             let newest = rows.iter().filter_map(|r| r["version"].as_i64()).max();
-            assert_eq!(newest, Some(23));
+            assert_eq!(newest, Some(24));
             rows.retain(|r| r["version"].as_i64() <= Some(GOLDEN_SCHEMA_VERSION));
         }
         rows.sort_by_key(|row| row.to_string());

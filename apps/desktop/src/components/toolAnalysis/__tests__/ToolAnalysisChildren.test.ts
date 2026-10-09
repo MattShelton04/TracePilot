@@ -95,6 +95,62 @@ describe("ToolUsageList", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0].text()).toContain("powershell");
     expect(rows[0].text()).toContain("10");
+    // Copilot tools are canonical, so they have no drill-down.
+    expect(wrapper.find("button[aria-expanded]").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("drills down from a canonical tool to its native tools", async () => {
+    const shell: ToolUsageEntry = {
+      name: "shell",
+      callCount: 5,
+      successRate: 0.8,
+      avgDurationMs: 100,
+      totalDurationMs: 500,
+      nativeTools: [
+        { name: "Bash", source: "claudeCode", callCount: 4, successRate: 0.75, avgDurationMs: 90 },
+        {
+          name: "PowerShell",
+          source: "claudeCode",
+          callCount: 1,
+          successRate: 1,
+          avgDurationMs: 140,
+        },
+      ],
+    };
+    const wrapper = mount(ToolUsageList, { props: { tools: [shell] } });
+    expect(wrapper.text()).toContain("Bash, PowerShell");
+    expect(wrapper.findAll("tbody tr")).toHaveLength(1);
+    const toggle = wrapper.get("button[aria-expanded]");
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+    await toggle.trigger("click");
+    expect(toggle.attributes("aria-expanded")).toBe("true");
+    const native = wrapper.findAll(".tool-usage-list__native-row");
+    expect(native).toHaveLength(2);
+    expect(native[0].text()).toContain("Bash");
+    expect(native[0].text()).toContain("75");
+    await toggle.trigger("click");
+    expect(wrapper.findAll(".tool-usage-list__native-row")).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it("counts calls with no native name in the drill-down", async () => {
+    const shell: ToolUsageEntry = {
+      name: "shell",
+      callCount: 7,
+      successRate: 0.8,
+      avgDurationMs: 100,
+      totalDurationMs: 700,
+      nativeTools: [
+        { name: "Bash", source: "claudeCode", callCount: 4, successRate: 0.75, avgDurationMs: 90 },
+      ],
+    };
+    const wrapper = mount(ToolUsageList, { props: { tools: [shell] } });
+    await wrapper.get("button[aria-expanded]").trigger("click");
+    const rows = wrapper.findAll(".tool-usage-list__native-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[1].text()).toContain("No native name");
+    expect(rows[1].text()).toContain("3");
     wrapper.unmount();
   });
 });

@@ -7,6 +7,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::conversation::ConversationTurn;
 use crate::models::session_summary::SessionSummary;
+use crate::provider::SessionSource;
+
+/// Rows written before sources existed are Copilot's.
+fn copilot() -> SessionSource {
+    SessionSource::Copilot
+}
 
 // ── Input type ────────────────────────────────────────────────────────
 
@@ -54,6 +60,28 @@ pub struct AnalyticsData {
     /// checkpoint-predicted expiries contribute.
     #[serde(default)]
     pub prompt_cache: PromptCacheAnalytics,
+    /// Totals per source, in `SessionSource::ALL` order. Each cost stays in
+    /// its source's unit; costs are never summed across sources.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cost_by_source: Vec<SourceCostEntry>,
+    /// Provider-priced USD per day, from per-run segments. Days without a
+    /// USD figure are absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cost_usd_by_day: Vec<DayCost>,
+}
+
+/// Sessions, tokens and USD cost of one source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceCostEntry {
+    pub source: SessionSource,
+    pub sessions: u32,
+    pub tokens: u64,
+    /// Provider-priced USD; `None` when no session has a USD figure, which is
+    /// always the case for a source billed in AI Credits.
+    pub cost_usd: Option<f64>,
+    /// Sessions with a USD figure. Fewer than `sessions` is a partial total.
+    pub sessions_with_cost_usd: u32,
 }
 
 /// Token usage for a single day.
@@ -77,6 +105,10 @@ pub struct DayActivity {
 #[serde(rename_all = "camelCase")]
 pub struct ModelDistEntry {
     pub model: String,
+    /// The source that used the model. Rows never merge across sources, so
+    /// AI Credits and USD are never priced from the same row.
+    #[serde(default = "copilot")]
+    pub source: SessionSource,
     pub tokens: u64,
     pub percentage: f64,
     pub input_tokens: u64,
@@ -99,6 +131,12 @@ pub struct ModelDistEntry {
     pub unobserved_output_tokens: u64,
     pub unobserved_cache_read_tokens: u64,
     pub unobserved_cache_write_tokens: u64,
+    /// Provider-priced USD; `None` when no usage of the model is priced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_usd: Option<f64>,
+    /// Some, but not all, of the model's usage is priced in USD.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cost_usd_partial: bool,
 }
 
 /// Cost for a single day.
@@ -115,6 +153,8 @@ pub struct DayCost {
 pub struct DayModelUsage {
     pub date: String,
     pub model: String,
+    #[serde(default = "copilot")]
+    pub source: SessionSource,
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub cache_read_tokens: u64,
@@ -256,6 +296,21 @@ pub struct ToolUsageEntry {
     pub success_rate: f64,
     pub avg_duration_ms: f64,
     pub total_duration_ms: f64,
+    /// The source-native tools normalized to this canonical tool, most used
+    /// first. Empty for sources whose tool names are already canonical.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub native_tools: Vec<NativeToolUsageEntry>,
+}
+
+/// Calls of one source-native tool behind a canonical tool.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeToolUsageEntry {
+    pub name: String,
+    pub source: SessionSource,
+    pub call_count: u32,
+    pub success_rate: f64,
+    pub avg_duration_ms: f64,
 }
 
 /// Activity heatmap entry (hour × day-of-week).
