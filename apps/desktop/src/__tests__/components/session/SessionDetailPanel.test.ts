@@ -325,6 +325,20 @@ describe("SessionDetailPanel", () => {
     wrapper.unmount();
   });
 
+  it("resumes a Copilot session through the configured CLI command", async () => {
+    const prefs = usePreferencesStore();
+    await flushPromises(); // let config hydration finish before overriding it
+    prefs.cliCommand = "gh copilot";
+    const wrapper = mountForSource("copilot");
+    await flushPromises();
+
+    await wrapper.get('[title="Copy: gh copilot --resume session-1"]').trigger("click");
+    expect(mocks.copy).toHaveBeenCalledWith("gh copilot --resume session-1");
+    await wrapper.get('[title="Resume session session-1 in a new terminal"]').trigger("click");
+    expect(mocks.resumeSessionInTerminal).toHaveBeenCalledWith("session-1", "gh copilot");
+    wrapper.unmount();
+  });
+
   it("hides Copilot-only tabs and actions for a Claude Code session", async () => {
     const wrapper = mountForSource("claudeCode");
     await flushPromises();

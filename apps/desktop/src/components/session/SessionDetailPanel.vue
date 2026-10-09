@@ -9,7 +9,13 @@
  * The inner content area is provided via the default slot.
  */
 import { getSessionLiveness, openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
-import { isNonCopilotSource, type RunStatus, runStatusBadge, sourceLabel } from "@tracepilot/types";
+import {
+  resumeCommand as buildResumeCommand,
+  isNonCopilotSource,
+  type RunStatus,
+  runStatusBadge,
+  sourceLabel,
+} from "@tracepilot/types";
 import {
   Badge,
   ErrorAlert,
@@ -211,12 +217,13 @@ useRunningSessionPoll({
 
 defineExpose({ isSessionActive, refresh });
 
-const resumeCommand = computed(
-  () =>
-    `${source.value === "claudeCode" ? "claude" : prefs.cliCommand} --resume ${resolvedSessionId.value}`,
+/** The command the user copies to resume in their own terminal, if the source has one. */
+const resumeCommand = computed(() =>
+  buildResumeCommand(source.value, resolvedSessionId.value, prefs.cliCommand),
 );
 
 async function copyResumeCommand() {
+  if (!resumeCommand.value) return;
   if (isSessionActive.value && !confirmingCopy.value) {
     confirmingCopy.value = true;
     return;
@@ -341,7 +348,7 @@ watch(isSessionActive, (active) => {
 
       <div class="detail-actions">
         <div class="detail-actions-left">
-          <template v-if="capabilities.canResume || source === 'claudeCode'">
+          <template v-if="resumeCommand">
             <template v-if="confirmingCopy">
               <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
               <button class="resume-btn resume-btn--confirm" @click="copyResumeCommand">
