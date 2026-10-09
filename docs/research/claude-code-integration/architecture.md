@@ -195,8 +195,14 @@ The reshape has to happen in Rust:
   - Commands that need a capability refuse with the typed `UNSUPPORTED` error: resume and
     context capture (`canResume`), SDK steering (`canSteer`) and the file browser
     (`hasExplorer`, rooted at the provider's first file root, which must lie under its root).
-    Export still reads Copilot's layout and refuses other sources until C14. Import refuses
-    to keep an id the index holds for another source.
+    Import refuses to keep an id the index holds for another source.
+  - Implemented (C14): export reads Copilot sessions from their directory, unchanged
+    (`tracepilot-export/tests/copilot_export_golden.rs` holds the bytes), and every other
+    source from its `ProviderSnapshot` and `artifacts()` through `ExportInput::Provider`, with
+    no `workspace.yaml`. `PortableSessionMetadata.source` names the source and is omitted for
+    Copilot, so older archives read as Copilot. Event records pass through
+    `provider::redact_native_record` (the rules are in `provider/claude_code/privacy.rs`).
+    The archive validator refuses non-Copilot sessions, so import stays Copilot-only.
 - **Pruning is per source**, so one source can never delete another's rows.
   - A source is pruned only after a **complete inventory** of its configured root. If
     discovery was cancelled, hit an I/O error, or found the root missing or unreadable, that

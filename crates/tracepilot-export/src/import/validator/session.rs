@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::document::PortableSession;
+use crate::document::{PortableSession, SessionSource};
 
 use super::issue::ValidationIssue;
 use super::safety::{contains_path_traversal, looks_like_uuid, validate_filename_with_prefix};
@@ -34,6 +34,16 @@ pub(super) fn check_session(
         issues.push(ValidationIssue::error(&format!(
             "{}: ID contains path traversal: {:?}",
             prefix, id
+        )));
+    }
+
+    // Import writes Copilot session directories, so another source's session
+    // would be rewritten as a Copilot one.
+    if session.metadata.source != SessionSource::Copilot {
+        issues.push(ValidationIssue::error(&format!(
+            "{}: sessions from {} cannot be imported; import supports Copilot sessions only",
+            prefix,
+            source_name(session.metadata.source)
         )));
     }
 
@@ -98,5 +108,12 @@ pub(super) fn check_session(
             "{}: no conversation or events data",
             prefix
         )));
+    }
+}
+
+fn source_name(source: SessionSource) -> &'static str {
+    match source {
+        SessionSource::Copilot => "Copilot",
+        SessionSource::ClaudeCode => "Claude Code",
     }
 }

@@ -15,6 +15,8 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 - **Claude Code sessions (experimental)** — Turn on **Claude Code Sessions** in Settings → Experimental to index and view Claude Code sessions alongside Copilot CLI sessions, with a source badge and filter. The folder defaults to `CLAUDE_CONFIG_DIR`, else `~/.claude`, and can be changed in Data & Storage. Turning it off removes those sessions from the index and leaves your Claude Code files untouched. Their turns show token usage, refused tool uses and interrupts are listed as incidents, and they count in Analytics, including prompt-cache timing estimated from each call's recorded cache tier. Their Context tab charts each turn's recorded input total, and the session header shows an estimated prompt-cache countdown (or "unknown" when no cache tier was recorded). Once both sources have sessions, a source filter on each Analytics page shows all sessions, Copilot only or Claude Code only.
 
+- **Claude Code export** — Claude Code sessions can be exported to JSON and Markdown, alone or together with Copilot sessions. Exports name the session's source and always leave out the account email, organization and account ids, the system prompt, CLAUDE.md and AGENTS.md text, plan limits and remote-control links. Importing a Claude Code session is refused, because import writes Copilot sessions.
+
 ### Changed
 
 - **Session source switch** — The Sessions toolbar and Analytics pages switch between All, Copilot and Claude with a logo switch instead of a dropdown.

@@ -1,0 +1,421 @@
+{
+  "header": {
+    "schemaVersion": {
+      "major": 1,
+      "minor": 0
+    },
+    "exportedAt": "<time>",
+    "exportedBy": "TracePilot v<version>",
+    "sourceSystem": {
+      "os": "<os>"
+    },
+    "contentHash": "<hash>",
+    "minimumReaderVersion": {
+      "major": 1,
+      "minor": 0
+    }
+  },
+  "sessions": [
+    {
+      "metadata": {
+        "id": "00000000-0000-4000-8000-000000000005",
+        "summary": "Golden v1-0-24",
+        "repository": "golden/v1-0-24",
+        "branch": "main",
+        "cwd": "/golden/v1-0-24",
+        "createdAt": "2026-03-10T07:14:50Z",
+        "updatedAt": "2026-03-10T07:15:00Z",
+        "eventCount": 13,
+        "turnCount": 1
+      },
+      "availableSections": [
+        "conversation",
+        "events",
+        "metrics",
+        "parseDiagnostics"
+      ],
+      "conversation": [
+        {
+          "turnIndex": 0,
+          "eventIndex": 1,
+          "turnId": "turn-1",
+          "interactionId": "int-1",
+          "userMessage": "Analyze performance",
+          "assistantMessages": [
+            {
+              "content": "Analysis complete.",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 7
+            }
+          ],
+          "model": null,
+          "timestamp": "2026-01-01T00:00:02Z",
+          "endTimestamp": "2026-01-01T00:00:12Z",
+          "toolCalls": [
+            {
+              "toolCallId": "tc-1",
+              "parentToolCallId": null,
+              "toolName": "run_command",
+              "eventIndex": 3,
+              "arguments": {
+                "command": "cargo bench"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-01-01T00:00:04Z",
+              "completedAt": "2026-01-01T00:00:07Z",
+              "durationMs": 3000,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": null,
+              "intentionSummary": null,
+              "resultContent": null
+            },
+            {
+              "toolCallId": "tc-sub-1",
+              "parentToolCallId": null,
+              "toolName": "explore",
+              "eventIndex": 4,
+              "arguments": null,
+              "success": true,
+              "error": null,
+              "startedAt": "2026-01-01T00:00:05Z",
+              "completedAt": "2026-01-01T00:00:06Z",
+              "durationMs": 8000,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": true,
+              "agentStatus": "completed",
+              "agentDisplayName": "Explore Agent",
+              "agentDescription": "Explores codebase",
+              "model": "claude-opus-4.6",
+              "totalTokens": 75000,
+              "totalToolCalls": 15,
+              "intentionSummary": null,
+              "resultContent": null
+            },
+            {
+              "toolCallId": "tc-sub-2",
+              "parentToolCallId": null,
+              "toolName": "code-review",
+              "eventIndex": 9,
+              "arguments": null,
+              "success": false,
+              "error": "Timeout exceeded",
+              "startedAt": "2026-01-01T00:00:10Z",
+              "completedAt": "2026-01-01T00:00:11Z",
+              "durationMs": 30000,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": true,
+              "agentStatus": "failed",
+              "agentDisplayName": "Code Review",
+              "agentDescription": "Reviews code changes",
+              "model": "gpt-5.4",
+              "totalTokens": 12000,
+              "totalToolCalls": 3,
+              "intentionSummary": null,
+              "resultContent": null
+            }
+          ],
+          "durationMs": 10000,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": [
+            {
+              "eventType": "session.start",
+              "timestamp": "2026-01-01T00:00:01Z",
+              "severity": "info",
+              "summary": "Session started"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "type": "session.start",
+          "data": {
+            "context": {
+              "cwd": "/test",
+              "gitRoot": "/test"
+            },
+            "copilotVersion": "1.0.24",
+            "producer": "copilot-agent",
+            "remoteSteerable": true,
+            "sessionId": "test-v1_0_24",
+            "startTime": "2026-01-01T00:00:00.000Z",
+            "version": 1
+          },
+          "id": "evt-1",
+          "timestamp": "2026-01-01T00:00:01Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "Analyze performance",
+            "interactionId": "int-1"
+          },
+          "id": "evt-2",
+          "timestamp": "2026-01-01T00:00:02Z",
+          "parentId": "evt-1",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "int-1",
+            "turnId": "turn-1"
+          },
+          "id": "evt-3",
+          "timestamp": "2026-01-01T00:00:03Z",
+          "parentId": "evt-2",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "command": "cargo bench"
+            },
+            "toolCallId": "tc-1",
+            "toolName": "run_command"
+          },
+          "id": "evt-4",
+          "timestamp": "2026-01-01T00:00:04Z",
+          "parentId": "evt-3",
+          "agentId": null
+        },
+        {
+          "type": "subagent.started",
+          "data": {
+            "agentDescription": "Explores codebase",
+            "agentDisplayName": "Explore Agent",
+            "agentName": "explore",
+            "toolCallId": "tc-sub-1"
+          },
+          "id": "evt-5",
+          "timestamp": "2026-01-01T00:00:05Z",
+          "parentId": "evt-4",
+          "agentId": null
+        },
+        {
+          "type": "subagent.completed",
+          "data": {
+            "agentDisplayName": "Explore Agent",
+            "agentName": "explore",
+            "durationMs": 8000,
+            "model": "claude-opus-4.6",
+            "toolCallId": "tc-sub-1",
+            "totalTokens": 75000,
+            "totalToolCalls": 15
+          },
+          "id": "evt-6",
+          "timestamp": "2026-01-01T00:00:06Z",
+          "parentId": "evt-5",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "success": true,
+            "toolCallId": "tc-1"
+          },
+          "id": "evt-7",
+          "timestamp": "2026-01-01T00:00:07Z",
+          "parentId": "evt-4",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Analysis complete.",
+            "interactionId": "int-1",
+            "messageId": "msg-1",
+            "requestId": "req-001"
+          },
+          "id": "evt-8",
+          "timestamp": "2026-01-01T00:00:08Z",
+          "parentId": "evt-3",
+          "agentId": null
+        },
+        {
+          "type": "session.remote_steerable_changed",
+          "data": {
+            "remoteSteerable": true
+          },
+          "id": "evt-9",
+          "timestamp": "2026-01-01T00:00:09Z",
+          "parentId": "evt-1",
+          "agentId": null
+        },
+        {
+          "type": "subagent.started",
+          "data": {
+            "agentDescription": "Reviews code changes",
+            "agentDisplayName": "Code Review",
+            "agentName": "code-review",
+            "toolCallId": "tc-sub-2"
+          },
+          "id": "evt-10",
+          "timestamp": "2026-01-01T00:00:10Z",
+          "parentId": "evt-3",
+          "agentId": null
+        },
+        {
+          "type": "subagent.failed",
+          "data": {
+            "agentDisplayName": "Code Review",
+            "agentName": "code-review",
+            "durationMs": 30000,
+            "error": "Timeout exceeded",
+            "model": "gpt-5.4",
+            "toolCallId": "tc-sub-2",
+            "totalTokens": 12000,
+            "totalToolCalls": 3
+          },
+          "id": "evt-11",
+          "timestamp": "2026-01-01T00:00:11Z",
+          "parentId": "evt-10",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "turn-1"
+          },
+          "id": "evt-12",
+          "timestamp": "2026-01-01T00:00:12Z",
+          "parentId": "evt-3",
+          "agentId": null
+        },
+        {
+          "type": "session.shutdown",
+          "data": {
+            "conversationTokens": 50000,
+            "currentTokens": 80000,
+            "modelMetrics": {
+              "claude-opus-4.6": {
+                "requests": {
+                  "cost": 2.5,
+                  "count": 10
+                },
+                "usage": {
+                  "cacheReadTokens": 1000,
+                  "cacheWriteTokens": 500,
+                  "inputTokens": 5000,
+                  "outputTokens": 2000,
+                  "reasoningTokens": 300
+                }
+              }
+            },
+            "systemTokens": 15000,
+            "toolDefinitionsTokens": 15000,
+            "totalApiDurationMs": 40000,
+            "totalPremiumRequests": 20
+          },
+          "id": "evt-13",
+          "timestamp": "2026-01-01T00:00:13Z",
+          "parentId": "evt-1",
+          "agentId": null
+        }
+      ],
+      "shutdownMetrics": {
+        "shutdownType": null,
+        "totalPremiumRequests": 20.0,
+        "totalApiDurationMs": 40000,
+        "sessionStartTime": null,
+        "currentModel": null,
+        "currentTokens": 80000,
+        "systemTokens": 15000,
+        "conversationTokens": 50000,
+        "toolDefinitionsTokens": 15000,
+        "totalNanoAiu": null,
+        "tokenDetails": null,
+        "codeChanges": null,
+        "modelMetrics": {
+          "claude-opus-4.6": {
+            "requests": {
+              "count": 10,
+              "cost": 2.5
+            },
+            "usage": {
+              "inputTokens": 5000,
+              "outputTokens": 2000,
+              "cacheReadTokens": 1000,
+              "cacheWriteTokens": 500,
+              "reasoningTokens": 300
+            },
+            "totalNanoAiu": null,
+            "tokenDetails": null
+          }
+        },
+        "sessionSegments": [
+          {
+            "startTimestamp": "2026-01-01T00:00:01+00:00",
+            "endTimestamp": "2026-01-01T00:00:13+00:00",
+            "tokens": 7000,
+            "totalRequests": 10,
+            "premiumRequests": 20.0,
+            "apiDurationMs": 40000,
+            "totalNanoAiu": null,
+            "currentModel": null,
+            "modelMetrics": {
+              "claude-opus-4.6": {
+                "requests": {
+                  "count": 10,
+                  "cost": 2.5
+                },
+                "usage": {
+                  "inputTokens": 5000,
+                  "outputTokens": 2000,
+                  "cacheReadTokens": 1000,
+                  "cacheWriteTokens": 500,
+                  "reasoningTokens": 300
+                },
+                "totalNanoAiu": null,
+                "tokenDetails": null
+              }
+            }
+          }
+        ],
+        "sourceMetricsScope": "segment",
+        "shutdownCount": 1
+      },
+      "incidents": [],
+      "parseDiagnostics": {
+        "totalEvents": 13,
+        "malformedLines": 0,
+        "unknownEventTypes": 0,
+        "deserializationFailures": 0
+      }
+    }
+  ],
+  "exportOptions": {
+    "format": "json",
+    "includedSections": [
+      "checkpoints",
+      "conversation",
+      "customTables",
+      "events",
+      "incidents",
+      "metrics",
+      "parseDiagnostics",
+      "plan",
+      "rewindSnapshots",
+      "todos"
+    ],
+    "redactionApplied": false
+  }
+}

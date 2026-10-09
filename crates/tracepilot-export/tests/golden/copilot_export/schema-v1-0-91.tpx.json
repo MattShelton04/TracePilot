@@ -1,0 +1,2244 @@
+{
+  "header": {
+    "schemaVersion": {
+      "major": 1,
+      "minor": 0
+    },
+    "exportedAt": "<time>",
+    "exportedBy": "TracePilot v<version>",
+    "sourceSystem": {
+      "os": "<os>"
+    },
+    "contentHash": "<hash>",
+    "minimumReaderVersion": {
+      "major": 1,
+      "minor": 0
+    }
+  },
+  "sessions": [
+    {
+      "metadata": {
+        "id": "00000000-0000-4000-8000-00000000000b",
+        "summary": "Golden schema-v1-0-91",
+        "repository": "golden/schema-v1-0-91",
+        "branch": "main",
+        "cwd": "/golden/schema-v1-0-91",
+        "createdAt": "2026-03-10T07:14:50Z",
+        "updatedAt": "2026-03-10T07:15:00Z",
+        "eventCount": 74,
+        "turnCount": 2
+      },
+      "availableSections": [
+        "conversation",
+        "events",
+        "metrics",
+        "incidents",
+        "parseDiagnostics"
+      ],
+      "conversation": [
+        {
+          "turnIndex": 0,
+          "eventIndex": 35,
+          "turnId": "fixture",
+          "interactionId": "fixture",
+          "userMessage": "fixture",
+          "assistantMessages": [
+            {
+              "content": "fixture",
+              "parentToolCallId": "fixture",
+              "agentDisplayName": "fixture",
+              "eventIndex": 40
+            }
+          ],
+          "model": "fixture",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "endTimestamp": "2026-10-04T00:00:00Z",
+          "toolCalls": [],
+          "durationMs": 0,
+          "isComplete": true,
+          "reasoningTexts": [
+            {
+              "content": "fixture",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 39
+            },
+            {
+              "content": "fixture",
+              "parentToolCallId": "fixture",
+              "agentDisplayName": "fixture",
+              "eventIndex": 40
+            }
+          ],
+          "outputTokens": 3,
+          "transformedUserMessage": "fixture",
+          "attachments": [
+            {
+              "assetId": "fixture",
+              "byteLength": 3,
+              "displayName": "fixture",
+              "lineRange": {
+                "end": 3,
+                "start": 3
+              },
+              "mimeType": "fixture",
+              "omittedReason": "too_large",
+              "path": "fixture",
+              "taggedFilesEntry": "fixture",
+              "type": "file"
+            }
+          ],
+          "sessionEvents": [
+            {
+              "eventType": "session.start",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Session started (model: fixture)"
+            },
+            {
+              "eventType": "session.resume",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Session resumed (model: fixture)"
+            },
+            {
+              "eventType": "session.error",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "error",
+              "summary": "fixture"
+            },
+            {
+              "eventType": "session.warning",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "warning",
+              "summary": "fixture"
+            },
+            {
+              "eventType": "session.mode_changed",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Mode: interactive → interactive"
+            },
+            {
+              "eventType": "session.plan_changed",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Agent plan updated (create)"
+            },
+            {
+              "eventType": "session.truncation",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "warning",
+              "summary": "Truncated 3 tokens, 3 messages"
+            },
+            {
+              "eventType": "session.compaction_start",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Context compaction started"
+            },
+            {
+              "eventType": "session.compaction_complete",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "warning",
+              "summary": "Compaction complete (3 tokens)",
+              "checkpointNumber": 3
+            }
+          ],
+          "reasoningEffort": "fixture",
+          "userMessageDelivery": "idle",
+          "systemInitiated": true
+        },
+        {
+          "turnIndex": 1,
+          "turnId": null,
+          "interactionId": null,
+          "userMessage": null,
+          "assistantMessages": [],
+          "model": "fixture",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "endTimestamp": null,
+          "toolCalls": [
+            {
+              "toolCallId": "fixture",
+              "parentToolCallId": "fixture",
+              "toolName": "fixture",
+              "eventIndex": 44,
+              "arguments": {
+                "fixture": "fixture"
+              },
+              "success": false,
+              "error": "fixture",
+              "startedAt": "2026-10-04T00:00:00Z",
+              "completedAt": "2026-10-04T00:00:00Z",
+              "durationMs": 3,
+              "mcpServerName": "fixture",
+              "mcpToolName": "fixture",
+              "isComplete": true,
+              "isSubagent": true,
+              "agentStatus": "failed",
+              "cancelled": true,
+              "agentDisplayName": "fixture",
+              "agentDescription": "fixture",
+              "model": "fixture",
+              "totalTokens": 3,
+              "totalToolCalls": 3,
+              "intentionSummary": "fixture",
+              "resultContent": "fixture",
+              "exitCode": 3
+            }
+          ],
+          "durationMs": null,
+          "isComplete": false,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": [
+            {
+              "eventType": "skill.invoked",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Skill invoked: fixture",
+              "skillInvocation": {
+                "id": "fixture-78",
+                "name": "fixture",
+                "path": "fixture",
+                "description": "fixture",
+                "contentLength": 7,
+                "content": "fixture",
+                "contextFolded": false
+              }
+            },
+            {
+              "eventType": "skill.invoked",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Skill invoked: fixture",
+              "skillInvocation": {
+                "id": "fixture-79",
+                "name": "fixture",
+                "path": "fixture",
+                "description": "fixture",
+                "contextFolded": false
+              }
+            },
+            {
+              "eventType": "permission.requested",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Permission requested (commands): fixture",
+              "requestId": "fixture",
+              "toolCallId": "fixture",
+              "promptKind": "commands",
+              "resolvedByHook": true
+            },
+            {
+              "eventType": "permission.completed",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Permission result: approved",
+              "requestId": "fixture",
+              "toolCallId": "fixture",
+              "resultKind": "approved"
+            },
+            {
+              "eventType": "external_tool.requested",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "External tool requested: fixture"
+            },
+            {
+              "eventType": "session.auto_mode_resolved",
+              "timestamp": "2026-10-04T00:00:00Z",
+              "severity": "info",
+              "summary": "Auto mode chose fixture"
+            }
+          ],
+          "systemMessages": [
+            "fixture"
+          ],
+          "reasoningEffort": "fixture"
+        }
+      ],
+      "events": [
+        {
+          "type": "session.start",
+          "data": {
+            "alreadyInUse": true,
+            "autoTier": "efficiency",
+            "context": {
+              "baseCommit": "fixture",
+              "branch": "fixture",
+              "cwd": "fixture",
+              "gitRoot": "fixture",
+              "headCommit": "fixture",
+              "hostType": "github",
+              "pendingGitContext": true,
+              "repository": "fixture",
+              "repositoryHost": "fixture"
+            },
+            "contextTier": "default",
+            "copilotVersion": "1.0.91",
+            "detachedFromSpawningParentSessionId": "fixture",
+            "githubMcpToolConfig": {
+              "additionalTools": [
+                "fixture"
+              ],
+              "additionalToolsets": [
+                "fixture"
+              ],
+              "enableAllTools": true,
+              "enableInsidersMode": true
+            },
+            "producer": "fixture",
+            "reasoningEffort": "fixture",
+            "reasoningSummary": "none",
+            "remoteSteerable": true,
+            "selectedModel": "fixture",
+            "sessionId": "fixture",
+            "sessionLimits": {
+              "maxAiCredits": 3
+            },
+            "startTime": "2026-10-04T00:00:00Z",
+            "verbosity": "low",
+            "version": 3
+          },
+          "id": "fixture-0",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.resume",
+          "data": {
+            "alreadyInUse": true,
+            "autoTier": "efficiency",
+            "context": {
+              "baseCommit": "fixture",
+              "branch": "fixture",
+              "cwd": "fixture",
+              "gitRoot": "fixture",
+              "headCommit": "fixture",
+              "hostType": "github",
+              "pendingGitContext": true,
+              "repository": "fixture",
+              "repositoryHost": "fixture"
+            },
+            "contextTier": "default",
+            "continuePendingWork": true,
+            "eventCount": 3,
+            "eventsFileSizeBytes": 3,
+            "reasoningEffort": "fixture",
+            "reasoningSummary": "none",
+            "remoteSteerable": true,
+            "resumeTime": "2026-10-04T00:00:00Z",
+            "selectedModel": "fixture",
+            "sessionLimits": {
+              "maxAiCredits": 3
+            },
+            "sessionWasActive": true,
+            "verbosity": "low"
+          },
+          "id": "fixture-1",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.remote_steerable_changed",
+          "data": {
+            "remoteSteerable": true
+          },
+          "id": "fixture-2",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.error",
+          "data": {
+            "eligibleForAutoSwitch": true,
+            "errorCode": "fixture",
+            "errorType": "fixture",
+            "message": "fixture",
+            "providerCallId": "fixture",
+            "remediation": "sign_in",
+            "serviceRequestId": "fixture",
+            "stack": "fixture",
+            "statusCode": 3,
+            "url": "fixture"
+          },
+          "id": "fixture-3",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.schedule_created",
+          "data": {
+            "at": 3,
+            "cron": "fixture",
+            "displayPrompt": "fixture",
+            "id": 3,
+            "intervalMs": 3,
+            "origin": "user",
+            "prompt": "fixture",
+            "recurring": true,
+            "selfPaced": true,
+            "tz": "fixture"
+          },
+          "id": "fixture-6",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.schedule_cancelled",
+          "data": {
+            "id": 3
+          },
+          "id": "fixture-7",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.schedule_rearmed",
+          "data": {
+            "id": 3,
+            "nextRunAt": 3
+          },
+          "id": "fixture-8",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.autopilot_objective_changed",
+          "data": {
+            "id": 3,
+            "operation": "create",
+            "status": "active"
+          },
+          "id": "fixture-9",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.info",
+          "data": {
+            "infoType": "fixture",
+            "message": "fixture",
+            "tip": "fixture",
+            "url": "fixture"
+          },
+          "id": "fixture-10",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.warning",
+          "data": {
+            "message": "fixture",
+            "remediation": "sign_in",
+            "url": "fixture",
+            "warningType": "fixture"
+          },
+          "id": "fixture-12",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.model_change",
+          "data": {
+            "autoTier": "efficiency",
+            "cause": "fixture",
+            "contextTier": "default",
+            "newModel": "fixture",
+            "previousAutoTier": "efficiency",
+            "previousModel": "fixture",
+            "previousReasoningEffort": "fixture",
+            "previousReasoningSummary": "none",
+            "previousVerbosity": "low",
+            "reasoningEffort": "fixture",
+            "reasoningSummary": "none",
+            "source": "model_command",
+            "verbosity": "low"
+          },
+          "id": "fixture-13",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.model_deselected",
+          "data": {
+            "previousModel": "fixture",
+            "reason": "provider_withdrawn"
+          },
+          "id": "fixture-14",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.mode_changed",
+          "data": {
+            "newMode": "interactive",
+            "previousMode": "interactive"
+          },
+          "id": "fixture-17",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.mode_notice_delivered",
+          "data": {
+            "content": "fixture",
+            "mode": "interactive"
+          },
+          "id": "fixture-18",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.session_limits_changed",
+          "data": {
+            "sessionLimits": {
+              "maxAiCredits": 3
+            }
+          },
+          "id": "fixture-19",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.permissions_changed",
+          "data": {
+            "assistedApprovalModel": "fixture",
+            "mode": "manual",
+            "previousMode": "manual"
+          },
+          "id": "fixture-20",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.plan_changed",
+          "data": {
+            "operation": "create"
+          },
+          "id": "fixture-21",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.workspace_file_changed",
+          "data": {
+            "operation": "create",
+            "path": "fixture"
+          },
+          "id": "fixture-24",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.handoff",
+          "data": {
+            "context": "fixture",
+            "handoffTime": "2026-10-04T00:00:00Z",
+            "host": "fixture",
+            "remoteSessionId": "fixture",
+            "repository": {
+              "branch": "fixture",
+              "name": "fixture",
+              "owner": "fixture"
+            },
+            "sourceType": "remote",
+            "summary": "fixture"
+          },
+          "id": "fixture-25",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.truncation",
+          "data": {
+            "messagesRemovedDuringTruncation": 3,
+            "performedBy": "fixture",
+            "postTruncationMessagesLength": 3,
+            "postTruncationTokensInMessages": 3,
+            "preTruncationMessagesLength": 3,
+            "preTruncationTokensInMessages": 3,
+            "tokenLimit": 3,
+            "tokensRemovedDuringTruncation": 3
+          },
+          "id": "fixture-26",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.shutdown",
+          "data": {
+            "agentMetrics": {
+              "fixture": {
+                "agentDisplayName": "fixture",
+                "agentName": "fixture",
+                "modelMetrics": {
+                  "fixture": {
+                    "requests": {
+                      "cost": 3,
+                      "count": 3
+                    },
+                    "tokenDetails": {
+                      "fixture": {
+                        "tokenCount": 3
+                      }
+                    },
+                    "totalNanoAiu": 3,
+                    "usage": {
+                      "cacheReadTokens": 3,
+                      "cacheWriteTokens": 3,
+                      "inputTokens": 3,
+                      "outputTokens": 3,
+                      "reasoningTokens": 3
+                    }
+                  }
+                },
+                "totalApiDurationMs": 3,
+                "totalNanoAiu": 3
+              }
+            },
+            "codeChanges": {
+              "filesModified": [
+                "fixture"
+              ],
+              "linesAdded": 3,
+              "linesRemoved": 3
+            },
+            "conversationTokens": 3,
+            "currentModel": "fixture",
+            "currentTokens": 3,
+            "errorReason": "fixture",
+            "eventsFileSizeBytes": 3,
+            "modelMetrics": {
+              "fixture": {
+                "requests": {
+                  "cost": 3,
+                  "count": 3
+                },
+                "tokenDetails": {
+                  "fixture": {
+                    "tokenCount": 3
+                  }
+                },
+                "totalNanoAiu": 3,
+                "usage": {
+                  "cacheReadTokens": 3,
+                  "cacheWriteTokens": 3,
+                  "inputTokens": 3,
+                  "outputTokens": 3,
+                  "reasoningTokens": 3
+                }
+              }
+            },
+            "sessionStartTime": 3,
+            "shutdownType": "routine",
+            "systemTokens": 3,
+            "tokenDetails": {
+              "fixture": {
+                "tokenCount": 3
+              }
+            },
+            "toolDefinitionsTokens": 3,
+            "totalApiDurationMs": 3,
+            "totalNanoAiu": 3,
+            "totalPremiumRequests": 3
+          },
+          "id": "fixture-28",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.usage_checkpoint",
+          "data": {
+            "modelCacheState": [
+              {
+                "cacheExpiresAt": "2026-10-04T00:00:00Z",
+                "cacheTtlSeconds": 3,
+                "modelId": "fixture"
+              }
+            ],
+            "promptCacheBreakState": [
+              {
+                "fixture": "fixture"
+              }
+            ],
+            "totalNanoAiu": 3,
+            "totalPremiumRequests": 3
+          },
+          "id": "fixture-29",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.fusion_change_checkpoint",
+          "data": {
+            "codeChanges": {
+              "filesModified": [
+                "fixture"
+              ],
+              "linesAdded": 3,
+              "linesRemoved": 3
+            }
+          },
+          "id": "fixture-30",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.context_changed",
+          "data": {
+            "baseCommit": "fixture",
+            "branch": "fixture",
+            "cwd": "fixture",
+            "gitRoot": "fixture",
+            "headCommit": "fixture",
+            "hostType": "github",
+            "pendingGitContext": true,
+            "repository": "fixture",
+            "repositoryHost": "fixture"
+          },
+          "id": "fixture-31",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.context_cleared",
+          "data": {
+            "initialMessage": "fixture",
+            "messagesCleared": 3
+          },
+          "id": "fixture-33",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.compaction_start",
+          "data": {
+            "conversationTokens": 3,
+            "currentTokens": 3,
+            "model": "fixture",
+            "systemTokens": 3,
+            "tokenLimit": 3,
+            "toolDefinitionsTokens": 3,
+            "trigger": "threshold"
+          },
+          "id": "fixture-34",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.compaction_complete",
+          "data": {
+            "activeFactorySummary": "fixture",
+            "activeWorkflowSummary": "fixture",
+            "behaviorModelId": "fixture",
+            "checkpointNumber": 3,
+            "checkpointPath": "fixture",
+            "compactionTokensUsed": {
+              "cacheReadTokens": 3,
+              "cacheWriteTokens": 3,
+              "copilotUsage": {
+                "model": "fixture",
+                "tokenDetails": [
+                  {
+                    "batchSize": 3,
+                    "costPerBatch": 3,
+                    "model": "fixture",
+                    "tokenCount": 3,
+                    "tokenType": "fixture"
+                  }
+                ],
+                "totalNanoAiu": 3
+              },
+              "duration": 3,
+              "inputTokens": 3,
+              "model": "fixture",
+              "outputTokens": 3
+            },
+            "conversationTokens": 3,
+            "customInstructions": "fixture",
+            "error": "fixture",
+            "messagesRemoved": 3,
+            "postCompactionTokens": 3,
+            "preCompactionMessagesLength": 3,
+            "preCompactionTokens": 3,
+            "requestId": "fixture",
+            "responsesReasoning": {
+              "effort": "fixture",
+              "initialEffort": "fixture",
+              "model": "fixture"
+            },
+            "serviceRequestId": "fixture",
+            "statusCode": 3,
+            "success": true,
+            "summaryContent": "fixture",
+            "systemTokens": 3,
+            "tokenLimit": 3,
+            "tokensRemoved": 3,
+            "toolDefinitionsTokens": 3,
+            "trigger": "threshold"
+          },
+          "id": "fixture-35",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.task_complete",
+          "data": {
+            "blocker": {
+              "kind": "permission_recovery",
+              "permissionRecovery": {
+                "attempts": [
+                  {
+                    "attemptId": "fixture",
+                    "disposition": "deferred",
+                    "ordinal": 3,
+                    "permissionKind": "fixture",
+                    "reason": "permission_required",
+                    "relation": "initial",
+                    "requestFingerprint": "fixture",
+                    "toolCallId": "fixture"
+                  }
+                ],
+                "episodeId": "fixture",
+                "maxAttempts": 3,
+                "onBlocked": "ask",
+                "reason": "permission_required",
+                "status": "recovering"
+              },
+              "reason": "permission_required",
+              "resumable": true
+            },
+            "objectiveId": 3,
+            "outcome": "completed",
+            "reason": "fixture",
+            "success": true,
+            "summary": "fixture"
+          },
+          "id": "fixture-36",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.completion_receipt",
+          "data": {
+            "attempt": 3,
+            "eventRange": {
+              "endEventId": "fixture",
+              "startEventId": "fixture"
+            },
+            "failedToolCount": 3,
+            "finalTool": {
+              "exitCode": 3,
+              "status": "success",
+              "toolCallId": "fixture",
+              "toolName": "fixture"
+            },
+            "schemaVersion": 3,
+            "sourceEventId": "fixture",
+            "stopReason": "natural",
+            "successfulToolCount": 3
+          },
+          "id": "fixture-37",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.fusion_route_failed",
+          "data": {
+            "attemptId": "fixture",
+            "errorMessage": "fixture",
+            "fallbackModel": "fixture",
+            "policy": "fixture",
+            "reason": "fixture",
+            "routingLatencyMs": 3,
+            "syntheticModel": "fixture"
+          },
+          "id": "fixture-39",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.fusion_resolved",
+          "data": {
+            "contractVersion": 3,
+            "critics": [
+              {
+                "model": "fixture",
+                "phaseId": "fixture",
+                "reasoningEffort": "fixture"
+              }
+            ],
+            "fallbackModel": "fixture",
+            "followUp": {
+              "compactionTurn": "reuse_primary",
+              "userTurn": "reuse_primary"
+            },
+            "followUpModel": "fixture",
+            "fusionId": "fixture",
+            "hint": "fixture",
+            "judgeModel": "fixture",
+            "modelUniverseVersion": "fixture",
+            "pattern": "single",
+            "phasePlan": [
+              {
+                "conditional": true,
+                "kind": "primary",
+                "role": "fixture",
+                "scope": "root"
+              }
+            ],
+            "planVersion": "fixture",
+            "policy": "fixture",
+            "policyVersion": "fixture",
+            "primaryModel": "fixture",
+            "repairModel": "fixture",
+            "routeSource": "fixture",
+            "routingLatencyMs": 3,
+            "ruleId": "fixture",
+            "ruleIndex": 3,
+            "ruleName": "fixture",
+            "scores": {
+              "codeGen": 3,
+              "debugging": 3,
+              "reasoning": 3,
+              "toolUse": 3
+            },
+            "secondaryModel": "fixture",
+            "syntheticModel": "fixture",
+            "turnId": "fixture"
+          },
+          "id": "fixture-40",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.fusion_handoff",
+          "data": {
+            "fusionId": "fixture",
+            "message": {
+              "fixture": "fixture"
+            },
+            "sourcePhaseId": "fixture",
+            "targetModel": "fixture",
+            "targetPhaseId": "fixture"
+          },
+          "id": "fixture-41",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.fusion_commit_started",
+          "data": {
+            "commitId": "fixture",
+            "fusionId": "fixture",
+            "kind": "text",
+            "sourceModel": "fixture",
+            "sourcePhaseId": "fixture",
+            "toolCallId": "fixture"
+          },
+          "id": "fixture-42",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.fusion_completed",
+          "data": {
+            "cacheWriteTokens": 3,
+            "cachedTokens": 3,
+            "commitId": "fixture",
+            "degradedReason": "fixture",
+            "durationMs": 3,
+            "finalSourceModel": "fixture",
+            "finalSourcePhaseId": "fixture",
+            "followUpModel": "fixture",
+            "fusionId": "fixture",
+            "inputTokens": 3,
+            "outcome": "fixture",
+            "outputTokens": 3,
+            "pattern": "single",
+            "phaseCount": 3,
+            "requestCount": 3,
+            "syntheticModel": "fixture",
+            "totalNanoAiu": 3,
+            "turnId": "fixture"
+          },
+          "id": "fixture-43",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.permission_recovery",
+          "data": {
+            "attempts": [
+              {
+                "attemptId": "fixture",
+                "disposition": "deferred",
+                "ordinal": 3,
+                "permissionKind": "fixture",
+                "reason": "permission_required",
+                "relation": "initial",
+                "requestFingerprint": "fixture",
+                "toolCallId": "fixture"
+              }
+            ],
+            "episodeId": "fixture",
+            "maxAttempts": 3,
+            "onBlocked": "ask",
+            "reason": "permission_required",
+            "status": "recovering"
+          },
+          "id": "fixture-44",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "agentMode": "interactive",
+            "attachments": [
+              {
+                "assetId": "fixture",
+                "byteLength": 3,
+                "displayName": "fixture",
+                "lineRange": {
+                  "end": 3,
+                  "start": 3
+                },
+                "mimeType": "fixture",
+                "omittedReason": "too_large",
+                "path": "fixture",
+                "taggedFilesEntry": "fixture",
+                "type": "file"
+              }
+            ],
+            "content": "fixture",
+            "delivery": "idle",
+            "interactionId": "fixture",
+            "isAutopilotContinuation": true,
+            "messageId": "fixture",
+            "nativeDocumentPathFallbackPaths": [
+              "fixture"
+            ],
+            "parentAgentTaskId": "fixture",
+            "responsesReasoning": {
+              "effort": "fixture",
+              "initialEffort": "fixture",
+              "model": "fixture"
+            },
+            "source": "fixture",
+            "supportedNativeDocumentMimeTypes": [
+              "fixture"
+            ],
+            "transformedContent": "fixture",
+            "turnId": "fixture"
+          },
+          "id": "fixture-45",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "fixture",
+            "model": "fixture",
+            "parentToolCallId": "fixture",
+            "turnId": "fixture"
+          },
+          "id": "fixture-47",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "assistant.fusion_phase_completed",
+          "data": {
+            "content": "fixture",
+            "conversationScope": "root",
+            "durationMs": 3,
+            "fusionId": "fixture",
+            "model": "fixture",
+            "phaseId": "fixture",
+            "phaseKind": "primary",
+            "projectionMessage": {
+              "fixture": "fixture"
+            },
+            "projectionMode": "append",
+            "reasoningEffort": "fixture",
+            "role": "fixture",
+            "stagedTerminal": {
+              "arguments": "fixture",
+              "assistantMessage": {
+                "fixture": "fixture"
+              },
+              "phaseId": "fixture",
+              "toolCallId": "fixture",
+              "toolName": "fixture"
+            },
+            "status": "succeeded",
+            "usage": {
+              "cacheWriteTokens": 3,
+              "cachedTokens": 3,
+              "inputTokens": 3,
+              "outputTokens": 3,
+              "requestCount": 3,
+              "totalNanoAiu": 3
+            },
+            "verdict": "fixture"
+          },
+          "id": "fixture-53",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "assistant.fusion_phase_failed",
+          "data": {
+            "conversationScope": "root",
+            "degradedToPhaseId": "fixture",
+            "durationMs": 3,
+            "errorMessage": "fixture",
+            "fusionId": "fixture",
+            "model": "fixture",
+            "phaseId": "fixture",
+            "phaseKind": "primary",
+            "reason": "fixture",
+            "reasoningEffort": "fixture",
+            "role": "fixture",
+            "status": "succeeded",
+            "usage": {
+              "cacheWriteTokens": 3,
+              "cachedTokens": 3,
+              "inputTokens": 3,
+              "outputTokens": 3,
+              "requestCount": 3,
+              "totalNanoAiu": 3
+            }
+          },
+          "id": "fixture-54",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "assistant.reasoning",
+          "data": {
+            "content": "fixture",
+            "reasoningId": "fixture",
+            "rte": true
+          },
+          "id": "fixture-56",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "apiCallId": "fixture",
+            "chunkCount": 3,
+            "chunkIndex": 3,
+            "citations": {
+              "sources": [
+                {
+                  "id": "fixture",
+                  "path": "fixture",
+                  "provider": "anthropic",
+                  "title": "fixture",
+                  "url": "fixture"
+                }
+              ],
+              "spans": [
+                {
+                  "endIndex": 3,
+                  "references": [
+                    {
+                      "citedText": "fixture",
+                      "location": {
+                        "endIndex": 3,
+                        "startIndex": 3,
+                        "type": "char"
+                      },
+                      "providerMetadata": {
+                        "fixture": "fixture"
+                      },
+                      "sourceId": "fixture"
+                    }
+                  ],
+                  "startIndex": 3
+                }
+              ]
+            },
+            "clientRequestId": "fixture",
+            "content": "fixture",
+            "encryptedContent": "fixture",
+            "fusion": {
+              "commitId": "fixture",
+              "conversationScope": "fixture",
+              "fusionId": "fixture",
+              "hasUserSteering": true,
+              "pattern": "fixture",
+              "phaseId": "fixture",
+              "phaseKind": "fixture",
+              "policy": "fixture",
+              "role": "fixture",
+              "sourceModel": "fixture",
+              "sourcePhaseId": "fixture",
+              "syntheticModel": "fixture"
+            },
+            "interactionId": "fixture",
+            "messageId": "fixture",
+            "model": "fixture",
+            "originatingMessageId": "fixture",
+            "outputTokens": 3,
+            "parentToolCallId": "fixture",
+            "phase": "fixture",
+            "reasoningBlocks": {
+              "blocks": [
+                {
+                  "fixture": "fixture"
+                }
+              ],
+              "provider": "fixture"
+            },
+            "reasoningOpaque": "fixture",
+            "reasoningText": "fixture",
+            "reasoningWireField": "fixture",
+            "requestId": "fixture",
+            "rte": true,
+            "serverTools": {
+              "advisorModel": "fixture",
+              "functionCallNamespaces": {
+                "fixture": "fixture"
+              },
+              "items": [
+                {
+                  "fixture": "fixture"
+                }
+              ],
+              "provider": "fixture",
+              "rawContentBlocks": [
+                {
+                  "fixture": "fixture"
+                }
+              ]
+            },
+            "serviceRequestId": "fixture",
+            "toolRequests": [
+              {
+                "arguments": {
+                  "fixture": "fixture"
+                },
+                "caller": {
+                  "callerId": "fixture",
+                  "type": "program"
+                },
+                "intentionSummary": "fixture",
+                "mcpServerName": "fixture",
+                "mcpToolName": "fixture",
+                "name": "fixture",
+                "toolCallId": "fixture",
+                "toolTitle": "fixture",
+                "type": "function"
+              }
+            ],
+            "turnId": "fixture"
+          },
+          "id": "fixture-60",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "model": "fixture",
+            "parentToolCallId": "fixture",
+            "turnId": "fixture"
+          },
+          "id": "fixture-63",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "abort",
+          "data": {
+            "reason": "user_initiated"
+          },
+          "id": "fixture-71",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "tool.user_requested",
+          "data": {
+            "arguments": {
+              "fixture": "fixture"
+            },
+            "toolCallId": "fixture",
+            "toolName": "fixture"
+          },
+          "id": "fixture-72",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "fixture": "fixture"
+            },
+            "displayVerbatim": true,
+            "fusion": {
+              "commitId": "fixture",
+              "conversationScope": "fixture",
+              "fusionId": "fixture",
+              "hasUserSteering": true,
+              "pattern": "fixture",
+              "phaseId": "fixture",
+              "phaseKind": "fixture",
+              "policy": "fixture",
+              "role": "fixture",
+              "sourceModel": "fixture",
+              "sourcePhaseId": "fixture",
+              "syntheticModel": "fixture"
+            },
+            "mcpConfigServerName": "fixture",
+            "mcpConfigSource": "user",
+            "mcpServerName": "fixture",
+            "mcpToolName": "fixture",
+            "mcpTransport": "stdio",
+            "model": "fixture",
+            "parentToolCallId": "fixture",
+            "rte": true,
+            "shellToolInfo": {
+              "displayCommand": "fixture",
+              "hasWriteFileRedirection": true,
+              "possiblePaths": [
+                "fixture"
+              ]
+            },
+            "toolCallId": "fixture",
+            "toolDescription": {
+              "_meta": {
+                "ui": {
+                  "resourceUri": "fixture",
+                  "visibility": [
+                    "model"
+                  ]
+                }
+              },
+              "description": "fixture",
+              "name": "fixture"
+            },
+            "toolName": "fixture",
+            "toolTitle": "fixture",
+            "turnId": "fixture"
+          },
+          "id": "fixture-73",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "error": {
+              "code": "fixture",
+              "message": "fixture",
+              "remediation": "sign_in"
+            },
+            "fusion": {
+              "commitId": "fixture",
+              "conversationScope": "fixture",
+              "fusionId": "fixture",
+              "hasUserSteering": true,
+              "pattern": "fixture",
+              "phaseId": "fixture",
+              "phaseKind": "fixture",
+              "policy": "fixture",
+              "role": "fixture",
+              "sourceModel": "fixture",
+              "sourcePhaseId": "fixture",
+              "syntheticModel": "fixture"
+            },
+            "interactionId": "fixture",
+            "isUserRequested": true,
+            "mcpMeta": {
+              "fixture": "fixture"
+            },
+            "model": "fixture",
+            "parentToolCallId": "fixture",
+            "result": {
+              "binaryResultsForLlm": [
+                {
+                  "data": "fixture",
+                  "description": "fixture",
+                  "metadata": {
+                    "fixture": {
+                      "fixture": "fixture"
+                    }
+                  },
+                  "mimeType": "fixture",
+                  "type": "image"
+                }
+              ],
+              "citableSources": [
+                {
+                  "content": "fixture",
+                  "id": "fixture",
+                  "path": "fixture",
+                  "title": "fixture",
+                  "url": "fixture"
+                }
+              ],
+              "content": "fixture",
+              "contents": [
+                {
+                  "text": "fixture",
+                  "type": "text"
+                }
+              ],
+              "detailedContent": "fixture",
+              "mcpMeta": {
+                "fixture": "fixture"
+              },
+              "structuredContent": {
+                "fixture": "fixture"
+              },
+              "uiResource": {
+                "_meta": {
+                  "ui": {
+                    "csp": {
+                      "baseUriDomains": [
+                        "fixture"
+                      ],
+                      "connectDomains": [
+                        "fixture"
+                      ],
+                      "frameDomains": [
+                        "fixture"
+                      ],
+                      "resourceDomains": [
+                        "fixture"
+                      ]
+                    },
+                    "domain": "fixture",
+                    "permissions": {
+                      "camera": {},
+                      "clipboardWrite": {},
+                      "geolocation": {},
+                      "microphone": {}
+                    },
+                    "prefersBorder": true
+                  }
+                },
+                "blob": "fixture",
+                "mimeType": "fixture",
+                "text": "fixture",
+                "uri": "fixture"
+              }
+            },
+            "rte": true,
+            "sandboxed": true,
+            "shellExecution": {
+              "exitCode": 3
+            },
+            "success": true,
+            "toolCallId": "fixture",
+            "toolDescription": {
+              "_meta": {
+                "ui": {
+                  "resourceUri": "fixture",
+                  "visibility": [
+                    "model"
+                  ]
+                }
+              },
+              "description": "fixture",
+              "name": "fixture"
+            },
+            "toolTelemetry": {
+              "fixture": {
+                "fixture": "fixture"
+              }
+            },
+            "turnId": "fixture"
+          },
+          "id": "fixture-76",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "tool_search.activated",
+          "data": {
+            "strategy": "fixture",
+            "toolNames": [
+              "fixture"
+            ]
+          },
+          "id": "fixture-77",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "skill.invoked",
+          "data": {
+            "allowedTools": [
+              "fixture"
+            ],
+            "content": "fixture",
+            "description": "fixture",
+            "disableModelInvocation": true,
+            "invokedAtTurn": 3,
+            "model": "fixture",
+            "name": "fixture",
+            "path": "fixture",
+            "pluginName": "fixture",
+            "pluginVersion": "fixture",
+            "source": "fixture",
+            "trigger": "user-invoked"
+          },
+          "id": "fixture-78",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "skill.invoked_ref",
+          "data": {
+            "allowedTools": [
+              "fixture"
+            ],
+            "contentId": "fixture",
+            "contentLength": 3,
+            "description": "fixture",
+            "disableModelInvocation": true,
+            "invokedAtTurn": 3,
+            "model": "fixture",
+            "name": "fixture",
+            "path": "fixture",
+            "pluginName": "fixture",
+            "pluginVersion": "fixture",
+            "source": "fixture",
+            "trigger": "user-invoked"
+          },
+          "id": "fixture-79",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "skill.context_delivered",
+          "data": {
+            "content": "fixture",
+            "interactionId": "fixture",
+            "source": "fixture"
+          },
+          "id": "fixture-80",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "skill.context_delivered_ref",
+          "data": {
+            "contentId": "fixture",
+            "interactionId": "fixture",
+            "prefix": "fixture",
+            "source": "fixture",
+            "suffix": "fixture"
+          },
+          "id": "fixture-81",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "subagent.started",
+          "data": {
+            "agentDescription": "fixture",
+            "agentDisplayName": "fixture",
+            "agentName": "fixture",
+            "agentType": "fixture",
+            "executionMode": "fixture",
+            "factoryRunId": "fixture",
+            "model": "fixture",
+            "modelSelectionSource": "explicit_override",
+            "parentId": "fixture",
+            "resumable": true,
+            "taskModelSource": "task_argument",
+            "toolCallId": "fixture",
+            "workflowRunId": "fixture"
+          },
+          "id": "fixture-83",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "subagent.configured",
+          "data": {
+            "contextTier": "fixture",
+            "model": "fixture",
+            "multiTurn": true,
+            "reasoningEffort": "fixture"
+          },
+          "id": "fixture-84",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "subagent.completed",
+          "data": {
+            "agentDisplayName": "fixture",
+            "agentName": "fixture",
+            "cancelled": true,
+            "configuredModelMatchesActual": true,
+            "configuredModelPreference": "fixture",
+            "durationMs": 3,
+            "explicitModelMatchesPreference": true,
+            "explicitModelOverride": "fixture",
+            "firstDispatchedModel": "fixture",
+            "model": "fixture",
+            "modelOverrideReason": "fixture",
+            "modelSelectionSource": "explicit_override",
+            "toolCallId": "fixture",
+            "totalTokens": 3,
+            "totalToolCalls": 3
+          },
+          "id": "fixture-85",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "subagent.failed",
+          "data": {
+            "agentDisplayName": "fixture",
+            "agentName": "fixture",
+            "configuredModelMatchesActual": true,
+            "configuredModelPreference": "fixture",
+            "durationMs": 3,
+            "error": "fixture",
+            "explicitModelMatchesPreference": true,
+            "explicitModelOverride": "fixture",
+            "firstDispatchedModel": "fixture",
+            "model": "fixture",
+            "modelOverrideReason": "fixture",
+            "modelSelectionSource": "explicit_override",
+            "toolCallId": "fixture",
+            "totalTokens": 3,
+            "totalToolCalls": 3
+          },
+          "id": "fixture-86",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "subagent.selected",
+          "data": {
+            "agentDisplayName": "fixture",
+            "agentName": "fixture",
+            "tools": [
+              "fixture"
+            ]
+          },
+          "id": "fixture-87",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "subagent.deselected",
+          "data": {},
+          "id": "fixture-88",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "hook.start",
+          "data": {
+            "hookInvocationId": "fixture",
+            "hookType": "fixture",
+            "input": {
+              "fixture": "fixture"
+            },
+            "parentToolCallId": "fixture"
+          },
+          "id": "fixture-89",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "hook.end",
+          "data": {
+            "error": {
+              "message": "fixture",
+              "source": "fixture",
+              "stack": "fixture"
+            },
+            "hookInvocationId": "fixture",
+            "hookType": "fixture",
+            "output": {
+              "fixture": "fixture"
+            },
+            "parentToolCallId": "fixture",
+            "success": true
+          },
+          "id": "fixture-90",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.binary_asset",
+          "data": {
+            "assetId": "fixture",
+            "byteLength": 3,
+            "data": "fixture",
+            "description": "fixture",
+            "metadata": {
+              "fixture": {
+                "fixture": "fixture"
+              }
+            },
+            "mimeType": "fixture",
+            "type": "image"
+          },
+          "id": "fixture-92",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "fixture",
+            "contentBlocks": [
+              {
+                "cacheBreakpoint": true,
+                "content": "fixture",
+                "isStatic": true
+              }
+            ],
+            "interactionId": "fixture",
+            "metadata": {
+              "promptVersion": "fixture",
+              "variables": {
+                "fixture": {
+                  "fixture": "fixture"
+                }
+              }
+            },
+            "name": "fixture",
+            "role": "system"
+          },
+          "id": "fixture-93",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "system.notification",
+          "data": {
+            "content": "fixture",
+            "kind": {
+              "agentId": "fixture",
+              "agentType": "fixture",
+              "description": "fixture",
+              "displayName": "fixture",
+              "prompt": "fixture",
+              "status": "completed",
+              "type": "agent_completed"
+            },
+            "responsesReasoning": {
+              "effort": "fixture",
+              "initialEffort": "fixture",
+              "model": "fixture"
+            }
+          },
+          "id": "fixture-94",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "permission.requested",
+          "data": {
+            "agentMode": "interactive",
+            "permissionMode": "manual",
+            "permissionRequest": {
+              "canOfferSessionApproval": true,
+              "commandSegments": [
+                {
+                  "fullCommandText": "fixture",
+                  "identifier": "fixture"
+                }
+              ],
+              "commands": [
+                {
+                  "identifier": "fixture",
+                  "readOnly": true
+                }
+              ],
+              "fullCommandText": "fixture",
+              "hasWriteFileRedirection": true,
+              "intention": "fixture",
+              "kind": "shell",
+              "managedApprovalRequired": true,
+              "possiblePaths": [
+                "fixture"
+              ],
+              "possibleUrls": [
+                {
+                  "url": "fixture"
+                }
+              ],
+              "requestSandboxBypass": true,
+              "requestSandboxBypassReason": "fixture",
+              "requestSandboxPermissive": true,
+              "resolvedPaths": {
+                "fixture": "fixture"
+              },
+              "resolvedWorkingDirectory": "fixture",
+              "sandboxPathGrant": {
+                "access": "read",
+                "deniedPath": "fixture",
+                "path": "fixture",
+                "removedReadonlyPaths": [
+                  "fixture"
+                ]
+              },
+              "toolCallId": "fixture",
+              "warning": "fixture"
+            },
+            "promptRequest": {
+              "assistedApproval": {
+                "evaluation": {
+                  "evaluationStage": "unknown",
+                  "judgeAttempted": true,
+                  "judgeStatus": "unknown",
+                  "reasonCode": "unknown"
+                },
+                "failureReason": "timeout",
+                "model": "fixture",
+                "reason": "fixture",
+                "recommendation": "approve"
+              },
+              "canOfferSessionApproval": true,
+              "commandIdentifiers": [
+                "fixture"
+              ],
+              "fullCommandText": "fixture",
+              "intention": "fixture",
+              "kind": "commands",
+              "managedApprovalRequired": true,
+              "requestSandboxBypass": true,
+              "requestSandboxBypassReason": "fixture",
+              "requestSandboxPermissive": true,
+              "sandboxPathGrant": {
+                "access": "read",
+                "deniedPath": "fixture",
+                "path": "fixture",
+                "removedReadonlyPaths": [
+                  "fixture"
+                ]
+              },
+              "toolCallId": "fixture",
+              "warning": "fixture"
+            },
+            "recoveryEpisodeId": "fixture",
+            "requestId": "fixture",
+            "resolvedByHook": true,
+            "riskAssessment": {
+              "fixture": "fixture"
+            }
+          },
+          "id": "fixture-95",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "permission.completed",
+          "data": {
+            "blocker": {
+              "kind": "permission_recovery",
+              "permissionRecovery": {
+                "attempts": [
+                  {
+                    "attemptId": "fixture",
+                    "disposition": "deferred",
+                    "ordinal": 3,
+                    "permissionKind": "fixture",
+                    "reason": "permission_required",
+                    "relation": "initial",
+                    "requestFingerprint": "fixture",
+                    "toolCallId": "fixture"
+                  }
+                ],
+                "episodeId": "fixture",
+                "maxAttempts": 3,
+                "onBlocked": "ask",
+                "reason": "permission_required",
+                "status": "recovering"
+              },
+              "reason": "permission_required",
+              "resumable": true
+            },
+            "decisionSource": "assisted_approval",
+            "recoveryEpisodeId": "fixture",
+            "requestId": "fixture",
+            "result": {
+              "kind": "approved",
+              "managedApprovalHandled": true
+            },
+            "toolCallId": "fixture"
+          },
+          "id": "fixture-96",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "permission.carriedForward",
+          "data": {
+            "decisionSource": "assisted_approval",
+            "recordId": "fixture",
+            "requestId": "fixture",
+            "toolCallId": "fixture"
+          },
+          "id": "fixture-97",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "permission.messageAuthorization",
+          "data": {
+            "actionClass": "fixture",
+            "polarity": "grant",
+            "recordId": "fixture",
+            "spanEnd": 3,
+            "spanStart": 3,
+            "targetMembers": [
+              "fixture"
+            ],
+            "task": "fixture",
+            "turnIndex": 3,
+            "world": {
+              "fixture": "fixture"
+            }
+          },
+          "id": "fixture-98",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "permission.messageAuthorizationRead",
+          "data": {
+            "activatesExtraction": true,
+            "turnIndex": 3
+          },
+          "id": "fixture-99",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "permission.messageAuthorizationDegraded",
+          "data": {
+            "turnIndex": 3
+          },
+          "id": "fixture-100",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "permission.assentDetected",
+          "data": {
+            "requestId": "fixture",
+            "turnIndex": 3
+          },
+          "id": "fixture-101",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "permission.contextualAuthorization",
+          "data": {
+            "polarity": "grant",
+            "recordId": "fixture",
+            "requestId": "fixture",
+            "spanEnd": 3,
+            "spanStart": 3,
+            "turnIndex": 3
+          },
+          "id": "fixture-102",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "external_tool.requested",
+          "data": {
+            "arguments": {
+              "fixture": "fixture"
+            },
+            "providerId": "fixture",
+            "requestId": "fixture",
+            "sessionId": "fixture",
+            "toolCallId": "fixture",
+            "toolName": "fixture",
+            "traceparent": "fixture",
+            "tracestate": "fixture",
+            "workingDirectory": "fixture"
+          },
+          "id": "fixture-115",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.auto_mode_resolved",
+          "data": {
+            "availableModels": [
+              "fixture"
+            ],
+            "candidateModels": [
+              "fixture"
+            ],
+            "categoryScores": {
+              "fixture": 3
+            },
+            "chosenModel": "fixture",
+            "chosenShortfall": 3,
+            "confidence": 3,
+            "endToEndLatencyMs": 3,
+            "fallback": true,
+            "fallbackReason": "fixture",
+            "hasImage": true,
+            "predictedLabel": "fixture",
+            "reasoningBucket": "low",
+            "routerLatencyMs": 3,
+            "routingMethod": "fixture",
+            "stickyOverride": true
+          },
+          "id": "fixture-124",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.canvas.recorded",
+          "data": {
+            "canvasId": "fixture",
+            "extensionId": "fixture",
+            "input": {
+              "fixture": "fixture"
+            },
+            "instanceId": "fixture",
+            "title": "fixture"
+          },
+          "id": "fixture-150",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.canvas.removed",
+          "data": {
+            "canvasId": "fixture",
+            "extensionId": "fixture",
+            "instanceId": "fixture"
+          },
+          "id": "fixture-151",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        }
+      ],
+      "shutdownMetrics": {
+        "shutdownType": "routine",
+        "totalPremiumRequests": 3.0,
+        "totalApiDurationMs": 3,
+        "sessionStartTime": 3,
+        "currentModel": "fixture",
+        "currentTokens": 3,
+        "systemTokens": 3,
+        "conversationTokens": 3,
+        "toolDefinitionsTokens": 3,
+        "totalNanoAiu": 3,
+        "tokenDetails": {
+          "fixture": {
+            "tokenCount": 3
+          }
+        },
+        "codeChanges": {
+          "linesAdded": 3,
+          "linesRemoved": 3,
+          "filesModified": [
+            "fixture"
+          ]
+        },
+        "modelMetrics": {
+          "fixture": {
+            "requests": {
+              "count": 3,
+              "cost": 3.0
+            },
+            "usage": {
+              "inputTokens": 3,
+              "outputTokens": 3,
+              "cacheReadTokens": 3,
+              "cacheWriteTokens": 3,
+              "reasoningTokens": 3
+            },
+            "totalNanoAiu": 3,
+            "tokenDetails": {
+              "fixture": {
+                "tokenCount": 3
+              }
+            }
+          }
+        },
+        "sessionSegments": [
+          {
+            "startTimestamp": "2026-10-04T00:00:00+00:00",
+            "endTimestamp": "2026-10-04T00:00:00+00:00",
+            "tokens": 6,
+            "totalRequests": 3,
+            "premiumRequests": 3.0,
+            "apiDurationMs": 3,
+            "totalNanoAiu": 3,
+            "currentModel": "fixture",
+            "modelMetrics": {
+              "fixture": {
+                "requests": {
+                  "count": 3,
+                  "cost": 3.0
+                },
+                "usage": {
+                  "inputTokens": 3,
+                  "outputTokens": 3,
+                  "cacheReadTokens": 3,
+                  "cacheWriteTokens": 3,
+                  "reasoningTokens": 3
+                },
+                "totalNanoAiu": 3,
+                "tokenDetails": {
+                  "fixture": {
+                    "tokenCount": 3
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "sourceMetricsScope": "cumulative",
+        "shutdownCount": 1
+      },
+      "incidents": [
+        {
+          "eventType": "session.error",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "severity": "error",
+          "summary": "fixture"
+        },
+        {
+          "eventType": "session.warning",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "severity": "warning",
+          "summary": "fixture"
+        },
+        {
+          "eventType": "session.truncation",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "severity": "warning",
+          "summary": "Session truncated"
+        },
+        {
+          "eventType": "session.compaction_complete",
+          "timestamp": "2026-10-04T00:00:00Z",
+          "severity": "info",
+          "summary": "Compaction succeeded"
+        }
+      ],
+      "parseDiagnostics": {
+        "totalEvents": 74,
+        "malformedLines": 0,
+        "unknownEventTypes": 0,
+        "deserializationFailures": 0
+      }
+    }
+  ],
+  "exportOptions": {
+    "format": "json",
+    "includedSections": [
+      "checkpoints",
+      "conversation",
+      "customTables",
+      "events",
+      "incidents",
+      "metrics",
+      "parseDiagnostics",
+      "plan",
+      "rewindSnapshots",
+      "todos"
+    ],
+    "redactionApplied": false
+  }
+}

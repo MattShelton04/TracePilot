@@ -44,24 +44,8 @@ pub(in crate::builder) fn build_todos(
     };
 
     let export = TodoExport {
-        items: items
-            .into_iter()
-            .map(|t| TodoItemExport {
-                id: t.id,
-                title: t.title,
-                description: t.description,
-                status: t.status,
-                created_at: t.created_at,
-                updated_at: t.updated_at,
-            })
-            .collect(),
-        deps: deps
-            .into_iter()
-            .map(|d| TodoDepExport {
-                todo_id: d.todo_id,
-                depends_on: d.depends_on,
-            })
-            .collect(),
+        items: items.into_iter().map(TodoItemExport::from).collect(),
+        deps: deps.into_iter().map(TodoDepExport::from).collect(),
     };
 
     if !export.items.is_empty() {

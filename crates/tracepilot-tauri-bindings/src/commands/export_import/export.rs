@@ -4,10 +4,12 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use super::sources::{ExportSession, INCIDENT_TYPES, provider_sections};
+
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{read_config, require_copilot_layout, resolve_session, with_session_locator};
+use crate::helpers::{read_config, resolve_session, with_session_locator};
 use crate::types::{ExportPreviewResult, ExportSessionsResult, SessionSectionsInfo};
 
 use tracepilot_core::SessionId;
@@ -16,10 +18,6 @@ use tracepilot_export::SectionId;
 use tracepilot_export::options::{
     ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
 };
-
-/// Export reads Copilot's session layout; other sources export from their
-/// provider snapshot once C14 lands.
-const EXPORT: &str = "Export";
 
 // ── Helper Functions ──────────────────────────────────────────────────────
 
@@ -97,14 +95,12 @@ fn scan_events_for_incidents(events_path: &Path) -> bool {
         return false;
     };
     let reader = BufReader::new(file);
-    let incident_types = [
-        r#""type":"session.error""#,
-        r#""type":"session.warning""#,
-        r#""type":"session.compaction_complete""#,
-        r#""type":"session.truncation""#,
-    ];
+    let incident_types: Vec<String> = INCIDENT_TYPES
+        .iter()
+        .map(|t| format!(r#""type":"{t}""#))
+        .collect();
     for line in reader.lines().map_while(Result::ok) {
-        if incident_types.iter().any(|t| line.contains(t)) {
+        if incident_types.iter().any(|t| line.contains(t.as_str())) {
             return true;
         }
     }
@@ -168,18 +164,16 @@ pub async fn export_sessions(
             redaction,
         };
 
-        let session_paths: Vec<PathBuf> = session_ids
+        let sessions: Vec<ExportSession> = session_ids
             .iter()
             .map(|id| {
                 let id = crate::validators::validate_session_id(id)?;
-                let session = resolve_session(&cfg, &id)?;
-                require_copilot_layout(&session, EXPORT)?;
-                Ok(session.locator.primary_path)
+                ExportSession::load(resolve_session(&cfg, &id)?)
             })
             .collect::<CmdResult<Vec<_>>>()?;
 
-        let path_refs: Vec<&Path> = session_paths.iter().map(|p| p.as_path()).collect();
-        let files = tracepilot_export::export_sessions_batch(&path_refs, &options)?;
+        let inputs: Vec<_> = sessions.iter().map(ExportSession::input).collect();
+        let files = tracepilot_export::export_inputs(&inputs, &options)?;
 
         if files.is_empty() {
             return Err(BindingsError::Validation(
@@ -238,8 +232,7 @@ pub async fn preview_export(
     let sid = crate::validators::validate_session_id(&session_id)?;
 
     with_session_locator(&state, sid, move |session| {
-        require_copilot_layout(&session, EXPORT)?;
-        let session_path = session.locator.primary_path;
+        let session = ExportSession::load(session)?;
         let (content_detail, redaction) = build_export_detail_options(
             include_subagent_internals,
             include_tool_details,
@@ -257,7 +250,8 @@ pub async fn preview_export(
             redaction,
         };
 
-        let full_content = tracepilot_export::preview_export(&session_path, &options, None)?;
+        let full_content =
+            tracepilot_export::preview_export_input(&session.input(), &options, None)?;
         let estimated_size = full_content.len();
 
         let content = match max_bytes.or(Some(512 * 1024)) {
@@ -286,8 +280,17 @@ pub async fn get_session_sections(
 ) -> CmdResult<SessionSectionsInfo> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     with_session_locator(&state, sid, move |session| {
-        require_copilot_layout(&session, EXPORT)?;
-        let session_path = session.locator.primary_path;
+        let session_path = match ExportSession::load(session)? {
+            ExportSession::Directory(dir) => dir,
+            ExportSession::Provider {
+                snapshot,
+                artifacts,
+                ..
+            } => {
+                let session_id = SessionId::from_validated(session_id);
+                return Ok(provider_sections(session_id, &snapshot, &artifacts));
+            }
+        };
         let sp = tracepilot_core::paths::SessionPaths::from_root(&session_path);
         let events_path = sp.events_jsonl();
         let db_path = sp.session_db();

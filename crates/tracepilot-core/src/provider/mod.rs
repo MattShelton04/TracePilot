@@ -11,7 +11,7 @@ use std::sync::Arc;
 use crate::error::Result;
 use crate::ids::SessionId;
 use crate::models::session_summary::SessionSummary;
-use crate::parsing::events::TypedEvent;
+use crate::parsing::events::{RawEvent, TypedEvent};
 
 pub mod claude_code;
 pub mod copilot;
@@ -23,6 +23,26 @@ pub use types::{
     ProviderSnapshot, RunStatus, SessionArtifacts, SessionLocator, SessionMetrics, SessionRole,
     SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
 };
+
+/// Redact the fields of an event's source record that never leave the
+/// machine in an export (data-comparison.md §5): identities, account ids,
+/// system prompts and other model-facing text. An event whose payload is the
+/// record itself (an unmapped record kept for the Events tab) is redacted
+/// too. Copilot events carry no source record and are unchanged.
+pub fn redact_native_record(event: &mut RawEvent) {
+    let Some(native) = event.native.as_mut() else {
+        return;
+    };
+    match native.source {
+        SessionSource::Copilot => {}
+        SessionSource::ClaudeCode => {
+            claude_code::redact_record(&native.record_type, &mut native.data);
+            if event.event_type == native.record_type {
+                claude_code::redact_record(&native.record_type, &mut event.data);
+            }
+        }
+    }
+}
 
 /// One session source: how to find its sessions and load them as
 /// normalized events.

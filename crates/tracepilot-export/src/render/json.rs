@@ -101,6 +101,7 @@ mod tests {
             sessions: vec![PortableSession {
                 metadata: PortableSessionMetadata {
                     id: "abc12345-6789-0000-0000-000000000000".to_string(),
+                    source: SessionSource::Copilot,
                     summary: Some("Test session".to_string()),
                     repository: None,
                     branch: None,
