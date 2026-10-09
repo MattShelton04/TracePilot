@@ -110,7 +110,9 @@ type BackgroundTaskCache = Mutex<LruCache<String, (String, Vec<BackgroundTask>)>
 
 /// A running session's detail view asks for its background tasks on every
 /// refresh, and reading them re-reads every transcript, so they are reused
-/// while the session's source version is unchanged.
+/// while the session's source version is unchanged. Bounded by session count,
+/// not bytes: an entry is task metadata (ids, short descriptions and the
+/// source's one-line summaries), far smaller than the event cache's entries.
 static BACKGROUND_TASKS: LazyLock<BackgroundTaskCache> = LazyLock::new(|| {
     Mutex::new(crate::cache::build_session_lru(
         crate::config::DEFAULT_SESSION_CACHE_SIZE,

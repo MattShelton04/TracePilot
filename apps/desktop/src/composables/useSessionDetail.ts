@@ -40,7 +40,7 @@ import {
   buildPrefetchedCachedSession,
   restoreFromCachedSession,
 } from "./session/snapshot";
-import { useSessionSections } from "./session/useSessionSections";
+import { SOURCE_SECTION_KEYS, useSessionSections } from "./session/useSessionSections";
 import { useSessionTurnsRefresh } from "./session/useSessionTurnsRefresh";
 
 const LOG_PREFIX = "[sessionDetail]";
@@ -137,6 +137,8 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
     }
 
     const _token = sessionGuard.start();
+    // Data restored or loaded below may predate the last recorded version.
+    refreshedSource = null;
     sessionId.value = id;
     error.value = null;
     clearSectionErrors();
@@ -221,20 +223,24 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
   }
 
   async function refreshAll() {
-    await refreshSections(false);
+    await refreshSections();
   }
 
-  /**
-   * The source version the last {@link refreshIfSourceChanged} refreshed at,
-   * for the session it refreshed.
-   */
-  let refreshedSource: { id: string; version: string } | null = null;
+  /** Every section built only from the session's source files. */
+  const SOURCE_KEYS: ReadonlySet<string> = new Set(["detail", "turns", ...SOURCE_SECTION_KEYS]);
 
   /**
-   * Refresh for a timer that ticks while a session runs. When the session's
-   * source files are unchanged since the last tick, sections built from them
-   * keep their data and only the others reload. A failed probe refreshes
-   * everything.
+   * The source version of the session {@link refreshIfSourceChanged} last
+   * probed, and the source sections refreshed without error at that version.
+   * A section that finished loading after the tick that recorded the version
+   * may hold older data, so it is not in `fresh` and refreshes once.
+   */
+  let refreshedSource: { id: string; version: string; fresh: Set<string> } | null = null;
+
+  /**
+   * Refresh for a timer that ticks while a session runs. Source sections
+   * already refreshed at the source's current version keep their data; the
+   * others reload. A failed probe refreshes everything.
    */
   async function refreshIfSourceChanged() {
     const id = sessionId.value;
@@ -247,23 +253,41 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
       logWarn(`${LOG_PREFIX} Freshness check failed, refreshing everything`, { sessionId: id }, e);
     }
     if (!sessionGuard.isValid(token)) return;
-    const unchanged =
-      version !== null && refreshedSource?.id === id && refreshedSource.version === version;
-    await refreshSections(unchanged);
-    // Results describe the source at this version or later, so the next tick
-    // that sees the same version has nothing new to load.
-    if (version !== null && sessionGuard.isValid(token)) refreshedSource = { id, version };
+    const previous = refreshedSource;
+    const fresh =
+      version !== null && previous?.id === id && previous.version === version
+        ? previous.fresh
+        : new Set<string>();
+    const refreshed = await refreshSections(fresh);
+    if (version === null || !sessionGuard.isValid(token)) return;
+    // Each successful refresh describes the source at this version or later.
+    for (const key of refreshed) {
+      if (SOURCE_KEYS.has(key) && !sectionFailed(key)) fresh.add(key);
+    }
+    refreshedSource = { id, version, fresh };
   }
 
-  async function refreshSections(sourceUnchanged: boolean) {
+  function sectionFailed(key: string): boolean {
+    if (key === "detail") return error.value !== null;
+    if (key === "turns") return turnsRefresh.turnsError.value !== null;
+    return sections.hasError(key);
+  }
+
+  /**
+   * Refresh the loaded sections, except source sections in `skip`, and
+   * return the keys it refreshed.
+   */
+  async function refreshSections(skip: ReadonlySet<string> = new Set()): Promise<string[]> {
     const id = sessionId.value;
-    if (!id) return;
+    if (!id) return [];
     const token = sessionGuard.current();
     const loadedSections = new Set(loaded.value);
 
     const promises: Promise<unknown>[] = [];
+    const refreshed: string[] = [];
 
-    if (loadedSections.has("detail") && !sourceUnchanged) {
+    if (loadedSections.has("detail") && !skip.has("detail")) {
+      refreshed.push("detail");
       promises.push(
         (async () => {
           const silentError = ref<string | null>(null);
@@ -282,13 +306,18 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
       );
     }
 
-    if (loadedSections.has("turns") && !sourceUnchanged) {
+    if (loadedSections.has("turns") && !skip.has("turns")) {
+      refreshed.push("turns");
       promises.push(turnsRefresh.refreshTurns(id, token));
     }
 
-    promises.push(...sections.refreshLoaded(id, token, { sourceUnchanged }));
+    for (const { key, done } of sections.refreshLoaded(id, token, skip)) {
+      refreshed.push(key);
+      promises.push(done);
+    }
 
     await Promise.allSettled(promises);
+    return refreshed;
   }
 
   async function prefetchSession(id: string) {
