@@ -171,7 +171,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-node-pnpm
       - name: Native automation lifecycle contracts
-        run: pnpm test:automation
+        run: |
+          New-Item -ItemType Directory -Force .tracepilot/automation-test-results | Out-Null
+          pnpm test:automation 2>&1 | Tee-Object -FilePath .tracepilot/automation-test-results/tests.log
+          exit $LASTEXITCODE
+      - name: Upload automation contract diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: automation-contracts-${{ github.run_attempt }}
+          retention-days: 7
+          include-hidden-files: true
+          if-no-files-found: ignore
+          path: .tracepilot/automation-test-results/
 
   desktop_e2e:
     name: desktop integration (Windows installer)

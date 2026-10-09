@@ -200,6 +200,18 @@ protection, startup timeouts, and occupied ports using isolated local fixtures
 pages and failed IPC, and accept setup without a database. These tests do not read
 the user's sessions or build Rust.
 
+The automation command runs test files sequentially so cold PowerShell and Edge
+startup do not compete on hosted Windows. Its fixture subprocess watchdog is
+60 seconds, separate from the launcher's readiness timeout; the startup-timeout
+contract still uses a one-second readiness deadline. There are no command retries.
+A subprocess error includes elapsed time, the watchdog, exit code, signal and
+whether it was killed. Before temporary fixture cleanup, the tests copy command
+output and synthetic lifecycle logs/state to ignored
+`.tracepilot/automation-test-results/`. Expected nonzero exits are also recorded;
+the assertions require the specific validation error, so a timeout cannot pass
+as an expected rejection. Failed CI runs upload these records and the complete
+test transcript as `automation-contracts-<attempt>` for seven days.
+
 Use CLI commands for investigations instead of adding one-off scripts. For
 regressions, extend existing component/store tests, `smoke-test.mjs`, or
 `perf-profile.mjs` as appropriate. Prefer accessible names and stable test IDs;

@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import {
   copyFileSync,
   existsSync,
@@ -12,14 +11,13 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
-import { promisify } from "node:util";
-
-const execute = promisify(execFile);
+import { fixtureRunner } from "./test-process.mjs";
 
 // Run the real diagnostic entrypoints against a temporary checkout. Readiness is
 // synthetic and the launcher only records arguments: no app/process is stopped.
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), "tracepilot diagnostic test "));
+  const execute = fixtureRunner(root);
   const events = join(root, "events.jsonl");
   const stop = join(root, "scripts/e2e/stop.ps1");
   for (const file of ["connect.mjs", "perf-profile.mjs", "stop.ps1"]) {
@@ -33,6 +31,7 @@ function fixture(t) {
     `param([string]$Action, [string]$Instance = '', [string]$ExpectedInstanceId = '')
 $event = @{ event = 'stop'; instance = $Instance; instanceId = $ExpectedInstanceId } | ConvertTo-Json -Compress
 Add-Content -LiteralPath $env:TRACEPILOT_TEST_EVENTS -Value $event
+if ($env:TRACEPILOT_TEST_STOP_DELAY_MS) { Start-Sleep -Milliseconds $env:TRACEPILOT_TEST_STOP_DELAY_MS }
 if ($env:TRACEPILOT_TEST_STOP_FAIL) { exit 1 }
 exit 0
 `,
@@ -78,23 +77,17 @@ export async function connectDesktop(endpoint, timeout, instanceId) {
     TRACEPILOT_INSTANCE: "",
     TRACEPILOT_AUTOMATION_REGISTRY: join(root, "registry"),
   };
-  const runStop = (args = []) =>
+  const runStop = (args = [], extraEnv = {}) =>
     execute(
       "powershell.exe",
       ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", stop, ...args],
       {
-        cwd: root,
-        env,
-        windowsHide: true,
-        timeout: 15_000,
+        env: { ...env, ...extraEnv },
       },
     );
   const runNode = (file, extraEnv = {}, args = []) =>
     execute(process.execPath, [file, ...args], {
-      cwd: root,
       env: { ...env, ...extraEnv },
-      windowsHide: true,
-      timeout: 15_000,
     });
   const runApp = (args) =>
     execute(
@@ -107,7 +100,7 @@ export async function connectDesktop(endpoint, timeout, instanceId) {
         join(root, "scripts/automation/app.ps1"),
         ...args,
       ],
-      { cwd: root, env, windowsHide: true, timeout: 15_000 },
+      { env },
     );
   const log = () =>
     existsSync(events)
@@ -133,6 +126,19 @@ test("diagnostic stop selects only the requested lifecycle state", {
       { event: "stop", instance: "profile", instanceId: "profile-start" },
     ]);
   });
+  await t.test("slow shell dispatch still forwards the selected start identity", async (t) => {
+    const f = fixture(t);
+    f.state("", 9222);
+    f.state("profile", 9245, "profile-start");
+    // Reproduce the hosted failure without depending on cold Windows startup:
+    // the first shell command exceeded the old 15-second subprocess watchdog.
+    await f.runStop(["-Instance", "profile", "-Port", "9245", "-InstanceId", "profile-start"], {
+      TRACEPILOT_TEST_STOP_DELAY_MS: "16000",
+    });
+    assert.deepEqual(f.log(), [
+      { event: "stop", instance: "profile", instanceId: "profile-start" },
+    ]);
+  });
   await t.test("default and legacy explicit-port cleanup stay supported", async (t) => {
     const f = fixture(t);
     f.state("", 9230);
@@ -141,23 +147,29 @@ test("diagnostic stop selects only the requested lifecycle state", {
     assert.equal(f.log().length, 2);
     assert.ok(f.log().every((event) => event.instance === ""));
   });
-  for (const [name, args, createState] of [
-    ["missing selected state", ["-Instance", "missing"], () => {}],
-    ["missing explicit-port state", ["-Port", "9245"], () => {}],
-    ["mismatched port", ["-Instance", "profile", "-Port", "9222"], (f) => f.state("profile", 9245)],
+  for (const [name, args, createState, error] of [
+    ["missing selected state", ["-Instance", "missing"], () => {}, /No tracked desktop/],
+    ["untracked explicit port", ["-Port", "9245"], () => {}, /not owned/],
+    [
+      "mismatched port",
+      ["-Instance", "profile", "-Port", "9222"],
+      (f) => f.state("profile", 9245),
+      /not owned/,
+    ],
     [
       "restarted instance",
       ["-Instance", "profile", "-InstanceId", "old-start"],
       (f) => f.state("profile", 9245, "new-start"),
+      /has changed since connection/,
     ],
-    ["invalid instance", ["-Instance", "../escape"], () => {}],
-    ["invalid port", ["-Port", "65536"], () => {}],
+    ["invalid instance", ["-Instance", "../escape"], () => {}, /-Instance must be/],
+    ["invalid port", ["-Port", "65536"], () => {}, /65535/],
   ]) {
     await t.test(`rejects ${name} without stopping default state`, async (t) => {
       const f = fixture(t);
       f.state("", 9222);
       createState(f);
-      await assert.rejects(f.runStop(args));
+      await assert.rejects(f.runStop(args), error);
       assert.deepEqual(f.log(), []);
     });
   }
