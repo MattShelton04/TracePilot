@@ -7,6 +7,7 @@ import {
 } from "@tracepilot/ui";
 import type { ComputedRef, Ref } from "vue";
 import { computed } from "vue";
+import { niceTicks } from "@/utils/niceTicks";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ export interface IncidentChartData {
   yLabels: { value: string; y: number }[];
   xLabels: XAxisLabel[];
   barW: number;
+  /** Axis maximum (top tick); bars are scaled against it. */
   maxVal: number;
 }
 
@@ -121,7 +123,11 @@ export function useIncidentChartData(options: UseIncidentChartDataOptions) {
       };
     });
 
-    const maxVal = Math.max(0.5, ...barData.map((b) => b.total));
+    // Raw incidents are whole counts; per-session rates are fractional.
+    const axis = niceTicks(Math.max(0.5, ...barData.map((b) => b.total)), {
+      integer: !normalize.value,
+    });
+    const maxVal = axis.max;
     const barW = computeBarWidth(CHART_W, barData.length, 4, 18);
 
     const bars: IncidentBar[] = barData.map((b, i) => {
@@ -140,13 +146,10 @@ export function useIncidentChartData(options: UseIncidentChartDataOptions) {
       };
     });
 
-    // Nice Y-axis ticks
-    const yTicks = 5;
-    const step = maxVal <= 1 ? 0.2 : Math.ceil(maxVal / (yTicks - 1));
-    const yLabels = Array.from({ length: yTicks }, (_, i) => {
-      const value = maxVal <= 1 ? +(i * step).toFixed(1) : Math.round(i * step);
-      return { value: String(value), y: CHART_BOTTOM - (i * CHART_H) / (yTicks - 1) };
-    });
+    const yLabels = axis.ticks.map((value) => ({
+      value: String(value),
+      y: CHART_BOTTOM - (value / maxVal) * CHART_H,
+    }));
 
     const xLabels = generateXLabels(
       barData,
