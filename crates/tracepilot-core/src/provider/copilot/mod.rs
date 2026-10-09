@@ -117,6 +117,7 @@ fn snapshot(load: SessionLoadResult, fingerprint: SourceFingerprint) -> Provider
         turns: load.turns,
         metrics: None,
         diagnostics: load.diagnostics,
+        format: None,
         fingerprint,
     }
 }

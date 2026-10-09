@@ -114,6 +114,7 @@ impl SessionProvider for FixtureProvider {
             turns: Some(turns),
             metrics: None,
             diagnostics: Some(parsed.diagnostics),
+            format: None,
             fingerprint,
         })
     }

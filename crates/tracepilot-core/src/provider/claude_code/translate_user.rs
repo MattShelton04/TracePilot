@@ -6,6 +6,7 @@
 
 use serde_json::{Value, json};
 
+use super::drift;
 use super::notify::{TaskNotification, contains_notification, parse_notifications};
 use super::prompts::{
     command_name, command_output, command_prompt, echoed_command, is_command_caveat,
@@ -155,11 +156,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             return;
         }
         if !KNOWN_ATTACHMENTS.contains(&kind) {
-            *self
-                .diagnostics
-                .unknown_attachment_types
-                .entry(kind.to_string())
-                .or_default() += 1;
+            drift::count_type(&mut self.diagnostics.unknown_attachment_types, kind);
         }
         self.native_only(st, ctx);
     }
