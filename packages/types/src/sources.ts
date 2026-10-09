@@ -15,6 +15,11 @@ export const DEFAULT_SESSION_SOURCE: SessionSource = "copilot";
 
 /** What a source supports. Gates tabs, actions and cost KPIs. */
 export interface SourceCapabilities {
+  /**
+   * TracePilot itself can resume the session (Resume in Terminal, exact
+   * context capture). A source can still offer a command the user copies and
+   * runs themselves; see {@link resumeCommand}.
+   */
   canResume: boolean;
   canLaunch: boolean;
   canSteer: boolean;
@@ -61,6 +66,17 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
   },
 };
 
+/**
+ * How a user resumes a source's session in their own terminal, as
+ * `<binary> --resume <id>`. A `null` binary uses the configured CLI command
+ * preference; a `null` entry means the source has no such command. This is
+ * presentation only, with no Rust counterpart.
+ */
+const RESUME_CLI: Record<SessionSource, { binary: string | null } | null> = {
+  copilot: { binary: null },
+  claudeCode: { binary: "claude" },
+};
+
 const SOURCE_LABELS: Record<SessionSource, string> = {
   copilot: "Copilot",
   claudeCode: "Claude Code",
@@ -74,6 +90,21 @@ export function resolveSessionSource(source: SessionSource | null | undefined): 
 /** Static capabilities for a source. A missing source means Copilot. */
 export function sourceCapabilities(source: SessionSource | null | undefined): SourceCapabilities {
   return SOURCE_CAPABILITIES[resolveSessionSource(source)];
+}
+
+/**
+ * The command a user copies to resume a session in their own terminal, or
+ * `null` when the source has none. `configuredCli` is the CLI command
+ * preference, used by sources that resume through it.
+ */
+export function resumeCommand(
+  source: SessionSource | null | undefined,
+  sessionId: string,
+  configuredCli: string,
+): string | null {
+  const cli = RESUME_CLI[resolveSessionSource(source)];
+  if (!cli) return null;
+  return `${cli.binary ?? configuredCli} --resume ${sessionId}`;
 }
 
 /** Display name for a source; also the main agent's label in a conversation. */
