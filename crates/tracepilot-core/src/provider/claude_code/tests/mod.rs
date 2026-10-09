@@ -42,6 +42,7 @@ fn all_fixtures() -> Vec<(&'static str, SessionFiles)> {
         ("meta_records", fixtures::meta_records(false)),
         ("meta_records_idle", fixtures::meta_records(true)),
         ("subagents", fixtures::subagents()),
+        ("foreground_agents", fixtures::foreground_agents()),
         ("rewind_fork", fixtures::rewind_fork()),
         ("interrupted_and_live", fixtures::interrupted_and_live()),
         ("damaged_lines", fixtures::damaged_lines()),

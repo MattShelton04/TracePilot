@@ -10,6 +10,7 @@ import {
 import { BarChart3 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import SwimlanePhaseGroup from "@/components/timeline/swimlanes/SwimlanePhaseGroup.vue";
+import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
 import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
 import { useSwimlaneLayout } from "@/composables/useSwimlaneLayout";
 import { useTimelineToolState } from "@/composables/useTimelineToolState";
@@ -70,13 +71,16 @@ const { groupedPhases, allAgentToolCalls, nestedTools, directTools, countNestedT
 /*  Live-ticking for in-progress subagents                            */
 /* ------------------------------------------------------------------ */
 
-const hasInProgressAgents = computed(() =>
-  store.turns.some((t) => t.toolCalls.some((tc) => tc.isSubagent && !tc.isComplete)),
+const countsUpToNow = useCountsUpToNow(() => store.sessionId);
+const hasInProgressAgents = computed(
+  () =>
+    countsUpToNow.value &&
+    store.turns.some((t) => t.toolCalls.some((tc) => tc.isSubagent && !tc.isComplete)),
 );
 const { nowMs } = useLiveDuration(hasInProgressAgents);
 
 function agentLiveDuration(agent: TurnToolCall): number | undefined {
-  if (!agent.isComplete && agent.startedAt) {
+  if (!agent.isComplete && agent.startedAt && countsUpToNow.value) {
     return nowMs.value - new Date(agent.startedAt).getTime();
   }
   return agent.durationMs;

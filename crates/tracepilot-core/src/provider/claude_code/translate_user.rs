@@ -326,6 +326,58 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         self.emit_custom(st, ctx, kind, data, custom);
     }
 
+    /// The result of `Agent` call `tool`. A foreground agent's result comes
+    /// back when the agent has finished, so it ends the agent unless a
+    /// hand-back or notification already did; an asynchronous launch's result
+    /// only says it started. `error` is the text of a failed result.
+    pub(super) fn agent_result(
+        &mut self,
+        st: &mut Stream<'_>,
+        ctx: &mut RecCtx,
+        tool: &str,
+        tur: Option<&Value>,
+        error: Option<String>,
+    ) {
+        let field = |key: &str| tur.filter(|t| t.is_object()).and_then(|t| t.get(key));
+        let launched = field("isAsync").and_then(Value::as_bool) == Some(true)
+            || field("status").and_then(Value::as_str) == Some("async_launched");
+        if launched && error.is_none() {
+            return;
+        }
+        let children = self.children;
+        let agent = field("agentId")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .or_else(|| {
+                let first = self.launches.get(tool)?.first()?;
+                Some(children[*first].agent_id.clone())
+            });
+        let key = agent.clone().unwrap_or_else(|| tool.to_string());
+        if self.terminals.contains_key(&key) {
+            return;
+        }
+        let total_tokens = field("totalTokens").and_then(Value::as_u64);
+        self.terminals.insert(key, total_tokens.is_some());
+        let (kind, mut data) = match error {
+            None => ("subagent.completed", json!({})),
+            Some(text) if text.starts_with("[Request interrupted by user") => {
+                ("subagent.completed", json!({"cancelled": true}))
+            }
+            Some(text) => ("subagent.failed", json!({"error": text})),
+        };
+        if let Some(map) = data.as_object_mut() {
+            map.insert("toolCallId".into(), json!(tool));
+            map.insert("totalTokens".into(), json!(total_tokens));
+            map.insert("totalToolCalls".into(), json!(field("totalToolUseCount")));
+            map.insert("durationMs".into(), json!(field("totalDurationMs")));
+        }
+        let custom = Custom {
+            parent: None,
+            agent_id: agent,
+        };
+        self.emit_custom(st, ctx, kind, data, custom);
+    }
+
     fn owner_of(&self, agent: &str) -> Option<String> {
         Some(
             self.agent_owner

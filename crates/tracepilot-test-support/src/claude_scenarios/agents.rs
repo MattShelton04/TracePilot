@@ -240,3 +240,98 @@ pub fn subagents() -> SessionFiles {
     ];
     write_session(&t, &agents)
 }
+
+/// Foreground `Agent` calls, whose result comes back when the agent is done
+/// and is never followed by a hand-back or notification:
+/// - F has no transcript and a result that only says `completed` (the
+///   renderer gallery's shape), 30 s after the call;
+/// - G has a transcript and the totals of a synchronous result;
+/// - H has a transcript and fails;
+/// - I is an asynchronous launch that nothing has closed yet.
+pub fn foreground_agents() -> SessionFiles {
+    let mut t = Transcript::main();
+    t.prompt("Check the flag, map the exporter and check the build.");
+    let u = Usage::new(1, 10, 0, 1);
+    let agent = |description: &str| json!({"subagent_type": "Explore", "description": description, "prompt": description});
+    let launch = |t: &mut Transcript, message: &str, tool: &str, description: &str| {
+        t.call(
+            message,
+            OPUS,
+            vec![tool_use(tool, "Agent", agent(description))],
+            u,
+            "tool_use",
+        );
+    };
+    launch(&mut t, "msg_f1", "toolu_F", "flag");
+    t.idle(30);
+    t.tool_result(
+        "toolu_F",
+        json!("The flag is ready."),
+        json!({"status": "completed"}),
+        false,
+    );
+    launch(&mut t, "msg_f2", "toolu_G", "exporter");
+    t.tool_result(
+        "toolu_G",
+        json!([{"type": "text", "text": "Exporter mapped."}]),
+        json!({"status": "completed", "agentId": "agentG", "prompt": "exporter",
+            "content": [{"type": "text", "text": "Exporter mapped."}],
+            "totalDurationMs": 61_000, "totalTokens": 900, "totalToolUseCount": 2}),
+        false,
+    );
+    launch(&mut t, "msg_f3", "toolu_H", "build");
+    t.tool_result(
+        "toolu_H",
+        json!("Agent failed: the build tool is unavailable."),
+        json!("Error: Agent failed: the build tool is unavailable."),
+        true,
+    );
+    launch(&mut t, "msg_f4", "toolu_I", "tests");
+    t.tool_result(
+        "toolu_I",
+        json!("Async agent launched successfully."),
+        json!({"status": "async_launched", "isAsync": true, "agentId": "agentI"}),
+        false,
+    );
+    t.call(
+        "msg_f5",
+        OPUS,
+        vec![text(
+            "The flag is ready and the exporter is mapped; the build check failed.",
+        )],
+        u,
+        "end_turn",
+    );
+
+    let mut g = Transcript::subagent("agentG", 1);
+    g.prompt("exporter");
+    g.call(
+        "msg_G1",
+        OPUS,
+        vec![text("Exporter mapped.")],
+        Usage::new(2, 20, 0, 2),
+        "end_turn",
+    );
+    let mut h = Transcript::subagent("agentH", 2);
+    h.prompt("build");
+    h.call(
+        "msg_H1",
+        OPUS,
+        vec![text("Checking the build.")],
+        Usage::new(3, 30, 0, 3),
+        None,
+    );
+    let agents = [
+        Subagent {
+            agent_id: "agentG",
+            transcript: &g,
+            meta: Some(subagent_meta("toolu_G", "Explore", 1)),
+        },
+        Subagent {
+            agent_id: "agentH",
+            transcript: &h,
+            meta: Some(subagent_meta("toolu_H", "Explore", 1)),
+        },
+    ];
+    write_session(&t, &agents)
+}

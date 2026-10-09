@@ -3,6 +3,7 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, nextTick } from "vue";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionsStore } from "@/stores/sessions";
 import { useAgentTree } from "../useAgentTree";
 
 vi.mock("@tracepilot/client", async () => {
@@ -152,5 +153,44 @@ describe("useAgentTree", () => {
     ];
     const { api } = harness();
     expect(api.hasInProgress.value).toBe(true);
+  });
+
+  it("counts an unfinished agent up to now unless a non-Copilot session is not live", () => {
+    store.sessionId = "s-1";
+    store.turns = [
+      makeTurn({
+        turnIndex: 0,
+        toolCalls: [
+          makeTurnToolCall({
+            isSubagent: true,
+            toolCallId: "open",
+            isComplete: false,
+            success: undefined,
+            durationMs: undefined,
+            startedAt: "2025-01-01T00:00:00.000Z",
+          }),
+        ],
+      }),
+    ];
+    const sessions = useSessionsStore();
+    type Item = (typeof sessions.sessions)[number];
+    const list = (source: Item["source"], isRunning: boolean) => {
+      sessions.sessions = [{ id: "s-1", source, isRunning } as Item];
+    };
+    const { api } = harness();
+    const agent = api.treeData.value!.children[0];
+    expect(agent.status).toBe("in-progress");
+
+    // Not in the list yet: unchanged behaviour.
+    expect(api.liveDuration(agent)).toBeGreaterThan(0);
+    list("claudeCode", false);
+    expect(api.liveDuration(agent)).toBeUndefined();
+    list("claudeCode", true);
+    expect(api.liveDuration(agent)).toBeGreaterThan(0);
+    // Copilot keeps counting up to now whether or not it is running.
+    list("copilot", false);
+    expect(api.liveDuration(agent)).toBeGreaterThan(0);
+    list(undefined, false);
+    expect(api.liveDuration(agent)).toBeGreaterThan(0);
   });
 });

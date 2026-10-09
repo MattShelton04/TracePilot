@@ -18,7 +18,7 @@ use std::fmt::Write as _;
 use serde_json::{Map, Value, json};
 
 use super::records::{Blocks, Rec, block_type, tool_result_text};
-use super::tools::{question_key, rename_keys};
+use super::tools::{is_agent_tool, question_key, rename_keys};
 use super::translate::{RecCtx, Stream, Translator};
 
 /// `returnCodeInterpretation` explains a non-zero exit that is not an error
@@ -54,7 +54,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                     }
                     let failed = block.get("is_error").and_then(Value::as_bool) == Some(true);
                     let start = self.tool_starts.get(id).copied();
-                    let outcome = {
+                    let (outcome, agent) = {
                         let data = start
                             .and_then(|index| self.events.get(index))
                             .map(|e| &e.data);
@@ -65,7 +65,8 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                         let args = data
                             .and_then(|d| d.get("arguments"))
                             .unwrap_or(&Value::Null);
-                        reshape(native, args, tur, content, failed)
+                        let outcome = reshape(native, args, tur, content, failed);
+                        (outcome, is_agent_tool(native))
                     };
                     if let Some((name, arguments)) = outcome.restart
                         && let Some(event) = start.and_then(|index| self.events.get_mut(index))
@@ -73,6 +74,12 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                         event.data["toolName"] = json!(name);
                         event.data["arguments"] = arguments;
                     }
+                    let error = outcome
+                        .error
+                        .as_ref()
+                        .and_then(|e| e.get("message"))
+                        .and_then(Value::as_str)
+                        .map(str::to_string);
                     let data = json!({
                         "toolCallId": id,
                         "success": !failed,
@@ -83,6 +90,9 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                         "parentToolCallId": st.owner_tool,
                     });
                     self.emit(st, ctx, "tool.execution_complete", data);
+                    if agent {
+                        self.agent_result(st, ctx, id, tur, error);
+                    }
                 }
                 "text" => {
                     let text = block.get("text").and_then(Value::as_str).unwrap_or("");
