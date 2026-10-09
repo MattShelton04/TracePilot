@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use tracepilot_core::ids::SessionId;
 use tracepilot_core::provider::{
-    CopilotProvider, ProviderSnapshot, SessionLocator, SessionProvider, SessionRole, SessionSource,
-    SourceFingerprint,
+    CopilotProvider, FormatObservations, ProviderSnapshot, SessionLocator, SessionProvider,
+    SessionRole, SessionSource, SourceFingerprint,
 };
 
 use super::IndexDb;
@@ -18,6 +18,7 @@ use super::types::*;
 mod agent_runs;
 mod analytics;
 mod child_rows;
+mod format_observations;
 mod prompt_cache;
 mod prune;
 mod skill_invocations;
@@ -36,6 +37,8 @@ pub(crate) struct PreparedSessionData {
     pub index_info: SessionIndexInfo,
     pub fingerprint: SourceFingerprint,
     pub identity: SessionIdentity,
+    /// The source's format drift, when it reports any.
+    pub format: Option<FormatObservations>,
 }
 
 /// Which source wrote a session and where it sits in its family.
@@ -73,8 +76,8 @@ impl PreparedSessionData {
             turns,
             metrics,
             diagnostics,
+            format,
             fingerprint,
-            ..
         } = snapshot;
         let file_meta = SessionFileMeta::from_fingerprint(&fingerprint, &locator.primary_path);
         let mut analytics = extract_session_analytics(
@@ -109,6 +112,7 @@ impl PreparedSessionData {
             index_info,
             fingerprint,
             identity,
+            format,
         }
     }
 }
@@ -316,6 +320,7 @@ impl IndexDb {
                 &session_id,
                 &analytics.skill_invocations,
             )?;
+            format_observations::write(&self.conn, &session_id, prepared.format.as_ref())?;
 
             Ok(())
         })();

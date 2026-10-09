@@ -9,6 +9,7 @@ mod analytics_sources;
 mod claude_analytics;
 mod claude_metrics;
 mod common;
+mod format_diagnostics;
 mod maintenance;
 mod prompt_cache;
 mod search_batches;

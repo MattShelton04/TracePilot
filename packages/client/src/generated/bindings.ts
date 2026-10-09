@@ -41,6 +41,11 @@ export const commands = {
 	 *  count its sessions.
 	 */
 	validateClaudeConfigDir: (path: string) => typedError<ValidateSessionDirResult, BindingsErrorIpc>(__TAURI_INVOKE("validate_claude_config_dir", { path })),
+	/**
+	 *  The format drift indexing recorded for `source`; empty before the first
+	 *  index and for sources that report none (Copilot).
+	 */
+	getSourceFormatDiagnostics: (source: SessionSource) => typedError<SourceFormatDiagnostics, BindingsErrorIpc>(__TAURI_INVOKE("get_source_format_diagnostics", { source })),
 	checkConfigExists: () => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("check_config_exists")),
 	factoryReset: () => typedError<null, BindingsErrorIpc>(__TAURI_INVOKE("factory_reset")),
 	saveAgentDefinition: (filePath: string, yamlContent: string) => typedError<null, BindingsErrorIpc>(__TAURI_INVOKE("save_agent_definition", { filePath, yamlContent })),
@@ -103,6 +108,14 @@ export type CaptureStage = "preflight" | "copyingSession" | "preparingEnvironmen
 export type ErrorCode = "IO" | "TAURI" | "NETWORK" | "JOIN" | "PARSE" | "SERIALIZATION" | "INTERNAL" | "CORE" | "ORCHESTRATOR" | "BRIDGE" | "INDEXER" | "EXPORT" | "ALREADY_INDEXING" | "VALIDATION" |
 // The session's source does not support the requested action.
 "UNSUPPORTED";
+
+// One observed name across the source's indexed sessions.
+export type FormatNameCountDto = {
+	// A type name or a version; never a path, an id or content.
+	name: string,
+	sessions: number,
+	records: number,
+};
 
 export type FreshnessResponse = {
 	eventsFileSize: number,
@@ -173,6 +186,16 @@ export type SessionListItem = {
 
 // Which tool wrote a session.
 export type SessionSource = "copilot" | "claudeCode";
+
+// A source's format drift across its indexed sessions.
+export type SourceFormatDiagnostics = {
+	// Indexed sessions of the source.
+	sessions: number,
+	unmappedRecordTypes: FormatNameCountDto[],
+	unmappedAttachmentTypes: FormatNameCountDto[],
+	// Oldest version first.
+	versions: FormatNameCountDto[],
+};
 
 // Progress through one source's sessions.
 export type SourceProgressPayload = {

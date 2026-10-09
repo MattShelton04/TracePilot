@@ -158,6 +158,20 @@ USD estimates alone, and model rows are grouped by model and source so AI Credit
 estimates apply only to Copilot rows. Claude Code analytics version 23 rebuilds
 indexed Claude sessions with these rows; Copilot's version is unchanged.
 
+### Claude Code format drift
+
+Indexing also records what the Claude Code parser could not map:
+[migration 25](../../crates/tracepilot-indexer/src/index_db/migrations/plan.rs)
+adds `session_format_observations`, one row per session for each unmapped
+record type, unmapped attachment type and Claude Code version, with its record
+count. Names are checked before they are counted, so a value that is not shaped
+like a type name or a version is stored as `(unrecognized name)` or
+`(unrecognized version)`, never as a path, an id or content. Settings → Data &
+Storage lists the totals when Claude Code sessions are enabled, and
+`node scripts/claude-census.mjs` prints the same tallies for a config folder
+without indexing it. Claude Code analytics version 24 refreshes indexed Claude
+sessions to fill the table; Copilot writes no rows.
+
 ### Successful source snapshots
 
 [Migration 21](../../crates/tracepilot-indexer/src/index_db/migrations/plan.rs)

@@ -31,7 +31,9 @@ export { IPC_EVENTS, type IpcEventName } from "./events.js";
 export type {
   BindingsErrorIpc,
   ErrorCode,
+  FormatNameCountDto,
   GitInfo,
+  SourceFormatDiagnostics,
   UpdateCheckResult,
   ValidateSessionDirResult,
 } from "./generated/bindings.js";

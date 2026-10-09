@@ -13,6 +13,10 @@ export {
 export { MOCK_CLAUDE_ANALYTICS, MOCK_CLAUDE_TOOL_ANALYSIS } from "./claudeAnalytics.js";
 export { MOCK_CLAUDE_CONTEXT_TIMELINE, MOCK_CLAUDE_PROMPT_CACHE } from "./claudeContext.js";
 export { MOCK_EXPORT_RESULT } from "./export.js";
+export {
+  MOCK_CLAUDE_FORMAT_DIAGNOSTICS,
+  MOCK_COPILOT_FORMAT_DIAGNOSTICS,
+} from "./formatDiagnostics.js";
 export { MOCK_PROMPT_CACHE } from "./promptCache.js";
 export {
   getMockSessionDetail,
