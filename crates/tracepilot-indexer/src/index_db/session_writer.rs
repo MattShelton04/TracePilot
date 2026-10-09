@@ -87,6 +87,11 @@ impl PreparedSessionData {
         );
         if identity.source == SessionSource::ClaudeCode {
             analytics.total_cost = None;
+            // No metrics means no recorded usage: it costs nothing, rather
+            // than counting as unpriced.
+            if metrics.is_none() {
+                analytics.total_cost_usd = Some(0.0);
+            }
         }
         let index_info = SessionIndexInfo {
             repository: summary.repository.clone(),

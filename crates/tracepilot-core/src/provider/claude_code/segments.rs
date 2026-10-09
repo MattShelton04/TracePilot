@@ -112,6 +112,7 @@ pub(super) fn run_segments(parsed: &ClaudeParse) -> Vec<MetricsSegment> {
         last.api_duration_ms = merged.api_duration_ms;
         last.model_metrics = merged.model_metrics;
         last.cost = merged.cost;
+        last.partial = merged.partial;
     }
     segments
 }
@@ -157,6 +158,20 @@ fn snapshot_run(
             continue;
         }
         model_metrics.insert(model.clone(), detail(usage, requests));
+    }
+    // A call whose model the snapshot leaves out still counts as a request.
+    for (model, count) in counts {
+        model_metrics
+            .entry(model)
+            .or_insert_with(|| ModelMetricDetail {
+                requests: Some(RequestMetrics {
+                    count: Some(count),
+                    cost: None,
+                }),
+                usage: None,
+                total_nano_aiu: None,
+                token_details: None,
+            });
     }
     let cost = match (snapshot.total_cost_usd, previous) {
         (Some(total), None) => Some(total),
@@ -220,6 +235,7 @@ fn tail_run(calls: &[&ClaudeCallUsage], span: Option<(DateTime<Utc>, DateTime<Ut
 /// Fold an earlier run that has no time span into `run`.
 fn merge(run: &mut Run, earlier: Run) {
     run.requests += earlier.requests;
+    run.partial |= earlier.partial;
     run.api_duration_ms = match (run.api_duration_ms, earlier.api_duration_ms) {
         (None, None) => None,
         (a, b) => Some(a.unwrap_or(0) + b.unwrap_or(0)),
@@ -237,19 +253,21 @@ fn merge(run: &mut Run, earlier: Run) {
                 run.model_metrics.insert(model, other);
             }
             Some(detail) => {
+                if detail.usage.is_none() {
+                    detail.usage = other.usage;
+                } else if let (Some(usage), Some(other)) = (detail.usage.as_mut(), other.usage) {
+                    add_opt(&mut usage.input_tokens, other.input_tokens);
+                    add_opt(&mut usage.output_tokens, other.output_tokens);
+                    add_opt(&mut usage.cache_read_tokens, other.cache_read_tokens);
+                    add_opt(&mut usage.cache_write_tokens, other.cache_write_tokens);
+                    add_opt(&mut usage.reasoning_tokens, other.reasoning_tokens);
+                }
                 if let Some(count) = other.requests.and_then(|r| r.count) {
                     let requests = detail.requests.get_or_insert(RequestMetrics {
                         count: Some(0),
                         cost: None,
                     });
                     requests.count = Some(requests.count.unwrap_or(0) + count);
-                }
-                if let (Some(usage), Some(other)) = (detail.usage.as_mut(), other.usage) {
-                    add_opt(&mut usage.input_tokens, other.input_tokens);
-                    add_opt(&mut usage.output_tokens, other.output_tokens);
-                    add_opt(&mut usage.cache_read_tokens, other.cache_read_tokens);
-                    add_opt(&mut usage.cache_write_tokens, other.cache_write_tokens);
-                    add_opt(&mut usage.reasoning_tokens, other.reasoning_tokens);
                 }
             }
         }

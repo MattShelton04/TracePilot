@@ -338,7 +338,9 @@ export function formatNorm(value: number | null, isCost: boolean, mode: NormMode
 /**
  * Compute the five radar-chart axis values (each in `[0, 1]`) for a row:
  * token volume, cache efficiency, premium-request share, cost efficiency
- * and token share. Cost efficiency is inverted so higher = cheaper.
+ * and token share. Cost efficiency is inverted so higher = cheaper. A row
+ * not billed in AI Credits scores 0 on both credit axes rather than looking
+ * free.
  */
 export function computeRadarValues(row: ModelRow, rows: readonly ModelRow[]): number[] {
   const maxTokens = Math.max(...rows.map((m) => m.tokens), 1);
@@ -351,7 +353,7 @@ export function computeRadarValues(row: ModelRow, rows: readonly ModelRow[]): nu
     ...rows.map((m) => (m.aiCredits ?? 0) / Math.max(m.tokens, 1)),
     0.0001,
   );
-  const costEff = 1 - Math.min(costPerToken / maxCostPerToken, 1);
+  const costEff = row.billedInAiCredits ? 1 - Math.min(costPerToken / maxCostPerToken, 1) : 0;
   const share = row.percentage / 100;
   return [tokenVol, cacheEff, aiCreditShare, costEff, share];
 }

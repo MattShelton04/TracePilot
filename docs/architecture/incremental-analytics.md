@@ -141,8 +141,11 @@ its usage, requests, API time and USD cost are its snapshot minus the previous
 one, and it is dated by the main-file records between them. Calls after the
 last snapshot form a final, partial segment priced by TracePilot. A run with no
 timestamped record folds into the next run (or the previous one when it is
-last). The segments add up to the session totals, so a session resumed on later
-days shows its usage on each of those days.
+last). A call whose model a snapshot leaves out still counts as a request in
+its run. While the snapshot counters only grow, the segments add up to the
+session totals, so a session resumed on later days shows its usage on each of
+those days. A Claude session with no recorded usage costs $0 rather than
+counting as unpriced.
 
 [Migration 24](../../crates/tracepilot-indexer/src/index_db/migrations/plan.rs)
 adds a nullable `cost_usd` to `sessions`, `session_segments` and

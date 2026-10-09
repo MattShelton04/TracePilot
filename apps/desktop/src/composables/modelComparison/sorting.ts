@@ -14,6 +14,9 @@ import type { ModelRow, SortKey } from "./types";
  * - `model` sorts lexicographically (locale-aware).
  * - `cost` treats `null` as "unknown" and always pushes unknowns to the
  *   end of the list regardless of direction.
+ * - `aiCredits` sorts the cost column: rows billed in AI Credits by credits,
+ *   then rows priced in USD by their estimate, so units never interleave;
+ *   unknowns go last.
  * - All other keys are numeric.
  */
 export function buildRowComparator(
@@ -34,6 +37,18 @@ export function buildRowComparator(
       if (ac === Infinity) return 1;
       if (bc === Infinity) return -1;
       return sign * (ac - bc);
+    };
+  }
+
+  if (key === "aiCredits") {
+    const unit = (row: ModelRow) => (row.billedInAiCredits ? 0 : 1);
+    const value = (row: ModelRow) => (row.billedInAiCredits ? row.aiCredits : row.costUsd);
+    return (a, b) => {
+      if (unit(a) !== unit(b)) return unit(a) - unit(b);
+      const av = value(a);
+      const bv = value(b);
+      if (av == null || bv == null) return av == null ? (bv == null ? 0 : 1) : -1;
+      return sign * (av - bv);
     };
   }
 

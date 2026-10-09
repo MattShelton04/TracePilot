@@ -27,10 +27,10 @@ fn tokens(
 ) -> HashMap<String, u64> {
     models
         .iter()
-        .map(|(model, detail)| {
-            let usage = detail.usage.as_ref().unwrap();
+        .filter_map(|(model, detail)| {
+            let usage = detail.usage.as_ref()?;
             let total = usage.input_tokens.unwrap() + usage.output_tokens.unwrap();
-            (model.clone(), total)
+            Some((model.clone(), total))
         })
         .filter(|(_, total)| *total > 0)
         .collect()
@@ -151,4 +151,39 @@ fn an_unpriced_tail_call_leaves_its_run_and_model_unpriced() {
     assert!(metrics.cost.is_none());
     assert!((metrics.model_costs[OPUS] - 0.4).abs() < 1e-9);
     assert!(!metrics.model_costs.contains_key("claude-unknown-9"));
+}
+
+#[test]
+fn a_call_on_a_model_the_snapshot_omits_still_counts_as_a_request() {
+    let mut t = Transcript::main();
+    t.prompt("Start.");
+    t.call(
+        "first",
+        OPUS,
+        vec![text("Ready.")],
+        Usage::new(1, 10, 100, 2),
+        "end_turn",
+    );
+    t.call(
+        "aside",
+        HAIKU,
+        vec![text("Aside.")],
+        Usage::new(5, 50, 0, 6),
+        "end_turn",
+    );
+    t.cost_state(&[(OPUS, Usage::new(1, 10, 100, 2), 0.4)]);
+    let metrics = metrics(&write_session(&t, &[]));
+
+    let [run] = metrics.segments.as_slice() else {
+        panic!("one run expected, got {}", metrics.segments.len());
+    };
+    assert_eq!(run.requests, 2);
+    let haiku = &run.model_metrics[HAIKU];
+    assert_eq!(haiku.requests.as_ref().and_then(|r| r.count), Some(1));
+    // The snapshot has no usage for it, so the run adds none.
+    assert!(haiku.usage.is_none());
+    assert_eq!(
+        segment_tokens(&metrics.segments),
+        HashMap::from([(OPUS.into(), 113)])
+    );
 }

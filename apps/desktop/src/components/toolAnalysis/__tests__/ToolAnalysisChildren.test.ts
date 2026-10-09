@@ -133,6 +133,26 @@ describe("ToolUsageList", () => {
     expect(wrapper.findAll(".tool-usage-list__native-row")).toHaveLength(0);
     wrapper.unmount();
   });
+
+  it("counts calls with no native name in the drill-down", async () => {
+    const shell: ToolUsageEntry = {
+      name: "shell",
+      callCount: 7,
+      successRate: 0.8,
+      avgDurationMs: 100,
+      totalDurationMs: 700,
+      nativeTools: [
+        { name: "Bash", source: "claudeCode", callCount: 4, successRate: 0.75, avgDurationMs: 90 },
+      ],
+    };
+    const wrapper = mount(ToolUsageList, { props: { tools: [shell] } });
+    await wrapper.get("button[aria-expanded]").trigger("click");
+    const rows = wrapper.findAll(".tool-usage-list__native-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[1].text()).toContain("No native name");
+    expect(rows[1].text()).toContain("3");
+    wrapper.unmount();
+  });
 });
 
 describe("ToolSuccessFailureChart", () => {

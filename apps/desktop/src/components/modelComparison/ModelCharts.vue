@@ -100,10 +100,14 @@ const ctx = useModelComparisonContext();
       <div class="section-panel-header">Cost vs Token Volume</div>
       <div class="section-panel-body">
         <div
-          v-if="ctx.modelRows.length < 2 || ctx.modelRows.every(m => m.cost == null)"
+          v-if="ctx.scatterRows.length < 2 || ctx.scatterRows.every(m => m.cost == null)"
           class="chart-placeholder"
         >
-          Need at least 2 models with cost data for scatter plot.
+          {{
+            ctx.scatterRows.length < ctx.modelRows.length
+              ? "This plot uses AI Credits. Needs at least 2 models billed in AI Credits."
+              : "Need at least 2 models with cost data for scatter plot."
+          }}
         </div>
         <template v-else>
           <div class="legend">

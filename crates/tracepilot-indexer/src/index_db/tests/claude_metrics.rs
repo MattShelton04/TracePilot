@@ -195,3 +195,23 @@ fn resumed_claude_runs_land_on_their_own_days_with_usd() {
         .unwrap();
     assert!(db.session_is_stale(provider.as_ref(), &locator));
 }
+
+#[test]
+fn a_claude_session_with_no_usage_costs_nothing_rather_than_unpriced() {
+    use tracepilot_test_support::claude::{Transcript, write_session};
+
+    let mut t = Transcript::main();
+    t.prompt("Hello?");
+    let files = write_session(&t, &[]);
+    let provider: Arc<dyn SessionProvider> = Arc::new(ClaudeCodeProvider::new(files.root.path()));
+    let locator = provider.discover(&|| false).unwrap().remove(0);
+    let db = IndexDb::open_or_create(&files.root.path().join("index.db")).unwrap();
+    let prepared = session_writer::prepare_snapshot(&provider, &locator, &|| false).unwrap();
+    db.write_prepared_session(&prepared).unwrap();
+
+    let cost: Option<f64> = db
+        .conn
+        .query_row("SELECT cost_usd FROM sessions", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(cost, Some(0.0));
+}

@@ -268,7 +268,8 @@ pub struct SessionMetrics {
     /// priced.
     pub model_costs: HashMap<String, f64>,
     /// Usage per run, in file order, for per-day analytics. Their tokens add
-    /// up to `model_metrics`. Empty when the source records no run boundaries.
+    /// up to `model_metrics` while the source's counters only grow. Empty
+    /// when the source records no run boundaries.
     pub segments: Vec<MetricsSegment>,
 }
 

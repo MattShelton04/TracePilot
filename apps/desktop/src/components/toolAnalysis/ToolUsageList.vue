@@ -21,6 +21,12 @@ function toggle(name: string) {
 function nativeSummary(tool: ToolUsageEntry): string {
   return [...new Set((tool.nativeTools ?? []).map((native) => native.name))].join(", ");
 }
+
+/** Calls recorded under the canonical name only (Copilot's tools). */
+function canonicalOnlyCalls(tool: ToolUsageEntry): number {
+  const native = (tool.nativeTools ?? []).reduce((sum, entry) => sum + entry.callCount, 0);
+  return Math.max(tool.callCount - native, 0);
+}
 </script>
 
 <template>
@@ -86,6 +92,14 @@ function nativeSummary(tool: ToolUsageEntry): string {
                 <td class="tabular-nums">{{ formatRate(native.successRate) }}</td>
                 <td class="tabular-nums">{{ formatDuration(native.avgDurationMs) }}</td>
               </tr>
+              <tr v-if="canonicalOnlyCalls(tool) > 0" class="tool-usage-list__native-row">
+                <td class="tool-usage-list__native-name tool-usage-list__native-other">
+                  No native name
+                </td>
+                <td class="tabular-nums">{{ formatNumberFull(canonicalOnlyCalls(tool)) }}</td>
+                <td />
+                <td />
+              </tr>
             </template>
           </template>
         </tbody>
@@ -143,6 +157,11 @@ function nativeSummary(tool: ToolUsageEntry): string {
 
 .tool-usage-list__native-name {
   padding-left: 24px;
+}
+
+.tool-usage-list__native-other {
+  font-style: italic;
+  color: var(--text-tertiary);
 }
 
 .tool-usage-list__native-source {

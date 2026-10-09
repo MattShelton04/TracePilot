@@ -346,6 +346,20 @@ describe("computeRadarValues", () => {
       expect(v).toBeLessThanOrEqual(1);
     });
   });
+
+  it("never scores a model priced in USD as free on the credit axes", () => {
+    const copilot = row({ model: "a", tokens: 1000, aiCredits: 5 });
+    const claude = row({
+      model: "b",
+      tokens: 1000,
+      aiCredits: null,
+      billedInAiCredits: false,
+      costUsd: 2,
+    });
+    const [, , creditShare, creditEfficiency] = computeRadarValues(claude, [copilot, claude]);
+    expect(creditShare).toBe(0);
+    expect(creditEfficiency).toBe(0);
+  });
 });
 
 describe("computeScatterScale", () => {
@@ -413,6 +427,30 @@ describe("sortRows / buildRowComparator", () => {
   it("pushes null costs to the end regardless of direction", () => {
     expect(sortRows(rows, "cost", "asc").map((r) => r.model)).toEqual(["gamma", "alpha", "beta"]);
     expect(sortRows(rows, "cost", "desc").map((r) => r.model)).toEqual(["alpha", "gamma", "beta"]);
+  });
+
+  it("sorts the cost column within each unit, AI Credits first", () => {
+    const mixed: ModelRow[] = [
+      row({ model: "usd-cheap", aiCredits: null, billedInAiCredits: false, costUsd: 1 }),
+      row({ model: "aic-big", aiCredits: 9 }),
+      row({ model: "usd-unpriced", aiCredits: null, billedInAiCredits: false, costUsd: null }),
+      row({ model: "usd-dear", aiCredits: null, billedInAiCredits: false, costUsd: 30 }),
+      row({ model: "aic-small", aiCredits: 2 }),
+    ];
+    expect(sortRows(mixed, "aiCredits", "desc").map((r) => r.model)).toEqual([
+      "aic-big",
+      "aic-small",
+      "usd-dear",
+      "usd-cheap",
+      "usd-unpriced",
+    ]);
+    expect(sortRows(mixed, "aiCredits", "asc").map((r) => r.model)).toEqual([
+      "aic-small",
+      "aic-big",
+      "usd-cheap",
+      "usd-dear",
+      "usd-unpriced",
+    ]);
   });
 
   it("does not mutate input", () => {
