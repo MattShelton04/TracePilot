@@ -17,7 +17,7 @@ use tracepilot_core::provider::{
     CopilotProvider, Liveness, ProviderRegistry, ProviderSnapshot, SessionLocator, SessionProvider,
     SessionSource, SourceCapabilities, SourceFingerprint,
 };
-use tracepilot_indexer::index_db::IndexDb;
+use tracepilot_indexer::index_db::{CURRENT_EXTRACTOR_VERSION, IndexDb};
 use tracepilot_indexer::{
     IndexScope, SearchFilters, SourceGenerations, ensure_complete_inventory, reindex_all_scoped,
     reindex_incremental_scoped, reindex_search_content_scoped,
@@ -43,12 +43,20 @@ fn claude_transcript(prefix: &str) -> Vec<u8> {
                 "Bash",
                 json!({"command": format!("echo {prefix}command")}),
             ),
+            tool_use("toolu_2", "ToolSearch", json!({"query": "select:Monitor"})),
         ],
         Usage::new(10, 100, 0, 20),
         "tool_use",
     );
     let output = format!("{prefix}output text");
     t.tool_result("toolu_1", json!(output), json!(output), false);
+    let loaded = format!("{prefix}loadedtool");
+    t.tool_result(
+        "toolu_2",
+        json!([{"type": "tool_reference", "tool_name": loaded}]),
+        json!({"matches": [loaded]}),
+        false,
+    );
     t.record(
         "attachment",
         json!({"attachment": {"type": "edited_text_file",
@@ -169,6 +177,7 @@ fn claude_sessions_index_and_search_next_to_copilot() {
         "alphazcommand",
         "alphazoutput",
         "alphazcaption",
+        "alphazloadedtool",
     ] {
         assert_eq!(fixture.search(word), [CLAUDE_A], "{word}");
     }
@@ -186,6 +195,26 @@ fn claude_sessions_index_and_search_next_to_copilot() {
         reindex_search_content_scoped(&fixture.scope(), &fixture.db_path, |_| {}, || false)
             .unwrap();
     assert_eq!(searched, 0);
+}
+
+#[test]
+fn a_claude_search_version_bump_re_extracts_only_claude_sessions() {
+    let fixture = Fixture::new();
+    fixture.index(&fixture.scope());
+    // Every session as extracted before the Claude-only bump.
+    rusqlite::Connection::open(&fixture.db_path)
+        .unwrap()
+        .execute(
+            "UPDATE sessions SET search_extractor_version = ?1",
+            [CURRENT_EXTRACTOR_VERSION],
+        )
+        .unwrap();
+    let (searched, skipped) =
+        reindex_search_content_scoped(&fixture.scope(), &fixture.db_path, |_| {}, || false)
+            .unwrap();
+    assert_eq!(searched, 2, "both Claude sessions");
+    assert_eq!(skipped, fixture.copilot_ids.len(), "no Copilot session");
+    assert_eq!(fixture.search("alphazloadedtool"), [CLAUDE_A]);
 }
 
 #[test]

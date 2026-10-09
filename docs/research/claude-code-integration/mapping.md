@@ -188,14 +188,15 @@ Abbreviations in the table: **TUR** = `toolUseResult` (Claude's structured tool 
 | `WebSearch` | 20 | `web_search` | `query` | `results` → annotation JSON for source cards | WebSearch | L2 |
 | `Skill` | 3 | `skill` | `skill` already matches | Following isMeta context → skill invocation | Skill row | L2 |
 | `AskUserQuestion` | 17 | `ask_user` | `questions[]` → `requestedSchema` (one property per question, `oneOf` options) | `answers` → `{qN: answer}` JSON | AskUser | L2 |
-| `ToolSearch` | 40 | generic | — | `matches[]` | Generic | — |
+| `ToolSearch` | 40 | generic | — | `tool_reference` blocks → the loaded tool names, one per line | Generic | — |
 | `mcp__<server>__<tool>` (not observed) | 0 | unchanged | — | — | Generic; backend fills `mcpServerName`/`mcpToolName` (split on `__`, which is unambiguous unlike Copilot's `-`) | L2 |
 | Harness tools (`SubagentHandback`, `Artifact`, `ScheduleWakeup`, …) | 23 | unchanged | — | — | Generic | — |
 
 **Implementation rules (C4).** The table lives in `provider/claude_code/tools.rs` (arguments)
 and `tool_results.rs` (results).
 - A record's TUR is used only when the record carries one `tool_result` and TUR is an object.
-  Otherwise the `tool_result` text is the content.
+  Otherwise the `tool_result` text is the content. In that text, image blocks become `[image]`
+  and ToolSearch's `tool_reference` blocks become their `tool_name`, one per line.
 - Shell exit codes go in `shellExecution.exitCode`:
   - success → 0, or 1 when `returnCodeInterpretation` is set (Claude Code writes it only for
     exit code 1);

@@ -311,5 +311,15 @@ fn control() -> Vec<Case> {
             json!({"taskId": "m1"}),
             false,
         ),
+        (
+            "toolu_tool_search",
+            "ToolSearch",
+            json!({"query": "select:Read,mcp__docs__search_pages", "max_results": 5}),
+            json!([{"type": "tool_reference", "tool_name": "Read"},
+                {"type": "tool_reference", "tool_name": "mcp__docs__search_pages"}]),
+            json!({"matches": ["Read", "mcp__docs__search_pages"],
+                "query": "select:Read,mcp__docs__search_pages"}),
+            false,
+        ),
     ]
 }
