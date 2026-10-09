@@ -7,20 +7,22 @@
 //! experimental flag (F8) does.
 
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 
-use super::liveness::{ProcessStart, liveness};
+use super::background::read_background_tasks;
+use super::liveness::{ProcessStart, StalePidFiles, liveness, liveness_many};
 use super::parse_claude_session;
 use super::summary::summarize;
 use crate::error::{Result, TracePilotError};
 use crate::ids::SessionId;
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled, ensure_unchanged};
 use crate::provider::{
-    Liveness, ProviderSnapshot, SessionLocator, SessionProvider, SessionRole, SessionSource,
-    SourceCapabilities, SourceFingerprint,
+    Liveness, ProviderSnapshot, SessionArtifacts, SessionLocator, SessionProvider, SessionRole,
+    SessionSource, SourceCapabilities, SourceFingerprint,
 };
 
 /// Nothing Copilot-specific, and no todos, plan, checkpoints or explorer
-/// roots yet (C12, C13).
+/// roots yet (C13).
 const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     can_resume: false,
     can_launch: false,
@@ -33,6 +35,7 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_plan: false,
     has_explorer: false,
     has_hidden_roles: false,
+    has_background_tasks: true,
 };
 
 /// Sessions under one Claude Code config directory.
@@ -41,6 +44,7 @@ pub struct ClaudeCodeProvider {
     /// `<config_dir>/projects`, the root every transcript lives under.
     projects_dir: PathBuf,
     process_start: Option<ProcessStart>,
+    stale_pid_files: Arc<StalePidFiles>,
 }
 
 impl ClaudeCodeProvider {
@@ -50,6 +54,7 @@ impl ClaudeCodeProvider {
             projects_dir: config_dir.join("projects"),
             config_dir,
             process_start: None,
+            stale_pid_files: Arc::default(),
         }
     }
 
@@ -58,6 +63,14 @@ impl ClaudeCodeProvider {
     /// a pid file, because the file alone may be stale.
     pub fn with_process_start(mut self, process_start: ProcessStart) -> Self {
         self.process_start = Some(process_start);
+        self
+    }
+
+    /// Share the pid files proven stale across providers, so a leftover file
+    /// costs one process lookup for the life of the app rather than one per
+    /// provider (the app builds a provider per command).
+    pub fn with_stale_pid_files(mut self, stale: Arc<StalePidFiles>) -> Self {
+        self.stale_pid_files = stale;
         self
     }
 
@@ -230,7 +243,26 @@ impl SessionProvider for ClaudeCodeProvider {
             &self.config_dir.join("sessions"),
             session.id.as_str(),
             self.process_start.as_ref(),
+            &self.stale_pid_files,
         )
+    }
+
+    fn liveness_many(&self, sessions: &[SessionLocator]) -> Vec<Liveness> {
+        liveness_many(
+            &self.config_dir.join("sessions"),
+            sessions.iter().map(|session| session.id.as_str()),
+            self.process_start.as_ref(),
+            &self.stale_pid_files,
+        )
+    }
+
+    /// Background tasks only so far; plan, checkpoints and explorer roots
+    /// come with C13.
+    fn artifacts(&self, session: &SessionLocator) -> Result<SessionArtifacts> {
+        Ok(SessionArtifacts {
+            background_tasks: read_background_tasks(&session.primary_path)?,
+            ..SessionArtifacts::default()
+        })
     }
 
     fn root(&self) -> Option<&Path> {

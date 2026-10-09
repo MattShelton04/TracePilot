@@ -42,10 +42,11 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             crate::commands::sdk::sdk_bridge_metrics,
             crate::commands::session::list_sessions,
             crate::commands::session::check_session_freshness,
+            crate::commands::session::get_session_background_tasks,
             // wave 98 — state/system commands
             crate::commands::state::get_db_size,
             crate::commands::state::get_session_count,
-            crate::commands::state::is_session_running,
+            crate::commands::state::get_session_liveness,
             crate::commands::state::get_install_type,
             crate::commands::state::check_for_updates,
             crate::commands::state::get_git_info,

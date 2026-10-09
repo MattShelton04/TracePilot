@@ -8,8 +8,8 @@
  *
  * The inner content area is provided via the default slot.
  */
-import { isSessionRunning, openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
-import { isNonCopilotSource, sourceLabel } from "@tracepilot/types";
+import { getSessionLiveness, openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
+import { isNonCopilotSource, type RunStatus, runStatusBadge, sourceLabel } from "@tracepilot/types";
 import {
   Badge,
   ErrorAlert,
@@ -18,6 +18,7 @@ import {
   PageShell,
   SkeletonLoader,
   TabNav,
+  useAsyncGuard,
   useAutoRefresh,
   useClipboard,
 } from "@tracepilot/ui";
@@ -36,6 +37,7 @@ import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
 import { useLivePersistedSync } from "@/composables/useLivePersistedSync";
+import { useRunningSessionPoll } from "@/composables/useRunningSessionPoll";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { useWindowRole } from "@/composables/useWindowRole";
@@ -81,6 +83,8 @@ const resolvedSessionId = computed(() => props.store.detail?.id ?? props.session
 const { copy, copied } = useClipboard();
 
 const isSessionActive = ref(false);
+/** What the running process is doing, for sources that record it. */
+const runStatus = ref<RunStatus | null>(null);
 const sdk = useSdkStore();
 const { source, capabilities } = useSessionSource(
   () => props.sessionId,
@@ -117,7 +121,12 @@ const liveBadge = computed(() => {
   if (host?.state === "attachable") {
     return { label: "Live", title: "Running in a terminal TracePilot can stream live" };
   }
-  return { label: "Active", title: "Session is currently active" };
+  return (
+    runStatusBadge(runStatus.value, source.value) ?? {
+      label: "Active",
+      title: "Session is currently active",
+    }
+  );
 });
 const confirmingCopy = ref(false);
 const confirmingResume = ref(false);
@@ -137,18 +146,27 @@ async function openSessionFolder() {
  * refresh checks again and resumes it if the session reappears.
  */
 const sessionMissing = ref(false);
+/** The newest liveness check wins; a session switch drops any in flight. */
+const runningGuard = useAsyncGuard();
 
 async function checkRunning() {
+  const token = runningGuard.start();
   if (!props.sessionId) {
     isSessionActive.value = false;
+    runStatus.value = null;
     return;
   }
   try {
-    isSessionActive.value = await isSessionRunning(props.sessionId);
+    const liveness = await getSessionLiveness(props.sessionId);
+    if (!runningGuard.isValid(token)) return;
+    isSessionActive.value = liveness.state === "running";
+    runStatus.value = liveness.state === "running" ? liveness.status : null;
     sessionMissing.value = false;
     emit("update:isActive", isSessionActive.value);
   } catch (e) {
+    if (!runningGuard.isValid(token)) return;
     isSessionActive.value = false;
+    runStatus.value = null;
     if (isSessionNotFoundError(e)) {
       if (!sessionMissing.value) {
         logWarn("[sessionDetail] Session no longer exists; pausing auto-refresh:", e);
@@ -168,6 +186,17 @@ const { refreshing, refresh } = useAutoRefresh({
     () => prefs.autoRefreshEnabled && (props.refreshEnabled ?? true) && !sessionMissing.value,
   ),
   intervalSeconds: computed(() => prefs.autoRefreshIntervalSeconds),
+});
+
+// Copilot sessions refresh from the live stream above; sources TracePilot
+// cannot stream refresh on a timer while they run, and stop once idle.
+useRunningSessionPoll({
+  active: () =>
+    isSessionActive.value &&
+    isNonCopilotSource(source.value) &&
+    (props.refreshEnabled ?? true) &&
+    !sessionMissing.value,
+  refresh: () => Promise.all([props.store.refreshAll(), checkRunning()]),
 });
 
 defineExpose({ isSessionActive, refresh });
@@ -237,6 +266,7 @@ watch(
   () => props.sessionId,
   (newId) => {
     isSessionActive.value = false;
+    runStatus.value = null;
     sessionMissing.value = false;
     props.store.loadDetail(newId);
     checkRunning();

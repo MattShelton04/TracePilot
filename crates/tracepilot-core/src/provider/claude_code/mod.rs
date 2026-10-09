@@ -13,6 +13,7 @@
 //! Referenced files (`tool-results/`, task output, file history) are never
 //! opened, and image base64 never leaves the reader.
 
+mod background;
 mod branch;
 mod census;
 mod drift;
@@ -47,7 +48,7 @@ use crate::parsing::events::TypedEvent;
 
 pub use census::{FormatCensus, format_census};
 pub use drift::{safe_type_name, safe_version, version_order};
-pub use liveness::ProcessStart;
+pub use liveness::{ProcessStart, StalePidFiles};
 pub(crate) use privacy::redact_record;
 pub use provider::ClaudeCodeProvider;
 pub use usage::{ClaudeCallUsage, CostModelUsage, CostSnapshot, TokenTotals, sum_calls_by_model};
