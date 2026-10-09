@@ -63,6 +63,11 @@ export interface BuildModelRowsOptions {
   computeUsageBasedCost?: ComputeWholesaleCost;
   costPerPremiumRequest: number;
   palette: readonly string[];
+  /**
+   * Colour for models past the end of the palette. Without it the palette
+   * repeats, which gives unrelated models the same colour.
+   */
+  tailColor?: string;
 }
 
 /**
@@ -78,7 +83,21 @@ export function buildModelRows({
   computeUsageBasedCost = computeWholesaleCost,
   costPerPremiumRequest,
   palette,
+  tailColor,
 }: BuildModelRowsOptions): ModelRow[] {
+  // Colours follow token rank, so the most-used models get the named colours
+  // whatever order the distribution arrives in.
+  const tokenRank = new Map(
+    distribution
+      .map((m, i) => ({ i, tokens: m.inputTokens + m.outputTokens }))
+      .sort((a, b) => b.tokens - a.tokens)
+      .map((entry, rank) => [entry.i, rank]),
+  );
+  const colorAt = (i: number) => {
+    const rank = tokenRank.get(i) ?? i;
+    if (rank < palette.length || tailColor == null) return palette[rank % palette.length];
+    return tailColor;
+  };
   const grandTotal = distribution.reduce((sum, m) => sum + m.inputTokens + m.outputTokens, 0);
   const families = distribution.map((m) => modelFamily(m.model, resolveSessionSource(m.source)));
   const count = (family: string, sameSource?: string) =>
@@ -178,7 +197,7 @@ export function buildModelRows({
       model: m.model,
       source,
       billedInAiCredits: billed,
-      color: palette[i % palette.length],
+      color: colorAt(i),
       tokens,
       inputTokens: m.inputTokens,
       outputTokens: m.outputTokens,
@@ -186,6 +205,7 @@ export function buildModelRows({
       cacheWriteTokens: m.cacheWriteTokens ?? 0,
       percentage,
       premiumRequests: m.premiumRequests,
+      requestCount: m.requestCount ?? 0,
       cacheHitRate,
       aiCredits,
       aiCreditSource,
@@ -195,6 +215,7 @@ export function buildModelRows({
       copilotCost,
       costUsd,
       costUsdPartial: m.costUsdPartial ?? false,
+      usdEquivalent: billed ? (aiCredits == null ? null : aiCredits * AI_CREDIT_USD) : costUsd,
     };
   });
 }
@@ -339,39 +360,6 @@ export function formatNorm(value: number | null, isCost: boolean, mode: NormMode
     return value % 1 === 0 ? value.toString() : value.toFixed(1);
   }
   return formatNumber(value);
-}
-
-/**
- * Compute the five radar-chart axis values (each in `[0, 1]`) for a row:
- * token volume, cache efficiency, premium-request share, cost efficiency
- * and token share. Cost efficiency is inverted so higher = cheaper. A row
- * not billed in AI Credits scores 0 on both credit axes rather than looking
- * free.
- */
-export function computeRadarValues(row: ModelRow, rows: readonly ModelRow[]): number[] {
-  const maxTokens = Math.max(...rows.map((m) => m.tokens), 1);
-  const tokenVol = row.tokens / maxTokens;
-  const cacheEff = row.cacheHitRate / 100;
-  const maxAiCredits = Math.max(...rows.map((m) => m.aiCredits ?? 0), 1);
-  const aiCreditShare = (row.aiCredits ?? 0) / maxAiCredits;
-  const costPerToken = row.aiCredits != null && row.tokens > 0 ? row.aiCredits / row.tokens : 0;
-  const maxCostPerToken = Math.max(
-    ...rows.map((m) => (m.aiCredits ?? 0) / Math.max(m.tokens, 1)),
-    0.0001,
-  );
-  const costEff = row.billedInAiCredits ? 1 - Math.min(costPerToken / maxCostPerToken, 1) : 0;
-  const share = row.percentage / 100;
-  return [tokenVol, cacheEff, aiCreditShare, costEff, share];
-}
-
-/**
- * Pre-compute the per-axis maxima that drive the scatter plot bounds.
- * Guards against empty input by clamping to `1` token / `0.01` cost.
- */
-export function computeScatterScale(rows: readonly ModelRow[]): { maxT: number; maxC: number } {
-  const maxT = Math.max(...rows.map((m) => m.tokens), 1);
-  const maxC = Math.max(...rows.map((m) => m.aiCredits ?? 0), 0.01);
-  return { maxT, maxC };
 }
 
 /**

@@ -231,42 +231,23 @@ describe("useModelComparison", () => {
     expect(comp.compareMetrics.find((m) => m.label === "Cost")?.delta).toBe("Different units");
   });
 
-  it("radar + scatter helpers produce valid coordinates", () => {
-    seedDistribution([
-      {
-        model: "a",
-        inputTokens: 1000,
-        outputTokens: 500,
-        cacheReadTokens: 200,
-        premiumRequests: 2,
-      },
-      {
-        model: "b",
-        inputTokens: 2000,
-        outputTokens: 500,
-        cacheReadTokens: 500,
-        premiumRequests: 3,
-      },
-    ]);
+  it("colours models by token rank and gives the rest one neutral", () => {
+    seedDistribution(
+      Array.from({ length: 10 }, (_, i) => ({
+        model: `m${i}`,
+        inputTokens: 100 * (i + 1),
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        premiumRequests: 0,
+      })),
+    );
     const { comp } = mountHook();
-    const vals = comp.radarValues(comp.modelRows[0]);
-    expect(vals).toHaveLength(5);
-    expect(vals.every((v) => v >= 0 && v <= 1)).toBe(true);
-    const pt = comp.radarPoint(0, 1);
-    expect(Number.isFinite(pt.x)).toBe(true);
-    expect(Number.isFinite(pt.y)).toBe(true);
-    const poly = comp.radarPolygon(vals);
-    expect(poly.split(" ")).toHaveLength(5);
-    const end = comp.radarAxisEnd(0);
-    expect(end.y).toBeLessThan(130); // axis 0 points up
-    const label = comp.radarLabelPos(0);
-    expect(["start", "end", "middle"]).toContain(label.anchor);
-    // scatter
-    const x = comp.scatterX(comp.modelRows[0].tokens);
-    const y = comp.scatterY(0);
-    expect(Number.isFinite(x)).toBe(true);
-    expect(Number.isFinite(y)).toBe(true);
-    expect(comp.scatterRadius(50)).toBeGreaterThan(6);
+    const byModel = new Map(comp.modelRows.map((row) => [row.model, row.color]));
+    const named = [...byModel.values()].filter((color) => !color.startsWith("var("));
+    // The eight most-used models get palette colours; the two least used share the tail.
+    expect(named).toHaveLength(8);
+    expect(byModel.get("m0")).toBe(byModel.get("m1"));
+    expect(byModel.get("m0")).toMatch(/^var\(/);
   });
 
   it("pageSubtitle reflects selectedRepo", () => {

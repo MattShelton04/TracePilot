@@ -28,14 +28,20 @@ export const DONUT_PALETTE = [
   CHART_COLORS.info,
 ];
 
-/** Color palette for model comparison charts. */
+/**
+ * Color palette for model comparison charts, one colour per model in token
+ * order. Indigo and violet sit apart so the two closest hues never neighbour.
+ */
 export const MODEL_PALETTE = [
   CHART_COLORS.primary,
   CHART_COLORS.success,
   CHART_COLORS.warning,
   CHART_COLORS.danger,
-  CHART_COLORS.secondary,
   CHART_COLORS.cyan,
   CHART_COLORS.orange,
+  CHART_COLORS.secondary,
   CHART_COLORS.lime,
 ];
+
+/** Neutral shared by every model past the end of {@link MODEL_PALETTE}. */
+export const MODEL_TAIL_COLOR = "var(--neutral-emphasis)";

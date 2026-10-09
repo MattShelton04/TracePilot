@@ -23,6 +23,14 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 - **Session source switch** — The Sessions toolbar and Analytics pages switch between All, Copilot and Claude with a logo switch instead of a dropdown.
 
+- **Models page charts** — The Capability Radar and Cost vs Token Volume charts are replaced by four charts:
+  - **Cost Efficiency** plots each model's cost per million tokens against tokens used (log scale), sized by spend, against your average rate.
+  - **Token Share vs Spend Share** shows which models cost more than their share of use.
+  - **Model Profiles** compares models on volume, cost per token, cache hit, context per request and output share, as a fingerprint per model, an overlay of chosen models, or trails across all of them.
+  - **Model Mix Over Time** stacks tokens, share or estimated spend per model by day or week.
+
+  Charts put Copilot and Claude Code models on one API-equivalent USD scale (AI Credits at $0.01) and mark Claude Code's USD estimates. The eight most-used models keep distinct colours across the page; the rest share a neutral one instead of repeating colours.
+
 ### Fixed
 
 - **Claude Code analytics** — The Analytics token, activity and cost-by-day charts include Claude Code sessions, which they previously left out. With the Claude filter, AI Credit totals show a dash instead of $0.00, and the AI Credit cost trend is not drawn. A prompt-cache miss in a Claude conversation is priced in USD. Existing indexes refresh Claude rows once on launch.

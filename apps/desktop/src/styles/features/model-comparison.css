@@ -87,6 +87,45 @@
   color: var(--text-tertiary);
 }
 
+/* Cards and their "Show all" button share the grid's 12px rhythm; the
+   button is centred under the grid. */
+.model-comparison-feature .model-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.model-comparison-feature .model-cards-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  align-self: center;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--canvas-overlay);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.model-comparison-feature .model-cards-more-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-accent, var(--chart-primary));
+}
+
+.model-comparison-feature .model-cards-more-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 /* ── Performance Matrix Table ─────────────────────────────── */
 .model-comparison-feature .matrix-table,
 .model-comparison-feature .compare-table {
@@ -251,11 +290,344 @@
   font-size: 0.875rem;
 }
 
-.model-comparison-feature .scatter-hint {
-  text-align: center;
+/* The two cost charts sit side by side only when each gets enough width
+   for its labels. */
+.model-comparison-feature .model-chart-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1180px) {
+  .model-comparison-feature .model-chart-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Charts size their SVGs to the measured panel width in CSS pixels, so text
+   stays at its set size instead of scaling with a viewBox. */
+.model-comparison-feature .model-chart-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.model-comparison-feature .model-chart-body svg {
+  display: block;
+  overflow: visible;
+  max-width: 100%;
+}
+
+.model-comparison-feature .model-chart-caption,
+.model-comparison-feature .model-chart-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.model-comparison-feature .model-chart-footnote {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.model-comparison-feature .model-chart-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.model-comparison-feature .model-chart-grid line,
+.model-comparison-feature .model-chart-grid polygon {
+  stroke: var(--border-muted);
+  stroke-width: 1;
+}
+
+.model-comparison-feature .model-chart-axis-line {
+  stroke: var(--border-default);
+  stroke-width: 1;
+}
+
+.model-comparison-feature .model-chart-axis-text text {
+  font-size: 10px;
+  fill: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.model-comparison-feature .model-chart-axis-text.haloed text {
+  paint-order: stroke;
+  stroke: var(--canvas-subtle);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.model-comparison-feature .model-chart-note-text {
+  font-size: 10px;
+  fill: var(--text-tertiary);
+}
+
+.model-comparison-feature .model-chart-heading-text {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text-secondary);
+}
+
+.model-comparison-feature .model-chart-label {
+  font-size: 11px;
+  fill: var(--text-secondary);
+  paint-order: stroke;
+  stroke: var(--canvas-subtle);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.model-comparison-feature .model-chart-label.muted {
+  fill: var(--text-tertiary);
+}
+
+.model-comparison-feature .model-chart-focus-ring {
+  fill: none;
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+/* Cost efficiency */
+.model-comparison-feature .efficiency-above {
+  fill: color-mix(in srgb, var(--text-primary) 3%, transparent);
+}
+
+.model-comparison-feature .efficiency-average {
+  stroke: var(--accent-fg);
+  stroke-width: 1.5;
+}
+
+.model-comparison-feature .efficiency-average-label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--accent-fg);
+  paint-order: stroke;
+  stroke: var(--canvas-subtle);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+/* Token share vs spend share */
+.model-comparison-feature .share-shift-band {
+  cursor: default;
+}
+
+.model-comparison-feature .share-shift-ribbon {
+  fill-opacity: 0.24;
+  transition: fill-opacity 0.15s ease;
+}
+
+.model-comparison-feature .share-shift-band:hover .share-shift-ribbon {
+  fill-opacity: 0.5;
+}
+
+.model-comparison-feature .share-shift-band.dimmed {
+  opacity: 0.45;
+}
+
+.model-comparison-feature .share-shift-value {
+  font-weight: 600;
+  fill: var(--text-primary);
+}
+
+.model-comparison-feature .share-shift-delta {
+  fill: var(--text-tertiary);
+}
+
+/* Profiles: fingerprints */
+.model-comparison-feature .fingerprint-grid-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.model-comparison-feature .fingerprint-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.model-comparison-feature .fingerprint-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 8px 10px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--canvas-subtle);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.model-comparison-feature .fingerprint-card:hover {
+  border-color: var(--border-default);
+}
+
+.model-comparison-feature .fingerprint-card[aria-pressed="true"] {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 1px var(--border-accent);
+}
+
+.model-comparison-feature .fingerprint-card:focus-visible,
+.model-comparison-feature .fingerprint-option:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.model-comparison-feature .fingerprint-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.model-comparison-feature .fingerprint-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-comparison-feature .fingerprint-sub {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
-  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.model-comparison-feature .fingerprint-swatch {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--swatch);
+}
+
+.model-comparison-feature .fingerprint-swatch.hollow {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--swatch);
+}
+
+.model-comparison-feature .model-radar-axis-label {
+  fill: var(--text-tertiary);
+}
+
+.model-comparison-feature .model-radar .model-chart-grid polygon.model-radar-median {
+  stroke: var(--border-emphasis);
+  stroke-width: 1.5;
+}
+
+.model-comparison-feature .model-radar-series {
+  transition: opacity 0.15s ease;
+}
+
+.model-comparison-feature .model-radar-series.dimmed {
+  opacity: 0.18;
+}
+
+/* Profiles: overlay */
+.model-comparison-feature .fingerprint-overlay {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px 24px;
+  align-items: center;
+}
+
+.model-comparison-feature .fingerprint-overlay.stacked {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+
+.model-comparison-feature .fingerprint-overlay-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+
+.model-comparison-feature .fingerprint-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-comparison-feature .fingerprint-option[aria-pressed="true"] {
+  border-color: var(--border-default);
+  background: var(--canvas-subtle);
+  color: var(--text-primary);
+}
+
+.model-comparison-feature .fingerprint-option[aria-pressed="false"] .fingerprint-swatch {
+  opacity: 0.35;
+}
+
+.model-comparison-feature .fingerprint-option-name {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-comparison-feature .fingerprint-option-stats {
+  grid-column: 2;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Profiles: trails */
+.model-comparison-feature .model-trails {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.model-comparison-feature .trail,
+.model-comparison-feature .trail-end {
+  transition: opacity 0.15s ease;
+}
+
+.model-comparison-feature .trail.dimmed,
+.model-comparison-feature .trail-end.dimmed {
+  opacity: 0.1;
+}
+
+.model-comparison-feature .trail-hit {
+  cursor: pointer;
+}
+
+/* Model mix over time */
+.model-comparison-feature .mix-column {
+  transition: opacity 0.15s ease;
+}
+
+.model-comparison-feature .mix-column-dim {
+  opacity: 0.55;
 }
 
 /* ── Side-by-Side Comparison ──────────────────────────────── */

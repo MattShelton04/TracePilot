@@ -30,6 +30,7 @@ function makeRow(overrides: Partial<ModelRow> = {}): ModelRow {
     cacheWriteTokens: 0,
     percentage: 50,
     premiumRequests: 2,
+    requestCount: 10,
     cacheHitRate: 16.67,
     cost: 0.05,
     copilotCost: 0.08,
@@ -37,6 +38,7 @@ function makeRow(overrides: Partial<ModelRow> = {}): ModelRow {
     costUsdPartial: false,
     source: "copilot",
     billedInAiCredits: true,
+    usdEquivalent: 0.05,
     ...overrides,
     id: overrides.id ?? overrides.model ?? "gpt-4",
     label: overrides.label ?? overrides.model ?? "gpt-4",
@@ -50,7 +52,7 @@ function makeCtxStub(overrides: Partial<ModelComparisonContext> = {}): ModelComp
   const base = {
     store: { analyticsError: null, fetchAnalytics: vi.fn() },
     loading: false,
-    data: { modelDistribution: [] },
+    data: { modelDistribution: [], modelUsageByDay: [] },
     pageSubtitle: "Performance and cost metrics across all models",
     modelRows: [] as ModelRow[],
     totalTokens: 0,
@@ -69,16 +71,6 @@ function makeCtxStub(overrides: Partial<ModelComparisonContext> = {}): ModelComp
     sortArrow: vi.fn((_k: string) => "↓"),
     displayRows: [] as ModelRow[],
     fmtNorm: vi.fn((v: number | null, _isCost = false) => (v == null ? "—" : String(v))),
-    radarModels: [] as ModelRow[],
-    radarValues: vi.fn((_r: ModelRow) => [0.5, 0.5, 0.5, 0.5, 0.5]),
-    radarPoint: vi.fn((_i: number, _v: number) => ({ x: 150, y: 130 })),
-    radarPolygon: vi.fn((_vals: number[]) => "150,130 150,130 150,130 150,130 150,130"),
-    radarAxisEnd: vi.fn((_i: number) => ({ x: 150, y: 40 })),
-    radarLabelPos: vi.fn((_i: number) => ({ x: 150, y: 20, anchor: "middle" })),
-    scatterScale: { maxT: 1000, maxC: 1 },
-    scatterX: vi.fn((_t: number) => 100),
-    scatterY: vi.fn((_c: number) => 100),
-    scatterRadius: vi.fn((_c: number) => 8),
     compareA: "",
     compareB: "",
     compareRowA: undefined,
@@ -91,7 +83,6 @@ function makeCtxStub(overrides: Partial<ModelComparisonContext> = {}): ModelComp
   const rows = base.modelRows;
   return reactive({
     usdRows: rows.filter((row) => !row.billedInAiCredits),
-    scatterRows: rows.filter((row) => row.billedInAiCredits),
     ...base,
   }) as unknown as ModelComparisonContext;
 }
@@ -176,18 +167,58 @@ describe("ModelLeaderboard", () => {
   });
 });
 
-describe("ModelCharts", () => {
-  it("shows placeholder when fewer than 2 radar models", () => {
-    const ctx = makeCtxStub({ radarModels: [makeRow()] });
-    const wrapper = mount(hostFor(ModelCharts, ctx));
-    expect(wrapper.text()).toContain("Need at least 2 models for radar comparison.");
+describe("ModelStatsGrid card cap", () => {
+  const manyRows = (count: number) =>
+    Array.from({ length: count }, (_, i) => makeRow({ model: `m${i}`, tokens: 1000 - i }));
+
+  it("shows the eight most-used models until the user asks for all", async () => {
+    const wrapper = mount(hostFor(ModelStatsGrid, makeCtxStub({ modelRows: manyRows(12) })));
+    expect(wrapper.findAll(".model-card")).toHaveLength(8);
+    const toggle = wrapper.find(".model-cards-more-btn");
+    expect(toggle.text()).toBe("Show all 12 models");
+    await toggle.trigger("click");
+    expect(wrapper.findAll(".model-card")).toHaveLength(12);
+    expect(toggle.attributes("aria-expanded")).toBe("true");
+    expect(toggle.text()).toBe("Show top 8");
   });
 
-  it("renders radar + scatter svgs when data is sufficient", () => {
-    const rows = [makeRow({ model: "a" }), makeRow({ model: "b" })];
-    const ctx = makeCtxStub({ modelRows: rows, radarModels: rows });
+  it("shows a list only a few models longer in full", () => {
+    const wrapper = mount(hostFor(ModelStatsGrid, makeCtxStub({ modelRows: manyRows(10) })));
+    expect(wrapper.findAll(".model-card")).toHaveLength(10);
+    expect(wrapper.find(".model-cards-more-btn").exists()).toBe(false);
+  });
+});
+
+describe("ModelCharts", () => {
+  it("shows placeholders when there is too little to compare", () => {
+    const ctx = makeCtxStub({ modelRows: [makeRow()] });
     const wrapper = mount(hostFor(ModelCharts, ctx));
-    expect(wrapper.findAll("svg.chart-svg").length).toBe(2);
+    expect(wrapper.text()).toContain("Needs at least 2 models with a cost to compare.");
+    expect(wrapper.text()).toContain("Needs at least 2 models to compare profiles.");
+  });
+
+  it("draws one bubble per priced model and a profile card per model", () => {
+    const rows = [
+      makeRow({ model: "a", tokens: 3000, percentage: 75, usdEquivalent: 3 }),
+      makeRow({ model: "b", tokens: 1000, percentage: 25, usdEquivalent: 2 }),
+      makeRow({ model: "c", tokens: 10, percentage: 0.25, usdEquivalent: null }),
+    ];
+    const ctx = makeCtxStub({ modelRows: rows });
+    const wrapper = mount(hostFor(ModelCharts, ctx));
+    expect(wrapper.findAll('circle[data-reveal="pop"]')).toHaveLength(2);
+    expect(wrapper.text()).toContain("No cost recorded: c.");
+    expect(wrapper.findAll(".fingerprint-card")).toHaveLength(3);
+  });
+
+  it("switches the profiles panel to the overlay and trails views", async () => {
+    const rows = [makeRow({ model: "a", tokens: 3000 }), makeRow({ model: "b", tokens: 1000 })];
+    const wrapper = mount(hostFor(ModelCharts, makeCtxStub({ modelRows: rows })));
+    const viewButton = (label: string) =>
+      wrapper.findAll(".toggle-btn").find((b) => b.text() === label);
+    await viewButton("Overlay")?.trigger("click");
+    expect(wrapper.findAll(".fingerprint-option")).toHaveLength(2);
+    await viewButton("Trails")?.trigger("click");
+    expect(wrapper.find(".model-trails").exists()).toBe(true);
   });
 });
 
