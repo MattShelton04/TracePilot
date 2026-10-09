@@ -4,8 +4,6 @@ import {
   bestIdx,
   buildCompareMetrics,
   buildModelRows,
-  computeRadarValues,
-  computeScatterScale,
   crossSourcePair,
   formatNorm,
   formatRowCost,
@@ -28,6 +26,7 @@ function row(overrides: Partial<ModelRow> = {}): ModelRow {
     cacheWriteTokens: 0,
     percentage: 0,
     premiumRequests: 0,
+    requestCount: 0,
     cacheHitRate: 0,
     cost: 0,
     copilotCost: 0,
@@ -35,6 +34,7 @@ function row(overrides: Partial<ModelRow> = {}): ModelRow {
     costUsdPartial: false,
     source: "copilot",
     billedInAiCredits: true,
+    usdEquivalent: null,
     ...overrides,
     id: overrides.id ?? overrides.model ?? "m",
     label: overrides.label ?? overrides.model ?? "m",
@@ -205,7 +205,9 @@ describe("buildModelRows", () => {
     // copilotCost = 2 * 0.04
     expect(rows[0].copilotCost).toBeCloseTo(0.08);
     expect(rows[0].cost).toBe(1.23);
-    expect(rows[0].color).toBe(PALETTE[0]);
+    // Colours follow token rank: the 3,500-token row is first.
+    expect(rows[0].color).toBe(PALETTE[1]);
+    expect(rows[1].color).toBe(PALETTE[0]);
   });
 
   it("forwards cacheWriteTokens (defaulting to 0) into computeWholesaleCost", () => {
@@ -325,62 +327,69 @@ describe("formatNorm", () => {
   });
 });
 
-describe("computeRadarValues", () => {
-  it("returns five axes scaled to [0, 1]", () => {
-    const rows: ModelRow[] = [
-      row({
-        model: "a",
-        tokens: 1000,
-        cacheHitRate: 50,
-        premiumRequests: 10,
-        cost: 1,
-        percentage: 25,
-      }),
-      row({
-        model: "b",
-        tokens: 4000,
-        cacheHitRate: 100,
-        premiumRequests: 40,
-        cost: 8,
-        percentage: 75,
-      }),
-    ];
-    const values = computeRadarValues(rows[0], rows);
-    expect(values).toHaveLength(5);
-    values.forEach((v) => {
-      expect(v).toBeGreaterThanOrEqual(0);
-      expect(v).toBeLessThanOrEqual(1);
+describe("buildModelRows colours and cost", () => {
+  it("assigns palette colours by token rank and a tail colour past the palette", () => {
+    const rows = buildModelRows({
+      distribution: [
+        {
+          model: "small",
+          inputTokens: 10,
+          outputTokens: 0,
+          cacheReadTokens: 0,
+          premiumRequests: 0,
+        },
+        {
+          model: "big",
+          inputTokens: 1000,
+          outputTokens: 0,
+          cacheReadTokens: 0,
+          premiumRequests: 0,
+        },
+        { model: "mid", inputTokens: 100, outputTokens: 0, cacheReadTokens: 0, premiumRequests: 0 },
+        { model: "tiny", inputTokens: 1, outputTokens: 0, cacheReadTokens: 0, premiumRequests: 0 },
+      ],
+      computeWholesaleCost: () => null,
+      costPerPremiumRequest: 0,
+      palette: PALETTE,
+      tailColor: "tail",
     });
+    const color = (model: string) => rows.find((r) => r.model === model)?.color;
+    expect(color("big")).toBe(PALETTE[0]);
+    expect(color("mid")).toBe(PALETTE[1]);
+    expect(color("small")).toBe(PALETTE[2]);
+    expect(color("tiny")).toBe("tail");
   });
 
-  it("never scores a model priced in USD as free on the credit axes", () => {
-    const copilot = row({ model: "a", tokens: 1000, aiCredits: 5 });
-    const claude = row({
-      model: "b",
-      tokens: 1000,
-      aiCredits: null,
-      billedInAiCredits: false,
-      costUsd: 2,
+  it("prices AI Credits and provider USD on one USD-equivalent scale", () => {
+    const rows = buildModelRows({
+      distribution: [
+        {
+          model: "gpt",
+          inputTokens: 10,
+          outputTokens: 0,
+          cacheReadTokens: 0,
+          premiumRequests: 0,
+          totalNanoAiu: 250_000_000_000,
+          requestCount: 4,
+        },
+        {
+          model: "claude-opus-4-6",
+          source: "claudeCode",
+          costUsd: 1.5,
+          inputTokens: 10,
+          outputTokens: 0,
+          cacheReadTokens: 0,
+          premiumRequests: 0,
+        },
+      ],
+      computeWholesaleCost: () => null,
+      costPerPremiumRequest: 0,
+      palette: PALETTE,
     });
-    const [, , creditShare, creditEfficiency] = computeRadarValues(claude, [copilot, claude]);
-    expect(creditShare).toBe(0);
-    expect(creditEfficiency).toBe(0);
-  });
-});
-
-describe("computeScatterScale", () => {
-  it("returns clamped maxima for empty input", () => {
-    expect(computeScatterScale([])).toEqual({ maxT: 1, maxC: 0.01 });
-  });
-
-  it("returns the max tokens and max AI Credits", () => {
-    const out = computeScatterScale([
-      row({ tokens: 10, aiCredits: 1 }),
-      row({ tokens: 25, aiCredits: 4 }),
-      row({ tokens: 5, aiCredits: null }),
-    ]);
-    expect(out.maxT).toBe(25);
-    expect(out.maxC).toBe(4);
+    expect(rows[0].requestCount).toBe(4);
+    expect(rows[0].usdEquivalent).toBeCloseTo((rows[0].aiCredits ?? 0) * 0.01);
+    expect(rows[1].usdEquivalent).toBe(1.5);
+    expect(rows[1].requestCount).toBe(0);
   });
 });
 

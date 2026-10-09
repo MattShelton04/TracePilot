@@ -1,23 +1,12 @@
 import { computed, type InjectionKey, inject, reactive, ref, watch } from "vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePreferencesStore } from "@/stores/preferences";
-import { MODEL_PALETTE } from "@/utils/chartColors";
-import {
-  radarAxisEnd,
-  radarLabelPos,
-  radarPoint,
-  radarPolygon,
-  scatterRadius,
-  scatterX,
-  scatterY,
-} from "@/utils/modelChartGeometry";
+import { MODEL_PALETTE, MODEL_TAIL_COLOR } from "@/utils/chartColors";
 import {
   bestCostIndex,
   bestIdx,
   buildCompareMetrics,
   buildModelRows,
-  computeRadarValues,
-  computeScatterScale,
   crossSourcePair,
   formatNorm,
   normalizeRows,
@@ -25,23 +14,12 @@ import {
 import { sortArrow as sortArrowHelper, sortRows } from "./modelComparison/sorting";
 import type { CompareMetric, CostMode, ModelRow, NormMode, SortKey } from "./modelComparison/types";
 
-export {
-  RADAR_AXES,
-  RADAR_CX,
-  RADAR_CY,
-  RADAR_R,
-  SCATTER_H,
-  SCATTER_PAD,
-  SCATTER_W,
-} from "@/utils/modelChartGeometry";
 // Re-exported so consumers of `useModelComparison` keep a single import surface.
 export {
   bestCostIndex,
   bestIdx,
   buildCompareMetrics,
   buildModelRows,
-  computeRadarValues,
-  computeScatterScale,
   formatNorm,
   normalizeRows,
 } from "./modelComparison/metrics";
@@ -74,6 +52,7 @@ export function useModelComparison() {
       computeUsageBasedCost: prefs.computeUsageBasedCost,
       costPerPremiumRequest: prefs.costPerPremiumRequest,
       palette: MODEL_COLORS,
+      tailColor: MODEL_TAIL_COLOR,
     });
   });
 
@@ -109,8 +88,6 @@ export function useModelComparison() {
       ? usdRows.value.reduce((sum, model) => sum + (model.costUsd ?? 0), 0)
       : null,
   );
-  /** Rows the tokens-vs-AI-Credits scatter can place honestly. */
-  const scatterRows = computed(() => modelRows.value.filter((model) => model.billedInAiCredits));
   const totalCopilotCost = computed(() =>
     modelRows.value.reduce((sum, m) => sum + m.copilotCost, 0),
   );
@@ -146,15 +123,6 @@ export function useModelComparison() {
   const displayRows = computed<ModelRow[]>(() => normalizeRows(sortedRows.value, normMode.value));
   const fmtNorm = (value: number | null, isCost = false) =>
     formatNorm(value, isCost, normMode.value);
-
-  const radarModels = computed(() =>
-    [...modelRows.value].sort((a, b) => b.tokens - a.tokens).slice(0, 3),
-  );
-  const radarValues = (row: ModelRow) => computeRadarValues(row, modelRows.value);
-
-  const scatterScale = computed(() => computeScatterScale(scatterRows.value));
-  const scatterXBound = (tokens: number) => scatterX(tokens, scatterScale.value.maxT);
-  const scatterYBound = (cost: number) => scatterY(cost, scatterScale.value.maxC);
 
   const compareA = ref<string>("");
   const compareB = ref<string>("");
@@ -198,7 +166,6 @@ export function useModelComparison() {
     usdRows,
     usdSource,
     totalCostUsd,
-    scatterRows,
     totalCopilotCost,
     modelCount,
     costMode,
@@ -212,16 +179,6 @@ export function useModelComparison() {
     sortArrow,
     displayRows,
     fmtNorm,
-    radarModels,
-    radarValues,
-    radarPoint,
-    radarPolygon,
-    radarAxisEnd,
-    radarLabelPos,
-    scatterScale,
-    scatterX: scatterXBound,
-    scatterY: scatterYBound,
-    scatterRadius,
     compareA,
     compareB,
     compareRowA,

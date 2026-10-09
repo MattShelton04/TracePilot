@@ -7,7 +7,8 @@ import {
   sourceLabel,
 } from "@tracepilot/types";
 import { StatCard } from "@tracepilot/ui";
-import { computed } from "vue";
+import { ChevronDown, ChevronUp } from "lucide-vue-next";
+import { computed, ref } from "vue";
 import { formatRowCost, rowCostSource } from "@/composables/modelComparison/metrics";
 import { useModelComparisonContext } from "@/composables/useModelComparison";
 
@@ -18,6 +19,20 @@ const showAiCredits = computed(
   () => ctx.modelRows.length === 0 || ctx.usdRows.length < ctx.modelRows.length,
 );
 const pricedUsdModels = computed(() => ctx.usdRows.filter((row) => row.costUsd != null).length);
+
+/**
+ * Cards shown before "Show all": the models with their own chart colour,
+ * which fill two rows at the default width. A list only a few longer shows
+ * in full rather than hiding one or two cards behind a button.
+ */
+const CARD_LIMIT = 8;
+const COLLAPSE_MIN_HIDDEN = 3;
+const showAllCards = ref(false);
+const cardRows = computed(() => [...ctx.modelRows].sort((a, b) => b.tokens - a.tokens));
+const collapsible = computed(() => cardRows.value.length >= CARD_LIMIT + COLLAPSE_MIN_HIDDEN);
+const visibleCards = computed(() =>
+  collapsible.value && !showAllCards.value ? cardRows.value.slice(0, CARD_LIMIT) : cardRows.value,
+);
 </script>
 
 <template>
@@ -53,8 +68,9 @@ const pricedUsdModels = computed(() => ctx.usdRows.filter((row) => row.costUsd !
   </div>
 
   <!-- Model Cards Row -->
-  <div class="model-cards-row mb-4">
-    <div v-for="row in ctx.modelRows" :key="row.id" class="model-card">
+  <div class="model-cards mb-4">
+  <div id="model-cards" class="model-cards-row">
+    <div v-for="row in visibleCards" :key="row.id" class="model-card">
       <div class="model-card-name">
         <span class="model-dot" :style="{ '--model-color': row.color }" />
         <span class="model-card-name-text" :title="row.model">{{ row.label }}</span>
@@ -87,5 +103,17 @@ const pricedUsdModels = computed(() => ctx.usdRows.filter((row) => row.costUsd !
       </div>
       <div class="token-share-label">{{ formatPercent(row.percentage) }} of total tokens</div>
     </div>
+  </div>
+  <button
+    v-if="collapsible"
+    type="button"
+    class="model-cards-more-btn"
+    aria-controls="model-cards"
+    :aria-expanded="showAllCards"
+    @click="showAllCards = !showAllCards"
+  >
+    <component :is="showAllCards ? ChevronUp : ChevronDown" :size="14" aria-hidden="true" />
+    {{ showAllCards ? `Show top ${CARD_LIMIT}` : `Show all ${cardRows.length} models` }}
+  </button>
   </div>
 </template>

@@ -43,6 +43,8 @@ export interface ModelRow {
   cacheWriteTokens: number;
   percentage: number;
   premiumRequests: number;
+  /** API requests the model served. */
+  requestCount: number;
   cacheHitRate: number;
   aiCredits: number | null;
   aiCreditSource: AiCreditSource;
@@ -51,6 +53,11 @@ export interface ModelRow {
   /** Provider-priced USD for sources not billed in AI Credits. */
   costUsd: number | null;
   costUsdPartial: boolean;
+  /**
+   * Cost in API-equivalent USD (AI Credits at their USD value, or the
+   * provider USD estimate), so charts can place every source on one axis.
+   */
+  usdEquivalent: number | null;
 }
 
 export interface CompareMetric {
@@ -78,6 +85,7 @@ export interface ModelDistributionEntry {
   cacheReadTokens: number;
   cacheWriteTokens?: number;
   premiumRequests: number;
+  requestCount?: number;
   totalNanoAiu?: number | null;
   unobservedInputTokens?: number;
   unobservedOutputTokens?: number;
