@@ -113,7 +113,7 @@ These are the only additions to the normalized model. Each one also serves Codex
 | **`RawEvent.native`** | `Option<NativeRecord { source, record_type, data }>`, sanitized (no image base64, no file contents). `raw.data` stays canonical | Events tab and export show truthful records while `event_type` and `data` stay canonical (the reconstructor dispatches on prefixes, `reconstructor/mod.rs:131-137`, and reparsing derives typed data from `raw.data`) |
 | **`native_tool_name`** | On `ToolExecStartData` and `TurnToolCall` | Display, filters, tool analysis breakdown |
 | **`SessionMetrics` from the provider** | Maps into `ShutdownMetrics` with AIC and premium requests **`None`, not 0**, plus a cost figure: `cost_amount`, `cost_unit` (`aic \| usd`) and `cost_basis` (below) | Metrics tab, analytics, comparisons |
-| **`SourceCapabilities`** | `can_resume`, `can_launch`, `can_steer`, `has_aic`, `has_premium_requests`, `has_context_breakdown`, `has_todos`, `has_checkpoints`, `has_plan`, `has_explorer`, `has_hidden_roles`, … Static per source, with optional per-session overrides (e.g. "plan mode used") | Tab gating, IPC refusal, KPI visibility |
+| **`SourceCapabilities`** | `can_resume`, `can_launch`, `can_steer`, `has_aic`, `has_premium_requests`, `has_context_breakdown`, `has_todos`, `has_checkpoints`, `has_plan`, `has_explorer`, `has_hidden_roles`, … Static per source, with optional per-session overrides | Tab gating, IPC refusal, KPI visibility |
 
 Implemented (WP11, C7): `ModelCallData` and `SessionEventType::ModelCall`;
 `summary::metrics_from_model_calls` (always partial coverage) is the fallback in
@@ -158,7 +158,7 @@ There is one static table per provider:
 canonical names and never gain per-provider branches.
 
 - Copilot's names become TracePilot's documented canonical vocabulary.
-- Neutral additions: `shell`, `todo` (Codex `update_plan`), `plan`.
+- Neutral additions: `shell`, `todo`, `plan`.
 - The full table is in [mapping.md](mapping.md) §2.
 
 The reshape has to happen in Rust:
