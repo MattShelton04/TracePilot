@@ -197,7 +197,9 @@ describe("SessionDetailPanel", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
     try {
       const prefs = usePreferencesStore();
-      await flushPromises(); // let config hydration finish (auto-refresh stays off)
+      // Config hydration must finish first, or it resets these preferences.
+      await prefs.whenReady;
+      await flushPromises();
       if (autoRefreshSeconds) {
         prefs.autoRefreshEnabled = true;
         prefs.autoRefreshIntervalSeconds = autoRefreshSeconds;
