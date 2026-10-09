@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
-use tracepilot_core::provider::claude_code::ClaudeCodeProvider;
+use tracepilot_core::provider::claude_code::{ClaudeCodeProvider, StalePidFiles};
 use tracepilot_core::provider::{CopilotProvider, ProviderRegistry, SessionSource};
 
 use crate::config::TracePilotConfig;
@@ -17,7 +17,9 @@ pub(crate) fn registry_for(config: &TracePilotConfig) -> ProviderRegistry {
     registry.register(Arc::new(CopilotProvider::new(config.session_state_dir())));
     if let Some(root) = claude_code_root(config) {
         registry.register(Arc::new(
-            ClaudeCodeProvider::new(root).with_process_start(Arc::new(cached_process_start)),
+            ClaudeCodeProvider::new(root)
+                .with_process_start(Arc::new(cached_process_start))
+                .with_stale_pid_files(Arc::clone(&STALE_PID_FILES)),
         ));
     }
     registry
@@ -32,6 +34,9 @@ const PROCESS_START_TTL: Duration = Duration::from_secs(5);
 type ProcessStarts = Mutex<HashMap<u32, (Instant, Option<String>)>>;
 
 static PROCESS_STARTS: LazyLock<ProcessStarts> = LazyLock::new(Default::default);
+
+/// Pid files proven stale, for the life of the app.
+static STALE_PID_FILES: LazyLock<Arc<StalePidFiles>> = LazyLock::new(Default::default);
 
 fn cached_process_start(pid: u32) -> Option<String> {
     reuse_process_start(

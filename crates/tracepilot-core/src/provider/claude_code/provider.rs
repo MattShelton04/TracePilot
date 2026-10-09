@@ -7,8 +7,9 @@
 //! experimental flag (F8) does.
 
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 
-use super::liveness::{ProcessStart, liveness, liveness_many};
+use super::liveness::{ProcessStart, StalePidFiles, liveness, liveness_many};
 use super::parse_claude_session;
 use super::summary::summarize;
 use crate::error::{Result, TracePilotError};
@@ -41,6 +42,7 @@ pub struct ClaudeCodeProvider {
     /// `<config_dir>/projects`, the root every transcript lives under.
     projects_dir: PathBuf,
     process_start: Option<ProcessStart>,
+    stale_pid_files: Arc<StalePidFiles>,
 }
 
 impl ClaudeCodeProvider {
@@ -50,6 +52,7 @@ impl ClaudeCodeProvider {
             projects_dir: config_dir.join("projects"),
             config_dir,
             process_start: None,
+            stale_pid_files: Arc::default(),
         }
     }
 
@@ -58,6 +61,14 @@ impl ClaudeCodeProvider {
     /// a pid file, because the file alone may be stale.
     pub fn with_process_start(mut self, process_start: ProcessStart) -> Self {
         self.process_start = Some(process_start);
+        self
+    }
+
+    /// Share the pid files proven stale across providers, so a leftover file
+    /// costs one process lookup for the life of the app rather than one per
+    /// provider (the app builds a provider per command).
+    pub fn with_stale_pid_files(mut self, stale: Arc<StalePidFiles>) -> Self {
+        self.stale_pid_files = stale;
         self
     }
 
@@ -230,6 +241,7 @@ impl SessionProvider for ClaudeCodeProvider {
             &self.config_dir.join("sessions"),
             session.id.as_str(),
             self.process_start.as_ref(),
+            &self.stale_pid_files,
         )
     }
 
@@ -238,6 +250,7 @@ impl SessionProvider for ClaudeCodeProvider {
             &self.config_dir.join("sessions"),
             sessions.iter().map(|session| session.id.as_str()),
             self.process_start.as_ref(),
+            &self.stale_pid_files,
         )
     }
 
