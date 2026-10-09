@@ -9,6 +9,7 @@ members = [
     "crates/tracepilot-bench",
     "crates/tracepilot-test-support",
     "apps/desktop/src-tauri",
+    "crates/tracepilot-workspace-hack",
 ]
 
 [workspace.package]
@@ -68,6 +69,20 @@ tracepilot-core = { path = "crates/tracepilot-core" }
 tracepilot-indexer = { path = "crates/tracepilot-indexer" }
 tracepilot-export = { path = "crates/tracepilot-export" }
 tracepilot-orchestrator = { path = "crates/tracepilot-orchestrator" }
+
+# Line tables keep file:line backtraces and debug assertions while dropping
+# full variable/type info, which roughly halves `target/` and its incremental
+# churn and shortens links (docs/local-builds.md). Set
+# CARGO_PROFILE_DEV_DEBUG=full when stepping through code in a debugger.
+[profile.dev]
+debug = "line-tables-only"
+
+# Build scripts and proc-macros otherwise default to no debug info. A crate used
+# both by a build script and as a test dev-dependency (filetime, via
+# github-copilot-sdk's build script) then built differently for `cargo test`
+# and the desktop build, duplicating everything above it up to the bindings.
+[profile.dev.build-override]
+debug = "line-tables-only"
 
 [profile.release]
 lto = "thin"

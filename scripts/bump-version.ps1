@@ -31,8 +31,9 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Could not list pnpm workspace packages."
 $packages = @($packageList | ConvertFrom-Json)
 if ($packages.Count -eq 0) { Write-Error "No pnpm workspace packages found."; exit 1 }
 
-# 1. Update Cargo workspace version (uses cargo-edit, understands TOML properly)
-cargo set-version --workspace $Version
+# 1. Update Cargo workspace version (uses cargo-edit, understands TOML properly).
+# The hakari-managed workspace-hack crate keeps its own fixed version.
+cargo set-version --workspace --exclude tracepilot-workspace-hack $Version
 if ($LASTEXITCODE -ne 0) { Write-Error "cargo set-version failed. Install with: cargo install cargo-edit"; exit 1 }
 Write-Host "  ✓ Cargo workspace version updated" -ForegroundColor Green
 

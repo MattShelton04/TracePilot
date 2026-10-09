@@ -13,6 +13,7 @@ some older reports and plans, which remain recoverable from Git history.
 | Document | Description |
 |----------|-------------|
 | [Testing Guide](testing.md) | Canonical testing layers, commands, VRT/E2E scope, and caveats. |
+| [Local Builds](local-builds.md) | Build-time and disk settings, worktree setup, sccache, and `target/` housekeeping for parallel agents. |
 | [Script and Command Index](../scripts/README.md) | Supported commands, diagnostics, CI helpers, prerequisites, and side effects. |
 | [Running-App Automation](app-automation.md) | Playwright agent CLI for the real Tauri app and frontend-only UI server. |
 | [Releasing](releasing.md) | Release PR checklist: version bump, changelog and in-app notes, validation, tagging. |

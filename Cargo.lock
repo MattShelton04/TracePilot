@@ -6071,6 +6071,7 @@ dependencies = [
  "tempfile",
  "tracepilot-core",
  "tracepilot-indexer",
+ "tracepilot-workspace-hack",
  "uuid",
 ]
 
@@ -6092,6 +6093,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tracepilot-test-support",
+ "tracepilot-workspace-hack",
  "tracing",
  "uuid",
 ]
@@ -6114,6 +6116,7 @@ dependencies = [
  "tracepilot-core",
  "tracepilot-orchestrator",
  "tracepilot-tauri-bindings",
+ "tracepilot-workspace-hack",
 ]
 
 [[package]]
@@ -6132,6 +6135,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tracepilot-core",
  "tracepilot-test-support",
+ "tracepilot-workspace-hack",
  "tracing",
  "uuid",
 ]
@@ -6149,6 +6153,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tracepilot-core",
  "tracepilot-test-support",
+ "tracepilot-workspace-hack",
  "tracing",
 ]
 
@@ -6174,6 +6179,7 @@ dependencies = [
  "tokio",
  "tracepilot-core",
  "tracepilot-export",
+ "tracepilot-workspace-hack",
  "tracing",
  "url",
  "uuid",
@@ -6207,6 +6213,7 @@ dependencies = [
  "tracepilot-export",
  "tracepilot-indexer",
  "tracepilot-orchestrator",
+ "tracepilot-workspace-hack",
  "tracing",
  "tracing-subscriber",
  "uuid",
@@ -6220,6 +6227,74 @@ version = "0.9.1"
 dependencies = [
  "serde_json",
  "tempfile",
+ "tracepilot-workspace-hack",
+]
+
+[[package]]
+name = "tracepilot-workspace-hack"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.11.0",
+ "core-foundation-sys",
+ "crossbeam-utils",
+ "deranged",
+ "either",
+ "errno",
+ "flate2",
+ "form_urlencoded",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "getrandom 0.3.4",
+ "hashbrown 0.17.1",
+ "indexmap 2.14.2",
+ "libc",
+ "linux-raw-sys",
+ "log",
+ "memchr",
+ "miniz_oxide",
+ "num-traits",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "once_cell",
+ "percent-encoding",
+ "phf_shared 0.11.3",
+ "proc-macro2",
+ "rand 0.8.8",
+ "regex",
+ "regex-automata",
+ "regex-syntax",
+ "rustix",
+ "schemars 0.8.22",
+ "semver",
+ "serde",
+ "serde_core",
+ "serde_json",
+ "simd-adler32",
+ "slab",
+ "smallvec",
+ "specta",
+ "specta-macros",
+ "stable_deref_trait",
+ "syn 2.0.117",
+ "tauri-build",
+ "tauri-utils",
+ "time",
+ "time-macros",
+ "tokio",
+ "toml 0.8.2",
+ "toml_parser",
+ "tracing",
+ "tracing-core",
+ "url",
+ "uuid",
+ "windows",
+ "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
+ "winnow 0.7.15",
+ "zerocopy",
 ]
 
 [[package]]

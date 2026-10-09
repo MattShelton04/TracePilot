@@ -33,6 +33,10 @@ To prepare a release ("update the project to vX.Y.Z"), follow
 
 For site work, read [the landing-page guide](docs/landing-page.md) and run `pnpm site:check` after building.
 
+Each worktree builds its own Rust `target/`. See [local builds](docs/local-builds.md)
+for worktree setup, sccache and housekeeping; after changing Rust dependencies,
+run `cargo hakari generate && cargo hakari manage-deps`.
+
 Keep session scratch files, logs, and one-off audit reports outside tracked
 source (or in an existing ignored agent area). Add a reusable script only when
 it has a clear purpose and a discoverable invocation in `scripts/README.md`.

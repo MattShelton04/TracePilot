@@ -23,6 +23,7 @@ strum = { workspace = true }
 dashmap = { workspace = true }
 dhat = { version = "0.3", optional = true }
 specta = { workspace = true, optional = true }
+tracepilot-workspace-hack = { version = "0.1", path = "../tracepilot-workspace-hack" }
 
 [dev-dependencies]
 tempfile = { workspace = true }

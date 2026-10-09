@@ -1,0 +1,46 @@
+# This file contains settings for `cargo hakari`.
+# See https://docs.rs/cargo-hakari/latest/cargo_hakari/config for a full list of options.
+
+hakari-package = "tracepilot-workspace-hack"
+
+# Format version for hakari's output. Version 4 requires cargo-hakari 0.9.22 or above.
+dep-format-version = "4"
+
+# Setting workspace.resolver = "2" or higher in the root Cargo.toml is HIGHLY recommended.
+# Hakari works much better with the v2 resolver. (The v2 and v3 resolvers are identical from
+# hakari's perspective, so you're welcome to set either.)
+#
+# For more about the new feature resolver, see:
+# https://blog.rust-lang.org/2021/03/25/Rust-1.51.0.html#cargos-new-feature-resolver
+resolver = "2"
+
+# Add triples corresponding to platforms commonly used by developers here.
+# https://doc.rust-lang.org/rustc/platform-support.html
+# Windows is the primary development platform; Linux and macOS cover CI and releases.
+platforms = [
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-apple-darwin",
+]
+
+# Write out exact versions rather than a semver range. (Defaults to false.)
+# exact-versions = true
+
+# Hakari also unifies each member's `--all-features` build. Keep opt-in
+# diagnostics features out of ordinary and release builds:
+# - `tokio-console` (desktop) pulls console-subscriber's server-side features;
+# - `automation-devtools` enables `tauri/devtools`, which shipping builds omit.
+# Tauri's crates resolve identical features in every ordinary build, so leaving
+# them out of the workspace-hack does not reintroduce duplicate builds.
+# `cargo hakari verify` reports those excluded all-features builds by design;
+# CI checks freshness with `generate --diff` and `manage-deps --dry-run`.
+[traversal-excludes]
+third-party = [{ name = "console-subscriber" }]
+
+[final-excludes]
+third-party = [
+    { name = "tauri" },
+    { name = "tauri-runtime" },
+    { name = "tauri-runtime-wry" },
+    { name = "wry" },
+]

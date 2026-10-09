@@ -55,9 +55,12 @@ an unexpected skip fails it. Selection and gate contracts live in
 Linux, Windows and macOS each have one main-branch pnpm cache writer. PRs
 restore main caches without saving branch-local entries. Filtered dependency
 installs use distinct keys and can fall back to the full workspace store.
-Rust caches retain dependencies per workload; CI tests use `line-tables-only`
-debug information, retaining file:line backtraces and debug assertions without
-full variable/type information. The release profile remains the shipping
+Rust caches retain dependencies per workload; the dev/test profile uses
+`line-tables-only` debug information locally and in CI, retaining file:line
+backtraces and debug assertions without full variable/type information (see
+[local builds](local-builds.md)). The policy job fails when the
+`tracepilot-workspace-hack` crate is stale; regenerate it with
+`cargo hakari generate && cargo hakari manage-deps`. The release profile remains the shipping
 profile; installer/bundle CI disables LTO and uses 16 codegen units to check
 native packaging without paying its shipping optimization cost. Rust commands
 use `--locked`, and example contracts use the same workspace feature set as
@@ -77,15 +80,16 @@ ignored. Remove the narrow exception when updating to a supporting release.
 ### Pinned CI binaries
 
 Dependabot updates action references and package lockfiles, but cannot update
-the cargo-audit and actionlint release archives downloaded in
-[`ci.yml`](../.github/workflows/ci.yml). Maintainers should review these two
+the cargo-audit, actionlint and cargo-hakari release archives downloaded in
+[`ci.yml`](../.github/workflows/ci.yml). Maintainers should review these
 pins alongside the weekly Dependabot updates and promptly when the advisory
 database reports a scanner-format incompatibility. Keep the version and
 checksum pinned; fetching a floating latest binary would execute an
 unreviewed tool in CI.
 
 1. Check the official [RustSec cargo-audit releases](https://github.com/rustsec/rustsec/releases?q=cargo-audit)
-   and [actionlint releases](https://github.com/rhysd/actionlint/releases), including
+   [actionlint releases](https://github.com/rhysd/actionlint/releases) and
+   [cargo-hakari releases](https://github.com/guppy-rs/guppy/releases?q=cargo-hakari), including
    compatibility notes. RustSec publishes multiple tools; select a `cargo-audit/`
    tag rather than its repository's generic latest release. Distinguish
    scanner/database-format errors from actual
@@ -104,7 +108,9 @@ unreviewed tool in CI.
    For actionlint, test whether the new release accepts `concurrency.queue`
    and remove its narrow diagnostic exception only when supported.
 
-The current pins are cargo-audit 0.22.2 and actionlint 1.7.12. New scanner
+The current pins are cargo-audit 0.22.2, actionlint 1.7.12 and cargo-hakari
+0.9.39 (keep the local `cargo-hakari` on the same release so generated output
+matches CI). New scanner
 releases require this review even if their wrapper action has not changed.
 
 ## 1. Unit & integration (Vitest)
