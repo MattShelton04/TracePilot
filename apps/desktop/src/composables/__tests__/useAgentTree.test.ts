@@ -155,7 +155,7 @@ describe("useAgentTree", () => {
     expect(api.hasInProgress.value).toBe(true);
   });
 
-  it("counts an unfinished agent up to now only while its session is live", () => {
+  it("counts an unfinished agent up to now unless a non-Copilot session is not live", () => {
     store.sessionId = "s-1";
     store.turns = [
       makeTurn({
@@ -173,14 +173,24 @@ describe("useAgentTree", () => {
       }),
     ];
     const sessions = useSessionsStore();
-    const item = { id: "s-1", isRunning: false };
-    sessions.sessions = [item as (typeof sessions.sessions)[number]];
+    type Item = (typeof sessions.sessions)[number];
+    const list = (source: Item["source"], isRunning: boolean) => {
+      sessions.sessions = [{ id: "s-1", source, isRunning } as Item];
+    };
     const { api } = harness();
     const agent = api.treeData.value!.children[0];
     expect(agent.status).toBe("in-progress");
-    expect(api.liveDuration(agent)).toBeUndefined();
 
-    sessions.sessions = [{ ...item, isRunning: true } as (typeof sessions.sessions)[number]];
+    // Not in the list yet: unchanged behaviour.
+    expect(api.liveDuration(agent)).toBeGreaterThan(0);
+    list("claudeCode", false);
+    expect(api.liveDuration(agent)).toBeUndefined();
+    list("claudeCode", true);
+    expect(api.liveDuration(agent)).toBeGreaterThan(0);
+    // Copilot keeps counting up to now whether or not it is running.
+    list("copilot", false);
+    expect(api.liveDuration(agent)).toBeGreaterThan(0);
+    list(undefined, false);
     expect(api.liveDuration(agent)).toBeGreaterThan(0);
   });
 });

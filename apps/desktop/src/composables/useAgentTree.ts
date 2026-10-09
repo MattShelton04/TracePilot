@@ -6,8 +6,8 @@ import {
   useTimelineNavigation,
 } from "@tracepilot/ui";
 import { computed, type InjectionKey, inject, nextTick, provide, ref, watch } from "vue";
+import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
 import { useParallelAgentDetection } from "@/composables/useParallelAgentDetection";
-import { useSessionLive } from "@/composables/useSessionLive";
 import { useTimelineToolState } from "@/composables/useTimelineToolState";
 import {
   type AgentNode,
@@ -53,7 +53,7 @@ export function useAgentTree() {
 
   const hasInProgressRef = ref(false);
   const { nowMs } = useLiveDuration(hasInProgressRef);
-  const sessionLive = useSessionLive(() => store.sessionId);
+  const countsUpToNow = useCountsUpToNow(() => store.sessionId);
 
   const sessionStartTime = computed(() => {
     const firstTurn = store.turns[0];
@@ -63,7 +63,7 @@ export function useAgentTree() {
   });
 
   function liveDuration(node: AgentNode): number | undefined {
-    if (node.status !== "in-progress" || !sessionLive.value) return node.durationMs;
+    if (node.status !== "in-progress" || !countsUpToNow.value) return node.durationMs;
     if (node.toolCallRef?.startedAt) {
       return nowMs.value - new Date(node.toolCallRef.startedAt).getTime();
     }
@@ -314,7 +314,7 @@ export function useAgentTree() {
   );
 
   watch(
-    () => hasInProgress.value && sessionLive.value,
+    () => hasInProgress.value && countsUpToNow.value,
     (val) => {
       hasInProgressRef.value = val;
     },
