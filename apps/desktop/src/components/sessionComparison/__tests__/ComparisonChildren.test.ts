@@ -120,6 +120,40 @@ describe("ComparisonHeader", () => {
     expect(wrapper.text()).toContain("Session A");
     expect(wrapper.text()).toContain("Session B");
   });
+
+  function compared(sourceA: SessionDetail["source"], sourceB: SessionDetail["source"]) {
+    const side = (id: string, source: SessionDetail["source"]) => ({
+      detail: { id, summary: id, eventCount: 1, source } as SessionDetail,
+      metrics:
+        source === "claudeCode"
+          ? ({} as ShutdownMetrics)
+          : ({ shutdownType: "routine" } as ShutdownMetrics),
+      turns: [] as ConversationTurn[],
+    });
+    const comp = makeCompStub({
+      compared: true,
+      dataA: side("a", sourceA),
+      dataB: side("b", sourceB),
+    });
+    const wrapper = mount(hostFor(ComparisonHeader, comp));
+    const chips = (card: string) =>
+      wrapper.findAll(`.${card} .summary-meta .badge`).map((b) => b.text());
+    return { a: chips("session-a"), b: chips("session-b") };
+  }
+
+  it("names each side's source and drops the exit chip a source does not report", () => {
+    const { a, b } = compared("claudeCode", undefined);
+    expect(a[0]).toBe("Claude Code");
+    expect(b[0]).toBe("Copilot");
+    expect(a).not.toContain("Unknown");
+    expect(b).toContain("routine");
+  });
+
+  it("leaves a Copilot-only comparison without source chips", () => {
+    const { a, b } = compared(undefined, "copilot");
+    expect([...a, ...b]).not.toContain("Copilot");
+    expect(a).toContain("routine");
+  });
 });
 
 describe("ComparisonMetrics", () => {
