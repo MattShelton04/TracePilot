@@ -47,6 +47,16 @@ pub struct TurnsResponse {
     pub events_file_mtime: Option<i64>,
 }
 
+/// Response for `get_session_detail`: the session's summary plus the tool
+/// that wrote it, so views can tell sources apart without the session list.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionDetailResponse {
+    pub source: tracepilot_core::provider::SessionSource,
+    #[serde(flatten)]
+    pub summary: tracepilot_core::SessionSummary,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextTimelineResponse {

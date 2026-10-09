@@ -142,7 +142,7 @@ describe("ComparisonHeader", () => {
   }
 
   it("names each side's source and drops the exit chip a source does not report", () => {
-    const { a, b } = compared("claudeCode", undefined);
+    const { a, b } = compared("claudeCode", "copilot");
     expect(a[0]).toBe("Claude Code");
     expect(b[0]).toBe("Copilot");
     expect(a).not.toContain("Unknown");
@@ -150,7 +150,7 @@ describe("ComparisonHeader", () => {
   });
 
   it("leaves a Copilot-only comparison without source chips", () => {
-    const { a, b } = compared(undefined, "copilot");
+    const { a, b } = compared("copilot", "copilot");
     expect([...a, ...b]).not.toContain("Copilot");
     expect(a).toContain("routine");
   });

@@ -358,23 +358,29 @@ pub fn is_alive(pid: u32) -> bool {
 pub fn process_start_time(pid: u32) -> Option<String> {
     #[cfg(windows)]
     {
-        let script = format!(
-            "[System.Diagnostics.Process]::GetProcessById({pid}).StartTime.ToFileTimeUtc()"
-        );
-        let stdout = run_hidden_stdout(
-            "powershell",
-            &["-NoProfile", "-NonInteractive", "-Command", &script],
-            None,
-            Some(PROCESS_START_TIMEOUT_SECS),
-        )
-        .ok()?;
-        parse_filetime(&stdout)
+        process_start_time_within(pid, PROCESS_START_TIMEOUT_SECS)
     }
     #[cfg(not(windows))]
     {
         let _ = pid;
         None
     }
+}
+
+/// [`process_start_time`] with its PowerShell bounded by `timeout_secs`. A
+/// lookup that times out reads as `None`, the same as a missing process.
+#[cfg(windows)]
+pub(crate) fn process_start_time_within(pid: u32, timeout_secs: u64) -> Option<String> {
+    let script =
+        format!("[System.Diagnostics.Process]::GetProcessById({pid}).StartTime.ToFileTimeUtc()");
+    let stdout = run_hidden_stdout(
+        "powershell",
+        &["-NoProfile", "-NonInteractive", "-Command", &script],
+        None,
+        Some(timeout_secs),
+    )
+    .ok()?;
+    parse_filetime(&stdout)
 }
 
 #[cfg(windows)]
