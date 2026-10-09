@@ -1,3 +1,6 @@
+/** The most views a capture, report or history entry may hold. */
+export const maxViews = 256;
+
 /** The Pages tree can contain older reports. Accept bounded display data only. */
 export function historyEntry(value) {
   if (
@@ -11,7 +14,7 @@ export function historyEntry(value) {
   const summary = {};
   for (const key of ["changed", "unchanged", "subtle", "incomplete", "baseUnavailable", "total"])
     summary[key] = Number.isSafeInteger(value.summary?.[key])
-      ? Math.min(128, Math.max(0, value.summary[key]))
+      ? Math.min(maxViews, Math.max(0, value.summary[key]))
       : 0;
   const idPattern = /^[a-z][a-z0-9-]{0,63}$/,
     imagePattern = /^[a-f0-9]{64}\.png$/;
@@ -20,7 +23,7 @@ export function historyEntry(value) {
     Object.fromEntries(
       Object.entries(source && typeof source === "object" ? source : {})
         .filter(([id, item]) => idPattern.test(id) && accept(item))
-        .slice(0, 128),
+        .slice(0, maxViews),
     );
   return {
     id: value.id,
@@ -39,7 +42,7 @@ export function historyEntry(value) {
           ...new Set(
             value.views.filter((id) => typeof id === "string" && /^[a-z][a-z0-9-]{0,63}$/.test(id)),
           ),
-        ].slice(0, 128)
+        ].slice(0, maxViews)
       : [],
     images: map(value.images, (name) => imagePattern.test(name)),
     changes: map(value.changes, (status) =>

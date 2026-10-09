@@ -76,6 +76,9 @@ Field notes:
 ```
 
 - `content` may instead be `[{ "type": "text", "text": "…" }, { "type": "image", "source": { … } }]`.
+- Pasted text is inline, each block on its own lines between `<pasted_content id="1">` and
+  `</pasted_content id="1">`; the closing tag repeats the id. The Conversation tab shows each
+  block as pasted text.
 - Older versions omit `origin`, `promptSource` and `turnOrigin`.
 
 ### Classifying the other `user` records
@@ -83,8 +86,9 @@ Field notes:
 | Kind | How to recognise it |
 | --- | --- |
 | Tool result | `message.content[]` contains `tool_result` blocks (below) |
-| Slash command | String content starts with `<command-name>` |
-| Local command output | String content starts with `<local-command-stdout>` |
+| Slash command | String content starts with `<command-name>` or `<command-message>`; `<command-args>` holds the arguments |
+| Local command output | String content starts with `<local-command-stdout>` or `<local-command-stderr>`; may hold terminal colour codes |
+| Local command caveat | `isMeta: true`; content starts with `<local-command-caveat>` (an instruction to the model) |
 | Compact summary | `isCompactSummary: true` (+ `isVisibleInTranscriptOnly: true`) |
 | Subagent hand-back | `isMeta: true`, `origin: { "kind": "peer", "from": "<agentId>", "handback": true, "body": "…" }` |
 | Task notification | `origin: { "kind": "task-notification" }`, `turnOrigin: "task_notification"`; content is `<task-notification>…` |

@@ -1,20 +1,23 @@
 //! Metrics IPC uses provider totals when there is no shutdown event.
 
 use tracepilot_core::models::event_types::ShutdownData;
-use tracepilot_core::parsing::events::{TypedEvent, extract_combined_shutdown_data};
+use tracepilot_core::parsing::events::extract_combined_shutdown_data;
 use tracepilot_core::provider::{ResolvedSession, SessionSource};
+
+use super::shared::{load_cached_summary, load_cached_typed_events};
+use crate::error::BindingsError;
+use crate::types::EventCache;
 
 pub(super) fn metrics_for_session(
     session: &ResolvedSession,
-    events: &[TypedEvent],
-) -> tracepilot_core::error::Result<Option<ShutdownData>> {
+    cache: &EventCache,
+) -> Result<Option<ShutdownData>, BindingsError> {
     if session.locator.source == SessionSource::Copilot {
         // Keep all Copilot aggregation fields and serialization unchanged.
-        return Ok(extract_combined_shutdown_data(events).map(|(data, _)| data));
+        let (events, _) = load_cached_typed_events(cache, session)?;
+        return Ok(extract_combined_shutdown_data(&events).map(|(data, _)| data));
     }
-    let summary = session
-        .provider
-        .summary_from_events(&session.locator, events)?;
+    let summary = load_cached_summary(cache, session)?;
     Ok(summary.shutdown_metrics.map(|m| ShutdownData {
         total_api_duration_ms: m.total_api_duration_ms,
         total_api_duration_without_retries_ms: m.total_api_duration_without_retries_ms,
@@ -43,6 +46,10 @@ mod tests {
         claude_code::ClaudeCodeProvider,
     };
 
+    fn cache() -> EventCache {
+        Arc::new(std::sync::Mutex::new(crate::cache::build_session_lru(4)))
+    }
+
     #[test]
     fn metrics_ipc_returns_provider_usage_cost_and_coverage_without_a_shutdown() {
         let dir = tempfile::tempdir().unwrap();
@@ -68,7 +75,7 @@ mod tests {
             .summary
             .shutdown_metrics
             .unwrap();
-        let response = metrics_for_session(&ResolvedSession { provider, locator }, &[])
+        let response = metrics_for_session(&ResolvedSession { provider, locator }, &cache())
             .unwrap()
             .unwrap();
         let usage = response.model_metrics.as_ref().unwrap()["claude-opus-5-5"]
@@ -124,7 +131,7 @@ mod tests {
                 source_bytes_hint: 0,
             },
         };
-        let response = metrics_for_session(&session, &events).unwrap().unwrap();
+        let response = metrics_for_session(&session, &cache()).unwrap().unwrap();
         let wire = serde_json::to_value(response).unwrap();
         assert_eq!(wire, serde_json::to_value(expected).unwrap());
         assert!(wire.get("coverage").is_none());
@@ -163,7 +170,7 @@ mod tests {
             std::fs::write(project.join(format!("{id}.jsonl")), format!("{jsonl}\n")).unwrap();
             let provider = Arc::new(ClaudeCodeProvider::new(dir.path()));
             let locator = provider.discover(&|| false).unwrap().remove(0);
-            let response = metrics_for_session(&ResolvedSession { provider, locator }, &[])
+            let response = metrics_for_session(&ResolvedSession { provider, locator }, &cache())
                 .unwrap()
                 .unwrap();
             let files = response.code_changes.and_then(|code| code.files_modified);

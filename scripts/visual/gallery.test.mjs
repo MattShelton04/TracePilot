@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { configureVisualFeatures, defaultFeatures } from "./feature-policy.mjs";
 import { renderGallery, renderHistory, safeHttpUrl, scriptJson } from "./gallery-template.mjs";
-import { historyEntry } from "./history.mjs";
+import { historyEntry, maxViews } from "./history.mjs";
 import { cases } from "./manifest.mjs";
 import * as TracePilotPixels from "./pixels.mjs";
 import { sectionId } from "./sections.mjs";
@@ -170,7 +170,7 @@ test("history accepts bounded display fields and rejects unsafe path identifiers
   assert.equal(historyEntry({ ...valid, id: "../outside" }), null);
   assert.equal(historyEntry({ ...valid, pr: -1 }), null);
   assert.deepEqual(historyEntry(valid).views, ["sessions"]);
-  assert.equal(historyEntry(valid).summary.changed, 128);
+  assert.equal(historyEntry(valid).summary.changed, maxViews);
   assert.equal(historyEntry({ ...valid, summary: undefined }).summary, null);
   const html = await renderHistory([valid, { ...valid, id: "bad" }]);
   assert.equal(html.includes(valid.title), false);

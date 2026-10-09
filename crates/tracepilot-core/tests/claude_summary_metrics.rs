@@ -128,7 +128,9 @@ fn no_snapshot_prices_deduplicated_calls_and_orphans() {
     assert_eq!(coverage.tail_calls, 2);
     assert!(coverage.snapshot_cost.is_none());
     assert!((m.cost_amount.unwrap() - 0.000203).abs() < 1e-12);
-    assert!(m.total_api_duration_ms.is_none());
+    // Without a snapshot, durations are estimated from transcript timestamps.
+    assert!(m.total_api_duration_ms.is_some_and(|ms| ms > 0));
+    assert!(m.total_duration_ms.is_some_and(|ms| ms > 0));
 }
 
 #[test]

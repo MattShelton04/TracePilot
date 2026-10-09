@@ -45,7 +45,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
       />
       <StatCard :value="totalTokens == null ? '—' : formatNumber(totalTokens)" label="Total Tokens" :gradient="true" tooltip="Input + output, including cache and reasoning tokens" />
       <StatCard :value="totalRequests" label="Recorded Requests" color="done" tooltip="Model calls recorded in the transcript" />
-      <StatCard :value="formatDuration(metrics.totalApiDurationMs) || '—'" label="API Duration" color="done" tooltip="Reported with the last cost snapshot" />
+      <StatCard :value="formatDuration(metrics.totalApiDurationMs) || '—'" label="API Duration" color="done" :tooltip="metrics.coverage?.snapshotLine == null ? 'Estimated from transcript timestamps' : 'Reported with the last cost snapshot'" />
     </div>
     <p class="cost-legend mb-6" data-testid="source-cost-legend">
       <Badge v-if="sourceCost.partial" variant="warning">Partial</Badge>

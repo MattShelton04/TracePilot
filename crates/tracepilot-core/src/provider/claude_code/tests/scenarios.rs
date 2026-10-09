@@ -270,10 +270,12 @@ fn slash_command_opens_a_command_turn_and_its_output_folds() {
         !users[1].system_initiated,
         "commands count as typed by the user"
     );
+    // The command as typed, and only its unwrapped output: the caveat is for the model.
     assert_eq!(
-        users[1].system_messages,
-        ["<local-command-stdout>Compacted.</local-command-stdout>"]
+        users[1].user_message.as_deref(),
+        Some("/compact focus on tests")
     );
+    assert_eq!(users[1].system_messages, ["Compacted."]);
     let command = parsed
         .events
         .iter()
@@ -306,16 +308,8 @@ fn typed_compact_echo_opens_one_command_turn_holding_the_compaction() {
             .any(|e| e.event_type == "session.compaction_complete"),
         "the compaction belongs to the command's turn"
     );
-    assert_eq!(
-        command.system_messages.len(),
-        3,
-        "meta, command record, output"
-    );
-    assert!(command.system_messages[1].starts_with("<command-name>/compact"));
-    assert_eq!(
-        command.system_messages[2],
-        "<local-command-stdout>Compacted.</local-command-stdout>"
-    );
+    // The caveat and the repeated command record add nothing to read.
+    assert_eq!(command.system_messages, ["Compacted."]);
     let sources: Vec<_> = parsed
         .events
         .iter()
@@ -323,4 +317,19 @@ fn typed_compact_echo_opens_one_command_turn_holding_the_compaction() {
         .map(|e| e.raw.data["source"].as_str().unwrap_or(""))
         .collect();
     assert_eq!(sources, ["user", "command-compact", "user"]);
+}
+
+#[test]
+fn commands_only_session_shows_each_command_and_its_plain_output() {
+    let parsed = parse(&fixtures::commands_only());
+    let turns = reconstruct_turns(&parsed.events);
+    let users = user_turns(&turns);
+    let prompts: Vec<_> = users.iter().map(|t| t.user_message.as_deref()).collect();
+    assert_eq!(prompts, [Some("/model claude-opus-5-5"), Some("/cost")]);
+    assert!(users.iter().all(|t| !t.system_initiated));
+    assert_eq!(users[0].system_messages, ["Set model to Opus 5.5"]);
+    assert_eq!(users[1].system_messages, ["Total cost: $0.00"]);
+    // Every record is still on the Events tab.
+    let natives = parsed.events.iter().filter(|e| e.raw.native.is_some());
+    assert_eq!(natives.count(), 6);
 }

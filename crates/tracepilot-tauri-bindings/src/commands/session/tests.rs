@@ -12,7 +12,7 @@ use tracepilot_core::provider::{
 
 use crate::types::EventCache;
 
-use super::shared::{load_cached_typed_events, source_stamp};
+use super::shared::{load_cached_summary, load_cached_typed_events, source_stamp};
 
 /// The Copilot session at `dir`, as the locator would resolve it.
 fn copilot_session(dir: &Path, id: &str) -> ResolvedSession {
@@ -256,4 +256,89 @@ fn other_sources_report_totals_over_their_files() {
         .map(|path| std::fs::metadata(path).unwrap().modified().unwrap())
         .max();
     assert_eq!(stamp.events_file_mtime, latest);
+}
+
+/// A Claude Code session with one prompt and an `ai-title`, as discovered.
+fn claude_session(config_dir: &Path, title: &str) -> ResolvedSession {
+    use tracepilot_core::provider::SessionProvider;
+    use tracepilot_core::provider::claude_code::ClaudeCodeProvider;
+    let project = config_dir.join("projects").join("demo");
+    std::fs::create_dir_all(&project).unwrap();
+    let id = "11111111-1111-4111-8111-111111111111";
+    let records = [
+        serde_json::json!({"type": "user", "uuid": "u1", "sessionId": id,
+            "timestamp": "2026-09-20T10:00:00Z",
+            "message": {"role": "user", "content": "Hello."}}),
+        serde_json::json!({"type": "ai-title", "aiTitle": title, "sessionId": id}),
+    ];
+    let jsonl: String = records.iter().map(|r| format!("{r}\n")).collect();
+    std::fs::write(project.join(format!("{id}.jsonl")), jsonl).unwrap();
+    let provider = Arc::new(ClaudeCodeProvider::new(config_dir));
+    let locator = provider.discover(&|| false).unwrap().remove(0);
+    ResolvedSession { provider, locator }
+}
+
+#[test]
+fn claude_summary_is_cached_with_its_events_until_the_fingerprint_changes() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = claude_session(dir.path(), "First title");
+    let cache = event_cache(2);
+
+    // Loading events (as the turns command does) also caches the summary.
+    let (events, _) = load_cached_typed_events(&cache, &session).unwrap();
+    let id = session.locator.id.to_string();
+    {
+        let mut lru = cache.lock().unwrap();
+        let entry = lru.get_mut(&id).expect("cached");
+        assert!(Arc::ptr_eq(&entry.events, &events));
+        let cached = entry
+            .summary
+            .as_deref()
+            .expect("summary cached with the events");
+        assert_eq!(cached.summary.as_deref(), Some("First title"));
+        // A sentinel proves that the next call is served from the cache.
+        let mut sentinel = cached.clone();
+        sentinel.summary = Some("Served from cache".into());
+        entry.summary = Some(Arc::new(sentinel));
+    }
+    let summary = load_cached_summary(&cache, &session).unwrap();
+    assert_eq!(summary.summary.as_deref(), Some("Served from cache"));
+
+    // Any change to the session's files reloads it.
+    let main = &session.locator.primary_path;
+    let mut file = std::fs::OpenOptions::new().append(true).open(main).unwrap();
+    writeln!(
+        file,
+        "{}",
+        serde_json::json!({"type": "ai-title", "aiTitle": "Second title",
+            "sessionId": "11111111-1111-4111-8111-111111111111"})
+    )
+    .unwrap();
+    drop(file);
+    let summary = load_cached_summary(&cache, &session).unwrap();
+    assert_eq!(summary.summary.as_deref(), Some("Second title"));
+}
+
+#[test]
+fn copilot_summary_is_still_derived_from_the_cached_events() {
+    let (_dir, session_path) = temp_session(&[
+        ("session.start", serde_json::json!({ "cwd": "/repo" })),
+        ("user.message", serde_json::json!({ "content": "hello" })),
+    ]);
+    let cache = event_cache(2);
+    let session = copilot_session(&session_path, "session-a");
+    let summary = load_cached_summary(&cache, &session).unwrap();
+    let expected = session
+        .provider
+        .summary_from_events(
+            &session.locator,
+            &load_cached_typed_events(&cache, &session).unwrap().0,
+        )
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&summary).unwrap(),
+        serde_json::to_value(&expected).unwrap()
+    );
+    let mut lru = cache.lock().unwrap();
+    assert!(lru.get("session-a").unwrap().summary.is_none());
 }

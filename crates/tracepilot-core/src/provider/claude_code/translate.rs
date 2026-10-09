@@ -84,6 +84,8 @@ pub(super) struct Stream<'s> {
     pub(super) summaries: HashMap<usize, String>,
     pub(super) last_event: Option<String>,
     pub(super) last_record: Option<(String, Option<DateTime<Utc>>)>,
+    /// The latest timestamp of a record before the current one.
+    pub(super) previous_ts: Option<DateTime<Utc>>,
     pub(super) open_call: Option<OpenCall>,
     pub(super) last_closed_end_turn: bool,
     pub(super) interaction: Option<String>,
@@ -190,6 +192,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             summaries: super::translate_assistant::compact_summaries(lines),
             last_event: None,
             last_record: None,
+            previous_ts: None,
             open_call: None,
             last_closed_end_turn: false,
             interaction: None,
@@ -293,6 +296,9 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
                 abandoned,
             },
         };
+        if let Some((_, Some(ts))) = st.last_record {
+            st.previous_ts = Some(ts);
+        }
         st.last_record = Some((ctx.base.clone(), ctx.ts));
         if abandoned {
             self.diagnostics.abandoned_records += 1;

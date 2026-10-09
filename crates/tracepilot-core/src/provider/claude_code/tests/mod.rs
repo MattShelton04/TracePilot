@@ -5,6 +5,7 @@ mod accounting;
 mod model_calls;
 mod provider;
 mod scenarios;
+mod summary;
 mod tools;
 
 use std::collections::HashSet;
@@ -47,6 +48,7 @@ fn all_fixtures() -> Vec<(&'static str, SessionFiles)> {
         ("resumed_running", fixtures::resumed(true)),
         ("slash_command", fixtures::slash_command()),
         ("typed_compact", fixtures::typed_compact()),
+        ("commands_only", fixtures::commands_only()),
         ("tool_catalog", fixtures::tool_catalog()),
     ]
 }
