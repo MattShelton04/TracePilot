@@ -17,6 +17,7 @@ import { useLineAreaChartData } from "@/composables/useLineAreaChartData";
 import { usePreferencesStore } from "@/stores/preferences";
 import { buildAnalyticsCostSeries } from "@/utils/analyticsCostSeries";
 import { CHART_COLORS, DONUT_PALETTE } from "@/utils/chartColors";
+import { modelLabels } from "@/utils/modelLabels";
 
 const props = defineProps<{
   data: AnalyticsData;
@@ -37,16 +38,27 @@ const DONUT_COLORS = DONUT_PALETTE;
 const DONUT_R = 56;
 const DONUT_C = 2 * Math.PI * DONUT_R;
 
+// Named as on the Models page: one name per model, with the source added
+// only when the same model appears under two sources.
+const legendItems = computed(() => {
+  const labels = modelLabels(props.data.modelDistribution);
+  return props.data.modelDistribution.map((m, i) => {
+    const { label } = labels[i];
+    // The hover names the source and the raw id when the legend truncates.
+    return { ...m, label, title: label === m.model ? m.model : `${label} (${m.model})` };
+  });
+});
+
 const donutSegments = computed(() => {
   let offset = 0;
-  return props.data.modelDistribution.map((m, i) => {
+  return legendItems.value.map((m, i) => {
     const dash = (m.percentage / 100) * DONUT_C;
     const seg = {
       dash,
       gap: DONUT_C - dash,
       offset: -offset,
       color: DONUT_COLORS[i % DONUT_COLORS.length],
-      model: m.model,
+      model: m.label,
       pct: m.percentage,
       tokens: m.inputTokens + m.outputTokens,
     };
@@ -168,7 +180,7 @@ const tooltipFormatter = (i: number) => {
         </svg>
         <div class="donut-legend">
           <div
-            v-for="(m, si) in data.modelDistribution"
+            v-for="(m, si) in legendItems"
             :key="`dl-${si}`"
             class="donut-legend-item"
             :class="{ 'donut-legend-item--active': hoveredDonut === si }"
@@ -176,7 +188,7 @@ const tooltipFormatter = (i: number) => {
             @mouseleave="hoveredDonut = null"
           >
             <span class="donut-legend-dot" :style="{ background: DONUT_COLORS[si % DONUT_COLORS.length] }" />
-            <span class="donut-legend-model" :title="m.model">{{ m.model }}</span>
+            <span class="donut-legend-model" :title="m.title">{{ m.label }}</span>
             <span class="donut-legend-pct">{{ m.percentage.toFixed(0) }}%</span>
             <span class="donut-legend-requests" :title="`${formatNumberFull(m.requestCount)} API requests`">{{ formatNumberFull(m.requestCount) }} req</span>
           </div>
