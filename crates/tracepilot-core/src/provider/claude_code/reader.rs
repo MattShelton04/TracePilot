@@ -31,6 +31,10 @@ pub(super) struct Line {
 /// Read whose base64 is stored twice (data-comparison rule 8).
 pub(super) const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 
+/// Read in large blocks: transcripts run to tens of MiB, and the default
+/// 8 KiB buffer made one read call per 8 KiB.
+const READ_BUFFER_BYTES: usize = 256 * 1024;
+
 pub(super) fn read_jsonl(
     path: &Path,
     is_cancelled: &impl Fn() -> bool,
@@ -47,7 +51,7 @@ pub(super) fn read_jsonl_bounded(
 ) -> Result<Vec<Line>> {
     let file = std::fs::File::open(path)
         .map_err(|e| TracePilotError::io_context("Failed to open", path.display(), e))?;
-    let mut reader = BufReader::new(file);
+    let mut reader = BufReader::with_capacity(READ_BUFFER_BYTES, file);
     let mut bytes = Vec::new();
     let mut lines = Vec::new();
     let mut number = 0;
@@ -119,7 +123,7 @@ fn read_line_bounded(
         if available.is_empty() {
             return Ok(read);
         }
-        let newline = available.iter().position(|b| *b == b'\n');
+        let newline = find_newline(available);
         let chunk = &available[..newline.map_or(available.len(), |i| i + 1)];
         if !read.oversized {
             if bytes.len() + chunk.len() > max {
@@ -136,6 +140,15 @@ fn read_line_bounded(
             return Ok(read);
         }
     }
+}
+
+/// The index of the first `\n`. `skip_until` on a slice uses the standard
+/// library's word-at-a-time search, several times faster than comparing
+/// byte by byte; reading from a slice cannot fail.
+fn find_newline(bytes: &[u8]) -> Option<usize> {
+    let mut rest = bytes;
+    let through = rest.skip_until(b'\n').unwrap_or(0);
+    (through > 0 && bytes[through - 1] == b'\n').then(|| through - 1)
 }
 
 const OMITTED: &str = "[omitted by TracePilot]";
