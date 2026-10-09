@@ -1,0 +1,2239 @@
+{
+  "header": {
+    "schemaVersion": {
+      "major": 1,
+      "minor": 0
+    },
+    "exportedAt": "<time>",
+    "exportedBy": "TracePilot v<version>",
+    "sourceSystem": {
+      "os": "<os>"
+    },
+    "contentHash": "<hash>",
+    "minimumReaderVersion": {
+      "major": 1,
+      "minor": 0
+    }
+  },
+  "sessions": [
+    {
+      "metadata": {
+        "id": "00000000-0000-4000-8000-000000000009",
+        "summary": "Golden agent-messaging",
+        "repository": "golden/agent-messaging",
+        "branch": "main",
+        "cwd": "/golden/agent-messaging",
+        "createdAt": "2026-03-10T07:14:50Z",
+        "updatedAt": "2026-03-10T07:15:00Z",
+        "eventCount": 96,
+        "turnCount": 6
+      },
+      "availableSections": [
+        "conversation",
+        "events",
+        "parseDiagnostics"
+      ],
+      "conversation": [
+        {
+          "turnIndex": 0,
+          "eventIndex": 3,
+          "turnId": "0",
+          "interactionId": "id-5",
+          "userMessage": "This is a protocol probe of inter-agent messaging. Do not edit files, run shell commands or access the network. Use only the model claude-haiku-4.5 for yourself and for every subagent (pass model claude-haiku-4.5 and reasoning_effort low explicitly).\n\n1. Launch TWO background general-purpose subagents in parallel:\n   - name \"alpha\": tell it: \"You are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.\"\n   - name \"beta\": tell it: \"You are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.\"\n2. While they work, use list_agents (no scope) once.\n3. Use read_agent with wait true on alpha, then on beta.\n4. Then use write_agent with scope \"children\" to send both agents the same message: \"Final check: reply with the single word DONE.\"\n5. Use read_agent with wait true on both agents again, then finish with a one-line summary.",
+          "assistantMessages": [
+            {
+              "content": "Awaiting alpha's message.",
+              "parentToolCallId": "launch-beta",
+              "agentDisplayName": "beta",
+              "eventIndex": 35
+            },
+            {
+              "content": "Beta answered: **42**.",
+              "parentToolCallId": "launch-alpha",
+              "agentDisplayName": "alpha",
+              "eventIndex": 44
+            },
+            {
+              "content": "DONE",
+              "parentToolCallId": "launch-beta",
+              "agentDisplayName": "beta",
+              "eventIndex": 76
+            },
+            {
+              "content": "Beta’s answer was **42**.",
+              "parentToolCallId": "launch-alpha",
+              "agentDisplayName": "alpha",
+              "eventIndex": 80
+            },
+            {
+              "content": "DONE",
+              "parentToolCallId": "launch-alpha",
+              "agentDisplayName": "alpha",
+              "eventIndex": 85
+            }
+          ],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-25T09:16:48.913Z",
+          "endTimestamp": "2026-09-25T09:16:53.917Z",
+          "toolCalls": [
+            {
+              "toolCallId": "launch-alpha",
+              "parentToolCallId": null,
+              "toolName": "general-purpose",
+              "eventIndex": 7,
+              "arguments": {
+                "agent_type": "general-purpose",
+                "description": "Coordinate alpha messaging",
+                "mode": "background",
+                "model": "claude-haiku-4.5",
+                "name": "alpha",
+                "prompt": "You are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.",
+                "reasoning_effort": "low"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:16:53.883Z",
+              "completedAt": "2026-09-25T09:17:14.361Z",
+              "durationMs": 20000,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": true,
+              "agentId": "agent-alpha",
+              "agentStatus": "idle",
+              "cancelled": false,
+              "agentDisplayName": "alpha",
+              "agentDescription": "Coordinate alpha messaging",
+              "model": "claude-haiku-4.5",
+              "requestedModel": "claude-haiku-4.5",
+              "intentionSummary": "Coordinate alpha messaging",
+              "resultContent": "Agent started in background with agent_id: agent-alpha. You'll be notified when it completes. Tell the user you're waiting and end your response, or continue unrelated work until notified. The agent supports multi-turn conversations — use write_agent to send follow-up messages."
+            },
+            {
+              "toolCallId": "launch-beta",
+              "parentToolCallId": null,
+              "toolName": "general-purpose",
+              "eventIndex": 8,
+              "arguments": {
+                "agent_type": "general-purpose",
+                "description": "Answer alpha question",
+                "mode": "background",
+                "model": "claude-haiku-4.5",
+                "name": "beta",
+                "prompt": "You are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.",
+                "reasoning_effort": "low"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:16:53.884Z",
+              "completedAt": "2026-09-25T09:17:06.062Z",
+              "durationMs": 12000,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": true,
+              "agentId": "agent-beta",
+              "agentStatus": "idle",
+              "cancelled": false,
+              "agentDisplayName": "beta",
+              "agentDescription": "Answer alpha question",
+              "model": "claude-haiku-4.5",
+              "requestedModel": "claude-haiku-4.5",
+              "intentionSummary": "Answer alpha question",
+              "resultContent": "Agent started in background with agent_id: agent-beta. You'll be notified when it completes. Tell the user you're waiting and end your response, or continue unrelated work until notified. The agent supports multi-turn conversations — use write_agent to send follow-up messages."
+            },
+            {
+              "toolCallId": "call-3",
+              "parentToolCallId": null,
+              "toolName": "list_agents",
+              "eventIndex": 9,
+              "arguments": {},
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:16:53.885Z",
+              "completedAt": "2026-09-25T09:16:53.891Z",
+              "durationMs": 6,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": "Background agents:\n\nRunning (2):\n  🔄 alpha (agent-alpha): general-purpose - \"Coordinate alpha messaging\" (0s, owner: session-main, relation: child) (model: claude-haiku-4.5)\n  🔄 beta (agent-beta): general-purpose - \"Answer alpha question\" (0s, owner: session-main, relation: child) (model: claude-haiku-4.5)"
+            },
+            {
+              "toolCallId": "call-5",
+              "parentToolCallId": "launch-alpha",
+              "toolName": "list_agents",
+              "eventIndex": 31,
+              "arguments": {
+                "include_completed": true,
+                "scope": "siblings"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:16:57.941Z",
+              "completedAt": "2026-09-25T09:16:57.942Z",
+              "durationMs": 1,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": "Background agents (scope: siblings):\n\nRunning (2):\n  🔄 alpha (agent-alpha): general-purpose - \"Coordinate alpha messaging\" (4s, owner: session-main, relation: sibling) (model: claude-haiku-4.5)\n  🔄 beta (agent-beta): general-purpose - \"Answer alpha question\" (4s, owner: session-main, relation: sibling) (model: claude-haiku-4.5)"
+            },
+            {
+              "toolCallId": "call-6",
+              "parentToolCallId": "launch-alpha",
+              "toolName": "write_agent",
+              "eventIndex": 39,
+              "arguments": {
+                "agent_id": "agent-beta",
+                "message": "alpha asks: what is 6*7?"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:16:59.056Z",
+              "completedAt": "2026-09-25T09:16:59.057Z",
+              "durationMs": 1,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": "Message delivered to agent agent-beta. The recipient can reply with write_agent."
+            },
+            {
+              "toolCallId": "call-8",
+              "parentToolCallId": "launch-beta",
+              "toolName": "write_agent",
+              "eventIndex": 56,
+              "arguments": {
+                "agent_id": "agent-alpha",
+                "message": "6 * 7 = 42."
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:17:05.027Z",
+              "completedAt": "2026-09-25T09:17:05.027Z",
+              "durationMs": 0,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": "Message delivered to agent agent-alpha. The recipient can reply with write_agent."
+            }
+          ],
+          "durationMs": 5004,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": [
+            {
+              "eventType": "session.start",
+              "timestamp": "2026-09-25T09:16:45.310Z",
+              "severity": "info",
+              "summary": "Session started (model: gpt-5.6-luna)"
+            },
+            {
+              "eventType": "session.auto_mode_resolved",
+              "timestamp": "2026-09-25T09:16:48.889Z",
+              "severity": "info",
+              "summary": "Auto mode chose gpt-5.6-luna"
+            }
+          ],
+          "systemMessages": [
+            "Fixture system prompt."
+          ],
+          "agentMessages": [
+            {
+              "content": "You are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.",
+              "recipientToolCallId": "launch-beta",
+              "senderAgentId": "session-main",
+              "delivery": "idle",
+              "isLaunch": true,
+              "messageId": "id-26",
+              "timestamp": "2026-09-25T09:16:54.858Z",
+              "eventIndex": 21
+            },
+            {
+              "content": "You are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.",
+              "recipientToolCallId": "launch-alpha",
+              "senderAgentId": "session-main",
+              "delivery": "idle",
+              "isLaunch": true,
+              "messageId": "id-32",
+              "timestamp": "2026-09-25T09:16:54.863Z",
+              "eventIndex": 24
+            },
+            {
+              "content": "alpha asks: what is 6*7?",
+              "recipientToolCallId": "launch-beta",
+              "senderAgentId": "agent-alpha",
+              "senderToolCallId": "launch-alpha",
+              "delivery": "idle",
+              "isLaunch": false,
+              "messageId": "id-68",
+              "timestamp": "2026-09-25T09:17:03.335Z",
+              "eventIndex": 50
+            },
+            {
+              "content": "6 * 7 = 42.",
+              "recipientToolCallId": "launch-alpha",
+              "senderAgentId": "agent-beta",
+              "senderToolCallId": "launch-beta",
+              "delivery": "idle",
+              "isLaunch": false,
+              "messageId": "id-89",
+              "timestamp": "2026-09-25T09:17:06.498Z",
+              "eventIndex": 65
+            },
+            {
+              "content": "Final check: reply with the single word DONE.",
+              "recipientToolCallId": "launch-beta",
+              "senderAgentId": "session-main",
+              "delivery": "idle",
+              "isLaunch": false,
+              "messageId": "id-101",
+              "timestamp": "2026-09-25T09:17:07.532Z",
+              "eventIndex": 73
+            },
+            {
+              "content": "Final check: reply with the single word DONE.",
+              "recipientToolCallId": "launch-alpha",
+              "senderAgentId": "session-main",
+              "delivery": "queued",
+              "isLaunch": false,
+              "messageId": "id-116",
+              "timestamp": "2026-09-25T09:17:10.237Z",
+              "eventIndex": 82
+            }
+          ],
+          "userMessageDelivery": "idle"
+        },
+        {
+          "turnIndex": 1,
+          "turnId": "1",
+          "interactionId": "id-5",
+          "userMessage": null,
+          "assistantMessages": [],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-25T09:16:53.917Z",
+          "endTimestamp": "2026-09-25T09:17:02.406Z",
+          "toolCalls": [
+            {
+              "toolCallId": "call-4",
+              "parentToolCallId": null,
+              "toolName": "read_agent",
+              "eventIndex": 29,
+              "arguments": {
+                "agent_id": "agent-alpha",
+                "timeout": 180,
+                "wait": true
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:16:55.648Z",
+              "completedAt": "2026-09-25T09:17:02.401Z",
+              "durationMs": 6753,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-alpha, agent_type: general-purpose, status: idle, description: Coordinate alpha messaging, elapsed: 8s, total_turns: 1, model: claude-haiku-4.5\n\n[Turn 0]\nBeta answered: **42**."
+            }
+          ],
+          "durationMs": 8489,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        },
+        {
+          "turnIndex": 2,
+          "turnId": "2",
+          "interactionId": "id-5",
+          "userMessage": null,
+          "assistantMessages": [],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-25T09:17:02.406Z",
+          "endTimestamp": "2026-09-25T09:17:06.068Z",
+          "toolCalls": [
+            {
+              "toolCallId": "call-7",
+              "parentToolCallId": null,
+              "toolName": "read_agent",
+              "eventIndex": 54,
+              "arguments": {
+                "agent_id": "agent-beta",
+                "timeout": 180,
+                "wait": true
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:17:03.998Z",
+              "completedAt": "2026-09-25T09:17:06.062Z",
+              "durationMs": 2064,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-beta, agent_type: general-purpose, status: idle, description: Answer alpha question, elapsed: 12s, total_turns: 2, model: claude-haiku-4.5\n\n[Turn 0]\nAwaiting alpha's message.\n\n[Turn 1]\n[Message from agent-alpha]\nalpha asks: what is 6*7?\n\n[Response]\n"
+            }
+          ],
+          "durationMs": 3662,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        },
+        {
+          "turnIndex": 3,
+          "turnId": "3",
+          "interactionId": "id-5",
+          "userMessage": null,
+          "assistantMessages": [],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-25T09:17:06.069Z",
+          "endTimestamp": "2026-09-25T09:17:07.504Z",
+          "toolCalls": [
+            {
+              "toolCallId": "call-9",
+              "parentToolCallId": null,
+              "toolName": "write_agent",
+              "eventIndex": 69,
+              "arguments": {
+                "message": "Final check: reply with the single word DONE.",
+                "scope": "children"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:17:07.498Z",
+              "completedAt": "2026-09-25T09:17:07.499Z",
+              "durationMs": 1,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": "Message delivered to 2 agents.\n- agent-alpha, delivered, task_status=running\n- agent-beta, delivered, task_status=running"
+            }
+          ],
+          "durationMs": 1435,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        },
+        {
+          "turnIndex": 4,
+          "turnId": "4",
+          "interactionId": "id-5",
+          "userMessage": null,
+          "assistantMessages": [],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-25T09:17:07.504Z",
+          "endTimestamp": "2026-09-25T09:17:14.367Z",
+          "toolCalls": [
+            {
+              "toolCallId": "call-10",
+              "parentToolCallId": null,
+              "toolName": "read_agent",
+              "eventIndex": 79,
+              "arguments": {
+                "agent_id": "agent-alpha",
+                "timeout": 180,
+                "wait": true
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:17:09.141Z",
+              "completedAt": "2026-09-25T09:17:14.361Z",
+              "durationMs": 5220,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-alpha, agent_type: general-purpose, status: idle, description: Coordinate alpha messaging, elapsed: 20s, total_turns: 3, model: claude-haiku-4.5\n\n[Turn 0]\nBeta answered: **42**.\n\n[Turn 1]\n[Message from agent-beta]\n6 * 7 = 42.\n\n[Response]\nBeta’s answer was **42**.\n\n[Turn 2]\n[Message]\nFinal check: reply with the single word DONE.\n\n[Response]\nDONE"
+            }
+          ],
+          "durationMs": 6863,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        },
+        {
+          "turnIndex": 5,
+          "turnId": "5",
+          "interactionId": "id-5",
+          "userMessage": null,
+          "assistantMessages": [
+            {
+              "content": "alpha and beta exchanged the question successfully; both replied **DONE** in the final check.",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 94
+            }
+          ],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-25T09:17:14.367Z",
+          "endTimestamp": "2026-09-25T09:17:15.732Z",
+          "toolCalls": [
+            {
+              "toolCallId": "id-130",
+              "parentToolCallId": null,
+              "toolName": "read_agent",
+              "eventIndex": 92,
+              "arguments": {
+                "agent_id": "agent-beta",
+                "since_turn": 2
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-25T09:17:14.373Z",
+              "completedAt": "2026-09-25T09:17:14.373Z",
+              "durationMs": 0,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": null,
+              "intentionSummary": null,
+              "resultContent": "Agent is idle (waiting for messages). agent_id: agent-beta, agent_type: general-purpose, status: idle, description: Answer alpha question, elapsed: 14s, total_turns: 3, model: claude-haiku-4.5\n\n[Turn 2]\n[Message]\nFinal check: reply with the single word DONE.\n\n[Response]\nDONE"
+            }
+          ],
+          "durationMs": 1365,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        }
+      ],
+      "events": [
+        {
+          "type": "session.start",
+          "data": {
+            "copilotVersion": "1.0.88",
+            "selectedModel": "gpt-5.6-luna",
+            "sessionId": "session-main",
+            "startTime": "2026-09-25T09:16:45.240Z"
+          },
+          "id": "id-1",
+          "timestamp": "2026-09-25T09:16:45.310Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.model_change",
+          "data": {
+            "contextTier": null,
+            "newModel": "auto",
+            "previousModel": "gpt-5.6-luna",
+            "previousReasoningEffort": "high",
+            "reasoningEffort": null,
+            "source": "startup"
+          },
+          "id": "id-2",
+          "timestamp": "2026-09-25T09:16:47.444Z",
+          "parentId": "id-1",
+          "agentId": null
+        },
+        {
+          "type": "session.auto_mode_resolved",
+          "data": {
+            "availableModels": [
+              "gpt-5.6-luna"
+            ],
+            "candidateModels": [
+              "gpt-5.6-luna"
+            ],
+            "chosenModel": "gpt-5.6-luna",
+            "endToEndLatencyMs": 590.6573000000001,
+            "fallback": false,
+            "hasImage": false,
+            "routingMethod": "auto_v2"
+          },
+          "id": "id-3",
+          "timestamp": "2026-09-25T09:16:48.889Z",
+          "parentId": "id-2",
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "This is a protocol probe of inter-agent messaging. Do not edit files, run shell commands or access the network. Use only the model claude-haiku-4.5 for yourself and for every subagent (pass model claude-haiku-4.5 and reasoning_effort low explicitly).\n\n1. Launch TWO background general-purpose subagents in parallel:\n   - name \"alpha\": tell it: \"You are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.\"\n   - name \"beta\": tell it: \"You are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.\"\n2. While they work, use list_agents (no scope) once.\n3. Use read_agent with wait true on alpha, then on beta.\n4. Then use write_agent with scope \"children\" to send both agents the same message: \"Final check: reply with the single word DONE.\"\n5. Use read_agent with wait true on both agents again, then finish with a one-line summary.",
+            "delivery": "idle",
+            "interactionId": "id-5",
+            "messageId": "id-4",
+            "parentAgentTaskId": "id-6",
+            "turnId": "0"
+          },
+          "id": "id-7",
+          "timestamp": "2026-09-25T09:16:48.913Z",
+          "parentId": "id-3",
+          "agentId": null
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture system prompt.",
+            "role": "system"
+          },
+          "id": "id-8",
+          "timestamp": "2026-09-25T09:16:48.915Z",
+          "parentId": "id-7",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-5",
+            "turnId": "0"
+          },
+          "id": "id-9",
+          "timestamp": "2026-09-25T09:16:48.916Z",
+          "parentId": "id-8",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-5",
+            "messageId": "id-10",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-4",
+            "rte": true,
+            "toolRequests": [
+              {
+                "arguments": {
+                  "agent_type": "general-purpose",
+                  "description": "Coordinate alpha messaging",
+                  "mode": "background",
+                  "model": "claude-haiku-4.5",
+                  "name": "alpha",
+                  "prompt": "You are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.",
+                  "reasoning_effort": "low"
+                },
+                "intentionSummary": "Coordinate alpha messaging",
+                "name": "task",
+                "toolCallId": "launch-alpha",
+                "type": "function"
+              },
+              {
+                "arguments": {
+                  "agent_type": "general-purpose",
+                  "description": "Answer alpha question",
+                  "mode": "background",
+                  "model": "claude-haiku-4.5",
+                  "name": "beta",
+                  "prompt": "You are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.",
+                  "reasoning_effort": "low"
+                },
+                "intentionSummary": "Answer alpha question",
+                "name": "task",
+                "toolCallId": "launch-beta",
+                "type": "function"
+              },
+              {
+                "arguments": {},
+                "name": "list_agents",
+                "toolCallId": "call-3",
+                "type": "function"
+              }
+            ],
+            "turnId": "0"
+          },
+          "id": "id-11",
+          "timestamp": "2026-09-25T09:16:53.882Z",
+          "parentId": "id-9",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_type": "general-purpose",
+              "description": "Coordinate alpha messaging",
+              "mode": "background",
+              "model": "claude-haiku-4.5",
+              "name": "alpha",
+              "prompt": "You are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.",
+              "reasoning_effort": "low"
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "launch-alpha",
+            "toolName": "task",
+            "turnId": "0"
+          },
+          "id": "id-12",
+          "timestamp": "2026-09-25T09:16:53.883Z",
+          "parentId": "id-11",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_type": "general-purpose",
+              "description": "Answer alpha question",
+              "mode": "background",
+              "model": "claude-haiku-4.5",
+              "name": "beta",
+              "prompt": "You are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.",
+              "reasoning_effort": "low"
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "launch-beta",
+            "toolName": "task",
+            "turnId": "0"
+          },
+          "id": "id-13",
+          "timestamp": "2026-09-25T09:16:53.884Z",
+          "parentId": "id-12",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {},
+            "model": "gpt-5.6-luna",
+            "toolCallId": "call-3",
+            "toolName": "list_agents",
+            "turnId": "0"
+          },
+          "id": "id-14",
+          "timestamp": "2026-09-25T09:16:53.885Z",
+          "parentId": "id-13",
+          "agentId": null
+        },
+        {
+          "type": "subagent.started",
+          "data": {
+            "agentDescription": "Coordinate alpha messaging",
+            "agentDisplayName": "alpha",
+            "agentName": "general-purpose",
+            "agentType": "general-purpose",
+            "executionMode": "background",
+            "model": "claude-haiku-4.5",
+            "modelSelectionSource": "explicit_override",
+            "resumable": false,
+            "taskModelSource": "task_argument",
+            "toolCallId": "launch-alpha"
+          },
+          "id": "id-15",
+          "timestamp": "2026-09-25T09:16:53.888Z",
+          "parentId": "id-14",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "subagent.started",
+          "data": {
+            "agentDescription": "Answer alpha question",
+            "agentDisplayName": "beta",
+            "agentName": "general-purpose",
+            "agentType": "general-purpose",
+            "executionMode": "background",
+            "model": "claude-haiku-4.5",
+            "modelSelectionSource": "explicit_override",
+            "resumable": false,
+            "taskModelSource": "task_argument",
+            "toolCallId": "launch-beta"
+          },
+          "id": "id-16",
+          "timestamp": "2026-09-25T09:16:53.889Z",
+          "parentId": "id-15",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-5",
+            "model": "gpt-5.6-luna",
+            "result": {
+              "content": "Background agents:\n\nRunning (2):\n  🔄 alpha (agent-alpha): general-purpose - \"Coordinate alpha messaging\" (0s, owner: session-main, relation: child) (model: claude-haiku-4.5)\n  🔄 beta (agent-beta): general-purpose - \"Answer alpha question\" (0s, owner: session-main, relation: child) (model: claude-haiku-4.5)"
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call-3",
+            "toolTelemetry": {
+              "metrics": {
+                "agent_count": 2,
+                "cancelled_count": 0,
+                "completed_count": 0,
+                "failed_count": 0,
+                "idle_count": 0,
+                "mcp_task_count": 0,
+                "running_count": 2
+              },
+              "properties": {
+                "scope": "default"
+              }
+            },
+            "turnId": "0"
+          },
+          "id": "id-17",
+          "timestamp": "2026-09-25T09:16:53.891Z",
+          "parentId": "id-16",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-5",
+            "model": "gpt-5.6-luna",
+            "result": {
+              "content": "Agent started in background with agent_id: agent-alpha. You'll be notified when it completes. Tell the user you're waiting and end your response, or continue unrelated work until notified. The agent supports multi-turn conversations — use write_agent to send follow-up messages.",
+              "detailedContent": "Prompt to general-purpose agent (agent-alpha):\nYou are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools."
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "launch-alpha",
+            "toolTelemetry": {
+              "metrics": {},
+              "properties": {
+                "agent_name": "general-purpose",
+                "agent_type": "general-purpose",
+                "execution_mode": "background",
+                "model": "redacted-model-hash"
+              },
+              "restrictedProperties": {
+                "agent_id": "agent-alpha",
+                "agent_name": "general-purpose",
+                "model": "claude-haiku-4.5"
+              }
+            },
+            "turnId": "0"
+          },
+          "id": "id-18",
+          "timestamp": "2026-09-25T09:16:53.893Z",
+          "parentId": "id-17",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-5",
+            "model": "gpt-5.6-luna",
+            "result": {
+              "content": "Agent started in background with agent_id: agent-beta. You'll be notified when it completes. Tell the user you're waiting and end your response, or continue unrelated work until notified. The agent supports multi-turn conversations — use write_agent to send follow-up messages.",
+              "detailedContent": "Prompt to general-purpose agent (agent-beta):\nYou are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools."
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "launch-beta",
+            "toolTelemetry": {
+              "metrics": {},
+              "properties": {
+                "agent_name": "general-purpose",
+                "agent_type": "general-purpose",
+                "execution_mode": "background",
+                "model": "redacted-model-hash"
+              },
+              "restrictedProperties": {
+                "agent_id": "agent-beta",
+                "agent_name": "general-purpose",
+                "model": "claude-haiku-4.5"
+              }
+            },
+            "turnId": "0"
+          },
+          "id": "id-19",
+          "timestamp": "2026-09-25T09:16:53.900Z",
+          "parentId": "id-18",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "id-20",
+          "timestamp": "2026-09-25T09:16:53.917Z",
+          "parentId": "id-19",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-5",
+            "turnId": "1"
+          },
+          "id": "id-21",
+          "timestamp": "2026-09-25T09:16:53.917Z",
+          "parentId": "id-20",
+          "agentId": null
+        },
+        {
+          "type": "subagent.configured",
+          "data": {
+            "model": "claude-haiku-4.5",
+            "multiTurn": true,
+            "reasoningEffort": "low"
+          },
+          "id": "id-22",
+          "timestamp": "2026-09-25T09:16:53.940Z",
+          "parentId": "id-21",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "session.model_change",
+          "data": {
+            "contextTier": null,
+            "newModel": "claude-haiku-4.5",
+            "reasoningEffort": "low",
+            "source": "agent"
+          },
+          "id": "id-23",
+          "timestamp": "2026-09-25T09:16:53.940Z",
+          "parentId": "id-22",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "subagent.configured",
+          "data": {
+            "model": "claude-haiku-4.5",
+            "multiTurn": true,
+            "reasoningEffort": "low"
+          },
+          "id": "id-24",
+          "timestamp": "2026-09-25T09:16:53.943Z",
+          "parentId": "id-23",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "session.model_change",
+          "data": {
+            "contextTier": null,
+            "newModel": "claude-haiku-4.5",
+            "reasoningEffort": "low",
+            "source": "agent"
+          },
+          "id": "id-25",
+          "timestamp": "2026-09-25T09:16:53.943Z",
+          "parentId": "id-24",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "You are beta. Wait for a message from your sibling alpha. When you receive alpha's question, use write_agent to reply directly to alpha's agent id with the answer. Use list_agents with scope siblings if you need alpha's id. Then finish. Do not use any other tools.",
+            "delivery": "idle",
+            "interactionId": "id-27",
+            "messageId": "id-26",
+            "parentAgentTaskId": "id-28",
+            "source": "agent-session-main",
+            "turnId": "0"
+          },
+          "id": "id-29",
+          "timestamp": "2026-09-25T09:16:54.858Z",
+          "parentId": "id-25",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture system prompt.",
+            "role": "system"
+          },
+          "id": "id-30",
+          "timestamp": "2026-09-25T09:16:54.860Z",
+          "parentId": "id-29",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-27",
+            "turnId": "0"
+          },
+          "id": "id-31",
+          "timestamp": "2026-09-25T09:16:54.861Z",
+          "parentId": "id-30",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "You are alpha. Use list_agents with scope siblings to find your sibling named beta. Then use write_agent to send beta the message 'alpha asks: what is 6*7?'. Then wait for beta's reply to arrive as a new message. When beta replies, finish by stating the answer beta gave. Do not use any other tools.",
+            "delivery": "idle",
+            "interactionId": "id-33",
+            "messageId": "id-32",
+            "parentAgentTaskId": "id-34",
+            "source": "agent-session-main",
+            "turnId": "0"
+          },
+          "id": "id-35",
+          "timestamp": "2026-09-25T09:16:54.863Z",
+          "parentId": "id-31",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture system prompt.",
+            "role": "system"
+          },
+          "id": "id-36",
+          "timestamp": "2026-09-25T09:16:54.865Z",
+          "parentId": "id-35",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-33",
+            "turnId": "0"
+          },
+          "id": "id-37",
+          "timestamp": "2026-09-25T09:16:54.867Z",
+          "parentId": "id-36",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-5",
+            "messageId": "id-38",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-4",
+            "phase": "commentary",
+            "rte": true,
+            "toolRequests": [],
+            "turnId": "1"
+          },
+          "id": "id-39",
+          "timestamp": "2026-09-25T09:16:55.645Z",
+          "parentId": "id-37",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-5",
+            "messageId": "id-40",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-4",
+            "rte": true,
+            "toolRequests": [
+              {
+                "arguments": {
+                  "agent_id": "agent-alpha",
+                  "timeout": 180,
+                  "wait": true
+                },
+                "name": "read_agent",
+                "toolCallId": "call-4",
+                "type": "function"
+              }
+            ],
+            "turnId": "1"
+          },
+          "id": "id-41",
+          "timestamp": "2026-09-25T09:16:55.647Z",
+          "parentId": "id-39",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_id": "agent-alpha",
+              "timeout": 180,
+              "wait": true
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "call-4",
+            "toolName": "read_agent",
+            "turnId": "1"
+          },
+          "id": "id-42",
+          "timestamp": "2026-09-25T09:16:55.648Z",
+          "parentId": "id-41",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-33",
+            "messageId": "id-43",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-32",
+            "parentToolCallId": "launch-alpha",
+            "rte": true,
+            "toolRequests": [
+              {
+                "arguments": {
+                  "include_completed": true,
+                  "scope": "siblings"
+                },
+                "name": "list_agents",
+                "toolCallId": "call-5",
+                "type": "function"
+              }
+            ],
+            "turnId": "0"
+          },
+          "id": "id-44",
+          "timestamp": "2026-09-25T09:16:57.940Z",
+          "parentId": "id-42",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "include_completed": true,
+              "scope": "siblings"
+            },
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-alpha",
+            "toolCallId": "call-5",
+            "toolName": "list_agents",
+            "turnId": "0"
+          },
+          "id": "id-45",
+          "timestamp": "2026-09-25T09:16:57.941Z",
+          "parentId": "id-44",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-33",
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-alpha",
+            "result": {
+              "content": "Background agents (scope: siblings):\n\nRunning (2):\n  🔄 alpha (agent-alpha): general-purpose - \"Coordinate alpha messaging\" (4s, owner: session-main, relation: sibling) (model: claude-haiku-4.5)\n  🔄 beta (agent-beta): general-purpose - \"Answer alpha question\" (4s, owner: session-main, relation: sibling) (model: claude-haiku-4.5)"
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call-5",
+            "toolTelemetry": {
+              "metrics": {
+                "agent_count": 2,
+                "cancelled_count": 0,
+                "completed_count": 0,
+                "failed_count": 0,
+                "idle_count": 0,
+                "mcp_task_count": 0,
+                "running_count": 2
+              },
+              "properties": {
+                "scope": "siblings"
+              }
+            },
+            "turnId": "0"
+          },
+          "id": "id-46",
+          "timestamp": "2026-09-25T09:16:57.942Z",
+          "parentId": "id-45",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "id-47",
+          "timestamp": "2026-09-25T09:16:57.942Z",
+          "parentId": "id-46",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-33",
+            "turnId": "1"
+          },
+          "id": "id-48",
+          "timestamp": "2026-09-25T09:16:57.943Z",
+          "parentId": "id-47",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Awaiting alpha's message.",
+            "interactionId": "id-27",
+            "messageId": "id-49",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-26",
+            "parentToolCallId": "launch-beta",
+            "phase": "final_answer",
+            "rte": true,
+            "toolRequests": [],
+            "turnId": "0"
+          },
+          "id": "id-50",
+          "timestamp": "2026-09-25T09:16:58.914Z",
+          "parentId": "id-48",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "id-51",
+          "timestamp": "2026-09-25T09:16:58.916Z",
+          "parentId": "id-50",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "subagent.completed",
+          "data": {
+            "agentDisplayName": "beta",
+            "agentName": "general-purpose",
+            "durationMs": 5026,
+            "explicitModelOverride": "claude-haiku-4.5",
+            "firstDispatchedModel": "gpt-5.6-luna",
+            "model": "claude-haiku-4.5",
+            "modelSelectionSource": "explicit_override",
+            "toolCallId": "launch-beta",
+            "totalTokens": 5301,
+            "totalToolCalls": 0
+          },
+          "id": "id-52",
+          "timestamp": "2026-09-25T09:16:58.917Z",
+          "parentId": "id-51",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-33",
+            "messageId": "id-53",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-32",
+            "parentToolCallId": "launch-alpha",
+            "rte": true,
+            "toolRequests": [
+              {
+                "arguments": {
+                  "agent_id": "agent-beta",
+                  "message": "alpha asks: what is 6*7?"
+                },
+                "name": "write_agent",
+                "toolCallId": "call-6",
+                "type": "function"
+              }
+            ],
+            "turnId": "1"
+          },
+          "id": "id-54",
+          "timestamp": "2026-09-25T09:16:59.055Z",
+          "parentId": "id-52",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_id": "agent-beta",
+              "message": "alpha asks: what is 6*7?"
+            },
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-alpha",
+            "toolCallId": "call-6",
+            "toolName": "write_agent",
+            "turnId": "1"
+          },
+          "id": "id-55",
+          "timestamp": "2026-09-25T09:16:59.056Z",
+          "parentId": "id-54",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-33",
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-alpha",
+            "result": {
+              "content": "Message delivered to agent agent-beta. The recipient can reply with write_agent.",
+              "detailedContent": "Message to agent-beta:\nalpha asks: what is 6*7?"
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call-6",
+            "toolTelemetry": {
+              "metrics": {
+                "message_length": 24
+              },
+              "properties": {
+                "agent_id": "agent-beta",
+                "agent_type": "general-purpose"
+              }
+            },
+            "turnId": "1"
+          },
+          "id": "id-56",
+          "timestamp": "2026-09-25T09:16:59.057Z",
+          "parentId": "id-55",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "1"
+          },
+          "id": "id-57",
+          "timestamp": "2026-09-25T09:16:59.057Z",
+          "parentId": "id-56",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-33",
+            "turnId": "2"
+          },
+          "id": "id-58",
+          "timestamp": "2026-09-25T09:16:59.059Z",
+          "parentId": "id-57",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-33",
+            "messageId": "id-59",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-32",
+            "parentToolCallId": "launch-alpha",
+            "rte": true,
+            "toolRequests": [],
+            "turnId": "2"
+          },
+          "id": "id-60",
+          "timestamp": "2026-09-25T09:17:02.387Z",
+          "parentId": "id-58",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Beta answered: **42**.",
+            "interactionId": "id-33",
+            "messageId": "id-61",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-32",
+            "parentToolCallId": "launch-alpha",
+            "phase": "final_answer",
+            "rte": true,
+            "toolRequests": [],
+            "turnId": "2"
+          },
+          "id": "id-62",
+          "timestamp": "2026-09-25T09:17:02.389Z",
+          "parentId": "id-60",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "2"
+          },
+          "id": "id-63",
+          "timestamp": "2026-09-25T09:17:02.391Z",
+          "parentId": "id-62",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "subagent.completed",
+          "data": {
+            "agentDisplayName": "alpha",
+            "agentName": "general-purpose",
+            "durationMs": 8500,
+            "explicitModelOverride": "claude-haiku-4.5",
+            "firstDispatchedModel": "gpt-5.6-luna",
+            "model": "claude-haiku-4.5",
+            "modelSelectionSource": "explicit_override",
+            "toolCallId": "launch-alpha",
+            "totalTokens": 16522,
+            "totalToolCalls": 2
+          },
+          "id": "id-64",
+          "timestamp": "2026-09-25T09:17:02.391Z",
+          "parentId": "id-63",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-5",
+            "model": "gpt-5.6-luna",
+            "result": {
+              "content": "Agent is idle (waiting for messages). agent_id: agent-alpha, agent_type: general-purpose, status: idle, description: Coordinate alpha messaging, elapsed: 8s, total_turns: 1, model: claude-haiku-4.5\n\n[Turn 0]\nBeta answered: **42**.",
+              "detailedContent": "<agent agent-alpha idle>"
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call-4",
+            "toolTelemetry": {
+              "metrics": {
+                "elapsed_seconds": 8,
+                "queue_depth": 0,
+                "total_turns": 1
+              },
+              "properties": {
+                "agent_id": "agent-alpha",
+                "agent_type": "general-purpose",
+                "status": "idle"
+              }
+            },
+            "turnId": "1"
+          },
+          "id": "id-65",
+          "timestamp": "2026-09-25T09:17:02.401Z",
+          "parentId": "id-64",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "1"
+          },
+          "id": "id-66",
+          "timestamp": "2026-09-25T09:17:02.406Z",
+          "parentId": "id-65",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-5",
+            "turnId": "2"
+          },
+          "id": "id-67",
+          "timestamp": "2026-09-25T09:17:02.406Z",
+          "parentId": "id-66",
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "alpha asks: what is 6*7?",
+            "delivery": "idle",
+            "interactionId": "id-69",
+            "messageId": "id-68",
+            "parentAgentTaskId": "id-70",
+            "source": "agent-agent-alpha",
+            "turnId": "0"
+          },
+          "id": "id-71",
+          "timestamp": "2026-09-25T09:17:03.335Z",
+          "parentId": "id-67",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture system prompt.",
+            "role": "system"
+          },
+          "id": "id-72",
+          "timestamp": "2026-09-25T09:17:03.336Z",
+          "parentId": "id-71",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-69",
+            "turnId": "0"
+          },
+          "id": "id-73",
+          "timestamp": "2026-09-25T09:17:03.337Z",
+          "parentId": "id-72",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-5",
+            "messageId": "id-74",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-4",
+            "rte": true,
+            "toolRequests": [
+              {
+                "arguments": {
+                  "agent_id": "agent-beta",
+                  "timeout": 180,
+                  "wait": true
+                },
+                "name": "read_agent",
+                "toolCallId": "call-7",
+                "type": "function"
+              }
+            ],
+            "turnId": "2"
+          },
+          "id": "id-75",
+          "timestamp": "2026-09-25T09:17:03.997Z",
+          "parentId": "id-73",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_id": "agent-beta",
+              "timeout": 180,
+              "wait": true
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "call-7",
+            "toolName": "read_agent",
+            "turnId": "2"
+          },
+          "id": "id-76",
+          "timestamp": "2026-09-25T09:17:03.998Z",
+          "parentId": "id-75",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-69",
+            "messageId": "id-77",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-68",
+            "parentToolCallId": "launch-beta",
+            "rte": true,
+            "toolRequests": [
+              {
+                "arguments": {
+                  "agent_id": "agent-alpha",
+                  "message": "6 * 7 = 42."
+                },
+                "name": "write_agent",
+                "toolCallId": "call-8",
+                "type": "function"
+              }
+            ],
+            "turnId": "0"
+          },
+          "id": "id-78",
+          "timestamp": "2026-09-25T09:17:05.026Z",
+          "parentId": "id-76",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_id": "agent-alpha",
+              "message": "6 * 7 = 42."
+            },
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-beta",
+            "toolCallId": "call-8",
+            "toolName": "write_agent",
+            "turnId": "0"
+          },
+          "id": "id-79",
+          "timestamp": "2026-09-25T09:17:05.027Z",
+          "parentId": "id-78",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-69",
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch-beta",
+            "result": {
+              "content": "Message delivered to agent agent-alpha. The recipient can reply with write_agent.",
+              "detailedContent": "Message to agent-alpha:\n6 * 7 = 42."
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call-8",
+            "toolTelemetry": {
+              "metrics": {
+                "message_length": 11
+              },
+              "properties": {
+                "agent_id": "agent-alpha",
+                "agent_type": "general-purpose"
+              }
+            },
+            "turnId": "0"
+          },
+          "id": "id-80",
+          "timestamp": "2026-09-25T09:17:05.027Z",
+          "parentId": "id-79",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "id-81",
+          "timestamp": "2026-09-25T09:17:05.028Z",
+          "parentId": "id-80",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-69",
+            "turnId": "1"
+          },
+          "id": "id-82",
+          "timestamp": "2026-09-25T09:17:05.029Z",
+          "parentId": "id-81",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-69",
+            "messageId": "id-83",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-68",
+            "parentToolCallId": "launch-beta",
+            "phase": "final_answer",
+            "rte": true,
+            "toolRequests": [],
+            "turnId": "1"
+          },
+          "id": "id-84",
+          "timestamp": "2026-09-25T09:17:06.028Z",
+          "parentId": "id-82",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "1"
+          },
+          "id": "id-85",
+          "timestamp": "2026-09-25T09:17:06.029Z",
+          "parentId": "id-84",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-5",
+            "model": "gpt-5.6-luna",
+            "result": {
+              "content": "Agent is idle (waiting for messages). agent_id: agent-beta, agent_type: general-purpose, status: idle, description: Answer alpha question, elapsed: 12s, total_turns: 2, model: claude-haiku-4.5\n\n[Turn 0]\nAwaiting alpha's message.\n\n[Turn 1]\n[Message from agent-alpha]\nalpha asks: what is 6*7?\n\n[Response]\n",
+              "detailedContent": "<agent agent-beta idle>"
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call-7",
+            "toolTelemetry": {
+              "metrics": {
+                "elapsed_seconds": 12,
+                "queue_depth": 0,
+                "total_turns": 2
+              },
+              "properties": {
+                "agent_id": "agent-beta",
+                "agent_type": "general-purpose",
+                "status": "idle"
+              }
+            },
+            "turnId": "2"
+          },
+          "id": "id-86",
+          "timestamp": "2026-09-25T09:17:06.062Z",
+          "parentId": "id-85",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "2"
+          },
+          "id": "id-87",
+          "timestamp": "2026-09-25T09:17:06.068Z",
+          "parentId": "id-86",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-5",
+            "turnId": "3"
+          },
+          "id": "id-88",
+          "timestamp": "2026-09-25T09:17:06.069Z",
+          "parentId": "id-87",
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "6 * 7 = 42.",
+            "delivery": "idle",
+            "interactionId": "id-90",
+            "messageId": "id-89",
+            "parentAgentTaskId": "id-91",
+            "source": "agent-agent-beta",
+            "turnId": "0"
+          },
+          "id": "id-92",
+          "timestamp": "2026-09-25T09:17:06.498Z",
+          "parentId": "id-88",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture system prompt.",
+            "role": "system"
+          },
+          "id": "id-93",
+          "timestamp": "2026-09-25T09:17:06.499Z",
+          "parentId": "id-92",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-90",
+            "turnId": "0"
+          },
+          "id": "id-94",
+          "timestamp": "2026-09-25T09:17:06.501Z",
+          "parentId": "id-93",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-5",
+            "messageId": "id-95",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-4",
+            "rte": true,
+            "toolRequests": [
+              {
+                "arguments": {
+                  "message": "Final check: reply with the single word DONE.",
+                  "scope": "children"
+                },
+                "name": "write_agent",
+                "toolCallId": "call-9",
+                "type": "function"
+              }
+            ],
+            "turnId": "3"
+          },
+          "id": "id-96",
+          "timestamp": "2026-09-25T09:17:07.498Z",
+          "parentId": "id-94",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "message": "Final check: reply with the single word DONE.",
+              "scope": "children"
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "call-9",
+            "toolName": "write_agent",
+            "turnId": "3"
+          },
+          "id": "id-97",
+          "timestamp": "2026-09-25T09:17:07.498Z",
+          "parentId": "id-96",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-5",
+            "model": "gpt-5.6-luna",
+            "result": {
+              "content": "Message delivered to 2 agents.\n- agent-alpha, delivered, task_status=running\n- agent-beta, delivered, task_status=running"
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call-9",
+            "toolTelemetry": {},
+            "turnId": "3"
+          },
+          "id": "id-98",
+          "timestamp": "2026-09-25T09:17:07.499Z",
+          "parentId": "id-97",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "3"
+          },
+          "id": "id-99",
+          "timestamp": "2026-09-25T09:17:07.504Z",
+          "parentId": "id-98",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-5",
+            "turnId": "4"
+          },
+          "id": "id-100",
+          "timestamp": "2026-09-25T09:17:07.504Z",
+          "parentId": "id-99",
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "Final check: reply with the single word DONE.",
+            "delivery": "idle",
+            "interactionId": "id-102",
+            "messageId": "id-101",
+            "parentAgentTaskId": "id-103",
+            "source": "agent-session-main",
+            "turnId": "0"
+          },
+          "id": "id-104",
+          "timestamp": "2026-09-25T09:17:07.532Z",
+          "parentId": "id-100",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture system prompt.",
+            "role": "system"
+          },
+          "id": "id-105",
+          "timestamp": "2026-09-25T09:17:07.533Z",
+          "parentId": "id-104",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-102",
+            "turnId": "0"
+          },
+          "id": "id-106",
+          "timestamp": "2026-09-25T09:17:07.535Z",
+          "parentId": "id-105",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "DONE",
+            "interactionId": "id-102",
+            "messageId": "id-107",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-101",
+            "parentToolCallId": "launch-beta",
+            "phase": "final_answer",
+            "rte": true,
+            "toolRequests": [],
+            "turnId": "0"
+          },
+          "id": "id-108",
+          "timestamp": "2026-09-25T09:17:08.705Z",
+          "parentId": "id-106",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "id-109",
+          "timestamp": "2026-09-25T09:17:08.706Z",
+          "parentId": "id-108",
+          "agentId": "agent-beta"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "interactionId": "id-5",
+            "messageId": "id-110",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-4",
+            "rte": true,
+            "toolRequests": [
+              {
+                "arguments": {
+                  "agent_id": "agent-alpha",
+                  "timeout": 180,
+                  "wait": true
+                },
+                "name": "read_agent",
+                "toolCallId": "call-10",
+                "type": "function"
+              }
+            ],
+            "turnId": "4"
+          },
+          "id": "id-111",
+          "timestamp": "2026-09-25T09:17:09.140Z",
+          "parentId": "id-109",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_id": "agent-alpha",
+              "timeout": 180,
+              "wait": true
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "call-10",
+            "toolName": "read_agent",
+            "turnId": "4"
+          },
+          "id": "id-112",
+          "timestamp": "2026-09-25T09:17:09.141Z",
+          "parentId": "id-111",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Beta’s answer was **42**.",
+            "interactionId": "id-90",
+            "messageId": "id-113",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-89",
+            "parentToolCallId": "launch-alpha",
+            "phase": "final_answer",
+            "rte": true,
+            "toolRequests": [],
+            "turnId": "0"
+          },
+          "id": "id-114",
+          "timestamp": "2026-09-25T09:17:10.217Z",
+          "parentId": "id-112",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "id-115",
+          "timestamp": "2026-09-25T09:17:10.219Z",
+          "parentId": "id-114",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "Final check: reply with the single word DONE.",
+            "delivery": "queued",
+            "interactionId": "id-117",
+            "messageId": "id-116",
+            "parentAgentTaskId": "id-118",
+            "source": "agent-session-main",
+            "turnId": "0"
+          },
+          "id": "id-119",
+          "timestamp": "2026-09-25T09:17:10.237Z",
+          "parentId": "id-115",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture system prompt.",
+            "role": "system"
+          },
+          "id": "id-120",
+          "timestamp": "2026-09-25T09:17:10.238Z",
+          "parentId": "id-119",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-117",
+            "turnId": "0"
+          },
+          "id": "id-121",
+          "timestamp": "2026-09-25T09:17:10.241Z",
+          "parentId": "id-120",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "DONE",
+            "interactionId": "id-117",
+            "messageId": "id-122",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-116",
+            "parentToolCallId": "launch-alpha",
+            "phase": "final_answer",
+            "rte": true,
+            "toolRequests": [],
+            "turnId": "0"
+          },
+          "id": "id-123",
+          "timestamp": "2026-09-25T09:17:14.331Z",
+          "parentId": "id-121",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "id-124",
+          "timestamp": "2026-09-25T09:17:14.332Z",
+          "parentId": "id-123",
+          "agentId": "agent-alpha"
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "id-5",
+            "model": "gpt-5.6-luna",
+            "result": {
+              "content": "Agent is idle (waiting for messages). agent_id: agent-alpha, agent_type: general-purpose, status: idle, description: Coordinate alpha messaging, elapsed: 20s, total_turns: 3, model: claude-haiku-4.5\n\n[Turn 0]\nBeta answered: **42**.\n\n[Turn 1]\n[Message from agent-beta]\n6 * 7 = 42.\n\n[Response]\nBeta’s answer was **42**.\n\n[Turn 2]\n[Message]\nFinal check: reply with the single word DONE.\n\n[Response]\nDONE",
+              "detailedContent": "<agent agent-alpha idle>"
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call-10",
+            "toolTelemetry": {
+              "metrics": {
+                "elapsed_seconds": 20,
+                "queue_depth": 0,
+                "total_turns": 3
+              },
+              "properties": {
+                "agent_id": "agent-alpha",
+                "agent_type": "general-purpose",
+                "status": "idle"
+              }
+            },
+            "turnId": "4"
+          },
+          "id": "id-125",
+          "timestamp": "2026-09-25T09:17:14.361Z",
+          "parentId": "id-124",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "4"
+          },
+          "id": "id-126",
+          "timestamp": "2026-09-25T09:17:14.367Z",
+          "parentId": "id-125",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "id-5",
+            "turnId": "5"
+          },
+          "id": "id-127",
+          "timestamp": "2026-09-25T09:17:14.367Z",
+          "parentId": "id-126",
+          "agentId": null
+        },
+        {
+          "type": "system.notification",
+          "data": {
+            "content": "<system_notification>\nAgent \"beta\" (general-purpose) has finished processing and is now idle.\n</system_notification>",
+            "kind": {
+              "agentId": "agent-beta",
+              "agentType": "general-purpose",
+              "description": "Answer alpha question",
+              "displayName": "beta",
+              "type": "agent_idle"
+            }
+          },
+          "id": "id-128",
+          "timestamp": "2026-09-25T09:17:14.371Z",
+          "parentId": "id-127",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "",
+            "messageId": "id-129",
+            "toolRequests": [
+              {
+                "arguments": {
+                  "agent_id": "agent-beta",
+                  "since_turn": 2
+                },
+                "name": "read_agent",
+                "toolCallId": "id-130"
+              }
+            ]
+          },
+          "id": "id-131",
+          "timestamp": "2026-09-25T09:17:14.372Z",
+          "parentId": "id-128",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_id": "agent-beta",
+              "since_turn": 2
+            },
+            "toolCallId": "id-130",
+            "toolName": "read_agent"
+          },
+          "id": "id-132",
+          "timestamp": "2026-09-25T09:17:14.373Z",
+          "parentId": "id-131",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "result": {
+              "content": "Agent is idle (waiting for messages). agent_id: agent-beta, agent_type: general-purpose, status: idle, description: Answer alpha question, elapsed: 14s, total_turns: 3, model: claude-haiku-4.5\n\n[Turn 2]\n[Message]\nFinal check: reply with the single word DONE.\n\n[Response]\nDONE",
+              "detailedContent": "<agent agent-beta idle>"
+            },
+            "success": true,
+            "toolCallId": "id-130",
+            "toolTelemetry": {
+              "metrics": {
+                "elapsed_seconds": 14,
+                "queue_depth": 0,
+                "total_turns": 3
+              },
+              "properties": {
+                "agent_id": "agent-beta",
+                "agent_type": "general-purpose",
+                "status": "idle"
+              }
+            }
+          },
+          "id": "id-133",
+          "timestamp": "2026-09-25T09:17:14.373Z",
+          "parentId": "id-132",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "alpha and beta exchanged the question successfully; both replied **DONE** in the final check.",
+            "interactionId": "id-5",
+            "messageId": "id-134",
+            "model": "gpt-5.6-luna",
+            "originatingMessageId": "id-4",
+            "phase": "final_answer",
+            "rte": true,
+            "toolRequests": [],
+            "turnId": "5"
+          },
+          "id": "id-135",
+          "timestamp": "2026-09-25T09:17:15.730Z",
+          "parentId": "id-133",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "5"
+          },
+          "id": "id-136",
+          "timestamp": "2026-09-25T09:17:15.732Z",
+          "parentId": "id-135",
+          "agentId": null
+        }
+      ],
+      "incidents": [],
+      "parseDiagnostics": {
+        "totalEvents": 96,
+        "malformedLines": 0,
+        "unknownEventTypes": 0,
+        "deserializationFailures": 0
+      }
+    }
+  ],
+  "exportOptions": {
+    "format": "json",
+    "includedSections": [
+      "checkpoints",
+      "conversation",
+      "customTables",
+      "events",
+      "incidents",
+      "metrics",
+      "parseDiagnostics",
+      "plan",
+      "rewindSnapshots",
+      "todos"
+    ],
+    "redactionApplied": false
+  }
+}

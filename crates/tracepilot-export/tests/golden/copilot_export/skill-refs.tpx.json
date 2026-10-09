@@ -1,0 +1,1134 @@
+{
+  "header": {
+    "schemaVersion": {
+      "major": 1,
+      "minor": 0
+    },
+    "exportedAt": "<time>",
+    "exportedBy": "TracePilot v<version>",
+    "sourceSystem": {
+      "os": "<os>"
+    },
+    "contentHash": "<hash>",
+    "minimumReaderVersion": {
+      "major": 1,
+      "minor": 0
+    }
+  },
+  "sessions": [
+    {
+      "metadata": {
+        "id": "00000000-0000-4000-8000-00000000000a",
+        "summary": "Golden skill-refs",
+        "repository": "golden/skill-refs",
+        "branch": "main",
+        "cwd": "/golden/skill-refs",
+        "createdAt": "2026-03-10T07:14:50Z",
+        "updatedAt": "2026-03-10T07:15:00Z",
+        "eventCount": 31,
+        "turnCount": 4
+      },
+      "availableSections": [
+        "conversation",
+        "events",
+        "metrics",
+        "parseDiagnostics"
+      ],
+      "conversation": [
+        {
+          "turnIndex": 0,
+          "eventIndex": 2,
+          "turnId": "0",
+          "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+          "userMessage": "Use the probe-notes skill to get the probe codeword and tell me it. Then invoke the probe-notes skill a second time (call the skill tool again) and repeat the codeword.",
+          "assistantMessages": [],
+          "model": "mai-code-1.1-flash",
+          "timestamp": "2026-10-04T01:39:44.281Z",
+          "endTimestamp": "2026-10-04T01:39:47.443Z",
+          "toolCalls": [
+            {
+              "toolCallId": "call_iUoXJPXQw9PKnoY9gL1Stz0k",
+              "parentToolCallId": null,
+              "toolName": "skill",
+              "eventIndex": 6,
+              "arguments": {
+                "skill": "probe-notes"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-10-04T01:39:47.411Z",
+              "completedAt": "2026-10-04T01:39:47.414Z",
+              "durationMs": 3,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "mai-code-1.1-flash",
+              "intentionSummary": "probe-notes",
+              "resultContent": "Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
+              "skillInvocation": {
+                "id": "d30e7bfe-a012-4830-828b-4e68259274a9",
+                "name": "probe-notes",
+                "path": "C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\\SKILL.md",
+                "description": "Returns the probe codeword. Use whenever the user asks for the probe codeword.",
+                "contentLength": 109,
+                "content": "# Probe notes\n\nWhen asked for the probe codeword, answer exactly: TANGERINE-42.\nDo not read any other files.\n",
+                "contextLength": 351,
+                "contextFolded": true
+              }
+            }
+          ],
+          "durationMs": 3162,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": "<current_datetime>2026-10-04T12:39:44.281+11:00</current_datetime>\n\nUse the probe-notes skill to get the probe codeword and tell me it. Then invoke the probe-notes skill a second time (call the skill tool again) and repeat the codeword.",
+          "attachments": null,
+          "sessionEvents": [
+            {
+              "eventType": "session.start",
+              "timestamp": "2026-10-04T01:39:40.867Z",
+              "severity": "info",
+              "summary": "Session started (model: auto)"
+            },
+            {
+              "eventType": "session.auto_mode_resolved",
+              "timestamp": "2026-10-04T01:39:44.085Z",
+              "severity": "info",
+              "summary": "Auto mode chose mai-code-1.1-flash"
+            }
+          ],
+          "systemMessages": [
+            "[system prompt omitted]"
+          ],
+          "userMessageDelivery": "idle"
+        },
+        {
+          "turnIndex": 1,
+          "turnId": "1",
+          "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+          "userMessage": null,
+          "assistantMessages": [
+            {
+              "content": "TANGERINE-42\n\nTANGERINE-42",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 12
+            }
+          ],
+          "model": "mai-code-1.1-flash",
+          "timestamp": "2026-10-04T01:39:47.443Z",
+          "endTimestamp": "2026-10-04T01:39:48.875Z",
+          "toolCalls": [],
+          "durationMs": 1432,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        },
+        {
+          "turnIndex": 2,
+          "eventIndex": 18,
+          "turnId": "0",
+          "interactionId": "b7479e56-864e-42c2-9979-b7e5dc0e48b6",
+          "userMessage": "Call the skill tool again now with skill probe-notes (you must call the tool, do not answer from memory), then give the codeword.",
+          "assistantMessages": [],
+          "model": "mai-code-1.1-flash",
+          "timestamp": "2026-10-04T01:40:09.330Z",
+          "endTimestamp": "2026-10-04T01:40:12.584Z",
+          "toolCalls": [
+            {
+              "toolCallId": "call_1HrJFfLLP305jYeU6X5dgBZi",
+              "parentToolCallId": null,
+              "toolName": "skill",
+              "eventIndex": 21,
+              "arguments": {
+                "skill": "probe-notes"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-10-04T01:40:12.554Z",
+              "completedAt": "2026-10-04T01:40:12.557Z",
+              "durationMs": 3,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "mai-code-1.1-flash",
+              "intentionSummary": "probe-notes",
+              "resultContent": "Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context.",
+              "skillInvocation": {
+                "id": "5c283fae-80a6-4f45-bf7d-6bdce6dc07bf",
+                "name": "probe-notes",
+                "path": "C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\\SKILL.md",
+                "description": "Returns the probe codeword. Use whenever the user asks for the probe codeword.",
+                "contentLength": 109,
+                "content": "# Probe notes\n\nWhen asked for the probe codeword, answer exactly: TANGERINE-42.\nDo not read any other files.\n",
+                "contextLength": 351,
+                "contextFolded": true
+              }
+            }
+          ],
+          "durationMs": 3254,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": "<current_datetime>2026-10-04T12:40:09.330+11:00</current_datetime>\n\nCall the skill tool again now with skill probe-notes (you must call the tool, do not answer from memory), then give the codeword.",
+          "attachments": null,
+          "sessionEvents": [
+            {
+              "eventType": "session.resume",
+              "timestamp": "2026-10-04T01:40:05.614Z",
+              "severity": "info",
+              "summary": "Session resumed (model: auto)"
+            }
+          ],
+          "userMessageDelivery": "idle"
+        },
+        {
+          "turnIndex": 3,
+          "turnId": "1",
+          "interactionId": "b7479e56-864e-42c2-9979-b7e5dc0e48b6",
+          "userMessage": null,
+          "assistantMessages": [
+            {
+              "content": "TANGERINE-42",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 27
+            }
+          ],
+          "model": "mai-code-1.1-flash",
+          "timestamp": "2026-10-04T01:40:12.584Z",
+          "endTimestamp": "2026-10-04T01:40:14.139Z",
+          "toolCalls": [],
+          "durationMs": 1555,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        }
+      ],
+      "events": [
+        {
+          "type": "session.start",
+          "data": {
+            "alreadyInUse": false,
+            "context": {
+              "branch": "master",
+              "cwd": "C:\\fixture\\skill-spike",
+              "gitRoot": "C:\\fixture\\skill-spike"
+            },
+            "contextTier": null,
+            "copilotVersion": "1.0.91",
+            "producer": "copilot-agent",
+            "remoteSteerable": false,
+            "selectedModel": "auto",
+            "sessionId": "b58b879e-1f02-47c0-a8cd-ffb009fab083",
+            "startTime": "2026-10-04T01:39:40.825Z",
+            "version": 1
+          },
+          "id": "6feee5a7-9fd3-4473-9a29-88de85cc484a",
+          "timestamp": "2026-10-04T01:39:40.867Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.auto_mode_resolved",
+          "data": {
+            "availableModels": [
+              "mai-code-1.1-flash"
+            ],
+            "candidateModels": [
+              "mai-code-1.1-flash"
+            ],
+            "categoryScores": {
+              "code_gen": 0.0041,
+              "debugging": 0.0028,
+              "reasoning": 0.0615,
+              "tool_use": 0.0196
+            },
+            "chosenModel": "mai-code-1.1-flash",
+            "endToEndLatencyMs": 329.78229999999996,
+            "fallback": false,
+            "hasImage": false,
+            "routingMethod": "auto_v2"
+          },
+          "id": "a679ca74-9314-4ca2-acbc-36c0e3a68647",
+          "timestamp": "2026-10-04T01:39:44.085Z",
+          "parentId": "6feee5a7-9fd3-4473-9a29-88de85cc484a",
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "Use the probe-notes skill to get the probe codeword and tell me it. Then invoke the probe-notes skill a second time (call the skill tool again) and repeat the codeword.",
+            "delivery": "idle",
+            "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+            "messageId": "212c4523-fde5-4fa5-8fde-e752d9c17d16",
+            "parentAgentTaskId": "409d5a50-7144-4c05-b551-82976d2c5cfc",
+            "supportedNativeDocumentMimeTypes": [],
+            "transformedContent": "<current_datetime>2026-10-04T12:39:44.281+11:00</current_datetime>\n\nUse the probe-notes skill to get the probe codeword and tell me it. Then invoke the probe-notes skill a second time (call the skill tool again) and repeat the codeword.",
+            "turnId": "0"
+          },
+          "id": "e07a9f18-be87-43ee-9a6b-f3df29a1f055",
+          "timestamp": "2026-10-04T01:39:44.281Z",
+          "parentId": "a679ca74-9314-4ca2-acbc-36c0e3a68647",
+          "agentId": null
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "[system prompt omitted]",
+            "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+            "role": "system"
+          },
+          "id": "b9400816-5e78-448b-8447-75ae0b887cb6",
+          "timestamp": "2026-10-04T01:39:44.288Z",
+          "parentId": "e07a9f18-be87-43ee-9a6b-f3df29a1f055",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+            "turnId": "0"
+          },
+          "id": "0caff975-f81f-42f3-b8d1-b97ed904aea2",
+          "timestamp": "2026-10-04T01:39:44.292Z",
+          "parentId": "b9400816-5e78-448b-8447-75ae0b887cb6",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "apiCallId": "hDCCCPiOLG0hv2BJlwnkkQCRnUXhkAGS3qDjFxEPDxkG2js+Y5KTgLBhasXh6b6arRZ33JzTAo7mnmmyBJVZv7UdUlwtaiauo3msmD0ik4BQn3GRQmtMwTF23MHU+KNf3iOQXezh80CuwdvV6Z8Vn9xowexw4IWFdSNrgcTa18JqH7gc1opZXa5ltzSi/lswO9hcaI+lVXqDnBv+lCVjgxtMXr+kNnGTGeElB4zutn5SjkfNwON8isIaX3h4w3CcFlD8bMBlt5gBVMUjSWyOSTH4ix//8uf9ADSJjm3cjN13Vf62PL8Xnj/jopq1Pdud5YieBI+Ikh77XGY5VY6fpNWJVn3YDy2HWppPHhp1XCFTfJc8y1FKqeh9wXs3ZrXV5qKGnnygICbQgQY6uBlOn7BaBXU3VGurjef90sR+N81Zfo+nJOKJAuwrlVM380K6kNR5ciq94a99qecQsnjcHiiB4T3EEKePFuxJYW/bJ+oMrzDhJFBOvnq4ZkeT3gv1xv3xv18uag==",
+            "content": "",
+            "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+            "messageId": "7b5a0bf5-4dcb-4571-9388-dc4beafd083b",
+            "model": "mai-code-1.1-flash",
+            "originatingMessageId": "212c4523-fde5-4fa5-8fde-e752d9c17d16",
+            "rte": true,
+            "serverTools": {
+              "provider": "openai-responses"
+            },
+            "toolRequests": [
+              {
+                "arguments": {
+                  "skill": "probe-notes"
+                },
+                "intentionSummary": "probe-notes",
+                "name": "skill",
+                "toolCallId": "call_iUoXJPXQw9PKnoY9gL1Stz0k",
+                "type": "function"
+              }
+            ],
+            "turnId": "0"
+          },
+          "id": "17654f68-52bc-44e3-84ca-0852f8f4edb7",
+          "timestamp": "2026-10-04T01:39:47.409Z",
+          "parentId": "0caff975-f81f-42f3-b8d1-b97ed904aea2",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "skill": "probe-notes"
+            },
+            "model": "mai-code-1.1-flash",
+            "toolCallId": "call_iUoXJPXQw9PKnoY9gL1Stz0k",
+            "toolName": "skill",
+            "turnId": "0"
+          },
+          "id": "dc6102a2-6f23-4a17-8c95-f8d3f3ac0821",
+          "timestamp": "2026-10-04T01:39:47.411Z",
+          "parentId": "17654f68-52bc-44e3-84ca-0852f8f4edb7",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+            "model": "mai-code-1.1-flash",
+            "result": {
+              "content": "Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context."
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call_iUoXJPXQw9PKnoY9gL1Stz0k",
+            "toolTelemetry": {
+              "metrics": {
+                "skillContentLength": 109
+              },
+              "properties": {
+                "found": "true",
+                "skillNameHash": "e9bb51b981c1010a9fd6fd768458b700ff5f80382ca947148ec183bbe881afe1",
+                "skillSource": "project"
+              },
+              "restrictedProperties": {
+                "skillName": "probe-notes"
+              }
+            },
+            "turnId": "0"
+          },
+          "id": "d865f314-ae9a-4912-999b-b66e282297f6",
+          "timestamp": "2026-10-04T01:39:47.414Z",
+          "parentId": "dc6102a2-6f23-4a17-8c95-f8d3f3ac0821",
+          "agentId": null
+        },
+        {
+          "type": "skill.invoked",
+          "data": {
+            "allowedTools": [],
+            "content": "# Probe notes\n\nWhen asked for the probe codeword, answer exactly: TANGERINE-42.\nDo not read any other files.\n",
+            "description": "Returns the probe codeword. Use whenever the user asks for the probe codeword.",
+            "invokedAtTurn": 3,
+            "model": "mai-code-1.1-flash",
+            "name": "probe-notes",
+            "path": "C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\\SKILL.md",
+            "pluginName": null,
+            "pluginVersion": null,
+            "source": "project",
+            "trigger": "agent-invoked"
+          },
+          "id": "d30e7bfe-a012-4830-828b-4e68259274a9",
+          "timestamp": "2026-10-04T01:39:47.415Z",
+          "parentId": "d865f314-ae9a-4912-999b-b66e282297f6",
+          "agentId": null
+        },
+        {
+          "type": "skill.context_delivered_ref",
+          "data": {
+            "contentId": "sha256:16496d3505aead541459a146c5fd9f4f00cb2fdd6f0a62b601f4115543d79b9b",
+            "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+            "prefix": "<skill-context name=\"probe-notes\">\nBase directory for this skill: C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\n\nRelated files (use view tool to read):\n  - C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\\refs\\extra.md\n\n",
+            "source": "skill-probe-notes",
+            "suffix": "\n</skill-context>"
+          },
+          "id": "2e53bca0-e026-492e-8912-10c5bc462380",
+          "timestamp": "2026-10-04T01:39:47.442Z",
+          "parentId": "d30e7bfe-a012-4830-828b-4e68259274a9",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "dc51a447-4102-4a78-a5f1-7b06be471603",
+          "timestamp": "2026-10-04T01:39:47.443Z",
+          "parentId": "2e53bca0-e026-492e-8912-10c5bc462380",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+            "turnId": "1"
+          },
+          "id": "65992cc0-b578-4fc5-8bc0-f4f3ca99346e",
+          "timestamp": "2026-10-04T01:39:47.443Z",
+          "parentId": "dc51a447-4102-4a78-a5f1-7b06be471603",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "apiCallId": "pqFvC7dRTAfxr2yMXHVMuPDLGM/qBw5MWK008nUF8t1K+977QQ/00TxZbgvDqFHIeUtQj7oLHkbuwPPyh5bxV2vuY76Xt64h8tou1TARQYlO6BmjwN3eI3DMqmC5STD4QQNMe/Usv2wMDT/ik3xFFx3iFfHkh4pUQQKyV+PXZPMvoGeLaJ7gNgicwhgyyfbQdOP8cwLrtgdJuoAZz0fi0zVkBtMiHiKkRekfkPJMkAPS1IhI1x0lC3GOYRwSCv7YJyj5Sga8j9ihuETjmIeR+PJWw6npskE04Olc20mGqpODieSXlOuUZQL6x/cU/TdjPbdl6P739/s6ej649N4heER1fm5UE/LYqxziSu/ZKUPOAmUj4xyiFvFZOttsm3jRQ8V9+yG/kSfGE9xfdjgFskNq7KEDbNa5VwUuzXgs6Da59oEKmbVAbWroT4tadJjfe0Qnqz9h05gLvy79OqPjhr1IR8MV4v+PqkObxpZBiWCZW2AoDBi/an4pOawAUYasNrQg15gkpA==",
+            "content": "TANGERINE-42\n\nTANGERINE-42",
+            "interactionId": "262a4ac1-6953-4e45-8133-9d155b96334c",
+            "messageId": "6b59d58c-b7ba-45d5-8092-2b2672d728f5",
+            "model": "mai-code-1.1-flash",
+            "originatingMessageId": "212c4523-fde5-4fa5-8fde-e752d9c17d16",
+            "phase": "final_answer",
+            "rte": true,
+            "serverTools": {
+              "provider": "openai-responses"
+            },
+            "toolRequests": [],
+            "turnId": "1"
+          },
+          "id": "6086b2d3-feb6-447f-8985-4a2b4108f494",
+          "timestamp": "2026-10-04T01:39:48.873Z",
+          "parentId": "65992cc0-b578-4fc5-8bc0-f4f3ca99346e",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "1"
+          },
+          "id": "92f04df9-2913-4d9d-afcf-7f9ce41298ad",
+          "timestamp": "2026-10-04T01:39:48.875Z",
+          "parentId": "6086b2d3-feb6-447f-8985-4a2b4108f494",
+          "agentId": null
+        },
+        {
+          "type": "session.usage_checkpoint",
+          "data": {
+            "modelCacheState": [
+              {
+                "cacheExpiresAt": "2026-10-04T02:09:47.457Z",
+                "cacheTtlSeconds": 1800,
+                "modelId": "mai-code-1.1-flash"
+              }
+            ],
+            "totalNanoAiu": 291646800,
+            "totalPremiumRequests": 1
+          },
+          "id": "b962eee2-ea72-4418-b7b9-4dde7c429b06",
+          "timestamp": "2026-10-04T01:39:48.877Z",
+          "parentId": "92f04df9-2913-4d9d-afcf-7f9ce41298ad",
+          "agentId": null
+        },
+        {
+          "type": "session.shutdown",
+          "data": {
+            "agentMetrics": {
+              "main": {
+                "modelMetrics": {
+                  "mai-code-1.1-flash": {
+                    "requests": {
+                      "cost": 1.0,
+                      "count": 2
+                    },
+                    "tokenDetails": {
+                      "cache_read": {
+                        "tokenCount": 14336
+                      },
+                      "cache_write": {
+                        "tokenCount": 0
+                      },
+                      "input": {
+                        "tokenCount": 14565
+                      },
+                      "output": {
+                        "tokenCount": 34
+                      }
+                    },
+                    "totalNanoAiu": 291646800.0,
+                    "usage": {
+                      "cacheReadTokens": 14336,
+                      "cacheWriteTokens": 0,
+                      "inputTokens": 28901,
+                      "outputTokens": 34,
+                      "reasoningTokens": 0
+                    }
+                  }
+                },
+                "totalApiDurationMs": 3814,
+                "totalNanoAiu": 291646800.0
+              }
+            },
+            "codeChanges": {
+              "filesModified": [],
+              "linesAdded": 0,
+              "linesRemoved": 0
+            },
+            "conversationTokens": 352,
+            "currentModel": "mai-code-1.1-flash",
+            "currentTokens": 16330,
+            "eventsFileSizeBytes": 72605,
+            "modelMetrics": {
+              "mai-code-1.1-flash": {
+                "requests": {
+                  "cost": 1,
+                  "count": 2
+                },
+                "tokenDetails": {
+                  "cache_read": {
+                    "tokenCount": 14336
+                  },
+                  "cache_write": {
+                    "tokenCount": 0
+                  },
+                  "input": {
+                    "tokenCount": 14565
+                  },
+                  "output": {
+                    "tokenCount": 34
+                  }
+                },
+                "totalNanoAiu": 291646800,
+                "usage": {
+                  "cacheReadTokens": 14336,
+                  "cacheWriteTokens": 0,
+                  "inputTokens": 28901,
+                  "outputTokens": 34,
+                  "reasoningTokens": 0
+                }
+              }
+            },
+            "sessionStartTime": 1791077980825,
+            "shutdownType": "routine",
+            "systemTokens": 6545,
+            "tokenDetails": {
+              "cache_read": {
+                "tokenCount": 14336
+              },
+              "cache_write": {
+                "tokenCount": 0
+              },
+              "input": {
+                "tokenCount": 14565
+              },
+              "output": {
+                "tokenCount": 34
+              }
+            },
+            "toolDefinitionsTokens": 9430,
+            "totalApiDurationMs": 3814,
+            "totalNanoAiu": 291646800,
+            "totalPremiumRequests": 1
+          },
+          "id": "a7312a1c-411a-4763-b34a-1d3ae2b27336",
+          "timestamp": "2026-10-04T01:39:48.905Z",
+          "parentId": "b962eee2-ea72-4418-b7b9-4dde7c429b06",
+          "agentId": null
+        },
+        {
+          "type": "session.resume",
+          "data": {
+            "alreadyInUse": false,
+            "context": {
+              "branch": "master",
+              "cwd": "C:\\fixture\\skill-spike",
+              "gitRoot": "C:\\fixture\\skill-spike"
+            },
+            "contextTier": null,
+            "eventCount": 16,
+            "eventsFileSizeBytes": 74053,
+            "remoteSteerable": false,
+            "resumeTime": "2026-10-04T01:40:05.613Z",
+            "selectedModel": "auto",
+            "sessionLimits": null
+          },
+          "id": "21bd4c81-5108-49f6-af88-3f3e787eb52c",
+          "timestamp": "2026-10-04T01:40:05.614Z",
+          "parentId": "a7312a1c-411a-4763-b34a-1d3ae2b27336",
+          "agentId": null
+        },
+        {
+          "type": "session.auto_mode_resolved",
+          "data": {
+            "availableModels": [
+              "mai-code-1.1-flash"
+            ],
+            "candidateModels": [
+              "mai-code-1.1-flash"
+            ],
+            "categoryScores": {
+              "code_gen": 0.0051,
+              "debugging": 0.0029,
+              "reasoning": 0.1438,
+              "tool_use": 0.0359
+            },
+            "chosenModel": "mai-code-1.1-flash",
+            "endToEndLatencyMs": 371.0947,
+            "fallback": false,
+            "hasImage": false,
+            "routingMethod": "auto_v2"
+          },
+          "id": "c7c0d1bd-e780-4b2f-8321-524c5fec7c68",
+          "timestamp": "2026-10-04T01:40:09.138Z",
+          "parentId": "21bd4c81-5108-49f6-af88-3f3e787eb52c",
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "Call the skill tool again now with skill probe-notes (you must call the tool, do not answer from memory), then give the codeword.",
+            "delivery": "idle",
+            "interactionId": "b7479e56-864e-42c2-9979-b7e5dc0e48b6",
+            "messageId": "fa7e1225-f16c-42db-8753-b4d44650fd21",
+            "parentAgentTaskId": "0867684f-04af-473e-b779-47d7f1a7e9e6",
+            "supportedNativeDocumentMimeTypes": [],
+            "transformedContent": "<current_datetime>2026-10-04T12:40:09.330+11:00</current_datetime>\n\nCall the skill tool again now with skill probe-notes (you must call the tool, do not answer from memory), then give the codeword.",
+            "turnId": "0"
+          },
+          "id": "a01ad61c-428f-4ab4-9ba4-e261d5605e7a",
+          "timestamp": "2026-10-04T01:40:09.330Z",
+          "parentId": "c7c0d1bd-e780-4b2f-8321-524c5fec7c68",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "b7479e56-864e-42c2-9979-b7e5dc0e48b6",
+            "turnId": "0"
+          },
+          "id": "ce5efb70-416e-49a6-b8f2-3be6b8f54a5e",
+          "timestamp": "2026-10-04T01:40:09.334Z",
+          "parentId": "a01ad61c-428f-4ab4-9ba4-e261d5605e7a",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "apiCallId": "mp1HTIoMEtlgSQjWlmHH0GYTmv8VytJ/krNF9FSWK+xfqG0QER0ZW+adLIc2AcSTQUo8FyYLlUrwkMsKI9VTIhhbAKb8PLEAgyHbpf0aYBx7/xmYvL55QB/yBDDxFERYtrdyjIsjf6y9GFIvwK8oQ11piygNvxKK4w+AoMhgzgh8PsECC9u/tUpnZAWVWfek9xJSZw4Pb3HzaPY/vz8jaJ3M4U4mlset78eOecH82cUzLS7b/fIjJruDzcKPylc5JL04whj5tW63pE7nCthbxPuv9+UmXqB1p1UibTolnPISIlZQH0fhPtsjxn3XMBHSl3N8JLZjVoT41ibhzvwYnNktiEF1uhdAYRdsayZ46zq0f6h/bUvzNgk7JlPhsAjf4dJp+5eihAYGCc01vbuohp6TQRmiAgUurXsRYBMQ8TpxFXTKGUKYXyC4Cq+Ih+xWLjfpl/CLJTV/Ex5PKZjIscGmTBv2L4hNH95XdpiBIFQKdzmtfczjKUaHU1Ldwp0=",
+            "content": "",
+            "interactionId": "b7479e56-864e-42c2-9979-b7e5dc0e48b6",
+            "messageId": "63a67f8a-f1ed-4761-929c-8feabd432180",
+            "model": "mai-code-1.1-flash",
+            "originatingMessageId": "fa7e1225-f16c-42db-8753-b4d44650fd21",
+            "rte": true,
+            "serverTools": {
+              "provider": "openai-responses"
+            },
+            "toolRequests": [
+              {
+                "arguments": {
+                  "skill": "probe-notes"
+                },
+                "intentionSummary": "probe-notes",
+                "name": "skill",
+                "toolCallId": "call_1HrJFfLLP305jYeU6X5dgBZi",
+                "type": "function"
+              }
+            ],
+            "turnId": "0"
+          },
+          "id": "0ae0a5d7-475b-411e-bee6-e6406fa306fb",
+          "timestamp": "2026-10-04T01:40:12.552Z",
+          "parentId": "ce5efb70-416e-49a6-b8f2-3be6b8f54a5e",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "skill": "probe-notes"
+            },
+            "model": "mai-code-1.1-flash",
+            "toolCallId": "call_1HrJFfLLP305jYeU6X5dgBZi",
+            "toolName": "skill",
+            "turnId": "0"
+          },
+          "id": "474c9c3d-5131-4a53-8e00-1c22f7d01e3d",
+          "timestamp": "2026-10-04T01:40:12.554Z",
+          "parentId": "0ae0a5d7-475b-411e-bee6-e6406fa306fb",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "b7479e56-864e-42c2-9979-b7e5dc0e48b6",
+            "model": "mai-code-1.1-flash",
+            "result": {
+              "content": "Skill \"probe-notes\" loaded successfully. Follow the instructions in the skill context."
+            },
+            "rte": true,
+            "success": true,
+            "toolCallId": "call_1HrJFfLLP305jYeU6X5dgBZi",
+            "toolTelemetry": {
+              "metrics": {
+                "skillContentLength": 109
+              },
+              "properties": {
+                "found": "true",
+                "skillNameHash": "e9bb51b981c1010a9fd6fd768458b700ff5f80382ca947148ec183bbe881afe1",
+                "skillSource": "project"
+              },
+              "restrictedProperties": {
+                "skillName": "probe-notes"
+              }
+            },
+            "turnId": "0"
+          },
+          "id": "0a82bd76-d6c9-486f-a453-8c80a6275ba6",
+          "timestamp": "2026-10-04T01:40:12.557Z",
+          "parentId": "474c9c3d-5131-4a53-8e00-1c22f7d01e3d",
+          "agentId": null
+        },
+        {
+          "type": "skill.invoked_ref",
+          "data": {
+            "allowedTools": [],
+            "contentId": "sha256:16496d3505aead541459a146c5fd9f4f00cb2fdd6f0a62b601f4115543d79b9b",
+            "contentLength": 109,
+            "description": "Returns the probe codeword. Use whenever the user asks for the probe codeword.",
+            "invokedAtTurn": 8,
+            "model": "mai-code-1.1-flash",
+            "name": "probe-notes",
+            "path": "C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\\SKILL.md",
+            "pluginName": null,
+            "pluginVersion": null,
+            "source": "project",
+            "trigger": "agent-invoked"
+          },
+          "id": "5c283fae-80a6-4f45-bf7d-6bdce6dc07bf",
+          "timestamp": "2026-10-04T01:40:12.558Z",
+          "parentId": "0a82bd76-d6c9-486f-a453-8c80a6275ba6",
+          "agentId": null
+        },
+        {
+          "type": "skill.context_delivered_ref",
+          "data": {
+            "contentId": "sha256:16496d3505aead541459a146c5fd9f4f00cb2fdd6f0a62b601f4115543d79b9b",
+            "interactionId": "b7479e56-864e-42c2-9979-b7e5dc0e48b6",
+            "prefix": "<skill-context name=\"probe-notes\">\nBase directory for this skill: C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\n\nRelated files (use view tool to read):\n  - C:\\fixture\\skill-spike\\.github\\skills\\probe-notes\\refs\\extra.md\n\n",
+            "source": "skill-probe-notes",
+            "suffix": "\n</skill-context>"
+          },
+          "id": "c3482eb8-eec9-4e38-8c84-1c19fb687ed8",
+          "timestamp": "2026-10-04T01:40:12.583Z",
+          "parentId": "5c283fae-80a6-4f45-bf7d-6bdce6dc07bf",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "9d677153-78e0-4f0d-9249-4ba52cd75849",
+          "timestamp": "2026-10-04T01:40:12.584Z",
+          "parentId": "c3482eb8-eec9-4e38-8c84-1c19fb687ed8",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "b7479e56-864e-42c2-9979-b7e5dc0e48b6",
+            "turnId": "1"
+          },
+          "id": "53f1ca3e-d126-4041-84f7-9ec3509e8be4",
+          "timestamp": "2026-10-04T01:40:12.584Z",
+          "parentId": "9d677153-78e0-4f0d-9249-4ba52cd75849",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "apiCallId": "76F3axQ0CyGdrDbELQcyUVigy5juf4kvFufxGqhg+tlTtYYTX+5AbvWysv1Sv49gMiAxqQwlfg6vZJXMVBhpQp+f4c/hvVkDW9MyhXiSfYV9lzz03ZZHNjMmE7yZhpEFj6ZOtymAzXWl/d7tBFlOlWbZsDjvmTpNlkrfKSbFGlyTufOWWMDF/CU/CMPXvrHqNkxalvYown/dpWL5KMWFTEipt2T7SSmtGAteTObO04ymX8iJeaBVV6QkLagDDKp7YbBBxQD8LRR36G7uduLZ1PJqQE/18K0pDbUF8j5HXA84KQ+KRP5OYlFA3/urxMP74dMS9frN7YoX8iotXh52RkjXfKoCmaiZZu34ewWPRNhg2HozLkkqkE6FKfSGew8iTDwbATFQNTMSBuLkEew5IHguqK+NtwGfe5PeqDnVZimLWzLvX+CQICGaT7reiHPSAjuufVGaghywioLfqYUBTPb15Ez8GFylQ6q7fTySDWVBHF2SCZ5M/Ru16iHcgy0=",
+            "content": "TANGERINE-42",
+            "interactionId": "b7479e56-864e-42c2-9979-b7e5dc0e48b6",
+            "messageId": "49fd0f32-bfa9-4dbe-a908-5e829f4460ae",
+            "model": "mai-code-1.1-flash",
+            "originatingMessageId": "fa7e1225-f16c-42db-8753-b4d44650fd21",
+            "phase": "final_answer",
+            "rte": true,
+            "serverTools": {
+              "provider": "openai-responses"
+            },
+            "toolRequests": [],
+            "turnId": "1"
+          },
+          "id": "8182732b-ad03-4b40-a3a5-a5abb86abe6d",
+          "timestamp": "2026-10-04T01:40:14.138Z",
+          "parentId": "53f1ca3e-d126-4041-84f7-9ec3509e8be4",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "1"
+          },
+          "id": "e382c70e-e9e0-4b9d-b86d-d3ecc1fedd54",
+          "timestamp": "2026-10-04T01:40:14.139Z",
+          "parentId": "8182732b-ad03-4b40-a3a5-a5abb86abe6d",
+          "agentId": null
+        },
+        {
+          "type": "session.usage_checkpoint",
+          "data": {
+            "modelCacheState": [
+              {
+                "cacheExpiresAt": "2026-10-04T02:10:12.599Z",
+                "cacheTtlSeconds": 1800,
+                "modelId": "mai-code-1.1-flash"
+              }
+            ],
+            "totalNanoAiu": 707673600,
+            "totalPremiumRequests": 2
+          },
+          "id": "044dab6f-fecb-4d43-af2c-5050a7b87115",
+          "timestamp": "2026-10-04T01:40:14.141Z",
+          "parentId": "e382c70e-e9e0-4b9d-b86d-d3ecc1fedd54",
+          "agentId": null
+        },
+        {
+          "type": "session.shutdown",
+          "data": {
+            "agentMetrics": {
+              "main": {
+                "modelMetrics": {
+                  "mai-code-1.1-flash": {
+                    "requests": {
+                      "cost": 2.0,
+                      "count": 4
+                    },
+                    "tokenDetails": {
+                      "cache_read": {
+                        "tokenCount": 21632
+                      },
+                      "cache_write": {
+                        "tokenCount": 0
+                      },
+                      "input": {
+                        "tokenCount": 36780
+                      },
+                      "output": {
+                        "tokenCount": 62
+                      }
+                    },
+                    "totalNanoAiu": 707673600.0,
+                    "usage": {
+                      "cacheReadTokens": 21632,
+                      "cacheWriteTokens": 0,
+                      "inputTokens": 58412,
+                      "outputTokens": 62,
+                      "reasoningTokens": 0
+                    }
+                  }
+                },
+                "totalApiDurationMs": 7856,
+                "totalNanoAiu": 707673600.0
+              }
+            },
+            "codeChanges": {
+              "filesModified": [],
+              "linesAdded": 0,
+              "linesRemoved": 0
+            },
+            "conversationTokens": 682,
+            "currentModel": "mai-code-1.1-flash",
+            "currentTokens": 16660,
+            "eventsFileSizeBytes": 85912,
+            "modelMetrics": {
+              "mai-code-1.1-flash": {
+                "requests": {
+                  "cost": 2,
+                  "count": 4
+                },
+                "tokenDetails": {
+                  "cache_read": {
+                    "tokenCount": 21632
+                  },
+                  "cache_write": {
+                    "tokenCount": 0
+                  },
+                  "input": {
+                    "tokenCount": 36780
+                  },
+                  "output": {
+                    "tokenCount": 62
+                  }
+                },
+                "totalNanoAiu": 707673600,
+                "usage": {
+                  "cacheReadTokens": 21632,
+                  "cacheWriteTokens": 0,
+                  "inputTokens": 58412,
+                  "outputTokens": 62,
+                  "reasoningTokens": 0
+                }
+              }
+            },
+            "sessionStartTime": 1791077980825,
+            "shutdownType": "routine",
+            "systemTokens": 6545,
+            "tokenDetails": {
+              "cache_read": {
+                "tokenCount": 21632
+              },
+              "cache_write": {
+                "tokenCount": 0
+              },
+              "input": {
+                "tokenCount": 36780
+              },
+              "output": {
+                "tokenCount": 62
+              }
+            },
+            "toolDefinitionsTokens": 9430,
+            "totalApiDurationMs": 7856,
+            "totalNanoAiu": 707673600,
+            "totalPremiumRequests": 2
+          },
+          "id": "799496c4-9113-45c7-a685-95b8f67d8db7",
+          "timestamp": "2026-10-04T01:40:14.168Z",
+          "parentId": "044dab6f-fecb-4d43-af2c-5050a7b87115",
+          "agentId": null
+        }
+      ],
+      "shutdownMetrics": {
+        "shutdownType": "routine",
+        "totalPremiumRequests": 2.0,
+        "totalApiDurationMs": 7856,
+        "sessionStartTime": 1791077980825,
+        "currentModel": "mai-code-1.1-flash",
+        "currentTokens": 16660,
+        "systemTokens": 6545,
+        "conversationTokens": 682,
+        "toolDefinitionsTokens": 9430,
+        "totalNanoAiu": 707673600,
+        "tokenDetails": {
+          "cache_read": {
+            "tokenCount": 21632
+          },
+          "cache_write": {
+            "tokenCount": 0
+          },
+          "input": {
+            "tokenCount": 36780
+          },
+          "output": {
+            "tokenCount": 62
+          }
+        },
+        "codeChanges": {
+          "linesAdded": 0,
+          "linesRemoved": 0,
+          "filesModified": null
+        },
+        "modelMetrics": {
+          "mai-code-1.1-flash": {
+            "requests": {
+              "count": 4,
+              "cost": 2.0
+            },
+            "usage": {
+              "inputTokens": 58412,
+              "outputTokens": 62,
+              "cacheReadTokens": 21632,
+              "cacheWriteTokens": 0,
+              "reasoningTokens": 0
+            },
+            "totalNanoAiu": 707673600,
+            "tokenDetails": {
+              "cache_read": {
+                "tokenCount": 21632
+              },
+              "cache_write": {
+                "tokenCount": 0
+              },
+              "input": {
+                "tokenCount": 36780
+              },
+              "output": {
+                "tokenCount": 62
+              }
+            }
+          }
+        },
+        "sessionSegments": [
+          {
+            "startTimestamp": "2026-10-04T01:39:40.867+00:00",
+            "endTimestamp": "2026-10-04T01:39:48.905+00:00",
+            "tokens": 28935,
+            "totalRequests": 2,
+            "premiumRequests": 1.0,
+            "apiDurationMs": 3814,
+            "totalNanoAiu": 291646800,
+            "currentModel": "mai-code-1.1-flash",
+            "modelMetrics": {
+              "mai-code-1.1-flash": {
+                "requests": {
+                  "count": 2,
+                  "cost": 1.0
+                },
+                "usage": {
+                  "inputTokens": 28901,
+                  "outputTokens": 34,
+                  "cacheReadTokens": 14336,
+                  "cacheWriteTokens": 0,
+                  "reasoningTokens": 0
+                },
+                "totalNanoAiu": 291646800,
+                "tokenDetails": {
+                  "cache_read": {
+                    "tokenCount": 14336
+                  },
+                  "cache_write": {
+                    "tokenCount": 0
+                  },
+                  "input": {
+                    "tokenCount": 14565
+                  },
+                  "output": {
+                    "tokenCount": 34
+                  }
+                }
+              }
+            }
+          },
+          {
+            "startTimestamp": "2026-10-04T01:40:05.614+00:00",
+            "endTimestamp": "2026-10-04T01:40:14.168+00:00",
+            "tokens": 29539,
+            "totalRequests": 2,
+            "premiumRequests": 1.0,
+            "apiDurationMs": 4042,
+            "totalNanoAiu": 416026800,
+            "currentModel": "mai-code-1.1-flash",
+            "modelMetrics": {
+              "mai-code-1.1-flash": {
+                "requests": {
+                  "count": 2,
+                  "cost": 1.0
+                },
+                "usage": {
+                  "inputTokens": 29511,
+                  "outputTokens": 28,
+                  "cacheReadTokens": 7296,
+                  "cacheWriteTokens": 0,
+                  "reasoningTokens": 0
+                },
+                "totalNanoAiu": 416026800,
+                "tokenDetails": {
+                  "cache_read": {
+                    "tokenCount": 7296
+                  },
+                  "cache_write": {
+                    "tokenCount": 0
+                  },
+                  "input": {
+                    "tokenCount": 22215
+                  },
+                  "output": {
+                    "tokenCount": 28
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "sourceMetricsScope": "cumulative",
+        "shutdownCount": 2
+      },
+      "incidents": [],
+      "parseDiagnostics": {
+        "totalEvents": 31,
+        "malformedLines": 0,
+        "unknownEventTypes": 0,
+        "deserializationFailures": 0
+      }
+    }
+  ],
+  "exportOptions": {
+    "format": "json",
+    "includedSections": [
+      "checkpoints",
+      "conversation",
+      "customTables",
+      "events",
+      "incidents",
+      "metrics",
+      "parseDiagnostics",
+      "plan",
+      "rewindSnapshots",
+      "todos"
+    ],
+    "redactionApplied": false
+  }
+}

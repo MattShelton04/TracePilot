@@ -1,0 +1,336 @@
+{
+  "header": {
+    "schemaVersion": {
+      "major": 1,
+      "minor": 0
+    },
+    "exportedAt": "<time>",
+    "exportedBy": "TracePilot v<version>",
+    "sourceSystem": {
+      "os": "<os>"
+    },
+    "contentHash": "<hash>",
+    "minimumReaderVersion": {
+      "major": 1,
+      "minor": 0
+    }
+  },
+  "sessions": [
+    {
+      "metadata": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "summary": "Test session",
+        "repository": "user/repo",
+        "branch": "main",
+        "cwd": "/test/project",
+        "createdAt": "2026-03-10T07:14:50Z",
+        "updatedAt": "2026-03-10T07:15:00Z",
+        "eventCount": 8,
+        "turnCount": 1
+      },
+      "availableSections": [
+        "conversation",
+        "events",
+        "plan",
+        "checkpoints",
+        "metrics",
+        "parseDiagnostics"
+      ],
+      "conversation": [
+        {
+          "turnIndex": 0,
+          "eventIndex": 1,
+          "turnId": "turn-1",
+          "interactionId": "int-1",
+          "userMessage": "Hello world",
+          "assistantMessages": [
+            {
+              "content": "Hi there!",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 3
+            }
+          ],
+          "model": "claude-opus-4.6",
+          "timestamp": "2026-03-10T07:14:51Z",
+          "endTimestamp": "2026-03-10T07:14:53Z",
+          "toolCalls": [
+            {
+              "toolCallId": "tc-1",
+              "parentToolCallId": null,
+              "toolName": "read_file",
+              "eventIndex": 4,
+              "arguments": {
+                "path": "/test/foo.rs"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-03-10T07:14:52.100Z",
+              "completedAt": "2026-03-10T07:14:52.500Z",
+              "durationMs": 400,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "claude-opus-4.6",
+              "intentionSummary": null,
+              "resultContent": "file contents"
+            }
+          ],
+          "durationMs": 2000,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": [],
+          "sessionEvents": [
+            {
+              "eventType": "session.start",
+              "timestamp": "2026-03-10T07:14:50.780Z",
+              "severity": "info",
+              "summary": "Session started"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "type": "session.start",
+          "data": {
+            "context": {
+              "branch": "main",
+              "cwd": "/test",
+              "hostType": "cli",
+              "repository": "user/repo"
+            },
+            "producer": "copilot-cli",
+            "sessionId": "test-session-id",
+            "version": "1.0"
+          },
+          "id": "evt-1",
+          "timestamp": "2026-03-10T07:14:50.780Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "attachments": [],
+            "content": "Hello world",
+            "interactionId": "int-1"
+          },
+          "id": "evt-2",
+          "timestamp": "2026-03-10T07:14:51Z",
+          "parentId": "evt-1",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "interactionId": "int-1",
+            "turnId": "turn-1"
+          },
+          "id": "evt-3",
+          "timestamp": "2026-03-10T07:14:51.100Z",
+          "parentId": "evt-2",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Hi there!",
+            "interactionId": "int-1",
+            "messageId": "msg-1"
+          },
+          "id": "evt-4",
+          "timestamp": "2026-03-10T07:14:52Z",
+          "parentId": "evt-3",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "path": "/test/foo.rs"
+            },
+            "toolCallId": "tc-1",
+            "toolName": "read_file"
+          },
+          "id": "evt-5",
+          "timestamp": "2026-03-10T07:14:52.100Z",
+          "parentId": "evt-4",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "interactionId": "int-1",
+            "model": "claude-opus-4.6",
+            "result": "file contents",
+            "success": true,
+            "toolCallId": "tc-1"
+          },
+          "id": "evt-6",
+          "timestamp": "2026-03-10T07:14:52.500Z",
+          "parentId": "evt-5",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "turn-1"
+          },
+          "id": "evt-7",
+          "timestamp": "2026-03-10T07:14:53Z",
+          "parentId": "evt-3",
+          "agentId": null
+        },
+        {
+          "type": "session.shutdown",
+          "data": {
+            "codeChanges": {
+              "filesModified": [
+                "/test/foo.rs"
+              ],
+              "linesAdded": 10,
+              "linesRemoved": 2
+            },
+            "currentModel": "claude-opus-4.6",
+            "modelMetrics": {
+              "claude-opus-4.6": {
+                "requests": {
+                  "cost": 1,
+                  "count": 3
+                },
+                "totalNanoAiu": 2500000000,
+                "usage": {
+                  "cacheReadTokens": 800,
+                  "cacheWriteTokens": 0,
+                  "inputTokens": 1000,
+                  "outputTokens": 500
+                }
+              }
+            },
+            "sessionStartTime": 1773270552854,
+            "shutdownType": "routine",
+            "totalApiDurationMs": 5000,
+            "totalNanoAiu": 2500000000,
+            "totalPremiumRequests": 1
+          },
+          "id": "evt-8",
+          "timestamp": "2026-03-10T07:15:00Z",
+          "parentId": null,
+          "agentId": null
+        }
+      ],
+      "plan": "# Implementation Plan\n\n## Phase 1\n\n- [ ] Build core\n",
+      "checkpoints": [
+        {
+          "number": 1,
+          "title": "Initial setup",
+          "filename": "cp1.md",
+          "content": "# Checkpoint 1\nInitial project setup"
+        },
+        {
+          "number": 2,
+          "title": "Add auth",
+          "filename": "cp2.md",
+          "content": "# Checkpoint 2\nAdded authentication"
+        }
+      ],
+      "shutdownMetrics": {
+        "shutdownType": "routine",
+        "totalPremiumRequests": 1.0,
+        "totalApiDurationMs": 5000,
+        "sessionStartTime": 1773270552854,
+        "currentModel": "claude-opus-4.6",
+        "currentTokens": null,
+        "systemTokens": null,
+        "conversationTokens": null,
+        "toolDefinitionsTokens": null,
+        "totalNanoAiu": 2500000000,
+        "tokenDetails": null,
+        "codeChanges": {
+          "linesAdded": 10,
+          "linesRemoved": 2,
+          "filesModified": [
+            "/test/foo.rs"
+          ]
+        },
+        "modelMetrics": {
+          "claude-opus-4.6": {
+            "requests": {
+              "count": 3,
+              "cost": 1.0
+            },
+            "usage": {
+              "inputTokens": 1000,
+              "outputTokens": 500,
+              "cacheReadTokens": 800,
+              "cacheWriteTokens": 0,
+              "reasoningTokens": null
+            },
+            "totalNanoAiu": 2500000000,
+            "tokenDetails": null
+          }
+        },
+        "sessionSegments": [
+          {
+            "startTimestamp": "2026-03-10T07:14:50.780+00:00",
+            "endTimestamp": "2026-03-10T07:15:00+00:00",
+            "tokens": 1500,
+            "totalRequests": 3,
+            "premiumRequests": 1.0,
+            "apiDurationMs": 5000,
+            "totalNanoAiu": 2500000000,
+            "currentModel": "claude-opus-4.6",
+            "modelMetrics": {
+              "claude-opus-4.6": {
+                "requests": {
+                  "count": 3,
+                  "cost": 1.0
+                },
+                "usage": {
+                  "inputTokens": 1000,
+                  "outputTokens": 500,
+                  "cacheReadTokens": 800,
+                  "cacheWriteTokens": 0,
+                  "reasoningTokens": null
+                },
+                "totalNanoAiu": 2500000000,
+                "tokenDetails": null
+              }
+            }
+          }
+        ],
+        "sourceMetricsScope": "segment",
+        "shutdownCount": 1
+      },
+      "incidents": [],
+      "parseDiagnostics": {
+        "totalEvents": 8,
+        "malformedLines": 0,
+        "unknownEventTypes": 0,
+        "deserializationFailures": 0
+      }
+    }
+  ],
+  "exportOptions": {
+    "format": "json",
+    "includedSections": [
+      "checkpoints",
+      "conversation",
+      "customTables",
+      "events",
+      "incidents",
+      "metrics",
+      "parseDiagnostics",
+      "plan",
+      "rewindSnapshots",
+      "todos"
+    ],
+    "redactionApplied": false
+  }
+}

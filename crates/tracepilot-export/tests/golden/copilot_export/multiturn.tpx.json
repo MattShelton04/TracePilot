@@ -1,0 +1,849 @@
+{
+  "header": {
+    "schemaVersion": {
+      "major": 1,
+      "minor": 0
+    },
+    "exportedAt": "<time>",
+    "exportedBy": "TracePilot v<version>",
+    "sourceSystem": {
+      "os": "<os>"
+    },
+    "contentHash": "<hash>",
+    "minimumReaderVersion": {
+      "major": 1,
+      "minor": 0
+    }
+  },
+  "sessions": [
+    {
+      "metadata": {
+        "id": "00000000-0000-4000-8000-000000000007",
+        "summary": "Golden multiturn",
+        "repository": "golden/multiturn",
+        "branch": "main",
+        "cwd": "/golden/multiturn",
+        "createdAt": "2026-03-10T07:14:50Z",
+        "updatedAt": "2026-03-10T07:15:00Z",
+        "eventCount": 40,
+        "turnCount": 5
+      },
+      "availableSections": [
+        "conversation",
+        "events",
+        "parseDiagnostics"
+      ],
+      "conversation": [
+        {
+          "turnIndex": 0,
+          "eventIndex": 2,
+          "turnId": "0",
+          "interactionId": null,
+          "userMessage": "Fixture message.",
+          "assistantMessages": [
+            {
+              "content": "Fixture message.",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 5
+            },
+            {
+              "content": "Fixture message.",
+              "parentToolCallId": "launch",
+              "agentDisplayName": "probe-worker",
+              "eventIndex": 17
+            },
+            {
+              "content": "Fixture message.",
+              "parentToolCallId": "launch",
+              "agentDisplayName": "probe-worker",
+              "eventIndex": 33
+            }
+          ],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-12T00:00:02Z",
+          "endTimestamp": "2026-09-12T00:00:08Z",
+          "toolCalls": [
+            {
+              "toolCallId": "launch",
+              "parentToolCallId": null,
+              "toolName": "general-purpose",
+              "eventIndex": 6,
+              "arguments": {
+                "agent_type": "general-purpose",
+                "mode": "background",
+                "model": "gpt-5.6-luna",
+                "name": "probe-worker"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-12T00:00:06Z",
+              "completedAt": "2026-09-12T00:00:35Z",
+              "durationMs": 10000,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": true,
+              "agentId": "worker-uuid",
+              "agentStatus": "idle",
+              "cancelled": false,
+              "agentDisplayName": "probe-worker",
+              "agentDescription": "Prime probe worker",
+              "model": "gpt-5.6-luna",
+              "requestedModel": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": null
+            }
+          ],
+          "durationMs": 6000,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": [
+            {
+              "eventType": "session.start",
+              "timestamp": "2026-09-12T00:00:00Z",
+              "severity": "info",
+              "summary": "Session started (model: gpt-5.6-luna)"
+            }
+          ],
+          "systemMessages": [
+            "Fixture message."
+          ],
+          "agentMessages": [
+            {
+              "content": "Fixture message.",
+              "recipientToolCallId": "launch",
+              "isLaunch": true,
+              "timestamp": "2026-09-12T00:00:14Z",
+              "eventIndex": 14
+            },
+            {
+              "content": "Fixture message.",
+              "recipientToolCallId": "launch",
+              "isLaunch": false,
+              "timestamp": "2026-09-12T00:00:30Z",
+              "eventIndex": 30
+            }
+          ]
+        },
+        {
+          "turnIndex": 1,
+          "turnId": "1",
+          "interactionId": null,
+          "userMessage": null,
+          "assistantMessages": [
+            {
+              "content": "Fixture message.",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 10
+            }
+          ],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-12T00:00:09Z",
+          "endTimestamp": "2026-09-12T00:00:21Z",
+          "toolCalls": [
+            {
+              "toolCallId": "tool-11",
+              "parentToolCallId": null,
+              "toolName": "read_agent",
+              "eventIndex": 11,
+              "arguments": {
+                "agent_id": "worker-uuid",
+                "timeout": 180,
+                "wait": true
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-12T00:00:11Z",
+              "completedAt": "2026-09-12T00:00:20Z",
+              "durationMs": 9000,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": null
+            }
+          ],
+          "durationMs": 12000,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        },
+        {
+          "turnIndex": 2,
+          "turnId": "2",
+          "interactionId": null,
+          "userMessage": null,
+          "assistantMessages": [
+            {
+              "content": "Fixture message.",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 23
+            }
+          ],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-12T00:00:22Z",
+          "endTimestamp": "2026-09-12T00:00:26Z",
+          "toolCalls": [
+            {
+              "toolCallId": "tool-24",
+              "parentToolCallId": null,
+              "toolName": "write_agent",
+              "eventIndex": 24,
+              "arguments": {
+                "agent_id": "worker-uuid"
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-12T00:00:24Z",
+              "completedAt": "2026-09-12T00:00:25Z",
+              "durationMs": 1000,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": null
+            }
+          ],
+          "durationMs": 4000,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        },
+        {
+          "turnIndex": 3,
+          "turnId": "3",
+          "interactionId": null,
+          "userMessage": null,
+          "assistantMessages": [
+            {
+              "content": "Fixture message.",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 28
+            }
+          ],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-12T00:00:27Z",
+          "endTimestamp": "2026-09-12T00:00:36Z",
+          "toolCalls": [
+            {
+              "toolCallId": "tool-29",
+              "parentToolCallId": null,
+              "toolName": "read_agent",
+              "eventIndex": 29,
+              "arguments": {
+                "agent_id": "worker-uuid",
+                "timeout": 180,
+                "wait": true
+              },
+              "success": true,
+              "error": null,
+              "startedAt": "2026-09-12T00:00:29Z",
+              "completedAt": "2026-09-12T00:00:35Z",
+              "durationMs": 6000,
+              "mcpServerName": null,
+              "mcpToolName": null,
+              "isComplete": true,
+              "isSubagent": false,
+              "agentDisplayName": null,
+              "agentDescription": null,
+              "model": "gpt-5.6-luna",
+              "intentionSummary": null,
+              "resultContent": null
+            }
+          ],
+          "durationMs": 9000,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        },
+        {
+          "turnIndex": 4,
+          "turnId": "4",
+          "interactionId": null,
+          "userMessage": null,
+          "assistantMessages": [
+            {
+              "content": "Fixture message.",
+              "parentToolCallId": null,
+              "agentDisplayName": null,
+              "eventIndex": 38
+            }
+          ],
+          "model": "gpt-5.6-luna",
+          "timestamp": "2026-09-12T00:00:37Z",
+          "endTimestamp": "2026-09-12T00:00:39Z",
+          "toolCalls": [],
+          "durationMs": 2000,
+          "isComplete": true,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": []
+        }
+      ],
+      "events": [
+        {
+          "type": "session.start",
+          "data": {
+            "copilotVersion": "1.0.83",
+            "selectedModel": "gpt-5.6-luna"
+          },
+          "id": "event-0",
+          "timestamp": "2026-09-12T00:00:00Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "session.permissions_changed",
+          "data": {},
+          "id": "event-1",
+          "timestamp": "2026-09-12T00:00:01Z",
+          "parentId": "event-0",
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "Fixture message.",
+            "turnId": "0"
+          },
+          "id": "event-2",
+          "timestamp": "2026-09-12T00:00:02Z",
+          "parentId": "event-1",
+          "agentId": null
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture message."
+          },
+          "id": "event-3",
+          "timestamp": "2026-09-12T00:00:03Z",
+          "parentId": "event-2",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "event-4",
+          "timestamp": "2026-09-12T00:00:04Z",
+          "parentId": "event-3",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Fixture message.",
+            "model": "gpt-5.6-luna",
+            "turnId": "0"
+          },
+          "id": "event-5",
+          "timestamp": "2026-09-12T00:00:05Z",
+          "parentId": "event-4",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_type": "general-purpose",
+              "mode": "background",
+              "model": "gpt-5.6-luna",
+              "name": "probe-worker"
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "launch",
+            "toolName": "task",
+            "turnId": "0"
+          },
+          "id": "event-6",
+          "timestamp": "2026-09-12T00:00:06Z",
+          "parentId": "event-5",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "model": "gpt-5.6-luna",
+            "success": true,
+            "toolCallId": "launch",
+            "toolTelemetry": {
+              "metrics": {},
+              "properties": {
+                "agent_type": "general-purpose"
+              },
+              "restrictedProperties": {
+                "agent_id": "worker-uuid"
+              }
+            },
+            "turnId": "0"
+          },
+          "id": "event-7",
+          "timestamp": "2026-09-12T00:00:07Z",
+          "parentId": "event-6",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "event-8",
+          "timestamp": "2026-09-12T00:00:08Z",
+          "parentId": "event-7",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "turnId": "1"
+          },
+          "id": "event-9",
+          "timestamp": "2026-09-12T00:00:09Z",
+          "parentId": "event-8",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Fixture message.",
+            "model": "gpt-5.6-luna",
+            "turnId": "1"
+          },
+          "id": "event-10",
+          "timestamp": "2026-09-12T00:00:10Z",
+          "parentId": "event-9",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_id": "worker-uuid",
+              "timeout": 180,
+              "wait": true
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "tool-11",
+            "toolName": "read_agent",
+            "turnId": "1"
+          },
+          "id": "event-11",
+          "timestamp": "2026-09-12T00:00:11Z",
+          "parentId": "event-10",
+          "agentId": null
+        },
+        {
+          "type": "subagent.started",
+          "data": {
+            "agentDescription": "Prime probe worker",
+            "agentDisplayName": "probe-worker",
+            "agentName": "general-purpose",
+            "executionMode": "background",
+            "model": "gpt-5.6-luna",
+            "toolCallId": "launch"
+          },
+          "id": "event-12",
+          "timestamp": "2026-09-12T00:00:12Z",
+          "parentId": "event-11",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "subagent.configured",
+          "data": {
+            "model": "gpt-5.6-luna",
+            "multiTurn": true
+          },
+          "id": "event-13",
+          "timestamp": "2026-09-12T00:00:13Z",
+          "parentId": "event-12",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "Fixture message.",
+            "turnId": "0"
+          },
+          "id": "event-14",
+          "timestamp": "2026-09-12T00:00:14Z",
+          "parentId": "event-13",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture message."
+          },
+          "id": "event-15",
+          "timestamp": "2026-09-12T00:00:15Z",
+          "parentId": "event-14",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "event-16",
+          "timestamp": "2026-09-12T00:00:16Z",
+          "parentId": "event-15",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Fixture message.",
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch",
+            "turnId": "0"
+          },
+          "id": "event-17",
+          "timestamp": "2026-09-12T00:00:17Z",
+          "parentId": "event-16",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "event-18",
+          "timestamp": "2026-09-12T00:00:18Z",
+          "parentId": "event-17",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "subagent.completed",
+          "data": {
+            "agentDisplayName": "probe-worker",
+            "agentName": "general-purpose",
+            "durationMs": 6734,
+            "model": "gpt-5.6-luna",
+            "toolCallId": "launch",
+            "totalTokens": 4929,
+            "totalToolCalls": 0
+          },
+          "id": "event-19",
+          "timestamp": "2026-09-12T00:00:19Z",
+          "parentId": "event-18",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "model": "gpt-5.6-luna",
+            "success": true,
+            "toolCallId": "tool-11",
+            "toolTelemetry": {
+              "metrics": {
+                "elapsed_seconds": 6,
+                "queue_depth": 0,
+                "total_turns": 1
+              },
+              "properties": {
+                "agent_id": "worker-uuid",
+                "agent_type": "general-purpose",
+                "status": "idle"
+              }
+            },
+            "turnId": "1"
+          },
+          "id": "event-20",
+          "timestamp": "2026-09-12T00:00:20Z",
+          "parentId": "event-19",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "1"
+          },
+          "id": "event-21",
+          "timestamp": "2026-09-12T00:00:21Z",
+          "parentId": "event-20",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "turnId": "2"
+          },
+          "id": "event-22",
+          "timestamp": "2026-09-12T00:00:22Z",
+          "parentId": "event-21",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Fixture message.",
+            "model": "gpt-5.6-luna",
+            "turnId": "2"
+          },
+          "id": "event-23",
+          "timestamp": "2026-09-12T00:00:23Z",
+          "parentId": "event-22",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_id": "worker-uuid"
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "tool-24",
+            "toolName": "write_agent",
+            "turnId": "2"
+          },
+          "id": "event-24",
+          "timestamp": "2026-09-12T00:00:24Z",
+          "parentId": "event-23",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "model": "gpt-5.6-luna",
+            "success": true,
+            "toolCallId": "tool-24",
+            "toolTelemetry": {
+              "metrics": {},
+              "properties": {
+                "agent_id": "worker-uuid",
+                "agent_type": "general-purpose"
+              }
+            },
+            "turnId": "2"
+          },
+          "id": "event-25",
+          "timestamp": "2026-09-12T00:00:25Z",
+          "parentId": "event-24",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "2"
+          },
+          "id": "event-26",
+          "timestamp": "2026-09-12T00:00:26Z",
+          "parentId": "event-25",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "turnId": "3"
+          },
+          "id": "event-27",
+          "timestamp": "2026-09-12T00:00:27Z",
+          "parentId": "event-26",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Fixture message.",
+            "model": "gpt-5.6-luna",
+            "turnId": "3"
+          },
+          "id": "event-28",
+          "timestamp": "2026-09-12T00:00:28Z",
+          "parentId": "event-27",
+          "agentId": null
+        },
+        {
+          "type": "tool.execution_start",
+          "data": {
+            "arguments": {
+              "agent_id": "worker-uuid",
+              "timeout": 180,
+              "wait": true
+            },
+            "model": "gpt-5.6-luna",
+            "toolCallId": "tool-29",
+            "toolName": "read_agent",
+            "turnId": "3"
+          },
+          "id": "event-29",
+          "timestamp": "2026-09-12T00:00:29Z",
+          "parentId": "event-28",
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "Fixture message.",
+            "turnId": "0"
+          },
+          "id": "event-30",
+          "timestamp": "2026-09-12T00:00:30Z",
+          "parentId": "event-29",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "system.message",
+          "data": {
+            "content": "Fixture message."
+          },
+          "id": "event-31",
+          "timestamp": "2026-09-12T00:00:31Z",
+          "parentId": "event-30",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "event-32",
+          "timestamp": "2026-09-12T00:00:32Z",
+          "parentId": "event-31",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Fixture message.",
+            "model": "gpt-5.6-luna",
+            "parentToolCallId": "launch",
+            "turnId": "0"
+          },
+          "id": "event-33",
+          "timestamp": "2026-09-12T00:00:33Z",
+          "parentId": "event-32",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "0"
+          },
+          "id": "event-34",
+          "timestamp": "2026-09-12T00:00:34Z",
+          "parentId": "event-33",
+          "agentId": "worker-uuid"
+        },
+        {
+          "type": "tool.execution_complete",
+          "data": {
+            "model": "gpt-5.6-luna",
+            "success": true,
+            "toolCallId": "tool-29",
+            "toolTelemetry": {
+              "metrics": {
+                "elapsed_seconds": 10,
+                "queue_depth": 0,
+                "total_turns": 2
+              },
+              "properties": {
+                "agent_id": "worker-uuid",
+                "agent_type": "general-purpose",
+                "status": "idle"
+              }
+            },
+            "turnId": "3"
+          },
+          "id": "event-35",
+          "timestamp": "2026-09-12T00:00:35Z",
+          "parentId": "event-34",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "3"
+          },
+          "id": "event-36",
+          "timestamp": "2026-09-12T00:00:36Z",
+          "parentId": "event-35",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_start",
+          "data": {
+            "turnId": "4"
+          },
+          "id": "event-37",
+          "timestamp": "2026-09-12T00:00:37Z",
+          "parentId": "event-36",
+          "agentId": null
+        },
+        {
+          "type": "assistant.message",
+          "data": {
+            "content": "Fixture message.",
+            "model": "gpt-5.6-luna",
+            "turnId": "4"
+          },
+          "id": "event-38",
+          "timestamp": "2026-09-12T00:00:38Z",
+          "parentId": "event-37",
+          "agentId": null
+        },
+        {
+          "type": "assistant.turn_end",
+          "data": {
+            "turnId": "4"
+          },
+          "id": "event-39",
+          "timestamp": "2026-09-12T00:00:39Z",
+          "parentId": "event-38",
+          "agentId": null
+        }
+      ],
+      "incidents": [],
+      "parseDiagnostics": {
+        "totalEvents": 40,
+        "malformedLines": 0,
+        "unknownEventTypes": 0,
+        "deserializationFailures": 0
+      }
+    }
+  ],
+  "exportOptions": {
+    "format": "json",
+    "includedSections": [
+      "checkpoints",
+      "conversation",
+      "customTables",
+      "events",
+      "incidents",
+      "metrics",
+      "parseDiagnostics",
+      "plan",
+      "rewindSnapshots",
+      "todos"
+    ],
+    "redactionApplied": false
+  }
+}

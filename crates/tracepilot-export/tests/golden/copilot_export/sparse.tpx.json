@@ -1,0 +1,116 @@
+{
+  "header": {
+    "schemaVersion": {
+      "major": 1,
+      "minor": 0
+    },
+    "exportedAt": "<time>",
+    "exportedBy": "TracePilot v<version>",
+    "sourceSystem": {
+      "os": "<os>"
+    },
+    "contentHash": "<hash>",
+    "minimumReaderVersion": {
+      "major": 1,
+      "minor": 0
+    }
+  },
+  "sessions": [
+    {
+      "metadata": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "summary": "Sparse session",
+        "cwd": "/test/project",
+        "eventCount": 2,
+        "turnCount": 1
+      },
+      "availableSections": [
+        "conversation",
+        "events",
+        "parseDiagnostics"
+      ],
+      "conversation": [
+        {
+          "turnIndex": 0,
+          "eventIndex": 1,
+          "turnId": null,
+          "interactionId": "int-1",
+          "userMessage": "Hi",
+          "assistantMessages": [],
+          "model": null,
+          "timestamp": "2026-03-10T07:14:51Z",
+          "endTimestamp": null,
+          "toolCalls": [],
+          "durationMs": null,
+          "isComplete": false,
+          "reasoningTexts": [],
+          "outputTokens": null,
+          "transformedUserMessage": null,
+          "attachments": null,
+          "sessionEvents": [
+            {
+              "eventType": "session.start",
+              "timestamp": "2026-03-10T07:14:50.780Z",
+              "severity": "info",
+              "summary": "Session started"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "type": "session.start",
+          "data": {
+            "context": {
+              "branch": "feature-x",
+              "cwd": "/test",
+              "hostType": "vscode",
+              "repository": "org/project"
+            },
+            "producer": "copilot-cli",
+            "sessionId": "sparse-session",
+            "version": "1.0"
+          },
+          "id": "evt-1",
+          "timestamp": "2026-03-10T07:14:50.780Z",
+          "parentId": null,
+          "agentId": null
+        },
+        {
+          "type": "user.message",
+          "data": {
+            "content": "Hi",
+            "interactionId": "int-1"
+          },
+          "id": "evt-2",
+          "timestamp": "2026-03-10T07:14:51Z",
+          "parentId": "evt-1",
+          "agentId": null
+        }
+      ],
+      "incidents": [],
+      "parseDiagnostics": {
+        "totalEvents": 2,
+        "malformedLines": 0,
+        "unknownEventTypes": 0,
+        "deserializationFailures": 0
+      }
+    }
+  ],
+  "exportOptions": {
+    "format": "json",
+    "includedSections": [
+      "checkpoints",
+      "conversation",
+      "customTables",
+      "events",
+      "incidents",
+      "metrics",
+      "parseDiagnostics",
+      "plan",
+      "rewindSnapshots",
+      "todos"
+    ],
+    "redactionApplied": false
+  }
+}
