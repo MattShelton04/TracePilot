@@ -29,6 +29,9 @@ pub(crate) type TurnCache = Arc<Mutex<lru::LruCache<String, CachedTurns>>>;
 /// Cached typed events for a single session, keyed by session ID in the LRU.
 pub(crate) struct CachedEvents {
     pub events: Arc<Vec<tracepilot_core::parsing::events::TypedEvent>>,
+    /// The display summary from the same load, for sources whose summary
+    /// needs more than the events (every source but Copilot).
+    pub summary: Option<Arc<tracepilot_core::SessionSummary>>,
     pub stamp: SourceStamp,
 }
 
