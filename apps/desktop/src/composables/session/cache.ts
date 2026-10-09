@@ -3,6 +3,7 @@
  * instant-restore on session switch. Extracted from useSessionDetail to
  * isolate the Map-based LRU logic.
  */
+import type { BackgroundTask } from "@tracepilot/client";
 import type {
   CheckpointEntry,
   ConversationTurn,
@@ -22,6 +23,7 @@ export interface CachedSession {
   eventsFingerprint: EventsFingerprint;
   checkpoints: CheckpointEntry[];
   plan: SessionPlan | null;
+  backgroundTasks?: BackgroundTask[];
   shutdownMetrics: ShutdownMetrics | null;
   incidents: SessionIncident[];
   todos: TodosResponse | null;

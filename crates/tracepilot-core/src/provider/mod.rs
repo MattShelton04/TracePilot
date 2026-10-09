@@ -19,9 +19,10 @@ mod types;
 
 pub use copilot::CopilotProvider;
 pub use types::{
-    CostBasis, CostFigure, CostUnit, Liveness, MetricsCoverage, MetricsSegment, NativeRecord,
-    ProviderEvents, ProviderSnapshot, RunStatus, SessionArtifacts, SessionLocator, SessionMetrics,
-    SessionRole, SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
+    BackgroundTask, BackgroundTaskKind, BackgroundTaskStatus, CostBasis, CostFigure, CostUnit,
+    Liveness, MetricsCoverage, MetricsSegment, NativeRecord, ProviderEvents, ProviderSnapshot,
+    RunStatus, SessionArtifacts, SessionLocator, SessionMetrics, SessionRole, SessionSource,
+    SourceCapabilities, SourceFingerprint, TodoList,
 };
 
 /// Redact the fields of an event's source record that never leave the
@@ -104,7 +105,7 @@ pub trait SessionProvider: Send + Sync {
 
     fn liveness(&self, session: &SessionLocator) -> Liveness;
 
-    /// Todos, plan, checkpoints and browsable roots.
+    /// Todos, plan, checkpoints, browsable roots and background tasks.
     fn artifacts(&self, _session: &SessionLocator) -> Result<SessionArtifacts> {
         Ok(SessionArtifacts::default())
     }
