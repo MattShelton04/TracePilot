@@ -55,7 +55,7 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | `cost-state` | 132 | Not an event. Becomes **provider metrics** (§3) | |
 | `custom-title`, `ai-title`, `agent-name`, `pr-link`, `last-prompt`, `mode`, `permission-mode`, `atis-latch` | about 4.4k each (`custom-title`: 102, in 2 of 92 sessions) | Summary fields (latest wins) and PR links. Hidden from the Events tab by default | |
 | `attachment:*` (29 types) | 17,575 | `Unknown("attachment:<type>")`, shown on the Events tab only. **Not indexed for FTS** | `task_status` and the task notifications feed the background-task list (C12); `edited_text_file`, `plan_mode` can feed later features |
-| `file-history-snapshot` / `-delta` | 203 / 1,034 | Shown on the Events tab; also the read-only checkpoint list (C13, `claude_code/file_history.rs`) | One checkpoint per `messageId`, carrying the files tracked so far; later records for the same prompt update it. Backups are read only when a user opens one |
+| `file-history-snapshot` / `-delta` | 203 / 1,034 | Shown on the Events tab; also the read-only checkpoint list (C13, `claude_code/file_history.rs`) | One checkpoint per prompt: a snapshot's `messageId`, or a delta's `snapshotMessageId` (a delta's own `messageId` is never a checkpoint). Each carries the files tracked so far. Backups are read only when a user opens one |
 | Subagent file records | 26 files | The same mapping with envelope `agentId`, plus `parentToolCallId = meta.toolUseId` | Inserted into the parent stream as described in §1.3 |
 
 ### 1.1 User records that must not open a turn

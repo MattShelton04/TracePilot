@@ -25,6 +25,10 @@ use super::sections::{
     checkpoint_exports,
 };
 
+/// The most of a plan recorded in a transcript that is exported, the same
+/// cap the plan view applies.
+const MAX_INLINE_PLAN_BYTES: usize = 50 * 1024;
+
 /// A session loaded through its provider, for sources without Copilot's
 /// directory layout.
 pub struct ProviderSession<'a> {
@@ -115,7 +119,9 @@ fn build_plan(
                 return None;
             }
             available.push(SectionId::Plan);
-            Some(text.clone())
+            let mut text = text.clone();
+            tracepilot_core::utils::truncate_string_utf8(&mut text, MAX_INLINE_PLAN_BYTES);
+            Some(text)
         }
     }
 }

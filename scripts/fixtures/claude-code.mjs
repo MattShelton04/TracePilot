@@ -55,7 +55,24 @@ const backup = (backupFileName, version) => ({
   backupFileName,
   version,
   backupTime: "2026-03-14T09:30:30.000Z",
+  realParentDir: "C:\\synthetic\\orchard\\src",
 });
+
+/**
+ * A `file-history-delta` record: one file tracked for the prompt that
+ * `snapshotMessageId` names. Its own `messageId` is not a prompt.
+ */
+function fileHistoryDelta(messageId, snapshotMessageId, trackingPath, fileBackup) {
+  const timestamp = "2026-03-14T09:30:30.000Z";
+  return {
+    type: "file-history-delta",
+    messageId,
+    snapshotMessageId,
+    trackingPath,
+    backup: fileBackup,
+    timestamp,
+  };
+}
 
 /** Plan mode, file-history backups of the edited file and a persisted tool result. */
 function orchardSession() {
@@ -99,7 +116,8 @@ function orchardSession() {
     file: { filePath: file, content: original, numLines: 3, startLine: 1, totalLines: 3 },
   });
   // Claude Code backs a file up before its first edit in a prompt.
-  t.bookkeeping(fileHistory(firstPrompt, { [file]: backup("0c1a0001deadbeef@v1", 1) }, true));
+  const edit = backup("0c1a0001deadbeef@v1", 1);
+  t.bookkeeping(fileHistoryDelta(t.lastUuid, firstPrompt, file, edit));
   t.call(
     "msg_orchard_2",
     [

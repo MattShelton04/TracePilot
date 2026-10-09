@@ -268,9 +268,18 @@ fn mixed_batch_keeps_copilot_sessions_unlabelled() {
 fn session_with_side_files() -> SessionFiles {
     let mut t = Transcript::main();
     let prompt = t.prompt("Plan the retry.");
+    let backup = |name: &str| {
+        json!({"backupFileName": name, "version": 1,
+            "backupTime": "2026-09-20T10:00:00.000Z", "realParentDir": "C:\\work\\demo\\src"})
+    };
     t.bookkeeping(json!({"type": "file-history-snapshot", "messageId": prompt,
-        "snapshot": {"messageId": prompt, "trackedFileBackups": {
-            "src/upload.ts": {"backupFileName": "0123456789abcdef@v1", "version": 1}}}}));
+        "isSnapshotUpdate": false, "snapshot": {"messageId": prompt,
+            "timestamp": "2026-09-20T10:00:00.000Z",
+            "trackedFileBackups": {"src/upload.ts": backup("0123456789abcdef@v1")}}}));
+    t.bookkeeping(json!({"type": "file-history-delta",
+        "messageId": "00000000-0000-4000-8000-00000000d001", "snapshotMessageId": prompt,
+        "trackingPath": "src/retry.ts", "backup": backup("fedcba9876543210@v1"),
+        "timestamp": "2026-09-20T10:00:05.000Z"}));
     let usage = Usage::new(10, 1000, 200, 50);
     let plan = format!("# Plan\n\n1. Retry uploads.\n2. Rotate {TOKEN}.");
     t.call(
@@ -296,6 +305,11 @@ fn session_with_side_files() -> SessionFiles {
     let history = config.join("file-history").join(SESSION_ID);
     std::fs::create_dir_all(&history).unwrap();
     std::fs::write(history.join("0123456789abcdef@v1"), "BACKUP-CONTENT\n").unwrap();
+    std::fs::write(
+        history.join("fedcba9876543210@v1"),
+        "DELTA-BACKUP-CONTENT\n",
+    )
+    .unwrap();
     let results = files.main.with_extension("").join("tool-results");
     std::fs::create_dir_all(&results).unwrap();
     std::fs::write(results.join("toolu_big.txt"), "TOOL-RESULT-CONTENT\n").unwrap();
@@ -314,7 +328,9 @@ fn side_files_stay_out_of_export_and_the_plan_is_redacted() {
         .unwrap();
     let snapshot = provider.load_snapshot(&locator, false, &|| false).unwrap();
     let artifacts = provider.artifacts(&locator).unwrap();
-    assert!(artifacts.file_history.is_some() && artifacts.file_roots.len() == 2);
+    let history = artifacts.file_history.as_ref().expect("file history");
+    assert!(history.contains("0123456789abcdef@v1") && history.contains("fedcba9876543210@v1"));
+    assert_eq!(artifacts.file_roots.len(), 2);
     let input = ExportInput::Provider(ProviderSession {
         source: SessionSource::ClaudeCode,
         snapshot: &snapshot,
@@ -352,4 +368,40 @@ fn side_files_stay_out_of_export_and_the_plan_is_redacted() {
         plan.contains("Retry uploads.") && !plan.contains(TOKEN),
         "{plan}"
     );
+}
+
+/// A plan recorded in the transcript is capped like the plan view.
+#[test]
+fn inline_plans_are_capped_in_export() {
+    let mut t = Transcript::main();
+    t.prompt("Plan it.");
+    let plan = format!("# Plan\n\n{}", "x".repeat(80 * 1024));
+    t.call(
+        "msg_plan",
+        OPUS,
+        vec![tool_use(
+            "toolu_plan",
+            "ExitPlanMode",
+            json!({"plan": plan}),
+        )],
+        Usage::new(1, 1, 1, 1),
+        "tool_use",
+    );
+    let files = write_session(&t, &[]);
+    let provider = ClaudeCodeProvider::new(files.root.path());
+    let locator = provider
+        .resolve(&SessionId::from_validated(SESSION_ID))
+        .unwrap()
+        .unwrap();
+    let snapshot = provider.load_snapshot(&locator, false, &|| false).unwrap();
+    let artifacts = provider.artifacts(&locator).unwrap();
+    let input = ExportInput::Provider(ProviderSession {
+        source: SessionSource::ClaudeCode,
+        snapshot: &snapshot,
+        artifacts: &artifacts,
+    });
+    let files = export_inputs(&[input], &ExportOptions::all(ExportFormat::Json)).unwrap();
+    let archive: SessionArchive = serde_json::from_str(files[0].as_text().unwrap()).unwrap();
+    let exported = archive.sessions[0].plan.as_deref().expect("plan section");
+    assert!(exported.starts_with("# Plan") && exported.len() == 50 * 1024);
 }

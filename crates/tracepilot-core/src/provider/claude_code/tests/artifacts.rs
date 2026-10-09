@@ -166,11 +166,22 @@ fn snapshot(message_id: &str, update: bool, backups: Value) -> Value {
 
 fn backup(name: Option<&str>, version: u64) -> Value {
     json!({"backupFileName": name, "version": version,
-        "backupTime": "2026-09-20T10:00:00.000Z"})
+        "backupTime": "2026-09-20T10:00:00.000Z", "realParentDir": "C:\\work\\demo\\src"})
 }
 
-/// Two prompts: the first edits `a.rs` (backed up) and creates `new.rs`
-/// (no backup: it did not exist); the second edits `a.rs` again.
+/// A `file-history-delta` as Claude Code writes it: one tracked file, filed
+/// under the prompt's snapshot (`snapshotMessageId`), never under its own
+/// `messageId`.
+fn delta(own_id: &str, snapshot_id: &str, path: &str, name: Option<&str>, version: u64) -> Value {
+    json!({"type": "file-history-delta", "messageId": own_id,
+        "snapshotMessageId": snapshot_id, "trackingPath": path,
+        "backup": backup(name, version), "timestamp": "2026-09-20T10:00:05.000Z"})
+}
+
+/// Two prompts: the first edits `a.rs` (snapshot update) and `b.rs`
+/// (delta), and creates `new.rs` (delta with no backup: it did not exist);
+/// the second edits `a.rs` again. A late update to the first prompt adds
+/// `c.rs`, which the second prompt carries.
 fn file_history_session() -> SessionFiles {
     let mut t = Transcript::main();
     let first = t.prompt("Add retries to a.rs\nand a new module.");
@@ -180,11 +191,16 @@ fn file_history_session() -> SessionFiles {
         true,
         json!({"src/a.rs": backup(Some("aaaa000000000001@v1"), 1)}),
     ));
-    t.bookkeeping(json!({"type": "file-history-delta", "messageId": first,
-    "snapshot": {"messageId": first, "trackedFileBackups": {
-        "src/new.rs": backup(None, 1),
-        "../escape": backup(Some("../../secret"), 1),
-    }}}));
+    let own = "00000000-0000-4000-8000-00000000d001";
+    t.bookkeeping(delta(
+        own,
+        &first,
+        "src/b.rs",
+        Some("bbbb000000000001@v1"),
+        1,
+    ));
+    t.bookkeeping(delta(own, &first, "src/new.rs", None, 1));
+    t.bookkeeping(delta(own, &first, "../escape", Some("../../secret"), 1));
     t.call("msg_1", OPUS, vec![text("Done.")], usage(), "end_turn");
     let second = t.prompt("Tidy a.rs.");
     t.bookkeeping(snapshot(
@@ -192,10 +208,16 @@ fn file_history_session() -> SessionFiles {
         false,
         json!({"src/a.rs": backup(Some("aaaa000000000001@v2"), 2)}),
     ));
+    t.bookkeeping(snapshot(
+        &first,
+        true,
+        json!({"src/c.rs": backup(Some("cccc000000000001@v1"), 1)}),
+    ));
     t.call("msg_2", OPUS, vec![text("Tidied.")], usage(), "end_turn");
     let files = write_session(&t, &[]);
     let dir = format!("file-history/{SESSION_ID}");
     write_config_file(&files, &format!("{dir}/aaaa000000000001@v1"), "fn a() {}\n");
+    write_config_file(&files, &format!("{dir}/bbbb000000000001@v1"), "fn b() {}\n");
     write_config_file(
         &files,
         &format!("{dir}/aaaa000000000001@v2"),
@@ -236,20 +258,26 @@ fn file_history_becomes_rewind_points_per_prompt() {
     assert_eq!(first.number, 1);
     assert_eq!(first.prompt.as_deref(), Some("Add retries to a.rs"));
     assert_eq!(first.timestamp.as_deref(), Some("2026-09-20T10:00:00.000Z"));
-    // Updates and deltas for the same prompt merge; the unsafe name is dropped.
+    // Updates and deltas for the same prompt merge (a delta never opens a
+    // checkpoint of its own); the unsafe name is dropped.
     assert_eq!(
         summary(first),
         [
             ("src/a.rs", Some("aaaa000000000001@v1"), Some(1), true),
+            ("src/b.rs", Some("bbbb000000000001@v1"), Some(1), true),
+            ("src/c.rs", Some("cccc000000000001@v1"), Some(1), true),
             ("src/new.rs", None, Some(1), true),
         ]
     );
-    // The second prompt carries `new.rs` over unchanged.
+    // The second prompt carries the rest over unchanged, including the file
+    // the late update to the first prompt added.
     assert_eq!(second.prompt.as_deref(), Some("Tidy a.rs."));
     assert_eq!(
         summary(second),
         [
             ("src/a.rs", Some("aaaa000000000001@v2"), Some(2), true),
+            ("src/b.rs", Some("bbbb000000000001@v1"), Some(1), false),
+            ("src/c.rs", Some("cccc000000000001@v1"), Some(1), false),
             ("src/new.rs", None, Some(1), false),
         ]
     );
@@ -265,6 +293,9 @@ fn file_versions_are_read_only_on_request_and_only_when_named() {
         .unwrap()
         .unwrap();
     assert_eq!(read.content, "fn a() {}\n");
+    // A backup named only by a delta is readable too.
+    let from_delta = history.read_version("bbbb000000000001@v1", 1024).unwrap();
+    assert_eq!(from_delta.unwrap().content, "fn b() {}\n");
     assert_eq!(history.read_version("../../secret", 1024).unwrap(), None);
     assert_eq!(history.read_version("unlisted@v1", 1024).unwrap(), None);
 
