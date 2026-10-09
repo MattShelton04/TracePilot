@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "277bf512fe5b58eeeb33a49e085794c446b47208",
-  "headSha": "0789a4d208c472bb04989c60e2443fdd0a8795cf",
+  "baseSha": "e22e4c8be49774443e37fdf59150221db1bae962",
+  "headSha": "7cf238acacdce5776d1c7569668faf1f6ea81877",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,12 +9,12 @@
     "scale": 1
   },
   "summary": {
-    "changed": 20,
+    "changed": 24,
     "unchanged": 105,
     "subtle": 0,
     "incomplete": 0,
-    "baseUnavailable": 0,
-    "total": 125
+    "baseUnavailable": 1,
+    "total": 130
   },
   "views": [
     {
@@ -28,8 +28,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/d021ac519996832e3a96c1ae8ecdc0e22c11c872fe5ef06cc18b00a7c80a6f5a.png",
-        "after": "../../img/d021ac519996832e3a96c1ae8ecdc0e22c11c872fe5ef06cc18b00a7c80a6f5a.png",
+        "before": "../../img/f2033ee4ccd6f7d2a45f9a1630a2948a37e1d763f21fdf1a9c44e2de95fa27fc.png",
+        "after": "../../img/f2033ee4ccd6f7d2a45f9a1630a2948a37e1d763f21fdf1a9c44e2de95fa27fc.png",
         "difference": null,
         "closeUps": []
       },
@@ -180,6 +180,194 @@
       "limitations": []
     },
     {
+      "id": "claude-session-overview",
+      "group": "overview",
+      "route": "/session/sess-claude-code-review/overview",
+      "state": "populated Claude Code session",
+      "change": "changed",
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
+      "areas": [
+        {
+          "x": 737,
+          "y": 242,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 817,
+          "y": 242,
+          "width": 53,
+          "height": 11,
+          "pixels": 315
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f467102f397747cb493cc813fe52086d94bb96533411f633ec60c4d0a2fa4f5b.png",
+        "after": "../../img/2a5bce7644b1898574b2f4b46fdda5c0bd978a090076588ad5605f4952ae9df2.png",
+        "difference": "../../img/5a4992a450f464b1161ac955393721a1d8fd1ecd509b0529e97f13e3ab2e4ade.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 524,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d4ae29f34735d06872b5e5a53b6263e3856125ae576d914c4c16347a4193b1fb.png",
+            "after": "../../img/53cec9ef122eda5e24afeb67e3fe94d55de7b6db8893e32a64f158d2aec1206b.png"
+          },
+          {
+            "rect": {
+              "x": 604,
+              "y": 148,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/4287398491755caec616634ea8518ad473eab13202aa8320712aef3a3918d77a.png",
+            "after": "../../img/3aee502413173a3850165053d4eff92dcbecaf89505c193b22c01726e307e5b4.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "claude-session-metrics",
+      "group": "overview",
+      "route": "/session/sess-claude-code-review/metrics",
+      "state": "populated Claude Code session",
+      "change": "changed",
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
+      "areas": [
+        {
+          "x": 737,
+          "y": 242,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 817,
+          "y": 242,
+          "width": 53,
+          "height": 11,
+          "pixels": 315
+        }
+      ],
+      "sameAreasAs": "claude-session-overview",
+      "images": {
+        "before": "../../img/34fd43b3df54eb16287c036d07a221ea25916bfe361a970c864150c757ecdd0e.png",
+        "after": "../../img/f2d0afb37376a14896366fb704c3c6c4faae369bbfe989564ebb2c6972b1c428.png",
+        "difference": "../../img/62e673c94f5b5b188643b964ab2f61592f23cda9b4323ad78a20260de92d27d6.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 524,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/9b4cfa237f306ff633240d3e09fee6767cfd98cb5fab05b0ecd6fedc1e0112bc.png",
+            "after": "../../img/2fcb3c4f3e83725c9939ef1bbf43231d58b0336bf033b8ba06473f9d8fe977c6.png"
+          },
+          {
+            "rect": {
+              "x": 604,
+              "y": 148,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/1a4a0c8d5af235352f9bdc0a3e8de5385ddd721a9c960baca5777e8819a92477.png",
+            "after": "../../img/64daa48cc9258566fd2dc43e0a74c264b4358341b6e79360538da675c209c8ca.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "claude-session-context",
+      "group": "overview",
+      "route": "/session/sess-claude-code-review/context",
+      "state": "populated Claude Code session",
+      "change": "changed",
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
+      "areas": [
+        {
+          "x": 737,
+          "y": 242,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 817,
+          "y": 242,
+          "width": 53,
+          "height": 11,
+          "pixels": 315
+        }
+      ],
+      "sameAreasAs": "claude-session-overview",
+      "images": {
+        "before": "../../img/3a0c267416c28bd5dd6a37440a69d3ab08ee9f4d1c6fc3f0928c0707a91431fb.png",
+        "after": "../../img/cbf40108493935693d2cb72703e8b8fd64837dc0b7833aebd3e94e1c7de0f2e7.png",
+        "difference": "../../img/3b3c74cfd84790804f2f33e1dc38aa6da1b3488446d33bb6d300c69dd9261a43.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 524,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/c1c4a4aeeef136116c8c88d7f8f1337d1ad758a9cc8b51d6b2c8af9053da6852.png",
+            "after": "../../img/b14dd89b6540b5d8b1502adb1f0327d59b20543c0413b6938f7c880b5b138879.png"
+          },
+          {
+            "rect": {
+              "x": 604,
+              "y": 148,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/91bc5f0f916c92c280017ad16e21c71997ad451b24017a4c1c338006e615dae3.png",
+            "after": "../../img/60f02f8a4317e1503d30b70b53f49086613fb8de08bece2507bdcd330d1bb20c.png"
+          }
+        ]
+      },
+      "limitations": []
+    },
+    {
+      "id": "claude-session-background-tasks",
+      "group": "overview",
+      "route": "/session/sess-claude-code-review/overview",
+      "state": "ended Claude Code session: done, failed and unreported tasks",
+      "change": "changed",
+      "changedPixels": 865923,
+      "percent": 62.63910590277778,
+      "areas": [
+        {
+          "x": 268,
+          "y": 49,
+          "width": 1144,
+          "height": 911,
+          "pixels": 865923
+        }
+      ],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/87adccd8602f8e0b25663994b6a0be98cc6bdfcb2ee861ccbc77edd5f4edbc3c.png",
+        "after": "../../img/41be183dd9810743bb8a18bad67c516b4ea7b1283661e57bdf70d8f6db318a0c.png",
+        "difference": "../../img/00e3dc53b7ca85415e810c59092cb795ae2cee85ae0c5f84ae05be0683c85e53.png",
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
       "id": "session-explorer-file",
       "group": "overview",
       "route": "/session/sess-auth-refactor/explorer",
@@ -244,8 +432,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/473f9de652b303dd39851bd1775ca6bddedd3b72a095f94f0471c0a6e27c0ac1.png",
-        "after": "../../img/473f9de652b303dd39851bd1775ca6bddedd3b72a095f94f0471c0a6e27c0ac1.png",
+        "before": "../../img/a7e7650f6f2aad05583a23be1f9af8f6d24a7fda926f8c53d32f6e21e91a311b.png",
+        "after": "../../img/a7e7650f6f2aad05583a23be1f9af8f6d24a7fda926f8c53d32f6e21e91a311b.png",
         "difference": null,
         "closeUps": []
       },
@@ -262,8 +450,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/42587e88db7790f99626697417644101a94538db009ddc54e568290bae5d59b7.png",
-        "after": "../../img/42587e88db7790f99626697417644101a94538db009ddc54e568290bae5d59b7.png",
+        "before": "../../img/a5bc856456ba94060eddceff5d42e33d684c2fa7ea674e48fc26909bf5e53461.png",
+        "after": "../../img/a5bc856456ba94060eddceff5d42e33d684c2fa7ea674e48fc26909bf5e53461.png",
         "difference": null,
         "closeUps": []
       },
@@ -280,8 +468,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/b0960a26ee534e2258adec730c4d0889d47b0128c8907ef0255fafd17cd51019.png",
-        "after": "../../img/b0960a26ee534e2258adec730c4d0889d47b0128c8907ef0255fafd17cd51019.png",
+        "before": "../../img/f86e19b22b3687abca252d9030f05b5a688d253881683a8b011ec01cb1b532a1.png",
+        "after": "../../img/f86e19b22b3687abca252d9030f05b5a688d253881683a8b011ec01cb1b532a1.png",
         "difference": null,
         "closeUps": []
       },
@@ -298,8 +486,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/1f56461aada719c8fc85a4cd8fd419d5ceb44f66706ed28b10c073abae78786d.png",
-        "after": "../../img/1f56461aada719c8fc85a4cd8fd419d5ceb44f66706ed28b10c073abae78786d.png",
+        "before": "../../img/31c0d25c95494a5a2cc39abeeeb793d458914867ce9f974e546c673134a50c20.png",
+        "after": "../../img/31c0d25c95494a5a2cc39abeeeb793d458914867ce9f974e546c673134a50c20.png",
         "difference": null,
         "closeUps": []
       },
@@ -694,8 +882,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/f87e8bdae963540d22cc1d715b0c97a1ee24891f91e0e2578f6dd7aada2a1f05.png",
-        "after": "../../img/f87e8bdae963540d22cc1d715b0c97a1ee24891f91e0e2578f6dd7aada2a1f05.png",
+        "before": "../../img/8b7d58b24d768ebea95084bba030c222d36e6339463724dec6e8748ea7987eb1.png",
+        "after": "../../img/8b7d58b24d768ebea95084bba030c222d36e6339463724dec6e8748ea7987eb1.png",
         "difference": null,
         "closeUps": []
       },
@@ -712,8 +900,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/12ea9f92f6596cafd38be47d52e58bf7d76725c7a330762bb81c99c3dba8e8fc.png",
-        "after": "../../img/12ea9f92f6596cafd38be47d52e58bf7d76725c7a330762bb81c99c3dba8e8fc.png",
+        "before": "../../img/fae200f07712b68003dbfc72a9cda27e715ef6e280ced0325f557f538122e39f.png",
+        "after": "../../img/fae200f07712b68003dbfc72a9cda27e715ef6e280ced0325f557f538122e39f.png",
         "difference": null,
         "closeUps": []
       },
@@ -730,8 +918,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/a9f3576ec8c6a05711d12a389e1a95779850ca7e714ebb2c51898d1d6c7b783a.png",
-        "after": "../../img/a9f3576ec8c6a05711d12a389e1a95779850ca7e714ebb2c51898d1d6c7b783a.png",
+        "before": "../../img/1eea1b7b8b7b38a2b0a3fddaa753300f51eec8959e24f5cf9dda949cdb5a03b0.png",
+        "after": "../../img/1eea1b7b8b7b38a2b0a3fddaa753300f51eec8959e24f5cf9dda949cdb5a03b0.png",
         "difference": null,
         "closeUps": []
       },
@@ -1913,32 +2101,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Bash · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/7b268608bc5ab2dda0940855c2d66ebae82e19000fc5414c2e7cddd38d2bb9d5.png",
-        "after": "../../img/b33614340254ddf1e2433e7d844d25077cea1d3fd23f25e64637400e3d401f16.png",
-        "difference": "../../img/1a89bf2f74ceeca838221c16de4467957d7e6ab815e91927ada24d479edb8333.png",
+        "before": "../../img/ab486fad08435ab20194bdc9366f90d8d92da21222cdaf8dd3ff0fcb720f4c4a.png",
+        "after": "../../img/115e3b92481f2e68a400c938c22838d67770cbbf8d2db42864e3d3e05807baa0.png",
+        "difference": "../../img/5e34c6b77693f9d3af29975c53b1a42d1034e7b8103c658ff8c29583d7ae30cc.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -1950,32 +2155,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic PowerShell · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/f086c9174c9ef8fea65d20ad9c8951febd70111f4845ce224420a2ae4691f238.png",
-        "after": "../../img/37cd5baf02a785a820221c11d066ecdb90b641ecdef58f0ce7aaac4831a97bfa.png",
-        "difference": "../../img/c64e4636a1528114154358000d5cdd559577d71b35028c910f11d7e188042e3c.png",
+        "before": "../../img/450405ca2b91e5a412e73fd8f845d4ecdb5f16554f94379193d58be2be2b9d73.png",
+        "after": "../../img/26ba42336f30bfea907d40d3598ecf87e15303bba7a043067a74ad97f36195a6.png",
+        "difference": "../../img/984b3fabe93d094051c20cdecd340b74b9bb37e61d0442cf2d1b7553097b6121.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -1987,32 +2209,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Read · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/83502994c40a9bada5be12642aa38eff53aaa0141679e2c94a2a98495f03fa33.png",
-        "after": "../../img/f57f28b01e1f29e275406d58995931b686a99ca13cde8a555f1e3d8372363b56.png",
-        "difference": "../../img/bcc4bbdd880cd1a6a9242a2f40518f51ecb2d79906c6a23d870abdf2be3f0152.png",
+        "before": "../../img/c9db1a838ae84ed6471934151f0cf4d6d19d62d4332d1190e8ec351a4e42c744.png",
+        "after": "../../img/d86f880b772d0d921ed840e90ff890a6df5b8be9daa47b658224fad5b15c572b.png",
+        "difference": "../../img/36b8172e795fbe66ad02e8aff09cfb32cbbf0bc9bb0b2e0ee5bfaac5e3bcb536.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2024,32 +2263,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Edit · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 198,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 198,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/22e315f6bfa58d60896760f71c483935ce217826a458d9b552ab754946f3dcc8.png",
-        "after": "../../img/7fa23863ab170d522a58acbb77831e27dfee3b93693ad031724880d12f75205e.png",
-        "difference": "../../img/f38760a308482bdbee2ea2d591c2caac9e6a599f91b7f30464071d8eee7fb786.png",
+        "before": "../../img/9949b446a9bc3a9c1ab57ffcec0ecc4b9148068e04f6d15ae57307c957027a85.png",
+        "after": "../../img/cbcd3ebc0b3af98160e1bcf958354cafe6d9df425c9be73f9782d5aa7e8e4f75.png",
+        "difference": "../../img/557039fd871b894dbcaf3b89be453c1d147b263b912fba71bffc7be13d26e2c2.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 105,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/b2a197650dcc6a583958574c90f42e3d778798070e15c7dfb0f771c35f8bdc54.png",
+            "after": "../../img/62e7ad4e8b630ef0bcc03bddeb23c8c9cfb87a1e56011062e90fae652b547144.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 104,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/174acd8ae8a9b4fdf1e75242959bdbb06099ac02651ee8eebe8c30253d98b258.png",
-            "after": "../../img/cfb9b2492f454666e72b5fd693b6fef88f9e2e3641a51f42f5e1809aa4cd139c.png"
+            "before": "../../img/d160bb56484d8b1c06eba742995b227e596b1404ac84b157d2fe4cb0aecc2eb9.png",
+            "after": "../../img/7362c261eca63e3c5a433cbbefbf13bfd7a3166afab9dfb70f8ad813a77adc6b.png"
           }
         ]
       },
@@ -2061,32 +2317,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Write · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/9e8149a06cc2f62d0f2eabe3c52890b50e39e7114cac5eabdb63e1291fa9622a.png",
-        "after": "../../img/7c2361863b7c217afb7d2f50f04a4fb0072b9ced4c78a8199fab9ae7a266d887.png",
-        "difference": "../../img/3bd3aea5424b054370f59fe08725e0768ab59c693e9bc921aa154bad868b0401.png",
+        "before": "../../img/04be0fbb0f8e0da10101c9a3c0f72170bca7a7f3a847868e304e0be288562fe5.png",
+        "after": "../../img/964c001af1bf1806c38e84b421e02d06b4dbd16a2e1abe3fdb72c301a16cbd80.png",
+        "difference": "../../img/1709e99442a20eb7212c608edbdd91dc484ca6dd80e8aedc72975c5af4cbb073.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2098,32 +2371,32 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Write · complete result",
       "change": "changed",
-      "changedPixels": 2354,
-      "percent": 0.17028356481481483,
+      "changedPixels": 1889,
+      "percent": 0.13664641203703703,
       "areas": [
         {
-          "x": 622,
+          "x": 703,
           "y": 114,
-          "width": 161,
-          "height": 31,
-          "pixels": 2354
+          "width": 165,
+          "height": 33,
+          "pixels": 1889
         }
       ],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/199b97d0910d37a53fbd2cc2aa5246cc80ad1e9781ef5a4a8249ccadb60cc528.png",
-        "after": "../../img/56cfd55a0d2c3e1ecea79945251e946abaa635dc22b2805bd41124ac4161d3f6.png",
-        "difference": "../../img/4d2c44bd21c11e82407ef9929f3d231ae347b1726800d279b405fae15d358467.png",
+        "before": "../../img/56cfd55a0d2c3e1ecea79945251e946abaa635dc22b2805bd41124ac4161d3f6.png",
+        "after": "../../img/ccc2bf7fbeeb8b1c90f0710d1bf2132f1213bf2119ed87df372d12d8504157aa.png",
+        "difference": "../../img/8b7fd84858a6e3843bd31bbbcbbd249a7d34d0464664afc2091b553c29583b8a.png",
         "closeUps": [
           {
             "rect": {
-              "x": 463,
-              "y": 30,
+              "x": 546,
+              "y": 31,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/e7a3da8422beee650582ad6a1e61b78e7b2225d824aba62a17677ee33f181e11.png",
-            "after": "../../img/b6ed22283e96b29b2481ea25b2ff10cfb53504196bd9aaef705dff9e4951fae7.png"
+            "before": "../../img/6b529f8688ac53f33245eaef9fa477d0661144573305ebe32737e1c6787ce785.png",
+            "after": "../../img/42d01cc9ce2320615fa0c4212e0d2947885e3724e228c77c4f3439d6c4ea8e37.png"
           }
         ]
       },
@@ -2135,32 +2408,32 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic MultiEdit · complete result",
       "change": "changed",
-      "changedPixels": 2354,
-      "percent": 0.17028356481481483,
+      "changedPixels": 1889,
+      "percent": 0.13664641203703703,
       "areas": [
         {
-          "x": 622,
+          "x": 703,
           "y": 114,
-          "width": 161,
-          "height": 31,
-          "pixels": 2354
+          "width": 165,
+          "height": 33,
+          "pixels": 1889
         }
       ],
       "sameAreasAs": "rich-tool-claude-overwrite",
       "images": {
-        "before": "../../img/7e823548db018ace6f56c5f9352bbac9892ccaccd87c831571fedba10feb1130.png",
-        "after": "../../img/6ae988a45a646905caa18034d5a7582ff530644d2bbd0003c23b6847afd1fb07.png",
-        "difference": "../../img/8f943c2eaece11344e8e2c0bd0885bd75abc97d10868a770dece96d2eede0aa1.png",
+        "before": "../../img/6ae988a45a646905caa18034d5a7582ff530644d2bbd0003c23b6847afd1fb07.png",
+        "after": "../../img/5e4e88c8e6dc6fd2ab88fbb30cc6691527b60f13b73c6f39c52e69b70f7ec1fa.png",
+        "difference": "../../img/4d6aca46a4ff4e44d00affbe1a6c32ae0e669ccc6c2c417ccecc907aa9ffd460.png",
         "closeUps": [
           {
             "rect": {
-              "x": 463,
-              "y": 30,
+              "x": 546,
+              "y": 31,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/e7a3da8422beee650582ad6a1e61b78e7b2225d824aba62a17677ee33f181e11.png",
-            "after": "../../img/b6ed22283e96b29b2481ea25b2ff10cfb53504196bd9aaef705dff9e4951fae7.png"
+            "before": "../../img/6b529f8688ac53f33245eaef9fa477d0661144573305ebe32737e1c6787ce785.png",
+            "after": "../../img/42d01cc9ce2320615fa0c4212e0d2947885e3724e228c77c4f3439d6c4ea8e37.png"
           }
         ]
       },
@@ -2172,32 +2445,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Grep · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/24215221e6a779f48b0ca59dabdcad74ec19fd3245572e4744e0ebd3578add79.png",
-        "after": "../../img/0cef7ff9630042475811450082f4da33f9659d4ff0f5f1f2ef06cafa747ee2ce.png",
-        "difference": "../../img/aab2c5d0713938dd434d91457e39ac5593d6e3e26c5f48c104e36387eb090f5b.png",
+        "before": "../../img/420bc4e42f7e79c22666a7ea599c0a39098de804866d9be870af099261504e39.png",
+        "after": "../../img/bce10b0507ab4760f57ccb5d891dbd9eb5a2cccc83a683ff365ca7706ccada05.png",
+        "difference": "../../img/df36b8d131505b94e39c032be4a19edd5c98452e743b5fc2cbc1fed7c7ad42a8.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2209,32 +2499,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Glob · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 694,
+      "percent": 0.050202546296296294,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 199,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 379
+        },
+        {
+          "x": 810,
+          "y": 199,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-edit",
       "images": {
-        "before": "../../img/4981bff8f8a044152a36ff52e81dd4ed2e311a44f4f53dc77854259a5fe5083b.png",
-        "after": "../../img/4010e034221c87da47aba8facdee8bf6b88362283b6fad1406a4f84fb87abf95.png",
-        "difference": "../../img/20d5b70410ba566d4f5937d435b26230fe0135164dcdbfc9de04afd0da02ecf2.png",
+        "before": "../../img/82d32d29e4df108e6d4150b328c9a73f2a0e2cf520def225d0b7bcc6a33788b7.png",
+        "after": "../../img/f793d9b2a8616a5a877c4ffb6deba5de63b3e336ad11fc273d90f16bb668007f.png",
+        "difference": "../../img/a7cf9e7609a861b82ea184dda76d3fbe2caa8e9f982303550e4765ed08ac7054.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 106,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d2ef231bd89246ced3c1a993c3dc9cd33b17dda70e582a5f012131609a1ac0d6.png",
+            "after": "../../img/2ea59a2797cb7ac93cb120906d6c2ba3ec3249a2f15894a6205b8271ee14a13e.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 105,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/0999fad50e0b65f2af24455f19be55279932d53b6365ae021afd3df87c839d6e.png",
-            "after": "../../img/a47b68d69241d255474eac917f2a9780b7de2401e0fd5498918798d284f9578c.png"
+            "before": "../../img/f8fc5ededdabe0e22cffd9015b2009449952acace30df28fe23dc0468325ec63.png",
+            "after": "../../img/551186370fb0b6f039e1ebfecd89afd090fbbb22cf763119f8af883f9460faa0.png"
           }
         ]
       },
@@ -2246,32 +2553,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Agent · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/ab32fbb045c8b1f489f20660a42b945a34684da272abd9c0da86761f1d2c8ff3.png",
-        "after": "../../img/ebaeb5c1a3e1670c08f99ec06a6662e8da5b4c55acdbe69a1cda2df0bb0b2957.png",
-        "difference": "../../img/259ec6fe1d443ab5af4e03e9e7a1191936fbd887359f90134965da937a3c8619.png",
+        "before": "../../img/7c22e95bd0b6fc4ff1ee9f5cbdb88d0ee56d977d709108898c21d41fea57e51f.png",
+        "after": "../../img/7238a51c8a9f897ad92782d3807aae46d5282ca384af46fc12c7d621399f3b19.png",
+        "difference": "../../img/71387bdae0c950011c3e4dae51b21c98eceb6e31821d1d34db831b60b207ffd2.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2283,32 +2607,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic SendMessage · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 230,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 230,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/c743b905dc29eec805f7007bbb99084914f1825ca5857846d744a63c46f03aed.png",
-        "after": "../../img/9521aaa0dcf7ad821a04de9addb1759b46b98f5888cdd0ac35b47fad9906c756.png",
-        "difference": "../../img/0f2e373fcbcd7bf21db720a355f12ef5528ef73766af0ee7254b42207cba9e0b.png",
+        "before": "../../img/b38f875d511f8b65b7e81ba17e7f06c692d1022b13442df4f733c22d7f564864.png",
+        "after": "../../img/5c882f82009b44bed228f83cb99fea941e6a3c9a56d112aa5f173468c3ff0283.png",
+        "difference": "../../img/11bcc9fdbc4f93f0bac302d029a3aaec0762d55fd146ed4cac4689ed46d19c46.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 137,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/0b78be951e417a6ade2b601390578518b225dba1de2a94b8452f802cc5de5b5c.png",
+            "after": "../../img/49d23184312a48058c2806440e28b0d68222d3ea450217a1fa4bab681019b80a.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 136,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/f2a4c0375ee125cdc4a1c9e46d93dfef2d234357dd65d1d9284a08ab9ca13c36.png",
-            "after": "../../img/82950a764d49be372bb7d1f1be232fd6df53e2909feb51d262407375466c649f.png"
+            "before": "../../img/faba2eb7b69d5e7e8652cf7b3788142a8691530e1ed3abb12c6799159c1db370.png",
+            "after": "../../img/2bf6a64c1ea8ea840dbf336a435461a8f172ebea9cd9f2101b8de9b116d7735d.png"
           }
         ]
       },
@@ -2320,32 +2661,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic TaskStop · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/53196d6ae4a4ee06c0df8236bcbd774f788ac36173dd90b8d65487e71945785a.png",
-        "after": "../../img/2091fde7ea156267c1637748148018712c25ae4491e3f4b13c19c23493a70acb.png",
-        "difference": "../../img/160091b95ccfee40d4db66c14559a60c23bd1884d801196d618b68a952fbd3b7.png",
+        "before": "../../img/7a147d7a2bb063ca4ba4539e7b7ccc59db32df57409eb81c17fc7518f34591a3.png",
+        "after": "../../img/b590097fe2a0af0e4ea4dc5464853b5f5965629dd8ddb73338ff3f67a3452552.png",
+        "difference": "../../img/283829b172261718a13babec92428a0cbc7ecd727f76e5aa66f49cee63fb991f.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2357,32 +2715,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic TaskStop · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/5c3a92a7d17310ad99565d10280e82ebc7b27fd1a188bb37d4359d23b934a1f5.png",
-        "after": "../../img/42be815a1b0807613ab75f0e314958e8d44438ddc2b35d53148ae34a024d172c.png",
-        "difference": "../../img/ab3435e90b74e4f960fd444d344e9045a86d886cbccd156530b91bc091784344.png",
+        "before": "../../img/7ba1f595eb44da3434f260209e6ff4524d9421ce041deb4c0dcb84ed00995c78.png",
+        "after": "../../img/eb905bde16e613d2c807378ed7bfb66dfa881c6f75969f76b1649094f3d5cebd.png",
+        "difference": "../../img/76540f2d25d1c14f00ecfaf23b63302f3aadc1868a1224408cd7ccc02e7b22ec.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2394,32 +2769,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic KillShell · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/9b0a24d86096b736aa496792c65190b48fe1dc7fef1f82956368659c1f681546.png",
-        "after": "../../img/d3aae7f2285c4401d0c6d9dc94a0b29018fee0c957cd848953f8e6748f91b3ae.png",
-        "difference": "../../img/0c6500e66fce0d0ccc48248a3bd65cc1ff31601b446ccdbf1947e1652defedc5.png",
+        "before": "../../img/c0199a3149f24f8a83f566f5652331e5333cda5adc67f25fef6bd0578ad80e68.png",
+        "after": "../../img/05fa492133182879b8cdec46bf7ffe70e54aa8f9269174baddc81f03fdf8eacc.png",
+        "difference": "../../img/8e1b4a4bcd7c842fb094b81c479bc83efe8935c16ce60fbf9684e21237819059.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2431,32 +2823,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic WebFetch · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/6c6564909db5e1429a46a3f29e06ecd14be789160e7209bae0b769801515c0ee.png",
-        "after": "../../img/a2cc130946cd21be3e0f0917d83cdb0c7c67cbd527bd62ef72fbd06893d1d8c0.png",
-        "difference": "../../img/33af444ba1b0cba0a7bc63c1f83e7fcbf36567d9871b0e57ebde4549e12a1577.png",
+        "before": "../../img/7c78c43a56e01bf5eb498d4d3ed669a2ce3f9136ed002ca0915fa0c2111ff8ad.png",
+        "after": "../../img/bbcedfff1d4594ed3a18204ecb6978d18b3ac19a1816d4e175d07a0187446e6b.png",
+        "difference": "../../img/2bbd1c99aee42df3251b084573eaffe747cd3fef1cb38750594fa943e0a8eb98.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2468,32 +2877,32 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic WebSearch · complete result",
       "change": "changed",
-      "changedPixels": 3356,
-      "percent": 0.2427662037037037,
+      "changedPixels": 3008,
+      "percent": 0.2175925925925926,
       "areas": [
         {
-          "x": 622,
+          "x": 703,
           "y": 104,
-          "width": 182,
-          "height": 35,
-          "pixels": 3356
+          "width": 181,
+          "height": 37,
+          "pixels": 3008
         }
       ],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/e1eed1619e201b0ec67c5b4d2e5ef27f892719616fe9463eb2b433b5119c23eb.png",
-        "after": "../../img/56c4561bf6766ff0f277c32d9b781dc3c8d200507b096bbb418c279f53ea95ba.png",
-        "difference": "../../img/a82a8f6065b113a9690c96956d44b27acc458e375c757282c4beb10c4d420ec2.png",
+        "before": "../../img/56c4561bf6766ff0f277c32d9b781dc3c8d200507b096bbb418c279f53ea95ba.png",
+        "after": "../../img/108a4a3b2deff67ff60f230c785e18bc0ac650dd095fc5ba0273065c025cbfbe.png",
+        "difference": "../../img/722c1b8ca8d1c56009341773a020be2e72e7c92ed1bb6a59a046ee2c8b2f5eb7.png",
         "closeUps": [
           {
             "rect": {
-              "x": 473,
-              "y": 22,
+              "x": 554,
+              "y": 23,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/8991a8fbdd33a019a9dbd2aa25b2d7aea97f12e8cec910a5089a147ca40acd16.png",
-            "after": "../../img/4d6ec94a4d0c729f9522e49c76796f0efba5895aba04f7ce394d42ea28afbf67.png"
+            "before": "../../img/dec80ab449a6da59f029775521bddf4fc367335fb30ed012f33c4e0994eee5c5.png",
+            "after": "../../img/16ca761d68c94374a1016f03506c08d4d752899f0de8182d0ac2cea46b945f74.png"
           }
         ]
       },
@@ -2505,32 +2914,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Skill · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/bcad57b2a4ffa1ed93c40025dcbc96dd737eeb39be1a03bbc8357e9aad54a298.png",
-        "after": "../../img/3dd0e0ea70342cc14f1155a8a825b3189fa7f217fc85c0cd3691ec745ebd15c1.png",
-        "difference": "../../img/4925cf542fd6b27cfaf5f481d6ae4669d7cfdaa6da8a7097e03305f634a650d4.png",
+        "before": "../../img/0c9e1c83c61449d112658166c50df215cdd291b1b70965c9aa625969ad988c30.png",
+        "after": "../../img/6f7b4e9e757f0f35d2de5734c6b9eeebfbb525d0faabce7fa83b16163407abf8.png",
+        "difference": "../../img/8624ad869e9bf3d0d09ea9fc5e3e8f584c6cb5ae98ff3bd8a393e17e7f035845.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2542,32 +2968,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic AskUserQuestion · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 694,
+      "percent": 0.050202546296296294,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 197,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 379
+        },
+        {
+          "x": 810,
+          "y": 197,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-edit",
       "images": {
-        "before": "../../img/0ab4d642d49f3e0900bfa6f2263f4fc3e87f4e0f35badff67ac4d7ed17b36356.png",
-        "after": "../../img/2ec84f7e6da2ed1678830166a3e1d1c59777d4503e3aec740ae72ebeb2678ec8.png",
-        "difference": "../../img/572ea730f3a86b75ff9b3c444a6673abc9446cf34c2abafcc38e03fca54ad4c0.png",
+        "before": "../../img/bb7c19f271730cd0313d6f94371494ba1e168b86dd3d0a92b30f3d3b8e5e9c97.png",
+        "after": "../../img/18c157c605cfe34762826193ffed17b0d8d2c594e8f31979a3b653445c9a7038.png",
+        "difference": "../../img/5109045428c26d8f7117d5218d3dd1a458859ac6178e3066e97ff3cabfb9eeb7.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 104,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/b730650cdcb21f54ac87f3e2484a785cd8cc1b46d55c5ecd7814849c70015ebe.png",
+            "after": "../../img/72dc31951b7a8a960375963f4ec5482b4697a755e431bd52b36040a6cac115c4.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 103,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/28faa055cdee52c259f8abfb38ab7ddf75f84fa5b8212f608173830b318d3a98.png",
-            "after": "../../img/d13a042e31f7cbcaa74ed0b0dcec9a1d35137b96bde0cb5a498611dea415d588.png"
+            "before": "../../img/0ba3a2e12e57de051fd43771ee5237b27f3e57733482a6a6cb85e530b55f41f8.png",
+            "after": "../../img/ce2a365023856646ad203b79a04956066d7c31e05918d4c803d93d0be7cd296c.png"
           }
         ]
       },
@@ -2579,32 +3022,49 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic mcp__synthetic__lookup · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/40ccdef503b87d326bc77431c164660b1857ba7851aeebce8dbc15f952830bdf.png",
-        "after": "../../img/545da01ea186766b0fa4b3bd65e2ba2f5e23c69979115164b90d0c9608756aac.png",
-        "difference": "../../img/33d9719ac7c6111ad5b74cf168bcee6045d66425e061db612af0d9178dd0ed3a.png",
+        "before": "../../img/699361ac284ad92f996bc42975a7864d725900dcd9ec550d78a2671c01cc47b0.png",
+        "after": "../../img/712a6bd4894a411d25221fae7b1aa6708d996012313ac3fa69b71aba9619f0b2.png",
+        "difference": "../../img/3fe3ab0c1a0e7405c9faa8d972747924d0e68d216bbdbffb388f44035fa9b696.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
@@ -2616,36 +3076,73 @@
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Monitor · complete result",
       "change": "changed",
-      "changedPixels": 715,
-      "percent": 0.05172164351851852,
+      "changedPixels": 693,
+      "percent": 0.050130208333333336,
       "areas": [
         {
-          "x": 653,
+          "x": 730,
           "y": 242,
-          "width": 130,
+          "width": 53,
+          "height": 13,
+          "pixels": 378
+        },
+        {
+          "x": 810,
+          "y": 242,
+          "width": 53,
           "height": 11,
-          "pixels": 715
+          "pixels": 315
         }
       ],
       "sameAreasAs": "rich-tool-claude-bash",
       "images": {
-        "before": "../../img/7567e86e60ec446ccfafacdc009c207cdadaab2262b71be9726c1464cdc8b04a.png",
-        "after": "../../img/37e93a124087c14448fe6d0cf9f82752790497fc6d853a8d0e59051358215cc5.png",
-        "difference": "../../img/1ec1f1e0c9e663665d2e6e81e3fe84a9028d199232431976cec538b1e8041301.png",
+        "before": "../../img/2e19bcfa123584cc1fe6b31d8fe543c6ac78b9c0116e6936f6678622e4f62d30.png",
+        "after": "../../img/63e50743052b8b75a8a0434e8ecb09d896935180523b643be49cb7b67814e453.png",
+        "difference": "../../img/8429a39aa3519b1977b149506f40cfb17d9cd5a52e4fc81ec70515b242ddf5af.png",
         "closeUps": [
           {
             "rect": {
-              "x": 478,
+              "x": 517,
+              "y": 149,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/442ec7a482d0025bd97d664d1df358010720fce93391f90c5706d38c5bef9c3f.png",
+            "after": "../../img/192a50ea11e60d524e0c230f94b2dfb60e08412502f1c0f62415076755e85ca0.png"
+          },
+          {
+            "rect": {
+              "x": 597,
               "y": 148,
               "width": 480,
               "height": 200
             },
-            "before": "../../img/c53017ee1dec70c261fc85d2e6fde4a9bea3effb8717ec718d3bede11dc39416.png",
-            "after": "../../img/a2e23c3489ef234675921e939fea3ddc688140184ea6b03b036b75ce7953034e.png"
+            "before": "../../img/fb51f6e365af5395e4f88311dd89d9695dd78fd8e48bc12cb16484ca36e791ea.png",
+            "after": "../../img/3a1c93b893a06d2774dea728d1fb55205f6c06e66242001f1a25e076489600a2.png"
           }
         ]
       },
       "limitations": []
+    },
+    {
+      "id": "claude-session-file-history",
+      "group": "overview",
+      "route": "/session/sess-claude-code-review/overview",
+      "state": "Claude Code plan-mode session: file-history checkpoints, one version open",
+      "change": "base unavailable",
+      "changedPixels": null,
+      "percent": null,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": null,
+        "after": "../../img/6d86904560b7106c83383c7100e3c0a030c4aafaa154d194b3db0bb02d87627b.png",
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": [
+        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('.fh-note').first() to be visible\n"
+      ]
     }
   ]
 }
