@@ -51,6 +51,7 @@ fn every_row_maps_to_its_canonical_name_and_keeps_the_native_one() {
             "mcp__docs__search_pages",
         ),
         ("toolu_monitor", "Monitor", "Monitor"),
+        ("toolu_tool_search", "ToolSearch", "ToolSearch"),
     ];
     for (id, canonical, native) in rows {
         let tc = call(&turns, id);
@@ -391,4 +392,24 @@ fn a_record_with_several_results_ignores_its_shared_structured_result() {
         call(&turns, "toolu_r2").result_content.as_deref(),
         Some("     1\tbeta")
     );
+}
+
+/// ToolSearch's result is `tool_reference` blocks (record-shapes.md): the
+/// Conversation and search show the loaded tool names, not `[tool_reference]`.
+#[test]
+fn tool_search_results_list_the_loaded_tool_names() {
+    use crate::provider::claude_code::records::tool_result_text;
+    let turns = catalog();
+    let search = call(&turns, "toolu_tool_search");
+    assert_eq!(
+        search.result_content.as_deref(),
+        Some("Read\nmcp__docs__search_pages")
+    );
+    // Mixed with text, and a reference without a name keeps the placeholder.
+    let block = json!({"type": "tool_result", "content": [
+        {"type": "text", "text": "Loaded:"},
+        {"type": "tool_reference", "tool_name": "Edit"},
+        {"type": "tool_reference"},
+    ]});
+    assert_eq!(tool_result_text(&block), "Loaded:\nEdit\n[tool_reference]");
 }

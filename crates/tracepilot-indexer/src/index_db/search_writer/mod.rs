@@ -33,6 +33,20 @@ pub(crate) use content_extraction::extract_search_content_cancellable;
 /// to force re-indexing even when events.jsonl hasn't changed.
 pub const CURRENT_EXTRACTOR_VERSION: i64 = 4;
 
+/// The search version of Claude Code sessions, bumped on its own so Copilot
+/// search content is not re-extracted when only the Claude translation
+/// changes. Never below [`CURRENT_EXTRACTOR_VERSION`].
+///
+/// v5: ToolSearch results are the loaded tool names, not `[tool_reference]`.
+const CLAUDE_CODE_EXTRACTOR_VERSION: i64 = 5;
+
+fn extractor_version(source: SessionSource) -> i64 {
+    match source {
+        SessionSource::ClaudeCode => CLAUDE_CODE_EXTRACTOR_VERSION.max(CURRENT_EXTRACTOR_VERSION),
+        SessionSource::Copilot => CURRENT_EXTRACTOR_VERSION,
+    }
+}
+
 /// A single row to be inserted into `search_content`.
 #[derive(Debug)]
 pub struct SearchContentRow {
@@ -74,7 +88,8 @@ impl IndexDb {
             [locator.id.as_str()],
             |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<i64>>(1)?)),
         ).is_ok_and(|(source, version)| {
-            source.as_deref() != Some(current.as_str()) || version.unwrap_or(0) < CURRENT_EXTRACTOR_VERSION
+            source.as_deref() != Some(current.as_str())
+                || version.unwrap_or(0) < extractor_version(provider.source())
         })
     }
 
@@ -220,7 +235,7 @@ impl IndexDb {
                 search_source_fingerprint = ?4 WHERE id = ?3",
             params![
                 now,
-                CURRENT_EXTRACTOR_VERSION,
+                extractor_version(source),
                 session_id.as_str(),
                 source_fingerprint
             ],
@@ -331,7 +346,7 @@ impl IndexDb {
                         search_source_fingerprint = ?4 WHERE id = ?3",
                     params![
                         now,
-                        CURRENT_EXTRACTOR_VERSION,
+                        extractor_version(source),
                         session_id.as_str(),
                         fingerprints.get(index)
                     ],

@@ -111,7 +111,7 @@ Field notes:
 - **When `is_error` is true, `toolUseResult` is a plain string**, for example
   `"Error: Exit code 1\nmv: permission denied"`. Otherwise it is an object.
 - `content` may be a string, `[{type:"text"}]`, `[{type:"image"}]` (Read on an image), or
-  `[{type:"tool_reference"}]` (ToolSearch).
+  `[{type:"tool_reference", tool_name}]` (ToolSearch, one block per loaded tool).
 - A refused tool use carries a record-level `toolDenialKind` next to `toolUseResult`:
   `user-rejected`, `permission-rule`, `automode-blocked` or `automode-unavailable`
   (all four seen in the S3 corpus). A rejection can also carry the interrupt marker in the
