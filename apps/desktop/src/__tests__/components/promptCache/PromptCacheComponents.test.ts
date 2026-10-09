@@ -452,6 +452,18 @@ describe("AnalyticsPromptCachePanel", () => {
     expect(wrapper.text()).toContain("2.3 AIC");
   });
 
+  it("leaves out the AI Credits figure when a source in range is not billed in them", () => {
+    const wrapper = mount(AnalyticsPromptCachePanel, {
+      props: {
+        billedInAic: false,
+        data: { ...data, resentPrefixTokensByModel: [{ model: "gpt-5.6-luna", tokens: 100_000 }] },
+      },
+    });
+    expect(wrapper.text()).toContain("25%");
+    expect(wrapper.text()).not.toContain("Est. extra cost");
+    expect(wrapper.text()).not.toContain("AIC");
+  });
+
   it("explains when no session has recorded timing", () => {
     const wrapper = mount(AnalyticsPromptCachePanel, {
       props: { data: { ...data, sessionsWithPredicted: 0, resumedWindows: 0 } },

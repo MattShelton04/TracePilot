@@ -1,8 +1,10 @@
 # Claude Code Session Integration — Plan
 
-> **Status:** Research and plan; nothing implemented. Revised after review (2026-10-05):
-> canonical event payloads, meta-record and turn-end rules, usage reconciliation, split
-> foundation acceptance, enable/disable ordering, estimated cache expiry, package contracts.
+> **Status:** Implemented through L3 (2026-10-10) behind the Experimental *Claude Code
+> sessions* setting; alerts (Q4) were dropped. How to use it: [Claude Code sessions](../../claude-code-sessions.md).
+> The plan below was revised after review (2026-10-05): canonical event payloads, meta-record
+> and turn-end rules, usage reconciliation, split foundation acceptance, enable/disable
+> ordering, estimated cache expiry, package contracts.
 > **Date:** 2026-10-05
 > **Builds on:** [Codex and Claude Code feasibility](../codex-claude-code-session-support-feasibility.md)
 > (breadth across both tools). This set goes deeper on Claude Code, re-measures the data and
