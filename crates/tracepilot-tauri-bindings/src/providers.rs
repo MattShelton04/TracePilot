@@ -26,8 +26,8 @@ pub(crate) fn registry_for(config: &TracePilotConfig) -> ProviderRegistry {
 }
 
 /// How long a process start time is reused. A lookup is a few Win32 calls
-/// (microseconds), so this mostly dedupes the session list's and a running
-/// session's detail view's polls. A Claude Code process removes its pid file
+/// (microseconds) on Windows and one `ps` on macOS, so this mostly dedupes
+/// the session list's and a running session's detail view's polls. A Claude Code process removes its pid file
 /// on exit, so this only delays noticing a crash.
 const PROCESS_START_TTL: Duration = Duration::from_secs(5);
 

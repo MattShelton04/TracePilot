@@ -315,7 +315,7 @@ Source-aware presentation shipped in U2, U3 and U4.
 | Checkpoints / rewind | 🟡 | L3 | Read-only, from file-history (`has_file_history`; no Copilot-style checkpoint summaries, no restore) |
 | Explorer tab | 🟡 | L3 | `subagents/` and `tool-results/` as top-level folders; there is no session directory per se. No Open Folder action |
 | Timeline (swimlane, waterfall) | ✅ | L2 | Per-call timestamps; tool durations |
-| Live refresh / running badge | ✅⭐ | L2 | `sessions/<pid>.json` busy/idle, shown as Busy or Waiting. A running session's detail view refreshes every 3 s until it goes idle. Windows only: elsewhere Claude sessions never show as running |
+| Live refresh / running badge | ✅⭐ | L2 | `sessions/<pid>.json` busy/idle, shown as Busy or Waiting. A running session's detail view refreshes every 3 s until it goes idle. Process start times are checked on Windows, macOS and Linux |
 | Alerts / notifications | ⛔ | — | Dropped (Q4, maintainer decision): no alerts for Claude Code sessions |
 | Analytics dashboard | ✅ | L2 | Source filter; cost split by source |
 | Tool analysis | ✅ | L3 | Group by canonical kind with native-name breakdown |

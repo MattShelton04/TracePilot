@@ -112,7 +112,9 @@ and the maintainer's remaining steps below. Do not merge, tag or publish.
 
 3. The [release workflow](../.github/workflows/release.yml) builds the Windows
    installers, the Apple Silicon disk image and `latest.json`, then publishes
-   the release. Check the published release and the in-app update.
+   the release. Check the published release and the in-app update. macOS is
+   tier 2: if its build fails, the release still publishes for Windows only,
+   with a warning on the run and no macOS assets. Fix it in a patch release.
 4. The Site workflow rebuilds the [landing page](landing-page.md) when the
    release workflow succeeds, picking up the new version and installer links.
 

@@ -7,8 +7,8 @@
 use crate::error::{OrchestratorError, Result};
 use std::io::Read;
 use std::process::{Child, Command, Output};
-use std::sync::{Arc, Mutex, mpsc};
-use std::time::Duration;
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 use tokio::io::AsyncReadExt;
 
 /// Internal helper: spawn a command with stdout/stderr piped.
@@ -39,22 +39,22 @@ where
 
 /// Core timeout implementation: execute a spawned child process with a wall-clock timeout.
 ///
-/// This function handles:
-/// - Async stdout/stderr reading via background threads
-/// - Shared child process ownership for timeout-based kill
-/// - Timeout detection via `recv_timeout()`
+/// Both pipes are drained on background threads while this thread polls the
+/// child with `try_wait()`, so the deadline is enforced while the child is
+/// still running: a child that outlives `timeout_secs` is killed and reaped.
+/// Output still open after the child exits (a grandchild that inherited a
+/// pipe) is waited for only until the same deadline.
 ///
 /// Returns `(stdout, stderr, status)` on success, or an error if:
-/// - The child process cannot be waited on (mutex poison, wait failure)
+/// - Either pipe was not configured
+/// - The child process cannot be waited on
 /// - Pipe reader threads disconnect
-/// - The process exceeds `timeout_secs`
-///
-/// On timeout, attempts to kill the child and logs any kill failures.
+/// - The process, or its output, exceeds `timeout_secs`
 pub(super) fn execute_with_timeout(
     mut child: Child,
     timeout_secs: u64,
 ) -> std::result::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus), OrchestratorError> {
-    // Take the pipe handles before wrapping the child so the thread owns them.
+    // Take the pipe handles so the reader threads own them.
     // Return an error if pipes weren't configured (defensive programming - should never happen).
     let stdout_pipe = child.stdout.take().ok_or_else(|| {
         OrchestratorError::Launch("stdout not piped: process was not configured correctly".into())
@@ -65,47 +65,49 @@ pub(super) fn execute_with_timeout(
     let stdout_rx = read_pipe_to_end(stdout_pipe, "stdout");
     let stderr_rx = read_pipe_to_end(stderr_pipe, "stderr");
 
-    // Wrap child in Arc<Mutex> so the main thread can kill it on timeout.
-    let child_shared = Arc::new(Mutex::new(child));
-    let child_for_thread = Arc::clone(&child_shared);
-
-    let (tx, rx) = mpsc::channel::<
-        std::result::Result<(Vec<u8>, Vec<u8>, std::process::ExitStatus), OrchestratorError>,
-    >();
-
-    std::thread::spawn(move || {
-        let result = child_for_thread
-            .lock()
-            .map_err(|error| OrchestratorError::Launch(format!("mutex poisoned: {error}")))
-            .and_then(|mut c| {
-                c.wait()
-                    .map_err(|e| OrchestratorError::launch_ctx("wait failed", e))
-            })
-            .and_then(|status| {
-                let stdout = stdout_rx.recv().map_err(|error| {
-                    OrchestratorError::Launch(format!("stdout reader thread disconnected: {error}"))
-                })??;
-                let stderr = stderr_rx.recv().map_err(|error| {
-                    OrchestratorError::Launch(format!("stderr reader thread disconnected: {error}"))
-                })??;
-                Ok((stdout, stderr, status))
-            });
-        // best-effort: if the main thread has already hit recv_timeout, the
-        // receiver will be dropped and this send becomes a no-op.
-        let _: std::result::Result<(), std::sync::mpsc::SendError<_>> = tx.send(result);
-    });
-
-    match rx.recv_timeout(Duration::from_secs(timeout_secs)) {
-        Ok(result) => result,
-        Err(_) => {
-            // Timeout occurred - attempt to kill the process
-            if let Ok(mut child) = child_shared.lock()
-                && let Err(e) = child.kill()
-            {
+    let deadline = Instant::now() + Duration::from_secs(timeout_secs);
+    let mut poll = Duration::from_millis(1);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {}
+            Err(e) => return Err(OrchestratorError::launch_ctx("wait failed", e)),
+        }
+        let now = Instant::now();
+        if now >= deadline {
+            if let Err(e) = child.kill() {
                 tracing::warn!("Failed to kill timed-out process: {}", e);
             }
+            // Reap it so it does not linger as a zombie.
+            let _ = child.wait();
+            return Err(OrchestratorError::Timeout { secs: timeout_secs });
+        }
+        std::thread::sleep(poll.min(deadline - now));
+        poll = (poll * 2).min(MAX_POLL_INTERVAL);
+    };
+
+    let stdout = recv_output(&stdout_rx, "stdout", deadline, timeout_secs)?;
+    let stderr = recv_output(&stderr_rx, "stderr", deadline, timeout_secs)?;
+    Ok((stdout, stderr, status))
+}
+
+/// Longest sleep between `try_wait()` polls in [`execute_with_timeout`].
+const MAX_POLL_INTERVAL: Duration = Duration::from_millis(25);
+
+fn recv_output(
+    rx: &mpsc::Receiver<Result<Vec<u8>>>,
+    label: &str,
+    deadline: Instant,
+    timeout_secs: u64,
+) -> Result<Vec<u8>> {
+    match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        Ok(result) => result,
+        Err(mpsc::RecvTimeoutError::Timeout) => {
             Err(OrchestratorError::Timeout { secs: timeout_secs })
         }
+        Err(mpsc::RecvTimeoutError::Disconnected) => Err(OrchestratorError::Launch(format!(
+            "{label} reader thread disconnected"
+        ))),
     }
 }
 

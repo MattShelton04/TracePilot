@@ -299,7 +299,6 @@ mod tests {
     }
 
     /// The app's own lookup, through `registry_for`, against this process.
-    #[cfg(windows)]
     #[test]
     fn the_app_registry_verifies_pid_files_against_real_processes() {
         let own = std::process::id();

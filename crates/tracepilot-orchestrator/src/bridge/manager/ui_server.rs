@@ -96,17 +96,12 @@ pub fn launch_ui_server(working_dir: Option<&str>) -> Result<u32, BridgeError> {
         .map_err(|e| BridgeError::sdk(format!("Failed to launch UI server: {e}")))
     }
 
-    #[cfg(target_os = "macos")]
+    // The binary and its flag stay separate argv entries: the terminal
+    // launchers shell-quote each one, so a joined string would run as a
+    // single (nonexistent) program name.
+    #[cfg(not(windows))]
     {
-        let cmd = format!("{} --ui-server", copilot_path);
-        crate::process::spawn_detached_terminal(&cmd, &[], &work_dir, None)
-            .map_err(|e| BridgeError::sdk(format!("Failed to launch UI server: {e}")))
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let cmd = format!("{} --ui-server", copilot_path);
-        crate::process::spawn_detached_terminal(&cmd, &[], &work_dir, None)
+        crate::process::spawn_detached_terminal(&copilot_path, &["--ui-server"], &work_dir, None)
             .map_err(|e| BridgeError::sdk(format!("Failed to launch UI server: {e}")))
     }
 }

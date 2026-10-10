@@ -119,8 +119,8 @@ process can still read as running for up to 5 seconds.
 While a session runs, its detail view refreshes every 3 seconds. Refreshing
 pauses while the window is hidden and stops once the session goes idle.
 
-Running state is available on **Windows only**. On other platforms, Claude Code
-sessions never show as running.
+Running state is available on Windows, macOS and Linux. The start time is read
+through Win32 on Windows, `ps` on macOS and `/proc` on Linux.
 
 ## Background tasks
 
@@ -185,8 +185,8 @@ and counts only, with no paths, IDs or content.
 
 ### A session never shows as running
 
-Running state works on Windows only. The Claude Code process must still be
-running, and its file in `sessions/` must name this session.
+The Claude Code process must still be running, and its file in `sessions/`
+must name this session.
 
 ### Reporting a format problem
 
