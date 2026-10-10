@@ -336,12 +336,12 @@ pub fn foreground_agents() -> SessionFiles {
     write_session(&t, &agents)
 }
 
-/// Background work that finishes while the session is idle. An agent and a
-/// background shell start together and the model ends its turn; both
-/// completions are queued, then delivered in one `user` record that wakes
-/// the session (the agent's with its report and totals, the shell's with its
-/// exit code). A second shell finishes while the model is still busy, which
-/// opens no turn.
+/// Background work that finishes while the session is idle. An agent, a
+/// background shell and a `Monitor` start together and the model ends its
+/// turn; one `user` record then wakes the session with all three (the
+/// agent's report and totals, the shell's exit code, the Monitor's event).
+/// A second shell finishes while the model is still busy, which opens no
+/// turn. Last, the user pastes a block into a typed prompt.
 pub fn notification_wake() -> SessionFiles {
     let mut t = Transcript::main();
     t.prompt("Build the demo and map the indexer.");
@@ -357,6 +357,11 @@ pub fn notification_wake() -> SessionFiles {
                 "Agent",
                 json!({"subagent_type": "Explore", "description": "Map the indexer",
                     "prompt": "Map it."}),
+            ),
+            tool_use(
+                "toolu_mon1",
+                "Monitor",
+                json!({"description": "PR #12 check results", "command": "gh pr checks 12"}),
             ),
         ],
         u,
@@ -374,6 +379,12 @@ pub fn notification_wake() -> SessionFiles {
     );
     t.tool_result("toolu_ag1", json!("Async agent launched successfully."),
         json!({"status": "async_launched", "isAsync": true, "agentId": "a1", "description": "Map the indexer"}), false);
+    t.tool_result(
+        "toolu_mon1",
+        json!("Monitor started with ID: bmon1"),
+        json!({"taskId": "bmon1"}),
+        false,
+    );
     t.call(
         "msg_w2",
         OPUS,
@@ -392,12 +403,15 @@ pub fn notification_wake() -> SessionFiles {
         <output-file>C:\\tmp\\tasks\\bsh1.output</output-file>\n<status>failed</status>\n\
         <summary>Background command \"npm run build\" failed with exit code 2</summary>\n\
         </task-notification>";
+    let monitor = "<task-notification>\n<task-id>bmon1</task-id>\n<tool-use-id>toolu_mon1</tool-use-id>\n\
+        <summary>Monitor event: \"PR #12 check results\"</summary>\n\
+        <event>Quality gate: pass\nlint: ok</event>\n</task-notification>";
     for note in [agent, shell] {
         t.bookkeeping(json!({"type": "queue-operation", "operation": "enqueue", "content": note}));
     }
     t.user(
         json!({"origin": {"kind": "task-notification"}, "turnOrigin": "task_notification",
-        "message": {"role": "user", "content": format!("{agent}\n{shell}")}}),
+        "message": {"role": "user", "content": format!("{agent}\n{shell}\n{monitor}")}}),
     );
     t.call(
         "msg_w3",
@@ -427,6 +441,15 @@ pub fn notification_wake() -> SessionFiles {
         "msg_w4",
         OPUS,
         vec![text("The rebuild passed.")],
+        u,
+        "end_turn",
+    );
+    // The user pastes a block into a prompt: their words stay as typed.
+    t.prompt(&format!("Why did this fail?\n{shell}"));
+    t.call(
+        "msg_w5",
+        OPUS,
+        vec![text("The build script exited with code 2.")],
         u,
         "end_turn",
     );

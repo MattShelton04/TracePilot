@@ -5,6 +5,7 @@
 
 mod helpers;
 mod modern_agents;
+mod notifications;
 mod session_errors;
 mod truncation;
 mod turn_numbers;

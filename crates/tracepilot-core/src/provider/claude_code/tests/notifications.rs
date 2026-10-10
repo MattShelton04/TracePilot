@@ -14,15 +14,16 @@ fn a_wake_turn_reads_as_one_line_per_notification() {
     let users = user_turns(&turns);
     assert_eq!(
         users.len(),
-        2,
-        "the prompt and the wake; the busy notification opens none"
+        3,
+        "the prompt, the wake and the quoting prompt; the busy notification opens none"
     );
     let wake = users[1];
     assert_eq!(
         wake.user_message.as_deref(),
         Some(
-            "Agent \"Map the indexer\" finished · 180k tokens · 40 tool uses · 10m\n\
-             Background command \"npm run build\" failed with exit code 2"
+            "Agent \"Map the indexer\" finished · 180K tokens · 40 tool uses · 10m\n\
+             Background command \"npm run build\" failed with exit code 2\n\
+             Monitor event: \"PR #12 check results\" · Quality gate: pass"
         )
     );
     assert!(wake.system_initiated);
@@ -33,8 +34,8 @@ fn a_wake_turn_reads_as_one_line_per_notification() {
     assert!(raw.starts_with("<task-notification>\n<task-id>a1</task-id>"));
     assert!(raw.contains("<task-id>bsh1</task-id>"));
 
-    let [agent, shell] = wake.notifications.as_slice() else {
-        panic!("two notifications, got {:?}", wake.notifications);
+    let [agent, shell, monitor] = wake.notifications.as_slice() else {
+        panic!("three notifications, got {:?}", wake.notifications);
     };
     assert_eq!(agent.kind, TaskNotificationKind::Agent);
     assert_eq!(agent.task_id.as_deref(), Some("a1"));
@@ -64,6 +65,25 @@ fn a_wake_turn_reads_as_one_line_per_notification() {
     assert_eq!(shell.exit_code, Some(2));
     assert_eq!(shell.result, None);
     assert_eq!(shell.total_tokens, None);
+
+    assert_eq!(monitor.kind, TaskNotificationKind::Monitor);
+    assert_eq!(monitor.tool_use_id.as_deref(), Some("toolu_mon1"));
+    assert_eq!(
+        monitor.event.as_deref(),
+        Some("Quality gate: pass\nlint: ok")
+    );
+    assert_eq!(monitor.status, None);
+}
+
+#[test]
+fn a_typed_prompt_that_quotes_a_block_keeps_its_text() {
+    let parsed = parse(&fixtures::notification_wake());
+    let turns = reconstruct_turns(&parsed.events);
+    let quoted = user_turns(&turns)[2];
+    let text = quoted.user_message.as_deref().unwrap();
+    assert!(text.starts_with("Why did this fail?\n<task-notification>"));
+    assert!(quoted.notifications.is_empty());
+    assert_eq!(quoted.transformed_user_message, None);
 }
 
 #[test]
@@ -75,8 +95,8 @@ fn notification_events_keep_the_block_as_written() {
         .filter(|e| e.raw.event_type == "system.notification")
         .map(|e| e.raw.data["content"].as_str().unwrap())
         .collect();
-    // Queued and delivered copies count once.
-    assert_eq!(notes.len(), 3);
+    // Queued, delivered and quoted copies count once.
+    assert_eq!(notes.len(), 4);
     assert!(notes.iter().all(|n| n.starts_with("<task-notification>")));
 
     let messages: Vec<_> = parsed
@@ -89,11 +109,11 @@ fn notification_events_keep_the_block_as_written() {
         .collect();
     assert_eq!(
         messages.len(),
-        2,
+        3,
         "a busy session's notification is no user message"
     );
     assert_eq!(messages[1].source.as_deref(), Some("system"));
-    assert_eq!(messages[1].notifications.len(), 2);
+    assert_eq!(messages[1].notifications.len(), 3);
 }
 
 #[test]
@@ -107,4 +127,9 @@ fn a_typed_prompt_serializes_without_notifications() {
     assert_eq!(wake["notifications"][1]["exitCode"], 2);
     assert_eq!(wake["notifications"][1]["toolUseId"], "toolu_sh1");
     assert!(wake["notifications"][1].get("result").is_none());
+    assert_eq!(wake["notifications"][2]["kind"], "monitor");
+    assert_eq!(
+        wake["notifications"][2]["event"],
+        "Quality gate: pass\nlint: ok"
+    );
 }

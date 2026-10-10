@@ -115,6 +115,10 @@ export function buildClaudeNotificationSession() {
         description: "Map the retry call sites",
         prompt: "Find every call site that retries.",
       }),
+      toolUse("toolu_notify_monitor", "Monitor", {
+        description: "PR #12 check results",
+        command: "gh pr checks 12 --watch",
+      }),
     ],
     usage,
     "tool_use",
@@ -131,6 +135,9 @@ export function buildClaudeNotificationSession() {
     isAsync: true,
     agentId: "a0c1a000a0000001",
     description: "Map the retry call sites",
+  });
+  t.toolResult("toolu_notify_monitor", "Monitor started with ID: bnotify2", {
+    taskId: "bnotify2",
   });
   t.call(
     "notify_wait",
@@ -155,13 +162,19 @@ export function buildClaudeNotificationSession() {
     status: "failed",
     summary: 'Background command "Run the slow suite" failed with exit code 1',
   });
+  const monitor = notification({
+    "task-id": "bnotify2",
+    "tool-use-id": "toolu_notify_monitor",
+    summary: 'Monitor event: "PR #12 check results"',
+    event: "SYNTHETIC quality gate: pass\nlint: ok · tests: 214 passed",
+  });
   for (const content of [agent, shell]) {
     t.bookkeeping({ type: "queue-operation", operation: "enqueue", content });
   }
   t.record("user", {
     origin: { kind: "task-notification" },
     turnOrigin: "task_notification",
-    message: { role: "user", content: `${agent}\n${shell}` },
+    message: { role: "user", content: `${agent}\n${shell}\n${monitor}` },
   });
   t.call(
     "notify_reply",

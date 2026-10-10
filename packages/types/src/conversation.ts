@@ -90,12 +90,14 @@ export interface TaskNotification {
   taskId?: string;
   /** The tool call that launched the task. */
   toolUseId?: string;
-  kind: "agent" | "shell";
+  kind: "agent" | "shell" | "monitor";
   /** `completed`, `failed`, `stopped`, … as written. */
   status?: string;
   summary?: string;
   /** The task's final report, when the notification carries one. */
   result?: string;
+  /** A `Monitor` event's payload. */
+  event?: string;
   outputFile?: string;
   /** A shell's exit code, from its summary. */
   exitCode?: number;

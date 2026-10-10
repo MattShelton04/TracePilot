@@ -7,7 +7,9 @@
 use serde_json::{Value, json};
 
 use super::drift;
-use super::notify::{TaskNotification, contains_notification, parse_notifications};
+use super::notify::{
+    TaskNotification, contains_notification, only_notifications, parse_notifications,
+};
 use super::prompts::{
     command_name, command_output, command_prompt, echoed_command, is_command_caveat,
 };
@@ -239,6 +241,8 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             // Only agents report usage, even one whose launch isn't in view.
             kinds.push(if agent.is_some() || note.total_tokens.is_some() {
                 TaskNotificationKind::Agent
+            } else if note.is_monitor() {
+                TaskNotificationKind::Monitor
             } else {
                 TaskNotificationKind::Shell
             });
@@ -263,7 +267,15 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         if carrier == Carrier::User && st.agent_id.is_none() && is_idle(st) {
             // It wakes an idle session: a system-initiated interaction.
             self.new_interaction(st, ctx, rec);
-            let mut data = notification_wake(text, &notes, &kinds);
+            // Prose that quotes a block keeps its text: only a record Claude
+            // Code wrote for the wake reads as its notifications.
+            let written_for_wake =
+                rec.origin_kind() == Some("task-notification") || only_notifications(text);
+            let mut data = if written_for_wake {
+                notification_wake(text, &notes, &kinds)
+            } else {
+                json!({"content": text, "source": "system"})
+            };
             if let Some(map) = data.as_object_mut() {
                 map.insert("interactionId".into(), json!(st.interaction));
             }

@@ -41,7 +41,9 @@ describe("TaskNotificationCard", () => {
     const [first, second] = wrapper.findAll(".cv-notice-task");
     expect(first.text()).toContain('Agent "Map the indexer" finished');
     expect(first.get('[data-tp-component="StatusPill"]').classes()).toContain("pill--success");
-    expect(first.text()).toContain("180K tokens · 40 tool uses · 10m 0s");
+    // Totals read as the turn's readable line writes them.
+    expect(first.text()).toContain("180K tokens · 40 tool uses · 10m");
+    expect(first.text()).not.toContain("10m 0s");
     expect(second.text()).toContain("exit 2");
     expect(second.get('[data-tp-component="StatusPill"]').classes()).toContain("pill--danger");
     expect(second.attributes("data-tool-use-id")).toBe("toolu_sh1");
@@ -72,5 +74,22 @@ describe("TaskNotificationCard", () => {
     const wrapper = card([{ kind: "shell", status: "stopped" }]);
     expect(wrapper.text()).toContain("Background command stopped");
     expect(wrapper.get('[data-tp-component="StatusPill"]').classes()).toContain("pill--neutral");
+  });
+
+  it("shows a Monitor event's payload in view, as a Monitor", () => {
+    const monitor: TaskNotification = {
+      taskId: "bmon1",
+      toolUseId: "toolu_mon1",
+      kind: "monitor",
+      summary: 'Monitor event: "PR #12 check results"',
+      event: "Quality gate: pass\nlint: ok",
+    };
+    const wrapper = card([monitor, { ...monitor, event: "Quality gate: fail" }]);
+    const [first, second] = wrapper.findAll(".cv-notice-task");
+    expect(first.get(".cv-notice-kind").attributes("title")).toBe("Monitor");
+    expect(first.get(".cv-notice-event").text()).toBe("Quality gate: pass\nlint: ok");
+    expect(first.find('[data-tp-component="StatusPill"]').exists()).toBe(false);
+    // The same task twice in one record still renders both events.
+    expect(second.get(".cv-notice-event").text()).toBe("Quality gate: fail");
   });
 });

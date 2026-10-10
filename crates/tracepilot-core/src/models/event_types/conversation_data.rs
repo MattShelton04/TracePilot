@@ -34,6 +34,8 @@ pub enum TaskNotificationKind {
     Agent,
     /// A background shell command.
     Shell,
+    /// A `Monitor` reporting an event from the stream it watches.
+    Monitor,
 }
 
 /// One background task completion, as Claude Code reports it in a
@@ -55,6 +57,9 @@ pub struct TaskNotificationData {
     /// The task's final report, when the notification carries one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result: Option<String>,
+    /// A `Monitor` event's payload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_file: Option<String>,
     /// A shell's exit code, from its summary.

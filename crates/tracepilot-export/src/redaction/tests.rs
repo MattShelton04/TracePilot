@@ -412,6 +412,7 @@ fn redacts_task_notifications() {
         status: Some("completed".into()),
         summary: Some("Read /home/user/secret.txt".into()),
         result: Some("Token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij".into()),
+        event: Some("Read /home/user/notes.txt".into()),
         output_file: Some("/home/user/tasks/a1.output".into()),
         exit_code: None,
         total_tokens: None,
@@ -426,6 +427,7 @@ fn redacts_task_notifications() {
     let note = &archive.sessions[0].conversation.as_ref().unwrap()[0].notifications[0];
     assert!(!note.summary.as_ref().unwrap().contains("/home/user"));
     assert!(!note.result.as_ref().unwrap().contains("ghp_"));
+    assert!(!note.event.as_ref().unwrap().contains("/home/user"));
     assert!(!note.output_file.as_ref().unwrap().contains("/home/user"));
     assert_eq!(note.task_id.as_deref(), Some("a1"));
 }

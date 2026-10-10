@@ -6,6 +6,7 @@ mod artifacts;
 mod background;
 mod model_calls;
 mod notifications;
+mod notify;
 mod provider;
 mod scenarios;
 mod summary;

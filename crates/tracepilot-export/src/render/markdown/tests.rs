@@ -54,6 +54,7 @@ fn labels_a_notification_turn() {
         status: Some("completed".into()),
         summary: None,
         result: None,
+        event: None,
         output_file: None,
         exit_code: None,
         total_tokens: None,

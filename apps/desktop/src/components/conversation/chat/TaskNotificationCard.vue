@@ -2,13 +2,14 @@
 /**
  * The anchor of a turn that a background task's completion opened (a Claude
  * Code `<task-notification>` that woke an idle session), in place of the
- * "User" anchor: one compact row per task, its report behind a toggle.
+ * "User" anchor: one compact row per task, its report behind a toggle and a
+ * Monitor's event in view.
  */
 import type { TaskNotification } from "@tracepilot/types";
-import { formatDuration, formatNumberFull, formatTokens } from "@tracepilot/types";
+import { formatNumberFull, formatTokens } from "@tracepilot/types";
 import type { StatusPillTone } from "@tracepilot/ui";
 import { ExpandChevron, formatTime, MarkdownContent, StatusPill } from "@tracepilot/ui";
-import { Bell, Bot, CornerUpLeft, SquareTerminal } from "lucide-vue-next";
+import { Activity, Bell, Bot, CornerUpLeft, SquareTerminal } from "lucide-vue-next";
 import { reactive } from "vue";
 
 const props = defineProps<{
@@ -32,10 +33,30 @@ function toggleResult(index: number) {
   else openResults.add(index);
 }
 
+const KIND_LABEL: Record<TaskNotification["kind"], string> = {
+  agent: "Agent",
+  shell: "Background shell",
+  monitor: "Monitor",
+};
+
 function title(note: TaskNotification): string {
   if (note.summary) return note.summary;
   const status = note.status ?? "finished";
+  if (note.kind === "monitor") return "Monitor event";
   return note.kind === "agent" ? `Agent ${status}` : `Background command ${status}`;
+}
+
+/** `9s`, `10m`, `2m 30s`, `1h 5m`: as the turn's readable line writes it. */
+function compactDuration(ms: number): string {
+  const total = Math.round(ms / 1000);
+  const [hours, mins, secs] = [
+    Math.floor(total / 3600),
+    Math.floor((total % 3600) / 60),
+    total % 60,
+  ];
+  if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  if (mins > 0) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  return `${secs}s`;
 }
 
 function tone(note: TaskNotification): StatusPillTone {
@@ -61,7 +82,7 @@ function stats(note: TaskNotification): string[] {
       `${formatNumberFull(note.toolUses)} ${note.toolUses === 1 ? "tool use" : "tool uses"}`,
     );
   }
-  if (note.durationMs != null) parts.push(formatDuration(note.durationMs));
+  if (note.durationMs != null) parts.push(compactDuration(note.durationMs));
   if (note.exitCode != null) parts.push(`exit ${note.exitCode}`);
   return parts;
 }
@@ -85,18 +106,20 @@ function canReveal(note: TaskNotification): boolean {
     </div>
     <div
       v-for="(note, index) in notifications"
-      :key="note.taskId ?? index"
+      :key="`${note.taskId ?? 'task'}-${index}`"
       class="cv-notice-task"
       :data-tool-use-id="note.toolUseId"
     >
       <div class="cv-notice-row">
-        <span class="cv-notice-kind" :title="note.kind === 'agent' ? 'Agent' : 'Background shell'">
+        <span class="cv-notice-kind" :title="KIND_LABEL[note.kind]">
           <Bot v-if="note.kind === 'agent'" :size="14" aria-hidden="true" />
+          <Activity v-else-if="note.kind === 'monitor'" :size="14" aria-hidden="true" />
           <SquareTerminal v-else :size="14" aria-hidden="true" />
         </span>
         <span class="cv-notice-title">{{ title(note) }}</span>
         <StatusPill v-if="note.status" :tone="tone(note)" :label="note.status" size="xs" />
       </div>
+      <pre v-if="note.event" class="cv-notice-event">{{ note.event }}</pre>
       <div
         v-if="stats(note).length || note.result || canReveal(note)"
         class="cv-notice-meta"
@@ -232,6 +255,21 @@ function canReveal(note: TaskNotification): boolean {
   outline: 2px solid var(--accent-emphasis);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+.cv-notice-event {
+  margin: 4px 0 0 22px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--canvas-inset);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow-y: auto;
 }
 
 .cv-notice-result {

@@ -61,6 +61,16 @@ pub(crate) fn extract_search_content_cancellable(
                         .with_content("user_message", content.clone());
                     rows.push(row);
                 }
+                // A notification's message is one short line per task; the
+                // agent's report and the Monitor's event stay searchable here.
+                for note in &d.notifications {
+                    for text in [&note.result, &note.event].into_iter().flatten() {
+                        let truncated = truncate_utf8(text, MAX_SYSTEM_MESSAGE_BYTES);
+                        let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                            .with_content("system_message", truncated.to_string());
+                        rows.push(row);
+                    }
+                }
             }
 
             TypedEventData::AssistantMessage(d) => {

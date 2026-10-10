@@ -135,6 +135,7 @@ fn redact_turn(
     for note in &mut turn.notifications {
         redact_opt_string(&mut note.summary, patterns, stats);
         redact_opt_string(&mut note.result, patterns, stats);
+        redact_opt_string(&mut note.event, patterns, stats);
         redact_opt_string(&mut note.output_file, patterns, stats);
     }
 
