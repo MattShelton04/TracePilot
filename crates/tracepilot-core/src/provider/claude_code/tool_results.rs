@@ -54,7 +54,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                     }
                     let failed = block.get("is_error").and_then(Value::as_bool) == Some(true);
                     let start = self.tool_starts.get(id).copied();
-                    let (outcome, agent) = {
+                    let (outcome, agent, send) = {
                         let data = start
                             .and_then(|index| self.events.get(index))
                             .map(|e| &e.data);
@@ -66,7 +66,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                             .and_then(|d| d.get("arguments"))
                             .unwrap_or(&Value::Null);
                         let outcome = reshape(native, args, tur, content, failed);
-                        (outcome, is_agent_tool(native))
+                        (outcome, is_agent_tool(native), native == "SendMessage")
                     };
                     if let Some((name, arguments)) = outcome.restart
                         && let Some(event) = start.and_then(|index| self.events.get_mut(index))
@@ -92,6 +92,8 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                     self.emit(st, ctx, "tool.execution_complete", data);
                     if agent {
                         self.agent_result(st, ctx, id, tur, error);
+                    } else if send && !failed {
+                        self.send_message_result(tur);
                     }
                 }
                 "text" => {

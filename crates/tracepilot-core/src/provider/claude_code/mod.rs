@@ -34,6 +34,7 @@ mod tool_results;
 mod tools;
 mod translate;
 mod translate_abandoned;
+mod translate_agents;
 mod translate_assistant;
 mod translate_user;
 mod usage;
