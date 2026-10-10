@@ -21,6 +21,12 @@ export const AGENT_RESUME_SOURCE = "agent";
 /** Below this much remaining time the live chip switches to "expiring". */
 export const EXPIRING_THRESHOLD_MS = 5 * 60_000;
 
+/**
+ * Past this long since a window's expiry (or its idle start when no expiry
+ * is known), no cache TTL can still apply, so the header chip stops showing.
+ */
+export const STALE_CACHE_MS = 24 * 3_600_000;
+
 export const CONFIDENCE_LABELS: Record<CacheConfidence, string> = {
   observed: "Observed usage · estimated expiry",
   predicted: "Copilot CLI",
@@ -119,6 +125,15 @@ export function findLiveWindow(timeline: PromptCacheTimeline | null | undefined)
     return null;
   }
   return last;
+}
+
+/** Whether a window has been idle well past any cache TTL at `nowMs`. */
+export function isStaleCacheWindow(
+  window: Pick<CacheWindow, "expiresAt" | "idleStart">,
+  nowMs: number,
+): boolean {
+  const since = Date.parse(window.expiresAt ?? window.idleStart);
+  return Number.isFinite(since) && nowMs - since > STALE_CACHE_MS;
 }
 
 export function liveCacheStatus(expiresAt: string, nowMs: number): LiveCacheStatus | null {
