@@ -160,6 +160,28 @@ describe("SessionCard", () => {
     expect(badge(makeSession({ id: "u", ...claude }))?.[0]).toBe("Active");
   });
 
+  it("styles Waiting apart from Busy and keeps the Claude tint while running", () => {
+    const card = (runStatus?: "busy" | "waiting") =>
+      mount(SessionCard, {
+        props: {
+          session: makeSession({ id: "r", source: "claudeCode", isRunning: true, runStatus }),
+        },
+      });
+    const busy = card("busy");
+    expect(busy.get(".active-badge").classes()).toContain("badge-success");
+    expect(busy.classes()).toEqual(
+      expect.arrayContaining(["card--active", "session-card--claude"]),
+    );
+    expect(busy.classes()).not.toContain("card--waiting");
+
+    const waiting = card("waiting");
+    expect(waiting.get(".active-badge").classes()).toContain("badge-warning");
+    expect(waiting.classes()).toEqual(
+      expect.arrayContaining(["card--active", "card--waiting", "session-card--claude"]),
+    );
+    expect(waiting.get(".active-dot").classes()).toContain("active-dot--waiting");
+  });
+
   it("shows a folder chip from the cwd only when there is no repository", () => {
     const cwdOnly = mount(SessionCard, {
       props: {

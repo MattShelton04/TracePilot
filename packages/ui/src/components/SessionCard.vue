@@ -38,6 +38,11 @@ function isActive(session: SessionListItem): boolean {
   return session.isRunning === true;
 }
 
+/** A running session whose process waits for input (not when TracePilot streams it). */
+const isWaiting = computed(
+  () => isActive(props.session) && !props.live && props.session.runStatus === "waiting",
+);
+
 function activeLabel(): string {
   if (props.live === "watching") return "Watching";
   if (props.live === "attachable") return "Live";
@@ -57,7 +62,11 @@ function activeTitle(): string {
 <template>
   <div
     class="card card-interactive session-card-new"
-    :class="{ 'card--active': isActive(session), 'session-card--claude': isClaude(session) }"
+    :class="{
+      'card--active': isActive(session),
+      'card--waiting': isWaiting,
+      'session-card--claude': isClaude(session),
+    }"
     role="link"
     tabindex="0"
     @click="emit('select', $event, session.id)"
@@ -66,14 +75,14 @@ function activeTitle(): string {
   >
     <Transition name="active-pop">
       <span v-if="isActive(session)" class="active-pop-wrapper active-badge-topright">
-        <Badge variant="success" class="active-badge" :title="activeTitle()">{{ activeLabel() }}</Badge>
+        <Badge :variant="isWaiting ? 'warning' : 'success'" class="active-badge" :title="activeTitle()">{{ activeLabel() }}</Badge>
       </span>
     </Transition>
     
     <div class="card-header-new">
       <Transition name="active-pop">
         <span v-if="isActive(session)" class="active-pop-wrapper">
-          <span class="active-dot" :title="activeTitle()" />
+          <span class="active-dot" :class="{ 'active-dot--waiting': isWaiting }" :title="activeTitle()" />
         </span>
       </Transition>
       <h3 class="card-title-new">{{ session.summary || 'Untitled Session' }}</h3>
@@ -224,22 +233,37 @@ function activeTitle(): string {
 }
 
 /* --- Active State Animations --- */
+/* Busy (and sources without a run status) pulse green; Waiting pulses amber. */
 .card--active {
-  border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
-  box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+  --run-muted: var(--success-muted);
+  --run-fg: var(--success-fg);
+  border-color: var(--run-muted);
+  box-shadow: 0 0 0 1px var(--run-muted);
   animation: card-active-pulse 2s ease-in-out infinite;
+}
+.card--waiting {
+  --run-muted: var(--warning-muted);
+  --run-fg: var(--warning-fg);
 }
 @keyframes card-active-pulse {
   0%, 100% {
-    border-color: var(--success-muted, rgba(52, 211, 153, 0.3));
-    box-shadow: 0 0 0 1px var(--success-muted, rgba(52, 211, 153, 0.15));
+    border-color: var(--run-muted);
+    box-shadow: 0 0 0 1px var(--run-muted);
   }
   50% {
-    border-color: var(--success-fg, rgba(52, 211, 153, 0.6));
-    box-shadow: 0 0 0 2px var(--success-muted, rgba(52, 211, 153, 0.25));
+    border-color: var(--run-fg);
+    box-shadow: 0 0 0 2px var(--run-muted);
   }
 }
-
+/* A running Claude Code card keeps its clay border; only the outer ring pulses. */
+.session-card--claude.card--active {
+  border-color: var(--claude-border);
+  animation-name: card-active-ring-pulse;
+}
+@keyframes card-active-ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--run-muted); }
+  50% { box-shadow: 0 0 0 2px var(--run-fg); }
+}
 .active-badge-topright {
   position: absolute;
   top: 16px;
@@ -268,6 +292,9 @@ function activeTitle(): string {
   overflow: visible;
   position: relative;
   animation: dot-sync-pulse 2s ease-in-out infinite;
+}
+.active-dot--waiting {
+  background: var(--warning-fg);
 }
 
 @keyframes dot-sync-pulse {

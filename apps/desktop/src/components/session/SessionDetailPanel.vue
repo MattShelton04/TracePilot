@@ -134,6 +134,8 @@ const liveBadge = computed(() => {
     }
   );
 });
+/** Waiting for input reads apart from working; streaming wins over both. */
+const isWaiting = computed(() => runStatus.value === "waiting" && liveBadge.value.label !== "Live");
 const confirmingCopy = ref(false);
 const confirmingResume = ref(false);
 
@@ -325,13 +327,13 @@ watch(isSessionActive, (active) => {
       <h1 class="detail-title">
         <Transition name="active-indicator">
           <span v-if="isSessionActive" class="active-indicator-group">
-            <span class="active-dot" :title="liveBadge.title" />
+            <span class="active-dot" :class="{ 'active-dot--waiting': isWaiting }" :title="liveBadge.title" />
           </span>
         </Transition>
         {{ store.detail.summary || 'Untitled Session' }}
         <Transition name="active-indicator">
           <span v-if="isSessionActive" class="active-indicator-group">
-            <Badge variant="success" class="active-badge-inline" :title="liveBadge.title">
+            <Badge :variant="isWaiting ? 'warning' : 'success'" class="active-badge-inline" :title="liveBadge.title">
               ● {{ liveBadge.label }}
             </Badge>
           </span>
@@ -473,6 +475,10 @@ watch(isSessionActive, (active) => {
   animation: pulse-active 2s ease-in-out infinite;
   overflow: visible;
   position: relative;
+}
+
+.active-dot--waiting {
+  background: var(--warning-fg);
 }
 
 @keyframes pulse-active {

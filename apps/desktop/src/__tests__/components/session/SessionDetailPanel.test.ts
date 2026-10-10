@@ -310,6 +310,24 @@ describe("SessionDetailPanel", () => {
     });
   }
 
+  it("marks a Claude Code session waiting for input apart from a busy one", async () => {
+    const header = async (status: "busy" | "waiting") => {
+      mocks.getSessionLiveness.mockResolvedValue({ state: "running", pid: 7, status });
+      const wrapper = mountForSource("claudeCode");
+      await flushPromises();
+      const badge = wrapper.get(".active-badge-inline");
+      const result = {
+        text: badge.text(),
+        warning: badge.classes().includes("badge-warning"),
+        dot: wrapper.get(".active-dot").classes().includes("active-dot--waiting"),
+      };
+      wrapper.unmount();
+      return result;
+    };
+    expect(await header("busy")).toEqual({ text: "● Busy", warning: false, dot: false });
+    expect(await header("waiting")).toEqual({ text: "● Waiting", warning: true, dot: true });
+  });
+
   it("keeps every tab and Copilot action for a session without a source", async () => {
     const wrapper = mountForSource();
     await flushPromises();
