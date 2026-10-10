@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "a3e93ccb8b01b49e226eb14370baed84235398d8",
-  "headSha": "a257b2d539d3489d3426e77a27b8f6366da42c60",
+  "baseSha": "a93d914723c3f7b429d525e365cd3895f1acc108",
+  "headSha": "160ba647017f75638a7a400c72860635e05d0902",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,8 +9,8 @@
     "scale": 1
   },
   "summary": {
-    "changed": 1,
-    "unchanged": 129,
+    "changed": 25,
+    "unchanged": 105,
     "subtle": 0,
     "incomplete": 0,
     "baseUnavailable": 0,
@@ -136,8 +136,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/c219b89a99a6b4dca838ebd9864996d00b3e027baddf7e2b400f39fdad699d7e.png",
-        "after": "../../img/c219b89a99a6b4dca838ebd9864996d00b3e027baddf7e2b400f39fdad699d7e.png",
+        "before": "../../img/5d931823372f4b676a54e363dc5d26b51a12f38ff0b74ede2a9f37a817962098.png",
+        "after": "../../img/5d931823372f4b676a54e363dc5d26b51a12f38ff0b74ede2a9f37a817962098.png",
         "difference": null,
         "closeUps": []
       },
@@ -184,16 +184,35 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/overview",
       "state": "populated Claude Code session",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/9c5bd893f4cf9e54bae7c709ff063c99367641e1bdf7de872a37ace3a070219a.png",
-        "after": "../../img/9c5bd893f4cf9e54bae7c709ff063c99367641e1bdf7de872a37ace3a070219a.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/84cf6de2209ddd4e6302047b39b1073e2e74b84d649c5744c9b671e340a2aa72.png",
+        "difference": "../../img/a9c060ae3c752a80cf63d23326b45376bbeec2659a3065e1c6f2e51ed030c6d6.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/6dac42cb7a3464dac6ab242a3d21a61c1c53a2d15a42aff7630f91d2b9447ac0.png",
+            "after": "../../img/07e84a7b966542725b5659cf1f5042895906858777c1c083787ced6fff26edcc.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -202,16 +221,35 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/metrics",
       "state": "populated Claude Code session",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "claude-session-overview",
       "images": {
         "before": "../../img/179e768cdcbdefc71d11a518aaa4551941f7f3765476f6e04ae547c498f706ef.png",
-        "after": "../../img/179e768cdcbdefc71d11a518aaa4551941f7f3765476f6e04ae547c498f706ef.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/8a796825748d87d3c75433c46ca53409e4cb9230cc715f9006bed9b983e08d82.png",
+        "difference": "../../img/6cbd26ca7f7caf40c5db95aa5f5c162341656571264f070ff8a3d93b64c258f6.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/695de089d5cb15e9c3eb884ecf48efe68bdbc06253de324774070df68edbd017.png",
+            "after": "../../img/85a8b1f3638e88d2bac656d747091900e84a0d4a1f664b6be6a623c32d44a11c.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -220,16 +258,35 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/context",
       "state": "populated Claude Code session",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "claude-session-overview",
       "images": {
-        "before": "../../img/cbf40108493935693d2cb72703e8b8fd64837dc0b7833aebd3e94e1c7de0f2e7.png",
-        "after": "../../img/cbf40108493935693d2cb72703e8b8fd64837dc0b7833aebd3e94e1c7de0f2e7.png",
-        "difference": null,
-        "closeUps": []
+        "before": "../../img/9a46ddabaf0c8c8fea9ec47fcaa81815e3783f05777aab263b83629cf1ca7565.png",
+        "after": "../../img/22bb32fa042947c458075d8d5087f0bf6613abdb8282680538cb9bb242fccbc4.png",
+        "difference": "../../img/431fb0344af5b33c647401017f2f1b713e2aadf2b0cb1602a3a29ed88368fe77.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/3fcc9fd957695be9d676258b027cb7e0a37e4930a9e0c53f31bae000e56eb590.png",
+            "after": "../../img/017656ddaf58e30a0e1b6d4e4ec774ce819c9ba8e64e731f4e93e3649b962e9f.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -238,16 +295,35 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/overview",
       "state": "ended Claude Code session: done, failed and unreported tasks",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 5792,
+      "percent": 0.41898148148148145,
+      "areas": [
+        {
+          "x": 498,
+          "y": 90,
+          "width": 171,
+          "height": 34,
+          "pixels": 5792
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/a59b6ccf9e17bb7cea494c7ab2a16b68e79249d65b80e797c5ace129ad8bd268.png",
-        "after": "../../img/a59b6ccf9e17bb7cea494c7ab2a16b68e79249d65b80e797c5ace129ad8bd268.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/42dd4707e07b50efd605ab7acb27de2655e36b82d2e825b1048344dfc8a6fb8a.png",
+        "difference": "../../img/c5fa7d0579c08186662c203bd21b78320c2ff15605c1341bb81f802e02379fc7.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 7,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/3b6ac660921c96946499e02e397925e853a1c92e3d6071d4c928ed89e4482a9c.png",
+            "after": "../../img/f314ce4d7d12bbbfbb41da097c741b6f1db2952eadccbe98b43d5c1895094e60.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -256,16 +332,35 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/overview",
       "state": "Claude Code plan-mode session: file-history checkpoints, one version open",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5793,
+      "percent": 0.4190538194444444,
+      "areas": [
+        {
+          "x": 498,
+          "y": 90,
+          "width": 171,
+          "height": 34,
+          "pixels": 5793
+        }
+      ],
+      "sameAreasAs": "claude-session-background-tasks",
       "images": {
         "before": "../../img/6d86904560b7106c83383c7100e3c0a030c4aafaa154d194b3db0bb02d87627b.png",
-        "after": "../../img/6d86904560b7106c83383c7100e3c0a030c4aafaa154d194b3db0bb02d87627b.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/f5bf22d34035526c339bbdf9da284e00929435777dc0a4bea2c49b7684abc6f1.png",
+        "difference": "../../img/65cdf4a7bc0cf92d1c126cc1f11dac7ffdd3c048af350623f3af047f04b5b0f7.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 7,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/732021b663df18fa4c1803931d2b4f81aec24d4ae490200bf4bc74c09d848287.png",
+            "after": "../../img/6dba270cc6b6662cbd45e75a72b8a1b90947c5f6454f7fc94f5b91187e82013d.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -298,8 +393,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/ec85f67b1179db994fdaeb6958fefa5f53586d277514ead31b0ea6eeeda99cea.png",
-        "after": "../../img/ec85f67b1179db994fdaeb6958fefa5f53586d277514ead31b0ea6eeeda99cea.png",
+        "before": "../../img/aecd658ecb27d95406110a1cc673a53100ec0d052e74b338df6af699dace93ba.png",
+        "after": "../../img/aecd658ecb27d95406110a1cc673a53100ec0d052e74b338df6af699dace93ba.png",
         "difference": null,
         "closeUps": []
       },
@@ -316,8 +411,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/db2321763971c9d2d0d3961f9fad664295c134538aa6970ec83852d6deea8f83.png",
-        "after": "../../img/db2321763971c9d2d0d3961f9fad664295c134538aa6970ec83852d6deea8f83.png",
+        "before": "../../img/40e6e44ac9f8e613511b7b1df370e626a751fead65c6aa968eb910f50de95841.png",
+        "after": "../../img/40e6e44ac9f8e613511b7b1df370e626a751fead65c6aa968eb910f50de95841.png",
         "difference": null,
         "closeUps": []
       },
@@ -334,8 +429,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/a1a345d159bfc4e702b22569a03f292c63db424a45cb4f0f51fd9b9e1d1d88e5.png",
-        "after": "../../img/a1a345d159bfc4e702b22569a03f292c63db424a45cb4f0f51fd9b9e1d1d88e5.png",
+        "before": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
+        "after": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
         "difference": null,
         "closeUps": []
       },
@@ -442,8 +537,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/06af765902e7d73319a439400321cf20e050c6068381086148eff0f74d7306bc.png",
-        "after": "../../img/06af765902e7d73319a439400321cf20e050c6068381086148eff0f74d7306bc.png",
+        "before": "../../img/ca8157afb6be0336290d2a0dd45d146b40a826a80dd59a5488d23624d4416a57.png",
+        "after": "../../img/ca8157afb6be0336290d2a0dd45d146b40a826a80dd59a5488d23624d4416a57.png",
         "difference": null,
         "closeUps": []
       },
@@ -1390,35 +1485,16 @@
       "group": "rich-tools",
       "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
       "state": "Synthetic view · fetched source · first page",
-      "change": "changed",
-      "changedPixels": 4607,
-      "percent": 0.33326099537037035,
-      "areas": [
-        {
-          "x": 1312,
-          "y": 884,
-          "width": 100,
-          "height": 64,
-          "pixels": 4607
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/1f16d1f7e4c45513b02d50b92b5b0fd71c5b3d0ef1f10e02b6fc84e23c1179d6.png",
+        "before": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
         "after": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
-        "difference": "../../img/ee48f5c993690f11c290c528a95bccc1c3417c78b4b428fb4bd2b8e225cb53a4.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 760,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/04315f7a399c78c54887ca7c659263637fcd95653b9a29c8558e76bebb9e5ec5.png",
-            "after": "../../img/554f09d28e95e28c9474776e3ad44428e4eb65d01b1a9e6bb061265f82a05ef5.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -2021,16 +2097,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Bash · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/41d35ea222dbcadcc2138806d61cd7a76261589694e1b02a3c29a693e0518633.png",
-        "after": "../../img/41d35ea222dbcadcc2138806d61cd7a76261589694e1b02a3c29a693e0518633.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/91c2669eb3e89a79bf3f3da015ae8675e5a7e0120a64007bdf68d21a838d330a.png",
+        "difference": "../../img/f6926417f667e7e79881e7e6fea51abdce0507f96b918732c8d5c988154c2c0d.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2039,16 +2134,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic PowerShell · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/b936bd60a86e9900b0f40fe7f84bf974a3e88223490ef7f32882c88ddb4cc608.png",
-        "after": "../../img/b936bd60a86e9900b0f40fe7f84bf974a3e88223490ef7f32882c88ddb4cc608.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/bffa3d6f6b40a5b5d705ef433b541eec44d9f177cb779a3957749a194170536a.png",
+        "difference": "../../img/80642c7e21fa956c4bcca2c44f5a2b3898e1cd5171a6ee6467a26d098d738e13.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2057,16 +2171,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Read · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/9fc95193e4b1748f324ba54b86fd83ba40eb4c81eecefa61c21c8d8eb9fb1080.png",
-        "after": "../../img/9fc95193e4b1748f324ba54b86fd83ba40eb4c81eecefa61c21c8d8eb9fb1080.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/9309c50e1e71440e3d0eb7d616347e631862e07e1cf01ace6a47fb2770e533c2.png",
+        "difference": "../../img/9a16e1ad9c1a22077e9f8a346dd7629ece5ede2b20ea47d154f1de03744f0149.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2075,16 +2208,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Edit · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 115,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/bfe54794497d22d08549a78cabb4a6d7957a84e91305d3f4360603048a19c267.png",
-        "after": "../../img/bfe54794497d22d08549a78cabb4a6d7957a84e91305d3f4360603048a19c267.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/88121e40773e5c901fe7f2869c5bead6cacfbf534c5712c885e9345b30080032.png",
+        "difference": "../../img/269acb9bcbf4f64d5ec3b23e004b85b57083aceb497a4ed0ed54a4dcdb2caaa7.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 32,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/503bd29b7b9cbc2afaa0cb4e1ee8d4fec3e4c131233c3ccfffcada3f9d9aa6c2.png",
+            "after": "../../img/234433b89118de2222fdd0b29103eeda0145bf548cec8087824a6d17d470ed07.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2093,16 +2245,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Write · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/45503c6a223b26288672ba015e422249ae85b722adfa5545275515083e368b34.png",
-        "after": "../../img/45503c6a223b26288672ba015e422249ae85b722adfa5545275515083e368b34.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/c70ebc0bff879731449b9df41782b40a3372457588ee8f66a0323cb2bcfd10f3.png",
+        "difference": "../../img/74775a6fd1b756ec0ea905ab8ad986326fca15146f91fe11b96a23ae7c03eb48.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2111,16 +2282,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Write · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 90,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/0e0376d825c4a00ea3aea7628f963b24e55e41906cc962a264445a3df650d841.png",
-        "after": "../../img/0e0376d825c4a00ea3aea7628f963b24e55e41906cc962a264445a3df650d841.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/a442a8f2cb945a1bea5723f56ebd80072f00c33e923c7ac0edbfc2c6818e5133.png",
+        "difference": "../../img/86416e84a7397335316c6ff76a182f397b80d1b09d20e172315ec779652a8deb.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 7,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/bac3fe0ed52c02afceacc59f4510ab05bdb3c345764d8d2701dcf0781128c55b.png",
+            "after": "../../img/242d3f6452067108175587b86baf99eac03798b103416f456a1c96eb8e664bdb.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2129,16 +2319,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic MultiEdit · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 90,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-overwrite",
       "images": {
         "before": "../../img/780cc2a7c482d76ff0e64561a716d1ce484654db6312d8c2b80cef0fec619f5f.png",
-        "after": "../../img/780cc2a7c482d76ff0e64561a716d1ce484654db6312d8c2b80cef0fec619f5f.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/645963bb15e8045fe544549601dd3d26d87a5a96aaef2338f5510012bf71ceb5.png",
+        "difference": "../../img/c7bea67ee1fda44483c7b86463c587c6620acddd482d19604bf17f9efbaf4af0.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 7,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/bac3fe0ed52c02afceacc59f4510ab05bdb3c345764d8d2701dcf0781128c55b.png",
+            "after": "../../img/242d3f6452067108175587b86baf99eac03798b103416f456a1c96eb8e664bdb.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2147,16 +2356,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Grep · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/caa5c503c932b107129bfdaecc8c27aecb5b56d8d78ab82dc6e2e5e6da2f62d5.png",
-        "after": "../../img/caa5c503c932b107129bfdaecc8c27aecb5b56d8d78ab82dc6e2e5e6da2f62d5.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/5e26f1c84dd568c8e7179a0a7c460e87cb8bd973106147f53960d510509a03b2.png",
+        "difference": "../../img/758bfdcbbef2f7ec5a3393f89d868b5419781c015368674b1ccc40df8d1457aa.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2165,16 +2393,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Glob · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 116,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/0493b008678a2960855868902b4faa296e013f123724af17e353820b9394331e.png",
-        "after": "../../img/0493b008678a2960855868902b4faa296e013f123724af17e353820b9394331e.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/7cc6da1cfe2d5793a4511b3aaace79e3ecd9b88ae67efec00921877cef504068.png",
+        "difference": "../../img/13df05b0f66ca580b79d42af85399ef43ede525eeb3c1136e10663b1d47bebfb.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 33,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/1e21be9a7b97a47a671ead3fc18c1571ded81313836bd8af91d5d8073f535542.png",
+            "after": "../../img/1286e3997254558cdc59ee8700b2e9a157c450a85444c3fdaa338152ed98d944.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2183,16 +2430,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Agent · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/ccc33d176f946130c46676afff11cfe8c2b9248c8cf19dd4e79b7d7c73f934ab.png",
-        "after": "../../img/ccc33d176f946130c46676afff11cfe8c2b9248c8cf19dd4e79b7d7c73f934ab.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/4acf959a37704ab7a67998b1ccef2f169fcf1c3bc94419e5e5cf587bc2d5f498.png",
+        "difference": "../../img/e4611d7c4a19dcc0a5b069438550b816d196e73b8abbc1991f18b7339afce869.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2201,16 +2467,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic SendMessage · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 147,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/6087041d7060091f9f5f3973cf2c31d501b493490e9da0dbaa662259d69fe9df.png",
-        "after": "../../img/6087041d7060091f9f5f3973cf2c31d501b493490e9da0dbaa662259d69fe9df.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/98d508dacc7e84c286c2cab58e4480c1c2723af46b01a8bff5a7ca7b0d11a165.png",
+        "difference": "../../img/589e1e888b8de2d30c559948376498937dad8d8209821e814bf6251b76a14753.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 64,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/785826be83bc9910acac152dd6729ad55da0e8b05f027b5e7fc8217d44c4fec8.png",
+            "after": "../../img/1d2a7aacd76a3d05a2ae8addd514229fa7371ad5acd4779e37dab7f672c33422.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2219,16 +2504,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic TaskStop · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/62a7b687f1576f154fec33aef821c4b684a6f7f25184e8858bd967b8426d3e26.png",
-        "after": "../../img/62a7b687f1576f154fec33aef821c4b684a6f7f25184e8858bd967b8426d3e26.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/53be438891a73e7f7535ef473e500289abb983cf4f3d573171465f7a4ee5ca3d.png",
+        "difference": "../../img/1254d140e3b15016adc123b9edcedaf0a9e4409e384927723b582c72cda7b0b2.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2237,16 +2541,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic TaskStop · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/15c10fedae30fbcbc1c564709b16700aa5a4a760da0a1cbe90d675bbf3df96d3.png",
-        "after": "../../img/15c10fedae30fbcbc1c564709b16700aa5a4a760da0a1cbe90d675bbf3df96d3.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/04a00e277fb2306acf7a0747fb053abce1c766a49796a99e40647c638306e1d6.png",
+        "difference": "../../img/c279f8cd5050c2aad0ed523df52d01f0f9143ec8bad4f9aed14614a9e9fa2fcc.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2255,16 +2578,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic KillShell · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/97ca0728495cb568d4e08dbb95740168736c6cdf5a94466138eb02dc0716b96a.png",
-        "after": "../../img/97ca0728495cb568d4e08dbb95740168736c6cdf5a94466138eb02dc0716b96a.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/e1f3417f0ae11a80fc51a2576df474421a38d3bc17db8ce27549764a8014126e.png",
+        "difference": "../../img/d26fedeaba90c7014dca650dd2f47c180c3d08a88515427fc61dc4e628926ac9.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2273,16 +2615,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic WebFetch · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/96a6ffb83c6ae52b7ac3bb7177821d3afe756b05f516efbf4e91f6af66f01d24.png",
-        "after": "../../img/96a6ffb83c6ae52b7ac3bb7177821d3afe756b05f516efbf4e91f6af66f01d24.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/83cb47b2b0b18f51a83fe404f210cbd89895d35887ae6f96db1bb3fef628129f.png",
+        "difference": "../../img/d816d4a5ae9d83ea916c2a2af4b4be2fa472713b96a2d5eb6071721111016ee9.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2291,16 +2652,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic WebSearch · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5792,
+      "percent": 0.41898148148148145,
+      "areas": [
+        {
+          "x": 498,
+          "y": 90,
+          "width": 171,
+          "height": 34,
+          "pixels": 5792
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-overwrite",
       "images": {
         "before": "../../img/d6bcafba60366436e94a77dbce9f0950137393e0280ae7e10cb18b806a9e4a12.png",
-        "after": "../../img/d6bcafba60366436e94a77dbce9f0950137393e0280ae7e10cb18b806a9e4a12.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/2629624cb85c46a2cbb1d372edcc6682668df9fccda231bab70ceca4db9b57ae.png",
+        "difference": "../../img/0d20f7e4de917aa4b8c430fcf765c18ccd865968eae4afb07b8f2082e7a9287a.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 7,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/4daec39b54579004c62e865eb37e68e44995f5a8e4accc03338b58c6cb64b709.png",
+            "after": "../../img/0ac406f3945cdaba7cbd0dc59f605a8fe09a607513dcf7d82c1cc489f819a188.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2309,16 +2689,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Skill · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/90e24552920d228dc0e531b8b0e32787d52b91267b800d8ce87d8ad0259f7012.png",
-        "after": "../../img/90e24552920d228dc0e531b8b0e32787d52b91267b800d8ce87d8ad0259f7012.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/1cc70b85c39bd5c62ce05be7d74c964f485a6a17da84419f985631e854a53bea.png",
+        "difference": "../../img/6c910041325244cc443bf0cfbcb2436fa2f51c1c45cc63904322c1e5508ce207.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2327,16 +2726,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic AskUserQuestion · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 114,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-edit",
       "images": {
         "before": "../../img/02ee5e111c547a808df0954c4b7fe795173d2465ce235a0efa96ed93c111fd8a.png",
-        "after": "../../img/02ee5e111c547a808df0954c4b7fe795173d2465ce235a0efa96ed93c111fd8a.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/1e18fe7174010835f00d157fcdb86dde814325fa32b4fecda2dd5a02322db4b5.png",
+        "difference": "../../img/67c0a203d122c96358d7e98cc3992cfae0395a391bc888752c228fc9875a4ba6.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 31,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/8d80215b6ad8d4e1de53b23f8f0587de5af479ea161f0ae4d8d801f14e660cad.png",
+            "after": "../../img/958000267d8258d2fc6f10521027a138fe974bb7e5fdde5bbfbb56827c863486.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2345,16 +2763,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic mcp__synthetic__lookup · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/aa0921343404d9070ebc52a8cfa5365ec26958fb86c76d8341c84bc382664593.png",
-        "after": "../../img/aa0921343404d9070ebc52a8cfa5365ec26958fb86c76d8341c84bc382664593.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/869b998d0c6d33dbb288f9cb682457cffcf0736def6c20ba3122be1f7e5db7a1.png",
+        "difference": "../../img/e4e1fae6748846d181c73a462b93adf7e86d00c38091e3794125ce93db9ca0d4.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -2363,16 +2800,35 @@
       "group": "rich-tools",
       "route": "/session/c1a0de00-0000-4000-8000-000000000004/conversation",
       "state": "Synthetic Monitor · complete result",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 5794,
+      "percent": 0.4191261574074074,
+      "areas": [
+        {
+          "x": 498,
+          "y": 159,
+          "width": 171,
+          "height": 34,
+          "pixels": 5794
+        }
+      ],
+      "sameAreasAs": "rich-tool-claude-bash",
       "images": {
         "before": "../../img/1db8a11c28f6c9734bf6cee18702d0301864bc763e59741ca5f3b9ea845691db.png",
-        "after": "../../img/1db8a11c28f6c9734bf6cee18702d0301864bc763e59741ca5f3b9ea845691db.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/c2aaa383a4cb682b20e706d9d83c28e04e372486d3c46dfb9ae6918ffdbdbc95.png",
+        "difference": "../../img/9010937556357adef60bed137c310a89a4d5f36797a6eb528289351e1ba5f229.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 344,
+              "y": 76,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/d3ae7eaaa8989a1e3eddaa44058a39b85692644414299b587cbf99e477f34be8.png",
+            "after": "../../img/f9caed1909c71080b144c1b9cd77f5e260b9a4593ae29f3b69a9523eed79dd54.png"
+          }
+        ]
       },
       "limitations": []
     }
