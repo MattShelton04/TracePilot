@@ -9,22 +9,25 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
-- **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions in the session list, Conversation, Metrics, Analytics, Search and Export. Cost shows as an estimated API-equivalent USD and is never added to AI Credits. Turn it on in **Settings → Claude Code** or during first-run setup.
+- **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions in the session list, Conversation, Metrics, Analytics, Search and Export. Cost shows as an estimated API-equivalent USD. Turn it on in **Settings → Claude Code** or during first-run setup; that section also explains Claude Code's 30-day transcript cleanup.
 - **Claude Code live state and resume** — Running Claude Code sessions show **Busy** or **Waiting**, and **Resume in Terminal** reopens a session in its working directory.
-- **Background task results** — Background agents and shells show how they finished on the card that started them, and notifications that wake an idle Claude Code session read as short cards.
+- **Update check in the version popup** — Clicking the version number checks for and installs updates.
+- **Background task results** — Background agents and shells show how they finished on the card that started them, notifications that wake an idle Claude Code session read as short cards, and agents that never reported show **No final report**.
 
 ### Changed
 
-- **Source switch** — Sessions, Analytics and Search switch between All, Copilot and Claude Code. Search also accepts `source:copilot` and `source:claude`.
-- **Project folders** — Sessions without a repository show and filter by their working folder, and session search also matches folders and models.
+- **Source switch** — Sessions, Analytics and Search switch between All, Copilot and Claude Code. Search also accepts `source:copilot` and `source:claude`, and shows Claude Code's own tool names.
+- **Project folders** — Sessions without a repository show and filter by their working folder, including in the session header, and session search also matches folders and models.
 - **Models page charts** — Four charts (Cost Efficiency, Token Share vs Spend Share, Model Profiles and Model Mix Over Time) replace the Capability Radar and Cost vs Token Volume charts.
-- **Faster first index** — First-time indexing uses several cores, most noticeably for large Claude Code histories.
+- **Cost across sources** — With both sources, Analytics and Models add cost in USD, counting AI Credits at $0.01 each.
+- **Format diagnostics** — Copilot CLI and Claude Code format diagnostics live in **Settings → Logs & Diagnostics**.
+- **Faster indexing and search** — First-time indexing uses several cores, and Search filters and export previews load from cache until the index changes.
 - **Model pricing** — Refreshed Copilot rates for 10 October 2026, adding Claude Haiku 5.5.
 
 ### Fixed
 
 - **macOS and Linux** — Detect & Connect and Launch UI Server work outside Windows, and a slow login shell no longer delays launching from the Dock.
-- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, and Code Impact counts a file once whichever slashes its path uses.
+- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, and Analytics refreshes in place after a reindex.
 
 ### Removed
 

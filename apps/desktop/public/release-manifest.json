@@ -4,17 +4,19 @@
       "added": [
         "Claude Code sessions (experimental): View Claude Code sessions alongside Copilot CLI sessions. Turn it on in Settings → Claude Code",
         "Resume in Terminal: Reopen a Claude Code session in its working directory",
-        "Background task results: Background agents and shells show how they finished on the card that started them"
+        "Update check: Click the version number to check for and install updates",
+        "Background task results: Background agents and shells show how they finished on the card that started them; unreported agents show No final report"
       ],
       "changed": [
         "Source switch: Sessions, Analytics and Search switch between All, Copilot and Claude Code",
         "Project folders: Sessions without a repository show and filter by their working folder",
         "Models page charts: Four new charts compare cost, spend share, model profiles and model mix",
-        "Faster first index: First-time indexing uses several cores"
+        "Cost across sources: Analytics and Models add cost in USD, counting AI Credits at $0.01 each",
+        "Faster indexing and search: First-time indexing uses several cores, and Search filters are cached"
       ],
       "fixed": [
         "macOS and Linux: Detect & Connect and Launch UI Server work outside Windows",
-        "Smaller fixes: Billions read as 12.6B, and old sessions drop the stale cache chip"
+        "Smaller fixes: Billions read as 12.6B, old sessions drop the stale cache chip, and Claude Code cost includes resumed agents"
       ]
     },
     "requiresReindex": false
