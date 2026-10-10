@@ -201,6 +201,7 @@ defineExpose({ revealEvent });
                 :completion-label="completionLabel"
                 :find-tool-call-index="findToolCallIndex"
                 :get-args-summary="getArgsSummary"
+                :show-turn-label="!turn.notifications?.length && !turn.userMessage"
                 @load-full-result="handleLoadFullResult"
                 @retry-full-result="handleRetryResult"
                 @select-subagent="panel.selectSubagent"

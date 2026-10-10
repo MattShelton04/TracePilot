@@ -233,6 +233,17 @@ export function formatRowCostShort(row: ModelRow): string {
 }
 
 /**
+ * A row's cost-column value in the active normalisation mode, always in the
+ * row's own unit: AI Credits say "AIC", USD estimates "$", shares "%".
+ */
+export function formatRowCostNorm(row: ModelRow, mode: NormMode): string {
+  if (mode === "raw") return formatRowCostShort(row);
+  const value = row.billedInAiCredits ? row.aiCredits : row.costUsd;
+  if (mode === "per-10m-tokens" && row.billedInAiCredits) return formatAiCredits(value);
+  return formatNorm(value, !row.billedInAiCredits, mode);
+}
+
+/**
  * Where a row's cost comes from. An unpriced row says so instead of
  * claiming an estimate.
  */

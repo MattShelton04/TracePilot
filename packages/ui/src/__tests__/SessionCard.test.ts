@@ -86,6 +86,23 @@ describe("SessionCard", () => {
     expect(wrapper.text()).toContain("claude-opus-4.6");
   });
 
+  it("names a Claude Code model the way Analytics and Models do", () => {
+    const badge = (session: SessionListItem) =>
+      mount(SessionCard, { props: { session } }).get(".badge-done");
+    const claude = badge(
+      makeSession({ id: "cc", source: "claudeCode", currentModel: "claude-opus-5-5" }),
+    );
+    expect(claude.text()).toBe("claude-opus-5.5");
+    expect(claude.attributes("title")).toBe("claude-opus-5-5");
+    // Copilot ids and models the Claude registry does not know are shown as recorded.
+    expect(badge(makeSession({ id: "c", currentModel: "claude-opus-5-5" })).text()).toBe(
+      "claude-opus-5-5",
+    );
+    expect(
+      badge(makeSession({ id: "u", source: "claudeCode", currentModel: "claude-next-1" })).text(),
+    ).toBe("claude-next-1");
+  });
+
   it("shows repository and branch badges", () => {
     const wrapper = mount(SessionCard, {
       props: {
@@ -158,6 +175,28 @@ describe("SessionCard", () => {
       "Claude Code is waiting for input",
     ]);
     expect(badge(makeSession({ id: "u", ...claude }))?.[0]).toBe("Active");
+  });
+
+  it("styles Waiting apart from Busy and keeps the Claude tint while running", () => {
+    const card = (runStatus?: "busy" | "waiting") =>
+      mount(SessionCard, {
+        props: {
+          session: makeSession({ id: "r", source: "claudeCode", isRunning: true, runStatus }),
+        },
+      });
+    const busy = card("busy");
+    expect(busy.get(".active-badge").classes()).toContain("badge-success");
+    expect(busy.classes()).toEqual(
+      expect.arrayContaining(["card--active", "session-card--claude"]),
+    );
+    expect(busy.classes()).not.toContain("card--waiting");
+
+    const waiting = card("waiting");
+    expect(waiting.get(".active-badge").classes()).toContain("badge-warning");
+    expect(waiting.classes()).toEqual(
+      expect.arrayContaining(["card--active", "card--waiting", "session-card--claude"]),
+    );
+    expect(waiting.get(".active-dot").classes()).toContain("active-dot--waiting");
   });
 
   it("shows a folder chip from the cwd only when there is no repository", () => {

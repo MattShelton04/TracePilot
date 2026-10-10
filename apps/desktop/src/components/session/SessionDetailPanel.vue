@@ -12,6 +12,7 @@ import { getSessionLiveness, openInExplorer, resumeSessionInTerminal } from "@tr
 import {
   resumeCommand as buildResumeCommand,
   isNonCopilotSource,
+  modelDisplayName,
   type RunStatus,
   runStatusBadge,
   sourceLabel,
@@ -134,6 +135,8 @@ const liveBadge = computed(() => {
     }
   );
 });
+/** Waiting for input reads apart from working; streaming wins over both. */
+const isWaiting = computed(() => runStatus.value === "waiting" && liveBadge.value.label !== "Live");
 const confirmingCopy = ref(false);
 const confirmingResume = ref(false);
 
@@ -330,13 +333,13 @@ watch(isSessionActive, (active) => {
       <h1 class="detail-title">
         <Transition name="active-indicator">
           <span v-if="isSessionActive" class="active-indicator-group">
-            <span class="active-dot" :title="liveBadge.title" />
+            <span class="active-dot" :class="{ 'active-dot--waiting': isWaiting }" :title="liveBadge.title" />
           </span>
         </Transition>
         {{ store.detail.summary || 'Untitled Session' }}
         <Transition name="active-indicator">
           <span v-if="isSessionActive" class="active-indicator-group">
-            <Badge variant="success" class="active-badge-inline" :title="liveBadge.title">
+            <Badge :variant="isWaiting ? 'warning' : 'success'" class="active-badge-inline" :title="liveBadge.title">
               ● {{ liveBadge.label }}
             </Badge>
           </span>
@@ -346,7 +349,7 @@ watch(isSessionActive, (active) => {
         <Badge v-if="isNonCopilotSource(source)" variant="claude" title="Session source">{{ sourceName }}</Badge>
         <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
         <Badge v-if="store.detail.branch" variant="success">{{ store.detail.branch }}</Badge>
-        <Badge v-if="currentModel" variant="done">{{ currentModel }}</Badge>
+        <Badge v-if="currentModel" variant="done" :title="currentModel">{{ modelDisplayName(currentModel, source) }}</Badge>
         <Badge v-if="currentEffort" variant="neutral" title="Main agent reasoning effort">{{ effortLabel(currentEffort) }}</Badge>
         <Badge v-if="store.detail.hostType || !isNonCopilotSource(source)" variant="neutral">{{ store.detail.hostType || 'cli' }}</Badge>
       </div>
@@ -478,6 +481,10 @@ watch(isSessionActive, (active) => {
   animation: pulse-active 2s ease-in-out infinite;
   overflow: visible;
   position: relative;
+}
+
+.active-dot--waiting {
+  background: var(--warning-fg);
 }
 
 @keyframes pulse-active {

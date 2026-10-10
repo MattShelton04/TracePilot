@@ -3,6 +3,7 @@ import {
   CLAUDE_CODE_PRICING,
   calculateClaudeCodeTokenCost,
   claudeCodeModelFamily,
+  modelDisplayName,
 } from "../src/claude-code-pricing.js";
 import { PRICING_REGISTRY, resolvePricingEntry } from "../src/pricing.js";
 
@@ -59,6 +60,15 @@ describe("isolated Claude Code pricing", () => {
     });
     expect(cost.totalCost).toBeCloseTo((10 * 0.8 + 5 * 4) / 1e6, 12);
     expect(cost.aiCredits).toBeNull();
+  });
+});
+
+describe("modelDisplayName", () => {
+  it("names a known Claude Code id by its family and leaves the rest as recorded", () => {
+    expect(modelDisplayName("claude-opus-5-5", "claudeCode")).toBe("claude-opus-5.5");
+    expect(modelDisplayName("claude-opus-5-5-fast", "claudeCode")).toBe("claude-opus-5-5-fast");
+    expect(modelDisplayName("claude-opus-5-5", "copilot")).toBe("claude-opus-5-5");
+    expect(modelDisplayName("gpt-5", undefined)).toBe("gpt-5");
   });
 });
 

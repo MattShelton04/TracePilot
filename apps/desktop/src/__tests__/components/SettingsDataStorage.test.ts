@@ -11,6 +11,20 @@ import {
 } from "./settingsDataStorageFixture";
 
 describe("SettingsDataStorage paths and maintenance", () => {
+  it("rereads the session count and index size when indexing finishes", async () => {
+    const wrapper = mountSettingsDataStorage();
+    await flushPromises();
+    const exposed = wrapper.vm as unknown as { indexedSessionCount: number };
+    expect(exposed.indexedSessionCount).toBe(12);
+
+    // Enabling a source reindexes; the About count must follow without a remount.
+    mocks.getSessionCount.mockResolvedValue(21);
+    mocks.indexing.onFinished?.();
+    await flushPromises();
+    expect(exposed.indexedSessionCount).toBe(21);
+    expect(mocks.getDbSize).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps path controls locked until the initial config arrives", async () => {
     const pending = deferred<ReturnType<typeof config>>();
     mocks.getConfig.mockReturnValue(pending.promise);

@@ -12,7 +12,13 @@ import type { PromptCacheTimeline } from "@tracepilot/types";
 import { formatTime } from "@tracepilot/types";
 import { computed, type MaybeRefOrGetter, toValue } from "vue";
 import { useLiveClock } from "@/composables/useLiveClock";
-import { findLiveWindow, formatCountdown, formatIdle, liveCacheStatus } from "@/utils/promptCache";
+import {
+  findLiveWindow,
+  formatCountdown,
+  formatIdle,
+  isStaleCacheWindow,
+  liveCacheStatus,
+} from "@/utils/promptCache";
 
 export function useLiveCacheStatus(timeline: MaybeRefOrGetter<PromptCacheTimeline | null>) {
   const { now } = useLiveClock(1000);
@@ -23,6 +29,10 @@ export function useLiveCacheStatus(timeline: MaybeRefOrGetter<PromptCacheTimelin
   );
   const status = computed(() =>
     window.value?.expiresAt ? liveCacheStatus(window.value.expiresAt, now.value.getTime()) : null,
+  );
+  /** Idle for over a day past any TTL: too old for a countdown to help. */
+  const stale = computed(
+    () => window.value != null && isStaleCacheWindow(window.value, now.value.getTime()),
   );
 
   /**
@@ -73,5 +83,5 @@ export function useLiveCacheStatus(timeline: MaybeRefOrGetter<PromptCacheTimelin
       .join(" · ");
   });
 
-  return { window, status, unknown, estimated, label, description, tooltip };
+  return { window, status, unknown, estimated, stale, label, description, tooltip };
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatPercent } from "@tracepilot/types";
 import { computed } from "vue";
-import { formatRowCostShort } from "@/composables/modelComparison/metrics";
+import { formatRowCostNorm } from "@/composables/modelComparison/metrics";
 import { type SortKey, useModelComparisonContext } from "@/composables/useModelComparison";
 import { formatIdle } from "@/utils/promptCache";
 
@@ -19,7 +19,8 @@ const sortColumns = computed<{ key: SortKey; label: string; title?: string }[]>(
     ? {
         key: "aiCredits",
         label: "Cost",
-        title: "AI Credits for Copilot models; estimated USD, not a bill, for others",
+        title:
+          "AI Credits for Copilot models; estimated USD, not a bill, for others. Sorted by API-equivalent USD (1 AIC = $0.01).",
       }
     : { key: "aiCredits", label: "AI Credits" },
 ]);
@@ -123,11 +124,7 @@ const sortColumns = computed<{ key: SortKey; label: string; title?: string }[]>(
             </td>
             <td class="num-cell matrix-cost-cell">
               <span class="matrix-cost-value">
-                {{
-                  ctx.normMode === 'raw'
-                    ? formatRowCostShort(row)
-                    : ctx.fmtNorm(row.billedInAiCredits ? row.aiCredits : row.costUsd, !row.billedInAiCredits)
-                }}
+                {{ formatRowCostNorm(row, ctx.normMode) }}
               </span>
             </td>
           </tr>

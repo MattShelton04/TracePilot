@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SessionListItem, SessionSectionsInfo } from "@tracepilot/types";
-import { Badge } from "@tracepilot/ui";
+import { isNonCopilotSource, modelDisplayName, sourceLabel } from "@tracepilot/types";
+import { Badge, projectLabelFromCwd } from "@tracepilot/ui";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from "vue";
 import { filterSessionsBySubstring } from "@/utils/sessions";
 
@@ -25,12 +26,24 @@ const instructionsId = `${listboxId}-instructions`;
 const filteredSessions = computed(() =>
   filterSessionsBySubstring(props.sessions, sessionSearchQuery.value),
 );
+/** The repository, else the working directory's folder; null when neither is known. */
+function projectOf(session: SessionListItem): string | null {
+  return session.repository || projectLabelFromCwd(session.cwd);
+}
+
+function sessionName(session: SessionListItem): string {
+  return session.summary || session.id.slice(0, 12);
+}
+
+/** "Name — project", or just the name when nothing identifies the project. */
+function sessionTitle(session: SessionListItem): string {
+  const project = projectOf(session);
+  return project ? `${sessionName(session)} — ${project}` : sessionName(session);
+}
+
 const inputValue = computed(() => {
   if (sessionDropdownOpen.value) return sessionSearchQuery.value;
-  const session = props.selectedSession;
-  return session
-    ? `${session.summary || session.id.slice(0, 12)} — ${session.repository ?? "unknown"}`
-    : "";
+  return props.selectedSession ? sessionTitle(props.selectedSession) : "";
 });
 const activeIndex = computed(() =>
   filteredSessions.value.findIndex((session) => session.id === activeSessionId.value),
@@ -167,7 +180,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onOutsidePoint
           :class="{ selected: s.id === selectedSessionId, active: s.id === activeSessionId }"
           role="option"
           :aria-selected="s.id === selectedSessionId"
-          :title="`${s.summary || s.id} — ${s.repository ?? 'unknown'} (${s.id})`"
+          :title="`${sessionTitle(s)} (${s.id})`"
           @mousedown.prevent
           @click="onSelect(s.id)"
         >
@@ -175,16 +188,21 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", onOutsidePoint
             {{ s.summary || s.id.slice(0, 12) }}
           </div>
           <div class="session-dropdown-meta">
-            {{ s.repository ?? 'unknown' }}
-            <span v-if="s.currentModel"> · {{ s.currentModel }}</span>
+            {{ [projectOf(s), s.currentModel && modelDisplayName(s.currentModel, s.source)].filter(Boolean).join(' · ') || sourceLabel(s.source) }}
           </div>
         </div>
       </div>
     </div>
     <div v-if="selectedSession" class="session-info">
       <div class="session-info-badges">
-        <Badge variant="accent">{{ selectedSession.repository ?? '—' }}</Badge>
-        <Badge variant="neutral">{{ selectedSession.currentModel ?? '—' }}</Badge>
+        <Badge v-if="isNonCopilotSource(selectedSession.source)" variant="claude" title="Session source">{{ sourceLabel(selectedSession.source) }}</Badge>
+        <Badge v-if="selectedSession.repository" variant="accent">{{ selectedSession.repository }}</Badge>
+        <Badge
+          v-else-if="projectOf(selectedSession)"
+          variant="neutral"
+          :title="selectedSession.cwd ?? undefined"
+        >{{ projectOf(selectedSession) }}</Badge>
+        <Badge v-if="selectedSession.currentModel" variant="neutral" :title="selectedSession.currentModel">{{ modelDisplayName(selectedSession.currentModel, selectedSession.source) }}</Badge>
       </div>
       <div v-if="sectionsInfo" class="session-info-stats">
         <span v-if="sectionsInfo.turnCount != null">{{ sectionsInfo.turnCount }} turns</span>

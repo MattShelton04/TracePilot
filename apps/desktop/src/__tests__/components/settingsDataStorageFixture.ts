@@ -26,6 +26,8 @@ const mocks: {
   fetchSessions: Mock;
   resetAnalytics: Mock;
   toast: { error: Mock; success: Mock };
+  /** The callbacks the component passed to `useIndexingEvents`. */
+  indexing: { onFinished?: () => void };
 } = vi.hoisted(() => ({
   checkConfigExists: vi.fn(),
   browseForDirectory: vi.fn(),
@@ -46,6 +48,7 @@ const mocks: {
     error: vi.fn(),
     success: vi.fn(),
   },
+  indexing: {},
 }));
 
 export { mocks };
@@ -79,7 +82,10 @@ vi.mock("@/composables/useBrowseDirectory", () => ({
 }));
 
 vi.mock("@/composables/useIndexingEvents", () => ({
-  useIndexingEvents: () => ({ setup: vi.fn().mockResolvedValue(undefined) }),
+  useIndexingEvents: (callbacks: { onFinished: () => void }) => {
+    mocks.indexing.onFinished = callbacks.onFinished;
+    return { setup: vi.fn().mockResolvedValue(undefined) };
+  },
 }));
 
 vi.mock("@tracepilot/ui", async (importOriginal) => {
