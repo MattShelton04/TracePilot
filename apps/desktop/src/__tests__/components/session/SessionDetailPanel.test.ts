@@ -84,8 +84,12 @@ function createStore(): SessionDetailContext {
 }
 
 describe("SessionDetailPanel", () => {
-  // Panels that read preferences get this pinia explicitly: a store action
-  // left over from an earlier test re-activates that test's pinia.
+  // Every mount and store lookup names this test's pinia. Calling any store
+  // action makes its pinia the active one, and earlier tests leave actions
+  // running on real timers (the sdk store's 500 ms auto-connect calls
+  // `prefs.isFeatureEnabled`). One firing during a later test's `await`
+  // re-activated the old pinia, so a panel mounted without this pinia read
+  // the old test's preferences (auto-refresh off).
   let pinia: Pinia;
   beforeEach(() => {
     pinia = createPinia();
@@ -96,6 +100,7 @@ describe("SessionDetailPanel", () => {
 
   it("keeps Explorer fill-content mode inside the standard constrained page shell", () => {
     const wrapper = mount(SessionDetailPanel, {
+      global: { plugins: [pinia] },
       props: {
         store: createStore(),
         sessionId: "session-1",
@@ -126,12 +131,13 @@ describe("SessionDetailPanel", () => {
   async function autoRefreshCalls(): Promise<SessionDetailContext> {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
     try {
-      const prefs = usePreferencesStore();
+      const prefs = usePreferencesStore(pinia);
       await flushPromises(); // let config hydration finish before overriding it
       prefs.autoRefreshEnabled = true;
       prefs.autoRefreshIntervalSeconds = 5;
       const store = createStore();
       mount(SessionDetailPanel, {
+        global: { plugins: [pinia] },
         props: {
           store,
           sessionId: "session-1",
@@ -164,7 +170,7 @@ describe("SessionDetailPanel", () => {
   });
 
   it("shows recorded cache expiry beside resume controls for an ended session", async () => {
-    const prefs = usePreferencesStore();
+    const prefs = usePreferencesStore(pinia);
     prefs.featureFlags.promptCacheInsights = true;
     const store = createStore();
     store.promptCache = makeTimeline([
@@ -175,6 +181,7 @@ describe("SessionDetailPanel", () => {
       }),
     ]);
     const wrapper = mount(SessionDetailPanel, {
+      global: { plugins: [pinia] },
       props: {
         store,
         sessionId: "session-1",
@@ -200,7 +207,7 @@ describe("SessionDetailPanel", () => {
   async function runningPoll(source: "copilot" | "claudeCode", autoRefreshSeconds?: number) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
     try {
-      const prefs = usePreferencesStore();
+      const prefs = usePreferencesStore(pinia);
       // Config hydration must finish first, or it resets these preferences.
       await prefs.whenReady;
       await flushPromises();
@@ -214,6 +221,7 @@ describe("SessionDetailPanel", () => {
       const status = source === "claudeCode" ? "busy" : null;
       mocks.getSessionLiveness.mockResolvedValue({ state: "running", pid: 7, status });
       const wrapper = mount(SessionDetailPanel, {
+        global: { plugins: [pinia] },
         props: {
           store,
           sessionId: "session-1",
@@ -280,6 +288,7 @@ describe("SessionDetailPanel", () => {
       .mockImplementationOnce(() => new Promise((resolve) => (answerFirst = resolve)))
       .mockResolvedValue({ state: "idle" });
     const wrapper = mount(SessionDetailPanel, {
+      global: { plugins: [pinia] },
       props: {
         store: createStore(),
         sessionId: "session-1",
@@ -304,6 +313,7 @@ describe("SessionDetailPanel", () => {
     const store = createStore();
     if (source) store.detail = { ...store.detail!, source, hostType: null };
     return mount(SessionDetailPanel, {
+      global: { plugins: [pinia] },
       props: {
         store,
         sessionId: "session-1",
@@ -311,7 +321,6 @@ describe("SessionDetailPanel", () => {
         activeSubTab: "overview",
         refreshEnabled: false,
       },
-      global: { plugins: [pinia] },
     });
   }
 
@@ -422,7 +431,7 @@ describe("SessionDetailPanel", () => {
   });
 
   it("keeps Claude Code gating when the detail omits a source the list knows", async () => {
-    useSessionsStore().sessions = [
+    useSessionsStore(pinia).sessions = [
       { id: "session-1", source: "claudeCode", isRunning: false },
     ] as never;
     const wrapper = mountForSource();
