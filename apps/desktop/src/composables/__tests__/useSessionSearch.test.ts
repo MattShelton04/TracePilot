@@ -33,6 +33,7 @@ vi.mock("@tracepilot/ui", async () => {
 const storeState = {
   query: "",
   sessionId: null as string | null,
+  source: null as string | null,
   results: [] as { id: number }[],
   groupedResults: [] as { sessionId: string; sessionSummary: string | null }[],
   resultViewMode: "flat" as "flat" | "grouped",
@@ -82,6 +83,7 @@ vi.mock("@/stores/search", () => ({
   useSearchStore: () => storeState,
 }));
 
+import { useSessionsStore } from "@/stores/sessions";
 import { useSessionSearch } from "../useSessionSearch";
 
 function runComposable() {
@@ -104,6 +106,7 @@ beforeEach(() => {
   storeState.repository = null;
   storeState.toolName = null;
   storeState.sessionId = null;
+  storeState.source = null;
   storeState.dateFrom = null;
   storeState.dateTo = null;
   storeState.error = null;
@@ -118,6 +121,27 @@ describe("useSessionSearch", () => {
     const { api, wrapper } = runComposable();
     expect(api.activeFilterCount.value).toBe(3);
     wrapper.unmount();
+  });
+
+  it("shows the source filter only once two sources have sessions, or one is selected", () => {
+    const sessions = useSessionsStore();
+    sessions.sessions = [{ id: "a" }, { id: "b", source: "copilot" }] as never;
+    const { api, wrapper } = runComposable();
+    expect(api.showSourceFilter.value).toBe(false);
+
+    storeState.source = "claudeCode";
+    wrapper.unmount();
+    const second = runComposable();
+    expect(second.api.showSourceFilter.value).toBe(true);
+    expect(second.api.activeFilterCount.value).toBe(1);
+    second.wrapper.unmount();
+
+    storeState.source = null;
+    sessions.sessions = [{ id: "a" }, { id: "c", source: "claudeCode" }] as never;
+    const third = runComposable();
+    expect(third.api.showSourceFilter.value).toBe(true);
+    expect(third.api.sourceOptions.value).toEqual(["copilot", "claudeCode"]);
+    third.wrapper.unmount();
   });
 
   it("activeContentTypeChips includes both include and exclude modes", async () => {

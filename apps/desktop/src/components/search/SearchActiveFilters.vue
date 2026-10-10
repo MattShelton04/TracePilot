@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SearchContentType } from "@tracepilot/types";
+import { type SearchContentType, type SessionSource, sourceLabel } from "@tracepilot/types";
 import type { ContentTypeStyle } from "@tracepilot/ui";
 
 defineProps<{
@@ -7,6 +7,7 @@ defineProps<{
   repository: string | null;
   toolName: string | null;
   sessionId: string | null;
+  source?: SessionSource | null;
   sessionDisplayName: string | null;
   activeFilterCount: number;
   contentTypeConfig: Record<string, ContentTypeStyle>;
@@ -16,13 +17,14 @@ const emit = defineEmits<{
   "remove-content-type": [type: SearchContentType];
   "clear-repository": [];
   "clear-tool-name": [];
+  "clear-source": [];
   "clear-session-id": [];
   "clear-all": [];
 }>();
 </script>
 
 <template>
-  <div v-if="activeContentTypeChips.length > 0 || repository || toolName || sessionId" class="active-filters-bar">
+  <div v-if="activeContentTypeChips.length > 0 || repository || toolName || sessionId || source" class="active-filters-bar">
     <span class="active-filters-label">Active filters:</span>
     <div class="active-filter-chips">
       <span
@@ -46,6 +48,10 @@ const emit = defineEmits<{
       <span v-if="toolName" class="filter-chip filter-chip-neutral">
         Tool: {{ toolName }}
         <button class="filter-chip-remove" @click="$emit('clear-tool-name')" aria-label="Remove filter">×</button>
+      </span>
+      <span v-if="source" class="filter-chip filter-chip-neutral" data-testid="search-source-chip">
+        Source: {{ sourceLabel(source) }}
+        <button class="filter-chip-remove" @click="$emit('clear-source')" aria-label="Remove filter">×</button>
       </span>
       <span v-if="sessionId" class="filter-chip filter-chip-include">
         Session: {{ sessionDisplayName }}

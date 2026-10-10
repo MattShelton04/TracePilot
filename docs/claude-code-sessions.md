@@ -23,7 +23,9 @@ Where each file lives and when TracePilot opens it is listed in
 Turning the setting on indexes Claude Code sessions only, so Copilot sessions
 are not re-indexed. Once both sources have sessions, the session list shows a
 source badge and a source filter, and the Analytics pages get an
-**All / Copilot / Claude Code** filter.
+**All / Copilot / Claude Code** filter. Search gets the same filter beside its
+sort menu; typing `source:claude` or `source:copilot` in the search box does
+the same, and the filter counts follow it.
 
 Turning the setting off removes Claude Code sessions from TracePilot's index,
 search and analytics, and leaves your Claude Code files alone. Turning it back

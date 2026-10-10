@@ -8,6 +8,7 @@ const baseParsed: ParsedQualifiers = {
   repo: null,
   tool: null,
   session: null,
+  source: null,
   sort: null,
 };
 
@@ -20,6 +21,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
         repository: "org/repo",
         toolName: "shell",
         sessionId: "s1",
+        source: "claudeCode",
         sortBy: "newest",
         isBrowseMode: false,
       },
@@ -30,6 +32,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
     expect(merged.repository).toBe("org/repo");
     expect(merged.toolName).toBe("shell");
     expect(merged.sessionId).toBe("s1");
+    expect(merged.source).toBe("claudeCode");
     expect(merged.sortBy).toBe("newest");
   });
 
@@ -39,6 +42,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
       repository: null,
       toolName: null,
       sessionId: null,
+      source: null,
       sortBy: "relevance",
       isBrowseMode: true,
     });
@@ -53,6 +57,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
         repository: null,
         toolName: null,
         sessionId: null,
+        source: null,
         sortBy: "relevance",
         isBrowseMode: false,
       },
@@ -68,6 +73,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
         repository: null,
         toolName: null,
         sessionId: null,
+        source: null,
         sortBy: "relevance",
         isBrowseMode: false,
       },
@@ -75,7 +81,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
     expect(merged.contentTypes.sort()).toEqual(["error", "tool_call", "user_message"].sort());
   });
 
-  it("qualifier values override slice state for repo/tool/session/sort", () => {
+  it("qualifier values override slice state for repo/tool/session/source/sort", () => {
     const merged = mergeSearchInputs(
       {
         cleanQuery: "x",
@@ -83,6 +89,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
         repo: "qual/repo",
         tool: "qualtool",
         session: "qual-session",
+        source: "copilot",
         sort: "oldest",
       },
       {
@@ -90,6 +97,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
         repository: "ui/repo",
         toolName: "uitool",
         sessionId: "ui-session",
+        source: "claudeCode",
         sortBy: "newest",
         isBrowseMode: false,
       },
@@ -97,6 +105,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
     expect(merged.repository).toBe("qual/repo");
     expect(merged.toolName).toBe("qualtool");
     expect(merged.sessionId).toBe("qual-session");
+    expect(merged.source).toBe("copilot");
     expect(merged.sortBy).toBe("oldest");
   });
 
@@ -107,6 +116,7 @@ describe("stores/search/query – mergeSearchInputs", () => {
         repository: null,
         toolName: null,
         sessionId: null,
+        source: null,
         sortBy: "relevance",
         isBrowseMode: true,
       }).searchQuery,

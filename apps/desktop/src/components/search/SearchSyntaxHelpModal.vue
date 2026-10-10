@@ -2,7 +2,7 @@
 import { useOverlayFocus } from "@tracepilot/ui";
 import { ref } from "vue";
 
-const props = defineProps<{ visible: boolean }>();
+const props = defineProps<{ visible: boolean; showSource?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 const panelRef = ref<HTMLElement | null>(null);
 useOverlayFocus({ active: () => props.visible, panel: panelRef, onEscape: () => emit("close") });
@@ -39,6 +39,7 @@ useOverlayFocus({ active: () => props.visible, panel: panelRef, onEscape: () => 
               <div class="syntax-row"><code>repo:myproject</code><span>Filter by repository name</span></div>
               <div class="syntax-row"><code>tool:grep</code><span>Filter by tool name</span></div>
               <div class="syntax-row"><code>session:abc123</code><span>Filter to a specific session</span></div>
+              <div v-if="showSource" class="syntax-row"><code>source:claude</code><span>Filter by source (copilot, claude or claudecode)</span></div>
               <div class="syntax-row"><code>sort:newest</code><span>Sort by newest, oldest, or relevance</span></div>
             </section>
             <section class="syntax-section">

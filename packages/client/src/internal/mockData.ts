@@ -6,9 +6,6 @@ import type {
   ImportPreviewResult,
   ImportResult,
   PromptCacheResponse,
-  SearchFacetsResponse,
-  SearchResultsResponse,
-  SearchStatsResponse,
   SessionLiveness,
   SessionSectionsInfo,
   TurnsResponse,
@@ -123,6 +120,8 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
   const mocks = await getMocks();
   const claudeRoute = mocks.claudeMockRoute(cmd, args);
   if (claudeRoute) return claudeRoute.value as T;
+  const searchRoute = mocks.searchMockRoute(cmd, args);
+  if (searchRoute) return searchRoute.value as T;
   const mockSessionId = typeof args?.sessionId === "string" ? args.sessionId : "mock-id";
 
   const searchQuery = typeof args?.query === "string" ? args.query.toLowerCase() : "";
@@ -278,29 +277,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_session_liveness: { state: "idle" } as SessionLiveness,
     get_log_path: "~/.local/share/dev.tracepilot.app/logs",
     export_logs: "Exported 1 log file(s) to /tmp/tracepilot-logs.txt",
-    // Search commands
-    search_content: {
-      results: [],
-      totalCount: 0,
-      hasMore: false,
-      query: "",
-      latencyMs: 0,
-    } as SearchResultsResponse,
-    get_search_facets: {
-      byContentType: [],
-      byRepository: [],
-      byToolName: [],
-      totalMatches: 0,
-      sessionCount: 0,
-    } as SearchFacetsResponse,
-    get_search_stats: {
-      totalRows: 0,
-      indexedSessions: 0,
-      totalSessions: 0,
-      contentTypeCounts: [],
-    } as SearchStatsResponse,
-    get_search_repositories: [] as string[],
-    get_search_tool_names: [] as string[],
+    // Search queries are routed by `searchMockRoute` (mock/search.ts).
     rebuild_search_index: [0, 0] as [number, number],
     // FTS maintenance commands
     fts_integrity_check: "ok",
