@@ -23,6 +23,7 @@ import {
   LIVE_TOOL_PARTIAL_OUTPUT_KEY,
   MAIN_AGENT_LABEL_KEY,
   PageShell,
+  projectLabelFromCwd,
   SkeletonLoader,
   TabNav,
   useAsyncGuard,
@@ -34,6 +35,7 @@ import {
   Check,
   Clapperboard,
   Clipboard,
+  Folder,
   FolderOpen,
   Play,
   Share,
@@ -272,6 +274,10 @@ const tabs = computed(() => {
 
 const currentModel = computed(() => sessionModel(props.store.detail) ?? "");
 const currentEffort = computed(() => sessionEffort(props.store.detail));
+// A session without a repository is identified by its working directory, as on its list card.
+const projectLabel = computed(() =>
+  props.store.detail?.repository ? null : projectLabelFromCwd(props.store.detail?.cwd),
+);
 
 function onSubTabChange(tab: string) {
   emit("update:activeSubTab", tab);
@@ -348,6 +354,12 @@ watch(isSessionActive, (active) => {
       <div class="detail-badges">
         <Badge v-if="isNonCopilotSource(source)" variant="claude" title="Session source">{{ sourceName }}</Badge>
         <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
+        <Badge
+          v-else-if="projectLabel"
+          variant="neutral"
+          :title="store.detail.cwd ?? undefined"
+          data-testid="session-project-chip"
+        ><Folder :size="12" aria-hidden="true" class="project-chip__icon" />{{ projectLabel }}</Badge>
         <Badge v-if="store.detail.branch" variant="success">{{ store.detail.branch }}</Badge>
         <Badge v-if="currentModel" variant="done" :title="currentModel">{{ modelDisplayName(currentModel, source) }}</Badge>
         <Badge v-if="currentEffort" variant="neutral" title="Main agent reasoning effort">{{ effortLabel(currentEffort) }}</Badge>
@@ -520,6 +532,10 @@ watch(isSessionActive, (active) => {
   gap: 8px;
   margin-bottom: 12px;
   min-width: 0;
+}
+
+.project-chip__icon {
+  flex-shrink: 0;
 }
 .detail-actions {
   display: flex;

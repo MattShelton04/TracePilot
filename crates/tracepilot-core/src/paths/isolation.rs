@@ -30,6 +30,15 @@ pub fn isolated_data_root() -> Result<Option<PathBuf>, DataRootError> {
     Ok(Some(root))
 }
 
+/// Folder under an isolation root that holds the app's log files.
+pub const ISOLATED_LOGS_DIR_NAME: &str = "logs";
+
+/// The log folder of an isolated process, or `None` when the process is not
+/// isolated and logs go to the platform's per-app log folder.
+pub fn isolated_log_dir() -> Result<Option<PathBuf>, DataRootError> {
+    Ok(isolated_data_root()?.map(|root| root.join(ISOLATED_LOGS_DIR_NAME)))
+}
+
 /// Whether a discovered path respects the process's optional isolation boundary.
 /// Invalid isolation settings fail closed instead of exposing real user data.
 pub fn path_is_allowed_by_isolation(path: &Path) -> bool {

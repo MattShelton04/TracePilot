@@ -430,6 +430,39 @@ describe("SessionDetailPanel", () => {
     wrapper.unmount();
   });
 
+  it("shows a folder chip from the cwd only when the session has no repository", async () => {
+    const header = async (detail: { repository: string | null; cwd: string | null }) => {
+      const wrapper = mountForSource("claudeCode");
+      const store = wrapper.props("store");
+      await wrapper.setProps({ store: { ...store, detail: { ...store.detail!, ...detail } } });
+      await flushPromises();
+      const chip = wrapper.find('[data-testid="session-project-chip"]');
+      const result = {
+        chip: chip.exists() ? chip.text() : null,
+        title: chip.exists() ? chip.attributes("title") : null,
+        icon: chip.exists() && chip.find("svg").exists(),
+        badges: wrapper.findAll(".detail-badges .badge").map((b) => b.text()),
+      };
+      wrapper.unmount();
+      return result;
+    };
+
+    expect(await header({ repository: null, cwd: "/work/synthetic/orchard/" })).toEqual({
+      chip: "orchard",
+      title: "/work/synthetic/orchard/",
+      icon: true,
+      badges: ["Claude Code", "orchard", "main"],
+    });
+    expect(await header({ repository: "org/app", cwd: "/work/app" })).toMatchObject({
+      chip: null,
+      badges: ["Claude Code", "org/app", "main"],
+    });
+    expect(await header({ repository: null, cwd: null })).toMatchObject({
+      chip: null,
+      badges: ["Claude Code", "main"],
+    });
+  });
+
   it("keeps Claude Code gating when the detail omits a source the list knows", async () => {
     useSessionsStore(pinia).sessions = [
       { id: "session-1", source: "claudeCode", isRunning: false },

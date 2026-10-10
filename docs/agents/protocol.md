@@ -152,8 +152,8 @@ Everything else, including most small, isolated fixes, needs only your own revie
   pnpm app:stop -Instance <slug>
   ```
   The app opens with setup complete, on the synthetic sessions. To test first-run setup, start a fresh `<slug>` with `-Fixtures -FirstRun`. The fixture generator refuses data it doesn't own. If it does, pick a fresh `<slug>` rather than deleting anything. Diagnostic scripts in `scripts/e2e/` take `--instance <slug>`. See [parallel instances](../app-automation.md#parallel-instances).
-- **The data root isolates files, not the machine.** Process discovery and live auto-attach (on by default) work machine-wide.
-  - Turn auto-attach off in Settings on your instance before exploring.
+- **The data root isolates files, not the machine.** Process discovery and live auto-attach work machine-wide.
+  - Live auto-attach only runs while the experimental Copilot SDK Bridge is on (Settings → Experimental). The bridge is off by default, including on `-Fixtures` instances, so leave it off. If your task needs it, first turn off **Watch terminal sessions automatically** under Settings → Copilot SDK Bridge → Terminal sessions; that section appears only once the bridge is on.
   - Never launch, resume, attach to or stop a real Copilot CLI or SDK session.
   - Never start a `--ui-server` or open external terminals.
   - Never probe real MCP servers or import skills from real repositories.

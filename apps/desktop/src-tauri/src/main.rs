@@ -40,9 +40,9 @@ fn main() {
             _ => log::LevelFilter::Info,
         })
         .unwrap_or(log::LevelFilter::Info);
-    let file_log_target = match tracepilot_core::paths::isolated_data_root() {
-        Ok(Some(root)) => tauri_plugin_log::TargetKind::Folder {
-            path: root.join("logs"),
+    let file_log_target = match tracepilot_core::paths::isolated_log_dir() {
+        Ok(Some(path)) => tauri_plugin_log::TargetKind::Folder {
+            path,
             file_name: Some("TracePilot".into()),
         },
         Ok(None) | Err(_) => tauri_plugin_log::TargetKind::LogDir {

@@ -13,7 +13,7 @@ Read docs/agents/tasks/qa-pass.md and follow it. Focus: the orchestration pages.
 
 ## Explore (about 30% of the effort)
 
-1. **Setup.** On Windows, generate the fixtures and run the native app on them (see *Running the app*), and turn auto-attach off. Use `pnpm app:ui` for mock-backed states that are rich in data. Read `docs/reports/usability-audit-2026-09-12/findings.md` and `design-system/audit/` so you don't re-report known issues.
+1. **Setup.** On Windows, generate the fixtures and run the native app on them (see *Running the app*), leaving the Copilot SDK Bridge off so live auto-attach stays inert. Use `pnpm app:ui` for mock-backed states that are rich in data. Read `docs/reports/usability-audit-2026-09-12/findings.md` and `design-system/audit/` so you don't re-report known issues.
 2. **Smoke pass.** Visit every sidebar route, and the session-detail tabs of one gallery session, **at 1440×960 in the dark theme only**. On each, check that it renders, that its primary action works, and that `console error` is clean. Note anything broken or misleading.
 3. **Deep pass on one area.** Choose the riskiest area from the smoke pass, or the area named in Focus. There, apply the full matrix:
    - 960×640 and 2560×1440;
