@@ -34,7 +34,7 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | `user` human prompt (string/text, not meta, no tool_result) | 194 | `user.message` `{content, interactionId: promptId, source: "user", attachments}` | Opens a user turn. Pasted images become attachments |
 | `user` slash command / `local-command-stdout` | 22 / 19 | `user.message` `{content: "/<name> <args>", source: "command-<name>"}` | Matches Copilot's `command-*` sources (`messages.rs:188-197`). The content is the command as typed, from `<command-name>` and `<command-args>`. A typed `/compact` is written twice: first as plain text (`/compact`, only a `promptId`), then, after the compaction, as the `<command-name>` record. The text opens the command turn and the later record adds nothing (Events tab only; S3 census: all 15 such records). The `<local-command-caveat>` meta record before a command is for the model and is Events-tab only |
 | `user` isMeta (skill context, auto-continuation) | 101 | Never `user.message`. Skill context → `skill.context_delivered`; other meta → `system.message` (§1.1) | A `user.message` always closes the active turn, whatever its `source` (§1.1) |
-| `user` hand-back (`origin.kind: peer`, `handback: true`) | 10 | `subagent.completed` for `origin.from` (agentId → `toolUseId` via meta) plus the agent message | The result text is the subagent's report. No turn |
+| `user` hand-back (`origin.kind: peer`, `handback: true`) | 10 | `subagent.completed` for `origin.from` (agentId → `toolUseId` via meta) plus the agent message | The result text is the subagent's report. No turn. A peer message without `handback` is only the agent message |
 | `user` / `queue-operation` / `attachment:queued_command` with `<task-notification>` | 25 + 50 + 24 | One `system.notification` `{kind.type: agent_completed \| shell_completed, agentId, status}` per notification, de-duplicated across the three carriers (§1.3). Plus `user.message {source: "system"}` only when the notification wakes an idle session (§1.1) | Same shape Copilot uses. `<usage>` gives subagent totals |
 | `user` interrupt marker, `interruptedMessageId` | 9 | `session.warning` `{warningType: "user_interrupt"}`, then `abort` `{reason: "user initiated"}` | Ends the interrupted call (§1.2). The warning makes it an incident in its turn |
 | `user` tool result with `toolDenialKind` | 38 | `tool.execution_complete` (failed), then `session.warning` `{warningType: "tool_denied", denialKind}` | A denial incident. When the same record interrupts the call, it adds no second, interrupt warning |
@@ -110,9 +110,16 @@ Apart from the EOF row, `stop_reason` is not used to decide completeness: it is 
   event in the same stream unless a rule above sets it, such as the skill links. Ids are
   stable across re-parses of an unchanged file.
 - **Duplicate notifications.** One background completion can appear as a `user` record, a
-  `queue-operation` and an `attachment:queued_command`. Key it by (`agentId` or task id,
-  status) and emit one `system.notification` at the first carrier. Later carriers stay
-  native-only on the Events tab; count them in `duplicate_notifications`.
+  `queue-operation` and an `attachment:queued_command`. Key it by (task id, status), or for
+  an agent by (task id, block text), and emit one `system.notification` at the first
+  carrier. Later carriers stay native-only on the Events tab; count them in
+  `duplicate_notifications`.
+- **Resumed agents.** A `SendMessage` result with `resumedAgentId` runs a finished agent
+  again, and that run ends with a new hand-back and a new notification block (whose
+  `tool-use-id` is the `SendMessage` call). Each new block, and the first hand-back after
+  the resume, emits the agent's terminal event again on its launching call. A carrier of
+  the previous completion written after the resume repeats its block, so it stays a
+  duplicate. `write_agent` reopens the agent in Conversation until then.
 - **Visible branch (rewind and edit forks).**
   - A **fork** is a parent record whose children start different interactions, or different
     `message.id`s that are not parallel `tool_use` blocks of one call.

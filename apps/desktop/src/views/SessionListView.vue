@@ -74,7 +74,6 @@ async function prefetchTopSessions() {
   );
 }
 
-const repoOptions = computed(() => store.repositories as string[]);
 // The source filter appears only once more than one source has sessions.
 const showSourceFilter = computed(() => store.sources.length > 1 || store.filterSource !== null);
 const sortOptions = [
@@ -216,7 +215,7 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" data-testid="session-search" />
         </div>
         <div class="toolbar-filters">
-          <FilterSelect v-model="store.filterRepo" :options="repoOptions" placeholder="All Repos" />
+          <FilterSelect v-model="store.filterRepo" :options="store.repositoryOptions" placeholder="All Repos" />
           <SourceSwitch
             v-if="showSourceFilter"
             :model-value="store.filterSource"

@@ -193,3 +193,29 @@ it("shows a task last seen running as running only while the session is live", a
   expect(live.wrapper.find('[data-testid="background-task"]').text()).toContain("Running");
   live.wrapper.unmount();
 });
+
+it("shows the working directory with a copy button for either source, only when recorded", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { ...globalThis.navigator, clipboard: { writeText } });
+  try {
+    const path = "/work/synthetic/orchard";
+    for (const source of ["claudeCode", "copilot"] as const) {
+      store.detail = { id: "s1", source, cwd: path, hasPlan: false, hasCheckpoints: false };
+      const { wrapper } = mountOverview();
+      const value = wrapper.find('[data-testid="session-cwd"]');
+      expect(value.attributes("title")).toBe(path);
+      expect(value.text()).toContain("/work/synthetic/");
+      expect(value.text()).toContain("orchard");
+      await wrapper.find('[data-testid="session-cwd-copy"]').trigger("click");
+      expect(writeText).toHaveBeenLastCalledWith(path);
+      wrapper.unmount();
+    }
+
+    store.detail = { id: "s1", source: "claudeCode", hasPlan: false, hasCheckpoints: false };
+    const { wrapper } = mountOverview();
+    expect(wrapper.findAll("dt").map((dt) => dt.text())).not.toContain("Working directory");
+    wrapper.unmount();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

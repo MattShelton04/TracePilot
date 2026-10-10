@@ -114,8 +114,8 @@ fn spawn_outside_job_win(program: &str, args: &[&str], work_dir: &Path) -> Resul
         format!("\"{}\" {}", program, quoted_args.join(" "))
     };
 
-    let escaped_cmd = cmd_line.replace('\'', "''");
-    let escaped_dir = work_dir.display().to_string().replace('\'', "''");
+    let escaped_cmd = ps_single_quoted(&cmd_line);
+    let escaped_dir = ps_single_quoted(&work_dir.display().to_string());
     let wmi_script = format!(
         "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create \
          -Arguments @{{CommandLine='{escaped_cmd}'; CurrentDirectory='{escaped_dir}'}}; \
@@ -150,6 +150,20 @@ fn spawn_outside_job_win(program: &str, args: &[&str], work_dir: &Path) -> Resul
         .spawn()
         .map_err(|e| OrchestratorError::launch_ctx("Failed to spawn terminal", e))?;
     Ok(child.id())
+}
+
+/// Escape text for a single-quoted PowerShell string. PowerShell also ends
+/// such a string at the typographic single quotes, so those are doubled too.
+#[cfg(windows)]
+fn ps_single_quoted(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for c in text.chars() {
+        if matches!(c, '\'' | '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{201B}') {
+            escaped.push(c);
+        }
+        escaped.push(c);
+    }
+    escaped
 }
 
 // ─── macOS: osascript Terminal.app ──────────────────────────────────
@@ -251,4 +265,13 @@ pub fn spawn_outside_job(
     work_dir: &Path,
 ) -> std::result::Result<u32, OrchestratorError> {
     spawn_detached_terminal(program, args, work_dir, None)
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    #[test]
+    fn single_quotes_of_every_kind_are_doubled() {
+        assert_eq!(super::ps_single_quoted(r"C:\O'Brien"), r"C:\O''Brien");
+        assert_eq!(super::ps_single_quoted("a\u{2019}b"), "a\u{2019}\u{2019}b");
+    }
 }

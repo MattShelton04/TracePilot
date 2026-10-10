@@ -111,6 +111,7 @@ async fn mutate_config(
     let mut previous = loaded.unwrap_or_default();
     previous.normalize_paths();
     let previous_claude_dir = previous.sources.claude_code.config_dir.clone();
+    let previous_claude_cli = previous.sources.claude_code.cli_command.clone();
     let mut cfg = match mutation {
         ConfigMutation::Replace(config) => config,
         ConfigMutation::Patch(patch) => {
@@ -126,6 +127,17 @@ async fn mutate_config(
         let dir = config::canonical_claude_config_dir(&cfg.sources.claude_code.config_dir)
             .map_err(|error| BindingsError::Validation(format!("Claude Code folder: {error}")))?;
         cfg.sources.claude_code.config_dir = dir.to_string_lossy().into_owned();
+    }
+    // Checked again before each use; refusing it here tells the user at once.
+    // A blank command means the default.
+    let claude_cli = &cfg.sources.claude_code.cli_command;
+    if *claude_cli != previous_claude_cli && !claude_cli.trim().is_empty() {
+        crate::validators::validate_cli_command(claude_cli).map_err(|error| match error {
+            BindingsError::Validation(message) => {
+                BindingsError::Validation(format!("Claude Code command: {message}"))
+            }
+            other => other,
+        })?;
     }
     validate_configured_roots(&cfg)?;
     let sources = SourceChanges::between(loaded_config.as_ref(), &cfg);

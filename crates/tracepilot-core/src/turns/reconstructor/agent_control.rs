@@ -55,7 +55,9 @@ impl TurnReconstructor {
         } else {
             status
         };
-        if is_write {
+        // Another provider's follow-up (`native_tool_name`) is ended by that
+        // provider's next terminal event, which reports the whole run.
+        if is_write && control.native_tool_name.is_none() {
             self.followup_agents.insert(owner.clone());
         }
         let Some(agent) = self

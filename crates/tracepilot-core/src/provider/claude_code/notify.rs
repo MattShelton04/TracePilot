@@ -40,6 +40,13 @@ impl TaskNotification {
         )
     }
 
+    /// De-duplication key of an agent's completion: (task id, block text).
+    /// A resumed agent completes again with the same task and status, but
+    /// the carriers of one completion repeat its block.
+    pub(super) fn completion_key(&self) -> (String, String) {
+        (self.key().0, self.text.trim().to_string())
+    }
+
     /// The structured form carried on the `user.message` the block opens.
     pub(super) fn to_data(&self, kind: TaskNotificationKind) -> TaskNotificationData {
         TaskNotificationData {

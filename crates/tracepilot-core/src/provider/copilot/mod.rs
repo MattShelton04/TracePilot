@@ -23,12 +23,14 @@ use crate::summary::{
 };
 
 use super::{
-    Liveness, PlanArtifact, ProviderEvents, ProviderSnapshot, SessionArtifacts, SessionLocator,
-    SessionProvider, SessionRole, SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
+    Liveness, PlanArtifact, ProviderEvents, ProviderSnapshot, ResumeLaunch, SessionArtifacts,
+    SessionLocator, SessionProvider, SessionRole, SessionSource, SourceCapabilities,
+    SourceFingerprint, TodoList,
 };
 
 const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     can_resume: true,
+    can_resume_in_terminal: true,
     can_launch: true,
     can_steer: true,
     has_aic: true,
@@ -269,6 +271,29 @@ impl SessionProvider for CopilotProvider {
         events: &[TypedEvent],
     ) -> Result<SessionSummary> {
         load_session_summary_from_events(&session.primary_path, events)
+    }
+
+    /// `--resume <id>` in the directory `workspace.yaml` records, with
+    /// `--ui-server` when TracePilot should be able to attach to it.
+    fn resume_launch(
+        &self,
+        session: &SessionLocator,
+        live_attach: bool,
+    ) -> Result<Option<ResumeLaunch>> {
+        if session.role != SessionRole::Primary {
+            return Ok(None);
+        }
+        let workspace = SessionPaths::from_root(&session.primary_path).workspace_yaml();
+        let metadata = crate::parsing::workspace::parse_workspace_yaml(&workspace)?;
+        let mut args = vec!["--resume".to_owned(), session.id.to_string()];
+        if live_attach {
+            args.push("--ui-server".to_owned());
+        }
+        Ok(Some(ResumeLaunch {
+            args,
+            cwd: metadata.cwd.map(PathBuf::from),
+            label: "Copilot",
+        }))
     }
 
     fn resolve(&self, id: &SessionId) -> Result<Option<SessionLocator>> {

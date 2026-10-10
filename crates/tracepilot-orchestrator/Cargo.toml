@@ -43,6 +43,11 @@ github-copilot-sdk = { workspace = true }
 specta = { workspace = true, features = ["derive"] }
 tracepilot-workspace-hack = { version = "0.1", path = "../tracepilot-workspace-hack" }
 
+# `process::process_start_time` reads a process's creation time in-process
+# instead of spawning PowerShell for each pid.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading"] }
+
 [dev-dependencies]
 tempfile = { workspace = true }
 

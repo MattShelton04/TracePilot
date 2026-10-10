@@ -79,7 +79,7 @@ describe("createDefaultConfig", () => {
       launchAttachable: true,
     },
     sources: {
-      claudeCode: { configDir: "" },
+      claudeCode: { configDir: "", cliCommand: "claude" },
     },
   };
 

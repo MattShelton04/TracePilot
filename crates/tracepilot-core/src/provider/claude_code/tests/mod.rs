@@ -4,6 +4,7 @@
 mod accounting;
 mod artifacts;
 mod background;
+mod follow_ups;
 mod model_calls;
 mod notifications;
 mod notify;
@@ -45,6 +46,7 @@ fn all_fixtures() -> Vec<(&'static str, SessionFiles)> {
         ("meta_records_idle", fixtures::meta_records(true)),
         ("subagents", fixtures::subagents()),
         ("foreground_agents", fixtures::foreground_agents()),
+        ("agent_follow_ups", fixtures::agent_follow_ups()),
         ("notification_wake", fixtures::notification_wake()),
         ("rewind_fork", fixtures::rewind_fork()),
         ("interrupted_and_live", fixtures::interrupted_and_live()),

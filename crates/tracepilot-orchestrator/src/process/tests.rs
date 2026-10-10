@@ -414,50 +414,27 @@ fn test_execute_with_timeout_missing_both_pipes() {
 }
 
 #[test]
-fn parse_filetime_accepts_only_a_positive_decimal() {
-    assert_eq!(
-        hidden::parse_filetime("134358336789918215\r\n").as_deref(),
-        Some("134358336789918215")
-    );
-    for stray in ["", "0", "-5", "12.5", "Get-Process : error"] {
-        assert_eq!(hidden::parse_filetime(stray), None, "{stray:?}");
-    }
-    // Leading zeros are re-rendered, so the result is canonical.
-    assert_eq!(hidden::parse_filetime("0134").as_deref(), Some("134"));
-}
-
-#[cfg(windows)]
-#[test]
-fn process_start_time_reads_a_live_process_and_rejects_a_missing_one() {
-    // The app's 10 s bound reads a slow PowerShell as a missing process. A
-    // loaded CI runner can take longer than that to start one, so the test
-    // allows far more and still checks the same answers.
-    const GENEROUS_SECS: u64 = 120;
-    let lookup = |pid| hidden::process_start_time_within(pid, GENEROUS_SECS);
-    let own = lookup(std::process::id()).expect("own start time");
-    assert!(own.len() >= 17, "a FILETIME in decimal, got {own}");
-    assert_eq!(lookup(std::process::id()), Some(own));
-    // Windows hands out pids in multiples of 4, so this odd one is never live.
-    assert_eq!(lookup(i32::MAX as u32), None);
-    assert_eq!(lookup(u32::MAX), None);
-}
-
-#[test]
 fn proc_stat_start_is_field_22_counted_after_the_command_name() {
     let stat = "109 (claude) S 99 94 0 0 -1 4194304 765465 20443050 1621 12330 \
                 4784 1093 58406 10959 20 0 13 0 439 5739892736 96092";
-    assert_eq!(hidden::parse_proc_stat_start(stat).as_deref(), Some("439"));
+    assert_eq!(
+        start_time::parse_proc_stat_start(stat).as_deref(),
+        Some("439")
+    );
     // A command name with spaces and a `)` does not shift the fields.
     let odd = "7 (a) b (c)) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 98765 1 1";
-    assert_eq!(hidden::parse_proc_stat_start(odd).as_deref(), Some("98765"));
-    assert_eq!(hidden::parse_proc_stat_start("7 (short) S 1"), None);
-    assert_eq!(hidden::parse_proc_stat_start("garbage"), None);
+    assert_eq!(
+        start_time::parse_proc_stat_start(odd).as_deref(),
+        Some("98765")
+    );
+    assert_eq!(start_time::parse_proc_stat_start("7 (short) S 1"), None);
+    assert_eq!(start_time::parse_proc_stat_start("garbage"), None);
 }
 
 #[cfg(unix)]
 #[test]
 fn ps_start_time_reads_a_live_process_and_rejects_a_missing_one() {
-    let lookup = |pid| hidden::ps_start_time_within(pid, 30);
+    let lookup = |pid| start_time::ps_start_time_within(pid, 30);
     let own = lookup(std::process::id()).expect("own start time");
     // `lstart` in the C locale: weekday, month, day, time and year.
     assert_eq!(own.split_whitespace().count(), 5, "got {own:?}");

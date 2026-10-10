@@ -78,7 +78,7 @@ directory and `<session>` is the session UUID. Code lives in
 | `projects/<project>/<session>/tool-results/` | Claude Code | Large tool output persisted outside the transcript. | Never while parsing or indexing (the transcript's `persistedOutputPath` is recorded, not opened). | On demand: only when a user opens a file in the Explorer tab. |
 | `file-history/<session>/` | Claude Code | Backups of files before Claude Code changed them. | One backup named by the session's own records, from directly inside this folder; canonicalized, capped at 1 MiB, binary detected. The checkpoint list itself comes from the transcript. | On demand: only when a user clicks **View** on a checkpoint file. Never by indexing or export. |
 | `plans/<slug>.md` | Claude Code | Plan-mode plan files. | Only when the transcript used plan mode but recorded no plan text. The slug must be a plain name and the file must resolve inside `plans/`; a record's `filePath` is never followed. | On demand: the Overview plan and export. |
-| `sessions/<pid>.json` | Claude Code | One file per running process: pid, start time, session id, busy/idle status. | Read and verified against the live process (pid and `procStart`). | Session list loads, and every 3 s while a running session's detail view is open. The process check runs PowerShell on Windows, `ps` on macOS and reads `/proc` on Linux. |
+| `sessions/<pid>.json` | Claude Code | One file per running process: pid, start time, session id, busy/idle status. | Read and verified against the live process (pid and `procStart`). | Session list loads, and every 3 s while a running session's detail view is open. The process check uses Win32 on Windows, `ps` on macOS and `/proc` on Linux. |
 | `sessions/<pid>.<hash>.key` | Claude Code | A per-process secret. | **Never opened.** Only `*.json` is read. | Never. |
 | Everything else (`settings.json`, `history.jsonl`, `stats-cache.json`, credentials, …) | Claude Code | Settings, prompt history, aggregates, auth. | Never read. | Never. |
 | System temp folder (background task output) | Claude Code | Output of `run_in_background` tasks. | Never read; background tasks come from transcript notifications. | Never. |
@@ -176,7 +176,7 @@ TracePilot cannot find keeps everything else:
 2. User-selected roots stay in `TracePilotConfig.paths`. `copilotHome` controls where TracePilot reads/writes Copilot-owned config surfaces and derives the session source; `tracepilotHome` controls TracePilot-owned data.
 3. `sessionStateDir` and `indexDbPath` are compatibility fields. New UI-driven writes derive them from `copilotHome` and `tracepilotHome`; migrations preserve legacy custom session directories to avoid losing access to Copilot-owned sessions.
 4. TypeScript never computes authoritative absolute defaults. UI placeholders live in `packages/types/src/paths.ts`; production defaults come from backend `get_config`.
-5. Command names live in constants. Only `copilot` is currently user-configurable because it is the session/resume command. `git` and `gh` should stay constants until there is a real need for custom binary paths.
+5. Command names live in constants. Only `copilot` and `claude` (`sources.claudeCode.cliCommand`, `DEFAULT_CLAUDE_CLI_COMMAND`) are user-configurable, because they are the session/resume commands. `git` and `gh` should stay constants until there is a real need for custom binary paths.
 
 ## Path-change behavior
 

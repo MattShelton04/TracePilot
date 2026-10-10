@@ -69,7 +69,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             return;
         }
         if rec.origin_kind() == Some("peer") {
-            self.handback(st, ctx, rec);
+            self.peer_message(st, ctx, rec);
             return;
         }
         let text = rec.text().unwrap_or_default();
@@ -193,38 +193,6 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         self.emit(st, ctx, "abort", json!({"reason": "user initiated"}));
     }
 
-    /// A subagent's report (`origin.kind: peer`, `handback: true`).
-    fn handback(&mut self, st: &mut Stream<'_>, ctx: &mut RecCtx, rec: Rec<'_>) {
-        let Some(agent) = rec.ptr_str("/origin/from").map(str::to_string) else {
-            self.emit(st, ctx, "system.message", json!({"content": rec.text()}));
-            return;
-        };
-        let owner = self.owner_of(&agent);
-        if !self.terminals.contains_key(&agent) {
-            self.terminals.insert(agent.clone(), false);
-            let data = json!({"toolCallId": owner});
-            let custom = Custom {
-                parent: None,
-                agent_id: Some(agent.clone()),
-            };
-            self.emit_custom(st, ctx, "subagent.completed", data, custom);
-        }
-        let body = rec
-            .ptr_str("/origin/body")
-            .map(str::to_string)
-            .or_else(|| rec.text());
-        let data = json!({
-            "messageId": rec.uuid(),
-            "content": body,
-            "parentToolCallId": owner,
-        });
-        let custom = Custom {
-            parent: None,
-            agent_id: Some(agent),
-        };
-        self.emit_custom(st, ctx, "assistant.message", data, custom);
-    }
-
     fn notification_carrier(
         &mut self,
         st: &mut Stream<'_>,
@@ -246,7 +214,11 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             } else {
                 TaskNotificationKind::Shell
             });
-            if !self.notifications.insert(note.key()) {
+            let key = match &agent {
+                Some(_) => note.completion_key(),
+                None => note.key(),
+            };
+            if !self.notifications.insert(key) {
                 self.diagnostics.duplicate_notifications += 1;
                 continue;
             }
@@ -284,127 +256,6 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         if ctx.emitted() == first_event {
             self.native_only(st, ctx);
         }
-    }
-
-    fn notification_agent(&self, note: &TaskNotification) -> Option<String> {
-        let by_tool = note
-            .tool_use_id
-            .as_ref()
-            .filter(|tool| self.agent_tool_ids.contains(*tool));
-        let task = note.task_id.as_ref();
-        if task.is_some_and(|id| self.agent_owner.contains_key(id)) || by_tool.is_some() {
-            return task.cloned().or_else(|| {
-                let tool = by_tool?;
-                self.agent_owner
-                    .iter()
-                    .find(|(_, owner)| *owner == tool)
-                    .map(|(agent, _)| agent.clone())
-            });
-        }
-        None
-    }
-
-    /// `subagent.completed`/`failed` from a notification. A hand-back may have
-    /// completed the agent already; a later notification adds its totals.
-    fn agent_terminal(
-        &mut self,
-        st: &mut Stream<'_>,
-        ctx: &mut RecCtx,
-        agent: &str,
-        note: &TaskNotification,
-    ) {
-        let has_totals = note.total_tokens.is_some();
-        match self.terminals.get(agent) {
-            Some(true) => return,
-            Some(false) if !has_totals => return,
-            _ => {}
-        }
-        let owner = note.tool_use_id.clone().or_else(|| self.owner_of(agent));
-        let (kind, data) = match note.status.as_deref() {
-            Some("completed") => ("subagent.completed", json!({})),
-            Some("failed") => (
-                "subagent.failed",
-                json!({"error": note.summary.as_deref().unwrap_or("Subagent failed")}),
-            ),
-            Some("stopped" | "killed" | "cancelled") => {
-                ("subagent.completed", json!({"cancelled": true}))
-            }
-            _ => return,
-        };
-        let mut data = data;
-        if let Some(map) = data.as_object_mut() {
-            map.insert("toolCallId".into(), json!(owner));
-            map.insert("totalTokens".into(), json!(note.total_tokens));
-            map.insert("totalToolCalls".into(), json!(note.tool_uses));
-            map.insert("durationMs".into(), json!(note.duration_ms));
-        }
-        self.terminals.insert(agent.to_string(), has_totals);
-        let custom = Custom {
-            parent: None,
-            agent_id: Some(agent.to_string()),
-        };
-        self.emit_custom(st, ctx, kind, data, custom);
-    }
-
-    /// The result of `Agent` call `tool`. A foreground agent's result comes
-    /// back when the agent has finished, so it ends the agent unless a
-    /// hand-back or notification already did; an asynchronous launch's result
-    /// only says it started. `error` is the text of a failed result.
-    pub(super) fn agent_result(
-        &mut self,
-        st: &mut Stream<'_>,
-        ctx: &mut RecCtx,
-        tool: &str,
-        tur: Option<&Value>,
-        error: Option<String>,
-    ) {
-        let field = |key: &str| tur.filter(|t| t.is_object()).and_then(|t| t.get(key));
-        let launched = field("isAsync").and_then(Value::as_bool) == Some(true)
-            || field("status").and_then(Value::as_str) == Some("async_launched");
-        if launched && error.is_none() {
-            return;
-        }
-        let children = self.children;
-        let agent = field("agentId")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-            .or_else(|| {
-                let first = self.launches.get(tool)?.first()?;
-                Some(children[*first].agent_id.clone())
-            });
-        let key = agent.clone().unwrap_or_else(|| tool.to_string());
-        if self.terminals.contains_key(&key) {
-            return;
-        }
-        let total_tokens = field("totalTokens").and_then(Value::as_u64);
-        self.terminals.insert(key, total_tokens.is_some());
-        let (kind, mut data) = match error {
-            None => ("subagent.completed", json!({})),
-            Some(text) if text.starts_with("[Request interrupted by user") => {
-                ("subagent.completed", json!({"cancelled": true}))
-            }
-            Some(text) => ("subagent.failed", json!({"error": text})),
-        };
-        if let Some(map) = data.as_object_mut() {
-            map.insert("toolCallId".into(), json!(tool));
-            map.insert("totalTokens".into(), json!(total_tokens));
-            map.insert("totalToolCalls".into(), json!(field("totalToolUseCount")));
-            map.insert("durationMs".into(), json!(field("totalDurationMs")));
-        }
-        let custom = Custom {
-            parent: None,
-            agent_id: agent,
-        };
-        self.emit_custom(st, ctx, kind, data, custom);
-    }
-
-    fn owner_of(&self, agent: &str) -> Option<String> {
-        Some(
-            self.agent_owner
-                .get(agent)
-                .cloned()
-                .unwrap_or_else(|| agent.to_string()),
-        )
     }
 }
 

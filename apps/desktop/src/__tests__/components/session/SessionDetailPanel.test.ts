@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { setupPinia } from "@tracepilot/test-utils";
 import { flushPromises, mount } from "@vue/test-utils";
+import { createPinia, type Pinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { RUNNING_SESSION_POLL_MS } from "@/composables/useRunningSessionPoll";
@@ -84,8 +84,12 @@ function createStore(): SessionDetailContext {
 }
 
 describe("SessionDetailPanel", () => {
+  // Panels that read preferences get this pinia explicitly: a store action
+  // left over from an earlier test re-activates that test's pinia.
+  let pinia: Pinia;
   beforeEach(() => {
-    setupPinia();
+    pinia = createPinia();
+    setActivePinia(pinia);
     vi.clearAllMocks();
     mocks.getSessionLiveness.mockResolvedValue({ state: "idle" });
   });
@@ -307,6 +311,7 @@ describe("SessionDetailPanel", () => {
         activeSubTab: "overview",
         refreshEnabled: false,
       },
+      global: { plugins: [pinia] },
     });
   }
 
@@ -326,8 +331,10 @@ describe("SessionDetailPanel", () => {
   });
 
   it("resumes a Copilot session through the configured CLI command", async () => {
-    const prefs = usePreferencesStore();
-    await flushPromises(); // let config hydration finish before overriding it
+    const prefs = usePreferencesStore(pinia);
+    // Config hydration must finish first, or it resets these preferences.
+    await prefs.whenReady;
+    await flushPromises();
     prefs.cliCommand = "gh copilot";
     const wrapper = mountForSource("copilot");
     await flushPromises();
@@ -336,6 +343,38 @@ describe("SessionDetailPanel", () => {
     expect(mocks.copy).toHaveBeenCalledWith("gh copilot --resume session-1");
     await wrapper.get('[title="Resume session session-1 in a new terminal"]').trigger("click");
     expect(mocks.resumeSessionInTerminal).toHaveBeenCalledWith("session-1", "gh copilot");
+    wrapper.unmount();
+  });
+
+  it("resumes a Claude Code session through its own CLI command, not Copilot's", async () => {
+    const prefs = usePreferencesStore(pinia);
+    // Config hydration must finish first, or it resets these preferences.
+    await prefs.whenReady;
+    await flushPromises();
+    prefs.cliCommand = "gh copilot";
+    prefs.claudeCliCommand = "npx claude";
+    const wrapper = mountForSource("claudeCode");
+    await flushPromises();
+
+    await wrapper.get('[title="Copy: npx claude --resume session-1"]').trigger("click");
+    expect(mocks.copy).toHaveBeenCalledWith("npx claude --resume session-1");
+    await wrapper.get('[title="Resume session session-1 in a new terminal"]').trigger("click");
+    // The backend picks the Claude Code CLI; the Copilot preference is not sent.
+    expect(mocks.resumeSessionInTerminal).toHaveBeenCalledWith("session-1", undefined);
+    wrapper.unmount();
+  });
+
+  it("asks before resuming a Claude Code session that is running elsewhere", async () => {
+    mocks.getSessionLiveness.mockResolvedValue({ state: "running", pid: 7, status: "waiting" });
+    const wrapper = mountForSource("claudeCode");
+    await flushPromises();
+
+    await wrapper.get('[title="Resume session session-1 in a new terminal"]').trigger("click");
+    expect(mocks.resumeSessionInTerminal).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("Session is active elsewhere");
+    const anyway = wrapper.findAll("button").find((b) => b.text() === "Resume Anyway");
+    await anyway!.trigger("click");
+    expect(mocks.resumeSessionInTerminal).toHaveBeenCalledWith("session-1", undefined);
     wrapper.unmount();
   });
 
@@ -358,8 +397,7 @@ describe("SessionDetailPanel", () => {
     const copyButton = wrapper.get('[title="Copy: claude --resume session-1"]');
     await copyButton.trigger("click");
     expect(mocks.copy).toHaveBeenCalledWith("claude --resume session-1");
-    expect(mocks.resumeSessionInTerminal).not.toHaveBeenCalled();
-    expect(text).not.toContain("Resume in Terminal");
+    expect(text).toContain("Resume in Terminal");
     expect(text).not.toContain("Open Folder");
     expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
     wrapper.unmount();
@@ -375,7 +413,7 @@ describe("SessionDetailPanel", () => {
     const tabs = wrapper.findAll("[role='tab']");
     expect(tabs).toHaveLength(7);
     expect(wrapper.find('[title="Copy: claude --resume session-1"]').exists()).toBe(true);
-    expect(wrapper.text()).not.toContain("Resume in Terminal");
+    expect(wrapper.text()).toContain("Resume in Terminal");
     expect(wrapper.text()).not.toContain("Open Folder");
     expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
     wrapper.unmount();

@@ -25,8 +25,8 @@ pub use copilot::CopilotProvider;
 pub use types::{
     BackgroundTask, BackgroundTaskKind, BackgroundTaskStatus, CostBasis, CostFigure, CostUnit,
     FormatObservations, Liveness, MetricsCoverage, MetricsSegment, NativeRecord, ProviderEvents,
-    ProviderSnapshot, RunStatus, SessionArtifacts, SessionLocator, SessionMetrics, SessionRole,
-    SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
+    ProviderSnapshot, ResumeLaunch, RunStatus, SessionArtifacts, SessionLocator, SessionMetrics,
+    SessionRole, SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
 };
 
 /// Redact the fields of an event's source record that never leave the
@@ -174,6 +174,18 @@ pub trait SessionProvider: Send + Sync {
         _events: &[TypedEvent],
     ) -> Result<SessionSummary> {
         Ok(self.load_snapshot(session, false, &|| false)?.summary)
+    }
+
+    /// How to resume the session in a terminal, or `None` when it cannot be
+    /// (for example, a subagent). `live_attach` asks for a terminal TracePilot
+    /// can attach to, where the source supports that. Only sources with
+    /// [`SourceCapabilities::can_resume_in_terminal`] override it.
+    fn resume_launch(
+        &self,
+        _session: &SessionLocator,
+        _live_attach: bool,
+    ) -> Result<Option<ResumeLaunch>> {
+        Ok(None)
     }
 
     /// Find a session by id without the index. `None` when the source has no

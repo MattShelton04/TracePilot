@@ -56,7 +56,26 @@ section_patch!(PerformancePatch, PerformanceConfig, {
     session_cache_size: usize,
 });
 section_patch!(LivePatch, LiveConfig, { auto_attach: bool, launch_attachable: bool });
-section_patch!(SourcesPatch, SourcesConfig, { claude_code: ClaudeCodeSourceConfig });
+section_patch!(ClaudeCodeSourcePatch, ClaudeCodeSourceConfig, {
+    config_dir: String, cli_command: String,
+});
+
+/// Field-level like the other sections, one level deeper: changing the
+/// Claude Code folder keeps its CLI command, and the reverse.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SourcesPatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claude_code: Option<ClaudeCodeSourcePatch>,
+}
+
+impl SourcesPatch {
+    fn apply(self, config: &mut SourcesConfig) {
+        if let Some(patch) = self.claude_code {
+            patch.apply(&mut config.claude_code);
+        }
+    }
+}
 
 macro_rules! config_patch {
     ($($field:ident: $type:ty),* $(,)?) => {
@@ -100,6 +119,27 @@ mod tests {
         assert_eq!(config.ui.theme, "light");
         assert_eq!(config.paths.session_state_dir, "latest-session-directory");
         assert!(config.tool_rendering.tool_overrides.is_empty());
+    }
+
+    #[test]
+    fn a_claude_code_patch_keeps_the_fields_it_omits() {
+        let mut config = TracePilotConfig::default();
+        config.sources.claude_code.config_dir = "C:/claude".into();
+        config.sources.claude_code.cli_command = "npx claude".into();
+        let patch: TracePilotConfigPatch = serde_json::from_value(serde_json::json!({
+            "sources": { "claudeCode": { "configDir": "D:/claude" } }
+        }))
+        .unwrap();
+        patch.apply(&mut config);
+        assert_eq!(config.sources.claude_code.config_dir, "D:/claude");
+        assert_eq!(config.sources.claude_code.cli_command, "npx claude");
+        let patch: TracePilotConfigPatch = serde_json::from_value(serde_json::json!({
+            "sources": { "claudeCode": { "cliCommand": "claude" } }
+        }))
+        .unwrap();
+        patch.apply(&mut config);
+        assert_eq!(config.sources.claude_code.config_dir, "D:/claude");
+        assert_eq!(config.sources.claude_code.cli_command, "claude");
     }
 
     #[test]

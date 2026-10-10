@@ -54,3 +54,32 @@ describe("FilterSelect", () => {
     expect(emitted[emitted.length - 1]).toEqual([null]);
   });
 });
+
+describe("FilterSelect – labelled options", () => {
+  it("groups labelled options and keeps their values and titles", async () => {
+    const wrapper = mount(FilterSelect, {
+      props: {
+        options: [
+          "plain",
+          { value: "org/app", label: "org/app", group: "Repositories" },
+          { value: "project:app", label: "app", title: "/work/app", group: "Folders" },
+        ],
+      },
+    });
+    expect(wrapper.findAll("optgroup").map((g) => g.attributes("label"))).toEqual([
+      "Repositories",
+      "Folders",
+    ]);
+    const folder = wrapper.findAll("optgroup")[1].find("option");
+    expect(folder.text()).toBe("app");
+    expect(folder.attributes("title")).toBe("/work/app");
+    expect(wrapper.findAll("option").map((o) => o.text())).toEqual([
+      "All",
+      "plain",
+      "org/app",
+      "app",
+    ]);
+    await wrapper.find("select").setValue("project:app");
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual(["project:app"]);
+  });
+});

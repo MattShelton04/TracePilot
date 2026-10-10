@@ -7,6 +7,7 @@ import { usePreferencesStore } from "./preferences";
 import {
   buildSearchFieldCache,
   filterAndSortSessions,
+  repositoryFilterOptions,
   uniqueRepositories,
   uniqueSources,
 } from "./sessions/filtering";
@@ -62,6 +63,8 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   const repositories = computed(() => uniqueRepositories(sessions.value));
+  // The list's filter also groups repository-less sessions by their cwd.
+  const repositoryOptions = computed(() => repositoryFilterOptions(sessions.value));
   const sources = computed(() => uniqueSources(sessions.value));
 
   const emptySessionCount = computed(() => {
@@ -106,6 +109,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     sortBy,
     filteredSessions,
     repositories,
+    repositoryOptions,
     sources,
     emptySessionCount,
     visibleSessionCount,

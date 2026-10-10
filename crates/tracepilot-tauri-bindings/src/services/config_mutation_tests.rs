@@ -491,3 +491,31 @@ fn relocation_preserves_readable_session_and_benchmark_captures() {
         assert_eq!(before, after);
     }
 }
+
+async fn save_claude_cli(state: &SharedConfig, cli: &str) -> CmdResult<SavedConfig> {
+    let patch = serde_json::json!({"sources": {"claudeCode": {"cliCommand": cli}}});
+    mutate_config(
+        state,
+        Arc::new(IndexingSemaphores::new()),
+        &ConfigCoordinator::default(),
+        ConfigMutation::Patch(serde_json::from_value(patch).unwrap()),
+        |_| Ok(()),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn an_invalid_claude_code_command_is_refused_when_saved() {
+    let temp = tempfile::tempdir().unwrap();
+    let state: SharedConfig = Arc::new(RwLock::new(Some(configured(temp.path()))));
+    let error = save_claude_cli(&state, "claude; calc").await.err().unwrap();
+    assert!(error.to_string().contains("Claude Code command"), "{error}");
+    assert_eq!(
+        read_config(&state).sources.claude_code.cli_command,
+        "claude"
+    );
+    save_claude_cli(&state, "npx claude").await.unwrap();
+    // Blank means the default.
+    save_claude_cli(&state, " ").await.unwrap();
+    assert_eq!(read_config(&state).sources.claude_code.cli_command, " ");
+}

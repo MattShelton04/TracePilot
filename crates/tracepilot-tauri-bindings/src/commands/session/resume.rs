@@ -1,13 +1,24 @@
 //! `resume_session_in_terminal` — spawn a detached terminal running the CLI's
 //! resume command for the given session.
+//!
+//! The provider says how its source resumes ([`ResumeLaunch`]); this command
+//! picks the source's CLI, validates everything that reaches the shell, and
+//! opens the terminal.
 
-use tracepilot_core::parsing::WORKSPACE_YAML;
+use std::path::{Path, PathBuf};
 
-use crate::config::SharedConfig;
+use tracepilot_core::provider::{ResumeLaunch, SessionSource};
+
+use crate::config::{SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, require_capability, resolve_session};
 
-/// Open a new terminal window and run the configured CLI resume command.
+const ACTION: &str = "Resume in terminal";
+
+/// Open a new terminal window and run the session source's resume command.
+///
+/// `cli_command` is the Copilot CLI preference. Other sources use their own
+/// configured command and ignore it.
 #[tauri::command]
 #[tracing::instrument(skip(state, cli_command), err, fields(%session_id))]
 pub async fn resume_session_in_terminal(
@@ -18,60 +29,39 @@ pub async fn resume_session_in_terminal(
     // Validate UUID format (also prevents command injection via session_id)
     let sid = crate::validators::validate_session_id(&session_id)?;
 
-    let cli =
-        cli_command.unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string());
+    let config = read_config(&state);
+    // Live sessions (ADR-0016): start the resumed terminal with `--ui-server`
+    // so TracePilot can attach to it and stream it live.
+    let live_attach = config.features.copilot_sdk && config.live.launch_attachable;
+    let (cli, launch, effective_cwd) = tokio::task::spawn_blocking(move || {
+        let session = resolve_session(&config, &sid)?;
+        require_capability(&session, |caps| caps.can_resume_in_terminal, ACTION)?;
+        let unsupported = || BindingsError::Unsupported {
+            session_source: session.locator.source,
+            action: ACTION,
+        };
+        let launch = session
+            .provider
+            .resume_launch(&session.locator, live_attach)?
+            .ok_or_else(unsupported)?;
+        let cli = resume_cli(session.locator.source, cli_command, &config);
+        // Filesystem checks, so they stay off the async runtime.
+        let home = tracepilot_core::utils::home_dir_opt();
+        let cwd = effective_cwd(launch.cwd.as_deref(), home);
+        Ok::<_, BindingsError>((cli, launch, cwd))
+    })
+    .await??;
 
     // Defence-in-depth: the CLI string is interpolated into a shell command
     // below, so any character outside the safe allowlist is rejected at the
     // boundary. See `validators::validate_cli_command` for the rule set.
     crate::validators::validate_cli_command(&cli)?;
 
-    // Resolve the session's original working directory from workspace.yaml
-    let config = read_config(&state);
-    // Live sessions (ADR-0016): start the resumed terminal with `--ui-server`
-    // so TracePilot can attach to it and stream it live.
-    let attachable = config.features.copilot_sdk && config.live.launch_attachable;
-    let session_cwd = tokio::task::spawn_blocking(move || {
-        let session = resolve_session(&config, &sid)?;
-        require_capability(&session, |caps| caps.can_resume, "Resume")?;
-        let workspace_path = session.locator.primary_path.join(WORKSPACE_YAML);
-        let metadata = tracepilot_core::parsing::workspace::parse_workspace_yaml(&workspace_path)?;
-        Ok::<Option<std::path::PathBuf>, BindingsError>(metadata.cwd.map(std::path::PathBuf::from))
-    })
-    .await??;
-
-    // Find a valid directory for the terminal: session CWD > its closest ancestor > home
-    let effective_cwd = session_cwd
-        .as_ref()
-        .and_then(|p| {
-            if p.is_dir() {
-                return Some(p.clone());
-            }
-            let mut ancestor = p.parent();
-            while let Some(dir) = ancestor {
-                if dir.is_dir() {
-                    return Some(dir.to_path_buf());
-                }
-                ancestor = dir.parent();
-            }
-            None
-        })
-        .or_else(|| tracepilot_core::utils::home_dir_opt().filter(|p| p.is_dir()))
-        .unwrap_or_else(|| std::path::PathBuf::from("."));
-
-    let argv = resume_argv(&cli, &session_id, attachable);
+    let argv = resume_argv(&cli, &launch);
 
     #[cfg(windows)]
     {
-        let cmd = argv.join(" ");
-        let escaped_cwd = effective_cwd.display().to_string().replace('\'', "''");
-        let ps_cmd = format!(
-            "$host.UI.RawUI.WindowTitle = 'Copilot Session (Resume)'; Set-Location -LiteralPath '{}'; Write-Host 'Resuming Copilot session...' -ForegroundColor Cyan; Write-Host '  Session: {}' -ForegroundColor White; Write-Host ''; {}",
-            escaped_cwd,
-            session_id,
-            cmd.replace('\'', "''")
-        );
-
+        let ps_cmd = powershell_script(launch.label, &effective_cwd, &session_id, &argv);
         let encoded = tracepilot_orchestrator::process::encode_powershell_command(&ps_cmd);
         tracepilot_orchestrator::process::spawn_detached_terminal(
             "powershell",
@@ -101,39 +91,107 @@ pub async fn resume_session_in_terminal(
     Ok(())
 }
 
-/// The argv that resumes `session_id`, optionally as an attachable
-/// `--ui-server` terminal. A multi-word CLI command (`gh copilot`) splits on
-/// whitespace; the validator has already rejected quotes and shell syntax.
-fn resume_argv(cli: &str, session_id: &str, attachable: bool) -> Vec<String> {
-    let mut argv: Vec<String> = cli.split_whitespace().map(str::to_owned).collect();
-    argv.extend(["--resume".to_owned(), session_id.to_owned()]);
-    if attachable {
-        argv.push("--ui-server".to_owned());
+/// The CLI that resumes a session of `source`: Copilot's preference (sent by
+/// the frontend, as before), or the source's own configured command.
+fn resume_cli(
+    source: SessionSource,
+    requested: Option<String>,
+    config: &TracePilotConfig,
+) -> String {
+    match source {
+        SessionSource::Copilot => {
+            requested.unwrap_or_else(|| tracepilot_core::constants::DEFAULT_CLI_COMMAND.to_string())
+        }
+        SessionSource::ClaudeCode => config.sources.claude_code.resume_cli().to_owned(),
     }
+}
+
+/// The CLI followed by the provider's arguments. A multi-word CLI command
+/// (`gh copilot`) splits on whitespace; the validator has already rejected
+/// quotes and shell syntax.
+fn resume_argv(cli: &str, launch: &ResumeLaunch) -> Vec<String> {
+    let mut argv: Vec<String> = cli.split_whitespace().map(str::to_owned).collect();
+    argv.extend(launch.args.iter().cloned());
     argv
 }
 
-#[cfg(test)]
-mod tests {
-    use super::resume_argv;
+/// Where the terminal starts: the session's recorded directory, else its
+/// nearest existing ancestor, else home.
+///
+/// The recorded directory comes from the session's own files (ADR 0012), so
+/// it is untrusted: only an absolute local path with no control characters
+/// is considered (see [`is_plain_local_absolute`]), and nothing touches the
+/// filesystem before that check, so a network path never opens a connection.
+/// Blocking.
+fn effective_cwd(recorded: Option<&Path>, home: Option<PathBuf>) -> PathBuf {
+    recorded
+        .filter(|path| is_plain_local_absolute(path))
+        .and_then(|path| path.ancestors().find(|dir| dir.is_dir()))
+        .map(Path::to_path_buf)
+        .or_else(|| home.filter(|p| p.is_dir()))
+        .unwrap_or_else(|| PathBuf::from("."))
+}
 
-    #[test]
-    fn resume_argv_adds_ui_server_only_when_attachable() {
-        assert_eq!(
-            resume_argv("copilot", "abc", false),
-            ["copilot", "--resume", "abc"]
-        );
-        assert_eq!(
-            resume_argv("copilot", "abc", true),
-            ["copilot", "--resume", "abc", "--ui-server"]
-        );
-    }
+fn is_plain_local_absolute(path: &Path) -> bool {
+    let Some(text) = path.to_str() else {
+        return false;
+    };
+    path.is_absolute() && has_local_root(path) && !text.chars().any(char::is_control)
+}
 
-    #[test]
-    fn resume_argv_keeps_program_and_arguments_separate() {
-        assert_eq!(
-            resume_argv("gh  copilot", "abc", false),
-            ["gh", "copilot", "--resume", "abc"]
-        );
+/// On Windows, an allowlist on the parsed prefix: a drive (`C:\`, `\\?\C:\`)
+/// or WSL's local share (`\\wsl.localhost\<distro>`, `\\wsl$\<distro>`).
+/// Every other UNC, verbatim-UNC or device prefix is refused, whatever mix of
+/// `\` and `/` spells it.
+#[cfg(windows)]
+fn has_local_root(path: &Path) -> bool {
+    use std::path::{Component, Prefix};
+    let Some(Component::Prefix(prefix)) = path.components().next() else {
+        return false;
+    };
+    match prefix.kind() {
+        Prefix::Disk(_) | Prefix::VerbatimDisk(_) => true,
+        Prefix::UNC(server, _) => {
+            server.eq_ignore_ascii_case("wsl.localhost") || server.eq_ignore_ascii_case("wsl$")
+        }
+        _ => false,
     }
 }
+
+#[cfg(not(windows))]
+fn has_local_root(_path: &Path) -> bool {
+    true
+}
+
+/// The script the Windows terminal runs. The label and directory sit in
+/// single-quoted PowerShell literals, escaped by [`ps_quote`]; the session id
+/// is a validated UUID and the command a validated CLI plus fixed arguments.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn powershell_script(label: &str, cwd: &Path, session_id: &str, argv: &[String]) -> String {
+    let label = ps_quote(label);
+    format!(
+        "$host.UI.RawUI.WindowTitle = '{label} Session (Resume)'; Set-Location -LiteralPath '{}'; Write-Host 'Resuming {label} session...' -ForegroundColor Cyan; Write-Host '  Session: {}' -ForegroundColor White; Write-Host ''; {}",
+        ps_quote(&cwd.display().to_string()),
+        session_id,
+        ps_quote(&argv.join(" "))
+    )
+}
+
+/// Escape text for a single-quoted PowerShell string. PowerShell also ends
+/// such a string at the typographic single quotes, so each of them is
+/// doubled as well.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn ps_quote(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for c in text.chars() {
+        if matches!(c, '\'' | '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{201B}') {
+            escaped.push(c);
+        }
+        escaped.push(c);
+    }
+    escaped
+}
+
+#[cfg(test)]
+#[path = "resume_tests.rs"]
+mod tests;

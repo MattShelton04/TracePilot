@@ -273,8 +273,11 @@ The reshape has to happen in Rust:
   heuristic.
 - The session list asks each provider once per load (`SessionProvider::liveness_many`), so
   Claude Code reads `sessions/*.json` once and looks up a process only for a listed session
-  that a pid file names. Each lookup spawns a hidden PowerShell (about 160 ms), so lookups
-  run concurrently and the app reuses a pid's start time for 5 s. A file whose pid now belongs to a
+  that a pid file names. On Windows each lookup reads the process's creation time with
+  `OpenProcess` + `GetProcessTimes` (a few microseconds), on Linux `starttime` from
+  `/proc/<pid>/stat`, and on macOS `ps -o lstart=` in the C locale and UTC, matching how
+  Claude Code records `procStart` on each; lookups run concurrently and the
+  app reuses a pid's start time for 5 s. A file whose pid now belongs to a
   process with another start time is remembered as stale and never looked up again. Busy shows as "Busy", idle as "Waiting" (for input).
 - Copilot's running sessions refresh from the live stream. A running session of a source
   TracePilot cannot stream refreshes its detail view every 3 s and stops once it goes idle

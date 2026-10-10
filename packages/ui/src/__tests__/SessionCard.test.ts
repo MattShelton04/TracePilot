@@ -159,4 +159,23 @@ describe("SessionCard", () => {
     ]);
     expect(badge(makeSession({ id: "u", ...claude }))?.[0]).toBe("Active");
   });
+
+  it("shows a folder chip from the cwd only when there is no repository", () => {
+    const cwdOnly = mount(SessionCard, {
+      props: {
+        session: makeSession({ id: "cc", source: "claudeCode", cwd: "/work/synthetic/orchard" }),
+      },
+    });
+    const chip = cwdOnly.get('[data-testid="session-project-chip"]');
+    expect(chip.text()).toBe("orchard");
+    expect(chip.attributes("title")).toBe("/work/synthetic/orchard");
+    expect(chip.classes()).not.toContain("badge-accent");
+    expect(chip.find("svg").exists()).toBe(true);
+
+    const withRepo = mount(SessionCard, {
+      props: { session: makeSession({ id: "c", repository: "org/app", cwd: "/work/app" }) },
+    });
+    expect(withRepo.find('[data-testid="session-project-chip"]').exists()).toBe(false);
+    expect(withRepo.findAll(".badge").map((b) => b.text())).toEqual(["org/app", "cli"]);
+  });
 });
