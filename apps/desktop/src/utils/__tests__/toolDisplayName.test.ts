@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   contextToolTypeLabel,
   searchResultToolName,
+  searchToolOptionLabel,
   toolAggregateLabel,
   toolDisplayName,
   toolUsageLabel,
@@ -122,5 +123,29 @@ describe("searchResultToolName", () => {
     expect(searchResultToolName({ toolName: "grep", metadataJson: '{"role":"x"}' })).toBe("grep");
     expect(searchResultToolName({ toolName: "grep", metadataJson: "not json" })).toBe("grep");
     expect(searchResultToolName({ toolName: null, metadataJson: null })).toBeNull();
+  });
+});
+
+describe("searchToolOptionLabel", () => {
+  const claudeOnly = { name: "shell", nativeNames: ["Bash"], sources: ["claudeCode" as const] };
+  const mixed = {
+    name: "shell",
+    nativeNames: ["Bash"],
+    sources: ["copilot" as const, "claudeCode" as const],
+  };
+  const copilotOnly = { name: "powershell", nativeNames: [], sources: ["copilot" as const] };
+
+  it("leads with the native name when every row searched records one", () => {
+    expect(searchToolOptionLabel(claudeOnly, null)).toBe("Bash (shell)");
+    expect(searchToolOptionLabel(mixed, "claudeCode")).toBe("Bash (shell)");
+  });
+
+  it("leads with the canonical name when Copilot rows are searched too", () => {
+    expect(searchToolOptionLabel(mixed, null)).toBe("shell (Bash)");
+    expect(searchToolOptionLabel(mixed, "copilot")).toBe("shell");
+  });
+
+  it("keeps a Copilot tool's canonical name", () => {
+    expect(searchToolOptionLabel(copilotOnly, null)).toBe("powershell");
   });
 });

@@ -34,6 +34,7 @@ use rusqlite::Connection;
 pub use format_diagnostics::{FormatDiagnostics, FormatNameCount};
 pub use search_reader::{
     ContextSnippet, FtsHealthInfo, SearchFacets, SearchFilters, SearchResult, SearchStats,
+    SearchToolName,
 };
 pub use search_writer::CURRENT_EXTRACTOR_VERSION;
 pub use types::{IndexedIncident, IndexedSession, IndexedSkillCallCandidate, SessionIndexInfo};

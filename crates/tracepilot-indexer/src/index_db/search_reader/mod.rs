@@ -15,6 +15,8 @@ mod sanitize;
 mod stats;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tool_names_tests;
 
 pub use sanitize::sanitize_fts_query;
 use tracepilot_core::provider::SessionSource;
@@ -36,6 +38,8 @@ pub struct SearchResult {
     pub session_repository: Option<String>,
     pub session_branch: Option<String>,
     pub session_updated_at: Option<String>,
+    /// The session's source (`sessions.source`).
+    pub source: SessionSource,
 }
 
 /// Filters for search queries.
@@ -89,6 +93,23 @@ pub struct FtsHealthInfo {
     pub db_size_bytes: i64,
 }
 
+/// A canonical tool name in the index, for the search tool filter.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchToolName {
+    /// The canonical name: the `tool:` filter value.
+    pub name: String,
+    /// Source-native names its rows record (Claude Code's `Bash`), sorted.
+    pub native_names: Vec<String>,
+    /// Sources whose sessions used the tool, in [`SessionSource`] order.
+    pub sources: Vec<SessionSource>,
+}
+
+/// SQL reading a `search_content` row's native tool name from its metadata
+/// (written as `nativeToolName`); NULL when it records none.
+pub(super) const NATIVE_TOOL_NAME_SQL: &str = "CASE WHEN json_valid(metadata_json) \
+     THEN json_extract(metadata_json, '$.nativeToolName') END";
+
 /// A context snippet for surrounding results.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -98,5 +119,8 @@ pub struct ContextSnippet {
     pub turn_number: Option<i64>,
     pub event_index: Option<i64>,
     pub tool_name: Option<String>,
+    /// The source-native tool name a row's metadata records (Claude Code's
+    /// `Bash`); `tool_name` stays canonical.
+    pub native_tool_name: Option<String>,
     pub preview: String,
 }

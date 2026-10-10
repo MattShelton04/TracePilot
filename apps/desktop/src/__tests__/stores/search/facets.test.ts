@@ -59,12 +59,13 @@ describe("search/facets slice", () => {
 
   it("fetchFilterOptions resolves repos + tools in parallel", async () => {
     mockGetSearchRepositories.mockResolvedValue(["repoA", "repoB"]);
-    mockGetSearchToolNames.mockResolvedValue(["bash"]);
+    const tools = [{ name: "shell", nativeNames: ["Bash"], sources: ["claudeCode"] }];
+    mockGetSearchToolNames.mockResolvedValue(tools);
     const { f, dispose } = setup();
     try {
       await f.fetchFilterOptions();
       expect(f.availableRepositories.value).toEqual(["repoA", "repoB"]);
-      expect(f.availableToolNames.value).toEqual(["bash"]);
+      expect(f.availableToolNames.value).toEqual(tools);
     } finally {
       dispose();
     }

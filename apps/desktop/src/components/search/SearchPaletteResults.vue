@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SearchResult } from "@tracepilot/types";
+import { type SearchResult, type SessionSource, sourceLabel } from "@tracepilot/types";
 import { formatRelativeTime } from "@tracepilot/ui";
 import type { ResultGroup } from "@/composables/useSearchPaletteSearch";
 import { searchResultToolName } from "@/utils/toolDisplayName";
@@ -14,6 +14,8 @@ defineProps<{
   hasResults: boolean;
   searchError: string | null;
   query: string;
+  /** The one source searched, or `null` for every source. */
+  source?: SessionSource | null;
 }>();
 
 const emit = defineEmits<{
@@ -86,7 +88,9 @@ function hexToRgb(hex: string): string {
         </svg>
       </div>
       <div class="palette-no-results-text">No results for "{{ query }}"</div>
-      <div class="palette-no-results-hint">Try a different search term</div>
+      <div class="palette-no-results-hint">
+        {{ source ? `Only ${sourceLabel(source)} sessions are searched` : "Try a different search term" }}
+      </div>
     </div>
 
     <!-- Grouped results -->

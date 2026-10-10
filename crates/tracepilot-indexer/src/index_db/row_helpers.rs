@@ -44,7 +44,7 @@ pub(super) fn indexed_session_from_row(row: &Row) -> rusqlite::Result<IndexedSes
 }
 
 /// Read `sessions.source`. An unknown name can only come from a newer build.
-fn session_source_from_row(row: &Row) -> rusqlite::Result<SessionSource> {
+pub(super) fn session_source_from_row(row: &Row) -> rusqlite::Result<SessionSource> {
     let index = row.as_ref().column_index("source")?;
     let name: String = row.get(index)?;
     SessionSource::from_stored(&name).ok_or_else(|| {
@@ -72,7 +72,8 @@ pub(super) fn indexed_incident_from_row(row: &Row) -> rusqlite::Result<IndexedIn
 
 /// Extract a ContextSnippet from a query row using column names.
 ///
-/// Expected columns: id, content_type, turn_number, event_index, tool_name, preview
+/// Expected columns: id, content_type, turn_number, event_index, tool_name,
+/// native_tool_name, preview
 pub(super) fn context_snippet_from_row(row: &Row) -> rusqlite::Result<ContextSnippet> {
     Ok(ContextSnippet {
         id: row.get("id")?,
@@ -80,6 +81,7 @@ pub(super) fn context_snippet_from_row(row: &Row) -> rusqlite::Result<ContextSni
         turn_number: row.get("turn_number")?,
         event_index: row.get("event_index")?,
         tool_name: row.get("tool_name")?,
+        native_tool_name: row.get("native_tool_name")?,
         preview: row.get("preview")?,
     })
 }

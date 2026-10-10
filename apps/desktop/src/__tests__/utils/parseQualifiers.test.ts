@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseQualifiers } from "../../utils/parseQualifiers";
+import { parseQualifiers, stripQualifier } from "../../utils/parseQualifiers";
 
 describe("parseQualifiers", () => {
   it("returns unchanged query when no qualifiers are present", () => {
@@ -107,5 +107,16 @@ describe("parseQualifiers", () => {
   it("collapses excess whitespace after stripping qualifiers", () => {
     const result = parseQualifiers("hello type:error   world");
     expect(result.cleanQuery).toBe("hello world");
+  });
+});
+
+describe("stripQualifier", () => {
+  it("removes every qualifier of one key, keeping the rest", () => {
+    expect(stripQualifier("retry source:claude tool:shell", "source")).toBe("retry tool:shell");
+    expect(stripQualifier('SOURCE:copilot "a b" source:"claude code"', "source")).toBe('"a b"');
+  });
+
+  it("returns a query without that key unchanged", () => {
+    expect(stripQualifier("  retry  tool:shell ", "source")).toBe("  retry  tool:shell ");
   });
 });

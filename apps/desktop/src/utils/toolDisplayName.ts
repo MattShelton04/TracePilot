@@ -1,4 +1,4 @@
-import type { SessionSource, ToolUsageEntry } from "@tracepilot/types";
+import type { SearchToolName, SessionSource, ToolUsageEntry } from "@tracepilot/types";
 
 /**
  * Tool names on screen follow Conversation's rule: the source's native name
@@ -56,6 +56,23 @@ export function searchResultToolName(result: {
   } catch {
     return result.toolName;
   }
+}
+
+/**
+ * A Search tool-filter option's text. The option's value stays the canonical
+ * name (the `tool:` filter); native names lead when every row searched
+ * records one (Claude Code's `Bash (shell)`), else they follow the canonical
+ * name. Searching only Copilot shows the canonical name alone.
+ */
+export function searchToolOptionLabel(tool: SearchToolName, source: SessionSource | null): string {
+  if (source === "copilot") return tool.name;
+  const hasCanonicalOnlyRows = source === null && tool.sources.includes("copilot");
+  const { label, hint } = toolAggregateLabel(
+    tool.name,
+    tool.nativeNames.map((name) => ({ name })),
+    hasCanonicalOnlyRows,
+  );
+  return hint ? `${label} (${hint})` : label;
 }
 
 /**

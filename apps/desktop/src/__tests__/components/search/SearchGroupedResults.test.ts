@@ -4,7 +4,6 @@ import { mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SearchGroupedResults from "../../../components/search/SearchGroupedResults.vue";
 import type { SessionGroup } from "../../../stores/search";
-import { useSessionsStore } from "../../../stores/sessions";
 
 vi.mock("@tracepilot/ui", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tracepilot/ui")>();
@@ -25,6 +24,7 @@ const MOCK_GROUP: SessionGroup = {
   sessionSummary: "OAuth Implementation",
   sessionRepository: "org/web",
   sessionBranch: "main",
+  sessionSource: "copilot",
   results: [
     {
       id: 1,
@@ -40,6 +40,7 @@ const MOCK_GROUP: SessionGroup = {
       sessionRepository: "org/web",
       sessionBranch: "main",
       sessionUpdatedAt: null,
+      source: "copilot",
     },
     {
       id: 2,
@@ -55,6 +56,7 @@ const MOCK_GROUP: SessionGroup = {
       sessionRepository: "org/web",
       sessionBranch: "main",
       sessionUpdatedAt: null,
+      source: "copilot",
     },
   ],
 };
@@ -215,11 +217,10 @@ describe("SearchGroupedResults", () => {
     expect(wrapper.find(".session-group-title").text()).toContain("sess-abc");
   });
 
-  it("names a non-Copilot source from the session list when the row has none", () => {
-    useSessionsStore().sessions = [
-      { id: "sess-abc", eventCount: 1, turnCount: 1, isRunning: false, source: "claudeCode" },
-    ];
-    const wrapper = mountResults();
+  it("names a non-Copilot source from the rows", () => {
+    const wrapper = mountResults({
+      groupedResults: [{ ...MOCK_GROUP, sessionSource: "claudeCode" }],
+    });
     const badges = wrapper.findAll(".session-group-badges .badge");
     expect(badges.map((b) => b.text())).toEqual(["Claude Code", "org/web", "main"]);
   });

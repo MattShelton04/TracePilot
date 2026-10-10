@@ -111,7 +111,11 @@ const overrides = {
     ],
   },
   get_search_repositories: ["tracepilot/app"],
-  get_search_tool_names: ["edit", "grep"],
+  get_search_tool_names: ["edit", "grep"].map((name) => ({
+    name,
+    nativeNames: [],
+    sources: ["copilot"],
+  })),
   get_search_facets: {
     byContentType: [
       ["user_message", 1],
@@ -140,6 +144,7 @@ const overrides = {
       sessionRepository: "tracepilot/app",
       sessionBranch: "main",
       sessionUpdatedAt: "2026-03-20T10:00:00Z",
+      source: "copilot",
     })),
     totalCount: 2,
     hasMore: false,

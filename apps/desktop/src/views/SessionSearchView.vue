@@ -65,13 +65,13 @@ const {
       :active-filter-count="activeFilterCount"
       :sort-by="store.sortBy"
       :is-browse-mode="store.isBrowseMode"
-      :source="store.source"
+      :source="store.effectiveSource"
       :sources="sourceOptions"
       :show-source="showSourceFilter"
       @update:query="store.query = $event"
       @update:filters-open="filtersOpen = $event"
       @update:sort-by="(v) => store.sortBy = v as typeof store.sortBy"
-      @update:source="store.source = $event"
+      @update:source="store.setSource($event)"
       @show-syntax-help="showSyntaxHelp = true"
     />
 

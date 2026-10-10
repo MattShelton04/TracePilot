@@ -1,6 +1,7 @@
 //! Sanitization helpers for FTS queries and result snippets, plus row mapping.
 
 use super::SearchResult;
+use crate::index_db::row_helpers::session_source_from_row;
 
 /// Map a rusqlite row to a `SearchResult`.
 pub(super) fn map_search_result(row: &rusqlite::Row<'_>) -> rusqlite::Result<SearchResult> {
@@ -19,6 +20,7 @@ pub(super) fn map_search_result(row: &rusqlite::Row<'_>) -> rusqlite::Result<Sea
         session_repository: row.get(10)?,
         session_branch: row.get(11)?,
         session_updated_at: row.get(12)?,
+        source: session_source_from_row(row)?,
     })
 }
 

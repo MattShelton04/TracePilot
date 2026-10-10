@@ -1,7 +1,13 @@
 import { searchContent } from "@tracepilot/client";
-import type { SearchContentType, SearchResult, SearchResultsResponse } from "@tracepilot/types";
+import type {
+  SearchContentType,
+  SearchResult,
+  SearchResultsResponse,
+  SessionSource,
+} from "@tracepilot/types";
 import { CONTENT_TYPE_CONFIG, getDesignToken, toErrorMessage } from "@tracepilot/ui";
 import { computed, onScopeDispose, ref, watch } from "vue";
+import { parseQualifiers, stripQualifier } from "@/utils/parseQualifiers";
 
 export interface ResultGroup {
   contentType: SearchContentType;
@@ -17,11 +23,22 @@ export interface ResultGroup {
  * + keyboard handling. Caller is expected to clear state via `reset()` when
  * the palette closes.
  */
-export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: number } = {}) {
+export function useSearchPaletteSearch(
+  options: {
+    debounceMs?: number;
+    limit?: number;
+    /** The Search page's source filter, used when the query names none. */
+    defaultSource?: () => SessionSource | null;
+  } = {},
+) {
   const debounceMs = options.debounceMs ?? 150;
   const limit = options.limit ?? 20;
 
   const query = ref("");
+  /** The source searched: the query's `source:` qualifier, else the default. */
+  const source = computed<SessionSource | null>(
+    () => parseQualifiers(query.value).source ?? options.defaultSource?.() ?? null,
+  );
   const results = ref<SearchResult[]>([]);
   const totalCount = ref(0);
   const latencyMs = ref(0);
@@ -56,8 +73,14 @@ export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: n
     const gen = ++searchGeneration;
     loading.value = true;
     searchError.value = null;
+    // A typed `source:` filters instead of being matched as text; any other
+    // text, qualifier-like or not, is matched as typed.
+    const text = parseQualifiers(q).source ? stripQualifier(q, "source") : q;
     try {
-      const response: SearchResultsResponse = await searchContent(q, { limit });
+      const response: SearchResultsResponse = await searchContent(text, {
+        limit,
+        source: source.value ?? undefined,
+      });
       if (gen !== searchGeneration) return;
       results.value = response.results;
       totalCount.value = response.totalCount;
@@ -136,6 +159,7 @@ export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: n
   return {
     // state
     query,
+    source,
     results,
     totalCount,
     latencyMs,

@@ -26,6 +26,7 @@ const groups: SessionGroup[] = [
     sessionSummary: summary,
     sessionRepository: `audit/${"longrepository".repeat(6)}`,
     sessionBranch: `feature/${"longbranch".repeat(6)}`,
+    sessionSource: "copilot",
     results: [
       {
         id: 1,
@@ -41,6 +42,7 @@ const groups: SessionGroup[] = [
         toolName: null,
         timestampUnix: null,
         metadataJson: null,
+        source: "copilot",
       },
     ],
   },

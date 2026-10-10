@@ -4,6 +4,7 @@ import { ALL_CONTENT_TYPES, CONTENT_TYPE_CONFIG } from "@tracepilot/ui";
 import { computed, ref, useId, watch } from "vue";
 import { useSearchStore } from "@/stores/search";
 import { useSessionsStore } from "@/stores/sessions";
+import { searchToolOptionLabel } from "@/utils/toolDisplayName";
 
 const props = defineProps<{ collapsed: boolean }>();
 const emit = defineEmits<{ clearFilters: []; restoreFocus: [] }>();
@@ -43,6 +44,15 @@ const availableRepositories = computed(() => {
   return store.availableRepositories.length > 0
     ? store.availableRepositories
     : sessionsStore.repositories;
+});
+
+// Tools the searched source used (plus the selected one), named as that
+// source names them; values stay canonical.
+const toolOptions = computed(() => {
+  const source = store.effectiveSource;
+  return store.availableToolNames
+    .filter((tool) => !source || tool.sources.includes(source) || tool.name === store.toolName)
+    .map((tool) => ({ value: tool.name, label: searchToolOptionLabel(tool, source) }));
 });
 
 // ── Content type tri-state toggle ─────────────────────────────
@@ -205,11 +215,11 @@ function setDatePreset(preset: string) {
       >
         <option value="">All Tools</option>
         <option
-          v-for="tool in store.availableToolNames"
-          :key="tool"
-          :value="tool"
+          v-for="tool in toolOptions"
+          :key="tool.value"
+          :value="tool.value"
         >
-          {{ tool }}
+          {{ tool.label }}
         </option>
       </select>
     </div>

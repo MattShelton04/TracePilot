@@ -35,6 +35,7 @@ function result(id: number, contentType: SearchContentType = "user_message"): Se
     sessionRepository: null,
     sessionBranch: null,
     sessionUpdatedAt: null,
+    source: "copilot",
   };
 }
 
@@ -116,6 +117,37 @@ describe("useSearchPaletteSearch", () => {
     expect(mockSearch).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     expect(mockSearch).toHaveBeenCalledExactlyOnceWith("alpha", { limit: 5 });
+  });
+
+  it("searches the default source unless the query names one", async () => {
+    let defaultSource: "copilot" | "claudeCode" | null = "claudeCode";
+    const { state } = setup({ defaultSource: () => defaultSource });
+    mockSearch.mockResolvedValue(response("alpha"));
+
+    await start(state, "alpha");
+    expect(mockSearch).toHaveBeenLastCalledWith("alpha", { limit: 20, source: "claudeCode" });
+    expect(state.source.value).toBe("claudeCode");
+
+    await start(state, "alpha source:copilot");
+    expect(mockSearch).toHaveBeenLastCalledWith("alpha", { limit: 20, source: "copilot" });
+
+    defaultSource = null;
+    await start(state, "beta");
+    expect(mockSearch).toHaveBeenLastCalledWith("beta", { limit: 20 });
+  });
+
+  it("filters only by source: and matches any other qualifier-like text as typed", async () => {
+    const { state } = setup();
+    mockSearch.mockResolvedValue(response("retry"));
+
+    await start(state, "retry source:claude Content-Type:json session:4f1c");
+    expect(mockSearch).toHaveBeenLastCalledWith("retry Content-Type:json session:4f1c", {
+      limit: 20,
+      source: "claudeCode",
+    });
+
+    await start(state, "tool:grep source:nope");
+    expect(mockSearch).toHaveBeenLastCalledWith("tool:grep source:nope", { limit: 20 });
   });
 
   it("removes completed results from the selectable list as soon as the query changes", async () => {

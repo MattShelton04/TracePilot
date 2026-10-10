@@ -5,6 +5,7 @@ import type {
   SearchFilters,
   SearchResultsResponse,
   SearchStatsResponse,
+  SearchToolName,
 } from "@tracepilot/types";
 
 /**
@@ -78,9 +79,9 @@ export async function getSearchRepositories(): Promise<string[]> {
   return invoke<string[]>("get_search_repositories");
 }
 
-/** Get distinct tool names for the search filter dropdown. */
-export async function getSearchToolNames(): Promise<string[]> {
-  return invoke<string[]>("get_search_tool_names");
+/** Get canonical tool names, with their native names and sources, for the tool filter. */
+export async function getSearchToolNames(): Promise<SearchToolName[]> {
+  return invoke<SearchToolName[]>("get_search_tool_names");
 }
 
 /** Run FTS integrity check. Returns a status message. */

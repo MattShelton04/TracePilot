@@ -12,6 +12,7 @@ import { isRouteName, ROUTE_NAMES, type RouteName } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import type { SidebarSection } from "@/router/types";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSearchStore } from "@/stores/search";
 import { useSessionsStore } from "@/stores/sessions";
 
 export interface NavAction {
@@ -58,7 +59,12 @@ function score(haystack: string, needle: string): number {
 export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInputElement | null>) {
   const sessionsStore = useSessionsStore();
   const prefsStore = usePreferencesStore();
-  const search = useSearchPaletteSearch();
+  // Ctrl+K searches the source the Search page searches (its switch, or a
+  // typed `source:`). The store is read on first search, so opening the app
+  // does not create it.
+  const search = useSearchPaletteSearch({
+    defaultSource: () => useSearchStore().effectiveSource,
+  });
   const isOpen = ref(false);
   const selectedIndex = ref(0);
   let previouslyFocused: HTMLElement | null = null;

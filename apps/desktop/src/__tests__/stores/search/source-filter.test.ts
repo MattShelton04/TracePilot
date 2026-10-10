@@ -1,6 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: setup must register mocks before the store import.
 import { setupPinia } from "@tracepilot/test-utils";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   emptySearchResponse,
   flushSearchQueue,
@@ -61,6 +61,50 @@ describe("useSearchStore – source filter", () => {
     expect(query).toBe("retry");
     expect(filters.source).toBe("claudeCode");
     expect(lastFacets()).toEqual(["retry", expect.objectContaining({ source: "claudeCode" })]);
+  });
+
+  it("shows a typed source: qualifier as the searched source", () => {
+    const store = useSearchStore();
+    expect(store.effectiveSource).toBeNull();
+    store.query = "retry source:claude";
+    expect(store.effectiveSource).toBe("claudeCode");
+    store.source = "copilot";
+    // The typed qualifier wins, as it does for the search itself.
+    expect(store.effectiveSource).toBe("claudeCode");
+    store.query = "retry";
+    expect(store.effectiveSource).toBe("copilot");
+  });
+
+  it("picking a source drops a typed source: qualifier and searches once", async () => {
+    vi.useFakeTimers();
+    try {
+      const store = useSearchStore();
+      store.query = "retry source:claude";
+      await vi.advanceTimersByTimeAsync(2000);
+      mocks.searchContent.mockClear();
+
+      store.setSource("copilot");
+      expect(store.query).toBe("retry");
+      expect(store.effectiveSource).toBe("copilot");
+      // Past the query debounce: the debounced search must not run as well.
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+      expect(lastSearch()).toEqual(["retry", expect.objectContaining({ source: "copilot" })]);
+
+      store.query = "retry source:claude";
+      store.setSource(null);
+      expect(store.query).toBe("retry");
+      expect(store.effectiveSource).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("picking a source leaves a query without a source: qualifier alone", () => {
+    const store = useSearchStore();
+    store.query = "retry  tool:shell ";
+    store.setSource("claudeCode");
+    expect(store.query).toBe("retry  tool:shell ");
   });
 
   it("keeps the newest source's results when an older response lands late", async () => {

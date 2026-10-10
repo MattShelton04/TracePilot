@@ -32,7 +32,7 @@ impl IndexDb {
         let base_select = format!(
             "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, \
                     sc.timestamp_unix, sc.tool_name, {snippet_col}, sc.metadata_json, \
-                    s.summary, s.repository, s.branch, s.updated_at"
+                    s.summary, s.repository, s.branch, s.updated_at, s.source"
         );
 
         let limit = filters.limit.unwrap_or(50).min(200);

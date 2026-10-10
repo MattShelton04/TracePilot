@@ -86,3 +86,18 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
 
   return result;
 }
+
+/**
+ * `raw` without its `key:` qualifiers (`key` lower-case), so a UI filter that replaces one
+ * (picking a source in the switch) is not overridden by the typed text.
+ * Returns `raw` unchanged when it has none.
+ */
+export function stripQualifier(raw: string, key: string): string {
+  let stripped = false;
+  const clean = raw.replace(QUALIFIER_RE, (match, name: string) => {
+    if (name.toLowerCase() !== key) return match;
+    stripped = true;
+    return "";
+  });
+  return stripped ? clean.replace(/\s+/g, " ").trim() : raw;
+}
