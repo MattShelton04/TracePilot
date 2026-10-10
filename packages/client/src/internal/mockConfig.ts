@@ -17,8 +17,18 @@ export function mockConfigCommand(command: string, args?: Record<string, unknown
   }
   if (command === "update_config") {
     const patch = args?.patch as TracePilotConfigPatch;
-    for (const key of Object.keys(patch) as Array<keyof TracePilotConfigPatch>) {
-      Object.assign(config[key], structuredClone(patch[key]));
+    const { sources, ...sections } = structuredClone(patch);
+    for (const key of Object.keys(sections) as Array<keyof typeof sections>) {
+      Object.assign(config[key], sections[key]);
+    }
+    // `sources` is patched one level deeper, so the folder and command persist independently.
+    if (sources?.claudeCode) {
+      const { configDir, cliCommand } = sources.claudeCode;
+      config.sources.claudeCode = {
+        ...config.sources.claudeCode,
+        ...(configDir != null && { configDir }),
+        ...(cliCommand != null && { cliCommand }),
+      };
     }
   }
   return structuredClone(config);
