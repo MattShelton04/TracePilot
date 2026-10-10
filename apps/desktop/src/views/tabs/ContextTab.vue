@@ -421,6 +421,7 @@ function toolCallFor(item: ContextToolCallContribution): TurnToolCall {
   return {
     toolCallId: item.toolCallId ?? undefined,
     toolName: item.toolName,
+    nativeToolName: item.nativeToolName ?? undefined,
     arguments: argumentsValue,
     resultContent: item.resultPreview ?? undefined,
     success: item.success ?? undefined,

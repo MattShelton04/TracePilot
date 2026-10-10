@@ -20,9 +20,11 @@ import type {
   ConversationTurn,
   PromptCacheTimeline,
   SessionEventSeverity,
+  SessionSource,
   TurnSessionEvent,
   TurnToolCall,
 } from "@tracepilot/types";
+import { modelDisplayName } from "@tracepilot/types";
 import {
   AgentBadge,
   Badge,
@@ -70,6 +72,8 @@ const props = defineProps<{
   cacheWindows?: ReadonlyMap<number, CacheWindow>;
   /** Prompt-cache timeline, for the live countdown after the last turn (compact view). */
   cacheTimeline?: PromptCacheTimeline | null;
+  /** The session's source, for naming models as cards do. */
+  source?: SessionSource;
 }>();
 
 // Turns render in `content-visibility: auto` chunks (see conversation.css).
@@ -168,7 +172,7 @@ function onRetryFullResult(toolCallId: string) {
       <div class="compact-turn">
       <div class="compact-turn-header">
         <span class="turn-meta" style="font-weight: 700; color: var(--accent-fg);">Turn {{ turn.turnIndex }}</span>
-        <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
+        <Badge v-if="turn.model" variant="done" :title="turn.model">{{ modelDisplayName(turn.model, source) }}</Badge>
         <Badge v-if="turn.reasoningEffort" variant="neutral">{{ effortLabel(turn.reasoningEffort) }}</Badge>
         <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
         <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
@@ -283,7 +287,7 @@ function onRetryFullResult(toolCallId: string) {
 
       <div class="timeline-turn-body">
         <div class="timeline-meta">
-          <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
+          <Badge v-if="turn.model" variant="done" :title="turn.model">{{ modelDisplayName(turn.model, source) }}</Badge>
           <Badge v-if="turn.reasoningEffort" variant="neutral">{{ effortLabel(turn.reasoningEffort) }}</Badge>
           <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
           <span v-if="turn.outputTokens" class="token-badge" :title="turnUsageTitle(turn)"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>

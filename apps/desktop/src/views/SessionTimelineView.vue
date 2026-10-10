@@ -9,10 +9,12 @@ import NestedSwimlanesView from "@/components/timeline/NestedSwimlanesView.vue";
 import TurnWaterfallView from "@/components/timeline/TurnWaterfallView.vue";
 import { provideSessionAgentDirectory } from "@/composables/useSessionAgentDirectory";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionModelName } from "@/composables/useSessionModelName";
 import { sessionModel } from "@/utils/sessionModel";
 
 const store = useSessionDetailContext();
 const { directory } = provideSessionAgentDirectory(store);
+const modelName = useSessionModelName();
 
 // Load turns when component mounts (if not already loaded)
 watch(
@@ -70,8 +72,8 @@ watch(hasSubagents, (has) => {
             {{ store.detail?.id?.slice(0, 8) }}…{{ store.detail?.id?.slice(-7) }}
           </code>
         </span>
-        <span v-if="sessionModel(store.detail)" class="badge badge-accent">
-          {{ sessionModel(store.detail) }}
+        <span v-if="sessionModel(store.detail)" class="badge badge-accent" :title="sessionModel(store.detail)!">
+          {{ modelName(sessionModel(store.detail)!) }}
         </span>
         <span class="session-info-pill">
           <span class="pill-label">Turns</span>

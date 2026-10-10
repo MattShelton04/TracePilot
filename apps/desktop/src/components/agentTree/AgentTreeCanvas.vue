@@ -9,9 +9,21 @@ import {
 } from "@tracepilot/ui";
 import { AlertTriangle, ArrowUpRight } from "lucide-vue-next";
 import { type AgentNode, useAgentTreeContext } from "@/composables/useAgentTree";
+import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionModelName } from "@/composables/useSessionModelName";
+import { NO_FINAL_REPORT, settledAgentStatus } from "@/utils/agentEndState";
 import type { AgentTreeSvgLine } from "@/utils/agentTreeLayout";
 
 const ctx = useAgentTreeContext();
+const modelName = useSessionModelName();
+const store = useSessionDetailContext();
+const mayStillReport = useCountsUpToNow(() => store.sessionId);
+
+/** A subagent that never reported in an ended non-Copilot session is not running. */
+function nodeStatus(node: AgentNode) {
+  return node.type === "main" ? node.status : settledAgentStatus(node.status, mayStillReport.value);
+}
 
 function lineClass(line: AgentTreeSvgLine) {
   const node = ctx.layout.value?.nodes.find((n) => n.node.id === line.childId)?.node;
@@ -89,7 +101,7 @@ function handleNodeRef(nodeId: string, el: Element | null): void {
         :class="{
           'agent-node--main': ln.node.type === 'main',
           'agent-node--selected': ctx.selectedNodeId.value === ln.node.id,
-          'agent-node--in-progress': ln.node.status === 'in-progress',
+          'agent-node--in-progress': nodeStatus(ln.node) === 'in-progress',
           'agent-node--cross-turn': ln.node.isCrossTurnParent,
         }"
         :style="{
@@ -100,7 +112,7 @@ function handleNodeRef(nodeId: string, el: Element | null): void {
         }"
         role="button"
         tabindex="0"
-        :aria-label="`${ln.node.displayName} — ${ln.node.status}`"
+        :aria-label="`${ln.node.displayName} — ${nodeStatus(ln.node) === 'unreported' ? NO_FINAL_REPORT : ln.node.status}`"
         @click="ctx.selectNode(ln.node.id)"
         @keydown.enter="ctx.selectNode(ln.node.id)"
         @keydown.space.prevent="ctx.selectNode(ln.node.id)"
@@ -122,8 +134,8 @@ function handleNodeRef(nodeId: string, el: Element | null): void {
           <span class="agent-node-name">{{ ln.node.displayName }}</span>
         </div>
 
-        <div v-if="ln.node.model" class="agent-node-model">
-          {{ ln.node.model }}
+        <div v-if="ln.node.model" class="agent-node-model" :title="ln.node.model">
+          {{ modelName(ln.node.model) }}
           <span
             v-if="ln.node.status !== 'in-progress' && ln.node.requestedModel && ln.node.model !== ln.node.requestedModel"
             class="agent-node-model-warn"
@@ -139,6 +151,15 @@ function handleNodeRef(nodeId: string, el: Element | null): void {
           <span>{{ ln.node.toolCount }} tool{{ ln.node.toolCount !== 1 ? "s" : "" }}</span>
           <span v-if="ln.node.totalTokens" class="agent-node-tokens">{{ formatNumber(ln.node.totalTokens) }} tok</span>
           <span
+            v-if="nodeStatus(ln.node) === 'unreported'"
+            class="agent-node-status agent-node-status--unreported"
+            :title="NO_FINAL_REPORT"
+          >
+            {{ STATUS_ICONS.idle }}
+            <span class="sr-only">{{ NO_FINAL_REPORT }}</span>
+          </span>
+          <span
+            v-else
             class="agent-node-status"
             :class="{ 'agent-node-status--in-progress': ln.node.status === 'in-progress' }"
           >

@@ -7,6 +7,7 @@ export const claudeRecordedCostSessionId = "c1a0de00-0000-4000-8000-000000000006
 export const claudeUntieredCacheSessionId = "c1a0de00-0000-4000-8000-000000000008";
 export const claudeCommandsSessionId = "c1a0de00-0000-4000-8000-000000000009";
 export const claudeNotificationSessionId = "c1a0de00-0000-4000-8000-00000000000a";
+export const claudeUnreportedAgentSessionId = "c1a0de00-0000-4000-8000-00000000000b";
 
 const base = {
   cwd: "C:/synthetic/gallery",
@@ -190,6 +191,41 @@ export function buildClaudeNotificationSession() {
   );
   t.costState(0.0012, { input: 30, cacheRead: 300, cacheWrite: 60, output: 15 });
   return session(t, "SYNTHETIC · Background task notifications");
+}
+
+/**
+ * A background agent that never reports: the session ends before its
+ * completion notification, so the agent has no end (No final report).
+ */
+export function buildClaudeUnreportedAgentSession() {
+  const t = new Transcript({
+    ...base,
+    sessionId: claudeUnreportedAgentSessionId,
+    namespace: "0c1a000b",
+  });
+  t.prompt("Audit the retry settings in the background.");
+  t.call(
+    "unreported_launch",
+    [
+      toolUse("toolu_unreported_agent", "Agent", {
+        subagent_type: "Explore",
+        description: "Audit the retry settings",
+        prompt: "List every retry setting and its default.",
+        run_in_background: true,
+      }),
+    ],
+    usage,
+    "tool_use",
+  );
+  t.toolResult("toolu_unreported_agent", "Async agent launched successfully.", {
+    status: "async_launched",
+    isAsync: true,
+    agentId: "a0c1a000b0000001",
+    description: "Audit the retry settings",
+  });
+  t.call("unreported_wait", [text("The audit is running; I'll report back.")], usage, "end_turn");
+  t.costState(0.0004, { input: 20, cacheRead: 200, cacheWrite: 40, output: 10 });
+  return session(t, "SYNTHETIC · Unreported background agent");
 }
 
 const CAVEAT =

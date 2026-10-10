@@ -5,6 +5,7 @@ import { formatDateMedium, formatRelativeTime } from "@tracepilot/ui";
 import { computed, useId } from "vue";
 import { useSessionSourceLookup } from "@/composables/useSessionSource";
 import type { SessionGroup } from "@/stores/search";
+import { searchResultToolName } from "@/utils/toolDisplayName";
 import SearchResultExpandedDetails from "./SearchResultExpandedDetails.vue";
 
 const props = defineProps<{
@@ -112,7 +113,7 @@ const groupSources = computed(
                 {{ formatRelativeTime(result.timestampUnix) }}
               </span>
               <span v-if="result.turnNumber != null">T{{ result.turnNumber }}</span>
-              <span v-if="result.toolName" class="tool-name-badge">{{ result.toolName }}</span>
+              <span v-if="result.toolName" class="tool-name-badge" :title="result.toolName">{{ searchResultToolName(result) }}</span>
             </span>
             <router-link
               :to="sessionLink(result.sessionId, result.turnNumber, result.eventIndex)"

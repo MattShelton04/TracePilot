@@ -119,7 +119,9 @@ describe("ToolUsageList", () => {
       ],
     };
     const wrapper = mount(ToolUsageList, { props: { tools: [shell] } });
-    expect(wrapper.text()).toContain("Bash, PowerShell");
+    // Every call is Claude Code's: its native names lead, canonical beneath.
+    expect(wrapper.get("button[aria-expanded]").text()).toBe("Bash, PowerShell");
+    expect(wrapper.get(".tool-usage-list__native-summary").text()).toBe("shell");
     expect(wrapper.findAll("tbody tr")).toHaveLength(1);
     const toggle = wrapper.get("button[aria-expanded]");
     expect(toggle.attributes("aria-expanded")).toBe("false");
@@ -146,6 +148,9 @@ describe("ToolUsageList", () => {
       ],
     };
     const wrapper = mount(ToolUsageList, { props: { tools: [shell] } });
+    // Mixed with canonical-only calls: canonical leads, native names beneath.
+    expect(wrapper.get("button[aria-expanded]").text()).toBe("shell");
+    expect(wrapper.get(".tool-usage-list__native-summary").text()).toBe("Bash");
     await wrapper.get("button[aria-expanded]").trigger("click");
     const rows = wrapper.findAll(".tool-usage-list__native-row");
     expect(rows).toHaveLength(2);

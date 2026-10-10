@@ -15,6 +15,7 @@ import {
   claudeNotificationSessionId,
   claudeRecordedCostSessionId,
   claudeRunningCostSessionId,
+  claudeUnreportedAgentSessionId,
   claudeUntieredCacheSessionId,
 } from "./claude-gallery.mjs";
 import {
@@ -213,9 +214,10 @@ test("generation preserves launcher config, reuses owned data and refuses modifi
       claudeUntieredCacheSessionId,
       claudeCommandsSessionId,
       claudeNotificationSessionId,
+      claudeUnreportedAgentSessionId,
     ],
   );
-  assert.equal(generated.files.length, 20);
+  assert.equal(generated.files.length, 21);
   assert(
     existsSync(
       join(root, "claude/projects/C--synthetic-orchard", `${claudeOrchardSessionId}.jsonl`),

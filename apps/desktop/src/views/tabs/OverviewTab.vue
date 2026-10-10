@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { modelDisplayName } from "@tracepilot/types";
 import {
   Badge,
   DefList,
@@ -51,6 +52,10 @@ const { source, capabilities } = useSessionSource(
   () => store.sessionId,
   () => store.detail,
 );
+// Named as cards and Analytics name it; the recorded id is the tooltip.
+const currentModelLabel = computed(() =>
+  currentModel.value ? modelDisplayName(currentModel.value, source.value) : null,
+);
 // Only sources that back up files are asked for their history.
 watch(
   () => (capabilities.value.hasFileHistory ? store.sessionId : null),
@@ -82,7 +87,9 @@ const sessionInfoItems = computed(() => {
     { label: "Repository", value: d?.repository ?? "—" },
     { label: "Branch", value: d?.branch ?? "—" },
     ...(cwd.value ? [{ label: "Working directory", value: cwd.value, slot: "cwd" }] : []),
-    { label: "Model", value: currentModel.value ?? "—" },
+    currentModel.value
+      ? { label: "Model", value: currentModel.value, slot: "model" }
+      : { label: "Model", value: "—" },
     { label: "Reasoning effort", value: currentEffort.value ?? "Model default" },
     ...(showHost.value ? [{ label: "Host", value: d?.hostType ?? "—" }] : []),
     { label: "API Time", value: formatRecordedDuration(metrics.value?.totalApiDurationMs) },
@@ -241,6 +248,9 @@ function retryLoadSection(section: string) {
       <!-- Session Info -->
       <SectionPanel title="Session Info">
         <DefList :items="sessionInfoItems">
+          <template #model>
+            <span :title="currentModel ?? undefined" data-testid="session-model">{{ currentModelLabel }}</span>
+          </template>
           <template #cwd>
             <span class="cwd-value">
               <span class="cwd-path" :title="cwd ?? undefined" data-testid="session-cwd">
@@ -272,7 +282,7 @@ function retryLoadSection(section: string) {
           <dd>{{ formatRecordedDuration(metrics?.totalApiDurationMs) }}</dd>
           <dt>Current Model</dt>
           <dd class="flex flex-wrap items-center gap-1">
-            <Badge v-if="currentModel" variant="done">{{ currentModel }}</Badge>
+            <Badge v-if="currentModel" variant="done" :title="currentModel">{{ currentModelLabel }}</Badge>
             <span v-else>—</span>
             <Badge v-if="currentEffort" variant="neutral">{{ effortLabel(currentEffort) }}</Badge>
           </dd>

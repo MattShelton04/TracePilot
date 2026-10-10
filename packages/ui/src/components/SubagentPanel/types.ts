@@ -3,7 +3,17 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import type { AgentCommDelivery, AgentCommunication } from "../../utils/agentComms";
 
-export type SubagentStatus = "in-progress" | "completed" | "failed" | "cancelled" | "idle";
+/**
+ * `unreported`: the agent never reported a result and its session has ended,
+ * so it is no longer running and its end time is unknown (hosts decide when).
+ */
+export type SubagentStatus =
+  | "in-progress"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "idle"
+  | "unreported";
 
 export type SubagentType =
   | "main"

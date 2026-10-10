@@ -64,3 +64,38 @@ describe("ConversationTurnList main-agent label", () => {
     expect(label.text()).toBe("Claude Code");
   });
 });
+
+describe("ConversationTurnList model badge", () => {
+  beforeEach(() => setupPinia());
+
+  function badge(viewMode: "compact" | "timeline", source?: "claudeCode" | "copilot") {
+    const wrapper = shallowMount(ConversationTurnList, {
+      props: {
+        turns: [{ ...turn, model: "claude-opus-5-5" }],
+        viewMode,
+        source,
+        getSections: () => [],
+        getArgsSummary: () => "",
+        findToolCallIndex: () => 0,
+        expandedToolDetails: noop,
+        expandedReasoning: noop,
+        fullResults: new Map(),
+        loadingResults: new Set(),
+        failedResults: new Set(),
+        richEnabledFor: () => false,
+      },
+      global: { stubs: { Badge: { template: "<span class='badge'><slot /></span>" } } },
+    } as never);
+    return wrapper.get(".badge[title='claude-opus-5-5']").text();
+  }
+
+  it("names a Claude Code model as cards do in both views", () => {
+    expect(badge("compact", "claudeCode")).toBe("claude-opus-5.5");
+    expect(badge("timeline", "claudeCode")).toBe("claude-opus-5.5");
+  });
+
+  it("keeps the recorded id for Copilot", () => {
+    expect(badge("compact", "copilot")).toBe("claude-opus-5-5");
+    expect(badge("timeline")).toBe("claude-opus-5-5");
+  });
+});

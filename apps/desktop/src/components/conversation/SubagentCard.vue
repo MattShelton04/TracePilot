@@ -12,6 +12,9 @@ import {
 } from "@tracepilot/ui";
 import { AlertTriangle, ChevronRight } from "lucide-vue-next";
 import { computed } from "vue";
+import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { NO_FINAL_REPORT, NO_FINAL_REPORT_HINT, settledAgentStatus } from "@/utils/agentEndState";
 
 const props = defineProps<{
   toolCall: TurnToolCall;
@@ -26,7 +29,33 @@ const emit = defineEmits<{
 const agentType = computed(() => inferAgentTypeFromToolCall(props.toolCall));
 const agentColor = computed(() => getAgentColor(agentType.value));
 const agentIcon = computed(() => getAgentIcon(agentType.value));
-const status = computed(() => agentStatusFromToolCall(props.toolCall));
+const store = useSessionDetailContext();
+const mayStillReport = useCountsUpToNow(() => store.sessionId);
+const status = computed(() =>
+  settledAgentStatus(agentStatusFromToolCall(props.toolCall), mayStillReport.value),
+);
+const statusClass = computed(() => {
+  if (status.value === "failed") return "fail";
+  if (status.value === "unreported") return "unreported";
+  if (status.value === "in-progress" || status.value === "cancelled") return "pending";
+  return "success";
+});
+const statusTitle = computed(() => {
+  switch (status.value) {
+    case "cancelled":
+      return "Cancelled";
+    case "idle":
+      return "Idle — waiting for messages";
+    case "in-progress":
+      return "Running";
+    case "unreported":
+      return NO_FINAL_REPORT_HINT;
+    case "failed":
+      return "Failed";
+    default:
+      return "Completed";
+  }
+});
 
 const displayName = computed(() => {
   return (
@@ -58,6 +87,10 @@ const modelMismatch = computed(() => {
 });
 
 const duration = computed(() => {
+  // A never-reported agent has no end: show only a recorded duration.
+  if (status.value === "unreported") {
+    return props.toolCall.durationMs ? formatDuration(props.toolCall.durationMs) : "";
+  }
   if (status.value === "in-progress" && !props.toolCall.durationMs) {
     return "";
   }
@@ -100,12 +133,10 @@ function handleClick() {
       ><AlertTriangle :size="12" /></span>
       <span v-if="duration" class="cv-subagent-dur">{{ duration }}</span>
       <span
-        :class="[
-          'cv-subagent-status',
-          status === 'failed' ? 'fail' : status === 'in-progress' || status === 'cancelled' ? 'pending' : 'success',
-        ]"
-        :title="status === 'cancelled' ? 'Cancelled' : status === 'idle' ? 'Idle — waiting for messages' : status === 'in-progress' ? 'Running' : status === 'failed' ? 'Failed' : 'Completed'"
+        :class="['cv-subagent-status', statusClass]"
+        :title="statusTitle"
       />
+      <span v-if="status === 'unreported'" class="cv-subagent-unreported" :title="NO_FINAL_REPORT_HINT">{{ NO_FINAL_REPORT }}</span>
       <span class="cv-subagent-arrow" aria-hidden="true"><ChevronRight :size="12" /></span>
     </div>
     <div v-if="childToolCount || toolCall.totalTokens || toolCall.totalToolCalls" class="cv-subagent-hint">
@@ -208,6 +239,15 @@ function handleClick() {
 }
 .cv-subagent-status.pending {
   background: var(--warning-fg);
+}
+.cv-subagent-status.unreported {
+  background: var(--text-tertiary);
+}
+.cv-subagent-unreported {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  white-space: nowrap;
 }
 .cv-subagent-arrow {
   font-size: 9px;

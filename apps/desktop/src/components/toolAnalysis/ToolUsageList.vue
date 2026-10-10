@@ -2,12 +2,18 @@
 import type { ToolUsageEntry } from "@tracepilot/types";
 import { formatDuration, formatNumberFull, formatRate, sourceLabel } from "@tracepilot/types";
 import { ChevronRight } from "lucide-vue-next";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import SourceLogo from "@/components/sources/SourceLogo.vue";
+import { canonicalOnlyCalls, toolUsageLabel, toolUsageNames } from "@/utils/toolDisplayName";
 
-defineProps<{
+const props = defineProps<{
   tools: readonly ToolUsageEntry[];
 }>();
+
+// Native names lead when every call has one (Claude Code's `Bash`), with the
+// canonical name beneath; mixed or Copilot rows lead with the canonical name.
+const names = computed(() => toolUsageNames(props.tools));
+const hints = computed(() => props.tools.map((tool) => toolUsageLabel(tool).hint));
 
 const expanded = ref(new Set<string>());
 
@@ -15,17 +21,6 @@ function toggle(name: string) {
   const next = new Set(expanded.value);
   if (!next.delete(name)) next.add(name);
   expanded.value = next;
-}
-
-/** Native names in call order, e.g. "Bash, PowerShell". */
-function nativeSummary(tool: ToolUsageEntry): string {
-  return [...new Set((tool.nativeTools ?? []).map((native) => native.name))].join(", ");
-}
-
-/** Calls recorded under the canonical name only (Copilot's tools). */
-function canonicalOnlyCalls(tool: ToolUsageEntry): number {
-  const native = (tool.nativeTools ?? []).reduce((sum, entry) => sum + entry.callCount, 0);
-  return Math.max(tool.callCount - native, 0);
 }
 </script>
 
@@ -43,7 +38,7 @@ function canonicalOnlyCalls(tool: ToolUsageEntry): number {
           </tr>
         </thead>
         <tbody>
-          <template v-for="tool in tools" :key="tool.name">
+          <template v-for="(tool, index) in tools" :key="tool.name">
             <tr>
               <td class="tool-usage-list__name">
                 <button
@@ -60,11 +55,11 @@ function canonicalOnlyCalls(tool: ToolUsageEntry): number {
                     :class="{ 'tool-usage-list__chevron--open': expanded.has(tool.name) }"
                     aria-hidden="true"
                   />
-                  {{ tool.name }}
+                  {{ names[index] }}
                 </button>
-                <template v-else>{{ tool.name }}</template>
-                <div v-if="tool.nativeTools?.length" class="tool-usage-list__native-summary">
-                  {{ nativeSummary(tool) }}
+                <template v-else>{{ names[index] }}</template>
+                <div v-if="hints[index]" class="tool-usage-list__native-summary">
+                  {{ hints[index] }}
                 </div>
               </td>
               <td class="tabular-nums">{{ formatNumberFull(tool.callCount) }}</td>

@@ -41,7 +41,8 @@ pub const CURRENT_EXTRACTOR_VERSION: i64 = 4;
 /// v6: a task notification that wakes the session is indexed as its readable
 /// line, not the `<task-notification>` XML.
 /// v7: a backgrounded shell's arguments carry its `shellId` and background mode.
-const CLAUDE_CODE_EXTRACTOR_VERSION: i64 = 7;
+/// v8: tool rows carry the native tool name (`nativeToolName` metadata).
+const CLAUDE_CODE_EXTRACTOR_VERSION: i64 = 8;
 
 fn extractor_version(source: SessionSource) -> i64 {
     match source {

@@ -2,6 +2,7 @@
 import type { SearchResult } from "@tracepilot/types";
 import { formatRelativeTime } from "@tracepilot/ui";
 import type { ResultGroup } from "@/composables/useSearchPaletteSearch";
+import { searchResultToolName } from "@/utils/toolDisplayName";
 
 defineProps<{
   groupedResults: ResultGroup[];
@@ -163,12 +164,13 @@ function hexToRgb(hex: string): string {
             <span
               v-if="result.toolName"
               class="palette-item-badge"
+              :title="result.toolName"
               :style="{
                 background: badgeBackground(group.color),
                 color: group.color,
               }"
             >
-              {{ result.toolName }}
+              {{ searchResultToolName(result) }}
             </span>
             <span
               v-else-if="result.turnNumber != null"

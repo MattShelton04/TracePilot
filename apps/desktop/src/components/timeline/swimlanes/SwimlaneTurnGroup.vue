@@ -12,6 +12,7 @@ import {
 } from "@tracepilot/ui";
 import type { Ref } from "vue";
 import { computed } from "vue";
+import { useSessionModelName } from "@/composables/useSessionModelName";
 import {
   agentKey,
   barWidthPct,
@@ -63,6 +64,7 @@ const emit = defineEmits<{
   (e: "set-assistant-idx", turnIndex: number, idx: number): void;
 }>();
 
+const modelName = useSessionModelName();
 const tKey = computed(() => turnKey(props.phaseIdx, props.turn));
 const maxMs = computed(() => turnMaxDuration(props.turn));
 
@@ -109,7 +111,7 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
         <span v-if="turn.durationMs" class="turn-stat">
           {{ formatDuration(turn.durationMs) }}
         </span>
-        <Badge v-if="turn.model" variant="done">{{ turn.model }}</Badge>
+        <Badge v-if="turn.model" variant="done" :title="turn.model">{{ modelName(turn.model) }}</Badge>
       </span>
     </div>
 

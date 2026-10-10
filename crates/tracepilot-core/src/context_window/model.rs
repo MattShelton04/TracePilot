@@ -80,6 +80,10 @@ pub struct ContextToolCallContribution {
     pub turn: usize,
     pub tool_call_id: Option<String>,
     pub tool_name: String,
+    /// The source's own name for the call (Claude Code's `Bash`), when it
+    /// records one besides the canonical `tool_name`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native_tool_name: Option<String>,
     pub argument_tokens: u64,
     pub result_tokens: u64,
     pub total_tokens: u64,
@@ -92,6 +96,10 @@ pub struct ContextToolCallContribution {
 #[serde(rename_all = "camelCase")]
 pub struct ContextToolTypeContribution {
     pub tool_name: String,
+    /// Native names of the calls behind this canonical tool, largest
+    /// contribution first. Empty for sources that record canonical names.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub native_tool_names: Vec<String>,
     pub call_count: usize,
     pub error_count: usize,
     pub argument_tokens: u64,
@@ -161,6 +169,7 @@ pub(super) struct ToolCallDraft {
     pub(super) turn: usize,
     pub(super) tool_call_id: Option<String>,
     pub(super) tool_name: String,
+    pub(super) native_tool_name: Option<String>,
     pub(super) argument_tokens: u64,
     pub(super) result_tokens: u64,
     pub(super) success: Option<bool>,

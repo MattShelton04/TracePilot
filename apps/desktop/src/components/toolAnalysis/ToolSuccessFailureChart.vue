@@ -4,6 +4,7 @@ import { formatNumberFull, formatRate } from "@tracepilot/types";
 import { ChartTooltip, useChartTooltip } from "@tracepilot/ui";
 import { computed } from "vue";
 import { CHART_COLORS } from "@/utils/chartColors";
+import { toolUsageNames } from "@/utils/toolDisplayName";
 
 const props = defineProps<{
   tools: readonly ToolUsageEntry[];
@@ -26,7 +27,8 @@ function displayToolName(name: string): string {
 const chart = computed(() => {
   if (!props.tools.length) return null;
   const maxCalls = props.maxInvocations || 1;
-  const longestLabel = Math.max(...props.tools.map((tool) => displayToolName(tool.name).length));
+  const names = toolUsageNames(props.tools);
+  const longestLabel = Math.max(...names.map((name) => displayToolName(name).length));
   const chartLeft = Math.min(Math.max(longestLabel * 7 + 20, MIN_LABEL_WIDTH), MAX_LABEL_WIDTH);
   const chartWidth = CHART_RIGHT - chartLeft;
   const rows = props.tools.map((tool, i) => {
@@ -37,7 +39,8 @@ const chart = computed(() => {
     const y = 18 + i * ROW_SPACING;
     return {
       tool,
-      label: displayToolName(tool.name),
+      name: names[i],
+      label: displayToolName(names[i]),
       successCount,
       failureCount,
       successWidth,
@@ -71,7 +74,7 @@ function onMouseMove(event: MouseEvent) {
   const total = row.successCount + row.failureCount;
   const rate = formatRate(total > 0 ? row.successCount / total : 0);
   tooltip.visible = true;
-  tooltip.content = `${row.tool.name} — ${formatNumberFull(row.successCount)} success / ${formatNumberFull(row.failureCount)} failure (${rate})`;
+  tooltip.content = `${row.name} — ${formatNumberFull(row.successCount)} success / ${formatNumberFull(row.failureCount)} failure (${rate})`;
   tooltip.chartId = "success-failure";
   tooltip.highlightIndex = bestIdx;
   positionTooltip(event, container);
@@ -125,7 +128,7 @@ function onClick(event: MouseEvent) {
             fill="var(--text-placeholder)"
             text-anchor="end"
           >
-            <title>{{ row.tool.name }}</title>
+            <title>{{ row.name }}</title>
             {{ row.label }}
           </text>
           <rect

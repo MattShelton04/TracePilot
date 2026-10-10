@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { computed } from "vue";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionDetailStore } from "@/stores/sessionDetail";
+import { useSessionsStore } from "@/stores/sessions";
 import { modelTokenBreakdown } from "@/utils/metricsTokenBreakdown";
 import MetricsAgentBreakdown from "../MetricsAgentBreakdown.vue";
 import MetricsCacheBreakdown from "../MetricsCacheBreakdown.vue";
@@ -195,5 +197,43 @@ describe("agent metrics UI", () => {
     expect(cache.text()).toContain("0.0%");
     expect(cache.text()).toContain("Not served from cache");
     expect(cache.text()).not.toContain("Cache write");
+  });
+  it("shows an unfinished agent of an ended Claude session as No final report", () => {
+    const metrics: ShutdownMetrics = {
+      agentUsage: {
+        eventIndex: 1,
+        hasInvalidFields: false,
+        agents: { main: { modelMetrics: {} }, worker: { modelMetrics: {} } },
+      },
+    };
+    const turns = [
+      makeTurn({
+        toolCalls: [
+          makeTurnToolCall({
+            toolCallId: "launch-worker",
+            agentId: "worker",
+            agentDisplayName: "worker",
+            nativeToolName: "Agent",
+            isSubagent: true,
+            isComplete: false,
+            success: undefined,
+          }),
+        ],
+      }),
+    ];
+    type Item = ReturnType<typeof useSessionsStore>["sessions"][number];
+    useSessionDetailStore().sessionId = "s-1";
+    const sessions = useSessionsStore();
+    const badge = (source: Item["source"], isRunning: boolean) => {
+      sessions.sessions = [{ id: "s-1", source, isRunning } as Item];
+      const wrapper = mount(MetricsAgentBreakdown, { props: { metrics, turns } });
+      const text = wrapper.get('[data-testid="agent-usage-table"] tbody tr:nth-child(2)').text();
+      wrapper.unmount();
+      return text;
+    };
+    expect(badge("claudeCode", false)).toBe("AgentNo final report—————0—");
+    expect(badge("claudeCode", true)).toContain("Running");
+    // Copilot is unchanged: an unfinished agent still reads as running.
+    expect(badge("copilot", false)).toContain("Running");
   });
 });
