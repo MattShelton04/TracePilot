@@ -54,9 +54,8 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                     if persisted || content.contains("<persisted-output>") {
                         self.diagnostics.persisted_outputs += 1;
                     }
-                    let failed = block.get("is_error").and_then(Value::as_bool) == Some(true);
                     let start = self.tool_starts.get(id).copied();
-                    let (outcome, agent, send) = {
+                    let (outcome, agent, send, failed) = {
                         let data = start
                             .and_then(|index| self.events.get(index))
                             .map(|e| &e.data);
@@ -67,8 +66,10 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                         let args = data
                             .and_then(|d| d.get("arguments"))
                             .unwrap_or(&Value::Null);
+                        let send = native == "SendMessage";
+                        let failed = is_failure(block, tur, send);
                         let outcome = reshape(native, args, tur, content, failed);
-                        (outcome, is_agent_tool(native), native == "SendMessage")
+                        (outcome, is_agent_tool(native), send, failed)
                     };
                     if let Some((name, arguments)) = outcome.restart
                         && let Some(event) = start.and_then(|index| self.events.get_mut(index))
@@ -122,6 +123,14 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             self.interrupt(st, ctx, denial.is_none());
         }
     }
+}
+
+/// `is_error`, or a `SendMessage` that its result reports unsent
+/// (`{success: false}`, as for a message to a killed agent), which Claude
+/// Code writes without `is_error`.
+fn is_failure(block: &Value, tur: Option<&Value>, send: bool) -> bool {
+    block.get("is_error").and_then(Value::as_bool) == Some(true)
+        || (send && tur.and_then(|t| t.get("success")).and_then(Value::as_bool) == Some(false))
 }
 
 /// A reshaped result.
