@@ -132,6 +132,11 @@ fn redact_turn(
 ) {
     redact_opt_string(&mut turn.user_message, patterns, stats);
     redact_opt_string(&mut turn.transformed_user_message, patterns, stats);
+    for note in &mut turn.notifications {
+        redact_opt_string(&mut note.summary, patterns, stats);
+        redact_opt_string(&mut note.result, patterns, stats);
+        redact_opt_string(&mut note.output_file, patterns, stats);
+    }
 
     for msg in &mut turn.assistant_messages {
         redact_string(&mut msg.content, patterns, stats);

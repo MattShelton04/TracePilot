@@ -88,6 +88,7 @@ export type {
   SessionEvent,
   SessionEventSeverity,
   SkillInvocationEvent,
+  TaskNotification,
   TurnSessionEvent,
   TurnsResponse,
   TurnToolCall,

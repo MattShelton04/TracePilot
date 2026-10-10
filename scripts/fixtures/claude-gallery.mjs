@@ -6,6 +6,7 @@ export const claudeRunningCostSessionId = "c1a0de00-0000-4000-8000-000000000005"
 export const claudeRecordedCostSessionId = "c1a0de00-0000-4000-8000-000000000006";
 export const claudeUntieredCacheSessionId = "c1a0de00-0000-4000-8000-000000000008";
 export const claudeCommandsSessionId = "c1a0de00-0000-4000-8000-000000000009";
+export const claudeNotificationSessionId = "c1a0de00-0000-4000-8000-00000000000a";
 
 const base = {
   cwd: "C:/synthetic/gallery",
@@ -82,6 +83,94 @@ export function buildClaudeCostSessions() {
     session(recorded, "SYNTHETIC · Recorded usage without snapshot"),
     session(untiered, "SYNTHETIC · Cache tier not recorded"),
   ];
+}
+
+const notification = (fields) =>
+  `<task-notification>\n${Object.entries(fields)
+    .map(([tag, value]) => `<${tag}>${value}</${tag}>`)
+    .join("\n")}\n</task-notification>`;
+
+/**
+ * Background work that finishes while the session is idle: an agent and a
+ * background shell start together, the model ends its turn, then one
+ * `user` record carries both completions and wakes the session.
+ */
+export function buildClaudeNotificationSession() {
+  const t = new Transcript({
+    ...base,
+    sessionId: claudeNotificationSessionId,
+    namespace: "0c1a000a",
+  });
+  t.prompt("Run the slow suite in the background and map the retry call sites.");
+  t.call(
+    "notify_launch",
+    [
+      toolUse("toolu_notify_suite", "Bash", {
+        command: "cargo test --test slow",
+        description: "Run the slow suite",
+        run_in_background: true,
+      }),
+      toolUse("toolu_notify_agent", "Agent", {
+        subagent_type: "Explore",
+        description: "Map the retry call sites",
+        prompt: "Find every call site that retries.",
+      }),
+    ],
+    usage,
+    "tool_use",
+  );
+  t.toolResult("toolu_notify_suite", "Command running in background with ID: bnotify1", {
+    stdout: "",
+    stderr: "",
+    interrupted: false,
+    isImage: false,
+    backgroundTaskId: "bnotify1",
+  });
+  t.toolResult("toolu_notify_agent", "Async agent launched successfully.", {
+    status: "async_launched",
+    isAsync: true,
+    agentId: "a0c1a000a0000001",
+    description: "Map the retry call sites",
+  });
+  t.call(
+    "notify_wait",
+    [text("Both are running; I'll report when they finish.")],
+    usage,
+    "end_turn",
+  );
+  t.idle(240);
+  const agent = notification({
+    "task-id": "a0c1a000a0000001",
+    "tool-use-id": "toolu_notify_agent",
+    status: "completed",
+    summary: 'Agent "Map the retry call sites" finished',
+    result: "SYNTHETIC report. Three call sites retry:\n\n- `upload`\n- `sync`\n- `prune`",
+    usage:
+      "<subagent_tokens>48200</subagent_tokens><tool_uses>14</tool_uses><duration_ms>120000</duration_ms>",
+  });
+  const shell = notification({
+    "task-id": "bnotify1",
+    "tool-use-id": "toolu_notify_suite",
+    "output-file": "C:\\synthetic\\gallery\\tasks\\bnotify1.output",
+    status: "failed",
+    summary: 'Background command "Run the slow suite" failed with exit code 1',
+  });
+  for (const content of [agent, shell]) {
+    t.bookkeeping({ type: "queue-operation", operation: "enqueue", content });
+  }
+  t.record("user", {
+    origin: { kind: "task-notification" },
+    turnOrigin: "task_notification",
+    message: { role: "user", content: `${agent}\n${shell}` },
+  });
+  t.call(
+    "notify_reply",
+    [text("The map is in; the slow suite failed, so I'll read its output next.")],
+    usage,
+    "end_turn",
+  );
+  t.costState(0.0012, { input: 30, cacheRead: 300, cacheWrite: 60, output: 15 });
+  return session(t, "SYNTHETIC · Background task notifications");
 }
 
 const CAVEAT =

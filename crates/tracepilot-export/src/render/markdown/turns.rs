@@ -35,8 +35,14 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         md.push_line(format_args!("*{}*\n", meta_parts.join(" · ")));
     }
 
+    // A background task's completion opened the turn, not the user.
+    let author = if turn.notifications.is_empty() {
+        "User"
+    } else {
+        "Notification"
+    };
     match turn.user_message.as_deref() {
-        Some(msg) if !msg.is_empty() => write_block(md, "User", msg),
+        Some(msg) if !msg.is_empty() => write_block(md, author, msg),
         _ => md.push_str("_No user message._\n\n"),
     }
 

@@ -10,6 +10,7 @@ import {
   buildClaudeCommandSession,
   buildClaudeCostSessions,
   buildClaudeGallery,
+  buildClaudeNotificationSession,
 } from "./claude-gallery.mjs";
 import { Transcript, text, thinking, toolUse } from "./claude-transcript.mjs";
 
@@ -365,5 +366,6 @@ export function buildClaudeCodeSessions() {
     buildClaudeGallery(),
     ...buildClaudeCostSessions(),
     buildClaudeCommandSession(),
+    buildClaudeNotificationSession(),
   ];
 }

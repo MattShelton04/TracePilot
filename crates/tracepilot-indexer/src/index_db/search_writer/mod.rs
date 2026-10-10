@@ -38,7 +38,9 @@ pub const CURRENT_EXTRACTOR_VERSION: i64 = 4;
 /// changes. Never below [`CURRENT_EXTRACTOR_VERSION`].
 ///
 /// v5: ToolSearch results are the loaded tool names, not `[tool_reference]`.
-const CLAUDE_CODE_EXTRACTOR_VERSION: i64 = 5;
+/// v6: a task notification that wakes the session is indexed as its readable
+/// line, not the `<task-notification>` XML.
+const CLAUDE_CODE_EXTRACTOR_VERSION: i64 = 6;
 
 fn extractor_version(source: SessionSource) -> i64 {
     match source {

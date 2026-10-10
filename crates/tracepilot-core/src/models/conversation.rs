@@ -192,6 +192,10 @@ pub struct ConversationTurn {
     /// reminder or autopilot continuation) rather than the user typing it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub system_initiated: bool,
+    /// Background tasks whose completion opened this turn (a Claude Code
+    /// `<task-notification>` that woke an idle session). Empty otherwise.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notifications: Vec<crate::models::event_types::TaskNotificationData>,
     /// Recorded usage of the model calls made while this turn ran, its
     /// subagents included, from `tracepilot.model_call` events. `None` for
     /// sources that record usage only per session (Copilot).

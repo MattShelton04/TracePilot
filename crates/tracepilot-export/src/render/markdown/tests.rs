@@ -43,6 +43,43 @@ fn renders_conversation_turns() {
 }
 
 #[test]
+fn labels_a_notification_turn() {
+    use tracepilot_core::models::event_types::{TaskNotificationData, TaskNotificationKind};
+    let mut wake = simple_turn(1, "Agent \"Map it\" finished", "Noted.", None);
+    wake.system_initiated = true;
+    wake.notifications = vec![TaskNotificationData {
+        task_id: Some("a1".into()),
+        tool_use_id: None,
+        kind: TaskNotificationKind::Agent,
+        status: Some("completed".into()),
+        summary: None,
+        result: None,
+        output_file: None,
+        exit_code: None,
+        total_tokens: None,
+        tool_uses: None,
+        duration_ms: None,
+    }];
+    // Copilot's own notifications are system-initiated but carry none.
+    let mut copilot = simple_turn(
+        2,
+        "<system_notification>done</system_notification>",
+        "Ok.",
+        None,
+    );
+    copilot.system_initiated = true;
+    let mut session = minimal_session();
+    session.conversation = Some(vec![simple_turn(0, "Hello", "Hi", None), wake, copilot]);
+
+    let files = MarkdownRenderer.render(&test_archive(session)).unwrap();
+    let text = files[0].as_text().unwrap();
+    assert!(text.contains("**Notification**\n\n> Agent \"Map it\" finished"));
+    assert_eq!(text.matches("**Notification**").count(), 1);
+    assert!(text.contains("**User**\n\n> Hello"));
+    assert!(text.contains("**User**\n\n> <system_notification>done"));
+}
+
+#[test]
 fn renders_todos_with_checkboxes() {
     let mut session = minimal_session();
     session.todos = Some(TodoExport {
