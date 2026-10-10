@@ -63,7 +63,6 @@ describe("settings feature groups", () => {
       "Session Replay",
       "Copilot SDK Bridge",
       "Config Injector",
-      "Claude Code Sessions",
     ]);
   });
 
@@ -79,9 +78,6 @@ describe("settings feature groups", () => {
     ).toBe("false");
     expect(
       wrapper.get('[role="switch"][aria-label="Config Injector"]').attributes("aria-checked"),
-    ).toBe("false");
-    expect(
-      wrapper.get('[role="switch"][aria-label="Claude Code Sessions"]').attributes("aria-checked"),
     ).toBe("false");
   });
 

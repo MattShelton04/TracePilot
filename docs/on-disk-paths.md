@@ -52,13 +52,13 @@ TracePilot reads data owned by the GitHub Copilot CLI and writes its own local s
 
 ## Claude Code (experimental)
 
-Read only while **Settings → Experimental → Claude Code Sessions** is on. TracePilot
+Read only while **Settings → Claude Code → Claude Code sessions** is on. TracePilot
 never writes, creates, renames or deletes anything under the Claude Code folder.
 Its index rows, search content and format diagnostics live in TracePilot's own
 `index.db`. User-facing behavior is in [Claude Code sessions](claude-code-sessions.md).
 
 **The folder.** `TracePilotConfig.sources.claudeCode.configDir`, shown as **Claude Code
-folder** in Settings → Data & Storage. When TracePilot first writes its config, it is set
+folder** in Settings → Claude Code. When TracePilot first writes its config, it is set
 from `CLAUDE_CONFIG_DIR`, else `~/.claude`
 (`tracepilot_core::paths::default_claude_config_dir_opt`). Under `TRACEPILOT_DATA_ROOT`
 isolation it is `<data root>/claude`. A chosen folder must be an existing, local,

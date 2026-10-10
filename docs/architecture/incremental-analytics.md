@@ -166,8 +166,8 @@ adds `session_format_observations`, one row per session for each unmapped
 record type, unmapped attachment type and Claude Code version, with its record
 count. Names are checked before they are counted, so a value that is not shaped
 like a type name or a version is stored as `(unrecognized name)` or
-`(unrecognized version)`, never as a path, an id or content. Settings → Data &
-Storage lists the totals when Claude Code sessions are enabled, and
+`(unrecognized version)`, never as a path, an id or content. Settings → Claude
+Code lists the totals when Claude Code sessions are enabled, and
 `node scripts/claude-census.mjs` prints the same tallies for a config folder
 without indexing it. Claude Code analytics version 24 refreshes indexed Claude
 sessions to fill the table; Copilot writes no rows.

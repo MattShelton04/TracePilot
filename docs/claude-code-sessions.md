@@ -14,8 +14,8 @@ Where each file lives and when TracePilot opens it is listed in
 
 ## Turn it on
 
-1. Open **Settings → Experimental** and turn on **Claude Code Sessions**.
-2. Open **Settings → Data & Storage** and check **Claude Code folder**. It is
+1. Open **Settings → Claude Code** and turn on **Claude Code sessions**.
+2. In the same section, check **Claude Code folder**. It is
    Claude Code's config folder, the one that holds `projects/`. It defaults to
    `CLAUDE_CONFIG_DIR`, else `~/.claude`. It must be an existing local folder;
    network shares are refused. Click **Apply** after changing it.
@@ -45,7 +45,7 @@ sessions are removed and the new folder is indexed.
 | Explorer | The session's `subagents/` and `tool-results/` folders. |
 | Export | Markdown and JSON, marked with the source. On top of the redaction options you pick, TracePilot always removes account details (email, organization and account IDs, quota limits) and the system-prompt and instruction-file attachments from the native records. |
 | Import | No. Import writes Copilot session folders. |
-| Resume | **Resume in Terminal** opens a terminal in the session's working directory and runs `claude --resume <id>`. **Copy Resume Command** copies the same command; run it from that directory. Set the command (for example `npx claude`) under **Settings → Data & Storage → Claude Code command**. Exact context capture stays Copilot-only. |
+| Resume | **Resume in Terminal** opens a terminal in the session's working directory and runs `claude --resume <id>`. **Copy Resume Command** copies the same command; run it from that directory. Set the command (for example `npx claude`) under **Settings → Claude Code → Claude Code command**. Exact context capture stays Copilot-only. |
 | Analytics, Tool Analysis, Models, Session Comparison | Yes. Costs in different units are never added together: the dashboard shows **Cost by Source** when both sources are present, and comparisons across sources show no cost delta. |
 
 ### Not supported
@@ -152,7 +152,7 @@ There is no restore button. To rewind, use Claude Code itself.
 
 ## Format diagnostics
 
-Claude Code changes its transcript format often. **Settings → Data & Storage →
+Claude Code changes its transcript format often. **Settings → Claude Code →
 Claude Code format diagnostics** lists:
 
 - record and attachment types TracePilot doesn't map yet;
@@ -167,8 +167,8 @@ and counts only, with no paths, IDs or content.
 
 ### No Claude Code sessions appear
 
-- Check that **Settings → Experimental → Claude Code Sessions** is on.
-- Check **Settings → Data & Storage → Claude Code folder**. It must be the
+- Check that **Settings → Claude Code → Claude Code sessions** is on.
+- Check **Settings → Claude Code → Claude Code folder**. It must be the
   folder that contains `projects/`. TracePilot saves the default when it first
   creates its settings. If you set `CLAUDE_CONFIG_DIR` later, or run Claude
   Code with a different `CLAUDE_CONFIG_DIR`, enter that folder here. TracePilot
