@@ -14,7 +14,12 @@ function view(toolCall: TurnToolCall) {
 }
 
 describe("fromSubagentFullData panel title", () => {
-  const base: TurnToolCall = { toolName: "task", toolCallId: "a1", isSubagent: true };
+  const base: TurnToolCall = {
+    toolName: "task",
+    toolCallId: "a1",
+    isSubagent: true,
+    isComplete: true,
+  };
 
   it("titles a Claude Code agent by its native tool, as its card does", () => {
     expect(view({ ...base, nativeToolName: "Agent" }).displayName).toBe("Agent");
