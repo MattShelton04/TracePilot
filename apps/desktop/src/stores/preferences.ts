@@ -37,8 +37,10 @@ import {
   applyContentMaxWidth,
   applyTheme,
   applyUiScale,
+  claudeCliCommandOf,
   createUiSlice,
   type ThemeOption,
+  withClaudeCliCommand,
 } from "@/stores/preferences/ui";
 import { logWarn } from "@/utils/logger";
 
@@ -84,6 +86,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
     ui.uiScale.value = Math.max(0.8, Math.min(1.3, rawScale));
 
     ui.cliCommand.value = config.general.cliCommand;
+    ui.claudeCliCommand.value = claudeCliCommandOf(config);
     pricing.modelWholesalePrices.value =
       config.pricing.models.length > 0 || (config.pricing.removedModels?.length ?? 0) > 0
         ? mergeWholesalePricesWithDefaults(config.pricing.models, config.pricing.removedModels)
@@ -158,6 +161,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
         sessionCacheSize: clampSessionCacheSize(ui.sessionCacheSize.value),
       },
       live: buildLiveConfig(),
+      sources: withClaudeCliCommand(base.sources, ui.claudeCliCommand.value),
     };
   }
 
@@ -251,6 +255,7 @@ export const usePreferencesStore = defineStore("preferences", () => {
       pricing.modelWholesalePrices,
       ui.hideEmptySessions,
       ui.cliCommand,
+      ui.claudeCliCommand,
       ui.autoRefreshEnabled,
       ui.autoRefreshIntervalSeconds,
       ui.checkForUpdates,

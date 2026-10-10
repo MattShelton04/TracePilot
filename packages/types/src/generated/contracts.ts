@@ -73,6 +73,24 @@ export type ClaudeCodeSourceConfig = {
 	 *  until normalized to `CLAUDE_CONFIG_DIR`, else `~/.claude`.
 	 */
 	configDir?: string,
+	/**
+	 *  The command that runs Claude Code, for Resume in Terminal. Checked by
+	 *  `validators::validate_cli_command` before each use; blank means
+	 *  `claude`.
+	 */
+	cliCommand?: string,
+};
+
+export type ClaudeCodeSourcePatch = ClaudeCodeSourcePatch_Serialize | ClaudeCodeSourcePatch_Deserialize;
+
+export type ClaudeCodeSourcePatch_Deserialize = {
+	configDir?: string | null,
+	cliCommand?: string | null,
+};
+
+export type ClaudeCodeSourcePatch_Serialize = {
+	configDir?: string | null,
+	cliCommand?: string | null,
 };
 
 export type FeaturesConfig = {
@@ -304,14 +322,26 @@ export type SourcesConfig = {
 	claudeCode?: ClaudeCodeSourceConfig,
 };
 
+/**
+ *  Field-level like the other sections, one level deeper: changing the
+ *  Claude Code folder keeps its CLI command, and the reverse.
+ */
 export type SourcesPatch = SourcesPatch_Serialize | SourcesPatch_Deserialize;
 
+/**
+ *  Field-level like the other sections, one level deeper: changing the
+ *  Claude Code folder keeps its CLI command, and the reverse.
+ */
 export type SourcesPatch_Deserialize = {
-	claudeCode?: ClaudeCodeSourceConfig | null,
+	claudeCode?: ClaudeCodeSourcePatch_Deserialize | null,
 };
 
+/**
+ *  Field-level like the other sections, one level deeper: changing the
+ *  Claude Code folder keeps its CLI command, and the reverse.
+ */
 export type SourcesPatch_Serialize = {
-	claudeCode?: ClaudeCodeSourceConfig | null,
+	claudeCode?: ClaudeCodeSourcePatch_Serialize | null,
 };
 
 export type ToolRenderingConfig = {

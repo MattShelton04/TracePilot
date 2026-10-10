@@ -4,6 +4,8 @@
 // `crates/tracepilot-core/src/provider/types.rs`; replace these with the
 // generated types once an IPC command carries them.
 
+import { DEFAULT_CLAUDE_CLI_COMMAND, DEFAULT_CLI_COMMAND } from "./defaults.js";
+
 /** Which tool wrote a session. */
 export type SessionSource = "copilot" | "claudeCode";
 
@@ -16,11 +18,15 @@ export const DEFAULT_SESSION_SOURCE: SessionSource = "copilot";
 /** What a source supports. Gates tabs, actions and cost KPIs. */
 export interface SourceCapabilities {
   /**
-   * TracePilot itself can resume the session (Resume in Terminal, exact
-   * context capture). A source can still offer a command the user copies and
-   * runs themselves; see {@link resumeCommand}.
+   * TracePilot drives the source's CLI against the session (exact context
+   * capture). Implies {@link canResumeInTerminal}.
    */
   canResume: boolean;
+  /**
+   * The session can be resumed in a new terminal (Resume in Terminal). The
+   * user can also copy the command; see {@link resumeCommand}.
+   */
+  canResumeInTerminal: boolean;
   canLaunch: boolean;
   canSteer: boolean;
   hasAic: boolean;
@@ -40,6 +46,7 @@ export interface SourceCapabilities {
 const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
   copilot: {
     canResume: true,
+    canResumeInTerminal: true,
     canLaunch: true,
     canSteer: true,
     hasAic: true,
@@ -55,6 +62,7 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
   },
   claudeCode: {
     canResume: false,
+    canResumeInTerminal: true,
     canLaunch: false,
     canSteer: false,
     hasAic: false,
@@ -72,13 +80,13 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
 
 /**
  * How a user resumes a source's session in their own terminal, as
- * `<binary> --resume <id>`. A `null` binary uses the configured CLI command
- * preference; a `null` entry means the source has no such command. This is
- * presentation only, with no Rust counterpart.
+ * `<cli> --resume <id>`, with the CLI used when none is configured. A `null`
+ * entry means the source has no such command. Mirrors the Rust resume launch
+ * for display; the backend builds the command it runs itself.
  */
-const RESUME_CLI: Record<SessionSource, { binary: string | null } | null> = {
-  copilot: { binary: null },
-  claudeCode: { binary: "claude" },
+const RESUME_CLI: Record<SessionSource, { defaultCli: string } | null> = {
+  copilot: { defaultCli: DEFAULT_CLI_COMMAND },
+  claudeCode: { defaultCli: DEFAULT_CLAUDE_CLI_COMMAND },
 };
 
 const SOURCE_LABELS: Record<SessionSource, string> = {
@@ -98,17 +106,18 @@ export function sourceCapabilities(source: SessionSource | null | undefined): So
 
 /**
  * The command a user copies to resume a session in their own terminal, or
- * `null` when the source has none. `configuredCli` is the CLI command
- * preference, used by sources that resume through it.
+ * `null` when the source has none. `configuredCli` holds each source's CLI
+ * command setting; a missing or blank one uses the source's default.
  */
 export function resumeCommand(
   source: SessionSource | null | undefined,
   sessionId: string,
-  configuredCli: string,
+  configuredCli: Partial<Record<SessionSource, string>>,
 ): string | null {
-  const cli = RESUME_CLI[resolveSessionSource(source)];
+  const resolved = resolveSessionSource(source);
+  const cli = RESUME_CLI[resolved];
   if (!cli) return null;
-  return `${cli.binary ?? configuredCli} --resume ${sessionId}`;
+  return `${configuredCli[resolved]?.trim() || cli.defaultCli} --resume ${sessionId}`;
 }
 
 /** Display name for a source; also the main agent's label in a conversation. */

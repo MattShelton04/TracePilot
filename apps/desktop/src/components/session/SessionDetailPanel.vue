@@ -219,7 +219,10 @@ defineExpose({ isSessionActive, refresh });
 
 /** The command the user copies to resume in their own terminal, if the source has one. */
 const resumeCommand = computed(() =>
-  buildResumeCommand(source.value, resolvedSessionId.value, prefs.cliCommand),
+  buildResumeCommand(source.value, resolvedSessionId.value, {
+    copilot: prefs.cliCommand,
+    claudeCode: prefs.claudeCliCommand,
+  }),
 );
 
 async function copyResumeCommand() {
@@ -243,7 +246,9 @@ async function resumeInTerminal() {
   }
   confirmingResume.value = false;
   try {
-    await resumeSessionInTerminal(resolvedSessionId.value, prefs.cliCommand);
+    // The backend resumes other sources through their own configured CLI.
+    const copilotCli = source.value === "copilot" ? prefs.cliCommand : undefined;
+    await resumeSessionInTerminal(resolvedSessionId.value, copilotCli);
   } catch (e) {
     logError("[sessionDetail] Failed to open terminal:", e);
   }
@@ -366,7 +371,7 @@ watch(isSessionActive, (active) => {
               {{ copied ? 'Copied!' : 'Copy Resume Command' }}
             </button>
 
-            <template v-if="!isViewer() && capabilities.canResume">
+            <template v-if="!isViewer() && capabilities.canResumeInTerminal">
               <template v-if="confirmingResume">
                 <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
                 <button class="resume-btn resume-btn--confirm" @click="resumeInTerminal">

@@ -172,6 +172,24 @@ fn load_snapshot_builds_summary_events_and_turns() {
 }
 
 #[test]
+fn resume_launch_uses_the_transcript_cwd_and_skips_subagents() {
+    let files = fixtures::subagents();
+    let provider = provider(files.root.path());
+    let session = provider.discover(&|| false).unwrap().remove(0);
+    let launch = provider.resume_launch(&session, true).unwrap().unwrap();
+    // Live attach is Copilot's: no `--ui-server`.
+    assert_eq!(launch.args, ["--resume", SESSION_ID]);
+    assert_eq!(launch.cwd, Some(std::path::PathBuf::from("C:\\work\\demo")));
+    assert_eq!(launch.label, "Claude Code");
+
+    let subagent = SessionLocator {
+        role: SessionRole::Subagent,
+        ..session
+    };
+    assert_eq!(provider.resume_launch(&subagent, false).unwrap(), None);
+}
+
+#[test]
 fn strict_loads_refuse_damaged_files_that_best_effort_loads_show() {
     let files = fixtures::damaged_lines();
     let provider = provider(files.root.path());

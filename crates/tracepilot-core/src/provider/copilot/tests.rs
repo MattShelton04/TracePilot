@@ -247,3 +247,35 @@ fn owns_only_the_directory_resolve_would_build() {
     };
     assert!(!provider.owns(&foreign));
 }
+
+#[test]
+fn resumes_with_the_workspace_cwd_and_ui_server_only_for_live_attach() {
+    let temp = tempfile::tempdir().unwrap();
+    let id = "c86fe369-c858-4d91-81da-203c5e276e33";
+    let dir = temp.path().join(id);
+    std::fs::create_dir(&dir).unwrap();
+    std::fs::write(
+        dir.join("workspace.yaml"),
+        format!("id: {id}\ncwd: /work/repo\n"),
+    )
+    .unwrap();
+    let provider = CopilotProvider::new(temp.path());
+    let locator = CopilotProvider::session_at(&dir);
+
+    let launch = provider.resume_launch(&locator, false).unwrap().unwrap();
+    assert_eq!(launch.args, ["--resume", id]);
+    assert_eq!(launch.cwd, Some(PathBuf::from("/work/repo")));
+    assert_eq!(launch.label, "Copilot");
+    let attachable = provider.resume_launch(&locator, true).unwrap().unwrap();
+    assert_eq!(attachable.args, ["--resume", id, "--ui-server"]);
+
+    let subagent = SessionLocator {
+        role: SessionRole::Subagent,
+        ..locator.clone()
+    };
+    assert_eq!(provider.resume_launch(&subagent, false).unwrap(), None);
+
+    // A session without a readable workspace.yaml cannot resume.
+    std::fs::remove_file(dir.join("workspace.yaml")).unwrap();
+    assert!(provider.resume_launch(&locator, false).is_err());
+}

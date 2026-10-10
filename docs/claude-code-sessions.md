@@ -45,7 +45,7 @@ sessions are removed and the new folder is indexed.
 | Explorer | The session's `subagents/` and `tool-results/` folders. |
 | Export | Markdown and JSON, marked with the source. On top of the redaction options you pick, TracePilot always removes account details (email, organization and account IDs, quota limits) and the system-prompt and instruction-file attachments from the native records. |
 | Import | No. Import writes Copilot session folders. |
-| Resume | **Copy Resume Command** copies `claude --resume <id>`. Run it from the session's working directory. |
+| Resume | **Resume in Terminal** opens a terminal in the session's working directory and runs `claude --resume <id>`. **Copy Resume Command** copies the same command; run it from that directory. Set the command (for example `npx claude`) under **Settings → Data & Storage → Claude Code command**. Exact context capture stays Copilot-only. |
 | Analytics, Tool Analysis, Models, Session Comparison | Yes. Costs in different units are never added together: the dashboard shows **Cost by Source** when both sources are present, and comparisons across sources show no cost delta. |
 
 ### Not supported
@@ -53,7 +53,7 @@ sessions are removed and the new folder is indexed.
 - **Todos.** Claude Code's task tools are off by default on current models, so
   Claude sessions have no Todos tab. Task tool calls from older or opted-in
   sessions show as generic tool calls.
-- **Copilot-only features:** launching sessions, resuming in a terminal, SDK
+- **Copilot-only features:** launching sessions, SDK
   steering and live attach, the config injector, the MCP, skills and agents
   editors, exact context capture and CLI version management.
 - **Alerts and notifications** for Claude Code sessions.

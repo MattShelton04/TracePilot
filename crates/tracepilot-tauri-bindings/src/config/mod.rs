@@ -148,6 +148,7 @@ impl Default for TracePilotConfig {
                         .unwrap_or_default()
                         .to_string_lossy()
                         .to_string(),
+                    ..ClaudeCodeSourceConfig::default()
                 },
             },
         }

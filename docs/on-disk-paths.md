@@ -176,7 +176,7 @@ TracePilot cannot find keeps everything else:
 2. User-selected roots stay in `TracePilotConfig.paths`. `copilotHome` controls where TracePilot reads/writes Copilot-owned config surfaces and derives the session source; `tracepilotHome` controls TracePilot-owned data.
 3. `sessionStateDir` and `indexDbPath` are compatibility fields. New UI-driven writes derive them from `copilotHome` and `tracepilotHome`; migrations preserve legacy custom session directories to avoid losing access to Copilot-owned sessions.
 4. TypeScript never computes authoritative absolute defaults. UI placeholders live in `packages/types/src/paths.ts`; production defaults come from backend `get_config`.
-5. Command names live in constants. Only `copilot` is currently user-configurable because it is the session/resume command. `git` and `gh` should stay constants until there is a real need for custom binary paths.
+5. Command names live in constants. Only `copilot` and `claude` (`sources.claudeCode.cliCommand`, `DEFAULT_CLAUDE_CLI_COMMAND`) are user-configurable, because they are the session/resume commands. `git` and `gh` should stay constants until there is a real need for custom binary paths.
 
 ## Path-change behavior
 

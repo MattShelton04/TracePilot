@@ -95,9 +95,28 @@ when adding new commands.
 | `launch_session.worktree_root`    | Frontend user     | ✅ Yes                 |
 | `open_in_explorer.path`           | Frontend user     | ✅ Yes                 |
 | `open_in_terminal.path`           | Frontend user     | ✅ Yes                 |
-| `resume_session_in_terminal.cwd`  | Pref + session id | ✅ Yes (via launcher)  |
+| `resume_session_in_terminal.cwd`  | Session files     | No — lexical check (below) |
 | Preferences import/export         | Tauri dialog      | N/A (dialog-gated)    |
 | Snapshot save/restore             | `sessionStateDir` | N/A (pref-rooted)     |
+
+`resume_session_in_terminal` starts the terminal in the directory the
+session recorded: Copilot's `workspace.yaml` `cwd`, or the `cwd` field of a
+Claude Code transcript (`SessionProvider::resume_launch`). That is content
+written by another tool, so it is untrusted. Before anything touches the
+filesystem, `commands/session/resume.rs` keeps only an absolute path with no
+control characters. On Windows the parsed prefix (`Component::Prefix`, not
+the string) must also be on an allowlist: a drive (`C:\`, `\\?\C:\`) or WSL's
+local share (`\\wsl.localhost\<distro>`, `\\wsl$\<distro>`). Every other UNC,
+verbatim-UNC or device prefix is refused, including mixed-separator spellings
+such as `\/host/share` and `/\host\share` that a string-prefix check misses.
+A refused path is never probed, so it cannot open an SMB connection. The
+check and the directory probes run on a blocking thread. The terminal then
+starts in the nearest existing directory on that path, else the home
+directory. The path is not canonicalized: the terminal only starts there, and
+a transcript naming an existing local folder gains nothing a user's own `cd`
+would not. In the PowerShell script it sits in a single-quoted
+`-LiteralPath` string with every single quote doubled, including the
+typographic ones PowerShell also treats as quotes.
 
 If you add a command that takes a path from the frontend, you **must**
 either:
