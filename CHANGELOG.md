@@ -9,42 +9,22 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
-- **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions, with a source badge and filter. Turn them on in **Settings → Claude Code**, or in first-run setup when a Claude Code folder with sessions is found. Turning them off removes them from TracePilot's index and leaves your Claude Code files untouched.
-  - **Conversations** — Tools keep their Claude Code names (such as `Bash` and `Read`), Bash output renders as a terminal, and slash commands read as typed. Background agents and shells that finish while a session is idle appear as notification cards, and each background task settles on the card that started it.
-  - **Cost and metrics** — Exact token and cache totals per model, with cost as a labelled API-equivalent USD estimate, marked partial when calls follow Claude Code's last cost snapshot. The Context tab charts each turn's input, and the header estimates the prompt-cache countdown from each call's recorded cache tier.
-  - **Analytics** — Every Analytics page includes Claude Code sessions. Cost stays in each source's unit (AI Credits for Copilot, estimated USD for Claude Code) and is never added together. Tool Analysis breaks a tool into the native tools behind it, and Models lines up a model used by both sources.
-  - **Live state and resume** — Running sessions show **Busy** or **Waiting**. **Resume in Terminal** reopens a session in Claude Code from its working directory with a configurable command (default `claude`), or you can copy the resume command.
-  - **Overview, export and diagnostics** — Overview shows the session plan and read-only file-history checkpoints. JSON and Markdown exports always leave out account details and system-prompt and instruction-file text; importing a Claude Code session is refused. A format diagnostics panel lists record types and Claude Code versions TracePilot doesn't map yet.
+- **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions in the session list, Conversation, Metrics, Analytics, Search and Export. Cost shows as an estimated API-equivalent USD and is never added to AI Credits. Turn it on in **Settings → Claude Code** or during first-run setup.
+- **Claude Code live state and resume** — Running Claude Code sessions show **Busy** or **Waiting**, and **Resume in Terminal** reopens a session in its working directory.
+- **Background task results** — Background agents and shells show how they finished on the card that started them, and notifications that wake an idle Claude Code session read as short cards.
 
 ### Changed
 
-- **Session source switch** — The Sessions toolbar and Analytics pages switch between All, Copilot and Claude Code with a logo switch instead of a dropdown, and Search gets the same switch (or type `source:claude` or `source:copilot`).
-
-- **Project folders** — Sessions without a repository show and filter by their working-directory folder. Session search also matches working directories and models, and Overview shows the working directory with a copy button.
-
-- **Background shell results** — A background shell command shows how it finished (status, exit code and duration) on its own card, in Copilot and Claude Code sessions.
-
-- **Models page charts** — The Capability Radar and Cost vs Token Volume charts are replaced by four charts:
-  - **Cost Efficiency** plots each model's cost per million tokens against tokens used (log scale), sized by spend, against your average rate.
-  - **Token Share vs Spend Share** shows which models cost more than their share of use.
-  - **Model Profiles** compares models on volume, cost per token, cache hit, context per request and output share, as a fingerprint per model, an overlay of chosen models, or trails across all of them.
-  - **Model Mix Over Time** stacks tokens, share or estimated spend per model by day or week.
-
-  Charts put Copilot and Claude Code models on one API-equivalent USD scale (AI Credits at $0.01) and mark Claude Code's USD estimates, and the cost column sorts on the same scale. The eight most-used models keep distinct colours across the page; the rest share a neutral one instead of repeating colours.
-
-- **Large numbers** — Token counts in the billions read as `12.6B` instead of `12642.2M`.
-
-- **Performance** — First-time indexing prepares upcoming sessions on several cores while it writes, so it finishes sooner, most of all for large Claude Code histories.
-
-- **Model pricing** — Refreshed Copilot rates for 10 October 2026, adding Claude Haiku 5.5 and lowering Claude Sonnet 5.5's cached-input rate.
+- **Source switch** — Sessions, Analytics and Search switch between All, Copilot and Claude Code. Search also accepts `source:copilot` and `source:claude`.
+- **Project folders** — Sessions without a repository show and filter by their working folder, and session search also matches folders and models.
+- **Models page charts** — Four charts (Cost Efficiency, Token Share vs Spend Share, Model Profiles and Model Mix Over Time) replace the Capability Radar and Cost vs Token Volume charts.
+- **Faster first index** — First-time indexing uses several cores, most noticeably for large Claude Code histories.
+- **Model pricing** — Refreshed Copilot rates for 10 October 2026, adding Claude Haiku 5.5.
 
 ### Fixed
 
-- **macOS and Linux fixes** — Detect & Connect finds running `copilot --ui-server` processes on macOS, and Launch UI Server starts one instead of failing with "command not found" on macOS and Linux. Claude Code sessions show their running state on macOS and Linux, not only on Windows. Command timeouts now stop the command at the deadline, so a slow login shell can no longer hold up launching TracePilot from the Dock.
-
-- **Prompt-cache chip** — The session header no longer shows a "Cache likely expired" chip on sessions idle for more than a day.
-
-- **Code Impact** — A file whose path is written with both `\` and `/` counts once.
+- **macOS and Linux** — Detect & Connect and Launch UI Server work outside Windows, and a slow login shell no longer delays launching from the Dock.
+- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, and Code Impact counts a file once whichever slashes its path uses.
 
 ### Removed
 

@@ -2,24 +2,19 @@
   "unreleased": {
     "notes": {
       "added": [
-        "Claude Code sessions (experimental): View Claude Code sessions alongside Copilot CLI sessions. Turn them on in Settings → Claude Code or during first-run setup",
-        "Claude Code conversations: Native tool names, terminal-style Bash output, readable slash commands and notification cards for background work",
-        "Claude Code cost and analytics: Exact token and cache totals with a labelled USD estimate, included on every Analytics page without mixing units",
-        "Resume in Terminal: Reopen a Claude Code session in a terminal with a configurable command, or copy the resume command",
-        "Claude Code export and diagnostics: Exports leave out account details, and a diagnostics panel lists unmapped record types"
+        "Claude Code sessions (experimental): View Claude Code sessions alongside Copilot CLI sessions. Turn it on in Settings → Claude Code",
+        "Resume in Terminal: Reopen a Claude Code session in its working directory",
+        "Background task results: Background agents and shells show how they finished on the card that started them"
       ],
       "changed": [
-        "Session source switch: The Sessions toolbar, Search and Analytics switch between All, Copilot and Claude Code",
-        "Project folders: Sessions without a repository show and filter by their working-directory folder, and search matches working directories and models",
-        "Background shell results: A background shell command shows its status, exit code and duration on its own card",
-        "Models page charts: Four new charts compare cost efficiency, spend share, model profiles and model mix over time",
-        "Performance: First-time indexing uses several cores and finishes sooner",
-        "Model pricing: Refreshed Copilot rates, adding Claude Haiku 5.5"
+        "Source switch: Sessions, Analytics and Search switch between All, Copilot and Claude Code",
+        "Project folders: Sessions without a repository show and filter by their working folder",
+        "Models page charts: Four new charts compare cost, spend share, model profiles and model mix",
+        "Faster first index: First-time indexing uses several cores"
       ],
       "fixed": [
-        "macOS and Linux fixes: Detect & Connect and Launch UI Server work on macOS, and slow login shells no longer hold up launch",
-        "Prompt-cache chip: Sessions idle for more than a day no longer show a stale cache-expired chip",
-        "Code Impact: A file whose path mixes back and forward slashes counts once"
+        "macOS and Linux: Detect & Connect and Launch UI Server work outside Windows",
+        "Smaller fixes: Billions read as 12.6B, and old sessions drop the stale cache chip"
       ]
     },
     "requiresReindex": false
