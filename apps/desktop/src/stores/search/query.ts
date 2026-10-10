@@ -200,12 +200,16 @@ export function createQuerySlice() {
     page.value = 1;
   }
 
-  /** Pick a source in the switch; a typed `source:` qualifier gives way to it. */
+  /**
+   * Pick a source in the switch; a typed `source:` qualifier gives way to it.
+   * The query changes first so the filter change's immediate search replaces
+   * the query's debounced one: one search, not two.
+   */
   function setSource(next: SessionSource | null) {
-    source.value = next;
     if (parseQualifiers(query.value).source !== null) {
       query.value = stripQualifier(query.value, "source");
     }
+    source.value = next;
   }
 
   function clearError() {

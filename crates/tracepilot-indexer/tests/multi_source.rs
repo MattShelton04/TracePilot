@@ -212,7 +212,7 @@ fn search_rows_carry_their_source_and_tools_their_native_names() {
         } else {
             SessionSource::Copilot
         };
-        assert_eq!(hit.source, expected, "{}", hit.session_id);
+        assert_eq!(hit.source, expected);
     }
 
     // The filter keeps canonical names; Claude rows add their native names.

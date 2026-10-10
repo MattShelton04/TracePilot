@@ -59,9 +59,12 @@ function score(haystack: string, needle: string): number {
 export function useSearchPaletteController(router: Router, inputRef: Ref<HTMLInputElement | null>) {
   const sessionsStore = useSessionsStore();
   const prefsStore = usePreferencesStore();
-  // Ctrl+K searches the source the Search page's switch is set to. The store
-  // is read on first search, so opening the app does not create it.
-  const search = useSearchPaletteSearch({ defaultSource: () => useSearchStore().source });
+  // Ctrl+K searches the source the Search page searches (its switch, or a
+  // typed `source:`). The store is read on first search, so opening the app
+  // does not create it.
+  const search = useSearchPaletteSearch({
+    defaultSource: () => useSearchStore().effectiveSource,
+  });
   const isOpen = ref(false);
   const selectedIndex = ref(0);
   let previouslyFocused: HTMLElement | null = null;

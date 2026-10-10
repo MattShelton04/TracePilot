@@ -136,19 +136,18 @@ describe("useSearchPaletteSearch", () => {
     expect(mockSearch).toHaveBeenLastCalledWith("beta", { limit: 20 });
   });
 
-  it("applies qualifiers as filters instead of matching them as text", async () => {
+  it("filters only by source: and matches any other qualifier-like text as typed", async () => {
     const { state } = setup();
     mockSearch.mockResolvedValue(response("retry"));
 
-    await start(state, "retry type:error repo:org/web tool:shell sort:newest");
-
-    expect(mockSearch).toHaveBeenLastCalledWith("retry", {
+    await start(state, "retry source:claude Content-Type:json session:4f1c");
+    expect(mockSearch).toHaveBeenLastCalledWith("retry Content-Type:json session:4f1c", {
       limit: 20,
-      contentTypes: ["error"],
-      repositories: ["org/web"],
-      toolNames: ["shell"],
-      sortBy: "newest",
+      source: "claudeCode",
     });
+
+    await start(state, "tool:grep source:nope");
+    expect(mockSearch).toHaveBeenLastCalledWith("tool:grep source:nope", { limit: 20 });
   });
 
   it("removes completed results from the selectable list as soon as the query changes", async () => {

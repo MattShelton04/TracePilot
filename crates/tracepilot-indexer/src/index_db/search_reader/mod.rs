@@ -15,6 +15,8 @@ mod sanitize;
 mod stats;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tool_names_tests;
 
 pub use sanitize::sanitize_fts_query;
 use tracepilot_core::provider::SessionSource;
@@ -105,7 +107,8 @@ pub struct SearchToolName {
 
 /// SQL reading a `search_content` row's native tool name from its metadata
 /// (written as `nativeToolName`); NULL when it records none.
-pub(super) const NATIVE_TOOL_NAME_SQL: &str = "CASE WHEN json_valid(metadata_json)      THEN json_extract(metadata_json, '$.nativeToolName') END";
+pub(super) const NATIVE_TOOL_NAME_SQL: &str = "CASE WHEN json_valid(metadata_json) \
+     THEN json_extract(metadata_json, '$.nativeToolName') END";
 
 /// A context snippet for surrounding results.
 #[derive(Debug, Clone, serde::Serialize)]

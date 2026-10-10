@@ -7,7 +7,7 @@ import type {
 } from "@tracepilot/types";
 import { CONTENT_TYPE_CONFIG, getDesignToken, toErrorMessage } from "@tracepilot/ui";
 import { computed, onScopeDispose, ref, watch } from "vue";
-import { parseQualifiers } from "@/utils/parseQualifiers";
+import { parseQualifiers, stripQualifier } from "@/utils/parseQualifiers";
 
 export interface ResultGroup {
   contentType: SearchContentType;
@@ -73,17 +73,13 @@ export function useSearchPaletteSearch(
     const gen = ++searchGeneration;
     loading.value = true;
     searchError.value = null;
-    // Qualifiers filter as on the Search page instead of being matched as text.
-    const parsed = parseQualifiers(q);
+    // A typed `source:` filters instead of being matched as text; any other
+    // text, qualifier-like or not, is matched as typed.
+    const text = parseQualifiers(q).source ? stripQualifier(q, "source") : q;
     try {
-      const response: SearchResultsResponse = await searchContent(parsed.cleanQuery, {
+      const response: SearchResultsResponse = await searchContent(text, {
         limit,
-        contentTypes: parsed.types.length > 0 ? parsed.types : undefined,
-        repositories: parsed.repo ? [parsed.repo] : undefined,
-        toolNames: parsed.tool ? [parsed.tool] : undefined,
-        sessionId: parsed.session ?? undefined,
         source: source.value ?? undefined,
-        sortBy: parsed.sort && parsed.sort !== "relevance" ? parsed.sort : undefined,
       });
       if (gen !== searchGeneration) return;
       results.value = response.results;

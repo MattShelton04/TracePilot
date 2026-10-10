@@ -67,42 +67,78 @@ impl IndexDb {
     /// Distinct canonical tool names in search content, each with the native
     /// names its rows record and the sources that used it, for the tool
     /// filter. The filter value stays the canonical name.
+    ///
+    /// Runs on every Search page load, so it never reads every row: the names
+    /// come from the `tool_name` index, native names only from rows of
+    /// non-Copilot sessions (Copilot records none, and its rows are most of a
+    /// large index), and Copilot's use of a tool from comparing its indexed
+    /// row count with the rows other sources wrote.
     pub fn search_tool_names(&self) -> Result<Vec<SearchToolName>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT DISTINCT tool_name FROM search_content \
+             WHERE tool_name IS NOT NULL ORDER BY tool_name",
+        )?;
+        let mut names = stmt
+            .query_map([], |row| {
+                Ok(SearchToolName {
+                    name: row.get(0)?,
+                    native_names: Vec::new(),
+                    sources: Vec::new(),
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut other_rows = vec![0_i64; names.len()];
+
+        // CROSS JOIN keeps the session-first plan: each non-Copilot session's
+        // rows through the session index, never a walk of every tool row.
         let sql = format!(
-            "SELECT sc.tool_name, s.source, {NATIVE_TOOL_NAME_SQL} AS native_tool_name              FROM search_content sc JOIN sessions s ON s.id = sc.session_id              WHERE sc.tool_name IS NOT NULL              GROUP BY sc.tool_name, s.source, native_tool_name              ORDER BY sc.tool_name, native_tool_name"
+            "SELECT sc.tool_name, s.source, {NATIVE_TOOL_NAME_SQL} AS native_tool_name, \
+                    COUNT(*) \
+             FROM sessions s CROSS JOIN search_content sc ON sc.session_id = s.id \
+             WHERE s.source != ?1 AND sc.tool_name IS NOT NULL \
+             GROUP BY sc.tool_name, s.source, native_tool_name"
         );
         let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map([], |row| {
+        let rows = stmt.query_map([SessionSource::Copilot.as_str()], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, Option<String>>(2)?,
+                row.get::<_, i64>(3)?,
             ))
         })?;
-        let mut names: Vec<SearchToolName> = Vec::new();
         for row in rows {
-            let (name, source, native) = row?;
-            if names.last().is_none_or(|last| last.name != name) {
-                names.push(SearchToolName {
-                    name,
-                    native_names: Vec::new(),
-                    sources: Vec::new(),
-                });
-            }
-            let Some(entry) = names.last_mut() else {
+            let (name, source, native, count) = row?;
+            let Ok(index) = names.binary_search_by(|tool| tool.name.as_str().cmp(&name)) else {
                 continue;
             };
+            let entry = &mut names[index];
+            other_rows[index] += count;
             if let Some(source) = SessionSource::from_stored(&source)
                 && !entry.sources.contains(&source)
             {
                 entry.sources.push(source);
-                entry.sources.sort();
             }
             if let Some(native) = native
                 && !entry.native_names.contains(&native)
             {
                 entry.native_names.push(native);
             }
+        }
+
+        // Rows other sources did not write are Copilot's; counting one tool's
+        // rows reads only its index entries.
+        let mut count_stmt = self
+            .conn
+            .prepare("SELECT COUNT(*) FROM search_content WHERE tool_name = ?1")?;
+        for (entry, other) in names.iter_mut().zip(other_rows) {
+            if entry.sources.is_empty()
+                || count_stmt.query_row([&entry.name], |row| row.get::<_, i64>(0))? > other
+            {
+                entry.sources.push(SessionSource::Copilot);
+            }
+            entry.sources.sort();
+            entry.native_names.sort();
         }
         Ok(names)
     }
@@ -197,7 +233,11 @@ impl IndexDb {
 
         // Get rows before
         let mut before_stmt = self.conn.prepare(&format!(
-            "SELECT id, content_type, turn_number, event_index, tool_name,                     {NATIVE_TOOL_NAME_SQL} AS native_tool_name, substr(content, 1, 300) AS preview              FROM search_content              WHERE session_id = ?1 AND event_index < ?2 AND event_index IS NOT NULL              ORDER BY event_index DESC LIMIT ?3"
+            "SELECT id, content_type, turn_number, event_index, tool_name, \
+                    {NATIVE_TOOL_NAME_SQL} AS native_tool_name, substr(content, 1, 300) AS preview \
+             FROM search_content \
+             WHERE session_id = ?1 AND event_index < ?2 AND event_index IS NOT NULL \
+             ORDER BY event_index DESC LIMIT ?3"
         ))?;
         let before = before_stmt.query_map(
             params_from_iter([
@@ -215,7 +255,11 @@ impl IndexDb {
 
         // Get rows after
         let mut after_stmt = self.conn.prepare(&format!(
-            "SELECT id, content_type, turn_number, event_index, tool_name,                     {NATIVE_TOOL_NAME_SQL} AS native_tool_name, substr(content, 1, 300) AS preview              FROM search_content              WHERE session_id = ?1 AND event_index > ?2 AND event_index IS NOT NULL              ORDER BY event_index ASC LIMIT ?3"
+            "SELECT id, content_type, turn_number, event_index, tool_name, \
+                    {NATIVE_TOOL_NAME_SQL} AS native_tool_name, substr(content, 1, 300) AS preview \
+             FROM search_content \
+             WHERE session_id = ?1 AND event_index > ?2 AND event_index IS NOT NULL \
+             ORDER BY event_index ASC LIMIT ?3"
         ))?;
         let after = after_stmt.query_map(
             params_from_iter([

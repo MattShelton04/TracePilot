@@ -141,7 +141,12 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
 
   // Like the session list, the source filter appears only once more than one
   // source has sessions, so Copilot-only users see no change.
-  const sourceOptions = computed(() => sessionsStore.sources);
+  // A typed `source:` for a source with no sessions still shows as picked.
+  const sourceOptions = computed(() => {
+    const searched = store.effectiveSource;
+    const sources = sessionsStore.sources;
+    return searched && !sources.includes(searched) ? [...sources, searched] : sources;
+  });
   const showSourceFilter = computed(
     () => sourceOptions.value.length > 1 || store.effectiveSource !== null,
   );

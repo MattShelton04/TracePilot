@@ -139,10 +139,12 @@ describe("useSessionSearch", () => {
     expect(second.api.activeFilterCount.value).toBe(1);
     second.wrapper.unmount();
 
-    // A typed `source:` qualifier shows the switch too.
+    // A typed `source:` qualifier shows the switch too, with that source
+    // offered even when no session has it, so the switch can show it picked.
     storeState.source = null;
     const typed = runComposable();
     expect(typed.api.showSourceFilter.value).toBe(true);
+    expect(typed.api.sourceOptions.value).toEqual(["copilot", "claudeCode"]);
     typed.wrapper.unmount();
 
     storeState.effectiveSource = null;

@@ -1,6 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: setup must register mocks before the store import.
 import { setupPinia } from "@tracepilot/test-utils";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   emptySearchResponse,
   flushSearchQueue,
@@ -76,23 +76,28 @@ describe("useSearchStore – source filter", () => {
   });
 
   it("picking a source drops a typed source: qualifier and searches once", async () => {
-    const store = useSearchStore();
-    store.query = "retry source:claude";
-    await flushSearchQueue();
-    mocks.searchContent.mockClear();
+    vi.useFakeTimers();
+    try {
+      const store = useSearchStore();
+      store.query = "retry source:claude";
+      await vi.advanceTimersByTimeAsync(2000);
+      mocks.searchContent.mockClear();
 
-    store.setSource("copilot");
-    expect(store.query).toBe("retry");
-    expect(store.effectiveSource).toBe("copilot");
-    await flushSearchQueue();
-    await flushSearchQueue();
-    expect(mocks.searchContent).toHaveBeenCalledTimes(1);
-    expect(lastSearch()).toEqual(["retry", expect.objectContaining({ source: "copilot" })]);
+      store.setSource("copilot");
+      expect(store.query).toBe("retry");
+      expect(store.effectiveSource).toBe("copilot");
+      // Past the query debounce: the debounced search must not run as well.
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+      expect(lastSearch()).toEqual(["retry", expect.objectContaining({ source: "copilot" })]);
 
-    store.query = "retry source:claude";
-    store.setSource(null);
-    expect(store.query).toBe("retry");
-    expect(store.effectiveSource).toBeNull();
+      store.query = "retry source:claude";
+      store.setSource(null);
+      expect(store.query).toBe("retry");
+      expect(store.effectiveSource).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("picking a source leaves a query without a source: qualifier alone", () => {
