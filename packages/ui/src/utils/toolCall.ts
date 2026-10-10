@@ -17,7 +17,9 @@ const TOOL_ICONS: Record<string, LucideName> = {
   shell: "terminal",
   read_powershell: "terminal",
   write_powershell: "terminal",
+  stop_powershell: "terminal",
   task: "bot",
+  stop_agent: "bot",
   write_agent: "send",
   read_agent: "inbox",
   list_agents: "users",
@@ -44,7 +46,8 @@ export function toolCategory(toolName: string): ToolCategory {
     )
   )
     return "shell";
-  if (["task", "read_agent", "write_agent", "list_agents"].includes(toolName)) return "agent";
+  if (["task", "read_agent", "write_agent", "list_agents", "stop_agent"].includes(toolName))
+    return "agent";
   if (toolName.startsWith("github-mcp-server")) return "github";
   if (["web_search", "web_fetch"].includes(toolName)) return "web";
   if (toolName === "sql") return "data";
@@ -87,12 +90,12 @@ export function formatArgsSummary(args: unknown, toolName: string): string {
     const cmd = String(a.command);
     return cmd.length > 150 ? `${cmd.slice(0, 150)}…` : cmd;
   }
-  if (toolName === "read_powershell" || toolName === "write_powershell") {
+  if (["read_powershell", "write_powershell", "stop_powershell"].includes(toolName)) {
     const shellId = a.shellId ?? a.shell_id;
     return shellId == null ? "" : `Shell ${shellId}`;
   }
   if (toolName === "task" && a.description) return String(a.description);
-  if (toolName === "read_agent") {
+  if (toolName === "read_agent" || toolName === "stop_agent") {
     const candidate = a.agent_id ?? a.agent_name ?? a.name;
     if (candidate) return String(candidate);
   }

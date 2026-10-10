@@ -108,6 +108,7 @@ impl TurnReconstructor {
             args_summary: None,
             skill_invocation: None,
             exit_code: None,
+            background_outcome: None,
         });
 
         // Index the new tool call
@@ -115,6 +116,11 @@ impl TurnReconstructor {
             self.tool_call_index
                 .insert(id.clone(), (turn_index, tc_index));
         }
+        self.register_background_shell_launch(
+            data.tool_call_id.as_deref(),
+            data.tool_name.as_deref(),
+            data.arguments.as_ref(),
+        );
     }
 
     pub(super) fn handle_tool_execution_complete(
@@ -204,6 +210,7 @@ impl TurnReconstructor {
                 "ToolExecutionComplete with no matching start — skipping"
             );
         }
+        self.register_background_shell_result(data.tool_call_id.as_deref(), data.result.as_ref());
         if let (Some(agent_id), Some(tool_id)) = (agent_id, &data.tool_call_id)
             && self
                 .find_tool_call_ref(Some(tool_id))
@@ -300,6 +307,7 @@ impl TurnReconstructor {
                 args_summary: None,
                 skill_invocation: None,
                 exit_code: None,
+                background_outcome: None,
             });
             if let Some(id) = &data.tool_call_id {
                 self.tool_call_index

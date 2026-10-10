@@ -11,7 +11,6 @@ export const IPC_COMMANDS = [
   "get_session_todos",
   "get_session_checkpoints",
   "get_session_plan",
-  "get_session_background_tasks",
   "get_session_file_history",
   "get_session_file_version",
   "get_shutdown_metrics",

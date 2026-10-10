@@ -17,7 +17,7 @@ export function shortAgentIdentifier(id: string): string {
   return /^[0-9a-f]{8}-[0-9a-f-]+$/i.test(id) ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
 }
 
-/** Summary for `write_agent`, `read_agent` or `list_agents`; `null` for other tools. */
+/** Summary for `write_agent`, `read_agent`, `stop_agent` or `list_agents`; `null` for other tools. */
 export function agentToolSummary(
   tc: TurnToolCall,
   directory: AgentDirectory | null,
@@ -35,6 +35,10 @@ export function agentToolSummary(
           : "";
     const message = preview(toolArgString(args, "message"));
     return [to && `→ ${to}`, message].filter(Boolean).join(" · ");
+  }
+  if (tc.toolName === "stop_agent") {
+    const id = toolArgString(args, "agent_id");
+    return id ? name(id) : null;
   }
   if (tc.toolName === "read_agent") {
     const id = toolArgString(args, "agent_id") || toolArgString(args, "agent_name");

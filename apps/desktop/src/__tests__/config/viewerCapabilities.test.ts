@@ -19,7 +19,6 @@ describe("viewer capabilities", () => {
       expect.arrayContaining([
         "tracepilot:allow-get-session-checkpoints",
         "tracepilot:allow-get-session-plan",
-        "tracepilot:allow-get-session-background-tasks",
         "tracepilot:allow-get-session-file-history",
         "tracepilot:allow-get-session-file-version",
         "tracepilot:allow-get-shutdown-metrics",

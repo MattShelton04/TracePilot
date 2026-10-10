@@ -189,6 +189,25 @@ export const MOCK_TURNS: ConversationTurn[] = [
         arguments: { command: "pnpm --filter @tracepilot/desktop test -- search" },
         resultContent: "All 22 search preset tests passed",
       },
+      {
+        toolCallId: "build-async",
+        toolName: "powershell",
+        success: true,
+        isComplete: true,
+        startedAt: ts(6700),
+        completedAt: ts(6800),
+        durationMs: 100,
+        intentionSummary: "Build in the background",
+        arguments: {
+          command: "pnpm build",
+          description: "Build the app",
+          mode: "async",
+          shellId: "build",
+        },
+        resultContent: "<command started in background with shellId: build>",
+        // Settled by the later `shell_completed` notification.
+        backgroundOutcome: { status: "completed", exitCode: 0, completedAt: ts(128_800) },
+      },
     ],
   },
   {

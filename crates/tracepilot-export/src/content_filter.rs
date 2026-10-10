@@ -150,6 +150,7 @@ mod tests {
                     args_summary: Some("path: foo.rs".into()),
                     skill_invocation: None,
                     exit_code: None,
+                    background_outcome: None,
                 },
                 // Subagent entry
                 TurnToolCall {
@@ -182,6 +183,7 @@ mod tests {
                     args_summary: None,
                     skill_invocation: None,
                     exit_code: None,
+                    background_outcome: None,
                 },
                 // Child tool call of the subagent
                 TurnToolCall {
@@ -214,6 +216,7 @@ mod tests {
                     args_summary: Some("pattern: auth".into()),
                     skill_invocation: None,
                     exit_code: None,
+                    background_outcome: None,
                 },
             ],
             duration_ms: Some(6000),

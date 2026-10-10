@@ -10,6 +10,8 @@
 //! Two tools are renamed here, by rewriting their start event before the
 //! events are typed: `Write` over an existing file becomes `apply_patch`
 //! (also `MultiEdit`), and `TaskStop` of a shell becomes `stop_powershell`.
+//! A shell that went to the background gets its `backgroundTaskId` as the
+//! `shellId` argument the same way.
 //!
 //! `persistedOutputPath` is recorded as a string; the file is never opened.
 
@@ -162,7 +164,17 @@ pub(super) fn reshape(
     failed: bool,
 ) -> Outcome {
     let structured = tur.filter(|tur| tur.is_object());
-    let exit_code = matches!(native, "Bash" | "PowerShell").then(|| {
+    let is_shell = matches!(native, "Bash" | "PowerShell");
+    // Subagent transcripts often carry no TUR: the text names the id too.
+    let background = (is_shell && !failed)
+        .then(|| {
+            structured
+                .and_then(|tur| str_at(tur, "backgroundTaskId"))
+                .map(str::to_string)
+                .or_else(|| structured.is_none().then(|| background_id(&text)).flatten())
+        })
+        .flatten();
+    let exit_code = is_shell.then(|| {
         if failed {
             failed_exit_code(&text)
         } else {
@@ -171,6 +183,14 @@ pub(super) fn reshape(
     });
     let mut outcome = Outcome::plain(text, failed);
     outcome.shell_execution = exit_code.flatten().map(|code| json!({"exitCode": code}));
+    if let Some(task) = background {
+        let name = if native == "Bash" {
+            "shell"
+        } else {
+            "powershell"
+        };
+        outcome.restart = Some((name, background_arguments(args, &task)));
+    }
     let Some(tur) = structured.filter(|_| !failed) else {
         return outcome;
     };
@@ -247,6 +267,37 @@ fn shell(outcome: &mut Outcome, tur: &Value) {
             outcome.set(key, value.clone());
         }
     }
+}
+
+/// The call's arguments with the shell id it was given, in background mode
+/// (also when Claude Code moved a running command there), so a later
+/// `shell_completed` notification finds the call.
+fn background_arguments(args: &Value, task: &str) -> Value {
+    let mut args = args.as_object().cloned().unwrap_or_default();
+    args.insert("shellId".into(), task.into());
+    args.insert("mode".into(), "background".into());
+    Value::Object(args)
+}
+
+/// The task id in a backgrounded shell's result text: `Command running in
+/// background with ID: X. …`, or `… moved to the background (ID: X) …` when
+/// Claude Code (or the user) moved a running command there.
+fn background_id(text: &str) -> Option<String> {
+    let line = text.lines().next()?.trim();
+    let rest = if let Some(rest) = line.strip_prefix("Command running in background with ID: ") {
+        rest
+    } else if line.starts_with("Command did not complete within ")
+        || line.starts_with("Command was moved to the background")
+    {
+        line.split_once("moved to the background (ID: ")?.1
+    } else {
+        return None;
+    };
+    let id: String = rest
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+        .collect();
+    (!id.is_empty()).then_some(id)
 }
 
 /// 0, or 1 with `returnCodeInterpretation`. Unknown while the command still

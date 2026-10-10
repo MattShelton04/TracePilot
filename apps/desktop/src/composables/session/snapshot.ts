@@ -28,7 +28,6 @@ export function buildCachedSessionSnapshot(
     eventsFingerprint: ctx.turnsRefresh.getEventsFingerprint(),
     checkpoints: ctx.sections.checkpointsSection.data.value,
     plan: ctx.sections.planSection.data.value,
-    backgroundTasks: ctx.sections.backgroundTasksSection.data.value,
     fileHistory: ctx.sections.fileHistorySection.data.value,
     shutdownMetrics: ctx.sections.metricsSection.data.value,
     incidents: ctx.sections.incidentsSection.data.value,
@@ -64,7 +63,6 @@ export function restoreFromCachedSession(ctx: SnapshotContext, cached: CachedSes
   ctx.turnsRefresh.setEventsFingerprint(cached.eventsFingerprint);
   ctx.sections.checkpointsSection.data.value = cached.checkpoints;
   ctx.sections.planSection.data.value = cached.plan;
-  ctx.sections.backgroundTasksSection.data.value = cached.backgroundTasks ?? [];
   ctx.sections.fileHistorySection.data.value = cached.fileHistory ?? [];
   ctx.sections.metricsSection.data.value = cached.shutdownMetrics;
   ctx.sections.incidentsSection.data.value = cached.incidents;

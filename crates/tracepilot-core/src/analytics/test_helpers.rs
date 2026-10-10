@@ -153,6 +153,7 @@ pub(super) fn make_tool_call(
         args_summary: None,
         skill_invocation: None,
         exit_code: None,
+        background_outcome: None,
     }
 }
 

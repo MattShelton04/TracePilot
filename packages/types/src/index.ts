@@ -83,6 +83,7 @@ export type {
 export type {
   AgentMessage,
   AttributedMessage,
+  BackgroundOutcome,
   ConversationTurn,
   EventsResponse,
   FreshnessResponse,

@@ -22,9 +22,11 @@
 //! 8. `SkillInvoked` is surfaced as a session event; a verified synthetic
 //!    `<skill-context>` `UserMessage` parented to it is folded into that event
 //!    instead of opening a visible user turn
+//! 9. A `SystemNotification` of kind `shell_completed` records a background
+//!    shell's outcome on the call that started it, matched by shell id
 //!
-//! Events that don't affect turn state (e.g. `SessionInfo`, `SystemNotification`)
-//! are silently skipped.
+//! Events that don't affect turn state (e.g. `SessionInfo`, other
+//! `SystemNotification` kinds) are silently skipped.
 //!
 //! ## Tool Call Indexing
 //!

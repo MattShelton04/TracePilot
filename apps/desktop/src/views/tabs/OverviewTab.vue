@@ -19,13 +19,11 @@ import { Check, Copy } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
 import FileHistoryPanel from "@/components/checkpoints/FileHistoryPanel.vue";
-import BackgroundTasksPanel from "@/components/session/BackgroundTasksPanel.vue";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { usePreferencesStore } from "@/stores/preferences";
-import { useSessionsStore } from "@/stores/sessions";
 import { formatObjectResult } from "@/utils/formatResult";
 import { formatRecordedDuration } from "@/utils/sessionDurations";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
@@ -53,18 +51,7 @@ const { source, capabilities } = useSessionSource(
   () => store.sessionId,
   () => store.detail,
 );
-const sessions = useSessionsStore();
-const sessionLive = computed(
-  () => sessions.sessions.find((s) => s.id === store.sessionId)?.isRunning ?? false,
-);
-// Only sources that record background work or back up files are asked for them.
-watch(
-  () => (capabilities.value.hasBackgroundTasks ? store.sessionId : null),
-  (id) => {
-    if (id) store.loadBackgroundTasks();
-  },
-  { immediate: true },
-);
+// Only sources that back up files are asked for their history.
 watch(
   () => (capabilities.value.hasFileHistory ? store.sessionId : null),
   (id) => {
@@ -162,9 +149,6 @@ function retryLoadSection(section: string) {
     case "plan":
       store.loadPlan();
       break;
-    case "backgroundTasks":
-      store.loadBackgroundTasks();
-      break;
     case "fileHistory":
       store.loadFileHistory();
       break;
@@ -196,14 +180,6 @@ function retryLoadSection(section: string) {
       :retryable="true"
       class="mb-4"
       @retry="retryLoadSection('plan')"
-    />
-    <ErrorAlert
-      v-if="store.backgroundTasksError"
-      :message="`Background tasks: ${store.backgroundTasksError}`"
-      variant="inline"
-      :retryable="true"
-      class="mb-4"
-      @retry="retryLoadSection('backgroundTasks')"
     />
     <ErrorAlert
       v-if="store.fileHistoryError"
@@ -366,13 +342,6 @@ function retryLoadSection(section: string) {
         No incidents recorded for this session.
       </p>
     </div>
-
-    <BackgroundTasksPanel
-      v-if="capabilities.hasBackgroundTasks && store.backgroundTasks.length > 0"
-      :tasks="store.backgroundTasks"
-      :live="sessionLive"
-      class="mb-6"
-    />
 
     <!-- Session Plan -->
     <SectionPanel

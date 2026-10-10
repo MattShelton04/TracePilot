@@ -1,3 +1,6 @@
+import type { TurnToolCall } from "@tracepilot/types";
+import { formatDuration } from "@tracepilot/types";
+
 /** Make submitted control characters visible while retaining the exact input in Parameters. */
 export function formatShellInput(input: string): string {
   return input.replace(/\r\n|[\s\S]/g, (control) => {
@@ -63,4 +66,40 @@ export function shellLineTone(line: string): string {
   if (/\b(?:warning|deprecated)\b/i.test(line)) return "term-warning";
   if (/\b(?:pass|passed|success|succeeded|done|completed)\b/i.test(line)) return "term-success";
   return "";
+}
+
+export type BackgroundTone = "success" | "warning" | "danger" | "neutral";
+
+export interface BackgroundOutcomeView {
+  /** "Background · Completed · exit 0 · 2m 4s" */
+  label: string;
+  /** "bg done", "bg exit 1", "bg failed", "bg stopped" for the call header. */
+  short: string;
+  tone: BackgroundTone;
+}
+
+/** How a shell the call started in the background finished, once reported. */
+export function backgroundOutcomeView(tc: TurnToolCall): BackgroundOutcomeView | null {
+  const outcome = tc.backgroundOutcome;
+  if (!outcome) return null;
+  const status = outcome.status || "completed";
+  // A status the source reported as written (`timed_out`) reads as words.
+  const words = status.replace(/_/g, " ");
+  const code = outcome.exitCode;
+  const parts = ["Background", words.charAt(0).toUpperCase() + words.slice(1)];
+  if (code != null) parts.push(`exit ${code}`);
+  const start = tc.startedAt ? Date.parse(tc.startedAt) : Number.NaN;
+  const end = outcome.completedAt ? Date.parse(outcome.completedAt) : Number.NaN;
+  const duration = formatDuration(end - start);
+  if (duration) parts.push(duration);
+  let tone: BackgroundTone = "neutral";
+  let short = `bg ${words}`;
+  if (status === "completed") {
+    tone = code != null && code !== 0 ? "warning" : "success";
+    short = code != null && code !== 0 ? `bg exit ${code}` : "bg done";
+  } else if (status === "failed") {
+    tone = "danger";
+    short = code != null ? `bg exit ${code}` : "bg failed";
+  }
+  return { label: parts.join(" · "), short, tone };
 }

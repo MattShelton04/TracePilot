@@ -196,6 +196,7 @@ fn renders_subagent_with_rich_metadata() {
         args_summary: None,
         skill_invocation: None,
         exit_code: None,
+        background_outcome: None,
     }];
     session.conversation = Some(vec![turn]);
 

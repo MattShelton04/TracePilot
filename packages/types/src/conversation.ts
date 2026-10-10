@@ -216,6 +216,17 @@ export interface TurnToolCall {
   /** Exit code of a shell command. Non-zero means the command reported a
    *  problem; the tool itself still ran. */
   exitCode?: number;
+  /** How a shell this call started in the background finished, from the
+   *  source's later completion notification. Absent until it reports. */
+  backgroundOutcome?: BackgroundOutcome;
+}
+
+/** The final state of a background shell, reported after its launching call returned. */
+export interface BackgroundOutcome {
+  /** `completed`, `failed` or `stopped`; another reported status as written. */
+  status: string;
+  exitCode?: number;
+  completedAt?: string;
 }
 
 /** Response from get_session_turns — includes file size for freshness tracking. */

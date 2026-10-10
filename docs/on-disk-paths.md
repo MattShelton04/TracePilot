@@ -81,7 +81,7 @@ directory and `<session>` is the session UUID. Code lives in
 | `sessions/<pid>.json` | Claude Code | One file per running process: pid, start time, session id, busy/idle status. | Read and verified against the live process (pid and `procStart`). | Session list loads, and every 3 s while a running session's detail view is open. The process check uses Win32 on Windows, `ps` on macOS and `/proc` on Linux. |
 | `sessions/<pid>.<hash>.key` | Claude Code | A per-process secret. | **Never opened.** Only `*.json` is read. | Never. |
 | Everything else (`settings.json`, `history.jsonl`, `stats-cache.json`, credentials, …) | Claude Code | Settings, prompt history, aggregates, auth. | Never read. | Never. |
-| System temp folder (background task output) | Claude Code | Output of `run_in_background` tasks. | Never read; background tasks come from transcript notifications. | Never. |
+| System temp folder (background task output) | Claude Code | Output of `run_in_background` tasks. | Never read; background outcomes come from transcript notifications. | Never. |
 
 `node scripts/claude-census.mjs` reads only `projects/**/*.jsonl` and their `subagents/`,
 never `sessions/` ([script index](../scripts/README.md)).

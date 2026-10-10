@@ -227,7 +227,8 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                     json!({"type": "agent_completed", "agentId": agent, "status": note.status})
                 }
                 None => {
-                    json!({"type": "shell_completed", "shellId": note.task_id, "status": note.status})
+                    json!({"type": "shell_completed", "shellId": note.task_id,
+                        "status": note.status, "exitCode": note.exit_code})
                 }
             };
             let data = json!({"content": note.text, "kind": kind});

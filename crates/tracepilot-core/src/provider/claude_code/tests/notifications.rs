@@ -133,3 +133,51 @@ fn a_typed_prompt_serializes_without_notifications() {
         "Quality gate: pass\nlint: ok"
     );
 }
+
+#[test]
+fn background_shells_settle_on_their_launching_call() {
+    let parsed = parse(&fixtures::notification_wake());
+    let turns = reconstruct_turns(&parsed.events);
+    let call = |id: &str| {
+        turns
+            .iter()
+            .flat_map(|t| &t.tool_calls)
+            .find(|tc| tc.tool_call_id.as_deref() == Some(id))
+            .unwrap_or_else(|| panic!("tool call {id}"))
+    };
+    let failed = call("toolu_sh1");
+    let args = failed.arguments.as_ref().unwrap();
+    assert_eq!(
+        (args["shellId"].as_str(), args["mode"].as_str()),
+        (Some("bsh1"), Some("background"))
+    );
+    let outcome = failed.background_outcome.as_ref().expect("settled");
+    assert_eq!(
+        (outcome.status.as_str(), outcome.exit_code),
+        ("failed", Some(2))
+    );
+    // The launch itself returned at once and stays a success.
+    assert_eq!(
+        (failed.success, failed.is_complete, failed.exit_code),
+        (Some(true), true, None)
+    );
+
+    // The rebuild finishes while the model is busy: it opens no turn but still settles.
+    let rebuilt = call("toolu_sh2")
+        .background_outcome
+        .as_ref()
+        .expect("settled");
+    assert_eq!(
+        (rebuilt.status.as_str(), rebuilt.exit_code),
+        ("completed", Some(0))
+    );
+    assert!(
+        rebuilt.completed_at.is_some(),
+        "the notification record's time"
+    );
+
+    // A Monitor reports through the same notification but starts no shell.
+    assert!(call("toolu_mon1").background_outcome.is_none());
+    // Agents keep settling through their subagent events.
+    assert!(call("toolu_ag1").background_outcome.is_none());
+}

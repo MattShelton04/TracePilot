@@ -1,6 +1,6 @@
 /**
  * useSessionSections — owns the standard async sections (todos, checkpoints,
- * plan, background tasks, file history, shutdown metrics, incidents, prompt
+ * plan, file history, shutdown metrics, incidents, prompt
  * cache) for a session detail instance.
  *
  * Extracted from useSessionDetail. Returns the data refs, error refs,
@@ -8,9 +8,7 @@
  * refreshing loaded sections in bulk.
  */
 import {
-  type BackgroundTask,
   type FileCheckpoint,
-  getSessionBackgroundTasks,
   getSessionCheckpoints,
   getSessionFileHistory,
   getSessionIncidents,
@@ -42,7 +40,6 @@ import {
  * The poll never runs for Copilot, whose plan and todos live elsewhere.
  */
 export const SOURCE_SECTION_KEYS: ReadonlySet<string> = new Set([
-  "backgroundTasks",
   "fileHistory",
   "metrics",
   "plan",
@@ -62,7 +59,6 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
   const todosSection = createAsyncSection<TodosResponse | null>(null);
   const checkpointsSection = createAsyncSection<CheckpointEntry[]>([]);
   const planSection = createAsyncSection<SessionPlan | null>(null);
-  const backgroundTasksSection = createAsyncSection<BackgroundTask[]>([]);
   const fileHistorySection = createAsyncSection<FileCheckpoint[]>([]);
   // These large snapshots are replaced wholesale on load/refresh. Avoid deep
   // proxies for thousands of cache windows, segment records and file paths.
@@ -99,17 +95,6 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     section: planSection,
     defaultValue: () => null,
     fetchFn: (id) => getSessionPlan(id),
-    sessionId: opts.sessionId,
-    loaded: opts.loaded,
-    guard: opts.guard,
-    logPrefix,
-  });
-
-  const backgroundTasksDef = defineAsyncSection({
-    key: "backgroundTasks",
-    section: backgroundTasksSection,
-    defaultValue: (): BackgroundTask[] => [],
-    fetchFn: (id) => getSessionBackgroundTasks(id),
     sessionId: opts.sessionId,
     loaded: opts.loaded,
     guard: opts.guard,
@@ -166,7 +151,6 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     todosDef as AsyncSectionDefinition<unknown>,
     checkpointsDef as AsyncSectionDefinition<unknown>,
     planDef as AsyncSectionDefinition<unknown>,
-    backgroundTasksDef as AsyncSectionDefinition<unknown>,
     fileHistoryDef as AsyncSectionDefinition<unknown>,
     metricsDef as AsyncSectionDefinition<unknown>,
     incidentsDef as AsyncSectionDefinition<unknown>,
@@ -214,7 +198,6 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     todosSection,
     checkpointsSection,
     planSection,
-    backgroundTasksSection,
     fileHistorySection,
     metricsSection,
     incidentsSection,
@@ -222,7 +205,6 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     todosDef,
     checkpointsDef,
     planDef,
-    backgroundTasksDef,
     fileHistoryDef,
     metricsDef,
     incidentsDef,

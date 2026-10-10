@@ -169,7 +169,13 @@ export function buildClaudeNotificationSession() {
     event: "SYNTHETIC quality gate: pass\nlint: ok · tests: 214 passed",
   });
   for (const content of [agent, shell]) {
-    t.bookkeeping({ type: "queue-operation", operation: "enqueue", content });
+    // Claude Code stamps the queue entry when the task finishes.
+    t.bookkeeping({
+      type: "queue-operation",
+      operation: "enqueue",
+      content,
+      timestamp: t.timestamp(),
+    });
   }
   t.record("user", {
     origin: { kind: "task-notification" },

@@ -353,6 +353,7 @@ export function richToolTurn(item, index = 0) {
             }
           : {}),
         ...(item.error ? { error: item.error.message } : {}),
+        ...(item.backgroundOutcome ? { backgroundOutcome: item.backgroundOutcome } : {}),
       },
     ],
   };
@@ -431,6 +432,11 @@ function buildSession({ samples, sessionId, title, eventNamespace }) {
         success: item.success !== false,
         result: { content: item.content },
         ...(item.error ? { error: item.error } : {}),
+      });
+    if (item.notification)
+      add("system.notification", {
+        content: `<system_notification>Shell ${item.notification.shellId} completed</system_notification>`,
+        kind: item.notification,
       });
     if (item.subagent)
       add("subagent.completed", {

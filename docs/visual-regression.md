@@ -333,19 +333,20 @@ arguments and structured `ask_user` responses. A registry coverage test fails
 when a new renderer lacks a sample. The `web_search` case crosses the backend
 preview boundary and asserts both final source cards appear without manual loading.
 
-Default local and CI captures contain **101 cases: 37 App views and 64 Rich tools**.
+Default local and CI captures contain **130 cases: 45 App views and 85 Rich tools**.
 The report keeps those sections separate; PR comments and history cards show
 compact counts/links for detailed tools. Generated JSONL, indexes and screenshots
 stay ignored.
 
-The native fixture generator puts 63 scenarios in the main renderer gallery and
+The native fixture generator puts 64 scenarios in the main renderer gallery and
 `report_intent` in a dedicated session, so its objective banner does not clutter
-unrelated tools. Browser captures already isolate each case; their 64-case
+unrelated tools. Browser captures already isolate each case; their 85-case
 inventory and routes remain unchanged.
 
 The rich cases include empty and failed results, all argument renderers, unknown
 payloads, heterogeneous SQL rows, escaped table cells, numbered source excerpts,
-read/write/async PowerShell state, complete agent transcripts and long text.
+read/write/async PowerShell state (including a background shell settled by its
+completion notification), complete agent transcripts and long text.
 Long non-search outputs use the native **1024-byte UTF-8 preview boundary**;
 `get_tool_result` returns the distinct complete payload. Paired scenarios click
 the single full-output action, expand local scroll regions, page long code/tables,

@@ -17,7 +17,7 @@ describe("toolCategory", () => {
   });
 
   it("returns 'agent' for agent-related tools", () => {
-    const tools = ["task", "read_agent", "write_agent", "list_agents"];
+    const tools = ["task", "read_agent", "write_agent", "list_agents", "stop_agent"];
     for (const tool of tools) {
       expect(toolCategory(tool)).toBe("agent");
     }
@@ -76,12 +76,17 @@ describe("formatArgsSummary", () => {
   });
 
   it("summarizes shell read/write identity without exposing submitted input", () => {
-    for (const tool of ["read_powershell", "write_powershell"]) {
+    for (const tool of ["read_powershell", "write_powershell", "stop_powershell"]) {
       expect(toolIcon(tool)).toBe("terminal");
       expect(formatArgsSummary({ shellId: "17", chars: "private input" }, tool)).toBe("Shell 17");
       expect(formatArgsSummary({ shell_id: "18" }, tool)).toBe("Shell 18");
       expect(formatArgsSummary({ chars: "private input" }, tool)).toBe("");
     }
+  });
+
+  it("names the agent a stop_agent call stops", () => {
+    expect(toolIcon("stop_agent")).toBe("bot");
+    expect(formatArgsSummary({ agent_id: "a77" }, "stop_agent")).toBe("a77");
   });
 
   it("returns empty string for falsy or non-object args", () => {

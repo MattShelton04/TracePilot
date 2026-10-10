@@ -46,7 +46,7 @@ sessions are removed and the new folder is indexed.
 | Metrics | Exact token and cache totals per model. Cost is an estimate (see [Costs](#costs-are-estimates)). |
 | Context | Total input per model call. Claude Code doesn't record a system, tools and conversation split. |
 | Prompt cache | Observed cache reads and writes per call. Expiry is estimated from each request's recorded cache lifetime (5 minutes or 1 hour), and shows as unknown when none was recorded. |
-| Overview | The session plan, file-history checkpoints and background tasks (below). |
+| Overview | The session plan and file-history checkpoints (below). |
 | Explorer | The session's `subagents/` and `tool-results/` folders. |
 | Export | Markdown and JSON, marked with the source. On top of the redaction options you pick, TracePilot always removes account details (email, organization and account IDs, quota limits) and the system-prompt and instruction-file attachments from the native records. |
 | Import | No. Import writes Copilot session folders. |
@@ -127,17 +127,19 @@ pauses while the window is hidden and stops once the session goes idle.
 Running state is available on Windows, macOS and Linux. The start time is read
 through Win32 on Windows, `ps` on macOS and `/proc` on Linux.
 
-## Background tasks
+## Background work
 
-The Overview tab lists **Background Tasks** when a session ran background
-subagents or `run_in_background` shell commands. Each task shows its status
-and the summary Claude Code reported. Where recorded, tasks also show their
-duration, and subagents show tokens and tool calls.
+Background work settles on the tool call that started it, in the
+Conversation:
 
-- A task last seen running in a session that has ended shows **No final
-  report**.
-- A background launch that never reported anything is left out, because its
-  outcome is unknown.
+- A **background subagent** card gets its status, tokens and duration when the
+  subagent finishes, like Copilot's.
+- A **background shell** (`run_in_background`, or a command Claude Code moved
+  to the background) shows its final state on the command's card, for example
+  **Background · Completed · exit 0 · 2m**, once Claude Code reports it. The
+  command's own row still shows that the launch succeeded. A shell that never
+  reported keeps the plain *background* label. Copilot's background, detached
+  and still-running shells settle the same way.
 - Background command output lives in your system's temporary folder. TracePilot
   never reads it, and the files may already be gone.
 
