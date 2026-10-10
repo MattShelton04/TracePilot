@@ -79,6 +79,14 @@ describe("SearchActiveFilters", () => {
     expect(wrapper.emitted("clear-repository")).toBeTruthy();
   });
 
+  it("renders a source chip that clears the source", async () => {
+    const wrapper = mountFilters({ source: "claudeCode", activeFilterCount: 1 });
+    const chip = wrapper.find('[data-testid="search-source-chip"]');
+    expect(chip.text()).toContain("Source: Claude Code");
+    await chip.find(".filter-chip-remove").trigger("click");
+    expect(wrapper.emitted("clear-source")).toHaveLength(1);
+  });
+
   it("shows clear-all button when multiple filters active", () => {
     const wrapper = mountFilters({
       activeContentTypeChips: [{ type: "user_message", mode: "include" }],

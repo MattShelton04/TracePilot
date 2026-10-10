@@ -8,6 +8,7 @@ import { useSearchPagination } from "@/composables/useSearchPagination";
 import { useSearchResultState } from "@/composables/useSearchResultState";
 import { useSearchUrlSync } from "@/composables/useSearchUrlSync";
 import { useSearchStore } from "@/stores/search";
+import { useSessionsStore } from "@/stores/sessions";
 import { toFriendlyErrorMessage } from "@/utils/backendErrors";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
 
@@ -18,6 +19,7 @@ export interface UseSessionSearchOptions {
 
 export function useSessionSearch(options: UseSessionSearchOptions) {
   const store = useSearchStore();
+  const sessionsStore = useSessionsStore();
   const { searchInputRef } = options;
 
   // Sync search state ↔ URL query params
@@ -133,8 +135,14 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
     if (store.repository) count++;
     if (hasMeaningfulDateValue(store.dateFrom) || hasMeaningfulDateValue(store.dateTo)) count++;
     if (store.sessionId) count++;
+    if (store.source) count++;
     return count;
   });
+
+  // Like the session list, the source filter appears only once more than one
+  // source has sessions, so Copilot-only users see no change.
+  const sourceOptions = computed(() => sessionsStore.sources);
+  const showSourceFilter = computed(() => sourceOptions.value.length > 1 || store.source !== null);
 
   // ── Content type tri-state toggle ─────────────────────────────
   // States: 'off' (not filtered) → 'include' → 'exclude' → 'off'
@@ -247,6 +255,8 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
     // content type
     contentTypeConfig,
     activeFilterCount,
+    sourceOptions,
+    showSourceFilter,
     activeContentTypeChips,
     removeContentTypeFilter,
     // misc

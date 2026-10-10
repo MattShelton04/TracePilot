@@ -1,4 +1,4 @@
-import type { SearchContentType } from "@tracepilot/types";
+import { SESSION_SOURCES, type SearchContentType, type SessionSource } from "@tracepilot/types";
 import { onBeforeUnmount, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSearchStore } from "@/stores/search";
@@ -32,6 +32,7 @@ export function useSearchUrlSync() {
     const prevRepository = store.repository;
     const prevToolName = store.toolName;
     const prevSessionId = store.sessionId;
+    const prevSource = store.source;
     const prevDateFrom = store.dateFrom;
     const prevDateTo = store.dateTo;
     const prevSortBy = store.sortBy;
@@ -65,6 +66,9 @@ export function useSearchUrlSync() {
     store.repository = typeof q.repo === "string" && q.repo ? q.repo : null;
     store.toolName = typeof q.tool === "string" && q.tool ? q.tool : null;
     store.sessionId = typeof q.session === "string" && q.session ? q.session : null;
+    store.source = SESSION_SOURCES.includes(q.source as SessionSource)
+      ? (q.source as SessionSource)
+      : null;
     store.dateFrom = normalizeDateValue(typeof q.from === "string" ? q.from : null);
     store.dateTo = normalizeDateValue(typeof q.to === "string" ? q.to : null);
 
@@ -78,6 +82,7 @@ export function useSearchUrlSync() {
       prevRepository !== store.repository ||
       prevToolName !== store.toolName ||
       prevSessionId !== store.sessionId ||
+      prevSource !== store.source ||
       prevDateFrom !== store.dateFrom ||
       prevDateTo !== store.dateTo ||
       prevSortBy !== store.sortBy ||
@@ -119,6 +124,7 @@ export function useSearchUrlSync() {
     if (store.repository) query.repo = store.repository;
     if (store.toolName) query.tool = store.toolName;
     if (store.sessionId) query.session = store.sessionId;
+    if (store.source) query.source = store.source;
     const normalizedDateFrom = normalizeDateValue(store.dateFrom);
     const normalizedDateTo = normalizeDateValue(store.dateTo);
     if (normalizedDateFrom) query.from = normalizedDateFrom;
@@ -152,6 +158,7 @@ export function useSearchUrlSync() {
       store.repository,
       store.toolName,
       store.sessionId,
+      store.source,
       store.dateFrom,
       store.dateTo,
     ],

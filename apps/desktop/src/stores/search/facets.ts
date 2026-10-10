@@ -4,7 +4,7 @@ import {
   getSearchStats,
   getSearchToolNames,
 } from "@tracepilot/client";
-import type { SearchFacetsResponse, SearchStatsResponse } from "@tracepilot/types";
+import type { SearchFacetsResponse, SearchStatsResponse, SessionSource } from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
 import { ref, shallowRef } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -15,6 +15,7 @@ export interface FacetOverrides {
   repo?: string | null;
   tool?: string | null;
   session?: string | null;
+  source?: SessionSource | null;
 }
 
 /**
@@ -55,6 +56,7 @@ export function createFacetsSlice(q: QuerySlice) {
       const repo = overrides?.repo ?? q.repository.value;
       const tool = overrides?.tool ?? q.toolName.value;
       const session = overrides?.session !== undefined ? overrides.session : q.sessionId.value;
+      const source = overrides?.source !== undefined ? overrides.source : q.source.value;
 
       // Skip re-fetch for unfiltered browse-mode calls when results are already fresh.
       // Filter-scoped fetches (after a search) always run to reflect the current query.
@@ -65,6 +67,7 @@ export function createFacetsSlice(q: QuerySlice) {
         !repo &&
         !tool &&
         !session &&
+        !source &&
         !dateFromUnix &&
         !dateToUnix;
       if (isUnfiltered && facets.value && Date.now() - facetsLastFetchedAt < FACETS_CACHE_TTL_MS) {
@@ -78,6 +81,7 @@ export function createFacetsSlice(q: QuerySlice) {
         repositories: repo ? [repo] : undefined,
         toolNames: tool ? [tool] : undefined,
         sessionId: session ?? undefined,
+        source: source ?? undefined,
         dateFromUnix,
         dateToUnix,
       });

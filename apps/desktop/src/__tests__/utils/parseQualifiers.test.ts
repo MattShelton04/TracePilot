@@ -54,6 +54,23 @@ describe("parseQualifiers", () => {
     expect(parseQualifiers("sort:relevance query").sort).toBe("relevance");
   });
 
+  it("extracts source qualifier with its Claude Code spellings", () => {
+    expect(parseQualifiers("source:copilot retry").source).toBe("copilot");
+    for (const v of ["claude", "claudecode", "ClaudeCode", "claude-code"]) {
+      const result = parseQualifiers(`retry source:${v}`);
+      expect(result.source).toBe("claudeCode");
+      expect(result.cleanQuery).toBe("retry");
+    }
+  });
+
+  it("strips and ignores unknown source values", () => {
+    const result = parseQualifiers("source:cursor retry");
+    expect(result.source).toBeNull();
+    expect(result.cleanQuery).toBe("retry");
+    expect(parseQualifiers("source:constructor").source).toBeNull();
+    expect(parseQualifiers("plain").source).toBeNull();
+  });
+
   it("ignores invalid sort values", () => {
     expect(parseQualifiers("sort:invalid query").sort).toBeNull();
   });

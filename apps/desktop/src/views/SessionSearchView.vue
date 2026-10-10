@@ -44,6 +44,8 @@ const {
   handleCopyAllResults,
   contentTypeConfig,
   activeFilterCount,
+  sourceOptions,
+  showSourceFilter,
   activeContentTypeChips,
   removeContentTypeFilter,
   friendlyError,
@@ -63,9 +65,13 @@ const {
       :active-filter-count="activeFilterCount"
       :sort-by="store.sortBy"
       :is-browse-mode="store.isBrowseMode"
+      :source="store.source"
+      :sources="sourceOptions"
+      :show-source="showSourceFilter"
       @update:query="store.query = $event"
       @update:filters-open="filtersOpen = $event"
       @update:sort-by="(v) => store.sortBy = v as typeof store.sortBy"
+      @update:source="store.source = $event"
       @show-syntax-help="showSyntaxHelp = true"
     />
 
@@ -74,12 +80,14 @@ const {
       :repository="store.repository"
       :tool-name="store.toolName"
       :session-id="store.sessionId"
+      :source="store.source"
       :session-display-name="sessionDisplayName"
       :active-filter-count="activeFilterCount"
       :content-type-config="contentTypeConfig"
       @remove-content-type="removeContentTypeFilter"
       @clear-repository="store.repository = null"
       @clear-tool-name="store.toolName = null"
+      @clear-source="store.source = null"
       @clear-session-id="store.sessionId = null; filteredSessionNameOverride = null"
       @clear-all="handleClearFilters"
     />
@@ -255,6 +263,10 @@ const {
       <kbd>Esc</kbd> back to search
     </div>
 
-    <SearchSyntaxHelpModal :visible="showSyntaxHelp" @close="showSyntaxHelp = false" />
+    <SearchSyntaxHelpModal
+      :visible="showSyntaxHelp"
+      :show-source="showSourceFilter"
+      @close="showSyntaxHelp = false"
+    />
   </div>
 </template>

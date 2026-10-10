@@ -15,7 +15,13 @@ import type {
  */
 export type { ContextSnippet, FtsHealthInfo } from "@tracepilot/types";
 
-import { invoke } from "./internal/core.js";
+import { createInvoke } from "./invoke.js";
+
+// Search mocks filter by source, so they live in their own module.
+const invoke = createInvoke("Search", async (cmd, args) => {
+  const { searchMock } = await import("./mock/search.js");
+  return searchMock(cmd, args);
+});
 
 // ── Deep Search (FTS) ────────────────────────────────────────
 
@@ -31,6 +37,7 @@ export async function searchContent(
     repositories: filters?.repositories,
     toolNames: filters?.toolNames,
     sessionId: filters?.sessionId,
+    source: filters?.source,
     dateFromUnix: filters?.dateFromUnix,
     dateToUnix: filters?.dateToUnix,
     limit: filters?.limit,
@@ -49,6 +56,7 @@ export async function getSearchFacets(
     | "repositories"
     | "toolNames"
     | "sessionId"
+    | "source"
     | "dateFromUnix"
     | "dateToUnix"
   >,
@@ -60,6 +68,7 @@ export async function getSearchFacets(
     repositories: filters?.repositories,
     toolNames: filters?.toolNames,
     sessionId: filters?.sessionId,
+    source: filters?.source,
     dateFromUnix: filters?.dateFromUnix,
     dateToUnix: filters?.dateToUnix,
   });
