@@ -15,13 +15,7 @@ import type {
  */
 export type { ContextSnippet, FtsHealthInfo } from "@tracepilot/types";
 
-import { createInvoke } from "./invoke.js";
-
-// Search mocks filter by source, so they live in their own module.
-const invoke = createInvoke("Search", async (cmd, args) => {
-  const { searchMock } = await import("./mock/search.js");
-  return searchMock(cmd, args);
-});
+import { invoke } from "./internal/core.js";
 
 // ── Deep Search (FTS) ────────────────────────────────────────
 

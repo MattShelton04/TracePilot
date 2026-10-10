@@ -6,7 +6,6 @@ import type {
   SearchStatsResponse,
   SessionSource,
 } from "@tracepilot/types";
-import { getMockData } from "../internal/mockData.js";
 import { NOW_MS, ONE_HOUR } from "./common.js";
 import { MOCK_SESSIONS } from "./sessions.js";
 
@@ -101,46 +100,60 @@ function counts(values: (string | null)[]): [string, number][] {
   return [...map.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-/** Search commands for `pnpm app:ui`; the rest fall back to the shared mock table. */
-export async function searchMock<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
+function searchResults(args: Record<string, unknown>): SearchResultsResponse {
+  const rows = matching(args);
+  const limit = typeof args.limit === "number" ? args.limit : 50;
+  const offset = typeof args.offset === "number" ? args.offset : 0;
+  const sorted = args.sortBy === "oldest" ? [...rows].reverse() : rows;
+  return {
+    results: sorted.slice(offset, offset + limit),
+    totalCount: rows.length,
+    hasMore: offset + limit < rows.length,
+    query: String(args.query ?? ""),
+    latencyMs: 1,
+  };
+}
+
+function searchFacets(args: Record<string, unknown>): SearchFacetsResponse {
+  // Each dimension ignores its own filter, as the backend does.
+  const without = (key: string) => matching({ ...args, [key]: undefined });
+  const rows = matching(args);
+  return {
+    byContentType: counts(without("contentTypes").map((r) => r.contentType)),
+    byRepository: counts(without("repositories").map((r) => r.sessionRepository)),
+    byToolName: counts(without("toolNames").map((r) => r.toolName)),
+    totalMatches: rows.length,
+    sessionCount: new Set(rows.map((r) => r.sessionId)).size,
+  };
+}
+
+const STATS: SearchStatsResponse = {
+  totalRows: RESULTS.length,
+  indexedSessions: MOCK_SESSIONS.length,
+  totalSessions: MOCK_SESSIONS.length,
+  contentTypeCounts: counts(RESULTS.map((r) => r.contentType)),
+};
+
+/**
+ * Search queries for `pnpm app:ui`, filtered like the backend (including by
+ * source). `null` for any other command.
+ */
+export function searchMockRoute(
+  cmd: string,
+  args: Record<string, unknown> = {},
+): { value: unknown } | null {
   switch (cmd) {
-    case "search_content": {
-      const rows = matching(args);
-      const limit = typeof args.limit === "number" ? args.limit : 50;
-      const offset = typeof args.offset === "number" ? args.offset : 0;
-      const sorted = args.sortBy === "oldest" ? [...rows].reverse() : rows;
-      return {
-        results: sorted.slice(offset, offset + limit),
-        totalCount: rows.length,
-        hasMore: offset + limit < rows.length,
-        query: String(args.query ?? ""),
-        latencyMs: 1,
-      } satisfies SearchResultsResponse as T;
-    }
-    case "get_search_facets": {
-      // Each dimension ignores its own filter, as the backend does.
-      const without = (key: string) => matching({ ...args, [key]: undefined });
-      const rows = matching(args);
-      return {
-        byContentType: counts(without("contentTypes").map((r) => r.contentType)),
-        byRepository: counts(without("repositories").map((r) => r.sessionRepository)),
-        byToolName: counts(without("toolNames").map((r) => r.toolName)),
-        totalMatches: rows.length,
-        sessionCount: new Set(rows.map((r) => r.sessionId)).size,
-      } satisfies SearchFacetsResponse as T;
-    }
+    case "search_content":
+      return { value: searchResults(args) };
+    case "get_search_facets":
+      return { value: searchFacets(args) };
     case "get_search_stats":
-      return {
-        totalRows: RESULTS.length,
-        indexedSessions: MOCK_SESSIONS.length,
-        totalSessions: MOCK_SESSIONS.length,
-        contentTypeCounts: counts(RESULTS.map((r) => r.contentType)),
-      } satisfies SearchStatsResponse as T;
+      return { value: STATS };
     case "get_search_repositories":
-      return [...new Set(RESULTS.map((r) => r.sessionRepository ?? ""))].filter(Boolean) as T;
+      return { value: [...new Set(RESULTS.map((r) => r.sessionRepository ?? ""))].filter(Boolean) };
     case "get_search_tool_names":
-      return [...new Set(RESULTS.map((r) => r.toolName ?? ""))].filter(Boolean).sort() as T;
+      return { value: [...new Set(RESULTS.map((r) => r.toolName ?? ""))].filter(Boolean).sort() };
     default:
-      return getMockData<T>(cmd, args);
+      return null;
   }
 }
