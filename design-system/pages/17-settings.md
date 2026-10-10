@@ -1,33 +1,36 @@
 # 17 · Settings — scalable panel layout
 
-> **Scope:** The Settings view (`apps/desktop/src/views/SettingsView.vue`) and every panel under `apps/desktop/src/components/settings/`. Defines a left-rail + scrollable-content layout that scales to the **eleven** panels the app already ships, with a single search across all of them and anchor-stable URLs.
+> **Scope:** The Settings view (`apps/desktop/src/views/SettingsView.vue`) and every panel under `apps/desktop/src/components/settings/`. Defines a left-rail + scrollable-content layout that scales to the **twelve** sections the app already ships, with a single search across all of them and anchor-stable URLs.
 > **Inherits:** all of `00-globals.md` (icons, motion, color tokens, `text.micro` discipline) and `01-chrome.md` (one chrome hierarchy — Settings is a destination *inside* `AppSidebar`, not a chrome surface of its own). Composes primitives from `02-primitives.md`.
-> **Audit:** closes `UI-AUDIT.md` Settings (lines 155–161) — High priority. The current view is a vertical stack of 11 sections with `text.micro` uppercase labels acting as section headings (`SettingsView.vue:65–71`); discoverability dies past the third fold and the heading style inverts the type-scale intent (CC-10 / G7).
-> **Sources:** `apps/desktop/src/views/SettingsView.vue`; panels `SettingsGeneral.vue`, `SettingsAppearance.vue`, `SettingsDataStorage.vue`, `SettingsLogging.vue`, `SettingsPricing.vue`, `SettingsToolVisualization.vue`, `SettingsUpdates.vue`, `SettingsAlerts.vue`, `SettingsExperimental.vue`, `SettingsSdk.vue`, `SettingsAbout.vue`.
+> **Audit:** closes `UI-AUDIT.md` Settings (lines 155–161) — High priority. The current view is a vertical stack of 12 sections with `text.micro` uppercase labels acting as section headings (`SettingsView.vue:69–76`); discoverability dies past the third fold and the heading style inverts the type-scale intent (CC-10 / G7).
+> **Sources:** `apps/desktop/src/views/SettingsView.vue`; panels `SettingsGeneral.vue`, `SettingsAppearance.vue`, `SettingsDataStorage.vue`, `SettingsLogging.vue`, `SettingsPricing.vue`, `SettingsToolVisualization.vue`, `SettingsUpdates.vue`, `SettingsExperimental.vue`, `SettingsClaudeCode.vue` (built on `SettingsProviderSection.vue`), `SettingsAlerts.vue`, `SettingsSdk.vue`, `SettingsAbout.vue`.
 
-A linear stack does not scale to eleven sections. This spec adopts the **Linear / VS Code settings** model: a sticky left rail of section anchors, a scrollable right column with one card per section, and a single search box at the top of the content column that filters rows across **every** panel at once.
+A linear stack does not scale to twelve sections. This spec adopts the **Linear / VS Code settings** model: a sticky left rail of section anchors, a scrollable right column with one card per section, and a single search box at the top of the content column that filters rows across **every** panel at once.
 
 ---
 
 ## 1 · Information architecture
 
-Eleven sections, in this order. Audit copy used the canonical labels in column **A**; the source files render the labels in column **B**. The spec keeps the source labels (so the rail matches what panels render today) and notes the audit alias next to each so cross-referencing works.
+Twelve sections, in the order `SettingsView.vue` renders them. Audit copy used the canonical labels in column **A**; the source files render the labels in column **B**. The spec keeps the source labels (so the rail matches what panels render today) and notes the audit alias next to each so cross-referencing works.
 
 | # | Anchor (URL fragment) | Section label (rail) | Source panel | Audit alias |
 |---|---|---|---|---|
 | 1  | `#general`     | General                | `SettingsGeneral.vue`           | General |
 | 2  | `#appearance`  | Appearance             | `SettingsAppearance.vue`        | Appearance · Density · Theme |
 | 3  | `#data`        | Data & Storage         | `SettingsDataStorage.vue`       | Indexing |
-| 4  | `#logging`     | Logging                | `SettingsLogging.vue`           | Conversation (logs) |
-| 5  | `#pricing`     | Pricing                | `SettingsPricing.vue`           | Telemetry (cost-side) |
+| 4  | `#logging`     | Logs & Diagnostics     | `SettingsLogging.vue`           | Conversation (logs) |
+| 5  | `#pricing`     | AI Credit Tracking     | `SettingsPricing.vue`           | Telemetry (cost-side) |
 | 6  | `#tools`       | Tool Visualization     | `SettingsToolVisualization.vue` | Conversation (tool renderers) |
 | 7  | `#updates`     | Updates                | `SettingsUpdates.vue`           | Updates |
-| 8  | `#alerts`      | Alerts                 | `SettingsAlerts.vue`            | Telemetry (notifications) |
-| 9  | `#experimental`| Experimental           | `SettingsExperimental.vue`      | Advanced |
-| 10 | `#sdk`         | SDK                    | `SettingsSdk.vue`               | SDK |
-| 11 | `#about`       | About                  | `SettingsAbout.vue`             | About |
+| 8  | `#features`    | Additional Features    | `SettingsExperimental.vue`      | Advanced |
+| 9  | `#claude-code` | Claude Code            | `SettingsClaudeCode.vue`        | none (added after the audit) |
+| 10 | `#alerts`      | Alerts & Notifications | `SettingsAlerts.vue`            | Telemetry (notifications) |
+| 11 | `#sdk`         | Copilot SDK Bridge     | `SettingsSdk.vue`               | SDK |
+| 12 | `#about`       | About                  | `SettingsAbout.vue`             | About |
 
 `Appearance` already covers the audit's "Density" and "Theme" beats — it owns the theme `BtnGroup`, the content-width preset, and the UI scale. There is no separate Density panel and the spec does not introduce one.
+
+`Additional Features` holds the feature flags in a *Recommended* and an *Experimental* group, each under a `SettingsFeatureGroupHeader`. A session provider that is still experimental gets its own section instead of a flag row: `SettingsProviderSection.vue` renders the section title, the Experimental group header, the provider's enable switch and, only while it is on, the provider's own rows. `Claude Code` is the first such section (enable switch, **Claude Code folder**, **Claude Code command**, **Claude Code format diagnostics**). A later provider adds a sibling section through the same component, not more rows in `Additional Features`.
 
 The view route stays at `/settings`. Each section is an anchor: `/settings#sdk` scrolls to the SDK card and marks the matching rail item `aria-current="true"`. Anchors are owned by the rail, not the panel — panels do not render their own `id`.
 
@@ -35,7 +38,7 @@ The view route stays at `/settings`. Each section is an anchor: `/settings#sdk` 
 
 ## 2 · Layout
 
-A two-column `<SplitPane>` (`02-primitives §SplitPane`) with the rail pinned, the content column scrollable, and a `<ToolbarRow>` welded to the top of the content column. Page width follows `--content-max-width` from `Appearance`, so the user can preview their own width changes live (preserves the existing intent at `SettingsView.vue:50–52`).
+A two-column `<SplitPane>` (`02-primitives §SplitPane`) with the rail pinned, the content column scrollable, and a `<ToolbarRow>` welded to the top of the content column. Page width follows `--content-max-width` from `Appearance`, so the user can preview their own width changes live (preserves the existing intent at `SettingsView.vue:52–53`).
 
 ```
 ┌─ PageShell ───────────────────────────────────────────────────────────────────┐
@@ -46,15 +49,15 @@ A two-column `<SplitPane>` (`02-primitives §SplitPane`) with the rail pinned, t
 │ General      ├────────────────────────────────────────────────────────────────┤
 │ Appearance ◀ │ ┌─ #appearance ─────────────────────────────────────────────┐ │
 │ Data & Stor. │ │ <Heading level="2">Appearance</Heading>                   │ │
-│ Logging      │ │ <SectionPanel>                                            │ │
-│ Pricing      │ │   <Field label="Theme" …>      <BtnGroup …/>              │ │
+│ Logs & Diag. │ │ <SectionPanel>                                            │ │
+│ AI Credits   │ │   <Field label="Theme" …>      <BtnGroup …/>              │ │
 │ Tool Vis.    │ │   <Field label="Content width" …> <Slider …/>             │ │
 │ Updates      │ │   <Field label="UI scale" …>   <Stepper …/>               │ │
-│ Alerts       │ │ </SectionPanel>                                           │ │
-│ Experimental │ └───────────────────────────────────────────────────────────┘ │
-│ SDK          │ ┌─ #data ───────────────────────────────────────────────────┐ │
-│ About        │ │ <Heading level="2">Data & Storage</Heading> …             │ │
-│              │ └───────────────────────────────────────────────────────────┘ │
+│ Features     │ │ </SectionPanel>                                           │ │
+│ Claude Code  │ └───────────────────────────────────────────────────────────┘ │
+│ Alerts       │ ┌─ #data ───────────────────────────────────────────────────┐ │
+│ SDK          │ │ <Heading level="2">Data & Storage</Heading> …             │ │
+│ About        │ └───────────────────────────────────────────────────────────┘ │
 │ ─────────────│ … remaining sections render in document order …               │
 │ ⌘K shortcut  │                                                               │
 └──────────────┴────────────────────────────────────────────────────────────────┘
@@ -96,7 +99,7 @@ Settings composes existing primitives (`02-primitives.md`) and introduces three 
 
 ### Existing — used as-is
 - **`<PageShell>`** — page frame.
-- **`<PageHeader title="Settings" />`** — replaces the current ad-hoc `<h1 class="page-title">` at `SettingsView.vue:31`. No breadcrumb (Settings is a leaf destination).
+- **`<PageHeader title="Settings" />`** — already in place (`SettingsView.vue:31`). No breadcrumb (Settings is a leaf destination).
 - **`<SplitPane>`** — see `02-primitives §SplitPane`. Used with `persistKey="settings.split"` and the rail on the `left` slot.
 - **`<ToolbarRow>`** — sticky toolbar, slots `start` (search), `end` (reset + save status). See `02-primitives §ToolbarRow`.
 - **`<Heading level="2">`** — every section title. **This is the entire fix for the audit's `text.micro`-as-heading regression.**
@@ -106,7 +109,7 @@ Settings composes existing primitives (`02-primitives.md`) and introduces three 
 - **`<Icon>`** — Lucide only, never emoji (`00-globals §G1`).
 
 ### `[NEW PRIMITIVE] <Field>`
-Wraps the `label + description + control` row that every panel re-implements today via raw `.setting-row` / `.setting-info` / `.setting-label` divs (`SettingsView.vue:75–106`).
+Wraps the `label + description + control` row that every panel re-implements today via raw `.setting-row` / `.setting-info` / `.setting-label` divs (styled at `SettingsView.vue:78–110`).
 
 ```ts
 interface FieldProps {
@@ -123,7 +126,7 @@ interface FieldProps {
 // Slot: actions  = optional trailing buttons (Reset, Browse…)
 ```
 
-Lives in `packages/ui/src/components/Field.vue`. Replaces the `:deep(.setting-row*)` rules at `SettingsView.vue:75–217` — those rules are deleted in the migration PR.
+Lives in `packages/ui/src/components/Field.vue`. Replaces the `:deep(.setting-row*)` rules at `SettingsView.vue:78–222` — those rules are deleted in the migration PR.
 
 ### `[NEW PRIMITIVE] <Toggle>`
 A thin re-export of the existing `<FormSwitch>` from `@tracepilot/ui`, renamed for vocabulary parity with `<Field>` / `<Select>` and so future Settings work has one obvious name. **Behaviour is unchanged.** Old import path remains exported for one release.
@@ -141,13 +144,13 @@ interface SelectProps<T extends string> {
 ```
 
 ### `[NEW PRIMITIVE] <SettingsRail>`
-Internal to `apps/desktop/src/views/settings/`, **not** exported from `@tracepilot/ui`. Renders the eleven anchors using `<nav aria-label="Settings sections">` and an `IntersectionObserver` to keep `aria-current` in sync with the scroll position. This is view-specific glue, not a primitive — keeping it local respects `02-primitives §Common contract` (only generic primitives ship from `@tracepilot/ui`).
+Internal to `apps/desktop/src/views/settings/`, **not** exported from `@tracepilot/ui`. Renders the twelve anchors using `<nav aria-label="Settings sections">` and an `IntersectionObserver` to keep `aria-current` in sync with the scroll position. This is view-specific glue, not a primitive — keeping it local respects `02-primitives §Common contract` (only generic primitives ship from `@tracepilot/ui`).
 
 ---
 
 ## 5 · Interaction model
 
-Auto-save is the default; explicit save is reserved for fields that require validation before commit (e.g. `CLI Command`, SDK endpoint). The spec describes both, and the toolbar status pill is the single source of truth.
+Auto-save is the default; explicit save is reserved for fields that require validation before commit (e.g. the SDK endpoint, or the Claude Code folder, which is validated and re-indexes on **Apply**). A free-form field whose rule the frontend can check locally (e.g. the Claude Code command) may autosave valid input and show the error inline instead. The spec describes both, and the toolbar status pill is the single source of truth.
 
 ### Keyboard
 | Key | Action | Where |
@@ -174,7 +177,7 @@ Non-matching fields are hidden (`hidden` attribute, not display:none — preserv
 
 ### Save model
 - **Auto-saved fields** (the majority — toggles, theme, density, sliders) commit on `change` and surface a "Saved" pill for 1.5s (§7).
-- **Validated fields** (CLI Command, SDK endpoint, anything string-typed and free-form) hold a "dirty" indicator (4px `--attention-fg` dot to the right of the label) and require `⌘S` or a click on the inline `Save` button. `Esc` reverts the field. The toolbar pill reads "Unsaved changes in <Section>" while any field is dirty.
+- **Validated fields** (the SDK endpoint, the Claude Code folder, anything free-form the backend must check) hold a "dirty" indicator (4px `--attention-fg` dot to the right of the label) and require `⌘S` or a click on the inline `Save` button. `Esc` reverts the field. The toolbar pill reads "Unsaved changes in <Section>" while any field is dirty.
 
 ### Anchors
 - Direct navigation to `/settings#sdk` scrolls instantly (`scroll-behavior: auto`, no smooth-scroll on cold load) and focuses the section's `<Heading>` for screen-reader handoff.
@@ -227,16 +230,16 @@ Per `00-globals §G5`. Everything in this view is bounded by 220ms.
 
 Concrete deletions in the migration PR.
 
-1. **`text.micro` uppercase as section heading** — `SettingsView.vue:65–71` (`.settings-section-title`: `font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em`). Closes CC-10 / `00-globals §G7`. Replace every panel's `<div class="settings-section-title">…</div>` with `<Heading level="2">…</Heading>`.
-2. **Page-level `<h1 class="page-title page-title-spaced">`** — `SettingsView.vue:31`. Replace with `<PageHeader title="Settings" />` (`01-chrome.md`).
-3. **Linear stack of 11 sections** — the entire body of `SettingsView.vue:33–43`. Replace with `<SplitPane>` + `<SettingsRail>` + scrollable content column.
-4. **`:deep(.setting-row*)` and friends** — `SettingsView.vue:75–217`. Deleted; `<Field>` owns the row. Each panel migrates from raw divs to `<Field>` props.
+1. **`text.micro` uppercase as section heading** — `SettingsView.vue:69–76` (`.settings-section-title`: `font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em`). Closes CC-10 / `00-globals §G7`. Replace every panel's `<div class="settings-section-title">…</div>` (including the one in `SettingsProviderSection.vue`) with `<Heading level="2">…</Heading>`.
+2. ~~**Page-level `<h1 class="page-title page-title-spaced">`**~~ — done: `SettingsView.vue` renders `<PageHeader title="Settings" />` (`01-chrome.md`).
+3. **Linear stack of 12 sections** — the entire body of `SettingsView.vue:34–45`. Replace with `<SplitPane>` + `<SettingsRail>` + scrollable content column.
+4. **`:deep(.setting-row*)` and friends** — `SettingsView.vue:78–222`. Deleted; `<Field>` owns the row. Each panel migrates from raw divs to `<Field>` props.
 5. **Per-panel emoji** — none currently shipping in Settings, but the lint allow-list (`00-globals §G1`) must keep `apps/desktop/src/components/settings/**` *off* the allow-list so future regressions are caught.
 6. **Glassmorphism / `backdrop-filter`** — must not appear on the sticky toolbar or the rail. Plain `--canvas-subtle` + hairline (`00-globals §G2`).
 7. **Section dividers via `text-transform: uppercase`** elsewhere in panels — replace with `<Heading level="3">` + `1px solid var(--border-subtle)` above (`00-globals §G7`).
 8. **Hand-rolled `<select>` styling** — replace with the new `<Select>` wrapper.
 9. **Toast spam on every preference change** — explicitly forbidden by MASTER §5. The "Saved" pill is *inline* in the toolbar; nothing is dispatched to the global toast system for routine preference updates. Only `error` states surface as toasts, and only when the toolbar is off-screen.
-10. **`--content-max-width` shadowing per panel** — keep the existing inheritance from `.page-content-inner` (the comment at `SettingsView.vue:50–52` is preserved); panels never set `max-width` themselves.
+10. **`--content-max-width` shadowing per panel** — keep the existing inheritance from `.page-content-inner` (the comment at `SettingsView.vue:52–53` is preserved); panels never set `max-width` themselves.
 
 ---
 
@@ -246,13 +249,13 @@ Settings ships when **all** of the following hold.
 
 ### Structure
 - [ ] `SettingsView.vue` renders `<PageShell>` → `<PageHeader>` → `<SplitPane>` (rail + content), no other top-level wrappers.
-- [ ] All eleven sections from §1 are present, in the listed order, each in its own `<SectionPanel>`.
+- [ ] All twelve sections from §1 are present, in the listed order, each in its own `<SectionPanel>`.
 - [ ] Every section has a stable anchor matching the table in §1; deep-linking to `/settings#<anchor>` scrolls and focuses the heading.
 - [ ] No `<h1>..<h6>` literals remain in `apps/desktop/src/components/settings/**` — `<Heading>` only (`02-primitives §Heading` lint).
 
 ### Vocabulary
 - [ ] `<Field>`, `<Toggle>`, `<Select>` exported from `@tracepilot/ui` and consumed by every panel.
-- [ ] No `:deep(.setting-row*)` rules anywhere; the bespoke CSS at `SettingsView.vue:75–217` is gone.
+- [ ] No `:deep(.setting-row*)` rules anywhere; the bespoke CSS at `SettingsView.vue:78–222` is gone.
 - [ ] No emoji in any settings panel template or data file (`00-globals §G1`).
 - [ ] No `linear-gradient`, no `backdrop-filter` in any settings file (`00-globals §G2`, `§G3`).
 
@@ -276,7 +279,7 @@ Settings ships when **all** of the following hold.
 
 ### Performance
 - [ ] First paint of the view does not block on SDK status — `<SettingsSdk>` renders skeletons until the bridge probe returns.
-- [ ] The eleven panels mount lazily as they enter the viewport (Intersection-observer-driven), so the initial DOM cost is bounded by the first 2–3 visible cards.
+- [ ] The twelve panels mount lazily as they enter the viewport (Intersection-observer-driven), so the initial DOM cost is bounded by the first 2–3 visible cards.
 
 ---
 
