@@ -213,6 +213,7 @@ describe("agent metrics UI", () => {
             toolCallId: "launch-worker",
             agentId: "worker",
             agentDisplayName: "worker",
+            nativeToolName: "Agent",
             isSubagent: true,
             isComplete: false,
             success: undefined,
@@ -230,7 +231,7 @@ describe("agent metrics UI", () => {
       wrapper.unmount();
       return text;
     };
-    expect(badge("claudeCode", false)).toContain("No final report");
+    expect(badge("claudeCode", false)).toBe("AgentNo final report—————0—");
     expect(badge("claudeCode", true)).toContain("Running");
     // Copilot is unchanged: an unfinished agent still reads as running.
     expect(badge("copilot", false)).toContain("Running");

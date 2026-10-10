@@ -133,7 +133,9 @@ Background work settles on the tool call that started it, in the
 Conversation:
 
 - A **background subagent** card gets its status, tokens and duration when the
-  subagent finishes, like Copilot's.
+  subagent finishes, like Copilot's. If the session ends before the subagent reports,
+  it shows **No final report** rather than Running, and its duration stays
+  unknown.
 - A **background shell** (`run_in_background`, or a command Claude Code moved
   to the background) shows its final state on the command's card, for example
   **Background · Completed · exit 0 · 2m**, once Claude Code reports it. The

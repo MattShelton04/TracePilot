@@ -152,7 +152,9 @@ export function buildAgentUsageRows(
       name:
         id === "main"
           ? "Main agent"
-          : (tc?.agentDisplayName ??
+          : // The native tool (Claude Code's `Agent`) first, as the conversation card names it.
+            (tc?.nativeToolName ??
+            tc?.agentDisplayName ??
             entry?.agentDisplayName ??
             entry?.agentName ??
             tc?.toolName ??
