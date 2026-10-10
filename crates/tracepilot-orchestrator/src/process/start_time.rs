@@ -1,6 +1,8 @@
 //! When a process started, so a pid file can be checked against the process
 //! that now holds its pid.
 
+use std::collections::HashMap;
+
 /// When the process `pid` started, in the format Claude Code records as
 /// `procStart`. `None` when no such process exists, it has exited, or its
 /// time cannot be read (for example access is denied).
@@ -9,8 +11,8 @@
 ///   decimal string, from two Win32 calls on an open handle (microseconds).
 /// - Linux: `starttime` from `/proc/<pid>/stat` (clock ticks since boot).
 /// - macOS: `ps -o lstart=` in the C locale and UTC, trimmed (for example
-///   `Sat Oct 10 02:37:47 2026`). This spawns `ps`, so call it only for a pid
-///   a session's pid file names.
+///   `Sat Oct 10 02:37:47 2026`). This spawns `ps`, so to check several
+///   pids use [`process_start_times`], which spawns it once.
 pub fn process_start_time(pid: u32) -> Option<String> {
     #[cfg(windows)]
     {
@@ -23,12 +25,29 @@ pub fn process_start_time(pid: u32) -> Option<String> {
     }
     #[cfg(target_os = "macos")]
     {
-        ps_start_time_within(pid, PS_TIMEOUT_SECS)
+        ps_start_times_within(&[pid], PS_TIMEOUT_SECS).remove(&pid)
     }
     #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     {
         let _ = pid;
         None
+    }
+}
+
+/// [`process_start_time`] for each of `pids`, keyed by pid. A pid with no
+/// process, or whose time cannot be read, is absent. On macOS this is one
+/// `ps` for every pid; elsewhere each pid is read as [`process_start_time`]
+/// reads it.
+pub fn process_start_times(pids: &[u32]) -> HashMap<u32, String> {
+    #[cfg(target_os = "macos")]
+    {
+        ps_start_times_within(pids, PS_TIMEOUT_SECS)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        pids.iter()
+            .filter_map(|&pid| Some((pid, process_start_time(pid)?)))
+            .collect()
     }
 }
 
@@ -49,23 +68,83 @@ pub(crate) fn parse_proc_stat_start(stat: &str) -> Option<String> {
         .then(|| start.to_owned())
 }
 
-/// The process start time as `ps -o lstart=` prints it in the C locale and
-/// UTC, which is what Claude Code records on macOS. Built for every unix so
-/// Linux CI exercises the macOS lookup.
+/// The start times of `pids` from one `ps -o pid= -o lstart=`, as `ps` prints
+/// `lstart` in the C locale and UTC, which is what Claude Code records on
+/// macOS. Built for every unix so Linux CI exercises the macOS lookup.
 #[cfg(unix)]
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-pub(crate) fn ps_start_time_within(pid: u32, timeout_secs: u64) -> Option<String> {
+pub(crate) fn ps_start_times_within(pids: &[u32], timeout_secs: u64) -> HashMap<u32, String> {
+    let Some((stdout, stderr, success)) = run_ps(pids, timeout_secs) else {
+        return HashMap::new();
+    };
+    // `ps` also fails when a listed pid has no process, yet prints the rest,
+    // and says nothing on stderr. It writes there when it rejects the whole
+    // list (a pid out of its range), so then each pid is asked alone.
+    if !success && !stderr.trim().is_empty() && pids.len() > 1 {
+        return pids
+            .iter()
+            .filter_map(|&pid| {
+                Some((
+                    pid,
+                    ps_start_times_within(&[pid], timeout_secs).remove(&pid)?,
+                ))
+            })
+            .collect();
+    }
+    parse_ps_start_times(&stdout, pids)
+}
+
+/// `ps -o pid= -o lstart= -p <pids>`: its stdout, stderr and whether it
+/// succeeded. `None` for no pids, or when `ps` cannot run or times out.
+#[cfg(unix)]
+fn run_ps(pids: &[u32], timeout_secs: u64) -> Option<(String, String, bool)> {
+    use super::hidden::hidden_std_command;
     use super::timeout::{execute_with_timeout, spawn_captured_child};
 
-    let mut cmd = std::process::Command::new("ps");
-    cmd.args(["-o", "lstart=", "-p", &pid.to_string()])
+    if pids.is_empty() {
+        return None;
+    }
+    let list: Vec<String> = pids.iter().map(u32::to_string).collect();
+    let mut cmd = hidden_std_command("ps");
+    // One `-o` per column: POSIX lets the text after `=` run to the end of
+    // its argument, so `pid=,lstart=` could name only `pid`.
+    cmd.args(["-o", "pid=", "-o", "lstart=", "-p", &list.join(",")])
         .env("LC_ALL", "C")
         .env("TZ", "UTC")
         .stdin(std::process::Stdio::null());
     let child = spawn_captured_child(cmd, "ps").ok()?;
-    let (stdout, _, status) = execute_with_timeout(child, timeout_secs).ok()?;
-    let start = String::from_utf8_lossy(&stdout).trim().to_owned();
-    (status.success() && !start.is_empty()).then_some(start)
+    let (stdout, stderr, status) = execute_with_timeout(child, timeout_secs).ok()?;
+    Some((
+        String::from_utf8_lossy(&stdout).into_owned(),
+        String::from_utf8_lossy(&stderr).into_owned(),
+        status.success(),
+    ))
+}
+
+/// The start times in `ps -o pid= -o lstart=` output, for the pids in `pids`.
+/// Each line is a pid, whitespace, then the start time, whose inner spacing
+/// is kept as `ps` prints it (`Sat Oct  3 ...` pads the day), since that is
+/// what Claude Code records. Lines for another pid, without a start time or
+/// of any other shape are skipped; the first line for a pid wins.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn parse_ps_start_times(stdout: &str, pids: &[u32]) -> HashMap<u32, String> {
+    let mut starts = HashMap::new();
+    for line in stdout.lines() {
+        let line = line.trim();
+        let digits = line.bytes().take_while(u8::is_ascii_digit).count();
+        let (pid, start) = line.split_at(digits);
+        let Ok(pid) = pid.parse::<u32>() else {
+            continue;
+        };
+        if !start.starts_with(char::is_whitespace) || !pids.contains(&pid) {
+            continue;
+        }
+        let start = start.trim();
+        if !start.is_empty() {
+            starts.entry(pid).or_insert_with(|| start.to_owned());
+        }
+    }
+    starts
 }
 
 /// The FFI behind [`super::process_start_time`]: kernel32 calls on one handle that

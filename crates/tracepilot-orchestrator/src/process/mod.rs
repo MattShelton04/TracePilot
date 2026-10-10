@@ -31,13 +31,16 @@ mod tests_async_limits;
 #[cfg(all(test, windows))]
 mod tests_start_time;
 
+#[cfg(test)]
+mod tests_start_time_portable;
+
 // ─── Public API re-exports (byte-for-byte stable) ──────────────────
 
 pub use hidden::{
     find_executable, find_executables, hidden_command, hidden_std_command, is_alive, run_hidden,
     run_hidden_stdout, run_hidden_stdout_timeout, run_hidden_via_cmd,
 };
-pub use start_time::process_start_time;
+pub use start_time::{process_start_time, process_start_times};
 
 pub(crate) use timeout::run_async_with_limits;
 

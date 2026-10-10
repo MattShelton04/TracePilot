@@ -1,5 +1,6 @@
 //! `ClaudeCodeProvider` through the `SessionProvider` trait.
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -286,8 +287,17 @@ fn locate_prefers_the_indexed_transcript_when_an_id_is_duplicated() {
     }
 }
 
+/// A batch lookup that answers each pid with `start`.
+fn per_pid(start: impl Fn(u32) -> Option<String> + Send + Sync + 'static) -> ProcessStart {
+    Arc::new(move |pids: &[u32]| {
+        pids.iter()
+            .filter_map(|&pid| Some((pid, start(pid)?)))
+            .collect()
+    })
+}
+
 fn live(started: &'static str) -> ProcessStart {
-    Arc::new(move |pid| (pid == PID).then(|| started.to_string()))
+    per_pid(move |pid| (pid == PID).then(|| started.to_string()))
 }
 
 #[test]
@@ -326,7 +336,7 @@ fn liveness_requires_a_matching_pid_file_and_process() {
     // The pid was reused by another process, or nothing runs under it.
     let reused = provider(root).with_process_start(live("134000000000000001"));
     assert_eq!(check(reused), Liveness::Idle);
-    let gone = provider(root).with_process_start(Arc::new(|_| None));
+    let gone = provider(root).with_process_start(per_pid(|_| None));
     assert_eq!(check(gone), Liveness::Idle);
 
     write_pid_file(root, PID, SESSION_ID, STARTED, "idle");
@@ -378,11 +388,16 @@ fn liveness_many_checks_only_sessions_a_pid_file_names() {
     let root = dir.path();
     let sessions = [locator(SESSION_ID), locator(STALE), locator(NO_FILE)];
     let lookups = Arc::new(AtomicUsize::new(0));
+    let batches = Arc::new(AtomicUsize::new(0));
     let counted = |lookups: &Arc<AtomicUsize>| -> ProcessStart {
-        let lookups = Arc::clone(lookups);
-        Arc::new(move |pid| {
+        let (lookups, batches) = (Arc::clone(lookups), Arc::clone(&batches));
+        let start = per_pid(move |pid| {
             lookups.fetch_add(1, Ordering::SeqCst);
             (pid == PID).then(|| STARTED.to_string())
+        });
+        Arc::new(move |pids: &[u32]| {
+            batches.fetch_add(1, Ordering::SeqCst);
+            start(pids)
         })
     };
 
@@ -390,6 +405,7 @@ fn liveness_many_checks_only_sessions_a_pid_file_names() {
     let provider = provider(root).with_process_start(counted(&lookups));
     assert_eq!(provider.liveness_many(&sessions), [Liveness::Idle; 3]);
     assert_eq!(lookups.load(Ordering::SeqCst), 0);
+    assert_eq!(batches.load(Ordering::SeqCst), 0, "no pids, no lookup call");
 
     write_pid_file(root, PID, SESSION_ID, STARTED, "busy");
     // Stale: the pid is reused by another process, and the pid is gone.
@@ -404,6 +420,7 @@ fn liveness_many_checks_only_sessions_a_pid_file_names() {
     let batch = provider.liveness_many(&sessions);
     assert_eq!(batch, [running, Liveness::Idle, Liveness::Idle]);
     assert_eq!(lookups.load(Ordering::SeqCst), 3, "one per named pid file");
+    assert_eq!(batches.load(Ordering::SeqCst), 1, "one call for every pid");
     let single: Vec<_> = sessions.iter().map(|s| provider.liveness(s)).collect();
     assert_eq!(batch, single);
 
@@ -436,7 +453,7 @@ fn a_pid_file_whose_pid_was_reused_costs_one_lookup() {
     write_pid_file(root, PID + 4, GONE, STARTED, "busy");
     let lookups = Arc::new(AtomicUsize::new(0));
     let counted = Arc::clone(&lookups);
-    let provider = provider(root).with_process_start(Arc::new(move |pid| {
+    let provider = provider(root).with_process_start(per_pid(move |pid| {
         counted.fetch_add(1, Ordering::SeqCst);
         (pid == PID).then(|| STARTED.to_string())
     }));
@@ -452,11 +469,11 @@ fn a_pid_file_whose_pid_was_reused_costs_one_lookup() {
     // A provider sharing the set skips the reused file too.
     let shared = Arc::new(super::super::StalePidFiles::default());
     let first = self::provider(root)
-        .with_process_start(Arc::new(|pid| (pid == PID).then(|| STARTED.to_string())))
+        .with_process_start(live(STARTED))
         .with_stale_pid_files(Arc::clone(&shared));
     assert_eq!(first.liveness(&listed[0]), Liveness::Idle);
     let never = self::provider(root)
-        .with_process_start(Arc::new(|_| {
+        .with_process_start(Arc::new(|_: &[u32]| -> HashMap<u32, String> {
             panic!("a known stale file is never looked up")
         }))
         .with_stale_pid_files(shared);
