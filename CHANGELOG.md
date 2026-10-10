@@ -9,19 +9,20 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
-- **Claude Code analytics** — With both sources indexed, Analytics shows cost by source, each in its own unit (AI Credits for Copilot, estimated USD for Claude Code), and charts estimated USD per day. A resumed Claude session counts its usage and cost on the day of each run. Tool Analysis expands a tool into the native tools behind it (for example, shell into Bash and PowerShell), the Models page lines up a model used by both sources and labels Claude models' cost as a USD estimate or unpriced, and Session Comparison shows no cost delta between sessions billed in different units.
-
-- **Claude Code tools** — Claude sessions show their recorded tool names in conversations and timelines, render Bash output as a terminal, and offer a command to copy for resuming in Claude Code. Their recorded cost estimates now include usage after the last cost snapshot.
-
-- **Claude Code session views** — Overview and Metrics show a Claude session's cost as a labelled USD estimate (Claude Code's own or TracePilot's), mark totals that rely on calls after the last cost snapshot as partial, and drop AI Credit and premium-request figures. Claude sessions also get the Context tab, charting each turn's recorded input total, and prompt-cache misses are priced in USD.
-
-- **Claude Code sessions (experimental)** — Turn on **Claude Code Sessions** in Settings → Experimental to index and view Claude Code sessions alongside Copilot CLI sessions, with a source badge and filter. The folder defaults to `CLAUDE_CONFIG_DIR`, else `~/.claude`, and can be changed in Data & Storage. Turning it off removes those sessions from the index and leaves your Claude Code files untouched. Their turns show token usage, refused tool uses and interrupts are listed as incidents, and they count in Analytics, including prompt-cache timing estimated from each call's recorded cache tier. Their Context tab charts each turn's recorded input total, and the session header shows an estimated prompt-cache countdown (or "unknown" when no cache tier was recorded). Once both sources have sessions, a source filter on each Analytics page shows all sessions, Copilot only or Claude Code only.
-
-- **Claude Code export** — Claude Code sessions can be exported to JSON and Markdown, alone or together with Copilot sessions. Exports name the session's source and always leave out the account email, organization and account ids, the system prompt, CLAUDE.md and AGENTS.md text, plan limits and remote-control links. Importing a Claude Code session is refused, because import writes Copilot sessions.
+- **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions, with a source badge and filter. Turn them on in **Settings → Claude Code**, or in first-run setup when a Claude Code folder with sessions is found. Turning them off removes them from TracePilot's index and leaves your Claude Code files untouched.
+  - **Conversations** — Tools keep their Claude Code names (such as `Bash` and `Read`), Bash output renders as a terminal, and slash commands read as typed. Background agents and shells that finish while a session is idle appear as notification cards, and each background task settles on the card that started it.
+  - **Cost and metrics** — Exact token and cache totals per model, with cost as a labelled API-equivalent USD estimate, marked partial when calls follow Claude Code's last cost snapshot. The Context tab charts each turn's input, and the header estimates the prompt-cache countdown from each call's recorded cache tier.
+  - **Analytics** — Every Analytics page includes Claude Code sessions. Cost stays in each source's unit (AI Credits for Copilot, estimated USD for Claude Code) and is never added together. Tool Analysis breaks a tool into the native tools behind it, and Models lines up a model used by both sources.
+  - **Live state and resume** — Running sessions show **Busy** or **Waiting**. **Resume in Terminal** reopens a session in Claude Code from its working directory with a configurable command (default `claude`), or you can copy the resume command.
+  - **Overview, export and diagnostics** — Overview shows the session plan and read-only file-history checkpoints. JSON and Markdown exports always leave out account details and system-prompt and instruction-file text; importing a Claude Code session is refused. A format diagnostics panel lists record types and Claude Code versions TracePilot doesn't map yet.
 
 ### Changed
 
-- **Session source switch** — The Sessions toolbar and Analytics pages switch between All, Copilot and Claude with a logo switch instead of a dropdown.
+- **Session source switch** — The Sessions toolbar and Analytics pages switch between All, Copilot and Claude Code with a logo switch instead of a dropdown, and Search gets the same switch (or type `source:claude` or `source:copilot`).
+
+- **Project folders** — Sessions without a repository show and filter by their working-directory folder. Session search also matches working directories and models, and Overview shows the working directory with a copy button.
+
+- **Background shell results** — A background shell command shows how it finished (status, exit code and duration) on its own card, in Copilot and Claude Code sessions.
 
 - **Models page charts** — The Capability Radar and Cost vs Token Volume charts are replaced by four charts:
   - **Cost Efficiency** plots each model's cost per million tokens against tokens used (log scale), sized by spend, against your average rate.
@@ -29,15 +30,21 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
   - **Model Profiles** compares models on volume, cost per token, cache hit, context per request and output share, as a fingerprint per model, an overlay of chosen models, or trails across all of them.
   - **Model Mix Over Time** stacks tokens, share or estimated spend per model by day or week.
 
-  Charts put Copilot and Claude Code models on one API-equivalent USD scale (AI Credits at $0.01) and mark Claude Code's USD estimates. The eight most-used models keep distinct colours across the page; the rest share a neutral one instead of repeating colours.
+  Charts put Copilot and Claude Code models on one API-equivalent USD scale (AI Credits at $0.01) and mark Claude Code's USD estimates, and the cost column sorts on the same scale. The eight most-used models keep distinct colours across the page; the rest share a neutral one instead of repeating colours.
+
+- **Large numbers** — Token counts in the billions read as `12.6B` instead of `12642.2M`.
+
+- **Performance** — First-time indexing prepares upcoming sessions on several cores while it writes, so it finishes sooner, most of all for large Claude Code histories.
+
+- **Model pricing** — Refreshed Copilot rates for 10 October 2026, adding Claude Haiku 5.5 and lowering Claude Sonnet 5.5's cached-input rate.
 
 ### Fixed
 
 - **macOS and Linux fixes** — Detect & Connect finds running `copilot --ui-server` processes on macOS, and Launch UI Server starts one instead of failing with "command not found" on macOS and Linux. Claude Code sessions show their running state on macOS and Linux, not only on Windows. Command timeouts now stop the command at the deadline, so a slow login shell can no longer hold up launching TracePilot from the Dock.
 
-- **Claude Code analytics** — The Analytics token, activity and cost-by-day charts include Claude Code sessions, which they previously left out. With the Claude filter, AI Credit totals show a dash instead of $0.00, and the AI Credit cost trend is not drawn. A prompt-cache miss in a Claude conversation is priced in USD. Existing indexes refresh Claude rows once on launch.
+- **Prompt-cache chip** — The session header no longer shows a "Cache likely expired" chip on sessions idle for more than a day.
 
-- **Claude Code conversations** — Slash commands read as typed (`/model opus`) instead of raw tags, their output drops terminal colour codes, and pasted text sits in its own collapsible block. A session of slash commands only is named after its first command, and a session without a cost snapshot shows Duration and API Duration estimated from its timestamps. Large Claude sessions no longer re-read their transcript each time Overview or Metrics loads.
+- **Code Impact** — A file whose path is written with both `\` and `/` counts once.
 
 ### Removed
 

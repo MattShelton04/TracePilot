@@ -98,7 +98,7 @@ transcript sums on the *same* model. A fixed "within N%" gate would fail correct
 | F5 | Opaque `source_version`: `EventCache`/`TurnCache` keys, `FreshnessResponse` (keep the legacy fields), search fingerprint, `source_bytes_hint` batching | 2–3 | F2 | A |
 | F6 | Multi-provider reindex and lifecycle (`IndexTarget` = registry snapshot plus per-source config generation), with progress per source. **Prune only after a complete inventory**: a source whose discovery was cancelled or failed, or whose root is missing, is not pruned in that run | 2–3 | F2, F3 | A |
 | F7a | IR additions: `RawEvent.native`, `native_tool_name`, provider `SessionMetrics` with `cost_basis`/`cost_unit` ([architecture §3.2](architecture.md#32-source-neutral-ir-additions)) mapped into `ShutdownMetrics` with AIC and premium `None`. **Copilot wire output is unchanged**: every new field is `#[serde(default, skip_serializing_if = "Option::is_none")]`, and a round-trip test proves existing `events.jsonl` lines re-serialize identically | 2 | — | A |
-| F8 | Enable/disable ([README §5](README.md#5-enabling-and-disabling-claude-code)): the `features.claudeCodeSessions` experimental flag (Rust `FeaturesConfig`, `DEFAULT_FEATURES`, Settings → Experimental); `SourcesConfig.claudeCode.configDir` (`CLAUDE_CONFIG_DIR` default, validated) shown in Data & Storage when on; registry rebuild on config change; reindex on enable. **Disable ordering:** bump the source's config generation and cancel its jobs, then purge its rows and invalidate its caches. An index write commits only if its job's generation is still current, so a job holding the old registry snapshot cannot write rows back. A root change is a disable of the old root followed by an enable of the new one. **Tests:** disable during indexing, root change during indexing, interrupted discovery, failed or unreadable root. The setup wizard is unchanged (D1) | 3–4 | F1, F3, F6 | C |
+| F8 | Enable/disable ([README §5](README.md#5-enabling-and-disabling-claude-code)): the `features.claudeCodeSessions` experimental flag (Rust `FeaturesConfig`, `DEFAULT_FEATURES`), now switched in its own experimental Settings → Claude Code section; `SourcesConfig.claudeCode.configDir` (`CLAUDE_CONFIG_DIR` default, validated) shown in that section when on; registry rebuild on config change; reindex on enable. **Disable ordering:** bump the source's config generation and cancel its jobs, then purge its rows and invalidate its caches. An index write commits only if its job's generation is still current, so a job holding the old registry snapshot cannot write rows back. A root change is a disable of the old root followed by an enable of the new one. **Tests:** disable during indexing, root change during indexing, interrupted discovery, failed or unreadable root. The setup wizard stays Copilot-first (D1); it only offers an optional, off-by-default Claude Code switch when the default folder holds sessions | 3–4 | F1, F3, F6 | C |
 | F9 | Frontend plumbing: `types/sources.ts`, `source` on list, detail and search DTOs, source badge and list filter, `mapSessionTabs(caps)` plus router guard, source-aware main-agent label (3 sites), **guard the AIC estimate fallback**, hide SDK steering and Copilot resume | 3–4 | F1 (F3 for real data) | C |
 | F10a | Fixtures: a Claude transcript builder in `tracepilot-test-support` (main, subagent and `meta.json`, compaction, `cost-state`, errors), built from redacted real shapes | 1.5–2 | S1 | B |
 | C1 | `ClaudeCodeProvider::discover` and fingerprint: `projects/*/<uuid>.jsonl` + `subagents/*` (skipping `memory/`), file-list fingerprint, `cwd` from records | 1–2 | F2 | B |
@@ -148,12 +148,12 @@ transcript sums on the *same* model. A fixed "within N%" gate would fail correct
 
 **Status (2026-10-10): done.** C12, C13, C14, U4, U5 and Q3 have shipped. Q4 is dropped by
 maintainer decision: Claude Code sessions get no alerts or notifications. The integration stays
-behind the Experimental *Claude Code sessions* setting, and decisions D1–D5 are unchanged. The
+experimental, switched in Settings → Claude Code, and decisions D1–D5 are unchanged. The
 user guide is [docs/claude-code-sessions.md](../../claude-code-sessions.md).
 
 | ID | Task | Est | Depends on | Lane |
 | --- | --- | ---: | --- | --- |
-| C12 | Background tasks: build a background-task list from task notifications and `task_status`. Todo tools are out of scope (see [Readiness](#readiness)) | 1–2 | C4 | B |
+| C12 | Background tasks: settle background agents and shells from task notifications. The Overview list this first built was replaced by status inline on each launching call ([mapping §4](mapping.md#4-feature-and-tab-support)). Todo tools are out of scope (see [Readiness](#readiness)) | 1–2 | C4 | B |
 | C13 | Plan (`ExitPlanMode`, `plans/<slug>.md`), file-history → checkpoint/rewind view, Explorer roots (`subagents/`, `tool-results/`) | 3–4 | F2 | B |
 | C14 | Export: `source` on the document, export from `ProviderSnapshot` (`workspace.yaml` optional), record-level redaction ([data-comparison §5](data-comparison.md#5-privacy-inventory)), import gated to Copilot | 2–3 | F2, F7a | A |
 | U4 | Tool analysis by canonical kind with native drill-down; code impact; cross-source model comparison; session comparison suppressing billing deltas across sources | 4–5 | U3, C10 | C |
@@ -169,6 +169,7 @@ user guide is [docs/claude-code-sessions.md](../../claude-code-sessions.md).
 | E2 | Estimated context split from `prompt_snapshot` (system, tools) | 3–4 | Labelled as estimated |
 | E3 | Node CLI (`apps/cli`) support for Claude sessions | 3–5 | |
 | E4 | Cross-source repository view ("this repo across agents"), PR linking from `pr-link` | 3–5 | |
+| E5 | Resume in terminal: open a terminal in the session's working directory and run the configured Claude Code command with `--resume <id>` | 1–2 | **Done.** Settings → Claude Code → Claude Code command (default `claude`) |
 
 ### Codex provider (after L2)
 
