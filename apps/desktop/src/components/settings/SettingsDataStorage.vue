@@ -20,6 +20,7 @@ import {
   formatBytes,
   SectionPanel,
   toErrorMessage,
+  useAsyncGuard,
   useConfirmDialog,
   useToast,
 } from "@tracepilot/ui";
@@ -101,8 +102,30 @@ const { setup: setupIndexingEvents } = useIndexingEvents({
   onFinished: () => {
     indexingProgress.value = null;
     isIndexing.value = false;
+    // Enabling or disabling a source, or any reindex, changes what the index holds.
+    void loadIndexStats();
   },
 });
+
+/** The newest read of the index size and session count wins. */
+const indexStatsGuard = useAsyncGuard();
+
+async function loadIndexStats() {
+  const token = indexStatsGuard.start();
+  try {
+    const bytes = await getDbSize();
+    if (indexStatsGuard.isValid(token)) databaseSize.value = formatBytes(bytes);
+  } catch (e) {
+    // Non-critical: keep the previous value
+    logWarn("[SettingsDataStorage] Failed to get database size:", e);
+  }
+  try {
+    const count = await getSessionCountApi();
+    if (indexStatsGuard.isValid(token)) indexedSessionCount.value = count;
+  } catch (e) {
+    logWarn("[SettingsDataStorage] Failed to get session count:", e);
+  }
+}
 
 async function loadPaths() {
   pathsLoading.value = true;
@@ -127,20 +150,7 @@ onMounted(async () => {
   await setupIndexingEvents();
   await loadPaths();
 
-  try {
-    const bytes = await getDbSize();
-    databaseSize.value = formatBytes(bytes);
-  } catch (e) {
-    // Non-critical: keep placeholder
-    logWarn("[SettingsDataStorage] Failed to get database size:", e);
-  }
-
-  try {
-    indexedSessionCount.value = await getSessionCountApi();
-  } catch (e) {
-    // Non-critical: keep 0
-    logWarn("[SettingsDataStorage] Failed to get session count:", e);
-  }
+  await loadIndexStats();
 
   try {
     const stats = await contextCaptureStorageStats();
