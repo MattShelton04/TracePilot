@@ -7,24 +7,30 @@ import {
   formatNumberFull,
   SectionPanel,
 } from "@tracepilot/ui";
+import { computed } from "vue";
 import SourceLogo from "@/components/sources/SourceLogo.vue";
-import type { SourceCostRow } from "@/utils/analyticsCostSeries";
+import { combinedCostTotal, type SourceCostRow } from "@/utils/analyticsCostSeries";
 
-defineProps<{ rows: SourceCostRow[] }>();
+const props = defineProps<{ rows: SourceCostRow[] }>();
 
-function costText(row: SourceCostRow): string {
-  if (row.amount == null) return "Unpriced";
-  return row.unit === "aic" ? formatAiCredits(row.amount) : formatCost(row.amount);
+const total = computed(() => ({
+  ...combinedCostTotal(props.rows),
+  sessions: props.rows.reduce((sum, row) => sum + row.sessions, 0),
+  tokens: props.rows.reduce((sum, row) => sum + row.tokens, 0),
+}));
+
+function costText(usd: number | null): string {
+  return usd == null ? "Unpriced" : formatCost(usd);
 }
 
 function basisText(row: SourceCostRow): string {
   const partial = row.partial ? " · partial" : "";
   if (row.unit === "aic") {
-    return row.usdEquivalent == null
+    return row.amount == null
       ? `AI Credits${partial}`
-      : `AI Credits ≈ ${formatCost(row.usdEquivalent)}${partial}`;
+      : `${formatAiCredits(row.amount)} at $0.01${partial}`;
   }
-  return `Estimated USD, not a bill${partial}`;
+  return `API-equivalent rates${partial}`;
 }
 </script>
 
@@ -36,7 +42,7 @@ function basisText(row: SourceCostRow): string {
           <th scope="col">Source</th>
           <th scope="col" class="num-cell">Sessions</th>
           <th scope="col" class="num-cell">Tokens</th>
-          <th scope="col" class="num-cell">Cost</th>
+          <th scope="col" class="num-cell">Cost (USD)</th>
           <th scope="col">Basis</th>
         </tr>
       </thead>
@@ -50,14 +56,20 @@ function basisText(row: SourceCostRow): string {
           </td>
           <td class="num-cell">{{ formatNumberFull(row.sessions) }}</td>
           <td class="num-cell">{{ formatNumber(row.tokens) }}</td>
-          <td class="num-cell source-cost-value">{{ costText(row) }}</td>
+          <td class="num-cell source-cost-value">{{ costText(row.usdEquivalent) }}</td>
           <td class="source-cost-basis">{{ basisText(row) }}</td>
         </tr>
       </tbody>
+      <tfoot>
+        <tr data-source="total">
+          <td>All sources</td>
+          <td class="num-cell">{{ formatNumberFull(total.sessions) }}</td>
+          <td class="num-cell">{{ formatNumber(total.tokens) }}</td>
+          <td class="num-cell source-cost-value">{{ costText(total.usd) }}</td>
+          <td class="source-cost-basis">{{ total.partial ? 'Partial' : '' }}</td>
+        </tr>
+      </tfoot>
     </table>
-    <p class="source-cost-note">
-      Each source keeps its own billing unit, so these costs are not added together.
-    </p>
   </SectionPanel>
 </template>
 
@@ -88,10 +100,8 @@ function basisText(row: SourceCostRow): string {
   font-size: 0.75rem;
 }
 
-.source-cost-note {
-  margin: 0;
-  padding: 8px 12px 12px;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
+.source-cost-table tfoot td {
+  border-bottom: 0;
+  font-weight: 600;
 }
 </style>

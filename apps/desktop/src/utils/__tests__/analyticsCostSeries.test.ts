@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildAnalyticsAiCreditSummary,
   buildAnalyticsCostSeries,
+  buildCombinedCostSeries,
   buildSourceCostRows,
+  combinedCostTotal,
+  type SourceCostRow,
 } from "../analyticsCostSeries";
 
 const baseAnalytics: AnalyticsData = {
@@ -229,13 +232,114 @@ describe("cost split by source", () => {
     ]);
   });
 
-  it("keeps each source in its own unit and flags a partial USD total", () => {
+  it("keeps each source's own unit beside its USD value and flags a partial total", () => {
     const summary = buildAnalyticsAiCreditSummary(mixed, priced, priced);
     const rows = buildSourceCostRows(mixed, summary);
     expect(rows).toEqual([
-      expect.objectContaining({ source: "copilot", unit: "aic", amount: summary.credits }),
-      expect.objectContaining({ source: "claudeCode", unit: "usd", amount: 4.2, partial: true }),
+      expect.objectContaining({
+        source: "copilot",
+        unit: "aic",
+        amount: summary.credits,
+        usdEquivalent: summary.usdEquivalent,
+      }),
+      expect.objectContaining({
+        source: "claudeCode",
+        unit: "usd",
+        amount: 4.2,
+        usdEquivalent: 4.2,
+        partial: true,
+      }),
     ]);
-    expect(rows[1].usdEquivalent).toBeNull();
+  });
+
+  it("charts every source on one USD series, AI Credits at $0.01 each", () => {
+    // gpt-5.4 on Jan 2 is priced at $1 (100 AIC); Claude Code has $4.20 on Jan 1.
+    expect(buildCombinedCostSeries(mixed, priced, priced)).toEqual([
+      { date: "2026-01-01", cost: 4.2, aiCreditsUsd: 0, sourceUsd: 4.2 },
+      {
+        date: "2026-01-02",
+        cost: expect.closeTo(1),
+        aiCreditsUsd: expect.closeTo(1),
+        sourceUsd: 0,
+      },
+    ]);
+  });
+
+  it("adds both halves of a day both sources were used", () => {
+    const sameDay = {
+      ...mixed,
+      costUsdByDay: [
+        { date: "2026-01-02", cost: 0.5 },
+        { date: "2026-01-03", cost: 0.25 },
+      ],
+    };
+    const points = buildCombinedCostSeries(sameDay, priced, priced);
+    expect(points.map((p) => p.date)).toEqual(["2026-01-02", "2026-01-03"]);
+    expect(points[0].cost).toBeCloseTo(1.5);
+    expect(points[0].aiCreditsUsd + points[0].sourceUsd).toBeCloseTo(points[0].cost);
+    expect(points[1]).toEqual({ date: "2026-01-03", cost: 0.25, aiCreditsUsd: 0, sourceUsd: 0.25 });
+  });
+
+  it("uses observed AI Credits in the combined series", () => {
+    const observed = {
+      ...mixed,
+      modelUsageByDay: [
+        {
+          ...claudeUsage,
+          date: "2026-01-02",
+          model: "gpt-5.4",
+          source: "copilot" as const,
+          totalNanoAiu: 2_000_000_000,
+        },
+      ],
+      costUsdByDay: [],
+    };
+    const never = vi.fn(() => null);
+    expect(buildCombinedCostSeries(observed, never, never)).toEqual([
+      { date: "2026-01-02", cost: 0.02, aiCreditsUsd: 0.02, sourceUsd: 0 },
+    ]);
+    expect(never).not.toHaveBeenCalled();
+  });
+});
+
+describe("combinedCostTotal", () => {
+  const row = (overrides: Partial<SourceCostRow>): SourceCostRow => ({
+    source: "copilot",
+    sessions: 1,
+    tokens: 1,
+    unit: "aic",
+    amount: 100,
+    usdEquivalent: 1,
+    partial: false,
+    ...overrides,
+  });
+
+  it("sums every source's USD value", () => {
+    expect(
+      combinedCostTotal([
+        row({}),
+        row({ source: "claudeCode", unit: "usd", amount: 2.5, usdEquivalent: 2.5 }),
+      ]),
+    ).toEqual({ usd: 3.5, partial: false });
+  });
+
+  it("is partial when a source is partly priced or has sessions but no price", () => {
+    expect(combinedCostTotal([row({}), row({ source: "claudeCode", partial: true })]).partial).toBe(
+      true,
+    );
+    expect(
+      combinedCostTotal([
+        row({}),
+        row({ source: "claudeCode", amount: null, usdEquivalent: null }),
+      ]),
+    ).toEqual({ usd: 1, partial: true });
+  });
+
+  it("is null, not $0, when nothing is priced", () => {
+    expect(combinedCostTotal([row({ amount: null, usdEquivalent: null })])).toEqual({
+      usd: null,
+      partial: true,
+    });
+    expect(combinedCostTotal([])).toEqual({ usd: null, partial: false });
   });
 });

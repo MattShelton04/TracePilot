@@ -332,16 +332,11 @@ describe("session comparison across billing units", () => {
     return comp.metricsRows;
   }
 
-  it("never shows a billing delta between AI Credits and USD", () => {
+  it("compares AI Credits and USD in USD, at $0.01 per credit", () => {
     const rows = compare(["copilot", copilot], ["claudeCode", claude(4.2)]);
-    const cost = rows.find((row) => row.label === "Cost");
-    expect(cost).toMatchObject({
-      valueA: "2 AIC",
-      valueB: "$4.20",
-      delta: "Different units",
-      deltaClass: "delta-neutral",
-      arrow: "",
-    });
+    const cost = rows.find((row) => row.label === "Cost (USD)");
+    expect(cost).toMatchObject({ valueA: "$0.02", valueB: "$4.20", rawA: 0.02, rawB: 4.2 });
+    expect(cost?.delta).not.toBe("—");
     expect(rows.some((row) => row.label === "AI Credits")).toBe(false);
   });
 

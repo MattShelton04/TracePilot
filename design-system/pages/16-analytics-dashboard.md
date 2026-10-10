@@ -32,7 +32,7 @@ In display order. Tones in `delta` are independent of direction (cost going down
 
 1. **Sessions** — total sessions in range; delta vs. prior period; sparkline = sessions/day.
 2. **Tokens** — input + output combined; sparkline = tokens/day.
-3. **Cost (USD)** — Copilot premium cost; sparkline = cost/day.
+3. **Cost (USD)** — every source in USD (AI Credits at $0.01 each, other sources at API-equivalent rates); sparkline = cost/day.
 4. **Avg duration** — mean session duration; format `duration`; sparkline = mean duration/day.
 5. **Error rate** — failed turns / total turns × 100; format `percent`; tone `bad` on increase.
 6. **Cache hit %** — cache reads / total reads × 100; format `percent`; tone `good` on increase.

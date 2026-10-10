@@ -1,3 +1,4 @@
+import { StatCard } from "@tracepilot/ui";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, h, provide, reactive } from "vue";
@@ -81,8 +82,11 @@ function makeCtxStub(overrides: Partial<ModelComparisonContext> = {}): ModelComp
     ...overrides,
   };
   const rows = base.modelRows;
+  const usdRows = rows.filter((row) => !row.billedInAiCredits);
   return reactive({
-    usdRows: rows.filter((row) => !row.billedInAiCredits),
+    usdRows,
+    mixedUnits: usdRows.length > 0 && usdRows.length < rows.length,
+    totalUsd: rows.reduce((sum, row) => sum + (row.usdEquivalent ?? 0), 0),
     ...base,
   }) as unknown as ModelComparisonContext;
 }
@@ -147,22 +151,74 @@ describe("ModelLeaderboard", () => {
     expect(wrapper.find(".matrix-cost-value").text()).toBe("111,123,141 AIC");
   });
 
-  it("heads the column Cost when a model is priced in USD", () => {
-    const copilot = makeRow({ model: "gpt-5", aiCredits: 3 });
+  it("shows every cost in USD when AI Credit and USD models are side by side", () => {
+    const copilot = makeRow({ model: "gpt-5", aiCredits: 300, usdEquivalent: 3 });
     const claude = makeRow({
       model: "claude-opus-5-5",
       aiCredits: null,
       billedInAiCredits: false,
       costUsd: 1064.3,
+      usdEquivalent: 1064.3,
     });
     const ctx = makeCtxStub({ modelRows: [copilot, claude], displayRows: [copilot, claude] });
     const wrapper = mount(hostFor(ModelLeaderboard, ctx));
-    const header = wrapper.get('button[aria-label="Sort by Cost"]');
-    expect(header.element.closest("th")?.getAttribute("title")).toContain("estimated USD");
-    // The narrow column drops the "est." suffix; the header carries it.
+    const header = wrapper.get('button[aria-label="Sort by Cost (USD)"]');
+    expect(header.element.closest("th")?.getAttribute("title")).toContain("$0.01 each");
     expect(wrapper.findAll(".matrix-cost-value").map((cell) => cell.text())).toEqual([
-      "3 AIC",
+      "$3.00",
       "$1,064.30",
+    ]);
+  });
+
+  it("heads the column Est. Cost when every model is priced in USD", () => {
+    const claude = makeRow({
+      model: "claude-opus-5-5",
+      aiCredits: null,
+      billedInAiCredits: false,
+      costUsd: 2.5,
+      usdEquivalent: 2.5,
+    });
+    const ctx = makeCtxStub({ modelRows: [claude], displayRows: [claude] });
+    const wrapper = mount(hostFor(ModelLeaderboard, ctx));
+    expect(wrapper.find('button[aria-label="Sort by Est. Cost"]').exists()).toBe(true);
+    expect(wrapper.get(".matrix-cost-value").text()).toBe("$2.50");
+  });
+});
+
+describe("ModelStatsGrid cost cards", () => {
+  const labels = (ctx: ModelComparisonContext) =>
+    mount(hostFor(ModelStatsGrid, ctx))
+      .findAllComponents(StatCard)
+      .map((card) => [card.props("label"), card.props("value")]);
+
+  it("adds AI Credit and USD models into one USD total", () => {
+    const copilot = makeRow({ model: "gpt-5", aiCredits: 300, usdEquivalent: 3 });
+    const claude = makeRow({
+      model: "claude-opus-5-5",
+      aiCredits: null,
+      billedInAiCredits: false,
+      costUsd: 1.5,
+      usdEquivalent: 1.5,
+      source: "claudeCode",
+    });
+    const ctx = makeCtxStub({
+      modelRows: [copilot, claude],
+      usdSource: "claudeCode",
+      totalAiCredits: 300,
+    });
+    expect(labels(ctx).slice(2)).toEqual([
+      ["AI Credits", "300 AIC"],
+      ["Total Cost (USD)", "$4.50"],
+    ]);
+  });
+
+  it("keeps the Copilot-only cards", () => {
+    const ctx = makeCtxStub({ modelRows: [makeRow()] });
+    expect(labels(ctx).map(([label]) => label)).toEqual([
+      "Models Used",
+      "Total Tokens",
+      "AI Credits",
+      "Sessions with Observed AIC",
     ]);
   });
 });

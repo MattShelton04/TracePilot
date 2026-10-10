@@ -152,10 +152,11 @@ adds a nullable `cost_usd` to `sessions`, `session_segments` and
 `session_model_metrics`. It holds the estimate in US dollars: Claude Code's own
 figure for snapshot runs, TracePilot's for calls after the last snapshot, and
 `NULL` when any part is unpriced. Copilot rows leave it `NULL`; their cost stays
-in AI Credits. Analytics never adds the two units: `costBySource` reports each
-source's sessions, tokens and cost in its own unit, `costUsdByDay` charts the
+in AI Credits. The backend never adds the two units: `costBySource` reports each
+source's sessions, tokens and cost in its own unit, `costUsdByDay` holds the
 USD estimates alone, and model rows are grouped by model and source so AI Credit
-estimates apply only to Copilot rows. Claude Code analytics version 23 rebuilds
+estimates apply only to Copilot rows. The dashboard combines them in USD,
+counting AI Credits at $0.01 each (`apps/desktop/src/utils/analyticsCostSeries.ts`). Claude Code analytics version 23 rebuilds
 indexed Claude sessions with these rows; Copilot's version is unchanged.
 
 ### Claude Code format drift

@@ -76,8 +76,8 @@ export function useModelComparison() {
       ? modelRows.value.reduce((sum, model) => sum + (model.aiCredits ?? 0), 0)
       : null,
   );
-  // Models priced in USD rather than AI Credits. Their total is only shown
-  // when they all come from one source, so USD is never summed across sources.
+  // Models priced in USD rather than AI Credits, and their total when they
+  // all come from one source.
   const usdRows = computed(() => modelRows.value.filter((model) => !model.billedInAiCredits));
   const usdSource = computed(() => {
     const sources = new Set(usdRows.value.map((model) => model.source));
@@ -86,6 +86,16 @@ export function useModelComparison() {
   const totalCostUsd = computed(() =>
     usdSource.value && usdRows.value.some((model) => model.costUsd != null)
       ? usdRows.value.reduce((sum, model) => sum + (model.costUsd ?? 0), 0)
+      : null,
+  );
+  // AI Credit and USD models side by side: costs show in USD, AI Credits at
+  // $0.01 each, so every source reads on one scale.
+  const mixedUnits = computed(
+    () => usdRows.value.length > 0 && usdRows.value.length < modelRows.value.length,
+  );
+  const totalUsd = computed(() =>
+    modelRows.value.some((model) => model.usdEquivalent != null)
+      ? modelRows.value.reduce((sum, model) => sum + (model.usdEquivalent ?? 0), 0)
       : null,
   );
   const totalCopilotCost = computed(() =>
@@ -166,6 +176,8 @@ export function useModelComparison() {
     usdRows,
     usdSource,
     totalCostUsd,
+    mixedUnits,
+    totalUsd,
     totalCopilotCost,
     modelCount,
     costMode,

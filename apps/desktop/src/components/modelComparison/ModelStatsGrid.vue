@@ -47,11 +47,18 @@ const visibleCards = computed(() =>
       color="success"
     />
     <StatCard
-      v-if="ctx.usdSource"
+      v-if="ctx.mixedUnits"
+      :value="ctx.totalUsd == null ? '—' : formatCost(ctx.totalUsd)"
+      label="Total Cost (USD)"
+      color="success"
+      tooltip="Every model in USD: AI Credits at $0.01 each, other sources at API-equivalent rates."
+    />
+    <StatCard
+      v-else-if="ctx.usdSource"
       :value="ctx.totalCostUsd == null ? '—' : formatCost(ctx.totalCostUsd)"
       :label="`${sourceLabel(ctx.usdSource)} Est. Cost`"
       color="success"
-      tooltip="API-equivalent USD estimate for models not billed in AI Credits. Not a bill."
+      tooltip="API-equivalent USD for models not billed in AI Credits."
     />
     <StatCard
       v-if="!showAiCredits"
@@ -60,7 +67,7 @@ const visibleCards = computed(() =>
       color="done"
     />
     <StatCard
-      v-else-if="!ctx.usdSource"
+      v-else-if="!ctx.mixedUnits"
       :value="ctx.data?.sessionsWithObservedAiCredits ?? 0"
       label="Sessions with Observed AIC"
       color="done"
