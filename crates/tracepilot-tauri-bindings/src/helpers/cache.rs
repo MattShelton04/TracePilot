@@ -248,9 +248,14 @@ mod tests {
         let dir = claude_fixture("134000000000000000");
         let mut registry = ProviderRegistry::new();
         registry.register(Arc::new(
-            ClaudeCodeProvider::new(dir.path()).with_process_start(Arc::new(move |pid| {
-                (pid == own).then(|| "134000000000000000".to_string())
-            })),
+            ClaudeCodeProvider::new(dir.path()).with_process_start(Arc::new(
+                move |pids: &[u32]| {
+                    pids.iter()
+                        .filter(|&&pid| pid == own)
+                        .map(|&pid| (pid, "134000000000000000".to_string()))
+                        .collect()
+                },
+            )),
         ));
         let listed = items(&registry, claude_rows(dir.path()));
         let states: Vec<_> = listed.iter().map(running).collect();
@@ -273,7 +278,8 @@ mod tests {
         let claude = claude_fixture("1");
         write_pid_file(claude.path(), "8", 8, COPILOT, "1");
         registry.register(Arc::new(
-            ClaudeCodeProvider::new(claude.path()).with_process_start(Arc::new(|_| None)),
+            ClaudeCodeProvider::new(claude.path())
+                .with_process_start(Arc::new(|_: &[u32]| Default::default())),
         ));
         let rows = || vec![row(SessionSource::Copilot, COPILOT, &session)];
 

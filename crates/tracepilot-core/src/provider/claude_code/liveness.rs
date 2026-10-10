@@ -18,10 +18,12 @@ use serde_json::Value;
 
 use crate::provider::{Liveness, RunStatus};
 
-/// The start time of a running process in `procStart`'s format (on Windows,
-/// the creation FILETIME as a decimal string), or `None` when no process has
-/// that pid.
-pub type ProcessStart = Arc<dyn Fn(u32) -> Option<String> + Send + Sync>;
+/// The start times of the running processes among the given pids, in
+/// `procStart`'s format (on Windows, the creation FILETIME as a decimal
+/// string). A pid with no process is absent. Each liveness pass makes at
+/// most one call, with every pid it needs, so a lookup that spawns a
+/// process (`ps` on macOS) can spawn one for them all.
+pub type ProcessStart = Arc<dyn Fn(&[u32]) -> HashMap<u32, String> + Send + Sync>;
 
 /// Pid files proven stale: their pid now belongs to a process that started
 /// at another time, so the process a file names has exited for good and the
@@ -79,20 +81,14 @@ pub(super) fn liveness(
     process_start: Option<&ProcessStart>,
     stale: &StalePidFiles,
 ) -> Liveness {
-    match read_pid_files(sessions_dir) {
-        Some(files) => liveness_in(
-            &files,
-            session_id,
-            process_start.map(|f| f.as_ref() as Lookup),
-            stale,
-        ),
-        None => Liveness::Unknown,
-    }
+    liveness_many(sessions_dir, [session_id], process_start, stale)
+        .pop()
+        .unwrap_or(Liveness::Unknown)
 }
 
 /// [`liveness`] for many sessions, reading `sessions_dir` once. Only a pid
-/// file naming one of the sessions costs a process lookup, and lookups run
-/// concurrently, since each may spawn a process.
+/// file naming one of the sessions costs a process lookup, and every pid is
+/// looked up in one call.
 pub(super) fn liveness_many<'a>(
     sessions_dir: &Path,
     session_ids: impl IntoIterator<Item = &'a str>,
@@ -104,23 +100,23 @@ pub(super) fn liveness_many<'a>(
         return vec![Liveness::Unknown; ids.len()];
     };
     let starts = process_start.map(|lookup| look_up_all(&files, &ids, lookup, stale));
-    let known = |pid: u32| starts.as_ref()?.get(&pid).cloned().flatten();
+    let known = |pid: u32| starts.as_ref()?.get(&pid).cloned();
     let lookup = starts.is_some().then_some(&known as Lookup);
     ids.iter()
         .map(|id| liveness_in(&files, id, lookup, stale))
         .collect()
 }
 
-/// The start time of every pid that a file naming one of `ids` records,
-/// except files already proven stale.
+/// The start time of every running pid that a file naming one of `ids`
+/// records, except files already proven stale. No such pid, no lookup.
 fn look_up_all(
     files: &[PidFile],
     ids: &[&str],
     lookup: &ProcessStart,
     stale: &StalePidFiles,
-) -> HashMap<u32, Option<String>> {
+) -> HashMap<u32, String> {
     let wanted: HashSet<&str> = ids.iter().copied().collect();
-    let pids: BTreeSet<u32> = files
+    let pids: Vec<u32> = files
         .iter()
         .filter(|file| {
             file.session_id
@@ -130,17 +126,13 @@ fn look_up_all(
         .filter_map(|file| Some((file.pid?, file.started()?)))
         .filter(|(pid, started)| !stale.contains(*pid, started))
         .map(|(pid, _)| pid)
+        .collect::<BTreeSet<u32>>()
+        .into_iter()
         .collect();
-    std::thread::scope(|scope| {
-        let pending: Vec<_> = pids
-            .into_iter()
-            .map(|pid| (pid, scope.spawn(move || lookup(pid))))
-            .collect();
-        pending
-            .into_iter()
-            .map(|(pid, handle)| (pid, handle.join().ok().flatten()))
-            .collect()
-    })
+    if pids.is_empty() {
+        return HashMap::new();
+    }
+    lookup(&pids)
 }
 
 /// Every readable pid file in `sessions_dir`. A missing directory has none;
