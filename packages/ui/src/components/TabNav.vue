@@ -239,6 +239,15 @@ function handleKeydown(e: KeyboardEvent, index: number) {
   flex-shrink: 0;
 }
 
+/* Narrow windows: tighter tabs keep a full session strip, five-digit counts
+   included, on one row without a scrollbar down to the 960px minimum. */
+@media (max-width: 1200px) {
+  .tab-nav-item:not(.tab-nav-item--pill) {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
 /* Keep both indicators inside the scrollport, including its end tabs. */
 .tab-nav-item:focus-visible {
   outline-offset: -2px;

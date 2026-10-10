@@ -14,6 +14,7 @@ import { AlertTriangle, ChevronRight } from "lucide-vue-next";
 import { computed } from "vue";
 import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionModelName } from "@/composables/useSessionModelName";
 import { NO_FINAL_REPORT, NO_FINAL_REPORT_HINT, settledAgentStatus } from "@/utils/agentEndState";
 
 const props = defineProps<{
@@ -79,6 +80,8 @@ const model = computed(() => {
   return props.toolCall.model || toolArgString(args, "model") || "";
 });
 
+const modelName = useSessionModelName();
+
 const requestedModel = computed(() => props.toolCall.requestedModel || "");
 
 const modelMismatch = computed(() => {
@@ -124,11 +127,11 @@ function handleClick() {
       <div class="cv-subagent-meta">
         <span class="cv-subagent-desc">{{ description }}</span>
       </div>
-      <span v-if="model" class="cv-subagent-model">{{ model }}</span>
+      <span v-if="model" class="cv-subagent-model" :title="model">{{ modelName(model) }}</span>
       <span
         v-if="modelMismatch"
         class="cv-subagent-model-warn"
-        :title="`Requested ${requestedModel} but a different model ran`"
+        :title="`Requested ${modelName(requestedModel)} but a different model ran`"
         aria-label="model mismatch"
       ><AlertTriangle :size="12" /></span>
       <span v-if="duration" class="cv-subagent-dur">{{ duration }}</span>

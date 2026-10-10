@@ -48,6 +48,7 @@ import { computed } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import { chunkTurns } from "@/components/conversation/chatViewUtils";
+import { sessionEventSummary } from "@/utils/sessionEventSummary";
 import { effortLabel } from "@/utils/sessionModel";
 import { turnUsageTitle } from "@/utils/turnUsage";
 
@@ -268,7 +269,7 @@ function onRetryFullResult(toolCallId: string) {
               <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
-            <span class="session-event-summary">{{ se.summary }}</span>
+            <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
           </div>
         </div>
       </div>
@@ -356,7 +357,7 @@ function onRetryFullResult(toolCallId: string) {
               <component :is="resolveLucideIcon(sessionEventIconName(se))" :size="12" :stroke-width="1.5" aria-hidden="true" />
               {{ eventTypeLabel(se.eventType) }}
             </Badge>
-            <span class="session-event-summary">{{ se.summary }}</span>
+            <span class="session-event-summary">{{ sessionEventSummary(se, (m) => modelDisplayName(m, source)) }}</span>
             <span v-if="se.timestamp" class="turn-meta">{{ formatTime(se.timestamp) }}</span>
           </div>
         </div>

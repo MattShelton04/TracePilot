@@ -24,6 +24,7 @@ import { fromSubagentFullData } from "@/composables/subagentView";
 import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionModelName } from "@/composables/useSessionModelName";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
 import { NO_FINAL_REPORT, settledAgentStatus } from "@/utils/agentEndState";
@@ -65,6 +66,7 @@ const { fullResults, loadingResults, failedResults, loadFullResult, retryFullRes
 
 const { communications } = useAgentDirectory();
 const mayStillReport = useCountsUpToNow(() => store.sessionId);
+const modelName = useSessionModelName();
 
 const view = computed(() => {
   if (!props.subagent) return null;
@@ -72,7 +74,13 @@ const view = computed(() => {
     props.subagent,
     communicationsFor(communications.value, props.subagent.agentId),
   );
-  return { ...built, status: settledAgentStatus(built.status, mayStillReport.value) };
+  return {
+    ...built,
+    // Named as the card and the session header name them.
+    model: built.model && modelName(built.model),
+    requestedModel: built.requestedModel && modelName(built.requestedModel),
+    status: settledAgentStatus(built.status, mayStillReport.value),
+  };
 });
 
 const agentColor = computed(() => (view.value ? getAgentColor(view.value.type) : ""));

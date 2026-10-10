@@ -18,6 +18,7 @@ import {
 import { computed } from "vue";
 import { useClientPager } from "@/composables/useClientPager";
 import { shutdownAiCreditUsage } from "@/composables/useSessionMetrics";
+import { useSessionModelName } from "@/composables/useSessionModelName";
 import { usePreferencesStore } from "@/stores/preferences";
 import { modelTokenBreakdown, shutdownTokenBreakdown } from "@/utils/metricsTokenBreakdown";
 
@@ -28,6 +29,7 @@ const props = defineProps<{
 }>();
 
 const prefs = usePreferencesStore();
+const modelName = useSessionModelName();
 const segments = computed(() => props.metrics.sessionSegments ?? []);
 const PAGE_SIZE = 6;
 const { page, pageCount, pageRows } = useClientPager(segments, PAGE_SIZE);
@@ -120,7 +122,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
             class="model-row"
           >
             <div class="row-main">
-              <span class="model-name">{{ name }}</span>
+              <span class="model-name" :title="name">{{ modelName(name) }}</span>
               <span class="model-tokens">{{ modelTokens == null ? '—' : formatNumber(modelTokens) }} <small>tokens</small></span>
             </div>
             <div class="row-costs">
