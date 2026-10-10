@@ -7,6 +7,9 @@ import {
   runStatusBadge,
   sourceLabel,
 } from "@tracepilot/types";
+import { Folder } from "lucide-vue-next";
+import { computed } from "vue";
+import { projectLabelFromCwd } from "../utils/pathUtils";
 import Badge from "./Badge.vue";
 
 const props = defineProps<{
@@ -21,6 +24,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [event: MouseEvent, sessionId: string];
 }>();
+
+// A session without a repository is still identified by its working directory.
+const projectLabel = computed(() =>
+  props.session.repository ? null : projectLabelFromCwd(props.session.cwd),
+);
 
 function isClaude(session: SessionListItem): boolean {
   return resolveSessionSource(session.source) === "claudeCode";
@@ -74,6 +82,12 @@ function activeTitle(): string {
     <div class="card-badges-new">
       <Badge v-if="isNonCopilotSource(session.source)" :variant="isClaude(session) ? 'claude' : 'neutral'" title="Session source">{{ sourceLabel(session.source) }}</Badge>
       <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
+      <Badge
+        v-else-if="projectLabel"
+        variant="neutral"
+        :title="session.cwd ?? undefined"
+        data-testid="session-project-chip"
+      ><Folder :size="12" aria-hidden="true" class="project-chip__icon" />{{ projectLabel }}</Badge>
       <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
       <Badge v-if="session.currentModel" variant="done">{{ session.currentModel }}</Badge>
       <Badge v-if="session.hostType || !isNonCopilotSource(session.source)" variant="neutral">{{ session.hostType || 'cli' }}</Badge>
@@ -141,6 +155,10 @@ function activeTitle(): string {
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 24px;
+}
+
+.project-chip__icon {
+  flex-shrink: 0;
 }
 
 .card-footer-new {

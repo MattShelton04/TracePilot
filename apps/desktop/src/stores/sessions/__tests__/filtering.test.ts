@@ -5,6 +5,9 @@ import {
   compareSessions,
   filterAndSortSessions,
   matchesSessionFilters,
+  PROJECT_FILTER_PREFIX,
+  repositoryFilterOptions,
+  sessionRepositoryKey,
   uniqueRepositories,
   uniqueSources,
 } from "../filtering";
@@ -15,6 +18,7 @@ function s(overrides: Partial<SessionListItem> & { id: string }): SessionListIte
     summary: overrides.summary ?? null,
     repository: overrides.repository ?? null,
     branch: overrides.branch ?? null,
+    cwd: overrides.cwd ?? null,
     hostType: overrides.hostType ?? "cli",
     createdAt: overrides.createdAt ?? "2025-01-01T00:00:00Z",
     updatedAt: overrides.updatedAt ?? "2025-01-01T00:00:00Z",
@@ -216,5 +220,69 @@ describe("stores/sessions/filtering – source", () => {
   it("lists present sources in display order", () => {
     expect(uniqueSources(sample)).toEqual(["copilot"]);
     expect(uniqueSources([...mixed].reverse())).toEqual(["copilot", "claudeCode"]);
+  });
+});
+
+describe("stores/sessions/filtering – working directory identity", () => {
+  const claudeCwdOnly = s({
+    id: "cc-cwd",
+    source: "claudeCode",
+    summary: "Tidy uploads",
+    cwd: "C:\\synthetic\\Orchard",
+    currentModel: "claude-opus-4-6",
+  });
+  const copilotWithRepo = s({
+    id: "cop-repo",
+    repository: "org/orchard-api",
+    cwd: "/home/dev/orchard-api",
+    currentModel: "gpt-5.4",
+  });
+  const sameNameElsewhere = s({ id: "cc-cwd-2", source: "claudeCode", cwd: "/work/Orchard/" });
+  const noIdentity = s({ id: "cc-none", source: "claudeCode" });
+  const all = [claudeCwdOnly, copilotWithRepo, sameNameElsewhere, noIdentity];
+  const cache = buildSearchFieldCache(all);
+  const base = { repository: null, hideEmptySessions: false };
+
+  it("search matches the cwd and current model for every source", () => {
+    const hits = (term: string) =>
+      all
+        .filter((x) => matchesSessionFilters(x, { ...base, searchTerm: term }, cache))
+        .map((x) => x.id);
+    expect(hits("synthetic\\orchard")).toEqual(["cc-cwd"]);
+    expect(hits("/home/dev")).toEqual(["cop-repo"]);
+    expect(hits("opus-4-6")).toEqual(["cc-cwd"]);
+    expect(hits("gpt-5.4")).toEqual(["cop-repo"]);
+  });
+
+  it("groups a repository-less session under its cwd's last segment", () => {
+    expect(sessionRepositoryKey(claudeCwdOnly)).toBe(`${PROJECT_FILTER_PREFIX}Orchard`);
+    expect(sessionRepositoryKey(copilotWithRepo)).toBe("org/orchard-api");
+    expect(sessionRepositoryKey(noIdentity)).toBeNull();
+  });
+
+  it("filters by a project key, and a repository key still matches exactly", () => {
+    const pick = (repository: string) =>
+      filterAndSortSessions(all, { ...base, searchTerm: null, repository }, cache, "updated").map(
+        (x) => x.id,
+      );
+    expect(pick(`${PROJECT_FILTER_PREFIX}Orchard`)).toEqual(["cc-cwd", "cc-cwd-2"]);
+    expect(pick("org/orchard-api")).toEqual(["cop-repo"]);
+    expect(pick("Orchard")).toEqual([]);
+  });
+
+  it("lists repositories, then projects with every path behind them", () => {
+    expect(repositoryFilterOptions(all)).toEqual([
+      { value: "org/orchard-api", label: "org/orchard-api", group: "Repositories" },
+      {
+        value: `${PROJECT_FILTER_PREFIX}Orchard`,
+        label: "Orchard",
+        title: "/work/Orchard/\nC:\\synthetic\\Orchard",
+        group: "Folders",
+      },
+    ]);
+  });
+
+  it("leaves a repository-only list unchanged", () => {
+    expect(repositoryFilterOptions(sample).map((o) => o.value)).toEqual(uniqueRepositories(sample));
   });
 });

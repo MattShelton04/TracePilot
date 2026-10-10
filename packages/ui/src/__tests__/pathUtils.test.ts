@@ -3,8 +3,10 @@ import {
   normalizePath,
   pathBasename,
   pathDirname,
+  projectLabelFromCwd,
   sanitizeBranchForPath,
   shortenPath,
+  splitLastPathSegment,
 } from "../utils/pathUtils";
 
 describe("normalizePath", () => {
@@ -115,5 +117,37 @@ describe("sanitizeBranchForPath", () => {
   });
   it("handles clean branch names", () => {
     expect(sanitizeBranchForPath("my-clean-branch")).toBe("my-clean-branch");
+  });
+});
+
+describe("projectLabelFromCwd", () => {
+  it("uses the last segment of Windows and POSIX paths", () => {
+    expect(projectLabelFromCwd("C:\\work\\orchard\\")).toBe("orchard");
+    expect(projectLabelFromCwd("/home/dev/lantern")).toBe("lantern");
+  });
+  it("keeps a root path whole", () => {
+    expect(projectLabelFromCwd("/")).toBe("/");
+    expect(projectLabelFromCwd("C:\\")).toBe("C:");
+  });
+  it("returns null without a directory", () => {
+    expect(projectLabelFromCwd(null)).toBeNull();
+    expect(projectLabelFromCwd("  ")).toBeNull();
+  });
+  it("handles a long run of separators", () => {
+    expect(projectLabelFromCwd(`a${"/".repeat(50_000)}b`)).toBe("b");
+  });
+});
+
+describe("splitLastPathSegment", () => {
+  it("splits before the last segment and keeps every character", () => {
+    expect(splitLastPathSegment("C:\\work\\orchard\\")).toEqual({
+      head: "C:\\work\\",
+      tail: "orchard\\",
+    });
+    expect(splitLastPathSegment("/home/dev/lantern")).toEqual({
+      head: "/home/dev/",
+      tail: "lantern",
+    });
+    expect(splitLastPathSegment("orchard")).toEqual({ head: "", tail: "orchard" });
   });
 });

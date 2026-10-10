@@ -10,9 +10,12 @@ import {
   MarkdownContent,
   SectionPanel,
   StatCard,
+  splitLastPathSegment,
   truncateText,
+  useClipboard,
   useSessionTabLoader,
 } from "@tracepilot/ui";
+import { Check, Copy } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
 import FileHistoryPanel from "@/components/checkpoints/FileHistoryPanel.vue";
@@ -80,12 +83,18 @@ const { aiCreditUsage } = useMetricsTabData(
   () => !allowsAiCreditEstimate(source.value),
 );
 
+const cwd = computed(() => detail.value?.cwd?.trim() || null);
+// Split before the last segment so the middle of a long path truncates first.
+const cwdParts = computed(() => splitLastPathSegment(cwd.value ?? ""));
+const { copy: copyText, copied: cwdCopied } = useClipboard();
+
 const sessionInfoItems = computed(() => {
   const d = detail.value;
   return [
     { label: "Session ID", value: d?.id ?? "—" },
     { label: "Repository", value: d?.repository ?? "—" },
     { label: "Branch", value: d?.branch ?? "—" },
+    ...(cwd.value ? [{ label: "Working directory", value: cwd.value, slot: "cwd" }] : []),
     { label: "Model", value: currentModel.value ?? "—" },
     { label: "Reasoning effort", value: currentEffort.value ?? "Model default" },
     ...(showHost.value ? [{ label: "Host", value: d?.hostType ?? "—" }] : []),
@@ -255,7 +264,27 @@ function retryLoadSection(section: string) {
     <div class="grid-2 mb-6">
       <!-- Session Info -->
       <SectionPanel title="Session Info">
-        <DefList :items="sessionInfoItems" />
+        <DefList :items="sessionInfoItems">
+          <template #cwd>
+            <span class="cwd-value">
+              <span class="cwd-path" :title="cwd ?? undefined" data-testid="session-cwd">
+                <span class="cwd-path__head">{{ cwdParts.head }}</span>
+                <span class="cwd-path__tail">{{ cwdParts.tail }}</span>
+              </span>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm cwd-copy"
+                :title="cwdCopied ? 'Copied' : 'Copy working directory'"
+                :aria-label="cwdCopied ? 'Copied' : 'Copy working directory'"
+                data-testid="session-cwd-copy"
+                @click="cwd && copyText(cwd)"
+              >
+                <Check v-if="cwdCopied" :size="12" aria-hidden="true" />
+                <Copy v-else :size="12" aria-hidden="true" />
+              </button>
+            </span>
+          </template>
+        </DefList>
       </SectionPanel>
 
       <!-- Session Summary -->
@@ -395,6 +424,37 @@ function retryLoadSection(section: string) {
 
 
 <style scoped>
+.cwd-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cwd-path {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.cwd-path__head {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.cwd-path__tail {
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cwd-copy {
+  flex-shrink: 0;
+  padding: 2px 4px;
+}
+
 .summary-prose--empty {
   font-style: italic;
 }
