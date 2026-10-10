@@ -1,6 +1,10 @@
 //! FTS maintenance and result-context commands.
 
+use std::sync::Arc;
+
+use super::cache::{FTS_HEALTH_CACHE, cached_index_read, invalidate_index_read_caches};
 use crate::blocking_cmd;
+use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
 use crate::helpers::read_config;
@@ -19,22 +23,26 @@ pub async fn fts_integrity_check(state: tauri::State<'_, SharedConfig>) -> CmdRe
 #[tauri::command]
 pub async fn fts_optimize(state: tauri::State<'_, SharedConfig>) -> CmdResult<String> {
     let cfg = read_config(&state);
-    blocking_cmd!({
+    let result = blocking_cmd!({
         let db = tracepilot_indexer::index_db::IndexDb::open_or_create(&cfg.index_db_path())?;
         db.fts_optimize()
-    })
+    });
+    // Optimizing changes the database size that FTS health reports.
+    invalidate_index_read_caches();
+    result
 }
 
-/// Get detailed FTS health information.
+/// Get detailed FTS health information. Cached until the index changes.
 #[tauri::command]
 pub async fn fts_health(
     state: tauri::State<'_, SharedConfig>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
 ) -> CmdResult<tracepilot_indexer::index_db::search_reader::FtsHealthInfo> {
-    let cfg = read_config(&state);
-    blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&cfg.index_db_path())?;
+    let index_path = read_config(&state).index_db_path();
+    cached_index_read(&FTS_HEALTH_CACHE, &gates, index_path, (), |db| {
         db.fts_health()
     })
+    .await
 }
 
 /// Get surrounding context for a search result.

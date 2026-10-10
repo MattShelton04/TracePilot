@@ -70,7 +70,7 @@ pub(super) fn after_source_change(
         return;
     }
     clear_session_caches(turn_cache, event_cache);
-    crate::commands::search::invalidate_facets_cache();
+    crate::commands::search::invalidate_index_read_caches();
     if !saved.failed_purges.is_empty() {
         tracing::warn!("A disabled source's sessions are still indexed; retrying the purge");
         spawn_purge_retry(saved.failed_purges.clone(), state, gates, app);
@@ -145,7 +145,7 @@ fn spawn_purge_retry(
             };
             if pending.len() < before {
                 clear_session_caches(&app.state::<TurnCache>(), &app.state::<EventCache>());
-                crate::commands::search::invalidate_facets_cache();
+                crate::commands::search::invalidate_index_read_caches();
                 announce_purge(&gates, &app);
             }
         }

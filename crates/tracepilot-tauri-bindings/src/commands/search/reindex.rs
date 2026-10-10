@@ -11,7 +11,7 @@
 //! - Destructive operations (full rebuild) cancel and wait for any running
 //!   search pass before touching database files.
 
-use super::cache::invalidate_facets_cache;
+use super::cache::invalidate_index_read_caches;
 use super::reindex_lifecycle::IndexTarget;
 use crate::concurrency::{IndexingSemaphores, InitialBuildGuard};
 use crate::config::SharedConfig;
@@ -100,10 +100,9 @@ pub(crate) async fn run_incremental_reindex(
     })
     .await;
 
+    // Before views hear about it, so their refetch never reads a cached value.
+    invalidate_index_read_caches();
     emit_best_effort(app, crate::events::INDEXING_FINISHED, ());
-
-    // Invalidate facets cache after reindex.
-    invalidate_facets_cache();
 
     let result = result?;
     if result.is_ok() {
@@ -144,8 +143,8 @@ pub(crate) async fn run_source_reindex(
         .map_err(BindingsError::from)
     })
     .await;
+    invalidate_index_read_caches();
     emit_best_effort(app, crate::events::INDEXING_FINISHED, ());
-    invalidate_facets_cache();
 
     let result = result?;
     // Search covers every source, not just this one. If a search pass is
@@ -253,10 +252,8 @@ pub async fn reindex_sessions_full(
     })
     .await;
 
+    invalidate_index_read_caches();
     emit_best_effort(&app, crate::events::INDEXING_FINISHED, ());
-
-    // Invalidate facets cache after full reindex.
-    invalidate_facets_cache();
 
     let (result, search_permit) = result?;
     if result.is_ok() {
@@ -307,9 +304,8 @@ pub async fn rebuild_search_index(
     .await;
 
     let success = result.as_ref().map(|r| r.is_ok()).unwrap_or(false);
-    if success {
-        invalidate_facets_cache();
-    }
+    // A failed or cancelled pass may already have committed some batches.
+    invalidate_index_read_caches();
     emit_best_effort(
         &app,
         crate::events::SEARCH_INDEXING_FINISHED,
@@ -407,6 +403,9 @@ fn spawn_search_content_phase2(
                 |progress| emit_search_progress(&app, progress),
                 || gates.jobs().search_cancelled(),
             );
+            // Even a pass that failed or indexed nothing may have committed
+            // batches or removed stale rows.
+            invalidate_index_read_caches();
             match result {
                 Ok((indexed, skipped)) => {
                     tracing::debug!(
@@ -415,9 +414,6 @@ fn spawn_search_content_phase2(
                         elapsed_ms = start.elapsed().as_millis(),
                         "Phase 2 search indexing wall time"
                     );
-                    if indexed > 0 {
-                        invalidate_facets_cache();
-                    }
                     emit_best_effort(
                         &app,
                         crate::events::SEARCH_INDEXING_FINISHED,

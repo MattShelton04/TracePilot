@@ -14,8 +14,9 @@ mod reindex;
 mod reindex_lifecycle;
 mod sessions;
 
-#[allow(unused_imports)]
-pub use cache::invalidate_facets_cache;
+#[cfg(test)]
+pub(crate) use cache::index_read_cache_invalidations;
+pub use cache::invalidate_index_read_caches;
 pub use content::*;
 pub use maintenance::*;
 pub use references::*;

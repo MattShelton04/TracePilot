@@ -159,6 +159,7 @@ async fn mutate_config(
             None
         };
         gates.jobs().invalidate();
+        crate::commands::search::invalidate_index_read_caches();
         (
             Some(IndexingChangePermits {
                 _sessions: sessions,
@@ -223,6 +224,8 @@ async fn factory_reset_at(
     let sessions_permit = gates.acquire_sessions().await;
     let search_permit = gates.cancel_and_acquire_search().await;
     gates.jobs().invalidate();
+    // Cached reads are not served while both gates are held below.
+    crate::commands::search::invalidate_index_read_caches();
     let cfg = read_config(shared_config);
     let index_path = cfg.index_db_path();
 

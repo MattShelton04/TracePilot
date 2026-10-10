@@ -1,4 +1,5 @@
 use super::*;
+use crate::commands::search::index_read_cache_invalidations;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
@@ -160,6 +161,7 @@ async fn reset_rejects_a_queued_preference_patch_and_allows_fresh_setup() {
     let gates = Arc::new(IndexingSemaphores::new());
     let coordinator = ConfigCoordinator::default();
     let capture = coordinator.root_read().await;
+    let invalidations = index_read_cache_invalidations();
     let mut reset = Box::pin(factory_reset_at(
         &state,
         &gates,
@@ -198,6 +200,7 @@ async fn reset_rejects_a_queued_preference_patch_and_allows_fresh_setup() {
     );
     assert!(!config::config_backup_file_path(&path).exists());
     assert!(!index_path.exists());
+    assert!(index_read_cache_invalidations() > invalidations);
 
     // The setup wizard still creates a full config, then preferences may patch it.
     let setup_path = path.clone();
@@ -262,6 +265,7 @@ async fn changing_session_source_excludes_indexers_without_blocking_capture_writ
 
     let active_search = gates.acquire_search().await;
     let generation = gates.jobs().generation();
+    let invalidations = index_read_cache_invalidations();
     // A source-only change must not need the exclusive data-root lease.
     let _capture = coordinator.root_read().await;
     let path = temp.path().join("config.toml");
@@ -290,6 +294,7 @@ async fn changing_session_source_excludes_indexers_without_blocking_capture_writ
     assert_eq!(saved.config.session_state_dir(), new_source);
     assert_eq!(saved.config.index_db_path(), initial.index_db_path());
     assert_ne!(gates.jobs().generation(), generation);
+    assert!(index_read_cache_invalidations() > invalidations);
 }
 
 #[tokio::test]
