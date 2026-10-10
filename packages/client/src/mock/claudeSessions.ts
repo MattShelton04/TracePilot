@@ -1,5 +1,6 @@
 import type { ConversationTurn, EventsResponse } from "@tracepilot/types";
 import type { BackgroundTask } from "../generated/bindings.js";
+import { MOCK_CLAUDE_NOTIFICATION_TURNS } from "./claudeNotifications.js";
 import { ts } from "./common.js";
 
 /** Claude-specific conversation data; never reuse Copilot turns in source demos. */
@@ -44,6 +45,30 @@ export const MOCK_CLAUDE_TURNS: ConversationTurn[] = [
         isComplete: true,
         success: true,
       },
+      {
+        toolCallId: "claude-agent",
+        toolName: "task",
+        nativeToolName: "Agent",
+        arguments: { subagent_type: "Explore", description: "Map the retry call sites" },
+        resultContent: "Async agent launched successfully.",
+        startedAt: ts(-579),
+        completedAt: ts(-578),
+        durationMs: 1000,
+        isComplete: true,
+        success: true,
+      },
+      {
+        toolCallId: "claude-bash-bg",
+        toolName: "shell",
+        nativeToolName: "Bash",
+        arguments: { command: "cargo test --test slow", run_in_background: true },
+        resultContent: "Command running in background with ID: bg_suite",
+        startedAt: ts(-577),
+        completedAt: ts(-576),
+        durationMs: 1000,
+        isComplete: true,
+        success: true,
+      },
     ],
   },
   {
@@ -61,6 +86,7 @@ export const MOCK_CLAUDE_TURNS: ConversationTurn[] = [
       modelCalls: 1,
     },
   },
+  ...MOCK_CLAUDE_NOTIFICATION_TURNS,
 ];
 
 export const MOCK_CLAUDE_EVENTS: EventsResponse = {

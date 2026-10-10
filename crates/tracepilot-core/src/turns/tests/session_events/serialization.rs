@@ -63,6 +63,7 @@ fn session_events_serialization_round_trip() {
         reasoning_effort: None,
         user_message_delivery: None,
         system_initiated: false,
+        notifications: Vec::new(),
         usage: None,
     };
 

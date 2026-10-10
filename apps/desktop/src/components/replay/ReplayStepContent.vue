@@ -169,7 +169,8 @@ const hasAssistantContent = computed(() =>
     <!-- User message -->
     <div v-if="hasUserMessage" class="step-message user-message">
       <div class="message-header">
-        <span class="author-badge user">👤 You</span>
+        <span v-if="step.isNotification" class="author-badge user">Notification</span>
+        <span v-else class="author-badge user">👤 You</span>
         <span v-if="step.timestamp" class="msg-time">{{ formatTime(step.timestamp) }}</span>
         <span class="msg-meta">Turn {{ step.turnIndex }}</span>
       </div>

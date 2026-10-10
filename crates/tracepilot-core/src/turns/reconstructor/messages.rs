@@ -50,6 +50,7 @@ impl TurnReconstructor {
         turn.reasoning_effort = self.effort.current_effort().map(str::to_string);
         turn.user_message_delivery = data.delivery.clone();
         turn.system_initiated = !is_typed_by_user(data);
+        turn.notifications = data.notifications.clone();
         // Flush any session events that occurred between turns
         turn.session_events.append(&mut self.pending_session_events);
         // Flush any system messages that arrived before this turn

@@ -43,6 +43,8 @@ export interface ReplayStep {
 
   /** Raw user message text. */
   userMessage?: string;
+  /** A background task's completion, not the user, opened the turn. */
+  isNotification?: boolean;
   /** Assistant message texts (content only, for display). */
   assistantMessages?: AttributedMessage[];
   /** Reasoning/thinking texts. */

@@ -20,6 +20,57 @@ pub struct UserMessageData {
     pub turn_id: Option<String>,
     /// Reasoning effort/model requested for this message (1.0.88+).
     pub responses_reasoning: Option<serde_json::Value>,
+    /// Background tasks whose completion this message reports, one per
+    /// `<task-notification>` block (Claude Code). Empty for typed prompts.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notifications: Vec<TaskNotificationData>,
+}
+
+/// What kind of background task a [`TaskNotificationData`] reports on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskNotificationKind {
+    /// A subagent launched with `Agent`.
+    Agent,
+    /// A background shell command.
+    Shell,
+    /// A `Monitor` reporting an event from the stream it watches.
+    Monitor,
+}
+
+/// One background task completion, as Claude Code reports it in a
+/// `<task-notification>` block.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskNotificationData {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
+    /// The tool call that launched the task.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_use_id: Option<String>,
+    pub kind: TaskNotificationKind,
+    /// `completed`, `failed`, `stopped`, … as written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    /// The task's final report, when the notification carries one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<String>,
+    /// A `Monitor` event's payload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_file: Option<String>,
+    /// A shell's exit code, from its summary.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_uses: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

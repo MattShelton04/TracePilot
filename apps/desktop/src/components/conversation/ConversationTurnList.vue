@@ -41,7 +41,7 @@ import {
   truncateText,
   useMainAgentLabel,
 } from "@tracepilot/ui";
-import { Coins, User } from "lucide-vue-next";
+import { Bell, Coins, User } from "lucide-vue-next";
 import { computed } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
@@ -161,7 +161,8 @@ function onRetryFullResult(toolCallId: string) {
     <template v-for="turn in chunk.turns" :key="turn.turnIndex">
       <CacheResumeDivider v-if="cacheWindows?.get(turn.turnIndex)" :window="cacheWindows.get(turn.turnIndex)!" />
       <div v-if="turn.userMessage" :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined" :data-turn-idx="turn.eventIndex == null ? turn.turnIndex : undefined" class="compact-turn-user">
-        <span class="compact-turn-label-prefix user"><User :size="14" aria-hidden="true" /> User</span>
+        <span v-if="turn.notifications?.length" class="compact-turn-label-prefix user"><Bell :size="14" aria-hidden="true" /> Notification</span>
+        <span v-else class="compact-turn-label-prefix user"><User :size="14" aria-hidden="true" /> User</span>
         <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>
       </div>
       <div class="compact-turn">
@@ -292,7 +293,7 @@ function onRetryFullResult(toolCallId: string) {
         </div>
 
         <div v-if="turn.userMessage" class="timeline-block user">
-          <div class="timeline-block-label user">User</div>
+          <div class="timeline-block-label user">{{ turn.notifications?.length ? "Notification" : "User" }}</div>
           <div class="timeline-block-text">{{ truncateText(turn.userMessage, 500) }}</div>
         </div>
 

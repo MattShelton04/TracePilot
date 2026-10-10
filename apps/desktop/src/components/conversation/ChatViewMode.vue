@@ -5,6 +5,7 @@ import { computed, ref } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import GapIndicator from "@/components/conversation/chat/GapIndicator.vue";
+import TaskNotificationCard from "@/components/conversation/chat/TaskNotificationCard.vue";
 import TurnBlock from "@/components/conversation/chat/TurnBlock.vue";
 import UserMessageAnchor from "@/components/conversation/chat/UserMessageAnchor.vue";
 import PermissionEventRow from "@/components/conversation/PermissionEventRow.vue";
@@ -77,6 +78,30 @@ const canSteer = computed(() => capabilities.value.canSteer);
 // Agent chips in tool renderers open that agent in the slide-out panel.
 provideAgentOpener((key) => panel.openSubagent(key));
 
+// Launch calls of the tasks that notification turns report on, for their
+// "Go to launch" links.
+const notificationLaunches = computed(() => {
+  const wanted = new Set<string>();
+  for (const turn of turns.value) {
+    for (const note of turn.notifications ?? []) if (note.toolUseId) wanted.add(note.toolUseId);
+  }
+  const launches = new Map<string, { turnIndex: number; eventIndex?: number }>();
+  if (wanted.size === 0) return launches;
+  for (const turn of turns.value) {
+    for (const tc of turn.toolCalls) {
+      if (tc.toolCallId && wanted.has(tc.toolCallId)) {
+        launches.set(tc.toolCallId, { turnIndex: turn.turnIndex, eventIndex: tc.eventIndex });
+      }
+    }
+  }
+  return launches;
+});
+const hasLaunch = (toolUseId: string) => notificationLaunches.value.has(toolUseId);
+function revealLaunch(toolUseId: string) {
+  const launch = notificationLaunches.value.get(toolUseId);
+  if (launch) revealEvent(launch.turnIndex, launch.eventIndex);
+}
+
 // Turns render in chunks, each a `content-visibility: auto` container.
 const turnChunks = computed(() => chunkTurns(turns.value));
 
@@ -135,9 +160,21 @@ defineExpose({ revealEvent });
                 :window="props.cacheWindows.get(turn.turnIndex)!"
               />
 
+              <!-- A background task's completion opened the turn (Claude Code) -->
+              <TaskNotificationCard
+                v-if="turn.notifications?.length"
+                :notifications="turn.notifications"
+                :turn-index="turn.turnIndex"
+                :timestamp="turn.timestamp"
+                :event-index="turn.eventIndex"
+                :render-markdown="renderMd"
+                :can-reveal-launch="hasLaunch"
+                @reveal-launch="revealLaunch"
+              />
+
               <!-- User message anchor -->
               <UserMessageAnchor
-                v-if="turn.userMessage"
+                v-else-if="turn.userMessage"
                 :content="turn.userMessage"
                 :turn-index="turn.turnIndex"
                 :timestamp="turn.timestamp"

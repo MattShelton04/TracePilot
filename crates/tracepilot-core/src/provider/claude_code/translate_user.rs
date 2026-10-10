@@ -7,12 +7,15 @@
 use serde_json::{Value, json};
 
 use super::drift;
-use super::notify::{TaskNotification, contains_notification, parse_notifications};
+use super::notify::{
+    TaskNotification, contains_notification, only_notifications, parse_notifications,
+};
 use super::prompts::{
     command_name, command_output, command_prompt, echoed_command, is_command_caveat,
 };
 use super::records::{Blocks, Rec, block_type};
 use super::translate::{Custom, RecCtx, Stream, Translator};
+use crate::models::event_types::TaskNotificationKind;
 
 /// Attachment types seen so far (record-shapes.md and the S3 probe on
 /// 2.1.274–2.1.289); others are counted as new.
@@ -231,12 +234,22 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         carrier: Carrier,
     ) {
         let first_event = ctx.emitted();
-        for note in parse_notifications(text) {
+        let notes = parse_notifications(text);
+        let mut kinds = Vec::with_capacity(notes.len());
+        for note in &notes {
+            let agent = self.notification_agent(note);
+            // Only agents report usage, even one whose launch isn't in view.
+            kinds.push(if agent.is_some() || note.total_tokens.is_some() {
+                TaskNotificationKind::Agent
+            } else if note.is_monitor() {
+                TaskNotificationKind::Monitor
+            } else {
+                TaskNotificationKind::Shell
+            });
             if !self.notifications.insert(note.key()) {
                 self.diagnostics.duplicate_notifications += 1;
                 continue;
             }
-            let agent = self.notification_agent(&note);
             let kind = match &agent {
                 Some(agent) => {
                     json!({"type": "agent_completed", "agentId": agent, "status": note.status})
@@ -248,17 +261,24 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             let data = json!({"content": note.text, "kind": kind});
             self.emit(st, ctx, "system.notification", data);
             if let Some(agent) = agent {
-                self.agent_terminal(st, ctx, &agent, &note);
+                self.agent_terminal(st, ctx, &agent, note);
             }
         }
         if carrier == Carrier::User && st.agent_id.is_none() && is_idle(st) {
             // It wakes an idle session: a system-initiated interaction.
             self.new_interaction(st, ctx, rec);
-            let data = json!({
-                "content": text,
-                "interactionId": st.interaction,
-                "source": "system",
-            });
+            // Prose that quotes a block keeps its text: only a record Claude
+            // Code wrote for the wake reads as its notifications.
+            let written_for_wake =
+                rec.origin_kind() == Some("task-notification") || only_notifications(text);
+            let mut data = if written_for_wake {
+                notification_wake(text, &notes, &kinds)
+            } else {
+                json!({"content": text, "source": "system"})
+            };
+            if let Some(map) = data.as_object_mut() {
+                map.insert("interactionId".into(), json!(st.interaction));
+            }
             self.emit(st, ctx, "user.message", data);
         }
         if ctx.emitted() == first_event {
@@ -386,6 +406,35 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                 .unwrap_or_else(|| agent.to_string()),
         )
     }
+}
+
+/// The `user.message` of a notification that wakes an idle session: one
+/// readable line per block, the record as written in `transformedContent`,
+/// and each block's fields in `notifications`.
+fn notification_wake(
+    text: &str,
+    notes: &[TaskNotification],
+    kinds: &[TaskNotificationKind],
+) -> Value {
+    if notes.is_empty() {
+        return json!({"content": text, "source": "system"});
+    }
+    let lines: Vec<String> = notes
+        .iter()
+        .zip(kinds)
+        .map(|(note, kind)| note.readable_line(*kind))
+        .collect();
+    let notifications: Vec<_> = notes
+        .iter()
+        .zip(kinds)
+        .map(|(note, kind)| note.to_data(*kind))
+        .collect();
+    json!({
+        "content": lines.join("\n"),
+        "transformedContent": text,
+        "source": "system",
+        "notifications": notifications,
+    })
 }
 
 /// The previous call ended the model's work (`end_turn`, no pending tools).

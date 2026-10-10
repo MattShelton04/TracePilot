@@ -128,6 +128,7 @@ fn redacts_conversation_content() {
         reasoning_effort: None,
         user_message_delivery: None,
         system_initiated: false,
+        notifications: Vec::new(),
         usage: None,
     }]);
     let mut archive = test_archive(session);
@@ -240,6 +241,7 @@ fn redacts_attachments() {
         reasoning_effort: None,
         user_message_delivery: None,
         system_initiated: false,
+        notifications: Vec::new(),
         usage: None,
     }]);
     let mut archive = test_archive(session);
@@ -397,4 +399,35 @@ fn env_var_assign_handles_quoted_values() {
         "Quoted env var value should be fully redacted, got: {}",
         plan
     );
+}
+
+#[test]
+fn redacts_task_notifications() {
+    use tracepilot_core::models::event_types::{TaskNotificationData, TaskNotificationKind};
+    let mut turn = crate::test_helpers::simple_turn(0, "Agent finished", "Done", None);
+    turn.notifications = vec![TaskNotificationData {
+        task_id: Some("a1".into()),
+        tool_use_id: Some("toolu_1".into()),
+        kind: TaskNotificationKind::Agent,
+        status: Some("completed".into()),
+        summary: Some("Read /home/user/secret.txt".into()),
+        result: Some("Token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij".into()),
+        event: Some("Read /home/user/notes.txt".into()),
+        output_file: Some("/home/user/tasks/a1.output".into()),
+        exit_code: None,
+        total_tokens: None,
+        tool_uses: None,
+        duration_ms: None,
+    }];
+    let mut session = minimal_session();
+    session.conversation = Some(vec![turn]);
+    let mut archive = test_archive(session);
+
+    apply_redaction(&mut archive, &test_options_all());
+    let note = &archive.sessions[0].conversation.as_ref().unwrap()[0].notifications[0];
+    assert!(!note.summary.as_ref().unwrap().contains("/home/user"));
+    assert!(!note.result.as_ref().unwrap().contains("ghp_"));
+    assert!(!note.event.as_ref().unwrap().contains("/home/user"));
+    assert!(!note.output_file.as_ref().unwrap().contains("/home/user"));
+    assert_eq!(note.task_id.as_deref(), Some("a1"));
 }

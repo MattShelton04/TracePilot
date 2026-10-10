@@ -335,3 +335,123 @@ pub fn foreground_agents() -> SessionFiles {
     ];
     write_session(&t, &agents)
 }
+
+/// Background work that finishes while the session is idle. An agent, a
+/// background shell and a `Monitor` start together and the model ends its
+/// turn; one `user` record then wakes the session with all three (the
+/// agent's report and totals, the shell's exit code, the Monitor's event).
+/// A second shell finishes while the model is still busy, which opens no
+/// turn. Last, the user pastes a block into a typed prompt.
+pub fn notification_wake() -> SessionFiles {
+    let mut t = Transcript::main();
+    t.prompt("Build the demo and map the indexer.");
+    let u = Usage::new(1, 100, 0, 10);
+    let build = json!({"command": "npm run build", "run_in_background": true});
+    t.call(
+        "msg_w1",
+        OPUS,
+        vec![
+            tool_use("toolu_sh1", "Bash", build.clone()),
+            tool_use(
+                "toolu_ag1",
+                "Agent",
+                json!({"subagent_type": "Explore", "description": "Map the indexer",
+                    "prompt": "Map it."}),
+            ),
+            tool_use(
+                "toolu_mon1",
+                "Monitor",
+                json!({"description": "PR #12 check results", "command": "gh pr checks 12"}),
+            ),
+        ],
+        u,
+        "tool_use",
+    );
+    let started = |id: &str| {
+        json!({"stdout": "", "stderr": "", "interrupted": false, "isImage": false,
+            "backgroundTaskId": id})
+    };
+    t.tool_result(
+        "toolu_sh1",
+        json!("Command running in background with ID: bsh1"),
+        started("bsh1"),
+        false,
+    );
+    t.tool_result("toolu_ag1", json!("Async agent launched successfully."),
+        json!({"status": "async_launched", "isAsync": true, "agentId": "a1", "description": "Map the indexer"}), false);
+    t.tool_result(
+        "toolu_mon1",
+        json!("Monitor started with ID: bmon1"),
+        json!({"taskId": "bmon1"}),
+        false,
+    );
+    t.call(
+        "msg_w2",
+        OPUS,
+        vec![text("Both are running.")],
+        u,
+        "end_turn",
+    );
+
+    let agent = "<task-notification>\n<task-id>a1</task-id>\n<tool-use-id>toolu_ag1</tool-use-id>\n\
+        <output-file>C:\\tmp\\tasks\\a1.output</output-file>\n<status>completed</status>\n\
+        <summary>Agent \"Map the indexer\" finished</summary>\n\
+        <result>The indexer has **three** stages.</result>\n\
+        <usage><subagent_tokens>180000</subagent_tokens><tool_uses>40</tool_uses>\
+        <duration_ms>600000</duration_ms></usage>\n</task-notification>";
+    let shell = "<task-notification>\n<task-id>bsh1</task-id>\n<tool-use-id>toolu_sh1</tool-use-id>\n\
+        <output-file>C:\\tmp\\tasks\\bsh1.output</output-file>\n<status>failed</status>\n\
+        <summary>Background command \"npm run build\" failed with exit code 2</summary>\n\
+        </task-notification>";
+    let monitor = "<task-notification>\n<task-id>bmon1</task-id>\n<tool-use-id>toolu_mon1</tool-use-id>\n\
+        <summary>Monitor event: \"PR #12 check results\"</summary>\n\
+        <event>Quality gate: pass\nlint: ok</event>\n</task-notification>";
+    for note in [agent, shell] {
+        t.bookkeeping(json!({"type": "queue-operation", "operation": "enqueue", "content": note}));
+    }
+    t.user(
+        json!({"origin": {"kind": "task-notification"}, "turnOrigin": "task_notification",
+        "message": {"role": "user", "content": format!("{agent}\n{shell}\n{monitor}")}}),
+    );
+    t.call(
+        "msg_w3",
+        OPUS,
+        vec![
+            text("The map is ready; the build failed, so I'm rebuilding."),
+            tool_use("toolu_sh2", "Bash", build),
+        ],
+        u,
+        "tool_use",
+    );
+    t.tool_result(
+        "toolu_sh2",
+        json!("Command running in background with ID: bsh2"),
+        started("bsh2"),
+        false,
+    );
+    let busy = "<task-notification>\n<task-id>bsh2</task-id>\n<tool-use-id>toolu_sh2</tool-use-id>\n\
+        <status>completed</status>\n\
+        <summary>Background command \"npm run build\" completed (exit code 0)</summary>\n\
+        </task-notification>";
+    t.user(
+        json!({"origin": {"kind": "task-notification"}, "turnOrigin": "task_notification",
+        "message": {"role": "user", "content": busy}}),
+    );
+    t.call(
+        "msg_w4",
+        OPUS,
+        vec![text("The rebuild passed.")],
+        u,
+        "end_turn",
+    );
+    // The user pastes a block into a prompt: their words stay as typed.
+    t.prompt(&format!("Why did this fail?\n{shell}"));
+    t.call(
+        "msg_w5",
+        OPUS,
+        vec![text("The build script exited with code 2.")],
+        u,
+        "end_turn",
+    );
+    write_session(&t, &[])
+}

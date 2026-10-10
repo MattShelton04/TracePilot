@@ -54,6 +54,7 @@ export function turnsToReplaySteps(turns: ConversationTurn[]): ReplayStep[] {
 
       // Rich content
       userMessage: turn.userMessage,
+      isNotification: turn.notifications?.length ? true : undefined,
       assistantMessages: turn.assistantMessages,
       reasoningTexts: turn.reasoningTexts,
       richToolCalls: turn.toolCalls,

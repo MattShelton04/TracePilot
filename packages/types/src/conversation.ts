@@ -77,9 +77,33 @@ export interface ConversationTurn {
   /** True when Copilot injected the user message (a notification, reminder or
    *  autopilot continuation) rather than the user typing it. */
   systemInitiated?: boolean;
+  /** Background tasks whose completion opened this turn (a Claude Code
+   *  `<task-notification>` that woke an idle session). Absent otherwise. */
+  notifications?: TaskNotification[];
   /** Usage of the model calls recorded while this turn ran, subagents included.
    *  Absent for sources that record usage per session only (Copilot). */
   usage?: TurnUsage;
+}
+
+/** One background task completion, as Claude Code reports it. */
+export interface TaskNotification {
+  taskId?: string;
+  /** The tool call that launched the task. */
+  toolUseId?: string;
+  kind: "agent" | "shell" | "monitor";
+  /** `completed`, `failed`, `stopped`, … as written. */
+  status?: string;
+  summary?: string;
+  /** The task's final report, when the notification carries one. */
+  result?: string;
+  /** A `Monitor` event's payload. */
+  event?: string;
+  outputFile?: string;
+  /** A shell's exit code, from its summary. */
+  exitCode?: number;
+  totalTokens?: number;
+  toolUses?: number;
+  durationMs?: number;
 }
 
 /** Token totals of a turn's recorded model calls. */

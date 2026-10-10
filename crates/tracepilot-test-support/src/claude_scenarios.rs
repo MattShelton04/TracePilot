@@ -5,7 +5,7 @@
 mod agents;
 mod tools;
 
-pub use agents::{foreground_agents, meta_records, subagents};
+pub use agents::{foreground_agents, meta_records, notification_wake, subagents};
 pub use tools::{PERSISTED_PATH, tool_catalog};
 
 use serde_json::json;
