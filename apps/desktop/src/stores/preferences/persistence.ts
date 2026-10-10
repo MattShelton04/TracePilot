@@ -1,5 +1,6 @@
 import { factoryReset, type TracePilotConfigPatch, updateConfig } from "@tracepilot/client";
 import type { TracePilotConfig } from "@tracepilot/types";
+import { useWindowRole } from "@/composables/useWindowRole";
 import { logWarn } from "@/utils/logger";
 
 type ConfigSection = Exclude<keyof TracePilotConfig, "version">;
@@ -107,8 +108,12 @@ export function createPreferencePersistence(
     saveTimer = null;
   }
 
+  // Pop-out windows may change preferences for themselves (for example the
+  // auto-refresh toggle) but cannot write config; see ADR 0011.
+  const { isViewer } = useWindowRole();
+
   function scheduleSave() {
-    if (!isHydrated() || resetting || disposed) return;
+    if (!isHydrated() || resetting || disposed || isViewer()) return;
     cancelScheduledSave();
     saveTimer = setTimeout(async () => {
       saveTimer = null;
