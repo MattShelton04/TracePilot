@@ -7,3 +7,6 @@ export const ONE_HOUR = 3_600_000;
 export function ts(ms: number): string {
   return new Date(NOW_MS + ms).toISOString();
 }
+
+/** Shared `eventsFileMtime` for mock freshness and timeline responses. */
+export const MOCK_EVENTS_MTIME = 1_735_728_400_000;
