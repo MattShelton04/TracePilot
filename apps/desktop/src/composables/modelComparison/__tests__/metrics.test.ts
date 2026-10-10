@@ -7,10 +7,10 @@ import {
   crossSourcePair,
   formatNorm,
   formatRowCost,
+  formatRowCostNorm,
   normalizeRows,
   rowCostSource,
 } from "../metrics";
-import { buildRowComparator, sortArrow, sortRows } from "../sorting";
 import type { ModelDistributionEntry, ModelRow } from "../types";
 
 const PALETTE = ["#aaa", "#bbb", "#ccc"] as const;
@@ -327,6 +327,19 @@ describe("formatNorm", () => {
   });
 });
 
+describe("formatRowCostNorm", () => {
+  it("keeps each row's unit in every mode", () => {
+    const aic = row({ aiCredits: 27.94 });
+    const usd = row({ aiCredits: null, billedInAiCredits: false, costUsd: 0.92 });
+    expect(formatRowCostNorm(aic, "raw")).toBe("27.94 AIC");
+    expect(formatRowCostNorm(usd, "raw")).toBe("$0.92");
+    expect(formatRowCostNorm(aic, "per-10m-tokens")).toBe("27.94 AIC");
+    expect(formatRowCostNorm(usd, "per-10m-tokens")).toBe("$0.92");
+    expect(formatRowCostNorm(aic, "share")).toBe("27.9%");
+    expect(formatRowCostNorm({ ...row(), aiCredits: null }, "per-10m-tokens")).toBe("—");
+  });
+});
+
 describe("buildModelRows colours and cost", () => {
   it("assigns palette colours by token rank and a tail colour past the palette", () => {
     const rows = buildModelRows({
@@ -419,74 +432,5 @@ describe("buildCompareMetrics", () => {
   it("returns empty array when either side is missing", () => {
     expect(buildCompareMetrics(undefined, row(), () => "")).toEqual([]);
     expect(buildCompareMetrics(row(), undefined, () => "")).toEqual([]);
-  });
-});
-
-describe("sortRows / buildRowComparator", () => {
-  const rows: ModelRow[] = [
-    row({ model: "alpha", tokens: 100, cost: 5 }),
-    row({ model: "beta", tokens: 300, cost: null }),
-    row({ model: "gamma", tokens: 200, cost: 2 }),
-  ];
-
-  it("sorts by model lexicographically", () => {
-    expect(sortRows(rows, "model", "asc").map((r) => r.model)).toEqual(["alpha", "beta", "gamma"]);
-    expect(sortRows(rows, "model", "desc").map((r) => r.model)).toEqual(["gamma", "beta", "alpha"]);
-  });
-
-  it("sorts numeric columns by direction", () => {
-    expect(sortRows(rows, "tokens", "asc").map((r) => r.tokens)).toEqual([100, 200, 300]);
-    expect(sortRows(rows, "tokens", "desc").map((r) => r.tokens)).toEqual([300, 200, 100]);
-  });
-
-  it("pushes null costs to the end regardless of direction", () => {
-    expect(sortRows(rows, "cost", "asc").map((r) => r.model)).toEqual(["gamma", "alpha", "beta"]);
-    expect(sortRows(rows, "cost", "desc").map((r) => r.model)).toEqual(["alpha", "gamma", "beta"]);
-  });
-
-  it("sorts the cost column within each unit, AI Credits first", () => {
-    const mixed: ModelRow[] = [
-      row({ model: "usd-cheap", aiCredits: null, billedInAiCredits: false, costUsd: 1 }),
-      row({ model: "aic-big", aiCredits: 9 }),
-      row({ model: "usd-unpriced", aiCredits: null, billedInAiCredits: false, costUsd: null }),
-      row({ model: "usd-dear", aiCredits: null, billedInAiCredits: false, costUsd: 30 }),
-      row({ model: "aic-small", aiCredits: 2 }),
-    ];
-    expect(sortRows(mixed, "aiCredits", "desc").map((r) => r.model)).toEqual([
-      "aic-big",
-      "aic-small",
-      "usd-dear",
-      "usd-cheap",
-      "usd-unpriced",
-    ]);
-    expect(sortRows(mixed, "aiCredits", "asc").map((r) => r.model)).toEqual([
-      "aic-small",
-      "aic-big",
-      "usd-cheap",
-      "usd-dear",
-      "usd-unpriced",
-    ]);
-  });
-
-  it("does not mutate input", () => {
-    const before = rows.map((r) => r.model);
-    sortRows(rows, "tokens", "asc");
-    expect(rows.map((r) => r.model)).toEqual(before);
-  });
-
-  it("buildRowComparator exposes the raw comparator function", () => {
-    const cmp = buildRowComparator("tokens", "asc");
-    expect(cmp(rows[0], rows[1])).toBeLessThan(0);
-  });
-});
-
-describe("sortArrow", () => {
-  it("returns ⇅ when the column is not the active key", () => {
-    expect(sortArrow("tokens", "asc", "model")).toBe("⇅");
-  });
-
-  it("returns ↑/↓ for the active key", () => {
-    expect(sortArrow("tokens", "asc", "tokens")).toBe("↑");
-    expect(sortArrow("tokens", "desc", "tokens")).toBe("↓");
   });
 });
