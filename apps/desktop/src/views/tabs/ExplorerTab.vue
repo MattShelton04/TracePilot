@@ -18,11 +18,14 @@ import { useExplorerContentSearch } from "@/composables/useExplorerContentSearch
 import { useExplorerPaneResize } from "@/composables/useExplorerPaneResize";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useSessionFiles } from "@/composables/useSessionFiles";
+import { useWindowRole } from "@/composables/useWindowRole";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const store = useSessionDetailContext();
 const prefs = usePreferencesStore();
+// Pop-out windows cannot launch the system file explorer (ADR 0011).
+const canOpenFolders = !useWindowRole().isViewer();
 
 const sessionFiles = useSessionFiles(() => store.sessionId);
 
@@ -499,6 +502,7 @@ async function onOpenFolder() {
       :position="contextMenuPos"
       :entry="contextMenuEntry"
       :can-copy-contents="selectedContextCanCopyContents"
+      :can-open-folders="canOpenFolders"
       @copy-path="onCopyPath"
       @copy-contents="onCopyContents"
       @open-containing-folder="onOpenContainingFolder"

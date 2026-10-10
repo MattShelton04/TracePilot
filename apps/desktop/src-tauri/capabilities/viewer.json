@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/windows-schema.json",
   "identifier": "viewer",
-  "description": "Permission set for viewer (pop-out session detail) windows. Originally read-only (Phase 1A.1 of tech-debt plan), now also allowlists SDK steering commands so popouts can drive their session — same single-Client backend, single-user app. Still excludes: dialog, opener, process, updater, notification, factory_reset, save_config, launch_session, skills_*, and mcp_* commands. See docs/adr/0011-tauri-capability-scoping.md.",
+  "description": "Permission set for viewer (pop-out session detail) windows. Originally read-only (Phase 1A.1 of tech-debt plan), now also allowlists SDK steering commands so popouts can drive their session — same single-Client backend, single-user app. Still excludes: dialog, opener, process, updater, notification, config writes, launchers, SDK bridge lifecycle, skills_* and mcp_* commands. apps/desktop/src/__tests__/config/viewerCapabilities.test.ts checks this list against the commands pop-out code can reach. See docs/adr/0011-tauri-capability-scoping.md.",
   "windows": ["viewer-*"],
   "permissions": [
     "core:default",
@@ -24,6 +24,7 @@
     "tracepilot:allow-get-session-file-history",
     "tracepilot:allow-get-session-file-version",
     "tracepilot:allow-get-shutdown-metrics",
+    "tracepilot:allow-get-session-prompt-cache",
     "tracepilot:allow-check-session-freshness",
     "tracepilot:allow-get-session-liveness",
     "tracepilot:allow-get-tool-result",
@@ -46,6 +47,8 @@
     "tracepilot:allow-sdk-get-foreground-session",
     "tracepilot:allow-sdk-set-foreground-session",
     "tracepilot:allow-sdk-resume-session",
+    "tracepilot:allow-sdk-live-hosts",
+    "tracepilot:allow-sdk-attach-session",
     "tracepilot:allow-sdk-send-message",
     "tracepilot:allow-sdk-abort-session",
     "tracepilot:allow-sdk-destroy-session",

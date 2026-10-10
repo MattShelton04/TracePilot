@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { useSdkSteeringContext } from "@/composables/useSdkSteering";
+import { useWindowRole } from "@/composables/useWindowRole";
 
 const ctx = useSdkSteeringContext();
+// The main window owns the SDK bridge; pop-outs cannot connect it (ADR 0011).
+const canConnect = !useWindowRole().isViewer();
 </script>
 
 <template>
@@ -13,9 +16,12 @@ const ctx = useSdkSteeringContext();
     </div>
     <div class="cb-disconnected-text">
       <div class="cb-disconnected-title">SDK Bridge</div>
-      <div class="cb-disconnected-sub">Connect to steer this session in real-time</div>
+      <div class="cb-disconnected-sub">
+        {{ canConnect ? 'Connect to steer this session in real-time' : 'Connect from the main window to steer this session' }}
+      </div>
     </div>
     <button
+      v-if="canConnect"
       class="cb-btn-connect"
       :disabled="ctx.sdk.isConnecting"
       @click="ctx.handleConnect"

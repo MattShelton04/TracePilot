@@ -15,8 +15,10 @@ const props = withDefaults(
     position: { x: number; y: number };
     entry: { path: string; name: string; isDirectory: boolean } | null;
     canCopyContents?: boolean;
+    /** False in pop-out windows, which cannot open the system file explorer. */
+    canOpenFolders?: boolean;
   }>(),
-  { canCopyContents: true },
+  { canCopyContents: true, canOpenFolders: true },
 );
 
 const emit = defineEmits<{
@@ -52,15 +54,17 @@ const { placement, onKeydown } = useContextMenu({
     >
       <template v-if="entry.isDirectory">
         <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('copyPath')">Copy Folder Path</button>
-        <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('openFolder')">Open Folder</button>
+        <button v-if="canOpenFolders" type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('openFolder')">Open Folder</button>
       </template>
       <template v-else>
         <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('copyPath')">Copy File Path</button>
         <button v-if="canCopyContents" type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('copyContents')">
           Copy File Contents
         </button>
-        <div class="ctx-separator" role="separator" />
-        <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('openContainingFolder')">Open Containing Folder</button>
+        <template v-if="canOpenFolders">
+          <div class="ctx-separator" role="separator" />
+          <button type="button" role="menuitem" tabindex="-1" class="ctx-item" @click="emit('openContainingFolder')">Open Containing Folder</button>
+        </template>
       </template>
     </div>
     <div
@@ -81,7 +85,7 @@ const { placement, onKeydown } = useContextMenu({
 
 .file-context-menu {
   position: fixed;
-  z-index: calc(var(--z-overlay) + 1);
+  z-index: var(--z-modal);
   min-width: min(160px, calc(100vw - 16px));
   max-width: calc(100vw - 16px);
   max-height: calc(100vh - 16px);

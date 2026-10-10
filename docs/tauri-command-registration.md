@@ -64,10 +64,17 @@ isn't in this list, Tauri's ACL layer blocks it at runtime — even when
 
 ## Capabilities
 
-The capabilities file at `apps/desktop/src-tauri/capabilities/default.json`
+The main window's capability (`apps/desktop/src-tauri/capabilities/main.json`)
 references `"tracepilot:default"`, which maps to the auto-generated default
 permission. Since `DefaultPermissionRule::AllowAllCommands` is configured, adding
-the command to `.commands()` is sufficient — no capability file changes needed.
+the command to `.commands()` is enough for the main window.
+
+Pop-out session windows (`viewer-*`) use `capabilities/viewer.json`, which grants
+commands one by one ([ADR 0011](adr/0011-tauri-capability-scoping.md)). If a
+session view calls the new command, also add `"tracepilot:allow-<command-with-dashes>"`
+there, or hide the trigger in pop-outs when the command writes, launches or spawns.
+`apps/desktop/src/__tests__/config/viewerCapabilities.test.ts` fails until you do
+one or the other.
 
 ## Debugging Checklist
 
@@ -76,5 +83,6 @@ If you see `"<plugin>.<command> not allowed. Command not found"`:
 - [ ] Is the function annotated with `#[tauri::command]`?
 - [ ] Is it listed in `generate_handler![]`?
 - [ ] Is it listed in `build.rs` `.commands(&[...])`?
+- [ ] Does it fail only in a pop-out window? Grant it in `capabilities/viewer.json`.
 - [ ] Did you rebuild after editing `build.rs`? (It's a build script — changes
       require a full rebuild.)

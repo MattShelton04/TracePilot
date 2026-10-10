@@ -43,6 +43,8 @@ Split the capabilities into two files, each scoped by window label:
 Audited by tracing the viewer mount path:
 `ChildApp.vue` → `SessionDetailTabView.vue` → `SessionDetailPanel.vue` + tab components (`OverviewTab`, `ConversationTab`, `EventsTab`, `TodosTab`, `MetricsTab`, `SessionTimelineView`).
 
+This table is the original audit. Later grants (Explorer `session_*` reads, the SDK steering and live-attach commands, `get_session_context_timeline`, `get_session_prompt_cache`) live in `viewer.json`, which a test now keeps in step with the code; see [Keeping the allow-list current](#keeping-the-allow-list-current).
+
 | Command | Reached from | Read-only? |
 | --- | --- | --- |
 | `list_sessions` | `stores/sessions.ts` → `fetchSessions()` in `ChildApp.onMounted` | yes |
@@ -70,6 +72,12 @@ Plus non-tracepilot essentials:
 - `core:window:allow-set-focus` / `allow-set-title` / `allow-unminimize` — viewer updates its own title with the session summary (`ChildApp.updateWindowTitle`) and re-focuses when activated.
 - `log:default` — viewer uses `@tauri-apps/plugin-log` via `utils/logger.ts`.
 
+### Keeping the allow-list current
+
+New session features kept adding commands that pop-outs call but `viewer.json` did not grant, so they failed only in pop-outs, often silently (context timeline, file history, prompt cache, live attach). `apps/desktop/src/__tests__/config/viewerCapabilities.test.ts` now derives the commands pop-out code can reach: it follows every import from `main.ts` (except `App.vue` and the router) through `ChildApp.vue` and the session tabs, and maps each `@tracepilot/client` function those files import to the commands it invokes (`viewerIpcReach.ts`). Each reachable command must be granted in `viewer.json` or listed in the test's `MAIN_WINDOW_ONLY` map with the reason a pop-out never calls it. The test also rejects grants that no pop-out code uses, grants for unregistered commands, destructive grants, and Tauri plugins imported without a permission.
+
+Reachability is per file, so a command that a shared store uses only in the main window still shows up. That is deliberate: it turns each such command into a reviewed decision. When the test fails, grant a read-only command; for writes, launches and process control, hide the trigger with `useWindowRole().isViewer()` and add a `MAIN_WINDOW_ONLY` entry.
+
 ## What the viewer explicitly does NOT get
 
 - **`dialog`** (no file picker — viewer cannot export/import)
@@ -79,18 +87,14 @@ Plus non-tracepilot essentials:
 - **`notification`** (no OS notifications from viewer; `useAlertDispatcher` runs from main)
 - **`tracepilot:default`** (would re-expose every command — the whole point of this ADR)
 
-### Known UX regressions from the split
+### Actions pop-outs do not offer
 
-`SessionDetailPanel.vue` renders three action buttons that will fail when clicked inside a viewer window:
+The original split left three `SessionDetailPanel.vue` actions failing inside a viewer window. Open Folder and Resume in Terminal are now hidden in pop-outs, as are the Explorer tab's Open Folder menu items and the SDK steering panel's Connect button. SDK steering itself was later granted so pop-outs can drive their session; the main window still owns the bridge lifecycle (`sdk_connect`, `sdk_disconnect`, UI-server launch). Pop-outs also keep preference changes, such as the auto-refresh toggle, to their own window instead of writing config.
 
-1. **📂 Open Folder** — calls `open_in_explorer`.
-2. **▶ Resume in Terminal** — calls `resume_session_in_terminal`.
-3. **SDK Steering Panel** (`SdkSteeringPanel.vue`, nested in `ChatViewMode`) — calls `sdk_send_message`, `sdk_set_session_model`, etc.
-
-These are intentional. The viewer is a **read-only** session display; launching editors, opening terminals, or sending SDK steering messages are main-window operations. If user reports come in that a specific action is being blocked in the viewer, the resolution is one of:
+These limits are intentional. The viewer is a **read-only** session display; launching editors, opening terminals, or sending SDK steering messages are main-window operations. If user reports come in that a specific action is being blocked in the viewer, the resolution is one of:
 
 - **Add the command to `viewer.json`** if it is genuinely read-only and there's a legitimate reason to expose it in the pop-out (e.g. a hypothetical `get_log_path` if the viewer ever shows its own log path).
-- **Hide the button in the viewer UI** via `useWindowRole().isViewer()` — preferred for any mutation/launch action, to avoid silent capability-denied errors. (This is a follow-up task; out of scope for the capability change itself.)
+- **Hide the button in the viewer UI** via `useWindowRole().isViewer()` — preferred for any mutation/launch action, to avoid silent capability-denied errors.
 
 Do **not** grant any `*_send`, `*_create`, `*_update`, `*_delete`, `*_import`, `save_*`, `launch_*`, `open_in_*`, `resume_*`, `reindex_*`, `factory_reset`, or `rebuild_*` command on the viewer without explicit review — that would undo the security boundary this ADR establishes.
 
@@ -98,8 +102,7 @@ Do **not** grant any `*_send`, `*_create`, `*_update`, `*_delete`, `*_import`, `
 
 - **Positive:** A compromised or bugged viewer window can no longer factory-reset, write config, mutate MCP/skills, send SDK messages, or launch processes. The attack surface drops from ~160 commands to 15.
 - **Positive:** The allow-list is declarative JSON — easy to audit in code review.
-- **Negative:** Any new read-only command needed by the viewer must be added in two places: the Rust command registration *and* `capabilities/viewer.json`. The CI test proposed in Phase 1A.1 (`test_viewer_disallows_destructive`) will help keep this honest.
-- **Negative:** The three UX regressions in `SessionDetailPanel` listed above. Tracked as follow-up: hide those buttons when `isViewer()`.
+- **Negative:** Any new read-only command needed by the viewer must be added in two places: the Rust command registration *and* `capabilities/viewer.json`. `viewerCapabilities.test.ts` fails in CI when pop-out code reaches a command that is neither granted nor reviewed as main-window-only.
 
 ## Alternatives considered
 

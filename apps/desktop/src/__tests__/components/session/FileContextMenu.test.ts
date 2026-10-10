@@ -6,7 +6,7 @@ import FileContextMenu from "@/components/session/FileContextMenu.vue";
 enableAutoUnmount(afterEach);
 afterEach(() => vi.restoreAllMocks());
 
-async function setup(isDirectory = false, canCopyContents = true) {
+async function setup(isDirectory = false, canCopyContents = true, canOpenFolders = true) {
   const visible = ref(false);
   const position = ref({ x: 300, y: 563 });
   const copyPath = vi.fn(() => {
@@ -32,6 +32,7 @@ async function setup(isDirectory = false, canCopyContents = true) {
             position: position.value,
             entry: { path: "audit-notes.txt", name: "audit-notes.txt", isDirectory },
             canCopyContents,
+            canOpenFolders,
             onDismiss: () => {
               visible.value = false;
             },
@@ -104,6 +105,20 @@ describe("Explorer file action menu", () => {
     await key("End");
     expect(document.activeElement?.textContent).toBe("Open Folder");
     expect(menu()?.querySelectorAll('[role="menuitem"]')).toHaveLength(2);
+  });
+
+  it("leaves out the folder-opening actions where they cannot run", async () => {
+    const file = await setup(false, true, false);
+    const fileItems = [...(file.menu()?.querySelectorAll('[role="menuitem"]') ?? [])];
+    expect(fileItems.map((item) => item.textContent?.trim())).toEqual([
+      "Copy File Path",
+      "Copy File Contents",
+    ]);
+    expect(file.menu()?.querySelector('[role="separator"]')).toBeNull();
+    file.host.unmount();
+    const folder = await setup(true, true, false);
+    const folderItems = [...(folder.menu()?.querySelectorAll('[role="menuitem"]') ?? [])];
+    expect(folderItems.map((item) => item.textContent?.trim())).toEqual(["Copy Folder Path"]);
   });
 
   it("keeps an edge-anchored menu inside the viewport and adjusts when resized", async () => {

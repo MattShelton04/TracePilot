@@ -3,6 +3,7 @@ import { createDeferred, setupPinia } from "@tracepilot/test-utils";
 import { createDefaultConfig, type TracePilotConfig } from "@tracepilot/types";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
+import { useWindowRole } from "@/composables/useWindowRole";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import { usePreferencesStore } from "@/stores/preferences";
 
@@ -85,6 +86,22 @@ it("cancels a pending debounced save when its store is disposed", async () => {
   store.$dispose();
   await vi.advanceTimersByTimeAsync(350);
   expect(updateConfig).not.toHaveBeenCalled();
+});
+
+it("keeps a pop-out's preference changes in that window without writing config", async () => {
+  const { role } = useWindowRole();
+  role.value = "viewer";
+  try {
+    const store = usePreferencesStore();
+    await store.whenReady;
+    store.autoRefreshEnabled = !store.autoRefreshEnabled;
+    await nextTick();
+    await vi.advanceTimersByTimeAsync(350);
+    expect(updateConfig).not.toHaveBeenCalled();
+    expect(store.autoRefreshEnabled).toBe(!persisted.ui.autoRefreshEnabled);
+  } finally {
+    role.value = "main";
+  }
 });
 
 it("cancels a pending debounce and keeps preference writes suspended after reset", async () => {
