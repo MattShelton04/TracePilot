@@ -56,6 +56,7 @@ export { default as Field } from "./components/Field.vue";
 export type { FileBrowserEntry } from "./components/FileBrowserTree.vue";
 export { default as FileBrowserTree } from "./components/FileBrowserTree.vue";
 export { default as FileContentViewer } from "./components/FileContentViewer.vue";
+export type { FilterSelectOption } from "./components/FilterSelect.vue";
 export { default as FilterSelect } from "./components/FilterSelect.vue";
 export { default as FormInput } from "./components/FormInput.vue";
 // Toggle is the canonical name for the FormSwitch primitive (vocab parity
@@ -351,6 +352,7 @@ export {
   normalizePath,
   pathBasename,
   pathDirname,
+  projectLabelFromCwd,
   sanitizeBranchForPath,
   shortenPath,
 } from "./utils/pathUtils";

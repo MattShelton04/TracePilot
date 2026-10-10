@@ -3,6 +3,7 @@ import {
   normalizePath,
   pathBasename,
   pathDirname,
+  projectLabelFromCwd,
   sanitizeBranchForPath,
   shortenPath,
 } from "../utils/pathUtils";
@@ -115,5 +116,20 @@ describe("sanitizeBranchForPath", () => {
   });
   it("handles clean branch names", () => {
     expect(sanitizeBranchForPath("my-clean-branch")).toBe("my-clean-branch");
+  });
+});
+
+describe("projectLabelFromCwd", () => {
+  it("uses the last segment of Windows and POSIX paths", () => {
+    expect(projectLabelFromCwd("C:\\work\\orchard\\")).toBe("orchard");
+    expect(projectLabelFromCwd("/home/dev/lantern")).toBe("lantern");
+  });
+  it("keeps a root path whole", () => {
+    expect(projectLabelFromCwd("/")).toBe("/");
+    expect(projectLabelFromCwd("C:\\")).toBe("C:");
+  });
+  it("returns null without a directory", () => {
+    expect(projectLabelFromCwd(null)).toBeNull();
+    expect(projectLabelFromCwd("  ")).toBeNull();
   });
 });

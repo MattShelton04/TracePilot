@@ -16,6 +16,17 @@ export function pathBasename(path: string): string {
   return parts[parts.length - 1] || "";
 }
 
+/**
+ * A short project name for a working directory: its last path segment, or
+ * the trimmed path itself for a root such as `/` or `C:\`. `null` when
+ * there is no directory.
+ */
+export function projectLabelFromCwd(cwd: string | null | undefined): string | null {
+  const trimmed = cwd?.trim();
+  if (!trimmed) return null;
+  return pathBasename(trimmed) || trimmed;
+}
+
 /** Return all but the last segment (parent directory). */
 export function pathDirname(path: string): string {
   const parts = normalizePath(path).split("/");

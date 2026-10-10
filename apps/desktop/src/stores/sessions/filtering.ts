@@ -4,12 +4,14 @@ import {
   type SessionListItem,
   type SessionSource,
 } from "@tracepilot/types";
+import { projectLabelFromCwd } from "@tracepilot/ui";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
 export interface SessionFilterPredicates {
-  /** Lower-cased substring match across id/summary/repository/branch. */
+  /** Lower-cased substring match across id/summary/repository/branch/cwd/model. */
   searchTerm: string | null;
+  /** A repository, or a `PROJECT_FILTER_PREFIX` key for a session with only a cwd. */
   repository: string | null;
   /** Only sessions from this source; `null` or absent means every source. */
   source?: SessionSource | null;
@@ -21,6 +23,30 @@ export interface SessionSearchFields {
   summary: string;
   repository: string;
   branch: string;
+  cwd: string;
+  model: string;
+}
+
+/** Marks a repository-filter value as a working-directory project, not a repository. */
+export const PROJECT_FILTER_PREFIX = "project:";
+
+/** One option of the session list's repository filter. */
+export interface RepositoryFilterOption {
+  value: string;
+  label: string;
+  /** Full working directories behind a project option. */
+  title?: string;
+  group: "Repositories" | "Folders";
+}
+
+/**
+ * The repository-filter key a session groups under: its repository, or a
+ * project derived from its working directory when it has no repository.
+ */
+export function sessionRepositoryKey(s: SessionListItem): string | null {
+  if (s.repository) return s.repository;
+  const project = projectLabelFromCwd(s.cwd);
+  return project ? `${PROJECT_FILTER_PREFIX}${project}` : null;
 }
 
 /**
@@ -39,6 +65,8 @@ export function buildSearchFieldCache(
       summary: (s.summary ?? "").toLowerCase(),
       repository: (s.repository ?? "").toLowerCase(),
       branch: (s.branch ?? "").toLowerCase(),
+      cwd: (s.cwd ?? "").toLowerCase(),
+      model: (s.currentModel ?? "").toLowerCase(),
     });
   }
   return cache;
@@ -66,6 +94,8 @@ export function matchesSessionFilters(
         fields.summary.includes(predicates.searchTerm) ||
         fields.repository.includes(predicates.searchTerm) ||
         fields.branch.includes(predicates.searchTerm) ||
+        fields.cwd.includes(predicates.searchTerm) ||
+        fields.model.includes(predicates.searchTerm) ||
         fields.id.includes(predicates.searchTerm)
       )
     ) {
@@ -73,7 +103,7 @@ export function matchesSessionFilters(
     }
   }
 
-  if (predicates.repository && s.repository !== predicates.repository) return false;
+  if (predicates.repository && sessionRepositoryKey(s) !== predicates.repository) return false;
   if (predicates.source && resolveSessionSource(s.source) !== predicates.source) return false;
 
   return true;
@@ -117,6 +147,43 @@ export function filterAndSortSessions(
 export function uniqueRepositories(sessions: readonly SessionListItem[]): string[] {
   const repos = new Set(sessions.map((s) => s.repository).filter((r): r is string => !!r));
   return [...repos].sort();
+}
+
+/**
+ * Repository-filter options: repositories first, then projects for sessions
+ * that have only a working directory, each list sorted by label.
+ */
+export function repositoryFilterOptions(
+  sessions: readonly SessionListItem[],
+): RepositoryFilterOption[] {
+  const repos = new Set<string>();
+  const projects = new Map<string, Set<string>>();
+  for (const s of sessions) {
+    if (s.repository) {
+      repos.add(s.repository);
+      continue;
+    }
+    const label = projectLabelFromCwd(s.cwd);
+    if (!label || !s.cwd) continue;
+    let paths = projects.get(label);
+    if (!paths) {
+      paths = new Set();
+      projects.set(label, paths);
+    }
+    paths.add(s.cwd.trim());
+  }
+  const repoOptions = [...repos]
+    .sort()
+    .map((repo): RepositoryFilterOption => ({ value: repo, label: repo, group: "Repositories" }));
+  const projectOptions = [...projects.keys()].sort().map(
+    (label): RepositoryFilterOption => ({
+      value: `${PROJECT_FILTER_PREFIX}${label}`,
+      label,
+      title: [...(projects.get(label) ?? [])].sort().join("\n"),
+      group: "Folders",
+    }),
+  );
+  return [...repoOptions, ...projectOptions];
 }
 
 /** Sources present in the session set, in display order. */

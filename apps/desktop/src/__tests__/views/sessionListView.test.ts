@@ -165,3 +165,38 @@ describe("Session list empty-state recovery", () => {
     expect(store.reindex).not.toHaveBeenCalled();
   });
 });
+
+describe("Session list repository filter", () => {
+  beforeEach(() => {
+    setupPinia();
+    preferences.hideEmptySessions = true;
+  });
+
+  it("offers a folder for a session with only a cwd and filters to it", async () => {
+    const store = useSessionsStore();
+    vi.spyOn(store, "ensureIndex").mockResolvedValue(undefined);
+    store.sessions = [
+      session,
+      {
+        ...session,
+        id: "cwd-only",
+        summary: "Folder session",
+        repository: null,
+        cwd: "C:/work/orchard",
+      },
+    ];
+    const wrapper = render();
+    await flushPromises();
+
+    const select = wrapper.get('select[aria-label="All Repos"]');
+    expect(select.findAll("optgroup").map((g) => g.attributes("label"))).toEqual([
+      "Repositories",
+      "Folders",
+    ]);
+    await select.setValue("project:orchard");
+    expect(wrapper.findAll('[data-testid="session-card"]').map((c) => c.text())).toEqual([
+      "Folder session",
+    ]);
+    wrapper.unmount();
+  });
+});
