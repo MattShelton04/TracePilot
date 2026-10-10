@@ -6,6 +6,8 @@ defineProps<{
   sessionDir: string;
   dbPath: string;
   sessionCount: number;
+  /** The Claude Code folder chosen for indexing, or null. */
+  claudeCode: { dir: string; sessionCount: number } | null;
   saving: boolean;
   setupError: string;
 }>();
@@ -50,6 +52,17 @@ const emit = defineEmits<{
           <div class="summary-text">
             <span class="summary-label">Sessions ({{ sessionCount }})</span>
             <span class="summary-value">{{ sessionDir }}</span>
+          </div>
+        </div>
+        <div v-if="claudeCode" class="summary-row">
+          <span class="summary-icon" aria-hidden="true">
+            <FolderOpen :size="18" :stroke-width="1.5" />
+          </span>
+          <div class="summary-text">
+            <span class="summary-label">
+              Claude Code sessions ({{ claudeCode.sessionCount }}) · experimental
+            </span>
+            <span class="summary-value">{{ claudeCode.dir }}</span>
           </div>
         </div>
         <div class="summary-row">

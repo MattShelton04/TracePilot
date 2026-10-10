@@ -2,6 +2,7 @@ import {
   getConfig,
   saveConfig,
   type ValidateSessionDirResult,
+  validateClaudeConfigDir,
   validateSessionDir,
 } from "@tracepilot/client";
 import { createDeferred, setupPinia } from "@tracepilot/test-utils";
@@ -16,7 +17,7 @@ import WizardStepSessionDir from "../wizard/WizardStepSessionDir.vue";
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../__tests__/mocks/client");
-  return createClientMock({ validateSessionDir: vi.fn() });
+  return createClientMock({ validateSessionDir: vi.fn(), validateClaudeConfigDir: vi.fn() });
 });
 vi.mock("@/composables/useBrowseDirectory", () => ({ browseForDirectory: vi.fn() }));
 
@@ -41,6 +42,9 @@ describe("SetupWizard", () => {
       createDefaultConfig({ paths: { copilotHome: "/copilot", tracepilotHome: "/tracepilot" } }),
     );
     vi.mocked(validateSessionDir).mockReset().mockResolvedValue(validDirectory);
+    vi.mocked(validateClaudeConfigDir)
+      .mockReset()
+      .mockResolvedValue({ valid: true, sessionCount: 0, error: null });
     vi.mocked(saveConfig).mockReset().mockResolvedValue(undefined);
     vi.mocked(browseForDirectory).mockReset();
   });
@@ -354,5 +358,84 @@ describe("SetupWizard", () => {
     await flushPromises();
     expect(saveConfig).toHaveBeenCalledTimes(2);
     expect(wrapper.emitted("setup-saved")).toEqual([[0]]);
+  });
+
+  describe("Claude Code option", () => {
+    const claudeSwitch = 'button[role="switch"][aria-labelledby="setup-claude-code-label"]';
+
+    function withClaudeFolder(sessionCount: number) {
+      const config = createDefaultConfig({
+        paths: { copilotHome: "/copilot", tracepilotHome: "/tracepilot" },
+      });
+      config.sources.claudeCode.configDir = "/claude";
+      vi.mocked(getConfig).mockResolvedValue(config);
+      vi.mocked(validateClaudeConfigDir).mockResolvedValue({
+        valid: true,
+        sessionCount,
+        error: null,
+      });
+    }
+
+    async function launch() {
+      await wrapper.get('[aria-label="Step 5"]').trigger("click");
+      await finishTransition();
+      await wrapper.get(".slide:not([inert]) .btn-accent").trigger("click");
+      await flushPromises();
+      return vi.mocked(saveConfig).mock.lastCall?.[0];
+    }
+
+    it("is hidden without a default Claude Code folder", async () => {
+      await openDirectoryStep();
+      expect(validateClaudeConfigDir).not.toHaveBeenCalled();
+      expect(wrapper.find(claudeSwitch).exists()).toBe(false);
+    });
+
+    it.each([
+      { valid: true, sessionCount: 0, error: null },
+      { valid: false, sessionCount: 0, error: "Directory does not exist" },
+    ])("is hidden when the folder check returns $sessionCount sessions, valid $valid", async (result) => {
+      withClaudeFolder(0);
+      vi.mocked(validateClaudeConfigDir).mockResolvedValue(result);
+      await openDirectoryStep();
+      expect(validateClaudeConfigDir).toHaveBeenCalledWith("/claude");
+      expect(wrapper.find(claudeSwitch).exists()).toBe(false);
+      expect((await launch())?.features.claudeCodeSessions).toBe(false);
+    });
+
+    it("is offered off by default and leaves Claude Code off", async () => {
+      withClaudeFolder(8);
+      await openDirectoryStep();
+      const option = wrapper.get(".slide:not([inert]) .claude-option");
+      expect(option.text()).toContain("Also index Claude Code sessions (experimental)");
+      expect(option.text()).toContain("Found 8 Claude Code sessions in /claude");
+      expect(option.text()).toContain("Settings → Claude Code");
+      expect(wrapper.get(claudeSwitch).attributes("aria-checked")).toBe("false");
+      expect((await launch())?.features.claudeCodeSessions).toBe(false);
+      expect(wrapper.getComponent(WizardStepReady).text()).not.toContain("Claude Code");
+    });
+
+    it("turns Claude Code on when setup completes", async () => {
+      withClaudeFolder(8);
+      await openDirectoryStep();
+      await wrapper.get(claudeSwitch).trigger("click");
+      expect(wrapper.get(claudeSwitch).attributes("aria-checked")).toBe("true");
+      await wrapper.get('[aria-label="Step 5"]').trigger("click");
+      await finishTransition();
+      expect(wrapper.getComponent(WizardStepReady).text()).toContain("Claude Code sessions (8)");
+      expect(saveConfig).not.toHaveBeenCalled();
+      await wrapper.get(".slide:not([inert]) .btn-accent").trigger("click");
+      await flushPromises();
+      expect(vi.mocked(saveConfig).mock.lastCall?.[0].features.claudeCodeSessions).toBe(true);
+      expect(wrapper.emitted("setup-saved")).toEqual([[12]]);
+    });
+
+    it("keeps Skip on the defaults even with the option turned on", async () => {
+      withClaudeFolder(8);
+      await openDirectoryStep();
+      await wrapper.get(claudeSwitch).trigger("click");
+      await wrapper.get(".skip-link").trigger("click");
+      await flushPromises();
+      expect(vi.mocked(saveConfig).mock.lastCall?.[0].features.claudeCodeSessions).toBe(false);
+    });
   });
 });

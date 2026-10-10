@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ValidateSessionDirResult } from "@tracepilot/client";
 import { COPILOT_HOME_PLACEHOLDER } from "@tracepilot/types";
+import { FormSwitch } from "@tracepilot/ui";
 import { AlertTriangle, FolderOpen } from "lucide-vue-next";
 
 defineProps<{
@@ -12,6 +13,9 @@ defineProps<{
   validationResult: ValidateSessionDirResult | null;
   validationError: string;
   canContinue: boolean;
+  /** The default Claude Code folder, when it holds sessions; else null. */
+  claudeCode: { dir: string; sessionCount: number } | null;
+  includeClaudeCode: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -20,6 +24,7 @@ const emit = defineEmits<{
   validate: [];
   browse: [];
   reset: [];
+  "update:includeClaudeCode": [value: boolean];
 }>();
 </script>
 
@@ -82,6 +87,25 @@ const emit = defineEmits<{
         </div>
       </div>
 
+      <div v-if="claudeCode" class="claude-option">
+        <div class="claude-option-text">
+          <div id="setup-claude-code-label" class="claude-option-label">
+            Also index Claude Code sessions <span class="claude-option-tag">(experimental)</span>
+          </div>
+          <div class="claude-option-desc">
+            Found {{ claudeCode.sessionCount }} Claude Code
+            {{ claudeCode.sessionCount === 1 ? "session" : "sessions" }} in
+            <span class="claude-option-path">{{ claudeCode.dir }}</span>. You can change this
+            later in Settings → Claude Code.
+          </div>
+        </div>
+        <FormSwitch
+          :model-value="includeClaudeCode"
+          aria-labelledby="setup-claude-code-label"
+          @update:model-value="emit('update:includeClaudeCode', $event)"
+        />
+      </div>
+
       <button
         class="btn-accent"
         :disabled="validating || !canContinue"
@@ -126,5 +150,47 @@ const emit = defineEmits<{
 
 .derived-path span {
   color: var(--text-secondary);
+}
+
+.claude-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 480px;
+  padding: 12px 16px;
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.claude-option-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.claude-option-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.claude-option-tag {
+  font-weight: 400;
+  color: var(--warning-fg);
+}
+
+.claude-option-desc {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.claude-option-path {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
 </style>
