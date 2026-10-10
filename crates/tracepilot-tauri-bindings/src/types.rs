@@ -303,7 +303,7 @@ pub struct ExportSessionsResult {
 }
 
 /// Preview content returned for the live preview panel.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportPreviewResult {
     /// Rendered content (JSON or Markdown).

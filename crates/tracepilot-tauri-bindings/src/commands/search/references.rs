@@ -1,6 +1,10 @@
 //! Search statistics and reference-list commands.
 
+use std::sync::Arc;
+
+use super::cache::{TOOL_NAMES_CACHE, cached_index_read};
 use crate::blocking_cmd;
+use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::CmdResult;
 use crate::helpers::read_config;
@@ -43,16 +47,16 @@ pub async fn get_search_repositories(
 }
 
 /// Get distinct canonical tool names, with their native names and sources,
-/// for the search filter dropdown.
+/// for the search filter dropdown. Cached until the index changes: every
+/// Search page load asks, and a large index takes a while to answer.
 #[tauri::command]
 pub async fn get_search_tool_names(
     state: tauri::State<'_, SharedConfig>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
 ) -> CmdResult<Vec<tracepilot_indexer::index_db::SearchToolName>> {
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
-
-    blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
+    let index_path = read_config(&state).index_db_path();
+    cached_index_read(&TOOL_NAMES_CACHE, &gates, index_path, (), |db| {
         db.search_tool_names()
     })
+    .await
 }

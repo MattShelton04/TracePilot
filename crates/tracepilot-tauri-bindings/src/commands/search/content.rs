@@ -1,7 +1,12 @@
 //! Content search and facets commands.
 
-use super::cache::{FACETS_CACHE, facets_cache_key};
+use std::sync::Arc;
+
+use super::cache::{
+    FACETS_CACHE, UNFILTERED_FACETS_CACHE, cached_index_read, facets_cache_key, is_unfiltered,
+};
 use crate::blocking_cmd;
+use crate::concurrency::IndexingSemaphores;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::read_config;
@@ -97,12 +102,13 @@ pub async fn search_content(
     })
 }
 
-/// Get facet counts (with 60-second TTL cache), scoped by the same filters as
-/// [`search_content`], including `source`.
+/// Get facet counts, scoped by the same filters as [`search_content`],
+/// including `source`. Cached until the index changes.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn get_search_facets(
     state: tauri::State<'_, SharedConfig>,
+    gates: tauri::State<'_, Arc<IndexingSemaphores>>,
     query: Option<String>,
     content_types: Option<Vec<String>>,
     exclude_content_types: Option<Vec<String>>,
@@ -116,57 +122,43 @@ pub async fn get_search_facets(
     crate::validators::validate_optional_session_id(&session_id)?;
     crate::validators::validate_unix_date_range(date_from_unix, date_to_unix)?;
 
-    let key = facets_cache_key(
-        &query,
-        &content_types,
-        &exclude_content_types,
-        &repositories,
-        &tool_names,
-        &session_id,
-        &source,
-        &date_from_unix,
-        &date_to_unix,
-    );
-
-    // Return cached value if still fresh.
-    if let Some(response) = FACETS_CACHE.get(&key) {
-        return Ok(response);
+    let query = query.filter(|q| !q.trim().is_empty());
+    let filters = tracepilot_indexer::SearchFilters {
+        content_types: content_types.unwrap_or_default(),
+        exclude_content_types: exclude_content_types.unwrap_or_default(),
+        repositories: repositories.unwrap_or_default(),
+        tool_names: tool_names.unwrap_or_default(),
+        session_id,
+        source,
+        date_from_unix,
+        date_to_unix,
+        ..Default::default()
+    };
+    let index_path = read_config(&state).index_db_path();
+    if is_unfiltered(&query, &filters) {
+        return cached_index_read(
+            &UNFILTERED_FACETS_CACHE,
+            &gates,
+            index_path,
+            (),
+            move |db| Ok(facets_response(db.facets(None, &filters)?)),
+        )
+        .await;
     }
 
-    let cfg = read_config(&state);
-    let index_path = cfg.index_db_path();
+    let key = facets_cache_key(&query, &filters);
+    cached_index_read(&FACETS_CACHE, &gates, index_path, key, move |db| {
+        Ok(facets_response(db.facets(query.as_deref(), &filters)?))
+    })
+    .await
+}
 
-    let result = blocking_cmd!({
-        let db = tracepilot_indexer::index_db::IndexDb::open_readonly(&index_path)?;
-
-        let filters = tracepilot_indexer::SearchFilters {
-            content_types: content_types.unwrap_or_default(),
-            exclude_content_types: exclude_content_types.unwrap_or_default(),
-            repositories: repositories.unwrap_or_default(),
-            tool_names: tool_names.unwrap_or_default(),
-            session_id,
-            source,
-            date_from_unix,
-            date_to_unix,
-            ..Default::default()
-        };
-
-        let query_opt = query.as_deref().filter(|q| !q.trim().is_empty());
-        let facets = db.facets(query_opt, &filters)?;
-
-        Ok::<_, crate::error::BindingsError>(SearchFacetsResponse {
-            by_content_type: facets.by_content_type,
-            by_repository: facets.by_repository,
-            by_tool_name: facets.by_tool_name,
-            total_matches: facets.total_matches,
-            session_count: facets.session_count,
-        })
-    });
-
-    // Cache the result.
-    if let Ok(ref response) = result {
-        FACETS_CACHE.insert(key, response.clone());
+fn facets_response(facets: tracepilot_indexer::index_db::SearchFacets) -> SearchFacetsResponse {
+    SearchFacetsResponse {
+        by_content_type: facets.by_content_type,
+        by_repository: facets.by_repository,
+        by_tool_name: facets.by_tool_name,
+        total_matches: facets.total_matches,
+        session_count: facets.session_count,
     }
-
-    result
 }

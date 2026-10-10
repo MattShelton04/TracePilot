@@ -4,6 +4,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use super::preview_cache::{self, PREVIEW_CACHE, PreviewCache, PreviewInputs, PreviewKey};
 use super::sources::{ExportSession, INCIDENT_TYPES, provider_sections};
 
 use crate::blocking_cmd;
@@ -14,6 +15,7 @@ use crate::types::{ExportPreviewResult, ExportSessionsResult, SessionSectionsInf
 
 use tracepilot_core::SessionId;
 use tracepilot_core::parsing::session_db::list_tables;
+use tracepilot_core::provider::ResolvedSession;
 use tracepilot_export::SectionId;
 use tracepilot_export::options::{
     ContentDetailOptions, ExportFormat, ExportOptions, OutputTarget, RedactionOptions,
@@ -211,6 +213,7 @@ pub async fn export_sessions(
 }
 
 /// Generate a preview of the export output (for the live preview panel).
+/// Recent previews are reused while the session's files are unchanged.
 #[tauri::command]
 #[tracing::instrument(skip_all, level = "debug", err, fields(%session_id, %format))]
 #[allow(clippy::too_many_arguments)]
@@ -227,49 +230,95 @@ pub async fn preview_export(
     strip_secrets: Option<bool>,
     strip_pii: Option<bool>,
 ) -> CmdResult<ExportPreviewResult> {
-    let export_format = parse_format(&format)?;
-    let section_set = parse_sections(&sections)?;
+    parse_format(&format)?;
+    parse_sections(&sections)?;
     let sid = crate::validators::validate_session_id(&session_id)?;
-
-    with_session_locator(&state, sid, move |session| {
-        let session = ExportSession::load(session)?;
-        let (content_detail, redaction) = build_export_detail_options(
+    let request = PreviewKey {
+        session_id,
+        primary_path: PathBuf::new(),
+        format,
+        sections,
+        max_bytes,
+        detail: [
             include_subagent_internals,
             include_tool_details,
             include_full_tool_results,
             anonymize_paths,
             strip_secrets,
             strip_pii,
-        );
-
-        let options = ExportOptions {
-            format: export_format,
-            sections: section_set.clone(),
-            output: OutputTarget::String,
-            content_detail,
-            redaction,
-        };
-
-        let full_content =
-            tracepilot_export::preview_export_input(&session.input(), &options, None)?;
-        let estimated_size = full_content.len();
-
-        let content = match max_bytes.or(Some(512 * 1024)) {
-            Some(max) if full_content.len() > max => {
-                tracepilot_core::utils::truncate_utf8(&full_content, max).to_string()
-            }
-            _ => full_content,
-        };
-        let format_name = format.clone();
-
-        Ok(ExportPreviewResult {
-            content,
-            format: format_name,
-            estimated_size_bytes: estimated_size,
-            section_count: section_set.len(),
-        })
+        ],
+    };
+    with_session_locator(&state, sid, move |session| {
+        cached_preview(&PREVIEW_CACHE, session, request)
     })
     .await
+}
+
+/// The preview for `request` (with its `primary_path` filled in here), from
+/// the cache when nothing it was rendered from has changed. Blocking.
+pub(super) fn cached_preview(
+    cache: &PreviewCache,
+    session: ResolvedSession,
+    mut request: PreviewKey,
+) -> CmdResult<ExportPreviewResult> {
+    request.primary_path = session.locator.primary_path.clone();
+    // Read before loading, so a change made during the render is a miss.
+    let source_version = preview_cache::source_version(&session);
+    if let Some(version) = &source_version
+        && let Some(hit) = cache.get(&request, version)
+    {
+        return Ok(hit);
+    }
+    let session = ExportSession::load(session)?;
+    let inputs = PreviewInputs::read(source_version, &session);
+    let result = render_preview(&session, &request)?;
+    if let Some(inputs) = inputs {
+        cache.insert(request, inputs, &result);
+    }
+    Ok(result)
+}
+
+fn render_preview(session: &ExportSession, request: &PreviewKey) -> CmdResult<ExportPreviewResult> {
+    let section_set = parse_sections(&request.sections)?;
+    let [
+        subagents,
+        tool_details,
+        full_results,
+        anonymize,
+        secrets,
+        pii,
+    ] = request.detail;
+    let (content_detail, redaction) = build_export_detail_options(
+        subagents,
+        tool_details,
+        full_results,
+        anonymize,
+        secrets,
+        pii,
+    );
+    let options = ExportOptions {
+        format: parse_format(&request.format)?,
+        sections: section_set,
+        output: OutputTarget::String,
+        content_detail,
+        redaction,
+    };
+
+    let full_content = tracepilot_export::preview_export_input(&session.input(), &options, None)?;
+    let estimated_size = full_content.len();
+    let content = match request.max_bytes.or(Some(512 * 1024)) {
+        Some(max) if full_content.len() > max => {
+            tracepilot_core::utils::truncate_utf8(&full_content, max).to_string()
+        }
+        _ => full_content,
+    };
+
+    Ok(ExportPreviewResult {
+        content,
+        format: request.format.clone(),
+        estimated_size_bytes: estimated_size,
+        section_count: options.sections.len(),
+    })
 }
 
 /// Get info about which sections have data for a given session.
