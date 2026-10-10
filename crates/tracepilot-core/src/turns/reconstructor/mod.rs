@@ -54,7 +54,7 @@ pub struct TurnReconstructor {
     pub(crate) agent_owners: HashMap<String, String>,
     /// Launches whose actual lifecycle has started, as opposed to pending task tools.
     pub(crate) started_subagents: std::collections::HashSet<String>,
-    /// After write_agent, initial-invocation terminal events cannot settle the queue.
+    /// After a Copilot write_agent, initial-invocation terminal events cannot settle the queue.
     pub(crate) followup_agents: std::collections::HashSet<String>,
     /// Subagents that have received a message; the first one is the launch prompt.
     pub(crate) messaged_agents: std::collections::HashSet<String>,

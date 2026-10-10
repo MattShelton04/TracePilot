@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 use super::reader::Line;
 use super::records::Rec;
 use super::subagents::ChildStream;
+use super::translate_agents::Terminal;
 use super::usage::{CallTable, CostSnapshot};
 use super::{ClaudeDiagnostics, ClaudeParse, NativePosition, branch, drift, subagents};
 use crate::error::Result;
@@ -66,8 +67,8 @@ pub(super) struct Translator<'a, F> {
     pub(super) diagnostics: ClaudeDiagnostics,
     /// Notification keys already emitted.
     pub(super) notifications: HashSet<(String, String)>,
-    /// Agents with an emitted terminal event → whether it carried totals.
-    pub(super) terminals: HashMap<String, bool>,
+    /// Agents with an emitted terminal event → how it was reported.
+    pub(super) terminals: HashMap<String, Terminal>,
 }
 
 /// Translation state of one stream.
