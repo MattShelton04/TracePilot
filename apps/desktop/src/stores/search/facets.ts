@@ -87,7 +87,9 @@ export function createFacetsSlice(q: QuerySlice) {
       });
       if (!facetGuard.isValid(token)) return;
       facets.value = result;
-      if (isUnfiltered) facetsLastFetchedAt = Date.now();
+      // Filtered facets replace the unfiltered ones, so they must not count as
+      // a fresh unfiltered fetch when the filters are cleared again.
+      facetsLastFetchedAt = isUnfiltered ? Date.now() : 0;
     } catch (e) {
       if (!facetGuard.isValid(token)) return;
       logWarn("[search] Failed to fetch search facets:", e);

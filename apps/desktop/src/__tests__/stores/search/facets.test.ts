@@ -111,4 +111,33 @@ describe("search/facets slice", () => {
       dispose();
     }
   });
+
+  it("refetches unfiltered facets after a filtered fetch replaced them", async () => {
+    const unfiltered = { byContentType: [["error", 9]], byRepository: [], byToolName: [] };
+    const claudeOnly = { byContentType: [["error", 2]], byRepository: [], byToolName: [] };
+    mockGetSearchFacets
+      .mockResolvedValueOnce(unfiltered)
+      .mockResolvedValueOnce(claudeOnly)
+      .mockResolvedValueOnce(unfiltered);
+    const { f, q, dispose } = setup();
+    try {
+      await f.fetchFacets();
+      q.source.value = "claudeCode";
+      await f.fetchFacets();
+      expect(mockGetSearchFacets).toHaveBeenLastCalledWith(
+        undefined,
+        expect.objectContaining({ source: "claudeCode" }),
+      );
+      q.source.value = null;
+      await f.fetchFacets();
+
+      expect(mockGetSearchFacets).toHaveBeenCalledTimes(3);
+      expect(f.facets.value).toStrictEqual(unfiltered);
+      // A second unfiltered fetch within the TTL is still served from cache.
+      await f.fetchFacets();
+      expect(mockGetSearchFacets).toHaveBeenCalledTimes(3);
+    } finally {
+      dispose();
+    }
+  });
 });
