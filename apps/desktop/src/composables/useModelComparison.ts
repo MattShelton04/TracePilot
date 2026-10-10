@@ -1,6 +1,7 @@
 import { computed, type InjectionKey, inject, reactive, ref, watch } from "vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { usePreferencesStore } from "@/stores/preferences";
+import { analyticsTotalCostUsd } from "@/utils/analyticsCostSeries";
 import { MODEL_PALETTE, MODEL_TAIL_COLOR } from "@/utils/chartColors";
 import {
   bestCostIndex,
@@ -93,11 +94,20 @@ export function useModelComparison() {
   const mixedUnits = computed(
     () => usdRows.value.length > 0 && usdRows.value.length < modelRows.value.length,
   );
-  const totalUsd = computed(() =>
-    modelRows.value.some((model) => model.usdEquivalent != null)
+  // The Analytics dashboard's total, from the same per-source figures, so the
+  // two pages agree to the cent. Payloads without a per-source split add rows.
+  const totalUsd = computed(() => {
+    if (data.value?.costBySource?.length) {
+      return analyticsTotalCostUsd(
+        data.value,
+        prefs.computeUsageBasedCost,
+        prefs.computeWholesaleCost,
+      ).usd;
+    }
+    return modelRows.value.some((model) => model.usdEquivalent != null)
       ? modelRows.value.reduce((sum, model) => sum + (model.usdEquivalent ?? 0), 0)
-      : null,
-  );
+      : null;
+  });
   const totalCopilotCost = computed(() =>
     modelRows.value.reduce((sum, m) => sum + m.copilotCost, 0),
   );

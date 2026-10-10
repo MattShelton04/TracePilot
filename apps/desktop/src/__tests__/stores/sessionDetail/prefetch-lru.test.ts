@@ -54,6 +54,19 @@ describe("useSessionDetailStore", () => {
       expect(store.loaded.has("todos")).toBe(false);
     });
 
+    it("opens a just-prefetched session without fetching it again", async () => {
+      const store = useSessionDetailStore();
+      mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "fresh-1" });
+      mocks.getSessionTurns.mockResolvedValue(FIXTURE_TURNS);
+      await store.prefetchSession("fresh-1");
+      vi.clearAllMocks();
+
+      await store.loadDetail("fresh-1");
+      await Promise.resolve();
+      expect(mocks.getSessionDetail).not.toHaveBeenCalled();
+      expect(mocks.getSessionTurns).not.toHaveBeenCalled();
+    });
+
     it("deduplicates concurrent prefetches for the same session", async () => {
       const store = useSessionDetailStore();
       mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "same-session" });

@@ -69,3 +69,26 @@ describe("subagent end state", () => {
     expect(wrapper.find(".cv-subagent-unreported").exists()).toBe(false);
   });
 });
+
+describe("subagent model chip", () => {
+  type Item = ReturnType<typeof useSessionsStore>["sessions"][number];
+
+  function chipIn(source: Item["source"], model: string) {
+    useSessionDetailStore().sessionId = "s-1";
+    useSessionsStore().sessions = [{ id: "s-1", source } as Item];
+    const wrapper = mount(SubagentCard, {
+      props: { toolCall: { toolName: "Agent", isSubagent: true, isComplete: true, model } },
+    });
+    return wrapper.get(".cv-subagent-model");
+  }
+
+  it("names a Claude Code model as the session header does", () => {
+    const chip = chipIn("claudeCode", "claude-opus-5-5");
+    expect(chip.text()).toBe("claude-opus-5.5");
+    expect(chip.attributes("title")).toBe("claude-opus-5-5");
+  });
+
+  it("keeps a Copilot model id as recorded", () => {
+    expect(chipIn("copilot", "claude-opus-4-5").text()).toBe("claude-opus-4-5");
+  });
+});

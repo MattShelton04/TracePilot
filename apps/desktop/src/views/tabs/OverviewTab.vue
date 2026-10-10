@@ -35,7 +35,6 @@ const store = useSessionDetailContext();
 useSessionTabLoader(
   () => store.sessionId,
   () => {
-    store.loadCheckpoints();
     store.loadPlan();
     store.loadShutdownMetrics();
     store.loadIncidents();
@@ -61,6 +60,15 @@ watch(
   () => (capabilities.value.hasFileHistory ? store.sessionId : null),
   (id) => {
     if (id) store.loadFileHistory();
+  },
+  { immediate: true },
+);
+// Only sources that write checkpoints are asked for them, so a running
+// session's refresh never re-fetches a list that is always empty.
+watch(
+  () => (capabilities.value.hasCheckpoints ? store.sessionId : null),
+  (id) => {
+    if (id) store.loadCheckpoints();
   },
   { immediate: true },
 );

@@ -335,6 +335,8 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
       if (sessionCache.has(id) || sessionId.value === id) return;
 
       sessionCache.set(id, buildPrefetchedCachedSession(detailResult, turnsResult));
+      // Just fetched: opening it now restores this rather than fetching again.
+      lastFetchTimestamp.set(id, Date.now());
     } catch (e) {
       // Prefetch is best-effort; a missing on-disk events.jsonl (e.g. session
       // exists in the index but its data dir was cleaned up, or hasn't been

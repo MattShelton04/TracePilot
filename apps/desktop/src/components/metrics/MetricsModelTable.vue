@@ -11,6 +11,7 @@ import {
 import { Info } from "lucide-vue-next";
 import { computed } from "vue";
 import type { MetricsModelEntry } from "@/composables/useMetricsTabData";
+import { useSessionModelName } from "@/composables/useSessionModelName";
 
 const props = withDefaults(
   defineProps<{
@@ -44,13 +45,14 @@ const columns = computed(() => [
     : []),
   ...tokenColumns.value,
 ]);
+const modelName = useSessionModelName();
 const rows = computed(() => props.modelEntries.map((entry) => ({ ...entry, ...entry.tokens })));
 </script>
 
 <template>
   <SectionPanel v-if="!hideDistribution && modelEntries.length > 0 && modelEntries.every(m => m.tokens.total != null)" title="Token Distribution" class="mb-6">
     <div class="space-y-3">
-      <TokenBar v-for="model in modelEntries" :key="model.name" :label="model.name"
+      <TokenBar v-for="model in modelEntries" :key="model.name" :label="modelName(model.name)" :title="model.name"
         :value="model.tokens.total != null ? formatNumber(model.tokens.total) : '—'"
         :percentage="totalTokens > 0 ? (model.totalTokens / totalTokens) * 100 : 0" color="var(--accent-emphasis)" />
     </div>
@@ -58,7 +60,7 @@ const rows = computed(() => props.modelEntries.map((entry) => ({ ...entry, ...en
   <SectionPanel v-if="modelEntries.length" title="Model Usage">
     <template #actions><Tooltip text="Cache read and Not cached partition input tokens. Reasoning is included in output. Total is input + output. A dash means unavailable."><button type="button" aria-label="About token accounting" class="text-[var(--text-tertiary)]"><Info :size="14" /></button></Tooltip></template>
     <DataTable :columns="columns" :rows="rows" class="mb-3" style="overflow-x: auto;">
-      <template #cell-name="{ value }"><Badge variant="done">{{ value }}</Badge></template>
+      <template #cell-name="{ value }"><Badge variant="done" :title="value as string">{{ modelName(value as string) }}</Badge></template>
       <template #cell-requests="{ value }">{{ value == null ? '—' : formatNumber(value as number) }}</template>
       <template #cell-aiCredits="{ value }">{{ formatAiCredits(value as number | null) }}</template>
       <template #cell-aiCreditSource="{ value }">

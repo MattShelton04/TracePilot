@@ -17,6 +17,7 @@ import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { usePromptCache } from "@/composables/usePromptCache";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
+import { useSessionModelName } from "@/composables/useSessionModelName";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -69,6 +70,7 @@ const { revealing } = useFirstReveal({
   ready: () => !!metrics.value,
 });
 const currentModel = computed(() => sessionModel(store.detail));
+const modelName = useSessionModelName();
 const currentEffort = computed(() => sessionEffort(store.detail));
 const turns = computed(() => store.turns);
 const { allSubagents } = useCrossTurnSubagents(turns);
@@ -161,7 +163,7 @@ const {
 
       <div v-if="currentModel" class="flex items-center gap-2">
         <span class="text-xs text-[var(--text-tertiary)]">Current Model:</span>
-        <Badge variant="done">{{ currentModel }}</Badge>
+        <Badge variant="done" :title="currentModel">{{ modelName(currentModel) }}</Badge>
         <Badge v-if="currentEffort" variant="neutral">{{ effortLabel(currentEffort) }}</Badge>
       </div>
     </template>
