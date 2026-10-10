@@ -38,7 +38,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
     /// resumed the agent before `at` when that is later: a resumed agent's
     /// next calls come after that message, and may come after a snapshot
     /// that its launch is before. `None` for an orphan subagent.
-    fn snapshot_anchor(
+    pub(super) fn snapshot_anchor(
         &self,
         st: &Stream<'_>,
         line: usize,

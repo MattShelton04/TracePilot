@@ -214,3 +214,102 @@ fn a_resumed_agents_run_totals_add_up_across_restarts() {
         (Some(8), Some(85_000), Some(1300))
     );
 }
+
+/// Two parallel `SendMessage`s resume A and B after the snapshot, and both
+/// results share one record whose `toolUseResult` names only B. Each
+/// message counts for the agent it was sent to, so both agents' later calls
+/// are in the tail.
+#[test]
+fn parallel_resumes_sharing_one_result_record_each_leave_the_snapshot() {
+    use serde_json::json;
+    use tracepilot_test_support::claude::{
+        HAIKU, OPUS, Subagent, Transcript, Usage, subagent_meta, text, tool_use, write_session,
+    };
+
+    let u = Usage::new(1, 10, 0, 1);
+    let mut t = Transcript::main();
+    t.prompt("Review both.");
+    for (message, tool, agent) in [
+        ("msg_m1", "toolu_A", "agentA"),
+        ("msg_m2", "toolu_B", "agentB"),
+    ] {
+        let input = json!({"subagent_type": "general-purpose", "description": "review",
+            "prompt": "review", "run_in_background": true});
+        t.call(
+            message,
+            OPUS,
+            vec![tool_use(tool, "Agent", input)],
+            u,
+            "tool_use",
+        );
+        t.tool_result(
+            tool,
+            json!("Async agent launched successfully."),
+            json!({"status": "async_launched", "isAsync": true, "agentId": agent}),
+            false,
+        );
+    }
+    t.call("msg_m3", OPUS, vec![text("Both done.")], u, "end_turn"); // 6 s
+    for _ in 0..2 {
+        t.cost_state(&[(OPUS, Usage::new(5, 50, 0, 5), 0.05), (HAIKU, u, 0.001)]);
+    }
+    t.idle(1000);
+    t.prompt("Go on."); // 1007 s
+    let send = |tool: &str, to: &str| {
+        tool_use(tool, "SendMessage", json!({"to": to, "message": "Go on."}))
+    };
+    t.call(
+        "msg_m4",
+        OPUS,
+        vec![send("toolu_SA", "agentA"), send("toolu_SB", "agentB")],
+        u,
+        "tool_use",
+    ); // 1008 s, 1009 s
+    t.user(json!({
+        "message": {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "toolu_SA", "content": "Message sent."},
+            {"type": "tool_result", "tool_use_id": "toolu_SB", "content": "Message sent."},
+        ]},
+        "toolUseResult": {"success": true, "message": "Message sent.", "resumedAgentId": "agentB"},
+    }));
+    let agent = |id: &str, namespace: u32, first: &str, later: &str| {
+        let mut a = Transcript::subagent(id, namespace);
+        a.at(3).prompt("review");
+        a.at(4).call(
+            first,
+            OPUS,
+            vec![text("Done.")],
+            Usage::new(2, 20, 0, 2),
+            "end_turn",
+        );
+        a.at(1010).call(
+            later,
+            OPUS,
+            vec![text("Again.")],
+            Usage::new(2, 20, 0, 2),
+            "end_turn",
+        );
+        a
+    };
+    let a = agent("agentA", 1, "msg_A1", "msg_A2");
+    let b = agent("agentB", 2, "msg_B1", "msg_B2");
+    let files = write_session(
+        &t,
+        &[
+            Subagent {
+                agent_id: "agentA",
+                transcript: &a,
+                meta: Some(subagent_meta("toolu_A", "general-purpose", 1)),
+            },
+            Subagent {
+                agent_id: "agentB",
+                transcript: &b,
+                meta: Some(subagent_meta("toolu_B", "general-purpose", 1)),
+            },
+        ],
+    );
+    let parsed = parse(&files);
+    let mut tail: Vec<_> = parsed.tail_calls().map(|c| c.message_id.as_str()).collect();
+    tail.sort_unstable();
+    assert_eq!(tail, ["msg_A2", "msg_B2", "msg_m4"]);
+}

@@ -29,14 +29,11 @@ impl<F: Fn() -> bool> Translator<'_, F> {
                 if !self.inserted.insert(child.agent_id.clone()) {
                     continue;
                 }
+                let anchor = self.snapshot_anchor(st, line, rec.timestamp());
                 let mut child_stream = self.stream(
                     Some(child.agent_id.clone()),
                     Some(id.to_string()),
-                    if st.agent_id.is_none() {
-                        Some(line)
-                    } else {
-                        st.anchor
-                    },
+                    anchor,
                     &child.lines,
                 );
                 child_stream.inherited_abandoned = true;
