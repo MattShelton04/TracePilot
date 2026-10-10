@@ -1,21 +1,45 @@
 //! Logging Tauri commands (2 commands).
 
+use std::path::PathBuf;
+
 use crate::blocking_cmd;
 use crate::error::{BindingsError, CmdResult};
 use tauri::Manager;
+use tracepilot_core::paths::DataRootError;
 use tracepilot_core::utils::InfallibleWrite;
+
+/// The folder the log plugin writes to: `<data root>/logs` for an isolated
+/// instance, the platform's per-app log folder otherwise.
+pub(crate) fn app_log_dir(app: &tauri::AppHandle) -> CmdResult<PathBuf> {
+    log_dir_from(tracepilot_core::paths::isolated_log_dir(), || {
+        Ok(app.path().app_log_dir()?)
+    })
+}
+
+/// An invalid isolation root fails closed rather than falling back to the
+/// shared platform folder.
+fn log_dir_from(
+    isolated: Result<Option<PathBuf>, DataRootError>,
+    platform: impl FnOnce() -> CmdResult<PathBuf>,
+) -> CmdResult<PathBuf> {
+    match isolated {
+        Ok(Some(dir)) => Ok(dir),
+        Ok(None) => platform(),
+        Err(error) => Err(BindingsError::Validation(error.to_string())),
+    }
+}
 
 #[tauri::command]
 #[specta::specta]
 pub async fn get_log_path(app: tauri::AppHandle) -> CmdResult<String> {
-    let log_dir = app.path().app_log_dir()?;
+    let log_dir = app_log_dir(&app)?;
     Ok(log_dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn export_logs(app: tauri::AppHandle, destination: String) -> CmdResult<String> {
-    let log_dir = app.path().app_log_dir()?;
+    let log_dir = app_log_dir(&app)?;
 
     blocking_cmd!({
         use std::io::Read;
@@ -122,4 +146,36 @@ pub async fn export_logs(app: tauri::AppHandle, destination: String) -> CmdResul
         };
         Ok::<_, BindingsError>(msg)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unused_platform() -> CmdResult<PathBuf> {
+        panic!("the platform log folder must not be consulted")
+    }
+
+    #[test]
+    fn isolated_instance_reports_its_own_log_folder() {
+        let dir = PathBuf::from("instance-root").join("logs");
+        assert_eq!(
+            log_dir_from(Ok(Some(dir.clone())), unused_platform).unwrap(),
+            dir
+        );
+    }
+
+    #[test]
+    fn unisolated_process_reports_the_platform_log_folder() {
+        let platform = PathBuf::from("platform-logs");
+        let resolved = log_dir_from(Ok(None), || Ok(platform.clone())).unwrap();
+        assert_eq!(resolved, platform);
+    }
+
+    #[test]
+    fn invalid_isolation_root_fails_closed() {
+        let error = DataRootError::Relative(PathBuf::from("relative"));
+        let result = log_dir_from(Err(error), unused_platform);
+        assert!(matches!(result, Err(BindingsError::Validation(_))));
+    }
 }

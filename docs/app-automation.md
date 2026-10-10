@@ -88,7 +88,7 @@ The data root must be an absolute, dedicated directory. It resolves to:
 | Config | `<data-root>/tracepilot/config.toml` |
 | SQLite index | `<data-root>/tracepilot/index.db` |
 | WebView profile | `<data-root>/webview-profile` |
-| Rust/app logs | `<data-root>/logs` |
+| Rust/app logs (shown and exported by Settings → Logs & Diagnostics) | `<data-root>/logs` |
 
 The launcher rejects relative paths, broad roots, reparse points, and configured
 state paths outside that boundary. `TRACEPILOT_DATA_ROOT` controls the Rust
@@ -184,7 +184,10 @@ Limits:
 
   These instances run the frontend and Rust code of the build, not later edits.
 - Data isolation covers files. Copilot CLI process discovery for live attach is
-  machine-wide; turn live auto-attach off in Settings on isolated instances.
+  machine-wide. Live auto-attach only runs with the experimental Copilot SDK
+  Bridge on, which is off by default on isolated instances; if you turn the
+  bridge on, first turn off **Watch terminal sessions automatically** in its
+  Settings section.
 
 ## Native indexing measurements
 

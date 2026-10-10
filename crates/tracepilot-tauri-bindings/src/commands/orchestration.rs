@@ -7,7 +7,6 @@ use crate::helpers::{read_config, validate_path_within_any};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::time::Duration;
-use tauri::Manager;
 use tracepilot_core::utils::cache::TtlCache;
 
 // ---------------------------------------------------------------------------
@@ -321,7 +320,7 @@ fn resolve_opener_path(
         .collect();
     roots.extend([cfg.tracepilot_home(), cfg.copilot_home()]);
 
-    if let Ok(log_dir) = app.path().app_log_dir() {
+    if let Ok(log_dir) = crate::commands::logging::app_log_dir(app) {
         roots.push(log_dir);
     }
 

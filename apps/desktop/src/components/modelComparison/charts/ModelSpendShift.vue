@@ -149,7 +149,7 @@ const delta = (g: ShareShiftGroup) => Math.round((g.spendShare - g.tokenShare) *
               text-anchor="end"
               class="model-chart-label"
             >
-              <tspan v-if="!chart.narrow">{{ truncate(b.g.label, 22) }}&#160;&#160;</tspan>
+              <tspan v-if="!chart.narrow">{{ truncate(b.g.label, 22) }}&nbsp;&nbsp;</tspan>
               <tspan class="share-shift-value">{{ formatShare(b.g.tokenShare, 0) }}</tspan>
             </text>
             <text :x="chart.xR + BAR + 8" :y="chart.rightY[i] + 4" class="model-chart-label">
