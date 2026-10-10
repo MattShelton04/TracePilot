@@ -97,7 +97,10 @@ opt-level = 2
 # is strict.
 # ───────────────────────────────────────────────────────────────
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# `deny`, not `forbid`, so one audited FFI module can opt in with
+# `#[allow(unsafe_code)]` (tracepilot-orchestrator `process::start_time`).
+# Every unsafe block also needs a `// SAFETY:` comment (clippy below).
+unsafe_code = "deny"
 # rust_2024_compatibility = "warn"  # edition is already 2024
 missing_debug_implementations = "allow"
 unused_must_use = "warn"
@@ -110,6 +113,7 @@ unused_must_use = "warn"
 unwrap_used = "deny"
 expect_used = "deny"
 map_err_ignore = "deny"
+undocumented_unsafe_blocks = "deny"
 print_stdout = "warn"
 print_stderr = "warn"
 dbg_macro = "warn"
