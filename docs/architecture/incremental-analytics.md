@@ -158,19 +158,23 @@ USD estimates alone, and model rows are grouped by model and source so AI Credit
 estimates apply only to Copilot rows. Claude Code analytics version 23 rebuilds
 indexed Claude sessions with these rows; Copilot's version is unchanged.
 
-### Claude Code format drift
+### Format drift
 
-Indexing also records what the Claude Code parser could not map:
+Indexing also records what each parser could not map:
 [migration 25](../../crates/tracepilot-indexer/src/index_db/migrations/plan.rs)
 adds `session_format_observations`, one row per session for each unmapped
 record type, unmapped attachment type and Claude Code version, with its record
 count. Names are checked before they are counted, so a value that is not shaped
 like a type name or a version is stored as `(unrecognized name)` or
-`(unrecognized version)`, never as a path, an id or content. Settings → Claude
-Code lists the totals when Claude Code sessions are enabled, and
-`node scripts/claude-census.mjs` prints the same tallies for a config folder
-without indexing it. Claude Code analytics version 24 refreshes indexed Claude
-sessions to fill the table; Copilot writes no rows.
+`(unrecognized version)`, never as a path, an id or content. Copilot sessions
+record their unknown event types (as record types) and Copilot CLI versions
+from `session.start` and `session.resume`; a known event type whose payload
+fails to decode is not counted, because indexing refuses that snapshot.
+Settings → Logs & Diagnostics lists the totals per source (Claude Code only
+when its sessions are enabled), and `node scripts/claude-census.mjs` prints
+the Claude Code tallies for a config folder without indexing it. Claude Code
+analytics version 24 refreshes indexed Claude sessions to fill the table, and
+Copilot analytics version 18 refreshes indexed Copilot sessions.
 
 ### Successful source snapshots
 

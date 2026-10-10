@@ -93,3 +93,61 @@ fn claude_format_drift_is_recorded_at_index_time() {
         .unwrap();
     assert_eq!(left, 0);
 }
+
+#[test]
+fn copilot_format_drift_is_recorded_at_index_time() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("session-state");
+    let dir = common::write_session(
+        &root,
+        "00000000-0000-4000-8000-000000000002",
+        "s",
+        "r",
+        "b",
+        "u",
+        "a",
+    );
+    let line = |kind: &str, data: serde_json::Value| {
+        json!({"type": kind, "data": data, "id": "e", "timestamp": "2026-03-10T07:14:53.000Z"})
+            .to_string()
+    };
+    let mut events = std::fs::read_to_string(dir.join("events.jsonl")).unwrap();
+    for extra in [
+        line("session.start", json!({"copilotVersion": "1.0.83"})),
+        line("brand.new_event", json!({})),
+        line("brand.new_event", json!({})),
+        line("session.resume", json!({"copilotVersion": "1.0.100"})),
+    ] {
+        events.push_str(&extra);
+        events.push('\n');
+    }
+    std::fs::write(dir.join("events.jsonl"), events).unwrap();
+    let db = IndexDb::open_or_create(&temp.path().join("index.db")).unwrap();
+    db.upsert_session(&dir).unwrap();
+
+    let copilot = db.format_diagnostics(SessionSource::Copilot).unwrap();
+    assert_eq!(copilot.sessions, 1);
+    assert_eq!(
+        copilot.unmapped_record_types,
+        vec![count("brand.new_event", 1, 2)]
+    );
+    assert!(copilot.unmapped_attachment_types.is_empty());
+    // Numeric order: 1.0.83 before 1.0.100.
+    assert_eq!(
+        copilot.versions,
+        vec![count("1.0.83", 1, 1), count("1.0.100", 1, 1)]
+    );
+    assert_eq!(
+        db.format_diagnostics(SessionSource::ClaudeCode).unwrap(),
+        crate::index_db::FormatDiagnostics::default()
+    );
+
+    // Copilot rows indexed before Copilot reported format observations are
+    // refreshed.
+    db.conn
+        .execute("UPDATE sessions SET analytics_version = 17", [])
+        .unwrap();
+    let provider = tracepilot_core::provider::CopilotProvider::new(&root);
+    let locator = tracepilot_core::provider::CopilotProvider::session_at(&dir);
+    assert!(db.session_is_stale(&provider, &locator));
+}

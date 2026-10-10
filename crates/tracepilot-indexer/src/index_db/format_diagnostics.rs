@@ -34,8 +34,7 @@ pub struct FormatDiagnostics {
 }
 
 impl IndexDb {
-    /// The format drift indexing recorded for `source`. Empty for a source
-    /// that reports none (Copilot).
+    /// The format drift indexing recorded for `source`.
     pub fn format_diagnostics(&self, source: SessionSource) -> Result<FormatDiagnostics> {
         let mut out = FormatDiagnostics {
             sessions: self.conn.query_row(

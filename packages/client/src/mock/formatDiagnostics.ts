@@ -1,7 +1,6 @@
 import type { SourceFormatDiagnostics } from "../generated/bindings.js";
 
-// Format drift recorded while indexing (Settings → Claude Code). Only
-// Claude Code reports any; Copilot's is always empty.
+// Format drift recorded while indexing (Settings → Logs & Diagnostics).
 
 export const MOCK_CLAUDE_FORMAT_DIAGNOSTICS: SourceFormatDiagnostics = {
   sessions: 3,
@@ -13,9 +12,14 @@ export const MOCK_CLAUDE_FORMAT_DIAGNOSTICS: SourceFormatDiagnostics = {
   ],
 };
 
+// Enough versions to scroll inside their table.
 export const MOCK_COPILOT_FORMAT_DIAGNOSTICS: SourceFormatDiagnostics = {
   sessions: 47,
-  unmappedRecordTypes: [],
+  unmappedRecordTypes: [{ name: "session.brand_new_event", sessions: 2, records: 5 }],
   unmappedAttachmentTypes: [],
-  versions: [],
+  versions: Array.from({ length: 12 }, (_, i) => ({
+    name: `1.0.${80 + i}`,
+    sessions: 3 + (i % 4),
+    records: 2 + (i % 3),
+  })),
 };

@@ -58,7 +58,7 @@ export const commands = {
 	validateClaudeConfigDir: (path: string) => typedError<ValidateSessionDirResult, BindingsErrorIpc>(__TAURI_INVOKE("validate_claude_config_dir", { path })),
 	/**
 	 *  The format drift indexing recorded for `source`; empty before the first
-	 *  index and for sources that report none (Copilot).
+	 *  index.
 	 */
 	getSourceFormatDiagnostics: (source: SessionSource) => typedError<SourceFormatDiagnostics, BindingsErrorIpc>(__TAURI_INVOKE("get_source_format_diagnostics", { source })),
 	checkConfigExists: () => typedError<boolean, BindingsErrorIpc>(__TAURI_INVOKE("check_config_exists")),

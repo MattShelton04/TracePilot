@@ -18,7 +18,7 @@ Twelve sections, in the order `SettingsView.vue` renders them. Audit copy used t
 | 1  | `#general`     | General                | `SettingsGeneral.vue`           | General |
 | 2  | `#appearance`  | Appearance             | `SettingsAppearance.vue`        | Appearance · Density · Theme |
 | 3  | `#data`        | Data & Storage         | `SettingsDataStorage.vue`       | Indexing |
-| 4  | `#logging`     | Logs & Diagnostics     | `SettingsLogging.vue`           | Conversation (logs) |
+| 4  | `#logging`     | Logs & Diagnostics     | `SettingsLogging.vue`           | Conversation (logs); session format diagnostics |
 | 5  | `#pricing`     | AI Credit Tracking     | `SettingsPricing.vue`           | Telemetry (cost-side) |
 | 6  | `#tools`       | Tool Visualization     | `SettingsToolVisualization.vue` | Conversation (tool renderers) |
 | 7  | `#updates`     | Updates                | `SettingsUpdates.vue`           | Updates |
@@ -30,7 +30,7 @@ Twelve sections, in the order `SettingsView.vue` renders them. Audit copy used t
 
 `Appearance` already covers the audit's "Density" and "Theme" beats — it owns the theme `BtnGroup`, the content-width preset, and the UI scale. There is no separate Density panel and the spec does not introduce one.
 
-`Additional Features` holds the feature flags in a *Recommended* and an *Experimental* group, each under a `SettingsFeatureGroupHeader`. A session provider that is still experimental gets its own section instead of a flag row: `SettingsProviderSection.vue` renders the section title, the Experimental group header, the provider's enable switch and, only while it is on, the provider's own rows. `Claude Code` is the first such section (enable switch, **Claude Code folder**, **Claude Code command**, **Claude Code format diagnostics**). A later provider adds a sibling section through the same component, not more rows in `Additional Features`.
+`Additional Features` holds the feature flags in a *Recommended* and an *Experimental* group, each under a `SettingsFeatureGroupHeader`. A session provider that is still experimental gets its own section instead of a flag row: `SettingsProviderSection.vue` renders the section title, the Experimental group header, the provider's enable switch and, only while it is on, the provider's own rows. `Claude Code` is the first such section (enable switch, **Claude Code folder**, **Claude Code command**). Per-source format diagnostics live in `Logs & Diagnostics` under **Session format diagnostics**: one collapsed panel per source (`FormatDiagnosticsPanel.vue`), each table scrolling inside its own bounded container. A later provider adds a sibling section through the same component, not more rows in `Additional Features`.
 
 The view route stays at `/settings`. Each section is an anchor: `/settings#sdk` scrolls to the SDK card and marks the matching rail item `aria-current="true"`. Anchors are owned by the rail, not the panel — panels do not render their own `id`.
 
