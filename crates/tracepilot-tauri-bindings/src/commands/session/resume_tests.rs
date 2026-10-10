@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 
 use tracepilot_core::provider::{ResumeLaunch, SessionSource};
 
-use super::{effective_cwd, powershell_script, ps_quote, resume_argv, resume_cli};
+use super::{
+    effective_cwd, is_plain_local_absolute, powershell_script, ps_quote, resume_argv, resume_cli,
+};
 use crate::config::TracePilotConfig;
 
 const ID: &str = "c86fe369-c858-4d91-81da-203c5e276e33";
@@ -137,6 +139,8 @@ fn an_untrusted_recorded_directory_falls_back_to_home() {
             PathBuf::from("//attacker/share/repo"),
             PathBuf::from(r"\\?\UNC\attacker\share"),
             PathBuf::from(r"\\.\pipe\x"),
+            PathBuf::from(r"\/attacker/share/repo"),
+            PathBuf::from(r"/\attacker\share\repo"),
             PathBuf::from(r"\repo"),
         ]);
     }
@@ -158,4 +162,50 @@ fn quotes_are_doubled_including_typographic_ones() {
         ps_quote("a\u{2018}b\u{2019}c\u{201A}d\u{201B}e"),
         "a\u{2018}\u{2018}b\u{2019}\u{2019}c\u{201A}\u{201A}d\u{201B}\u{201B}e"
     );
+}
+
+/// Classified from the parsed prefix, never by probing: a refused path must
+/// not reach `is_dir`, which would open an SMB connection.
+#[cfg(windows)]
+#[test]
+fn only_drive_and_wsl_roots_count_as_local() {
+    for local in [
+        r"C:\work\app",
+        r"c:/work/app",
+        r"\\?\C:\work\app",
+        r"\\wsl.localhost\Ubuntu\home\me\app",
+        r"\\WSL$\Ubuntu\home\me\app",
+        "//wsl.localhost/Ubuntu/home/me/app",
+    ] {
+        assert!(is_plain_local_absolute(Path::new(local)), "{local}");
+    }
+    for remote in [
+        r"\\192.0.2.1\share\repo",
+        "//192.0.2.1/share/repo",
+        r"\/192.0.2.1/share/repo",
+        r"/\192.0.2.1\share\repo",
+        r"\\?\UNC\192.0.2.1\share\repo",
+        r"\\?\UNC\wsl.localhost\Ubuntu",
+        r"\\.\pipe\x",
+        r"\\?\Volume{00000000-0000-0000-0000-000000000000}\x",
+        r"\\wsl.localhost.attacker\share\repo",
+        r"\repo",
+        r"C:repo",
+    ] {
+        assert!(!is_plain_local_absolute(Path::new(remote)), "{remote}");
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn a_verbatim_drive_path_is_used_as_recorded() {
+    let temp = tempfile::tempdir().unwrap();
+    let repo = temp.path().join("repo");
+    std::fs::create_dir_all(&repo).unwrap();
+    let verbatim = PathBuf::from(format!(r"\\?\{}", repo.display()));
+    let home = Some(temp.path().to_path_buf());
+    assert_eq!(effective_cwd(Some(&verbatim), home.clone()), verbatim);
+    // Mixed-separator UNC falls back to home without being probed.
+    let mixed = PathBuf::from(r"\/192.0.2.1/share/repo");
+    assert_eq!(effective_cwd(Some(&mixed), home), temp.path());
 }

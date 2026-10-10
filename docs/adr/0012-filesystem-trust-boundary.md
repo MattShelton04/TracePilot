@@ -104,8 +104,13 @@ session recorded: Copilot's `workspace.yaml` `cwd`, or the `cwd` field of a
 Claude Code transcript (`SessionProvider::resume_launch`). That is content
 written by another tool, so it is untrusted. Before anything touches the
 filesystem, `commands/session/resume.rs` keeps only an absolute path with no
-control characters and, on Windows, no `\\server`, `//server`, `\\?\` or
-`\\.\` prefix, so a network path never opens a connection. The terminal then
+control characters. On Windows the parsed prefix (`Component::Prefix`, not
+the string) must also be on an allowlist: a drive (`C:\`, `\\?\C:\`) or WSL's
+local share (`\\wsl.localhost\<distro>`, `\\wsl$\<distro>`). Every other UNC,
+verbatim-UNC or device prefix is refused, including mixed-separator spellings
+such as `\/host/share` and `/\host\share` that a string-prefix check misses.
+A refused path is never probed, so it cannot open an SMB connection. The
+check and the directory probes run on a blocking thread. The terminal then
 starts in the nearest existing directory on that path, else the home
 directory. The path is not canonicalized: the terminal only starts there, and
 a transcript naming an existing local folder gains nothing a user's own `cd`

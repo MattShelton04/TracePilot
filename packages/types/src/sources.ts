@@ -19,7 +19,7 @@ export const DEFAULT_SESSION_SOURCE: SessionSource = "copilot";
 export interface SourceCapabilities {
   /**
    * TracePilot drives the source's CLI against the session (exact context
-   * capture). Wider than {@link canResumeInTerminal}.
+   * capture). Implies {@link canResumeInTerminal}.
    */
   canResume: boolean;
   /**

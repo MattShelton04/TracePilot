@@ -98,7 +98,7 @@ impl SessionRole {
 #[serde(rename_all = "camelCase")]
 pub struct SourceCapabilities {
     /// TracePilot drives the source's CLI against the session (exact context
-    /// capture). Wider than [`Self::can_resume_in_terminal`].
+    /// capture). Implies [`Self::can_resume_in_terminal`].
     pub can_resume: bool,
     /// The session can be resumed in a new terminal
     /// ([`SessionProvider::resume_launch`](super::SessionProvider::resume_launch)).
