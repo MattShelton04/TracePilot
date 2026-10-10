@@ -88,7 +88,7 @@ Run these commands from the repository root with Node 22 and pnpm 10 dependencie
 pnpm pricing:check
 pnpm test:pricing
 pnpm --filter @tracepilot/types test
-pnpm --filter @tracepilot/desktop exec vitest run src/stores/preferences/__tests__/pricing.test.ts
+pnpm --filter @tracepilot/desktop exec vitest run src/stores/preferences/__tests__/pricing.test.ts src/stores/preferences/__tests__/pricing-defaults.test.ts
 pnpm typecheck
 cargo test -p tracepilot-tauri-bindings config::defaults::tests
 cargo test -p tracepilot-orchestrator models::tests
