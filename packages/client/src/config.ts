@@ -3,6 +3,7 @@ import type { SessionLiveness, TracePilotConfig, TracePilotConfigPatch } from "@
 export type { TracePilotConfigPatch } from "@tracepilot/types";
 
 import type {
+  ClaudeCleanupPeriod,
   GitInfo,
   SessionSource,
   SourceFormatDiagnostics,
@@ -45,6 +46,14 @@ export async function validateSessionDir(path: string): Promise<ValidateSessionD
 export async function validateClaudeConfigDir(path: string): Promise<ValidateSessionDirResult> {
   if (!isTauri()) return { valid: true, sessionCount: 3, error: null };
   return invoke<ValidateSessionDirResult>("validate_claude_config_dir", { path });
+}
+
+/**
+ * Claude Code's `cleanupPeriodDays` from `settings.json` in the configured
+ * Claude Code folder. Only that user file is read, not project or managed settings.
+ */
+export async function getClaudeCleanupPeriod(): Promise<ClaudeCleanupPeriod> {
+  return invoke<ClaudeCleanupPeriod>("get_claude_cleanup_period");
 }
 
 /**

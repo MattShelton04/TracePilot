@@ -1,0 +1,249 @@
+//! Claude Code's transcript retention (`cleanupPeriodDays`), read for the
+//! notice in Settings → Claude Code. Only the user `settings.json` in the
+//! configured Claude Code folder is read. Project and managed settings, which
+//! take precedence over it, are not. Nothing else from the file is returned
+//! or logged.
+
+use std::io::Read;
+use std::path::Path;
+
+use serde::{Deserialize, Serialize};
+
+use crate::blocking_cmd;
+use crate::config::{SharedConfig, canonical_claude_config_dir};
+use crate::error::{BindingsError, CmdResult};
+use crate::helpers::{has_local_root, read_config};
+
+const SETTINGS_FILE: &str = "settings.json";
+/// Larger files aren't parsed; a user settings file is a few KiB.
+const MAX_SETTINGS_BYTES: u64 = 1024 * 1024;
+
+/// What the user settings file says about `cleanupPeriodDays`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ClaudeCleanupPeriodState {
+    /// A whole number of days, which may be below Claude Code's minimum of 1.
+    Set,
+    /// The file doesn't set it, so Claude Code's default applies.
+    NotSet,
+    /// There is no settings file (or no Claude Code folder).
+    NoFile,
+    /// The file couldn't be read as a JSON object: unreadable, too large or malformed.
+    FileInvalid,
+    /// It is set to something other than a non-negative whole number.
+    ValueInvalid,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeCleanupPeriod {
+    pub state: ClaudeCleanupPeriodState,
+    /// The value when `state` is `set`.
+    pub days: Option<u32>,
+    /// The settings file that was read, or would be.
+    pub file: String,
+}
+
+/// Only the one key is deserialized; serde skips the rest of the file.
+#[derive(Deserialize)]
+struct UserSettings {
+    #[serde(rename = "cleanupPeriodDays")]
+    cleanup_period_days: Option<serde_json::Value>,
+}
+
+/// The `cleanupPeriodDays` in the configured Claude Code folder's
+/// `settings.json`. A missing or malformed file is a state, not an error.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_claude_cleanup_period(
+    state: tauri::State<'_, SharedConfig>,
+) -> CmdResult<ClaudeCleanupPeriod> {
+    let dir = read_config(&state).claude_config_dir();
+    blocking_cmd!(Ok::<_, BindingsError>(read_cleanup_period(&dir)))
+}
+
+pub(crate) fn read_cleanup_period(config_dir: &Path) -> ClaudeCleanupPeriod {
+    use ClaudeCleanupPeriodState as State;
+    let outcome = |state, days, file: &Path| ClaudeCleanupPeriod {
+        state,
+        days,
+        file: file.to_string_lossy().into_owned(),
+    };
+    // The same check as saving the folder (ADR 0012): local, existing, canonical.
+    let Ok(dir) = canonical_claude_config_dir(&config_dir.to_string_lossy()) else {
+        return outcome(State::NoFile, None, &config_dir.join(SETTINGS_FILE));
+    };
+    let path = dir.join(SETTINGS_FILE);
+    let bytes = match read_bounded(&path) {
+        Ok(bytes) => bytes,
+        Err(state) => return outcome(state, None, &path),
+    };
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
+    // Serde would also fill the struct from an array; settings are an object.
+    let is_object = bytes.trim_ascii_start().first() == Some(&b'{');
+    let (state, days) = match serde_json::from_slice::<UserSettings>(bytes) {
+        Err(_) => (State::FileInvalid, None),
+        Ok(_) if !is_object => (State::FileInvalid, None),
+        Ok(UserSettings {
+            cleanup_period_days: None,
+        }) => (State::NotSet, None),
+        Ok(UserSettings {
+            cleanup_period_days: Some(value),
+        }) => match whole_days(&value) {
+            Some(days) => (State::Set, Some(days)),
+            None => (State::ValueInvalid, None),
+        },
+    };
+    outcome(state, days, &path)
+}
+
+/// A non-negative whole number, as JavaScript reads JSON (`30.0` is 30).
+/// Values past `u32::MAX` saturate.
+fn whole_days(value: &serde_json::Value) -> Option<u32> {
+    if let Some(days) = value.as_u64() {
+        return Some(u32::try_from(days).unwrap_or(u32::MAX));
+    }
+    let days = value.as_f64()?;
+    (days >= 0.0 && days.fract() == 0.0).then(|| days.min(f64::from(u32::MAX)) as u32)
+}
+
+/// The file's bytes, if it is a local regular file of at most
+/// [`MAX_SETTINGS_BYTES`]. A link is followed only to a local target.
+fn read_bounded(path: &Path) -> Result<Vec<u8>, ClaudeCleanupPeriodState> {
+    use ClaudeCleanupPeriodState as State;
+    let target = match tracepilot_core::utils::fs::canonicalize(path) {
+        Ok(target) => target,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Err(State::NoFile),
+        Err(_) => return Err(State::FileInvalid),
+    };
+    // Checked before opening too, so a FIFO or device is never opened.
+    let regular = std::fs::metadata(&target).is_ok_and(|meta| meta.is_file());
+    if !has_local_root(&target) || !regular {
+        return Err(State::FileInvalid);
+    }
+    let file = std::fs::File::open(&target).map_err(|_unreadable| State::FileInvalid)?;
+    match file.metadata() {
+        Ok(meta) if meta.is_file() && meta.len() <= MAX_SETTINGS_BYTES => {}
+        _ => return Err(State::FileInvalid),
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_SETTINGS_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_unreadable| State::FileInvalid)?;
+    if bytes.len() as u64 > MAX_SETTINGS_BYTES {
+        return Err(State::FileInvalid);
+    }
+    Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ClaudeCleanupPeriodState as State;
+    use super::*;
+
+    fn read_with(contents: Option<&[u8]>) -> ClaudeCleanupPeriod {
+        let temp = tempfile::tempdir().unwrap();
+        if let Some(contents) = contents {
+            std::fs::write(temp.path().join(SETTINGS_FILE), contents).unwrap();
+        }
+        read_cleanup_period(temp.path())
+    }
+
+    fn state_and_days(contents: &str) -> (State, Option<u32>) {
+        let result = read_with(Some(contents.as_bytes()));
+        (result.state, result.days)
+    }
+
+    #[test]
+    fn a_whole_number_is_read() {
+        let result = read_with(Some(br#"{"model":"x","cleanupPeriodDays":3650}"#));
+        assert_eq!((result.state, result.days), (State::Set, Some(3650)));
+        assert!(result.file.ends_with(SETTINGS_FILE));
+        assert_eq!(
+            state_and_days(r#"{"cleanupPeriodDays":30.0}"#),
+            (State::Set, Some(30))
+        );
+        assert_eq!(
+            state_and_days("\u{FEFF}{\"cleanupPeriodDays\":7}"),
+            (State::Set, Some(7))
+        );
+        assert_eq!(
+            state_and_days(r#"{"cleanupPeriodDays":99999999999}"#),
+            (State::Set, Some(u32::MAX))
+        );
+    }
+
+    #[test]
+    fn zero_is_returned_for_the_ui_to_flag() {
+        assert_eq!(
+            state_and_days(r#"{"cleanupPeriodDays":0}"#),
+            (State::Set, Some(0))
+        );
+    }
+
+    #[test]
+    fn a_missing_key_or_file_falls_back_to_the_default() {
+        assert_eq!(state_and_days(r#"{"model":"x"}"#), (State::NotSet, None));
+        assert_eq!(
+            state_and_days(r#"{"cleanupPeriodDays":null}"#),
+            (State::NotSet, None)
+        );
+        let missing = read_with(None);
+        assert_eq!((missing.state, missing.days), (State::NoFile, None));
+        assert!(missing.file.ends_with(SETTINGS_FILE));
+
+        let temp = tempfile::tempdir().unwrap();
+        let gone = read_cleanup_period(&temp.path().join("absent"));
+        assert_eq!(gone.state, State::NoFile);
+        assert_eq!(read_cleanup_period(Path::new("")).state, State::NoFile);
+    }
+
+    #[test]
+    fn other_values_are_invalid() {
+        for value in [r#""90""#, "7.5", "-3", "true", "[30]", "{}"] {
+            let contents = format!(r#"{{"cleanupPeriodDays":{value}}}"#);
+            assert_eq!(
+                state_and_days(&contents),
+                (State::ValueInvalid, None),
+                "{value}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_malformed_file_is_invalid() {
+        for contents in [
+            "",
+            "{",
+            "[1,2]",
+            "[30]",
+            "30",
+            r#"{"cleanupPeriodDays":30,}"#,
+        ] {
+            assert_eq!(
+                state_and_days(contents),
+                (State::FileInvalid, None),
+                "{contents:?}"
+            );
+        }
+        assert_eq!(
+            read_with(Some(&[0xFF, 0xFE, 0x00])).state,
+            State::FileInvalid
+        );
+    }
+
+    #[test]
+    fn an_oversized_file_is_not_parsed() {
+        let mut contents = br#"{"cleanupPeriodDays":90,"pad":""#.to_vec();
+        contents.resize(MAX_SETTINGS_BYTES as usize + 1, b' ');
+        contents.extend_from_slice(br#""}"#);
+        assert_eq!(read_with(Some(&contents)).state, State::FileInvalid);
+    }
+
+    #[test]
+    fn a_directory_named_settings_json_is_invalid() {
+        let temp = tempfile::tempdir().unwrap();
+        std::fs::create_dir(temp.path().join(SETTINGS_FILE)).unwrap();
+        assert_eq!(read_cleanup_period(temp.path()).state, State::FileInvalid);
+    }
+}

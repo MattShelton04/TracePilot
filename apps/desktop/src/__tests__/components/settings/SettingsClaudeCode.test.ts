@@ -1,4 +1,4 @@
-import { IPC_EVENTS } from "@tracepilot/client";
+import { type ClaudeCleanupPeriod, getClaudeCleanupPeriod, IPC_EVENTS } from "@tracepilot/client";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { createPinia, disposePinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,6 +33,11 @@ vi.mock("@tracepilot/client", async () => {
   });
   return createClientMock({
     getConfig: vi.fn(async () => config),
+    getClaudeCleanupPeriod: vi.fn(async () => ({
+      state: "notSet" as const,
+      days: null,
+      file: "C:\\Users\\demo\\.claude\\settings.json",
+    })),
   });
 });
 
@@ -134,6 +139,44 @@ describe("SettingsClaudeCode", () => {
 
       wrapper.unmount();
       expect((await mountSection()).find(notice).exists()).toBe(false);
+    });
+
+    const file = "C:\\Users\\demo\\.claude\\settings.json";
+    it.each<[string, Omit<ClaudeCleanupPeriod, "file">, string, boolean]>([
+      ["a large value", { state: "set", days: 3650 }, "Your current setting: 3650 days.", false],
+      ["a low value", { state: "set", days: 7 }, "7 days, shorter than the 30-day default", true],
+      ["zero", { state: "set", days: 0 }, "0 days. Claude Code rejects values below 1", true],
+      ["no value", { state: "notSet", days: null }, "not set, so the default of 30 days", false],
+      ["no file", { state: "noFile", days: null }, "not set (no settings file)", false],
+      ["a bad value", { state: "valueInvalid", days: null }, "not a whole number of days", true],
+      ["a bad file", { state: "fileInvalid", days: null }, "couldn't be read as JSON", true],
+    ])("shows %s from the user settings file", async (_, result, text, warn) => {
+      vi.mocked(getClaudeCleanupPeriod).mockResolvedValueOnce({ ...result, file });
+      usePreferencesStore(pinia).toggleFeature("claudeCodeSessions");
+      const wrapper = await mountSection();
+
+      const readout = wrapper.get('[data-testid="claude-cleanup-readout"]');
+      expect(readout.text()).toContain(text);
+      expect(readout.text()).toContain(`Checked ${file}`);
+      expect(wrapper.get(notice).classes()).toContain(warn ? "banner--warning" : "banner--info");
+    });
+
+    it("says the setting is unknown when it can't be read", async () => {
+      vi.mocked(getClaudeCleanupPeriod).mockRejectedValueOnce(new Error("ipc down"));
+      usePreferencesStore(pinia).toggleFeature("claudeCodeSessions");
+      const wrapper = await mountSection();
+
+      const readout = wrapper.get('[data-testid="claude-cleanup-readout"]');
+      expect(readout.text()).toBe("Your current setting: unknown.");
+    });
+
+    it("doesn't read the settings file once dismissed", async () => {
+      localStorage.setItem(STORAGE_KEYS.claudeRetentionNoticeDismissed, "true");
+      vi.mocked(getClaudeCleanupPeriod).mockClear();
+      usePreferencesStore(pinia).toggleFeature("claudeCodeSessions");
+      await mountSection();
+
+      expect(getClaudeCleanupPeriod).not.toHaveBeenCalled();
     });
   });
 });
