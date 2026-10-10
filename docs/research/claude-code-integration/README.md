@@ -164,13 +164,14 @@ goal of easy future providers. See [architecture.md](architecture.md) §2.
 
 Users control Claude Code with **one experimental setting**, following the existing feature-flag
 pattern (`FeaturesConfig` in `tracepilot-tauri-bindings/src/config/features.rs`, `DEFAULT_FEATURES`
-in `@tracepilot/types`, and the `experimentalFlags` list in
-`apps/desktop/src/components/settings/SettingsExperimental.vue`):
+in `@tracepilot/types`). Its switch heads its own experimental Settings section,
+`apps/desktop/src/components/settings/SettingsClaudeCode.vue`, built on the provider-neutral
+`SettingsProviderSection.vue` so a later provider can reuse it:
 
-- **Settings → Experimental → "Claude Code sessions"** (`features.claudeCodeSessions`, default
+- **Settings → Claude Code → "Claude Code sessions"** (`features.claudeCodeSessions`, default
   **off**). Description: "Index and view Claude Code sessions from `~/.claude` alongside
   Copilot CLI sessions."
-- **Claude Code folder.** When the setting is on, Settings → Data & Storage shows a "Claude
+- **Claude Code folder.** When the setting is on, the same section shows a "Claude
   Code folder" path field (`sources.claudeCode.configDir`). It defaults to `CLAUDE_CONFIG_DIR`,
   else `~/.claude`, and is validated like the Copilot folder.
 - **Turning it on** registers the `ClaudeCodeProvider` and starts an incremental reindex of that

@@ -242,13 +242,13 @@ The reshape has to happen in Rust:
 
 - **Enable flag:** `features.claudeCodeSessions` (experimental, default off) in `FeaturesConfig`
   (`tauri-bindings/src/config/features.rs`), mirrored in `DEFAULT_FEATURES` (`@tracepilot/types`)
-  and listed in `experimentalFlags` in `SettingsExperimental.vue`. The flag decides whether
+  and switched in the Settings → Claude Code section (`SettingsClaudeCode.vue`). The flag decides whether
   `ClaudeCodeProvider` is registered in the `ProviderRegistry`. UX is in
   [README §5](README.md#5-enabling-and-disabling-claude-code).
 - **Root path:** `sources.claudeCode.configDir` (new `SourcesConfig`, specta-exported).
   - Default: `CLAUDE_CONFIG_DIR`, else `~/.claude`.
   - Validated through `canonicalize_user_path` ([ADR 0012](../../adr/0012-filesystem-trust-boundary.md)).
-  - Shown in Settings → Data & Storage only when the flag is on.
+  - Shown in Settings → Claude Code only when the flag is on.
   - The Copilot paths stay in `PathsConfig` unchanged, which keeps the config migration additive.
 - **Toggle effects:** the provider registry is rebuilt on config change. Enabling triggers a
   reindex of that source. Disabling follows the generation ordering in §3.4: cancel, purge,

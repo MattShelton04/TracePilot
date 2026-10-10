@@ -112,7 +112,7 @@ transcript sums on the *same* model. A fixed "within N%" gate would fail correct
 **L1 acceptance:**
 - Copilot golden tests pass unchanged.
 - The `FixtureProvider` pipeline test passes.
-- Enabling **Settings → Experimental → Claude Code sessions** indexes that source.
+- Enabling **Settings → Claude Code → Claude Code sessions** indexes that source.
 - Claude sessions list, search, open in Conversation and Events, and show totals from
   `cost-state`.
 - Copilot-only tabs are hidden for Claude sessions.

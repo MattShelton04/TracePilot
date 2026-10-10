@@ -1,6 +1,6 @@
 import type { SourceFormatDiagnostics } from "../generated/bindings.js";
 
-// Format drift recorded while indexing (Settings → Data & Storage). Only
+// Format drift recorded while indexing (Settings → Claude Code). Only
 // Claude Code reports any; Copilot's is always empty.
 
 export const MOCK_CLAUDE_FORMAT_DIAGNOSTICS: SourceFormatDiagnostics = {
