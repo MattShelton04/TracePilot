@@ -9,6 +9,7 @@ import { formatDuration, formatNumber, formatRelativeTime, StatusPill } from "@t
 import { useRouter } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { NO_FINAL_REPORT, NO_FINAL_REPORT_HINT } from "@/utils/agentEndState";
 
 defineProps<{ runs: AgentRunRecord[] }>();
 
@@ -19,7 +20,13 @@ const OUTCOME_TONE: Record<AgentRunOutcome, "success" | "danger" | "warning" | "
   failed: "danger",
   cancelled: "warning",
   incomplete: "neutral",
+  unreported: "neutral",
 };
+
+/** The stored outcome, except a run that never reported in an ended session. */
+function outcomeLabel(outcome: AgentRunOutcome): string {
+  return outcome === "unreported" ? NO_FINAL_REPORT : outcome;
+}
 
 function open(run: AgentRunRecord) {
   const query: Record<string, string> = { turn: String(run.turnIndex) };
@@ -35,7 +42,12 @@ function open(run: AgentRunRecord) {
   <ul v-if="runs.length" class="runs">
     <li v-for="run in runs" :key="`${run.sessionId}-${run.runKey}`" class="runs__row">
       <button type="button" class="runs__open" @click="open(run)">
-        <StatusPill :tone="OUTCOME_TONE[run.outcome]" :label="run.outcome" size="xs" />
+        <StatusPill
+          :tone="OUTCOME_TONE[run.outcome]"
+          :label="outcomeLabel(run.outcome)"
+          :title="run.outcome === 'unreported' ? NO_FINAL_REPORT_HINT : undefined"
+          size="xs"
+        />
         <span class="runs__summary" :title="run.sessionSummary || run.description || run.sessionId">
           {{ run.sessionSummary || run.description || run.sessionId }}
         </span>

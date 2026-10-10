@@ -362,3 +362,58 @@ fn main_agent_selections_are_counted_per_session() {
     assert_eq!(summary.main_agent_selections[0].name, "reviewer");
     assert_eq!(summary.main_agent_selections[0].sessions, 1);
 }
+
+/// An unfinished run reads as unreported only in a session the caller says
+/// has ended for good; the stored outcome stays `incomplete`.
+#[test]
+fn unfinished_runs_of_ended_sessions_read_as_unreported() {
+    use std::collections::HashSet;
+
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let id = "d5555555-5555-5555-5555-555555555555";
+    // `c2` never reports.
+    let events: Vec<String> = agent_session("2026-09-12")
+        .into_iter()
+        .filter(|line| !line.contains(r#""toolCallId":"c2","agentName":"explore","model""#))
+        .collect();
+    db.upsert_session(&write_raw_session(tmp.path(), id, "org/agents", &events))
+        .unwrap();
+
+    let unfinished: Vec<_> = db
+        .sessions_with_unfinished_agent_runs()
+        .unwrap()
+        .into_iter()
+        .map(|locator| locator.id.as_str().to_string())
+        .collect();
+    assert_eq!(unfinished, [id]);
+
+    let running = db
+        .query_agent_usage_summary(None, None, None, None)
+        .unwrap();
+    assert_eq!((running.incomplete_runs, running.unreported_runs), (1, 0));
+
+    let ended = HashSet::from([id.to_string()]);
+    let summary = db
+        .query_agent_usage_summary_settled(None, None, None, None, &ended)
+        .unwrap();
+    assert_eq!((summary.incomplete_runs, summary.unreported_runs), (0, 1));
+    let explore = summary.agents.iter().find(|a| a.name == "explore").unwrap();
+    assert_eq!(
+        (explore.completed, explore.incomplete, explore.unreported),
+        (1, 0, 1)
+    );
+
+    let detail = db
+        .query_agent_usage_detail_settled("explore", None, None, None, None, &ended)
+        .unwrap();
+    assert_eq!(detail.stats.unreported, 1);
+    assert_eq!(detail.outcomes_by_day[0].unreported, 1);
+    assert_eq!(detail.outcomes_by_day[0].incomplete, 0);
+    let outcomes: HashSet<_> = detail
+        .recent_runs
+        .iter()
+        .map(|r| r.outcome.as_str())
+        .collect();
+    assert_eq!(outcomes, HashSet::from(["completed", "unreported"]));
+}

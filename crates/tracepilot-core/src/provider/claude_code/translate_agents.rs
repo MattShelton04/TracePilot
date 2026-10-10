@@ -12,6 +12,43 @@ use super::notify::TaskNotification;
 use super::records::Rec;
 use super::translate::{Custom, RecCtx, Stream, Translator};
 
+/// An agent's reported tool uses and duration. Claude Code counts both from
+/// the agent's latest (re)start, while its token figure keeps growing across
+/// them. A resume can restart the counts or continue them, and the records
+/// do not say which, but a restarted count is lower than the report before
+/// it. So a lower report carries the earlier counts into the run's totals.
+#[derive(Clone, Copy, Default)]
+pub(super) struct AgentTotals {
+    /// Tool uses and duration of the agent's earlier starts.
+    carried: [u64; 2],
+    /// The latest report since the agent's latest start.
+    last: [Option<u64>; 2],
+}
+
+impl AgentTotals {
+    /// Take a report of `[tool uses, duration ms]` and return the run's
+    /// totals so far. A field the report lacks stays unknown.
+    fn report(&mut self, now: [Option<u64>; 2]) -> [Option<u64>; 2] {
+        let restarted = self
+            .last
+            .iter()
+            .zip(&now)
+            .any(|pair| matches!(pair, (Some(last), Some(now)) if now < last));
+        let fields = self.carried.iter_mut().zip(&mut self.last).zip(now);
+        let mut totals = [None; 2];
+        for (total, ((carried, last), now)) in totals.iter_mut().zip(fields) {
+            if restarted {
+                *carried = carried.saturating_add(last.unwrap_or(0));
+                *last = now;
+            } else {
+                *last = now.or(*last);
+            }
+            *total = now.map(|now| now.saturating_add(*carried));
+        }
+        totals
+    }
+}
+
 /// How an agent's latest completion has been reported so far.
 #[derive(Clone, Copy, Default)]
 pub(super) struct Terminal {
@@ -125,11 +162,16 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             .cloned()
             .or_else(|| note.tool_use_id.clone())
             .unwrap_or_else(|| agent.to_string());
+        let [tool_uses, duration] = self
+            .agent_totals
+            .entry(agent.to_string())
+            .or_default()
+            .report([note.tool_uses, note.duration_ms]);
         if let Some(map) = data.as_object_mut() {
             map.insert("toolCallId".into(), json!(owner));
             map.insert("totalTokens".into(), json!(note.total_tokens));
-            map.insert("totalToolCalls".into(), json!(note.tool_uses));
-            map.insert("durationMs".into(), json!(note.duration_ms));
+            map.insert("totalToolCalls".into(), json!(tool_uses));
+            map.insert("durationMs".into(), json!(duration));
         }
         let terminal = Terminal {
             totals: has_totals,
@@ -186,11 +228,20 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             }
             Some(text) => ("subagent.failed", json!({"error": text})),
         };
+        let reported = ["totalToolUseCount", "totalDurationMs"].map(|key| field(key)?.as_u64());
+        let [tool_uses, duration] = match &agent {
+            Some(agent) => self
+                .agent_totals
+                .entry(agent.clone())
+                .or_default()
+                .report(reported),
+            None => reported,
+        };
         if let Some(map) = data.as_object_mut() {
             map.insert("toolCallId".into(), json!(tool));
             map.insert("totalTokens".into(), json!(total_tokens));
-            map.insert("totalToolCalls".into(), json!(field("totalToolUseCount")));
-            map.insert("durationMs".into(), json!(field("totalDurationMs")));
+            map.insert("totalToolCalls".into(), json!(tool_uses));
+            map.insert("durationMs".into(), json!(duration));
         }
         let custom = Custom {
             parent: None,

@@ -1,9 +1,11 @@
 //! Agents explorer commands: definitions, `/subagents` overrides and usage.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use tracepilot_core::analytics::{AgentUsageDetail, AgentUsageSummary};
-use tracepilot_core::provider::SessionSource;
+use tracepilot_core::provider::{Liveness, SessionLocator, SessionSource};
+use tracepilot_indexer::index_db::IndexDb;
 use tracepilot_orchestrator::agents::write::BuiltinWrites;
 use tracepilot_orchestrator::agents::{
     AgentCatalog, AgentCreateScope, AgentDefinitionDetail, AgentFields, AgentRoots,
@@ -14,6 +16,7 @@ use crate::blocking_cmd;
 use crate::config::{ConfigCoordinator, SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{open_index_db, read_config};
+use crate::providers::registry_for;
 
 /// Agent names are CLI identifiers; bound their size and reject control
 /// characters before they reach settings.json or SQL parameters.
@@ -243,16 +246,18 @@ pub async fn agents_usage_summary(
     source: Option<SessionSource>,
 ) -> CmdResult<AgentUsageSummary> {
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
-    let index_path = read_config(&state).index_db_path();
+    let config = read_config(&state);
     blocking_cmd!({
-        let Some(open) = open_index_db(&index_path) else {
+        let Some(open) = open_index_db(&config.index_db_path()) else {
             return Ok(AgentUsageSummary::default());
         };
-        Ok::<_, BindingsError>(open.db.query_agent_usage_summary(
+        let unreported = unreported_sessions(&config, &open.db)?;
+        Ok::<_, BindingsError>(open.db.query_agent_usage_summary_settled(
             from_date.as_deref(),
             to_date.as_deref(),
             repo.as_deref(),
             source,
+            &unreported,
         )?)
     })
 }
@@ -269,19 +274,52 @@ pub async fn agents_usage_detail(
 ) -> CmdResult<AgentUsageDetail> {
     validate_agent_name(&agent_name)?;
     crate::validators::validate_iso_date_range(&from_date, &to_date)?;
-    let index_path = read_config(&state).index_db_path();
+    let config = read_config(&state);
     blocking_cmd!({
-        let Some(open) = open_index_db(&index_path) else {
+        let Some(open) = open_index_db(&config.index_db_path()) else {
             return Ok(AgentUsageDetail::default());
         };
-        Ok::<_, BindingsError>(open.db.query_agent_usage_detail(
+        let unreported = unreported_sessions(&config, &open.db)?;
+        Ok::<_, BindingsError>(open.db.query_agent_usage_detail_settled(
             agent_name.trim(),
             from_date.as_deref(),
             to_date.as_deref(),
             repo.as_deref(),
             source,
+            &unreported,
         )?)
     })
+}
+
+/// Sessions whose unfinished agent runs will never report: non-Copilot
+/// sessions that no live process owns, as the session views settle them
+/// (`settledAgentStatus`). Copilot runs and running sessions stay incomplete.
+fn unreported_sessions(config: &TracePilotConfig, db: &IndexDb) -> CmdResult<HashSet<String>> {
+    let sessions: Vec<SessionLocator> = db
+        .sessions_with_unfinished_agent_runs()?
+        .into_iter()
+        .filter(|session| session.source != SessionSource::Copilot)
+        .collect();
+    let mut unreported = HashSet::new();
+    if sessions.is_empty() {
+        return Ok(unreported);
+    }
+    for provider in registry_for(config).providers() {
+        let own: Vec<SessionLocator> = sessions
+            .iter()
+            .filter(|session| session.source == provider.source())
+            .cloned()
+            .collect();
+        if own.is_empty() {
+            continue;
+        }
+        for (session, liveness) in own.iter().zip(provider.liveness_many(&own)) {
+            if !matches!(liveness, Liveness::Running { .. }) {
+                unreported.insert(session.id.as_str().to_string());
+            }
+        }
+    }
+    Ok(unreported)
 }
 
 #[cfg(test)]

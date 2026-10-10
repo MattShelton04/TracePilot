@@ -183,6 +183,52 @@ describe("AgentUsageTab", () => {
     expect(wrapper.find(".agent-usage__communication").exists()).toBe(false);
   });
 
+  it("splits runs that never reported from incomplete ones and labels them", () => {
+    const stats = agentUsage("reviewer", { runs: 6, completed: 3, incomplete: 1, unreported: 2 });
+    const ctx = makeCtx({
+      usage: {
+        stats,
+        recentRuns: [
+          {
+            sessionId: "s1",
+            sessionSummary: "Ended session",
+            repository: null,
+            runKey: "r1",
+            toolCallId: "r1",
+            displayName: null,
+            description: null,
+            startedAt: null,
+            outcome: "unreported",
+            errorText: null,
+            model: null,
+            durationMs: null,
+            totalTokens: null,
+            totalToolCalls: null,
+            ownNanoAiu: null,
+            depth: 0,
+            parentAgentName: null,
+            turnIndex: 0,
+            eventIndex: null,
+          },
+        ],
+        dispatch: [],
+        failureReasons: [],
+        invokedBy: [],
+        depths: [],
+        parallelism: [],
+        repositories: [],
+      },
+      store: { range: "30d" },
+    } as unknown as Partial<AgentEditorContext>);
+    const wrapper = mount(host(AgentUsageTab, ctx));
+    const legend = wrapper.findAll(".stacked__item").map((el) => el.text());
+    expect(legend).toContainEqual(expect.stringContaining("Incomplete1"));
+    expect(legend).toContainEqual(expect.stringContaining("No final report2"));
+    const pill = wrapper.get(".runs [data-tp-component='StatusPill']");
+    expect(pill.text()).toBe("No final report");
+    expect(pill.attributes("title")).toContain("session ended before this agent reported");
+  });
+
   it("keeps metric coverage and missing values visible in the timing section", () => {
     const stats = agentUsage("reviewer", { runs: 100 });
     stats.durationMs = { ...stats.durationMs, count: 27, p50: 1_000 };

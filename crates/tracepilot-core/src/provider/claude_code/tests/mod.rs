@@ -46,6 +46,10 @@ fn all_fixtures() -> Vec<(&'static str, SessionFiles)> {
         ("subagents", fixtures::subagents()),
         ("foreground_agents", fixtures::foreground_agents()),
         ("agent_follow_ups", fixtures::agent_follow_ups()),
+        (
+            "agent_resumed_after_session_resume",
+            fixtures::agent_resumed_after_session_resume(),
+        ),
         ("notification_wake", fixtures::notification_wake()),
         ("rewind_fork", fixtures::rewind_fork()),
         ("interrupted_and_live", fixtures::interrupted_and_live()),

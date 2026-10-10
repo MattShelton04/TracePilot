@@ -75,6 +75,9 @@ pub(super) struct Links {
     pub(super) agent_tool_ids: HashSet<String>,
     /// Launching `tool_use` id → child indices, by first timestamp then agent id.
     pub(super) launches: HashMap<String, Vec<usize>>,
+    /// Agent id → the main-file `SendMessage` calls that resumed it, as
+    /// (when the call was made, its line).
+    pub(super) resumes: HashMap<String, Vec<(DateTime<Utc>, usize)>>,
 }
 
 /// Link each child to its launching call: `meta.json`'s `toolUseId`, else
@@ -126,5 +129,63 @@ pub(super) fn link(main: &[Line], children: &[ChildStream]) -> Links {
         agent_owner,
         agent_tool_ids,
         launches,
+        resumes: resumes(main),
     }
+}
+
+/// Each main-file `SendMessage` whose result resumed a finished agent
+/// (`resumedAgentId`), by agent: when and where the call was made. A resumed
+/// agent's later records are in its own file, after its first run's.
+///
+/// A record with several results shares one `toolUseResult`, which names
+/// one agent at most, so each of its `SendMessage`s counts for the agent its
+/// input names (`to`). Taking a message to a running agent as a resume is
+/// harmless: that agent was launched in the same run, so no snapshot lies
+/// between its launch and the message.
+fn resumes(main: &[Line]) -> HashMap<String, Vec<(DateTime<Utc>, usize)>> {
+    // `SendMessage` id → when, its line, and the agent its input names.
+    type Send<'a> = (Option<DateTime<Utc>>, usize, Option<&'a str>);
+    let mut sends: HashMap<&str, Send<'_>> = HashMap::new();
+    let mut resumes: HashMap<String, Vec<(DateTime<Utc>, usize)>> = HashMap::new();
+    for line in main {
+        let rec = Rec(&line.value);
+        let blocks = rec.0.pointer("/message/content").and_then(Value::as_array);
+        let blocks = blocks.map_or(&[][..], Vec::as_slice);
+        let results = blocks
+            .iter()
+            .filter(|b| block_type(b) == "tool_result")
+            .count();
+        for block in blocks {
+            if block.get("name").and_then(Value::as_str) == Some("SendMessage")
+                && let Some(id) = block.get("id").and_then(Value::as_str)
+            {
+                let to = block.pointer("/input/to").and_then(Value::as_str);
+                sends.insert(id, (rec.timestamp(), line.line, to));
+            }
+            if block_type(block) != "tool_result"
+                || block.get("is_error").and_then(Value::as_bool) == Some(true)
+            {
+                continue;
+            }
+            let Some(&(Some(at), call_line, to)) = block
+                .get("tool_use_id")
+                .and_then(Value::as_str)
+                .and_then(|tool| sends.get(tool))
+            else {
+                continue;
+            };
+            let agent = if results == 1 {
+                rec.ptr_str("/toolUseResult/resumedAgentId")
+            } else {
+                to
+            };
+            if let Some(agent) = agent {
+                resumes
+                    .entry(agent.to_string())
+                    .or_default()
+                    .push((at, call_line));
+            }
+        }
+    }
+    resumes
 }

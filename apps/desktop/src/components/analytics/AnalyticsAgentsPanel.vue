@@ -25,6 +25,7 @@ import { useFirstReveal } from "@/composables/useFirstReveal";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { useAnalyticsStore } from "@/stores/analytics";
+import { NO_FINAL_REPORT } from "@/utils/agentEndState";
 import { FAILING_RATE } from "@/utils/agents/entries";
 
 const store = useAnalyticsStore();
@@ -116,15 +117,17 @@ const outcomes = computed<StackedSegment[]>(() => {
   const value = summary.value;
   if (!value) return [];
   const failed = value.failedRuns + value.cancelledRuns;
+  const unreported = value.unreportedRuns ?? 0;
   return [
     {
       key: "completed",
       label: "Completed",
-      value: value.totalRuns - failed - value.incompleteRuns,
+      value: value.totalRuns - failed - value.incompleteRuns - unreported,
       tone: "success",
     },
     { key: "failed", label: "Failed or cancelled", value: failed, tone: "danger" },
     { key: "incomplete", label: "Incomplete", value: value.incompleteRuns, tone: "neutral" },
+    { key: "unreported", label: NO_FINAL_REPORT, value: unreported, tone: "neutral" },
   ];
 });
 

@@ -151,6 +151,11 @@ export interface AgentUsageStats {
   failed: number;
   cancelled: number;
   incomplete: number;
+  /**
+   * Runs that never reported in a non-Copilot session that has ended
+   * ("No final report"). Omitted when zero.
+   */
+  unreported?: number;
   durationMs: MetricDistribution;
   /** Can include descendants: never sum across a hierarchy. */
   totalTokens: MetricDistribution;
@@ -193,7 +198,13 @@ export interface AgentUsageSummary {
   totalSessions: number;
   failedRuns: number;
   cancelledRuns: number;
+  /** Unfinished runs that may still report (running sessions, Copilot). */
   incompleteRuns: number;
+  /**
+   * Runs that never reported in a non-Copilot session that has ended
+   * ("No final report"). Omitted when zero.
+   */
+  unreportedRuns?: number;
   maxDepth: number;
   peakParallelism: number;
   runsWithCredits: number;
@@ -208,6 +219,7 @@ export interface AgentDayOutcomes {
   failed: number;
   cancelled: number;
   incomplete: number;
+  unreported: number;
 }
 
 export interface AgentDispatchCount {
@@ -231,7 +243,8 @@ export interface AgentFailureReason {
   lastSeen: string | null;
 }
 
-export type AgentRunOutcome = "completed" | "failed" | "cancelled" | "incomplete";
+/** `unreported`: never reported in a non-Copilot session that has ended. */
+export type AgentRunOutcome = "completed" | "failed" | "cancelled" | "incomplete" | "unreported";
 
 export interface AgentRunRecord {
   sessionId: string;
