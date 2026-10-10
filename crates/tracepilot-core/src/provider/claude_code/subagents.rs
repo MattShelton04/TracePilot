@@ -75,6 +75,9 @@ pub(super) struct Links {
     pub(super) agent_tool_ids: HashSet<String>,
     /// Launching `tool_use` id → child indices, by first timestamp then agent id.
     pub(super) launches: HashMap<String, Vec<usize>>,
+    /// Agent id → the main-file `SendMessage` calls that resumed it, as
+    /// (when the call was made, its line).
+    pub(super) resumes: HashMap<String, Vec<(DateTime<Utc>, usize)>>,
 }
 
 /// Link each child to its launching call: `meta.json`'s `toolUseId`, else
@@ -126,5 +129,40 @@ pub(super) fn link(main: &[Line], children: &[ChildStream]) -> Links {
         agent_owner,
         agent_tool_ids,
         launches,
+        resumes: resumes(main),
     }
+}
+
+/// Each main-file `SendMessage` whose result resumed a finished agent
+/// (`resumedAgentId`), by agent: when and where the call was made. A resumed
+/// agent's later records are in its own file, after its first run's.
+fn resumes(main: &[Line]) -> HashMap<String, Vec<(DateTime<Utc>, usize)>> {
+    let mut sends: HashMap<&str, (Option<DateTime<Utc>>, usize)> = HashMap::new();
+    let mut resumes: HashMap<String, Vec<(DateTime<Utc>, usize)>> = HashMap::new();
+    for line in main {
+        let rec = Rec(&line.value);
+        let blocks = rec.0.pointer("/message/content").and_then(Value::as_array);
+        for block in blocks.into_iter().flatten() {
+            if block.get("name").and_then(Value::as_str) == Some("SendMessage")
+                && let Some(id) = block.get("id").and_then(Value::as_str)
+            {
+                sends.insert(id, (rec.timestamp(), line.line));
+            }
+            let resumed = block_type(block) == "tool_result"
+                && block.get("is_error").and_then(Value::as_bool) != Some(true);
+            if resumed
+                && let (Some(tool), Some(agent)) = (
+                    block.get("tool_use_id").and_then(Value::as_str),
+                    rec.ptr_str("/toolUseResult/resumedAgentId"),
+                )
+                && let Some(&(Some(at), call_line)) = sends.get(tool)
+            {
+                resumes
+                    .entry(agent.to_string())
+                    .or_default()
+                    .push((at, call_line));
+            }
+        }
+    }
+    resumes
 }

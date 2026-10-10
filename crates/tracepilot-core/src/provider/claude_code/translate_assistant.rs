@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 
 use super::reader::Line;
@@ -23,16 +24,39 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         let site = CallSite {
             agent_id: st.agent_id.as_deref(),
             line: line.line,
-            snapshot_anchor: if st.agent_id.is_none() {
-                Some(line.line)
-            } else {
-                st.anchor
-            },
+            snapshot_anchor: self.snapshot_anchor(st, line.line, rec.timestamp()),
             abandoned,
             requested_at: st.previous_ts,
             at: rec.timestamp(),
         };
         self.calls.observe(rec, site);
+    }
+
+    /// The main-file line that orders a record of `st` at `at` against
+    /// `cost-state` snapshots: its own line in the main file. In a subagent
+    /// file, its launch's line, or the line of the latest `SendMessage` that
+    /// resumed the agent before `at` when that is later: a resumed agent's
+    /// next calls come after that message, and may come after a snapshot
+    /// that its launch is before. `None` for an orphan subagent.
+    fn snapshot_anchor(
+        &self,
+        st: &Stream<'_>,
+        line: usize,
+        at: Option<DateTime<Utc>>,
+    ) -> Option<usize> {
+        let Some(agent) = st.agent_id.as_deref() else {
+            return Some(line);
+        };
+        let launch = st.anchor?;
+        let resumed = at.and_then(|at| {
+            let resumes = self.resumes.get(agent)?;
+            resumes
+                .iter()
+                .filter(|(when, _)| *when <= at)
+                .map(|(_, line)| *line)
+                .max()
+        });
+        Some(resumed.map_or(launch, |line| line.max(launch)))
     }
 
     pub(super) fn assistant(
@@ -172,11 +196,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             let skill = self.emit(st, ctx, "skill.invoked", json!({"name": name}));
             st.pending_skill = Some(skill);
         }
-        let anchor = if st.agent_id.is_none() {
-            Some(line.line)
-        } else {
-            st.anchor
-        };
+        let anchor = self.snapshot_anchor(st, line.line, ctx.ts);
         for index in self.launches.get(id).cloned().unwrap_or_default() {
             self.run_child(index, Some(id.to_string()), anchor, Some(start.clone()))?;
         }

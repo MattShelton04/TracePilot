@@ -111,6 +111,7 @@ pub(super) fn agent_stats(rows: &[&RunRow]) -> AgentUsageStats {
             "completed" => stats.completed += 1,
             "failed" => stats.failed += 1,
             "cancelled" => stats.cancelled += 1,
+            "unreported" => stats.unreported += 1,
             _ => stats.incomplete += 1,
         }
         if let Some(nano) = row.own_nano_aiu {
@@ -194,6 +195,7 @@ pub(super) fn summarize(rows: &[RunRow]) -> AgentUsageSummary {
             "failed" => summary.failed_runs += 1,
             "cancelled" => summary.cancelled_runs += 1,
             "incomplete" => summary.incomplete_runs += 1,
+            "unreported" => summary.unreported_runs += 1,
             _ => {}
         }
         summary.max_depth = summary.max_depth.max(row.depth);

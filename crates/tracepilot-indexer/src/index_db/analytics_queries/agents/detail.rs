@@ -36,6 +36,7 @@ pub(in crate::index_db) fn build_detail(rows: &[RunRow]) -> AgentUsageDetail {
                 "completed" => day.completed += 1,
                 "failed" => day.failed += 1,
                 "cancelled" => day.cancelled += 1,
+                "unreported" => day.unreported += 1,
                 _ => day.incomplete += 1,
             }
         }

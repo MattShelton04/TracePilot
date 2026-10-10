@@ -7,24 +7,31 @@
 mod detail;
 mod stats;
 
+use std::collections::HashSet;
+use std::path::PathBuf;
+
 use chrono::{Duration, NaiveDate};
 use rusqlite::{Connection, params_from_iter};
 
 use crate::Result;
+use tracepilot_core::SessionId;
 use tracepilot_core::analytics::{AgentSelectionStats, AgentUsageDetail, AgentUsageSummary};
-use tracepilot_core::provider::SessionSource;
+use tracepilot_core::provider::{SessionLocator, SessionRole, SessionSource};
 
 use super::super::helpers::{append_source_filter, to_refs};
 
 pub(super) use detail::build_detail;
 
 /// Date range (inclusive `YYYY-MM-DD`, UTC), repository and source filter.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub(super) struct AgentRunFilter<'a> {
     pub from_date: Option<&'a str>,
     pub to_date: Option<&'a str>,
     pub repo: Option<&'a str>,
     pub source: Option<SessionSource>,
+    /// Ended sessions whose unfinished runs will never report: those runs
+    /// read as `unreported` instead of `incomplete`.
+    pub unreported: &'a HashSet<String>,
 }
 
 impl AgentRunFilter<'_> {
@@ -182,6 +189,9 @@ pub(super) fn load_runs(
     let mut result = Vec::new();
     for row in rows {
         let mut row = row?;
+        if row.outcome == "incomplete" && filter.unreported.contains(&row.session_id) {
+            row.outcome = "unreported".to_string();
+        }
         if let (Some((_, previous_to)), Some(date)) = (previous.as_ref(), row.date()) {
             row.in_range = date > previous_to.as_str();
         }
@@ -207,6 +217,45 @@ pub(super) fn query_agent_usage_detail(
 ) -> Result<AgentUsageDetail> {
     let rows = load_runs(conn, filter, Some(agent_name))?;
     Ok(build_detail(&rows))
+}
+
+/// Sessions with an `incomplete` run. A row naming a source or role this
+/// build does not know is skipped.
+pub(super) fn sessions_with_unfinished_runs(conn: &Connection) -> Result<Vec<SessionLocator>> {
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.path, s.source, s.role, s.parent_session_id FROM sessions s
+         WHERE EXISTS (SELECT 1 FROM session_agent_runs r
+                       WHERE r.session_id = s.id AND r.outcome = 'incomplete')
+         ORDER BY s.id",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, Option<String>>(4)?,
+        ))
+    })?;
+    let mut locators = Vec::new();
+    for row in rows {
+        let (id, path, source, role, parent_id) = row?;
+        let (Some(source), Some(role)) = (
+            SessionSource::from_stored(&source),
+            SessionRole::from_stored(&role),
+        ) else {
+            continue;
+        };
+        locators.push(SessionLocator {
+            source,
+            id: SessionId::from_validated(id),
+            primary_path: PathBuf::from(path),
+            parent_id: parent_id.map(SessionId::from_validated),
+            role,
+            source_bytes_hint: 0,
+        });
+    }
+    Ok(locators)
 }
 
 fn query_selections(

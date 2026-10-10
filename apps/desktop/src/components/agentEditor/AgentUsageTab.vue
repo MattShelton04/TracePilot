@@ -14,6 +14,7 @@ import UsageMetricDistribution from "@/components/usage/UsageMetricDistribution.
 import UsageSparkline from "@/components/usage/UsageSparkline.vue";
 import UsageStackedBar, { type StackedSegment } from "@/components/usage/UsageStackedBar.vue";
 import { useAgentEditorContext } from "@/composables/useAgentEditor";
+import { NO_FINAL_REPORT } from "@/utils/agentEndState";
 import { failureRate } from "@/utils/agents/entries";
 import { rangeDays } from "@/utils/agents/range";
 import { USAGE_RANGE_LABELS } from "@/utils/usage/range";
@@ -30,6 +31,7 @@ const outcomes = computed<StackedSegment[]>(() => {
     { key: "failed", label: "Failed", value: value.failed, tone: "danger" },
     { key: "cancelled", label: "Cancelled", value: value.cancelled, tone: "warning" },
     { key: "incomplete", label: "Incomplete", value: value.incomplete, tone: "neutral" },
+    { key: "unreported", label: NO_FINAL_REPORT, value: value.unreported ?? 0, tone: "neutral" },
   ];
 });
 

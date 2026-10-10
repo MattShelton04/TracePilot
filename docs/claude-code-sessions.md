@@ -146,9 +146,12 @@ Conversation:
 
 - A **background subagent** card gets its status, tokens and duration when the
   subagent finishes, like Copilot's. A subagent sent a follow-up message runs
-  again and settles again when it next finishes. If the session ends before the
-  subagent reports, it shows **No final report** rather than Running, and its
-  duration stays unknown.
+  again and settles again when it next finishes; its tool calls and duration
+  then cover all its runs, and its usage after a session resume counts toward
+  the session's cost. If the session ends before the subagent reports, it
+  shows **No final report** rather than Running, and its duration stays
+  unknown. **Analytics → Agents** counts such runs as **No final report**
+  rather than Incomplete.
 - A **background shell** (`run_in_background`, or a command Claude Code moved
   to the background) shows its final state on the command's card, for example
   **Background · Completed · exit 0 · 2m**, once Claude Code reports it. The

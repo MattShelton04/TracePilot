@@ -52,6 +52,12 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 18;
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
 ///
+/// v29: a background agent launched before a `cost-state` snapshot and
+/// resumed by `SendMessage` after it no longer has its later calls counted
+/// as covered by the snapshot, so a resumed session's cost and tokens
+/// include them; and an agent run's tool calls and duration add up across
+/// the agent's restarts instead of keeping only the latest restart's.
+///
 /// v28: a session of slash commands only (no prompt, no model call) has no
 /// turns, so "hide empty" hides it, and no command title; a `SendMessage`
 /// that reports `success: false` is a failed tool call and no longer
@@ -90,7 +96,7 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 18;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 28;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 29;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

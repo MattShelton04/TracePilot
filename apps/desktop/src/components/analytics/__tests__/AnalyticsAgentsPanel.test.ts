@@ -69,6 +69,26 @@ describe("AnalyticsAgentsPanel", () => {
     });
   });
 
+  it("counts runs that never reported in ended sessions as No final report", async () => {
+    vi.mocked(agentsUsageSummary).mockResolvedValue({ ...summary, unreportedRuns: 4 });
+    const wrapper = mount(AnalyticsAgentsPanel);
+    await flushPromises();
+    const legend = wrapper.findAll(".stacked__item").map((el) => el.text());
+    expect(legend).toEqual([
+      expect.stringContaining("Completed83"),
+      expect.stringContaining("Failed or cancelled10"),
+      expect.stringContaining("Incomplete3"),
+      expect.stringContaining("No final report4"),
+    ]);
+  });
+
+  it("omits No final report when no run is unreported", async () => {
+    const wrapper = mount(AnalyticsAgentsPanel);
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("No final report");
+    expect(wrapper.findAll(".stacked__item")[0].text()).toContain("Completed87");
+  });
+
   it("displays the ledger denominator when credits are available", async () => {
     vi.mocked(agentsUsageSummary).mockResolvedValue({
       ...summary,

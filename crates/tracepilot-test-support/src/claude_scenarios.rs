@@ -7,7 +7,7 @@ mod follow_ups;
 mod tools;
 
 pub use agents::{foreground_agents, meta_records, notification_wake, subagents};
-pub use follow_ups::agent_follow_ups;
+pub use follow_ups::{agent_follow_ups, agent_resumed_after_session_resume};
 pub use tools::{PERSISTED_PATH, tool_catalog};
 
 use serde_json::json;

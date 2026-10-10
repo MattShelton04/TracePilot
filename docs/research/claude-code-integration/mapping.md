@@ -120,6 +120,14 @@ Apart from the EOF row, `stop_reason` is not used to decide completeness: it is 
   the resume, emits the agent's terminal event again on its launching call. A carrier of
   the previous completion written after the resume repeats its block, so it stays a
   duplicate. `write_agent` reopens the agent in Conversation until then.
+  - Claude Code counts an agent's tool uses and duration from its latest restart, and a
+    resume may or may not restart them (real data has both). A count lower than the one
+    before marks a restart, so each terminal event carries the earlier restarts' counts
+    plus the new report. The token figure keeps growing across restarts and stays as
+    reported.
+  - For `cost-state` coverage, a resumed agent's later calls are anchored at the
+    `SendMessage` that resumed them, not at its launch. A snapshot between the launch and
+    the resume does not cover them.
 - **Visible branch (rewind and edit forks).**
   - A **fork** is a parent record whose children start different interactions, or different
     `message.id`s that are not parallel `tool_use` blocks of one call.

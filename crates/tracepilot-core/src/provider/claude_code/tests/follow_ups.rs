@@ -141,3 +141,76 @@ fn a_failed_send_message_leaves_a_killed_agent_ended() {
     assert_eq!(send.tool_name, "write_agent");
     assert_eq!(send.success, Some(false), "a refused message failed");
 }
+
+/// A background agent launched before the session's last `cost-state` and
+/// resumed by `SendMessage` after the session resumed: its later calls are
+/// made after the snapshot, so they are in the tail, not counted as covered.
+#[test]
+fn a_resumed_agents_later_calls_are_not_covered_by_an_earlier_snapshot() {
+    use tracepilot_test_support::claude::OPUS;
+
+    use crate::provider::claude_code::{TokenTotals, sum_calls_by_model};
+
+    let parsed = parse(&fixtures::agent_resumed_after_session_resume());
+    assert_eq!(parsed.cost_snapshots.len(), 1);
+    let mut tail: Vec<_> = parsed.tail_calls().map(|c| c.message_id.as_str()).collect();
+    tail.sort_unstable();
+    assert_eq!(
+        tail,
+        ["msg_R2", "msg_R3", "msg_m4", "msg_m5", "msg_m6", "msg_m7"],
+        "R's first call is covered; its calls after each resume are not"
+    );
+    let snapshot = parsed.cost_snapshots[0].line;
+    let anchor = |id: &str| {
+        parsed
+            .calls
+            .iter()
+            .find(|c| c.message_id == id)
+            .and_then(|c| c.snapshot_anchor)
+            .unwrap()
+    };
+    assert!(anchor("msg_R1") < snapshot);
+    assert_eq!(anchor("msg_R2"), anchor("msg_m4"), "anchored at its resume");
+    assert_eq!(anchor("msg_R3"), anchor("msg_m6"));
+    assert_eq!(
+        sum_calls_by_model(parsed.tail_calls())[OPUS],
+        TokenTotals {
+            calls: 6,
+            input_tokens: 11,
+            cache_read_tokens: 110,
+            cache_write_tokens: 0,
+            output_tokens: 11,
+        }
+    );
+}
+
+/// Claude Code's tool uses and duration count from the agent's latest
+/// restart: a resume that restarts them reports that episode alone, one that
+/// continues them reports the total since the restart. The run's totals add
+/// each restart's last report; its tokens are Claude Code's latest figure.
+#[test]
+fn a_resumed_agents_run_totals_add_up_across_restarts() {
+    let parsed = parse(&fixtures::agent_resumed_after_session_resume());
+    let turns = reconstruct_turns(&parsed.events);
+    let review = tool_call(&turns, "toolu_R");
+    assert!(review.is_complete);
+    assert_eq!(
+        (
+            review.total_tool_calls,
+            review.duration_ms,
+            review.total_tokens
+        ),
+        (Some(8), Some(85_000), Some(1300)),
+        "5 + (2, continued to 3) tool uses; 60 s + 25 s"
+    );
+    let runs = extract_agent_runs(&parsed.events, &turns).runs;
+    let run = runs
+        .iter()
+        .find(|r| r.tool_call_id.as_deref() == Some("toolu_R"))
+        .unwrap();
+    assert_eq!(run.outcome, AgentRunOutcome::Completed);
+    assert_eq!(
+        (run.total_tool_calls, run.duration_ms, run.total_tokens),
+        (Some(8), Some(85_000), Some(1300))
+    );
+}

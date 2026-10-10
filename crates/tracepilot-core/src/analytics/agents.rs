@@ -59,6 +59,10 @@ pub struct AgentUsageStats {
     pub failed: u64,
     pub cancelled: u64,
     pub incomplete: u64,
+    /// Runs that never reported in a non-Copilot session that has ended.
+    /// Omitted when zero, so sources without any serialize as before.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub unreported: u64,
     pub duration_ms: MetricDistribution,
     /// Includes descendants where the CLI reports it that way.
     pub total_tokens: MetricDistribution,
@@ -113,7 +117,12 @@ pub struct AgentUsageSummary {
     pub total_sessions: u64,
     pub failed_runs: u64,
     pub cancelled_runs: u64,
+    /// Unfinished runs that may still report.
     pub incomplete_runs: u64,
+    /// Runs that never reported in a non-Copilot session that has ended.
+    /// Omitted when zero, so sources without any serialize as before.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub unreported_runs: u64,
     pub max_depth: u32,
     pub peak_parallelism: u32,
     pub runs_with_credits: u64,
@@ -130,6 +139,12 @@ pub struct AgentDayOutcomes {
     pub failed: u64,
     pub cancelled: u64,
     pub incomplete: u64,
+    #[serde(default)]
+    pub unreported: u64,
+}
+
+fn is_zero(value: &u64) -> bool {
+    *value == 0
 }
 
 /// Configured vs. dispatched vs. actual model for 1.0.83+ runs.
@@ -173,6 +188,8 @@ pub struct AgentRunRecord {
     pub display_name: Option<String>,
     pub description: Option<String>,
     pub started_at: Option<String>,
+    /// `completed`, `failed`, `cancelled`, `incomplete`, or `unreported`
+    /// (never reported in a non-Copilot session that has ended).
     pub outcome: String,
     pub error_text: Option<String>,
     pub model: Option<String>,

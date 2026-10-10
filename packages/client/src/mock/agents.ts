@@ -260,6 +260,7 @@ function detail(name: string): AgentUsageDetail {
       failed: d.runs > 3 ? 1 : 0,
       cancelled: 0,
       incomplete: 0,
+      unreported: 0,
     })),
     dispatch:
       found.mismatchRuns > 0
