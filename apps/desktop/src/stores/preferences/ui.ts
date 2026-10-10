@@ -8,11 +8,13 @@
 
 import {
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
+  DEFAULT_CLAUDE_CLI_COMMAND,
   DEFAULT_CLI_COMMAND,
   DEFAULT_CONTENT_MAX_WIDTH,
   DEFAULT_FAVOURITE_MODELS,
   DEFAULT_SESSION_CACHE_SIZE,
   DEFAULT_UI_SCALE,
+  type TracePilotConfig,
 } from "@tracepilot/types";
 import { normalizePath } from "@tracepilot/ui";
 import { ref, watch } from "vue";
@@ -24,6 +26,19 @@ export const BASE_FONT_SIZE_PX = 16;
 export const MIN_CONTENT_MAX_WIDTH = 400;
 // Matches the backend's u32 setting; zero is the Full preset.
 export const MAX_CONTENT_MAX_WIDTH = 4_294_967_295;
+
+/** The command that runs Claude Code, from `sources.claudeCode.cliCommand`. */
+export function claudeCliCommandOf(config: TracePilotConfig): string {
+  return config.sources?.claudeCode?.cliCommand ?? DEFAULT_CLAUDE_CLI_COMMAND;
+}
+
+/** `sources` with the Claude Code CLI command set, keeping every other field. */
+export function withClaudeCliCommand(
+  sources: TracePilotConfig["sources"],
+  cliCommand: string,
+): TracePilotConfig["sources"] {
+  return { ...sources, claudeCode: { ...sources?.claudeCode, cliCommand } };
+}
 
 export function normalizeContentMaxWidth(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_CONTENT_MAX_WIDTH;
@@ -62,6 +77,8 @@ export function createUiSlice() {
   const sessionStateDir = ref("");
   const hideEmptySessions = ref(true);
   const cliCommand = ref(DEFAULT_CLI_COMMAND);
+  /** Resumes Claude Code sessions (`sources.claudeCode.cliCommand`). */
+  const claudeCliCommand = ref(DEFAULT_CLAUDE_CLI_COMMAND);
   const autoRefreshEnabled = ref(false);
   const autoRefreshIntervalSeconds = ref(DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS);
   const checkForUpdates = ref(true);
@@ -98,6 +115,7 @@ export function createUiSlice() {
     sessionStateDir,
     hideEmptySessions,
     cliCommand,
+    claudeCliCommand,
     autoRefreshEnabled,
     autoRefreshIntervalSeconds,
     checkForUpdates,

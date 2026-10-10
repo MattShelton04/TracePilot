@@ -18,6 +18,9 @@ export const DEFAULT_COST_PER_PREMIUM_REQUEST = 0.04;
 /** Default CLI command name. */
 export const DEFAULT_CLI_COMMAND = "copilot";
 
+/** Default command that runs Claude Code (`sources.claudeCode.cliCommand`). */
+export const DEFAULT_CLAUDE_CLI_COMMAND = "claude";
+
 /** Default auto-refresh interval in seconds. */
 export const DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS = 5;
 
@@ -155,7 +158,7 @@ export function createDefaultConfig(
     },
     sources: {
       // Empty until the backend normalizes it to CLAUDE_CONFIG_DIR or ~/.claude.
-      claudeCode: { configDir: "" },
+      claudeCode: { configDir: "", cliCommand: DEFAULT_CLAUDE_CLI_COMMAND },
       ...overrides?.sources,
     },
   };

@@ -199,6 +199,10 @@ fn copilot_only_actions_are_refused_with_a_typed_error() {
     );
 
     let claude = claude_session(fixture.temp.path());
+    // Both sources resume in a terminal; only Copilot is driven by TracePilot.
+    for session in [&copilot, &claude] {
+        require_capability(session, |caps| caps.can_resume_in_terminal, "Resume").unwrap();
+    }
     // Claude Code browses the session's subagent and tool-result folders.
     let session_dir = claude.locator.primary_path.with_extension("");
     assert_eq!(

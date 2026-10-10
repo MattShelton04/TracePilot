@@ -14,19 +14,23 @@ use super::background::read_background_tasks;
 use super::liveness::{ProcessStart, StalePidFiles, liveness, liveness_many};
 use super::reader::{Line, read_jsonl};
 use super::summary::summarize;
-use super::{ClaudeDiagnostics, file_history, parse_claude_session, plans};
+use super::{ClaudeDiagnostics, file_history, parse_claude_session, plans, resume};
 use crate::error::{Result, TracePilotError};
 use crate::ids::SessionId;
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled, ensure_unchanged};
 use crate::provider::{
-    FileHistory, Liveness, PlanArtifact, ProviderSnapshot, SessionArtifacts, SessionLocator,
-    SessionProvider, SessionRole, SessionSource, SourceCapabilities, SourceFingerprint,
+    FileHistory, Liveness, PlanArtifact, ProviderSnapshot, ResumeLaunch, SessionArtifacts,
+    SessionLocator, SessionProvider, SessionRole, SessionSource, SourceCapabilities,
+    SourceFingerprint,
 };
 
 /// Nothing Copilot-specific and no todos. Claude Code has no Copilot-style
-/// checkpoint summaries; its rewind points are the file history.
+/// checkpoint summaries; its rewind points are the file history. A session
+/// resumes in a terminal, but TracePilot never drives the CLI itself
+/// (`can_resume`, which gates exact context capture).
 const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     can_resume: false,
+    can_resume_in_terminal: true,
     can_launch: false,
     can_steer: false,
     has_aic: false,
@@ -317,6 +321,20 @@ impl SessionProvider for ClaudeCodeProvider {
     fn file_history(&self, session: &SessionLocator) -> Result<Option<FileHistory>> {
         let lines = Self::read_lines(session)?;
         Ok(self.file_history_from(session, &lines))
+    }
+
+    /// `--resume <id>` from the directory the transcript records; see
+    /// [`resume`]. Live attach is Copilot's, so `live_attach` is ignored.
+    fn resume_launch(
+        &self,
+        session: &SessionLocator,
+        _live_attach: bool,
+    ) -> Result<Option<ResumeLaunch>> {
+        if session.role != SessionRole::Primary {
+            return Ok(None);
+        }
+        let lines = Self::read_lines(session)?;
+        Ok(Some(resume::resume_launch(session, &lines)))
     }
 
     fn root(&self) -> Option<&Path> {

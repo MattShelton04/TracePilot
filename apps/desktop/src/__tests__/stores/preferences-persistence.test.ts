@@ -160,3 +160,16 @@ it("resumes pending edits when reset fails and allows another reset attempt", as
   await store.resetConfig();
   expect(factoryReset).toHaveBeenCalledTimes(2);
 });
+
+it("hydrates and autosaves the Claude Code CLI command, keeping the folder", async () => {
+  persisted.sources.claudeCode = { configDir: "C:/claude", cliCommand: "claude-dev" };
+  const store = usePreferencesStore();
+  await store.whenReady;
+  expect(store.claudeCliCommand).toBe("claude-dev");
+  store.claudeCliCommand = "npx claude";
+  await nextTick();
+  await vi.advanceTimersByTimeAsync(350);
+  expect(updateConfig).toHaveBeenLastCalledWith({
+    sources: { claudeCode: { configDir: "C:/claude", cliCommand: "npx claude" } },
+  });
+});

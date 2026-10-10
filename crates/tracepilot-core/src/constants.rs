@@ -13,6 +13,10 @@
 /// `TracePilotConfig.cli_command`.
 pub const DEFAULT_CLI_COMMAND: &str = "copilot";
 
+/// Default executable name for the Claude Code CLI. Overridden by
+/// `sources.claudeCode.cliCommand`.
+pub const DEFAULT_CLAUDE_CLI_COMMAND: &str = "claude";
+
 /// Default executable name for Git.
 pub const DEFAULT_GIT_COMMAND: &str = "git";
 

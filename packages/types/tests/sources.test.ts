@@ -29,7 +29,9 @@ describe("session sources", () => {
     expect(sourceLabel("claudeCode")).toBe("Claude Code");
     expect(isNonCopilotSource("claudeCode")).toBe(true);
     const caps = sourceCapabilities("claudeCode");
+    // Resumes in a terminal, but exact context capture stays Copilot-only.
     expect(caps.canResume).toBe(false);
+    expect(caps.canResumeInTerminal).toBe(true);
     expect(caps.canSteer).toBe(false);
     expect(caps.hasAic).toBe(false);
     expect(caps.hasTodos).toBe(false);
@@ -46,11 +48,17 @@ describe("session sources", () => {
     [undefined, "copilot --resume s-1"],
     ["claudeCode", "claude --resume s-1"],
   ] as const)("builds the copyable resume command for %s", (source, expected) => {
-    expect(resumeCommand(source, "s-1", "copilot")).toBe(expected);
+    expect(resumeCommand(source, "s-1", { copilot: "copilot" })).toBe(expected);
   });
 
-  it("resumes Copilot through the configured CLI command and Claude Code through claude", () => {
-    expect(resumeCommand("copilot", "s-1", "gh copilot")).toBe("gh copilot --resume s-1");
-    expect(resumeCommand("claudeCode", "s-1", "gh copilot")).toBe("claude --resume s-1");
+  it("resumes each source through its own configured CLI command", () => {
+    const clis = { copilot: "gh copilot", claudeCode: "npx claude" };
+    expect(resumeCommand("copilot", "s-1", clis)).toBe("gh copilot --resume s-1");
+    expect(resumeCommand("claudeCode", "s-1", clis)).toBe("npx claude --resume s-1");
+    // The Copilot setting never reaches a Claude Code session.
+    expect(resumeCommand("claudeCode", "s-1", { copilot: "gh copilot" })).toBe(
+      "claude --resume s-1",
+    );
+    expect(resumeCommand("claudeCode", "s-1", { claudeCode: "  " })).toBe("claude --resume s-1");
   });
 });

@@ -27,6 +27,7 @@ mod prompts;
 mod provider;
 mod reader;
 mod records;
+mod resume;
 mod segments;
 mod subagents;
 mod summary;

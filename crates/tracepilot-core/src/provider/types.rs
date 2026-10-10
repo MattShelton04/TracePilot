@@ -97,7 +97,12 @@ impl SessionRole {
 #[cfg_attr(feature = "specta", derive(Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SourceCapabilities {
+    /// TracePilot drives the source's CLI against the session (exact context
+    /// capture). Wider than [`Self::can_resume_in_terminal`].
     pub can_resume: bool,
+    /// The session can be resumed in a new terminal
+    /// ([`SessionProvider::resume_launch`](super::SessionProvider::resume_launch)).
+    pub can_resume_in_terminal: bool,
     pub can_launch: bool,
     pub can_steer: bool,
     pub has_aic: bool,
@@ -114,6 +119,19 @@ pub struct SourceCapabilities {
     /// The source backs up files before changing them
     /// ([`SessionArtifacts::file_history`]).
     pub has_file_history: bool,
+}
+
+/// How a source resumes one session in a terminal: the configured CLI followed
+/// by [`Self::args`], run in [`Self::cwd`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResumeLaunch {
+    /// Arguments after the CLI binary.
+    pub args: Vec<String>,
+    /// The working directory the session recorded. It is read from the
+    /// session's own files, so callers must validate it before use.
+    pub cwd: Option<PathBuf>,
+    /// The source's display name, for the terminal's title.
+    pub label: &'static str,
 }
 
 /// What a running session's process is doing, when the source records it.
