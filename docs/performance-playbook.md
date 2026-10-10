@@ -80,11 +80,13 @@ the corpus scale and overrides alongside results. The `large` fixture exercises
 many sessions; `massive` adds gigabytes of input and much larger individual logs.
 Use `massive` when assessing how memory scales beyond the preparation batch.
 
-Preparation is limited to 32 sessions and an estimated 16 MiB of event source per
-batch. An oversized session runs alone and may exceed that amount in memory;
-parsed representations, extracted rows and SQLite also consume memory. This is
-a bound on accumulated preparation across sessions, not a universal process-memory
-limit. Cancellation checkpoints cover directory scans, buffered reads, extraction and insertion
+Each batch is limited to 32 sessions and an estimated 16 MiB of event source; an
+oversized session is a batch of its own. Batches are written in order, one at a
+time, while up to 8 later batches and 96 MiB of estimated source are prepared on
+Rayon workers. A batch over that budget is prepared alone and may exceed it in
+memory; parsed representations, extracted rows and SQLite also consume memory.
+This is a bound on accumulated preparation across sessions, not a universal
+process-memory limit. Cancellation checkpoints cover directory scans, buffered reads, extraction and insertion
 chunks; individual JSON decoding and SQLite statements remain non-preemptible.
 
 Trigger-maintained search writes coalesce prepared batches of at least 10 sessions

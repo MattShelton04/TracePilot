@@ -1,5 +1,7 @@
-//! Bound preparation by both session count and estimated source bytes. A single
-//! oversized session runs alone; it is never combined with another large input.
+//! Bound each batch, and so each write transaction, by both session count and
+//! estimated source bytes. A single oversized session is a batch of its own; it
+//! is never combined with another large input. [`super::pipeline`] bounds how
+//! many batches are prepared at once.
 
 use tracepilot_core::provider::SessionLocator;
 
