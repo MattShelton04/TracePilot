@@ -41,7 +41,7 @@ sessions are removed and the new folder is indexed.
 
 | Area | Claude Code sessions |
 | --- | --- |
-| Session list, search, Conversation, Events, Timeline | Yes. Session titles follow `/rename`. |
+| Session list, search, Conversation, Events, Timeline | Yes. Session titles follow `/rename`. A session without a repository shows a folder chip named after its working directory, and the repository filter lists it under **Folders**. |
 | Subagents | Yes. Their transcripts are folded into the parent session, like Copilot's subagents. |
 | Metrics | Exact token and cache totals per model. Cost is an estimate (see [Costs](#costs-are-estimates)). |
 | Context | Total input per model call. Claude Code doesn't record a system, tools and conversation split. |
@@ -133,15 +133,21 @@ Background work settles on the tool call that started it, in the
 Conversation:
 
 - A **background subagent** card gets its status, tokens and duration when the
-  subagent finishes, like Copilot's. If the session ends before the subagent reports,
-  it shows **No final report** rather than Running, and its duration stays
-  unknown.
+  subagent finishes, like Copilot's. A subagent sent a follow-up message runs
+  again and settles again when it next finishes. If the session ends before the
+  subagent reports, it shows **No final report** rather than Running, and its
+  duration stays unknown.
 - A **background shell** (`run_in_background`, or a command Claude Code moved
   to the background) shows its final state on the command's card, for example
   **Background · Completed · exit 0 · 2m**, once Claude Code reports it. The
   command's own row still shows that the launch succeeded. A shell that never
   reported keeps the plain *background* label. Copilot's background, detached
   and still-running shells settle the same way.
+- When background work finishes while the session is idle, Claude Code wakes
+  the session with a notification. The Conversation shows it as a
+  **notification card** instead of a prompt: one row per task with its status,
+  totals or exit code, an expandable result, and **Go to launch** to jump to the
+  call that started it. The Events tab keeps the record as written.
 - Background command output lives in your system's temporary folder. TracePilot
   never reads it, and the files may already be gone.
 

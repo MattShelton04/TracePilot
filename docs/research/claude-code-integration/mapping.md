@@ -35,12 +35,12 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | `user` slash command / `local-command-stdout` | 22 / 19 | `user.message` `{content: "/<name> <args>", source: "command-<name>"}` | Matches Copilot's `command-*` sources (`messages.rs:188-197`). The content is the command as typed, from `<command-name>` and `<command-args>`. A typed `/compact` is written twice: first as plain text (`/compact`, only a `promptId`), then, after the compaction, as the `<command-name>` record. The text opens the command turn and the later record adds nothing (Events tab only; S3 census: all 15 such records). The `<local-command-caveat>` meta record before a command is for the model and is Events-tab only |
 | `user` isMeta (skill context, auto-continuation) | 101 | Never `user.message`. Skill context → `skill.context_delivered`; other meta → `system.message` (§1.1) | A `user.message` always closes the active turn, whatever its `source` (§1.1) |
 | `user` hand-back (`origin.kind: peer`, `handback: true`) | 10 | `subagent.completed` for `origin.from` (agentId → `toolUseId` via meta) plus the agent message | The result text is the subagent's report. No turn. A peer message without `handback` is only the agent message |
-| `user` / `queue-operation` / `attachment:queued_command` with `<task-notification>` | 25 + 50 + 24 | One `system.notification` `{kind.type: agent_completed \| shell_completed, agentId \| shellId, status, exitCode}` per notification, de-duplicated across the three carriers (§1.3). Plus `user.message {source: "system"}` only when the notification wakes an idle session (§1.1) | Same shape Copilot uses. `<usage>` gives subagent totals |
+| `user` / `queue-operation` / `attachment:queued_command` with `<task-notification>` | 25 + 50 + 24 | One `system.notification` `{kind.type: agent_completed \| shell_completed, agentId \| shellId, status, exitCode}` per notification, de-duplicated across the three carriers (§1.3). Plus `user.message {source: "system"}` only when the notification wakes an idle session (§1.1) | Same shape Copilot uses. `<usage>` gives subagent totals. The `system.notification` keeps the raw block for the Events tab |
 | `user` interrupt marker, `interruptedMessageId` | 9 | `session.warning` `{warningType: "user_interrupt"}`, then `abort` `{reason: "user initiated"}` | Ends the interrupted call (§1.2). The warning makes it an incident in its turn |
 | `user` tool result with `toolDenialKind` | 38 | `tool.execution_complete` (failed), then `session.warning` `{warningType: "tool_denied", denialKind}` | A denial incident. When the same record interrupts the call, it adds no second, interrupt warning |
 | `user` `isCompactSummary` | 27 | Folded into `session.compaction_complete.summaryContent`. Never `user.message` | |
 | `user` tool_result block (+ `toolUseResult`) | 11,437 | `tool.execution_complete` `{toolCallId, success: !is_error, result{content, detailedContent}}` | `detailedContent` is reshaped per tool (§2). Duration is the tool_use → tool_result timestamp |
-| `assistant` (first block of a new `message.id`) | 11,398 messages | `assistant.turn_start` `{turnId: message.id, model}` | **One API call is one TracePilot turn**, matching Copilot's round-trip granularity. S3 kept it: a median of 8 turns per interaction (p90 146), against a Copilot median of 41 turns per session |
+| `assistant` (first block of a new `message.id`) | 11,398 messages | `assistant.turn_start` `{turnId: message.id, model}` | **One API call is one TracePilot turn.** Copilot's `assistant.turn_start` is also one model round-trip, so turn counts and per-turn averages mean the same for both sources. S3: a median of 8 turns per interaction (p90 146) |
 | `assistant` `text` block | 3,493 | `assistant.message` `{content, messageId}` | Attributed to `agentId` in subagent files |
 | `assistant` `thinking` block | 7,150 (88.8% empty) | `assistant.reasoning` when non-empty | Record a `redacted` count for the UI |
 | `assistant` `tool_use` block | 11,437 | `tool.execution_start` `{toolCallId, toolName: canonical, arguments: normalized, nativeToolName, mcpServerName?, mcpToolName?}` | §2 |
@@ -54,7 +54,7 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | First record | — | **Synthesized** `session.start` `{sessionId, producer: "claude-code", version, startTime, context{cwd, gitRoot, branch, repository}}` | The VS Code study warns against fake Copilot telemetry; `session.start` is safe because it only carries context. **Never synthesize `session.shutdown`** |
 | `cost-state` | 132 | Not an event. Becomes **provider metrics** (§3) | |
 | `custom-title`, `ai-title`, `agent-name`, `pr-link`, `last-prompt`, `mode`, `permission-mode`, `atis-latch` | about 4.4k each (`custom-title`: 102, in 2 of 92 sessions) | Summary fields (latest wins) and PR links. Hidden from the Events tab by default | |
-| `attachment:*` (29 types) | 17,575 | `Unknown("attachment:<type>")`, shown on the Events tab only. **Not indexed for FTS** | `task_status` and the task notifications feed the background-task list (C12); `edited_text_file`, `plan_mode` can feed later features |
+| `attachment:*` (29 types) | 17,575 | `Unknown("attachment:<type>")`, shown on the Events tab only. **Not indexed for FTS** | Task notifications settle background calls inline (§4, Background tasks); `edited_text_file`, `plan_mode` can feed later features |
 | `file-history-snapshot` / `-delta` | 203 / 1,034 | Shown on the Events tab; also the read-only checkpoint list (C13, `claude_code/file_history.rs`) | One checkpoint per prompt: a snapshot's `messageId`, or a delta's `snapshotMessageId` (a delta's own `messageId` is never a checkpoint). Each carries the files tracked so far. Backups are read only when a user opens one |
 | Subagent file records | 26 files | The same mapping with envelope `agentId`, plus `parentToolCallId = meta.toolUseId` | Inserted into the parent stream as described in §1.3 |
 
@@ -73,7 +73,7 @@ that keeps the active interaction:
 | Compaction summary (`isCompactSummary`) | `session.compaction_complete.summaryContent` | Session event, attached to the current turn |
 | Subagent hand-back | `subagent.completed` (+ agent message attributed to the subagent) | Subagent events are owned by the tool call |
 | Task notification **while a call is running**, or queued (`queue-operation`, `attachment:queued_command`) | `system.notification` only | Session event, no new interaction |
-| Task notification that **wakes an idle session**: a standalone `user` record after the previous call ended with `end_turn`, which the model then answers | `system.notification` + `user.message {source: "system", content}` | It really starts a new model interaction. This matches how Copilot logs its own notifications (a system-initiated turn) |
+| Task notification that **wakes an idle session**: a standalone `user` record after the previous call ended with `end_turn`, which the model then answers | `system.notification` + `user.message {source: "system", content, notifications}` | It really starts a new model interaction. This matches how Copilot logs its own notifications (a system-initiated turn). `content` is one readable line per task, the parsed blocks go in `notifications`, and Conversation shows the turn as a notification card instead of a user prompt |
 | Slash command output (`local-command-stdout`, `-stderr`) | `user.message {source: "command-local"}`, only when it is the first record of a new interaction; otherwise `system.message`. Either way the content is the output without its wrapper or terminal colour codes; empty output is Events-tab only | Matches Copilot's `command-*` prompts |
 
 **WP1 test:** a fixture holding one human prompt, plus every meta kind above except the
@@ -298,16 +298,16 @@ Source-aware presentation shipped in U2, U3 and U4.
 
 | TracePilot feature | Claude Code | Level | Notes / limitation |
 | --- | --- | --- | --- |
-| Session list, cards, search (FTS) | ✅ | L1 | Source badge and filter. Attachments are excluded from FTS |
+| Session list, cards, search (FTS) | ✅ | L1 | Source badge and filter on the list, Search and Analytics; Search also takes `source:claude` / `source:copilot`. Attachments are excluded from FTS |
 | Title / summary | ✅ | L1 | Latest `custom-title` (a user rename) → latest `ai-title` → `agent-name` → first prompt |
-| Repository / branch / cwd | ✅ / ✅ / ✅ | L1 | Repository from `git_state` origin → `pr-link` → none |
+| Repository / branch / cwd | ✅ / ✅ / ✅ | L1 | Repository from `git_state` origin → `pr-link` → none. A session with no repository shows, groups and filters by its cwd's folder, and list search matches the cwd (both sources) |
 | Conversation (prompts, messages, tools) | ✅ | L1 | Generic tool rendering at L1; rich at L2 |
 | Reasoning | 🟡 | L1 | 88.8% redacted; show a "redacted" count |
 | Subagents (cards, agent tree, Messages view) | ✅ | L1/L2 | Cards at L1; tree, Timeline and Messages at L2 |
 | Events tab | ✅ | L1 | Native records; bookkeeping hidden by default |
 | Overview | 🟡 | L1 | No Copilot checkpoint summaries or shutdown type. Plan from `ExitPlanMode` and file-history checkpoints since C13 |
 | Background tasks | ✅ | L3 | Inline: a background agent settles its `task` card through `subagent.completed`; a background shell's `shell_completed` notification settles its launching `shell` call (`backgroundTaskId` → `shellId`, outcome status, exit code, time). The Overview list (C12) was removed. Output files in the temp folder are never read |
-| Format diagnostics | ✅ | L3 | Settings → Data & Storage lists unmapped record and attachment types and versions seen, as names and counts only; `node scripts/claude-census.mjs` prints the same (Q3) |
+| Format diagnostics | ✅ | L3 | Settings → Claude Code lists unmapped record and attachment types and versions seen, as names and counts only; `node scripts/claude-census.mjs` prints the same (Q3) |
 | Metrics tab | ✅ | L2 | Exact tokens and cache; USD estimate; no AIC or premium requests |
 | Context tab | 🟡 | L2 | Exact total per call; no category split. Estimated split from `prompt_snapshot` at L4 |
 | Prompt cache (header countdown, windows) | ✅⭐ | L2 | Observed writes and reads; estimated expiry from the recorded TTL tier, or "unknown" |
@@ -324,7 +324,7 @@ Source-aware presentation shipped in U2, U3 and U4.
 | Session comparison | ✅ | L3 | Billing deltas suppressed across sources |
 | Export (Markdown/JSON) | ✅ | L3 | Source field; record-level redaction (data-comparison §5) |
 | Import | ⛔ | — | Import writes Copilot dirs. Block it for other sources |
-| Resume | 🟡 | L2 | "Copy `claude --resume <id>`" (run in the session cwd) |
+| Resume | ✅ | L4 | **Resume in Terminal** runs `<command> --resume <id>` in the session cwd, with the command from `sources.claudeCode.cliCommand` (default `claude`); **Copy Resume Command** copies it |
 | Launcher, SDK steering, live attach, config injector, MCP / skills / agents editors, context capture | ⛔ | — | Copilot-only; hidden through capabilities |
 | Worktrees, repo registry | ✅ | — | Already generic. The registry picks up Claude cwds via `distinct_session_cwds` |
 | Node CLI (`apps/cli`) | ❌ | L4 | Reads Copilot dirs directly |
