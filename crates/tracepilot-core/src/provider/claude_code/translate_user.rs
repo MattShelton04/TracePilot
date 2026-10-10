@@ -17,8 +17,8 @@ use super::records::{Blocks, Rec, block_type};
 use super::translate::{Custom, RecCtx, Stream, Translator};
 use crate::models::event_types::TaskNotificationKind;
 
-/// Attachment types seen so far (record-shapes.md and the S3 probe on
-/// 2.1.274–2.1.289); others are counted as new.
+/// Attachment types seen so far (record-shapes.md, the S3 probe on
+/// 2.1.274–2.1.289 and later format diagnostics); others are counted as new.
 const KNOWN_ATTACHMENTS: &[&str] = &[
     "agent_listing_delta",
     "auto_mode",
@@ -31,8 +31,10 @@ const KNOWN_ATTACHMENTS: &[&str] = &[
     "edited_text_file",
     "environment",
     "file",
+    "hook_additional_context",
     "hook_system_message",
     "instructions",
+    "invoked_skills",
     "mcp_instructions_delta",
     "model",
     "nested_memory",
@@ -316,4 +318,62 @@ fn prompt_attachments(rec: Rec<'_>) -> Option<Vec<Value>> {
         .map(|b| json!({"type": "image", "mediaType": b.pointer("/source/media_type")}))
         .collect();
     (!images.is_empty()).then_some(images)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+    use tracepilot_test_support::claude::{Transcript, write_session};
+
+    use super::super::parse_claude_session;
+    use crate::turns::reconstruct_turns;
+
+    /// Hook context and the skills re-sent after a compaction carry nothing
+    /// TracePilot shows: they are known types, kept on the Events tab, and
+    /// open no turn. An unlisted type is still counted.
+    #[test]
+    fn hook_context_and_invoked_skills_are_known_attachments() {
+        let mut main = Transcript::main();
+        main.prompt("hello");
+        main.record(
+            "attachment",
+            json!({"attachment": {
+                "type": "hook_additional_context",
+                "content": ["Synthetic hook context"],
+                "hookName": "SessionStart:startup",
+                "toolUseID": "SessionStart",
+                "hookEvent": "SessionStart",
+            }}),
+        );
+        main.record(
+            "attachment",
+            json!({"attachment": {
+                "type": "invoked_skills",
+                "skills": [{
+                    "name": "demo-skill",
+                    "path": "C:/work/demo/.claude/skills/demo-skill/SKILL.md",
+                    "content": "Synthetic skill body",
+                }],
+            }}),
+        );
+        main.record(
+            "attachment",
+            json!({"attachment": {"type": "brand_new_attachment"}}),
+        );
+        let files = write_session(&main, &[]);
+        let parsed = parse_claude_session(&files.main, &|| false).unwrap();
+
+        let unknown: Vec<_> = parsed.diagnostics.unknown_attachment_types.keys().collect();
+        assert_eq!(unknown, ["brand_new_attachment"]);
+        let natives: Vec<_> = parsed
+            .events
+            .iter()
+            .filter_map(|e| e.raw.native.as_ref())
+            .map(|n| n.data["attachment"]["type"].as_str().unwrap_or(""))
+            .collect();
+        assert!(natives.contains(&"hook_additional_context"));
+        assert!(natives.contains(&"invoked_skills"));
+        let turns = reconstruct_turns(&parsed.events);
+        assert_eq!(turns.iter().filter(|t| t.user_message.is_some()).count(), 1);
+    }
 }
