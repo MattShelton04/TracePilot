@@ -409,6 +409,7 @@ describe("SetupWizard", () => {
       expect(option.text()).toContain("Also index Claude Code sessions (experimental)");
       expect(option.text()).toContain("Found 8 Claude Code sessions in /claude");
       expect(option.text()).toContain("Settings → Claude Code");
+      expect(option.text()).toContain("Claude Code deletes transcripts after 30 days by default");
       expect(wrapper.get(claudeSwitch).attributes("aria-checked")).toBe("false");
       expect((await launch())?.features.claudeCodeSessions).toBe(false);
       expect(wrapper.getComponent(WizardStepReady).text()).not.toContain("Claude Code");

@@ -68,14 +68,26 @@ sessions are removed and the new folder is indexed.
 
 ## History follows Claude Code's cleanup
 
-Claude Code deletes transcripts older than its `cleanupPeriodDays` setting,
-which defaults to 30 days. TracePilot doesn't keep a copy. When a transcript is
+Claude Code deletes transcripts older than its
+[`cleanupPeriodDays`](https://code.claude.com/docs/en/settings-reference#cleanupperioddays)
+setting, which defaults to 30 days. It does this silently, in a background sweep
+after a session starts. TracePilot doesn't keep a copy. When a transcript is
 deleted, its session leaves TracePilot's index the next time sessions are
 indexed, just like a deleted Copilot session. Analytics for Claude Code
-therefore cover roughly your last 30 days.
+therefore cover roughly your last 30 days. Settings → Claude Code shows a
+dismissible notice about this while Claude Code sessions are on.
 
-The index is not a backup. To keep more history, raise `cleanupPeriodDays` in
-Claude Code's settings. That can't bring back transcripts already deleted.
+The index is not a backup. To keep more history, set `cleanupPeriodDays` to a
+larger whole number of days in `~/.claude/settings.json` (or `settings.json` in
+the folder `CLAUDE_CONFIG_DIR` points to), for example `"cleanupPeriodDays": 3650`.
+The minimum is 1: `0` doesn't turn cleanup off, it fails Claude Code's settings
+validation, so use a large value instead. Project and managed settings files can
+also set it and take
+[precedence](https://code.claude.com/docs/en/settings#settings-precedence) over
+your user file.
+Raising it can't bring back transcripts already deleted. Transcripts of sessions
+started or last continued in Claude Desktop are kept at any age by default (see
+[what Claude Code cleans up](https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically)).
 
 ## Costs are estimates
 

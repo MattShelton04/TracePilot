@@ -35,6 +35,8 @@ export const STORAGE_KEYS = Object.freeze({
   updateCheck: "tracepilot-update-check",
   /** Version string the user dismissed in the update banner. */
   dismissedUpdate: "tracepilot-dismissed-update",
+  /** Whether the Claude Code transcript-cleanup notice in Settings was dismissed. */
+  claudeRetentionNoticeDismissed: "tracepilot-claude-retention-notice-dismissed",
   /** SDK bridge settings (CLI URL + log level). */
   sdkSettings: "tracepilot:sdk-settings",
   /** Open session tabs + active tab id. */
