@@ -88,13 +88,18 @@ impl PreparedSessionData {
             diagnostics.as_ref(),
             &file_meta,
         );
-        if identity.source == SessionSource::ClaudeCode {
+        let capabilities = provider.capabilities();
+        if !capabilities.has_premium_requests {
+            // The cost columns hold premium-request cost, not USD.
             analytics.total_cost = None;
-            // No metrics means no recorded usage: it costs nothing, rather
-            // than counting as unpriced.
-            if metrics.is_none() {
-                analytics.total_cost_usd = Some(0.0);
+            for row in &mut analytics.model_rows {
+                row.cost = None;
             }
+        }
+        // Without exit totals, no metrics means no recorded usage: it costs
+        // nothing, rather than counting as unpriced.
+        if !capabilities.has_exit_metrics && metrics.is_none() {
+            analytics.total_cost_usd = Some(0.0);
         }
         let index_info = SessionIndexInfo {
             repository: summary.repository.clone(),

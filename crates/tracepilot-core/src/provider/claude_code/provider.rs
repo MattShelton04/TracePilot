@@ -27,7 +27,7 @@ use crate::provider::{
 /// checkpoint summaries; its rewind points are the file history. A session
 /// resumes in a terminal, but TracePilot never drives the CLI itself
 /// (`can_resume`, which gates exact context capture).
-const CAPABILITIES: SourceCapabilities = SourceCapabilities {
+pub(in crate::provider) const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     can_resume: false,
     can_resume_in_terminal: true,
     can_launch: false,
@@ -43,6 +43,7 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_file_history: true,
     has_rewind_snapshots: false,
     has_custom_tables: false,
+    has_exit_metrics: false,
 };
 
 /// The session directories the Explorer may browse, beside the transcript.

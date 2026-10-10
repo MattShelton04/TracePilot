@@ -41,6 +41,9 @@ describe("session sources", () => {
     expect(caps.hasPlan).toBe(true);
     expect(caps.hasFileHistory).toBe(true);
     expect(caps.hasExplorer).toBe(true);
+    // Usage is running metrics only, so it is always partial.
+    expect(caps.hasPremiumRequests).toBe(false);
+    expect(caps.hasExitMetrics).toBe(false);
   });
 
   it.each([

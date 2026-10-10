@@ -33,6 +33,24 @@ fn stored_names_match_wire_names() {
 }
 
 #[test]
+fn each_source_reports_its_providers_capabilities() {
+    let copilot = CopilotProvider::new("unused");
+    let claude = claude_code::ClaudeCodeProvider::new("unused");
+    assert_eq!(
+        copilot.capabilities(),
+        SessionSource::Copilot.capabilities()
+    );
+    assert_eq!(
+        claude.capabilities(),
+        SessionSource::ClaudeCode.capabilities()
+    );
+    // Billing: Copilot alone has premium requests and final exit totals.
+    let (copilot, claude) = (copilot.capabilities(), claude.capabilities());
+    assert!(copilot.has_premium_requests && copilot.has_exit_metrics);
+    assert!(!claude.has_premium_requests && !claude.has_exit_metrics);
+}
+
+#[test]
 fn liveness_is_tagged_by_state() {
     let running = Liveness::Running {
         pid: Some(42),
