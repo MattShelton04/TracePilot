@@ -9,6 +9,14 @@ const markdownContentStub = {
   template: '<div data-testid="remote-release-notes">{{ content }}</div>',
 };
 
+const updateStatusPanelStub = {
+  emits: ["update", "preview"],
+  template: `<div data-testid="update-status-panel">
+    <button class="stub-update" @click="$emit('update')" />
+    <button class="stub-preview" @click="$emit('preview')" />
+  </div>`,
+};
+
 function release(version: string, added: string[] = [], requiresReindex = false) {
   return {
     version,
@@ -30,6 +38,7 @@ function mountModal(props: Partial<InstanceType<typeof WhatsNewModal>["$props"]>
       stubs: {
         MarkdownContent: markdownContentStub,
         Teleport: true,
+        UpdateStatusPanel: updateStatusPanelStub,
       },
     },
   });
@@ -108,5 +117,22 @@ describe("WhatsNewModal", () => {
     expect(wrapper.findAll(".wn-version")).toHaveLength(3);
     await wrapper.get(".wn-more").trigger("click");
     expect(wrapper.findAll(".wn-version")).toHaveLength(4);
+  });
+
+  it("offers the update check when opened as release history", async () => {
+    const wrapper = mountModal({ kind: "history", previousVersion: "0.0.0" });
+
+    expect(wrapper.find('[data-testid="update-status-panel"]').exists()).toBe(true);
+    await wrapper.get(".stub-update").trigger("click");
+    await wrapper.get(".stub-preview").trigger("click");
+    expect(wrapper.emitted("update")).toHaveLength(1);
+    expect(wrapper.emitted("preview")).toHaveLength(1);
+  });
+
+  it("leaves the update check out of the update and preview notes", () => {
+    for (const kind of ["updated", "preview"] as const) {
+      const wrapper = mountModal({ kind });
+      expect(wrapper.find('[data-testid="update-status-panel"]').exists()).toBe(false);
+    }
   });
 });

@@ -239,6 +239,17 @@ export const cases = [
     ready: '[role="dialog"]',
     state: "installed version's release history from a fixture manifest",
   },
+  {
+    id: "release-notes-update",
+    fixture: updateAvailableFixture,
+    route: "/",
+    start: ".sidebar-version-btn",
+    prepare: "sidebar-click",
+    target: ".sidebar-version-btn",
+    ready: '[data-testid="update-status-panel"]',
+    command: "check_for_updates",
+    state: "release history opened from the version number, with an update available",
+  },
   { id: "not-found", route: "/visual-route-does-not-exist", ready: "h2", state: "not found" },
   ...[...richToolSamples, ...claudeToolSamples].map((sample) => ({
     id: `rich-tool-${sample.id}`,
