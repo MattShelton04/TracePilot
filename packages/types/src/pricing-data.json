@@ -1,22 +1,22 @@
 {
-  "version": "github-copilot-usage-2026-10-04",
+  "version": "github-copilot-usage-2026-10-10",
   "sources": {
     "githubCopilotUsage": {
       "label": "GitHub Copilot models and pricing",
       "url": "https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing",
-      "verifiedAt": "2026-10-04",
+      "verifiedAt": "2026-10-10",
       "effectiveFrom": "2026-06-01",
-      "revision": "2bd66de8cea336061c9ea060c9b37385136e6ab3",
-      "dataUrl": "https://raw.githubusercontent.com/github/docs/2bd66de8cea336061c9ea060c9b37385136e6ab3/data/tables/copilot/models-and-pricing.yml",
-      "sha256": "eaab874e5781f974bf6c943ffcbd0686738c426dd511f913bc384d9ec551d69d"
+      "revision": "be38ec5d78e24172587e61b3c6ff40ace1865c71",
+      "dataUrl": "https://raw.githubusercontent.com/github/docs/be38ec5d78e24172587e61b3c6ff40ace1865c71/data/tables/copilot/models-and-pricing.yml",
+      "sha256": "d1c7540b412c58b347dcf349b5cd0ca5f46a5015b5ffccbfdc8623f2079e0a28"
     },
     "annualLegacyMultipliers": {
       "label": "GitHub annual-plan premium request multipliers",
       "url": "https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/model-multipliers-for-annual-plans",
-      "verifiedAt": "2026-10-04",
+      "verifiedAt": "2026-10-10",
       "effectiveFrom": "2026-06-01",
-      "revision": "2bd66de8cea336061c9ea060c9b37385136e6ab3",
-      "dataUrl": "https://raw.githubusercontent.com/github/docs/2bd66de8cea336061c9ea060c9b37385136e6ab3/data/tables/copilot/annual-subscriber-model-multipliers.yml",
+      "revision": "be38ec5d78e24172587e61b3c6ff40ace1865c71",
+      "dataUrl": "https://raw.githubusercontent.com/github/docs/be38ec5d78e24172587e61b3c6ff40ace1865c71/data/tables/copilot/annual-subscriber-model-multipliers.yml",
       "sha256": "d8ddb6f9758516d9294a204f83ebe4eb2d840a565c5695059966f18c7b5dc79a"
     },
     "tracePilotLegacyProviderEstimate": {
@@ -84,7 +84,8 @@
     "gpt-6-luna": ["GPT-6 Luna"],
     "grok-4.7": ["Grok 4.7"],
     "claude-sonnet-5.5": ["Claude Sonnet 5.5"],
-    "gpt-6.1-sol": ["GPT-6.1 Sol"]
+    "gpt-6.1-sol": ["GPT-6.1 Sol"],
+    "claude-haiku-5.5": ["Claude Haiku 5.5"]
   },
   "githubCopilotUsage": [
     {
@@ -666,10 +667,30 @@
       "model": "claude-sonnet-5.5",
       "displayName": "Claude Sonnet 5.5",
       "inputPerM": 2,
-      "cachedInputPerM": 0.2,
+      "cachedInputPerM": 0.1,
       "cacheWritePerM": 2.5,
       "outputPerM": 10,
-      "effectiveFrom": "2026-10-04"
+      "effectiveFrom": "2026-10-10"
+    },
+    {
+      "model": "claude-haiku-5.5",
+      "displayName": "Claude Haiku 5.5",
+      "inputPerM": 0.1,
+      "cachedInputPerM": 0.01,
+      "cacheWritePerM": 0.125,
+      "outputPerM": 0.5,
+      "effectiveFrom": "2026-10-10"
+    },
+    {
+      "model": "claude-haiku-5.5",
+      "displayName": "Claude Haiku 5.5",
+      "inputPerM": 0.5,
+      "cachedInputPerM": 0.05,
+      "cacheWritePerM": 0.625,
+      "outputPerM": 2.5,
+      "pricingTier": "long-context",
+      "minimumInputTokens": 100001,
+      "effectiveFrom": "2026-10-10"
     }
   ],
   "annualLegacyMultipliers": [
@@ -1036,6 +1057,12 @@
       "displayName": "GPT-6.1 Sol",
       "currentPremiumRequests": 1,
       "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
+    },
+    {
+      "model": "claude-haiku-5.5",
+      "displayName": "Claude Haiku 5.5",
+      "currentPremiumRequests": 1,
+      "sourceNote": "Local compatibility default only; GitHub publishes no legacy multiplier for this model"
     }
   ],
   "githubCopilotUsageHistory": [
@@ -1104,6 +1131,17 @@
       "outputPerM": 22.5,
       "verifiedAt": "2026-07-17",
       "effectiveTo": "2026-09-10"
+    },
+    {
+      "model": "claude-sonnet-5.5",
+      "displayName": "Claude Sonnet 5.5",
+      "inputPerM": 2,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 2.5,
+      "outputPerM": 10,
+      "effectiveFrom": "2026-10-04",
+      "verifiedAt": "2026-10-04",
+      "effectiveTo": "2026-10-10"
     }
   ],
   "annualLegacyMultiplierHistory": []

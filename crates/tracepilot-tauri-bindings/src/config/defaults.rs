@@ -233,8 +233,9 @@ mod tests {
             ("gpt-6-sol", 2.0, 0.2, 2.5, 10.0, 2),
             ("gpt-6-luna", 0.1, 0.01, 0.125, 0.5, 2),
             ("grok-4.7", 2.0, 0.5, 0.0, 6.0, 2),
-            ("claude-sonnet-5.5", 2.0, 0.2, 2.5, 10.0, 1),
+            ("claude-sonnet-5.5", 2.0, 0.1, 2.5, 10.0, 1),
             ("gpt-6.1-sol", 2.0, 0.1, 2.5, 10.0, 2),
+            ("claude-haiku-5.5", 0.1, 0.01, 0.125, 0.5, 2),
         ] {
             let rows: Vec<_> = prices.iter().filter(|p| p.model == model).collect();
             assert_eq!(rows.len(), tiers);
@@ -248,7 +249,7 @@ mod tests {
                 decoded
                     .source_label
                     .unwrap()
-                    .contains("verified 2026-10-04")
+                    .contains("verified 2026-10-10")
             );
         }
         let luna_long = prices
@@ -267,6 +268,17 @@ mod tests {
         assert_eq!(sol_long.cached_input_per_m, 0.2);
         assert_eq!(sol_long.cache_write_per_m, Some(5.0));
         assert_eq!(sol_long.output_per_m, 15.0);
+        let haiku_long = prices
+            .iter()
+            .find(|p| p.model == "claude-haiku-5.5" && p.minimum_input_tokens.is_some())
+            .unwrap();
+        let encoded = toml::to_string(haiku_long).unwrap();
+        let decoded: ModelPriceEntry = toml::from_str(&encoded).unwrap();
+        assert_eq!(decoded.minimum_input_tokens, Some(100001));
+        assert_eq!(decoded.input_per_m, 0.5);
+        assert_eq!(decoded.cached_input_per_m, 0.05);
+        assert_eq!(decoded.cache_write_per_m, Some(0.625));
+        assert_eq!(decoded.output_per_m, 2.5);
     }
 
     #[test]

@@ -472,7 +472,7 @@
     "name": "Claude Sonnet 5.5",
     "tier": "standard",
     "inputPerM": 2,
-    "cachedInputPerM": 0.2,
+    "cachedInputPerM": 0.1,
     "outputPerM": 10,
     "premiumRequests": 1
   },
@@ -483,6 +483,15 @@
     "inputPerM": 2,
     "cachedInputPerM": 0.1,
     "outputPerM": 10,
+    "premiumRequests": 1
+  },
+  {
+    "id": "claude-haiku-5.5",
+    "name": "Claude Haiku 5.5",
+    "tier": "fast",
+    "inputPerM": 0.1,
+    "cachedInputPerM": 0.01,
+    "outputPerM": 0.5,
     "premiumRequests": 1
   }
 ]

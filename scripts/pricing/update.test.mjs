@@ -24,7 +24,8 @@ const future = {
 const withHash = (text) => ({ ...snapshot, sha256: { ...snapshot.sha256, usage: sha256(text) } });
 
 test("frozen official sources reproduce all shipped rates and Rust/TS defaults without network", () => {
-  assert.equal(parsed.usage.length, 43);
+  assert.equal(snapshot.verifiedAt, "2026-10-10");
+  assert.equal(parsed.usage.length, 45);
   assert.equal(parsed.annual.length, 16);
   assert.deepEqual(updatePricing(data, models, parsed, snapshot), { data, models });
 });
@@ -124,7 +125,9 @@ test("snapshot dates cannot silently rewrite existing history", () => {
   );
   const changed = structuredClone(parsed);
   changed.usage.find((row) => row.model === "gpt-6.1-sol").inputPerM = 1.5;
-  assert.throws(() => updatePricing(data, models, changed, snapshot), /Cannot rewrite/);
+  const next = updatePricing(data, models, changed, future);
+  changed.usage.find((row) => row.model === "gpt-6.1-sol").inputPerM = 1;
+  assert.throws(() => updatePricing(next.data, next.models, changed, future), /Cannot rewrite/);
 });
 
 test("source digests and explicit footnote review prevent silent source drift", () => {
