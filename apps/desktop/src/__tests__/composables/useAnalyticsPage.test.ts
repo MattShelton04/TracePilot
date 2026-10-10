@@ -115,7 +115,7 @@ describe("useAnalyticsPage", () => {
     expect(fetchSpy).toHaveBeenCalledWith();
   });
 
-  it("refetches once when a reindex bumps dataRevision", async () => {
+  it("refetches once in the background when a reindex bumps dataRevision", async () => {
     const store = useAnalyticsStore();
     const fetchSpy = vi.spyOn(store, "fetchAnalytics").mockResolvedValue(undefined);
 
@@ -125,5 +125,6 @@ describe("useAnalyticsPage", () => {
     await nextTick();
 
     expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetchSpy).toHaveBeenCalledWith({ background: true });
   });
 });

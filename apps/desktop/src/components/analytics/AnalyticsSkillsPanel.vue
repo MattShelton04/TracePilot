@@ -42,14 +42,28 @@ const { revealing } = useFirstReveal({
 const loading = ref(false);
 const error = ref<string | null>(null);
 
+// A finished reindex refreshes the figures in place; only a new filter (or
+// the first load) shows the loading note.
 watch(
-  [() => store.dateRange, () => store.selectedRepo, () => store.selectedSource],
-  async ([range, repo, source], _previous, onCleanup) => {
+  [
+    () => store.dateRange,
+    () => store.selectedRepo,
+    () => store.selectedSource,
+    () => store.dataRevision,
+  ],
+  async ([range, repo, source, revision], previous, onCleanup) => {
     let active = true;
     onCleanup(() => {
       active = false;
     });
-    loading.value = true;
+    const [oldRange, oldRepo, oldSource, oldRevision] = previous;
+    const reindexOnly =
+      summary.value !== null &&
+      revision !== oldRevision &&
+      range === oldRange &&
+      repo === oldRepo &&
+      source === oldSource;
+    if (!reindexOnly) loading.value = true;
     error.value = null;
     try {
       const result = await skillsUsageSummary({

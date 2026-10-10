@@ -6,7 +6,7 @@ import {
   sourceLabel,
   type ToolAnalysisData,
 } from "@tracepilot/types";
-import { useCachedFetch } from "@tracepilot/ui";
+import { type CachedFetchResult, useCachedFetch } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useScopedEventListener } from "@/composables/useScopedEventListener";
@@ -33,6 +33,11 @@ export interface AnalyticsFetchOptions {
   toDate?: string;
   repo?: string;
   force?: boolean;
+  /**
+   * Revalidate in place: while results are on screen, keep them there until
+   * the new ones land instead of reporting the dataset as loading.
+   */
+  background?: boolean;
 }
 
 export type AnalyticsTimeRange = "all" | "7d" | "30d" | "90d" | "month-to-date" | "custom";
@@ -119,11 +124,16 @@ export const useAnalyticsStore = defineStore("analytics", () => {
 
   // ── Shared fetch factory ──────────────────────────────────────
   // All three analytics fetch actions share the same parameter-building logic.
+  // Pages swap their whole layout for the loading state while `loading` is
+  // set, so a background revalidation (a reindex finishing while a page is
+  // open) must not set it, or the page flashes and remounts every panel.
 
-  function buildFetchAction(fetcher: {
-    fetch: (params: AnalyticsFetchParams, opts?: { force?: boolean }) => Promise<unknown>;
-  }) {
-    return async (options?: AnalyticsFetchOptions) => {
+  function buildDataset<T>(fetcher: CachedFetchResult<T, AnalyticsFetchParams>) {
+    const revalidating = ref(false);
+    let latest = 0;
+    const loading = computed(() => fetcher.loading.value && !revalidating.value);
+
+    async function fetch(options?: AnalyticsFetchOptions) {
       const prefs = usePreferencesStore();
       const merged = { ...dateRange.value, ...options };
       const params: AnalyticsFetchParams = {
@@ -133,13 +143,27 @@ export const useAnalyticsStore = defineStore("analytics", () => {
         hideEmpty: prefs.hideEmptySessions,
         source: selectedSource.value ?? undefined,
       };
-      await fetcher.fetch(params, { force: options?.force });
-    };
+      // Only the newest call decides; a foreground request that is already
+      // loading keeps its loading state.
+      const call = ++latest;
+      revalidating.value =
+        !!options?.background && fetcher.data.value !== null && !fetcher.loading.value;
+      try {
+        await fetcher.fetch(params, { force: options?.force });
+      } finally {
+        if (call === latest) revalidating.value = false;
+      }
+    }
+
+    return { loading, fetch };
   }
 
-  const fetchAnalytics = buildFetchAction(analyticsFetcher);
-  const fetchToolAnalysis = buildFetchAction(toolAnalysisFetcher);
-  const fetchCodeImpact = buildFetchAction(codeImpactFetcher);
+  const analyticsDataset = buildDataset(analyticsFetcher);
+  const toolAnalysisDataset = buildDataset(toolAnalysisFetcher);
+  const codeImpactDataset = buildDataset(codeImpactFetcher);
+  const fetchAnalytics = analyticsDataset.fetch;
+  const fetchToolAnalysis = toolAnalysisDataset.fetch;
+  const fetchCodeImpact = codeImpactDataset.fetch;
 
   async function refreshAll(options?: { fromDate?: string; toDate?: string }) {
     await Promise.all([
@@ -182,8 +206,9 @@ export const useAnalyticsStore = defineStore("analytics", () => {
 
   // Cached results describe the index at the time they were fetched. When a
   // session reindex finishes, drop them and bump `dataRevision` so mounted
-  // analytics pages refetch once, instead of showing stale (or, right after
-  // first-run indexing, partial) numbers until the filters change.
+  // analytics pages refetch once in the background, instead of showing stale
+  // (or, right after first-run indexing, partial) numbers until the filters
+  // change.
   const dataRevision = ref(0);
   const watchIndexUpdates = useScopedEventListener(IPC_EVENTS.INDEXING_FINISHED, () => {
     for (const f of allFetchers) f.invalidate();
@@ -195,9 +220,9 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     analytics: analyticsFetcher.data,
     toolAnalysis: toolAnalysisFetcher.data,
     codeImpact: codeImpactFetcher.data,
-    analyticsLoading: analyticsFetcher.loading,
-    toolAnalysisLoading: toolAnalysisFetcher.loading,
-    codeImpactLoading: codeImpactFetcher.loading,
+    analyticsLoading: analyticsDataset.loading,
+    toolAnalysisLoading: toolAnalysisDataset.loading,
+    codeImpactLoading: codeImpactDataset.loading,
     analyticsError: analyticsFetcher.error,
     toolAnalysisError: toolAnalysisFetcher.error,
     codeImpactError: codeImpactFetcher.error,
