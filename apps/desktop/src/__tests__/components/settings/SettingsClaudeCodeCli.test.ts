@@ -28,6 +28,15 @@ describe("SettingsClaudeCodeCli", () => {
     expect(input.attributes("placeholder")).toBe("claude");
     await input.setValue("D:/tools/claude.exe");
     expect(prefs.claudeCliCommand).toBe("D:/tools/claude.exe");
+    expect(wrapper.find("[role='alert']").exists()).toBe(false);
+
+    // A command the backend would refuse is shown as an error and never saved.
+    await input.setValue("claude; calc");
+    expect(wrapper.get("[role='alert']").text()).toContain("Not saved");
+    expect(input.attributes("aria-invalid")).toBe("true");
+    expect(prefs.claudeCliCommand).toBe("D:/tools/claude.exe");
+    await input.setValue("");
+    expect(prefs.claudeCliCommand).toBe("");
     wrapper.unmount();
   });
 });
