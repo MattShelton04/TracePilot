@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "df702900a4ef82f87d22c4275e53acaf31d85512",
-  "headSha": "a93542b5dd0c998251d794ae6f66fff10fedfc92",
+  "baseSha": "425ece310b965df92d26e89842573f5c850bb20c",
+  "headSha": "bfd8e782e15e0b3314d58316fbe0c6ba5b9c7ee1",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,8 +9,8 @@
     "scale": 1
   },
   "summary": {
-    "changed": 0,
-    "unchanged": 130,
+    "changed": 8,
+    "unchanged": 122,
     "subtle": 0,
     "incomplete": 0,
     "baseUnavailable": 0,
@@ -22,16 +22,52 @@
       "group": "overview",
       "route": "/",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 6014,
+      "percent": 0.43504050925925924,
+      "areas": [
+        {
+          "x": 723,
+          "y": 93,
+          "width": 419,
+          "height": 36,
+          "pixels": 6006
+        },
+        {
+          "x": 622,
+          "y": 95,
+          "width": 4,
+          "height": 32,
+          "pixels": 8
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/f2033ee4ccd6f7d2a45f9a1630a2948a37e1d763f21fdf1a9c44e2de95fa27fc.png",
-        "after": "../../img/f2033ee4ccd6f7d2a45f9a1630a2948a37e1d763f21fdf1a9c44e2de95fa27fc.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/18553232b089d0205b3e5e15a576022b700e249a414c42d153d498957442c279.png",
+        "difference": "../../img/1fa5fd190873c3aa79e512b08cd8b54b82b442d46b888474ad814ea1a84add19.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 691,
+              "y": 11,
+              "width": 483,
+              "height": 200
+            },
+            "before": "../../img/0e8820aab116dc4bc75db60d152947d670e1fda842bfbf732b5c52d45349144a.png",
+            "after": "../../img/54a3f435b9f50fdc8f22bab7ca18b6b569b9dcfa0b7ac39d69094d9af8d68c19.png"
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 11,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/7c6cce519411795285a2a65721e761b36f1c267ee0f6515efa0598e727ff91cd.png",
+            "after": "../../img/d4747889303b5ba91d49c2f7de1b321f88bf8d8d03cdac951d81a4d3c1dc91b7.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -40,15 +76,23 @@
       "group": "overview",
       "route": "/session/sess-auth-refactor/overview",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 250187,
+      "percent": 18.098017939814813,
+      "areas": [
+        {
+          "x": 268,
+          "y": 391,
+          "width": 1144,
+          "height": 569,
+          "pixels": 250187
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/e0283dd1d522cca08c22694587e35ae168f2071e7571a21b7c3c86b293e226b9.png",
-        "after": "../../img/e0283dd1d522cca08c22694587e35ae168f2071e7571a21b7c3c86b293e226b9.png",
-        "difference": null,
+        "after": "../../img/8bbe2ee8695eab5b90541948089d0542c8e6f99c426949abe93162a038d6a1e2.png",
+        "difference": "../../img/5b635600e208d24442294f374be94cf2c64c9dfae1e72f2d864e7d82678024e2.png",
         "closeUps": []
       },
       "limitations": []
@@ -136,8 +180,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/c219b89a99a6b4dca838ebd9864996d00b3e027baddf7e2b400f39fdad699d7e.png",
-        "after": "../../img/c219b89a99a6b4dca838ebd9864996d00b3e027baddf7e2b400f39fdad699d7e.png",
+        "before": "../../img/5d931823372f4b676a54e363dc5d26b51a12f38ff0b74ede2a9f37a817962098.png",
+        "after": "../../img/5d931823372f4b676a54e363dc5d26b51a12f38ff0b74ede2a9f37a817962098.png",
         "difference": null,
         "closeUps": []
       },
@@ -184,15 +228,23 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/overview",
       "state": "populated Claude Code session",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 249423,
+      "percent": 18.04275173611111,
+      "areas": [
+        {
+          "x": 268,
+          "y": 416,
+          "width": 1144,
+          "height": 544,
+          "pixels": 249423
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/9c5bd893f4cf9e54bae7c709ff063c99367641e1bdf7de872a37ace3a070219a.png",
-        "after": "../../img/9c5bd893f4cf9e54bae7c709ff063c99367641e1bdf7de872a37ace3a070219a.png",
-        "difference": null,
+        "after": "../../img/f4cf8bd0ddf20cc4baae56afbfde2ff9f76e1395c77a1ea8c80d739018bb3bfe.png",
+        "difference": "../../img/7d1b65ea919fb8e098cee46cc770322dfdd15111a9b1f7b1fee054e48df37a1f.png",
         "closeUps": []
       },
       "limitations": []
@@ -226,8 +278,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/cbf40108493935693d2cb72703e8b8fd64837dc0b7833aebd3e94e1c7de0f2e7.png",
-        "after": "../../img/cbf40108493935693d2cb72703e8b8fd64837dc0b7833aebd3e94e1c7de0f2e7.png",
+        "before": "../../img/9a46ddabaf0c8c8fea9ec47fcaa81815e3783f05777aab263b83629cf1ca7565.png",
+        "after": "../../img/9a46ddabaf0c8c8fea9ec47fcaa81815e3783f05777aab263b83629cf1ca7565.png",
         "difference": null,
         "closeUps": []
       },
@@ -238,16 +290,56 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/overview",
       "state": "ended Claude Code session: done, failed and unreported tasks",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 362956,
+      "percent": 26.255497685185187,
+      "areas": [
+        {
+          "x": 268,
+          "y": 171,
+          "width": 1144,
+          "height": 619,
+          "pixels": 344846
+        },
+        {
+          "x": 268,
+          "y": 49,
+          "width": 1144,
+          "height": 88,
+          "pixels": 16781
+        },
+        {
+          "x": 288,
+          "y": 924,
+          "width": 216,
+          "height": 36,
+          "pixels": 1301
+        },
+        {
+          "x": 633,
+          "y": 923,
+          "width": 5,
+          "height": 9,
+          "pixels": 27
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/a59b6ccf9e17bb7cea494c7ab2a16b68e79249d65b80e797c5ace129ad8bd268.png",
-        "after": "../../img/a59b6ccf9e17bb7cea494c7ab2a16b68e79249d65b80e797c5ace129ad8bd268.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/944cc778dedc3998441375ae82b8bd1bcadfd3685fed233a02c998b22e1e936c.png",
+        "difference": "../../img/a958b2b10d44a596cf45161ea85db4bc5f1fbb6162700c1805f0d5faaf64b99e.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 232,
+              "y": 0,
+              "width": 1208,
+              "height": 200
+            },
+            "before": "../../img/8f92792d90b3fadb5275ef52d8c829d6976f870be5c1308304350e4b43c74b14.png",
+            "after": "../../img/10e9d1892b8bab44cb7a94f05786f2ace0b9da9790ab22af6f3a9ba278740d77.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -256,16 +348,66 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/overview",
       "state": "Claude Code plan-mode session: file-history checkpoints, one version open",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 194435,
+      "percent": 14.065031828703704,
+      "areas": [
+        {
+          "x": 268,
+          "y": 49,
+          "width": 1144,
+          "height": 385,
+          "pixels": 183482
+        },
+        {
+          "x": 327,
+          "y": 714,
+          "width": 1062,
+          "height": 131,
+          "pixels": 7090
+        },
+        {
+          "x": 288,
+          "y": 593,
+          "width": 233,
+          "height": 87,
+          "pixels": 3213
+        },
+        {
+          "x": 1249,
+          "y": 617,
+          "width": 140,
+          "height": 25,
+          "pixels": 587
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/6d86904560b7106c83383c7100e3c0a030c4aafaa154d194b3db0bb02d87627b.png",
-        "after": "../../img/6d86904560b7106c83383c7100e3c0a030c4aafaa154d194b3db0bb02d87627b.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/b41e8f50ba866ba3ae23303d3a54003ecbedd5a1a3fd44c9033e96b2e5fb6228.png",
+        "difference": "../../img/ef1392bb4b4a825dd90e1d22976b5c458c04f0b6351df9d860911a58a7e139d5.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 232,
+              "y": 17,
+              "width": 1208,
+              "height": 449
+            },
+            "before": "../../img/787061897e5a191067bb5042c1dd8128a3c1e0b0a75c7c233b2734f5a375ba94.png",
+            "after": "../../img/3967941095f1f134b8c4389bbf7a893b639d0dd3cf063083e46c33d8150226e9.png"
+          },
+          {
+            "rect": {
+              "x": 295,
+              "y": 680,
+              "width": 1126,
+              "height": 200
+            },
+            "before": "../../img/8f39ebbc127dbd4525e3082cc73a4b4f50ac15a377bd916524ccab357029b867.png",
+            "after": "../../img/4a45d3c95d30f3e2d3e6d680ef31c56cc6f7e1b1d29944745c0b7c8dbccf05e7.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -334,8 +476,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/a1a345d159bfc4e702b22569a03f292c63db424a45cb4f0f51fd9b9e1d1d88e5.png",
-        "after": "../../img/a1a345d159bfc4e702b22569a03f292c63db424a45cb4f0f51fd9b9e1d1d88e5.png",
+        "before": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
+        "after": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
         "difference": null,
         "closeUps": []
       },
@@ -442,8 +584,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/06af765902e7d73319a439400321cf20e050c6068381086148eff0f74d7306bc.png",
-        "after": "../../img/06af765902e7d73319a439400321cf20e050c6068381086148eff0f74d7306bc.png",
+        "before": "../../img/ca8157afb6be0336290d2a0dd45d146b40a826a80dd59a5488d23624d4416a57.png",
+        "after": "../../img/ca8157afb6be0336290d2a0dd45d146b40a826a80dd59a5488d23624d4416a57.png",
         "difference": null,
         "closeUps": []
       },
@@ -778,16 +920,52 @@
       "group": "overview",
       "route": "/",
       "state": "release notes preview from the GitHub release body",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 16145,
+      "percent": 1.167896412037037,
+      "areas": [
+        {
+          "x": 707,
+          "y": 77,
+          "width": 448,
+          "height": 67,
+          "pixels": 16139
+        },
+        {
+          "x": 617,
+          "y": 87,
+          "width": 14,
+          "height": 46,
+          "pixels": 6
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/8b7d58b24d768ebea95084bba030c222d36e6339463724dec6e8748ea7987eb1.png",
-        "after": "../../img/8b7d58b24d768ebea95084bba030c222d36e6339463724dec6e8748ea7987eb1.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/5b0ff7152804a83585a8ecfcc6bd799753462c7f5defed194b10f1115a1e2d04.png",
+        "difference": "../../img/dceb05bcdf91fc3d3cb2e4284709771ad6045e905222200ac158698ae16e3509.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 675,
+              "y": 11,
+              "width": 512,
+              "height": 200
+            },
+            "before": "../../img/b6cb97695f0dfdc7739cf7e83eda1e9cec15e1ac5fb528d8edc83a4c075a1ab1.png",
+            "after": "../../img/ce32fea69f1cc9b6e447b83a6c20e13702901e5bca87957f22210786beef0703.png"
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 10,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/ff8b10753adad1e34baff32566e2590ddee17af2140cf9c933891054420917ca.png",
+            "after": "../../img/94a03ec2a62f98cb77984783886a237c2bfa352ead48c34dd8ce922f5fb92956.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -796,16 +974,52 @@
       "group": "overview",
       "route": "/",
       "state": "installer build; one-click update dialog before download",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 16145,
+      "percent": 1.167896412037037,
+      "areas": [
+        {
+          "x": 707,
+          "y": 77,
+          "width": 448,
+          "height": 67,
+          "pixels": 16139
+        },
+        {
+          "x": 617,
+          "y": 87,
+          "width": 14,
+          "height": 46,
+          "pixels": 6
+        }
+      ],
+      "sameAreasAs": "update-whats-new",
       "images": {
         "before": "../../img/fae200f07712b68003dbfc72a9cda27e715ef6e280ced0325f557f538122e39f.png",
-        "after": "../../img/fae200f07712b68003dbfc72a9cda27e715ef6e280ced0325f557f538122e39f.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/93ffcf2c0c2e51e3d072ddeb67b20af2f82d5e3a9f23adee4526b6a31ae4cee5.png",
+        "difference": "../../img/a15d000c7d5ee841f0a6eb8e7f1d979d5c1ce7a0828eb54977d42b6b329b3ea8.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 675,
+              "y": 11,
+              "width": 512,
+              "height": 200
+            },
+            "before": "../../img/b6cb97695f0dfdc7739cf7e83eda1e9cec15e1ac5fb528d8edc83a4c075a1ab1.png",
+            "after": "../../img/ce32fea69f1cc9b6e447b83a6c20e13702901e5bca87957f22210786beef0703.png"
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 10,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/ff8b10753adad1e34baff32566e2590ddee17af2140cf9c933891054420917ca.png",
+            "after": "../../img/94a03ec2a62f98cb77984783886a237c2bfa352ead48c34dd8ce922f5fb92956.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -814,16 +1028,52 @@
       "group": "overview",
       "route": "/",
       "state": "installed version's release history from a fixture manifest",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 16145,
+      "percent": 1.167896412037037,
+      "areas": [
+        {
+          "x": 707,
+          "y": 77,
+          "width": 448,
+          "height": 67,
+          "pixels": 16139
+        },
+        {
+          "x": 617,
+          "y": 87,
+          "width": 14,
+          "height": 46,
+          "pixels": 6
+        }
+      ],
+      "sameAreasAs": "update-whats-new",
       "images": {
         "before": "../../img/1eea1b7b8b7b38a2b0a3fddaa753300f51eec8959e24f5cf9dda949cdb5a03b0.png",
-        "after": "../../img/1eea1b7b8b7b38a2b0a3fddaa753300f51eec8959e24f5cf9dda949cdb5a03b0.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/3b417e55a095faf4b2a3c6b245a44d0a7ccaea7982e512aeacfc11b61d870967.png",
+        "difference": "../../img/aae81b1924a478f58a6df526f147b74787ef8179b554320760bc2fe201944d6b.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 675,
+              "y": 11,
+              "width": 512,
+              "height": 200
+            },
+            "before": "../../img/0cfb676363dc976ddb2b3cd5ae163a15a42d57f189c55c9a77c4652728970244.png",
+            "after": "../../img/61386f0d1765a1be7f3e7f7d336f867ab906f4379eae0e28b6cc9d1152de535d.png"
+          },
+          {
+            "rect": {
+              "x": 384,
+              "y": 10,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/c8cf33d86e58555aea007d845af6e0e5de7f722dec9c34c748deb59225f5ca20.png",
+            "after": "../../img/7dfc5d38ab1c952f2d7cf8185902ccd70cb0c2c6d0eb610dae6c9aae3bb5fed5.png"
+          }
+        ]
       },
       "limitations": []
     },
