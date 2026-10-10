@@ -20,7 +20,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { IPC_EVENTS } from "@tracepilot/client";
 import type { BridgeEvent, BridgeStatus, SessionLiveState } from "@tracepilot/types";
 import { defineStore } from "pinia";
-import { watch } from "vue";
+import { onScopeDispose, watch } from "vue";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { MAX_SDK_EVENTS } from "@/config/tuning";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -140,19 +140,19 @@ export const useSdkStore = defineStore("sdk", () => {
     }
   }
 
-  if (isMain()) {
-    setTimeout(() => autoConnect(), 500);
-  } else {
-    // Child/popout windows: don't connect a second bridge, but DO hydrate
-    // the in-memory snapshot from the backend so steering UI (sessions,
-    // live state, models) renders immediately. After this, broadcast
-    // events keep the snapshot up to date.
-    setTimeout(() => {
-      connection.hydrate().catch(() => {
-        /* best-effort — events will still flow once the bridge connects */
-      });
-    }, 100);
-  }
+  const startupTimer = isMain()
+    ? setTimeout(() => autoConnect(), 500)
+    : // Child/popout windows: don't connect a second bridge, but DO hydrate
+      // the in-memory snapshot from the backend so steering UI (sessions,
+      // live state, models) renders immediately. After this, broadcast
+      // events keep the snapshot up to date.
+      setTimeout(() => {
+        connection.hydrate().catch(() => {
+          /* best-effort — events will still flow once the bridge connects */
+        });
+      }, 100);
+  // A disposed store (or its Pinia) must not connect or hydrate later.
+  onScopeDispose(() => clearTimeout(startupTimer));
 
   async function disconnect(options?: { keepLive?: boolean }) {
     if (!isMain()) {
