@@ -3,6 +3,7 @@ import type { ReleaseManifestEntry } from "@tracepilot/types";
 import { ActionButton, formatDateMedium, MarkdownContent, ModalDialog } from "@tracepilot/ui";
 import { ArrowUpRight, Bug, Plus, RefreshCw, RotateCcw } from "lucide-vue-next";
 import { computed, ref } from "vue";
+import UpdateStatusPanel from "@/components/updates/UpdateStatusPanel.vue";
 import type { WhatsNewKind } from "@/composables/useWhatsNew";
 import { displayVersion, entriesInRange, splitReleaseNote } from "@/utils/releaseNotes";
 
@@ -21,6 +22,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   close: [];
   update: [];
+  preview: [];
   "open-external": [url: string];
 }>();
 
@@ -94,6 +96,13 @@ function notesFor(entry: ReleaseManifestEntry, key: (typeof groups)[number]["key
     </template>
 
     <div class="wn-body">
+      <!-- Opened from the version number: let people check for updates here too. -->
+      <UpdateStatusPanel
+        v-if="kind === 'history'"
+        @update="emit('update')"
+        @preview="emit('preview')"
+      />
+
       <section
         v-for="entry in visibleEntries"
         :key="entry.version"

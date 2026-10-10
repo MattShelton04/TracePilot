@@ -1,64 +1,15 @@
 <script setup lang="ts">
-import {
-  ActionButton,
-  FormSwitch,
-  formatDateMedium,
-  formatRelativeTime,
-  LoadingSpinner,
-  SectionPanel,
-} from "@tracepilot/ui";
-import { AlertCircle, CheckCircle2, CircleHelp, Sparkles } from "lucide-vue-next";
-import { computed } from "vue";
-import { useAppVersion } from "@/composables/useAppVersion";
+import { ActionButton, FormSwitch, SectionPanel } from "@tracepilot/ui";
+import UpdateStatusIcon from "@/components/updates/UpdateStatusIcon.vue";
 import { useUpdateCheck } from "@/composables/useUpdateCheck";
+import { useUpdateStatus } from "@/composables/useUpdateStatus";
 import { useWhatsNew } from "@/composables/useWhatsNew";
 import { usePreferencesStore } from "@/stores/preferences";
-import { displayVersion } from "@/utils/releaseNotes";
 
 const preferences = usePreferencesStore();
-const { appVersion } = useAppVersion();
-const {
-  updateResult,
-  updateCheckLoading,
-  updateCheckError,
-  updateCheckedAt,
-  runUpdateCheck,
-  openUpdateInstructions,
-} = useUpdateCheck();
+const { updateCheckLoading, runUpdateCheck, openUpdateInstructions } = useUpdateCheck();
+const { installed, latest, hasUpdate, state, statusText } = useUpdateStatus();
 const { openUpdatePreview } = useWhatsNew();
-
-const installed = computed(() => displayVersion(appVersion.value));
-const latest = computed(() => displayVersion(updateResult.value?.latestVersion ?? ""));
-const hasUpdate = computed(() => updateResult.value?.hasUpdate === true);
-
-type UpdateState = "checking" | "error" | "available" | "current" | "unknown";
-const state = computed<UpdateState>(() => {
-  if (updateCheckLoading.value) return "checking";
-  if (updateCheckError.value) return "error";
-  if (hasUpdate.value) return "available";
-  return updateResult.value ? "current" : "unknown";
-});
-
-const checkedAgo = computed(() =>
-  updateCheckedAt.value ? formatRelativeTime(updateCheckedAt.value / 1000) : "",
-);
-
-const statusText = computed(() => {
-  switch (state.value) {
-    case "checking":
-      return "Checking GitHub for a newer release…";
-    case "error":
-      return `Couldn't check for updates: ${updateCheckError.value}`;
-    case "available": {
-      const published = formatDateMedium(updateResult.value?.publishedAt);
-      return `${latest.value} is available${published ? ` · released ${published}` : ""}`;
-    }
-    case "current":
-      return `You're up to date${checkedAgo.value ? ` · checked ${checkedAgo.value}` : ""}`;
-    default:
-      return "Not checked yet";
-  }
-});
 </script>
 
 <template>
@@ -67,13 +18,7 @@ const statusText = computed(() => {
     <SectionPanel>
       <div class="setting-row">
         <div class="update-status">
-          <span class="update-status-icon" :class="`update-status-icon--${state}`" aria-hidden="true">
-            <LoadingSpinner v-if="state === 'checking'" size="sm" color="currentColor" />
-            <AlertCircle v-else-if="state === 'error'" :size="16" :stroke-width="2" />
-            <Sparkles v-else-if="state === 'available'" :size="16" :stroke-width="2" />
-            <CheckCircle2 v-else-if="state === 'current'" :size="16" :stroke-width="2" />
-            <CircleHelp v-else :size="16" :stroke-width="2" />
-          </span>
+          <UpdateStatusIcon :state="state" />
           <div class="setting-info">
             <div class="setting-label">TracePilot {{ installed }}</div>
             <div
@@ -132,33 +77,6 @@ const statusText = computed(() => {
   align-items: center;
   gap: 12px;
   min-width: 0;
-}
-
-.update-status-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  background: var(--neutral-subtle);
-  color: var(--text-tertiary);
-}
-
-.update-status-icon--available {
-  background: var(--accent-subtle);
-  color: var(--accent-fg);
-}
-
-.update-status-icon--current {
-  background: var(--success-subtle);
-  color: var(--success-fg);
-}
-
-.update-status-icon--error {
-  background: var(--danger-subtle);
-  color: var(--danger-fg);
 }
 
 /* Outranks the shared `.settings-root .setting-description` colour. */

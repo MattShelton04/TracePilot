@@ -328,7 +328,7 @@ function dismissUpdate() {
       <div class="sidebar-footer">
         <button
           class="sidebar-version-btn"
-          title="View release notes"
+          title="Release notes and updates"
           @click="openReleaseHistory"
         >
           {{ displayVersion(appVersion) }}
