@@ -52,6 +52,15 @@ impl SessionSource {
     pub fn from_stored(name: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|source| source.as_str() == name)
     }
+
+    /// The source's own provider's capabilities, for code that has a stored
+    /// source but no provider (index rows).
+    pub fn capabilities(self) -> SourceCapabilities {
+        match self {
+            Self::Copilot => super::copilot::CAPABILITIES,
+            Self::ClaudeCode => super::claude_code::CAPABILITIES,
+        }
+    }
 }
 
 /// A session's place in its family. Drives default visibility.
@@ -122,6 +131,11 @@ pub struct SourceCapabilities {
     /// The session has a database of its own tables (Export's Custom Tables
     /// section).
     pub has_custom_tables: bool,
+    /// The source writes final usage totals when a session exits (Copilot's
+    /// `session.shutdown`). Without them, usage comes only from the
+    /// provider's running metrics: it is never known to be complete
+    /// (`metrics_partial`), and a session that recorded none used nothing.
+    pub has_exit_metrics: bool,
 }
 
 /// How a source resumes one session in a terminal: the configured CLI followed

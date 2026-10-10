@@ -43,6 +43,12 @@ export interface SourceCapabilities {
   hasRewindSnapshots: boolean;
   /** The session has a database of its own tables (Export's Custom Tables). */
   hasCustomTables: boolean;
+  /**
+   * The source writes final usage totals when a session exits (Copilot's
+   * `session.shutdown`). Without them, usage comes only from running metrics,
+   * which are never known to be complete (`metricsPartial`).
+   */
+  hasExitMetrics: boolean;
 }
 
 const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
@@ -62,6 +68,7 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
     hasFileHistory: false,
     hasRewindSnapshots: true,
     hasCustomTables: true,
+    hasExitMetrics: true,
   },
   claudeCode: {
     canResume: false,
@@ -79,6 +86,7 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
     hasFileHistory: true,
     hasRewindSnapshots: false,
     hasCustomTables: false,
+    hasExitMetrics: false,
   },
 };
 

@@ -28,7 +28,7 @@ use super::{
     SourceFingerprint, TodoList,
 };
 
-const CAPABILITIES: SourceCapabilities = SourceCapabilities {
+pub(super) const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     can_resume: true,
     can_resume_in_terminal: true,
     can_launch: true,
@@ -44,6 +44,7 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_file_history: false,
     has_rewind_snapshots: true,
     has_custom_tables: true,
+    has_exit_metrics: true,
 };
 
 /// Sessions under one Copilot `session-state` directory.

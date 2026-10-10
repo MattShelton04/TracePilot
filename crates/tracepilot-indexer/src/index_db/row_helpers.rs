@@ -36,7 +36,9 @@ pub(super) fn indexed_session_from_row(row: &Row) -> rusqlite::Result<IndexedSes
         compaction_count: row.get("compaction_count")?,
         truncation_count: row.get("truncation_count")?,
         source: session_source_from_row(row)?,
-        metrics_partial: (session_source_from_row(row)? == SessionSource::ClaudeCode)
+        metrics_partial: (!session_source_from_row(row)?
+            .capabilities()
+            .has_exit_metrics)
             .then_some(true),
     })
 }

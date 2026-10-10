@@ -1,10 +1,16 @@
 //! Session source identity: the source guard on metadata and search writes,
-//! per-source pruning and `source` on listed rows.
+//! per-source pruning, `source` on listed rows, and billing columns that
+//! follow the provider's capabilities rather than its source.
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
+use tracepilot_core::error::Result as CoreResult;
 use tracepilot_core::ids::SessionId;
-use tracepilot_core::provider::{SessionRole, SessionSource};
+use tracepilot_core::provider::{
+    CopilotProvider, Liveness, ProviderSnapshot, SessionLocator, SessionProvider, SessionRole,
+    SessionSource, SourceCapabilities, SourceFingerprint,
+};
 
 use super::common::write_session_with_tools;
 use crate::error::IndexerError;
@@ -409,4 +415,72 @@ fn session_locator_reads_the_stored_source_path_and_family() {
     let missing = SessionId::from_validated("33333333-3333-4333-8333-333333333333");
     assert_eq!(db.get_session_locator(&missing).unwrap(), None);
     assert_eq!(db.get_session_source_name(&missing).unwrap(), None);
+}
+
+/// A third source that reads Copilot-shaped files but bills differently from
+/// both real sources: no premium requests or AIC, yet final exit totals.
+struct ThirdSource(CopilotProvider);
+
+impl SessionProvider for ThirdSource {
+    fn source(&self) -> SessionSource {
+        self.0.source()
+    }
+    fn capabilities(&self) -> SourceCapabilities {
+        SourceCapabilities {
+            has_exit_metrics: true,
+            ..SourceCapabilities::default()
+        }
+    }
+    fn discover(&self, is_cancelled: &dyn Fn() -> bool) -> CoreResult<Vec<SessionLocator>> {
+        self.0.discover(is_cancelled)
+    }
+    fn fingerprint(&self, session: &SessionLocator) -> CoreResult<SourceFingerprint> {
+        self.0.fingerprint(session)
+    }
+    fn load_snapshot(
+        &self,
+        session: &SessionLocator,
+        strict: bool,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> CoreResult<ProviderSnapshot> {
+        self.0.load_snapshot(session, strict, is_cancelled)
+    }
+    fn liveness(&self, session: &SessionLocator) -> Liveness {
+        self.0.liveness(session)
+    }
+    fn resolve(&self, id: &SessionId) -> CoreResult<Option<SessionLocator>> {
+        self.0.resolve(id)
+    }
+}
+
+fn cost_columns(db: &IndexDb, id: &str) -> (Option<f64>, Option<f64>, Option<f64>) {
+    db.conn
+        .query_row(
+            "SELECT s.total_cost, m.cost, s.cost_usd FROM sessions s
+             JOIN session_model_metrics m ON m.session_id = s.id WHERE s.id = ?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap()
+}
+
+#[test]
+fn premium_request_cost_follows_capabilities_not_the_source_name() {
+    let (temp, db) = setup();
+    // The same shutdown totals indexed by Copilot carry premium-request cost.
+    assert_eq!(cost_columns(&db, COPILOT_ID), (Some(0.5), Some(0.5), None));
+
+    let provider: Arc<dyn SessionProvider> =
+        Arc::new(ThirdSource(CopilotProvider::new(temp.path())));
+    let locator = provider
+        .discover(&|| false)
+        .unwrap()
+        .into_iter()
+        .find(|locator| locator.id.as_str() == COPILOT_ID)
+        .unwrap();
+    let prepared = session_writer::prepare_snapshot(&provider, &locator, &|| false).unwrap();
+    db.write_prepared_session(&prepared).unwrap();
+    // No premium-request cost, and with exit totals but no provider metrics
+    // the session stays unpriced rather than free.
+    assert_eq!(cost_columns(&db, COPILOT_ID), (None, None, None));
 }
