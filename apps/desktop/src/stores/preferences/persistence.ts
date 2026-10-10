@@ -8,17 +8,43 @@ function snapshot(config: TracePilotConfig): TracePilotConfig {
   return JSON.parse(JSON.stringify(config));
 }
 
-/** Config sections contain scalar fields or atomic collection values. */
+type Fields = Record<string, unknown>;
+
+/**
+ * Fields that are themselves sections, patched field by field one level
+ * deeper (the backend's `SourcesPatch`). Every other value, including records
+ * such as `toolRendering.toolOverrides`, is atomic and replaces as a whole.
+ */
+const NESTED_SECTIONS: Partial<Record<ConfigSection, readonly string[]>> = {
+  sources: ["claudeCode"],
+};
+
+function isNested(section: ConfigSection, field: string): boolean {
+  return NESTED_SECTIONS[section]?.includes(field) ?? false;
+}
+
+function diffFields(before: Fields | undefined, after: Fields): Fields {
+  const patch: Fields = {};
+  for (const [field, value] of Object.entries(after)) {
+    if (JSON.stringify(before?.[field]) !== JSON.stringify(value)) patch[field] = value;
+  }
+  return patch;
+}
+
+/** Config sections contain scalar fields, atomic collections, or nested sections. */
 function changedFields(before: TracePilotConfig, after: TracePilotConfig): TracePilotConfigPatch {
-  const patch: Record<string, Record<string, unknown>> = {};
+  const patch: Record<string, Fields> = {};
   for (const section of Object.keys(after) as (keyof TracePilotConfig)[]) {
     if (section === "version") continue;
-    const previous = before[section] as unknown as Record<string, unknown>;
-    for (const [field, value] of Object.entries(after[section])) {
-      if (JSON.stringify(previous[field]) !== JSON.stringify(value)) {
-        patch[section] ??= {};
-        patch[section][field] = value;
-      }
+    const previous = before[section] as unknown as Fields;
+    const changed = diffFields(previous, after[section] as unknown as Fields);
+    for (const [field, value] of Object.entries(changed)) {
+      const nested =
+        isNested(section, field) && value
+          ? diffFields(previous[field] as Fields | undefined, value as Fields)
+          : value;
+      patch[section] ??= {};
+      patch[section][field] = nested;
     }
   }
   return patch as TracePilotConfigPatch;
@@ -27,7 +53,12 @@ function changedFields(before: TracePilotConfig, after: TracePilotConfig): Trace
 function merge(config: TracePilotConfig, patch: TracePilotConfigPatch): TracePilotConfig {
   const merged = snapshot(config);
   for (const section of Object.keys(patch) as ConfigSection[]) {
-    Object.assign(merged[section], patch[section]);
+    const target = merged[section] as unknown as Fields;
+    for (const [field, value] of Object.entries(patch[section] ?? {})) {
+      // A nested section keeps its other fields, as the backend does.
+      target[field] =
+        isNested(section, field) && value ? { ...(target[field] as Fields), ...value } : value;
+    }
   }
   return merged;
 }

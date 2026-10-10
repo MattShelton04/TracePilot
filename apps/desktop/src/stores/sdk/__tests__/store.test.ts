@@ -1,5 +1,5 @@
 import type { BridgeStatus } from "@tracepilot/types";
-import { createPinia, setActivePinia } from "pinia";
+import { createPinia, disposePinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const connectedStatus: BridgeStatus = {
@@ -154,6 +154,20 @@ describe("useSdkStore lifecycle hydration", () => {
     });
 
     expect(store.sessionStatesById["live-2"]?.status).toBe("idle");
+  });
+
+  it.each([
+    ["main", true],
+    ["child", false],
+  ])("cancels the %s window startup timer when its Pinia is disposed", async (_, isMain) => {
+    windowRoleMock.isMain = isMain;
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useSdkStore();
+    disposePinia(pinia);
+    await vi.runAllTimersAsync();
+    expect(client.sdkHydrate).not.toHaveBeenCalled();
+    expect(client.sdkConnect).not.toHaveBeenCalled();
   });
 
   it("does not register beforeunload disconnect lifecycle", () => {

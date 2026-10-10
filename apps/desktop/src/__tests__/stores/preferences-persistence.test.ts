@@ -19,11 +19,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(factoryReset).mockReset().mockResolvedValue(undefined);
   persisted = createDefaultConfig();
-  vi.mocked(getConfig).mockImplementation(async () => persisted);
+  vi.mocked(getConfig).mockImplementation(async () => structuredClone(persisted));
   vi.mocked(updateConfig).mockImplementation(async (patch) => {
-    for (const section of Object.keys(patch) as (keyof typeof patch)[]) {
-      Object.assign(persisted, { [section]: { ...persisted[section], ...patch[section] } });
+    // Field-level like the backend, one level deeper for `sources.claudeCode`.
+    const { sources, ...sections } = patch;
+    for (const section of Object.keys(sections) as (keyof typeof sections)[]) {
+      Object.assign(persisted, { [section]: { ...persisted[section], ...sections[section] } });
     }
+    if (sources?.claudeCode) Object.assign(persisted.sources.claudeCode, sources.claudeCode);
     return structuredClone(persisted);
   });
 });
@@ -170,6 +173,29 @@ it("hydrates and autosaves the Claude Code CLI command, keeping the folder", asy
   await nextTick();
   await vi.advanceTimersByTimeAsync(350);
   expect(updateConfig).toHaveBeenLastCalledWith({
-    sources: { claudeCode: { configDir: "C:/claude", cliCommand: "npx claude" } },
+    sources: { claudeCode: { cliCommand: "npx claude" } },
+  });
+  expect(persisted.sources.claudeCode).toEqual({
+    configDir: "C:/claude",
+    cliCommand: "npx claude",
+  });
+});
+
+it("keeps a pending Claude Code CLI command edit when the folder is applied", async () => {
+  persisted.sources.claudeCode = { configDir: "C:/claude", cliCommand: "claude-dev" };
+  const store = usePreferencesStore();
+  await store.whenReady;
+  store.claudeCliCommand = "npx claude";
+  await nextTick();
+  // Apply the folder inside the autosave debounce window.
+  await store.updateConfigFields({ sources: { claudeCode: { configDir: "D:/claude" } } });
+  await vi.advanceTimersByTimeAsync(350);
+  expect(updateConfig).toHaveBeenCalledWith({
+    sources: { claudeCode: { configDir: "D:/claude", cliCommand: "npx claude" } },
+  });
+  expect(store.claudeCliCommand).toBe("npx claude");
+  expect(persisted.sources.claudeCode).toEqual({
+    configDir: "D:/claude",
+    cliCommand: "npx claude",
   });
 });
