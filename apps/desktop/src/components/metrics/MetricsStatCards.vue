@@ -2,11 +2,7 @@
 import type { AiCreditUsage, ShutdownMetrics } from "@tracepilot/types";
 import { Badge, formatAiCredits, formatCost, formatNumber, StatCard } from "@tracepilot/ui";
 import { DURATION_HINTS, formatRecordedDuration } from "@/utils/sessionDurations";
-import {
-  API_EQUIVALENT_NOTE,
-  formatSessionCost,
-  type SessionCostEstimate,
-} from "@/utils/sourceCost";
+import { formatSessionCost, type SessionCostEstimate } from "@/utils/sourceCost";
 
 defineProps<{
   metrics: ShutdownMetrics;
@@ -35,7 +31,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
         label="Est. Cost (USD)"
         color="accent"
         :trend="sourceCost.basisLabel"
-        :tooltip="`${sourceCost.coverage} ${API_EQUIVALENT_NOTE}`"
+        :tooltip="sourceCost.coverage"
       />
       <StatCard :value="totalTokens == null ? '—' : formatNumber(totalTokens)" label="Total Tokens" :gradient="true" tooltip="Input + output, including cache and reasoning tokens" />
       <StatCard :value="totalRequests" label="Recorded Requests" color="done" tooltip="Model calls recorded in the transcript" />
@@ -43,7 +39,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
     </div>
     <p class="cost-legend mb-6" data-testid="source-cost-legend">
       <Badge v-if="sourceCost.partial" variant="warning">Partial</Badge>
-      {{ sourceCost.coverage }} {{ API_EQUIVALENT_NOTE }}
+      {{ sourceCost.coverage }}
     </p>
   </template>
 

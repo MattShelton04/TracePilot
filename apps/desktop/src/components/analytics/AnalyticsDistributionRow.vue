@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { AI_CREDIT_USD, type AnalyticsData } from "@tracepilot/types";
+import {
+  AI_CREDIT_USD,
+  type AnalyticsData,
+  sourceCapabilities,
+  sourceLabel,
+} from "@tracepilot/types";
 import type { ChartLayout, ChartTooltipState } from "@tracepilot/ui";
 import {
   formatAiCredits,
@@ -15,7 +20,7 @@ import { RouterLink } from "vue-router";
 import LineAreaChart from "@/components/charts/LineAreaChart.vue";
 import { useLineAreaChartData } from "@/composables/useLineAreaChartData";
 import { usePreferencesStore } from "@/stores/preferences";
-import { buildAnalyticsCostSeries } from "@/utils/analyticsCostSeries";
+import { buildAnalyticsCostSeries, buildCombinedCostSeries } from "@/utils/analyticsCostSeries";
 import { CHART_COLORS, DONUT_PALETTE } from "@/utils/chartColors";
 import { modelLabels } from "@/utils/modelLabels";
 
@@ -80,28 +85,62 @@ watch(donutSegments, () => {
 });
 
 // ── Cost basis toggle ─────────────────────────────────────────────
-// `usd` charts provider-priced USD for sources not billed in AI Credits. It
-// is its own series: AI Credits and USD are never added together.
-type CostBasis = "aiCredits" | "legacy" | "usd";
+// `combined` is the default when some runs are priced in USD: every source
+// on one USD axis, AI Credits at $0.01 each. The other bases keep one
+// source's own series: Copilot's AI Credits or legacy premium requests, or
+// the USD estimates of sources not billed in AI Credits.
+type CostBasis = "combined" | "aiCredits" | "legacy" | "usd";
 
-const selectedBasis = ref<CostBasis>("aiCredits");
+const selectedBasis = ref<CostBasis>("combined");
 const hasUsdCost = computed(() => (props.data.costUsdByDay?.length ?? 0) > 0);
-const costBasis = computed<CostBasis>(() =>
-  props.billedInAic === false
-    ? "usd"
-    : selectedBasis.value === "usd" && !hasUsdCost.value
-      ? "aiCredits"
-      : selectedBasis.value,
-);
+const costBasis = computed<CostBasis>(() => {
+  if (props.billedInAic === false) return "usd";
+  const usdBasis = selectedBasis.value === "combined" || selectedBasis.value === "usd";
+  return usdBasis && !hasUsdCost.value ? "aiCredits" : selectedBasis.value;
+});
 
 const isAiCredits = computed(() => costBasis.value === "aiCredits");
+
+/**
+ * Names of the sources on one side of the combined series, or null when no
+ * such source has sessions. Payloads from older builds list no sources.
+ */
+function sourceNames(billed: boolean): string | null {
+  const entries = props.data.costBySource;
+  if (!entries) return billed ? "AI Credits" : "Estimated USD";
+  const names = entries
+    .filter((entry) => sourceCapabilities(entry.source).hasAic === billed)
+    .map((entry) => sourceLabel(entry.source));
+  return names.length ? names.join(", ") : null;
+}
+const aicSourceName = computed(() => sourceNames(true));
+const usdSourceName = computed(() => sourceNames(false) ?? "Estimated USD");
 
 const costColor = computed(() => (isAiCredits.value ? CHART_COLORS.success : CHART_COLORS.primary));
 const costColorLight = computed(() =>
   isAiCredits.value ? CHART_COLORS.successLight : CHART_COLORS.primaryLight,
 );
 
-const costPoints = computed(() => {
+interface CostChartPoint {
+  date: string;
+  cost: number;
+  aiCredits: number | null;
+  parts: { aiCreditsUsd: number; sourceUsd: number } | null;
+}
+
+const costPoints = computed<CostChartPoint[]>(() => {
+  if (costBasis.value === "combined") {
+    return buildCombinedCostSeries(
+      props.data,
+      prefs.computeWholesaleCost,
+      prefs.computeUsageBasedCost,
+    ).map(({ date, cost, aiCreditsUsd, sourceUsd }) => ({
+      date,
+      cost,
+      aiCredits: null,
+      parts: { aiCreditsUsd, sourceUsd },
+    }));
+  }
   const points = buildAnalyticsCostSeries(
     props.data,
     costBasis.value,
@@ -110,9 +149,10 @@ const costPoints = computed(() => {
     prefs.computeUsageBasedCost,
   );
   return points.map((point) => ({
-    ...point,
+    date: point.date,
     aiCredits: isAiCredits.value ? point.cost : null,
     cost: isAiCredits.value ? point.cost * AI_CREDIT_USD : point.cost,
+    parts: null,
   }));
 });
 
@@ -126,22 +166,30 @@ const { chartData: costChart } = useLineAreaChartData({
 });
 
 const costAriaLabel = computed(() => {
-  const series =
-    costBasis.value === "usd"
-      ? "estimated cost in US dollars"
-      : isAiCredits.value
-        ? "AI Credit cost in US dollars"
-        : "legacy premium cost";
+  const series = {
+    combined: "cost in US dollars across all sources",
+    usd: "estimated cost in US dollars",
+    aiCredits: "AI Credit cost in US dollars",
+    legacy: "legacy premium cost",
+  }[costBasis.value];
   return `Area chart showing daily ${series} over ${props.timeRangeLabel}`;
 });
 
 const tooltipFormatter = (i: number) => {
   const point = costChart.value?.coords[i];
-  return point
-    ? `${formatDateMedium(point.date)} — ${formatCost(point.cost)}${
-        point.aiCredits == null ? "" : ` · ${formatAiCredits(point.aiCredits)}`
-      }`
-    : "";
+  if (!point) return "";
+  const head = `${formatDateMedium(point.date)} — ${formatCost(point.cost)}`;
+  if (point.parts) {
+    const parts = [
+      [aicSourceName.value, point.parts.aiCreditsUsd],
+      [sourceNames(false), point.parts.sourceUsd],
+    ] as const;
+    return [
+      head,
+      ...parts.filter(([name]) => name).map(([name, usd]) => `${name} ${formatCost(usd)}`),
+    ].join(" · ");
+  }
+  return point.aiCredits == null ? head : `${head} · ${formatAiCredits(point.aiCredits)}`;
 };
 </script>
 
@@ -204,6 +252,20 @@ const tooltipFormatter = (i: number) => {
           role="radiogroup"
           aria-label="Cost basis"
         >
+          <template v-if="hasUsdCost">
+            <button
+              type="button"
+              class="cost-basis-option"
+              :class="{ active: costBasis === 'combined' }"
+              role="radio"
+              :aria-checked="costBasis === 'combined'"
+              title="Every source in USD, AI Credits at $0.01 each"
+              @click="selectedBasis = 'combined'"
+            >
+              All Sources
+            </button>
+            <span class="cost-basis-separator" aria-hidden="true">/</span>
+          </template>
           <button
             type="button"
             class="cost-basis-option"
@@ -233,10 +295,10 @@ const tooltipFormatter = (i: number) => {
               :class="{ active: costBasis === 'usd' }"
               role="radio"
               :aria-checked="costBasis === 'usd'"
-              title="Estimated USD for sessions not billed in AI Credits"
+              :title="`API-equivalent USD for ${usdSourceName} sessions`"
               @click="selectedBasis = 'usd'"
             >
-              Estimated USD
+              {{ usdSourceName }}
             </button>
           </template>
         </div>

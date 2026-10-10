@@ -142,7 +142,7 @@ describe("models priced per source", () => {
     expect(rows.map((row) => row.label)).toEqual(["claude-opus-4-6", "claude-opus-4-6-20260101"]);
   });
 
-  it("compares cost across sources without a delta", () => {
+  it("compares cost across sources in USD", () => {
     const [copilot, claude, claudeToo] = build([
       { model: "claude-opus-4.6", source: "copilot", ...usage },
       { model: "claude-opus-5-5", source: "claudeCode", costUsd: 1, ...usage },
@@ -156,10 +156,12 @@ describe("models priced per source", () => {
       delta: "—",
       better: "neutral",
     });
-    expect(crossSource.find((m) => m.label === "Cost")).toMatchObject({
-      valueB: "$1.00 est.",
-      delta: "Different units",
-      better: "neutral",
+    // AI Credits convert at $0.01 each, so the pair shares one scale.
+    expect(copilot.usdEquivalent).toBeCloseTo((copilot.aiCredits ?? 0) * 0.01);
+    expect(crossSource.find((m) => m.label === "Cost (USD)")).toMatchObject({
+      valueA: formatNorm(copilot.usdEquivalent, true, "raw"),
+      valueB: "$1.00",
+      better: (copilot.usdEquivalent ?? 0) < 1 ? "a" : "b",
     });
     const sameSource = buildCompareMetrics(claude, claudeToo, fmt);
     expect(sameSource.find((m) => m.label === "Estimated Cost")).toMatchObject({
@@ -264,6 +266,7 @@ describe("normalizeRows", () => {
       premiumRequests: 10,
       cost: 5,
       copilotCost: 0.4,
+      usdEquivalent: 1,
     }),
     row({
       model: "b",
@@ -274,6 +277,7 @@ describe("normalizeRows", () => {
       premiumRequests: 30,
       cost: 15,
       copilotCost: 1.2,
+      usdEquivalent: 3,
     }),
   ];
 
@@ -290,13 +294,16 @@ describe("normalizeRows", () => {
     expect(out[0].cost).toBeCloseTo(25);
     expect(out[1].cost).toBeCloseTo(75);
     expect(out[0].copilotCost + out[1].copilotCost).toBeCloseTo(100);
+    expect(out[0].usdEquivalent).toBeCloseTo(25);
+    expect(out[1].usdEquivalent).toBeCloseTo(75);
   });
 
   it("per-10m-tokens scales volumetric fields by tokens / 10M (null cost preserved)", () => {
     const out = normalizeRows(
-      [row({ tokens: 5_000_000, cost: null, copilotCost: 1 })],
+      [row({ tokens: 5_000_000, cost: null, copilotCost: 1, usdEquivalent: 0.5 })],
       "per-10m-tokens",
     );
+    expect(out[0].usdEquivalent).toBeCloseTo(1);
     // divisor = 0.5 → tokens stretches to 10M
     expect(out[0].tokens).toBeCloseTo(10_000_000);
     expect(out[0].cost).toBeNull();
@@ -337,6 +344,20 @@ describe("formatRowCostNorm", () => {
     expect(formatRowCostNorm(usd, "per-10m-tokens")).toBe("$0.92");
     expect(formatRowCostNorm(aic, "share")).toBe("27.9%");
     expect(formatRowCostNorm({ ...row(), aiCredits: null }, "per-10m-tokens")).toBe("—");
+  });
+
+  it("shows every row in USD when the table mixes units", () => {
+    const aic = row({ aiCredits: 300, usdEquivalent: 3 });
+    const usd = row({
+      aiCredits: null,
+      billedInAiCredits: false,
+      costUsd: 0.92,
+      usdEquivalent: 0.92,
+    });
+    expect(formatRowCostNorm(aic, "raw", true)).toBe("$3.00");
+    expect(formatRowCostNorm(usd, "raw", true)).toBe("$0.92");
+    expect(formatRowCostNorm({ ...aic, usdEquivalent: 76.5 }, "share", true)).toBe("76.5%");
+    expect(formatRowCostNorm({ ...aic, usdEquivalent: null }, "raw", true)).toBe("—");
   });
 });
 

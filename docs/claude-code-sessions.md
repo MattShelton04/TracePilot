@@ -51,7 +51,7 @@ sessions are removed and the new folder is indexed.
 | Export | Markdown and JSON, marked with the source. On top of the redaction options you pick, TracePilot always removes account details (email, organization and account IDs, quota limits) and the system-prompt and instruction-file attachments from the native records. |
 | Import | No. Import writes Copilot session folders. |
 | Resume | **Resume in Terminal** opens a terminal in the session's working directory and runs `claude --resume <id>`. **Copy Resume Command** copies the same command; run it from that directory. Set the command (for example `npx claude`) under **Settings → Claude Code → Claude Code command**. Exact context capture stays Copilot-only. |
-| Analytics, Tool Analysis, Models, Session Comparison | Yes. Costs in different units are never added together: the dashboard shows **Cost by Source** when both sources are present, and comparisons across sources show no cost delta. |
+| Analytics, Tool Analysis, Models, Session Comparison | Yes. With both sources present, cost views default to US dollars, counting AI Credits at $0.01 each: the cost trend, total cost and **Cost by Source** add the sources together, and comparisons across sources compare in USD. Each source's own series stays one click away on the cost trend. |
 
 ### Not supported
 
@@ -79,9 +79,9 @@ Claude Code's settings. That can't bring back transcripts already deleted.
 
 ## Costs are estimates
 
-Claude Code sessions are priced in **API-equivalent US dollars**, an estimate
-and not a bill. It is the same yardstick whether you use a subscription or an
-API key. It doesn't show how much of a subscription allowance you used.
+Claude Code sessions are priced in **API-equivalent US dollars**. It is the
+same yardstick whether you use a subscription or an API key. It doesn't show
+how much of a subscription allowance you used.
 
 The Metrics tab labels each figure with its basis:
 

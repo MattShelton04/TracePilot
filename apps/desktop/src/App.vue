@@ -180,6 +180,7 @@ const { breadcrumbs } = useBreadcrumbs(isTabViewActive);
     :release-notes="whatsNewReleaseNotes"
     @close="closeWhatsNew"
     @update="showUpdateFromWhatsNew"
+    @preview="openUpdatePreview"
     @open-external="openExternal"
   />
 
