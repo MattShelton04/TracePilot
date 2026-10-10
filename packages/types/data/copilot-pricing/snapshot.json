@@ -1,10 +1,10 @@
 {
-  "revision": "2bd66de8cea336061c9ea060c9b37385136e6ab3",
-  "verifiedAt": "2026-10-04",
+  "revision": "be38ec5d78e24172587e61b3c6ff40ace1865c71",
+  "verifiedAt": "2026-10-10",
   "sha256": {
-    "usage": "eaab874e5781f974bf6c943ffcbd0686738c426dd511f913bc384d9ec551d69d",
+    "usage": "d1c7540b412c58b347dcf349b5cd0ca5f46a5015b5ffccbfdc8623f2079e0a28",
     "annual": "d8ddb6f9758516d9294a204f83ebe4eb2d840a565c5695059966f18c7b5dc79a",
-    "page": "827c6671f2612b5ec71069276adcbe2a786191a7fca37bf4ca4d57537375c29b"
+    "page": "e1e21539066330e30dbd9d5a6db4356ec996a96a5ecb84b039191edc305ca848"
   },
   "footnotes": {
     "gemini-flash-promo": "{% data variables.copilot.copilot_gemini_37_flash %} and {% data variables.copilot.copilot_gemini_38_flash %} are available at the promotional pricing of $0.75 per 1M input tokens, $0.075 per 1M cached input tokens, and $3.75 per 1M output tokens through December 31, 2026."

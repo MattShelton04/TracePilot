@@ -111,7 +111,7 @@ The comment publisher uses the repository's existing trusted `workflow_run` patt
 
 ### Short and long context
 
-Each model's default and long-context rates remain separate rows under the same identity. The tier is selected using **total input tokens, including cache reads and cache writes**, and its input/cache/output prices apply to the full request, not just tokens above the threshold. GPT-6 Sol and Luna use the default tier through 272,000 input tokens and the long-context tier starting at 272,001. Opus 5.5 has no published long-context surcharge and keeps its single rate. Both importer validation and the live comparison include thresholds and every tier; calculation tests cover both sides of the boundary. Aggregated session totals still cannot reconstruct individual request boundaries, so historical aggregate estimates retain that limitation.
+Each model's default and long-context rates remain separate rows under the same identity. The tier is selected using **total input tokens, including cache reads and cache writes**, and its input/cache/output prices apply to the full request, not just tokens above the threshold. GPT-6 Sol and Luna use the default tier through 272,000 input tokens and the long-context tier starting at 272,001. Claude Haiku 5.5 uses its default tier through 100,000 input tokens and its long-context tier starting at 100,001. Opus 5.5 has no published long-context surcharge and keeps its single rate. Both importer validation and the live comparison include thresholds and every tier; calculation tests cover both sides of the boundary. Aggregated session totals still cannot reconstruct individual request boundaries, so historical aggregate estimates retain that limitation.
 
 ### History and retention rules
 
@@ -124,6 +124,19 @@ Each model's default and long-context rates remain separate rows under the same 
 When GitHub removes a whole model from a table, the importer retains it in `githubCopilotUsage` or `annualLegacyMultipliers`; it does not delete the model or move it into closed history. Its aliases, model metadata, compatibility defaults, last verified date, and any published promotion expiry are preserved. This differs from a changed price or removed context tier, where the previous tier set is archived with an exclusive end date. A later dated estimate can therefore still use a delisted model's last known rate, subject to its published expiry. It is an estimate from retained evidence, not confirmation of current pricing or model availability.
 
 The bundled model registry also supplies launcher and config-editor model lists, so retained identities can still appear in those menus. Those lists are local metadata, not a live Copilot availability check. The SDK's separate model-list query reflects what the connected Copilot client reports. Removing a model in local Direct API settings only suppresses its editable defaults during merges; it does not remove the bundled Copilot pricing evidence used by historical estimates.
+
+### October 10, 2026 snapshot
+
+Verified against `github/docs` revision [`be38ec5d78e24172587e61b3c6ff40ace1865c71`](https://github.com/github/docs/commit/be38ec5d78e24172587e61b3c6ff40ace1865c71) and both rendered references. The source contains **45 token-rate rows** and **16 annual-plan multipliers**. Claude Haiku 5.5 is newly registered, and Claude Sonnet 5.5's cached-input rate changes:
+
+| Model | Input | Cached input | Cache write | Output | Long-context threshold |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Claude Haiku 5.5 | $0.10 | $0.01 | $0.125 | $0.50 | Above 100,000 input tokens: $0.50 / $0.05 / $0.625 / $2.50 |
+| Claude Sonnet 5.5 | $2 | $0.10 (previously $0.20) | $2.50 | $10 | None published |
+
+Amounts are USD per million tokens; long-context rates apply to the entire request. New and changed rows begin at TracePilot's **2026-10-10 verification boundary**, which does not establish the actual launch or price-change date. Sonnet 5.5's previous row remains in `githubCopilotUsageHistory`, verified October 4 and ending exclusively at October 10, so dated estimates preserve the old cache rate.
+
+All other listed token rates, annual multipliers, retained entries and earlier history are unchanged. The reviewed Gemini promotion footnote and exclusive expiry `2027-01-01` are unchanged. GitHub publishes no annual legacy multiplier for Haiku 5.5; its `currentPremiumRequestDefaults` value is an explicitly labeled local compatibility placeholder. Shared Rust/TypeScript defaults include both Haiku tiers and Sonnet's new cache rate; saved Direct API overrides and intentional model removals remain intact.
 
 ### October 4, 2026 snapshot
 

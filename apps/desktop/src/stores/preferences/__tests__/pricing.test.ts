@@ -140,10 +140,20 @@ describe("createPricingSlice", () => {
     ]);
     expect(merged.find((price) => price.model === "claude-sonnet-5.5")).toMatchObject({
       inputPerM: 2,
-      cachedInputPerM: 0.2,
+      cachedInputPerM: 0.1,
       cacheWritePerM: 2.5,
       outputPerM: 10,
     });
+    expect(merged.filter((price) => price.model === "claude-haiku-5.5")).toMatchObject([
+      { inputPerM: 0.1, cachedInputPerM: 0.01, cacheWritePerM: 0.125, outputPerM: 0.5 },
+      {
+        minimumInputTokens: 100001,
+        inputPerM: 0.5,
+        cachedInputPerM: 0.05,
+        cacheWritePerM: 0.625,
+        outputPerM: 2.5,
+      },
+    ]);
     expect(merged.find((price) => price.model === "gemini-3.6-flash")?.effectiveTo).toBe(
       "2027-01-01",
     );
@@ -155,6 +165,35 @@ describe("createPricingSlice", () => {
     expect(slice.computeUsageBasedCost(saved.model, 100_000, 0, 0)).toBe(0.5);
     expect(slice.computeUsageBasedCost("Claude Sonnet 5.5", 100_000, 0, 0)).toBe(0.2);
     expect(slice.computeUsageBasedCost("GPT-6.1 Sol", 100_000, 100_000, 0)).toBeCloseTo(0.01);
+    expect(slice.computeUsageBasedCost("Claude Haiku 5.5", 100_000, 100_000, 0)).toBeCloseTo(0.001);
+    expect(slice.computeUsageBasedCost("Claude Haiku 5.5", 100_001, 100_001, 0)).toBeCloseTo(
+      0.00500005,
+    );
+  });
+
+  it("preserves saved Sonnet cache rates while using refreshed Copilot rates and honoring Haiku removal", () => {
+    const saved = {
+      model: "claude-sonnet-5.5",
+      inputPerM: 2,
+      cachedInputPerM: 0.2,
+      cacheWritePerM: 2.5,
+      outputPerM: 10,
+      premiumRequests: 1,
+    };
+    const slice = createPricingSlice();
+    slice.modelWholesalePrices.value = mergeWholesalePricesWithDefaults(
+      [saved],
+      ["claude-haiku-5.5"],
+    );
+    expect(
+      slice.modelWholesalePrices.value.some((price) => price.model === "claude-haiku-5.5"),
+    ).toBe(false);
+    expect(slice.getWholesalePrice(saved.model)).toMatchObject(saved);
+    expect(slice.computeWholesaleCost(saved.model, 100_000, 100_000, 0)).toBeCloseTo(0.02);
+    expect(slice.computeUsageBasedCost(saved.model, 100_000, 100_000, 0)).toBeCloseTo(0.01);
+    expect(
+      slice.computeUsageBasedCost(saved.model, 100_000, 100_000, 0, 0, "2026-10-09"),
+    ).toBeCloseTo(0.02);
   });
 
   it("computeWholesaleCost subtracts cache reads from input tokens", () => {

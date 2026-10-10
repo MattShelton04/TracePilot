@@ -42,7 +42,7 @@ describe("isolated Claude Code pricing", () => {
   });
   it("requires an explicit Claude lookup and leaves the Copilot defaults intact", () => {
     expect(CLAUDE_CODE_PRICING.every((entry) => !PRICING_REGISTRY.includes(entry))).toBe(true);
-    expect(resolvePricingEntry("claude-sonnet-5.5")?.rates?.cachedInputPerM).toBe(0.2);
+    expect(resolvePricingEntry("claude-sonnet-5.5")?.rates?.cachedInputPerM).toBe(0.1);
     expect(
       calculateClaudeCodeTokenCost("claude-sonnet-5-5", {
         inputTokens: 100,
