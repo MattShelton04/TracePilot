@@ -2,9 +2,7 @@ use std::path::{Path, PathBuf};
 
 use tracepilot_core::provider::{ResumeLaunch, SessionSource};
 
-use super::{
-    effective_cwd, is_plain_local_absolute, powershell_script, ps_quote, resume_argv, resume_cli,
-};
+use super::{effective_cwd, powershell_script, ps_quote, resume_argv, resume_cli};
 use crate::config::TracePilotConfig;
 
 const ID: &str = "c86fe369-c858-4d91-81da-203c5e276e33";
@@ -169,6 +167,7 @@ fn quotes_are_doubled_including_typographic_ones() {
 #[cfg(windows)]
 #[test]
 fn only_drive_and_wsl_roots_count_as_local() {
+    use super::is_plain_local_absolute;
     for local in [
         r"C:\work\app",
         r"c:/work/app",
