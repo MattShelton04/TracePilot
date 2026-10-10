@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { setupPinia } from "@tracepilot/test-utils";
 import { flushPromises, mount } from "@vue/test-utils";
+import { createPinia, type Pinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SessionDetailPanel from "@/components/session/SessionDetailPanel.vue";
 import { RUNNING_SESSION_POLL_MS } from "@/composables/useRunningSessionPoll";
@@ -84,8 +84,12 @@ function createStore(): SessionDetailContext {
 }
 
 describe("SessionDetailPanel", () => {
+  // Panels that read preferences get this pinia explicitly: a store action
+  // left over from an earlier test re-activates that test's pinia.
+  let pinia: Pinia;
   beforeEach(() => {
-    setupPinia();
+    pinia = createPinia();
+    setActivePinia(pinia);
     vi.clearAllMocks();
     mocks.getSessionLiveness.mockResolvedValue({ state: "idle" });
   });
@@ -307,6 +311,7 @@ describe("SessionDetailPanel", () => {
         activeSubTab: "overview",
         refreshEnabled: false,
       },
+      global: { plugins: [pinia] },
     });
   }
 
@@ -326,7 +331,7 @@ describe("SessionDetailPanel", () => {
   });
 
   it("resumes a Copilot session through the configured CLI command", async () => {
-    const prefs = usePreferencesStore();
+    const prefs = usePreferencesStore(pinia);
     // Config hydration must finish first, or it resets these preferences.
     await prefs.whenReady;
     await flushPromises();
@@ -342,7 +347,7 @@ describe("SessionDetailPanel", () => {
   });
 
   it("resumes a Claude Code session through its own CLI command, not Copilot's", async () => {
-    const prefs = usePreferencesStore();
+    const prefs = usePreferencesStore(pinia);
     // Config hydration must finish first, or it resets these preferences.
     await prefs.whenReady;
     await flushPromises();
