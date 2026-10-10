@@ -328,6 +328,13 @@ describe("formatNumber", () => {
     expect(formatNumber(1_234_567)).toBe("1.2M");
     expect(formatNumber(1_500_000)).toBe("1.5M");
     expect(formatNumber(9_999_999)).toBe("10M");
+    expect(formatNumber(999_000_000)).toBe("999M");
+  });
+
+  it("formats billions with B suffix", () => {
+    expect(formatNumber(1_000_000_000)).toBe("1B");
+    expect(formatNumber(12_642_200_000)).toBe("12.6B");
+    expect(formatNumber(-2_500_000_000)).toBe("-2.5B");
   });
 
   it("formats thousands with K suffix", () => {

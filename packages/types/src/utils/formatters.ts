@@ -81,17 +81,18 @@ export function formatRelativeTime(value?: string | number | null): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-/** Abbreviate large numbers (1200 → "1.2K", 1500000 → "1.5M"). */
+/** Abbreviate large numbers (1200 → "1.2K", 1500000 → "1.5M", 2.5e9 → "2.5B"). */
 export function formatNumber(n?: number | null): string {
   if (n == null || !Number.isFinite(n)) return "0";
   const abs = Math.abs(n);
   const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) return `${sign}${formatCleanFloat(abs / 1_000_000_000, 1)}B`;
   if (abs >= 1_000_000) return `${sign}${formatCleanFloat(abs / 1_000_000, 1)}M`;
   if (abs >= 1_000) return `${sign}${formatCleanFloat(abs / 1_000, 1)}K`;
   return n.toString();
 }
 
-/** Alias for formatNumber - formats token counts (e.g. 1234567 → "1.2M").
+/** Alias for formatNumber - formats token counts (e.g. 1234567 → "1.2M", 12642200000 → "12.6B").
  *  Provided for backwards compatibility with CLI usage. */
 export function formatTokens(n?: number | null): string {
   return formatNumber(n);
