@@ -35,16 +35,8 @@ const VERSIONS: Record<string, string> = {
     "export async function upload(body: Blob) {\n  return retry(() => send(body), { attempts: 3 });\n}\n",
 };
 
-/** Plan and file-history commands; only Claude sessions have file history. */
-export function mockArtifactCommands(
-  claude: boolean,
-  args?: Record<string, unknown>,
-): Record<string, unknown> {
+/** `get_session_file_version` content for a mock file-history backup. */
+export function mockFileVersion(args?: Record<string, unknown>): FileVersionContent {
   const content = VERSIONS[String(args?.backup ?? "")] ?? "";
-  const version: FileVersionContent = { content, binary: false, truncated: false };
-  return {
-    ...(claude ? { get_session_plan: MOCK_CLAUDE_PLAN } : {}),
-    get_session_file_history: claude ? MOCK_CLAUDE_FILE_HISTORY : [],
-    get_session_file_version: version,
-  };
+  return { content, binary: false, truncated: false };
 }
