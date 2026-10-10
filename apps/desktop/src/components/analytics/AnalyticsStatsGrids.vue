@@ -8,7 +8,11 @@ import {
   StatCard,
 } from "@tracepilot/ui";
 import { computed } from "vue";
-import type { AnalyticsAiCreditSummary } from "@/utils/analyticsCostSeries";
+import {
+  type AnalyticsAiCreditSummary,
+  buildSourceCostRows,
+  combinedCostTotal,
+} from "@/utils/analyticsCostSeries";
 
 const props = defineProps<{
   data: AnalyticsData;
@@ -23,8 +27,8 @@ const usdSource = computed(() => {
 });
 
 /**
- * With several sources, the credit cards cover only the sources billed in AI
- * Credits; they say so, and the others' estimates stay in Cost by Source.
+ * With several sources, the AI Credit card covers only the sources billed in
+ * them, and the cost card adds every source together in USD.
  */
 const creditScope = computed(() => {
   const entries = props.data.costBySource ?? [];
@@ -33,11 +37,19 @@ const creditScope = computed(() => {
   return billed.map((e) => sourceLabel(e.source)).join(", ");
 });
 
-const creditScopeNote = computed(() =>
-  creditScope.value
-    ? ` Covers ${creditScope.value} sessions only; other sources' estimates are in Cost by Source.`
-    : "",
+const sourceRows = computed(() =>
+  creditScope.value ? buildSourceCostRows(props.data, props.aiCreditSummary) : [],
 );
+const combined = computed(() => combinedCostTotal(sourceRows.value));
+
+const combinedTooltip = computed(() => {
+  const parts = sourceRows.value.map(
+    (row) =>
+      `${sourceLabel(row.source)} ${row.usdEquivalent == null ? "unpriced" : formatCost(row.usdEquivalent)}`,
+  );
+  const partial = combined.value.partial ? " Partial: some usage could not be priced." : "";
+  return `${parts.join(" + ")}. AI Credits count at $0.01 each.${partial}`;
+});
 
 const usdTooltip = computed(() => {
   const entry = usdSource.value;
@@ -46,7 +58,7 @@ const usdTooltip = computed(() => {
     entry.costUsd != null && entry.sessionsWithCostUsd < entry.sessions
       ? " Partial: some sessions could not be priced."
       : "";
-  return `API-equivalent USD estimated from ${sourceLabel(entry.source)} usage. Not a bill.${partial}`;
+  return `API-equivalent USD from ${sourceLabel(entry.source)} usage.${partial}`;
 });
 
 function aiCreditTooltip(summary: AnalyticsAiCreditSummary | null): string {
@@ -85,18 +97,32 @@ function aiCreditTooltip(summary: AnalyticsAiCreditSummary | null): string {
         tooltip="Sessions whose usage could be priced in USD"
       />
     </template>
+    <template v-else-if="creditScope">
+      <StatCard
+        :value="formatAiCredits(aiCreditSummary?.credits)"
+        :label="`AI Credits (${creditScope})`"
+        color="done"
+        :tooltip="`${aiCreditTooltip(aiCreditSummary)} Covers ${creditScope} sessions only.`"
+      />
+      <StatCard
+        :value="combined.usd == null ? '—' : formatCost(combined.usd)"
+        label="Total Cost (USD)"
+        color="success"
+        :tooltip="combinedTooltip"
+      />
+    </template>
     <template v-else>
       <StatCard
         :value="formatAiCredits(aiCreditSummary?.credits)"
-        :label="creditScope ? `AI Credits (${creditScope})` : 'AI Credits'"
+        label="AI Credits"
         color="done"
-        :tooltip="aiCreditTooltip(aiCreditSummary) + creditScopeNote"
+        :tooltip="aiCreditTooltip(aiCreditSummary)"
       />
       <StatCard
         :value="aiCreditSummary?.usdEquivalent == null ? '—' : formatCost(aiCreditSummary.usdEquivalent)"
-        :label="creditScope ? `AIC USD Equivalent (${creditScope})` : 'AIC USD Equivalent'"
+        label="AIC USD Equivalent"
         color="success"
-        :tooltip="aiCreditTooltip(aiCreditSummary) + creditScopeNote"
+        :tooltip="aiCreditTooltip(aiCreditSummary)"
       />
     </template>
   </div>

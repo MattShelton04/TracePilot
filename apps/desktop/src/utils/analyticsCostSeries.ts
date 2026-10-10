@@ -200,15 +200,19 @@ export interface SourceCostRow {
   unit: "aic" | "usd";
   /** AI Credits or USD; null when the source has no priced usage. */
   amount: number | null;
-  /** USD equivalent of AI Credits; null for USD rows. */
+  /**
+   * The row's cost in USD: AI Credits at $0.01 each, or the USD estimate
+   * itself. Null when the source has no priced usage.
+   */
   usdEquivalent: number | null;
   partial: boolean;
 }
 
 /**
- * One row per source in `costBySource`, each in its own billing unit. The
+ * One row per source in `costBySource`. Each keeps its own unit in `amount`
+ * and its USD value in `usdEquivalent`, so rows can be added together. The
  * AI Credit row reuses the dashboard summary, which prices only usage from
- * sources billed in AI Credits. Rows are never summed together.
+ * sources billed in AI Credits.
  */
 export function buildSourceCostRows(
   data: AnalyticsData,
@@ -232,8 +236,67 @@ export function buildSourceCostRows(
       tokens: entry.tokens,
       unit: "usd",
       amount: entry.costUsd,
-      usdEquivalent: null,
+      usdEquivalent: entry.costUsd,
       partial: entry.costUsd != null && entry.sessionsWithCostUsd < entry.sessions,
     };
   });
+}
+
+export interface CombinedCostTotal {
+  /** USD across every source; null when no source could be priced. */
+  usd: number | null;
+  /** Some source is partly priced, or has sessions but no price at all. */
+  partial: boolean;
+}
+
+/** The sum of every source's USD value. */
+export function combinedCostTotal(rows: readonly SourceCostRow[]): CombinedCostTotal {
+  let usd: number | null = null;
+  let partial = false;
+  for (const row of rows) {
+    if (row.usdEquivalent != null) usd = (usd ?? 0) + row.usdEquivalent;
+    partial ||= row.partial || (row.usdEquivalent == null && row.sessions > 0);
+  }
+  return { usd, partial };
+}
+
+export interface CombinedCostPoint extends CostPoint {
+  /** AI Credits at their USD value. */
+  aiCreditsUsd: number;
+  /** USD estimates from sources not billed in AI Credits. */
+  sourceUsd: number;
+}
+
+/**
+ * One USD series across every source, so the trend reads the same whichever
+ * tools were used: AI Credits at $0.01 each plus the USD estimates of
+ * sources priced in dollars. Days with neither are absent.
+ */
+export function buildCombinedCostSeries(
+  data: AnalyticsData,
+  computeDirectApiCost: ComputeTokenCost,
+  computeUsageBasedCost: ComputeTokenCost = computeDirectApiCost,
+): CombinedCostPoint[] {
+  const byDate = new Map<string, CombinedCostPoint>();
+  const at = (date: string) => {
+    let point = byDate.get(date);
+    if (!point) {
+      point = { date, cost: 0, aiCreditsUsd: 0, sourceUsd: 0 };
+      byDate.set(date, point);
+    }
+    return point;
+  };
+  const credits = buildAnalyticsCostSeries(
+    data,
+    "aiCredits",
+    0,
+    computeDirectApiCost,
+    computeUsageBasedCost,
+  );
+  for (const { date, cost } of credits) at(date).aiCreditsUsd += cost * AI_CREDIT_USD;
+  for (const { date, cost } of data.costUsdByDay ?? []) at(date).sourceUsd += cost;
+  return Array.from(byDate.values(), (point) => ({
+    ...point,
+    cost: point.aiCreditsUsd + point.sourceUsd,
+  })).sort((a, b) => a.date.localeCompare(b.date));
 }

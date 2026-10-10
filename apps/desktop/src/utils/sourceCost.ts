@@ -1,7 +1,7 @@
 /**
  * Cost presentation for sources that are not billed in AI Credits. Their
- * figures are API-equivalent USD estimates, never bills, and often cover only
- * part of the session, so every figure carries its basis and coverage.
+ * figures are API-equivalent USD estimates that often cover only part of the
+ * session, so every figure carries its basis and coverage.
  */
 import {
   type CostBasis,
@@ -26,9 +26,6 @@ export interface SessionCostEstimate {
   /** Recorded calls stand in for (part of) the provider's own total. */
   partial: boolean;
 }
-
-/** Shown next to every source estimate. */
-export const API_EQUIVALENT_NOTE = "API-equivalent token estimate, not a bill.";
 
 function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;

@@ -28,7 +28,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { formatObjectResult } from "@/utils/formatResult";
 import { formatRecordedDuration } from "@/utils/sessionDurations";
 import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
-import { API_EQUIVALENT_NOTE, formatSessionCost, sessionCostEstimate } from "@/utils/sourceCost";
+import { formatSessionCost, sessionCostEstimate } from "@/utils/sourceCost";
 
 const store = useSessionDetailContext();
 
@@ -232,7 +232,7 @@ function retryLoadSection(section: string) {
         label="Est. Cost (USD)"
         color="done"
         :trend="sourceCost.partial ? `${sourceCost.basisLabel} · partial` : sourceCost.basisLabel"
-        :tooltip="`${sourceCost.coverage} ${API_EQUIVALENT_NOTE}`"
+        :tooltip="sourceCost.coverage"
       />
       <StatCard
         v-else

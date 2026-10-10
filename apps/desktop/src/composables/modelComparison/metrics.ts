@@ -233,10 +233,16 @@ export function formatRowCostShort(row: ModelRow): string {
 }
 
 /**
- * A row's cost-column value in the active normalisation mode, always in the
- * row's own unit: AI Credits say "AIC", USD estimates "$", shares "%".
+ * A row's cost-column value in the active normalisation mode: in USD when
+ * the table mixes units, otherwise in the row's own unit. AI Credits say
+ * "AIC", USD "$", shares "%".
  */
-export function formatRowCostNorm(row: ModelRow, mode: NormMode): string {
+export function formatRowCostNorm(row: ModelRow, mode: NormMode, inUsd = false): string {
+  if (inUsd) {
+    if (mode !== "raw" || row.usdEquivalent == null)
+      return formatNorm(row.usdEquivalent, true, mode);
+    return formatCost(row.usdEquivalent);
+  }
   if (mode === "raw") return formatRowCostShort(row);
   const value = row.billedInAiCredits ? row.aiCredits : row.costUsd;
   if (mode === "per-10m-tokens" && row.billedInAiCredits) return formatAiCredits(value);
@@ -292,6 +298,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
         cost: r.cost != null ? r.cost / divisor : null,
         copilotCost: r.copilotCost / divisor,
         costUsd: r.costUsd != null ? r.costUsd / divisor : null,
+        usdEquivalent: r.usdEquivalent != null ? r.usdEquivalent / divisor : null,
       };
     });
   }
@@ -307,6 +314,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
       cost: acc.cost + (r.cost ?? 0),
       copilotCost: acc.copilotCost + r.copilotCost,
       costUsd: acc.costUsd + (r.costUsd ?? 0),
+      usdEquivalent: acc.usdEquivalent + (r.usdEquivalent ?? 0),
     }),
     {
       tokens: 0,
@@ -318,6 +326,7 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
       cost: 0,
       copilotCost: 0,
       costUsd: 0,
+      usdEquivalent: 0,
     },
   );
 
@@ -334,6 +343,10 @@ export function normalizeRows(rows: readonly ModelRow[], mode: NormMode): ModelR
     cost: sums.cost > 0 ? ((r.cost ?? 0) / sums.cost) * 100 : 0,
     copilotCost: sums.copilotCost > 0 ? (r.copilotCost / sums.copilotCost) * 100 : 0,
     costUsd: r.costUsd != null && sums.costUsd > 0 ? (r.costUsd / sums.costUsd) * 100 : null,
+    usdEquivalent:
+      r.usdEquivalent != null && sums.usdEquivalent > 0
+        ? (r.usdEquivalent / sums.usdEquivalent) * 100
+        : null,
   }));
 }
 
@@ -429,8 +442,8 @@ function premiumMetric(
 }
 
 /**
- * Cost in each row's own unit. AI Credits and USD are different bills, so a
- * cross-source pair shows both values without a delta.
+ * Cost in the pair's shared unit. A cross-source pair (AI Credits against
+ * USD) compares in USD, AI Credits at $0.01 each.
  */
 function costMetric(
   a: ModelRow,
@@ -445,22 +458,15 @@ function costMetric(
       ...formatModelDelta(a.aiCredits ?? 0, b.aiCredits ?? 0, false),
     };
   }
-  if (!a.billedInAiCredits && !b.billedInAiCredits) {
-    return {
-      label: "Estimated Cost",
-      valueA: fmtNorm(a.costUsd, true),
-      valueB: fmtNorm(b.costUsd, true),
-      ...(a.costUsd == null || b.costUsd == null
-        ? { delta: "—", direction: "neutral" as const, better: "neutral" as const }
-        : formatModelDelta(a.costUsd, b.costUsd, false)),
-    };
-  }
+  const sameUnit = !a.billedInAiCredits && !b.billedInAiCredits;
+  const va = sameUnit ? a.costUsd : a.usdEquivalent;
+  const vb = sameUnit ? b.costUsd : b.usdEquivalent;
   return {
-    label: "Cost",
-    valueA: formatRowCost(a),
-    valueB: formatRowCost(b),
-    delta: "Different units",
-    direction: "neutral",
-    better: "neutral",
+    label: sameUnit ? "Estimated Cost" : "Cost (USD)",
+    valueA: fmtNorm(va, true),
+    valueB: fmtNorm(vb, true),
+    ...(va == null || vb == null
+      ? { delta: "—", direction: "neutral" as const, better: "neutral" as const }
+      : formatModelDelta(va, vb, false)),
   };
 }

@@ -1,5 +1,6 @@
 import { getSessionDetail, getSessionTurns, getShutdownMetrics } from "@tracepilot/client";
 import {
+  AI_CREDIT_USD,
   type ConversationTurn,
   isNonCopilotSource,
   type SessionDetail,
@@ -313,27 +314,27 @@ export function useSessionComparison() {
     }
 
     /**
-     * Cost in each session's own unit. AI Credits and USD are different bills,
-     * so a cross-source pair shows both values without a delta.
+     * Cost in the pair's shared unit. A cross-source pair (AI Credits against
+     * USD) compares in USD, AI Credits at $0.01 each.
      */
     function costRow(): MetricRow {
-      const fmt = (unit: "aic" | "usd") => (unit === "aic" ? formatAiCredits : formatCost);
-      const a = costA.value == null ? null : costA.value / divA;
-      const b = costB.value == null ? null : costB.value / divB;
       if (costA.unit === costB.unit) {
+        const a = costA.value == null ? null : costA.value / divA;
+        const b = costB.value == null ? null : costB.value / divB;
         const label = costA.unit === "aic" ? "AI Credits" : "Estimated Cost";
-        return row(`${label}${suffix}`, a, b, fmt(costA.unit), false);
+        return row(
+          `${label}${suffix}`,
+          a,
+          b,
+          costA.unit === "aic" ? formatAiCredits : formatCost,
+          false,
+        );
       }
-      return {
-        label: `Cost${suffix}`,
-        valueA: a == null ? "—" : fmt(costA.unit)(a),
-        valueB: b == null ? "—" : fmt(costB.unit)(b),
-        rawA: null,
-        rawB: null,
-        delta: "Different units",
-        deltaClass: "delta-neutral",
-        arrow: "",
-      };
+      const usd = (cost: typeof costA, div: number) =>
+        cost.value == null
+          ? null
+          : (cost.unit === "aic" ? cost.value * AI_CREDIT_USD : cost.value) / div;
+      return row(`Cost (USD)${suffix}`, usd(costA, divA), usd(costB, divB), formatCost, false);
     }
 
     const fmtN = (v: number) => (isNorm ? v.toFixed(1) : formatNumber(v));

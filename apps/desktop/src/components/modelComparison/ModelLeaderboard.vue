@@ -6,8 +6,6 @@ import { type SortKey, useModelComparisonContext } from "@/composables/useModelC
 import { formatIdle } from "@/utils/promptCache";
 
 const ctx = useModelComparisonContext();
-// Rows billed in another unit show their USD estimate in the cost column.
-const mixedUnits = computed(() => ctx.modelRows.some((row) => !row.billedInAiCredits));
 const sortColumns = computed<{ key: SortKey; label: string; title?: string }[]>(() => [
   { key: "model", label: "Model" },
   { key: "tokens", label: "Total" },
@@ -15,14 +13,16 @@ const sortColumns = computed<{ key: SortKey; label: string; title?: string }[]>(
   { key: "outputTokens", label: "Output" },
   { key: "cacheReadTokens", label: "Cache" },
   { key: "percentage", label: "Share" },
-  mixedUnits.value
+  // With AI Credit and USD models side by side, every cost shows in USD.
+  ctx.mixedUnits
     ? {
         key: "aiCredits",
-        label: "Cost",
-        title:
-          "AI Credits for Copilot models; estimated USD, not a bill, for others. Sorted by API-equivalent USD (1 AIC = $0.01).",
+        label: "Cost (USD)",
+        title: "AI Credits at $0.01 each; other sources at API-equivalent rates.",
       }
-    : { key: "aiCredits", label: "AI Credits" },
+    : ctx.usdRows.length > 0
+      ? { key: "aiCredits", label: "Est. Cost", title: "API-equivalent USD." }
+      : { key: "aiCredits", label: "AI Credits" },
 ]);
 </script>
 
@@ -124,7 +124,7 @@ const sortColumns = computed<{ key: SortKey; label: string; title?: string }[]>(
             </td>
             <td class="num-cell matrix-cost-cell">
               <span class="matrix-cost-value">
-                {{ formatRowCostNorm(row, ctx.normMode) }}
+                {{ formatRowCostNorm(row, ctx.normMode, ctx.mixedUnits) }}
               </span>
             </td>
           </tr>

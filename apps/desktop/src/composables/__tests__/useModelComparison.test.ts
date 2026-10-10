@@ -228,7 +228,7 @@ describe("useModelComparison", () => {
     const { comp } = mountHook();
     expect(comp.compareA).toBe("copilot:claude-opus-4.6");
     expect(comp.compareB).toBe("claudeCode:claude-opus-4-6");
-    expect(comp.compareMetrics.find((m) => m.label === "Cost")?.delta).toBe("Different units");
+    expect(comp.compareMetrics.find((m) => m.label === "Cost (USD)")?.valueB).toBe("$1.00");
   });
 
   it("colours models by token rank and gives the rest one neutral", () => {
