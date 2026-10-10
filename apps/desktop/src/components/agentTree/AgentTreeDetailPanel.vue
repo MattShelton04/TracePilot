@@ -6,15 +6,24 @@ import { computed } from "vue";
 import SubagentToolRow from "@/components/conversation/SubagentToolRow.vue";
 import { fromAgentNode } from "@/composables/subagentView";
 import { useAgentTreeContext } from "@/composables/useAgentTree";
+import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { settledAgentStatus } from "@/utils/agentEndState";
 
 const ctx = useAgentTreeContext();
 
 const { communications } = useAgentDirectory();
+const store = useSessionDetailContext();
+const mayStillReport = useCountsUpToNow(() => store.sessionId);
 
 const view = computed(() => {
   const node = ctx.selectedNode.value;
   if (!node) return null;
-  return fromAgentNode(node, { communications: communicationsFor(communications.value, node.id) });
+  const built = fromAgentNode(node, {
+    communications: communicationsFor(communications.value, node.id),
+  });
+  if (built.isMainAgent) return built;
+  return { ...built, status: settledAgentStatus(built.status, mayStillReport.value) };
 });
 const liveMs = computed(() =>
   ctx.selectedNode.value ? ctx.liveDuration(ctx.selectedNode.value) : undefined,

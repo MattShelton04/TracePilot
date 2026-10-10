@@ -5,6 +5,8 @@ import { computed, ref } from "vue";
 
 const props = defineProps<{
   items: ContextToolTypeContribution[];
+  /** Display names by item, defaulting to the canonical tool name. */
+  labels?: readonly string[];
 }>();
 
 const colors = [
@@ -20,7 +22,7 @@ const chartSvg = ref<SVGSVGElement | null>(null);
 
 const segments = computed(() => {
   const visible = props.items.slice(0, 5).map((item, index) => ({
-    label: item.toolName,
+    label: props.labels?.[index] ?? item.toolName,
     percentage: item.percentage,
     tokens: item.totalTokens,
     calls: item.callCount,

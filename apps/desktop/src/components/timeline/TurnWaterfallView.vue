@@ -13,6 +13,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import TurnWaterfallHeader from "@/components/waterfall/TurnWaterfallHeader.vue";
 import TurnWaterfallRow from "@/components/waterfall/TurnWaterfallRow.vue";
 import TurnWaterfallTooltip from "@/components/waterfall/TurnWaterfallTooltip.vue";
+import { useSessionModelName } from "@/composables/useSessionModelName";
 import { useTimelineToolState } from "@/composables/useTimelineToolState";
 import {
   computeEpochStart,
@@ -89,11 +90,13 @@ const rulerTicks = computed(() => computeRulerTicks(timelineSpanMs.value));
 /*  Summary stats                                                     */
 /* ------------------------------------------------------------------ */
 
+const modelName = useSessionModelName();
 const turnStats = computed(() => {
   const t = currentTurn.value;
-  if (!t) return { model: "", duration: "", toolCount: 0, agentCount: 0 };
+  if (!t) return { model: "", modelId: "", duration: "", toolCount: 0, agentCount: 0 };
   return {
-    model: t.model ?? "",
+    model: t.model ? modelName(t.model) : "",
+    modelId: t.model ?? "",
     duration: formatDuration(t.durationMs),
     toolCount: t.toolCalls.length,
     agentCount: t.toolCalls.filter((tc: TurnToolCall) => tc.isSubagent).length,

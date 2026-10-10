@@ -9,6 +9,7 @@
  */
 import type { SearchResult } from "@tracepilot/types";
 import { computed } from "vue";
+import { searchResultToolName } from "@/utils/toolDisplayName";
 
 const props = defineProps<{
   result: SearchResult;
@@ -47,7 +48,7 @@ const truncatedSummary = computed(() => {
     <span>{{ result.contentType.replace(/_/g, " ") }}</span>
     <template v-if="result.toolName">
       <span class="result-meta-sep">·</span>
-      <span class="tool-name-badge">{{ result.toolName }}</span>
+      <span class="tool-name-badge" :title="result.toolName">{{ searchResultToolName(result) }}</span>
     </template>
     <span
       v-if="timelinePosition != null"

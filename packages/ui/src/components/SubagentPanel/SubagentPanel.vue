@@ -50,12 +50,15 @@ const statusText = computed(() => {
   if (status.value === "failed") return "Failed";
   if (status.value === "cancelled") return "Cancelled";
   if (status.value === "idle") return "Idle — waiting for messages";
+  if (status.value === "unreported") return "No final report";
   return "Running";
 });
 
 const headerDuration = computed(() => {
   const ms = props.liveDurationMs ?? props.view.durationMs;
   if (status.value === "in-progress") return ms ? formatLiveDuration(ms) : "";
+  // No end was recorded: show a recorded duration only, never one up to now.
+  if (status.value === "unreported") return ms ? formatDuration(ms) : "";
   return formatDuration(ms ?? 0);
 });
 
@@ -75,6 +78,7 @@ const objectiveStatus = computed<"running" | "completed" | "failed" | "idle">(()
       return "failed";
     case "idle":
     case "cancelled":
+    case "unreported":
       return "idle";
     default:
       return currentObjective.value ? "running" : "idle";

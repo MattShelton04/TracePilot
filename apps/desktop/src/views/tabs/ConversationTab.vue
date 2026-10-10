@@ -53,7 +53,7 @@ const sdk = useSdkStore();
  * turn before anything is saved, so the chat view (and its live panel) stays
  * mounted even with zero persisted turns.
  */
-const { capabilities } = useSessionSource(
+const { source, capabilities } = useSessionSource(
   () => store.sessionId,
   () => store.detail,
 );
@@ -276,6 +276,7 @@ function richEnabledFor(toolName: string): boolean {
       v-else
       :turns="store.turns"
       :view-mode="activeView"
+      :source="source"
       :cache-windows="cacheWindows"
       :cache-timeline="cacheTimeline"
       :get-sections="getSections"

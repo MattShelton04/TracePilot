@@ -21,10 +21,12 @@ import {
 } from "@tracepilot/ui";
 import { computed, nextTick, ref, watch } from "vue";
 import { fromSubagentFullData } from "@/composables/subagentView";
+import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
 import type { SubagentFullData } from "@/composables/useCrossTurnSubagents";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
+import { NO_FINAL_REPORT, settledAgentStatus } from "@/utils/agentEndState";
 import SubagentToolRow from "./SubagentToolRow.vue";
 
 const props = defineProps<{
@@ -62,15 +64,16 @@ const { fullResults, loadingResults, failedResults, loadFullResult, retryFullRes
   useToolResultLoader(() => store.sessionId);
 
 const { communications } = useAgentDirectory();
+const mayStillReport = useCountsUpToNow(() => store.sessionId);
 
-const view = computed(() =>
-  props.subagent
-    ? fromSubagentFullData(
-        props.subagent,
-        communicationsFor(communications.value, props.subagent.agentId),
-      )
-    : null,
-);
+const view = computed(() => {
+  if (!props.subagent) return null;
+  const built = fromSubagentFullData(
+    props.subagent,
+    communicationsFor(communications.value, props.subagent.agentId),
+  );
+  return { ...built, status: settledAgentStatus(built.status, mayStillReport.value) };
+});
 
 const agentColor = computed(() => (view.value ? getAgentColor(view.value.type) : ""));
 const agentIcon = computed(() => (view.value ? getAgentIcon(view.value.type) : ""));
@@ -80,12 +83,14 @@ const statusText = computed(() => {
   if (view.value.status === "failed") return "Failed";
   if (view.value.status === "cancelled") return "Cancelled";
   if (view.value.status === "idle") return "Idle — waiting for messages";
+  if (view.value.status === "unreported") return NO_FINAL_REPORT;
   return "Running";
 });
 const headerDuration = computed(() => {
   if (!view.value) return "";
   const ms = view.value.durationMs;
   if (view.value.status === "in-progress") return ms ? formatLiveDuration(ms) : "";
+  if (view.value.status === "unreported") return ms ? formatDuration(ms) : "";
   return formatDuration(ms ?? 0);
 });
 

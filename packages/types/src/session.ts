@@ -203,6 +203,8 @@ export interface ContextToolCallContribution {
   turn: number;
   toolCallId?: string | null;
   toolName: string;
+  /** The source's own name for the call (Claude Code's `Bash`), when recorded. */
+  nativeToolName?: string | null;
   argumentTokens: number;
   resultTokens: number;
   totalTokens: number;
@@ -213,6 +215,8 @@ export interface ContextToolCallContribution {
 
 export interface ContextToolTypeContribution {
   toolName: string;
+  /** Native names of the calls behind this canonical tool, largest first. */
+  nativeToolNames?: string[];
   callCount: number;
   errorCount: number;
   argumentTokens: number;

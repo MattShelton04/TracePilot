@@ -5,7 +5,9 @@ import { ChevronLeft, ChevronRight, SkipBack, SkipForward } from "lucide-vue-nex
 import type { ComponentPublicInstance } from "vue";
 
 interface TurnStats {
+  /** Display name; `modelId` is the recorded id. */
   model: string;
+  modelId: string;
   duration: string;
   toolCount: number;
   agentCount: number;
@@ -111,7 +113,7 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
         "{{ truncateText(currentTurn.userMessage ?? "(no message)", 120) }}"
       </div>
       <div class="turn-meta">
-        <span v-if="turnStats.model" class="meta-chip">
+        <span v-if="turnStats.model" class="meta-chip" :title="turnStats.modelId">
           Model: {{ turnStats.model }}
         </span>
         <span v-if="turnStats.duration" class="meta-chip">

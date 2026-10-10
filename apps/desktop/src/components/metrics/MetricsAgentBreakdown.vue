@@ -12,8 +12,11 @@ import {
 import { Info } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { useClientPager } from "@/composables/useClientPager";
+import { useCountsUpToNow } from "@/composables/useCountsUpToNow";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
+import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
 import { usePreferencesStore } from "@/stores/preferences";
+import { NO_FINAL_REPORT, NO_FINAL_REPORT_HINT, settledAgentStatus } from "@/utils/agentEndState";
 import { agentUsageCoverage, buildAgentUsageRows } from "@/utils/agentUsageRows";
 import MetricsCacheBreakdown from "./MetricsCacheBreakdown.vue";
 import MetricsModelTable from "./MetricsModelTable.vue";
@@ -33,7 +36,20 @@ type SortKey = "name" | "credits" | "share" | "total" | "requests" | "tools" | "
 const sortKey = ref<SortKey | null>(null);
 const sortDirection = ref<"ascending" | "descending">("descending");
 const selectedId = ref<string | null>("main");
-const rows = computed(() => buildAgentUsageRows(props.metrics, props.turns));
+const store = useSessionDetailContext();
+const mayStillReport = useCountsUpToNow(() => store.sessionId);
+const rows = computed(() =>
+  buildAgentUsageRows(props.metrics, props.turns).map((row) => ({
+    ...row,
+    status: settledAgentStatus(row.status, mayStillReport.value),
+  })),
+);
+function statusLabel(status: string): string {
+  if (status === "in-progress") return "Running";
+  if (status === "unreported") return NO_FINAL_REPORT;
+  if (status === "unlinked") return "Activity unavailable";
+  return status;
+}
 const coverage = computed(() => agentUsageCoverage(props.metrics));
 const displayRows = computed(() => {
   const result = rows.value.map((row) => {
@@ -123,7 +139,7 @@ const snapshotDate = computed(() =>
       <template #cell-name="{ row }">
         <div :style="{ paddingLeft: !sortKey ? `${Math.min(row.depth as number, 8) * 16}px` : '0' }">
           <button class="cursor-pointer text-left text-[var(--accent-fg)] hover:underline" :class="{ 'font-semibold': selectedId === row.id }" :title="row.id as string" :aria-pressed="selectedId === row.id" @click="selectedId = row.id as string">{{ row.name }}</button>
-          <Badge v-if="row.status !== 'main'" variant="neutral" class="ml-2">{{ row.status === 'in-progress' ? 'Running' : row.status === 'unlinked' ? 'Activity unavailable' : row.status }}</Badge>
+          <Badge v-if="row.status !== 'main'" variant="neutral" class="ml-2" :title="row.status === 'unreported' ? NO_FINAL_REPORT_HINT : undefined">{{ statusLabel(row.status as string) }}</Badge>
           <div class="text-xs text-[var(--text-tertiary)] max-w-64 truncate" :title="row.modelNames as string">{{ row.modelNames }}</div>
         </div>
       </template>

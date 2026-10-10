@@ -2,11 +2,15 @@
 import type { ToolUsageEntry } from "@tracepilot/types";
 import { formatNumberFull } from "@tracepilot/types";
 import { ChartTooltip, useChartTooltip } from "@tracepilot/ui";
+import { computed } from "vue";
+import { toolUsageLabel, toolUsageNames } from "@/utils/toolDisplayName";
 
-defineProps<{
+const props = defineProps<{
   tools: readonly ToolUsageEntry[];
   maxInvocations: number;
 }>();
+const names = computed(() => toolUsageNames(props.tools));
+const hints = computed(() => props.tools.map((tool) => toolUsageLabel(tool).hint));
 
 const { tooltip, dismissTooltip, onBarMouseEnter } = useChartTooltip();
 </script>
@@ -20,12 +24,12 @@ const { tooltip, dismissTooltip, onBarMouseEnter } = useChartTooltip();
     >
       <div class="tool-frequency__chart">
         <div
-          v-for="tool in tools"
+          v-for="(tool, index) in tools"
           :key="tool.name"
           class="tool-frequency__row"
-          @mouseenter="onBarMouseEnter($event, `${tool.name} — ${formatNumberFull(tool.callCount)} invocation${tool.callCount !== 1 ? 's' : ''}`, 'frequency')"
+          @mouseenter="onBarMouseEnter($event, `${names[index]} — ${formatNumberFull(tool.callCount)} invocation${tool.callCount !== 1 ? 's' : ''}`, 'frequency')"
         >
-          <span class="tool-frequency__label">{{ tool.name }}</span>
+          <span class="tool-frequency__label" :title="hints[index]">{{ names[index] }}</span>
           <div class="tool-frequency__track">
             <div
               class="tool-frequency__bar"

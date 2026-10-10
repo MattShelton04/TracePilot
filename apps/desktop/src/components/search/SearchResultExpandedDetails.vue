@@ -12,6 +12,7 @@
  */
 import type { SearchResult } from "@tracepilot/types";
 import { formatDateMedium } from "@tracepilot/ui";
+import { searchResultToolName } from "@/utils/toolDisplayName";
 
 defineProps<{
   result: SearchResult;
@@ -36,7 +37,7 @@ defineProps<{
     </div>
     <div v-if="result.toolName" class="expanded-item">
       <span class="expanded-label">Tool</span>
-      <span class="expanded-value expanded-mono">{{ result.toolName }}</span>
+      <span class="expanded-value expanded-mono" :title="result.toolName">{{ searchResultToolName(result) }}</span>
     </div>
     <div v-if="result.eventIndex != null" class="expanded-item">
       <span class="expanded-label">Event Index</span>

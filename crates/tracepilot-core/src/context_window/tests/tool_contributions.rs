@@ -7,6 +7,7 @@ fn aggregates_and_ranks_tool_contributions() {
             turn: 1,
             tool_call_id: Some("a".into()),
             tool_name: "shell".into(),
+            native_tool_name: Some("Bash".into()),
             argument_tokens: 10,
             result_tokens: 90,
             success: Some(true),
@@ -17,6 +18,7 @@ fn aggregates_and_ranks_tool_contributions() {
             turn: 2,
             tool_call_id: Some("b".into()),
             tool_name: "shell".into(),
+            native_tool_name: Some("PowerShell".into()),
             argument_tokens: 5,
             result_tokens: 20,
             success: Some(false),
@@ -27,6 +29,7 @@ fn aggregates_and_ranks_tool_contributions() {
             turn: 3,
             tool_call_id: Some("c".into()),
             tool_name: "view".into(),
+            native_tool_name: None,
             argument_tokens: 5,
             result_tokens: 45,
             success: Some(true),
@@ -41,6 +44,13 @@ fn aggregates_and_ranks_tool_contributions() {
     assert_eq!(types[0].error_count, 1);
     assert_eq!(types[0].total_tokens, 125);
     assert!((types[0].percentage - 71.428).abs() < 0.01);
+    // Native names ride along, largest contribution first; canonical-only
+    // tools (Copilot) carry none.
+    assert_eq!(calls[0].native_tool_name.as_deref(), Some("Bash"));
+    assert_eq!(types[0].native_tool_names, ["Bash", "PowerShell"]);
+    assert!(types[1].native_tool_names.is_empty());
+    let copilot = serde_json::to_value(&types[1]).unwrap();
+    assert!(copilot.get("nativeToolNames").is_none());
 }
 
 #[test]

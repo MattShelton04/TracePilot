@@ -15,7 +15,9 @@ export function fromSubagentFullData(
   return buildSubagentView({
     id: tc.toolCallId ?? sa.agentId,
     type: inferAgentTypeFromToolCall(tc),
-    displayName: tc.agentDisplayName || tc.toolName || "Subagent",
+    // Same name as the conversation card: the native tool (Claude Code's
+    // `Agent`) when recorded, else the agent's display name.
+    displayName: tc.nativeToolName || tc.agentDisplayName || tc.toolName || "Subagent",
     description: tc.agentDescription || undefined,
     toolCall: tc,
     messages: sa.childMessages,

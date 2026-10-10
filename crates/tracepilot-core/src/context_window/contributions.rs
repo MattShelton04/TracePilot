@@ -23,6 +23,7 @@ pub(super) fn finish_tool_contributions(
             turn: draft.turn,
             tool_call_id: draft.tool_call_id,
             tool_name: draft.tool_name,
+            native_tool_name: draft.native_tool_name,
             argument_tokens: draft.argument_tokens,
             result_tokens: draft.result_tokens,
             total_tokens: draft.argument_tokens + draft.result_tokens,
@@ -41,6 +42,7 @@ pub(super) fn finish_tool_contributions(
                 .entry(call.tool_name.clone())
                 .or_insert_with(|| ContextToolTypeContribution {
                     tool_name: call.tool_name.clone(),
+                    native_tool_names: Vec::new(),
                     call_count: 0,
                     error_count: 0,
                     argument_tokens: 0,
@@ -48,6 +50,11 @@ pub(super) fn finish_tool_contributions(
                     total_tokens: 0,
                     percentage: 0.0,
                 });
+        if let Some(native) = &call.native_tool_name
+            && !entry.native_tool_names.contains(native)
+        {
+            entry.native_tool_names.push(native.clone());
+        }
         entry.call_count += 1;
         entry.error_count += usize::from(call.success == Some(false));
         entry.argument_tokens += call.argument_tokens;

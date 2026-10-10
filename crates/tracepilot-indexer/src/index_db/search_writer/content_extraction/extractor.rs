@@ -35,6 +35,7 @@ pub(crate) fn extract_search_content_cancellable(
     let mut rows = Vec::with_capacity(events.len() / 2);
     let mut turns = TurnReconstructor::with_agent_ownership(events);
     let mut tool_names = HashMap::new();
+    let mut native_tool_names = HashMap::new();
     let mut pending_rows: Vec<SearchContentRow> = Vec::new();
 
     for (event_index, event) in events.iter().enumerate() {
@@ -108,6 +109,9 @@ pub(crate) fn extract_search_content_cancellable(
                 // Remember tool name and turn for completion events
                 if let Some(ref id) = d.tool_call_id {
                     tool_names.insert(id.clone(), name.clone());
+                    if let Some(native) = &d.native_tool_name {
+                        native_tool_names.insert(id.clone(), native.clone());
+                    }
                 }
 
                 // Skip tools that add negligible search value
@@ -121,8 +125,9 @@ pub(crate) fn extract_search_content_cancellable(
                     let args_text = flatten_json_value(args);
                     if !args_text.is_empty() {
                         let truncated = truncate_utf8(&args_text, MAX_TOOL_CALL_BYTES);
-                        let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                        let mut row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
                             .with_tool_content("tool_call", Some(name), truncated.to_string());
+                        row.metadata_json = native_tool_metadata(d.native_tool_name.as_ref());
                         rows.push(row);
                     }
                 }
@@ -135,6 +140,11 @@ pub(crate) fn extract_search_content_cancellable(
                     .and_then(|id| tool_names.get(id))
                     .cloned();
                 let name_lower = tool_name.as_deref().unwrap_or("").to_lowercase();
+                let native_metadata = native_tool_metadata(
+                    d.tool_call_id
+                        .as_ref()
+                        .and_then(|id| native_tool_names.get(id)),
+                );
 
                 // Skip tools that add negligible search value
                 if SKIP_TOOLS.iter().any(|s| s.to_lowercase() == name_lower) {
@@ -146,12 +156,13 @@ pub(crate) fn extract_search_content_cancellable(
                     let error_text = flatten_json_value(error);
                     if !error_text.is_empty() {
                         let truncated = truncate_utf8(&error_text, MAX_TOOL_ERROR_BYTES);
-                        let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                        let mut row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
                             .with_tool_content(
                                 "tool_error",
                                 tool_name.clone(),
                                 truncated.to_string(),
                             );
+                        row.metadata_json = native_metadata;
                         rows.push(row);
                     }
                     continue;
@@ -170,12 +181,13 @@ pub(crate) fn extract_search_content_cancellable(
                     let content = extract_tool_result(&name_lower, result);
                     if !content.is_empty() {
                         let truncated = truncate_utf8(&content, MAX_TOOL_RESULT_BYTES);
-                        let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
+                        let mut row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
                             .with_tool_content(
                                 "tool_result",
                                 tool_name.clone(),
                                 truncated.to_string(),
                             );
+                        row.metadata_json = native_metadata;
                         rows.push(row);
                     }
                 }
@@ -263,4 +275,11 @@ pub(crate) fn extract_search_content_cancellable(
     // Any session rows still pending (no subsequent turn opened) keep turn_number: None
     rows.append(&mut pending_rows);
     Some(rows)
+}
+
+/// Metadata naming a tool row's source-native tool (Claude Code's `Bash`),
+/// so results can show the name the session used. `tool_name` stays
+/// canonical for the `tool:` filter.
+fn native_tool_metadata(native: Option<&String>) -> Option<String> {
+    native.map(|name| serde_json::json!({ "nativeToolName": name }).to_string())
 }

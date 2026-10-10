@@ -148,3 +148,25 @@ it("shows the working directory with a copy button for either source, only when 
     vi.unstubAllGlobals();
   }
 });
+
+it("names a Claude Code model as cards do, with the recorded id as the tooltip", () => {
+  for (const [source, shown] of [
+    ["claudeCode", "claude-opus-5.5"],
+    ["copilot", "claude-opus-5-5"],
+  ] as const) {
+    store.detail = {
+      id: "s1",
+      source,
+      currentModel: "claude-opus-5-5",
+      hasPlan: false,
+      hasCheckpoints: false,
+    };
+    const { wrapper } = mountOverview();
+    const info = wrapper.get('[data-testid="session-model"]');
+    expect(info.text()).toBe(shown);
+    expect(info.attributes("title")).toBe("claude-opus-5-5");
+    const badge = wrapper.findAll(".summary-prose ~ dl [title='claude-opus-5-5']");
+    expect(badge.map((b) => b.text())).toEqual([shown]);
+    wrapper.unmount();
+  }
+});

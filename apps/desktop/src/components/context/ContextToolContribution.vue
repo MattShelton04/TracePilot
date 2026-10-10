@@ -2,6 +2,7 @@
 import type { ContextTimeline, ContextToolCallContribution, TurnToolCall } from "@tracepilot/types";
 import { formatNumber, ToolCallItem } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import { contextToolTypeLabel, toolDisplayName, uniqueToolLabels } from "@/utils/toolDisplayName";
 import ToolTypeDonut from "./ToolTypeDonut.vue";
 
 const props = defineProps<{
@@ -29,6 +30,19 @@ const toolAnalysisViews: Array<{ id: ToolAnalysisView; label: string }> = [
 const toolAnalysisView = ref<ToolAnalysisView>("overview");
 const displayedToolCalls = computed(() => props.timeline.topToolCalls.slice(0, 10));
 const displayedToolTypes = computed(() => props.timeline.toolTypes.slice(0, 8));
+// Native names (Claude Code's `Bash`) lead, as in Conversation; the canonical
+// name is the tooltip.
+const toolTypeLabels = computed(() =>
+  props.timeline.toolTypes.map((item) => contextToolTypeLabel(item)),
+);
+const toolTypeNames = computed(() =>
+  uniqueToolLabels(
+    props.timeline.toolTypes.map((item, index) => ({
+      canonical: item.toolName,
+      label: toolTypeLabels.value[index],
+    })),
+  ),
+);
 const maxToolCallTokens = computed(() => displayedToolCalls.value[0]?.totalTokens ?? 1);
 
 function toolCallSummary(item: ContextToolCallContribution): string {
@@ -63,13 +77,13 @@ function toolCallSummary(item: ContextToolCallContribution): string {
       <div class="context-tab__tool-type-panel">
         <div class="context-tab__tool-types">
           <div
-            v-for="item in displayedToolTypes"
+            v-for="(item, index) in displayedToolTypes"
             :key="item.toolName"
             class="context-tab__tool-type"
           >
             <div class="context-tab__tool-type-heading">
               <span>
-                <strong>{{ item.toolName }}</strong>
+                <strong :title="toolTypeLabels[index].hint">{{ toolTypeNames[index] }}</strong>
                 <small>{{ item.callCount }} calls · {{ item.errorCount }} errors</small>
               </span>
               <span> {{ formatNumber(item.totalTokens) }} · {{ item.percentage.toFixed(1) }}% </span>
@@ -84,7 +98,7 @@ function toolCallSummary(item: ContextToolCallContribution): string {
           </div>
         </div>
       </div>
-      <ToolTypeDonut :items="timeline.toolTypes" />
+      <ToolTypeDonut :items="timeline.toolTypes" :labels="toolTypeNames" />
     </div>
     <template v-else-if="toolAnalysisView === 'calls'">
       <div v-if="displayedToolCalls.length" class="context-tab__ranked-tools">
@@ -100,7 +114,7 @@ function toolCallSummary(item: ContextToolCallContribution): string {
           <span class="context-tab__rank">{{ index + 1 }}</span>
           <span class="context-tab__ranked-tool-main">
             <span class="context-tab__ranked-tool-heading">
-              <strong>{{ item.toolName }}</strong>
+              <strong>{{ toolDisplayName(item) }}</strong>
               <small>Turn {{ item.turn }}</small>
             </span>
             <span class="context-tab__ranked-tool-summary">{{ toolCallSummary(item) }}</span>
@@ -126,7 +140,7 @@ function toolCallSummary(item: ContextToolCallContribution): string {
         <div class="context-tab__selected-tool-heading">
           <div>
             <span class="context-tab__eyebrow">Turn {{ selectedToolCall.turn }}</span>
-            <strong>{{ selectedToolCall.toolName }} details</strong>
+            <strong>{{ toolDisplayName(selectedToolCall) }} details</strong>
           </div>
           <button type="button" aria-label="Close tool call details" @click="emit('clearToolCall')">
             ×
