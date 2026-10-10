@@ -259,7 +259,7 @@ test("Claude Code sessions are deterministic, linked and shaped as Claude Code w
       results.map((r) => r.tool_use_id),
     );
     if (session.id === claudeCommandsSessionId) {
-      // Titled from its first command: no prompt, model call or ai-title.
+      // Empty and untitled: no prompt, model call or ai-title.
       assert(!records.some((r) => r.type === "ai-title" || r.type === "assistant"));
       const typed = records.filter((r) => r.type === "user" && !r.isMeta);
       assert(typed[0].message.content.startsWith("<command-name>/model</command-name>"));

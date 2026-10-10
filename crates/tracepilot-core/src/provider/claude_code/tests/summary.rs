@@ -12,12 +12,35 @@ fn summary_of(t: &Transcript) -> crate::models::session_summary::SessionSummary 
     summarize(&SessionId::from_validated("s"), &parse(&files)).0
 }
 
+/// Like a Copilot session nobody typed into: no turns, so "hide empty"
+/// hides it, and no title, so it reads as untitled rather than `/model`.
+/// The conversation still shows the commands.
 #[test]
-fn a_session_of_slash_commands_only_is_named_after_its_first_command() {
+fn a_session_of_slash_commands_only_is_empty_and_untitled() {
     let parsed = parse(&fixtures::commands_only());
-    let (summary, _, metrics) = summarize(&SessionId::from_validated("s"), &parsed);
-    assert_eq!(summary.summary.as_deref(), Some("/model claude-opus-5-5"));
+    let (summary, turns, metrics) = summarize(&SessionId::from_validated("s"), &parsed);
+    assert_eq!(summary.turn_count, Some(0), "no prompt and no model call");
+    assert_eq!(summary.summary, None);
     assert!(metrics.is_none(), "no model call, no metrics");
+    assert!(!turns.is_empty(), "the commands still render");
+}
+
+#[test]
+fn a_renamed_session_of_slash_commands_keeps_its_name() {
+    let mut t = Transcript::main();
+    t.user(serde_json::json!({"message": {"role": "user",
+        "content": "<command-name>/model</command-name>\n<command-args>opus</command-args>"}}));
+    t.bookkeeping(serde_json::json!({"type": "custom-title", "customTitle": "Scratch"}));
+    let summary = summary_of(&t);
+    assert_eq!(summary.summary.as_deref(), Some("Scratch"));
+    assert_eq!(summary.turn_count, Some(0));
+}
+
+#[test]
+fn a_prompt_without_a_model_call_is_not_empty() {
+    let mut t = Transcript::main();
+    t.prompt("Add retries.");
+    assert_eq!(summary_of(&t).turn_count, Some(1));
 }
 
 #[test]
