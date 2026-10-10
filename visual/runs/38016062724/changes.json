@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "df702900a4ef82f87d22c4275e53acaf31d85512",
-  "headSha": "affe017dacc016cb0aafb9d4732b9a11cbe12697",
+  "baseSha": "425ece310b965df92d26e89842573f5c850bb20c",
+  "headSha": "0429a97ca1025e3ce4a152dc99a5844c3e37479a",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,8 +9,8 @@
     "scale": 1
   },
   "summary": {
-    "changed": 0,
-    "unchanged": 130,
+    "changed": 1,
+    "unchanged": 129,
     "subtle": 0,
     "incomplete": 0,
     "baseUnavailable": 0,
@@ -136,8 +136,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/c219b89a99a6b4dca838ebd9864996d00b3e027baddf7e2b400f39fdad699d7e.png",
-        "after": "../../img/c219b89a99a6b4dca838ebd9864996d00b3e027baddf7e2b400f39fdad699d7e.png",
+        "before": "../../img/5d931823372f4b676a54e363dc5d26b51a12f38ff0b74ede2a9f37a817962098.png",
+        "after": "../../img/5d931823372f4b676a54e363dc5d26b51a12f38ff0b74ede2a9f37a817962098.png",
         "difference": null,
         "closeUps": []
       },
@@ -226,8 +226,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/cbf40108493935693d2cb72703e8b8fd64837dc0b7833aebd3e94e1c7de0f2e7.png",
-        "after": "../../img/cbf40108493935693d2cb72703e8b8fd64837dc0b7833aebd3e94e1c7de0f2e7.png",
+        "before": "../../img/9a46ddabaf0c8c8fea9ec47fcaa81815e3783f05777aab263b83629cf1ca7565.png",
+        "after": "../../img/9a46ddabaf0c8c8fea9ec47fcaa81815e3783f05777aab263b83629cf1ca7565.png",
         "difference": null,
         "closeUps": []
       },
@@ -334,8 +334,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/a1a345d159bfc4e702b22569a03f292c63db424a45cb4f0f51fd9b9e1d1d88e5.png",
-        "after": "../../img/a1a345d159bfc4e702b22569a03f292c63db424a45cb4f0f51fd9b9e1d1d88e5.png",
+        "before": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
+        "after": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
         "difference": null,
         "closeUps": []
       },
@@ -442,8 +442,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/06af765902e7d73319a439400321cf20e050c6068381086148eff0f74d7306bc.png",
-        "after": "../../img/06af765902e7d73319a439400321cf20e050c6068381086148eff0f74d7306bc.png",
+        "before": "../../img/ca8157afb6be0336290d2a0dd45d146b40a826a80dd59a5488d23624d4416a57.png",
+        "after": "../../img/ca8157afb6be0336290d2a0dd45d146b40a826a80dd59a5488d23624d4416a57.png",
         "difference": null,
         "closeUps": []
       },
@@ -1390,16 +1390,35 @@
       "group": "rich-tools",
       "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
       "state": "Synthetic view · fetched source · first page",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 4607,
+      "percent": 0.33326099537037035,
+      "areas": [
+        {
+          "x": 1312,
+          "y": 884,
+          "width": 100,
+          "height": 64,
+          "pixels": 4607
+        }
+      ],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
+        "before": "../../img/1f16d1f7e4c45513b02d50b92b5b0fd71c5b3d0ef1f10e02b6fc84e23c1179d6.png",
         "after": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
-        "difference": null,
-        "closeUps": []
+        "difference": "../../img/ee48f5c993690f11c290c528a95bccc1c3417c78b4b428fb4bd2b8e225cb53a4.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 960,
+              "y": 760,
+              "width": 480,
+              "height": 200
+            },
+            "before": "../../img/04315f7a399c78c54887ca7c659263637fcd95653b9a29c8558e76bebb9e5ec5.png",
+            "after": "../../img/554f09d28e95e28c9474776e3ad44428e4eb65d01b1a9e6bb061265f82a05ef5.png"
+          }
+        ]
       },
       "limitations": []
     },
