@@ -98,6 +98,7 @@ vi.mock("@tracepilot/ui", () => {
     ProgressBar: passthrough("ProgressBar"),
     TabNav: passthrough("TabNav"),
     formatBytes: (n: number) => `${n}B`,
+    projectLabelFromCwd: (cwd: string | null) => cwd?.split(/[\\/]/).pop() || null,
     useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
   };
 });
@@ -202,6 +203,59 @@ describe("ExportSessionPicker", () => {
   });
 });
 
+describe("ExportSessionPicker selected session", () => {
+  const picker = (session: Record<string, unknown>) =>
+    mount(ExportSessionPicker, {
+      props: {
+        sessions: [session] as never,
+        selectedSessionId: session.id as string,
+        selectedSession: session as never,
+        sectionsInfo: null,
+      },
+    });
+
+  it("names a repository-less session by its folder, without an unknown placeholder", () => {
+    const wrapper = picker({
+      id: "cc",
+      summary: "Ship 2.4",
+      source: "claudeCode",
+      repository: null,
+      cwd: "C:\\synthetic\\harbor",
+      currentModel: "claude-opus-5-5",
+    });
+    expect((wrapper.get(".session-search-input").element as HTMLInputElement).value).toBe(
+      "Ship 2.4 — harbor",
+    );
+    const badges = wrapper.findAll(".session-info-badges .badge").map((b) => b.text());
+    expect(badges).toEqual(["Claude Code", "harbor", "claude-opus-5.5"]);
+    wrapper.unmount();
+  });
+
+  it("drops the placeholder badges when nothing identifies the project", () => {
+    const wrapper = picker({ id: "x", summary: "Loose", repository: null, currentModel: null });
+    expect((wrapper.get(".session-search-input").element as HTMLInputElement).value).toBe("Loose");
+    expect(wrapper.findAll(".session-info-badges .badge")).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it("keeps the repository label for Copilot sessions", () => {
+    const wrapper = picker({
+      id: "c",
+      summary: "Fix",
+      repository: "org/repo",
+      currentModel: "gpt-5",
+    });
+    expect((wrapper.get(".session-search-input").element as HTMLInputElement).value).toBe(
+      "Fix — org/repo",
+    );
+    expect(wrapper.findAll(".session-info-badges .badge").map((b) => b.text())).toEqual([
+      "org/repo",
+      "gpt-5",
+    ]);
+    wrapper.unmount();
+  });
+});
+
 describe("ExportFormatSelector", () => {
   it("renders the format description for the current format", () => {
     const wrapper = mount(ExportFormatSelector, {
@@ -264,7 +318,12 @@ describe("ExportSectionsPanel", () => {
     // Claude Code plans come from ExitPlanMode (C13); its checkpoints are file history, not exported.
     expect(claude).toContain("Plan");
     expect(claude).not.toContain("Checkpoints");
-    expect(labels("copilot")).toEqual(expect.arrayContaining(["Plan", "Todos", "Checkpoints"]));
+    // Rewind snapshots and custom tables come from Copilot's session state and database.
+    expect(claude).not.toContain("Rewind Snapshots");
+    expect(claude).not.toContain("Custom Tables");
+    expect(labels("copilot")).toEqual(
+      expect.arrayContaining(["Plan", "Todos", "Checkpoints", "Rewind Snapshots", "Custom Tables"]),
+    );
   });
 
   it("emits select-all and select-none from the header actions", async () => {
