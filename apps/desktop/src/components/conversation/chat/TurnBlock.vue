@@ -46,6 +46,12 @@ const props = defineProps<{
   completionLabel: (toolCallId: string) => string;
   findToolCallIndex: (turn: ConversationTurn, tc: TurnToolCall) => number;
   getArgsSummary: (turnIndex: number, tcIdx: number) => string;
+  /**
+   * Keep the `T<n>` label visible. Set for a round trip that continues the
+   * previous prompt: with no anchor of its own, its index would otherwise
+   * look skipped between the user turns around it.
+   */
+  showTurnLabel?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -85,6 +91,7 @@ function toggleToolDetail(tc: TurnToolCall) {
 <template>
   <div
     class="cv-turn-block"
+    :class="{ 'cv-turn-block--labelled': showTurnLabel }"
     :data-turn="`T${turn.turnIndex}`"
     :data-turn-idx="turn.turnIndex"
     :style="turnColor ? { borderLeft: `3px solid ${turnColor}`, paddingLeft: '12px' } : {}"
@@ -197,7 +204,8 @@ function toggleToolDetail(tc: TurnToolCall) {
   pointer-events: none;
 }
 
-.cv-turn-block:hover::before {
+.cv-turn-block:hover::before,
+.cv-turn-block--labelled::before {
   opacity: 1;
 }
 

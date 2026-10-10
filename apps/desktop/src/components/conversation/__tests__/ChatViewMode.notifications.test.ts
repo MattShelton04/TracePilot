@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, ref } from "vue";
 import ChatViewMode from "../ChatViewMode.vue";
 import TaskNotificationCard from "../chat/TaskNotificationCard.vue";
+import TurnBlock from "../chat/TurnBlock.vue";
 import UserMessageAnchor from "../chat/UserMessageAnchor.vue";
 
 const state = vi.hoisted(() => ({
@@ -111,5 +112,24 @@ describe("ChatViewMode notification turns", () => {
     expect(anchor.props("content")).toBe(
       "<system_notification>Agent completed</system_notification>",
     );
+  });
+
+  it("labels every model round trip by its turn index, so user turns never seem to skip", () => {
+    // One prompt, a tool call, then the reply in the next round trip (turn 1).
+    state.turns = [
+      turn({ turnIndex: 0, userMessage: "Run the tests." }),
+      turn({ turnIndex: 1 }),
+      turn({ turnIndex: 2, userMessage: "Now lint." }),
+    ];
+    const wrapper = shallowMount(ChatViewMode);
+    expect(wrapper.findAllComponents(UserMessageAnchor).map((a) => a.props("turnIndex"))).toEqual([
+      0, 2,
+    ]);
+    // The round trip without its own anchor shows its label, which the anchors leave out.
+    expect(wrapper.findAllComponents(TurnBlock).map((b) => b.props("showTurnLabel"))).toEqual([
+      false,
+      true,
+      false,
+    ]);
   });
 });
