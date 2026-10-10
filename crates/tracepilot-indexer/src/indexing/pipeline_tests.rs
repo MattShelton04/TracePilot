@@ -208,3 +208,30 @@ fn preparation_completes_inside_a_single_worker_rayon_pool() {
         [0, 1, 2]
     );
 }
+
+#[test]
+fn a_stop_after_a_batch_is_prepared_and_before_it_is_written_writes_nothing() {
+    // Each prepare completes its result, then the stop lands: the batch is
+    // ready to write when the writer next looks.
+    let all = sessions(&[20 * MIB, 20 * MIB, 1]);
+    let refs: Vec<_> = all.iter().collect();
+    let stopped = AtomicBool::new(false);
+    let prepare = |session: &SessionLocator, _: &dyn Fn() -> bool| {
+        let result = index_of(session);
+        stopped.store(true, Ordering::SeqCst);
+        result
+    };
+    let mut writes = 0;
+    let outcome = prepare_and_write(
+        &refs,
+        &prepare,
+        &|| stopped.load(Ordering::SeqCst),
+        |_, _| {
+            writes += 1;
+            Ok(Flow::Continue)
+        },
+    )
+    .unwrap();
+    assert_eq!(outcome, Outcome::Stopped);
+    assert_eq!(writes, 0);
+}
