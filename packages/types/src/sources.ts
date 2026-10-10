@@ -39,6 +39,10 @@ export interface SourceCapabilities {
   hasHiddenRoles: boolean;
   /** The source backs up files before changing them (read-only rewind points). */
   hasFileHistory: boolean;
+  /** The session keeps rewind snapshots beside its state (Export's Rewind Snapshots). */
+  hasRewindSnapshots: boolean;
+  /** The session has a database of its own tables (Export's Custom Tables). */
+  hasCustomTables: boolean;
 }
 
 const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
@@ -56,6 +60,8 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
     hasExplorer: true,
     hasHiddenRoles: false,
     hasFileHistory: false,
+    hasRewindSnapshots: true,
+    hasCustomTables: true,
   },
   claudeCode: {
     canResume: false,
@@ -71,6 +77,8 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
     hasExplorer: true,
     hasHiddenRoles: false,
     hasFileHistory: true,
+    hasRewindSnapshots: false,
+    hasCustomTables: false,
   },
 };
 

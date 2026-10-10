@@ -41,6 +41,8 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_explorer: true,
     has_hidden_roles: false,
     has_file_history: true,
+    has_rewind_snapshots: false,
+    has_custom_tables: false,
 };
 
 /// The session directories the Explorer may browse, beside the transcript.

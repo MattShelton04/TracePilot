@@ -35,6 +35,8 @@ describe("session sources", () => {
     expect(caps.hasAic).toBe(false);
     expect(caps.hasTodos).toBe(false);
     expect(caps.hasCheckpoints).toBe(false);
+    expect(caps.hasRewindSnapshots).toBe(false);
+    expect(caps.hasCustomTables).toBe(false);
     // Plans, file history and the subagent / tool-result folders (C13).
     expect(caps.hasPlan).toBe(true);
     expect(caps.hasFileHistory).toBe(true);

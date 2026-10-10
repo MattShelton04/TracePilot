@@ -112,18 +112,13 @@ export const SECTION_GROUPS: readonly SectionGroup[] = [
   },
 ] as const;
 
-/**
- * Sections only some sources can supply, keyed to the capability that gates
- * each. Rewind snapshots sit beside Copilot's checkpoints in its session
- * state, and custom tables are the rest of the session database its todos
- * live in, so they share those gates.
- */
+/** Sections only some sources can supply, keyed to the capability that gates each. */
 const SECTION_CAPABILITIES: Partial<Record<SectionId, keyof SourceCapabilities>> = {
   plan: "hasPlan",
   todos: "hasTodos",
   checkpoints: "hasCheckpoints",
-  rewind_snapshots: "hasCheckpoints",
-  custom_tables: "hasTodos",
+  rewind_snapshots: "hasRewindSnapshots",
+  custom_tables: "hasCustomTables",
 };
 
 /** Whether a session whose source has these capabilities can supply the section. */
