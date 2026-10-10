@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { isNonCopilotSource, type SessionSource, sourceLabel } from "@tracepilot/types";
+import {
+  isNonCopilotSource,
+  modelDisplayName,
+  type SessionSource,
+  sourceLabel,
+} from "@tracepilot/types";
 import { Badge, EmptyState, ErrorAlert, formatDuration, SkeletonLoader } from "@tracepilot/ui";
 import { computed } from "vue";
 import {
@@ -103,7 +108,7 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
       <div class="summary-meta">
         <Badge v-if="showSources" :variant="sourceVariant(sourceA)" title="Session source">{{ sourceLabel(sourceA) }}</Badge>
         <Badge v-if="comp.dataA.detail?.repository" variant="accent">{{ comp.dataA.detail.repository }}</Badge>
-        <Badge v-if="sessionModel(comp.dataA.detail)" variant="accent">{{ sessionModel(comp.dataA.detail) }}</Badge>
+        <Badge v-if="sessionModel(comp.dataA.detail)" variant="accent" :title="sessionModel(comp.dataA.detail)!">{{ modelDisplayName(sessionModel(comp.dataA.detail)!, sourceA) }}</Badge>
         <Badge v-if="exitLabel(comp.dataA.metrics, sourceA)" :variant="exitBadgeVariant(comp.dataA.metrics)">{{ exitLabel(comp.dataA.metrics, sourceA) }}</Badge>
         <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataA.detail)) || '—' }}</Badge>
         <Badge variant="neutral">{{ comp.dataA.turns.length }} turns</Badge>
@@ -116,7 +121,7 @@ function sourceVariant(source: SessionSource | undefined): "claude" | "neutral" 
       <div class="summary-meta">
         <Badge v-if="showSources" :variant="sourceVariant(sourceB)" title="Session source">{{ sourceLabel(sourceB) }}</Badge>
         <Badge v-if="comp.dataB.detail?.repository" variant="accent">{{ comp.dataB.detail.repository }}</Badge>
-        <Badge v-if="sessionModel(comp.dataB.detail)" variant="accent">{{ sessionModel(comp.dataB.detail) }}</Badge>
+        <Badge v-if="sessionModel(comp.dataB.detail)" variant="accent" :title="sessionModel(comp.dataB.detail)!">{{ modelDisplayName(sessionModel(comp.dataB.detail)!, sourceB) }}</Badge>
         <Badge v-if="exitLabel(comp.dataB.metrics, sourceB)" :variant="exitBadgeVariant(comp.dataB.metrics)">{{ exitLabel(comp.dataB.metrics, sourceB) }}</Badge>
         <Badge variant="neutral" :title="`Session span. ${DURATION_HINTS.sessionSpan}`">{{ formatDuration(sessionDurationMs(comp.dataB.detail)) || '—' }}</Badge>
         <Badge variant="neutral">{{ comp.dataB.turns.length }} turns</Badge>

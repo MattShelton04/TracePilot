@@ -46,6 +46,7 @@ export {
   calculateClaudeCodeTokenCost,
   claudeCodeCostBasisLabel,
   claudeCodeModelFamily,
+  modelDisplayName,
 } from "./claude-code-pricing.js";
 // ── config.js ──────────────────────────────────────────────────────
 export type {

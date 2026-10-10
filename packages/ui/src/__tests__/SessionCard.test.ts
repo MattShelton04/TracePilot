@@ -86,6 +86,23 @@ describe("SessionCard", () => {
     expect(wrapper.text()).toContain("claude-opus-4.6");
   });
 
+  it("names a Claude Code model the way Analytics and Models do", () => {
+    const badge = (session: SessionListItem) =>
+      mount(SessionCard, { props: { session } }).get(".badge-done");
+    const claude = badge(
+      makeSession({ id: "cc", source: "claudeCode", currentModel: "claude-opus-5-5" }),
+    );
+    expect(claude.text()).toBe("claude-opus-5.5");
+    expect(claude.attributes("title")).toBe("claude-opus-5-5");
+    // Copilot ids and models the Claude registry does not know are shown as recorded.
+    expect(badge(makeSession({ id: "c", currentModel: "claude-opus-5-5" })).text()).toBe(
+      "claude-opus-5-5",
+    );
+    expect(
+      badge(makeSession({ id: "u", source: "claudeCode", currentModel: "claude-next-1" })).text(),
+    ).toBe("claude-next-1");
+  });
+
   it("shows repository and branch badges", () => {
     const wrapper = mount(SessionCard, {
       props: {

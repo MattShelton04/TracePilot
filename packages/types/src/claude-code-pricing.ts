@@ -7,6 +7,7 @@ import {
   type TokenUsageForCost,
 } from "./pricing.js";
 import type { CostBasis } from "./session.js";
+import type { SessionSource } from "./sources.js";
 
 /** Claude Code API-equivalent rates, kept outside Copilot's registry,
  * persisted defaults and pricing controls. */
@@ -32,6 +33,16 @@ export const CLAUDE_CODE_PRICING: readonly PricingRegistryEntry[] = data.anthrop
  */
 export function claudeCodeModelFamily(model: string): string | null {
   return resolvePricingEntry(model, { registry: CLAUDE_CODE_PRICING })?.model ?? null;
+}
+
+/**
+ * How to name a session's model on screen, the way Analytics and Models do:
+ * a known Claude Code id by its registry family (`claude-opus-5-5` →
+ * `claude-opus-5.5`), anything else as recorded. Display only; stored and
+ * filter values keep the recorded id.
+ */
+export function modelDisplayName(model: string, source: SessionSource | null | undefined): string {
+  return source === "claudeCode" ? (claudeCodeModelFamily(model) ?? model) : model;
 }
 
 /** A recorded write needs its TTL; missing data must not borrow a 5m rate. */

@@ -3,6 +3,7 @@ import type { SessionListItem } from "@tracepilot/types";
 import {
   formatRelativeTime,
   isNonCopilotSource,
+  modelDisplayName,
   resolveSessionSource,
   runStatusBadge,
   sourceLabel,
@@ -98,7 +99,7 @@ function activeTitle(): string {
         data-testid="session-project-chip"
       ><Folder :size="12" aria-hidden="true" class="project-chip__icon" />{{ projectLabel }}</Badge>
       <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
-      <Badge v-if="session.currentModel" variant="done">{{ session.currentModel }}</Badge>
+      <Badge v-if="session.currentModel" variant="done" :title="session.currentModel">{{ modelDisplayName(session.currentModel, session.source) }}</Badge>
       <Badge v-if="session.hostType || !isNonCopilotSource(session.source)" variant="neutral">{{ session.hostType || 'cli' }}</Badge>
     </div>
 

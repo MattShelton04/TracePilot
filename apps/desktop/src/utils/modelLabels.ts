@@ -1,5 +1,5 @@
 import {
-  claudeCodeModelFamily,
+  modelDisplayName,
   resolveSessionSource,
   type SessionSource,
   sourceLabel,
@@ -7,7 +7,7 @@ import {
 
 /** The model a row's id names: the registry family for Claude Code ids. */
 export function modelFamily(model: string, source: SessionSource): string {
-  return source === "claudeCode" ? (claudeCodeModelFamily(model) ?? model) : model;
+  return modelDisplayName(model, source);
 }
 
 export interface ModelLabel {

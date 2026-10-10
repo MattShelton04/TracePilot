@@ -12,6 +12,7 @@ import { getSessionLiveness, openInExplorer, resumeSessionInTerminal } from "@tr
 import {
   resumeCommand as buildResumeCommand,
   isNonCopilotSource,
+  modelDisplayName,
   type RunStatus,
   runStatusBadge,
   sourceLabel,
@@ -343,7 +344,7 @@ watch(isSessionActive, (active) => {
         <Badge v-if="isNonCopilotSource(source)" variant="claude" title="Session source">{{ sourceName }}</Badge>
         <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
         <Badge v-if="store.detail.branch" variant="success">{{ store.detail.branch }}</Badge>
-        <Badge v-if="currentModel" variant="done">{{ currentModel }}</Badge>
+        <Badge v-if="currentModel" variant="done" :title="currentModel">{{ modelDisplayName(currentModel, source) }}</Badge>
         <Badge v-if="currentEffort" variant="neutral" title="Main agent reasoning effort">{{ effortLabel(currentEffort) }}</Badge>
         <Badge v-if="store.detail.hostType || !isNonCopilotSource(source)" variant="neutral">{{ store.detail.hostType || 'cli' }}</Badge>
       </div>
