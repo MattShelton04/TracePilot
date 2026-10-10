@@ -26,6 +26,7 @@ export {
   MOCK_COPILOT_FORMAT_DIAGNOSTICS,
 } from "./formatDiagnostics.js";
 export { MOCK_PROMPT_CACHE } from "./promptCache.js";
+export { searchMockRoute } from "./search.js";
 export {
   getMockSessionDetail,
   getMockSessionEvents,

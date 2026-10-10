@@ -7,8 +7,10 @@ use crate::error::{BindingsError, CmdResult};
 use crate::helpers::read_config;
 use crate::types::{SearchFacetsResponse, SearchResultItem, SearchResultsResponse};
 use tracepilot_core::SessionId;
+use tracepilot_core::provider::SessionSource;
 
-/// Search session content with full-text search or browse mode.
+/// Search session content with full-text search or browse mode. `source`
+/// limits results to one session source; `None` searches every source.
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%query))]
 #[allow(clippy::too_many_arguments)]
@@ -20,6 +22,7 @@ pub async fn search_content(
     repositories: Option<Vec<String>>,
     tool_names: Option<Vec<String>>,
     session_id: Option<String>,
+    source: Option<SessionSource>,
     date_from_unix: Option<i64>,
     date_to_unix: Option<i64>,
     limit: Option<usize>,
@@ -43,6 +46,7 @@ pub async fn search_content(
             repositories: repositories.unwrap_or_default(),
             tool_names: tool_names.unwrap_or_default(),
             session_id,
+            source,
             date_from_unix,
             date_to_unix,
             limit,
@@ -92,7 +96,8 @@ pub async fn search_content(
     })
 }
 
-/// Get facet counts (with 60-second TTL cache).
+/// Get facet counts (with 60-second TTL cache), scoped by the same filters as
+/// [`search_content`], including `source`.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn get_search_facets(
@@ -103,6 +108,7 @@ pub async fn get_search_facets(
     repositories: Option<Vec<String>>,
     tool_names: Option<Vec<String>>,
     session_id: Option<String>,
+    source: Option<SessionSource>,
     date_from_unix: Option<i64>,
     date_to_unix: Option<i64>,
 ) -> CmdResult<SearchFacetsResponse> {
@@ -116,6 +122,7 @@ pub async fn get_search_facets(
         &repositories,
         &tool_names,
         &session_id,
+        &source,
         &date_from_unix,
         &date_to_unix,
     );
@@ -137,6 +144,7 @@ pub async fn get_search_facets(
             repositories: repositories.unwrap_or_default(),
             tool_names: tool_names.unwrap_or_default(),
             session_id,
+            source,
             date_from_unix,
             date_to_unix,
             ..Default::default()

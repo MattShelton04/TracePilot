@@ -1,21 +1,32 @@
-import type { SearchContentType } from "@tracepilot/types";
+import type { SearchContentType, SessionSource } from "@tracepilot/types";
 
-/** Qualifier syntax: extract `type:`, `repo:`, `tool:`, `session:`, `sort:` from query. */
+/** Qualifier syntax: extract `type:`, `repo:`, `tool:`, `session:`, `source:`, `sort:` from query. */
 export interface ParsedQualifiers {
   cleanQuery: string;
   types: SearchContentType[];
   repo: string | null;
   tool: string | null;
   session: string | null;
+  source: SessionSource | null;
   sort: "relevance" | "newest" | "oldest" | null;
 }
 
-const QUALIFIER_RE = /\b(type|repo|tool|session|sort):(?:"([^"]+)"|(\S+))/gi;
+const QUALIFIER_RE = /\b(type|repo|tool|session|source|sort):(?:"([^"]+)"|(\S+))/gi;
+
+/** `source:` values, lower-cased, with the spellings people type for Claude Code. */
+const SOURCE_ALIASES = new Map<string, SessionSource>([
+  ["copilot", "copilot"],
+  ["claude", "claudeCode"],
+  ["claudecode", "claudeCode"],
+  ["claude-code", "claudeCode"],
+]);
 
 /**
  * Parse inline qualifier syntax from a search query string.
  *
- * Recognised qualifiers: `type:`, `repo:`, `tool:`, `session:`, `sort:`.
+ * Recognised qualifiers: `type:`, `repo:`, `tool:`, `session:`, `source:`
+ * (`copilot`, `claude` or `claudecode`), `sort:`. Unknown `source:` and
+ * `sort:` values are stripped and ignored.
  * Quoted values are supported (e.g. `repo:"my org/repo"`).
  * Returns the cleaned query (qualifiers stripped) alongside extracted values.
  */
@@ -26,6 +37,7 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
     repo: null,
     tool: null,
     session: null,
+    source: null,
     sort: null,
   };
 
@@ -48,6 +60,9 @@ export function parseQualifiers(raw: string): ParsedQualifiers {
         break;
       case "session":
         result.session = val;
+        break;
+      case "source":
+        result.source = SOURCE_ALIASES.get(val.toLowerCase()) ?? result.source;
         break;
       case "sort":
         if (["relevance", "newest", "oldest"].includes(val)) {

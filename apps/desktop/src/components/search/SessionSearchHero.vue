@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import type { SessionSource } from "@tracepilot/types";
 import { ref } from "vue";
+import SourceSwitch from "@/components/sources/SourceSwitch.vue";
 
 defineProps<{
   query: string;
@@ -8,12 +10,18 @@ defineProps<{
   activeFilterCount: number;
   sortBy: string;
   isBrowseMode: boolean;
+  /** One source, or `null` for every source. */
+  source?: SessionSource | null;
+  /** Sources to offer; the switch shows only when `showSource` is set. */
+  sources?: readonly SessionSource[];
+  showSource?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "update:query", v: string): void;
   (e: "update:filtersOpen", v: boolean): void;
   (e: "update:sortBy", v: string): void;
+  (e: "update:source", v: SessionSource | null): void;
   (e: "show-syntax-help"): void;
 }>();
 
@@ -75,6 +83,14 @@ defineExpose({ inputRef, focusFilterToggle });
         <span v-if="activeFilterCount > 0" class="filter-count-badge">{{ activeFilterCount }}</span>
       </button>
       <div style="flex: 1" />
+      <SourceSwitch
+        v-if="showSource"
+        :model-value="source ?? null"
+        :sources="sources ?? []"
+        label="Filter results by source"
+        data-testid="search-source-filter"
+        @update:model-value="emit('update:source', $event)"
+      />
       <select
         :value="sortBy"
         class="sort-select"

@@ -33,6 +33,23 @@ describe("SessionSearchHero", () => {
     });
     expect(wrapper.find(".filter-count-badge").text()).toBe("3");
   });
+
+  it("shows the source switch only when asked and emits the picked source", async () => {
+    const props = {
+      query: "",
+      filtersOpen: true,
+      activeFilterCount: 0,
+      sortBy: "relevance",
+      isBrowseMode: false,
+      sources: ["copilot", "claudeCode"] as const,
+    };
+    const hidden = mount(SessionSearchHero, { props });
+    expect(hidden.find('[data-testid="search-source-filter"]').exists()).toBe(false);
+
+    const wrapper = mount(SessionSearchHero, { props: { ...props, showSource: true } });
+    await wrapper.find('[data-source="claudeCode"]').trigger("click");
+    expect(wrapper.emitted("update:source")?.[0]).toEqual(["claudeCode"]);
+  });
 });
 
 describe("SessionSearchIndexingBanner", () => {

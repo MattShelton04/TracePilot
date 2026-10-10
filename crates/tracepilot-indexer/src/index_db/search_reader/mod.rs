@@ -1,7 +1,8 @@
 //! Deep FTS query builder and result reader.
 //!
 //! Provides parameterized search across `search_content` + `search_fts` with
-//! filtering by content type, session, tool name, date range, and repository.
+//! filtering by content type, session, tool name, date range, repository and
+//! session source.
 //! Results include highlighted snippets and pagination. Supports FTS (via the
 //! `search_fts` table) and Browse (filter-only, empty query) modes.
 //!
@@ -16,6 +17,7 @@ mod stats;
 mod tests;
 
 pub use sanitize::sanitize_fts_query;
+use tracepilot_core::provider::SessionSource;
 
 /// A single search result with context for display and deep-linking.
 #[derive(Debug, Clone)]
@@ -44,6 +46,8 @@ pub struct SearchFilters {
     pub repositories: Vec<String>,
     pub tool_names: Vec<String>,
     pub session_id: Option<String>,
+    /// Only sessions from this source; `None` means every source.
+    pub source: Option<SessionSource>,
     pub date_from_unix: Option<i64>,
     pub date_to_unix: Option<i64>,
     pub limit: Option<usize>,

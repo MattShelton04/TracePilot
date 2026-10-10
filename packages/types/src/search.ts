@@ -54,8 +54,8 @@ export interface SearchFilters {
   repositories?: string[];
   toolNames?: string[];
   sessionId?: string;
-  /** Limit results to these sources; absent means every source. */
-  sources?: SessionSource[];
+  /** Limit results to one source; absent or `null` means every source. */
+  source?: SessionSource | null;
   dateFromUnix?: number;
   dateToUnix?: number;
   limit?: number;

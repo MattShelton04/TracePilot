@@ -98,7 +98,9 @@ impl SearchQueryBuilder {
         self
     }
 
-    /// Add standard search filters (content types, repositories, tools, dates, session ID).
+    /// Add standard search filters (content types, repositories, tools, dates,
+    /// session ID and source). An unset source adds no clause, so unfiltered
+    /// queries keep their exact SQL.
     pub(super) fn with_filters(mut self, filters: &SearchFilters) -> Self {
         // Use helper methods for IN-filters
         self = self.add_in_filter("sc.content_type", &filters.content_types);
@@ -110,6 +112,11 @@ impl SearchQueryBuilder {
         if let Some(ref sid) = filters.session_id {
             self.where_clauses.push("sc.session_id = ?".to_string());
             self.params.push(Box::new(sid.clone()));
+        }
+
+        if let Some(source) = filters.source {
+            self.where_clauses.push("s.source = ?".to_string());
+            self.params.push(Box::new(source.as_str()));
         }
 
         // Build timestamp range filters

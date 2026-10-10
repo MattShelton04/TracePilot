@@ -11,6 +11,7 @@ export interface MergeSearchInputsState {
   repository: string | null;
   toolName: string | null;
   sessionId: string | null;
+  source: SessionSource | null;
   sortBy: SortMode;
   isBrowseMode: boolean;
 }
@@ -21,6 +22,7 @@ export interface MergedSearchInputs {
   repository: string | null;
   toolName: string | null;
   sessionId: string | null;
+  source: SessionSource | null;
   sortBy: SortMode;
 }
 
@@ -50,6 +52,7 @@ export function mergeSearchInputs(
     repository: parsed.repo ?? state.repository,
     toolName: parsed.tool ?? state.toolName,
     sessionId: parsed.session ?? state.sessionId,
+    source: parsed.source ?? state.source,
     sortBy: parsed.sort ?? effectiveSort,
   };
 }
@@ -87,6 +90,8 @@ export function createQuerySlice() {
   const dateFrom = ref<string | null>(null);
   const dateTo = ref<string | null>(null);
   const sessionId = ref<string | null>(null);
+  /** One session source, or `null` for every source. */
+  const source = ref<SessionSource | null>(null);
   const sortBy = ref<"relevance" | "newest" | "oldest">("relevance");
   const page = ref(1);
   const pageSize = ref(50);
@@ -114,7 +119,8 @@ export function createQuerySlice() {
       toolName.value !== null ||
       hasMeaningfulDateValue(dateFrom.value) ||
       hasMeaningfulDateValue(dateTo.value) ||
-      sessionId.value !== null
+      sessionId.value !== null ||
+      source.value !== null
     );
   });
 
@@ -187,6 +193,7 @@ export function createQuerySlice() {
     dateFrom.value = null;
     dateTo.value = null;
     sessionId.value = null;
+    source.value = null;
     sortBy.value = "relevance";
     page.value = 1;
   }
@@ -222,6 +229,7 @@ export function createQuerySlice() {
     dateFrom,
     dateTo,
     sessionId,
+    source,
     sortBy,
     page,
     pageSize,

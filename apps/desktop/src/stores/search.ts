@@ -104,6 +104,7 @@ export const useSearchStore = defineStore("search", () => {
       q.dateFrom,
       q.dateTo,
       q.sessionId,
+      q.source,
       q.sortBy,
     ],
     () => scheduleSearch(true),
@@ -134,6 +135,7 @@ export const useSearchStore = defineStore("search", () => {
     q.dateFrom.value = null;
     q.dateTo.value = null;
     q.sessionId.value = null;
+    q.source.value = null;
     q.sortBy.value = "newest";
     nextTick(() => {
       isHydrating = false;

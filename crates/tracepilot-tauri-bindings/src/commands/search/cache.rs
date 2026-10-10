@@ -5,6 +5,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::LazyLock;
 use std::time::Duration;
+use tracepilot_core::provider::SessionSource;
 use tracepilot_core::utils::cache::TtlCache;
 
 // ---------------------------------------------------------------------------
@@ -25,6 +26,7 @@ pub(super) fn facets_cache_key(
     repositories: &Option<Vec<String>>,
     tool_names: &Option<Vec<String>>,
     session_id: &Option<String>,
+    source: &Option<SessionSource>,
     date_from_unix: &Option<i64>,
     date_to_unix: &Option<i64>,
 ) -> u64 {
@@ -35,6 +37,7 @@ pub(super) fn facets_cache_key(
     repositories.hash(&mut hasher);
     tool_names.hash(&mut hasher);
     session_id.hash(&mut hasher);
+    source.hash(&mut hasher);
     date_from_unix.hash(&mut hasher);
     date_to_unix.hash(&mut hasher);
     hasher.finish()

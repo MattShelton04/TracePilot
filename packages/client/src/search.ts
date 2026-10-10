@@ -31,6 +31,7 @@ export async function searchContent(
     repositories: filters?.repositories,
     toolNames: filters?.toolNames,
     sessionId: filters?.sessionId,
+    source: filters?.source,
     dateFromUnix: filters?.dateFromUnix,
     dateToUnix: filters?.dateToUnix,
     limit: filters?.limit,
@@ -49,6 +50,7 @@ export async function getSearchFacets(
     | "repositories"
     | "toolNames"
     | "sessionId"
+    | "source"
     | "dateFromUnix"
     | "dateToUnix"
   >,
@@ -60,6 +62,7 @@ export async function getSearchFacets(
     repositories: filters?.repositories,
     toolNames: filters?.toolNames,
     sessionId: filters?.sessionId,
+    source: filters?.source,
     dateFromUnix: filters?.dateFromUnix,
     dateToUnix: filters?.dateToUnix,
   });

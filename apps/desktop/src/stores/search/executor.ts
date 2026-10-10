@@ -33,6 +33,7 @@ export function createSearchExecutor(deps: SearchExecutorDeps): SearchExecutor {
       repository: q.repository.value,
       toolName: q.toolName.value,
       sessionId: q.sessionId.value,
+      source: q.source.value,
       sortBy: q.sortBy.value,
       isBrowseMode: q.isBrowseMode.value,
     });
@@ -57,6 +58,7 @@ export function createSearchExecutor(deps: SearchExecutorDeps): SearchExecutor {
           repositories: merged.repository ? [merged.repository] : undefined,
           toolNames: merged.toolName ? [merged.toolName] : undefined,
           sessionId: merged.sessionId ?? undefined,
+          source: merged.source ?? undefined,
           dateFromUnix,
           dateToUnix,
           limit: q.pageSize.value,
@@ -79,6 +81,7 @@ export function createSearchExecutor(deps: SearchExecutorDeps): SearchExecutor {
           repo: merged.repository,
           tool: merged.toolName,
           session: merged.sessionId,
+          source: merged.source,
         });
       },
     });

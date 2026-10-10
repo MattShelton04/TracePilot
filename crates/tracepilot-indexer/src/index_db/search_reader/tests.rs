@@ -292,6 +292,24 @@ fn test_builder_empty_filters() {
 }
 
 #[test]
+fn test_builder_source_filter_only_when_set() {
+    let (unfiltered, _) = SearchQueryBuilder::new("SELECT *", true)
+        .with_filters(&SearchFilters::default())
+        .build();
+    assert!(!unfiltered.contains("s.source"));
+
+    let filters = SearchFilters {
+        source: Some(tracepilot_core::provider::SessionSource::ClaudeCode),
+        ..Default::default()
+    };
+    let (sql, params) = SearchQueryBuilder::new("SELECT *", true)
+        .with_filters(&filters)
+        .build();
+    assert!(sql.contains("WHERE s.source = ?"));
+    assert_eq!(params.len(), 1);
+}
+
+#[test]
 fn test_builder_method_chaining() {
     // Test that builder methods can be chained fluently
     let (sql, params) = SearchQueryBuilder::new("SELECT *", false)
