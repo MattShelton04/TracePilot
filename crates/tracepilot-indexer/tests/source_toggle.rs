@@ -178,26 +178,42 @@ struct Hooked {
     inner: ClaudeCodeProvider,
     on_discover: Option<Box<dyn Fn() + Send + Sync>>,
     on_load: Option<Box<dyn Fn() + Send + Sync>>,
+    after_load: Option<Box<dyn Fn() + Send + Sync>>,
     once: Once,
 }
 
 impl Hooked {
     fn on_discover(root: &Path, hook: impl Fn() + Send + Sync + 'static) -> Arc<Self> {
         Arc::new(Self {
-            inner: ClaudeCodeProvider::new(root),
             on_discover: Some(Box::new(hook)),
-            on_load: None,
-            once: Once::new(),
+            ..Self::plain(root)
         })
     }
 
     fn on_load(root: &Path, hook: impl Fn() + Send + Sync + 'static) -> Arc<Self> {
         Arc::new(Self {
+            on_load: Some(Box::new(hook)),
+            ..Self::plain(root)
+        })
+    }
+
+    /// Fires once a session has loaded successfully, so its prepared result
+    /// is complete when the settings change lands.
+    fn after_load(root: &Path, hook: impl Fn() + Send + Sync + 'static) -> Arc<Self> {
+        Arc::new(Self {
+            after_load: Some(Box::new(hook)),
+            ..Self::plain(root)
+        })
+    }
+
+    fn plain(root: &Path) -> Self {
+        Self {
             inner: ClaudeCodeProvider::new(root),
             on_discover: None,
-            on_load: Some(Box::new(hook)),
+            on_load: None,
+            after_load: None,
             once: Once::new(),
-        })
+        }
     }
 }
 
@@ -226,7 +242,11 @@ impl SessionProvider for Hooked {
         if let Some(hook) = &self.on_load {
             self.once.call_once(hook);
         }
-        self.inner.load_snapshot(session, strict, is_cancelled)
+        let snapshot = self.inner.load_snapshot(session, strict, is_cancelled)?;
+        if let Some(hook) = &self.after_load {
+            self.once.call_once(hook);
+        }
+        Ok(snapshot)
     }
     fn liveness(&self, session: &SessionLocator) -> Liveness {
         self.inner.liveness(session)
@@ -248,11 +268,17 @@ impl SessionProvider for Hooked {
 struct Concurrent {
     inner: ClaudeCodeProvider,
     expected: usize,
-    arrived: Mutex<usize>,
+    loads: Mutex<Loads>,
     all_in_flight: Condvar,
-    overlapped: Mutex<bool>,
     hook: Box<dyn Fn() + Send + Sync>,
     once: Once,
+}
+
+/// Loads in flight now, and the most that ever were at once.
+#[derive(Default)]
+struct Loads {
+    in_flight: usize,
+    peak: usize,
 }
 
 impl Concurrent {
@@ -260,18 +286,17 @@ impl Concurrent {
         Arc::new(Self {
             inner: ClaudeCodeProvider::new(root),
             expected,
-            arrived: Mutex::new(0),
+            loads: Mutex::default(),
             all_in_flight: Condvar::new(),
-            overlapped: Mutex::new(false),
             hook: Box::new(hook),
             once: Once::new(),
         })
     }
 
-    /// Whether the loads overlapped, where the machine can run two at once.
+    /// Whether `expected` loads were in flight at the same time, where the
+    /// pipeline's Rayon pool can run two at once.
     fn overlapped(&self) -> bool {
-        let parallel = std::thread::available_parallelism().map_or(1, usize::from) > 1;
-        !parallel || *self.overlapped.lock().unwrap()
+        rayon::current_num_threads() < 2 || self.loads.lock().unwrap().peak >= self.expected
     }
 }
 
@@ -298,21 +323,22 @@ impl SessionProvider for Concurrent {
         strict: bool,
         is_cancelled: &dyn Fn() -> bool,
     ) -> CoreResult<ProviderSnapshot> {
-        let mut arrived = self.arrived.lock().unwrap();
-        *arrived += 1;
+        let mut loads = self.loads.lock().unwrap();
+        loads.in_flight += 1;
+        loads.peak = loads.peak.max(loads.in_flight);
         self.all_in_flight.notify_all();
-        let (arrived, wait) = self
+        // Sequential loads never raise the peak, so they time out here.
+        let (loads, _) = self
             .all_in_flight
-            .wait_timeout_while(arrived, Duration::from_secs(10), |arrived| {
-                *arrived < self.expected
+            .wait_timeout_while(loads, Duration::from_secs(10), |loads| {
+                loads.peak < self.expected && rayon::current_num_threads() > 1
             })
             .unwrap();
-        drop(arrived);
-        if !wait.timed_out() {
-            *self.overlapped.lock().unwrap() = true;
-        }
+        drop(loads);
         self.once.call_once(&self.hook);
-        self.inner.load_snapshot(session, strict, is_cancelled)
+        let snapshot = self.inner.load_snapshot(session, strict, is_cancelled);
+        self.loads.lock().unwrap().in_flight -= 1;
+        snapshot
     }
     fn liveness(&self, session: &SessionLocator) -> Liveness {
         self.inner.liveness(session)
@@ -388,6 +414,40 @@ fn disabling_while_search_content_is_prepared_concurrently_writes_none_back() {
     assert!(fixture.ids("claudeCode").is_empty());
     assert_eq!(fixture.child_rows("claudeCode"), 0);
     for word in ["alphazword", "alphazedited", "betazedited", "gammazword"] {
+        assert!(fixture.search(word).is_empty(), "{word}");
+    }
+    assert_eq!(fixture.copilot_state(), copilot);
+}
+
+#[test]
+fn disabling_once_search_content_is_prepared_writes_none_back() {
+    let fixture = Fixture::indexed();
+    let copilot = fixture.copilot_state();
+    write_claude_root(
+        &fixture.claude_root,
+        &[(CLAUDE_A, "alphazedited"), (CLAUDE_B, "betazedited")],
+    );
+    let scope = fixture.scope(claude(&fixture.claude_root));
+    reindex_all_scoped(&scope, &fixture.db_path, |_| {}).unwrap();
+
+    // The first session loads in full, so a complete prepared batch is
+    // waiting to be written when Claude Code is disabled.
+    let generations = Arc::clone(&fixture.generations);
+    let db_path = fixture.db_path.clone();
+    let scope = fixture.scope(Hooked::after_load(&fixture.claude_root, move || {
+        generations.bump(SessionSource::ClaudeCode);
+        IndexDb::open_or_create(&db_path)
+            .unwrap()
+            .purge_source(SessionSource::ClaudeCode, &|| true)
+            .unwrap();
+    }));
+    let (indexed, _) =
+        reindex_search_content_scoped(&scope, &fixture.db_path, |_| {}, || false).unwrap();
+
+    assert_eq!(indexed, 0);
+    assert!(fixture.ids("claudeCode").is_empty());
+    assert_eq!(fixture.child_rows("claudeCode"), 0);
+    for word in ["alphazword", "alphazedited", "betazedited"] {
         assert!(fixture.search(word).is_empty(), "{word}");
     }
     assert_eq!(fixture.copilot_state(), copilot);
