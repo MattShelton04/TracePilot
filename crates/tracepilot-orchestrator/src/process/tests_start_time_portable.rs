@@ -69,8 +69,8 @@ fn ps_start_times_keep_the_first_line_for_a_pid() {
     assert_eq!(starts[&42], "Sat Oct 10 02:37:47 2026");
 }
 
-/// On macOS this spawns `ps` once, for a list it rejects (`i32::MAX` is past
-/// its pid range), so it also covers asking each pid alone.
+/// On macOS `i32::MAX` is past the pid range, so it is left out before `ps`
+/// runs.
 #[test]
 fn process_start_times_match_single_lookups() {
     let own = std::process::id();
@@ -105,6 +105,29 @@ fn ps_start_times_read_live_processes_in_one_batch() {
     // A pid `ps` rejects outright does not hide the others.
     let rejected = lookup(&[own, u32::MAX]);
     assert_eq!(rejected.get(&own), starts.get(&own), "{rejected:?}");
+}
+
+/// Live pids only, all within every `ps`'s range, so this is one real batch
+/// rather than the ask-each-pid-alone fallback.
+#[cfg(unix)]
+#[test]
+fn ps_start_times_batch_live_pids_and_drop_a_reaped_one() {
+    let lookup = |pids: &[u32]| start_time::ps_start_times_within(pids, 30);
+    let own = std::process::id();
+    let mut child = Command::new("sleep").arg("30").spawn().expect("sleep");
+    let other = child.id();
+    let both = lookup(&[own, other]);
+    child.kill().unwrap();
+    child.wait().unwrap();
+    assert_eq!(both.len(), 2, "{both:?}");
+    assert!(both.contains_key(&own) && both.contains_key(&other));
+
+    let mut done = Command::new("true").spawn().expect("true");
+    let reaped = done.id();
+    done.wait().unwrap();
+    let starts = lookup(&[own, reaped]);
+    assert_eq!(starts.get(&own), both.get(&own), "{starts:?}");
+    assert!(!starts.contains_key(&reaped), "{starts:?}");
 }
 
 #[cfg(unix)]

@@ -41,7 +41,14 @@ pub fn process_start_time(pid: u32) -> Option<String> {
 pub fn process_start_times(pids: &[u32]) -> HashMap<u32, String> {
     #[cfg(target_os = "macos")]
     {
-        ps_start_times_within(pids, PS_TIMEOUT_SECS)
+        // No macOS process has a larger pid, and `ps` rejects the whole list
+        // over one, so leave such pids out rather than ask each pid alone.
+        let pids: Vec<u32> = pids
+            .iter()
+            .copied()
+            .filter(|&pid| pid <= MACOS_PID_MAX)
+            .collect();
+        ps_start_times_within(&pids, PS_TIMEOUT_SECS)
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -53,6 +60,10 @@ pub fn process_start_times(pids: &[u32]) -> HashMap<u32, String> {
 
 #[cfg(target_os = "macos")]
 const PS_TIMEOUT_SECS: u64 = 10;
+
+/// The largest pid macOS hands out (xnu's `PID_MAX`).
+#[cfg(target_os = "macos")]
+const MACOS_PID_MAX: u32 = 99_999;
 
 /// `starttime`, field 22 of a `/proc/<pid>/stat` line. The command name in
 /// field 2 may contain spaces and parentheses, so fields are counted from the
@@ -77,9 +88,9 @@ pub(crate) fn ps_start_times_within(pids: &[u32], timeout_secs: u64) -> HashMap<
     let Some((stdout, stderr, success)) = run_ps(pids, timeout_secs) else {
         return HashMap::new();
     };
-    // `ps` also fails when a listed pid has no process, yet prints the rest,
-    // and says nothing on stderr. It writes there when it rejects the whole
-    // list (a pid out of its range), so then each pid is asked alone.
+    // `ps` exits non-zero, silently, when no listed pid has a process. It
+    // writes to stderr when it rejects the whole list (a pid out of its
+    // range), so then each pid is asked alone.
     if !success && !stderr.trim().is_empty() && pids.len() > 1 {
         return pids
             .iter()
