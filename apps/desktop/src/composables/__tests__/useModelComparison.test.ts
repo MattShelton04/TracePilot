@@ -1,4 +1,5 @@
 import { setupPinia } from "@tracepilot/test-utils";
+import { formatCost } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
@@ -9,6 +10,7 @@ const prefsStoreMock = {
     (_model: string, input: number, _cacheRead: number, output: number, cacheWrite = 0) =>
       (input + output + cacheWrite) * 0.00001,
   ),
+  computeUsageBasedCost: vi.fn(() => null),
   costPerPremiumRequest: 0.04,
 };
 vi.mock("@/stores/preferences", () => ({
@@ -16,7 +18,7 @@ vi.mock("@/stores/preferences", () => ({
 }));
 
 const analyticsStoreMock: {
-  analytics: { modelDistribution: unknown[] } | null;
+  analytics: { modelDistribution: unknown[]; [key: string]: unknown } | null;
   analyticsLoading: boolean;
   analyticsError: string | null;
   selectedRepo: string | null;
@@ -286,5 +288,60 @@ describe("useModelComparison", () => {
     );
     // Mock returns (input+output+cacheWrite) * 1e-5 = (1000+500+300)*1e-5 = 0.018
     expect(comp.modelRows[0].cost).toBeCloseTo(0.018);
+  });
+
+  it("shows the Analytics all-sources USD total, not the sum of per-model figures", () => {
+    // Per-model Claude Code costs add up to a fraction of a cent less than
+    // the session totals Analytics adds: $2,130.2751 against $2,130.2849.
+    const copilotNanoAiu = 851_135_490_000_000; // 851,135.49 AIC = $8,511.3549
+    const uncovered = {
+      unobservedInputTokens: 0,
+      unobservedOutputTokens: 0,
+      unobservedCacheReadTokens: 0,
+      unobservedCacheWriteTokens: 0,
+    };
+    analyticsStoreMock.analytics = {
+      modelDistribution: [
+        {
+          model: "gpt-5",
+          source: "copilot",
+          inputTokens: 1000,
+          outputTokens: 100,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          premiumRequests: 0,
+          totalNanoAiu: copilotNanoAiu,
+          ...uncovered,
+        },
+        ...[1000.1, 1130.1751].map((costUsd, i) => ({
+          model: `claude-opus-5-${i}`,
+          source: "claudeCode",
+          inputTokens: 1000,
+          outputTokens: 100,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          premiumRequests: 0,
+          costUsd,
+        })),
+      ],
+      totalNanoAiu: copilotNanoAiu,
+      sessionsWithObservedAiCredits: 1,
+      costBySource: [
+        { source: "copilot", sessions: 1, tokens: 1100, costUsd: null, sessionsWithCostUsd: 0 },
+        {
+          source: "claudeCode",
+          sessions: 2,
+          tokens: 2200,
+          costUsd: 2130.2849,
+          sessionsWithCostUsd: 2,
+        },
+      ],
+    };
+    const { comp } = mountHook();
+    expect(comp.mixedUnits).toBe(true);
+    // Rows alone would read $10,641.63.
+    const rowSum = comp.modelRows.reduce((sum, row) => sum + (row.usdEquivalent ?? 0), 0);
+    expect(formatCost(rowSum)).toBe("$10,641.63");
+    expect(formatCost(comp.totalUsd)).toBe("$10,641.64");
   });
 });

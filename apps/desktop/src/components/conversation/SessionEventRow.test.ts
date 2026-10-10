@@ -1,7 +1,11 @@
+import { setupPinia } from "@tracepilot/test-utils";
 import type { TurnSessionEvent } from "@tracepilot/types";
 import { mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import SessionEventRow from "./SessionEventRow.vue";
+
+// Names models through the open session's source.
+beforeEach(() => setupPinia());
 
 vi.mock("vue-router", () => ({
   useRouter: () => ({}),

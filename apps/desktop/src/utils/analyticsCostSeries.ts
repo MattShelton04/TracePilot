@@ -300,3 +300,21 @@ export function buildCombinedCostSeries(
     cost: point.aiCreditsUsd + point.sourceUsd,
   })).sort((a, b) => a.date.localeCompare(b.date));
 }
+
+/**
+ * Every source's cost in USD, the one total Analytics and Models both show.
+ * Session totals and per-model figures can differ by a fraction of a cent,
+ * so both pages add the same per-source totals and round only on display.
+ */
+export function analyticsTotalCostUsd(
+  data: AnalyticsData,
+  computeUsageBasedCost: ComputeTokenCost,
+  computeDirectApiCost: ComputeTokenCost,
+): CombinedCostTotal {
+  const aiCredits = buildAnalyticsAiCreditSummary(
+    data,
+    computeUsageBasedCost,
+    computeDirectApiCost,
+  );
+  return combinedCostTotal(buildSourceCostRows(data, aiCredits));
+}

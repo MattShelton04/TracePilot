@@ -18,6 +18,8 @@ import {
 } from "lucide-vue-next";
 import { computed } from "vue";
 import { useCheckpointNavigation } from "@/composables/useCheckpointNavigation";
+import { useSessionModelName } from "@/composables/useSessionModelName";
+import { sessionEventSummary } from "@/utils/sessionEventSummary";
 import SkillInvocationEventRow from "./SkillInvocationEventRow.vue";
 
 const props = defineProps<{
@@ -25,6 +27,8 @@ const props = defineProps<{
 }>();
 
 const navigateToCheckpoint = useCheckpointNavigation();
+const modelName = useSessionModelName();
+const summary = computed(() => sessionEventSummary(props.event, modelName));
 
 const isCompaction = computed(() => props.event.eventType === "session.compaction_complete");
 const isSkill = computed(() => props.event.eventType === "skill.invoked");
@@ -85,7 +89,7 @@ function eventLabel(eventType: string): string {
       <ClipboardList :size="12" aria-hidden="true" /> Checkpoint #{{ event.checkpointNumber }}
     </button>
     <span v-else class="cv-session-event-type">compaction</span>
-    <span class="cv-session-event-summary">{{ event.summary }}</span>
+    <span class="cv-session-event-summary">{{ summary }}</span>
     <span v-if="event.timestamp" class="cv-session-event-time">
       {{ formatTime(event.timestamp) }}
     </span>
@@ -100,7 +104,7 @@ function eventLabel(eventType: string): string {
       <component :is="eventIcon(event)" :size="14" />
     </span>
     <span class="cv-session-event-type">{{ eventLabel(event.eventType) }}</span>
-    <span class="cv-session-event-summary">{{ event.summary }}</span>
+    <span class="cv-session-event-summary">{{ summary }}</span>
     <span v-if="event.timestamp" class="cv-session-event-time">
       {{ formatTime(event.timestamp) }}
     </span>

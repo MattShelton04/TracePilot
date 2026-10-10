@@ -26,8 +26,10 @@ import {
   useToggleSet,
 } from "@tracepilot/ui";
 import { computed, ref } from "vue";
+import { useSessionModelName } from "@/composables/useSessionModelName";
 import { MAX_MESSAGE_CHARS, MAX_VISIBLE_TOOLS } from "@/config/chatDisplay";
 import { usePreferencesStore } from "@/stores/preferences";
+import { sessionEventSummary } from "@/utils/sessionEventSummary";
 
 const props = defineProps<{
   step: ReplayStep;
@@ -50,6 +52,8 @@ const props = defineProps<{
   /** Function to check if rich rendering is enabled for a tool. */
   isRichEnabled: (toolName: string) => boolean;
 }>();
+
+const modelName = useSessionModelName();
 
 const preferences = usePreferencesStore();
 
@@ -363,7 +367,7 @@ const hasAssistantContent = computed(() =>
           {{ se.severity === 'error' ? '🔴' : se.severity === 'warning' ? '🟡' : 'ℹ️' }}
           {{ se.eventType.replace('session.', '') }}
         </Badge>
-        <span class="event-summary">{{ se.summary }}</span>
+        <span class="event-summary">{{ sessionEventSummary(se, modelName) }}</span>
       </div>
     </div>
 
