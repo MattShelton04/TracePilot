@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 mod batches;
 mod inventory;
+mod pipeline;
 mod search_prepare;
 
 pub mod progress;

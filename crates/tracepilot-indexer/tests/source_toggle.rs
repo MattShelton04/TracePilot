@@ -6,7 +6,8 @@
 //! write any back. Copilot rows are never touched.
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Once};
+use std::sync::{Arc, Condvar, Mutex, Once};
+use std::time::Duration;
 
 use tempfile::TempDir;
 use tracepilot_core::error::Result as CoreResult;
@@ -239,6 +240,157 @@ impl SessionProvider for Hooked {
     fn resolve(&self, id: &SessionId) -> CoreResult<Option<SessionLocator>> {
         self.inner.resolve(id)
     }
+}
+
+/// Claude Code whose sessions all look oversized, so each is its own batch,
+/// and whose loads wait until `expected` of them are in flight together.
+/// The settings change then lands while they are all being prepared.
+struct Concurrent {
+    inner: ClaudeCodeProvider,
+    expected: usize,
+    arrived: Mutex<usize>,
+    all_in_flight: Condvar,
+    overlapped: Mutex<bool>,
+    hook: Box<dyn Fn() + Send + Sync>,
+    once: Once,
+}
+
+impl Concurrent {
+    fn new(root: &Path, expected: usize, hook: impl Fn() + Send + Sync + 'static) -> Arc<Self> {
+        Arc::new(Self {
+            inner: ClaudeCodeProvider::new(root),
+            expected,
+            arrived: Mutex::new(0),
+            all_in_flight: Condvar::new(),
+            overlapped: Mutex::new(false),
+            hook: Box::new(hook),
+            once: Once::new(),
+        })
+    }
+
+    /// Whether the loads overlapped, where the machine can run two at once.
+    fn overlapped(&self) -> bool {
+        let parallel = std::thread::available_parallelism().map_or(1, usize::from) > 1;
+        !parallel || *self.overlapped.lock().unwrap()
+    }
+}
+
+impl SessionProvider for Concurrent {
+    fn source(&self) -> SessionSource {
+        self.inner.source()
+    }
+    fn capabilities(&self) -> SourceCapabilities {
+        self.inner.capabilities()
+    }
+    fn discover(&self, is_cancelled: &dyn Fn() -> bool) -> CoreResult<Vec<SessionLocator>> {
+        let mut sessions = self.inner.discover(is_cancelled)?;
+        for session in &mut sessions {
+            session.source_bytes_hint = 17 * 1024 * 1024;
+        }
+        Ok(sessions)
+    }
+    fn fingerprint(&self, session: &SessionLocator) -> CoreResult<SourceFingerprint> {
+        self.inner.fingerprint(session)
+    }
+    fn load_snapshot(
+        &self,
+        session: &SessionLocator,
+        strict: bool,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> CoreResult<ProviderSnapshot> {
+        let mut arrived = self.arrived.lock().unwrap();
+        *arrived += 1;
+        self.all_in_flight.notify_all();
+        let (arrived, wait) = self
+            .all_in_flight
+            .wait_timeout_while(arrived, Duration::from_secs(10), |arrived| {
+                *arrived < self.expected
+            })
+            .unwrap();
+        drop(arrived);
+        if !wait.timed_out() {
+            *self.overlapped.lock().unwrap() = true;
+        }
+        self.once.call_once(&self.hook);
+        self.inner.load_snapshot(session, strict, is_cancelled)
+    }
+    fn liveness(&self, session: &SessionLocator) -> Liveness {
+        self.inner.liveness(session)
+    }
+    fn root(&self) -> Option<&Path> {
+        self.inner.root()
+    }
+    fn owns(&self, session: &SessionLocator) -> bool {
+        self.inner.owns(session)
+    }
+    fn resolve(&self, id: &SessionId) -> CoreResult<Option<SessionLocator>> {
+        self.inner.resolve(id)
+    }
+}
+
+impl Fixture {
+    /// A provider that disables Claude Code once two sessions are in flight.
+    fn disable_when_concurrent(&self) -> Arc<Concurrent> {
+        let generations = Arc::clone(&self.generations);
+        let db_path = self.db_path.clone();
+        Concurrent::new(&self.claude_root, 2, move || {
+            generations.bump(SessionSource::ClaudeCode);
+            IndexDb::open_or_create(&db_path)
+                .unwrap()
+                .purge_source(SessionSource::ClaudeCode, &|| true)
+                .unwrap();
+        })
+    }
+}
+
+#[test]
+fn disabling_while_sessions_are_prepared_concurrently_writes_none_back() {
+    let fixture = Fixture::indexed();
+    let copilot = fixture.copilot_state();
+    write_claude_root(&fixture.claude_root, &[(CLAUDE_C, "gammazword")]);
+
+    let provider = fixture.disable_when_concurrent();
+    reindex_all_scoped(&fixture.scope(provider.clone()), &fixture.db_path, |_| {}).unwrap();
+    assert!(
+        provider.overlapped(),
+        "the sessions were not prepared together"
+    );
+
+    assert!(fixture.ids("claudeCode").is_empty());
+    assert_eq!(fixture.child_rows("claudeCode"), 0);
+    assert_eq!(fixture.copilot_state(), copilot);
+}
+
+#[test]
+fn disabling_while_search_content_is_prepared_concurrently_writes_none_back() {
+    let fixture = Fixture::indexed();
+    let copilot = fixture.copilot_state();
+    // Three sessions whose search content is stale.
+    write_claude_root(
+        &fixture.claude_root,
+        &[
+            (CLAUDE_A, "alphazedited"),
+            (CLAUDE_B, "betazedited"),
+            (CLAUDE_C, "gammazword"),
+        ],
+    );
+    let scope = fixture.scope(claude(&fixture.claude_root));
+    reindex_all_scoped(&scope, &fixture.db_path, |_| {}).unwrap();
+
+    let provider = fixture.disable_when_concurrent();
+    let scope = fixture.scope(provider.clone());
+    reindex_search_content_scoped(&scope, &fixture.db_path, |_| {}, || false).unwrap();
+    assert!(
+        provider.overlapped(),
+        "the sessions were not prepared together"
+    );
+
+    assert!(fixture.ids("claudeCode").is_empty());
+    assert_eq!(fixture.child_rows("claudeCode"), 0);
+    for word in ["alphazword", "alphazedited", "betazedited", "gammazword"] {
+        assert!(fixture.search(word).is_empty(), "{word}");
+    }
+    assert_eq!(fixture.copilot_state(), copilot);
 }
 
 #[test]

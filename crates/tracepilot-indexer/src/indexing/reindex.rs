@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
-use rayon::prelude::*;
 use tracepilot_core::provider::{SessionLocator, SessionProvider, SessionSource};
 
 use crate::Result;
@@ -13,6 +12,7 @@ use crate::error::IndexerError;
 use crate::index_db;
 use crate::index_db::session_writer::prepare_snapshot;
 use crate::indexing::inventory::{self, SourcePass};
+use crate::indexing::pipeline::{self, Flow, Outcome};
 use crate::indexing::progress::{IndexingProgress, ProgressTracker};
 use crate::indexing::scope::{IndexScope, stale_source};
 
@@ -218,8 +218,9 @@ fn prune(db: &index_db::IndexDb, scope: &IndexScope, pass: &SourcePass) {
     }
 }
 
-/// Preparation and database writes alternate so memory is independent of the
-/// total number of sessions. SQLite transactions are bounded by the same batch.
+/// Batches are written in order, one transaction each, while the next ones
+/// are prepared (see [`pipeline`]), so memory is independent of the total
+/// number of sessions. SQLite transactions are bounded by the same batch.
 ///
 /// Fails with [`IndexerError::StaleSource`], after rolling back the current
 /// batch, when the source's configuration changes.
@@ -233,25 +234,15 @@ fn index_batches(
 ) -> Result<usize> {
     let source: SessionSource = provider.source();
     let is_stale = || !scope.is_current(source);
-    let mut remaining = sessions;
+    let prepare = |session: &SessionLocator, cancelled: &dyn Fn() -> bool| {
+        let is_cancelled = || cancelled() || is_stale();
+        prepare_snapshot(provider, session, &is_cancelled)
+    };
     let mut indexed = 0;
-    while !remaining.is_empty() {
-        if is_stale() {
-            return Err(stale_source(source));
-        }
-        let batch = super::batches::take_batch(&mut remaining);
-        let prepared: Vec<_> = batch
-            .par_iter()
-            .map(|session| {
-                (
-                    session.id.clone(),
-                    prepare_snapshot(provider, session, &is_stale),
-                )
-            })
-            .collect();
+    let outcome = pipeline::prepare_and_write(sessions, &prepare, &is_stale, |batch, prepared| {
         indexed += db.with_transaction(|db| {
             let mut written = 0;
-            for (session_id, result) in prepared {
+            for (session, result) in batch.iter().zip(prepared) {
                 let info = match result.and_then(|data| db.write_prepared_session(&data)) {
                     Ok(info) => {
                         written += 1;
@@ -259,7 +250,7 @@ fn index_batches(
                         Some(info)
                     }
                     Err(error) => {
-                        tracing::warn!(session_id = %session_id, error = %error, "Session snapshot not indexed; retaining previous data");
+                        tracing::warn!(session_id = %session.id, error = %error, "Session snapshot not indexed; retaining previous data");
                         None
                     }
                 };
@@ -273,6 +264,10 @@ fn index_batches(
             }
             Ok(written)
         })?;
+        Ok(Flow::Continue)
+    })?;
+    match outcome {
+        Outcome::Finished => Ok(indexed),
+        Outcome::Stopped => Err(stale_source(source)),
     }
-    Ok(indexed)
 }

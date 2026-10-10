@@ -9,8 +9,10 @@ use crate::Result;
 use crate::index_db;
 use crate::index_db::search_writer::SearchContentRow;
 use crate::indexing::inventory::{self, SourcePass};
+use crate::indexing::pipeline::{self, Flow};
 use crate::indexing::progress::{SearchIndexingProgress, SourceProgress};
 use crate::indexing::scope::IndexScope;
+use crate::indexing::search_prepare;
 
 /// Minimum session count for amortizing a shared search-write transaction.
 const BULK_MIN_SESSIONS: usize = 10;
@@ -157,8 +159,9 @@ pub fn reindex_search_content_scoped(
     Ok((indexed, skipped))
 }
 
-/// Keep only a bounded source batch resident. The calling thread polls
-/// cancellation while workers parse and extract each source snapshot.
+/// Keep only a bounded number of source batches resident (see [`pipeline`]).
+/// The calling thread polls cancellation and writes each batch in order while
+/// workers parse and extract the next ones.
 ///
 /// Returns the sessions committed and whether the pass was cancelled. Stops
 /// early, without failing, when the source's configuration changes.
@@ -173,25 +176,30 @@ fn index_source(
     let source = pass.provider.source();
     // Writers check this after their writes and before committing.
     let stop = || is_cancelled() || !scope.is_current(source);
-    let mut remaining = sessions;
+    let prepare = |session: &SessionLocator, cancelled: &dyn Fn() -> bool| {
+        search_prepare::prepare_search(&pass.provider, session, &cancelled)
+    };
     let mut indexed = 0;
-    while !remaining.is_empty() && !stop() {
-        let batch = super::batches::take_batch(&mut remaining);
-        let mut prepared = Vec::new();
-        let mut fingerprints = Vec::new();
-        for snapshot in super::search_prepare::prepare_batch(&pass.provider, batch, &stop) {
-            prepared.push((snapshot.session_id, snapshot.rows));
-            fingerprints.push(snapshot.fingerprint);
-        }
-        if stop() {
-            break;
+    pipeline::prepare_and_write(sessions, &prepare, &stop, |batch, results| {
+        let mut prepared = Vec::with_capacity(batch.len());
+        let mut fingerprints = Vec::with_capacity(batch.len());
+        for (session, result) in batch.iter().zip(results) {
+            match result {
+                Ok(snapshot) => {
+                    prepared.push((snapshot.session_id, snapshot.rows));
+                    fingerprints.push(snapshot.fingerprint);
+                }
+                Err(error) => tracing::warn!(session_id = %session.id, error = %error,
+                    "Search snapshot not indexed; retaining previous content"),
+            }
         }
         indexed += write_batch(db, source, &prepared, &fingerprints, &stop)?;
         if stop() {
-            break;
+            return Ok(Flow::Stop);
         }
         on_batch(batch.len());
-    }
+        Ok(Flow::Continue)
+    })?;
     Ok((indexed, is_cancelled()))
 }
 
