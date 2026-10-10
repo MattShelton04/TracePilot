@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import SettingsClaudeCodeCli from "@/components/settings/SettingsClaudeCodeCli.vue";
 import SettingsClaudeCodeFolder from "@/components/settings/SettingsClaudeCodeFolder.vue";
+import SettingsClaudeCodeRetention from "@/components/settings/SettingsClaudeCodeRetention.vue";
 import SettingsProviderSection from "@/components/settings/SettingsProviderSection.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -42,5 +43,6 @@ onMounted(() => {
   >
     <SettingsClaudeCodeFolder :disabled="indexing" />
     <SettingsClaudeCodeCli />
+    <SettingsClaudeCodeRetention />
   </SettingsProviderSection>
 </template>

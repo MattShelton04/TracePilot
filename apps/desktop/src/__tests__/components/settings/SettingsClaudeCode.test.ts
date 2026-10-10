@@ -4,7 +4,11 @@ import { createPinia, disposePinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import SettingsClaudeCode from "@/components/settings/SettingsClaudeCode.vue";
+import { STORAGE_KEYS } from "@/config/storageKeys";
 import { usePreferencesStore } from "@/stores/preferences";
+import { openExternal } from "@/utils/openExternal";
+
+vi.mock("@/utils/openExternal", () => ({ openExternal: vi.fn() }));
 
 const listeners = vi.hoisted(() => new Map<string, Set<() => void>>());
 vi.mock("@/utils/tauriEvents", () => ({
@@ -100,5 +104,36 @@ describe("SettingsClaudeCode", () => {
     emit(IPC_EVENTS.INDEXING_FINISHED);
     await nextTick();
     expect(folder().element.disabled).toBe(false);
+  });
+
+  describe("transcript cleanup notice", () => {
+    const notice = '[data-tp-component="Banner"]';
+
+    it("explains Claude Code's cleanup, links its docs and stays dismissed", async () => {
+      const wrapper = await mountSection();
+      expect(wrapper.find(notice).exists()).toBe(false);
+
+      usePreferencesStore(pinia).toggleFeature("claudeCodeSessions");
+      await nextTick();
+      const banner = wrapper.get(notice);
+      expect(banner.text()).toContain(
+        "Claude Code deletes transcripts older than cleanupPeriodDays",
+      );
+      expect(banner.text()).toContain("~/.claude/settings.json");
+      expect(banner.text()).toContain("CLAUDE_CONFIG_DIR");
+
+      await banner.get("button.action-btn").trigger("click");
+      expect(openExternal).toHaveBeenCalledWith(
+        "https://code.claude.com/docs/en/settings-reference#cleanupperioddays",
+      );
+
+      await banner.get('button[aria-label="Dismiss"]').trigger("click");
+      await nextTick();
+      expect(wrapper.find(notice).exists()).toBe(false);
+      expect(localStorage.getItem(STORAGE_KEYS.claudeRetentionNoticeDismissed)).toBe("true");
+
+      wrapper.unmount();
+      expect((await mountSection()).find(notice).exists()).toBe(false);
+    });
   });
 });

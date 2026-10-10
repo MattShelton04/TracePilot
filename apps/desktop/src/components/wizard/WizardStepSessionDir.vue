@@ -96,7 +96,8 @@ const emit = defineEmits<{
             Found {{ claudeCode.sessionCount }} Claude Code
             {{ claudeCode.sessionCount === 1 ? "session" : "sessions" }} in
             <span class="claude-option-path">{{ claudeCode.dir }}</span>. You can change this
-            later in Settings → Claude Code.
+            later in Settings → Claude Code. Claude Code deletes transcripts after 30 days by
+            default.
           </div>
         </div>
         <FormSwitch
