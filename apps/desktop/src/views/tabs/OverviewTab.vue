@@ -10,6 +10,7 @@ import {
   MarkdownContent,
   SectionPanel,
   StatCard,
+  splitLastPathSegment,
   truncateText,
   useClipboard,
   useSessionTabLoader,
@@ -84,11 +85,7 @@ const { aiCreditUsage } = useMetricsTabData(
 
 const cwd = computed(() => detail.value?.cwd?.trim() || null);
 // Split before the last segment so the middle of a long path truncates first.
-const cwdParts = computed(() => {
-  const path = cwd.value ?? "";
-  const match = /^(.*[\\/])([^\\/]+[\\/]*)$/.exec(path);
-  return match ? { head: match[1], tail: match[2] } : { head: "", tail: path };
-});
+const cwdParts = computed(() => splitLastPathSegment(cwd.value ?? ""));
 const { copy: copyText, copied: cwdCopied } = useClipboard();
 
 const sessionInfoItems = computed(() => {

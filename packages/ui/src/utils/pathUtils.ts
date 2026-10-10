@@ -16,15 +16,38 @@ export function pathBasename(path: string): string {
   return parts[parts.length - 1] || "";
 }
 
+function isPathSeparator(ch: string): boolean {
+  return ch === "/" || ch === "\\";
+}
+
+/** Bounds of the last segment, ignoring trailing separators. Linear scan, no regex. */
+function lastSegmentBounds(path: string): { start: number; end: number } {
+  let end = path.length;
+  while (end > 0 && isPathSeparator(path[end - 1])) end -= 1;
+  let start = end;
+  while (start > 0 && !isPathSeparator(path[start - 1])) start -= 1;
+  return { start, end };
+}
+
+/**
+ * Split a path before its last segment, keeping every character:
+ * `C:\a\b\` → `{ head: "C:\a\", tail: "b\" }`.
+ */
+export function splitLastPathSegment(path: string): { head: string; tail: string } {
+  const { start } = lastSegmentBounds(path);
+  return { head: path.slice(0, start), tail: path.slice(start) };
+}
+
 /**
  * A short project name for a working directory: its last path segment, or
- * the trimmed path itself for a root such as `/` or `C:\`. `null` when
- * there is no directory.
+ * the trimmed path itself for a root such as `/`. `null` when there is no
+ * directory.
  */
 export function projectLabelFromCwd(cwd: string | null | undefined): string | null {
   const trimmed = cwd?.trim();
   if (!trimmed) return null;
-  return pathBasename(trimmed) || trimmed;
+  const { start, end } = lastSegmentBounds(trimmed);
+  return trimmed.slice(start, end) || trimmed;
 }
 
 /** Return all but the last segment (parent directory). */

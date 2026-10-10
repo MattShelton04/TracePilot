@@ -355,6 +355,7 @@ export {
   projectLabelFromCwd,
   sanitizeBranchForPath,
   shortenPath,
+  splitLastPathSegment,
 } from "./utils/pathUtils";
 export { highlightLine, highlightSql } from "./utils/syntaxHighlight";
 export {
