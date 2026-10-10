@@ -41,7 +41,6 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_plan: true,
     has_explorer: true,
     has_hidden_roles: false,
-    has_background_tasks: false,
     has_file_history: false,
 };
 
@@ -235,7 +234,6 @@ impl SessionProvider for CopilotProvider {
             checkpoints: parse_checkpoints(dir)?,
             rewind: parse_rewind_index(dir)?,
             file_roots: vec![dir.clone()],
-            background_tasks: Vec::new(),
             file_history: None,
         })
     }

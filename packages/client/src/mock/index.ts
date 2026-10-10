@@ -18,7 +18,6 @@ export {
 } from "./claudeArtifacts.js";
 export { MOCK_CLAUDE_CONTEXT_TIMELINE, MOCK_CLAUDE_PROMPT_CACHE } from "./claudeContext.js";
 export { claudeMockRoute } from "./claudeRoutes.js";
-export { MOCK_CLAUDE_BACKGROUND_TASKS } from "./claudeSessions.js";
 export { MOCK_CONTEXT_TIMELINE } from "./contextTimeline.js";
 export { MOCK_EXPORT_RESULT } from "./export.js";
 export {

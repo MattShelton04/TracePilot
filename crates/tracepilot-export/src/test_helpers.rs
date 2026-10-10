@@ -140,5 +140,6 @@ pub fn simple_tool_call(name: &str, success: Option<bool>, is_subagent: bool) ->
         args_summary: Some("test args".to_string()),
         skill_invocation: None,
         exit_code: None,
+        background_outcome: None,
     }
 }

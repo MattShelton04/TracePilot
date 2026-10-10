@@ -1,5 +1,4 @@
-//! Session artifact commands: todos, checkpoints, plan, background tasks,
-//! file history.
+//! Session artifact commands: todos, checkpoints, plan, file history.
 
 use tracepilot_core::provider::{
     FileCheckpoint, FileVersionContent, PlanArtifact, SessionSource, is_safe_backup_name,
@@ -16,7 +15,7 @@ const MAX_FILE_VERSION_BYTES: usize = 1024 * 1024;
 
 // A source without an artifact has nothing to show, so these read-only
 // commands return it empty rather than refusing. Todos and checkpoints read
-// Copilot's layout directly; the plan, background tasks and file history of
+// Copilot's layout directly; the plan and file history of
 // other sources route through the provider.
 
 #[tauri::command]
@@ -92,25 +91,6 @@ pub async fn get_session_plan(
         tracepilot_core::utils::truncate_string_utf8(&mut content, MAX_CHECKPOINT_CONTENT_BYTES);
 
         Ok(Some(serde_json::json!({ "content": content })))
-    })
-    .await
-}
-
-/// Subagents and shells the session ran in the background. Empty for a
-/// source that does not record them.
-#[tauri::command]
-#[specta::specta]
-#[tracing::instrument(skip_all, level = "debug", err)]
-pub async fn get_session_background_tasks(
-    state: tauri::State<'_, SharedConfig>,
-    session_id: String,
-) -> CmdResult<Vec<tracepilot_core::provider::BackgroundTask>> {
-    let sid = crate::validators::validate_session_id(&session_id)?;
-    with_session_locator(&state, sid, |session| {
-        if !session.provider.capabilities().has_background_tasks {
-            return Ok(Vec::new());
-        }
-        Ok(session_artifacts(&session)?.background_tasks.clone())
     })
     .await
 }

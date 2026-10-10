@@ -23,10 +23,10 @@ pub use artifacts::{
 };
 pub use copilot::CopilotProvider;
 pub use types::{
-    BackgroundTask, BackgroundTaskKind, BackgroundTaskStatus, CostBasis, CostFigure, CostUnit,
-    FormatObservations, Liveness, MetricsCoverage, MetricsSegment, NativeRecord, ProviderEvents,
-    ProviderSnapshot, ResumeLaunch, RunStatus, SessionArtifacts, SessionLocator, SessionMetrics,
-    SessionRole, SessionSource, SourceCapabilities, SourceFingerprint, TodoList,
+    CostBasis, CostFigure, CostUnit, FormatObservations, Liveness, MetricsCoverage, MetricsSegment,
+    NativeRecord, ProviderEvents, ProviderSnapshot, ResumeLaunch, RunStatus, SessionArtifacts,
+    SessionLocator, SessionMetrics, SessionRole, SessionSource, SourceCapabilities,
+    SourceFingerprint, TodoList,
 };
 
 /// Redact the fields of an event's source record that never leave the
@@ -119,7 +119,7 @@ pub trait SessionProvider: Send + Sync {
             .collect()
     }
 
-    /// Todos, plan, checkpoints, browsable roots and background tasks.
+    /// Todos, plan, checkpoints, browsable roots and file history.
     fn artifacts(&self, _session: &SessionLocator) -> Result<SessionArtifacts> {
         Ok(SessionArtifacts::default())
     }

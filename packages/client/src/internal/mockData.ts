@@ -168,7 +168,6 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     get_session_plan: { content: "# Mock Plan\n\n1. Task one\n2. Task two" },
     get_session_file_history: [],
     get_session_file_version: mocks.mockFileVersion(args),
-    get_session_background_tasks: [],
     get_shutdown_metrics: mocks.getMockShutdownMetrics(mockSessionId),
     get_session_prompt_cache: {
       timeline: mocks.MOCK_PROMPT_CACHE,

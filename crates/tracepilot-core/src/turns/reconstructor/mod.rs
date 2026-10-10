@@ -18,6 +18,7 @@ use super::postprocess::{
 
 mod agent_control;
 mod agent_messages;
+mod background_shells;
 mod messages;
 mod ownership;
 mod session_events;
@@ -50,6 +51,9 @@ pub struct TurnReconstructor {
     /// Maps raw tool execution event ids to their tool_call_id so follow-up
     /// events (for example `skill.invoked`) can attach to the originating row.
     pub(crate) tool_event_to_call_id: HashMap<String, String>,
+    /// Shell id → the tool_call_id of the call that started it in the
+    /// background, until a completion notification settles it.
+    pub(crate) background_shells: HashMap<String, String>,
     /// Agent instance UUID → launching tool-call ID (older logs used the same ID).
     pub(crate) agent_owners: HashMap<String, String>,
     /// Launches whose actual lifecycle has started, as opposed to pending task tools.
@@ -107,6 +111,7 @@ impl TurnReconstructor {
             tool_call_intentions: HashMap::new(),
             tool_call_index: HashMap::new(),
             tool_event_to_call_id: HashMap::new(),
+            background_shells: HashMap::new(),
             agent_owners: HashMap::new(),
             started_subagents: std::collections::HashSet::new(),
             followup_agents: std::collections::HashSet::new(),
@@ -288,6 +293,9 @@ impl TurnReconstructor {
             }
             (SessionEventType::SystemMessage, TypedEventData::SystemMessage(data)) => {
                 self.handle_system_message(event, data);
+            }
+            (SessionEventType::SystemNotification, TypedEventData::SystemNotification(data)) => {
+                self.handle_system_notification(event, data);
             }
             (SessionEventType::PermissionRequested, TypedEventData::PermissionRequested(data)) => {
                 self.handle_permission_requested(event, data);

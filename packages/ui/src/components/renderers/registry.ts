@@ -79,6 +79,10 @@ const RENDERER_REGISTRY: Record<string, RendererEntry> = {
     label: "Write Shell",
     resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
   },
+  stop_powershell: {
+    label: "Stop Shell",
+    resultComponent: defineAsyncComponent(() => import("./ShellOutputRenderer.vue")),
+  },
   sql: {
     label: "SQL (Query + Table)",
     resultComponent: defineAsyncComponent(() => import("./SqlResultRenderer.vue")),

@@ -6,7 +6,8 @@
 //! Results are reshaped in `tool_results.rs`, which also renames the two
 //! tools whose canonical name depends on the result: `Write` over an existing
 //! file (`create` → `apply_patch`) and `TaskStop` of a shell
-//! (`stop_agent` → `stop_powershell`).
+//! (`stop_agent` → `stop_powershell`). A shell's `backgroundTaskId` is
+//! copied into its arguments there too.
 //!
 //! Tools without a mapping (`Monitor`, `ToolSearch`, `NotebookEdit`, plan
 //! mode, harness tools, …) keep their native name and render generically.
@@ -54,6 +55,9 @@ const RENAMES: &[Rename] = &[
         &[("task_id", "agent_id"), ("shell_id", "shellId")],
     ),
     ("KillShell", "stop_powershell", &[("shell_id", "shellId")]),
+    // Older Claude Code. `TaskOutput` is not mapped: it reads a shell or an
+    // agent, and neither was observed.
+    ("BashOutput", "read_powershell", &[("bash_id", "shellId")]),
 ];
 
 /// Claude Code's default subagent type when `subagent_type` is omitted.
@@ -270,6 +274,14 @@ mod tests {
         assert_eq!(
             (kill.name.as_str(), kill.arguments),
             ("stop_powershell", json!({"shellId": "b2"}))
+        );
+        let read = normalize("BashOutput", &json!({"bash_id": "b2", "filter": "error"}));
+        assert_eq!(
+            (read.name.as_str(), read.arguments),
+            (
+                "read_powershell",
+                json!({"shellId": "b2", "filter": "error"})
+            )
         );
         for (native, canonical) in [
             ("Glob", "glob"),

@@ -413,3 +413,39 @@ fn tool_search_results_list_the_loaded_tool_names() {
     ]});
     assert_eq!(tool_result_text(&block), "Loaded:\nEdit\n[tool_reference]");
 }
+
+#[test]
+fn a_backgrounded_shell_gets_its_task_id_as_shell_id() {
+    let started = r"Command running in background with ID: b7x. Output is being written to: C:\tmp\b7x.output";
+    let args = json!({"command": "npm test", "mode": "background"});
+    let restart = |native: &str, tur: Option<Value>, text: &str, failed: bool| {
+        reshape(native, &args, tur.as_ref(), text.into(), failed).restart
+    };
+    let expected = |name: &'static str, id: &str| {
+        Some((
+            name,
+            json!({"command": "npm test", "mode": "background", "shellId": id}),
+        ))
+    };
+    let tur = json!({"stdout": "", "stderr": "", "interrupted": false, "backgroundTaskId": "b7"});
+    assert_eq!(
+        restart("Bash", Some(tur.clone()), started, false),
+        expected("shell", "b7")
+    );
+    assert_eq!(
+        restart("PowerShell", Some(tur), started, false),
+        expected("powershell", "b7")
+    );
+    // A subagent's transcript has no toolUseResult: the text names the id.
+    assert_eq!(
+        restart("Bash", None, started, false),
+        expected("shell", "b7x")
+    );
+    // Moved there after a timeout, or by the user: background mode too.
+    let moved = r"Command did not complete within its 120s timeout and was moved to the background (ID: b8). Output is being written to: C:\tmp\b8.output";
+    assert_eq!(restart("Bash", None, moved, false), expected("shell", "b8"));
+    // A foreground command, or a failure, is not backgrounded.
+    assert_eq!(restart("Bash", None, "Command running", false), None);
+    assert_eq!(restart("Bash", None, started, true), None);
+    assert_eq!(restart("Read", None, started, false), None);
+}

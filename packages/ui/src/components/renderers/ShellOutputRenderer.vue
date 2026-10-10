@@ -2,7 +2,12 @@
 import type { TurnToolCall } from "@tracepilot/types";
 import { Terminal } from "lucide-vue-next";
 import { computed } from "vue";
-import { formatShellInput, parseShellOutput, shellLineTone } from "../../utils/shellOutput";
+import {
+  backgroundOutcomeView,
+  formatShellInput,
+  parseShellOutput,
+  shellLineTone,
+} from "../../utils/shellOutput";
 import { toolCallStatus } from "../../utils/toolCallStatus";
 import RendererScrollRegion from "../RendererScrollRegion.vue";
 import RendererShell from "../RendererShell.vue";
@@ -25,6 +30,8 @@ const shellId = computed(() => props.args.shellId ?? props.args.shell_id ?? term
 const input = computed(() => (typeof props.args.chars === "string" ? props.args.chars : null));
 const mode = computed(() => (typeof props.args.mode === "string" ? props.args.mode : ""));
 const status = computed(() => toolCallStatus(props.tc));
+// A background shell's final state, reported after this call returned.
+const background = computed(() => backgroundOutcomeView(props.tc));
 // The recorded exit code outlives result text the CLI may strip.
 const exitCode = computed(() => props.tc.exitCode ?? terminal.value.exitCode);
 const title = computed(
@@ -34,11 +41,14 @@ const title = computed(
       ? "Read shell"
       : props.tc.toolName === "write_powershell"
         ? "Write to shell"
-        : props.tc.toolName === "powershell"
-          ? "PowerShell"
-          : props.tc.toolName),
+        : props.tc.toolName === "stop_powershell"
+          ? "Stop shell"
+          : props.tc.toolName === "powershell"
+            ? "PowerShell"
+            : props.tc.toolName),
 );
 const processLabel = computed(() => {
+  if (background.value) return "";
   if (exitCode.value != null) return `Exit ${exitCode.value}`;
   if (terminal.value.running) return "Process running";
   if (status.value === "pending" && props.streaming && props.content) return "Streaming output";
@@ -58,10 +68,11 @@ const visibleInput = computed(() => formatShellInput(input.value ?? ""));
         <span class="shell-prompt" aria-hidden="true">&gt;</span>
         <code class="shell-command">{{ command }}</code>
       </div>
-      <div v-if="shellId != null || mode || processLabel" class="shell-meta">
+      <div v-if="shellId != null || mode || processLabel || background" class="shell-meta">
         <span v-if="shellId != null">Shell <code>{{ shellId }}</code></span>
-        <span v-if="mode">{{ mode }}</span>
+        <span v-if="mode && !background">{{ mode }}</span>
         <span v-if="processLabel" class="shell-process-state" :class="{ 'shell-process-state--error': exitCode != null && exitCode !== 0 }">{{ processLabel }}</span>
+        <span v-if="background" class="shell-process-state" :class="`shell-background--${background.tone}`" data-testid="shell-background-outcome">{{ background.label }}</span>
       </div>
       <div v-if="input != null" class="shell-input">
         <span class="shell-section-label">Input sent</span>
@@ -87,6 +98,9 @@ const visibleInput = computed(() => formatShellInput(input.value ?? ""));
 .shell-meta code { font-family: var(--font-mono); overflow-wrap: anywhere; }
 .shell-process-state { margin-left: auto; color: var(--text-secondary); }
 .shell-process-state--error { color: var(--danger-fg); }
+.shell-background--success { color: var(--success-fg); }
+.shell-background--warning { color: var(--warning-fg); }
+.shell-background--danger { color: var(--danger-fg); }
 .shell-input { padding: 12px; border-bottom: 1px solid var(--border-subtle); }
 .shell-section-label { display: block; margin-bottom: 4px; font-size: 12px; color: var(--text-tertiary); }
 .shell-input pre { margin: 0; font-family: var(--font-mono); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }

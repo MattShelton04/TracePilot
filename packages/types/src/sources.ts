@@ -37,8 +37,6 @@ export interface SourceCapabilities {
   hasPlan: boolean;
   hasExplorer: boolean;
   hasHiddenRoles: boolean;
-  /** The source records background subagents and shells. */
-  hasBackgroundTasks: boolean;
   /** The source backs up files before changing them (read-only rewind points). */
   hasFileHistory: boolean;
 }
@@ -57,7 +55,6 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
     hasPlan: true,
     hasExplorer: true,
     hasHiddenRoles: false,
-    hasBackgroundTasks: false,
     hasFileHistory: false,
   },
   claudeCode: {
@@ -73,7 +70,6 @@ const SOURCE_CAPABILITIES: Record<SessionSource, SourceCapabilities> = {
     hasPlan: true,
     hasExplorer: true,
     hasHiddenRoles: false,
-    hasBackgroundTasks: true,
     hasFileHistory: true,
   },
 };

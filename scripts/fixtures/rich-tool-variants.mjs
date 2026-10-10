@@ -118,6 +118,23 @@ export function richToolVariants(richToolSamples, { agent, reviewer, source }) {
       content: "tick 1\n<shellId: 0 running>",
       viewState: "completed async invocation with process still running",
     }),
+    variant("powershell", "shell-async-completed", {
+      arguments: {
+        command: "pnpm build",
+        description: "Build the synthetic app in the background",
+        mode: "async",
+        shellId: "fixture-build",
+      },
+      content: "<command started in background with shellId: fixture-build>",
+      // The completion arrives later as a notification and settles the call.
+      notification: { type: "shell_completed", shellId: "fixture-build", exitCode: 0 },
+      backgroundOutcome: {
+        status: "completed",
+        exitCode: 0,
+        completedAt: "2026-03-20T10:02:04.000Z",
+      },
+      viewState: "async invocation settled by its completion notification",
+    }),
     variant("powershell", "shell-empty-completed", {
       content: "",
       viewState: "completed invocation with empty output",

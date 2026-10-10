@@ -35,7 +35,7 @@ The provider emits TracePilot's existing `TypedEvent`s, putting Copilot wire nam
 | `user` slash command / `local-command-stdout` | 22 / 19 | `user.message` `{content: "/<name> <args>", source: "command-<name>"}` | Matches Copilot's `command-*` sources (`messages.rs:188-197`). The content is the command as typed, from `<command-name>` and `<command-args>`. A typed `/compact` is written twice: first as plain text (`/compact`, only a `promptId`), then, after the compaction, as the `<command-name>` record. The text opens the command turn and the later record adds nothing (Events tab only; S3 census: all 15 such records). The `<local-command-caveat>` meta record before a command is for the model and is Events-tab only |
 | `user` isMeta (skill context, auto-continuation) | 101 | Never `user.message`. Skill context → `skill.context_delivered`; other meta → `system.message` (§1.1) | A `user.message` always closes the active turn, whatever its `source` (§1.1) |
 | `user` hand-back (`origin.kind: peer`, `handback: true`) | 10 | `subagent.completed` for `origin.from` (agentId → `toolUseId` via meta) plus the agent message | The result text is the subagent's report. No turn. A peer message without `handback` is only the agent message |
-| `user` / `queue-operation` / `attachment:queued_command` with `<task-notification>` | 25 + 50 + 24 | One `system.notification` `{kind.type: agent_completed \| shell_completed, agentId, status}` per notification, de-duplicated across the three carriers (§1.3). Plus `user.message {source: "system"}` only when the notification wakes an idle session (§1.1) | Same shape Copilot uses. `<usage>` gives subagent totals |
+| `user` / `queue-operation` / `attachment:queued_command` with `<task-notification>` | 25 + 50 + 24 | One `system.notification` `{kind.type: agent_completed \| shell_completed, agentId \| shellId, status, exitCode}` per notification, de-duplicated across the three carriers (§1.3). Plus `user.message {source: "system"}` only when the notification wakes an idle session (§1.1) | Same shape Copilot uses. `<usage>` gives subagent totals |
 | `user` interrupt marker, `interruptedMessageId` | 9 | `session.warning` `{warningType: "user_interrupt"}`, then `abort` `{reason: "user initiated"}` | Ends the interrupted call (§1.2). The warning makes it an incident in its turn |
 | `user` tool result with `toolDenialKind` | 38 | `tool.execution_complete` (failed), then `session.warning` `{warningType: "tool_denied", denialKind}` | A denial incident. When the same record interrupts the call, it adds no second, interrupt warning |
 | `user` `isCompactSummary` | 27 | Folded into `session.compaction_complete.summaryContent`. Never `user.message` | |
@@ -174,7 +174,7 @@ Abbreviations in the table: **TUR** = `toolUseResult` (Claude's structured tool 
 
 | Claude tool | Calls | Canonical | Argument mapping | Result reshape (from TUR) | Renderer | Level |
 | --- | ---: | --- | --- | --- | --- | --- |
-| `Bash` | 9,172 | `shell` *(new neutral alias of the shell family)* | `command`, `description` as-is. `run_in_background` → `mode: "background"`, `timeout` | `stdout` + `stderr`. Exit code from `returnCodeInterpretation` or `is_error`. `persistedOutputPath` → lazy full output | ShellOutput (title from native name) | L2 |
+| `Bash` | 9,172 | `shell` *(new neutral alias of the shell family)* | `command`, `description` as-is. `run_in_background` → `mode: "background"`, `timeout`. A result's `backgroundTaskId` (or the id in its text) → `shellId`, with `mode: "background"` | `stdout` + `stderr`. Exit code from `returnCodeInterpretation` or `is_error`. `persistedOutputPath` → lazy full output | ShellOutput (title from native name) | L2 |
 | `PowerShell` | 690 | `powershell` | as-is | as Bash | ShellOutput | L2 |
 | `Read` | 1,308 | `view` | `file_path → path`, `offset/limit → view_range` | Text: content = `file.content`, plus `startLine`. Image: placeholder with dimensions; drop base64 | ViewCode | L2 |
 | `Edit` | 700 | `edit` | `file_path → path`, `old_string → old_str`, `new_string → new_str`, keep `replace_all` | Optional: real line numbers from `SP` | EditDiff | L2 |
@@ -187,7 +187,7 @@ Abbreviations in the table: **TUR** = `toolUseResult` (Claude's structured tool 
 | `Agent` (was `Task`) | 26 | `task` | `subagent_type → agent_type` (**required** for subagent detection, `tool_exec.rs:48-53`), `run_in_background → mode`, `model`, `description`, `prompt`, `isolation` kept | `agentId`, `resolvedModel`. Totals come from the task notification, not the result | SubagentCard / Markdown | **L1** |
 | `SendMessage` | 1 | `write_agent` | `to → agent_id`, `message` | — | WriteAgent | L2 |
 | `TaskStop` / `KillShell` | 13 | `stop_agent` or `stop_powershell` by `task_type` | `task_id → agent_id`/`shellId` | | Generic | L2 |
-| `TaskOutput` / `BashOutput` (not observed) | 0 | `read_agent` / `read_powershell` | rename | `<retrieval_status>` → body | ReadAgent / ShellOutput | L3 |
+| `BashOutput` / `TaskOutput` (not observed) | 0 | `BashOutput` → `read_powershell`; `TaskOutput` generic (it reads a shell or an agent) | `bash_id → shellId` | — | ShellOutput / Generic | L3 |
 | `Monitor` | 12 | generic | — | — | Generic | — |
 | `TaskCreate/Update/List/Get`, legacy `TodoWrite` (default-on only for older models; not observed) | 0 | generic | — | — | Generic. Out of scope: no todo parsing or Todos tab | — |
 | `EnterPlanMode` / `ExitPlanMode` | 8 / 8 | `plan` *(new)* | `plan` | TUR `plan`, `filePath` → Overview plan (C13: latest `input.plan` / TUR `plan` wins; `plans/<slug>.md` only as a fallback, never `filePath`) | Markdown | L3 |
@@ -306,7 +306,7 @@ Source-aware presentation shipped in U2, U3 and U4.
 | Subagents (cards, agent tree, Messages view) | ✅ | L1/L2 | Cards at L1; tree, Timeline and Messages at L2 |
 | Events tab | ✅ | L1 | Native records; bookkeeping hidden by default |
 | Overview | 🟡 | L1 | No Copilot checkpoint summaries or shutdown type. Plan from `ExitPlanMode` and file-history checkpoints since C13 |
-| Background tasks | ✅ | L3 | Overview list of background subagents and shells from task notifications and `task_status` (C12). Output files in the temp folder are never read |
+| Background tasks | ✅ | L3 | Inline: a background agent settles its `task` card through `subagent.completed`; a background shell's `shell_completed` notification settles its launching `shell` call (`backgroundTaskId` → `shellId`, outcome status, exit code, time). The Overview list (C12) was removed. Output files in the temp folder are never read |
 | Format diagnostics | ✅ | L3 | Settings → Data & Storage lists unmapped record and attachment types and versions seen, as names and counts only; `node scripts/claude-census.mjs` prints the same (Q3) |
 | Metrics tab | ✅ | L2 | Exact tokens and cache; USD estimate; no AIC or premium requests |
 | Context tab | 🟡 | L2 | Exact total per call; no category split. Estimated split from `prompt_snapshot` at L4 |

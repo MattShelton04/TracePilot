@@ -13,7 +13,6 @@
 //! Parsing never opens referenced files (`tool-results/`, task output, file
 //! history, plans), and image base64 never leaves the reader.
 
-mod background;
 mod branch;
 mod census;
 mod drift;

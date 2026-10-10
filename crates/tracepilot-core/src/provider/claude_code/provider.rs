@@ -10,7 +10,6 @@
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
-use super::background::read_background_tasks;
 use super::liveness::{ProcessStart, StalePidFiles, liveness, liveness_many};
 use super::reader::{Line, read_jsonl};
 use super::summary::summarize;
@@ -41,7 +40,6 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_plan: true,
     has_explorer: true,
     has_hidden_roles: false,
-    has_background_tasks: true,
     has_file_history: true,
 };
 
@@ -293,8 +291,8 @@ impl SessionProvider for ClaudeCodeProvider {
         )
     }
 
-    /// The plan, file history, browsable roots and background tasks, from
-    /// one read of the transcript. No todos (out of scope) and no
+    /// The plan, file history and browsable roots, from one read of the
+    /// transcript. No todos (out of scope) and no
     /// Copilot-style checkpoints or rewind index.
     fn artifacts(&self, session: &SessionLocator) -> Result<SessionArtifacts> {
         let lines = Self::read_lines(session)?;
@@ -302,7 +300,6 @@ impl SessionProvider for ClaudeCodeProvider {
             plan: self.plan_from(&lines),
             file_history: self.file_history_from(session, &lines),
             file_roots: self.file_roots(session)?,
-            background_tasks: read_background_tasks(&session.primary_path, &lines)?,
             ..SessionArtifacts::default()
         })
     }

@@ -5,6 +5,7 @@ import { computed, nextTick, ref, watch } from "vue";
 import { useAgentDirectory } from "../composables/useAgentDirectory";
 import { resolveLucideIcon } from "../icons/lucideRegistry";
 import { agentToolSummary } from "../utils/agentComms";
+import { backgroundOutcomeView } from "../utils/shellOutput";
 import { categoryColor, formatArgsSummary, toolCategory, toolIcon } from "../utils/toolCall";
 import { toolCallStatus } from "../utils/toolCallStatus";
 import ExpandChevron from "./ExpandChevron.vue";
@@ -51,6 +52,9 @@ const nonZeroExit = computed(() => {
   const code = props.tc.exitCode;
   return status.value === "success" && code != null && code !== 0 ? code : null;
 });
+
+// A background shell's final state, reported after the call returned.
+const background = computed(() => backgroundOutcomeView(props.tc));
 
 // Agent-control tools name the agents they address instead of raw runtime IDs.
 const summary = computed(
@@ -232,6 +236,13 @@ watch(
           <span class="tool-call-permission-label">{{ permissionLabel }}</span>
         </span>
 
+        <span
+          v-if="background"
+          :class="['tool-call-background', `tone-${background.tone}`]"
+          :title="background.label"
+          :aria-label="background.label"
+        >{{ background.short }}</span>
+
         <span v-if="tc.durationMs" class="tool-call-duration">
           {{ formatDuration(tc.durationMs) }}
         </span>
@@ -275,6 +286,32 @@ watch(
   white-space: nowrap;
   color: var(--warning-fg);
   background: var(--warning-subtle);
+}
+
+.tool-call-background {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--neutral-muted);
+}
+
+.tool-call-background.tone-success {
+  color: var(--success-fg);
+  background: var(--success-subtle);
+}
+
+.tool-call-background.tone-warning {
+  color: var(--warning-fg);
+  background: var(--warning-subtle);
+}
+
+.tool-call-background.tone-danger {
+  color: var(--danger-fg);
+  background: var(--danger-subtle);
 }
 
 .tool-call-permission-pill {

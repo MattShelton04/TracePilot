@@ -296,4 +296,22 @@ pub struct TurnToolCall {
     /// means the command reported a problem; the tool itself still ran.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exit_code: Option<i64>,
+    /// How a shell this call started in the background finished, from the
+    /// source's later completion notification. The call's own success and
+    /// completion still describe the launch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_outcome: Option<BackgroundOutcome>,
+}
+
+/// The final state of a background shell, reported after its launching call
+/// returned.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundOutcome {
+    /// `completed`, `failed` or `stopped`; another reported status as written.
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<DateTime<Utc>>,
 }

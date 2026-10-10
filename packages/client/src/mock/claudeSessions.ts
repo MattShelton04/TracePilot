@@ -1,5 +1,4 @@
 import type { ConversationTurn, EventsResponse } from "@tracepilot/types";
-import type { BackgroundTask } from "../generated/bindings.js";
 import { MOCK_CLAUDE_NOTIFICATION_TURNS } from "./claudeNotifications.js";
 import { ts } from "./common.js";
 
@@ -61,13 +60,20 @@ export const MOCK_CLAUDE_TURNS: ConversationTurn[] = [
         toolCallId: "claude-bash-bg",
         toolName: "shell",
         nativeToolName: "Bash",
-        arguments: { command: "cargo test --test slow", run_in_background: true },
+        arguments: {
+          command: "cargo test --test slow",
+          description: "Run the slow integration suite",
+          mode: "background",
+          shellId: "bg_suite",
+        },
         resultContent: "Command running in background with ID: bg_suite",
         startedAt: ts(-577),
         completedAt: ts(-576),
         durationMs: 1000,
         isComplete: true,
         success: true,
+        // Reported later by its task notification.
+        backgroundOutcome: { status: "failed", exitCode: 1, completedAt: ts(271_423) },
       },
     ],
   },
@@ -126,46 +132,3 @@ export const MOCK_CLAUDE_EVENTS: EventsResponse = {
   hasMore: false,
   allEventTypes: ["user.message", "tool.execution_start", "tracepilot.model_call"],
 };
-
-/** Synthetic background work: a finished subagent, a failed shell and a shell last seen running. */
-export const MOCK_CLAUDE_BACKGROUND_TASKS: BackgroundTask[] = [
-  {
-    id: "a5c0ffee00000001",
-    kind: "agent",
-    status: "completed",
-    description: "Map the retry call sites",
-    summary: 'Agent "Map the retry call sites" finished',
-    toolCallId: "claude-agent",
-    startedAt: ts(-600_000),
-    finishedAt: ts(-480_000),
-    durationMs: 120000,
-    totalTokens: 48200,
-    toolCalls: 14,
-  },
-  {
-    id: "bg_suite",
-    kind: "shell",
-    status: "failed",
-    description: "Run the slow integration suite",
-    summary: 'Background command "Run the slow integration suite" failed (exit code 1)',
-    toolCallId: "claude-bash-bg",
-    startedAt: ts(-570_000),
-    finishedAt: ts(-300_000),
-    durationMs: null,
-    totalTokens: null,
-    toolCalls: null,
-  },
-  {
-    id: "bg_watch",
-    kind: "shell",
-    status: "running",
-    description: "cargo watch -x check",
-    summary: null,
-    toolCallId: "claude-bash-watch",
-    startedAt: ts(-200_000),
-    finishedAt: null,
-    durationMs: null,
-    totalTokens: null,
-    toolCalls: null,
-  },
-];

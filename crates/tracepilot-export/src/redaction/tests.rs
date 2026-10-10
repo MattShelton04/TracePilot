@@ -115,6 +115,7 @@ fn redacts_conversation_content() {
             args_summary: None,
             skill_invocation: None,
             exit_code: None,
+            background_outcome: None,
         }],
         duration_ms: None,
         is_complete: true,

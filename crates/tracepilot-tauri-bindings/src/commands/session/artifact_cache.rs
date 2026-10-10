@@ -1,4 +1,4 @@
-//! A source's artifacts (plan, file history, background tasks), reused while
+//! A source's artifacts (plan, file history, browsable roots), reused while
 //! the session's source version is unchanged.
 //!
 //! A running session's detail view asks for them on every refresh, and the
@@ -19,7 +19,7 @@ use crate::error::BindingsError;
 type ArtifactCache = Mutex<LruCache<String, (String, Arc<SessionArtifacts>)>>;
 
 /// Bounded by session count, not bytes: an entry is metadata (paths, plan
-/// text, checkpoint file lists, task summaries), far smaller than the event
+/// text, checkpoint file lists), far smaller than the event
 /// cache's entries.
 static ARTIFACTS: LazyLock<ArtifactCache> = LazyLock::new(|| {
     Mutex::new(crate::cache::build_session_lru(
@@ -62,7 +62,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tracepilot_core::provider::claude_code::ClaudeCodeProvider;
     use tracepilot_core::provider::{
-        BackgroundTask, Liveness, ProviderSnapshot, SessionLocator, SessionProvider, SessionSource,
+        Liveness, ProviderSnapshot, SessionLocator, SessionProvider, SessionSource,
         SourceCapabilities, SourceFingerprint,
     };
 
@@ -135,10 +135,6 @@ mod tests {
         format!("{record}\n")
     }
 
-    fn ids(tasks: &[BackgroundTask]) -> Vec<&str> {
-        tasks.iter().map(|task| task.id.as_str()).collect()
-    }
-
     #[test]
     fn artifacts_are_reread_only_when_the_source_changes() {
         let dir = tempfile::tempdir().unwrap();
@@ -158,7 +154,6 @@ mod tests {
         let cache: ArtifactCache = Mutex::new(crate::cache::build_session_lru(2));
 
         let first = artifacts_in(&session, &cache).unwrap();
-        assert_eq!(ids(&first.background_tasks), ["shell1"]);
         assert!(first.plan.is_none());
         let again = artifacts_in(&session, &cache).unwrap();
         assert!(Arc::ptr_eq(&first, &again));
@@ -176,7 +171,6 @@ mod tests {
         std::io::Write::write_all(&mut file, appended.as_bytes()).unwrap();
         drop(file);
         let after = artifacts_in(&session, &cache).unwrap();
-        assert_eq!(ids(&after.background_tasks), ["shell1", "shell2"]);
         assert_eq!(
             after.plan.as_ref().unwrap().read().unwrap().as_deref(),
             Some("Ship it.")

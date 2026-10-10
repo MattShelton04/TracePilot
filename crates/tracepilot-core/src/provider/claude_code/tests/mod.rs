@@ -3,7 +3,6 @@
 
 mod accounting;
 mod artifacts;
-mod background;
 mod follow_ups;
 mod model_calls;
 mod notifications;
