@@ -3,6 +3,7 @@ import {
   getConfig,
   saveConfig,
   type ValidateSessionDirResult,
+  validateClaudeConfigDir,
   validateSessionDir,
 } from "@tracepilot/client";
 import type { TracePilotConfig } from "@tracepilot/types";
@@ -99,6 +100,23 @@ const canContinueSlide3 = computed(() => {
 });
 
 const sessionCount = computed(() => validationResult.value?.sessionCount ?? 0);
+
+// ── Claude Code (experimental, optional) ───────────────────────
+// Offered only when the default Claude Code folder holds sessions. Off by
+// default; Skip keeps the defaults, so it applies to Launch only.
+const claudeCode = ref<{ dir: string; sessionCount: number } | null>(null);
+const includeClaudeCode = ref(false);
+
+async function detectClaudeCode(dir: string) {
+  if (!dir.trim()) return;
+  try {
+    const result = await validateClaudeConfigDir(dir);
+    if (disposed || !result.valid || result.sessionCount === 0) return;
+    claudeCode.value = { dir, sessionCount: result.sessionCount };
+  } catch {
+    // No Claude Code folder to offer.
+  }
+}
 
 // ── Validation ─────────────────────────────────────────────────
 async function validateDir(): Promise<ValidateSessionDirResult | null> {
@@ -201,6 +219,11 @@ async function finishSetup(useDefaults = false) {
         autoIndexOnLaunch: true,
         setupComplete: useDefaults,
       },
+      // The provider registry reads this flag, so the indexing pass that
+      // follows setup indexes Claude Code sessions too.
+      features: {
+        claudeCodeSessions: !useDefaults && claudeCode.value !== null && includeClaudeCode.value,
+      },
     });
     await saveConfig(config);
     if (disposed) return;
@@ -230,6 +253,7 @@ onMounted(async () => {
     defaultSessionDir.value = config.paths.sessionStateDir;
     defaultCopilotHome.value = copilotHome.value;
     defaultTracePilotHome.value = tracepilotHome.value;
+    void detectClaudeCode(config.sources?.claudeCode?.configDir ?? "");
   } catch {
     // Defaults are fine (dev mode / outside Tauri)
   }
@@ -293,7 +317,10 @@ onUnmounted(() => {
           :validation-result="validationResult"
           :validation-error="validationError"
           :can-continue="canContinueSlide3"
+          :claude-code="claudeCode"
+          :include-claude-code="includeClaudeCode"
           @next="next"
+          @update:include-claude-code="!busy && (includeClaudeCode = $event)"
           @update:copilot-home="!busy && (copilotHome = $event)"
           @validate="!busy && validateDir()"
           @browse="browseCopilotHome"
@@ -319,6 +346,7 @@ onUnmounted(() => {
           :session-dir="sessionDir"
           :db-path="dbPath"
           :session-count="sessionCount"
+          :claude-code="includeClaudeCode ? claudeCode : null"
           :saving="saving"
           :setup-error="setupError"
           @finish="finishSetup()"

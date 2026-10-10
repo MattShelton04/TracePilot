@@ -14,6 +14,11 @@ Where each file lives and when TracePilot opens it is listed in
 
 ## Turn it on
 
+First-run setup offers an optional **Also index Claude Code sessions
+(experimental)** switch on the Copilot home step when the default Claude Code
+folder (`CLAUDE_CONFIG_DIR`, else `~/.claude`) holds sessions. It is off by
+default, and **Skip setup** leaves it off. Otherwise, or to change it later:
+
 1. Open **Settings → Claude Code** and turn on **Claude Code sessions**.
 2. In the same section, check **Claude Code folder**. It is
    Claude Code's config folder, the one that holds `projects/`. It defaults to

@@ -186,7 +186,8 @@ in `@tracepilot/types`). Its switch heads its own experimental Settings section,
   - Index writes commit only while their generation is current, so an in-flight job cannot
     write rows back ([architecture §3.4](architecture.md#34-identity-index-and-resolution)).
   - Changing the folder is a disable followed by an enable.
-- **Copilot cannot be turned off** while TracePilot is Copilot-first (D1). The setup wizard is
-  unchanged until positioning changes.
+- **Copilot cannot be turned off** while TracePilot is Copilot-first (D1). The setup wizard stays
+  Copilot-first; it only offers an optional, off-by-default Claude Code switch when the default
+  Claude Code folder holds sessions.
 - **Per-session gating** comes from `SourceCapabilities`. The global flag only decides whether
   the provider runs.
