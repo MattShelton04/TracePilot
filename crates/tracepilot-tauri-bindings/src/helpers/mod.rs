@@ -50,4 +50,6 @@ pub(crate) use locator::{
     explorer_roots, require_capability, require_copilot_layout, resolve_session,
     with_session_locator,
 };
-pub(crate) use path::{validate_path_within, validate_path_within_any, validate_write_path_within};
+pub(crate) use path::{
+    has_local_root, validate_path_within, validate_path_within_any, validate_write_path_within,
+};

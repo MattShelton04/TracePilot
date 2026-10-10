@@ -165,6 +165,43 @@ fn test_query_code_impact_empty() {
     assert_eq!(result.lines_removed, 0);
 }
 
+/// `C:\w\a.rs` and `C:/w/a.rs` are one file, also within one session.
+#[test]
+fn test_query_code_impact_groups_paths_across_separators() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    let ids = [
+        "sep-aaaa-1111-1111-1111-111111111111",
+        "sep-bbbb-2222-2222-2222-222222222222",
+    ];
+    for id in ids {
+        let s = write_session_with_tools(tmp.path(), id, "org/repo", "2026-03-10T07:15:00Z");
+        db.upsert_session(&s).unwrap();
+    }
+    db.conn
+        .execute_batch(&format!(
+            r"DELETE FROM session_modified_files;
+            INSERT INTO session_modified_files (session_id, file_path, extension) VALUES
+                ('{a}', 'C:\w\a.rs', 'rs'), ('{a}', 'C:/w/a.rs', 'rs'),
+                ('{b}', 'C:\w\a.rs', 'rs'), ('{b}', 'C:\w\b.md', 'md');",
+            a = ids[0],
+            b = ids[1],
+        ))
+        .unwrap();
+
+    let result = db.query_code_impact(None, None, None, false, None).unwrap();
+    assert_eq!(result.files_modified, 2);
+    let top = &result.most_modified_files[0];
+    assert_eq!((top.path.as_str(), top.additions), (r"C:\w\a.rs", 2));
+    assert_eq!(result.most_modified_files.len(), 2);
+    let rs = result
+        .file_type_breakdown
+        .iter()
+        .find(|e| e.extension == "rs")
+        .unwrap();
+    assert_eq!(rs.count, 2, "one per session");
+}
+
 #[test]
 fn test_query_analytics_date_filtering() {
     let tmp = tempfile::tempdir().unwrap();

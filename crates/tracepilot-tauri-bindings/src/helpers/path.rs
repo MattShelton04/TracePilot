@@ -130,3 +130,28 @@ pub(crate) fn validate_write_path_within(path: &str, dir: &std::path::Path) -> C
     }
     Ok(canonical_parent.join(file_name))
 }
+
+/// On Windows, an allowlist on the parsed prefix: a drive (`C:\`, `\\?\C:\`)
+/// or WSL's local share (`\\wsl.localhost\<distro>`, `\\wsl$\<distro>`).
+/// Every other UNC, verbatim-UNC or device prefix is refused, whatever mix of
+/// `\` and `/` spells it. Pure parsing: nothing touches the filesystem, so a
+/// share is refused before any SMB connection opens.
+#[cfg(windows)]
+pub(crate) fn has_local_root(path: &std::path::Path) -> bool {
+    use std::path::{Component, Prefix};
+    let Some(Component::Prefix(prefix)) = path.components().next() else {
+        return false;
+    };
+    match prefix.kind() {
+        Prefix::Disk(_) | Prefix::VerbatimDisk(_) => true,
+        Prefix::UNC(server, _) => {
+            server.eq_ignore_ascii_case("wsl.localhost") || server.eq_ignore_ascii_case("wsl$")
+        }
+        _ => false,
+    }
+}
+
+#[cfg(not(windows))]
+pub(crate) fn has_local_root(_path: &std::path::Path) -> bool {
+    true
+}

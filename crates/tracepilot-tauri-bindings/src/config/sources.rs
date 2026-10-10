@@ -74,11 +74,12 @@ pub(crate) fn canonical_claude_config_dir(path: &str) -> Result<std::path::PathB
     Ok(canonical)
 }
 
+/// Not a drive or WSL root, by the parsed prefix ([`has_local_root`]), so no
+/// mix of `\` and `/` spells a share past it.
+///
+/// [`has_local_root`]: crate::helpers::has_local_root
 fn is_network_path(path: &std::path::Path) -> bool {
-    let path = path.to_string_lossy();
-    cfg!(windows)
-        && (path.starts_with(r"\\?\UNC\")
-            || (path.starts_with(r"\\") && !path.starts_with(r"\\?\")))
+    !crate::helpers::has_local_root(path)
 }
 
 #[cfg(test)]
@@ -129,9 +130,26 @@ mod tests {
             );
         }
         #[cfg(windows)]
-        for share in [r"\\server\share\.claude", r"\\?\UNC\server\share\.claude"] {
+        for share in [
+            r"\\server\share\.claude",
+            r"\\?\UNC\server\share\.claude",
+            r"\/192.0.2.1/share/.claude",
+            r"/\192.0.2.1\share\.claude",
+        ] {
             let error = canonical_claude_config_dir(share).unwrap_err();
             assert!(error.contains("Network"), "{share}: {error}");
         }
+    }
+
+    /// Classified from the parsed prefix, before anything touches the
+    /// filesystem, whatever mix of separators spells a share.
+    #[cfg(windows)]
+    #[test]
+    fn mixed_separator_shares_are_network_paths() {
+        use std::path::Path;
+        for share in [r"\/192.0.2.1/share/.claude", r"/\192.0.2.1\share\.claude"] {
+            assert!(is_network_path(Path::new(share)), "{share}");
+        }
+        assert!(!is_network_path(Path::new(r"C:\Users\me\.claude")));
     }
 }

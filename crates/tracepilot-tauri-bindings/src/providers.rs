@@ -18,17 +18,17 @@ pub(crate) fn registry_for(config: &TracePilotConfig) -> ProviderRegistry {
     if let Some(root) = claude_code_root(config) {
         registry.register(Arc::new(
             ClaudeCodeProvider::new(root)
-                .with_process_start(Arc::new(cached_process_start))
+                .with_process_start(Arc::new(process_start))
                 .with_stale_pid_files(Arc::clone(&STALE_PID_FILES)),
         ));
     }
     registry
 }
 
-/// How long a process start time is reused. A lookup is a few Win32 calls
-/// (microseconds) on Windows and one `ps` on macOS, so this mostly dedupes
-/// the session list's and a running session's detail view's polls. A Claude Code process removes its pid file
-/// on exit, so this only delays noticing a crash.
+/// How long a process start time is reused on macOS, where a lookup spawns
+/// `ps`; this dedupes the session list's and a running session's detail
+/// view's polls there. A Claude Code process removes its pid file on exit, so
+/// reuse only delays noticing a crash.
 const PROCESS_START_TTL: Duration = Duration::from_secs(5);
 
 type ProcessStarts = Mutex<HashMap<u32, (Instant, Option<String>)>>;
@@ -38,13 +38,16 @@ static PROCESS_STARTS: LazyLock<ProcessStarts> = LazyLock::new(Default::default)
 /// Pid files proven stale, for the life of the app.
 static STALE_PID_FILES: LazyLock<Arc<StalePidFiles>> = LazyLock::new(Default::default);
 
-fn cached_process_start(pid: u32) -> Option<String> {
-    reuse_process_start(
-        &PROCESS_STARTS,
-        pid,
-        Instant::now(),
-        tracepilot_orchestrator::process::process_start_time,
-    )
+/// A process's start time. Elsewhere than macOS a lookup is a few Win32
+/// calls or a `/proc` read (about 1.5 µs a pid on Windows), so each pass
+/// looks again and a crashed session shows at once.
+fn process_start(pid: u32) -> Option<String> {
+    let lookup = tracepilot_orchestrator::process::process_start_time;
+    if cfg!(target_os = "macos") {
+        reuse_process_start(&PROCESS_STARTS, pid, Instant::now(), lookup)
+    } else {
+        lookup(pid)
+    }
 }
 
 /// `lookup(pid)`, reusing an answer younger than [`PROCESS_START_TTL`].

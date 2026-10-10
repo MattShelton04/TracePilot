@@ -80,3 +80,64 @@ fn a_resumed_background_agent_completes_again() {
     assert_eq!(notifications, 3);
     assert_eq!(parsed.diagnostics.duplicate_notifications, 4);
 }
+
+/// A `SendMessage` to a killed agent fails with `{success: false}` and no
+/// `is_error`. It is a failed `write_agent`, so the agent stays ended
+/// instead of reopening as running.
+#[test]
+fn a_failed_send_message_leaves_a_killed_agent_ended() {
+    use serde_json::json;
+    use tracepilot_test_support::claude::{
+        OPUS, Transcript, Usage, task_notification, text, tool_use, write_session,
+    };
+
+    let mut t = Transcript::main();
+    t.prompt("Run the reviewer.");
+    let u = Usage::new(1, 10, 0, 1);
+    let agent = json!({"subagent_type": "general-purpose", "description": "review",
+        "prompt": "review", "run_in_background": true});
+    t.call(
+        "msg_1",
+        OPUS,
+        vec![tool_use("toolu_K", "Agent", agent)],
+        u,
+        "tool_use",
+    );
+    t.tool_result(
+        "toolu_K",
+        json!("Async agent launched successfully."),
+        json!({"status": "async_launched", "isAsync": true, "agentId": "agentK"}),
+        false,
+    );
+    t.user(
+        json!({"origin": {"kind": "task-notification"}, "message": {"role": "user",
+        "content": task_notification("agentK", "toolu_K", "killed", None)}}),
+    );
+    t.call(
+        "msg_2",
+        OPUS,
+        vec![tool_use(
+            "toolu_S",
+            "SendMessage",
+            json!({"to": "agentK", "message": "Go on.", "summary": "Go on"}),
+        )],
+        u,
+        "tool_use",
+    );
+    t.tool_result(
+        "toolu_S",
+        json!([{"type": "text", "text": "No agent named agentK is running."}]),
+        json!({"success": false, "message": "No agent named agentK is running."}),
+        false,
+    );
+    t.call("msg_3", OPUS, vec![text("It was stopped.")], u, "end_turn");
+    let parsed = parse(&write_session(&t, &[]));
+    let turns = reconstruct_turns(&parsed.events);
+
+    let killed = tool_call(&turns, "toolu_K");
+    assert!(killed.is_complete, "the killed agent stays ended");
+    assert_ne!(killed.agent_status.as_deref(), Some("running"));
+    let send = tool_call(&turns, "toolu_S");
+    assert_eq!(send.tool_name, "write_agent");
+    assert_eq!(send.success, Some(false), "a refused message failed");
+}

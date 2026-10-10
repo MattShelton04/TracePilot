@@ -97,8 +97,17 @@ pub(super) fn summarize(
             }
         }
     }
+    // A session of slash commands only, with no prompt and no model call, is
+    // empty, like a Copilot session nobody typed into: "hide empty" hides it,
+    // and it is untitled unless renamed. One whose command ran the model
+    // (`/init`) is named after that command.
+    let empty = prompt.is_none() && parsed.calls.is_empty();
+    if empty {
+        summary.turn_count = Some(0);
+    }
+    let command = command.filter(|_| !empty);
     // The user's own name (`/rename`) beats the generated one, whichever came
-    // last. A session of slash commands only is named after its first command.
+    // last.
     summary.summary = custom_title.or(title).or(agent_name).or(prompt).or(command);
     summary.repository = origin.or(pr_repository);
     if let Some(start) = parsed

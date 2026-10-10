@@ -11,7 +11,7 @@ use tracepilot_core::provider::{ResumeLaunch, SessionSource};
 
 use crate::config::{SharedConfig, TracePilotConfig};
 use crate::error::{BindingsError, CmdResult};
-use crate::helpers::{read_config, require_capability, resolve_session};
+use crate::helpers::{has_local_root, read_config, require_capability, resolve_session};
 
 const ACTION: &str = "Resume in terminal";
 
@@ -137,30 +137,6 @@ fn is_plain_local_absolute(path: &Path) -> bool {
         return false;
     };
     path.is_absolute() && has_local_root(path) && !text.chars().any(char::is_control)
-}
-
-/// On Windows, an allowlist on the parsed prefix: a drive (`C:\`, `\\?\C:\`)
-/// or WSL's local share (`\\wsl.localhost\<distro>`, `\\wsl$\<distro>`).
-/// Every other UNC, verbatim-UNC or device prefix is refused, whatever mix of
-/// `\` and `/` spells it.
-#[cfg(windows)]
-fn has_local_root(path: &Path) -> bool {
-    use std::path::{Component, Prefix};
-    let Some(Component::Prefix(prefix)) = path.components().next() else {
-        return false;
-    };
-    match prefix.kind() {
-        Prefix::Disk(_) | Prefix::VerbatimDisk(_) => true,
-        Prefix::UNC(server, _) => {
-            server.eq_ignore_ascii_case("wsl.localhost") || server.eq_ignore_ascii_case("wsl$")
-        }
-        _ => false,
-    }
-}
-
-#[cfg(not(windows))]
-fn has_local_root(_path: &Path) -> bool {
-    true
 }
 
 /// The script the Windows terminal runs. The label and directory sit in

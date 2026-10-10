@@ -42,6 +42,8 @@ const CAPABILITIES: SourceCapabilities = SourceCapabilities {
     has_explorer: true,
     has_hidden_roles: false,
     has_file_history: false,
+    has_rewind_snapshots: true,
+    has_custom_tables: true,
 };
 
 /// Sessions under one Copilot `session-state` directory.

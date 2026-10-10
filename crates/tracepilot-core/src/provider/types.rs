@@ -116,6 +116,12 @@ pub struct SourceCapabilities {
     /// The source backs up files before changing them
     /// ([`SessionArtifacts::file_history`]).
     pub has_file_history: bool,
+    /// The session keeps rewind snapshots beside its state (Export's Rewind
+    /// Snapshots section).
+    pub has_rewind_snapshots: bool,
+    /// The session has a database of its own tables (Export's Custom Tables
+    /// section).
+    pub has_custom_tables: bool,
 }
 
 /// How a source resumes one session in a terminal: the configured CLI followed
