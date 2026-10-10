@@ -51,9 +51,9 @@ pub struct TurnReconstructor {
     /// Maps raw tool execution event ids to their tool_call_id so follow-up
     /// events (for example `skill.invoked`) can attach to the originating row.
     pub(crate) tool_event_to_call_id: HashMap<String, String>,
-    /// Shell id → the tool_call_id of the call that started it in the
-    /// background, until a completion notification settles it.
-    pub(crate) background_shells: HashMap<String, String>,
+    /// Shell id → the tool_call_ids of unsettled calls that started it in
+    /// the background, oldest first (Copilot reuses shell ids).
+    pub(crate) background_shells: HashMap<String, Vec<String>>,
     /// Agent instance UUID → launching tool-call ID (older logs used the same ID).
     pub(crate) agent_owners: HashMap<String, String>,
     /// Launches whose actual lifecycle has started, as opposed to pending task tools.

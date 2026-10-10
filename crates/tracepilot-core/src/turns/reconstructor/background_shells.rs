@@ -6,8 +6,12 @@
 //! mode or detached, or when its result says the command is still running
 //! (a Copilot sync call that outlived its initial wait). Its id comes from
 //! the `shellId` argument (Claude Code's `backgroundTaskId` is copied there
-//! by the provider) or from the result's closing line. Copilot reuses shell
-//! ids, so the latest launch of an id owns its next completion.
+//! by the provider) or from the result's closing line.
+//!
+//! Copilot reuses shell ids, and may write a shell's completion after a
+//! newer launch took its id. Every launch stays pending until settled; a
+//! completion settles the latest pending launch of its id whose
+//! `description` matches the notification's, else the latest one.
 
 use serde_json::Value;
 
@@ -31,7 +35,14 @@ impl TurnReconstructor {
         let (Some(call), Some(id)) = (tool_call_id, launch_shell_id(tool_name, args)) else {
             return;
         };
-        self.background_shells.insert(id, call.to_string());
+        self.add_pending_shell(id, call);
+    }
+
+    fn add_pending_shell(&mut self, shell_id: String, call: &str) {
+        let pending = self.background_shells.entry(shell_id).or_default();
+        if !pending.iter().any(|id| id == call) {
+            pending.push(call.to_string());
+        }
     }
 
     /// Index a call whose result reveals that its shell kept running.
@@ -43,14 +54,15 @@ impl TurnReconstructor {
         let Some(call) = self.find_tool_call_ref(tool_call_id) else {
             return;
         };
-        if !LAUNCH_TOOLS.contains(&call.tool_name.as_str()) {
+        // A completion written before the launch's result already settled it.
+        if !LAUNCH_TOOLS.contains(&call.tool_name.as_str()) || call.background_outcome.is_some() {
             return;
         }
         let Some(id) = result.and_then(result_text).and_then(running_shell_id) else {
             return;
         };
         if let Some(call) = tool_call_id {
-            self.background_shells.insert(id, call.to_string());
+            self.add_pending_shell(id, call);
         }
     }
 
@@ -75,7 +87,7 @@ impl TurnReconstructor {
         let Some(status) = terminal_status(kind.get("status")) else {
             return;
         };
-        let Some(call_id) = self.background_shells.remove(&shell_id) else {
+        let Some(call_id) = self.take_pending_shell(&shell_id, kind.get("description")) else {
             tracing::debug!(%shell_id, "Background shell completion with no launch — skipping");
             return;
         };
@@ -86,6 +98,38 @@ impl TurnReconstructor {
                 completed_at: event.raw.timestamp,
             });
         }
+    }
+}
+
+impl TurnReconstructor {
+    /// Remove and return the pending launch a completion belongs to: the
+    /// latest whose `description` argument matches, else the latest.
+    fn take_pending_shell(
+        &mut self,
+        shell_id: &str,
+        description: Option<&Value>,
+    ) -> Option<String> {
+        let pending = self.background_shells.get(shell_id)?;
+        let wanted = description.and_then(Value::as_str);
+        let described = |call: &String| {
+            self.find_tool_call_ref(Some(call))
+                .and_then(|tc| tc.arguments.as_ref())
+                .and_then(|args| args.get("description"))
+                .and_then(Value::as_str)
+        };
+        let index = wanted
+            .and_then(|wanted| {
+                pending
+                    .iter()
+                    .rposition(|call| described(call) == Some(wanted))
+            })
+            .or_else(|| pending.len().checked_sub(1))?;
+        let pending = self.background_shells.get_mut(shell_id)?;
+        let call = pending.remove(index);
+        if pending.is_empty() {
+            self.background_shells.remove(shell_id);
+        }
+        Some(call)
     }
 }
 

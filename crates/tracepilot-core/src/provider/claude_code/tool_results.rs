@@ -171,7 +171,7 @@ pub(super) fn reshape(
             structured
                 .and_then(|tur| str_at(tur, "backgroundTaskId"))
                 .map(str::to_string)
-                .or_else(|| background_id(&text))
+                .or_else(|| structured.is_none().then(|| background_id(&text)).flatten())
         })
         .flatten();
     let exit_code = is_shell.then(|| {
@@ -284,12 +284,15 @@ fn background_arguments(args: &Value, task: &str) -> Value {
 /// Claude Code (or the user) moved a running command there.
 fn background_id(text: &str) -> Option<String> {
     let line = text.lines().next()?.trim();
-    let rest = line
-        .strip_prefix("Command running in background with ID: ")
-        .or_else(|| {
-            line.split_once("moved to the background (ID: ")
-                .map(|(_, r)| r)
-        })?;
+    let rest = if let Some(rest) = line.strip_prefix("Command running in background with ID: ") {
+        rest
+    } else if line.starts_with("Command did not complete within ")
+        || line.starts_with("Command was moved to the background")
+    {
+        line.split_once("moved to the background (ID: ")?.1
+    } else {
+        return None;
+    };
     let id: String = rest
         .chars()
         .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))

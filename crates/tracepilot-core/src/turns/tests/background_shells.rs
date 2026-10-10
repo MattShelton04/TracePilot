@@ -290,3 +290,99 @@ fn an_outcome_is_serialized_only_when_present() {
     );
     assert!(json[1].get("backgroundOutcome").is_none());
 }
+
+#[test]
+fn a_late_completion_settles_the_launch_it_describes_not_a_newer_one() {
+    // Copilot can write a shell's completion after the agent read it to the
+    // end and started a new async launch under the same id.
+    let launch = |id: &str, description: &str| json!({"command": "x", "description": description, "mode": "async", "shellId": id});
+    let events = vec![
+        user(0, "Run twice"),
+        start(1, "first", "powershell", launch("w", "First")),
+        complete(
+            2,
+            "first",
+            "<command started in background with shellId: w>",
+        ),
+        start(3, "read", "read_powershell", json!({"shellId": "w"})),
+        complete(4, "read", "boom\n<shellId: w completed with exit code 1>"),
+        start(5, "second", "powershell", launch("w", "Second")),
+        complete(
+            6,
+            "second",
+            "<command started in background with shellId: w>",
+        ),
+        notification(
+            7,
+            json!({"type": "shell_completed", "shellId": "w", "description": "First", "exitCode": 1}),
+        ),
+        notification(
+            8,
+            json!({"type": "shell_completed", "shellId": "w", "description": "Second", "exitCode": 0}),
+        ),
+        // A third completion with nothing pending is ignored.
+        notification(
+            9,
+            json!({"type": "shell_completed", "shellId": "w", "description": "First", "exitCode": 0}),
+        ),
+    ];
+    let turns = reconstruct_turns(&events);
+    assert_eq!(outcome(&turns, "first"), settled("completed", Some(1), 7));
+    assert_eq!(outcome(&turns, "second"), settled("completed", Some(0), 8));
+
+    // Without descriptions (Claude Code), the latest pending launch settles.
+    let events = vec![
+        user(0, "Run twice"),
+        start(
+            1,
+            "a",
+            "shell",
+            json!({"command": "x", "mode": "background", "shellId": "s"}),
+        ),
+        start(
+            2,
+            "b",
+            "shell",
+            json!({"command": "y", "mode": "background", "shellId": "s"}),
+        ),
+        notification(
+            3,
+            json!({"type": "shell_completed", "shellId": "s", "status": "completed"}),
+        ),
+        notification(
+            4,
+            json!({"type": "shell_completed", "shellId": "s", "status": "failed"}),
+        ),
+    ];
+    let turns = reconstruct_turns(&events);
+    assert_eq!(outcome(&turns, "b"), settled("completed", None, 3));
+    assert_eq!(outcome(&turns, "a"), settled("failed", None, 4));
+}
+
+#[test]
+fn a_completion_logged_before_the_launch_result_is_not_overwritten() {
+    let events = vec![
+        user(0, "Quick"),
+        start(
+            1,
+            "quick",
+            "powershell",
+            json!({"command": "x", "description": "Quick", "mode": "async", "shellId": "q"}),
+        ),
+        notification(
+            2,
+            json!({"type": "shell_completed", "shellId": "q", "description": "Quick", "exitCode": 0}),
+        ),
+        complete(
+            3,
+            "quick",
+            "<command started in background with shellId: q>",
+        ),
+        notification(
+            4,
+            json!({"type": "shell_completed", "shellId": "q", "description": "Quick", "exitCode": 5}),
+        ),
+    ];
+    let turns = reconstruct_turns(&events);
+    assert_eq!(outcome(&turns, "quick"), settled("completed", Some(0), 2));
+}

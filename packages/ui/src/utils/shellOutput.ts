@@ -83,15 +83,17 @@ export function backgroundOutcomeView(tc: TurnToolCall): BackgroundOutcomeView |
   const outcome = tc.backgroundOutcome;
   if (!outcome) return null;
   const status = outcome.status || "completed";
+  // A status the source reported as written (`timed_out`) reads as words.
+  const words = status.replace(/_/g, " ");
   const code = outcome.exitCode;
-  const parts = ["Background", status.charAt(0).toUpperCase() + status.slice(1)];
+  const parts = ["Background", words.charAt(0).toUpperCase() + words.slice(1)];
   if (code != null) parts.push(`exit ${code}`);
   const start = tc.startedAt ? Date.parse(tc.startedAt) : Number.NaN;
   const end = outcome.completedAt ? Date.parse(outcome.completedAt) : Number.NaN;
   const duration = formatDuration(end - start);
   if (duration) parts.push(duration);
   let tone: BackgroundTone = "neutral";
-  let short = `bg ${status}`;
+  let short = `bg ${words}`;
   if (status === "completed") {
     tone = code != null && code !== 0 ? "warning" : "success";
     short = code != null && code !== 0 ? `bg exit ${code}` : "bg done";

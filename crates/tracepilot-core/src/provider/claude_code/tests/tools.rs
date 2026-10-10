@@ -448,4 +448,10 @@ fn a_backgrounded_shell_gets_its_task_id_as_shell_id() {
     assert_eq!(restart("Bash", None, "Command running", false), None);
     assert_eq!(restart("Bash", None, started, true), None);
     assert_eq!(restart("Read", None, started, false), None);
+    // With a structured result, only its `backgroundTaskId` counts; the text
+    // fallback also needs one of Claude Code's own opening phrases.
+    let sync = json!({"stdout": started, "stderr": "", "interrupted": false});
+    assert_eq!(restart("Bash", Some(sync), started, false), None);
+    let quoted = r"src/a.rs: // moved to the background (ID: b9) in docs";
+    assert_eq!(restart("Bash", None, quoted, false), None);
 }

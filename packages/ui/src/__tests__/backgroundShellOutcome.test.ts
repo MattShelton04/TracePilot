@@ -44,6 +44,13 @@ describe("background shell outcome", () => {
       short: "bg stopped",
       tone: "neutral",
     });
+    expect(
+      backgroundOutcomeView(launch({ backgroundOutcome: outcome("timed_out") })),
+    ).toMatchObject({
+      label: "Background · Timed out · 2m 4s",
+      short: "bg timed out",
+      tone: "neutral",
+    });
     // No times: no duration.
     expect(
       backgroundOutcomeView(
