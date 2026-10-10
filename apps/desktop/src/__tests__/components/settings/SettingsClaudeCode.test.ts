@@ -29,12 +29,6 @@ vi.mock("@tracepilot/client", async () => {
   });
   return createClientMock({
     getConfig: vi.fn(async () => config),
-    getSourceFormatDiagnostics: vi.fn(async () => ({
-      sessions: 0,
-      unmappedRecordTypes: [],
-      unmappedAttachmentTypes: [],
-      versions: [],
-    })),
   });
 });
 
@@ -70,10 +64,9 @@ describe("SettingsClaudeCode", () => {
     expect(wrapper.findAll(".setting-row")).toHaveLength(1);
     expect(wrapper.find("#settings-claude-code-folder").exists()).toBe(false);
     expect(wrapper.find("#settings-claude-code-cli").exists()).toBe(false);
-    expect(wrapper.find('[data-testid="claude-code-format-diagnostics"]').exists()).toBe(false);
   });
 
-  it("toggles the same feature flag and shows folder, command, then diagnostics while on", async () => {
+  it("toggles the same feature flag and shows folder and command while on", async () => {
     const preferences = usePreferencesStore(pinia);
     const wrapper = await mountSection();
 
@@ -82,12 +75,7 @@ describe("SettingsClaudeCode", () => {
     expect(preferences.isFeatureEnabled("claudeCodeSessions")).toBe(true);
     expect(switchOf(wrapper).attributes("aria-checked")).toBe("true");
     const labels = wrapper.findAll(".setting-label").map((label) => label.text());
-    expect(labels).toEqual([
-      "Claude Code sessions",
-      "Claude Code folder",
-      "Claude Code command",
-      "Claude Code format diagnostics",
-    ]);
+    expect(labels).toEqual(["Claude Code sessions", "Claude Code folder", "Claude Code command"]);
     expect(wrapper.get<HTMLInputElement>("#settings-claude-code-folder").element.value).toBe(
       "C:\\Users\\demo\\.claude",
     );

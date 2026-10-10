@@ -389,7 +389,7 @@ pub struct ProviderSnapshot {
     pub metrics: Option<SessionMetrics>,
     pub diagnostics: Option<ParseDiagnostics>,
     /// What the parser saw of the source's native format; `None` for sources
-    /// that do not report it (Copilot).
+    /// that do not report it.
     pub format: Option<FormatObservations>,
     /// Read before parsing. A strict load certifies the files did not change.
     pub fingerprint: SourceFingerprint,

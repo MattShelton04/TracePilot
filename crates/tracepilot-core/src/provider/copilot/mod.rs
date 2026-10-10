@@ -3,6 +3,8 @@
 //! Behaviour is identical to calling those loaders directly; the parity
 //! tests in `tests.rs` and the golden snapshots guard that.
 
+mod drift;
+
 use std::path::{Path, PathBuf};
 
 use crate::error::{Result, TracePilotError};
@@ -117,13 +119,15 @@ fn session_fingerprint(fingerprint: &SourceFingerprint) -> SessionFingerprint {
 }
 
 fn snapshot(load: SessionLoadResult, fingerprint: SourceFingerprint) -> ProviderSnapshot {
+    let format =
+        drift::format_observations(load.typed_events.as_deref(), load.diagnostics.as_ref());
     ProviderSnapshot {
         summary: load.summary,
         events: load.typed_events,
         turns: load.turns,
         metrics: None,
         diagnostics: load.diagnostics,
-        format: None,
+        format: Some(format),
         fingerprint,
     }
 }

@@ -39,6 +39,9 @@ fn assert_snapshot_matches(snapshot: &ProviderSnapshot, load: &SessionLoadResult
         "{name}: diagnostics"
     );
     assert!(snapshot.metrics.is_none(), "{name}: metrics");
+    let format =
+        drift::format_observations(load.typed_events.as_deref(), load.diagnostics.as_ref());
+    assert_eq!(snapshot.format, Some(format), "{name}: format");
 }
 
 fn corpus_provider() -> (tempfile::TempDir, CopilotProvider) {

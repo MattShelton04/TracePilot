@@ -58,7 +58,7 @@ fn saturate(n: u64) -> u32 {
 }
 
 /// The format drift indexing recorded for `source`; empty before the first
-/// index and for sources that report none (Copilot).
+/// index.
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(source = source.as_str()))]
 #[specta::specta]

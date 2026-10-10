@@ -3,6 +3,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { exportLogs, getLogPath } from "@tracepilot/client";
 import { ActionButton, SectionPanel, toErrorMessage } from "@tracepilot/ui";
 import { onMounted, ref, watch } from "vue";
+import SettingsFormatDiagnostics from "@/components/settings/SettingsFormatDiagnostics.vue";
 import { usePreferencesStore } from "@/stores/preferences";
 
 const prefsStore = usePreferencesStore();
@@ -117,6 +118,8 @@ async function doExportLogs() {
           <option value="trace">Trace</option>
         </select>
       </div>
+
+      <SettingsFormatDiagnostics />
     </SectionPanel>
   </div>
 </template>

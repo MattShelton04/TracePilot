@@ -73,8 +73,9 @@ const POST_GOLDEN_COLUMNS: &[(&str, &str)] = &[
 
 /// Tables added after [`GOLDEN_SCHEMA_VERSION`] that only other sources fill.
 /// Copilot must leave them empty, so they stay out of the snapshot.
-const POST_GOLDEN_EMPTY_TABLES: &[&str] =
-    &["session_native_tool_calls", "session_format_observations"];
+/// (`session_format_observations` is in the snapshot: Copilot reports format
+/// observations since analytics version 18.)
+const POST_GOLDEN_EMPTY_TABLES: &[&str] = &["session_native_tool_calls"];
 
 fn golden_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/copilot-index.json")

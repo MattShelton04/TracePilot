@@ -7,6 +7,10 @@ use tracepilot_core::provider::SourceFingerprint;
 /// Bump this when the analytics schema or extraction logic changes.
 /// Sessions with a stored analytics_version below this will be re-indexed.
 ///
+/// v18: format observations for Copilot sessions (unknown event types and
+/// Copilot CLI versions) in `session_format_observations` for Settings →
+/// Logs & Diagnostics.
+///
 /// v17: derive tool counts, outcomes, durations and heatmap activity from the
 /// reconstructed conversation, including pending invocations and authoritative
 /// subagent terminal outcomes while deduplicating repeated lifecycle records.
@@ -42,7 +46,7 @@ use tracepilot_core::provider::SourceFingerprint;
 /// and recognize cumulative agent-ledger snapshots without a file-size marker.
 /// Re-read unchanged logs so Models and Analytics receive corrected accounting.
 /// Includes v8 main-turn reconstruction and modern subagent ownership fixes.
-pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 17;
+pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 18;
 
 /// The analytics version of Claude Code rows, bumped on its own so Copilot
 /// rows (and their golden snapshot) are not re-derived for a Claude-only

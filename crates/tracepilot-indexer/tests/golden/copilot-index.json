@@ -3548,6 +3548,56 @@
         "window_index": 1
       }
     ],
+    "session_format_observations": [
+      {
+        "kind": "version",
+        "name": "1.0.2",
+        "record_count": 1,
+        "session_id": "00000000-0000-4000-8000-000000000004"
+      },
+      {
+        "kind": "version",
+        "name": "1.0.24",
+        "record_count": 1,
+        "session_id": "00000000-0000-4000-8000-000000000005"
+      },
+      {
+        "kind": "version",
+        "name": "1.0.83",
+        "record_count": 1,
+        "session_id": "00000000-0000-4000-8000-000000000006"
+      },
+      {
+        "kind": "version",
+        "name": "1.0.83",
+        "record_count": 1,
+        "session_id": "00000000-0000-4000-8000-000000000007"
+      },
+      {
+        "kind": "version",
+        "name": "1.0.83",
+        "record_count": 1,
+        "session_id": "00000000-0000-4000-8000-000000000008"
+      },
+      {
+        "kind": "version",
+        "name": "1.0.88",
+        "record_count": 1,
+        "session_id": "00000000-0000-4000-8000-000000000009"
+      },
+      {
+        "kind": "version",
+        "name": "1.0.91",
+        "record_count": 1,
+        "session_id": "00000000-0000-4000-8000-00000000000a"
+      },
+      {
+        "kind": "version",
+        "name": "1.0.91",
+        "record_count": 1,
+        "session_id": "00000000-0000-4000-8000-00000000000b"
+      }
+    ],
     "session_incidents": [
       {
         "detail_json": {
@@ -4245,7 +4295,7 @@
     ],
     "sessions": [
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": "feature-x",
         "compaction_count": 0,
         "copilot_version": null,
@@ -4299,7 +4349,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.24",
@@ -4353,7 +4403,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.83",
@@ -4407,7 +4457,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.83",
@@ -4461,7 +4511,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.88",
@@ -4515,7 +4565,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": "1.0.91",
@@ -4569,7 +4619,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": "main",
         "compaction_count": 0,
         "copilot_version": null,
@@ -4623,7 +4673,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": "main",
         "compaction_count": 1,
         "copilot_version": "1.0.83",
@@ -4677,7 +4727,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": "main",
         "compaction_count": 1,
         "copilot_version": "1.0.91",
@@ -4731,7 +4781,7 @@
         "workspace_mtime": "<wall-clock>"
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": null,
         "compaction_count": 0,
         "copilot_version": "1.0.2",
@@ -4782,7 +4832,7 @@
         "workspace_mtime": null
       },
       {
-        "analytics_version": 17,
+        "analytics_version": 18,
         "branch": null,
         "compaction_count": 0,
         "copilot_version": null,

@@ -167,8 +167,8 @@ There is no restore button. To rewind, use Claude Code itself.
 
 ## Format diagnostics
 
-Claude Code changes its transcript format often. **Settings → Claude Code →
-Claude Code format diagnostics** lists:
+Claude Code changes its transcript format often. **Settings → Logs &
+Diagnostics → Session format diagnostics → Claude Code** lists:
 
 - record and attachment types TracePilot doesn't map yet;
 - the Claude Code versions that wrote your sessions;
@@ -176,7 +176,9 @@ Claude Code format diagnostics** lists:
 
 The counts are collected while indexing, so opening the panel doesn't re-read
 anything. Use **Refresh** after indexing new sessions. The panel holds names
-and counts only, with no paths, IDs or content.
+and counts only, with no paths, IDs or content. A **Copilot CLI** panel next to
+it lists the event types TracePilot doesn't know and the Copilot CLI versions
+that wrote your sessions.
 
 ## Troubleshooting
 
@@ -205,8 +207,8 @@ must name this session.
 
 ### Reporting a format problem
 
-If a Claude Code update breaks a view, open an issue with the **Claude Code
-format diagnostics** table from Settings, or the census report:
+If a Claude Code update breaks a view, open an issue with the **Claude Code**
+format diagnostics tables from Settings, or the census report:
 
 ```sh
 node scripts/claude-census.mjs [claude-config-folder]
