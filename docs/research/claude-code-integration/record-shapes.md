@@ -227,11 +227,22 @@ Other subtypes: `informational`, `away_summary`, `local_command`, `bridge_status
 | `last-prompt`, `mode`, `permission-mode`, `atis-latch` | Latest value only | Events tab only |
 | `file-history-snapshot` | `{ "type": "file-history-snapshot", "messageId": "<prompt uuid>", "isSnapshotUpdate": false, "snapshot": { "messageId": "…", "timestamp": "…", "trackedFileBackups": { "<path>": { "backupFileName": "0123456789abcdef@v2", "version": 2, "backupTime": "…", "realParentDir": "…" } } } }` | One checkpoint per prompt (`messageId`); an `isSnapshotUpdate` record adds to that prompt's. `backupFileName` → `file-history/<sid>/<name>`; null means the file did not exist yet |
 | `file-history-delta` | `{ "type": "file-history-delta", "messageId": "…", "snapshotMessageId": "<prompt uuid>", "trackingPath": "<path>", "backup": { "backupFileName": "…" | null, "version": 1, "backupTime": "…", "realParentDir": "…" }, "timestamp": "…" }`. No `snapshot` field | One file for the prompt `snapshotMessageId` names; its own `messageId` (never equal to it) is not a checkpoint. `realParentDir` is never followed |
-| `attachment` | `{ "type": "attachment", "attachment": { "type": "<one of 29>", … }, "rendered"?: [ … ] }` | Events tab only; never FTS |
+| `attachment` | `{ "type": "attachment", "attachment": { "type": "<one of 31>", … }, "rendered"?: [ … ] }` | Events tab only; never FTS |
 
 **Repository** comes from `user.serverClassifierContext.context.git_state`, which looks like
 `{ cwd, root, branch, default_branch, visibility: { origin: { host: "github.com", remote: "acme/demo" } } }`.
 This is undocumented, so fall back to `pr-link.prRepository`.
+
+**Attachment types** are listed in `KNOWN_ATTACHMENTS` (`translate_user.rs`). A known
+type stays on the Events tab and opens no turn; any other type is counted as unmapped
+in Logs & Diagnostics. Two types were added after real-data diagnostics reported them.
+Their keys come from the Claude Code client and are not yet confirmed on recorded sessions:
+
+- `hook_additional_context`: `{ "type": "hook_additional_context", "content": ["<text a hook added to the model's context>"], "hookName": "SessionStart:startup", "toolUseID": "…", "hookEvent": "SessionStart" }`.
+  Like `hook_system_message`, it is not shown beyond the Events tab.
+- `invoked_skills`: `{ "type": "invoked_skills", "skills": [{ "name": "…", "path": "…/SKILL.md", "content": "…" }] }`.
+  It is written after a compaction so the model keeps the skills the session already ran.
+  Skill invocations come from `Skill` tool calls, so counting these would double them.
 
 ## Task notification (subagent or background shell finished)
 

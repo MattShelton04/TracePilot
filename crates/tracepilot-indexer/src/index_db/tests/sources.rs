@@ -417,19 +417,24 @@ fn session_locator_reads_the_stored_source_path_and_family() {
     assert_eq!(db.get_session_source_name(&missing).unwrap(), None);
 }
 
-/// A third source that reads Copilot-shaped files but bills differently from
-/// both real sources: no premium requests or AIC, yet final exit totals.
-struct ThirdSource(CopilotProvider);
+/// A third source that reads Copilot-shaped files but bills as its
+/// capabilities say, not as Copilot does.
+struct ThirdSource(CopilotProvider, SourceCapabilities);
+
+/// No premium requests or AIC, yet final exit totals: unlike both real sources.
+fn unbilled() -> SourceCapabilities {
+    SourceCapabilities {
+        has_exit_metrics: true,
+        ..SourceCapabilities::default()
+    }
+}
 
 impl SessionProvider for ThirdSource {
     fn source(&self) -> SessionSource {
         self.0.source()
     }
     fn capabilities(&self) -> SourceCapabilities {
-        SourceCapabilities {
-            has_exit_metrics: true,
-            ..SourceCapabilities::default()
-        }
+        self.1
     }
     fn discover(&self, is_cancelled: &dyn Fn() -> bool) -> CoreResult<Vec<SessionLocator>> {
         self.0.discover(is_cancelled)
@@ -453,6 +458,20 @@ impl SessionProvider for ThirdSource {
     }
 }
 
+/// Re-index the Copilot fixture session as a [`ThirdSource`] with `capabilities`.
+fn index_as_third_source(temp: &tempfile::TempDir, db: &IndexDb, capabilities: SourceCapabilities) {
+    let provider: Arc<dyn SessionProvider> =
+        Arc::new(ThirdSource(CopilotProvider::new(temp.path()), capabilities));
+    let locator = provider
+        .discover(&|| false)
+        .unwrap()
+        .into_iter()
+        .find(|locator| locator.id.as_str() == COPILOT_ID)
+        .unwrap();
+    let prepared = session_writer::prepare_snapshot(&provider, &locator, &|| false).unwrap();
+    db.write_prepared_session(&prepared).unwrap();
+}
+
 fn cost_columns(db: &IndexDb, id: &str) -> (Option<f64>, Option<f64>, Option<f64>) {
     db.conn
         .query_row(
@@ -470,17 +489,95 @@ fn premium_request_cost_follows_capabilities_not_the_source_name() {
     // The same shutdown totals indexed by Copilot carry premium-request cost.
     assert_eq!(cost_columns(&db, COPILOT_ID), (Some(0.5), Some(0.5), None));
 
-    let provider: Arc<dyn SessionProvider> =
-        Arc::new(ThirdSource(CopilotProvider::new(temp.path())));
-    let locator = provider
-        .discover(&|| false)
-        .unwrap()
-        .into_iter()
-        .find(|locator| locator.id.as_str() == COPILOT_ID)
-        .unwrap();
-    let prepared = session_writer::prepare_snapshot(&provider, &locator, &|| false).unwrap();
-    db.write_prepared_session(&prepared).unwrap();
+    index_as_third_source(&temp, &db, unbilled());
     // No premium-request cost, and with exit totals but no provider metrics
     // the session stays unpriced rather than free.
     assert_eq!(cost_columns(&db, COPILOT_ID), (None, None, None));
+}
+
+/// Premium requests and AIC on the session, its model row and its segment,
+/// plus the segment's per-model AIC and premium-request cost.
+#[derive(Debug, PartialEq)]
+struct BillingColumns {
+    session_premium_requests: Option<f64>,
+    session_nano_aiu: Option<i64>,
+    model_nano_aiu: Option<i64>,
+    segment_premium_requests: f64,
+    segment_nano_aiu: Option<i64>,
+    segment_model_nano_aiu: Option<u64>,
+    segment_model_request_cost: Option<f64>,
+}
+
+fn billing_columns(db: &IndexDb, id: &str) -> BillingColumns {
+    let (session_premium_requests, session_nano_aiu, model_nano_aiu) = db
+        .conn
+        .query_row(
+            "SELECT s.total_premium_requests, s.total_nano_aiu, m.total_nano_aiu
+             FROM sessions s JOIN session_model_metrics m ON m.session_id = s.id
+             WHERE s.id = ?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    let (segment_premium_requests, segment_nano_aiu, json): (f64, Option<i64>, String) = db
+        .conn
+        .query_row(
+            "SELECT total_premium_requests, total_nano_aiu, model_metrics_json
+             FROM session_segments WHERE session_id = ?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    let models: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let model = &models["claude-opus-4.6"];
+    BillingColumns {
+        session_premium_requests,
+        session_nano_aiu,
+        model_nano_aiu,
+        segment_premium_requests,
+        segment_nano_aiu,
+        segment_model_nano_aiu: model["totalNanoAiu"].as_u64(),
+        segment_model_request_cost: model["requests"]["cost"].as_f64(),
+    }
+}
+
+const COPILOT_BILLING: BillingColumns = BillingColumns {
+    session_premium_requests: Some(1.0),
+    session_nano_aiu: Some(2_500_000_000),
+    model_nano_aiu: Some(2_500_000_000),
+    segment_premium_requests: 1.0,
+    segment_nano_aiu: Some(2_500_000_000),
+    segment_model_nano_aiu: Some(2_500_000_000),
+    segment_model_request_cost: Some(0.5),
+};
+
+#[test]
+fn premium_requests_and_aic_follow_capabilities_not_the_summary() {
+    let (temp, db) = setup();
+    assert_eq!(billing_columns(&db, COPILOT_ID), COPILOT_BILLING);
+
+    // The summary still carries premium requests and AIC; a source without
+    // either stores none of them.
+    index_as_third_source(&temp, &db, unbilled());
+    assert_eq!(
+        billing_columns(&db, COPILOT_ID),
+        BillingColumns {
+            session_premium_requests: None,
+            session_nano_aiu: None,
+            model_nano_aiu: None,
+            segment_premium_requests: 0.0,
+            segment_nano_aiu: None,
+            segment_model_nano_aiu: None,
+            segment_model_request_cost: None,
+        }
+    );
+
+    // A source with both keeps every value.
+    let billed = SourceCapabilities {
+        has_aic: true,
+        has_premium_requests: true,
+        ..unbilled()
+    };
+    index_as_third_source(&temp, &db, billed);
+    assert_eq!(billing_columns(&db, COPILOT_ID), COPILOT_BILLING);
 }
