@@ -118,6 +118,7 @@ releases require this review even if their wrapper action has not changed.
 - **Run all:** `pnpm test`; the runner reports the current test inventory.
 - **Run one package:** `pnpm --filter @tracepilot/desktop test`.
 - Desktop tests cap workers at four; use `--maxWorkers=2` while another native build runs. Tests must await store hydration and deferred imports instead of relying on arbitrary delays.
+- Calling any Pinia store action makes that store's pinia the active one, so a timer or watcher left by an earlier test (such as the sdk store's auto-connect) can re-activate that test's pinia mid-test. A component test that sets store state and then mounts should name its pinia in both places: `useXStore(pinia)` and `mount(..., { global: { plugins: [pinia] } })`.
 - **Watch mode:** `pnpm --filter @tracepilot/desktop test -- --watch`.
 - Tests live next to the code they cover (`*.spec.ts` / `*.test.ts`) or
   under `__tests__/` folders. Fixtures live in
