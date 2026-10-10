@@ -6,6 +6,10 @@ use tracepilot_core::provider::SessionSource;
 
 use super::super::helpers::*;
 
+/// A modified file's path with `/` for every `\`, so one file spelled with
+/// either separator (as tools and sessions mix them) counts once.
+const FILE_KEY: &str = r"REPLACE(f.file_path, '\', '/')";
+
 pub(super) fn query_code_impact(
     conn: &Connection,
     from_date: Option<&str>,
@@ -32,11 +36,10 @@ pub(super) fn query_code_impact(
 
     // File type breakdown from session_modified_files
     let ext_sql = format!(
-        "SELECT COALESCE(f.extension, '(no ext)'), COUNT(*)
+        "SELECT COALESCE(f.extension, '(no ext)'), COUNT(DISTINCT f.session_id || '|' || {FILE_KEY})
              FROM session_modified_files f
-             JOIN sessions s ON s.id = f.session_id{}
-             GROUP BY f.extension ORDER BY COUNT(*) DESC",
-        where_clause
+             JOIN sessions s ON s.id = f.session_id{where_clause}
+             GROUP BY f.extension ORDER BY 2 DESC"
     );
     let refs = to_refs(&bind_values);
     let mut ext_stmt = conn.prepare(&ext_sql)?;
@@ -66,13 +69,13 @@ pub(super) fn query_code_impact(
         })
         .collect();
 
-    // Most modified files (by number of sessions)
+    // Most modified files (by number of sessions), each shown by its greatest
+    // spelling (the `\` one when both occur).
     let mf_sql = format!(
-        "SELECT f.file_path, COUNT(DISTINCT f.session_id)
+        "SELECT MAX(f.file_path), COUNT(DISTINCT f.session_id)
              FROM session_modified_files f
-             JOIN sessions s ON s.id = f.session_id{}
-             GROUP BY f.file_path ORDER BY COUNT(DISTINCT f.session_id) DESC LIMIT 20",
-        where_clause
+             JOIN sessions s ON s.id = f.session_id{where_clause}
+             GROUP BY {FILE_KEY} ORDER BY 2 DESC LIMIT 20"
     );
     let refs = to_refs(&bind_values);
     let mut mf_stmt = conn.prepare(&mf_sql)?;
@@ -91,10 +94,9 @@ pub(super) fn query_code_impact(
 
     // Total distinct files
     let fc_sql = format!(
-        "SELECT COUNT(DISTINCT f.file_path)
+        "SELECT COUNT(DISTINCT {FILE_KEY})
              FROM session_modified_files f
-             JOIN sessions s ON s.id = f.session_id{}",
-        where_clause
+             JOIN sessions s ON s.id = f.session_id{where_clause}"
     );
     let refs = to_refs(&bind_values);
     let files_modified: u32 =

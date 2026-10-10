@@ -3,7 +3,7 @@
 //! Contains [`compute_code_impact`] which produces file change aggregation,
 //! file type breakdown, and daily change trends.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::types::*;
 
@@ -17,7 +17,8 @@ use super::types::*;
 pub fn compute_code_impact(sessions: &[SessionAnalyticsInput]) -> CodeImpactData {
     let mut total_lines_added: u64 = 0;
     let mut total_lines_removed: u64 = 0;
-    let mut file_counts: HashMap<String, u32> = HashMap::new(); // path → modification count
+    // Separator-normalized path → (shown path, sessions that modified it).
+    let mut file_counts: HashMap<String, (String, u32)> = HashMap::new();
     let mut ext_counts: HashMap<String, u32> = HashMap::new();
     let mut changes_by_day: BTreeMap<String, (u64, u64)> = BTreeMap::new(); // date → (add, del)
 
@@ -48,8 +49,18 @@ pub fn compute_code_impact(sessions: &[SessionAnalyticsInput]) -> CodeImpactData
 
         // File tracking
         if let Some(ref files) = code_changes.files_modified {
+            let mut seen = HashSet::new();
             for file in files {
-                *file_counts.entry(file.clone()).or_insert(0) += 1;
+                let key = file.replace('\\', "/");
+                if !seen.insert(key.clone()) {
+                    continue;
+                }
+                let entry = file_counts.entry(key).or_insert_with(|| (file.clone(), 0));
+                // The greatest spelling, as the indexed query shows it.
+                if *file > entry.0 {
+                    entry.0 = file.clone();
+                }
+                entry.1 += 1;
 
                 // Extension tracking
                 let ext = std::path::Path::new(file)
@@ -86,7 +97,7 @@ pub fn compute_code_impact(sessions: &[SessionAnalyticsInput]) -> CodeImpactData
     // Most modified files (by frequency, since we don't have per-file line counts)
     let mut most_modified_files: Vec<ModifiedFileEntry> = file_counts
         .into_iter()
-        .map(|(path, count)| ModifiedFileEntry {
+        .map(|(_, (path, count))| ModifiedFileEntry {
             path,
             additions: count as u64, // modification count
             deletions: 0,            // not available per-file
@@ -167,6 +178,31 @@ mod tests {
             .find(|e| e.extension == "rs")
             .unwrap();
         assert_eq!(rs.count, 2);
+    }
+
+    /// `src\main.rs` and `src/main.rs` are one file, also within one session.
+    #[test]
+    fn test_code_impact_groups_paths_across_separators() {
+        let sessions = vec![
+            make_input_with_code(
+                "s1",
+                "2026-01-15",
+                1,
+                0,
+                vec![r"src\main.rs", "src/main.rs"],
+            ),
+            make_input_with_code("s2", "2026-01-16", 1, 0, vec![r"src\main.rs", "README.md"]),
+        ];
+        let result = compute_code_impact(&sessions);
+        assert_eq!(result.files_modified, 2);
+        let top = &result.most_modified_files[0];
+        assert_eq!((top.path.as_str(), top.additions), (r"src\main.rs", 2));
+        let rs = result
+            .file_type_breakdown
+            .iter()
+            .find(|e| e.extension == "rs")
+            .unwrap();
+        assert_eq!(rs.count, 2, "one per session");
     }
 
     #[test]
