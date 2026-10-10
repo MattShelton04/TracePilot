@@ -94,10 +94,23 @@ into one transaction, with per-session savepoints for failed writes. Smaller
 batches keep individual commits so a few large sessions do not retain combined
 SQLite/FTS write state. Standalone writes use one transaction without a nested
 savepoint, avoiding a second in-memory rollback journal. Cancellation or a failed
-batch commit rolls back that batch; completed commits remain searchable. Source
+batch commit rolls back that batch; completed commits remain searchable (on a
+first index, once its FTS rebuild has run; see below). Source
 preparation happens before the transaction, so file reads do not hold the database
 write lock. Compare fresh and incremental phases when changing this boundary:
 per-session commits can substantially increase transaction and WAL/checkpoint work.
+
+A first index (`search_content` empty when the pass starts) skips the per-row FTS
+triggers: each batch commits its rows with the triggers dropped inside its
+transaction, and the pass runs one FTS5 `'rebuild'` after its last write
+(`search_writer/deferred_fts.rs`). Until then, full-text queries do not find the
+new rows. A `maintenance_state` marker records pending rows; a pass that is
+cancelled or fails before the rebuild leaves it for the next pass, and a prune,
+purge or clear that lands in between rebuilds first, because FTS5 rejects
+deleting a row it never indexed. The rebuild holds the write lock for one
+transaction (about 1.3 s for 283k rows on the synthetic corpus). Writing without
+the triggers moves the bottleneck back to preparation, so a larger in-flight
+budget would now show up in first-index times.
 
 For base/head comparisons, run a separate head-only budget check. A historical
 base may legitimately exceed the new memory budget; use an explicitly recorded

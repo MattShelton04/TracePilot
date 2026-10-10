@@ -54,7 +54,10 @@ pub fn reindex_search_content(
 /// This should be called AFTER Phase 1 (main reindex) completes.
 /// Alternates bounded source preparation and transactional search writes.
 /// A source whose configuration changes mid-pass is skipped, and its current
-/// batch rolled back. Returns (indexed_count, skipped_count).
+/// batch rolled back. When `search_content` starts empty, the full-text index
+/// is built once after the last write instead of with every batch; a
+/// cancelled pass leaves that to the next one. Returns
+/// (indexed_count, skipped_count).
 #[tracing::instrument(skip_all)]
 pub fn reindex_search_content_scoped(
     scope: &IndexScope,
@@ -69,6 +72,8 @@ pub fn reindex_search_content_scoped(
     }
     let passes = discovery?;
     let db = index_db::IndexDb::open_or_create(index_db_path)?;
+    // A pass that deferred FTS sync stopped before rebuilding: catch up first.
+    db.finish_deferred_search_fts()?;
     let total = passes.iter().map(|pass| pass.sessions.len()).sum();
     tracing::debug!(
         sessions = total,
@@ -110,6 +115,12 @@ pub fn reindex_search_content_scoped(
         return Ok((0, skipped));
     }
 
+    // A first index syncs FTS once, after its writes (see `deferred_fts`).
+    let fts_sync = if db.search_content_is_empty()? {
+        FtsSync::AtEnd
+    } else {
+        FtsSync::PerBatch
+    };
     let mut indexed = 0;
     let mut processed = skipped;
     for (pass, stale) in passes.iter().zip(&to_index) {
@@ -118,17 +129,20 @@ pub fn reindex_search_content_scoped(
             current: pass.sessions.len() - stale.len(),
             total: pass.sessions.len(),
         };
-        let (written, cancelled) = index_source(&db, scope, pass, stale, &is_cancelled, |batch| {
-            processed += batch;
-            progress.current += batch;
-            on_progress(&SearchIndexingProgress {
-                current: processed,
-                total,
-                source: Some(progress),
-            });
-        })?;
+        let (written, cancelled) =
+            index_source(&db, scope, pass, stale, fts_sync, &is_cancelled, |batch| {
+                processed += batch;
+                progress.current += batch;
+                on_progress(&SearchIndexingProgress {
+                    current: processed,
+                    total,
+                    source: Some(progress),
+                });
+            })?;
         indexed += written;
         if cancelled {
+            // Cancelling stops a pass before the index is deleted or
+            // replaced, so a pending FTS rebuild waits for the next pass.
             return Ok((indexed, skipped));
         }
         if progress.current < progress.total {
@@ -142,6 +156,9 @@ pub fn reindex_search_content_scoped(
             });
         }
     }
+
+    // Every batch is committed: make them searchable.
+    db.finish_deferred_search_fts()?;
 
     // Time-gated maintenance: fires on the first indexing pass after startup
     // (4-hour throttle), complete no-op during subsequent auto-refresh cycles.
@@ -170,6 +187,7 @@ fn index_source(
     scope: &IndexScope,
     pass: &SourcePass,
     sessions: &[&SessionLocator],
+    fts_sync: FtsSync,
     is_cancelled: &impl Fn() -> bool,
     mut on_batch: impl FnMut(usize),
 ) -> Result<(usize, bool)> {
@@ -193,7 +211,10 @@ fn index_source(
                     "Search snapshot not indexed; retaining previous content"),
             }
         }
-        indexed += write_batch(db, source, &prepared, &fingerprints, &stop)?;
+        indexed += match fts_sync {
+            FtsSync::PerBatch => write_batch(db, source, &prepared, &fingerprints, &stop)?,
+            FtsSync::AtEnd => write_deferred(db, source, &prepared, &fingerprints, &stop),
+        };
         if stop() {
             return Ok(Flow::Stop);
         }
@@ -201,6 +222,34 @@ fn index_source(
         Ok(Flow::Continue)
     })?;
     Ok((indexed, is_cancelled()))
+}
+
+/// When a pass brings `search_fts` up to date with its writes.
+#[derive(Clone, Copy)]
+enum FtsSync {
+    /// As each batch commits: through the sync triggers, or a bulk rebuild.
+    PerBatch,
+    /// Once, after the pass's last write (see `deferred_fts`).
+    AtEnd,
+}
+
+/// Commit one prepared batch without FTS sync. A batch that fails is
+/// skipped, keeping its sessions' previous state.
+fn write_deferred(
+    db: &index_db::IndexDb,
+    source: SessionSource,
+    prepared: &[(SessionId, Vec<SearchContentRow>)],
+    fingerprints: &[String],
+    stop: &impl Fn() -> bool,
+) -> usize {
+    match db.write_search_snapshots_deferred(source, prepared, fingerprints, stop) {
+        Ok(count) => count,
+        Err(_) if stop() => 0,
+        Err(error) => {
+            tracing::warn!(error = %error, "Search batch not committed; retaining previous content");
+            0
+        }
+    }
 }
 
 /// Write one prepared batch, choosing the bulk or the per-session path.

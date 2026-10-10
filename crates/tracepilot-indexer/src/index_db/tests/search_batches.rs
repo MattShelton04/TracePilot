@@ -338,38 +338,3 @@ fn ten_small_trigger_updates_remain_one_atomic_batch() {
     assert_eq!(hits(&db, "original"), 0);
     assert_eq!(hits(&db, "user"), 10);
 }
-
-#[test]
-fn cancelled_indexing_reports_only_committed_batches_and_resumes_remaining_sessions() {
-    let temp = tempfile::tempdir().unwrap();
-    for index in 0..40 {
-        let id = format!("11111111-1111-4111-8111-{index:012}");
-        write_session(
-            temp.path(),
-            &id,
-            "batch",
-            "repo",
-            "main",
-            "sentinel",
-            "reply",
-        );
-    }
-    let path = temp.path().join("index.db");
-    crate::reindex_all(temp.path(), &path).unwrap();
-    let cancelled = Cell::new(false);
-    let result = crate::reindex_search_content(
-        temp.path(),
-        &path,
-        |_| cancelled.set(true),
-        || cancelled.get(),
-    )
-    .unwrap();
-    assert_eq!(result, (32, 0));
-    let db = IndexDb::open_readonly(&path).unwrap();
-    assert_eq!(hits(&db, "sentinel"), 32);
-    assert_eq!(
-        crate::reindex_search_content(temp.path(), &path, |_| {}, || false).unwrap(),
-        (8, 32)
-    );
-    assert_eq!(hits(&db, "sentinel"), 40);
-}

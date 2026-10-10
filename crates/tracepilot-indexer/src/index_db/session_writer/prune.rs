@@ -77,6 +77,8 @@ impl IndexDb {
     ) -> Result<usize> {
         self.conn.execute_batch("SAVEPOINT delete_sessions")?;
         let result = (|| -> Result<usize> {
+            // Cascaded search rows are deleted through the FTS triggers.
+            self.sync_deferred_search_fts()?;
             let deleted = delete()?;
             if !is_current() {
                 return Err(stale_source(source));

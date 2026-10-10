@@ -9,6 +9,7 @@
 //! - `tool_extraction` — Tool-specific JSON→text extractors and JSON flatteners
 
 mod content_extraction;
+mod deferred_fts;
 #[cfg(test)]
 mod tests;
 mod tool_extraction;
@@ -119,6 +120,23 @@ impl IndexDb {
         is_cancelled: &impl Fn() -> bool,
     ) -> Result<usize> {
         let transaction = self.conn.unchecked_transaction()?;
+        let indexed =
+            self.write_search_snapshots(source, session_rows, fingerprints, is_cancelled)?;
+        tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+        transaction.commit()?;
+        Ok(indexed)
+    }
+
+    /// Write each session inside its own savepoint of the caller's open
+    /// transaction. Returns the sessions written; fails, leaving the caller to
+    /// roll back, on cancellation or when SQLite ended the transaction.
+    fn write_search_snapshots(
+        &self,
+        source: SessionSource,
+        session_rows: &[(SessionId, Vec<SearchContentRow>)],
+        fingerprints: &[String],
+        is_cancelled: &impl Fn() -> bool,
+    ) -> Result<usize> {
         let mut indexed = 0;
         for ((session_id, rows), fingerprint) in session_rows.iter().zip(fingerprints) {
             tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
@@ -142,8 +160,6 @@ impl IndexDb {
                 }
             }
         }
-        tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
-        transaction.commit()?;
         Ok(indexed)
     }
 
@@ -257,13 +273,15 @@ impl IndexDb {
 
     /// Clear all search content and reset search_indexed_at for all sessions.
     pub fn clear_search_content(&self) -> Result<()> {
+        let transaction = self.conn.unchecked_transaction()?;
+        // The delete below goes through the FTS triggers.
+        self.sync_deferred_search_fts()?;
         self.conn.execute_batch(
-            "BEGIN;
-             DELETE FROM search_content;
+            "DELETE FROM search_content;
              UPDATE sessions SET search_indexed_at = NULL, search_extractor_version = 0,
-                search_source_fingerprint = NULL;
-             COMMIT;",
+                search_source_fingerprint = NULL;",
         )?;
+        transaction.commit()?;
         Ok(())
     }
 
