@@ -30,7 +30,9 @@ are not re-indexed. Once both sources have sessions, the session list shows a
 source badge and a source filter, and the Analytics pages get an
 **All / Copilot / Claude Code** filter. Search gets the same filter beside its
 sort menu; typing `source:claude` or `source:copilot` in the search box does
-the same, and the filter counts follow it.
+the same, and the filter counts follow it. Search results and the tool
+filter show Claude Code's own tool names (for example `Bash`), while `tool:`
+still takes TracePilot's names.
 
 Turning the setting off removes Claude Code sessions from TracePilot's index,
 search and analytics, and leaves your Claude Code files alone. Turning it back
