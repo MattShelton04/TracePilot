@@ -142,11 +142,18 @@ jobs:
   # tauri.conf.json because there is no Developer ID, so users approve the
   # first launch in Privacy & Security. In-app updates are not quarantined
   # and install without that prompt.
+  #
+  # macOS is tier 2, so a failure here does not hold back the Windows
+  # release: `built` stays unset, the updater manifest keeps Windows only,
+  # and publish-release removes any macOS assets this job uploaded.
   build-macos:
     name: Build and upload macOS app
     needs: create-release
     runs-on: macos-15
     timeout-minutes: 40
+    continue-on-error: true
+    outputs:
+      built: ${{ steps.built.outputs.built }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -191,12 +198,17 @@ jobs:
             .tracepilot/macos-smoke/*.png
             .tracepilot/macos-smoke/data root/logs/
 
+      - name: Mark macOS build complete
+        id: built
+        run: echo "built=true" >> "$GITHUB_OUTPUT"
+
   # Adds the macOS entries to the latest.json the Windows job uploaded. URLs use
   # the API asset form, like tauri-action's, because browser download URLs
   # change when a draft is published.
   updater-manifest:
     name: Add macOS to updater manifest
     needs: [create-release, build-installers, build-macos]
+    if: needs.build-macos.outputs.built == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -250,12 +262,35 @@ jobs:
   publish-release:
     name: Publish completed release
     needs: [create-release, build-installers, build-macos, updater-manifest]
+    # Runs without macOS when its build failed (updater-manifest is then
+    # skipped), but never when macOS built and its manifest merge failed.
     if: >-
-      (github.event_name == 'push' && !contains(needs.create-release.outputs.version, '-'))
-      || (github.event_name == 'workflow_dispatch' && inputs.draft == false)
+      !cancelled()
+      && needs.create-release.result == 'success'
+      && needs.build-installers.result == 'success'
+      && (needs.updater-manifest.result == 'success' || needs.build-macos.outputs.built != 'true')
+      && ((github.event_name == 'push' && !contains(needs.create-release.outputs.version, '-'))
+        || (github.event_name == 'workflow_dispatch' && inputs.draft == false))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Remove macOS assets from a failed macOS build
+        if: needs.build-macos.outputs.built != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          echo "::warning::The macOS build failed, so this release ships Windows only."
+          gh api "repos/$GH_REPO/releases/$RELEASE_ID/assets" --paginate \
+            --jq '.[] | select(.name | test("\\.(dmg|app\\.tar\\.gz|app\\.tar\\.gz\\.sig)$")) | "\(.id) \(.name)"' |
+            while read -r id name; do
+              echo "Removing $name"
+              gh api -X DELETE "repos/$GH_REPO/releases/assets/$id"
+            done
+
       - name: Publish release
         shell: bash
         env:

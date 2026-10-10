@@ -172,11 +172,21 @@ async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
         return vec![];
     }
 
-    // Step 2: For each PID, use lsof to find listening TCP ports
+    // Step 2: For each PID, use lsof to find listening TCP ports. Field
+    // output (`-Fpn`) is used because the default table ends each row with
+    // `(LISTEN)`, not the address.
     let mut results = vec![];
     for pid in pids {
         let mut lsof_cmd = tokio::process::Command::new("lsof");
-        lsof_cmd.args(["-nP", "-iTCP", "-sTCP:LISTEN", "-a", "-p", &pid.to_string()]);
+        lsof_cmd.args([
+            "-nP",
+            "-iTCP",
+            "-sTCP:LISTEN",
+            "-a",
+            "-p",
+            &pid.to_string(),
+            "-Fpn",
+        ]);
         let (lsof_stdout, _, _) =
             match crate::process::run_async_with_limits(lsof_cmd, PROBE_TIMEOUT, PROBE_MAX_BYTES)
                 .await
@@ -185,27 +195,25 @@ async fn detect_unix(_tool: &str) -> Vec<DetectedUiServer> {
                 Err(_) => continue,
             };
 
-        let lsof_text = String::from_utf8_lossy(&lsof_stdout);
-        for line in lsof_text.lines().skip(1) {
-            // lsof output: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
-            // NAME looks like: *:12345 or 127.0.0.1:12345
-            if let Some(port) = line
-                .split_whitespace()
-                .last()
-                .and_then(|name| name.rsplit(':').next())
-                .and_then(|port_str| port_str.parse::<u16>().ok())
-            {
-                results.push(DetectedUiServer {
-                    pid,
-                    port,
-                    address: format!("127.0.0.1:{}", port),
-                });
-                break; // One port per PID is enough
-            }
-        }
+        results.extend(ui_server_from_lsof(
+            pid,
+            &String::from_utf8_lossy(&lsof_stdout),
+        ));
     }
 
     results
+}
+
+/// The first loopback-reachable listener `pid` holds in `lsof -Fpn` output
+/// (IPv4 ahead of IPv6).
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn ui_server_from_lsof(pid: u32, output: &str) -> Option<DetectedUiServer> {
+    let address = super::live_host::parse_lsof(output)
+        .remove(&pid)?
+        .into_iter()
+        .next()?;
+    let port = address.rsplit_once(':')?.1.parse().ok()?;
+    Some(DetectedUiServer { pid, port, address })
 }
 
 /// Linux: Use /proc filesystem + `ss` for port discovery.
@@ -292,6 +300,27 @@ mod tests {
         assert!(json.contains("12345"));
         assert!(json.contains("60381"));
         assert!(json.contains("127.0.0.1:60381"));
+    }
+
+    #[test]
+    fn lsof_field_output_yields_the_listening_port() {
+        let output = "p4242\nf23\nn127.0.0.1:60381\nf24\nn[::1]:60381\n";
+        let server = ui_server_from_lsof(4242, output).expect("a listener");
+        assert_eq!(server.port, 60381);
+        assert_eq!(server.address, "127.0.0.1:60381");
+    }
+
+    #[test]
+    fn lsof_ipv6_only_listener_keeps_its_address() {
+        let server = ui_server_from_lsof(7, "p7\nf9\nn[::1]:5000\n").expect("a listener");
+        assert_eq!(server.port, 5000);
+        assert_eq!(server.address, "[::1]:5000");
+    }
+
+    #[test]
+    fn lsof_without_a_listener_for_the_pid_is_none() {
+        assert!(ui_server_from_lsof(7, "").is_none());
+        assert!(ui_server_from_lsof(7, "p8\nf9\nn127.0.0.1:5000\n").is_none());
     }
 
     #[cfg(target_os = "windows")]

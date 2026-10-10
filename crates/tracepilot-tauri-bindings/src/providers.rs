@@ -25,10 +25,10 @@ pub(crate) fn registry_for(config: &TracePilotConfig) -> ProviderRegistry {
     registry
 }
 
-/// How long a process start time is reused. Each lookup spawns a hidden
-/// PowerShell (about 160 ms), and the session list and a running session's
-/// detail view both poll. A Claude Code process removes its pid file on exit,
-/// so this only delays noticing a crash.
+/// How long a process start time is reused. A lookup spawns a hidden
+/// PowerShell on Windows (about 160 ms) or `ps` on macOS, and the session list
+/// and a running session's detail view both poll. A Claude Code process
+/// removes its pid file on exit, so this only delays noticing a crash.
 const PROCESS_START_TTL: Duration = Duration::from_secs(5);
 
 type ProcessStarts = Mutex<HashMap<u32, (Instant, Option<String>)>>;

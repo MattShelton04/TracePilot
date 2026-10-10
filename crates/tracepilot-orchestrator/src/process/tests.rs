@@ -53,14 +53,21 @@ fn test_run_hidden_with_timeout_success() {
 
 #[test]
 fn test_run_hidden_timeout_triggers() {
-    // Use a command that will definitely timeout (sleep for 10s with 1s timeout)
+    // Use a command that will definitely timeout (sleep for 30s with 1s timeout)
+    let started = std::time::Instant::now();
     #[cfg(not(windows))]
-    let result = run_hidden("sleep", &["10"], None, Some(1));
+    let result = run_hidden("sleep", &["30"], None, Some(1));
 
     #[cfg(windows)]
     #[allow(deprecated)] // test-only; exercises the deprecated API's timeout path
-    let result = run_hidden_shell("Start-Sleep -Seconds 10", None, Some(1));
+    let result = run_hidden_shell("Start-Sleep -Seconds 30", None, Some(1));
 
+    // The child is killed at the deadline, not waited out.
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed < std::time::Duration::from_secs(15),
+        "timeout returned after {elapsed:?}"
+    );
     assert!(result.is_err());
     let err_msg = result.unwrap_err().to_string();
     assert!(err_msg.contains("timed out") || err_msg.contains("Command timed out"));
@@ -433,4 +440,35 @@ fn process_start_time_reads_a_live_process_and_rejects_a_missing_one() {
     // Windows hands out pids in multiples of 4, so this odd one is never live.
     assert_eq!(lookup(i32::MAX as u32), None);
     assert_eq!(lookup(u32::MAX), None);
+}
+
+#[test]
+fn proc_stat_start_is_field_22_counted_after_the_command_name() {
+    let stat = "109 (claude) S 99 94 0 0 -1 4194304 765465 20443050 1621 12330 \
+                4784 1093 58406 10959 20 0 13 0 439 5739892736 96092";
+    assert_eq!(hidden::parse_proc_stat_start(stat).as_deref(), Some("439"));
+    // A command name with spaces and a `)` does not shift the fields.
+    let odd = "7 (a) b (c)) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 98765 1 1";
+    assert_eq!(hidden::parse_proc_stat_start(odd).as_deref(), Some("98765"));
+    assert_eq!(hidden::parse_proc_stat_start("7 (short) S 1"), None);
+    assert_eq!(hidden::parse_proc_stat_start("garbage"), None);
+}
+
+#[cfg(unix)]
+#[test]
+fn ps_start_time_reads_a_live_process_and_rejects_a_missing_one() {
+    let lookup = |pid| hidden::ps_start_time_within(pid, 30);
+    let own = lookup(std::process::id()).expect("own start time");
+    // `lstart` in the C locale: weekday, month, day, time and year.
+    assert_eq!(own.split_whitespace().count(), 5, "got {own:?}");
+    assert_eq!(lookup(std::process::id()), Some(own));
+    assert_eq!(lookup(i32::MAX as u32), None);
+}
+
+#[cfg(unix)]
+#[test]
+fn process_start_time_is_stable_for_a_live_process() {
+    let own = process_start_time(std::process::id()).expect("own start time");
+    assert_eq!(process_start_time(std::process::id()), Some(own));
+    assert_eq!(process_start_time(i32::MAX as u32), None);
 }
