@@ -98,6 +98,8 @@ pub struct SearchResultItem {
     pub session_repository: Option<String>,
     pub session_branch: Option<String>,
     pub session_updated_at: Option<String>,
+    /// Which tool wrote the session.
+    pub source: tracepilot_core::provider::SessionSource,
 }
 
 #[derive(Debug, Serialize)]

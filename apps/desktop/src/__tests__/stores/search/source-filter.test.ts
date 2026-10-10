@@ -63,6 +63,45 @@ describe("useSearchStore – source filter", () => {
     expect(lastFacets()).toEqual(["retry", expect.objectContaining({ source: "claudeCode" })]);
   });
 
+  it("shows a typed source: qualifier as the searched source", () => {
+    const store = useSearchStore();
+    expect(store.effectiveSource).toBeNull();
+    store.query = "retry source:claude";
+    expect(store.effectiveSource).toBe("claudeCode");
+    store.source = "copilot";
+    // The typed qualifier wins, as it does for the search itself.
+    expect(store.effectiveSource).toBe("claudeCode");
+    store.query = "retry";
+    expect(store.effectiveSource).toBe("copilot");
+  });
+
+  it("picking a source drops a typed source: qualifier and searches once", async () => {
+    const store = useSearchStore();
+    store.query = "retry source:claude";
+    await flushSearchQueue();
+    mocks.searchContent.mockClear();
+
+    store.setSource("copilot");
+    expect(store.query).toBe("retry");
+    expect(store.effectiveSource).toBe("copilot");
+    await flushSearchQueue();
+    await flushSearchQueue();
+    expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+    expect(lastSearch()).toEqual(["retry", expect.objectContaining({ source: "copilot" })]);
+
+    store.query = "retry source:claude";
+    store.setSource(null);
+    expect(store.query).toBe("retry");
+    expect(store.effectiveSource).toBeNull();
+  });
+
+  it("picking a source leaves a query without a source: qualifier alone", () => {
+    const store = useSearchStore();
+    store.query = "retry  tool:shell ";
+    store.setSource("claudeCode");
+    expect(store.query).toBe("retry  tool:shell ");
+  });
+
   it("keeps the newest source's results when an older response lands late", async () => {
     const store = useSearchStore();
     let resolveClaude!: (v: unknown) => void;

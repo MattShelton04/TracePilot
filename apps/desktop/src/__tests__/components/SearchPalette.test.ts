@@ -9,6 +9,7 @@ import { pushRoute } from "@/router/navigation";
 // Mock the search composable so we don't hit the real search IPC.
 const paletteState = {
   query: ref(""),
+  source: ref(null),
   totalCount: ref(0),
   latencyMs: ref(0),
   loading: ref(false),
@@ -85,6 +86,7 @@ function searchResult(id: number): SearchResult {
     sessionRepository: null,
     sessionBranch: null,
     sessionUpdatedAt: null,
+    source: "copilot",
   };
 }
 

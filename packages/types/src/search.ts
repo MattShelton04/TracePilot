@@ -34,8 +34,8 @@ export interface SearchResult {
   sessionRepository: string | null;
   sessionBranch: string | null;
   sessionUpdatedAt: string | null;
-  /** Which tool wrote the session. Absent from older backends; means Copilot. */
-  source?: SessionSource;
+  /** Which tool wrote the session. */
+  source: SessionSource;
 }
 
 /** Paginated search results response from the backend. */
@@ -103,7 +103,19 @@ export interface ContextSnippet {
   contentType: string;
   turnNumber: number | null;
   toolName: string | null;
+  /** The source-native tool name the row records (Claude Code's `Bash`). */
+  nativeToolName?: string | null;
   preview: string;
+}
+
+/** A canonical tool name in the search index, for the tool filter. */
+export interface SearchToolName {
+  /** The canonical name: the `tool:` filter value. */
+  name: string;
+  /** Source-native names its rows record (Claude Code's `Bash`), sorted. */
+  nativeNames: string[];
+  /** Sources whose sessions used the tool. */
+  sources: SessionSource[];
 }
 
 // ─── Indexing Progress ────────────────────────────────────────────

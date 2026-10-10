@@ -42,11 +42,12 @@ pub async fn get_search_repositories(
     })
 }
 
-/// Get distinct tool names for search filter dropdown.
+/// Get distinct canonical tool names, with their native names and sources,
+/// for the search filter dropdown.
 #[tauri::command]
 pub async fn get_search_tool_names(
     state: tauri::State<'_, SharedConfig>,
-) -> CmdResult<Vec<String>> {
+) -> CmdResult<Vec<tracepilot_indexer::index_db::SearchToolName>> {
     let cfg = read_config(&state);
     let index_path = cfg.index_db_path();
 

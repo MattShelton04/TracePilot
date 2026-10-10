@@ -178,6 +178,7 @@ onUnmounted(() => search.dispose());
           :has-results="hasResults"
           :search-error="searchError"
           :query="query"
+          :source="search.source.value"
           @select="(r: SearchResult) => activateAt(resultsOffset + flatResults.indexOf(r))"
           @hover="(idx: number) => (selectedIndex = resultsOffset + idx)"
         />

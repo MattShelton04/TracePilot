@@ -4,7 +4,12 @@ import {
   getSearchStats,
   getSearchToolNames,
 } from "@tracepilot/client";
-import type { SearchFacetsResponse, SearchStatsResponse, SessionSource } from "@tracepilot/types";
+import type {
+  SearchFacetsResponse,
+  SearchStatsResponse,
+  SearchToolName,
+  SessionSource,
+} from "@tracepilot/types";
 import { useAsyncGuard } from "@tracepilot/ui";
 import { ref, shallowRef } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -31,7 +36,7 @@ export function createFacetsSlice(q: QuerySlice) {
   const statsLoading = ref(false);
 
   const availableRepositories = shallowRef<string[]>([]);
-  const availableToolNames = shallowRef<string[]>([]);
+  const availableToolNames = shallowRef<SearchToolName[]>([]);
 
   const facetGuard = useAsyncGuard();
   const statsGuard = useAsyncGuard();

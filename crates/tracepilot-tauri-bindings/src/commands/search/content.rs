@@ -86,6 +86,7 @@ pub async fn search_content(
                     session_repository: r.session_repository,
                     session_branch: r.session_branch,
                     session_updated_at: r.session_updated_at,
+                    source: r.source,
                 })
                 .collect(),
             total_count,

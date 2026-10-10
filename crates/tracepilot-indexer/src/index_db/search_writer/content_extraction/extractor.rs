@@ -58,8 +58,15 @@ pub(crate) fn extract_search_content_cancellable(
                 if let Some(ref content) = d.content
                     && !content.is_empty()
                 {
+                    // A notification wake's lines were written by the tool,
+                    // not the user (only Claude Code records notifications).
+                    let content_type = if d.notifications.is_empty() {
+                        "user_message"
+                    } else {
+                        "system_message"
+                    };
                     let row = SearchContentRowBuilder::new(session_id, turn, idx, ts_unix)
-                        .with_content("user_message", content.clone());
+                        .with_content(content_type, content.clone());
                     rows.push(row);
                 }
                 // A notification's message is one short line per task; the

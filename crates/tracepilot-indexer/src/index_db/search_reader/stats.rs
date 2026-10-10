@@ -2,7 +2,9 @@
 
 use rusqlite::{params_from_iter, types::ToSql};
 
-use super::{ContextSnippet, FtsHealthInfo, SearchStats};
+use tracepilot_core::provider::SessionSource;
+
+use super::{ContextSnippet, FtsHealthInfo, NATIVE_TOOL_NAME_SQL, SearchStats, SearchToolName};
 use crate::Result;
 use crate::index_db::IndexDb;
 use crate::index_db::row_helpers::context_snippet_from_row;
@@ -62,15 +64,45 @@ impl IndexDb {
         Ok(repositories)
     }
 
-    /// Get distinct tool names from search content.
-    pub fn search_tool_names(&self) -> Result<Vec<String>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT DISTINCT tool_name FROM search_content WHERE tool_name IS NOT NULL ORDER BY tool_name",
-        )?;
-        let rows = stmt.query_map([], |row| row.get(0))?;
-        let mut names = Vec::new();
+    /// Distinct canonical tool names in search content, each with the native
+    /// names its rows record and the sources that used it, for the tool
+    /// filter. The filter value stays the canonical name.
+    pub fn search_tool_names(&self) -> Result<Vec<SearchToolName>> {
+        let sql = format!(
+            "SELECT sc.tool_name, s.source, {NATIVE_TOOL_NAME_SQL} AS native_tool_name              FROM search_content sc JOIN sessions s ON s.id = sc.session_id              WHERE sc.tool_name IS NOT NULL              GROUP BY sc.tool_name, s.source, native_tool_name              ORDER BY sc.tool_name, native_tool_name"
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })?;
+        let mut names: Vec<SearchToolName> = Vec::new();
         for row in rows {
-            names.push(row?);
+            let (name, source, native) = row?;
+            if names.last().is_none_or(|last| last.name != name) {
+                names.push(SearchToolName {
+                    name,
+                    native_names: Vec::new(),
+                    sources: Vec::new(),
+                });
+            }
+            let Some(entry) = names.last_mut() else {
+                continue;
+            };
+            if let Some(source) = SessionSource::from_stored(&source)
+                && !entry.sources.contains(&source)
+            {
+                entry.sources.push(source);
+                entry.sources.sort();
+            }
+            if let Some(native) = native
+                && !entry.native_names.contains(&native)
+            {
+                entry.native_names.push(native);
+            }
         }
         Ok(names)
     }
@@ -164,12 +196,9 @@ impl IndexDb {
         let event_idx = event_index.unwrap_or(0);
 
         // Get rows before
-        let mut before_stmt = self.conn.prepare(
-            "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300) AS preview
-             FROM search_content
-             WHERE session_id = ?1 AND event_index < ?2 AND event_index IS NOT NULL
-             ORDER BY event_index DESC LIMIT ?3",
-        )?;
+        let mut before_stmt = self.conn.prepare(&format!(
+            "SELECT id, content_type, turn_number, event_index, tool_name,                     {NATIVE_TOOL_NAME_SQL} AS native_tool_name, substr(content, 1, 300) AS preview              FROM search_content              WHERE session_id = ?1 AND event_index < ?2 AND event_index IS NOT NULL              ORDER BY event_index DESC LIMIT ?3"
+        ))?;
         let before = before_stmt.query_map(
             params_from_iter([
                 Box::new(session_id.clone()) as Box<dyn ToSql>,
@@ -185,12 +214,9 @@ impl IndexDb {
         before_results.reverse();
 
         // Get rows after
-        let mut after_stmt = self.conn.prepare(
-            "SELECT id, content_type, turn_number, event_index, tool_name, substr(content, 1, 300) AS preview
-             FROM search_content
-             WHERE session_id = ?1 AND event_index > ?2 AND event_index IS NOT NULL
-             ORDER BY event_index ASC LIMIT ?3",
-        )?;
+        let mut after_stmt = self.conn.prepare(&format!(
+            "SELECT id, content_type, turn_number, event_index, tool_name,                     {NATIVE_TOOL_NAME_SQL} AS native_tool_name, substr(content, 1, 300) AS preview              FROM search_content              WHERE session_id = ?1 AND event_index > ?2 AND event_index IS NOT NULL              ORDER BY event_index ASC LIMIT ?3"
+        ))?;
         let after = after_stmt.query_map(
             params_from_iter([
                 Box::new(session_id) as Box<dyn ToSql>,

@@ -4,12 +4,19 @@ import type {
   SearchResult,
   SearchResultsResponse,
   SearchStatsResponse,
-  SessionSource,
+  SearchToolName,
 } from "@tracepilot/types";
 import { NOW_MS, ONE_HOUR } from "./common.js";
 import { MOCK_SESSIONS } from "./sessions.js";
 
-type Row = [sessionId: string, type: SearchContentType, tool: string | null, text: string];
+type Row = [
+  sessionId: string,
+  type: SearchContentType,
+  tool: string | null,
+  text: string,
+  /** The source-native tool name (Claude Code rows). */
+  native?: string,
+];
 
 /** Synthetic indexed content across the mock sessions, including the Claude Code one. */
 const ROWS: Row[] = [
@@ -35,7 +42,13 @@ const ROWS: Row[] = [
     null,
     "Review the indexing retries for the auth path.",
   ],
-  ["sess-claude-code-review", "tool_call", "Bash", "cargo test -p tracepilot-indexer retry"],
+  [
+    "sess-claude-code-review",
+    "tool_call",
+    "shell",
+    "cargo test -p tracepilot-indexer retry",
+    "Bash",
+  ],
   [
     "sess-claude-code-review",
     "assistant_message",
@@ -44,27 +57,40 @@ const ROWS: Row[] = [
   ],
 ];
 
-const RESULTS: SearchResult[] = ROWS.map(([sessionId, contentType, toolName, snippet], i) => {
-  const session = MOCK_SESSIONS.find((s) => s.id === sessionId);
-  return {
-    id: i + 1,
-    sessionId,
-    contentType,
-    turnNumber: 0,
-    eventIndex: i,
-    timestampUnix: Math.floor((NOW_MS - ONE_HOUR * (i + 1)) / 1000),
-    toolName,
-    snippet,
-    metadataJson: null,
-    sessionSummary: session?.summary ?? null,
-    sessionRepository: session?.repository ?? null,
-    sessionBranch: session?.branch ?? null,
-    sessionUpdatedAt: session?.updatedAt ?? null,
-  };
-});
+const RESULTS: SearchResult[] = ROWS.map(
+  ([sessionId, contentType, toolName, snippet, native], i) => {
+    const session = MOCK_SESSIONS.find((s) => s.id === sessionId);
+    return {
+      id: i + 1,
+      sessionId,
+      contentType,
+      turnNumber: 0,
+      eventIndex: i,
+      timestampUnix: Math.floor((NOW_MS - ONE_HOUR * (i + 1)) / 1000),
+      toolName,
+      snippet,
+      metadataJson: native ? JSON.stringify({ nativeToolName: native }) : null,
+      sessionSummary: session?.summary ?? null,
+      sessionRepository: session?.repository ?? null,
+      sessionBranch: session?.branch ?? null,
+      sessionUpdatedAt: session?.updatedAt ?? null,
+      source: session?.source ?? "copilot",
+    };
+  },
+);
 
-function sourceOf(sessionId: string): SessionSource {
-  return MOCK_SESSIONS.find((s) => s.id === sessionId)?.source ?? "copilot";
+/** Canonical tool names with their native names and sources, like the backend. */
+function toolNames(): SearchToolName[] {
+  const byName = new Map<string, SearchToolName>();
+  ROWS.forEach(([, , tool, , native], i) => {
+    if (!tool) return;
+    const entry = byName.get(tool) ?? { name: tool, nativeNames: [], sources: [] };
+    byName.set(tool, entry);
+    const source = RESULTS[i].source;
+    if (!entry.sources.includes(source)) entry.sources.push(source);
+    if (native && !entry.nativeNames.includes(native)) entry.nativeNames.push(native);
+  });
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function list(value: unknown): string[] {
@@ -90,7 +116,7 @@ function matching(args: Record<string, unknown>): SearchResult[] {
       (repos.length === 0 || repos.includes(r.sessionRepository ?? "")) &&
       (tools.length === 0 || tools.includes(r.toolName ?? "")) &&
       (!args.sessionId || r.sessionId === args.sessionId) &&
-      (!args.source || sourceOf(r.sessionId) === args.source),
+      (!args.source || r.source === args.source),
   );
 }
 
@@ -152,7 +178,7 @@ export function searchMockRoute(
     case "get_search_repositories":
       return { value: [...new Set(RESULTS.map((r) => r.sessionRepository ?? ""))].filter(Boolean) };
     case "get_search_tool_names":
-      return { value: [...new Set(RESULTS.map((r) => r.toolName ?? ""))].filter(Boolean).sort() };
+      return { value: toolNames() };
     default:
       return null;
   }

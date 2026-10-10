@@ -1,4 +1,8 @@
-import type { SearchFacetsResponse, SearchResultsResponse } from "@tracepilot/types";
+import type {
+  SearchFacetsResponse,
+  SearchResultsResponse,
+  SearchToolName,
+} from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
 import { searchMockRoute } from "../mock/search.js";
 
@@ -22,6 +26,21 @@ describe("search mock route", () => {
       ?.value as SearchFacetsResponse;
     expect(facets.totalMatches).toBe(claude.totalCount);
     expect(facets.sessionCount).toBe(1);
+  });
+
+  it("gives each row its source and Claude tool rows their native name", () => {
+    const claude = search({ query: "retry", source: "claudeCode" });
+    expect(claude.results.every((r) => r.source === "claudeCode")).toBe(true);
+    expect(
+      search({ query: "retry", source: "copilot" }).results.map((r) => r.source),
+    ).not.toContain("claudeCode");
+    const shell = searchMockRoute("get_search_tool_names")?.value as SearchToolName[];
+    expect(shell.find((t) => t.name === "shell")).toEqual({
+      name: "shell",
+      nativeNames: ["Bash"],
+      sources: ["claudeCode"],
+    });
+    expect(shell.find((t) => t.name === "powershell")?.nativeNames).toEqual([]);
   });
 
   it("leaves other commands to the shared table", () => {

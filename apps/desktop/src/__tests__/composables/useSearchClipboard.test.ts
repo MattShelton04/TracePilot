@@ -36,6 +36,7 @@ function makeResult(overrides: Partial<SearchResult> = {}): SearchResult {
     sessionUpdatedAt: null,
     toolName: null,
     metadataJson: null,
+    source: "copilot",
     ...overrides,
   };
 }

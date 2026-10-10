@@ -20,6 +20,7 @@ const hit = (id, session, contentType, turnNumber, snippet, toolName = null) => 
   sessionRepository: session.repository,
   sessionBranch: session.branch,
   sessionUpdatedAt: session.updatedAt,
+  source: session.source ?? "copilot",
 });
 
 const results = [
@@ -122,7 +123,9 @@ export const showcaseSearch = {
   get_search_repositories: [
     ...new Set(showcaseSessions.map((session) => session.repository)),
   ].sort(),
-  get_search_tool_names: ["create", "edit", "grep", "powershell", "view", "web_fetch"],
+  get_search_tool_names: ["create", "edit", "grep", "powershell", "view", "web_fetch"].map(
+    (name) => ({ name, nativeNames: [], sources: ["copilot"] }),
+  ),
 };
 
 const skillBase = {

@@ -198,6 +198,49 @@ fn claude_sessions_index_and_search_next_to_copilot() {
 }
 
 #[test]
+fn search_rows_carry_their_source_and_tools_their_native_names() {
+    let fixture = Fixture::new();
+    fixture.index(&fixture.scope());
+    let db = IndexDb::open_readonly(&fixture.db_path).unwrap();
+    let filters = SearchFilters::default();
+
+    let hits = db.query_content(None, &filters).unwrap();
+    assert!(!hits.is_empty());
+    for hit in &hits {
+        let expected = if [CLAUDE_A, CLAUDE_B].contains(&hit.session_id.as_str()) {
+            SessionSource::ClaudeCode
+        } else {
+            SessionSource::Copilot
+        };
+        assert_eq!(hit.source, expected, "{}", hit.session_id);
+    }
+
+    // The filter keeps canonical names; Claude rows add their native names.
+    let tools = db.search_tool_names().unwrap();
+    let shell = tools.iter().find(|tool| tool.name == "shell").unwrap();
+    assert_eq!(shell.native_names, ["Bash"]);
+    assert!(shell.sources.contains(&SessionSource::ClaudeCode));
+    for tool in tools
+        .iter()
+        .filter(|tool| tool.sources == [SessionSource::Copilot])
+    {
+        assert!(tool.native_names.is_empty(), "{}", tool.name);
+    }
+
+    // Expanded results show the native name of neighbouring tool rows too.
+    let output = db
+        .query_content(Some("alphazoutput"), &filters)
+        .unwrap()
+        .remove(0);
+    let (before, _) = db.get_result_context(output.id, 10).unwrap();
+    let call = before
+        .iter()
+        .find(|row| row.tool_name.as_deref() == Some("shell"))
+        .unwrap();
+    assert_eq!(call.native_tool_name.as_deref(), Some("Bash"));
+}
+
+#[test]
 fn a_claude_search_version_bump_re_extracts_only_claude_sessions() {
     let fixture = Fixture::new();
     fixture.index(&fixture.scope());

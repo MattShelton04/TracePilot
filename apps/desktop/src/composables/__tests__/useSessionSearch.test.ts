@@ -34,6 +34,7 @@ const storeState = {
   query: "",
   sessionId: null as string | null,
   source: null as string | null,
+  effectiveSource: null as string | null,
   results: [] as { id: number }[],
   groupedResults: [] as { sessionId: string; sessionSummary: string | null }[],
   resultViewMode: "flat" as "flat" | "grouped",
@@ -107,6 +108,7 @@ beforeEach(() => {
   storeState.toolName = null;
   storeState.sessionId = null;
   storeState.source = null;
+  storeState.effectiveSource = null;
   storeState.dateFrom = null;
   storeState.dateTo = null;
   storeState.error = null;
@@ -130,13 +132,20 @@ describe("useSessionSearch", () => {
     expect(api.showSourceFilter.value).toBe(false);
 
     storeState.source = "claudeCode";
+    storeState.effectiveSource = "claudeCode";
     wrapper.unmount();
     const second = runComposable();
     expect(second.api.showSourceFilter.value).toBe(true);
     expect(second.api.activeFilterCount.value).toBe(1);
     second.wrapper.unmount();
 
+    // A typed `source:` qualifier shows the switch too.
     storeState.source = null;
+    const typed = runComposable();
+    expect(typed.api.showSourceFilter.value).toBe(true);
+    typed.wrapper.unmount();
+
+    storeState.effectiveSource = null;
     sessions.sessions = [{ id: "a" }, { id: "c", source: "claudeCode" }] as never;
     const third = runComposable();
     expect(third.api.showSourceFilter.value).toBe(true);

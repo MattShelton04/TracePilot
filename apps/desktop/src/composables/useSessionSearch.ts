@@ -142,7 +142,9 @@ export function useSessionSearch(options: UseSessionSearchOptions) {
   // Like the session list, the source filter appears only once more than one
   // source has sessions, so Copilot-only users see no change.
   const sourceOptions = computed(() => sessionsStore.sources);
-  const showSourceFilter = computed(() => sourceOptions.value.length > 1 || store.source !== null);
+  const showSourceFilter = computed(
+    () => sourceOptions.value.length > 1 || store.effectiveSource !== null,
+  );
 
   // ── Content type tri-state toggle ─────────────────────────────
   // States: 'off' (not filtered) → 'include' → 'exclude' → 'off'

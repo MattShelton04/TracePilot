@@ -298,6 +298,7 @@ export type {
   SearchResult,
   SearchResultsResponse,
   SearchStatsResponse,
+  SearchToolName,
 } from "./search.js";
 // ── session.js ─────────────────────────────────────────────────────
 export type {

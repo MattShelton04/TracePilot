@@ -2,7 +2,7 @@ import type { SearchContentType, SearchResult, SessionSource } from "@tracepilot
 import { toErrorMessage } from "@tracepilot/ui";
 import { computed, ref, shallowRef } from "vue";
 import { hasMeaningfulDateValue } from "@/utils/dateValidation";
-import type { ParsedQualifiers } from "@/utils/parseQualifiers";
+import { type ParsedQualifiers, parseQualifiers, stripQualifier } from "@/utils/parseQualifiers";
 
 export type SortMode = "relevance" | "newest" | "oldest";
 
@@ -62,7 +62,7 @@ export interface SessionGroup {
   sessionSummary: string | null;
   sessionRepository: string | null;
   sessionBranch: string | null;
-  sessionSource?: SessionSource;
+  sessionSource: SessionSource;
   results: SearchResult[];
 }
 
@@ -111,6 +111,8 @@ export function createQuerySlice() {
   const hasQuery = computed(() => query.value.trim().length > 0);
   const isBrowseMode = computed(() => !hasQuery.value);
   const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value));
+  /** The source searched: the query's `source:` qualifier, else the switch's. */
+  const effectiveSource = computed(() => parseQualifiers(query.value).source ?? source.value);
   const hasActiveFilters = computed(() => {
     return (
       contentTypes.value.length > 0 ||
@@ -198,6 +200,14 @@ export function createQuerySlice() {
     page.value = 1;
   }
 
+  /** Pick a source in the switch; a typed `source:` qualifier gives way to it. */
+  function setSource(next: SessionSource | null) {
+    source.value = next;
+    if (parseQualifiers(query.value).source !== null) {
+      query.value = stripQualifier(query.value, "source");
+    }
+  }
+
   function clearError() {
     error.value = null;
   }
@@ -247,12 +257,14 @@ export function createQuerySlice() {
     isBrowseMode,
     totalPages,
     hasActiveFilters,
+    effectiveSource,
     groupedResults,
     // Helpers
     parseDateRange,
     clearSearchResults,
     clearFilters,
     clearError,
+    setSource,
     setDateRange,
     setPage,
     nextPage,

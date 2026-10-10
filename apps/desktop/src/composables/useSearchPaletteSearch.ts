@@ -1,7 +1,13 @@
 import { searchContent } from "@tracepilot/client";
-import type { SearchContentType, SearchResult, SearchResultsResponse } from "@tracepilot/types";
+import type {
+  SearchContentType,
+  SearchResult,
+  SearchResultsResponse,
+  SessionSource,
+} from "@tracepilot/types";
 import { CONTENT_TYPE_CONFIG, getDesignToken, toErrorMessage } from "@tracepilot/ui";
 import { computed, onScopeDispose, ref, watch } from "vue";
+import { parseQualifiers } from "@/utils/parseQualifiers";
 
 export interface ResultGroup {
   contentType: SearchContentType;
@@ -17,11 +23,22 @@ export interface ResultGroup {
  * + keyboard handling. Caller is expected to clear state via `reset()` when
  * the palette closes.
  */
-export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: number } = {}) {
+export function useSearchPaletteSearch(
+  options: {
+    debounceMs?: number;
+    limit?: number;
+    /** The Search page's source filter, used when the query names none. */
+    defaultSource?: () => SessionSource | null;
+  } = {},
+) {
   const debounceMs = options.debounceMs ?? 150;
   const limit = options.limit ?? 20;
 
   const query = ref("");
+  /** The source searched: the query's `source:` qualifier, else the default. */
+  const source = computed<SessionSource | null>(
+    () => parseQualifiers(query.value).source ?? options.defaultSource?.() ?? null,
+  );
   const results = ref<SearchResult[]>([]);
   const totalCount = ref(0);
   const latencyMs = ref(0);
@@ -56,8 +73,18 @@ export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: n
     const gen = ++searchGeneration;
     loading.value = true;
     searchError.value = null;
+    // Qualifiers filter as on the Search page instead of being matched as text.
+    const parsed = parseQualifiers(q);
     try {
-      const response: SearchResultsResponse = await searchContent(q, { limit });
+      const response: SearchResultsResponse = await searchContent(parsed.cleanQuery, {
+        limit,
+        contentTypes: parsed.types.length > 0 ? parsed.types : undefined,
+        repositories: parsed.repo ? [parsed.repo] : undefined,
+        toolNames: parsed.tool ? [parsed.tool] : undefined,
+        sessionId: parsed.session ?? undefined,
+        source: source.value ?? undefined,
+        sortBy: parsed.sort && parsed.sort !== "relevance" ? parsed.sort : undefined,
+      });
       if (gen !== searchGeneration) return;
       results.value = response.results;
       totalCount.value = response.totalCount;
@@ -136,6 +163,7 @@ export function useSearchPaletteSearch(options: { debounceMs?: number; limit?: n
   return {
     // state
     query,
+    source,
     results,
     totalCount,
     latencyMs,

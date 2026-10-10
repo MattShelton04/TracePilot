@@ -1,7 +1,7 @@
 import type { SearchContentType } from "@tracepilot/types";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { computed, defineComponent, h, reactive, ref } from "vue";
+import { computed, defineComponent, h, nextTick, reactive, ref } from "vue";
 import SearchFilterSidebar from "@/components/search/SearchFilterSidebar.vue";
 import SessionSearchHero from "@/components/search/SessionSearchHero.vue";
 import { useSearchKeyboardNavigation } from "@/composables/useSearchKeyboardNavigation";
@@ -15,7 +15,12 @@ const store = reactive({
   stats: null,
   facets: null,
   availableRepositories: ["audit/demo"],
-  availableToolNames: ["read_file"],
+  availableToolNames: [{ name: "read_file", nativeNames: [], sources: ["copilot"] }] as {
+    name: string;
+    nativeNames: string[];
+    sources: string[];
+  }[],
+  effectiveSource: null as string | null,
   repository: null as string | null,
   toolName: null as string | null,
   setDateRange: vi.fn(),
@@ -31,6 +36,8 @@ beforeEach(() => {
   store.excludeContentTypes = [];
   store.repository = null;
   store.toolName = null;
+  store.availableToolNames = [{ name: "read_file", nativeNames: [], sources: ["copilot"] }];
+  store.effectiveSource = null;
   toggleResult.mockClear();
 });
 
@@ -155,5 +162,41 @@ describe("Search filter accessibility", () => {
       await select.setValue(value);
       expect(store[key]).toBe(value);
     }
+  });
+
+  it("names Claude Code tools natively and lists the searched source's tools", async () => {
+    store.availableToolNames = [
+      { name: "read_file", nativeNames: [], sources: ["copilot"] },
+      { name: "shell", nativeNames: ["Bash"], sources: ["claudeCode"] },
+    ];
+    const view = renderFilters();
+    const toolSelect = () => {
+      const label = view.findAll("label").find((item) => item.text() === "Tool")!;
+      return view.get(`select[id="${label.attributes("for")}"]`);
+    };
+    const options = () =>
+      toolSelect()
+        .findAll("option")
+        .map((option) => [option.attributes("value"), option.text()]);
+    expect(options()).toEqual([
+      ["", "All Tools"],
+      ["read_file", "read_file"],
+      ["shell", "Bash (shell)"],
+    ]);
+
+    // The value stays canonical, so `tool:` and the filter agree.
+    await toolSelect().setValue("shell");
+    expect(store.toolName).toBe("shell");
+
+    store.effectiveSource = "copilot";
+    await nextTick();
+    expect(options()).toEqual([
+      ["", "All Tools"],
+      ["read_file", "read_file"],
+      ["shell", "shell"],
+    ]);
+    store.toolName = null;
+    await nextTick();
+    expect(options().map(([value]) => value)).toEqual(["", "read_file"]);
   });
 });

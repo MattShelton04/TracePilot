@@ -28,7 +28,7 @@ fn note(
 }
 
 #[test]
-fn a_notification_wake_indexes_the_report_and_event_beside_its_line() {
+fn a_notification_wake_indexes_its_line_report_and_event_as_system_text() {
     let mut wake = user_message("Agent \"Map it\" finished\nMonitor event: \"checks\" · pass");
     if let TypedEventData::UserMessage(data) = &mut wake.typed_data {
         *data = UserMessageData {
@@ -56,8 +56,9 @@ fn a_notification_wake_indexes_the_report_and_event_beside_its_line() {
     assert_eq!(
         found,
         [
+            // The wake's lines are the tool's text, not a user prompt.
             (
-                "user_message",
+                "system_message",
                 "Agent \"Map it\" finished\nMonitor event: \"checks\" · pass"
             ),
             ("system_message", "The indexer has three stages."),
@@ -65,4 +66,17 @@ fn a_notification_wake_indexes_the_report_and_event_beside_its_line() {
         ]
     );
     assert!(rows.iter().all(|r| r.event_index == 0));
+}
+
+#[test]
+fn a_system_sourced_message_without_notifications_stays_a_user_message() {
+    // Copilot logs its own notifications as `source: "system"` user messages
+    // and records no notifications: its rows must not change.
+    let mut message = user_message("<system_notification>Shell finished</system_notification>");
+    if let TypedEventData::UserMessage(data) = &mut message.typed_data {
+        data.source = Some("system".into());
+    }
+    let rows = extract_search_content(&sid(), &[message]);
+    let found: Vec<&str> = rows.iter().map(|r| r.content_type).collect();
+    assert_eq!(found, ["user_message"]);
 }

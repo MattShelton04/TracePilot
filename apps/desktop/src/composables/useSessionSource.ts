@@ -39,16 +39,3 @@ export function useSessionSource(
   );
   return { source, capabilities: computed(() => sourceCapabilities(source.value)) };
 }
-
-/**
- * Looks up a session's source for rows that may not carry one, such as search
- * results: the row's own source first, then the loaded session list.
- */
-export function useSessionSourceLookup(): (
-  sessionId: string,
-  explicit?: SessionSource | null,
-) => SessionSource | undefined {
-  const sessions = useSessionsStore();
-  return (sessionId, explicit) =>
-    explicit ?? knownSessionSource(sessionId, undefined, sessions.sessions);
-}
