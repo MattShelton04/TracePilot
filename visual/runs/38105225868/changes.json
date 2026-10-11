@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "3a4ae2e206208d37c894bd7636f487d5debe5aac",
-  "headSha": "954f78b4c77cd9e6d762ce81f002d1397def6484",
+  "baseSha": "85b2068720201552c450902c6a021d47a17c9192",
+  "headSha": "8039e43d5f91e30d701c939d602b67e4ed03e1a0",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,11 +9,11 @@
     "scale": 1
   },
   "summary": {
-    "changed": 2,
+    "changed": 3,
     "unchanged": 128,
     "subtle": 0,
     "incomplete": 0,
-    "baseUnavailable": 1,
+    "baseUnavailable": 0,
     "total": 131
   },
   "views": [
@@ -40,15 +40,23 @@
       "group": "overview",
       "route": "/session/sess-auth-refactor/overview",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 719857,
+      "percent": 52.072989004629626,
+      "areas": [
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 668,
+          "pixels": 719857
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/8bbe2ee8695eab5b90541948089d0542c8e6f99c426949abe93162a038d6a1e2.png",
-        "after": "../../img/8bbe2ee8695eab5b90541948089d0542c8e6f99c426949abe93162a038d6a1e2.png",
-        "difference": null,
+        "after": "../../img/03d5e91d443c9682dc603c37c04ad86e2f109027002194ef46a9a9ba62b6545b.png",
+        "difference": "../../img/d8fd3b675aaed2bf51c2dfdb0b2cf53677f36cbad3ca850ead373a8e7504a12d.png",
         "closeUps": []
       },
       "limitations": []
@@ -184,15 +192,23 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/overview",
       "state": "populated Claude Code session",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
-      "sameAreasAs": null,
+      "change": "changed",
+      "changedPixels": 733827,
+      "percent": 53.08355034722222,
+      "areas": [
+        {
+          "x": 268,
+          "y": 292,
+          "width": 1144,
+          "height": 668,
+          "pixels": 733827
+        }
+      ],
+      "sameAreasAs": "session-overview",
       "images": {
         "before": "../../img/a385d85c92f756ea567ce6ef38dfa47f20d2739995fcc4e8979f5a0355452959.png",
-        "after": "../../img/a385d85c92f756ea567ce6ef38dfa47f20d2739995fcc4e8979f5a0355452959.png",
-        "difference": null,
+        "after": "../../img/d46470941521b4278ab1c6d69d0da0bc12b9ff7fdf40a7452a1a9df73a18d6a0.png",
+        "difference": "../../img/ca71228c7f897d89dcada00e294fe0c4c8b3d6657065c9bf0c9101bbadb002fa.png",
         "closeUps": []
       },
       "limitations": []
@@ -208,8 +224,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/8a796825748d87d3c75433c46ca53409e4cb9230cc715f9006bed9b983e08d82.png",
-        "after": "../../img/8a796825748d87d3c75433c46ca53409e4cb9230cc715f9006bed9b983e08d82.png",
+        "before": "../../img/7efccfbe9a7ba93ff570aed07534c274bbc0dfbff987d375c9f7a606b26a2ba5.png",
+        "after": "../../img/7efccfbe9a7ba93ff570aed07534c274bbc0dfbff987d375c9f7a606b26a2ba5.png",
         "difference": null,
         "closeUps": []
       },
@@ -238,16 +254,73 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/overview",
       "state": "Claude Code plan-mode session: file-history checkpoints, one version open",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 199254,
+      "percent": 14.413628472222221,
+      "areas": [
+        {
+          "x": 268,
+          "y": 56,
+          "width": 1144,
+          "height": 378,
+          "pixels": 186494
+        },
+        {
+          "x": 327,
+          "y": 714,
+          "width": 1062,
+          "height": 151,
+          "pixels": 8464
+        },
+        {
+          "x": 288,
+          "y": 593,
+          "width": 233,
+          "height": 87,
+          "pixels": 3243
+        },
+        {
+          "x": 1249,
+          "y": 617,
+          "width": 140,
+          "height": 25,
+          "pixels": 979
+        },
+        {
+          "x": 631,
+          "y": 569,
+          "width": 8,
+          "height": 6,
+          "pixels": 30
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/5d2d7d689276d72b871fa4733a4f2ceb699806ddb10cc7ff00b2484df1a6b650.png",
-        "after": "../../img/5d2d7d689276d72b871fa4733a4f2ceb699806ddb10cc7ff00b2484df1a6b650.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/936e1e23ffeb169c4e234a14a85cb724129f15990f0a51d8966cc61b4ee10cc4.png",
+        "difference": "../../img/3476b1886ed4b75d6c358bb4bae4161511c943978b9ef66c7dbcacac54506b11.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 232,
+              "y": 24,
+              "width": 1208,
+              "height": 442
+            },
+            "before": "../../img/6024c2bf377cd679282fbbdd4b7a7321d3e79e9125514b39211fecf824621775.png",
+            "after": "../../img/50a478f4b4c5c13279e2a1f140153d2d695f75cde0b72e2f277e5a6ba9dd0b1e.png"
+          },
+          {
+            "rect": {
+              "x": 295,
+              "y": 682,
+              "width": 1126,
+              "height": 215
+            },
+            "before": "../../img/8bb86b185af1fdf8e2c0036c92806bea146a522e25e662d9dcdb03ef1abf5209.png",
+            "after": "../../img/c049fc8de7f8952adf7e1ceb7e98483e81545f11181509fd94522d9c04243ec2.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -496,8 +569,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/397bac61d58fb684f481805acfa297bc3a935c69009e88128ce1eebdfe5f32ca.png",
-        "after": "../../img/397bac61d58fb684f481805acfa297bc3a935c69009e88128ce1eebdfe5f32ca.png",
+        "before": "../../img/22571dd9262fb312cbd795cf09ed559d348be1978773ca6d0f52343d4963c89c.png",
+        "after": "../../img/22571dd9262fb312cbd795cf09ed559d348be1978773ca6d0f52343d4963c89c.png",
         "difference": null,
         "closeUps": []
       },
@@ -748,8 +821,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/1e54351e7925d4f19ef702afe2c04b7f48ae9fb499b682fd632185673efc622e.png",
-        "after": "../../img/1e54351e7925d4f19ef702afe2c04b7f48ae9fb499b682fd632185673efc622e.png",
+        "before": "../../img/3bd1119ade300ca82bd5a9d438325a9082d36ee373061d8f3351593d64e29151.png",
+        "after": "../../img/3bd1119ade300ca82bd5a9d438325a9082d36ee373061d8f3351593d64e29151.png",
         "difference": null,
         "closeUps": []
       },
@@ -796,35 +869,34 @@
       "group": "overview",
       "route": "/",
       "state": "installed version's release history from a fixture manifest",
-      "change": "changed",
-      "changedPixels": 154632,
-      "percent": 11.18576388888889,
-      "areas": [
-        {
-          "x": 396,
-          "y": 131,
-          "width": 647,
-          "height": 714,
-          "pixels": 154632
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/3b417e55a095faf4b2a3c6b245a44d0a7ccaea7982e512aeacfc11b61d870967.png",
+        "before": "../../img/5c59b296bba26234dab4ffa10e0d911dcd2d374ae15a90fe9d832685c8be0e3b.png",
         "after": "../../img/5c59b296bba26234dab4ffa10e0d911dcd2d374ae15a90fe9d832685c8be0e3b.png",
-        "difference": "../../img/0c2dffaa397ad8b6adf65e96e276c0637fb0f598a0553b0f5018ac3a2d3d1fe7.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 364,
-              "y": 99,
-              "width": 711,
-              "height": 778
-            },
-            "before": "../../img/fcbde5591894d9f924c5e89c4277dfcbfdcf807c5f17fe9e858422fd64628537.png",
-            "after": "../../img/4015f03162d13feb852e3b72f7b90d1ddfb529795914cba5fd3eb5d4f577e05b.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
+      },
+      "limitations": []
+    },
+    {
+      "id": "release-notes-update",
+      "group": "overview",
+      "route": "/",
+      "state": "release history opened from the version number, with an update available",
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
+      "sameAreasAs": null,
+      "images": {
+        "before": "../../img/f60aa71a781fcc5ff411fc2d146b7e5be116871822d039350bab61f3b2e3d4db.png",
+        "after": "../../img/f60aa71a781fcc5ff411fc2d146b7e5be116871822d039350bab61f3b2e3d4db.png",
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -1391,35 +1463,16 @@
       "group": "rich-tools",
       "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
       "state": "Synthetic view · fetched source · first page",
-      "change": "changed",
-      "changedPixels": 4607,
-      "percent": 0.33326099537037035,
-      "areas": [
-        {
-          "x": 1312,
-          "y": 884,
-          "width": 100,
-          "height": 64,
-          "pixels": 4607
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/1f16d1f7e4c45513b02d50b92b5b0fd71c5b3d0ef1f10e02b6fc84e23c1179d6.png",
+        "before": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
         "after": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
-        "difference": "../../img/ee48f5c993690f11c290c528a95bccc1c3417c78b4b428fb4bd2b8e225cb53a4.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 760,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/04315f7a399c78c54887ca7c659263637fcd95653b9a29c8558e76bebb9e5ec5.png",
-            "after": "../../img/554f09d28e95e28c9474776e3ad44428e4eb65d01b1a9e6bb061265f82a05ef5.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
@@ -2394,26 +2447,6 @@
         "closeUps": []
       },
       "limitations": []
-    },
-    {
-      "id": "release-notes-update",
-      "group": "overview",
-      "route": "/",
-      "state": "release history opened from the version number, with an update available",
-      "change": "base unavailable",
-      "changedPixels": null,
-      "percent": null,
-      "areas": [],
-      "sameAreasAs": null,
-      "images": {
-        "before": null,
-        "after": "../../img/f60aa71a781fcc5ff411fc2d146b7e5be116871822d039350bab61f3b2e3d4db.png",
-        "difference": null,
-        "closeUps": []
-      },
-      "limitations": [
-        "base: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator('[data-testid=\"update-status-panel\"]').first() to be visible\n"
-      ]
     }
   ]
 }
