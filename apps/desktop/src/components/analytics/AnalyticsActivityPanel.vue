@@ -6,11 +6,16 @@
  */
 import { type AnalyticsData, formatNumber, formatNumberFull, sourceLabel } from "@tracepilot/types";
 import { SegmentedControl } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import AnalyticsDayChart from "@/components/analytics/AnalyticsDayChart.vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
-import { type ActivityMetric, activityRows, type DayRow } from "@/utils/analyticsDashboard";
+import {
+  type ActivityMetric,
+  activityRows,
+  busiestColumn,
+  type DayRow,
+} from "@/utils/analyticsDashboard";
 import {
   type DashboardSummary,
   formatAxisCost,
@@ -59,6 +64,8 @@ const chart = computed(() =>
     label: sourceLabel,
   }),
 );
+/** The columns the chart draws: days, or bins of days on a long range. */
+const columns = ref<DayRow[]>([]);
 
 const inCredits = computed(() => props.summary.inAiCredits);
 /** Whole runs per day; an average keeps one decimal. */
@@ -88,21 +95,11 @@ const footer = computed(() => {
   const totals = rows.map((row) => row.values.reduce((a, b) => a + b, 0));
   const active = totals.filter((total) => total > 0);
   if (!active.length) return null;
-  const peak = totals.indexOf(Math.max(...totals));
+  const peak = busiestColumn(columns.value.length ? columns.value : rows);
   const quiet = rows.length - active.length;
   const drawn = chart.value.series.filter((_, j) => rows.some((row) => row.values[j] > 0));
   return {
-    peak:
-      rows.length > 1
-        ? {
-            day: new Date(`${rows[peak].from}T00:00:00Z`).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              timeZone: "UTC",
-            }),
-            value: format.value(totals[peak]),
-          }
-        : null,
+    peak: rows.length > 1 && peak ? { day: peak.label, value: format.value(peak.total) } : null,
     average:
       rows.length > 1 ? format.value(active.reduce((a, b) => a + b, 0) / active.length) : null,
     quiet,
@@ -138,6 +135,7 @@ const ariaLabel = computed(() => {
         :integer="metric === 'runs'"
         :detail="detail"
         pins
+        @columns="columns = $event"
       />
       <div class="ad-foot">
         <span v-if="footer.peak">Busiest <b>{{ footer.peak.day }}</b> ({{ footer.peak.value }})</span>

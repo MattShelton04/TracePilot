@@ -38,6 +38,25 @@ describe("analytics prefetching", () => {
     expect(mocks.getAnalytics).not.toHaveBeenCalled();
   });
 
+  it("waits for no further idle slot once cancelled mid-request", async () => {
+    let finish!: () => void;
+    mocks.getAnalytics.mockReturnValue(new Promise<void>((resolve) => (finish = resolve)));
+    const store = useAnalyticsStore();
+    const idle = vi.fn((cb: () => void) => setTimeout(cb, 0));
+    vi.stubGlobal("requestIdleCallback", idle);
+    try {
+      const run = store.prefetchNearby(["analytics"]);
+      await vi.waitFor(() => expect(mocks.getAnalytics).toHaveBeenCalledTimes(1));
+      const waits = idle.mock.calls.length;
+      store.cancelPrefetch();
+      finish();
+      await run;
+      expect(idle).toHaveBeenCalledTimes(waits);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("refreshes in place, reporting refreshing rather than loading", async () => {
     mocks.getAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
     const store = useAnalyticsStore();

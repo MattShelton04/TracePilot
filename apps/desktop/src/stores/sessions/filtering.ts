@@ -1,4 +1,5 @@
 import {
+  modelDisplayName,
   resolveSessionSource,
   SESSION_SOURCES,
   type SessionListItem,
@@ -25,6 +26,8 @@ export interface SessionSearchFields {
   branch: string;
   cwd: string;
   model: string;
+  /** The model as the card shows it (`claude-opus-5.5` for `claude-opus-5-5`). */
+  modelName: string;
 }
 
 /** Marks a repository-filter value as a working-directory project, not a repository. */
@@ -67,6 +70,7 @@ export function buildSearchFieldCache(
       branch: (s.branch ?? "").toLowerCase(),
       cwd: (s.cwd ?? "").toLowerCase(),
       model: (s.currentModel ?? "").toLowerCase(),
+      modelName: s.currentModel ? modelDisplayName(s.currentModel, s.source).toLowerCase() : "",
     });
   }
   return cache;
@@ -96,6 +100,7 @@ export function matchesSessionFilters(
         fields.branch.includes(predicates.searchTerm) ||
         fields.cwd.includes(predicates.searchTerm) ||
         fields.model.includes(predicates.searchTerm) ||
+        fields.modelName.includes(predicates.searchTerm) ||
         fields.id.includes(predicates.searchTerm)
       )
     ) {

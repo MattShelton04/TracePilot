@@ -37,6 +37,7 @@ import { useSessionsStore } from "@/stores/sessions";
 import { formatSessionDelta } from "@/utils/deltaFormatting";
 import { getChartColors } from "@/utils/designTokens";
 import { modelTokenBreakdown } from "@/utils/metricsTokenBreakdown";
+import { modelLabels } from "@/utils/modelLabels";
 import { DURATION_HINTS } from "@/utils/sessionDurations";
 
 /**
@@ -79,6 +80,8 @@ export interface TokenBarRow {
 
 export interface DonutSegment {
   model: string;
+  /** The model as other views name it (`claude-opus-5.5` for Claude Code). */
+  label: string;
   tokens: number;
   percentage: number;
   color: string;
@@ -109,7 +112,8 @@ const DONUT_COLORS_B = [
   "#ede9fe", // very light violet
 ];
 
-function modelDistribution(m: ShutdownMetrics | null, colors: string[]): DonutSegment[] {
+function modelDistribution(data: SessionData, colors: string[]): DonutSegment[] {
+  const m = data.metrics;
   if (!m?.modelMetrics || totalTokens(m) == null) return [];
   const entries = Object.entries(m.modelMetrics).map(([model, mm]) => ({
     model,
@@ -117,14 +121,16 @@ function modelDistribution(m: ShutdownMetrics | null, colors: string[]): DonutSe
   }));
   const total = entries.reduce((s, e) => s + e.tokens, 0);
   if (total === 0) return [];
-  return entries
-    .sort((a, b) => b.tokens - a.tokens)
-    .map((e, i) => ({
-      model: e.model,
-      tokens: e.tokens,
-      percentage: e.tokens / total,
-      color: colors[i % colors.length],
-    }));
+  entries.sort((a, b) => b.tokens - a.tokens);
+  const source = data.detail?.source;
+  const labels = modelLabels(entries.map((e) => ({ model: e.model, source })));
+  return entries.map((e, i) => ({
+    model: e.model,
+    label: labels[i].label,
+    tokens: e.tokens,
+    percentage: e.tokens / total,
+    color: colors[i % colors.length],
+  }));
 }
 
 export function donutSegments(
@@ -387,8 +393,8 @@ export function useSessionComparison() {
     ];
   });
 
-  const donutA = computed(() => modelDistribution(dataA.metrics, DONUT_COLORS_A));
-  const donutB = computed(() => modelDistribution(dataB.metrics, DONUT_COLORS_B));
+  const donutA = computed(() => modelDistribution(dataA, DONUT_COLORS_A));
+  const donutB = computed(() => modelDistribution(dataB, DONUT_COLORS_B));
 
   const toolCompRows = computed<ToolCompRow[]>(() => {
     if (!compared.value) return [];

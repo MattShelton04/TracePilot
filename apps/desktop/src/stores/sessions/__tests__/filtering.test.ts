@@ -254,6 +254,14 @@ describe("stores/sessions/filtering – working directory identity", () => {
     expect(hits("gpt-5.4")).toEqual(["cop-repo"]);
   });
 
+  it("search matches a Claude Code model by the name its card shows", () => {
+    const hits = (term: string) =>
+      all
+        .filter((x) => matchesSessionFilters(x, { ...base, searchTerm: term }, cache))
+        .map((x) => x.id);
+    expect(hits("claude-opus-4.6")).toEqual(["cc-cwd"]);
+  });
+
   it("groups a repository-less session under its cwd's last segment", () => {
     expect(sessionRepositoryKey(claudeCwdOnly)).toBe(`${PROJECT_FILTER_PREFIX}Orchard`);
     expect(sessionRepositoryKey(copilotWithRepo)).toBe("org/orchard-api");

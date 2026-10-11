@@ -76,6 +76,10 @@ onBeforeUnmount(() => observer?.disconnect());
 const columns = computed(() =>
   binRows(props.rows, width.value ? width.value / MIN_BAR_PX[props.mode] : 120, props.cumulative),
 );
+// Panels name their busiest column and title from what is drawn, which
+// covers several days once the width merges them.
+const emit = defineEmits<{ columns: [columns: DayRow[]] }>();
+watch(columns, (value) => emit("columns", value), { immediate: true });
 const binned = computed(() => columns.value.some((row) => row.from !== row.to));
 const totals = computed(() => columns.value.map((row) => row.values.reduce((a, b) => a + b, 0)));
 const axis = computed(() =>

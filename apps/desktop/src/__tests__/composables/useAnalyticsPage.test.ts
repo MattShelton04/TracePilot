@@ -1,5 +1,5 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
 // ── Mock client ───────────────────────────────────────────────
@@ -69,6 +69,12 @@ describe("useAnalyticsPage", () => {
     setupPinia();
     vi.clearAllMocks();
     mountCallbacks = [];
+  });
+
+  // Mount callbacks start background prefetching; stop it so it can't run
+  // after the test environment is torn down.
+  afterEach(() => {
+    useAnalyticsStore().cancelPrefetch();
   });
 
   it("returns the analytics store instance", () => {

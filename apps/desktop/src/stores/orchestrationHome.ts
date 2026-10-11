@@ -30,6 +30,9 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
   const systemDeps = ref<SystemDependencies | null>(null);
   const totalSessions = ref(0);
   const activeSessions = ref(0);
+  /** Running sessions whose process reports it is working, or waiting for input. */
+  const workingSessions = ref(0);
+  const waitingSessions = ref(0);
   const activeVersion = ref<CopilotVersion | null>(null);
   const versions = ref<CopilotVersion[]>([]);
   const registeredRepos = ref<RegisteredRepo[]>([]);
@@ -124,7 +127,10 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
       error.value = aggregateSettledErrors(Object.values(bgSettled));
 
       totalSessions.value = sessions.length;
-      activeSessions.value = sessions.filter((s) => s.isRunning).length;
+      const running = sessions.filter((s) => s.isRunning);
+      activeSessions.value = running.length;
+      workingSessions.value = running.filter((s) => s.runStatus === "busy").length;
+      waitingSessions.value = running.filter((s) => s.runStatus === "waiting").length;
       versions.value = versionsData;
 
       // Generate activity feed from recent sessions
@@ -181,6 +187,8 @@ export const useOrchestrationHomeStore = defineStore("orchestrationHome", () => 
     systemDeps,
     totalSessions,
     activeSessions,
+    workingSessions,
+    waitingSessions,
     activeVersion,
     versions,
     worktreeCount,

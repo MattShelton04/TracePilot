@@ -18,6 +18,7 @@ import {
   ActionButton,
   FormInput,
   formatBytes,
+  ProgressBar,
   SectionPanel,
   toErrorMessage,
   useAsyncGuard,
@@ -434,9 +435,11 @@ defineExpose({ databaseSize, indexedSessionCount });
             {{ indexingProgress.current }} / {{ indexingProgress.total }} sessions
           </div>
         </div>
-        <div class="indexing-progress-bar-container">
-          <div class="indexing-progress-bar" :style="{ width: (indexingProgress.total > 0 ? (indexingProgress.current / indexingProgress.total * 100) : 0) + '%' }" />
-        </div>
+        <ProgressBar
+          class="indexing-progress-bar"
+          :percent="indexingProgress.total > 0 ? (indexingProgress.current / indexingProgress.total) * 100 : 0"
+          aria-label="Rebuild progress"
+        />
       </div>
 
       <div class="setting-row">
@@ -502,19 +505,9 @@ defineExpose({ databaseSize, indexedSessionCount });
   font-size: 0.75rem;
 }
 
-.indexing-progress-bar-container {
-  width: 160px;
-  height: 6px;
-  background: var(--canvas-inset);
-  border-radius: 3px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
+/* The shared bar's track (--neutral-muted) shows the whole, not just the done part. */
 .indexing-progress-bar {
-  height: 100%;
-  background: var(--accent-fg);
-  border-radius: 3px;
-  transition: width 0.15s ease-out;
+  width: 160px;
+  flex-shrink: 0;
 }
 </style>

@@ -5,7 +5,21 @@ import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
 
 const store = useOrchestrationHomeStore();
 
-const idleSessions = computed(() => Math.max(0, store.totalSessions - store.activeSessions));
+/** What the running sessions are doing, as their list badges say (Busy / Waiting). */
+const activeBreakdown = computed(() => {
+  const working = store.workingSessions;
+  const waiting = store.waitingSessions;
+  const other = Math.max(0, store.activeSessions - working - waiting);
+  if (store.activeSessions === 0) return "None running";
+  return [
+    working ? `${working} working` : null,
+    waiting ? `${waiting} waiting` : null,
+    // Sources that do not report a status stay plainly running.
+    other ? `${other} running` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+});
 </script>
 
 <template>
@@ -17,7 +31,7 @@ const idleSessions = computed(() => Math.max(0, store.totalSessions - store.acti
       </svg>
       <div class="hero-value">{{ store.activeSessions }}</div>
       <div class="hero-label">Active Sessions</div>
-      <div class="hero-sub">{{ store.activeSessions }} working, {{ idleSessions }} idle</div>
+      <div class="hero-sub">{{ activeBreakdown }}</div>
     </div>
 
     <!-- Worktrees -->

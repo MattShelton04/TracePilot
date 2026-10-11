@@ -347,6 +347,23 @@ describe("session comparison across billing units", () => {
     expect(cost?.delta).not.toBe("Different units");
     expect(cost?.delta).not.toBe("—");
   });
+
+  it("names Claude Code models in the distribution the way cards do", () => {
+    const { comp } = mountHook();
+    comp.compared = true;
+    comp.dataA.detail = { id: "a", source: "claudeCode" } as SessionDetail;
+    comp.dataA.metrics = {
+      totalNanoAiu: 0,
+      modelMetrics: {
+        "claude-opus-5-5": { usage: { inputTokens: 300, outputTokens: 0 } },
+        "claude-opus-5-5[1m]": { usage: { inputTokens: 100, outputTokens: 0 } },
+      },
+    } as unknown as ShutdownMetrics;
+    expect(comp.donutA.map((seg) => [seg.model, seg.label])).toEqual([
+      ["claude-opus-5-5", "claude-opus-5.5"],
+      ["claude-opus-5-5[1m]", "claude-opus-5.5 (1M)"],
+    ]);
+  });
 });
 
 describe("helpers", () => {
@@ -376,8 +393,8 @@ describe("helpers", () => {
 
   it("donutSegments returns cumulative offsets for each segment", () => {
     const segs = donutSegments([
-      { model: "a", tokens: 10, percentage: 0.5, color: "#111" },
-      { model: "b", tokens: 10, percentage: 0.5, color: "#222" },
+      { model: "a", label: "a", tokens: 10, percentage: 0.5, color: "#111" },
+      { model: "b", label: "b", tokens: 10, percentage: 0.5, color: "#222" },
     ]);
     expect(segs).toHaveLength(2);
     expect(segs[0]!.offset).toBe(0);

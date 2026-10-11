@@ -5,11 +5,11 @@
  */
 import { formatNumber, formatNumberFull } from "@tracepilot/types";
 import { SegmentedControl } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import AnalyticsDayChart from "@/components/analytics/AnalyticsDayChart.vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
-import type { DayRow } from "@/utils/analyticsDashboard";
+import { busiestColumn, type DayRow, perColumnTitle } from "@/utils/analyticsDashboard";
 import { CODE_SERIES } from "@/utils/codeImpact";
 
 const props = defineProps<{
@@ -30,6 +30,9 @@ const style = computed({
   },
 });
 
+/** The columns the chart draws: days, or bins of days on a long range. */
+const drawn = ref<DayRow[]>([]);
+
 /** Whole lines per day; an average keeps one decimal. */
 const format = (v: number) => (Number.isInteger(v) ? formatNumberFull(v) : v.toFixed(1));
 const axisFormat = (v: number) => formatNumber(Math.round(v));
@@ -46,22 +49,20 @@ const footer = computed(() => {
   const totals = rows.map((row) => row.values[0] + row.values[1]);
   const active = totals.filter((total) => total > 0);
   if (!active.length) return null;
-  const peak = totals.indexOf(Math.max(...totals));
+  const peak = busiestColumn(drawn.value.length ? drawn.value : rows);
   return {
     peak:
-      rows.length > 1
+      rows.length > 1 && peak
         ? {
-            day: new Date(`${rows[peak].from}T00:00:00Z`).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              timeZone: "UTC",
-            }),
-            added: formatNumber(rows[peak].values[0]),
-            removed: formatNumber(rows[peak].values[1]),
+            day: peak.label,
+            added: formatNumber(peak.row.values[0]),
+            removed: formatNumber(peak.row.values[1]),
           }
         : null,
     average:
-      rows.length > 1 ? formatNumber(active.reduce((a, b) => a + b, 0) / active.length) : null,
+      rows.length > 1
+        ? formatNumber(Math.round(active.reduce((a, b) => a + b, 0) / active.length))
+        : null,
     quiet: rows.length - active.length,
     legend: CODE_SERIES.filter((_, j) => rows.some((row) => row.values[j] > 0)),
   };
@@ -69,7 +70,7 @@ const footer = computed(() => {
 </script>
 
 <template>
-  <OverviewPanel title="Changes per day" data-testid="code-changes-per-day">
+  <OverviewPanel :title="perColumnTitle('Changes', drawn)" data-testid="code-changes-per-day">
     <template #aside>
       <SegmentedControl v-model="style" class="ad-seg" :options="STYLES" aria-label="Chart style" />
     </template>
@@ -84,6 +85,7 @@ const footer = computed(() => {
         label="Lines added and removed per day"
         integer
         :detail="detail"
+        @columns="drawn = $event"
       />
       <div class="ad-foot">
         <span v-if="footer.peak">
