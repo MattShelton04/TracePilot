@@ -125,10 +125,16 @@ $probe = '.\target\release\examples\indexing_workloads.exe'
 
 Pass `-` for a source to leave it out (Copilot only is the regression check).
 For a growing live session, null one session's `source_fingerprint` and
-`search_source_fingerprint` in the copy, then run `incr`. Read CPU time from
-outside (`(Get-Process -Id ...).TotalProcessorTime`, or a wrapper that starts the
-probe). For base/head comparisons on Copilot alone, `index_probe phase1`/`phase2`
-builds unchanged against older releases.
+`search_source_fingerprint` in the copy, then run `incr`. For base/head
+comparisons on Copilot alone, `index_probe phase1`/`phase2` builds unchanged
+against older releases.
+
+Treat Windows CPU times with care. `GetProcessTimes`/`GetThreadTimes` (and
+PowerShell's `TotalProcessorTime`) undercounted a fully busy parser thread by
+about 2x on the reference desktop: 2.1 s reported for 4.1 s of wall time, while
+`QueryThreadCycleTime` showed the thread busy throughout. Derived "cores used"
+figures then look like I/O waits that are not there. Compare cycle counts, or
+wall time against thread scaling, before concluding a step is blocked.
 
 Method that held up: release builds; a fresh process per workload; at least five
 runs per side, interleaved (ABBA); record the machine's CPU load before each run
@@ -137,6 +143,26 @@ agent's build shifts timings by 2x. For identical output, dump every table
 sorted with wall-clock columns masked, plus FTS `bm25` results for a fixed set of
 probe queries and FTS5 `integrity-check`, on a frozen corpus. FTS segment layout
 (`search_fts_data`, `search_fts_idx`) legitimately differs with write order.
+
+Measured and not worth changing (2026-10, real corpus, ABBA, 4 to 6 runs a side):
+
+- **Sessions phase:** it is CPU-bound. Preparation averages about 2.8 busy cores,
+  and parsing stops scaling past 4 threads (24 large Copilot sessions: 1 thread
+  4.6 s, 4 threads 1.6 s, 8 threads 2.2 s), so a larger in-flight budget or
+  parsing one file's lines in parallel cannot gain much. Per MiB, reading costs
+  0.3 ms, `serde_json::Value` parsing 2.3 ms and the typed conversion about as
+  much again; avoiding that second deserialization is the open lever.
+- **Search phase:**
+  - Coalescing batches of 2 to 9 sessions into one transaction: 538 to 216
+    commits, but commit time and wall time stayed within noise. Commit cost
+    follows the pages written, not the number of commits.
+  - `wal_autocheckpoint=10000`: no clear gain.
+  - A 256 MiB writer cache: no gain, at +215 MiB peak.
+  - Deleting a session's FTS entries with one explicit statement instead of the
+    per-row `search_content_ad` trigger: 4% faster on a full replay, below the
+    bar.
+  - `PRAGMA analysis_limit`: much faster `ANALYZE`, but it empties
+    `sqlite_stat4` and coarsens `sqlite_stat1`, so query plans may change.
 
 Baseline (2026-10, 12-thread desktop, median of 5 or more): a heavy real corpus of 618
 Copilot sessions (2.5 GB of events, largest 111 MiB) and 101 Claude Code sessions
