@@ -88,7 +88,7 @@ describe("useAnalyticsPage", () => {
 
     expect(reposSpy).toHaveBeenCalledOnce();
     expect(fetchSpy).toHaveBeenCalledOnce();
-    expect(fetchSpy).toHaveBeenCalledWith();
+    expect(fetchSpy).toHaveBeenCalledWith({ background: true });
   });
 
   it("refetches (using the per-filter cache) when selectedRepo changes", async () => {
@@ -100,7 +100,7 @@ describe("useAnalyticsPage", () => {
     store.setRepo("my-repo");
     await nextTick();
 
-    expect(fetchSpy).toHaveBeenCalledWith();
+    expect(fetchSpy).toHaveBeenCalledWith({ background: true });
   });
 
   it("refetches (using the per-filter cache) when dateRange changes", async () => {
@@ -112,7 +112,7 @@ describe("useAnalyticsPage", () => {
     store.setTimeRange("7d");
     await nextTick();
 
-    expect(fetchSpy).toHaveBeenCalledWith();
+    expect(fetchSpy).toHaveBeenCalledWith({ background: true });
   });
 
   it("refetches once in the background when a reindex bumps dataRevision", async () => {

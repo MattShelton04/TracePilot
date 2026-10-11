@@ -1,294 +1,168 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import type { SourceCostEntry } from "@tracepilot/types";
-import { createChartLayout } from "@tracepilot/ui";
+import type { AnalyticsData, SourceCostEntry } from "@tracepilot/types";
+import { KPI } from "@tracepilot/ui";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
+import { activityRows, dashboardDays } from "@/utils/analyticsDashboard";
+import { buildDashboardSummary, type Pricing } from "@/utils/analyticsSummary";
 import { FIXTURE_ANALYTICS } from "../../../__tests__/views/analyticsFixtures";
-import AnalyticsDistributionRow from "../AnalyticsDistributionRow.vue";
-import AnalyticsSourceCostPanel from "../AnalyticsSourceCostPanel.vue";
-import AnalyticsStatsGrids from "../AnalyticsStatsGrids.vue";
+import AnalyticsCostPanel from "../AnalyticsCostPanel.vue";
+import AnalyticsKpis from "../AnalyticsKpis.vue";
 
-beforeEach(() => setupPinia());
+vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
-describe("analytics cost labels for sources without AI Credits", () => {
-  it("shows an unavailable AIC USD equivalent as a dash, not $0.00", () => {
-    const wrapper = mount(AnalyticsStatsGrids, {
-      props: {
-        data: FIXTURE_ANALYTICS,
-        aiCreditSummary: {
-          credits: null,
-          usdEquivalent: null,
-          source: "unavailable",
-          observedCredits: 0,
-          estimatedCredits: 0,
-          isPartial: true,
-        },
-      },
-    });
-    expect(wrapper.text()).not.toContain("$0.00");
-    expect(wrapper.text()).toContain("AIC USD Equivalent");
+beforeEach(() => {
+  setupPinia();
+  localStorage.clear();
+  resetAnalyticsDashboardViews();
+});
+
+/** No model can be priced: AI Credits come only from observed billing. */
+const unpriced: Pricing = { computeUsageBasedCost: () => null, computeWholesaleCost: () => null };
+
+const copilotEntry: SourceCostEntry = {
+  source: "copilot",
+  sessions: 4,
+  tokens: 2_000,
+  costUsd: null,
+  sessionsWithCostUsd: 0,
+};
+const claudeEntry: SourceCostEntry = {
+  source: "claudeCode",
+  sessions: 3,
+  tokens: 1_000,
+  costUsd: 1.25,
+  sessionsWithCostUsd: 2,
+};
+
+function withSources(costBySource: SourceCostEntry[], extra: Partial<AnalyticsData> = {}) {
+  return { ...FIXTURE_ANALYTICS, costBySource, ...extra };
+}
+
+function costKpi(data: AnalyticsData, pricing = unpriced) {
+  const summary = buildDashboardSummary(data, pricing);
+  const rows = activityRows({
+    data,
+    days: dashboardDays(data, {}),
+    metric: "runs",
+    aiCreditsByDay: summary.aiCreditsByDay,
+    label: (s) => s,
+  }).rows;
+  const wrapper = mount(AnalyticsKpis, { props: { data, summary, rows } });
+  const kpi = wrapper.findAllComponents(KPI)[2];
+  return {
+    label: kpi.props("label"),
+    value: kpi.props("value"),
+    tooltip: kpi.props("description"),
+    text: kpi.text(),
+  };
+}
+
+describe("analytics cost labels", () => {
+  it("shows an unavailable AI Credit total as a dash, not $0.00", () => {
+    const kpi = costKpi(
+      withSources([copilotEntry], {
+        totalNanoAiu: 0,
+        sessionsWithObservedAiCredits: 0,
+        modelDistribution: FIXTURE_ANALYTICS.modelDistribution.map((m) => ({
+          ...m,
+          totalNanoAiu: null,
+        })),
+      }),
+    );
+    expect(kpi.label).toBe("AI Credits");
+    expect(kpi.value).toBe("—");
+    expect(kpi.text).not.toContain("$0.00");
   });
 
-  function costTrend(billedInAic?: boolean, data = FIXTURE_ANALYTICS) {
-    return mount(AnalyticsDistributionRow, {
+  it("reads Copilot alone in AI Credits with the dollar value beside", () => {
+    const kpi = costKpi(withSources([copilotEntry], { sessionsWithObservedAiCredits: 3 }));
+    expect(kpi.label).toBe("AI Credits");
+    expect(kpi.value).toBe("160");
+    expect(kpi.text).toContain("$1.60");
+    expect(kpi.text).toContain("3 of 4 observed");
+  });
+
+  it("shows a USD-priced source's estimate, not AI Credits", () => {
+    const kpi = costKpi(withSources([claudeEntry]));
+    expect(kpi.label).toBe("Estimated cost");
+    expect(kpi.value).toBe("$1.25");
+    expect(kpi.text).toContain("2 of 3 priced");
+    expect(kpi.text).toContain("partial");
+    expect(kpi.text).not.toContain("AI Credits");
+  });
+
+  it("adds every source into one USD total when sources are mixed", () => {
+    const kpi = costKpi(withSources([copilotEntry, claudeEntry], { totalNanoAiu: 12_500_000_000 }));
+    expect(kpi.label).toBe("Cost");
+    expect(kpi.value).toBe("$1.38");
+    expect(kpi.tooltip).toContain("Copilot $0.13 + Claude Code $1.25");
+    expect(kpi.tooltip).toContain("$0.01 each");
+    expect(kpi.tooltip).toContain("Partial");
+    expect(kpi.text).toContain("Copilot $0.13 · Claude Code $1.25");
+  });
+});
+
+describe("analytics cost panel", () => {
+  function panel(data: AnalyticsData) {
+    const summary = buildDashboardSummary(data, unpriced);
+    return mount(AnalyticsCostPanel, {
       props: {
         data,
-        chartLayout: createChartLayout(55, 490, 20, 175),
-        gridLines: [],
-        timeRangeLabel: "all time",
-        tooltip: {
-          visible: false,
-          pinned: false,
-          x: 0,
-          y: 0,
-          content: "",
-          chartId: "",
-          highlightIndex: -1,
-        },
-        onChartMouseMove: vi.fn(),
-        onChartClick: vi.fn(),
-        dismissTooltip: vi.fn(),
-        billedInAic,
+        summary,
+        days: dashboardDays(data, {}),
+        rangeText: "any session",
+        costPerPremiumRequest: 0.04,
       },
-      global: { stubs: { RouterLink: true } },
     });
   }
 
-  it("does not chart an AI Credit cost trend for a source that is not billed in them", () => {
-    const claude = costTrend(false);
-    expect(claude.find('[data-testid="cost-trend-unbilled"]').exists()).toBe(true);
-    expect(claude.find('[role="radiogroup"]').exists()).toBe(false);
-
-    const copilot = costTrend();
-    expect(copilot.find('[data-testid="cost-trend-unbilled"]').exists()).toBe(false);
-    expect(copilot.find('[role="radiogroup"]').exists()).toBe(true);
-  });
-});
-
-describe("analytics cost split by source", () => {
-  const claudeOnly = {
-    ...FIXTURE_ANALYTICS,
-    costBySource: [
-      {
-        source: "claudeCode" as const,
-        sessions: 3,
-        tokens: 1_000,
-        costUsd: 1.25,
-        sessionsWithCostUsd: 2,
-      },
-    ],
-  };
-
-  it("shows a USD-priced source's estimate instead of AI Credit cards", () => {
-    const wrapper = mount(AnalyticsStatsGrids, {
-      props: { data: claudeOnly, aiCreditSummary: null },
-    });
-    expect(wrapper.text()).toContain("Estimated Cost");
-    expect(wrapper.text()).toContain("$1.25");
-    expect(wrapper.text()).toContain("2 of 3");
-    expect(wrapper.text()).not.toContain("AI Credits");
-  });
-
-  it("adds every source into one USD cost card when sources are mixed", () => {
-    const summary = {
-      credits: 12.5,
-      usdEquivalent: 0.125,
-      source: "observed" as const,
-      observedCredits: 12.5,
-      estimatedCredits: 0,
-      isPartial: false,
-    };
-    const copilotEntry = {
-      source: "copilot" as const,
-      sessions: 4,
-      tokens: 2_000,
-      costUsd: null,
-      sessionsWithCostUsd: 0,
-    };
-    const labels = (costBySource: SourceCostEntry[]) =>
-      mount(AnalyticsStatsGrids, {
-        props: { data: { ...FIXTURE_ANALYTICS, costBySource }, aiCreditSummary: summary },
-      })
-        .findAllComponents({ name: "StatCard" })
-        .slice(0, 4)
-        .map((card) => [card.props("label"), card.props("tooltip")] as const);
-    const value = (costBySource: SourceCostEntry[], label: string) =>
-      mount(AnalyticsStatsGrids, {
-        props: { data: { ...FIXTURE_ANALYTICS, costBySource }, aiCreditSummary: summary },
-      })
-        .findAllComponents({ name: "StatCard" })
-        .find((card) => card.props("label") === label)
-        ?.props("value");
-    expect(value([copilotEntry, ...claudeOnly.costBySource], "Total Cost (USD)")).toBe("$1.38");
-
-    const mixed = labels([copilotEntry, ...claudeOnly.costBySource]);
-    expect(mixed.map(([label]) => label)).toEqual([
-      "Total Sessions",
-      "Total Tokens",
-      "AI Credits (Copilot)",
-      "Total Cost (USD)",
-    ]);
-    // Every source adds into one USD total; the Claude Code half is partial.
-    const total = mixed.find(([label]) => label === "Total Cost (USD)")?.[1];
-    expect(total).toContain("Copilot $0.13 + Claude Code $1.25");
-    expect(total).toContain("$0.01 each");
-    expect(total).toContain("Partial");
-
-    const copilotOnly = labels([copilotEntry]).map(([label]) => label);
-    expect(copilotOnly).toContain("AI Credits");
-    expect(copilotOnly).toContain("AIC USD Equivalent");
-  });
-
-  it("lists each source in USD with a total across sources", () => {
-    const wrapper = mount(AnalyticsSourceCostPanel, {
-      props: {
-        rows: [
-          {
-            source: "copilot",
-            sessions: 4,
-            tokens: 2_000,
-            unit: "aic",
-            amount: 12.5,
-            usdEquivalent: 0.125,
-            partial: false,
-          },
-          {
-            source: "claudeCode",
-            sessions: 3,
-            tokens: 1_000,
-            unit: "usd",
-            amount: 2,
-            usdEquivalent: 2,
-            partial: true,
-          },
-        ],
-      },
-    });
-    const copilot = wrapper.find('[data-source="copilot"]').text();
-    const claude = wrapper.find('[data-source="claudeCode"]').text();
-    const total = wrapper.find('[data-source="total"]').text();
+  it("gives each source a card in its own unit, and a USD total", () => {
+    const wrapper = panel(
+      withSources([copilotEntry, claudeEntry], { totalNanoAiu: 12_500_000_000 }),
+    );
+    const copilot = wrapper.get('[data-source="copilot"]').text();
+    const claude = wrapper.get('[data-source="claudeCode"]').text();
+    const total = wrapper.get('[data-source="total"]').text();
+    expect(copilot).toContain("12.5 AIC");
     expect(copilot).toContain("$0.13");
-    expect(copilot).toContain("12.5 AIC at $0.01");
-    expect(claude).toContain("$2.00");
+    expect(claude).toContain("$1.25");
     expect(claude).toContain("partial");
+    expect(claude).toContain("2 of 3 sessions");
     expect(total).toContain("All sources");
-    expect(total).toContain("7");
-    expect(total).toContain("$2.13");
-    expect(total).toContain("Partial");
-    expect(wrapper.text()).not.toMatch(/not a bill|not added together/i);
+    expect(total).toContain("$1.38");
+    expect(total).toContain("partial");
+    expect(total).toContain("$0.01 each");
   });
 
   it("shows an unpriced source as unpriced, not $0.00", () => {
-    const wrapper = mount(AnalyticsSourceCostPanel, {
-      props: {
-        rows: [
-          {
-            source: "claudeCode",
-            sessions: 3,
-            tokens: 1_000,
-            unit: "usd",
-            amount: null,
-            usdEquivalent: null,
-            partial: false,
-          },
-        ],
-      },
-    });
-    expect(wrapper.find('[data-source="claudeCode"]').text()).toContain("Unpriced");
-    expect(wrapper.find('[data-source="total"]').text()).toContain("Unpriced");
+    const wrapper = panel(withSources([{ ...claudeEntry, costUsd: null, sessionsWithCostUsd: 0 }]));
+    expect(wrapper.get('[data-source="claudeCode"]').text()).toContain("Unpriced");
     expect(wrapper.text()).not.toContain("$0.00");
   });
 
-  it("charts estimated USD for a source not billed in AI Credits", () => {
-    const priced = { ...claudeOnly, costUsdByDay: [{ date: "2026-03-01", cost: 1.25 }] };
-    const wrapper = mountTrend(false, priced);
-    expect(wrapper.find('[data-testid="cost-trend-unbilled"]').exists()).toBe(false);
-    expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false);
-    expect(wrapper.find("svg[aria-label*='estimated cost']").exists()).toBe(true);
+  it("lists a single source's priciest models beside its card", () => {
+    const wrapper = panel(withSources([copilotEntry]));
+    const models = wrapper.get('[data-source="models"]').text();
+    expect(models).toContain("gpt-4");
+    expect(models).toContain("96 AIC");
+    expect(wrapper.find('[data-source="total"]').exists()).toBe(false);
   });
 
-  const mixedTrendData = {
-    ...FIXTURE_ANALYTICS,
-    costBySource: [
-      {
-        source: "copilot" as const,
-        sessions: 4,
-        tokens: 2_000,
-        costUsd: null,
-        sessionsWithCostUsd: 0,
-      },
-      ...claudeOnly.costBySource,
-    ],
-    costUsdByDay: [{ date: "2025-01-01", cost: 1.25 }],
-  };
-
-  it("keeps the Copilot-only bases when no run is priced in USD", () => {
-    const copilot = mountTrend(undefined, FIXTURE_ANALYTICS);
-    expect(copilot.findAll('[role="radio"]').map((b) => b.text())).toEqual([
-      "AI Credits",
-      "Legacy Premium",
-    ]);
-    expect(copilot.get('[aria-checked="true"]').text()).toBe("AI Credits");
-  });
-
-  it("defaults to one USD series across sources, with each source a click away", async () => {
-    const mixed = mountTrend(undefined, mixedTrendData);
-    const options = mixed.findAll('[role="radio"]');
-    expect(options.map((b) => b.text())).toEqual([
-      "All Sources",
-      "AI Credits",
-      "Legacy Premium",
-      "Claude Code",
-    ]);
-    expect(mixed.get('[aria-checked="true"]').text()).toBe("All Sources");
-    expect(mixed.find("svg[aria-label*='across all sources']").exists()).toBe(true);
-
-    const claude = options.find((b) => b.text() === "Claude Code");
-    await claude?.trigger("click");
-    expect(claude?.attributes("aria-checked")).toBe("true");
-    expect(mixed.find("svg[aria-label*='estimated cost']").exists()).toBe(true);
-  });
-
-  it("breaks each day of the combined series down by source", async () => {
-    const onChartMouseMove = vi.fn();
-    const mixed = mountTrend(undefined, mixedTrendData, onChartMouseMove);
-    await mixed.get("svg[aria-label*='across all sources']").trigger("mousemove");
-    const [, coords, format] = onChartMouseMove.mock.calls[0];
+  it("draws the running total of each day's spend by source", async () => {
+    const wrapper = panel(
+      withSources([copilotEntry, claudeEntry], {
+        costUsdByDay: [{ date: "2025-01-01", cost: 1.25 }],
+      }),
+    );
+    await wrapper
+      .findAll('[role="radio"]')
+      .find((b) => b.text() === "Running total")
+      ?.trigger("click");
+    expect(wrapper.find('[aria-label="Running total of cost"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("USD · AI Credits at $0.01");
     // 30, 50 and 80 AIC at $0.01, plus $1.25 of Claude Code on the first day.
-    expect(coords.map((point: { cost: number }) => point.cost)).toEqual([
-      expect.closeTo(1.55),
-      expect.closeTo(0.5),
-      expect.closeTo(0.8),
-    ]);
-    expect(format(0)).toContain("$1.55 · Copilot $0.30 · Claude Code $1.25");
+    expect(wrapper.text()).toContain("Total $2.85");
   });
 });
-
-function mountTrend(
-  billedInAic: boolean | undefined,
-  data: typeof FIXTURE_ANALYTICS,
-  onChartMouseMove = vi.fn(),
-) {
-  return mount(AnalyticsDistributionRow, {
-    props: {
-      data,
-      chartLayout: createChartLayout(55, 490, 20, 175),
-      gridLines: [],
-      timeRangeLabel: "all time",
-      tooltip: {
-        visible: false,
-        pinned: false,
-        x: 0,
-        y: 0,
-        content: "",
-        chartId: "",
-        highlightIndex: -1,
-      },
-      onChartMouseMove,
-      onChartClick: vi.fn(),
-      dismissTooltip: vi.fn(),
-      billedInAic,
-    },
-    global: { stubs: { RouterLink: true } },
-  });
-}

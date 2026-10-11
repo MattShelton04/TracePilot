@@ -263,7 +263,7 @@ try {
             exact: true,
           })
           .waitFor({ timeout: 60_000 });
-        await page.getByText("Total Sessions", { exact: true }).waitFor();
+        await page.locator('[data-testid="analytics-kpis"]').waitFor();
       },
       iteration,
     );

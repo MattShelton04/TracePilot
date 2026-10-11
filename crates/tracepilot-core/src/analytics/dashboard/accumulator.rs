@@ -22,7 +22,7 @@ pub(super) struct AnalyticsAccumulator {
     total_nano_aiu: u64,
     sessions_with_observed_ai_credits: u32,
     total_api_duration_ms: u64,
-    total_tokens_with_duration: u64,
+    output_tokens_with_duration: u64,
 }
 
 impl AnalyticsAccumulator {
@@ -42,7 +42,7 @@ impl AnalyticsAccumulator {
             total_nano_aiu: 0,
             sessions_with_observed_ai_credits: 0,
             total_api_duration_ms: 0,
-            total_tokens_with_duration: 0,
+            output_tokens_with_duration: 0,
         }
     }
 
@@ -80,7 +80,7 @@ impl AnalyticsAccumulator {
             }
 
             if session_api_duration_ms > 0 {
-                self.total_tokens_with_duration += model_totals.tokens;
+                self.output_tokens_with_duration += model_totals.output_tokens;
             }
         }
 
@@ -163,7 +163,7 @@ impl AnalyticsAccumulator {
             0.0
         };
         let avg_tokens_per_api_second = if self.total_api_duration_ms > 0 {
-            (self.total_tokens_with_duration as f64) / (self.total_api_duration_ms as f64 / 1000.0)
+            (self.output_tokens_with_duration as f64) / (self.total_api_duration_ms as f64 / 1000.0)
         } else {
             0.0
         };

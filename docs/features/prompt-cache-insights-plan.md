@@ -223,7 +223,7 @@ silently assume a TTL.
 | 1 | **Session header** (`SessionDetailView` header area, next to the live/auto-refresh controls) | Chip: "Cache warm · 17:42" (green), "expiring · 3:10" (amber, under 5 min), "Cache expired 12m ago" (neutral). Tooltip gives the model, TTL and expiry time. Also visible for ended sessions when considering a resume. | Yes. It ticks on the client from `expires_at`, and the window re-derives on each refresh. | Uses only the latest unresumed window (`pending` or `sessionEnded`) with a CLI-recorded expiry. Hidden for missing expiry or zero TTL. Estimated values are never shown as a live countdown. |
 | 2 | **Conversation tab** (`ConversationTurnList.vue`, chat view) | A divider between interactions: "idle 47m · cache expired 17m before this reply". A chip on the resumed user turn: warm, cold resume or likely cache break. A tooltip lists the prefix changes. | Yes, on turn refresh. | Estimated dividers use a dashed style and the "Estimated" label. No divider when Unavailable. |
 | 3 | **Metrics tab** (new `MetricsPromptCacheSection.vue` below `MetricsCacheBreakdown`) | A strip of idle windows (warm or expired), counts, re-sent prefix tokens, a table of prefix changes, and interaction cost deltas. | On refresh. | For sessions before 1.0.83: "Cache timing isn't recorded for this CLI version", with the estimate available behind a toggle. |
-| 4 | **Analytics dashboard** (`AnalyticsCacheHealthRow.vue`) | Adds "Replies after predicted expiry %", "Median idle before reply", and the top prefix-change causes. | On index update. | These figures cover only sessions with Predicted data. The denominator is shown ("from 13 sessions"). |
+| 4 | **Analytics dashboard** (`AnalyticsCachePanel.vue`) | Adds "Replies after predicted expiry %", "Median idle before reply", and the top prefix-change causes. | On index update. | These figures cover only sessions with Predicted data. The denominator is shown ("13 sessions"). |
 | 5 | **Model Comparison** | An "Observed cache TTL" column from the registry. | On index update. | "—" |
 | 6 | **Timeline tab** (optional, phase 3) | Cache windows as a background band on the waterfall. | On refresh. | Hidden. |
 | 7 | **Alerts** (optional, phase 3, off by default) | "Session X is waiting on you and its cache expires in 5 min." Extends `alertWatcher.ts` and pairs with the attention inbox proposal. | Yes. | Only for Predicted data. |
@@ -336,7 +336,7 @@ What shipped, and where it deliberately differs from the plan above.
 | Core reconstruction | `crates/tracepilot-core/src/prompt_cache/` (`baseline`, `builder`, `state`, `outcome`, `changes`, `model`) → `build_prompt_cache_timeline(events, ttl_lookup)` |
 | IPC | `get_session_prompt_cache` (`commands/session/prompt_cache.rs`), reusing the parsed-event LRU |
 | Index | Migration 17: `session_cache_windows` (with `resume_source`), `session_cache_ttls`; analytics version 10; `AnalyticsData.promptCache` |
-| Desktop | `usePromptCache`, `PromptCacheHeaderChip`, `CacheResumeDivider` (chat and compact views), `MetricsPromptCacheSection`, `AnalyticsPromptCachePanel`, Model Comparison "Cache TTL" column |
+| Desktop | `usePromptCache`, `PromptCacheHeaderChip`, `CacheResumeDivider` (chat and compact views), `MetricsPromptCacheSection`, `AnalyticsCachePanel`, Model Comparison "Cache TTL" column |
 | CLI | `WATCHED_EVENT_TYPES` in the version analyzer |
 | Flag | `features.promptCacheInsights`, default on |
 

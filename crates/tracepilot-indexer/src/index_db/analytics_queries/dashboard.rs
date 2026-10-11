@@ -37,7 +37,9 @@ pub(super) fn query_analytics(
                     COUNT(CASE WHEN turn_count > 0 THEN 1 END),
                     COALESCE(SUM(total_premium_requests), 0.0),
                     COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_api_duration_ms END), 0),
-                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_tokens END), 0),
+                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN
+                        (SELECT SUM(m.output_tokens) FROM session_model_metrics m WHERE m.session_id = s.id)
+                    END), 0),
                     COUNT(CASE WHEN error_count > 0 THEN 1 END),
                     COALESCE(SUM(rate_limit_count), 0),
                     COALESCE(SUM(compaction_count), 0),
@@ -58,7 +60,7 @@ pub(super) fn query_analytics(
         sessions_with_turns,
         total_premium_requests,
         total_api_duration_ms_sum,
-        total_tokens_with_duration,
+        output_tokens_with_duration,
         sessions_with_errors,
         total_rate_limits,
         total_compactions,
@@ -245,7 +247,7 @@ pub(super) fn query_analytics(
         0.0
     };
     let avg_tokens_per_api_second = if total_api_duration_ms_sum > 0 {
-        total_tokens_with_duration as f64 / (total_api_duration_ms_sum as f64 / 1000.0)
+        output_tokens_with_duration as f64 / (total_api_duration_ms_sum as f64 / 1000.0)
     } else {
         0.0
     };

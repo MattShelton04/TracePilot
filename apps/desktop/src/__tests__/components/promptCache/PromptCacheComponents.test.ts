@@ -1,7 +1,7 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import AnalyticsPromptCachePanel from "@/components/analytics/AnalyticsPromptCachePanel.vue";
+import AnalyticsCachePanel from "@/components/analytics/AnalyticsCachePanel.vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import MetricsPromptCacheSection from "@/components/metrics/MetricsPromptCacheSection.vue";
@@ -334,7 +334,7 @@ describe("MetricsPromptCacheSection", () => {
   });
 });
 
-describe("AnalyticsPromptCachePanel", () => {
+describe("AnalyticsCachePanel", () => {
   const data = {
     sessionsWithPredicted: 13,
     resumedWindows: 20,
@@ -349,28 +349,38 @@ describe("AnalyticsPromptCachePanel", () => {
     ],
     observedTtls: [],
   };
+  const composition = {
+    cacheRead: 900,
+    cacheWrite: 50,
+    fresh: 50,
+    output: 100,
+    input: 1_000,
+    total: 1_100,
+  };
+  const mountPanel = (props: Record<string, unknown>) =>
+    mount(AnalyticsCachePanel, { props: { composition, bySource: [], timing: data, ...props } });
 
-  it("shows the share of replies after expiry with its denominator", () => {
-    const wrapper = mount(AnalyticsPromptCachePanel, { props: { data } });
+  it("shows the input served from cache beside the share of replies after expiry", () => {
+    const wrapper = mountPanel({});
+    expect(wrapper.text()).toContain("90%");
+    expect(wrapper.text()).toContain("of 1K input tokens");
     expect(wrapper.text()).toContain("25%");
-    expect(wrapper.text()).toContain("from 13 sessions");
+    expect(wrapper.text()).toContain("13 sessions");
     expect(wrapper.text()).toContain("7m");
     expect(wrapper.text()).toContain("History");
     expect(wrapper.text()).toContain("Likely cache-break causes");
-    expect(wrapper.findAll(".prompt-timing__cause")).toHaveLength(2);
+    expect(wrapper.findAll(".cache__cause[role=listitem]")).toHaveLength(2);
     expect(wrapper.text()).not.toContain("Est. extra cost");
   });
 
   it("prices re-sent tokens per model", () => {
-    const wrapper = mount(AnalyticsPromptCachePanel, {
-      props: {
-        data: {
-          ...data,
-          resentPrefixTokensByModel: [
-            { model: "gpt-5.6-luna", tokens: 100_000 },
-            { model: "not-a-model", tokens: 20_000 },
-          ],
-        },
+    const wrapper = mountPanel({
+      timing: {
+        ...data,
+        resentPrefixTokensByModel: [
+          { model: "gpt-5.6-luna", tokens: 100_000 },
+          { model: "not-a-model", tokens: 20_000 },
+        ],
       },
     });
     expect(wrapper.text()).toContain("Est. extra cost");
@@ -378,11 +388,9 @@ describe("AnalyticsPromptCachePanel", () => {
   });
 
   it("leaves out the AI Credits figure when a source in range is not billed in them", () => {
-    const wrapper = mount(AnalyticsPromptCachePanel, {
-      props: {
-        billedInAic: false,
-        data: { ...data, resentPrefixTokensByModel: [{ model: "gpt-5.6-luna", tokens: 100_000 }] },
-      },
+    const wrapper = mountPanel({
+      billedInAic: false,
+      timing: { ...data, resentPrefixTokensByModel: [{ model: "gpt-5.6-luna", tokens: 100_000 }] },
     });
     expect(wrapper.text()).toContain("25%");
     expect(wrapper.text()).not.toContain("Est. extra cost");
@@ -390,9 +398,15 @@ describe("AnalyticsPromptCachePanel", () => {
   });
 
   it("explains when no session has recorded timing", () => {
-    const wrapper = mount(AnalyticsPromptCachePanel, {
-      props: { data: { ...data, sessionsWithPredicted: 0, resumedWindows: 0 } },
+    const wrapper = mountPanel({
+      timing: { ...data, sessionsWithPredicted: 0, resumedWindows: 0 },
     });
     expect(wrapper.text()).toContain("No cache timing in this range yet");
+  });
+
+  it("leaves timing out when the feature is off", () => {
+    const wrapper = mountPanel({ timing: null });
+    expect(wrapper.find('[data-testid="analytics-prompt-cache"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain("Input served from cache");
   });
 });

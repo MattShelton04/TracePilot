@@ -32,6 +32,8 @@ struct ModelTokenTotals {
 
 pub(super) struct ModelMetricsTotals {
     pub tokens: u64,
+    /// Generated tokens alone, for throughput.
+    pub output_tokens: u64,
     pub cost: f64,
 }
 
@@ -41,6 +43,7 @@ impl ModelDistributionAccumulator {
         model_metrics: &HashMap<String, ModelMetricDetail>,
     ) -> ModelMetricsTotals {
         let mut tokens = 0;
+        let mut output_tokens = 0;
         let mut cost = 0.0;
 
         for (model_name, detail) in model_metrics {
@@ -51,6 +54,7 @@ impl ModelDistributionAccumulator {
                 let cache_write = usage.cache_write_tokens.unwrap_or(0);
                 let session_model_tokens = input_t + output_t;
                 tokens += session_model_tokens;
+                output_tokens += output_t;
                 self.total_cache_read_tokens += cache_read;
                 self.total_input_tokens += input_t;
 
@@ -89,7 +93,11 @@ impl ModelDistributionAccumulator {
             }
         }
 
-        ModelMetricsTotals { tokens, cost }
+        ModelMetricsTotals {
+            tokens,
+            output_tokens,
+            cost,
+        }
     }
 
     pub(super) fn into_model_distribution(self) -> Vec<ModelDistEntry> {

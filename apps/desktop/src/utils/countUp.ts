@@ -47,6 +47,8 @@ interface Counter {
   finalText: string;
   parsed: CountableText;
   written: string;
+  /** Where counting starts; zero unless counting from a previous value. */
+  from?: number;
 }
 
 function findCounter(el: Element): Counter | null {
@@ -72,6 +74,44 @@ export function countUp(elements: Iterable<Element>, durationMs: number): () => 
     const counter = findCounter(el);
     if (counter) counters.push(counter);
   }
+  return animate(counters, durationMs);
+}
+
+/** The text of an element's one countable number, or null. */
+export function countableText(el: Element): string | null {
+  return findCounter(el)?.finalText ?? null;
+}
+
+/**
+ * Count each element from the number it showed before (as read by
+ * `countableText`) to the one it shows now. Only numbers whose prefix,
+ * suffix and decimals are unchanged count; a change of unit (`512M` to
+ * `1.2B`) or format just shows the new text.
+ */
+export function countFrom(previous: Map<Element, string>, durationMs: number): () => void {
+  const counters: Counter[] = [];
+  for (const [el, before] of previous) {
+    if (!el.isConnected) continue;
+    const counter = findCounter(el);
+    const raw = before.match(NUMBER);
+    if (!counter || raw?.length !== 1 || before === counter.finalText) continue;
+    const { parsed } = counter;
+    const start = before.indexOf(raw[0]);
+    const decimals = raw[0].split(".")[1]?.length ?? 0;
+    if (
+      before.slice(0, start) !== parsed.prefix ||
+      before.slice(start + raw[0].length) !== parsed.suffix ||
+      decimals !== parsed.decimals
+    ) {
+      continue;
+    }
+    counter.from = Number(raw[0].replace(/,/g, ""));
+    counters.push(counter);
+  }
+  return animate(counters, durationMs);
+}
+
+function animate(counters: Counter[], durationMs: number): () => void {
   if (counters.length === 0) return () => {};
 
   let frame = 0;
@@ -80,15 +120,17 @@ export function countUp(elements: Iterable<Element>, durationMs: number): () => 
     for (const c of counters) {
       // Vue re-rendered this value (new data): it owns the text again.
       if (c.node.nodeValue !== c.written) continue;
+      const from = c.from ?? 0;
       c.written =
         progress >= 1
           ? c.finalText
-          : formatCountable(c.parsed, c.parsed.value * easeOutCubic(progress));
+          : formatCountable(c.parsed, from + (c.parsed.value - from) * easeOutCubic(progress));
       c.node.nodeValue = c.written;
     }
   };
   const tick = (now: number) => {
-    const progress = Math.min(1, (now - start) / durationMs);
+    // A frame timestamp can predate `start` when it was taken mid-render.
+    const progress = Math.min(1, Math.max(0, (now - start) / durationMs));
     write(progress);
     if (progress < 1) frame = requestAnimationFrame(tick);
   };

@@ -25,6 +25,7 @@ import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { type AnalyticsDatasetName, useAnalyticsStore } from "@/stores/analytics";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
 import { type SortOption, useSessionsStore } from "@/stores/sessions";
@@ -60,6 +61,18 @@ const { setup: setupIndexingEvents } = useIndexingEvents({
     indexingProgress.value = null;
   },
 });
+
+/**
+ * Load the Analytics dashboard's current view into the cache once the
+ * sessions are in, so opening it is instant. The aggregates are small next
+ * to session details, and the store re-warms them after each reindex.
+ */
+function warmAnalytics() {
+  const names: AnalyticsDatasetName[] = ["analytics"];
+  if (prefs.isFeatureEnabled("agents")) names.push("agents");
+  if (prefs.isFeatureEnabled("skills")) names.push("skills");
+  void useAnalyticsStore().warm(names);
+}
 
 async function prefetchTopSessions() {
   // NOTE: Prefetch populates the Pinia singleton's cache. Per-tab instances
@@ -102,7 +115,7 @@ onMounted(async () => {
   // Ensure index is fresh — may add new sessions in background
   store.ensureIndex().then(() => {
     if (store.sessions.length > 0) {
-      void prefetchTopSessions();
+      void prefetchTopSessions().then(warmAnalytics);
     }
   });
 });

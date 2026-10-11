@@ -118,6 +118,9 @@ fn test_analytics_productivity_metrics() {
 
     // 15 total turns across 2 sessions with turns
     assert!((result.productivity_metrics.avg_turns_per_session - 7.5).abs() < 0.01);
+    // Throughput counts generated tokens only: 5,000 + 2,500 output over 10s of
+    // model time. Input (and the cache reads inside it) is not generated.
+    assert!((result.productivity_metrics.avg_tokens_per_api_second - 750.0).abs() < 0.01);
 }
 
 // ── Duration stats helper tests ──────────────────────────────────

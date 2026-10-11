@@ -19,6 +19,32 @@
 }
 
 /* ============================
+   REFRESHING IN PLACE
+   ============================ */
+
+/* Results kept on screen while newer ones load (analytics filter changes).
+   A scrim dims them rather than panel opacity, for the reason given under
+   the chart reveal below. It waits a beat so fast or cached loads never
+   flicker, and lifts as soon as the new results are drawn underneath. */
+[data-refreshing] {
+  position: relative;
+}
+[data-refreshing]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--canvas-default);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+[data-refreshing="true"]::after {
+  opacity: 0.45;
+  transition-delay: 150ms;
+}
+
+/* ============================
    FIRST-APPEARANCE CHART REVEAL
    ============================ */
 

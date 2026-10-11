@@ -68,6 +68,7 @@ some older reports and plans, which remain recoverable from Git history.
 | [Search Index Migration](search-index-migration/README.md) | Shelved migration, benchmarks, and failure lessons; not an active implementation guide. |
 | [Multi-Window Implementation RFC](multi-window-implementation-plan.md) | Historical amended plan; several parts have since landed. |
 | [Exact Context Capture Plan](features/exact-context-capture-plan.md) | Feasibility research and phased plan; use the current guide above for operation. |
+| [Custom Analytics Dashboards](features/custom-dashboards.md) | Proposed user-arranged dashboard layouts. |
 | [Prompt-Cache Insights](features/prompt-cache-insights-plan.md) | Proposed cache-expiry and resume analysis. |
 | [Skills Analytics](features/skills-analytics-design.md) | Feature design; compare delivered behavior with current code. |
 | [Agents Explorer](features/agents-explorer-design.md) | Delivered feature design and decision record. |

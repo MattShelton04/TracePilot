@@ -115,6 +115,21 @@ function estimateCredits(
     : { credits: directCost / AI_CREDIT_USD, unknown: false, usedDirectApi: true };
 }
 
+/**
+ * One usage row's AI Credits: observed billing plus an estimate for usage
+ * without it. Null when nothing was observed and nothing could be priced.
+ */
+export function usageAiCredits(
+  usage: EstimableUsage,
+  computeUsageBasedCost: ComputeTokenCost,
+  computeDirectApiCost: ComputeTokenCost,
+): number | null {
+  const observed = calculateObservedAiCredits(usage.totalNanoAiu) ?? 0;
+  const estimate = estimateCredits(usage, computeUsageBasedCost, computeDirectApiCost);
+  if (estimate.unknown && observed === 0) return null;
+  return observed + estimate.credits;
+}
+
 export function buildAnalyticsAiCreditSummary(
   data: AnalyticsData,
   computeUsageBasedCost: ComputeTokenCost,

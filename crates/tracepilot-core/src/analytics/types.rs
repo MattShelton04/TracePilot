@@ -200,7 +200,8 @@ pub struct ProductivityMetrics {
     pub avg_turns_per_session: f64,
     pub avg_tool_calls_per_turn: f64,
     pub avg_tokens_per_turn: f64,
-    /// Average tokens generated per second of API time (throughput indicator).
+    /// Output tokens per second of model time, over sessions that recorded it.
+    /// Input and cache reads are not generated, so they are left out.
     pub avg_tokens_per_api_second: f64,
 }
 
