@@ -3,6 +3,7 @@ import type { ConversationTurn } from "@tracepilot/types";
 import { truncateText } from "@tracepilot/ui";
 import { ChevronLeft, ChevronRight, SkipBack, SkipForward } from "lucide-vue-next";
 import type { ComponentPublicInstance } from "vue";
+import { promptPreviewText } from "@/utils/pastedContent";
 
 interface TurnStats {
   /** Display name; `modelId` is the recorded id. */
@@ -99,7 +100,7 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
             >
               <span class="jump-idx">{{ idx + 1 }}</span>
               <span class="jump-msg">
-                {{ truncateText(t.userMessage ?? "(no message)", 60) }}
+                {{ truncateText(promptPreviewText(t.userMessage ?? "(no message)"), 60) }}
               </span>
             </button>
           </div>
@@ -110,7 +111,7 @@ function setJumpRef(el: Element | ComponentPublicInstance | null) {
     <!-- Turn summary -->
     <div v-if="currentTurn" class="turn-summary">
       <div class="turn-message">
-        "{{ truncateText(currentTurn.userMessage ?? "(no message)", 120) }}"
+        "{{ truncateText(promptPreviewText(currentTurn.userMessage ?? "(no message)"), 120) }}"
       </div>
       <div class="turn-meta">
         <span v-if="turnStats.model" class="meta-chip" :title="turnStats.modelId">

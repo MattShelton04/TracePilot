@@ -55,6 +55,26 @@ describe("AgentTreeView detail status and output", () => {
     expect(inProgressNode?.classes()).toContain("agent-node--in-progress");
   });
 
+  it("shows an idle background agent as done, as its Conversation card does", () => {
+    const agentTc = makeTurnToolCall({
+      toolName: "task",
+      isSubagent: true,
+      isComplete: true,
+      success: true,
+      agentStatus: "idle",
+      toolCallId: "agent-idle",
+      agentDisplayName: "Research Agent",
+    });
+
+    ctx.store.turns = [makeTurn({ turnIndex: 0, toolCalls: [agentTc] })];
+
+    const node = mountAgentTreeView()
+      .findAll(".agent-node")
+      .find((n) => n.text().includes("Research Agent"));
+    expect(node?.attributes("aria-label")).toBe("Research Agent — completed, idle");
+    expect(node?.get(".agent-node-status").text()).toBe("✅");
+  });
+
   it("main agent tool list includes subagent-spawning tool calls with agent badge", async () => {
     const agentTc = makeTurnToolCall({
       toolName: "task",

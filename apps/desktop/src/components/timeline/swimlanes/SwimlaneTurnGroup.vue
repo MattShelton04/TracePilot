@@ -24,6 +24,7 @@ import {
   turnToolCount,
 } from "@/composables/useSwimlaneLayout";
 import { usePreferencesStore } from "@/stores/preferences";
+import { promptPreviewText } from "@/utils/pastedContent";
 import SwimlaneMessageLane from "./SwimlaneMessageLane.vue";
 import SwimlaneSubagentLane from "./SwimlaneSubagentLane.vue";
 
@@ -68,6 +69,10 @@ const modelName = useSessionModelName();
 const tKey = computed(() => turnKey(props.phaseIdx, props.turn));
 const maxMs = computed(() => turnMaxDuration(props.turn));
 
+const userText = computed(() =>
+  props.turn.userMessage ? promptPreviewText(props.turn.userMessage) : "",
+);
+
 const assistantContent = computed(() => {
   const first = props.turn.assistantMessages.find((m) => m.content.trim());
   return first?.content ?? "";
@@ -93,21 +98,23 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
       class="turn-header"
       role="button"
       tabindex="0"
-      :aria-label="`Toggle turn ${turn.turnIndex}${turn.userMessage ? ': ' + truncateText(turn.userMessage, 60) : ''}`"
+      :aria-label="`Toggle turn ${turn.turnIndex}${userText ? ': ' + truncateText(userText, 60) : ''}`"
       :aria-expanded="!collapsed"
       @click="emit('toggle-turn')"
       @keydown.enter.space.prevent="emit('toggle-turn')"
     >
       <ExpandChevron :expanded="!collapsed" size="sm" />
       <span class="turn-label">Turn {{ turn.turnIndex }}</span>
-      <span v-if="turn.userMessage" class="turn-user-msg">
-        {{ truncateText(turn.userMessage, 60) }}
+      <span v-if="userText" class="turn-user-msg">
+        {{ truncateText(userText, 60) }}
       </span>
       <span class="turn-stats">
         <span v-if="turnSubagentCount(turn) > 0" class="turn-stat">
           {{ turnSubagentCount(turn) }} agent{{ turnSubagentCount(turn) !== 1 ? "s" : "" }}
         </span>
-        <span class="turn-stat">{{ turnToolCount(turn) }} tools</span>
+        <span class="turn-stat">
+          {{ turnToolCount(turn) }} tool{{ turnToolCount(turn) !== 1 ? "s" : "" }}
+        </span>
         <span v-if="turn.durationMs" class="turn-stat">
           {{ formatDuration(turn.durationMs) }}
         </span>
@@ -119,10 +126,10 @@ const turnDirectTools = computed(() => props.directTools(props.turn));
     <div v-if="!collapsed" class="turn-body">
       <!-- User message lane -->
       <SwimlaneMessageLane
-        v-if="turn.userMessage"
+        v-if="userText"
         variant="user"
         :turn-index="turn.turnIndex"
-        :content="turn.userMessage"
+        :content="userText"
         :expanded="expandedMessages.has(`${turn.turnIndex}-user`)"
         @toggle-expanded="expandedMessages.toggle(`${turn.turnIndex}-user`)"
       />

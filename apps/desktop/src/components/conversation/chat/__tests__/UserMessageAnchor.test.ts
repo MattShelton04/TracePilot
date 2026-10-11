@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import UserMessageAnchor from "../UserMessageAnchor.vue";
 
 function anchor(content: string) {
@@ -7,6 +7,10 @@ function anchor(content: string) {
     props: { content, turnIndex: 0, renderMarkdown: false },
   });
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("UserMessageAnchor pasted text", () => {
   it("frames pasted text apart from the typed prompt, without the wrapper tags", () => {
@@ -28,6 +32,18 @@ describe("UserMessageAnchor pasted text", () => {
     expect(block.text()).not.toContain("line 0");
     await block.get("button").trigger("click");
     expect(block.text()).toContain("line 0");
+  });
+
+  it("copies the pasted text without toggling the block", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const wrapper = anchor(
+      'Fix:\n\n<pasted_content id="4">\nalpha\nbeta\n</pasted_content id="4">',
+    );
+    const block = wrapper.get('[data-testid="pasted-content"]');
+    await block.get(".cv-pasted-copy").trigger("click");
+    expect(writeText).toHaveBeenCalledWith("alpha\nbeta");
+    expect(block.get(".cv-pasted-toggle").attributes("aria-expanded")).toBe("true");
   });
 
   it("renders a prompt without pasted text as before", () => {

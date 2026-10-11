@@ -25,6 +25,20 @@ function nodeStatus(node: AgentNode) {
   return node.type === "main" ? node.status : settledAgentStatus(node.status, mayStillReport.value);
 }
 
+/**
+ * An idle agent finished its work and waits for messages, so it reads as done,
+ * as its Conversation card shows it; ○ is kept for an agent with no final report.
+ */
+function statusIcon(node: AgentNode): string {
+  return STATUS_ICONS[node.status === "idle" ? "completed" : node.status];
+}
+
+function statusLabel(node: AgentNode): string {
+  const status = nodeStatus(node);
+  if (status === "unreported") return NO_FINAL_REPORT;
+  return status === "idle" ? "completed, idle" : status;
+}
+
 function lineClass(line: AgentTreeSvgLine) {
   const node = ctx.layout.value?.nodes.find((n) => n.node.id === line.childId)?.node;
   return {
@@ -112,7 +126,7 @@ function handleNodeRef(nodeId: string, el: Element | null): void {
         }"
         role="button"
         tabindex="0"
-        :aria-label="`${ln.node.displayName} — ${nodeStatus(ln.node) === 'unreported' ? NO_FINAL_REPORT : ln.node.status}`"
+        :aria-label="`${ln.node.displayName} — ${statusLabel(ln.node)}`"
         @click="ctx.selectNode(ln.node.id)"
         @keydown.enter="ctx.selectNode(ln.node.id)"
         @keydown.space.prevent="ctx.selectNode(ln.node.id)"
@@ -162,8 +176,9 @@ function handleNodeRef(nodeId: string, el: Element | null): void {
             v-else
             class="agent-node-status"
             :class="{ 'agent-node-status--in-progress': ln.node.status === 'in-progress' }"
+            :title="ln.node.status === 'idle' ? 'Idle — waiting for messages' : undefined"
           >
-            {{ STATUS_ICONS[ln.node.status] }}
+            {{ statusIcon(ln.node) }}
             <span v-if="ln.node.status === 'in-progress'" class="sr-only">In progress</span>
           </span>
         </div>

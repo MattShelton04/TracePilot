@@ -103,6 +103,24 @@ const duration = computed(() => {
   return formatDuration(props.toolCall.durationMs ?? 0);
 });
 
+/**
+ * Footer facts. `totalToolCalls` is the count the agent reported; it usually
+ * equals the calls shown inside, so it is only listed when it differs.
+ */
+const hintParts = computed(() => {
+  const tc = props.toolCall;
+  const inside = props.childToolCount ?? 0;
+  const parts: { text: string; title?: string }[] = [];
+  if (inside) parts.push({ text: `${inside} tool call${inside !== 1 ? "s" : ""} inside` });
+  if (tc.totalTokens)
+    parts.push({ text: `${formatNumber(tc.totalTokens)} tok`, title: "Tokens consumed" });
+  if (tc.totalToolCalls && tc.totalToolCalls !== inside) {
+    const n = tc.totalToolCalls;
+    parts.push({ text: `${n} tool exec${n !== 1 ? "s" : ""}`, title: "Tool calls made" });
+  }
+  return parts;
+});
+
 function handleClick() {
   if (props.toolCall.toolCallId) {
     emit("select", props.toolCall.toolCallId);
@@ -142,12 +160,11 @@ function handleClick() {
       <span v-if="status === 'unreported'" class="cv-subagent-unreported" :title="NO_FINAL_REPORT_HINT">{{ NO_FINAL_REPORT }}</span>
       <span class="cv-subagent-arrow" aria-hidden="true"><ChevronRight :size="12" /></span>
     </div>
-    <div v-if="childToolCount || toolCall.totalTokens || toolCall.totalToolCalls" class="cv-subagent-hint">
-      <span v-if="childToolCount">{{ childToolCount }} tool call{{ childToolCount !== 1 ? "s" : "" }} inside</span>
-      <span v-if="childToolCount && (toolCall.totalTokens || toolCall.totalToolCalls)"> · </span>
-      <span v-if="toolCall.totalTokens" title="Tokens consumed">{{ formatNumber(toolCall.totalTokens) }} tok</span>
-      <span v-if="toolCall.totalTokens && toolCall.totalToolCalls"> · </span>
-      <span v-if="toolCall.totalToolCalls" title="Tool calls made">{{ toolCall.totalToolCalls }} tool exec{{ toolCall.totalToolCalls !== 1 ? "s" : "" }}</span>
+    <div v-if="hintParts.length" class="cv-subagent-hint">
+      <template v-for="(part, i) in hintParts" :key="part.text">
+        <span v-if="i > 0"> · </span>
+        <span :title="part.title">{{ part.text }}</span>
+      </template>
     </div>
   </div>
 </template>

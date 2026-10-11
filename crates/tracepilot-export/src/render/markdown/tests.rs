@@ -43,6 +43,19 @@ fn renders_conversation_turns() {
 }
 
 #[test]
+fn renders_pasted_text_without_its_tags() {
+    let prompt =
+        "Explain this:\n\n<pasted_content id=\"7\">\nerror: boom\n</pasted_content id=\"7\">";
+    let mut session = minimal_session();
+    session.conversation = Some(vec![simple_turn(0, prompt, "Ok.", None)]);
+
+    let files = MarkdownRenderer.render(&test_archive(session)).unwrap();
+    let text = files[0].as_text().unwrap();
+    assert!(!text.contains("pasted_content"));
+    assert!(text.contains("**User**\n\n> Explain this:\n> \n> \n> error: boom\n"));
+}
+
+#[test]
 fn labels_a_notification_turn() {
     use tracepilot_core::models::event_types::{TaskNotificationData, TaskNotificationKind};
     let mut wake = simple_turn(1, "Agent \"Map it\" finished", "Noted.", None);
