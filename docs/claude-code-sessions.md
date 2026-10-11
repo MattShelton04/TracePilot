@@ -77,7 +77,11 @@ after a session starts. TracePilot doesn't keep a copy. When a transcript is
 deleted, its session leaves TracePilot's index the next time sessions are
 indexed, just like a deleted Copilot session. Analytics for Claude Code
 therefore cover roughly your last 30 days. Settings → Claude Code shows a
-dismissible notice about this while Claude Code sessions are on.
+dismissible notice about this while Claude Code sessions are on. The notice
+shows the value set in `settings.json` in the Claude Code folder, and turns
+amber when it is below the default or invalid. It reads only that user file
+(at most 1 MiB, and only this key), so a project or managed setting that
+overrides it isn't shown.
 
 The index is not a backup. To keep more history, set `cleanupPeriodDays` to a
 larger whole number of days in `~/.claude/settings.json` (or `settings.json` in

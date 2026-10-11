@@ -251,6 +251,7 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
     check_config_exists: true,
     validate_session_dir: { valid: true, sessionCount: 47, error: null },
     validate_claude_config_dir: { valid: true, sessionCount: 3, error: null },
+    get_claude_cleanup_period: mocks.MOCK_CLAUDE_CLEANUP_PERIOD,
     get_source_format_diagnostics: mocks.MOCK_COPILOT_FORMAT_DIAGNOSTICS,
     get_db_size: 44564480,
     get_session_count: 47,

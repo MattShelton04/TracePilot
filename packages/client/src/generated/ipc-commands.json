@@ -48,6 +48,7 @@
   "get_agent_definitions",
   "get_analytics",
   "get_available_models",
+  "get_claude_cleanup_period",
   "get_code_impact",
   "get_config",
   "get_copilot_config",

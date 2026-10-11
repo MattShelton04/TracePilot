@@ -18,6 +18,9 @@ const enabled = computed({
   },
 });
 
+// Remounting the notice re-reads the new folder's settings.json.
+const folderSaves = ref(0);
+
 // Moving the folder reindexes, so hold it while an index is running.
 const indexing = ref(false);
 const { setup: setupIndexingEvents } = useIndexingEvents({
@@ -41,8 +44,8 @@ onMounted(() => {
     enable-label="Claude Code sessions"
     enable-description="Index and view Claude Code sessions from ~/.claude alongside Copilot CLI sessions. Turning this off removes them from the index; your Claude Code files are not changed."
   >
-    <SettingsClaudeCodeFolder :disabled="indexing" />
+    <SettingsClaudeCodeFolder :disabled="indexing" @saved="folderSaves++" />
     <SettingsClaudeCodeCli />
-    <SettingsClaudeCodeRetention />
+    <SettingsClaudeCodeRetention :key="folderSaves" />
   </SettingsProviderSection>
 </template>

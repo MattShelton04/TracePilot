@@ -57,6 +57,11 @@ export const commands = {
 	 */
 	validateClaudeConfigDir: (path: string) => typedError<ValidateSessionDirResult, BindingsErrorIpc>(__TAURI_INVOKE("validate_claude_config_dir", { path })),
 	/**
+	 *  The `cleanupPeriodDays` in the configured Claude Code folder's
+	 *  `settings.json`. A missing or malformed file is a state, not an error.
+	 */
+	getClaudeCleanupPeriod: () => typedError<ClaudeCleanupPeriod, BindingsErrorIpc>(__TAURI_INVOKE("get_claude_cleanup_period")),
+	/**
 	 *  The format drift indexing recorded for `source`; empty before the first
 	 *  index.
 	 */
@@ -112,6 +117,35 @@ export type CaptureProgress = {
 };
 
 export type CaptureStage = "preflight" | "copyingSession" | "preparingEnvironment" | "startingListener" | "resumingClone" | "waitingForRequest" | "parsingSnapshot" | "savingSnapshot" | "cleaningUp" | "complete" | "cancelled";
+
+export type ClaudeCleanupPeriod = {
+	state: ClaudeCleanupPeriodState,
+	// The value when `state` is `set`.
+	days: number | null,
+	/**
+	 *  The settings file that was read, or would be; empty when no folder
+	 *  is configured.
+	 */
+	file: string,
+};
+
+// What the user settings file says about `cleanupPeriodDays`.
+export type ClaudeCleanupPeriodState =
+// A whole number of days, which may be below Claude Code's minimum of 1.
+"set" |
+// The file doesn't set it, so Claude Code's default applies.
+"notSet" |
+// The folder has no settings file.
+"noFile" |
+/**
+ *  The configured folder is missing, relative, a network share or blank,
+ *  so nothing was read.
+ */
+"folderInvalid" |
+// The file couldn't be read as a JSON object: unreadable, too large or malformed.
+"fileInvalid" |
+// It is set to something other than a non-negative whole number.
+"valueInvalid";
 
 /**
  *  Stable error-code identifiers surfaced to the frontend.

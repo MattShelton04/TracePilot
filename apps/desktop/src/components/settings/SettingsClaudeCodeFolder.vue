@@ -7,6 +7,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { logWarn } from "@/utils/logger";
 
 const props = defineProps<{ disabled: boolean }>();
+const emit = defineEmits<{ saved: [] }>();
 
 const preferencesStore = usePreferencesStore();
 const toast = useToast();
@@ -63,6 +64,7 @@ async function apply() {
     });
     savedFolder.value = config.sources.claudeCode.configDir ?? configDir;
     folder.value = savedFolder.value;
+    emit("saved");
     toast.success(
       `Claude Code folder saved. Indexing ${result.sessionCount} session${result.sessionCount === 1 ? "" : "s"}.`,
     );
