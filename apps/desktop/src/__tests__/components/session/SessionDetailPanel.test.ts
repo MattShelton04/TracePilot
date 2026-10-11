@@ -157,7 +157,7 @@ describe("SessionDetailPanel", () => {
 
   it("keeps auto-refreshing a session that still exists", async () => {
     const store = await autoRefreshCalls();
-    expect(vi.mocked(store.refreshAll).mock.calls.length).toBeGreaterThan(0);
+    expect(vi.mocked(store.refreshIfSourceChanged).mock.calls.length).toBeGreaterThan(0);
   });
 
   it("pauses auto-refresh once the open session no longer exists", async () => {
@@ -166,7 +166,7 @@ describe("SessionDetailPanel", () => {
       message: "Session not found: session-1",
     });
     const store = await autoRefreshCalls();
-    expect(store.refreshAll).not.toHaveBeenCalled();
+    expect(store.refreshIfSourceChanged).not.toHaveBeenCalled();
     expect(mocks.getSessionLiveness).toHaveBeenCalledTimes(1);
   });
 
@@ -265,9 +265,9 @@ describe("SessionDetailPanel", () => {
     );
     expect(whileRunning).toBe(2);
     expect(autoWhileRunning).toBe(0);
-    expect(afterIdle).toBe(3);
-    // Auto-refresh takes over once the session is idle.
-    expect(autoAfterIdle).toBeGreaterThan(0);
+    // Auto-refresh takes over once idle, skipping sections with an unchanged source.
+    expect(afterIdle).toBeGreaterThan(3);
+    expect(autoAfterIdle).toBe(0);
   });
 
   it("keeps auto-refreshing a running Copilot session on its interval", async () => {

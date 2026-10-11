@@ -111,4 +111,72 @@ describe("Overview IPC calls", () => {
       vi.useRealTimers();
     }
   });
+
+  it("auto-refreshes an idle session without refetching its unchanged source", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    try {
+      const prefs = usePreferencesStore();
+      await prefs.whenReady;
+      prefs.autoRefreshEnabled = true;
+      prefs.autoRefreshIntervalSeconds = 3;
+      const wrapper = await openOverview("copilot", false);
+
+      // Let the first tick record the source version, then count steady ticks.
+      await vi.advanceTimersByTimeAsync(3_000);
+      vi.clearAllMocks();
+      const ticks = 5;
+      await vi.advanceTimersByTimeAsync(3_000 * ticks);
+      expect(calls("checkSessionFreshness")).toBe(ticks);
+      expect(calls("getSessionLiveness")).toBe(ticks);
+      // Read from files outside the source version, so they keep refreshing.
+      expect(calls("getSessionIncidents")).toBe(ticks);
+      expect(calls("getSessionCheckpoints")).toBe(ticks);
+      expect(calls("getSessionDetail")).toBe(0);
+      expect(calls("getSessionPlan")).toBe(0);
+      expect(calls("getShutdownMetrics")).toBe(0);
+
+      // A changed source reloads everything once.
+      mocks.checkSessionFreshness.mockResolvedValue({
+        eventsFileSize: 2,
+        eventsFileMtime: 2,
+        sourceVersion: "v2",
+      });
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(calls("getSessionDetail")).toBe(1);
+      expect(calls("getShutdownMetrics")).toBe(1);
+
+      // The Refresh button always reloads everything.
+      vi.clearAllMocks();
+      await wrapper.get(".refresh-btn").trigger("click");
+      await flushPromises();
+      expect(calls("checkSessionFreshness")).toBe(0);
+      expect(calls("getSessionDetail")).toBe(1);
+      expect(calls("getShutdownMetrics")).toBe(1);
+      wrapper.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fully auto-refreshes a running Copilot session", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    try {
+      const prefs = usePreferencesStore();
+      await prefs.whenReady;
+      prefs.autoRefreshEnabled = true;
+      prefs.autoRefreshIntervalSeconds = 3;
+      const wrapper = await openOverview("copilot", true);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      vi.clearAllMocks();
+      const ticks = 3;
+      await vi.advanceTimersByTimeAsync(3_000 * ticks);
+      // Copilot keeps plan and checkpoints outside its source version.
+      expect(calls("getSessionDetail")).toBe(ticks);
+      expect(calls("getSessionPlan")).toBe(ticks);
+      wrapper.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
