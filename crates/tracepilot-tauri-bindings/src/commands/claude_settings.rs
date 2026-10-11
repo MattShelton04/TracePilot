@@ -1,13 +1,16 @@
-//! Claude Code's transcript retention (`cleanupPeriodDays`), read for the
-//! notice in Settings → Claude Code. Only the user `settings.json` in the
-//! configured Claude Code folder is read. Project and managed settings, which
-//! take precedence over it, are not. Nothing else from the file is returned
-//! or logged.
+//! Claude Code's transcript retention (`cleanupPeriodDays`), read and raised
+//! from the notice in Settings → Claude Code. Only the user `settings.json`
+//! in the configured Claude Code folder is read or written. Project and
+//! managed settings, which take precedence over it, are not. Nothing else
+//! from the file is returned or logged.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+
+use tracepilot_orchestrator::OrchestratorError;
+use tracepilot_orchestrator::config_injector::raise_claude_cleanup_period as raise_in_file;
 
 use crate::blocking_cmd;
 use crate::config::{SharedConfig, canonical_claude_config_dir};
@@ -104,6 +107,60 @@ pub(crate) fn read_cleanup_period(config_dir: &Path) -> ClaudeCleanupPeriod {
         },
     };
     outcome(state, days, &path)
+}
+
+/// Raise `cleanupPeriodDays` in the configured Claude Code folder's
+/// `settings.json` to `days`, creating the file if needed. A longer value is
+/// kept, never lowered. Returns the value read back afterwards.
+#[tauri::command]
+#[specta::specta]
+pub async fn raise_claude_cleanup_period(
+    state: tauri::State<'_, SharedConfig>,
+    days: u32,
+) -> CmdResult<ClaudeCleanupPeriod> {
+    let dir = read_config(&state).claude_config_dir();
+    blocking_cmd!(raise_cleanup_period(&dir, days))
+}
+
+pub(crate) fn raise_cleanup_period(
+    config_dir: &Path,
+    days: u32,
+) -> Result<ClaudeCleanupPeriod, BindingsError> {
+    // Checked like saving the folder (ADR 0012); a missing folder isn't created.
+    let dir = canonical_claude_config_dir(&config_dir.to_string_lossy()).map_err(|_invalid| {
+        BindingsError::Validation(
+            "The Claude Code folder isn't valid, so nothing was changed. Check it in Settings → Claude Code."
+                .into(),
+        )
+    })?;
+    let target = writable_target(&dir.join(SETTINGS_FILE))?;
+    match raise_in_file(&target, days) {
+        Ok(_) => Ok(read_cleanup_period(&dir)),
+        // Its messages are written for the user.
+        Err(OrchestratorError::Config(message)) => Err(BindingsError::Validation(message)),
+        Err(error) => Err(error.into()),
+    }
+}
+
+/// The file to replace: `path`, or the local file a link at `path` points
+/// to, so that the link survives the replacement.
+fn writable_target(path: &Path) -> Result<PathBuf, BindingsError> {
+    let is_link = std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink());
+    if !is_link {
+        return Ok(path.to_path_buf());
+    }
+    let unusable = || {
+        BindingsError::Validation(
+            "settings.json links to a file that isn't a local file, so it was left unchanged."
+                .into(),
+        )
+    };
+    let target = tracepilot_core::utils::fs::canonicalize(path).map_err(|_broken| unusable())?;
+    let regular = std::fs::metadata(&target).is_ok_and(|meta| meta.is_file());
+    if !has_local_root(&target) || !regular {
+        return Err(unusable());
+    }
+    Ok(target)
 }
 
 /// A non-negative whole number, as JavaScript reads JSON (`30.0` is 30).
@@ -262,6 +319,105 @@ mod tests {
         contents.resize(MAX_SETTINGS_BYTES as usize + 1, b' ');
         contents.extend_from_slice(br#""}"#);
         assert_eq!(read_with(Some(&contents)).state, State::FileInvalid);
+    }
+
+    fn raise_in(
+        contents: Option<&str>,
+        days: u32,
+    ) -> (Result<ClaudeCleanupPeriod, BindingsError>, Option<String>) {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join(SETTINGS_FILE);
+        if let Some(contents) = contents {
+            std::fs::write(&path, contents).unwrap();
+        }
+        let result = raise_cleanup_period(temp.path(), days);
+        (result, std::fs::read_to_string(&path).ok())
+    }
+
+    #[test]
+    fn raising_returns_the_value_read_back() {
+        let (result, after) = raise_in(Some(r#"{"model":"x","cleanupPeriodDays":30}"#), 3650);
+        let result = result.unwrap();
+        assert_eq!((result.state, result.days), (State::Set, Some(3650)));
+        assert_eq!(after.unwrap(), r#"{"model":"x","cleanupPeriodDays":3650}"#);
+
+        let (result, after) = raise_in(None, 3650);
+        assert_eq!(result.unwrap().days, Some(3650));
+        assert_eq!(
+            after.unwrap(),
+            "{
+  \"cleanupPeriodDays\": 3650
+}
+"
+        );
+    }
+
+    #[test]
+    fn raising_keeps_a_longer_value() {
+        let contents = r#"{"cleanupPeriodDays":9000}"#;
+        let (result, after) = raise_in(Some(contents), 3650);
+        assert_eq!(result.unwrap().days, Some(9000));
+        assert_eq!(after.as_deref(), Some(contents));
+    }
+
+    #[test]
+    fn raising_reports_refusals_readably() {
+        let (result, after) = raise_in(Some("{oops"), 3650);
+        let error = result.unwrap_err();
+        assert!(matches!(error, BindingsError::Validation(_)));
+        assert_eq!(
+            error.to_string(),
+            "settings.json isn't valid JSON, so it was left unchanged."
+        );
+        assert_eq!(after.as_deref(), Some("{oops"));
+
+        let (result, _) = raise_in(Some("{}"), 0);
+        assert!(result.unwrap_err().to_string().contains("from 1 to 36500"));
+    }
+
+    #[test]
+    fn raising_needs_an_existing_folder() {
+        let temp = tempfile::tempdir().unwrap();
+        let gone = temp.path().join(".claude");
+        let error = raise_cleanup_period(&gone, 3650).unwrap_err();
+        assert!(error.to_string().contains("folder isn't valid"), "{error}");
+        assert!(!gone.exists());
+        assert!(raise_cleanup_period(Path::new(""), 3650).is_err());
+        assert!(raise_cleanup_period(Path::new("claude"), 3650).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn raising_writes_through_a_link_and_keeps_it() {
+        let temp = tempfile::tempdir().unwrap();
+        let claude = temp.path().join("claude");
+        let dotfiles = temp.path().join("dotfiles");
+        std::fs::create_dir_all(&claude).unwrap();
+        std::fs::create_dir_all(&dotfiles).unwrap();
+        let real = dotfiles.join(SETTINGS_FILE);
+        std::fs::write(&real, r#"{"a":1}"#).unwrap();
+        let link = claude.join(SETTINGS_FILE);
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        assert_eq!(
+            raise_cleanup_period(&claude, 3650).unwrap().days,
+            Some(3650)
+        );
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(
+            std::fs::read_to_string(&real).unwrap(),
+            r#"{"a":1,"cleanupPeriodDays":3650}"#
+        );
+
+        std::fs::remove_file(&real).unwrap();
+        let error = raise_cleanup_period(&claude, 3650).unwrap_err();
+        assert!(error.to_string().contains("links to a file"), "{error}");
+        assert!(!real.exists());
     }
 
     #[test]

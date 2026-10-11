@@ -13,7 +13,7 @@ defineProps<{
   validationResult: ValidateSessionDirResult | null;
   validationError: string;
   canContinue: boolean;
-  /** The default Claude Code folder, when it holds sessions; else null. */
+  /** The default Claude Code folder, when it holds sessions; else null. The switch defaults on. */
   claudeCode: { dir: string; sessionCount: number } | null;
   includeClaudeCode: boolean;
 }>();

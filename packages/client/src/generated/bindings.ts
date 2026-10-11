@@ -62,6 +62,12 @@ export const commands = {
 	 */
 	getClaudeCleanupPeriod: () => typedError<ClaudeCleanupPeriod, BindingsErrorIpc>(__TAURI_INVOKE("get_claude_cleanup_period")),
 	/**
+	 *  Raise `cleanupPeriodDays` in the configured Claude Code folder's
+	 *  `settings.json` to `days`, creating the file if needed. A longer value is
+	 *  kept, never lowered. Returns the value read back afterwards.
+	 */
+	raiseClaudeCleanupPeriod: (days: number) => typedError<ClaudeCleanupPeriod, BindingsErrorIpc>(__TAURI_INVOKE("raise_claude_cleanup_period", { days })),
+	/**
 	 *  The format drift indexing recorded for `source`; empty before the first
 	 *  index.
 	 */
