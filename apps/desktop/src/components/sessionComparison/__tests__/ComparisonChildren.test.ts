@@ -58,8 +58,20 @@ function makeCompStub(overrides: Partial<SessionComparisonContext> = {}): Sessio
       maxVal: number;
       isCacheRow?: boolean;
     }>,
-    donutA: [] as Array<{ model: string; tokens: number; percentage: number; color: string }>,
-    donutB: [] as Array<{ model: string; tokens: number; percentage: number; color: string }>,
+    donutA: [] as Array<{
+      model: string;
+      label: string;
+      tokens: number;
+      percentage: number;
+      color: string;
+    }>,
+    donutB: [] as Array<{
+      model: string;
+      label: string;
+      tokens: number;
+      percentage: number;
+      color: string;
+    }>,
     toolCompRows: [] as Array<{ tool: string; countA: number; countB: number; maxCount: number }>,
     waveA: [] as number[],
     waveB: [] as number[],

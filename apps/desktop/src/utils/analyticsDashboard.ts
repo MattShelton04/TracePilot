@@ -242,6 +242,43 @@ export function binRows(rows: readonly DayRow[], maxBins: number, cumulative = f
   return bins;
 }
 
+/** Days one drawn column covers: 1 until the chart merges days into bins. */
+export function columnDays(columns: readonly DayRow[]): number {
+  const first = columns[0];
+  return first ? Math.round((Date.parse(first.to) - Date.parse(first.from)) / DAY_MS) + 1 : 1;
+}
+
+/** A chart title's unit: `Calls per day`, or `Calls per 2 days` once days merge. */
+export function perColumnTitle(noun: string, columns: readonly DayRow[]): string {
+  const days = columnDays(columns);
+  return days > 1 ? `${noun} per ${days} days` : `${noun} per day`;
+}
+
+/**
+ * The tallest drawn column and its label (`Mar 24`, or `Mar 15 – Mar 16` for
+ * a merged one), so a footer's "busiest" matches the bars. `null` when there
+ * is nothing above zero.
+ */
+export function busiestColumn(
+  columns: readonly DayRow[],
+  total: (row: DayRow) => number = (row) => row.values.reduce((a, b) => a + b, 0),
+): { row: DayRow; total: number; label: string } | null {
+  let best: { row: DayRow; total: number } | null = null;
+  for (const row of columns) {
+    const value = total(row);
+    if (value > 0 && (!best || value > best.total)) best = { row, total: value };
+  }
+  if (!best) return null;
+  const day = (iso: string) =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  const { from, to } = best.row;
+  return { ...best, label: from === to ? day(from) : `${day(from)} – ${day(to)}` };
+}
+
 /** Running totals of each series, for the cumulative cost view. */
 export function cumulativeRows(rows: readonly DayRow[]): DayRow[] {
   const totals = rows[0]?.values.map(() => 0) ?? [];

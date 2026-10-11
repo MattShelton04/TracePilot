@@ -96,6 +96,13 @@ describe("modelDisplayName", () => {
     expect(modelDisplayName("claude-opus-5-5", "copilot")).toBe("claude-opus-5-5");
     expect(modelDisplayName("gpt-5", undefined)).toBe("gpt-5");
   });
+  it("keeps Claude Code's 1M-context marker on the family name", () => {
+    expect(modelDisplayName("claude-opus-5-5[1m]", "claudeCode")).toBe("claude-opus-5.5 (1M)");
+    expect(modelDisplayName("claude-unpublished-9[1m]", "claudeCode")).toBe(
+      "claude-unpublished-9[1m]",
+    );
+    expect(modelDisplayName("claude-opus-5-5[1m]", "copilot")).toBe("claude-opus-5-5[1m]");
+  });
 });
 
 describe("claudeCodeModelFamily", () => {

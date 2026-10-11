@@ -9,6 +9,7 @@ import { FIXTURE_ANALYTICS } from "../../__tests__/views/analyticsFixtures";
 import {
   activityRows,
   binRows,
+  busiestColumn,
   cumulativeRows,
   type DayRow,
   dashboardDays,
@@ -16,6 +17,7 @@ import {
   durationStrip,
   errorPins,
   formatShare,
+  perColumnTitle,
   rangeDays,
   rangeText,
   tickIndices,
@@ -140,6 +142,25 @@ describe("binning and running totals", () => {
       ["d1", "d2", [4, 6]],
       ["d3", "d3", [5, 6]],
     ]);
+  });
+
+  it("names the busiest drawn column and the days each column covers", () => {
+    const daily = [
+      row("2026-03-15", [6, 1]),
+      row("2026-03-16", [5, 0]),
+      row("2026-03-24", [9, 0]),
+      row("2026-03-25", [0, 0]),
+    ];
+    expect(busiestColumn(daily)).toMatchObject({ total: 9, label: "Mar 24" });
+    expect(perColumnTitle("Calls", daily)).toBe("Calls per day");
+    const merged = [
+      { ...daily[0], to: "2026-03-16", values: [11, 1] },
+      { ...daily[2], to: "2026-03-25" },
+    ];
+    expect(busiestColumn(merged)).toMatchObject({ total: 12, label: "Mar 15 – Mar 16" });
+    expect(perColumnTitle("Calls", merged)).toBe("Calls per 2 days");
+    expect(busiestColumn([row("2026-03-15", [0])])).toBeNull();
+    expect(perColumnTitle("Calls", [])).toBe("Calls per day");
   });
 
   it("keeps a running total's last value per bin", () => {

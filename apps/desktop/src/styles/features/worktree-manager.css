@@ -431,30 +431,33 @@
   overscroll-behavior-x: contain;
 }
 
+/* Fixed columns total 620px; the branch column takes the rest and keeps at
+   least ~140px before the list scrolls sideways (only below ~760px). */
 .wt-manager .wt-table {
   width: 100%;
-  min-width: 928px;
+  min-width: 760px;
   table-layout: fixed;
   border-spacing: 0;
 }
 
 .wt-manager .wt-col-icon {
-  width: 56px;
+  width: 48px;
 }
 .wt-manager .wt-col-session {
-  width: 112px;
+  width: 96px;
 }
 .wt-manager .wt-col-disk {
-  width: 100px;
+  width: 96px;
 }
 .wt-manager .wt-col-status {
-  width: 112px;
+  width: 104px;
 }
 .wt-manager .wt-col-created {
-  width: 112px;
+  width: 104px;
 }
+/* Five 28px buttons, four 4px gaps and the cell's 8px padding each side. */
 .wt-manager .wt-col-actions {
-  width: 180px;
+  width: 172px;
 }
 
 .wt-manager .wt-table td {

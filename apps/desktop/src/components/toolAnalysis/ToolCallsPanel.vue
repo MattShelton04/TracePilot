@@ -5,11 +5,11 @@
  */
 import { formatNumber, formatNumberFull, type ToolAnalysisData } from "@tracepilot/types";
 import { SegmentedControl } from "@tracepilot/ui";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import AnalyticsDayChart from "@/components/analytics/AnalyticsDayChart.vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
-import type { DayRow } from "@/utils/analyticsDashboard";
+import { busiestColumn, type DayRow, perColumnTitle } from "@/utils/analyticsDashboard";
 import { formatToolTime, type ToolDayMetric, toolDayRows } from "@/utils/toolAnalysis";
 
 const props = defineProps<{
@@ -45,6 +45,8 @@ const style = computed({
 });
 
 const chart = computed(() => toolDayRows(props.data, props.days, metric.value));
+/** The columns the chart draws: days, or bins of days on a long range. */
+const drawn = ref<DayRow[]>([]);
 const calls = (n: number) => `${formatNumberFull(n)} call${n === 1 ? "" : "s"}`;
 
 /** Whole calls per day; an average keeps one decimal. */
@@ -68,20 +70,10 @@ const footer = computed(() => {
   const rows = chart.value.rows;
   const totals = rows.map((row) => row.values.reduce((a, b) => a + b, 0));
   const active = totals.filter((total) => total > 0);
-  const peak = totals.indexOf(Math.max(...totals));
+  const peak = busiestColumn(drawn.value.length ? drawn.value : rows);
   const failed = rows.reduce((sum, row) => sum + row.errors, 0);
   return {
-    peak:
-      rows.length > 1 && active.length
-        ? {
-            day: new Date(`${rows[peak].from}T00:00:00Z`).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              timeZone: "UTC",
-            }),
-            value: format.value(totals[peak]),
-          }
-        : null,
+    peak: rows.length > 1 && peak ? { day: peak.label, value: format.value(peak.total) } : null,
     average:
       rows.length > 1 && active.length
         ? format.value(active.reduce((a, b) => a + b, 0) / active.length)
@@ -100,7 +92,7 @@ const ariaLabel = computed(() => {
 </script>
 
 <template>
-  <OverviewPanel title="Calls per day" data-testid="tool-calls-per-day">
+  <OverviewPanel :title="perColumnTitle('Calls', drawn)" data-testid="tool-calls-per-day">
     <template #aside>
       <div class="ad-switches">
         <SegmentedControl v-model="metric" class="ad-seg" :options="METRICS" aria-label="Tool chart metric" />
@@ -118,6 +110,7 @@ const ariaLabel = computed(() => {
         :label="ariaLabel"
         :integer="metric !== 'time'"
         :detail="detail"
+        @columns="drawn = $event"
       />
       <div class="ad-foot">
         <span v-if="footer.noFailures">No failed calls in {{ rangeText }}</span>

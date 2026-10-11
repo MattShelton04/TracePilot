@@ -12,6 +12,8 @@ import {
   mockListWorktrees,
 } from "./setup";
 import { useOrchestrationHomeStore } from "@/stores/orchestrationHome";
+import OrchestrationHeroStats from "@/views/orchestration/home/OrchestrationHeroStats.vue";
+import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
 describe("useOrchestrationHomeStore - initialization", () => {
@@ -62,6 +64,33 @@ describe("useOrchestrationHomeStore - initialization", () => {
       expect(store.versions).toEqual(FIXTURE_VERSIONS);
       expect(store.loading).toBe(false);
       expect(store.error).toBeNull();
+    });
+
+    it("splits running sessions by what their process reports", async () => {
+      const running = (id: string, runStatus?: "busy" | "waiting") => ({
+        ...FIXTURE_SESSIONS[0],
+        id,
+        runStatus,
+      });
+      mockListSessions.mockResolvedValue([
+        running("a", "busy"),
+        running("b", "waiting"),
+        running("c", "waiting"),
+        running("d"),
+        FIXTURE_SESSIONS[1],
+      ]);
+      mockListRegisteredRepos.mockResolvedValue([]);
+      mockListWorktrees.mockResolvedValue([]);
+
+      const store = useOrchestrationHomeStore();
+      await store.initialize();
+      await flushPromises();
+
+      expect(store.activeSessions).toBe(4);
+      expect(store.workingSessions).toBe(1);
+      expect(store.waitingSessions).toBe(2);
+      const hero = mount(OrchestrationHeroStats);
+      expect(hero.get(".hero-sub").text()).toBe("1 working · 2 waiting · 1 running");
     });
 
     it("sets loading=true during fetch, false after completion", async () => {

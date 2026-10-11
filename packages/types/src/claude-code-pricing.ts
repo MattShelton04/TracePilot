@@ -57,10 +57,17 @@ export function claudeCodeModelFamily(model: string): string | null {
  * How to name a session's model on screen, the way Analytics and Models do:
  * a known Claude Code id by its registry family (`claude-opus-5-5` →
  * `claude-opus-5.5`), anything else as recorded. Display only; stored and
- * filter values keep the recorded id.
+ * filter values keep the recorded id. Claude Code's 1M-context selection
+ * (`claude-opus-5-5[1m]`) keeps its marker: `claude-opus-5.5 (1M)`.
  */
 export function modelDisplayName(model: string, source: SessionSource | null | undefined): string {
-  return source === "claudeCode" ? (claudeCodeModelFamily(model) ?? model) : model;
+  if (source !== "claudeCode") return model;
+  const context = /^(.*)\[1m\]$/i.exec(model);
+  if (context) {
+    const family = claudeCodeModelFamily(context[1]);
+    return family ? `${family} (1M)` : model;
+  }
+  return claudeCodeModelFamily(model) ?? model;
 }
 
 /** A recorded write needs its TTL; missing data must not borrow a 5m rate. */

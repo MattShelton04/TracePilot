@@ -104,12 +104,12 @@ const comp = useSessionComparisonContext();
               :stroke-dashoffset="`${-(seg.offset - 2 * Math.PI * 60 * 0.25)}`"
             />
             <text v-if="comp.donutA[0]" x="80" y="76" text-anchor="middle" fill="var(--text-primary)" font-size="18" font-weight="700">{{ Math.round(comp.donutA[0].percentage * 100) }}%</text>
-            <text v-if="comp.donutA[0]" x="80" y="94" text-anchor="middle" fill="var(--text-tertiary)" font-size="10">{{ comp.donutA[0].model.split('/').pop() }}</text>
+            <text v-if="comp.donutA[0]" x="80" y="94" text-anchor="middle" fill="var(--text-tertiary)" font-size="10">{{ comp.donutA[0].label.split('/').pop() }}</text>
           </svg>
           <div class="donut-legend">
             <div v-for="seg in comp.donutA" :key="seg.model" class="donut-legend-item">
               <div class="donut-swatch" :style="{ '--swatch-color': seg.color }"></div>
-              <span>{{ seg.model }} ({{ Math.round(seg.percentage * 100) }}%)</span>
+              <span :title="seg.model">{{ seg.label }} ({{ Math.round(seg.percentage * 100) }}%)</span>
             </div>
           </div>
         </div>
@@ -132,12 +132,12 @@ const comp = useSessionComparisonContext();
               :stroke-dashoffset="`${-(seg.offset - 2 * Math.PI * 60 * 0.25)}`"
             />
             <text v-if="comp.donutB[0]" x="80" y="76" text-anchor="middle" fill="var(--text-primary)" font-size="18" font-weight="700">{{ Math.round(comp.donutB[0].percentage * 100) }}%</text>
-            <text v-if="comp.donutB[0]" x="80" y="94" text-anchor="middle" fill="var(--text-tertiary)" font-size="10">{{ comp.donutB[0].model.split('/').pop() }}</text>
+            <text v-if="comp.donutB[0]" x="80" y="94" text-anchor="middle" fill="var(--text-tertiary)" font-size="10">{{ comp.donutB[0].label.split('/').pop() }}</text>
           </svg>
           <div class="donut-legend">
             <div v-for="seg in comp.donutB" :key="seg.model" class="donut-legend-item">
               <div class="donut-swatch" :style="{ '--swatch-color': seg.color }"></div>
-              <span>{{ seg.model }} ({{ Math.round(seg.percentage * 100) }}%)</span>
+              <span :title="seg.model">{{ seg.label }} ({{ Math.round(seg.percentage * 100) }}%)</span>
             </div>
           </div>
         </div>
