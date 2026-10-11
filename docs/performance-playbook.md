@@ -154,10 +154,22 @@ Copilot sessions (2.5 GB of events, largest 111 MiB) and 101 Claude Code session
 
 Where the first index's search phase goes (scoped timers): the writer is busy
 24 s, of which row inserts take 9 s, the per-session FTS statement 5 s and 532
-commits 7 s; it waits 4.5 s for preparation. Maintenance at the end of the pass
-adds FTS `optimize` and `ANALYZE`, about 2 s each on a fresh index and up to
-10 s each on a large, aged one, both under the write lock, so a concurrent
-session write can time out with `database is locked`.
+commits 7 s; it waits 4.5 s for preparation.
+
+Maintenance at the end of the pass (at most every 4 hours, and after a search
+rebuild) must not hold the write lock for long: the session indexer runs
+alongside it and gives up after its 5 s busy timeout with `database is locked`.
+A single FTS `optimize` took 3 to 12 s on real aged indexes, and `ANALYZE` (with
+`sqlite_stat4`) 1 to 6 s. The FTS index is instead merged into one segment by
+`('merge', -500)` steps, each its own transaction of about 0.2 s, with a short
+pause between them; the result is what `optimize` produces. Any FTS write
+between steps makes FTS5 start the merge over, so a pass stops after 30 s and
+the next maintenance resumes. Startup maintenance runs `PRAGMA
+optimize=0x10002`, which analyzes only tables without statistics or whose size
+changed tenfold, so a first index still gets full statistics but they are no
+longer refreshed every 4 hours. A search rebuild keeps a full `ANALYZE`. `analysis_limit` is not used: it drops
+`sqlite_stat4` and coarsens `sqlite_stat1`. To measure lock hold, time a second
+connection's small write transactions while maintenance runs.
 
 For base/head comparisons, run a separate head-only budget check. A historical
 base may legitimately exceed the new memory budget; use an explicitly recorded
