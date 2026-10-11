@@ -402,7 +402,7 @@ describe("SetupWizard", () => {
       expect((await launch())?.features.claudeCodeSessions).toBe(false);
     });
 
-    it("is offered off by default and leaves Claude Code off", async () => {
+    it("is offered on by default and turns Claude Code on when setup completes", async () => {
       withClaudeFolder(8);
       await openDirectoryStep();
       const option = wrapper.get(".slide:not([inert]) .claude-option");
@@ -410,15 +410,6 @@ describe("SetupWizard", () => {
       expect(option.text()).toContain("Found 8 Claude Code sessions in /claude");
       expect(option.text()).toContain("Settings → Claude Code");
       expect(option.text()).toContain("Claude Code deletes transcripts after 30 days by default");
-      expect(wrapper.get(claudeSwitch).attributes("aria-checked")).toBe("false");
-      expect((await launch())?.features.claudeCodeSessions).toBe(false);
-      expect(wrapper.getComponent(WizardStepReady).text()).not.toContain("Claude Code");
-    });
-
-    it("turns Claude Code on when setup completes", async () => {
-      withClaudeFolder(8);
-      await openDirectoryStep();
-      await wrapper.get(claudeSwitch).trigger("click");
       expect(wrapper.get(claudeSwitch).attributes("aria-checked")).toBe("true");
       await wrapper.get('[aria-label="Step 5"]').trigger("click");
       await finishTransition();
@@ -430,10 +421,26 @@ describe("SetupWizard", () => {
       expect(wrapper.emitted("setup-saved")).toEqual([[12]]);
     });
 
-    it("keeps Skip on the defaults even with the option turned on", async () => {
+    it("leaves Claude Code off when the option is turned off", async () => {
       withClaudeFolder(8);
       await openDirectoryStep();
       await wrapper.get(claudeSwitch).trigger("click");
+      expect(wrapper.get(claudeSwitch).attributes("aria-checked")).toBe("false");
+      expect((await launch())?.features.claudeCodeSessions).toBe(false);
+      expect(wrapper.getComponent(WizardStepReady).text()).not.toContain("Claude Code");
+    });
+
+    it("keeps Skip on the defaults, which turn Claude Code on when found", async () => {
+      withClaudeFolder(8);
+      await openDirectoryStep();
+      await wrapper.get(claudeSwitch).trigger("click");
+      await wrapper.get(".skip-link").trigger("click");
+      await flushPromises();
+      expect(vi.mocked(saveConfig).mock.lastCall?.[0].features.claudeCodeSessions).toBe(true);
+    });
+
+    it("keeps Claude Code off on Skip when no folder was found", async () => {
+      await mountWizard();
       await wrapper.get(".skip-link").trigger("click");
       await flushPromises();
       expect(vi.mocked(saveConfig).mock.lastCall?.[0].features.claudeCodeSessions).toBe(false);
