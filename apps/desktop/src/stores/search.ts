@@ -197,8 +197,14 @@ export const useSearchStore = defineStore("search", () => {
     setViewMounted: (mounted: boolean) => {
       isViewMounted = mounted;
     },
-    // Load stats/facets without executing a search (for browse presets view)
+    // Show the browse-presets landing: drop an earlier query's results (and any
+    // search still in flight) so they don't outlive the cleared query, then
+    // load stats/facets without executing a search.
     async fetchStatsOnly() {
+      scheduler.clear();
+      searchGuard.invalidate();
+      q.loading.value = false;
+      q.clearSearchResults();
       await Promise.all([f.fetchStats(), f.fetchFacets(), f.fetchFilterOptions()]);
     },
   };
