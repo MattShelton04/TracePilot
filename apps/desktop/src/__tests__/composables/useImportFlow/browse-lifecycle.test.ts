@@ -52,8 +52,7 @@ describe("useImportFlow browseFile", () => {
 
 describe("useImportFlow lifecycle cleanup", () => {
   it("clears the progress timer when the component unmounts mid-import", async () => {
-    vi.useRealTimers();
-    const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     let flowRef!: ReturnType<typeof useImportFlow>;
 
     const Wrapper = {
@@ -74,22 +73,27 @@ describe("useImportFlow lifecycle cleanup", () => {
     client.importSessions.mockReturnValue(importDeferred.promise);
 
     const importPromise = flowRef.executeImport();
-    await flushPromises();
+    let unmounted = false;
+    try {
+      expect(flowRef.step.value).toBe("importing");
+      expect(flowRef.importProgress.value).toBe(0);
 
-    expect(flowRef.step.value).toBe("importing");
+      await vi.advanceTimersByTimeAsync(300);
+      expect(flowRef.importProgress.value).toBeGreaterThan(0);
+      const progressOnUnmount = flowRef.importProgress.value;
 
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    expect(flowRef.importProgress.value).toBeGreaterThan(0);
+      wrapper.unmount();
+      unmounted = true;
+      await vi.advanceTimersByTimeAsync(300);
 
-    clearIntervalSpy.mockClear();
-    wrapper.unmount();
-
-    expect(clearIntervalSpy).toHaveBeenCalled();
-
-    importDeferred.resolve(makeImportResult());
-    await importPromise;
-    clearIntervalSpy.mockRestore();
-    vi.useFakeTimers();
+      expect(flowRef.importProgress.value).toBe(progressOnUnmount);
+    } finally {
+      if (!unmounted) wrapper.unmount();
+      importDeferred.resolve(makeImportResult());
+      await importPromise;
+      vi.clearAllTimers();
+      randomSpy.mockRestore();
+    }
   });
 
   it("invalidates in-flight validation when the component unmounts", async () => {

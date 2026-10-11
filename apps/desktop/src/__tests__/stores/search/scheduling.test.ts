@@ -1,8 +1,9 @@
 // biome-ignore-all assist/source/organizeImports: setup must register mocks before the store import.
-import { setupPinia } from "@tracepilot/test-utils";
+import { createDeferred, setupPinia } from "@tracepilot/test-utils";
+import { flushPromises } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { emptyFacets, mocks, resetAllMocks } from "./setup";
+import { emptyFacets, emptySearchResponse, mocks, resetAllMocks } from "./setup";
 import { useSearchStore } from "../../../stores/search";
 
 describe("useSearchStore – scheduling", () => {
@@ -28,27 +29,49 @@ describe("useSearchStore – scheduling", () => {
   });
 
   afterEach(() => {
+    useSearchStore().$dispose();
+    vi.clearAllTimers();
     vi.useRealTimers();
   });
 
   it("debounces query changes while resetting page without duplicate immediate searches", async () => {
     const store = useSearchStore();
+    const response = createDeferred<typeof emptySearchResponse>();
+    mocks.searchContent.mockReturnValueOnce(response.promise);
+
+    store.beginHydration();
     store.page = 3;
+    await nextTick(); // prime pagination without scheduling a search
+    store.endHydration();
 
-    store.query = "hello";
+    try {
+      store.query = "hello";
+      await nextTick(); // the query watcher now owns the debounce timer
 
-    vi.advanceTimersByTime(149);
-    expect(mocks.searchContent).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(149);
+      expect(mocks.searchContent).not.toHaveBeenCalled();
+      expect(store.loading).toBe(false);
 
-    vi.runAllTimers();
-    await nextTick();
-    await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+      const [_query, options] = mocks.searchContent.mock.calls[0];
+      expect(_query).toBe("hello");
+      expect(options?.offset).toBe(0); // page reset to 1
+      expect(store.page).toBe(1);
+      expect(store.loading).toBe(true);
 
-    expect(mocks.searchContent).toHaveBeenCalledTimes(1);
-    const [_query, options] = mocks.searchContent.mock.calls[0];
-    expect(_query).toBe("hello");
-    expect(options?.offset).toBe(0); // page reset to 1
-    expect(store.page).toBe(1);
+      response.resolve(emptySearchResponse);
+      await flushPromises();
+      expect(store.results).toEqual(emptySearchResponse.results);
+      expect(store.totalCount).toBe(emptySearchResponse.totalCount);
+      expect(store.latencyMs).toBe(emptySearchResponse.latencyMs);
+      expect(store.loading).toBe(false);
+      expect(mocks.searchContent).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      response.resolve(emptySearchResponse);
+      await flushPromises();
+    }
   });
 
   it("still triggers immediate search when user paginates", async () => {

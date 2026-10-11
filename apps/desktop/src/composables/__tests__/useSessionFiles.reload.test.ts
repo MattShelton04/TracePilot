@@ -1,5 +1,6 @@
-import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createDeferred } from "@tracepilot/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 
 const mockSessionListFiles = vi.fn();
@@ -15,6 +16,8 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 import { useSessionFiles } from "../useSessionFiles";
+
+enableAutoUnmount(afterEach);
 
 function mountComposable(sessionId: string) {
   let instance!: ReturnType<typeof useSessionFiles>;
@@ -64,7 +67,7 @@ describe("useSessionFiles reload and cache behavior", () => {
       .mockResolvedValueOnce(reloadedEntries);
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
     expect(instance.files).toEqual(initialEntries);
 
     await instance.reload();
@@ -84,7 +87,7 @@ describe("useSessionFiles reload and cache behavior", () => {
     mockSessionListFiles.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
 
     const { instance } = mountComposable("sess-1");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     let sawLoading = false;
     const reloadPromise = instance.reload();
@@ -111,29 +114,51 @@ describe("useSessionFiles reload and cache behavior", () => {
       },
     ];
     mockSessionListFiles.mockResolvedValue(entries);
+    const changedContent = createDeferred<string>();
+    const unchangedContent = createDeferred<string>();
     mockSessionReadFile
       .mockResolvedValueOnce("v1")
-      .mockResolvedValueOnce("v2")
-      .mockResolvedValueOnce("v2");
+      .mockReturnValueOnce(changedContent.promise)
+      .mockReturnValueOnce(unchangedContent.promise);
 
     const { instance } = mountComposable("sess-1");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
-    await instance.selectFile("plan.md", "markdown");
-    expect(instance.fileContent).toBe("v1");
-    expect(instance.contentChangedAt).toBeNull();
+    try {
+      await instance.selectFile("plan.md", "markdown");
+      expect(instance.fileContent).toBe("v1");
+      expect(instance.contentChangedAt).toBeNull();
 
-    await instance.reload();
-    await new Promise<void>((resolve) => setTimeout(resolve, 20));
-    expect(instance.fileContent).toBe("v2");
-    expect(instance.contentChangedAt).not.toBeNull();
+      // reload settles the listing before its detached content read completes.
+      await instance.reload();
+      expect(mockSessionReadFile).toHaveBeenCalledTimes(2);
+      expect(mockSessionReadFile).toHaveBeenLastCalledWith("sess-1", "plan.md");
+      expect(instance.fileContent).toBe("v1");
+      expect(instance.fileContentLoading).toBe(false);
+      expect(instance.contentChangedAt).toBeNull();
 
-    instance.ackContentChanged();
-    expect(instance.contentChangedAt).toBeNull();
+      changedContent.resolve("v2");
+      await flushPromises();
+      expect(instance.fileContent).toBe("v2");
+      expect(instance.contentChangedAt).not.toBeNull();
 
-    await instance.reload();
-    await new Promise<void>((resolve) => setTimeout(resolve, 20));
-    expect(instance.contentChangedAt).toBeNull();
+      instance.ackContentChanged();
+      expect(instance.contentChangedAt).toBeNull();
+
+      await instance.reload();
+      expect(mockSessionReadFile).toHaveBeenCalledTimes(3);
+      expect(instance.fileContent).toBe("v2");
+      expect(instance.contentChangedAt).toBeNull();
+
+      unchangedContent.resolve("v2");
+      await flushPromises();
+      expect(instance.fileContent).toBe("v2");
+      expect(instance.contentChangedAt).toBeNull();
+    } finally {
+      changedContent.resolve("v2");
+      unchangedContent.resolve("v2");
+      await flushPromises();
+    }
   });
 
   it("reuses a bounded text page when switching back to a recently viewed file", async () => {
@@ -144,7 +169,7 @@ describe("useSessionFiles reload and cache behavior", () => {
     mockSessionReadFile.mockResolvedValueOnce("a").mockResolvedValueOnce("b");
 
     const { instance } = mountComposable("sess-cache");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
     await instance.selectFile("a.txt", "text");
     await instance.selectFile("b.txt", "text");
     await instance.selectFile("a.txt", "text");
@@ -156,7 +181,7 @@ describe("useSessionFiles reload and cache behavior", () => {
   it("resets filesLoading when non-silent reload is superseded by another reload", async () => {
     mockSessionListFiles.mockResolvedValue([]);
     const { instance } = mountComposable("sess-supersede");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     const manualPromise = instance.reload({ silent: false });
     expect(instance.filesLoading).toBe(true);

@@ -1,5 +1,5 @@
-import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 
 // ── Mock IPC client ─────────────────────────────────────────────────────────
@@ -16,6 +16,8 @@ vi.mock("@tracepilot/client", () => ({
 }));
 
 import { useSessionFiles } from "../useSessionFiles";
+
+enableAutoUnmount(afterEach);
 
 // ── Helper: mount composable via a host component ──────────────────────────
 
@@ -73,8 +75,8 @@ describe("useSessionFiles", () => {
 
     const { instance } = mountComposable("test-session-id");
 
-    // Wait for the async load
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    // Settle the mocked listing and any automatic workspace read.
+    await flushPromises();
 
     expect(mockSessionListFiles).toHaveBeenCalledWith("test-session-id");
     expect(instance.files).toEqual(fakeEntries);
@@ -86,7 +88,7 @@ describe("useSessionFiles", () => {
     mockSessionListFiles.mockRejectedValue(new Error("Session not found"));
 
     const { instance } = mountComposable("bad-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     expect(instance.files).toEqual([]);
     expect(instance.filesError).toBe("Session not found");
@@ -105,7 +107,7 @@ describe("useSessionFiles", () => {
     mockSessionReadFile.mockResolvedValue("cwd: /home/user\n");
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     await instance.selectFile("workspace.yaml", "yaml");
 
@@ -128,7 +130,7 @@ describe("useSessionFiles", () => {
     mockSessionReadSqlite.mockResolvedValue([]);
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     await instance.selectFile("session.db", "sqlite");
 
@@ -156,7 +158,7 @@ describe("useSessionFiles", () => {
     mockSessionReadSqlite.mockResolvedValue(fakeTables);
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     await instance.selectFile("session.db", "sqlite");
 
@@ -171,7 +173,7 @@ describe("useSessionFiles", () => {
     mockSessionReadSqlite.mockRejectedValue(new Error("SQLite error"));
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     await instance.selectFile("session.db", "sqlite");
 
@@ -183,7 +185,7 @@ describe("useSessionFiles", () => {
   it("does not call sessionReadFile for binary files", async () => {
     mockSessionListFiles.mockResolvedValue([]);
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     await instance.selectFile("archive.bin", "binary");
 
@@ -215,7 +217,7 @@ describe("useSessionFiles", () => {
     mockSessionReadImagePreview.mockResolvedValue(preview);
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
     await instance.selectFile("files/screenshot.png", "image");
 
     expect(mockSessionReadImagePreview).toHaveBeenCalledWith(
@@ -240,7 +242,7 @@ describe("useSessionFiles", () => {
     mockSessionReadFile.mockResolvedValueOnce("preview").mockResolvedValueOnce("full content");
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
     await instance.selectFile("events.jsonl", "jsonl");
 
     expect(instance.fileCanLoadMore).toBe(true);
@@ -265,7 +267,7 @@ describe("useSessionFiles", () => {
       .mockRejectedValueOnce(new Error("Temporary read failure"));
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
     await instance.selectFile("events.jsonl", "jsonl");
     await instance.loadFullFile();
 
@@ -279,7 +281,7 @@ describe("useSessionFiles", () => {
     mockSessionReadFile.mockRejectedValue(new Error("File not found"));
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     await instance.selectFile("missing.md", "markdown");
 
@@ -321,7 +323,7 @@ describe("useSessionFiles", () => {
     });
 
     const wrapper = mount(Host);
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
     expect(instance.files).toEqual(firstEntries);
 
     // Select a file in first session
@@ -353,7 +355,7 @@ describe("useSessionFiles", () => {
     mockSessionReadFile.mockReturnValueOnce(promiseA).mockReturnValueOnce(promiseB);
 
     const { instance } = mountComposable("test-session-id");
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
 
     // Start request A (does not resolve yet)
     const selectA = instance.selectFile("plan.md", "markdown");

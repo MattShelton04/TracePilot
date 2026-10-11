@@ -1,4 +1,5 @@
 // biome-ignore-all assist/source/organizeImports: setup must register mocks before the store import.
+import { flushPromises } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import {
   createDeferred,
@@ -49,7 +50,7 @@ describe("useSessionDetailStore", () => {
       // Load the original session — cache hit
       await store.loadDetail(SESSION_ID);
       // Allow background refreshAll() to settle
-      await new Promise((r) => setTimeout(r, 50));
+      await flushPromises();
 
       // All previously loaded sections should have been refreshed
       expect(mocks.getSessionDetail).toHaveBeenCalledWith(SESSION_ID);
@@ -83,12 +84,13 @@ describe("useSessionDetailStore", () => {
       mocks.checkSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
 
       await store.loadDetail(SESSION_ID);
-      await new Promise((r) => setTimeout(r, 50));
+      await flushPromises();
 
       // Todos IS refreshed so agents writing new todos while cached are picked up
       // (regression: previously the cache-hit path deleted todos from `loaded`
       //  which caused the background refreshAll to skip todos entirely).
       expect(mocks.getSessionTodos).toHaveBeenCalledWith(SESSION_ID);
+      expect(store.todos).toEqual({ todos: [{ id: "fresh" }], deps: [] });
       // Events remain paginated / not auto-refreshed (they manage their own cursor).
       expect(mocks.getSessionEvents).not.toHaveBeenCalled();
     });
@@ -114,7 +116,7 @@ describe("useSessionDetailStore", () => {
 
       // Load cached session — triggers background refresh
       await store.loadDetail(SESSION_ID);
-      await new Promise((r) => setTimeout(r, 50));
+      await flushPromises();
 
       // Error refs should be set for failed sections
       expect(store.planError).toBe("Plan refresh failed");
@@ -143,19 +145,20 @@ describe("useSessionDetailStore", () => {
       mocks.getShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
       mocks.getSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
 
-      // Start loading cached SESSION_ID (background refresh starts)
-      void store.loadDetail(SESSION_ID);
-      await new Promise((r) => setTimeout(r, 10));
-
-      // User immediately switches to a THIRD session
       const THIRD_ID = "third-789";
       const THIRD_DETAIL = { ...FIXTURE_DETAIL, id: THIRD_ID, repository: "third-repo" };
-      mocks.getSessionDetail.mockResolvedValue(THIRD_DETAIL);
-      await store.loadDetail(THIRD_ID);
+      try {
+        // Cache restore returns while its background detail response is still pending.
+        await store.loadDetail(SESSION_ID);
+        expect(mocks.getSessionDetail).toHaveBeenLastCalledWith(SESSION_ID);
 
-      // Now the stale SESSION_ID detail response arrives
-      staleDetail.resolve(STALE_DETAIL);
-      await new Promise((r) => setTimeout(r, 50));
+        // User switches to a THIRD session before the stale detail response arrives.
+        mocks.getSessionDetail.mockResolvedValue(THIRD_DETAIL);
+        await store.loadDetail(THIRD_ID);
+      } finally {
+        staleDetail.resolve(STALE_DETAIL);
+        await flushPromises();
+      }
 
       // The stale response should have been discarded — detail should be THIRD session
       expect(store.detail).toEqual(THIRD_DETAIL);
@@ -172,24 +175,31 @@ describe("useSessionDetailStore", () => {
       await store.loadDetail(OTHER_ID);
 
       // Load cached session — should be instant
-      mocks.getSessionDetail.mockResolvedValue(FIXTURE_DETAIL);
+      const REFRESHED_DETAIL = { ...FIXTURE_DETAIL, repository: "refreshed-repo" };
+      const refreshedDetail = createDeferred<typeof REFRESHED_DETAIL>();
+      mocks.getSessionDetail.mockReturnValueOnce(refreshedDetail.promise);
       mocks.checkSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       mocks.getSessionCheckpoints.mockResolvedValue(FIXTURE_CHECKPOINTS);
       mocks.getSessionPlan.mockResolvedValue(FIXTURE_PLAN);
       mocks.getShutdownMetrics.mockResolvedValue(FIXTURE_METRICS);
       mocks.getSessionIncidents.mockResolvedValue(FIXTURE_INCIDENTS);
 
-      await store.loadDetail(SESSION_ID);
+      try {
+        await store.loadDetail(SESSION_ID);
 
-      // loading should be false (no spinner)
-      expect(store.loading).toBe(false);
-      // Cached data should be present immediately
-      expect(store.detail).toBeTruthy();
-      expect(store.turns).toEqual(FIXTURE_TURNS.turns);
-      expect(store.checkpoints).toEqual(FIXTURE_CHECKPOINTS);
-      expect(store.plan).toEqual(FIXTURE_PLAN);
-      expect(store.shutdownMetrics).toEqual(FIXTURE_METRICS);
-      expect(store.incidents).toEqual(FIXTURE_INCIDENTS);
+        // Cached data is visible without a spinner while background detail is pending.
+        expect(store.loading).toBe(false);
+        expect(store.detail).toEqual(FIXTURE_DETAIL);
+        expect(store.turns).toEqual(FIXTURE_TURNS.turns);
+        expect(store.checkpoints).toEqual(FIXTURE_CHECKPOINTS);
+        expect(store.plan).toEqual(FIXTURE_PLAN);
+        expect(store.shutdownMetrics).toEqual(FIXTURE_METRICS);
+        expect(store.incidents).toEqual(FIXTURE_INCIDENTS);
+      } finally {
+        refreshedDetail.resolve(REFRESHED_DETAIL);
+        await flushPromises();
+      }
+      expect(store.detail).toEqual(REFRESHED_DETAIL);
     });
   });
 });

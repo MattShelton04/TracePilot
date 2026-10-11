@@ -1,5 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: setup must register mocks before the store import.
-import { describe, expect, it, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildFreshness,
   FIXTURE_DETAIL,
@@ -18,6 +19,15 @@ describe("useSessionDetailStore", () => {
   const cacheSize = DEFAULT_SESSION_CACHE_SIZE;
 
   describe("prefetchSession", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-03-01T00:00:00Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it("prefetches detail/turns and restores from cache with section defaults", async () => {
       const store = useSessionDetailStore();
       const PREFETCH_ID = "prefetch-999";
@@ -62,7 +72,6 @@ describe("useSessionDetailStore", () => {
       vi.clearAllMocks();
 
       await store.loadDetail("fresh-1");
-      await Promise.resolve();
       expect(mocks.getSessionDetail).not.toHaveBeenCalled();
       expect(mocks.getSessionTurns).not.toHaveBeenCalled();
     });
@@ -145,7 +154,7 @@ describe("useSessionDetailStore", () => {
       const pending = store.loadDetail(id);
       const wasLoading = store.loading; // true = cache miss, false = cache hit
       await pending;
-      await new Promise((r) => setTimeout(r, 10)); // allow background refresh to settle
+      await flushPromises(); // settle resolved background refresh requests
       return wasLoading;
     }
 
@@ -189,7 +198,7 @@ describe("useSessionDetailStore", () => {
       mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-0" });
       mocks.checkSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       await store.loadDetail("s-0");
-      await new Promise((r) => setTimeout(r, 10)); // let background refresh settle
+      await flushPromises();
 
       const firstOverflowId = `s-${cacheSize}`;
       const secondOverflowId = `s-${cacheSize + 1}`;
@@ -224,7 +233,7 @@ describe("useSessionDetailStore", () => {
       mocks.getSessionDetail.mockResolvedValue({ ...FIXTURE_DETAIL, id: "s-0" });
       mocks.checkSessionFreshness.mockResolvedValue(ZERO_FRESHNESS);
       await store.loadDetail("s-0");
-      await new Promise((r) => setTimeout(r, 10));
+      await flushPromises();
 
       // Attempt to prefetch s-1 — guard returns early via .has() (already cached).
       // Unlike getFromSessionCache, the .has() check does NOT promote s-1 to MRU.
