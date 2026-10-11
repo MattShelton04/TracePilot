@@ -64,6 +64,8 @@ export function createAnalyticsPrefetch(options: AnalyticsPrefetchOptions) {
     const current = ++run;
     for (const params of nearbyFilters()) {
       for (const name of names) {
+        // A cancelled run stops before waiting for another idle slot too.
+        if (current !== run) return;
         await idle();
         if (current !== run) return;
         await options.prefetch(name, params);
