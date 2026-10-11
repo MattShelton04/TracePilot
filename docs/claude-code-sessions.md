@@ -138,6 +138,13 @@ the session list and detail header. Where Claude Code records it, the badge
 reads **Busy** (Claude Code is working) or **Waiting** (it is waiting for
 input; the process is still running).
 
+Copilot CLI sessions show the same Busy and Waiting badges. Copilot records no
+busy or idle flag on disk, so TracePilot infers it from the newest events in
+`events.jsonl`: Waiting after a final reply, an interrupt or an error, or while
+an `ask_user` question or a permission prompt is unanswered; Busy while a turn,
+a tool or a background subagent runs. The rules are documented in
+`crates/tracepilot-core/src/provider/copilot/run_status.rs`.
+
 TracePilot reads Claude Code's process files in `sessions/` and checks that the
 process they name is still running with the recorded start time. A file left
 behind by a crash therefore doesn't keep a session running, although a crashed

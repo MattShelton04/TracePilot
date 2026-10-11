@@ -4,6 +4,7 @@
 //! tests in `tests.rs` and the golden snapshots guard that.
 
 mod drift;
+mod run_status;
 
 use std::path::{Path, PathBuf};
 
@@ -211,11 +212,14 @@ impl SessionProvider for CopilotProvider {
         )?)
     }
 
+    /// Running while the CLI holds its lock; what it is doing comes from the
+    /// newest events ([`run_status`]).
     fn liveness(&self, session: &SessionLocator) -> Liveness {
         if has_lock_file(&session.primary_path) {
+            let events = SessionPaths::from_root(&session.primary_path).events_jsonl();
             Liveness::Running {
                 pid: None,
-                status: None,
+                status: run_status::run_status(&events),
             }
         } else {
             Liveness::Idle
