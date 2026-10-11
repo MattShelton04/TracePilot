@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "15f841dd1aad453ea513758efc701da23eab0612",
-  "headSha": "78b8b91c5d8606750b34f43ac58a80ae357309d1",
+  "baseSha": "77952a0df861a95df43cc27b18927d990187ed12",
+  "headSha": "d3599cb1c17489ab89e304ddc54043a046897d83",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,8 +9,8 @@
     "scale": 1
   },
   "summary": {
-    "changed": 0,
-    "unchanged": 131,
+    "changed": 1,
+    "unchanged": 130,
     "subtle": 0,
     "incomplete": 0,
     "baseUnavailable": 0,
@@ -46,8 +46,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/8bbe2ee8695eab5b90541948089d0542c8e6f99c426949abe93162a038d6a1e2.png",
-        "after": "../../img/8bbe2ee8695eab5b90541948089d0542c8e6f99c426949abe93162a038d6a1e2.png",
+        "before": "../../img/f8c7796e511e698ac0382a616bdc9915ad78f7e8972130000ebc67ca6a6cb094.png",
+        "after": "../../img/f8c7796e511e698ac0382a616bdc9915ad78f7e8972130000ebc67ca6a6cb094.png",
         "difference": null,
         "closeUps": []
       },
@@ -190,8 +190,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/a385d85c92f756ea567ce6ef38dfa47f20d2739995fcc4e8979f5a0355452959.png",
-        "after": "../../img/a385d85c92f756ea567ce6ef38dfa47f20d2739995fcc4e8979f5a0355452959.png",
+        "before": "../../img/3acc9ac4b47ae7a053fb1dba8bd104ac5bfd0a13f41d89aff5450025562315fd.png",
+        "after": "../../img/3acc9ac4b47ae7a053fb1dba8bd104ac5bfd0a13f41d89aff5450025562315fd.png",
         "difference": null,
         "closeUps": []
       },
@@ -244,8 +244,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/5d2d7d689276d72b871fa4733a4f2ceb699806ddb10cc7ff00b2484df1a6b650.png",
-        "after": "../../img/5d2d7d689276d72b871fa4733a4f2ceb699806ddb10cc7ff00b2484df1a6b650.png",
+        "before": "../../img/936e1e23ffeb169c4e234a14a85cb724129f15990f0a51d8966cc61b4ee10cc4.png",
+        "after": "../../img/936e1e23ffeb169c4e234a14a85cb724129f15990f0a51d8966cc61b4ee10cc4.png",
         "difference": null,
         "closeUps": []
       },
@@ -310,15 +310,23 @@
       "group": "overview",
       "route": "/analytics",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 826750,
+      "percent": 59.805410879629626,
+      "areas": [
+        {
+          "x": 268,
+          "y": 217,
+          "width": 1144,
+          "height": 743,
+          "pixels": 826750
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
-        "after": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
-        "difference": null,
+        "after": "../../img/b62586deb39537b89cbf2d901edbf70ed1622ffe9645b6ebc9ddc314d8745785.png",
+        "difference": "../../img/2d3a542c10df08d40a43914099d3501f718d893487bd9dbfd1686151e4833608.png",
         "closeUps": []
       },
       "limitations": []
