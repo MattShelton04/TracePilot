@@ -129,10 +129,24 @@ describe("SessionCard", () => {
     expect(wrapper.text()).toContain("Untitled Session");
   });
 
-  it("shows no source badge and keeps the host badge for Copilot sessions", () => {
+  it("badges a Copilot session and keeps its host badge", () => {
     const wrapper = mount(SessionCard, { props: { session: makeSession({ id: "c" }) } });
-    expect(wrapper.find('[title="Session source"]').exists()).toBe(false);
+    const source = wrapper.get('[title="Session source"]');
+    expect(source.text()).toBe("Copilot");
+    expect(source.classes()).toContain("badge-copilot");
     expect(wrapper.text()).toContain("cli");
+  });
+
+  it("marks the footer with the session source's logo", () => {
+    const logo = (session: SessionListItem) =>
+      mount(SessionCard, { props: { session } }).get('[data-testid="session-source-logo"]');
+    const copilot = logo(makeSession({ id: "c" }));
+    expect(copilot.attributes("title")).toBe("Copilot");
+    expect(copilot.classes()).toContain("card-source-logo--copilot");
+    expect(copilot.find("svg").exists()).toBe(true);
+    const claude = logo(makeSession({ id: "cc", source: "claudeCode" }));
+    expect(claude.attributes("title")).toBe("Claude Code");
+    expect(claude.classes()).toContain("card-source-logo--claude");
   });
 
   it("badges a Claude Code session instead of a default host", () => {
@@ -215,6 +229,6 @@ describe("SessionCard", () => {
       props: { session: makeSession({ id: "c", repository: "org/app", cwd: "/work/app" }) },
     });
     expect(withRepo.find('[data-testid="session-project-chip"]').exists()).toBe(false);
-    expect(withRepo.findAll(".badge").map((b) => b.text())).toEqual(["org/app", "cli"]);
+    expect(withRepo.findAll(".badge").map((b) => b.text())).toEqual(["Copilot", "org/app", "cli"]);
   });
 });

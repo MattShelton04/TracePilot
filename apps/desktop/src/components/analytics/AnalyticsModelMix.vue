@@ -4,12 +4,11 @@
  * then the biggest with their tokens and cost in their source's unit.
  */
 import { formatNumber, formatPercent } from "@tracepilot/types";
-import { Tooltip } from "@tracepilot/ui";
+import { SourceLogo, Tooltip } from "@tracepilot/ui";
 import { ArrowRight } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
-import SourceLogo from "@/components/sources/SourceLogo.vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { formatShare, SOURCE_COLORS } from "@/utils/analyticsDashboard";

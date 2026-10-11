@@ -5,8 +5,8 @@
  * in that source's colour. `null` means every source.
  */
 import { type SessionSource, sourceLabel } from "@tracepilot/types";
+import { SourceLogo } from "@tracepilot/ui";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import SourceLogo from "./SourceLogo.vue";
 
 const props = defineProps<{
   modelValue: SessionSource | null;

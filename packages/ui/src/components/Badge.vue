@@ -2,7 +2,16 @@
 import { onMounted, onUpdated, ref, useSlots } from "vue";
 
 defineProps<{
-  variant?: "default" | "accent" | "success" | "warning" | "danger" | "done" | "neutral" | "claude";
+  variant?:
+    | "default"
+    | "accent"
+    | "success"
+    | "warning"
+    | "danger"
+    | "done"
+    | "neutral"
+    | "claude"
+    | "copilot";
 }>();
 
 const variantClass: Record<string, string> = {
@@ -14,6 +23,7 @@ const variantClass: Record<string, string> = {
   danger: "badge-danger",
   done: "badge-done",
   claude: "badge-claude",
+  copilot: "badge-copilot",
 };
 
 const el = ref<HTMLElement>();

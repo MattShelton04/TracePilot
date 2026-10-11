@@ -12,13 +12,12 @@ import {
   formatNumberFull,
   sourceLabel,
 } from "@tracepilot/types";
-import { SegmentedControl } from "@tracepilot/ui";
+import { SegmentedControl, SourceLogo } from "@tracepilot/ui";
 import { ArrowRight, Coins, Cpu } from "lucide-vue-next";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import AnalyticsDayChart from "@/components/analytics/AnalyticsDayChart.vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
-import SourceLogo from "@/components/sources/SourceLogo.vue";
 import { useAnalyticsDashboardViews } from "@/composables/useAnalyticsDashboardViews";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";

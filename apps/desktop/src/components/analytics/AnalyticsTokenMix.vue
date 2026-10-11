@@ -5,9 +5,9 @@
  * agent's tokens are cache reads, which is why the token count reads large.
  */
 import { formatNumber, formatPercent } from "@tracepilot/types";
+import { SourceLogo } from "@tracepilot/ui";
 import { computed } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
-import SourceLogo from "@/components/sources/SourceLogo.vue";
 import { formatShare, SOURCE_COLORS } from "@/utils/analyticsDashboard";
 import { COMPOSITION, type ModelRow, type TokenComposition } from "@/utils/analyticsSummary";
 
