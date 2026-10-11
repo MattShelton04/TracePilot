@@ -3,6 +3,7 @@
 
 mod accounting;
 mod artifacts;
+mod events_strict;
 mod follow_ups;
 mod model_calls;
 mod notifications;
