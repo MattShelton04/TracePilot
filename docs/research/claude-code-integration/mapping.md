@@ -317,7 +317,7 @@ Source-aware presentation shipped in U2, U3 and U4.
 | Background tasks | ✅ | L3 | Inline: a background agent settles its `task` card through `subagent.completed`; a background shell's `shell_completed` notification settles its launching `shell` call (`backgroundTaskId` → `shellId`, outcome status, exit code, time). The Overview list (C12) was removed. Output files in the temp folder are never read |
 | Format diagnostics | ✅ | L3 | Settings → Claude Code lists unmapped record and attachment types and versions seen, as names and counts only; `node scripts/claude-census.mjs` prints the same (Q3) |
 | Metrics tab | ✅ | L2 | Exact tokens and cache; USD estimate; no AIC or premium requests |
-| Context tab | 🟡 | L2 | Exact total per call; no category split. Estimated split from `prompt_snapshot` at L4 |
+| Context tab | 🟡 | L2 | Exact total per call; estimated system & tools / messages / tool I/O split inside it |
 | Prompt cache (header countdown, windows) | ✅⭐ | L2 | Observed writes and reads; estimated expiry from the recorded TTL tier, or "unknown" |
 | Todos tab | ❌ | — | Out of scope: Claude Code's task tools are off by default on current models. Hidden for Claude sessions |
 | Checkpoints / rewind | 🟡 | L3 | Read-only, from file-history (`has_file_history`; no Copilot-style checkpoint summaries, no restore) |

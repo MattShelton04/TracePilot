@@ -2,11 +2,23 @@
 /**
  * Explains that Claude Code deletes its own transcripts after
  * `cleanupPeriodDays`, so they leave TracePilot too, and how to keep them
- * longer. Shows the value in the user settings file, and warns when it is
- * low or invalid. Dismissal is remembered on this machine.
+ * longer. Shows the value in the user settings file, warns when it is low
+ * or invalid, and can raise it in one click. Dismissal is remembered on
+ * this machine.
  */
-import { type ClaudeCleanupPeriod, getClaudeCleanupPeriod } from "@tracepilot/client";
-import { ActionButton, Banner, useAsyncGuard, useLocalStorage } from "@tracepilot/ui";
+import {
+  type ClaudeCleanupPeriod,
+  getClaudeCleanupPeriod,
+  raiseClaudeCleanupPeriod,
+} from "@tracepilot/client";
+import {
+  ActionButton,
+  Banner,
+  FormInput,
+  toErrorMessage,
+  useAsyncGuard,
+  useLocalStorage,
+} from "@tracepilot/ui";
 import { ExternalLink, History } from "lucide-vue-next";
 import { computed, onBeforeUnmount, shallowRef, watch } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
@@ -15,6 +27,10 @@ import { openExternal } from "@/utils/openExternal";
 
 const CLEANUP_DOCS_URL = "https://code.claude.com/docs/en/settings-reference#cleanupperioddays";
 const DEFAULT_DAYS = 30;
+/** Mirrors the backend's accepted range (`MIN/MAX_CLEANUP_PERIOD_DAYS`). */
+const MIN_RAISE_DAYS = 1;
+const MAX_RAISE_DAYS = 36_500;
+const SUGGESTED_DAYS = 3650;
 
 const dismissed = useLocalStorage<boolean>(STORAGE_KEYS.claudeRetentionNoticeDismissed, false);
 
@@ -26,6 +42,7 @@ onBeforeUnmount(() => guard.invalidate());
 async function load() {
   const token = guard.start();
   failed.value = false;
+  raiseResult.value = null;
   try {
     const result = await getClaudeCleanupPeriod();
     if (guard.isValid(token)) period.value = result ?? null;
@@ -34,6 +51,77 @@ async function load() {
     if (guard.isValid(token)) failed.value = true;
   }
 }
+
+// ── One-click raise ──
+const requestedDays = shallowRef<number | undefined>(SUGGESTED_DAYS);
+const raising = shallowRef(false);
+const raiseResult = shallowRef<{ ok: boolean; message: string } | null>(null);
+
+/** States the backend can write over; a bad folder or file is fixed by hand. */
+const canRaise = computed(() => {
+  const state = period.value?.state;
+  return (
+    !failed.value &&
+    (state === "set" || state === "notSet" || state === "noFile" || state === "valueInvalid")
+  );
+});
+const requestValid = computed(() => {
+  const days = requestedDays.value;
+  return (
+    typeof days === "number" &&
+    Number.isInteger(days) &&
+    days >= MIN_RAISE_DAYS &&
+    days <= MAX_RAISE_DAYS
+  );
+});
+/** The file already keeps transcripts at least as long; it is never lowered. */
+const alreadyEnough = computed(() => {
+  const current = period.value;
+  return (
+    requestValid.value &&
+    current?.state === "set" &&
+    (current.days ?? 0) >= 1 &&
+    (current.days ?? 0) >= (requestedDays.value ?? 0)
+  );
+});
+const raiseHint = computed(() => {
+  if (raiseResult.value) return raiseResult.value;
+  if (!requestValid.value) {
+    return {
+      ok: false,
+      message: `Enter a whole number of days from ${MIN_RAISE_DAYS} to ${MAX_RAISE_DAYS}.`,
+    };
+  }
+  if (alreadyEnough.value) {
+    return { ok: true, message: "Your setting already keeps them at least that long." };
+  }
+  return null;
+});
+
+async function raise() {
+  if (raising.value || !canRaise.value || !requestValid.value || alreadyEnough.value) return;
+  const days = requestedDays.value as number;
+  // Supersedes any read in flight, so a stale readout can't land afterwards.
+  const token = guard.start();
+  raising.value = true;
+  raiseResult.value = null;
+  try {
+    const result = await raiseClaudeCleanupPeriod(days);
+    if (!guard.isValid(token)) return;
+    period.value = result ?? null;
+    failed.value = false;
+    raiseResult.value = { ok: true, message: "Saved to settings.json." };
+  } catch (e) {
+    logWarn("[SettingsClaudeCodeRetention] Failed to raise cleanupPeriodDays:", e);
+    if (guard.isValid(token)) raiseResult.value = { ok: false, message: toErrorMessage(e) };
+  } finally {
+    raising.value = false;
+  }
+}
+
+watch(requestedDays, () => {
+  raiseResult.value = null;
+});
 
 // Read the file only while the notice shows.
 watch(
@@ -110,6 +198,40 @@ const readout = computed(() => {
           managed settings can override it.
         </template>
       </span>
+      <span v-if="canRaise" class="claude-retention-raise" data-testid="claude-cleanup-raise">
+        <label class="claude-retention-raise-label" for="claude-cleanup-days">
+          Keep transcripts for
+        </label>
+        <FormInput
+          id="claude-cleanup-days"
+          :model-value="requestedDays ?? ''"
+          @update:model-value="requestedDays = typeof $event === 'number' ? $event : undefined"
+          type="number"
+          :min="MIN_RAISE_DAYS"
+          :max="MAX_RAISE_DAYS"
+          step="1"
+          class="claude-retention-days"
+          :disabled="raising"
+          @keydown.enter.prevent="raise"
+        />
+        <span>days</span>
+        <ActionButton
+          size="sm"
+          :loading="raising"
+          :disabled="!requestValid || alreadyEnough"
+          @click="raise"
+        >
+          Update settings.json
+        </ActionButton>
+        <span
+          v-if="raiseHint"
+          class="claude-retention-raise-hint"
+          :class="{ 'claude-retention-raise-hint--error': !raiseHint.ok }"
+          :role="raiseHint.ok ? 'status' : 'alert'"
+        >
+          {{ raiseHint.message }}
+        </span>
+      </span>
       <template #actions>
         <ActionButton size="sm" variant="ghost" @click="openExternal(CLEANUP_DOCS_URL)">
           Claude Code docs
@@ -138,5 +260,28 @@ const readout = computed(() => {
 
 .claude-retention-file {
   overflow-wrap: anywhere;
+}
+
+.claude-retention-raise {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.claude-retention-days {
+  width: 88px;
+  padding: 3px 8px;
+  text-align: center;
+}
+
+.claude-retention-raise-hint {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.claude-retention-raise-hint--error {
+  color: var(--danger-fg);
 }
 </style>

@@ -2,8 +2,8 @@
   "unreleased": {
     "notes": {
       "added": [
-        "Claude Code sessions (experimental): View Claude Code sessions alongside Copilot CLI sessions. Turn it on in Settings → Claude Code, which also shows your transcript cleanup period",
-        "Resume in Terminal: Reopen a Claude Code session in its working directory",
+        "Claude Code sessions (experimental): View Claude Code sessions alongside Copilot CLI sessions, with reasoning effort and an estimated context breakdown. Setup turns it on when sessions are found, and Settings → Claude Code can extend transcript cleanup in one click",
+        "Live state and resume: Running Claude Code and Copilot CLI sessions show Busy or Waiting, and Resume in Terminal reopens a Claude Code session",
         "Update check: Click the version number to check for and install updates",
         "Background task results: Background agents and shells show how they finished on the card that started them; unreported agents show No final report"
       ],
@@ -16,7 +16,7 @@
       ],
       "fixed": [
         "macOS and Linux: Detect & Connect and Launch UI Server work outside Windows",
-        "Smaller fixes: Billions read as 12.6B, old sessions drop the stale cache chip, Claude Code cost includes resumed agents, and redacted exports cover subagent descriptions"
+        "Smaller fixes: Billions read as 12.6B, old sessions drop the stale cache chip, Claude Code cost includes resumed agents, redacted exports cover subagent descriptions, and Open Folder works for Claude Code sessions"
       ]
     },
     "requiresReindex": false

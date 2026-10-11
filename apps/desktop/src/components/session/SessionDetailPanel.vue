@@ -147,8 +147,13 @@ const isWaiting = computed(() => runStatus.value === "waiting" && liveBadge.valu
 const confirmingCopy = ref(false);
 const confirmingResume = ref(false);
 
+// The backend locates the folder through the session's provider; sources keep
+// their files in different places, so never rebuild it from a configured path.
+const sessionFolder = computed(() => props.store.detail?.folder ?? null);
+
 async function openSessionFolder() {
-  const path = `${prefs.sessionStateDir}/${resolvedSessionId.value}`;
+  const path = sessionFolder.value;
+  if (!path) return;
   try {
     await openInExplorer(path);
   } catch (e) {
@@ -412,10 +417,10 @@ watch(isSessionActive, (active) => {
           </template>
 
           <button
-            v-if="!isViewer() && capabilities.hasExplorer && source === 'copilot'"
+            v-if="!isViewer() && sessionFolder"
             class="resume-btn"
             @click="openSessionFolder"
-            title="Open session state folder in file explorer"
+            title="Open the session's folder in the file explorer"
           >
             <FolderOpen :size="14" aria-hidden="true" />
             Open Folder

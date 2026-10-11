@@ -2,6 +2,7 @@ import {
   type ClaudeCleanupPeriod,
   getClaudeCleanupPeriod,
   IPC_EVENTS,
+  raiseClaudeCleanupPeriod,
   validateClaudeConfigDir,
 } from "@tracepilot/client";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
@@ -43,6 +44,7 @@ vi.mock("@tracepilot/client", async () => {
       days: null,
       file: "C:\\Users\\demo\\.claude\\settings.json",
     })),
+    raiseClaudeCleanupPeriod: vi.fn(),
     validateClaudeConfigDir: vi.fn(),
   });
 });
@@ -228,6 +230,109 @@ describe("SettingsClaudeCode", () => {
       expect(getClaudeCleanupPeriod).toHaveBeenCalledTimes(2);
       expect(readout()).toContain("7 days");
       expect(readout()).toContain(`Checked ${newFile}`);
+    });
+    describe("one-click raise", () => {
+      const raiseRow = '[data-testid="claude-cleanup-raise"]';
+
+      async function mountWith(result: Omit<ClaudeCleanupPeriod, "file">) {
+        vi.mocked(raiseClaudeCleanupPeriod).mockClear();
+        vi.mocked(getClaudeCleanupPeriod).mockResolvedValueOnce({ ...result, file });
+        usePreferencesStore(pinia).toggleFeature("claudeCodeSessions");
+        return mountSection();
+      }
+
+      function updateButton(wrapper: Awaited<ReturnType<typeof mountSection>>) {
+        const button = wrapper
+          .get(raiseRow)
+          .findAll("button")
+          .find((candidate) => candidate.text() === "Update settings.json");
+        if (!button) throw new Error("Update settings.json button not found");
+        return button;
+      }
+
+      it("raises an unset value to the suggested 3650 days and refreshes the readout", async () => {
+        const wrapper = await mountWith({ state: "notSet", days: null });
+        const input = wrapper.get<HTMLInputElement>("#claude-cleanup-days");
+        expect(input.element.value).toBe("3650");
+        vi.mocked(raiseClaudeCleanupPeriod).mockResolvedValueOnce({
+          state: "set",
+          days: 3650,
+          file,
+        });
+
+        await updateButton(wrapper).trigger("click");
+        await flushPromises();
+
+        expect(raiseClaudeCleanupPeriod).toHaveBeenCalledWith(3650);
+        const readout = wrapper.get('[data-testid="claude-cleanup-readout"]').text();
+        expect(readout).toContain("Your current setting: 3650 days.");
+        expect(wrapper.get(raiseRow).text()).toContain("Saved to settings.json.");
+        expect(updateButton(wrapper).attributes("disabled")).toBeDefined();
+      });
+
+      it("sends an edited value", async () => {
+        const wrapper = await mountWith({ state: "set", days: 7 });
+        vi.mocked(raiseClaudeCleanupPeriod).mockResolvedValueOnce({
+          state: "set",
+          days: 400,
+          file,
+        });
+        await wrapper.get("#claude-cleanup-days").setValue("400");
+        await wrapper.get("#claude-cleanup-days").trigger("keydown", { key: "Enter" });
+        await flushPromises();
+
+        expect(raiseClaudeCleanupPeriod).toHaveBeenCalledWith(400);
+        expect(wrapper.get(notice).classes()).toContain("banner--info");
+      });
+
+      it("never offers to lower a longer value", async () => {
+        const wrapper = await mountWith({ state: "set", days: 9000 });
+        expect(updateButton(wrapper).attributes("disabled")).toBeDefined();
+        expect(wrapper.get(raiseRow).text()).toContain("already keeps them at least that long");
+
+        await wrapper.get("#claude-cleanup-days").setValue("10000");
+        expect(updateButton(wrapper).attributes("disabled")).toBeUndefined();
+      });
+
+      it.each([
+        "0",
+        "3.5",
+        "36501",
+        "",
+      ])("rejects %j days without calling the backend", async (value) => {
+        const wrapper = await mountWith({ state: "notSet", days: null });
+        await wrapper.get("#claude-cleanup-days").setValue(value);
+        expect(updateButton(wrapper).attributes("disabled")).toBeDefined();
+        expect(wrapper.get(raiseRow).text()).toContain(
+          "Enter a whole number of days from 1 to 36500.",
+        );
+        await wrapper.get("#claude-cleanup-days").trigger("keydown", { key: "Enter" });
+        expect(raiseClaudeCleanupPeriod).not.toHaveBeenCalled();
+      });
+
+      it("shows a refusal and keeps the readout", async () => {
+        const wrapper = await mountWith({ state: "set", days: 30 });
+        vi.mocked(raiseClaudeCleanupPeriod).mockRejectedValueOnce({
+          code: "VALIDATION",
+          message: "settings.json is read-only, so it was left unchanged.",
+        });
+        await updateButton(wrapper).trigger("click");
+        await flushPromises();
+
+        expect(wrapper.get(`${raiseRow} [role="alert"]`).text()).toBe(
+          "settings.json is read-only, so it was left unchanged.",
+        );
+        expect(wrapper.get('[data-testid="claude-cleanup-readout"]').text()).toContain("30 days");
+        expect(updateButton(wrapper).attributes("disabled")).toBeUndefined();
+      });
+
+      it.each<Omit<ClaudeCleanupPeriod, "file">>([
+        { state: "fileInvalid", days: null },
+        { state: "folderInvalid", days: null },
+      ])("is not offered for $state", async (result) => {
+        const wrapper = await mountWith(result);
+        expect(wrapper.find(raiseRow).exists()).toBe(false);
+      });
     });
   });
 });

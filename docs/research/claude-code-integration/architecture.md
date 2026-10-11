@@ -121,7 +121,15 @@ Implemented (WP11, C7): `ModelCallData` and `SessionEventType::ModelCall`;
 `ConversationTurn.usage` through the same ownership as messages.
 
 Implemented (WP14, C8): `build_context_timeline` keeps one total-only point per turn (the
-turn's last main-agent call, `totalOnly: true`, layers unknown). `build_prompt_cache_timeline`
+turn's last main-agent call, `totalOnly: true`). The total is observed; its layers are
+estimated in `context_window/points.rs`. *System & tools* (`systemTokens`) is the first
+call's input beyond the conversation text it sent, held for the session; it is not
+re-measured after compactions, whose first calls also carry re-attached files. The rest is
+conversation, split into `messageTokens` and `toolIoTokens` by the bytes/4 share of each in
+the main-agent text sent so far (reset to the summary at each compaction). On the local
+corpus the first-call residual sits at 40–66k tokens; later residuals grow with
+unrecorded reminders and attachments, which is why it is measured once. Points also carry
+the call's cache read and write. `build_prompt_cache_timeline`
 switches to `PromptCacheSource::ModelCalls` when a session has main-agent calls; see §3.7.
 
 WP13 (C11) prices known Claude calls with a complete recorded cache-write TTL split.
@@ -333,7 +341,7 @@ not say whether the cache is still warm. Following
   cards. It shows the `cost_basis` label and the coverage: snapshot only, snapshot plus a
   priced tail (partial), recorded calls without a snapshot (partial), or an unpriced tail
   shown as "≥ snapshot". The Context tab is no longer gated on `has_context_breakdown`;
-  total-only timelines explain their observed points, and request snapshots stay gated on
+  total-only timelines chart estimated layers inside their observed totals, and request snapshots stay gated on
   `can_resume` like the backend. Prompt-cache miss cost and the cached-input comparison use
   the source's API rates in USD, with the write priced at the window's recorded TTL tier.
 - **Renderers:** show `nativeToolName` in the tool header, waterfall and swimlanes. The

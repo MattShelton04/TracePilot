@@ -276,7 +276,15 @@ describe("ContextTab", () => {
     contextCaptureEnabled = true;
     detailStore.detail.source = "claudeCode";
     const value = timeline();
-    value.points = value.points.map((point) => ({ ...point, totalOnly: true, source: "observed" }));
+    value.points = value.points.map((point) => ({
+      ...point,
+      totalOnly: true,
+      messageTokens: 1,
+      toolIoTokens: point.conversationTokens - 1,
+      cacheReadTokens: point.totalTokens - 2,
+      cacheWriteTokens: 2,
+      source: "observed",
+    }));
     loadTimeline.mockResolvedValue(response(value));
     const wrapper = mountTab();
     await flushPromises();
@@ -288,11 +296,17 @@ describe("ContextTab", () => {
     observed?.dispatchEvent(new MouseEvent("mouseenter"));
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).toContain("recorded by each turn's last main-agent model call");
+    expect(wrapper.text()).toContain("The layers within each total are estimates.");
 
     await detailStore.loadTurns();
     detailStore.turns[0].model = "claude-opus-4-6";
     await wrapper.find(".select-chart-point").trigger("click");
     await flushPromises();
+    const inspector = wrapper.find(".context-tab__token-grid").text();
+    for (const label of ["System & tools", "Messages", "Tool calls & results", "Cache write"]) {
+      expect(inspector).toContain(label);
+    }
+    expect(inspector).not.toContain("Tool definitions");
     expect(wrapper.text()).toContain("Cached-input equivalent");
     expect(wrapper.text()).toContain("< $0.01");
     expect(wrapper.text()).not.toContain("AIC");

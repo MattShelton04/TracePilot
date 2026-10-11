@@ -343,7 +343,7 @@ export function createSessionDetailInstance(initialCacheSize?: number) {
       // materialized yet) is the common case and not actionable. Downgrade
       // "Failed to open" errors to debug so they don't spam the WARN log;
       // anything else still surfaces as a warning.
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = toErrorMessage(e);
       const isMissingFile = /Failed to open|no such file|cannot find the file/i.test(msg);
       if (isMissingFile) {
         logDebug(`${LOG_PREFIX} Prefetch skipped — session data missing`, { sessionId: id });

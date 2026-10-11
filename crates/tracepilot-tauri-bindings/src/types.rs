@@ -61,6 +61,11 @@ pub struct TurnActivityResponse {
 #[serde(rename_all = "camelCase")]
 pub struct SessionDetailResponse {
     pub source: tracepilot_core::provider::SessionSource,
+    /// The folder holding the session's files, as its provider locates them;
+    /// the header's Open Folder opens it. The OS opener re-validates the path
+    /// against its allowed roots.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
     #[serde(flatten)]
     pub summary: tracepilot_core::SessionSummary,
 }

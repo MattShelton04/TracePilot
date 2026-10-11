@@ -30,7 +30,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   font-size: 0.6875rem;
   font-weight: 500;
   border-radius: var(--radius-full);
@@ -166,6 +166,26 @@
 }
 .todo-graph-root .graph-svg {
   display: block;
+}
+.todo-graph-root .wheel-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  padding: 4px 8px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-overlay, var(--canvas-default));
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 10;
+}
+.todo-graph-root .wheel-hint--visible {
+  opacity: 1;
 }
 .todo-graph-root .zoom-controls {
   position: absolute;

@@ -6,6 +6,7 @@ import type {
   ContextWindowPoint,
 } from "@tracepilot/types";
 import { computed, ref, watch } from "vue";
+import { useModifierWheelZoom } from "@/composables/useModifierWheelZoom";
 import { niceTicks } from "@/utils/niceTicks";
 import { buildActiveTimeCoordinates } from "./contextChartScale";
 
@@ -22,7 +23,13 @@ const emit = defineEmits<{
   clearSelection: [];
 }>();
 
-type LayerKey = "systemTokens" | "toolDefinitionTokens" | "conversationTokens" | "totalTokens";
+type LayerKey =
+  | "systemTokens"
+  | "toolDefinitionTokens"
+  | "conversationTokens"
+  | "messageTokens"
+  | "toolIoTokens"
+  | "totalTokens";
 type AxisMode = "turn" | "time";
 type LayerDefinition = {
   key: LayerKey;
@@ -50,22 +57,48 @@ const breakdownLayers: LayerDefinition[] = [
     description: "Accumulated messages, reasoning, tool arguments, and returned tool results.",
   },
 ];
-const layers = computed<LayerDefinition[]>(() =>
-  props.timeline.points.some((point) => point.totalOnly)
-    ? [
+/** Layers estimated within each recorded total (sources without reported layers). */
+const inferredLayers: LayerDefinition[] = [
+  {
+    key: "systemTokens",
+    label: "System & tools",
+    color: "var(--chart-secondary)",
+    description:
+      "Estimated. The first request's input beyond its conversation: system prompt, tool definitions and persistent instructions.",
+  },
+  {
+    key: "messageTokens",
+    label: "Messages",
+    color: "var(--chart-warning)",
+    description: "Estimated share of the conversation: prompts, replies and visible reasoning.",
+  },
+  {
+    key: "toolIoTokens",
+    label: "Tool calls & results",
+    color: "var(--chart-info)",
+    description: "Estimated share of the conversation: tool arguments and returned results.",
+  },
+];
+const layers = computed<LayerDefinition[]>(() => {
+  const totalOnly = props.timeline.points.filter((point) => point.totalOnly);
+  if (!totalOnly.length) return breakdownLayers;
+  return totalOnly.every((point) => point.toolIoTokens != null)
+    ? inferredLayers
+    : [
         {
           key: "totalTokens",
           label: "Total input",
           color: "var(--chart-primary)",
           description: "Recorded inclusive input tokens. The layer breakdown is unknown.",
         },
-      ]
-    : breakdownLayers,
-);
+      ];
+});
 const enabled = ref<Record<LayerKey, boolean>>({
   systemTokens: true,
   toolDefinitionTokens: true,
   conversationTokens: true,
+  messageTokens: true,
+  toolIoTokens: true,
   totalTokens: true,
 });
 const axisMode = ref<AxisMode>("turn");
@@ -104,8 +137,10 @@ watch([zoom, () => props.timeline.points.length], () => {
   panStart.value = Math.min(panStart.value, maxPanStart.value);
 });
 
+const layerTokens = (point: ContextWindowPoint, key: LayerKey) =>
+  enabled.value[key] ? (point[key] ?? 0) : 0;
 const visibleTotal = (point: ContextWindowPoint) =>
-  layers.value.reduce((sum, layer) => sum + (enabled.value[layer.key] ? point[layer.key] : 0), 0);
+  layers.value.reduce((sum, layer) => sum + layerTokens(point, layer.key), 0);
 
 const observedCompactionLevel = computed(() => {
   const values = props.timeline.compactions
@@ -212,9 +247,7 @@ const y = (tokens: number) => margin.top + plotHeight - (tokens / maxTokens.valu
 const layerPolygons = computed(() => {
   let baseline = points.value.map(() => 0);
   return layers.value.map((layer) => {
-    const top = points.value.map(
-      (point, index) => baseline[index] + (enabled.value[layer.key] ? point[layer.key] : 0),
-    );
+    const top = points.value.map((point, index) => baseline[index] + layerTokens(point, layer.key));
     const upper = top.map((value, index) => `${x(index)},${y(value)}`);
     const lower = baseline.map((value, index) => `${x(index)},${y(value)}`).reverse();
     baseline = top;
@@ -378,11 +411,11 @@ function changeZoom(next: number, anchorRatio = 0.5) {
     Math.max(0, Math.round(anchor - anchorRatio * Math.max(visibleCount.value - 1, 0))),
   );
 }
-function handleWheel(event: WheelEvent) {
+const wheelZoom = useModifierWheelZoom((event) => {
   const rect = (event.currentTarget as SVGElement).getBoundingClientRect();
   const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
   changeZoom(event.deltaY < 0 ? zoom.value * 1.35 : zoom.value / 1.35, ratio);
-}
+});
 function startPan(event: PointerEvent) {
   if (event.button !== 0 && event.button !== 1) return;
   if (event.button === 1) event.preventDefault();
@@ -545,8 +578,8 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
           <button type="button" :class="{ active: axisMode === 'turn' }" @click="axisMode = 'turn'">Turn</button>
           <button type="button" :class="{ active: axisMode === 'time' }" @click="axisMode = 'time'">Time</button>
         </div>
-        <button type="button" class="context-chart__icon-button" aria-label="Zoom out" @click="changeZoom(zoom / 1.5)">−</button>
-        <button type="button" class="context-chart__icon-button" aria-label="Zoom in" @click="changeZoom(zoom * 1.5)">+</button>
+        <button type="button" class="context-chart__icon-button" aria-label="Zoom out" :title="`Zoom out (${wheelZoom.hintLabel})`" @click="changeZoom(zoom / 1.5)">−</button>
+        <button type="button" class="context-chart__icon-button" aria-label="Zoom in" :title="`Zoom in (${wheelZoom.hintLabel})`" @click="changeZoom(zoom * 1.5)">+</button>
         <button type="button" class="context-chart__button" @click="resetView">Reset</button>
       </div>
     </div>
@@ -566,9 +599,12 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
       </div>
     </Teleport>
 
-    <div v-if="zoom > 1" class="context-chart__viewport-status">
-      Viewing turns {{ points[0]?.turn }}–{{ points[points.length - 1]?.turn }} ·
-      {{ zoom.toFixed(1) }}×
+    <div class="context-chart__viewport-status">
+      <template v-if="zoom > 1">
+        Viewing turns {{ points[0]?.turn }}–{{ points[points.length - 1]?.turn }} ·
+        {{ zoom.toFixed(1) }}×
+      </template>
+      <template v-else>Viewing all turns</template>
     </div>
 
     <div class="context-chart__frame" :class="{ 'context-chart__frame--panning': isPanning }">
@@ -580,7 +616,7 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
         @mousemove="handleMove"
         @mouseleave="clearHover"
         @click="lockPoint"
-        @wheel.prevent="handleWheel"
+        @wheel="wheelZoom.onWheel"
         @pointerdown="startPan"
         @pointermove="movePan"
         @pointerup="endPan"
@@ -700,6 +736,13 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
           <text x="8" y="31">{{ formatTick(tooltipPoint.totalTokens) }} tokens · {{ tooltipPoint.source }}</text>
         </g>
       </svg>
+      <div
+        class="context-chart__wheel-hint"
+        :class="{ 'context-chart__wheel-hint--visible': wheelZoom.hintVisible.value }"
+        aria-hidden="true"
+      >
+        {{ wheelZoom.hintLabel }}
+      </div>
     </div>
   </div>
 </template>
@@ -783,6 +826,7 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
   text-align: right;
 }
 .context-chart__frame {
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -790,6 +834,23 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
   cursor: grab;
 }
 .context-chart__frame--panning { cursor: grabbing; }
+.context-chart__wheel-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  padding: 4px 8px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-overlay, var(--canvas-default));
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.context-chart__wheel-hint--visible { opacity: 1; }
 .context-chart__frame svg { display: block; min-width: 680px; width: 100%; height: auto; touch-action: none; user-select: none; }
 .context-chart__grid line { stroke: var(--border-muted); stroke-width: 1; }
 .context-chart__axes text { fill: var(--text-tertiary); font-size: 10px; }

@@ -1,14 +1,27 @@
 use super::model::{
-    ContextToolCallContribution, ContextToolTypeContribution, ToolCallDraft, TurnDelta,
+    ContextToolCallContribution, ContextToolTypeContribution, ConversationEstimate, ToolCallDraft,
+    TurnDelta,
 };
 use std::collections::HashMap;
 
-pub(super) fn add_message_delta(delta: &mut TurnDelta, content: &str) {
-    delta.message_tokens += estimate_tokens(content);
+pub(super) fn add_message_delta(
+    delta: &mut TurnDelta,
+    sent: &mut ConversationEstimate,
+    content: &str,
+) {
+    let tokens = estimate_tokens(content);
+    delta.message_tokens += tokens;
+    sent.messages += tokens;
 }
 
-pub(super) fn add_tool_delta(delta: &mut TurnDelta, content: &str) {
-    delta.tool_tokens += estimate_tokens(content);
+pub(super) fn add_tool_delta(
+    delta: &mut TurnDelta,
+    sent: &mut ConversationEstimate,
+    content: &str,
+) {
+    let tokens = estimate_tokens(content);
+    delta.tool_tokens += tokens;
+    sent.tool_io += tokens;
 }
 
 pub(super) fn finish_tool_contributions(

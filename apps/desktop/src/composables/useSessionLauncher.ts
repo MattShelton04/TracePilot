@@ -1,5 +1,5 @@
 import { DEFAULT_MODEL_ID } from "@tracepilot/types";
-import { formatCost, useClipboard, useToast } from "@tracepilot/ui";
+import { formatCost, toErrorMessage, useClipboard, useToast } from "@tracepilot/ui";
 import { computed, type InjectionKey, inject, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
@@ -161,7 +161,7 @@ export function useSessionLauncher() {
             await sdkStore.setForegroundSession(session.sdkSessionId);
             void sessionsStore.fetchSessions();
           } catch (e) {
-            const message = e instanceof Error ? e.message : String(e);
+            const message = toErrorMessage(e);
             toastError(`SDK session launched, but TracePilot could not refresh it: ${message}`);
           }
           await router.push({

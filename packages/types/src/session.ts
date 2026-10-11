@@ -52,6 +52,12 @@ export interface SessionDetail {
   id: string;
   /** Which tool wrote the session. */
   source: SessionSource;
+  /**
+   * Absolute folder holding the session's files, located by its provider:
+   * the session directory (Copilot) or the project folder holding the
+   * transcript (Claude Code). Absent when the provider reports none.
+   */
+  folder?: string | null;
   summary?: string | null;
   repository?: string | null;
   branch?: string | null;
@@ -147,8 +153,19 @@ export interface SessionSegment {
 export type ContextPointPhase = "turn" | "preCompaction" | "postCompaction" | "shutdown";
 export type ContextPointSource = "observed" | "estimated";
 export interface ContextWindowPoint {
-  /** Inclusive input total with no recorded layer breakdown. */
+  /**
+   * Only the inclusive input total is recorded. Any layers are inferred:
+   * `systemTokens` then holds the system prompt and tool definitions together.
+   */
   totalOnly?: boolean;
+  /** Estimated messages share of `conversationTokens`, when inferred. */
+  messageTokens?: number;
+  /** Estimated tool call and result share of `conversationTokens`, when inferred. */
+  toolIoTokens?: number;
+  /** Input read from the prompt cache, when recorded. */
+  cacheReadTokens?: number;
+  /** Input written to the prompt cache, when recorded. */
+  cacheWriteTokens?: number;
   /** Zero-based turn index, aligned with ConversationTurn and Search deep links. */
   turn: number;
   phase: ContextPointPhase;

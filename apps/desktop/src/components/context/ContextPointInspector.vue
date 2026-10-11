@@ -53,6 +53,28 @@ function systemTokensTooltip(point: ContextWindowPoint): string {
     : "Uses the latest main-agent system snapshot, calibrated against nearby observed telemetry when available.";
 }
 
+/** Estimated layers within a recorded total, for sources without reported layers. */
+function inferredLayers(point: ContextWindowPoint) {
+  if (!point.totalOnly || point.toolIoTokens == null) return [];
+  return [
+    {
+      label: "System & tools",
+      value: point.systemTokens,
+      help: "Estimated: the first request's input beyond the conversation it sent, held for the session.",
+    },
+    {
+      label: "Messages",
+      value: point.messageTokens ?? 0,
+      help: "Estimated share of the conversation: prompts, replies and visible reasoning.",
+    },
+    {
+      label: "Tool calls & results",
+      value: point.toolIoTokens,
+      help: "Estimated share of the conversation: tool arguments and returned results.",
+    },
+  ];
+}
+
 function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
   if (point.source === "observed") return "Reported by Copilot at this telemetry anchor.";
   return point.toolDefinitionTokens === 0
@@ -142,6 +164,28 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
           <dt>Conversation</dt>
           <dd>{{ formatNumberFull(selectedPoint.conversationTokens) }}</dd>
         </div>
+        <div v-for="layer in inferredLayers(selectedPoint)" :key="layer.label">
+          <dt class="context-tab__stat-label">
+            {{ layer.label }}
+            <button
+              type="button"
+              class="context-tab__stat-help"
+              :title="layer.help"
+              :aria-label="layer.help"
+            >
+              ?
+            </button>
+          </dt>
+          <dd>{{ formatNumberFull(layer.value) }}</dd>
+        </div>
+        <div v-if="selectedPoint.cacheReadTokens != null">
+          <dt>Cache read</dt>
+          <dd>{{ formatNumberFull(selectedPoint.cacheReadTokens) }}</dd>
+        </div>
+        <div v-if="selectedPoint.cacheWriteTokens != null">
+          <dt>Cache write</dt>
+          <dd>{{ formatNumberFull(selectedPoint.cacheWriteTokens) }}</dd>
+        </div>
         <div v-if="cachedInputCost != null">
           <dt class="context-tab__stat-label">
             Cached-input equivalent
@@ -160,7 +204,14 @@ function toolDefinitionTokensTooltip(point: ContextWindowPoint): string {
       <p class="context-tab__footnote">
         Change is the current displayed total minus the previous displayed point.
       </p>
-      <p v-if="selectedPoint.totalOnly" class="context-tab__footnote">
+      <p
+        v-if="selectedPoint.totalOnly && selectedPoint.toolIoTokens != null"
+        class="context-tab__footnote"
+      >
+        This request recorded its inclusive input total and cache use. The layers within it are
+        estimates.
+      </p>
+      <p v-else-if="selectedPoint.totalOnly" class="context-tab__footnote">
         This request recorded inclusive input tokens. The system, tool-definition and conversation breakdown is unknown.
       </p>
       <p v-else-if="selectedPoint.source === 'observed'" class="context-tab__footnote">

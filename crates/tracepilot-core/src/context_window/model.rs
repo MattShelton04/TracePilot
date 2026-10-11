@@ -11,9 +11,24 @@ pub struct ContextWindowPoint {
     pub conversation_tokens: u64,
     pub context_change_tokens: Option<i64>,
     pub total_tokens: u64,
-    /// The request records a total but no system/tool/conversation split.
+    /// The request records only its inclusive total. Any layers on the point
+    /// are inferred from it: `system_tokens` then holds the system prompt and
+    /// tool definitions together, and `tool_definition_tokens` stays zero.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_only: Option<bool>,
+    /// Estimated messages share of `conversation_tokens`, when inferred.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_tokens: Option<u64>,
+    /// Estimated tool call and result share of `conversation_tokens`, when
+    /// inferred. With `message_tokens` it sums to `conversation_tokens`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_io_tokens: Option<u64>,
+    /// Input the request read from the prompt cache, when recorded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_read_tokens: Option<u64>,
+    /// Input the request wrote to the prompt cache, when recorded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_write_tokens: Option<u64>,
     pub source: ContextPointSource,
 }
 
@@ -134,9 +149,27 @@ pub(super) struct TurnDelta {
     pub(super) timestamp: Option<String>,
 }
 
+/// Running estimate of the conversation content sent so far: message text
+/// and tool call arguments plus results.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct ConversationEstimate {
+    pub(super) messages: u64,
+    pub(super) tool_io: u64,
+}
+
+/// A request's recorded inclusive input, with the conversation estimate of
+/// what it sent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ObservedTotal {
+    pub(super) tokens: u64,
+    pub(super) cache_read: Option<u64>,
+    pub(super) cache_write: Option<u64>,
+    pub(super) sent: ConversationEstimate,
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct Anchor {
-    pub(super) total: Option<u64>,
+    pub(super) total: Option<ObservedTotal>,
     pub(super) turn: usize,
     pub(super) timestamp: Option<String>,
     pub(super) system: u64,

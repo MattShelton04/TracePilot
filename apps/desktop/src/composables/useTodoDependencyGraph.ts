@@ -11,6 +11,7 @@ import {
   watch,
 } from "vue";
 import { STATUSES, type StatusColor } from "@/components/todoDependencyGraph/constants";
+import { useModifierWheelZoom } from "@/composables/useModifierWheelZoom";
 import { getStatusColors } from "@/utils/designTokens";
 import {
   computeEdgePaths,
@@ -353,8 +354,7 @@ export function useTodoDependencyGraph(options: UseTodoDependencyGraphOptions) {
     panY.value = (vpH - vb.height * clamped) / 2;
   }
 
-  function onWheel(e: WheelEvent) {
-    e.preventDefault();
+  const wheelZoom = useModifierWheelZoom((e) => {
     const vp = viewportRef.value;
     if (!vp) return;
     const rect = vp.getBoundingClientRect();
@@ -362,7 +362,7 @@ export function useTodoDependencyGraph(options: UseTodoDependencyGraphOptions) {
     const mouseY = e.clientY - rect.top;
     const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
     applyZoom(zoomLevel.value * factor, mouseX, mouseY);
-  }
+  });
 
   const zoomPercent = computed(() => Math.round(zoomLevel.value * 100));
 
@@ -437,7 +437,9 @@ export function useTodoDependencyGraph(options: UseTodoDependencyGraphOptions) {
     zoomLevel,
     zoomPercent,
     onPanStart,
-    onWheel,
+    onWheel: wheelZoom.onWheel,
+    wheelHintVisible: wheelZoom.hintVisible,
+    wheelHintLabel: wheelZoom.hintLabel,
     zoomIn,
     zoomOut,
     fitToView,

@@ -80,7 +80,8 @@ directory and `<session>` is the session UUID. Code lives in
 | `plans/<slug>.md` | Claude Code | Plan-mode plan files. | Only when the transcript used plan mode but recorded no plan text. The slug must be a plain name and the file must resolve inside `plans/`; a record's `filePath` is never followed. | On demand: the Overview plan and export. |
 | `sessions/<pid>.json` | Claude Code | One file per running process: pid, start time, session id, busy/idle status. | Read and verified against the live process (pid and `procStart`). | Session list loads, and every 3 s while a running session's detail view is open. The process check uses Win32 on Windows, `ps` on macOS and `/proc` on Linux. |
 | `sessions/<pid>.<hash>.key` | Claude Code | A per-process secret. | **Never opened.** Only `*.json` is read. | Never. |
-| Everything else (`settings.json`, `history.jsonl`, `stats-cache.json`, credentials, …) | Claude Code | Settings, prompt history, aggregates, auth. | Never read. | Never. |
+| `settings.json` | Claude Code | User settings. | Only the `cleanupPeriodDays` key, at most 1 MiB; a link is followed only to a local file. TracePilot writes only that key, and only to raise it: the file is edited as text so other keys and formatting stay, a file that isn't a JSON object is refused, and it is replaced through a temporary file in the same folder. | Reading: while the retention notice in Settings → Claude Code shows. Writing: only when the user clicks **Update settings.json** there. |
+| Everything else (`history.jsonl`, `stats-cache.json`, credentials, …) | Claude Code | Prompt history, aggregates, auth. | Never read. | Never. |
 | System temp folder (background task output) | Claude Code | Output of `run_in_background` tasks. | Never read; background outcomes come from transcript notifications. | Never. |
 
 `node scripts/claude-census.mjs` reads only `projects/**/*.jsonl` and their `subagents/`,

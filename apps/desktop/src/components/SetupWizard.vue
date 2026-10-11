@@ -102,10 +102,11 @@ const canContinueSlide3 = computed(() => {
 const sessionCount = computed(() => validationResult.value?.sessionCount ?? 0);
 
 // ── Claude Code (experimental, optional) ───────────────────────
-// Offered only when the default Claude Code folder holds sessions. Off by
-// default; Skip keeps the defaults, so it applies to Launch only.
+// Offered only when the default Claude Code folder holds sessions, and on by
+// default then. Skip keeps the defaults, so it turns Claude Code on whenever
+// the folder was found, whatever the switch says.
 const claudeCode = ref<{ dir: string; sessionCount: number } | null>(null);
-const includeClaudeCode = ref(false);
+const includeClaudeCode = ref(true);
 
 async function detectClaudeCode(dir: string) {
   if (!dir.trim()) return;
@@ -222,7 +223,7 @@ async function finishSetup(useDefaults = false) {
       // The provider registry reads this flag, so the indexing pass that
       // follows setup indexes Claude Code sessions too.
       features: {
-        claudeCodeSessions: !useDefaults && claudeCode.value !== null && includeClaudeCode.value,
+        claudeCodeSessions: claudeCode.value !== null && (useDefaults || includeClaudeCode.value),
       },
     });
     await saveConfig(config);

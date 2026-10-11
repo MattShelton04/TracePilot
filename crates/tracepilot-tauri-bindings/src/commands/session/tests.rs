@@ -344,7 +344,7 @@ fn copilot_summary_is_still_derived_from_the_cached_events() {
 }
 
 #[test]
-fn detail_names_its_source_and_otherwise_matches_the_summary() {
+fn detail_names_its_source_and_folder_and_otherwise_matches_the_summary() {
     use super::detail::session_detail;
     let cache = event_cache(4);
 
@@ -353,8 +353,11 @@ fn detail_names_its_source_and_otherwise_matches_the_summary() {
     let copilot = copilot_session(&session_path, "session-a");
     let mut wire = serde_json::to_value(session_detail(&cache, &copilot).unwrap()).unwrap();
     assert_eq!(wire["source"], "copilot");
-    // Copilot's wire output gains only the `source` field.
+    // A Copilot session's folder is its own session directory.
+    assert_eq!(wire["folder"], session_path.to_string_lossy().as_ref());
+    // Otherwise Copilot's wire output is the summary.
     wire.as_object_mut().unwrap().remove("source");
+    wire.as_object_mut().unwrap().remove("folder");
     let summary = load_cached_summary(&cache, &copilot).unwrap();
     assert_eq!(wire, serde_json::to_value(&summary).unwrap());
 
@@ -364,4 +367,8 @@ fn detail_names_its_source_and_otherwise_matches_the_summary() {
     assert_eq!(wire["source"], "claudeCode");
     assert_eq!(wire["summary"], "A Claude title");
     assert_eq!(wire["id"], claude.locator.id.as_str());
+    // A Claude Code session's folder is the project folder holding its
+    // transcript, not a Copilot-style `<id>` directory.
+    let project = claude_dir.path().join("projects").join("demo");
+    assert_eq!(wire["folder"], project.to_string_lossy().as_ref());
 }

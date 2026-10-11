@@ -5,6 +5,8 @@ use super::model::{
 };
 use crate::models::event_types::{CompactionCompleteData, CompactionStartData, ShutdownData};
 
+pub(super) const TOTAL_ONLY_METHODOLOGY: &str = "Main-agent model calls record inclusive input tokens: uncached input plus cache reads and writes. Each turn's last call is an observed total; its layers are estimates. System & tools is the first request's input beyond the conversation it sent (system prompt, tool definitions and persistent instructions), held for the session. The rest of each total is conversation, split into messages and tool calls & results by the share of each in the main-agent transcript text sent so far (ceil UTF-8 bytes / 4), reset to the summary at each compaction. Text the transcript does not record, such as injected reminders and re-attached files, is spread across the two conversation shares. Output tokens and subagent calls are excluded. Expiry and cache reuse are separate from context size.";
+
 #[derive(Default)]
 struct EstimatedLayers {
     system_estimate: u64,
@@ -34,26 +36,10 @@ pub(super) fn build_points(
     turn_count: usize,
     deltas: &[TurnDelta],
     anchors: &[Anchor],
+    total_overhead: u64,
 ) -> Vec<ContextWindowPoint> {
     if anchors.iter().any(|anchor| anchor.total.is_some()) {
-        return anchors
-            .iter()
-            .filter_map(|anchor| {
-                let total = anchor.total?;
-                let mut point = make_point(
-                    anchor.turn,
-                    anchor.phase,
-                    anchor.timestamp.clone(),
-                    0,
-                    0,
-                    0,
-                    ContextPointSource::Observed,
-                );
-                point.total_tokens = total;
-                point.total_only = Some(true);
-                Some(point)
-            })
-            .collect();
+        return build_total_points(anchors, total_overhead);
     }
     if turn_count == 0 {
         return Vec::new();
@@ -124,6 +110,45 @@ pub(super) fn build_points(
     }
 
     points
+}
+
+/// Points for sources that record each request's inclusive input. The total
+/// is observed; its layers are inferred. `overhead` is the first request's
+/// input beyond the conversation it sent: the system prompt, tool definitions
+/// and persistent instructions, held for the session. It is measured once, at
+/// the start: later residuals also carry text the transcript does not record
+/// (reminders, re-attached files) and tokenizer drift. The rest of each total
+/// is conversation, split by the estimated message and tool shares of what
+/// the request sent.
+fn build_total_points(anchors: &[Anchor], overhead: u64) -> Vec<ContextWindowPoint> {
+    anchors
+        .iter()
+        .filter_map(|anchor| {
+            let total = anchor.total.as_ref()?;
+            let system = overhead.min(total.tokens);
+            let conversation = total.tokens - system;
+            let tool_io = scale(
+                total.sent.tool_io,
+                conversation,
+                total.sent.messages + total.sent.tool_io,
+            );
+            let mut point = make_point(
+                anchor.turn,
+                anchor.phase,
+                anchor.timestamp.clone(),
+                system,
+                0,
+                conversation,
+                ContextPointSource::Observed,
+            );
+            point.total_only = Some(true);
+            point.message_tokens = Some(conversation - tool_io);
+            point.tool_io_tokens = Some(tool_io);
+            point.cache_read_tokens = total.cache_read;
+            point.cache_write_tokens = total.cache_write;
+            Some(point)
+        })
+        .collect()
 }
 
 fn append_estimated_interval(
@@ -299,6 +324,10 @@ fn make_point(
         context_change_tokens: None,
         total_tokens: system_tokens + tool_definition_tokens + conversation_tokens,
         total_only: None,
+        message_tokens: None,
+        tool_io_tokens: None,
+        cache_read_tokens: None,
+        cache_write_tokens: None,
         source,
     }
 }

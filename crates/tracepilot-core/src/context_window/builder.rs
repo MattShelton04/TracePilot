@@ -4,8 +4,8 @@ use super::contributions::{
 };
 use super::model::*;
 use super::points::{
-    anchor_from_compaction_start, anchor_from_shutdown, build_points, compaction_from_complete,
-    finish_compaction, phase_order, signed_token_change,
+    TOTAL_ONLY_METHODOLOGY, anchor_from_compaction_start, anchor_from_shutdown, build_points,
+    compaction_from_complete, finish_compaction, phase_order, signed_token_change,
 };
 use super::skills::folded_skill_contexts;
 use crate::parsing::events::{TypedEvent, TypedEventData};
@@ -138,6 +138,10 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
     let mut timeline_events = Vec::<ContextTimelineEvent>::new();
     let mut reported_token_limit = None;
     let mut tool_call_indexes = HashMap::<String, usize>::new();
+    // What the next main-agent request sends, reset by each compaction.
+    let mut sent = ConversationEstimate::default();
+    // The first recorded request's input beyond the conversation it sent.
+    let mut overhead = None;
 
     for (event_index, event) in events.iter().enumerate() {
         if is_nested_subagent_event(event, &subagent_ids) {
@@ -153,7 +157,10 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
         match &event.typed_data {
             TypedEventData::ModelCall(data) => {
                 reported_token_limit = data.context_window_tokens.or(reported_token_limit);
-                if let Some(total) = data.input_tokens {
+                if let Some(tokens) = data.input_tokens {
+                    if tokens > 0 && overhead.is_none() {
+                        overhead = Some(tokens.saturating_sub(sent.messages + sent.tool_io));
+                    }
                     // One point per turn: its last call carries the most context.
                     if anchors
                         .last()
@@ -164,7 +171,12 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                     anchors.push(Anchor {
                         turn,
                         timestamp: timestamp.clone(),
-                        total: Some(total),
+                        total: Some(ObservedTotal {
+                            tokens,
+                            cache_read: data.cache_read_tokens,
+                            cache_write: data.cache_write_tokens,
+                            sent,
+                        }),
                         system: 0,
                         tools: 0,
                         conversation: 0,
@@ -185,7 +197,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                     .filter(|content| !content.trim().is_empty())
                     .or(data.transformed_content.as_deref())
                     .unwrap_or("");
-                add_message_delta(&mut deltas[turn], context_content);
+                add_message_delta(&mut deltas[turn], &mut sent, context_content);
                 let is_system_injection = data
                     .source
                     .as_deref()
@@ -206,14 +218,23 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                 }
             }
             TypedEventData::AssistantMessage(data) => {
-                add_message_delta(&mut deltas[turn], data.content.as_deref().unwrap_or(""));
                 add_message_delta(
                     &mut deltas[turn],
+                    &mut sent,
+                    data.content.as_deref().unwrap_or(""),
+                );
+                add_message_delta(
+                    &mut deltas[turn],
+                    &mut sent,
                     data.reasoning_text.as_deref().unwrap_or(""),
                 );
             }
             TypedEventData::AssistantReasoning(data) => {
-                add_message_delta(&mut deltas[turn], data.content.as_deref().unwrap_or(""));
+                add_message_delta(
+                    &mut deltas[turn],
+                    &mut sent,
+                    data.content.as_deref().unwrap_or(""),
+                );
             }
             TypedEventData::SystemMessage(data) => {
                 if let Some(content) = data
@@ -222,28 +243,39 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                     .filter(|content| !content.trim().is_empty())
                 {
                     deltas[turn].system_tokens = Some(estimate_tokens(content));
+                    // Sources with recorded totals (Claude Code) emit these for
+                    // meta prompts that are part of the conversation they send.
+                    sent.messages += estimate_tokens(content);
                 }
             }
             TypedEventData::SkillInvoked(data) => {
                 if !folded_skills.invocation_indexes.contains(&event_index) {
-                    add_message_delta(&mut deltas[turn], data.content.as_deref().unwrap_or(""));
+                    add_message_delta(
+                        &mut deltas[turn],
+                        &mut sent,
+                        data.content.as_deref().unwrap_or(""),
+                    );
                 }
             }
             TypedEventData::SkillInvokedRef(data) => {
                 if !folded_skills.invocation_indexes.contains(&event_index) {
                     let body = data.resolved_content.as_deref().unwrap_or("");
-                    add_message_delta(&mut deltas[turn], body);
+                    add_message_delta(&mut deltas[turn], &mut sent, body);
                 }
             }
             TypedEventData::SkillContextDelivered(data) => {
-                add_message_delta(&mut deltas[turn], data.content.as_deref().unwrap_or(""));
+                add_message_delta(
+                    &mut deltas[turn],
+                    &mut sent,
+                    data.content.as_deref().unwrap_or(""),
+                );
             }
             TypedEventData::SkillContextDeliveredRef(data) => {
                 let delivered = data.delivered_content().unwrap_or_else(|| {
                     let prefix = data.prefix.as_deref().unwrap_or("");
                     format!("{prefix}{}", data.suffix.as_deref().unwrap_or(""))
                 });
-                add_message_delta(&mut deltas[turn], &delivered);
+                add_message_delta(&mut deltas[turn], &mut sent, &delivered);
             }
             TypedEventData::ToolExecutionStart(data) => {
                 let content = data
@@ -251,7 +283,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                     .as_ref()
                     .and_then(|value| serde_json::to_string(value).ok())
                     .unwrap_or_default();
-                add_tool_delta(&mut deltas[turn], &content);
+                add_tool_delta(&mut deltas[turn], &mut sent, &content);
                 let index = tool_calls.len();
                 tool_calls.push(ToolCallDraft {
                     turn,
@@ -272,7 +304,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                 let result = data.result.as_ref().or(data.error.as_ref());
                 let content = result.map(context_result_content).unwrap_or_default();
                 let result_preview = preview(&content);
-                add_tool_delta(&mut deltas[turn], &content);
+                add_tool_delta(&mut deltas[turn], &mut sent, &content);
                 let result_tokens = estimate_tokens(&content);
                 if let Some(index) = data
                     .tool_call_id
@@ -316,6 +348,11 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
                     data,
                 );
                 if draft.success {
+                    let summary = data.summary_content.as_deref();
+                    sent = ConversationEstimate {
+                        messages: summary.map_or(0, estimate_tokens),
+                        tool_io: 0,
+                    };
                     let explicit = draft.explicit_after;
                     let start_anchor = pending.and_then(|item| item.anchor);
                     if let Some((system, conversation, tools)) = explicit {
@@ -399,7 +436,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
             && right.total == left.total
     });
 
-    let mut points = build_points(turn_count, &deltas, &anchors);
+    let mut points = build_points(turn_count, &deltas, &anchors, overhead.unwrap_or(0));
     points.sort_by_key(|point| (point.turn, phase_order(point.phase)));
     let mut previous_total = None;
     for point in &mut points {
@@ -447,7 +484,7 @@ pub fn build_context_timeline(events: &[TypedEvent]) -> ContextTimeline {
         paired_compaction_count,
         reported_token_limit,
         methodology: if anchors.iter().any(|anchor| anchor.total.is_some()) {
-            "Main-agent model calls record inclusive input tokens: uncached input plus cache reads and writes. These are observed total-only anchors; system, tool-definition and conversation layers are unknown. Output tokens and subagent calls are excluded. Expiry and cache reuse are separate from context size."
+            TOTAL_ONLY_METHODOLOGY
         } else {
             METHODOLOGY
         },

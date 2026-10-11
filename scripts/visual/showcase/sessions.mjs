@@ -326,6 +326,7 @@ export function sessionDetail(id, shutdownMetrics) {
   const hero = session.id === HERO_SESSION_ID;
   return {
     ...detail,
+    folder: `/home/demo/.copilot/session-state/${session.id}`,
     cwd: hero ? HERO_CWD : session.cwd,
     gitRoot: hero ? HERO_CWD : session.cwd,
     hasPlan: hero,

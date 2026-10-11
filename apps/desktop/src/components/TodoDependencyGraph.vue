@@ -36,8 +36,8 @@ provide(TodoDependencyGraphKey, ctx);
 
     <div class="graph-panel">
       <div class="zoom-controls">
-        <button class="zoom-btn" @click="ctx.zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
-        <button class="zoom-btn" @click="ctx.zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+        <button class="zoom-btn" @click="ctx.zoomIn" :title="`Zoom in (${ctx.wheelHintLabel})`" aria-label="Zoom in">+</button>
+        <button class="zoom-btn" @click="ctx.zoomOut" :title="`Zoom out (${ctx.wheelHintLabel})`" aria-label="Zoom out">−</button>
         <span class="zoom-pct" :title="`Zoom: ${ctx.zoomPercent.value}%`">{{ ctx.zoomPercent.value }}%</span>
         <button class="zoom-btn" @click="ctx.fitToView" title="Fit to view" aria-label="Fit to view">⊡</button>
       </div>
@@ -45,7 +45,7 @@ provide(TodoDependencyGraphKey, ctx);
         :ref="(el) => { ctx.viewportRef.value = el as HTMLElement | null; }"
         class="graph-viewport"
         @pointerdown="ctx.onPanStart"
-        @wheel.prevent="ctx.onWheel"
+        @wheel="ctx.onWheel"
       >
         <div
           class="graph-transform"
@@ -103,6 +103,13 @@ provide(TodoDependencyGraphKey, ctx);
             />
           </svg>
         </div>
+      </div>
+      <div
+        class="wheel-hint"
+        :class="{ 'wheel-hint--visible': ctx.wheelHintVisible.value }"
+        aria-hidden="true"
+      >
+        {{ ctx.wheelHintLabel }}
       </div>
     </div>
 

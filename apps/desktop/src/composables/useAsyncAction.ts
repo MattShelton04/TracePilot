@@ -1,3 +1,4 @@
+import { toErrorMessage } from "@tracepilot/types";
 import { useToast } from "@tracepilot/ui";
 import type { Ref } from "vue";
 import { logError } from "@/utils/logger";
@@ -87,7 +88,7 @@ export async function withStoreAction<T>(
   try {
     return await fn();
   } catch (e) {
-    state.error.value = e instanceof Error ? e.message : String(e);
+    state.error.value = toErrorMessage(e);
     return undefined;
   } finally {
     state.loading.value = false;
