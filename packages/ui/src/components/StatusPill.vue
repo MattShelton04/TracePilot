@@ -2,7 +2,7 @@
   @slots
     icon — optional Lucide icon, sized 12–14px. Inherits currentColor.
   Compact, semantically toned status pill. Always pairs color with text.
-  See design-system/pages/02-primitives.md §StatusPill.
+  See design-system/components.md.
 -->
 <script setup lang="ts">
 export type StatusPillTone =

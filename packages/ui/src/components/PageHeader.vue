@@ -1,5 +1,5 @@
 <!--
-  Canonical PageHeader. See design-system/pages/01-chrome.md §1.4.
+  Canonical PageHeader. See design-system/components.md.
 
   Layout (top → bottom):
     1. Breadcrumb row    — optional, rendered when `crumbs` provided
@@ -54,7 +54,7 @@ export interface PageHeaderProps {
   inlineSubtitle?: boolean;
   /**
    * Visual modifier kept for backward-compat with existing consumers.
-   * Title size is always text.h1 (20px) per design-system §1.4.
+   * Title size is always text.h1 (20px) per design-system/MASTER.md §2.
    */
   size?: "sm" | "md" | "lg";
   /**

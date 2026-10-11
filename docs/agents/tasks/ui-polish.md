@@ -50,7 +50,7 @@ Use realistic awkward data:
 Check at 960×640 with the sidebar expanded and collapsed. Fix the problem locally, for example with `min-width: 0`, wrapping, deliberate truncation where the full value stays reachable, or scroll regions. Never use `overflow: hidden` just to hide the symptom.
 
 ### `surface`
-List the 3–6 most important problems you see on the surface, and fix them as one cohesive set. Check at all three viewports, in both themes, and in the states that matter: populated, empty, loading, error, and long content. Look in `design-system/audit/` for issues that are already known.
+List the 3–6 most important problems you see on the surface, and fix them as one cohesive set. Check at all three viewports, in both themes, and in the states that matter: populated, empty, loading, error, and long content. The known gaps are listed in [the design-system master](../../../design-system/MASTER.md#7-known-debt) and the [surface notes](../../../design-system/surfaces.md).
 
 ## Done when
 

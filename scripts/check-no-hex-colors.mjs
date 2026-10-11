@@ -2,7 +2,7 @@
 /**
  * Design-system guard-rail: no hex literals in desktop component CSS.
  *
- * Closes 00-globals §G6: every color must come from a token in
+ * See design-system/MASTER.md §1: every color must come from a token in
  * packages/ui/src/styles/tokens.css. New hex literals in
  * apps/desktop/src/**\/*.{vue,css,scss} fail CI.
  *
@@ -29,14 +29,13 @@ const ROOT = `apps${sep}desktop${sep}src`;
 const EXTS = new Set([".vue", ".css", ".scss"]);
 const SKIP_DIRS = new Set(["node_modules", "dist", "target", "__tests__", ".git"]);
 
-// Files allowed to contain hex literals (canonical exceptions from §G6).
+// Files allowed to contain hex literals (design-system/MASTER.md §6).
 const ALLOW_FILES = new Set([
   "apps/desktop/src/styles/features.css", // #000 in mask radial-gradient compositing
-  "apps/desktop/src/utils/orbitalGeometry.ts",
-  "apps/desktop/src/composables/useSessionComparison.ts",
 ]);
 
-const HEX_RE = /#[0-9a-fA-F]{3,8}\b/;
+// `(?<!&)` skips HTML numeric entities such as `&#160;`.
+const HEX_RE = /(?<!&)#[0-9a-fA-F]{3,8}\b/;
 const ALLOW_DIRECTIVE = /design-system:\s*allow-hex/;
 
 function gitStaged() {
@@ -73,10 +72,11 @@ function collectFiles(staged) {
 const staged = process.argv.includes("--staged");
 const files = collectFiles(staged);
 const violations = [];
+const allowListedHits = [];
 
 for (const abs of files) {
   const rel = relative(REPO_ROOT, abs).replaceAll(sep, "/");
-  if (ALLOW_FILES.has(rel)) continue;
+  const sink = ALLOW_FILES.has(rel) ? allowListedHits : violations;
   let text;
   try {
     text = await readFile(abs, "utf8");
@@ -89,11 +89,26 @@ for (const abs of files) {
     if (!HEX_RE.test(line)) continue;
     if (ALLOW_DIRECTIVE.test(line)) continue;
     const match = line.match(HEX_RE);
-    violations.push({ file: rel, line: i + 1, hex: match[0], src: line.trim() });
+    sink.push({ file: rel, line: i + 1, hex: match[0], src: line.trim() });
   }
 }
 
+// Ratchet: an allow-listed file that is gone or now clean must leave the list,
+// so the list only shrinks. Skipped for --staged, which sees only some files.
+const staleAllowList = staged
+  ? []
+  : [...ALLOW_FILES].filter((f) => !allowListedHits.some((v) => v.file === f)).sort();
+
+if (staleAllowList.length > 0) {
+  console.error(
+    `✗ no-hex-colors: ${staleAllowList.length} stale allow-list entr${staleAllowList.length === 1 ? "y" : "ies"}`,
+  );
+  for (const f of staleAllowList) console.error(`  ${f}`);
+  console.error("Fix: remove these from ALLOW_FILES in scripts/check-no-hex-colors.mjs.\n");
+}
+
 if (violations.length === 0) {
+  if (staleAllowList.length > 0) process.exit(1);
   console.log(`✓ no-hex-colors: ${files.length} file(s) checked, no violations`);
   process.exit(0);
 }

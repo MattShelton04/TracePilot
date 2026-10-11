@@ -345,6 +345,13 @@ jobs:
       - name: File size budgets
         run: node scripts/check-file-sizes.mjs
 
+      - name: Design-system guard-rails
+        run: |
+          node scripts/check-no-hex-colors.mjs
+          node scripts/check-no-emoji-in-templates.mjs
+          node scripts/check-no-backdrop-filter.mjs
+          node scripts/check-z-index-tokens.mjs
+
       - name: Documentation links and ADRs
         run: |
           node scripts/check-doc-links.mjs

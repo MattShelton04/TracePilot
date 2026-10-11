@@ -2,7 +2,7 @@
 /**
  * Design-system guard-rail: 4px spacing grid (warn-only in v1).
  *
- * Closes 00-globals §G8: padding/margin/gap/inset values must come
+ * See design-system/MASTER.md §3: padding/margin/gap/inset values must come
  * from the 4px grid {4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80}.
  * v1 reports off-grid values but always exits 0 — the codebase has
  * many off-grid sites and we want a triage list, not a blocker.
@@ -104,5 +104,7 @@ console.warn(`⚠ spacing-grid: ${offGrid.length} off-grid value(s) (warn-only i
 for (const v of offGrid) {
   console.warn(`  ${v.file}:${v.line}: ${v.prop}: ${v.value}`);
 }
-console.warn("\nGrid: 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64 · 80 (00-globals §G8).");
+console.warn(
+  "\nGrid: 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64 · 80 (design-system/MASTER.md §3).",
+);
 process.exit(0);

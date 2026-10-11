@@ -3,7 +3,7 @@
     spark — custom sparkline override (otherwise rendered from `spark` array prop)
     info  — custom info icon target (uses native title tooltip otherwise)
   Single metric tile. Compose inside <KPIRow> for hairline framing.
-  See 02-primitives.md §KPI (CC-4).
+  See design-system/components.md (Data display).
 -->
 <script setup lang="ts">
 import { formatBytes, formatDuration, formatNumber, formatPercent } from "@tracepilot/types";

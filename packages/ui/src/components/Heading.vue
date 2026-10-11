@@ -1,7 +1,7 @@
 <!--
   @slots default — title content
   Semantic typography primitive. Caps title sizes at text.h1 (no 36/48px hero
-  in chrome). See design-system/pages/02-primitives.md §Heading.
+  in chrome). See design-system/MASTER.md §2.
 -->
 <script setup lang="ts">
 import { computed } from "vue";

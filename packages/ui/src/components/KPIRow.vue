@@ -2,9 +2,9 @@
   @slots
     default — one or more <KPI> children
   Hairline-framed horizontal row of KPI tiles. Single border around the
-  group + vertical hairline dividers between tiles, replacing the
-  per-card frames flagged in CC-4 frame-soup.
-  See 02-primitives.md §KPI.
+  group + vertical hairline dividers between tiles, instead of a
+  frame per card.
+  See design-system/components.md (Data display).
 -->
 <script setup lang="ts">
 export interface KPIRowProps {

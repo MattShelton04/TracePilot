@@ -131,7 +131,7 @@
   --transition-normal: 180ms ease;
   --transition-slow: 280ms ease;
 
-  /* --- Motion (design-system/pages/00-globals.md §G5) ---
+  /* --- Motion (design-system/MASTER.md §4) ---
    * micro: color/border, hover, focus · standard: tab switch, popover ·
    * large: modal/drawer enter. Animate transform/opacity only. */
   --duration-fast: 120ms;
@@ -316,5 +316,3 @@
   --syn-regex: #ea580c;
   --syn-match: #ca8a04;
 }
-
-/* Extra theme concepts preserved in docs/theme-prototypes/index.html */

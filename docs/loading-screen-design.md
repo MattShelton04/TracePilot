@@ -21,8 +21,8 @@ estimates are superseded by the implementation.
 
 ## Open design question
 
-The [UI audit](../design-system/audit/UI-AUDIT.md) questions whether the
-orbital scene's decorative motion fits the current quieter design direction.
+It is an open question whether the orbital scene's decorative motion fits the
+[design system](../design-system/MASTER.md)'s quieter direction.
 That remains a design review item. Use the current components and
 [measured performance evidence](reports/performance-mission.md) when changing
 loading behavior; the original prototype descriptions are recoverable from

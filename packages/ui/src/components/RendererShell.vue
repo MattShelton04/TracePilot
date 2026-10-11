@@ -6,7 +6,7 @@
     icon    — override the default Lucide icon (otherwise rendered from `iconName` prop)
   Mandatory frame contract for every conversation tool-call renderer.
   Replaces ad-hoc per-renderer frames; pairs with `<StatusPill>`.
-  See 02-primitives.md §RendererShell + 13-tool-renderers.md.
+  See design-system/components.md (Session content) and docs/design/adding-tool-renderers.md.
 -->
 <script setup lang="ts">
 import { Check, Clipboard, Clock, RotateCcw } from "lucide-vue-next";

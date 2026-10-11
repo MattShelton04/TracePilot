@@ -4,7 +4,7 @@
     default — description text (alternative to `description` prop)
     actions — custom action row (alternative to primaryAction/secondaryAction props)
   Empty / "no results" / first-run pattern. The only legal place to render
-  text.display (28/34 600). See 02-primitives.md §EmptyState.
+  text.display (28/34 600). See design-system/components.md.
 -->
 <script setup lang="ts">
 export interface EmptyStateAction {

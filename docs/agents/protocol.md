@@ -64,7 +64,7 @@ Each rule links to the doc that explains it.
 | `apps/desktop/src/**` | `pnpm --filter @tracepilot/desktop exec vitest run <paths>`, `pnpm typecheck` |
 | `packages/{ui,client,types}/**` | `pnpm --filter @tracepilot/<pkg> test`, `pnpm typecheck`, plus the desktop tests if a consumer changed |
 | `crates/<crate>/**` | `cargo test -p <crate>`, `cargo clippy -p <crate> --all-targets -- -D warnings`, `cargo fmt --all -- --check` |
-| Vue templates or styles | `pnpm check:design-system`. It may already fail on `main`, so make sure *your* files are clean. |
+| Vue templates or styles | `pnpm check:design-system` |
 | Desktop tool-call renderers (`packages/ui/src/components/renderers/**`) or `scripts/fixtures/**` | `node --test scripts/fixtures/*.test.mjs scripts/visual/*.test.mjs`. Export renderers in Rust don't need this. |
 | Markdown | `node scripts/check-doc-links.mjs` |
 | `scripts/<group>/**` | `node --test scripts/<group>/*.test.mjs` |
@@ -119,7 +119,7 @@ Everything else, including most small, isolated fixes, needs only your own revie
 <!-- section: ui -->
 ## UI
 
-- Read [the design-system master](../../design-system/MASTER.md) first. A numbered page file in `design-system/pages/` (for example `16-analytics-dashboard.md`) overrides it for that page.
+- Read [the design-system master](../../design-system/MASTER.md) first, then [components](../../design-system/components.md) and the [surface notes](../../design-system/surfaces.md) for the view you're changing.
 - Use only tokens from `packages/ui/src/styles/tokens.css`. Hex colours, emoji in templates, `backdrop-filter` and z-index values that aren't tokens are not allowed.
 - Keep to the 4px grid and Lucide icons, and keep the established density.
 - Use the motion tokens and respect reduced-motion settings.

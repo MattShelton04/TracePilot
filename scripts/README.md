@@ -39,7 +39,7 @@ Node commands; it is not a second implementation of those tasks.
 | `node scripts/check-catalog-drift.mjs` | Check pnpm catalogue references. | `just ci`; read-only. |
 | `node scripts/check-csp.mjs` | Guard Tauri CSP. | `just ci` and lefthook; read-only. |
 | `node scripts/check-public-api.mjs` | Compare orchestrator exports with its checked-in API baseline. | `just ci` and lefthook; read-only unless explicitly passed `--update`. |
-| `node scripts/check-no-hex-colors.mjs`, `check-no-emoji-in-templates.mjs`, `check-no-backdrop-filter.mjs`, `check-z-index-tokens.mjs` | Guard desktop design tokens and component rules. | Lefthook and package scripts; read-only. Each supports `--staged`. |
+| `node scripts/check-no-hex-colors.mjs`, `check-no-emoji-in-templates.mjs`, `check-no-backdrop-filter.mjs`, `check-z-index-tokens.mjs` | Guard desktop design tokens and component rules (`pnpm check:design-system`). A full run also fails on allow-list entries that are no longer needed. | CI, lefthook and package scripts; read-only. Each supports `--staged`. |
 | `node scripts/check-spacing-grid.mjs` | Report off-grid spacing. | Advisory pre-push check; exits successfully while issues are reported. |
 | `node scripts/check-commit-msg.mjs <message-file>` | Validate Conventional Commit subject. | Lefthook `commit-msg`; read-only. The hook skips this validator while a merge is in progress so Git's default merge messages are accepted. |
 

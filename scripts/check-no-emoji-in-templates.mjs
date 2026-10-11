@@ -2,7 +2,7 @@
 /**
  * Design-system guard-rail: no emoji in Vue templates.
  *
- * Closes 00-globals §G1: Lucide is the sole icon set; no emoji in
+ * See design-system/MASTER.md §5: Lucide is the sole icon set; no emoji in
  * application chrome. Scans only the <template> block of each
  * apps/desktop/src/**\/*.vue file (script and style blocks are
  * ignored — emoji in TS strings are out of scope for this script).
@@ -27,33 +27,18 @@ const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/,
 const ROOT = `apps${sep}desktop${sep}src`;
 const SKIP_DIRS = new Set(["node_modules", "dist", "target", "__tests__", ".git"]);
 
-// Pre-existing emoji in templates (00-globals §G1 migration backlog).
+// Pre-existing emoji in templates (design-system/MASTER.md §6).
 // Add no new entries; remove as files are migrated to Lucide icons.
-//
-// Remaining entries are cleaned during D-phase per-view rebuilds. The high-
-// traffic conversation/session/settings/banner/agent-tree/timeline surfaces
-// were migrated under task A4 (chunk 1) and are no longer allow-listed.
 const ALLOW_FILES = new Set([
-  "apps/desktop/src/components/configInjector/ConfigInjectorAgentsTab.vue",
-  "apps/desktop/src/components/configInjector/ConfigInjectorBackupsTab.vue",
-  "apps/desktop/src/components/configInjector/ConfigInjectorGlobalTab.vue",
-  "apps/desktop/src/components/configInjector/ConfigInjectorVersionsTab.vue",
   "apps/desktop/src/components/export/ExportPresetBar.vue",
-  "apps/desktop/src/components/export/ExportSectionsPanel.vue",
   "apps/desktop/src/components/export/ExportPreviewPanel.vue",
   "apps/desktop/src/components/export/ImportTab.vue",
-  "apps/desktop/src/components/mcp/addServer/AddServerAdvanced.vue",
-  "apps/desktop/src/components/mcp/McpServerCard.vue",
-  "apps/desktop/src/components/mcp/McpTokenSummary.vue",
   "apps/desktop/src/components/replay/ModelSwitchBanner.vue",
   "apps/desktop/src/components/replay/ReplaySidebar.vue",
   "apps/desktop/src/components/replay/ReplayStepContent.vue",
   "apps/desktop/src/components/replay/ReplayTransportBar.vue",
   "apps/desktop/src/components/sessionComparison/ComparisonHeader.vue",
   "apps/desktop/src/components/TodoDependencyGraph.vue",
-  "apps/desktop/src/components/WhatsNewModal.vue",
-  "apps/desktop/src/views/orchestration/ConfigInjectorView.vue",
-  "apps/desktop/src/views/orchestration/home/OrchestrationSystemHealth.vue",
   "apps/desktop/src/views/SessionReplayView.vue",
 ]);
 
@@ -94,10 +79,11 @@ function collectFiles(staged) {
 const staged = process.argv.includes("--staged");
 const files = collectFiles(staged);
 const violations = [];
+const allowListedHits = [];
 
 for (const abs of files) {
   const rel = relative(REPO_ROOT, abs).replaceAll(sep, "/");
-  if (ALLOW_FILES.has(rel)) continue;
+  const sink = ALLOW_FILES.has(rel) ? allowListedHits : violations;
   let text;
   try {
     text = await readFile(abs, "utf8");
@@ -116,7 +102,7 @@ for (const abs of files) {
     const line = tplLines[i];
     if (EMOJI_RE.test(line)) {
       const ch = line.match(EMOJI_RE)[0];
-      violations.push({
+      sink.push({
         file: rel,
         line: baseLine + i,
         emoji: ch,
@@ -126,7 +112,22 @@ for (const abs of files) {
   }
 }
 
+// Ratchet: an allow-listed file that is gone or now clean must leave the list,
+// so the list only shrinks. Skipped for --staged, which sees only some files.
+const staleAllowList = staged
+  ? []
+  : [...ALLOW_FILES].filter((f) => !allowListedHits.some((v) => v.file === f)).sort();
+
+if (staleAllowList.length > 0) {
+  console.error(
+    `✗ no-emoji-in-templates: ${staleAllowList.length} stale allow-list entr${staleAllowList.length === 1 ? "y" : "ies"}`,
+  );
+  for (const f of staleAllowList) console.error(`  ${f}`);
+  console.error("Fix: remove these from ALLOW_FILES in scripts/check-no-emoji-in-templates.mjs.\n");
+}
+
 if (violations.length === 0) {
+  if (staleAllowList.length > 0) process.exit(1);
   console.log(`✓ no-emoji-in-templates: ${files.length} file(s) checked, no violations`);
   process.exit(0);
 }
@@ -135,7 +136,7 @@ console.error(`✗ no-emoji-in-templates: ${violations.length} violation(s)`);
 for (const v of violations.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)) {
   console.error(`  ${v.file}:${v.line}: ${v.emoji}  // ${v.src.slice(0, 100)}`);
 }
-console.error("\nFix: use Lucide icons via @tracepilot/ui (see 00-globals §G1 migration table),");
+console.error("\nFix: use Lucide icons via @tracepilot/ui (lucide-vue-next),");
 console.error("or wrap user-supplied emoji in <UserContentEmoji> and add");
 console.error("`<!-- design-system: allow-emoji -->` inside the template block.");
 process.exit(1);

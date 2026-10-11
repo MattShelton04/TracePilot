@@ -54,8 +54,7 @@ recommendation is made.
   (compact mode), `:222` (timeline mode).
 - **Source.** `turns: ConversationTurn[]` prop, fed by
   `useSessionDetailStore().turns` for the active session.
-- **Row count.** Typical: 10–50 turns. Worst-case observed: 335+ turns (called
-  out explicitly in `docs/design/timeline-redesign.md`). Each turn renders
+- **Row count.** Typical: 10–50 turns. Worst-case observed: 335+ turns. Each turn renders
   multiple nested `v-for`s (sections × tool calls × messages × session events),
   so DOM cost compounds.
 - **Current rendering.** Eager. Every turn is materialised on mount; sections

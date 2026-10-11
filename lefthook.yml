@@ -35,7 +35,7 @@ pre-commit:
     public-api:
       glob: "crates/tracepilot-orchestrator/src/lib.rs"
       run: node scripts/check-public-api.mjs
-    # Design-system guard-rails (00-globals §G1, §G2, §G6, §G10).
+    # Design-system guard-rails (design-system/MASTER.md §6).
     # Each script accepts --staged for incremental enforcement.
     ds-hex:
       glob: "apps/desktop/src/**/*.{vue,css,scss}"
@@ -61,7 +61,7 @@ pre-push:
       run: cargo fmt --all -- --check
     filesize:
       run: node scripts/check-file-sizes.mjs
-    # Spacing-grid is warn-only (00-globals §G8); pre-push surfaces report.
+    # Spacing-grid is warn-only (design-system/MASTER.md §3); pre-push surfaces report.
     ds-spacing:
       run: node scripts/check-spacing-grid.mjs
 
