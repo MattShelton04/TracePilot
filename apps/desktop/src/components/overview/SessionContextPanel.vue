@@ -140,7 +140,7 @@ const { copy: copyId, copied: idCopied } = useClipboard();
       <div class="facet__label">When</div>
       <div class="facet__body">
         <div v-if="range" class="facet__line facet__line--wrap">
-          <span>{{ range.day }}</span>
+          <span class="facet__strong">{{ range.day }}</span>
           <span class="mono">
             {{ range.from }} <span class="facet__sep">→</span>
             <span v-if="running" class="now">now</span>
@@ -178,6 +178,7 @@ const { copy: copyId, copied: idCopied } = useClipboard();
 
 <style scoped>
 .facet {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   gap: 12px;
@@ -200,11 +201,15 @@ const { copy: copyId, copied: idCopied } = useClipboard();
   color: var(--text-tertiary);
 }
 
+/* Two sizes: 13px for each facet's main line, 12px for chips and detail. */
 .facet__body {
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-primary);
 }
 
 .facet__line {
@@ -226,7 +231,6 @@ const { copy: copyId, copied: idCopied } = useClipboard();
 
 .facet__strong {
   font-weight: 500;
-  color: var(--text-primary);
 }
 
 .facet__sep {
@@ -379,7 +383,6 @@ const { copy: copyId, copied: idCopied } = useClipboard();
 }
 
 .effort__label {
-  font-size: 12px;
   color: var(--text-secondary);
 }
 

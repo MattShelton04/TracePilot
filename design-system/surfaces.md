@@ -49,15 +49,16 @@ routed view and session tabs or pop-out windows.
 - A `KPIRow` of four headline numbers, each with a context line: Turns (events
   per turn), Duration (a model-time meter), Code changes (or Model calls, or
   Checkpoints, whichever the source records), and cost with its basis.
-- **Activity**: a histogram of turn starts across the session
-  (`get_session_turn_activity`, which returns only the start times). Resumes,
-  incidents and Claude Code file snapshots are pinned above the bar they fell
-  in; close pins merge with a count. Gaps between runs draw as dashed baseline.
 - **What happened**: tiles for Exit, Incidents (rate limits split out of
   errors), Changes (files grouped by folder), Saved state, and where the time
   went. Their links scroll to the sections further down the tab.
 - **Context**: Where, Agent, When and Session facets instead of label/value
   rows. Deep usage (tokens, model table, cache) stays on the Metrics tab.
+  What happened and Context sit side by side at equal height.
+- **Activity**, below them: a histogram of turn starts across the session
+  (`get_session_turn_activity`, which returns only the start times). Resumes,
+  incidents and Claude Code file snapshots are pinned above the bar they fell
+  in; close pins merge with a count. Gaps between runs draw as dashed baseline.
 - Tabs read the header's running state through `useSessionLiveState`.
 
 ## Conversation tab

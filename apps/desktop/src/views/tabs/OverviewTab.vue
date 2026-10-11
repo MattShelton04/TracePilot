@@ -10,7 +10,6 @@ import {
   truncateText,
   useSessionTabLoader,
 } from "@tracepilot/ui";
-import { Activity } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
 import FileHistoryPanel from "@/components/checkpoints/FileHistoryPanel.vue";
@@ -357,24 +356,8 @@ function retryLoadSection(section: string) {
       :cost="cost"
     />
 
-    <OverviewPanel v-if="detail" title="Activity" class="mb-4">
-      <template #icon><Activity :size="14" aria-hidden="true" /></template>
-      <template #aside>Turns over time</template>
-      <SessionActivityChart
-        :created-at="detail.createdAt"
-        :updated-at="detail.updatedAt"
-        :turn-starts="activityLoaded ? store.turnActivity : null"
-        :loading="!activityLoaded"
-        :error="store.turnActivityError"
-        :markers="markers"
-        :gaps="gaps"
-        :running="activeNow"
-        :is-claude="isClaude"
-        @select="onMarkerSelect"
-      />
-    </OverviewPanel>
 
-    <div v-if="detail" class="overview-row mb-6">
+    <div v-if="detail" class="overview-row mb-4">
       <SessionOutcomeTiles
         :live="live"
         :has-exit-metrics="capabilities.hasExitMetrics"
@@ -402,6 +385,22 @@ function retryLoadSection(section: string) {
         :running="activeNow"
       />
     </div>
+
+    <OverviewPanel v-if="detail" title="Activity" class="mb-6">
+      <template #aside>Turns over time</template>
+      <SessionActivityChart
+        :created-at="detail.createdAt"
+        :updated-at="detail.updatedAt"
+        :turn-starts="activityLoaded ? store.turnActivity : null"
+        :loading="!activityLoaded"
+        :error="store.turnActivityError"
+        :markers="markers"
+        :gaps="gaps"
+        :running="activeNow"
+        :is-claude="isClaude"
+        @select="onMarkerSelect"
+      />
+    </OverviewPanel>
 
     <!-- Incidents -->
     <div ref="incidentsRef" class="card mb-6 overview-anchor">
@@ -515,7 +514,7 @@ function retryLoadSection(section: string) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 @container (max-width: 860px) {

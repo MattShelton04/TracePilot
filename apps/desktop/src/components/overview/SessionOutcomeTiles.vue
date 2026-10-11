@@ -14,7 +14,6 @@ import {
   FileDiff,
   Flag,
   OctagonX,
-  ShieldCheck,
   Timer,
   TriangleAlert,
   Zap,
@@ -199,7 +198,6 @@ const otherMs = computed(() =>
 
 <template>
   <OverviewPanel title="What happened" flush data-testid="session-outcome">
-    <template #icon><ShieldCheck :size="14" aria-hidden="true" /></template>
     <div class="tiles">
       <div class="tile" data-testid="outcome-exit">
         <div class="tile__label"><Flag :size="13" aria-hidden="true" />Exit</div>
@@ -319,6 +317,7 @@ const otherMs = computed(() =>
 
 <style scoped>
 .tiles {
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;

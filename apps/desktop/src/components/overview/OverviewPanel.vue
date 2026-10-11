@@ -1,9 +1,9 @@
 <!--
   @slots
-    icon    — leading icon in the header
     aside   — right side of the header (time range, status)
     default — panel body
-  A titled panel for the session Overview's sections.
+  A titled panel for the session Overview's sections. It fills the height
+  of its grid cell, so side-by-side panels line up.
 -->
 <script setup lang="ts">
 defineProps<{
@@ -16,7 +16,6 @@ defineProps<{
 <template>
   <section class="overview-panel">
     <header class="overview-panel__header">
-      <span v-if="$slots.icon" class="overview-panel__icon"><slot name="icon" /></span>
       <h3 class="overview-panel__title">{{ title }}</h3>
       <div v-if="$slots.aside" class="overview-panel__aside"><slot name="aside" /></div>
     </header>
@@ -28,6 +27,8 @@ defineProps<{
 
 <style scoped>
 .overview-panel {
+  display: flex;
+  flex-direction: column;
   background: var(--canvas-subtle);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -42,11 +43,6 @@ defineProps<{
   min-height: 44px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border-muted);
-}
-
-.overview-panel__icon {
-  display: inline-flex;
-  color: var(--text-tertiary);
 }
 
 .overview-panel__title {
@@ -68,6 +64,9 @@ defineProps<{
 }
 
 .overview-panel__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   padding: 14px 16px;
 }
 

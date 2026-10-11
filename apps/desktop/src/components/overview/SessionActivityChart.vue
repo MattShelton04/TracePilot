@@ -74,9 +74,9 @@ const bars = computed(() => {
       idle,
       left: (i / binCount.value) * 100,
       height: count ? Math.max(6, (count / maxCount.value) * 100) : 0,
-      title: idle
-        ? "Not running"
-        : `${formatClock(start, withDates.value)} – ${formatClock(start + binMs.value, withDates.value)} · ${count} turn${count === 1 ? "" : "s"}`,
+      title: `${formatClock(start, withDates.value)} – ${formatClock(start + binMs.value, withDates.value)} · ${
+        idle ? "not running" : `${count} turn${count === 1 ? "" : "s"}`
+      }`,
     };
   });
 });
@@ -239,15 +239,22 @@ const legend = computed(() =>
           />
         </template>
         <template v-else>
+          <!-- Each bin is a full-height hover column, so short bars are easy to hit. -->
           <span
             v-for="bar in bars"
             :key="bar.i"
-            class="activity__bar"
-            :class="{ 'activity__bar--idle': bar.idle, 'activity__bar--empty': !bar.count && !bar.idle }"
-            :style="{ left: `${bar.left}%`, width: `calc(${100 / binCount}% - 2px)`, height: bar.count ? `${bar.height}%` : undefined }"
-            :title="bar.title"
-            data-reveal="grow-y"
-          />
+            class="activity__col"
+            :style="{ left: `${bar.left}%`, width: `${100 / binCount}%` }"
+          >
+            <Tooltip :text="bar.title">
+              <span
+                class="activity__bar"
+                :class="{ 'activity__bar--idle': bar.idle, 'activity__bar--empty': !bar.count && !bar.idle }"
+                :style="{ height: bar.count ? `${bar.height}%` : undefined }"
+                data-reveal="grow-y"
+              />
+            </Tooltip>
+          </span>
         </template>
       </div>
 
@@ -365,9 +372,21 @@ const legend = computed(() =>
   transform: translateX(-0.5px);
 }
 
-.activity__bar {
+.activity__col {
   position: absolute;
+  top: 0;
   bottom: 0;
+}
+
+.activity__col :deep(.tooltip) {
+  width: 100%;
+  height: 100%;
+  align-items: flex-end;
+}
+
+.activity__bar {
+  display: block;
+  width: calc(100% - 2px);
   margin-left: 1px;
   border-radius: 2px 2px 0 0;
   background: var(--bar-color);
@@ -375,7 +394,7 @@ const legend = computed(() =>
   transition: opacity var(--duration-fast) var(--ease-out);
 }
 
-.activity__bar:hover {
+.activity__col:hover .activity__bar {
   opacity: 1;
 }
 
@@ -392,6 +411,9 @@ const legend = computed(() =>
 }
 
 .activity__bar--loading {
+  position: absolute;
+  bottom: 0;
+  margin-left: 1px;
   background: var(--surface-tertiary);
   opacity: 0.5;
 }
