@@ -1,4 +1,5 @@
-//! Copilot CLI config injection and management.
+//! Copilot CLI config injection and management, plus the one Claude Code
+//! setting TracePilot edits (`cleanupPeriodDays`).
 //!
 //! Copilot CLI history note: prior to 2026-04 user settings (model,
 //! reasoningEffort, trustedFolders, …) lived in `~/.copilot/config.json`. From
@@ -10,7 +11,12 @@
 //! line comments, so TracePilot works against either layout. Writes always
 //! target `settings.json` (the new location); we never modify `config.json`.
 
+mod claude_settings;
 mod copilot_config;
+pub use claude_settings::{
+    CLEANUP_PERIOD_KEY, CleanupPeriodRaise, MAX_CLEANUP_PERIOD_DAYS, MIN_CLEANUP_PERIOD_DAYS,
+    raise_claude_cleanup_period,
+};
 pub(crate) use copilot_config::read_json_file as read_copilot_json_file;
 pub(crate) use copilot_config::update_settings_json;
 pub use copilot_config::{

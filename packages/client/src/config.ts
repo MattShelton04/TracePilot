@@ -57,6 +57,14 @@ export async function getClaudeCleanupPeriod(): Promise<ClaudeCleanupPeriod> {
 }
 
 /**
+ * Raise `cleanupPeriodDays` in that same `settings.json` to `days`, creating
+ * the file if needed. A longer value is kept. Resolves to the value read back.
+ */
+export async function raiseClaudeCleanupPeriod(days: number): Promise<ClaudeCleanupPeriod> {
+  return invoke<ClaudeCleanupPeriod>("raise_claude_cleanup_period", { days });
+}
+
+/**
  * Format drift recorded when a source's sessions were indexed: unmapped record
  * and attachment types, and the producer versions seen. Names and counts only.
  */

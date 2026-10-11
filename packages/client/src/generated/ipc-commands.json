@@ -114,6 +114,7 @@
   "preview_export",
   "preview_import",
   "prune_worktrees",
+  "raise_claude_cleanup_period",
   "rebuild_search_index",
   "reindex_sessions",
   "reindex_sessions_full",

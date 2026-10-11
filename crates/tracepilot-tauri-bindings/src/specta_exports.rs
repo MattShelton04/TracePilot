@@ -55,6 +55,7 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             crate::commands::config_cmds::validate_session_dir,
             crate::commands::config_sources::validate_claude_config_dir,
             crate::commands::claude_settings::get_claude_cleanup_period,
+            crate::commands::claude_settings::raise_claude_cleanup_period,
             crate::commands::source_diagnostics::get_source_format_diagnostics,
             // FU-14 — expanded specta coverage (primitives-only batch)
             crate::commands::config_cmds::check_config_exists,

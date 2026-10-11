@@ -81,7 +81,12 @@ dismissible notice about this while Claude Code sessions are on. The notice
 shows the value set in `settings.json` in the Claude Code folder, and turns
 amber when it is below the default or invalid. It reads only that user file
 (at most 1 MiB, and only this key), so a project or managed setting that
-overrides it isn't shown.
+overrides it isn't shown. **Update settings.json** in the notice sets the key to
+the number of days next to it (3650 by default, 1 to 36500). It only ever raises
+the value: a longer one is left as it is. It changes only that key, keeping the
+rest of the file and its formatting, creates the file if there is none, and
+refuses a file that isn't valid JSON, a missing Claude Code folder or a
+read-only file rather than overwriting anything.
 
 The index is not a backup. To keep more history, set `cleanupPeriodDays` to a
 larger whole number of days in `~/.claude/settings.json` (or `settings.json` in
