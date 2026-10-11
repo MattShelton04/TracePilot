@@ -16,7 +16,7 @@
       ],
       "fixed": [
         "macOS and Linux: Detect & Connect and Launch UI Server work outside Windows",
-        "Smaller fixes: Billions read as 12.6B, old sessions drop the stale cache chip, and Claude Code cost includes resumed agents"
+        "Smaller fixes: Billions read as 12.6B, old sessions drop the stale cache chip, Claude Code cost includes resumed agents, and redacted exports cover subagent descriptions"
       ]
     },
     "requiresReindex": false
