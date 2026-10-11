@@ -17,6 +17,9 @@ export function richToolFixture(cmd, args, sampleId) {
     return {
       id: args.sessionId,
       ...(sample.nativeToolName ? { source: "claudeCode" } : {}),
+      folder: sample.nativeToolName
+        ? "/home/demo/.claude/projects/-synthetic-orchard"
+        : `/home/demo/.copilot/session-state/${args.sessionId}`,
       summary: sample.nativeToolName
         ? "SYNTHETIC · Claude Code renderer gallery"
         : "SYNTHETIC · Rich tool renderer gallery",

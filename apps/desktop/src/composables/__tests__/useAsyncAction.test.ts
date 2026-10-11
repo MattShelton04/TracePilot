@@ -106,6 +106,17 @@ describe("withStoreAction", () => {
     expect(state.error.value).toBe("raw");
   });
 
+  it("captures the message of a structured IPC error", async () => {
+    const state = { loading: ref(false), error: ref<string | null>(null) };
+    await withStoreAction({
+      state,
+      fn: async () => {
+        throw { code: "VALIDATION", message: "Path is outside the allowed roots" };
+      },
+    });
+    expect(state.error.value).toBe("Path is outside the allowed roots");
+  });
+
   it("resets loading even when fn throws", async () => {
     const state = { loading: ref(false), error: ref<string | null>(null) };
     await withStoreAction({

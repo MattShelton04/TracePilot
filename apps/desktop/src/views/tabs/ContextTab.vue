@@ -18,6 +18,7 @@ import {
   SectionPanel,
   SegmentedControl,
   StatCard,
+  toErrorMessage,
 } from "@tracepilot/ui";
 import { Activity, Info } from "lucide-vue-next";
 import { computed, onMounted, onScopeDispose, ref, watch } from "vue";
@@ -155,7 +156,7 @@ async function load(sessionId: string, options: { background?: boolean } = {}) {
   } catch (cause) {
     if (version !== requestVersion) return;
     if (!options.background) {
-      error.value = cause instanceof Error ? cause.message : String(cause);
+      error.value = toErrorMessage(cause);
     }
   } finally {
     if (version === requestVersion) {

@@ -11,7 +11,13 @@
  */
 
 import { fetchRemote, getDefaultBranch } from "@tracepilot/client";
-import { pathBasename, pathDirname, sanitizeBranchForPath, useAsyncGuard } from "@tracepilot/ui";
+import {
+  pathBasename,
+  pathDirname,
+  sanitizeBranchForPath,
+  toErrorMessage,
+  useAsyncGuard,
+} from "@tracepilot/ui";
 import type { Ref } from "vue";
 import { ref, watch } from "vue";
 import { logWarn } from "@/utils/logger";
@@ -164,7 +170,7 @@ export function useGitRepository(options: UseGitRepositoryOptions): UseGitReposi
       onFetchSuccess?.();
     } catch (error) {
       if (!fetchGuard.isValid(token)) return;
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       onFetchError?.(message);
     } finally {
       if (fetchGuard.isValid(token)) {
