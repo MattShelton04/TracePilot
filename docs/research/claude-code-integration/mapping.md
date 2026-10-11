@@ -266,7 +266,9 @@ C5 returns totals in the provider snapshot, the consuming summary's
 `coverage.partial` is always true: even a snapshot with no tail does not prove the
 session ended or that every call was persisted. Request counts cover recorded calls
 only; side-model token usage from `cost-state` has no recorded request count.
-Snapshot durations and line counts retain their recorded coverage; distinct modified
+Snapshot durations and line counts retain their recorded coverage. Without a snapshot
+(a session still running), line counts are the `+`/`-` lines of successful edit results'
+`structuredPatch` hunks, plus every line of a file `Write` created; distinct modified
 files come from recorded results and edited-file attachments. Indexed Claude catalog
 rows expose `metricsPartial: true`, including rows written before C5.
 

@@ -110,7 +110,7 @@ const incidentBreakdown = computed(() => {
   return parts.length ? parts.join(" · ") : "No errors, rate limits, compactions or truncations";
 });
 
-// Claude Code records the files it backs up, not line counts.
+// Without listed edits, fall back to the files Claude Code backed up.
 const changedFiles = computed(() => {
   if (props.codeChanges?.filesModified?.length) return props.codeChanges.filesModified;
   const paths = new Set<string>();
