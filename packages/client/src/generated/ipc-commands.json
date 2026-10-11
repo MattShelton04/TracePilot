@@ -76,6 +76,7 @@
   "get_session_prompt_cache",
   "get_session_sections",
   "get_session_todos",
+  "get_session_turn_activity",
   "get_session_turns",
   "get_shutdown_metrics",
   "get_source_format_diagnostics",

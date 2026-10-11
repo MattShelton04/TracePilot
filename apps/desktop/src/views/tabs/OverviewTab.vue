@@ -2,33 +2,37 @@
 import { modelDisplayName } from "@tracepilot/types";
 import {
   Badge,
-  DefList,
   ErrorAlert,
   formatAiCredits,
-  formatDate,
-  formatNumberFull,
   formatTime,
   MarkdownContent,
   SectionPanel,
-  StatCard,
-  splitLastPathSegment,
   truncateText,
-  useClipboard,
   useSessionTabLoader,
 } from "@tracepilot/ui";
-import { Check, Copy } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import CheckpointTimeline from "@/components/checkpoints/CheckpointTimeline.vue";
 import FileHistoryPanel from "@/components/checkpoints/FileHistoryPanel.vue";
+import OverviewPanel from "@/components/overview/OverviewPanel.vue";
+import SessionActivityChart from "@/components/overview/SessionActivityChart.vue";
+import SessionContextPanel from "@/components/overview/SessionContextPanel.vue";
+import SessionOutcomeTiles, {
+  type OverviewSection,
+} from "@/components/overview/SessionOutcomeTiles.vue";
+import SessionOverviewKpis, {
+  type OverviewCost,
+} from "@/components/overview/SessionOverviewKpis.vue";
+import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useMetricsTabData } from "@/composables/useMetricsTabData";
 import { useSessionDetailContext } from "@/composables/useSessionDetailContext";
+import { useSessionLiveState } from "@/composables/useSessionLiveState";
 import { allowsAiCreditEstimate } from "@/composables/useSessionMetrics";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { usePreferencesStore } from "@/stores/preferences";
 import { formatObjectResult } from "@/utils/formatResult";
-import { formatRecordedDuration } from "@/utils/sessionDurations";
-import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
-import { formatSessionCost, sessionCostEstimate } from "@/utils/sourceCost";
+import { sessionEffort, sessionModel } from "@/utils/sessionModel";
+import { type ActivityMarker, isRateLimit, type TimeWindow } from "@/utils/sessionOverview";
+import { formatSessionCost, formatUsd, sessionCostEstimate } from "@/utils/sourceCost";
 
 const store = useSessionDetailContext();
 
@@ -38,6 +42,7 @@ useSessionTabLoader(
     store.loadPlan();
     store.loadShutdownMetrics();
     store.loadIncidents();
+    store.loadTurnActivity();
   },
 );
 
@@ -45,12 +50,21 @@ const detail = computed(() => store.detail);
 const currentModel = computed(() => sessionModel(detail.value));
 const currentEffort = computed(() => sessionEffort(detail.value));
 const metrics = computed(() => store.shutdownMetrics);
+// An empty change record (no lines, no files) reads as "none recorded".
+const codeChanges = computed(() => {
+  const changes = metrics.value?.codeChanges;
+  if (!changes) return undefined;
+  const lines = (changes.linesAdded ?? 0) + (changes.linesRemoved ?? 0);
+  return lines > 0 || changes.filesModified?.length ? changes : undefined;
+});
 const incidents = computed(() => store.incidents);
 const prefs = usePreferencesStore();
+const live = useSessionLiveState();
 const { source, capabilities } = useSessionSource(
   () => store.sessionId,
   () => store.detail,
 );
+const isClaude = computed(() => source.value === "claudeCode");
 // Named as cards and Analytics name it; the recorded id is the tooltip.
 const currentModelLabel = computed(() =>
   currentModel.value ? modelDisplayName(currentModel.value, source.value) : null,
@@ -72,9 +86,6 @@ watch(
   },
   { immediate: true },
 );
-const sourceCost = computed(() =>
-  capabilities.value.hasAic ? null : sessionCostEstimate(source.value, metrics.value),
-);
 // Copilot always reports its host; other sources show it only when recorded.
 const showHost = computed(() => source.value === "copilot" || detail.value?.hostType != null);
 const { aiCreditUsage } = useMetricsTabData(
@@ -83,30 +94,137 @@ const { aiCreditUsage } = useMetricsTabData(
   () => !allowsAiCreditEstimate(source.value),
 );
 
-const cwd = computed(() => detail.value?.cwd?.trim() || null);
-// Split before the last segment so the middle of a long path truncates first.
-const cwdParts = computed(() => splitLastPathSegment(cwd.value ?? ""));
-const { copy: copyText, copied: cwdCopied } = useClipboard();
+function parseTime(value: string | null | undefined): number | null {
+  const ms = value ? Date.parse(value) : Number.NaN;
+  return Number.isNaN(ms) ? null : ms;
+}
 
-const sessionInfoItems = computed(() => {
-  const d = detail.value;
-  return [
-    { label: "Session ID", value: d?.id ?? "—" },
-    { label: "Repository", value: d?.repository ?? "—" },
-    { label: "Branch", value: d?.branch ?? "—" },
-    ...(cwd.value ? [{ label: "Working directory", value: cwd.value, slot: "cwd" }] : []),
-    currentModel.value
-      ? { label: "Model", value: currentModel.value, slot: "model" }
-      : { label: "Model", value: "—" },
-    { label: "Reasoning effort", value: currentEffort.value ?? "Model default" },
-    ...(showHost.value ? [{ label: "Host", value: d?.hostType ?? "—" }] : []),
-    { label: "API Time", value: formatRecordedDuration(metrics.value?.totalApiDurationMs) },
-    { label: "Created", value: formatDate(d?.createdAt) },
-    { label: "Updated", value: formatDate(d?.updatedAt) },
-  ];
+// A running session that has been waiting for hours did not last until
+// now: only recent activity counts as ongoing in the duration and timeline.
+const ACTIVE_WITHIN_MS = 10 * 60_000;
+const activeNow = computed(() => {
+  if (!live.value.running) return false;
+  const updated = parseTime(detail.value?.updatedAt);
+  return updated != null && Date.now() - updated < ACTIVE_WITHIN_MS;
 });
 
-const summaryText = computed(() => detail.value?.summary);
+const spanMs = computed(() => {
+  const start = parseTime(detail.value?.createdAt);
+  const end = parseTime(detail.value?.updatedAt);
+  return start != null && end != null && end > start ? end - start : null;
+});
+const turnCount = computed(() => detail.value?.turnCount ?? 0);
+
+const cost = computed<OverviewCost>(() => {
+  const turns = turnCount.value;
+  if (!capabilities.value.hasAic) {
+    const estimate = sessionCostEstimate(source.value, metrics.value);
+    return {
+      label: "Est. cost",
+      value: formatSessionCost(estimate),
+      basis: estimate.basisLabel,
+      partial: estimate.partial,
+      perTurn: estimate.amount != null && turns > 0 ? formatUsd(estimate.amount / turns) : null,
+      tooltip: estimate.coverage,
+    };
+  }
+  const { credits, source: creditSource } = aiCreditUsage.value;
+  return {
+    label: "AI credits",
+    value: formatAiCredits(credits),
+    basis:
+      credits == null
+        ? "Not recorded"
+        : creditSource === "observed"
+          ? "Observed billing"
+          : "Estimated",
+    partial: false,
+    perTurn: credits != null && turns > 0 ? formatAiCredits(credits / turns) : null,
+    tooltip:
+      creditSource === "observed"
+        ? "Observed Copilot billing telemetry"
+        : "Estimated for historical session data",
+  };
+});
+
+const segments = computed(() => metrics.value?.sessionSegments ?? []);
+const runCount = computed(() => Math.max(segments.value.length, 1));
+
+/** Stretches between recorded runs, when the session was not running. */
+const gaps = computed<TimeWindow[]>(() => {
+  const out: TimeWindow[] = [];
+  for (let i = 1; i < segments.value.length; i++) {
+    const start = parseTime(segments.value[i - 1].endTimestamp);
+    const end = parseTime(segments.value[i].startTimestamp);
+    if (start != null && end != null && end > start) out.push({ start, end });
+  }
+  return out;
+});
+
+const INCIDENT_MARKER: Record<string, ActivityMarker["kind"]> = {
+  error: "error",
+  warning: "warning",
+  compaction: "compaction",
+  truncation: "truncation",
+};
+
+const markers = computed<ActivityMarker[]>(() => {
+  const out: ActivityMarker[] = [];
+  for (const seg of segments.value.slice(1)) {
+    const at = parseTime(seg.startTimestamp);
+    if (at != null) out.push({ kind: "resume", at, label: "Resumed" });
+  }
+  for (const incident of incidents.value) {
+    const at = parseTime(incident.timestamp);
+    const kind = isRateLimit(incident) ? "warning" : INCIDENT_MARKER[incident.eventType];
+    if (at != null && kind) out.push({ kind, at, label: truncateText(incident.summary, 80) });
+  }
+  for (const snapshot of store.fileHistory) {
+    const at = parseTime(snapshot.timestamp);
+    if (at == null) continue;
+    const prompt = snapshot.prompt?.trim();
+    out.push({
+      kind: "snapshot",
+      at,
+      label: prompt
+        ? `Snapshot ${snapshot.number}: “${truncateText(prompt, 60)}”`
+        : `Snapshot ${snapshot.number}`,
+    });
+  }
+  return out;
+});
+
+const activityLoaded = computed(() => store.loaded.has("activity"));
+
+const overviewRoot = ref<HTMLElement | null>(null);
+const incidentsRef = ref<HTMLElement | null>(null);
+const planRef = ref<HTMLElement | null>(null);
+const fileHistoryRef = ref<HTMLElement | null>(null);
+const checkpointsRef = ref<HTMLElement | null>(null);
+
+const { revealing } = useFirstReveal({
+  key: () => store.sessionId && `overview:${store.sessionId}`,
+  ready: () => !!detail.value && activityLoaded.value,
+  root: overviewRoot,
+  countUpSelector: ".kpi__value-num",
+});
+
+function scrollToSection(section: OverviewSection) {
+  const target = {
+    incidents: incidentsRef,
+    plan: planRef,
+    fileHistory: fileHistoryRef,
+    checkpoints: checkpointsRef,
+  }[section].value;
+  if (!target) return;
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+}
+
+function onMarkerSelect(kind: ActivityMarker["kind"]) {
+  if (kind === "snapshot") scrollToSection("fileHistory");
+  else if (kind !== "resume") scrollToSection("incidents");
+}
 
 const expandedIncidents = ref<Set<number>>(new Set());
 
@@ -178,7 +296,7 @@ function retryLoadSection(section: string) {
 </script>
 
 <template>
-  <div>
+  <div ref="overviewRoot" class="overview" :class="{ 'chart-reveal': revealing }">
     <!-- Section load errors -->
     <ErrorAlert
       v-if="store.checkpointsError"
@@ -222,96 +340,70 @@ function retryLoadSection(section: string) {
       @retry="retryLoadSection('incidents')"
     />
 
-    <!-- Stats row -->
-    <div class="grid-4 mb-6">
-      <StatCard :value="detail?.eventCount ?? 0" label="Events" :gradient="true" />
-      <StatCard :value="detail?.turnCount ?? 0" label="Turns" :gradient="true" />
-      <StatCard v-if="capabilities.hasCheckpoints" :value="detail?.checkpointCount ?? 0" label="Checkpoints" color="success" />
-      <StatCard
-        v-else
-        :value="metrics?.coverage?.recordedCalls ?? '—'"
-        label="Recorded Requests"
-        color="success"
-        tooltip="Model calls recorded in the transcript"
+    <SessionOverviewKpis
+      v-if="detail"
+      class="mb-4"
+      :turn-count="turnCount"
+      :event-count="detail.eventCount ?? 0"
+      :span-ms="spanMs"
+      :api-ms="metrics?.totalApiDurationMs"
+      :tool-ms="metrics?.totalToolDurationMs"
+      :running="activeNow"
+      :code-changes="codeChanges"
+      :calls="metrics?.coverage?.recordedCalls ?? null"
+      :checkpoints="capabilities.hasCheckpoints ? (detail.checkpointCount ?? 0) : null"
+      :file-snapshots="store.fileHistory.length"
+      :cost="cost"
+    />
+
+
+    <div v-if="detail" class="overview-row mb-4">
+      <SessionOutcomeTiles
+        :live="live"
+        :has-exit-metrics="capabilities.hasExitMetrics"
+        :shutdown-type="metrics?.shutdownType"
+        :run-count="runCount"
+        :updated-at="detail.updatedAt"
+        :incidents="incidents"
+        :code-changes="codeChanges"
+        :file-snapshots="store.fileHistory"
+        :checkpoints="store.checkpoints"
+        :has-plan="!!store.plan"
+        :roots="[detail.gitRoot, detail.cwd]"
+        :span-ms="spanMs"
+        :api-ms="metrics?.totalApiDurationMs"
+        :tool-ms="metrics?.totalToolDurationMs"
+        @jump="scrollToSection"
       />
-      <StatCard
-        v-if="sourceCost"
-        :value="formatSessionCost(sourceCost)"
-        label="Est. Cost (USD)"
-        color="done"
-        :trend="sourceCost.partial ? `${sourceCost.basisLabel} · partial` : sourceCost.basisLabel"
-        :tooltip="sourceCost.coverage"
-      />
-      <StatCard
-        v-else
-        :value="formatAiCredits(aiCreditUsage.credits)"
-        label="AI Credits"
-        color="done"
-        :tooltip="aiCreditUsage.source === 'observed' ? 'Observed Copilot billing telemetry' : 'Estimated for historical session data'"
+      <SessionContextPanel
+        :detail="detail"
+        :model="currentModel"
+        :model-label="currentModelLabel"
+        :effort="currentEffort"
+        :show-host="showHost"
+        :is-claude="isClaude"
+        :running="activeNow"
       />
     </div>
 
-    <!-- Two-column layout -->
-    <div class="grid-2 mb-6">
-      <!-- Session Info -->
-      <SectionPanel title="Session Info">
-        <DefList :items="sessionInfoItems">
-          <template #model>
-            <span :title="currentModel ?? undefined" data-testid="session-model">{{ currentModelLabel }}</span>
-          </template>
-          <template #cwd>
-            <span class="cwd-value">
-              <span class="cwd-path" :title="cwd ?? undefined" data-testid="session-cwd">
-                <span class="cwd-path__head">{{ cwdParts.head }}</span>
-                <span class="cwd-path__tail">{{ cwdParts.tail }}</span>
-              </span>
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm cwd-copy"
-                :title="cwdCopied ? 'Copied' : 'Copy working directory'"
-                :aria-label="cwdCopied ? 'Copied' : 'Copy working directory'"
-                data-testid="session-cwd-copy"
-                @click="cwd && copyText(cwd)"
-              >
-                <Check v-if="cwdCopied" :size="12" aria-hidden="true" />
-                <Copy v-else :size="12" aria-hidden="true" />
-              </button>
-            </span>
-          </template>
-        </DefList>
-      </SectionPanel>
-
-      <!-- Session Summary -->
-      <SectionPanel title="Session Summary">
-        <p v-if="summaryText" class="summary-prose">{{ summaryText }}</p>
-        <p v-else class="summary-prose summary-prose--empty">No summary available.</p>
-        <dl class="def-list def-list--spaced">
-          <dt>API Time</dt>
-          <dd>{{ formatRecordedDuration(metrics?.totalApiDurationMs) }}</dd>
-          <dt>Current Model</dt>
-          <dd class="flex flex-wrap items-center gap-1">
-            <Badge v-if="currentModel" variant="done" :title="currentModel">{{ currentModelLabel }}</Badge>
-            <span v-else>—</span>
-            <Badge v-if="currentEffort" variant="neutral">{{ effortLabel(currentEffort) }}</Badge>
-          </dd>
-          <template v-if="source === 'copilot'">
-            <dt>Shutdown Type</dt>
-            <dd>{{ metrics?.shutdownType ?? "—" }}</dd>
-          </template>
-          <template v-if="metrics?.codeChanges">
-            <dt>Code Changes</dt>
-            <dd>
-              <span class="lines-added">+{{ metrics.codeChanges.linesAdded ?? 0 }}</span>
-              <span class="lines-sep"> / </span>
-              <span class="lines-removed">−{{ metrics.codeChanges.linesRemoved ?? 0 }}</span>
-            </dd>
-          </template>
-        </dl>
-      </SectionPanel>
-    </div>
+    <OverviewPanel v-if="detail" title="Activity" class="mb-6">
+      <template #aside>Turns over time</template>
+      <SessionActivityChart
+        :created-at="detail.createdAt"
+        :updated-at="detail.updatedAt"
+        :turn-starts="activityLoaded ? store.turnActivity : null"
+        :loading="!activityLoaded"
+        :error="store.turnActivityError"
+        :markers="markers"
+        :gaps="gaps"
+        :running="activeNow"
+        :is-claude="isClaude"
+        @select="onMarkerSelect"
+      />
+    </OverviewPanel>
 
     <!-- Incidents -->
-    <div class="card mb-6">
+    <div ref="incidentsRef" class="card mb-6 overview-anchor">
       <div class="flex items-center gap-2 mb-3">
         <h3 class="incidents-heading">Incidents</h3>
         <Badge :variant="incidents.length > 0 ? 'warning' : 'neutral'">{{ incidents.length }}</Badge>
@@ -362,8 +454,8 @@ function retryLoadSection(section: string) {
     </div>
 
     <!-- Session Plan -->
+    <div v-if="store.plan" ref="planRef" class="overview-anchor">
     <SectionPanel
-      v-if="store.plan"
       title="Session Plan"
       class="mb-6"
     >
@@ -376,18 +468,20 @@ function retryLoadSection(section: string) {
         <MarkdownContent :content="store.plan.content" />
       </div>
     </SectionPanel>
+    </div>
 
     <!-- File-history checkpoints (sources that back up files) -->
-    <FileHistoryPanel
+    <div
       v-if="capabilities.hasFileHistory && store.fileHistory.length > 0"
-      :checkpoints="store.fileHistory"
-      :session-id="store.sessionId"
-      class="mb-6"
-    />
+      ref="fileHistoryRef"
+      class="overview-anchor"
+    >
+      <FileHistoryPanel :checkpoints="store.fileHistory" :session-id="store.sessionId" class="mb-6" />
+    </div>
 
     <!-- Checkpoints -->
+    <div v-if="store.checkpoints.length > 0" ref="checkpointsRef" class="overview-anchor">
     <SectionPanel
-      v-if="store.checkpoints.length > 0"
       :title="`Checkpoints (${store.checkpoints.length})`"
       class="mb-6"
     >
@@ -406,62 +500,32 @@ function retryLoadSection(section: string) {
         @update:focus-number="store.focusCheckpoint($event)"
       />
     </SectionPanel>
+    </div>
   </div>
 </template>
 
 
 <style scoped>
-.cwd-value {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
+.overview {
+  container-type: inline-size;
 }
 
-.cwd-path {
-  display: flex;
-  min-width: 0;
-  white-space: nowrap;
+.overview-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
 }
 
-.cwd-path__head {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
+@container (max-width: 860px) {
+  .overview-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-.cwd-path__tail {
-  flex-shrink: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cwd-copy {
-  flex-shrink: 0;
-  padding: 2px 4px;
-}
-
-.summary-prose--empty {
-  font-style: italic;
-}
-
-.def-list--spaced {
-  margin-top: 14px;
-}
-
-.lines-added {
-  color: var(--success-fg);
-  font-weight: 600;
-}
-
-.lines-sep {
-  color: var(--text-tertiary);
-}
-
-.lines-removed {
-  color: var(--danger-fg);
-  font-weight: 600;
+/* Leaves room for the sticky session header when a tile scrolls here. */
+.overview-anchor {
+  scroll-margin-top: 96px;
 }
 
 .incidents-heading {

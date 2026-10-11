@@ -194,6 +194,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::session::get_session_detail,
             commands::session::get_session_incidents,
             commands::session::get_session_turns,
+            commands::session::get_session_turn_activity,
             commands::session::get_session_context_timeline,
             commands::session::check_session_freshness,
             commands::session::get_session_events,

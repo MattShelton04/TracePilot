@@ -1,7 +1,7 @@
 /**
  * useSessionSections — owns the standard async sections (todos, checkpoints,
  * plan, file history, shutdown metrics, incidents, prompt
- * cache) for a session detail instance.
+ * cache, turn activity) for a session detail instance.
  *
  * Extracted from useSessionDetail. Returns the data refs, error refs,
  * per-section load functions, and helpers for clearing/resetting and
@@ -15,6 +15,7 @@ import {
   getSessionPlan,
   getSessionPromptCache,
   getSessionTodos,
+  getSessionTurnActivity,
   getShutdownMetrics,
 } from "@tracepilot/client";
 import type {
@@ -44,6 +45,7 @@ export const SOURCE_SECTION_KEYS: ReadonlySet<string> = new Set([
   "metrics",
   "plan",
   "promptCache",
+  "activity",
 ]);
 
 export interface UseSessionSectionsOptions {
@@ -67,6 +69,8 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
   const promptCacheSection = createAsyncSection<PromptCacheTimeline | null>(null, {
     shallow: true,
   });
+  // Turn start times (Unix ms), one per turn; replaced wholesale.
+  const activitySection = createAsyncSection<(number | null)[]>([], { shallow: true });
 
   const todosDef = defineAsyncSection({
     key: "todos",
@@ -147,6 +151,18 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     logLevel: "warn",
   });
 
+  const activityDef = defineAsyncSection({
+    key: "activity",
+    section: activitySection,
+    defaultValue: (): (number | null)[] => [],
+    fetchFn: async (id) => (await getSessionTurnActivity(id)).turnStarts,
+    sessionId: opts.sessionId,
+    loaded: opts.loaded,
+    guard: opts.guard,
+    logPrefix,
+    logLevel: "warn",
+  });
+
   const standardSections: AsyncSectionDefinition<unknown>[] = [
     todosDef as AsyncSectionDefinition<unknown>,
     checkpointsDef as AsyncSectionDefinition<unknown>,
@@ -155,6 +171,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     metricsDef as AsyncSectionDefinition<unknown>,
     incidentsDef as AsyncSectionDefinition<unknown>,
     promptCacheDef as AsyncSectionDefinition<unknown>,
+    activityDef as AsyncSectionDefinition<unknown>,
   ];
 
   function clearErrors() {
@@ -202,6 +219,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     metricsSection,
     incidentsSection,
     promptCacheSection,
+    activitySection,
     todosDef,
     checkpointsDef,
     planDef,
@@ -209,6 +227,7 @@ export function useSessionSections(opts: UseSessionSectionsOptions) {
     metricsDef,
     incidentsDef,
     promptCacheDef,
+    activityDef,
     standardSections,
     clearErrors,
     resetData,

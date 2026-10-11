@@ -236,6 +236,12 @@ export interface TurnsResponse {
   eventsFileMtime?: number | null;
 }
 
+/** Response from get_session_turn_activity: when each turn started. */
+export interface TurnActivityResponse {
+  /** Unix milliseconds, in turn order; `null` for a turn with no timestamp. */
+  turnStarts: (number | null)[];
+}
+
 /**
  * Lightweight freshness probe response.
  *

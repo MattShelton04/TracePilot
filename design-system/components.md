@@ -119,7 +119,7 @@ Use these instead of local `.modal-overlay` markup.
 
 | Component | Use | Main props |
 |---|---|---|
-| `KPI`, `KPIRow` | Metric tiles on a hairline row, with optional delta and sparkline | `label`, `value`, `unit`, `format`, `delta`, `state` |
+| `KPI`, `KPIRow` | Metric tiles on a hairline row, with optional delta and sparkline. Slots: `icon` before the label, `value` for custom value markup, `footer` for a context line or meter | `label`, `value`, `unit`, `format`, `delta`, `state` |
 | `StatCard` | Older metric tile, still common; prefer `KPI` in new code and don't use `gradient` | |
 | `ChartCard`, `ChartFrame`, `ChartTooltip` | Chart container with its own loading, empty and error state | `title`, `state`, `span`, `ariaSummary` |
 | `DataTable` | Simple sortable table | `columns`, `rows`, `sortKey`, `sortDirection` |

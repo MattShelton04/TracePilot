@@ -47,6 +47,14 @@ pub struct TurnsResponse {
     pub events_file_mtime: Option<i64>,
 }
 
+/// Response for `get_session_turn_activity`: when each turn started.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TurnActivityResponse {
+    /// Unix milliseconds, in turn order; `None` for a turn with no timestamp.
+    pub turn_starts: Vec<Option<i64>>,
+}
+
 /// Response for `get_session_detail`: the session's summary plus the tool
 /// that wrote it, so views can tell sources apart without the session list.
 #[derive(Debug, Serialize)]

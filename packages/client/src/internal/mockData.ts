@@ -8,6 +8,7 @@ import type {
   PromptCacheResponse,
   SessionLiveness,
   SessionSectionsInfo,
+  TurnActivityResponse,
   TurnsResponse,
 } from "@tracepilot/types";
 import type { GitInfo, UpdateCheckResult } from "../generated/bindings.js";
@@ -152,6 +153,11 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
       eventsFileSize: 1024,
       eventsFileMtime: Date.now(),
     } as TurnsResponse,
+    get_session_turn_activity: {
+      turnStarts: mocks
+        .getMockSessionTurns(mockSessionId)
+        .map((turn) => (turn.timestamp ? Date.parse(turn.timestamp) : null)),
+    } as TurnActivityResponse,
     get_session_context_timeline: {
       timeline: mocks.MOCK_CONTEXT_TIMELINE,
       eventsFileSize: 1024,
