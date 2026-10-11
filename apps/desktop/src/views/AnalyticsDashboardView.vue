@@ -23,22 +23,33 @@ import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
+import type { AnalyticsDatasetName } from "@/stores/analytics";
 import { usePreferencesStore } from "@/stores/preferences";
 import { activityRows, dashboardDays } from "@/utils/analyticsDashboard";
 import { buildDashboardSummary } from "@/utils/analyticsSummary";
 import "@/styles/features/analytics-dashboard.css";
 
 const prefs = usePreferencesStore();
+const showAgents = computed(() => prefs.isFeatureEnabled("agents"));
+const showSkills = computed(() => prefs.isFeatureEnabled("skills"));
 usePerfMonitor("AnalyticsDashboardView");
 useRenderBudget({
   key: "render.analyticsDashboardViewMs",
   budgetMs: 180,
   label: "AnalyticsDashboardView",
 });
-const { store } = useAnalyticsPage("fetchAnalytics");
+const prefetchPanels = (): AnalyticsDatasetName[] => [
+  ...(showAgents.value ? (["agents"] as const) : []),
+  ...(showSkills.value ? (["skills"] as const) : []),
+];
+const { store } = useAnalyticsPage("fetchAnalytics", { alsoPrefetch: prefetchPanels });
 
 const loading = computed(() => store.analyticsLoading);
 const data = computed(() => store.analytics);
+/** Newer results for changed filters are loading behind the current ones. */
+const refreshing = computed(
+  () => store.analyticsRefreshing || store.agentsSummaryRefreshing || store.skillsSummaryRefreshing,
+);
 
 const contentRoot = ref<HTMLElement | null>(null);
 const { revealing } = useFirstReveal({
@@ -91,8 +102,6 @@ const rangeText = computed(() => {
 const billedInAic = computed(() =>
   (data.value?.costBySource ?? []).every((entry) => sourceCapabilities(entry.source).hasAic),
 );
-const showAgents = computed(() => prefs.isFeatureEnabled("agents"));
-const showSkills = computed(() => prefs.isFeatureEnabled("skills"));
 </script>
 
 <template>
@@ -110,6 +119,8 @@ const showSkills = computed(() => prefs.isFeatureEnabled("skills"));
         ref="contentRoot"
         class="analytics-dashboard"
         :class="{ 'chart-reveal': revealing }"
+        :data-refreshing="refreshing"
+        :aria-busy="refreshing"
       >
         <AnalyticsKpis :data="data" :summary="summary" :rows="dayRows" />
         <AnalyticsActivityPanel :data="data" :summary="summary" :days="days" :range-text="rangeText" />

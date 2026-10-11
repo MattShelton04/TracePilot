@@ -28,6 +28,7 @@ const { store } = useAnalyticsPage("fetchCodeImpact");
 
 const loading = computed(() => store.codeImpactLoading);
 const data = computed(() => store.codeImpact);
+const refreshing = computed(() => store.codeImpactRefreshing);
 
 const contentRoot = ref<HTMLElement | null>(null);
 const { revealing } = useFirstReveal({
@@ -107,7 +108,13 @@ const timelineChart = computed(() => {
     <AnalyticsPageHeader title="Code Impact" :subtitle="pageSubtitle" />
     <LoadingOverlay :loading="loading" message="Loading code impact data…">
         <ErrorState v-if="store.codeImpactError" heading="Failed to load code impact data" :message="store.codeImpactError" @retry="store.fetchCodeImpact({ force: true })" />
-        <div v-else-if="data" ref="contentRoot" :class="{ 'chart-reveal': revealing }">
+        <div
+          v-else-if="data"
+          ref="contentRoot"
+          :class="{ 'chart-reveal': revealing }"
+          :data-refreshing="refreshing"
+          :aria-busy="refreshing"
+        >
 
           <!-- Stats Row -->
           <div class="grid-4 mb-4">

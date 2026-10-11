@@ -82,6 +82,14 @@ export interface CachedFetchResult<TData, TParams> {
   fetch: (params: TParams, options?: { force?: boolean }) => Promise<TData | undefined>;
 
   /**
+   * Load results for parameters that are not on screen into the cache,
+   * without touching `data`, `loading` or `error`. Does nothing when the
+   * parameters are cached or already loading, or when caching is off. A
+   * later `fetch` for the same parameters shares the request.
+   */
+  prefetch: (params: TParams) => Promise<void>;
+
+  /**
    * Reset all state to initial values and clear cache.
    */
   reset: () => void;
@@ -220,6 +228,11 @@ export function useCachedFetch<TData, TParams = void>(
       activeKey = cacheKey;
       activeGeneration = keyGenerations.get(cacheKey) ?? 0;
       activeEpoch = resetEpoch;
+      // The shared request may be a prefetch, which never set loading.
+      if (!silent) {
+        loading.value = true;
+      }
+      error.value = null;
       return existingPromise;
     }
 
@@ -234,7 +247,20 @@ export function useCachedFetch<TData, TParams = void>(
       loading.value = true;
     }
     error.value = null;
+    return request(cacheKey, params, gen, epoch);
+  };
 
+  /**
+   * Run the fetcher for a key and cache the result. Shared state (`data`,
+   * `error`, `loading`, callbacks) changes only while the key is the active
+   * one, so the same request serves both `fetch` and `prefetch`.
+   */
+  function request(
+    cacheKey: string,
+    params: TParams,
+    gen: number,
+    epoch: number,
+  ): Promise<TData | undefined> {
     const promise = (async () => {
       try {
         const result = await fetcher(params);
@@ -316,6 +342,15 @@ export function useCachedFetch<TData, TParams = void>(
 
     inflight.set(cacheKey, promise);
     return promise;
+  }
+
+  const prefetch = async (params: TParams): Promise<void> => {
+    if (!cache) return;
+    const cacheKey = cacheKeyFn(params);
+    if (loaded.has(cacheKey) || inflight.has(cacheKey)) return;
+    const gen = (keyGenerations.get(cacheKey) ?? 0) + 1;
+    keyGenerations.set(cacheKey, gen);
+    await request(cacheKey, params, gen, resetEpoch);
   };
 
   /**
@@ -362,6 +397,7 @@ export function useCachedFetch<TData, TParams = void>(
     loading: readonly(loading),
     error: readonly(error),
     fetch,
+    prefetch,
     reset,
     isCached,
     clearCache,

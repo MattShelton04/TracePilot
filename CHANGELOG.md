@@ -17,7 +17,7 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ### Changed
 
 - **Session overview** — The Overview tab opens with four headline numbers, a chart of when the session's turns happened, tiles for how it ended, incidents, changes and saved state, and a grouped context panel in place of the label/value lists.
-- **Analytics dashboard** — Five headline numbers, then activity per day (cost, tokens or runs, as bars or lines), model mix and token kinds, cost by source or as a running total, model time and pace, incidents, cache, and agents and skills side by side. Your chart choices are remembered.
+- **Analytics dashboard** — Five headline numbers, then activity per day (cost, tokens or runs, as bars or lines), model mix and token kinds, cost by source or as a running total, model time and pace, incidents, cache, and agents and skills side by side. Your chart choices are remembered, and changing the range or source keeps the dashboard on screen while it loads, usually straight from a cache filled in the background.
 - **Source switch** — Sessions, Analytics and Search switch between All, Copilot and Claude Code. Search also accepts `source:copilot` and `source:claude`, and shows Claude Code's own tool names.
 - **Project folders** — Sessions without a repository show and filter by their working folder, including in the session header, and session search also matches folders and models.
 - **Models page charts** — Four charts (Cost Efficiency, Token Share vs Spend Share, Model Profiles and Model Mix Over Time) replace the Capability Radar and Cost vs Token Volume charts.

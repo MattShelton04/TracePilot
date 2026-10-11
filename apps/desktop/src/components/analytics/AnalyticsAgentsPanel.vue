@@ -9,9 +9,8 @@
  * outcome split, then a ranked list that is a way into each agent rather
  * than a chart to read and leave.
  */
-import { agentsUsageSummary } from "@tracepilot/client";
 import { type AgentUsageSummary, calculateObservedAiCredits } from "@tracepilot/types";
-import { formatAiCredits, formatDuration, formatNumber, toErrorMessage } from "@tracepilot/ui";
+import { formatAiCredits, formatDuration, formatNumber } from "@tracepilot/ui";
 import { ArrowRight, Bot, Coins, Network, OctagonX } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
@@ -26,7 +25,9 @@ import { FAILING_RATE } from "@/utils/agents/entries";
 const store = useAnalyticsStore();
 const router = useRouter();
 
-const summary = ref<AgentUsageSummary | null>(null);
+const summary = computed<AgentUsageSummary | null>(() => store.agentsSummary);
+const loading = computed(() => store.agentsSummaryLoading);
+const error = computed(() => store.agentsSummaryError);
 const panelRoot = ref<HTMLElement | null>(null);
 // The panel loads its own data, usually after the dashboard's reveal window.
 const { revealing } = useFirstReveal({
@@ -35,11 +36,8 @@ const { revealing } = useFirstReveal({
   root: panelRoot,
   countUpSelector: ".agents-panel__value",
 });
-const loading = ref(false);
-const error = ref<string | null>(null);
-
-// A finished reindex refreshes the figures in place; only a new filter (or
-// the first load) shows the loading note.
+// Cached in the analytics store by filter. Only the first load shows the
+// loading note; later filters and a finished reindex refresh in place.
 watch(
   [
     () => store.dateRange,
@@ -47,33 +45,8 @@ watch(
     () => store.selectedSource,
     () => store.dataRevision,
   ],
-  async ([range, repo, source, revision], previous, onCleanup) => {
-    let active = true;
-    onCleanup(() => {
-      active = false;
-    });
-    const [oldRange, oldRepo, oldSource, oldRevision] = previous;
-    const reindexOnly =
-      summary.value !== null &&
-      revision !== oldRevision &&
-      range === oldRange &&
-      repo === oldRepo &&
-      source === oldSource;
-    if (!reindexOnly) loading.value = true;
-    error.value = null;
-    try {
-      const result = await agentsUsageSummary({
-        fromDate: range.fromDate ?? null,
-        toDate: range.toDate ?? null,
-        repo: repo ?? null,
-        source: source ?? null,
-      });
-      if (active) summary.value = result;
-    } catch (cause) {
-      if (active) error.value = toErrorMessage(cause);
-    } finally {
-      if (active) loading.value = false;
-    }
+  () => {
+    void store.fetchAgentsSummary({ background: true });
   },
   { immediate: true, deep: true },
 );

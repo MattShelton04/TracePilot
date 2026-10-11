@@ -1,4 +1,5 @@
 import { skillsUsageSummary } from "@tracepilot/client";
+import { setupPinia } from "@tracepilot/test-utils";
 import type {
   SessionSource,
   SkillSummary,
@@ -10,14 +11,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive } from "vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { useAnalyticsStore } from "@/stores/analytics";
 import AnalyticsSkillsPanel from "../AnalyticsSkillsPanel.vue";
 
-const { getAnalyticsStore, getSkillsStore } = vi.hoisted(() => ({
-  getAnalyticsStore: vi.fn(),
-  getSkillsStore: vi.fn(),
-}));
-vi.mock("@tracepilot/client", () => ({ skillsUsageSummary: vi.fn() }));
-vi.mock("@/stores/analytics", () => ({ useAnalyticsStore: getAnalyticsStore }));
+const { getSkillsStore } = vi.hoisted(() => ({ getSkillsStore: vi.fn() }));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("@/__tests__/mocks/client");
+  return createClientMock({
+    checkConfigExists: vi.fn().mockResolvedValue(false),
+    getConfig: vi.fn().mockResolvedValue(null),
+    skillsUsageSummary: vi.fn(),
+  });
+});
 vi.mock("@/stores/skills", () => ({ useSkillsStore: getSkillsStore }));
 vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/router/navigation", () => ({ pushRoute: vi.fn() }));
@@ -82,13 +87,11 @@ const summary: SkillUsageSummary = {
 function setStores(
   options: { repo?: string | null; source?: SessionSource | null; skills?: SkillSummary[] } = {},
 ) {
-  getAnalyticsStore.mockReturnValue(
-    reactive({
-      dateRange: { fromDate: "2026-09-01", toDate: null },
-      selectedRepo: options.repo ?? null,
-      selectedSource: options.source ?? null,
-    }),
-  );
+  setupPinia();
+  const store = useAnalyticsStore();
+  store.setTimeRange("custom", "2026-09-01");
+  store.setRepo(options.repo ?? null);
+  store.setSource(options.source ?? null);
   getSkillsStore.mockReturnValue(
     reactive({ skills: options.skills ?? [], loading: false, loadSkills: vi.fn() }),
   );
@@ -105,12 +108,13 @@ describe("AnalyticsSkillsPanel", () => {
     setStores({ repo: "TracePilot", source: "claudeCode" });
     mount(AnalyticsSkillsPanel);
     await flushPromises();
-    expect(skillsUsageSummary).toHaveBeenCalledWith({
-      fromDate: "2026-09-01",
-      toDate: null,
-      repo: "TracePilot",
-      source: "claudeCode",
-    });
+    expect(skillsUsageSummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromDate: "2026-09-01",
+        repo: "TracePilot",
+        source: "claudeCode",
+      }),
+    );
   });
 
   it("leads with uses, distinct skills, the injected total and uses per session", async () => {

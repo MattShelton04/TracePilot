@@ -1,8 +1,17 @@
-import { getAnalytics, getCodeImpact, getToolAnalysis, IPC_EVENTS } from "@tracepilot/client";
 import {
+  agentsUsageSummary,
+  getAnalytics,
+  getCodeImpact,
+  getToolAnalysis,
+  IPC_EVENTS,
+  skillsUsageSummary,
+} from "@tracepilot/client";
+import {
+  type AgentUsageSummary,
   type AnalyticsData,
   type CodeImpactData,
   type SessionSource,
+  type SkillUsageSummary,
   sourceLabel,
   type ToolAnalysisData,
 } from "@tracepilot/types";
@@ -10,22 +19,30 @@ import { type CachedFetchResult, useCachedFetch } from "@tracepilot/ui";
 import { defineStore } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useScopedEventListener } from "@/composables/useScopedEventListener";
+import {
+  type AnalyticsDatasetName,
+  type AnalyticsDateRange,
+  type AnalyticsFetchParams,
+  type AnalyticsTimeRange,
+  cacheKey,
+  presetRange,
+} from "@/utils/analyticsFilters";
+import { createAnalyticsPrefetch } from "@/utils/analyticsPrefetch";
 import { usePreferencesStore } from "./preferences";
 import { useSessionsStore } from "./sessions";
 
-/** Parameters for analytics fetch operations */
-interface AnalyticsFetchParams {
-  fromDate?: string;
-  toDate?: string;
-  repo?: string;
-  hideEmpty?: boolean;
-  source?: SessionSource;
-}
+export type {
+  AnalyticsDatasetName,
+  AnalyticsDateRange,
+  AnalyticsTimeRange,
+} from "@/utils/analyticsFilters";
 
-// Each analytics payload can be substantial. Eight recent filter combinations
-// per dataset covers normal range/repository switching without retaining every
-// custom date combination explored during a long-running app session.
-const ANALYTICS_CACHE_ENTRIES_PER_DATASET = 8;
+// Each analytics payload can be substantial. Sixteen recent filter
+// combinations per dataset hold the prefetched neighbours of the current
+// filters (the other preset ranges and each source) plus normal range and
+// repository switching, without retaining every custom date combination
+// explored during a long-running app session.
+const ANALYTICS_CACHE_ENTRIES_PER_DATASET = 16;
 
 /** Options accepted by all analytics fetch actions. */
 export interface AnalyticsFetchOptions {
@@ -39,8 +56,6 @@ export interface AnalyticsFetchOptions {
    */
   background?: boolean;
 }
-
-export type AnalyticsTimeRange = "all" | "7d" | "30d" | "90d" | "month-to-date" | "custom";
 
 export const useAnalyticsStore = defineStore("analytics", () => {
   // Repository filter — sourced from sessions store to avoid redundant listSessions() calls
@@ -59,30 +74,15 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     selectedSource.value ? `${sourceLabel(selectedSource.value)} ` : "",
   );
 
-  // Time range filter
   const selectedTimeRange = ref<AnalyticsTimeRange>("all");
   const customFromDate = ref<string | undefined>(undefined);
   const customToDate = ref<string | undefined>(undefined);
 
-  const dateRange = computed<{ fromDate?: string; toDate?: string }>(() => {
-    if (selectedTimeRange.value === "all") return {};
-    if (selectedTimeRange.value === "custom") {
-      return { fromDate: customFromDate.value, toDate: customToDate.value };
-    }
-    if (selectedTimeRange.value === "month-to-date") {
-      const now = new Date();
-      const yyyy = now.getUTCFullYear();
-      const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
-      return { fromDate: `${yyyy}-${mm}-01` };
-    }
-    const days = { "7d": 7, "30d": 30, "90d": 90 }[selectedTimeRange.value];
-    const from = new Date();
-    from.setDate(from.getDate() - days);
-    const yyyy = from.getFullYear();
-    const mm = String(from.getMonth() + 1).padStart(2, "0");
-    const dd = String(from.getDate()).padStart(2, "0");
-    return { fromDate: `${yyyy}-${mm}-${dd}` };
-  });
+  const dateRange = computed<AnalyticsDateRange>(() =>
+    selectedTimeRange.value === "custom"
+      ? { fromDate: customFromDate.value, toDate: customToDate.value }
+      : presetRange(selectedTimeRange.value),
+  );
 
   function setTimeRange(range: AnalyticsTimeRange, from?: string, to?: string) {
     selectedTimeRange.value = range;
@@ -92,27 +92,24 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     }
   }
 
-  // Create cached fetch instances for each data type
-  const analyticsFetcher = useCachedFetch<AnalyticsData, AnalyticsFetchParams>({
-    fetcher: (params) => getAnalytics(params),
-    cacheKeyFn: (params) =>
-      `analytics:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}:${params.source ?? ""}`,
-    maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
-  });
-
-  const toolAnalysisFetcher = useCachedFetch<ToolAnalysisData, AnalyticsFetchParams>({
-    fetcher: (params) => getToolAnalysis(params),
-    cacheKeyFn: (params) =>
-      `toolAnalysis:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}:${params.source ?? ""}`,
-    maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
-  });
-
-  const codeImpactFetcher = useCachedFetch<CodeImpactData, AnalyticsFetchParams>({
-    fetcher: (params) => getCodeImpact(params),
-    cacheKeyFn: (params) =>
-      `codeImpact:${params.fromDate ?? ""}:${params.toDate ?? ""}:${params.repo ?? ""}:${params.hideEmpty ?? ""}:${params.source ?? ""}`,
-    maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
-  });
+  // One cached fetch per dataset, keyed by filters. Agents and Skills come
+  // from their own index tables, so their panels query them separately.
+  const cachedFetch = <T>(
+    name: AnalyticsDatasetName,
+    fetcher: (params: AnalyticsFetchParams) => Promise<T>,
+  ) =>
+    useCachedFetch<T, AnalyticsFetchParams>({
+      fetcher,
+      cacheKeyFn: cacheKey(name),
+      maxCacheEntries: ANALYTICS_CACHE_ENTRIES_PER_DATASET,
+    });
+  const analyticsFetcher = cachedFetch<AnalyticsData>("analytics", (p) => getAnalytics(p));
+  const toolAnalysisFetcher = cachedFetch<ToolAnalysisData>("toolAnalysis", (p) =>
+    getToolAnalysis(p),
+  );
+  const codeImpactFetcher = cachedFetch<CodeImpactData>("codeImpact", (p) => getCodeImpact(p));
+  const agentsFetcher = cachedFetch<AgentUsageSummary>("agents", (p) => agentsUsageSummary(p));
+  const skillsFetcher = cachedFetch<SkillUsageSummary>("skills", (p) => skillsUsageSummary(p));
 
   /** Ensure the sessions store is populated so availableRepos has data. */
   async function fetchAvailableRepos() {
@@ -123,31 +120,40 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   }
 
   // ── Shared fetch factory ──────────────────────────────────────
-  // All three analytics fetch actions share the same parameter-building logic.
+  // All analytics fetch actions share the same parameter-building logic.
   // Pages swap their whole layout for the loading state while `loading` is
-  // set, so a background revalidation (a reindex finishing while a page is
-  // open) must not set it, or the page flashes and remounts every panel.
+  // set, so a background fetch (a filter change or a finished reindex while
+  // results are on screen) reports `refreshing` instead: the page keeps its
+  // panels, dims them, and updates them in place when the results land.
+
+  function buildParams(
+    filters: AnalyticsDateRange & { repo?: string; source?: SessionSource | null },
+  ) {
+    return {
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      repo: filters.repo ?? selectedRepo.value ?? undefined,
+      hideEmpty: usePreferencesStore().hideEmptySessions,
+      source: (filters.source === undefined ? selectedSource.value : filters.source) ?? undefined,
+    } satisfies AnalyticsFetchParams;
+  }
 
   function buildDataset<T>(fetcher: CachedFetchResult<T, AnalyticsFetchParams>) {
     const revalidating = ref(false);
     let latest = 0;
     const loading = computed(() => fetcher.loading.value && !revalidating.value);
+    const refreshing = computed(() => fetcher.loading.value && revalidating.value);
 
     async function fetch(options?: AnalyticsFetchOptions) {
-      const prefs = usePreferencesStore();
-      const merged = { ...dateRange.value, ...options };
-      const params: AnalyticsFetchParams = {
-        fromDate: merged.fromDate,
-        toDate: merged.toDate,
-        repo: merged.repo ?? selectedRepo.value ?? undefined,
-        hideEmpty: prefs.hideEmptySessions,
-        source: selectedSource.value ?? undefined,
-      };
-      // Only the newest call decides; a foreground request that is already
-      // loading keeps its loading state.
+      const params = buildParams({ ...dateRange.value, ...options });
+      // Only the newest call decides. A background call keeps results on
+      // screen, also while an earlier background call is still loading; a
+      // foreground request that is already loading keeps its loading state.
       const call = ++latest;
       revalidating.value =
-        !!options?.background && fetcher.data.value !== null && !fetcher.loading.value;
+        !!options?.background &&
+        fetcher.data.value !== null &&
+        (revalidating.value || !fetcher.loading.value);
       try {
         await fetcher.fetch(params, { force: options?.force });
       } finally {
@@ -155,15 +161,29 @@ export const useAnalyticsStore = defineStore("analytics", () => {
       }
     }
 
-    return { loading, fetch };
+    return { loading, refreshing, fetch, prefetch: fetcher.prefetch };
   }
 
-  const analyticsDataset = buildDataset(analyticsFetcher);
-  const toolAnalysisDataset = buildDataset(toolAnalysisFetcher);
-  const codeImpactDataset = buildDataset(codeImpactFetcher);
-  const fetchAnalytics = analyticsDataset.fetch;
-  const fetchToolAnalysis = toolAnalysisDataset.fetch;
-  const fetchCodeImpact = codeImpactDataset.fetch;
+  const datasets = {
+    analytics: buildDataset(analyticsFetcher),
+    toolAnalysis: buildDataset(toolAnalysisFetcher),
+    codeImpact: buildDataset(codeImpactFetcher),
+    agents: buildDataset(agentsFetcher),
+    skills: buildDataset(skillsFetcher),
+  } satisfies Record<AnalyticsDatasetName, unknown>;
+  const fetchAnalytics = datasets.analytics.fetch;
+  const fetchToolAnalysis = datasets.toolAnalysis.fetch;
+  const fetchCodeImpact = datasets.codeImpact.fetch;
+  const fetchAgentsSummary = datasets.agents.fetch;
+  const fetchSkillsSummary = datasets.skills.fetch;
+
+  const background = createAnalyticsPrefetch({
+    prefetch: (name, params) => datasets[name].prefetch(params),
+    build: buildParams,
+    dateRange: () => dateRange.value,
+    sources: () => availableSources.value,
+    onWarm: () => void watchIndexUpdates(),
+  });
 
   async function refreshAll(options?: { fromDate?: string; toDate?: string }) {
     await Promise.all([
@@ -187,6 +207,9 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     analyticsFetcher.reset();
     toolAnalysisFetcher.reset();
     codeImpactFetcher.reset();
+    agentsFetcher.reset();
+    skillsFetcher.reset();
+    background.reset();
     selectedRepo.value = null;
     selectedSource.value = null;
     selectedTimeRange.value = "all";
@@ -195,7 +218,13 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   }
 
   // Invalidate analytics cache when hideEmptySessions preference changes
-  const allFetchers = [analyticsFetcher, toolAnalysisFetcher, codeImpactFetcher];
+  const allFetchers = [
+    analyticsFetcher,
+    toolAnalysisFetcher,
+    codeImpactFetcher,
+    agentsFetcher,
+    skillsFetcher,
+  ];
   const prefs = usePreferencesStore();
   watch(
     () => prefs.hideEmptySessions,
@@ -213,6 +242,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
   const watchIndexUpdates = useScopedEventListener(IPC_EVENTS.INDEXING_FINISHED, () => {
     for (const f of allFetchers) f.invalidate();
     dataRevision.value += 1;
+    background.rewarm();
   });
 
   return {
@@ -220,12 +250,23 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     analytics: analyticsFetcher.data,
     toolAnalysis: toolAnalysisFetcher.data,
     codeImpact: codeImpactFetcher.data,
-    analyticsLoading: analyticsDataset.loading,
-    toolAnalysisLoading: toolAnalysisDataset.loading,
-    codeImpactLoading: codeImpactDataset.loading,
+    agentsSummary: agentsFetcher.data,
+    skillsSummary: skillsFetcher.data,
+    analyticsLoading: datasets.analytics.loading,
+    toolAnalysisLoading: datasets.toolAnalysis.loading,
+    codeImpactLoading: datasets.codeImpact.loading,
+    agentsSummaryLoading: datasets.agents.loading,
+    skillsSummaryLoading: datasets.skills.loading,
+    analyticsRefreshing: datasets.analytics.refreshing,
+    toolAnalysisRefreshing: datasets.toolAnalysis.refreshing,
+    codeImpactRefreshing: datasets.codeImpact.refreshing,
+    agentsSummaryRefreshing: datasets.agents.refreshing,
+    skillsSummaryRefreshing: datasets.skills.refreshing,
     analyticsError: analyticsFetcher.error,
     toolAnalysisError: toolAnalysisFetcher.error,
     codeImpactError: codeImpactFetcher.error,
+    agentsSummaryError: agentsFetcher.error,
+    skillsSummaryError: skillsFetcher.error,
     selectedRepo,
     availableRepos,
     selectedSource,
@@ -241,7 +282,14 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     fetchAnalytics,
     fetchToolAnalysis,
     fetchCodeImpact,
+    fetchAgentsSummary,
+    fetchSkillsSummary,
     fetchAvailableRepos,
+    /** Prefetch nearby filters for the named datasets while idle. */
+    prefetchNearby: background.prefetchNearby,
+    cancelPrefetch: background.cancel,
+    /** Warm the current filters' datasets off screen (at launch). */
+    warm: background.warm,
     refreshAll,
     setRepo,
     setSource,

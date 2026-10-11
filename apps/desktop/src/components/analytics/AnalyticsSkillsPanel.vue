@@ -14,9 +14,8 @@
  * machine-wide, so comparing it against one repository's or source's usage
  * would call skills unused that are used constantly elsewhere.
  */
-import { skillsUsageSummary } from "@tracepilot/client";
 import type { SkillUsageSummary } from "@tracepilot/types";
-import { formatNumber, toErrorMessage } from "@tracepilot/ui";
+import { formatNumber } from "@tracepilot/ui";
 import { ArrowRight, BookOpen, Database, Layers, Sparkles, TriangleAlert } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
@@ -32,7 +31,9 @@ const store = useAnalyticsStore();
 const skillsStore = useSkillsStore();
 const router = useRouter();
 
-const summary = ref<SkillUsageSummary | null>(null);
+const summary = computed<SkillUsageSummary | null>(() => store.skillsSummary);
+const loading = computed(() => store.skillsSummaryLoading);
+const error = computed(() => store.skillsSummaryError);
 const panelRoot = ref<HTMLElement | null>(null);
 // The panel loads its own data, usually after the dashboard's reveal window.
 const { revealing } = useFirstReveal({
@@ -41,11 +42,9 @@ const { revealing } = useFirstReveal({
   root: panelRoot,
   countUpSelector: ".skills-panel__value",
 });
-const loading = ref(false);
-const error = ref<string | null>(null);
 
-// A finished reindex refreshes the figures in place; only a new filter (or
-// the first load) shows the loading note.
+// Cached in the analytics store by filter. Only the first load shows the
+// loading note; later filters and a finished reindex refresh in place.
 watch(
   [
     () => store.dateRange,
@@ -53,33 +52,8 @@ watch(
     () => store.selectedSource,
     () => store.dataRevision,
   ],
-  async ([range, repo, source, revision], previous, onCleanup) => {
-    let active = true;
-    onCleanup(() => {
-      active = false;
-    });
-    const [oldRange, oldRepo, oldSource, oldRevision] = previous;
-    const reindexOnly =
-      summary.value !== null &&
-      revision !== oldRevision &&
-      range === oldRange &&
-      repo === oldRepo &&
-      source === oldSource;
-    if (!reindexOnly) loading.value = true;
-    error.value = null;
-    try {
-      const result = await skillsUsageSummary({
-        fromDate: range.fromDate ?? null,
-        toDate: range.toDate ?? null,
-        repo: repo ?? null,
-        source: source ?? null,
-      });
-      if (active) summary.value = result;
-    } catch (cause) {
-      if (active) error.value = toErrorMessage(cause);
-    } finally {
-      if (active) loading.value = false;
-    }
+  () => {
+    void store.fetchSkillsSummary({ background: true });
   },
   { immediate: true, deep: true },
 );

@@ -15,6 +15,7 @@ const { store } = useAnalyticsPage("fetchToolAnalysis");
 
 const loading = computed(() => store.toolAnalysisLoading);
 const data = computed(() => store.toolAnalysis);
+const refreshing = computed(() => store.toolAnalysisRefreshing);
 
 const contentRoot = ref<HTMLElement | null>(null);
 const { revealing } = useFirstReveal({
@@ -52,7 +53,13 @@ const maxInvocations = computed(() => {
         :message="store.toolAnalysisError"
         @retry="store.fetchToolAnalysis({ force: true })"
       />
-      <div v-else-if="data" ref="contentRoot" :class="{ 'chart-reveal': revealing }">
+      <div
+        v-else-if="data"
+        ref="contentRoot"
+        :class="{ 'chart-reveal': revealing }"
+        :data-refreshing="refreshing"
+        :aria-busy="refreshing"
+      >
         <div class="grid-4 mb-4">
           <StatCard :value="formatNumberFull(data.totalCalls)" label="Total Tool Calls" />
           <StatCard :value="uniqueToolCount" label="Unique Tools" color="done" />

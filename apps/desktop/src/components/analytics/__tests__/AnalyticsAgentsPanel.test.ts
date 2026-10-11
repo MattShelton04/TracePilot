@@ -1,16 +1,22 @@
 import { agentsUsageSummary } from "@tracepilot/client";
 import { agentUsage as usage } from "@tracepilot/client/mock";
+import { setupPinia } from "@tracepilot/test-utils";
 import type { AgentUsageSummary } from "@tracepilot/types";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { reactive } from "vue";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
+import { useAnalyticsStore } from "@/stores/analytics";
 import AnalyticsAgentsPanel from "../AnalyticsAgentsPanel.vue";
 
-const { getStore } = vi.hoisted(() => ({ getStore: vi.fn() }));
-vi.mock("@tracepilot/client", () => ({ agentsUsageSummary: vi.fn() }));
-vi.mock("@/stores/analytics", () => ({ useAnalyticsStore: getStore }));
+vi.mock("@tracepilot/client", async () => {
+  const { createClientMock } = await import("@/__tests__/mocks/client");
+  return createClientMock({
+    checkConfigExists: vi.fn().mockResolvedValue(false),
+    getConfig: vi.fn().mockResolvedValue(null),
+    agentsUsageSummary: vi.fn(),
+  });
+});
 vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/router/navigation", () => ({ pushRoute: vi.fn() }));
 enableAutoUnmount(afterEach);
@@ -29,15 +35,12 @@ const summary: AgentUsageSummary = {
   agents: [usage("reviewer", { runs: 20 }), usage("explore", { runs: 80 })],
 };
 
+const getStore = () => useAnalyticsStore();
+
 beforeEach(() => {
   vi.clearAllMocks();
-  getStore.mockReturnValue(
-    reactive({
-      dateRange: { fromDate: "2026-09-01", toDate: null },
-      selectedRepo: null,
-      selectedSource: null,
-    }),
-  );
+  setupPinia();
+  getStore().setTimeRange("custom", "2026-09-01");
   vi.mocked(agentsUsageSummary).mockResolvedValue(summary);
 });
 
@@ -45,12 +48,9 @@ describe("AnalyticsAgentsPanel", () => {
   it("shows range tiles, credit coverage, outcomes and agents ranked by runs", async () => {
     const wrapper = mount(AnalyticsAgentsPanel);
     await flushPromises();
-    expect(agentsUsageSummary).toHaveBeenCalledWith({
-      fromDate: "2026-09-01",
-      toDate: null,
-      repo: null,
-      source: null,
-    });
+    expect(agentsUsageSummary).toHaveBeenCalledWith(
+      expect.objectContaining({ fromDate: "2026-09-01", repo: undefined, source: undefined }),
+    );
     // Runs, failed share, deepest nesting and own credits, as in Skills' header.
     expect(wrapper.findAll(".agents-panel__value").map((el) => el.text())).toEqual([
       "100",
@@ -130,12 +130,37 @@ describe("AnalyticsAgentsPanel", () => {
     await flushPromises();
     getStore().selectedSource = "claudeCode";
     await flushPromises();
-    expect(agentsUsageSummary).toHaveBeenLastCalledWith({
-      fromDate: "2026-09-01",
-      toDate: null,
-      repo: null,
-      source: "claudeCode",
-    });
+    expect(agentsUsageSummary).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fromDate: "2026-09-01", source: "claudeCode" }),
+    );
+  });
+
+  it("serves a filter it has already loaded from the cache", async () => {
+    mount(AnalyticsAgentsPanel);
+    await flushPromises();
+    getStore().selectedSource = "claudeCode";
+    await flushPromises();
+    getStore().selectedSource = null;
+    await flushPromises();
+    expect(agentsUsageSummary).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the current figures on screen while another filter loads", async () => {
+    const wrapper = mount(AnalyticsAgentsPanel);
+    await flushPromises();
+    let resolve!: (value: AgentUsageSummary) => void;
+    vi.mocked(agentsUsageSummary).mockReturnValueOnce(
+      new Promise((res) => {
+        resolve = res;
+      }),
+    );
+    getStore().selectedRepo = "tracepilot/app";
+    await flushPromises();
+    expect(getStore().agentsSummaryRefreshing).toBe(true);
+    expect(wrapper.findAll(".agents-panel__value")[0].text()).toBe("100");
+    resolve({ ...summary, totalRuns: 7 });
+    await flushPromises();
+    expect(wrapper.findAll(".agents-panel__value")[0].text()).toBe("7");
   });
 
   it("shows empty and error states", async () => {

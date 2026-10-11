@@ -114,6 +114,11 @@ Models views, all headed by `AnalyticsPageHeader`.
 - Agents and Skills share one shape (four tiles, a split bar, ranked rows) so
   they line up side by side.
 - Each panel loads, empties and fails on its own, without blanking the page.
+- Changing a filter keeps the current results on screen under a
+  `data-refreshing` scrim (`styles/animations.css`) until the new ones land;
+  only the first load shows the loading state. The analytics store prefetches
+  the other preset ranges and sources while idle, and warms the dashboard
+  once the session list loads.
 - Gaps: the Tools, Code and Models views still use `StatCard` and fixed-size
   charts.
 
