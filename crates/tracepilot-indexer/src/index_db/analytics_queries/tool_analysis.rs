@@ -65,6 +65,7 @@ pub(super) fn query_tool_analysis(
 
         tools.push(ToolUsageEntry {
             call_count: calls_u32,
+            failure_count: failure_u32,
             success_rate: compute_success_rate(success_u32, failure_u32),
             avg_duration_ms: safe_div(dur.max(0) as f64, dur_count_u32),
             total_duration_ms: dur.max(0) as f64,
@@ -101,6 +102,7 @@ pub(super) fn query_tool_analysis(
     }
 
     let activity_heatmap = build_heatmap_grid(&heatmap_data);
+    let calls_by_day = query_calls_by_day(conn, &where_clause, &bind_values)?;
 
     Ok(ToolAnalysisData {
         total_calls,
@@ -109,7 +111,45 @@ pub(super) fn query_tool_analysis(
         most_used_tool,
         tools,
         activity_heatmap,
+        calls_by_day,
     })
+}
+
+/// Calls, failures and timed duration per UTC day of each session's last
+/// activity, the day every other analytics series uses.
+fn query_calls_by_day(
+    conn: &Connection,
+    where_clause: &str,
+    bind_values: &[String],
+) -> Result<Vec<ToolDayCalls>> {
+    let sql = format!(
+        "SELECT date(COALESCE(s.updated_at, s.created_at)) AS d,
+                SUM(t.call_count), SUM(t.failure_count), SUM(t.total_duration_ms)
+             FROM session_tool_calls t
+             JOIN sessions s ON s.id = t.session_id{where_clause} AND d IS NOT NULL
+             GROUP BY d ORDER BY d"
+    );
+    let refs = to_refs(bind_values);
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(refs.iter().copied()), |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, i64>(3)?,
+        ))
+    })?;
+    let count = |value: i64| u32::try_from(value.max(0)).unwrap_or(u32::MAX);
+    rows.map(|row| {
+        let (date, calls, failures, duration) = row?;
+        Ok(ToolDayCalls {
+            date,
+            calls: count(calls),
+            failures: count(failures),
+            duration_ms: duration.max(0) as f64,
+        })
+    })
+    .collect()
 }
 
 /// Native tool names per canonical tool, most used first, from sources that

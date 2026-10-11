@@ -285,6 +285,21 @@ pub struct ToolAnalysisData {
     pub most_used_tool: String,
     pub tools: Vec<ToolUsageEntry>,
     pub activity_heatmap: Vec<HeatmapEntry>,
+    /// Calls per UTC day, by each session's last activity (like every other
+    /// analytics day series). Days without calls are omitted.
+    #[serde(default)]
+    pub calls_by_day: Vec<ToolDayCalls>,
+}
+
+/// One day of tool calls.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolDayCalls {
+    pub date: String,
+    pub calls: u32,
+    pub failures: u32,
+    /// Summed duration of the day's timed calls.
+    pub duration_ms: f64,
 }
 
 /// Per-tool usage statistics.
@@ -294,6 +309,10 @@ pub struct ToolAnalysisData {
 pub struct ToolUsageEntry {
     pub name: String,
     pub call_count: u32,
+    /// Calls that reported failure. Calls without an outcome are neither
+    /// successes nor failures.
+    #[serde(default)]
+    pub failure_count: u32,
     pub success_rate: f64,
     pub avg_duration_ms: f64,
     pub total_duration_ms: f64,

@@ -102,15 +102,16 @@ Models views, all headed by `AnalyticsPageHeader`.
 
 - The dashboard reads top to bottom: five `KPI`s, Activity, model mix and token
   kinds, Cost, model time and pace, incidents and cache, then agents and skills.
-  Panels are `OverviewPanel`s; pairs sit side by side above an 880px container
-  and stack below it. Shared tile, meter and row styles live in
-  `styles/features/analytics-dashboard.css`.
+  Panels are `OverviewPanel`s in an `.ad-page`; `.ad-pair`s sit side by side
+  above an 880px container and stack below it. Shared KPI row, tile, meter and
+  row styles live in `styles/features/analytics-dashboard.css`.
 - Day charts use `AnalyticsDayChart`: zero-filled UTC days, bars or stacked
   lines, errors pinned above their day, columns merged into bins when narrow.
 - Cost keeps each source's unit (AI Credits, API-equivalent USD) and meets on
   one USD scale only where sources add up, AI Credits at $0.01.
-- View switches (activity metric and style, cost and incident views) persist
-  through `useAnalyticsDashboardViews`.
+- View switches (activity metric and style, cost and incident views, the
+  Tools chart and sort, the Code chart style) persist through
+  `useAnalyticsDashboardViews`.
 - Agents and Skills share one shape (four tiles, a split bar, ranked rows) so
   they line up side by side.
 - Each panel loads, empties and fails on its own, without blanking the page.
@@ -119,8 +120,12 @@ Models views, all headed by `AnalyticsPageHeader`.
   only the first load shows the loading state. The analytics store prefetches
   the other preset ranges and sources while idle, and warms the dashboard
   once the session list loads.
-- Gaps: the Tools, Code and Models views still use `StatCard` and fixed-size
-  charts.
+- The Tools and Code pages use the same pieces: four `KPI`s, a day chart,
+  then ranked `.ad-row` lists. Tools ranks every tool by calls, failure rate,
+  average or total time; the bar follows the sort and that column reads
+  brightest. Subagent calls and `ask_user` waits are labelled and kept apart
+  in tool time (`utils/toolAnalysis.ts`), since they last a whole run or an
+  answer. Code shows file types beside the most-modified files, name first.
 
 ## Settings
 

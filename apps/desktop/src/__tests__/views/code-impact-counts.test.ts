@@ -42,19 +42,24 @@ describe("CodeImpactView count units", () => {
       global: { stubs: { RouterLink: { template: "<a><slot /></a>", props: ["to"] } } },
     });
     await flushPromises();
-    const uniquePaths = wrapper.findAll(".stat-card")[0];
-    expect(uniquePaths.get(".stat-card-value").text()).toBe("1");
-    expect(uniquePaths.get(".stat-card-label").text()).toBe("Unique File Paths");
-    expect(wrapper.get(".code-count-note").text()).toContain(
-      "Matching paths across sessions and repositories count as one unique path",
+    const tips = [...document.body.querySelectorAll('[role="tooltip"]')].map(
+      (t) => t.textContent ?? "",
     );
-    expect(wrapper.text()).toContain("File Modifications by Type");
-    expect(wrapper.get(".token-bar-value").text()).toBe(modifications);
-    expect(wrapper.get(".file-freq").text()).toBe(sessions);
-    await wrapper.get(".token-bar").trigger("mouseenter");
-    await flushPromises();
-    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toBe(
-      `ts — ${modifications}`,
-    );
+
+    // One unique path, however many sessions touched it.
+    const files = wrapper
+      .get('[data-testid="code-kpis"]')
+      .findAll(".kpi")
+      .find((kpi) => kpi.text().includes("Files touched"));
+    expect(files?.get(".kpi__value-num").text()).toBe("1");
+    expect(files?.text()).toContain(modifications);
+    expect(
+      tips.some((t) => t.startsWith("Unique paths across repositories: a file counts once")),
+    ).toBe(true);
+
+    // File types count modifications; files count sessions.
+    expect(tips).toContain(`.ts: ${modifications}, 100% of all`);
+    expect(wrapper.get('[data-testid="code-file-row"]').text()).toContain(String(count));
+    expect(tips).toContain(`src/status.ts · modified in ${sessions}`);
   });
 });

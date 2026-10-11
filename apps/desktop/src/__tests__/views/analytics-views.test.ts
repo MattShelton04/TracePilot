@@ -1,5 +1,5 @@
 import { setupPinia } from "@tracepilot/test-utils";
-import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetAnalyticsDashboardViews } from "../../composables/useAnalyticsDashboardViews";
 import AnalyticsDashboardView from "../../views/AnalyticsDashboardView.vue";
@@ -171,35 +171,115 @@ describe("AnalyticsDashboardView", () => {
   });
 });
 
+const radio = (root: ReturnType<VueWrapper["get"]>, label: string) =>
+  root.findAll('[role="radio"]').find((b) => b.text() === label);
+
+const storedViews = () =>
+  JSON.parse(localStorage.getItem("tracepilot-analytics-dashboard-views") ?? "{}");
+
+const tooltips = () =>
+  [...document.body.querySelectorAll('[role="tooltip"]')].map((t) => t.textContent ?? "");
+
 describe("ToolAnalysisView", () => {
   beforeEach(() => {
     setupPinia();
     vi.clearAllMocks();
+    localStorage.clear();
+    resetAnalyticsDashboardViews();
   });
 
-  it("renders tool analysis stat cards", async () => {
-    mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
+  async function mountTools(data: unknown = FIXTURE_TOOL_ANALYSIS) {
+    mockGetToolAnalysis.mockResolvedValue(data);
     const Component = await loadToolAnalysis();
     const wrapper = mount(Component, globalStubs);
-
     await flushPromises();
+    return wrapper;
+  }
 
-    expect(wrapper.text()).toContain("50"); // totalCalls
-    expect(wrapper.text()).toContain("edit"); // mostUsedTool
-    expect(wrapper.text()).toContain("95%"); // successRate
+  it("leads with calls, failures, tool time split by kind, and tools used", async () => {
+    const wrapper = await mountTools();
+    const kpis = wrapper.get('[data-testid="tool-kpis"]').text();
+    expect(kpis).toContain("Tool calls");
+    expect(kpis).toContain("50");
+    expect(kpis).toContain("25 a day on 2 of");
+    // 3 failed calls of 50.
+    expect(kpis).toContain("6%");
+    expect(kpis).toContain("3 calls");
+    // Subagents and ask_user hold most of the time, so they read apart.
+    expect(kpis).toMatch(/5% tools · 81% subagents · 14% waiting on you/);
+    expect(kpis).toContain("Tools used");
+    expect(wrapper.findAll(".stat-card")).toHaveLength(0);
+  }, 10_000);
+
+  it("charts calls per day and remembers another metric and style", async () => {
+    const wrapper = await mountTools();
+    const panel = wrapper.get('[data-testid="tool-calls-per-day"]');
+    expect(
+      panel.find('[aria-label="Tool calls per day, failed calls stacked on top"]').exists(),
+    ).toBe(true);
+    expect(panel.text()).toContain("Busiest");
+
+    await radio(panel, "Tool time")?.trigger("click");
+    await radio(panel, "Lines")?.trigger("click");
+    await flushPromises();
+    expect(panel.find('[aria-label="Tool time per day"]').exists()).toBe(true);
+    expect(storedViews()).toMatchObject({ toolsMetric: "time", toolsStyle: "lines" });
   });
 
-  it("renders tool table with sorted tools", async () => {
-    mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
-    const Component = await loadToolAnalysis();
-    const wrapper = mount(Component, globalStubs);
+  it("ranks tools by calls, re-sorts by failure rate, and labels subagents and waits", async () => {
+    const wrapper = await mountTools();
+    const panel = wrapper.get('[data-testid="tool-rank"]');
+    const names = () =>
+      panel
+        .findAll('[data-testid="tool-rank-row"]')
+        .map((row) => row.get(".tool-rank__name").text());
+    expect(names()[0]).toMatch(/^edit/);
+    expect(panel.text()).toContain("subagent");
+    expect(panel.text()).toContain("waits on you");
 
+    await radio(panel, "Failure rate")?.trigger("click");
     await flushPromises();
+    // Read: 2 of 16 failed (12.5%) outranks edit: 1 of 30.
+    expect(names()[0]).toMatch(/^Read/);
+    expect(storedViews()).toMatchObject({ toolsSort: "failures" });
+  });
 
-    expect(wrapper.text()).toContain("edit");
-    expect(wrapper.text()).toContain("view");
-    expect(wrapper.text()).toContain("30"); // edit callCount
-    expect(wrapper.text()).toContain("20"); // view callCount
+  it("explains each tool row on hover and expands native tools", async () => {
+    const wrapper = await mountTools();
+    const panel = wrapper.get('[data-testid="tool-rank"]');
+    expect(tooltips().some((t) => t.startsWith("Read (view): 16 calls · 2 failed (13%)"))).toBe(
+      true,
+    );
+
+    await panel.get('[aria-label="Show native tools for Read"]').trigger("click");
+    expect(panel.findAll(".tool-rank__native")).toHaveLength(1);
+  });
+
+  it("shows when tools run with weekday and hour totals", async () => {
+    const wrapper = await mountTools();
+    const heat = wrapper.get('[data-testid="tool-heatmap"]');
+    expect(heat.text()).toContain("When tools run");
+    expect(heat.text()).toContain("Mon");
+    expect(heat.text()).toContain("Sun");
+    expect(heat.findAll(".tool-heat .tool-heat__cell")).toHaveLength(168);
+    expect(heat.text()).toContain("Busiest");
+  });
+
+  it("empties each panel on its own for a range without calls", async () => {
+    const wrapper = await mountTools({
+      ...FIXTURE_TOOL_ANALYSIS,
+      totalCalls: 0,
+      tools: [],
+      activityHeatmap: [],
+      callsByDay: [],
+    });
+    const kpis = wrapper.get('[data-testid="tool-kpis"]').text();
+    expect(kpis).toContain("No tool calls in this range");
+    expect(kpis).toContain("No timed calls");
+    expect(kpis).not.toContain("0ms");
+    expect(wrapper.get('[data-testid="tool-calls-per-day"]').text()).toContain("No tool calls");
+    expect(wrapper.get('[data-testid="tool-rank"]').text()).toContain("No tools used");
+    expect(wrapper.get('[data-testid="tool-heatmap"]').text()).toContain("No tool calls");
   });
 
   it("shows error state on failure", async () => {
@@ -212,69 +292,89 @@ describe("ToolAnalysisView", () => {
     expect(wrapper.text()).toContain("Failed to load tool analysis");
     expect(wrapper.text()).toContain("Parse error");
   });
-
-  it("does not render StubBanner", async () => {
-    mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
-    const Component = await loadToolAnalysis();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.find('[class*="stub"]').exists()).toBe(false);
-  });
-
-  it("renders heatmap grid", async () => {
-    mockGetToolAnalysis.mockResolvedValue(FIXTURE_TOOL_ANALYSIS);
-    const Component = await loadToolAnalysis();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("Activity Heatmap");
-    expect(wrapper.text()).toContain("Mon");
-    expect(wrapper.text()).toContain("Sun");
-  });
 });
 
 describe("CodeImpactView", () => {
   beforeEach(() => {
     setupPinia();
     vi.clearAllMocks();
+    localStorage.clear();
+    resetAnalyticsDashboardViews();
   });
 
-  it("renders code impact stat cards", async () => {
-    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
+  async function mountCode(data: unknown = FIXTURE_CODE_IMPACT) {
+    mockGetCodeImpact.mockResolvedValue(data);
     const Component = await loadCodeImpact();
     const wrapper = mount(Component, globalStubs);
-
     await flushPromises();
+    return wrapper;
+  }
 
-    expect(wrapper.text()).toContain("15"); // filesModified
-    expect(wrapper.text()).toContain("1,000"); // linesAdded
-    expect(wrapper.text()).toContain("300"); // linesRemoved
-    expect(wrapper.text()).toContain("700"); // netChange
+  it("leads with lines added, removed, a coloured net change and files touched", async () => {
+    const wrapper = await mountCode();
+    const kpis = wrapper.get('[data-testid="code-kpis"]');
+    expect(kpis.text()).toContain("+1,000");
+    expect(kpis.text()).toContain("−300");
+    expect(kpis.text()).toContain("3.3 added per line removed");
+    expect(kpis.get(".code-kpis__net").text()).toBe("+700");
+    expect(kpis.get(".code-kpis__net").classes()).toContain("code-kpis__net--up");
+    expect(kpis.text()).toContain("15 modifications");
+    expect(wrapper.findAll(".stat-card")).toHaveLength(0);
   });
 
-  it("renders file type breakdown", async () => {
-    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
-    const Component = await loadCodeImpact();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain(".ts");
-    expect(wrapper.text()).toContain(".vue");
+  it("colours a shrinking codebase as a loss", async () => {
+    const wrapper = await mountCode({ ...FIXTURE_CODE_IMPACT, netChange: -200 });
+    const net = wrapper.get(".code-kpis__net");
+    expect(net.text()).toBe("−200");
+    expect(net.classes()).toContain("code-kpis__net--down");
+    expect(wrapper.get('[data-testid="code-kpis"]').text()).toContain("code shrank");
   });
 
-  it("renders most modified files", async () => {
-    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
-    const Component = await loadCodeImpact();
-    const wrapper = mount(Component, globalStubs);
-
+  it("charts lines per day and remembers the style", async () => {
+    const wrapper = await mountCode();
+    const panel = wrapper.get('[data-testid="code-changes-per-day"]');
+    expect(panel.find('[aria-label="Lines added and removed per day"]').exists()).toBe(true);
+    expect(panel.text()).toContain("Busiest");
+    await radio(panel, "Lines")?.trigger("click");
     await flushPromises();
+    expect(storedViews()).toMatchObject({ codeStyle: "lines" });
+  });
 
-    expect(wrapper.text()).toContain("src/index.ts");
-    expect(wrapper.text()).toContain("src/App.vue");
+  it("splits modifications by file type", async () => {
+    const wrapper = await mountCode();
+    const types = wrapper.get('[data-testid="code-file-types"]').text();
+    expect(types).toContain(".ts");
+    expect(types).toContain(".vue");
+    expect(types).toContain("67%");
+    expect(types).toContain("15 modifications");
+  });
+
+  it("lists most-modified files name first, by sessions, with the full path on hover", async () => {
+    const wrapper = await mountCode();
+    const rows = wrapper.findAll('[data-testid="code-file-row"]');
+    expect(rows[0].text()).toContain("index.ts");
+    expect(rows[0].text()).toContain("…/desktop/src");
+    expect(rows[0].text()).toContain("4");
+    expect(rows[1].text()).toContain("App.vue");
+    expect(tooltips()).toContain("C:\\repo\\apps\\desktop\\src\\index.ts · modified in 4 sessions");
+  });
+
+  it("empties each panel on its own for a range without changes", async () => {
+    const wrapper = await mountCode({
+      filesModified: 0,
+      linesAdded: 0,
+      linesRemoved: 0,
+      netChange: 0,
+      fileTypeBreakdown: [],
+      mostModifiedFiles: [],
+      changesByDay: [],
+    });
+    const kpis = wrapper.get('[data-testid="code-kpis"]').text();
+    expect(kpis).toContain("No line changes reported");
+    expect(kpis).not.toMatch(/[+−]0/);
+    expect(wrapper.get('[data-testid="code-changes-per-day"]').text()).toContain("No line changes");
+    expect(wrapper.get('[data-testid="code-file-types"]').text()).toContain("No files modified");
+    expect(wrapper.get('[data-testid="code-files"]').text()).toContain("No files modified");
   });
 
   it("shows error state on failure", async () => {
@@ -286,110 +386,5 @@ describe("CodeImpactView", () => {
 
     expect(wrapper.text()).toContain("Failed to load code impact data");
     expect(wrapper.text()).toContain("disk error");
-  });
-
-  it("does not render StubBanner", async () => {
-    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
-    const Component = await loadCodeImpact();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.find('[class*="stub"]').exists()).toBe(false);
-  });
-
-  it("renders changes over time chart", async () => {
-    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
-    const Component = await loadCodeImpact();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("Changes Over Time");
-    const svgs = wrapper.findAll("svg");
-    expect(svgs.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("shows timeline details when hovering the code chart", async () => {
-    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
-    const Component = await loadCodeImpact();
-    const wrapper = mount(Component, globalStubs);
-    await flushPromises();
-
-    const svgWrapper = wrapper.find(".code-timeline-chart svg");
-    const svg = svgWrapper.element as SVGSVGElement;
-    Object.defineProperty(svg, "createSVGPoint", {
-      configurable: true,
-      value: () => ({
-        x: 0,
-        y: 0,
-        matrixTransform: () => ({ x: 365, y: 100 }),
-      }),
-    });
-    Object.defineProperty(svg, "getScreenCTM", {
-      configurable: true,
-      value: () => ({ inverse: () => ({}) }),
-    });
-
-    await svgWrapper.trigger("mousemove", { clientX: 100, clientY: 100 });
-    await flushPromises();
-
-    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain("+300 / -80");
-    wrapper.unmount();
-  });
-
-  it("strides dense date labels in the changes chart", async () => {
-    const changesByDay = Array.from({ length: 30 }, (_, index) => ({
-      date: `2025-01-${String(index + 1).padStart(2, "0")}`,
-      additions: index + 1,
-      deletions: index,
-    }));
-    mockGetCodeImpact.mockResolvedValue({ ...FIXTURE_CODE_IMPACT, changesByDay });
-    const Component = await loadCodeImpact();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    const xLabels = wrapper
-      .findAll(".code-timeline-chart .chart-label")
-      .filter((label) => label.attributes("text-anchor") === "middle");
-    expect(xLabels.length).toBeGreaterThan(0);
-    expect(xLabels.length).toBeLessThanOrEqual(8);
-  });
-
-  it("shows positive net change with correct label", async () => {
-    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
-    const Component = await loadCodeImpact();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("+700");
-    expect(wrapper.text()).toContain("Net positive");
-  });
-
-  it("shows negative net change with correct label", async () => {
-    const negativeData = { ...FIXTURE_CODE_IMPACT, netChange: -200 };
-    mockGetCodeImpact.mockResolvedValue(negativeData);
-    const Component = await loadCodeImpact();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("-200");
-    expect(wrapper.text()).toContain("Net negative");
-    expect(wrapper.text()).not.toContain("Net positive");
-  });
-
-  it("shows most modified files as session frequency", async () => {
-    mockGetCodeImpact.mockResolvedValue(FIXTURE_CODE_IMPACT);
-    const Component = await loadCodeImpact();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    // Should show "100 sessions" not "+100"
-    expect(wrapper.text()).toContain("session");
-    expect(wrapper.text()).not.toMatch(/\+100/);
   });
 });

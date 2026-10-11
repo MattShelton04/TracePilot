@@ -140,6 +140,12 @@ export const MOCK_TOOL_ANALYSIS: ToolAnalysisData = {
     },
   ],
   activityHeatmap: deterministicHeatmap(168),
+  callsByDay: Array.from({ length: 7 }, (_, i) => ({
+    date: new Date(new Date(NOW).getTime() - (6 - i) * 86_400_000).toISOString().split("T")[0],
+    calls: [14, 22, 0, 18, 25, 21, 27][i],
+    failures: [1, 2, 0, 0, 3, 1, 0][i],
+    durationMs: [14, 22, 0, 18, 25, 21, 27][i] * 1_200,
+  })),
 };
 
 export const MOCK_CODE_IMPACT: CodeImpactData = {
@@ -148,18 +154,19 @@ export const MOCK_CODE_IMPACT: CodeImpactData = {
   linesRemoved: 210,
   netChange: 430,
   fileTypeBreakdown: [
-    { extension: ".ts", count: 7, percentage: 38.9 },
-    { extension: ".vue", count: 4, percentage: 22.2 },
-    { extension: ".css", count: 3, percentage: 16.7 },
-    { extension: ".json", count: 2, percentage: 11.1 },
-    { extension: ".md", count: 2, percentage: 11.1 },
+    { extension: "ts", count: 7, percentage: 38.9 },
+    { extension: "vue", count: 4, percentage: 22.2 },
+    { extension: "css", count: 3, percentage: 16.7 },
+    { extension: "json", count: 2, percentage: 11.1 },
+    { extension: "md", count: 2, percentage: 11.1 },
   ],
+  // `additions` is the number of sessions that modified the file.
   mostModifiedFiles: [
-    { path: "apps/desktop/src/stores/search.ts", additions: 180, deletions: 60 },
-    { path: "apps/desktop/src/utils/logger.ts", additions: 90, deletions: 30 },
-    { path: "apps/desktop/src/views/SessionDetailView.vue", additions: 70, deletions: 20 },
-    { path: "packages/ui/src/components/StatCard.vue", additions: 60, deletions: 15 },
-    { path: "packages/client/src/index.ts", additions: 40, deletions: 10 },
+    { path: "apps/desktop/src/stores/search.ts", additions: 6, deletions: 0 },
+    { path: "apps/desktop/src/utils/logger.ts", additions: 4, deletions: 0 },
+    { path: "apps/desktop/src/views/SessionDetailView.vue", additions: 3, deletions: 0 },
+    { path: "packages/ui/src/components/StatCard.vue", additions: 2, deletions: 0 },
+    { path: "packages/client/src/index.ts", additions: 1, deletions: 0 },
   ],
   changesByDay: Array.from({ length: 14 }, (_, i) => ({
     date: new Date(new Date(NOW).getTime() - (13 - i) * 86_400_000).toISOString().split("T")[0],

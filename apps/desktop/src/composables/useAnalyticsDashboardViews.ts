@@ -2,14 +2,19 @@ import { usePersistedRef } from "@tracepilot/ui";
 import { effectScope, type Ref } from "vue";
 import { STORAGE_KEYS } from "@/config/storageKeys";
 import type { ActivityMetric } from "@/utils/analyticsDashboard";
+import type { ToolDayMetric, ToolSort } from "@/utils/toolAnalysis";
 
-/** The Analytics dashboard's view choices, kept across visits and restarts. */
+/** The analytics pages' view choices, kept across visits and restarts. */
 export interface AnalyticsDashboardViews {
   activityMetric: ActivityMetric;
   activityStyle: "bars" | "lines";
   costView: "sources" | "running";
   incidentsView: "tiles" | "chart";
   incidentsScale: "count" | "per100";
+  toolsMetric: ToolDayMetric;
+  toolsStyle: "bars" | "lines";
+  toolsSort: ToolSort;
+  codeStyle: "bars" | "lines";
 }
 
 export const DEFAULT_ANALYTICS_VIEWS: AnalyticsDashboardViews = {
@@ -18,6 +23,10 @@ export const DEFAULT_ANALYTICS_VIEWS: AnalyticsDashboardViews = {
   costView: "sources",
   incidentsView: "tiles",
   incidentsScale: "count",
+  toolsMetric: "calls",
+  toolsStyle: "bars",
+  toolsSort: "calls",
+  codeStyle: "bars",
 };
 
 const ALLOWED: { [K in keyof AnalyticsDashboardViews]: readonly AnalyticsDashboardViews[K][] } = {
@@ -26,6 +35,10 @@ const ALLOWED: { [K in keyof AnalyticsDashboardViews]: readonly AnalyticsDashboa
   costView: ["sources", "running"],
   incidentsView: ["tiles", "chart"],
   incidentsScale: ["count", "per100"],
+  toolsMetric: ["calls", "failures", "time"],
+  toolsStyle: ["bars", "lines"],
+  toolsSort: ["calls", "failures", "slowest", "time"],
+  codeStyle: ["bars", "lines"],
 };
 
 /** Keep each stored choice that is still an option; default the rest. */

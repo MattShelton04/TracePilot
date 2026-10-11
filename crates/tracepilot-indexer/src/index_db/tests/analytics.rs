@@ -151,6 +151,15 @@ fn test_query_tool_analysis_aggregates_tool_calls() {
     assert!(edit.is_some(), "should have edit_file entry");
     assert_eq!(edit.unwrap().call_count, 1);
     assert_eq!(edit.unwrap().success_rate, 0.0); // failed
+
+    // One day, on the session's last activity, with its failed call.
+    assert_eq!(result.calls_by_day.len(), 1);
+    let day = &result.calls_by_day[0];
+    assert_eq!((day.calls, day.failures), (2, 1));
+    let empty = db
+        .query_tool_analysis(Some("2027-01-01"), None, None, false, None)
+        .unwrap();
+    assert!(empty.calls_by_day.is_empty());
 }
 
 #[test]

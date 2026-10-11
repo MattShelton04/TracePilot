@@ -39,6 +39,7 @@ export type {
   ProductivityMetrics,
   SourceCostEntry,
   ToolAnalysisData,
+  ToolDayCalls,
   ToolUsageEntry,
 } from "./analytics.js";
 export {

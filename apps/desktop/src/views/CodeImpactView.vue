@@ -1,30 +1,24 @@
 <script setup lang="ts">
-import {
-  ChartFrame,
-  ChartTooltip,
-  computeGridLines,
-  createChartLayout,
-  ErrorState,
-  formatDateShort,
-  formatNumberFull,
-  generateXLabels,
-  generateYLabels,
-  LoadingOverlay,
-  mapToLineCoords,
-  PageShell,
-  StatCard,
-  toPolylinePoints,
-  useChartTooltip,
-} from "@tracepilot/ui";
+/**
+ * The Code page: headline numbers, lines added and removed per day, then
+ * file types beside the most-modified files. Built from the Analytics
+ * dashboard's pieces; each panel empties on its own, and a filter change
+ * keeps the current results on screen until the new ones land.
+ */
+import { ErrorState, LoadingOverlay, PageShell } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
+import CodeChangesPanel from "@/components/codeImpact/CodeChangesPanel.vue";
+import CodeFilesPanel from "@/components/codeImpact/CodeFilesPanel.vue";
+import CodeFileTypesPanel from "@/components/codeImpact/CodeFileTypesPanel.vue";
+import CodeKpis from "@/components/codeImpact/CodeKpis.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useValueTween } from "@/composables/useValueTween";
-import { CHART_COLORS } from "@/utils/chartColors";
+import { rangeText as describeRange, rangeDays } from "@/utils/analyticsDashboard";
+import { codeDayRows } from "@/utils/codeImpact";
+import "@/styles/features/analytics-dashboard.css";
 
-const { tooltip, dismissTooltip, onChartMouseMove, onChartClick, onBarMouseEnter } =
-  useChartTooltip();
 const { store } = useAnalyticsPage("fetchCodeImpact");
 
 const loading = computed(() => store.codeImpactLoading);
@@ -36,9 +30,9 @@ const { revealing } = useFirstReveal({
   key: "code",
   ready: () => !loading.value && !!data.value,
   root: contentRoot,
-  countUpSelector: ".stat-card-value",
+  countUpSelector: ".kpi__value-num",
 });
-useValueTween({ root: contentRoot, selector: ".stat-card-value", source: data });
+useValueTween({ root: contentRoot, selector: ".kpi__value-num", source: data });
 
 const pageSubtitle = computed(() => {
   const allPrefix = store.selectedRepo || store.selectedSource ? "" : "all ";
@@ -46,324 +40,42 @@ const pageSubtitle = computed(() => {
   return `Code changes and file modifications across ${allPrefix}${store.sourcePrefix}sessions${repoSuffix}`;
 });
 
-function formatModificationCount(count: number): string {
-  return `${formatNumberFull(count)} modification${count === 1 ? "" : "s"}`;
-}
-
-// ── File Type Bar Chart ──────────────────────────────────────
-const maxFileTypeCount = computed(() => {
-  if (!data.value) return 1;
-  return Math.max(...data.value.fileTypeBreakdown.map((f) => f.count), 1);
-});
-
-// ── Most Modified Files ──────────────────────────────────────
-const maxChurn = computed(() => {
-  if (!data.value) return 1;
-  return Math.max(...data.value.mostModifiedFiles.map((f) => f.additions + f.deletions), 1);
-});
-
-function churnBarWidth(adds: number, dels: number): number {
-  return Math.round(((adds + dels) / maxChurn.value) * 100);
-}
-
-function addPct(adds: number, dels: number): number {
-  const total = adds + dels;
-  return total > 0 ? Math.round((adds / total) * 100) : 0;
-}
-
-// ── Changes Over Time Area Chart ─────────────────────────────
-const chartLayout = createChartLayout(50, 680, 30, 200);
-const { left: CHART_LEFT, right: CHART_RIGHT, bottom: CHART_BOTTOM } = chartLayout;
-
-const GRID_ROWS = 4;
-const gridYPositions = computed(() => computeGridLines(chartLayout, GRID_ROWS + 1, GRID_ROWS));
-
-const timelineChart = computed(() => {
-  if (!data.value) return null;
-  const pts = data.value.changesByDay;
-  const maxVal = Math.max(...pts.map((p) => Math.max(p.additions, p.deletions)), 1);
-
-  const addCoords = mapToLineCoords(pts, chartLayout, (p) => p.additions, maxVal);
-  const delCoords = mapToLineCoords(pts, chartLayout, (p) => p.deletions, maxVal);
-
-  const addLine = toPolylinePoints(addCoords);
-  const delLine = toPolylinePoints(delCoords);
-
-  const addArea = `${CHART_LEFT},${CHART_BOTTOM} ${addLine} ${CHART_RIGHT},${CHART_BOTTOM}`;
-  const delArea = `${CHART_LEFT},${CHART_BOTTOM} ${delLine} ${CHART_RIGHT},${CHART_BOTTOM}`;
-
-  const yLabels = generateYLabels(maxVal, chartLayout, 5, (v) => formatNumberFull(Math.round(v)));
-
-  const xLabels = generateXLabels(
-    addCoords,
-    (c) => c.x,
-    (c) => formatDateShort(c.date),
-    8,
+const rows = computed(() => {
+  if (!data.value) return [];
+  const days = rangeDays(
+    data.value.changesByDay.map((day) => day.date),
+    store.dateRange,
   );
-
-  return { addLine, delLine, addArea, delArea, yLabels, xLabels, addCoords, delCoords };
+  return codeDayRows(data.value, days);
 });
+const rangeText = computed(() => describeRange(store.selectedTimeRange));
 </script>
 
 <template>
   <PageShell>
     <AnalyticsPageHeader title="Code Impact" :subtitle="pageSubtitle" />
     <LoadingOverlay :loading="loading" message="Loading code impact data…">
-        <ErrorState v-if="store.codeImpactError" heading="Failed to load code impact data" :message="store.codeImpactError" @retry="store.fetchCodeImpact({ force: true })" />
-        <div
-          v-else-if="data"
-          ref="contentRoot"
-          :class="{ 'chart-reveal': revealing }"
-          :data-refreshing="refreshing"
-          :aria-busy="refreshing"
-        >
-
-          <!-- Stats Row -->
-          <div class="grid-4 mb-4">
-            <StatCard :value="formatNumberFull(data.filesModified)" label="Unique File Paths" />
-            <StatCard
-              :value="`+${formatNumberFull(data.linesAdded)}`"
-              label="Lines Added"
-              variant="plain"
-              custom-value-class="lines-added-value"
-            />
-            <StatCard :value="`-${formatNumberFull(data.linesRemoved)}`" label="Lines Removed" color="danger" />
-            <StatCard
-              :value="`${data.netChange >= 0 ? '+' : ''}${formatNumberFull(data.netChange)}`"
-              label="Net Change"
-              :color="data.netChange >= 0 ? 'done' : 'danger'"
-              :trend="data.netChange > 0 ? 'Net positive' : data.netChange < 0 ? 'Net negative' : 'Net neutral'"
-              :trend-direction="data.netChange > 0 ? 'up' : data.netChange < 0 ? 'down' : 'neutral'"
-            />
-          </div>
-          <p class="code-count-note">
-            Matching paths across sessions{{ store.selectedRepo ? '' : ' and repositories' }} count as one unique path.
-            Modification totals count a file again in each session that reports it.
-          </p>
-
-          <!-- Two-Column Layout -->
-          <div class="grid-2 mb-4">
-            <!-- File Type Breakdown (bar chart) -->
-            <div class="section-panel">
-              <div class="section-panel-header">File Modifications by Type</div>
-              <div class="section-panel-body tooltip-area" @mouseleave="dismissTooltip">
-                <div
-                  v-for="ft in data.fileTypeBreakdown"
-                  :key="ft.extension"
-                  class="token-bar file-type-row"
-                  @mouseenter="onBarMouseEnter($event, `${ft.extension} — ${formatModificationCount(ft.count)}`, 'file-types')"
-                >
-                  <span class="token-bar-label font-mono">{{ ft.extension }}</span>
-                  <div class="token-bar-track">
-                    <div
-                      class="token-bar-fill"
-                      data-reveal="grow-x"
-                      :style="{ width: (ft.count / maxFileTypeCount * 100) + '%' }"
-                    />
-                  </div>
-                  <span class="token-bar-value">{{ formatModificationCount(ft.count) }}</span>
-                </div>
-                <ChartTooltip :tooltip="tooltip" chart-id="file-types" />
-              </div>
-            </div>
-
-            <!-- Most Modified Files -->
-            <div class="section-panel">
-              <div class="section-panel-header">Most Modified File Paths</div>
-              <div class="section-panel-body tooltip-area" @mouseleave="dismissTooltip">
-                <div
-                  v-for="file in data.mostModifiedFiles"
-                  :key="file.path"
-                  class="file-row"
-                  @mouseenter="onBarMouseEnter($event, `${file.path} — modified in ${file.additions} session${file.additions !== 1 ? 's' : ''}`, 'modified-files')"
-                >
-                  <span class="file-path font-mono">{{ file.path }}</span>
-                  <span class="file-freq">{{ file.additions }} session{{ file.additions !== 1 ? 's' : '' }}</span>
-                  <div
-                    class="churn-bar"
-                    data-reveal="grow-x"
-                    :style="{ width: churnBarWidth(file.additions, 0) + 'px' }"
-                  >
-                    <div class="churn-bar-add" style="width: 100%" />
-                  </div>
-                </div>
-                <ChartTooltip :tooltip="tooltip" chart-id="modified-files" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Changes Over Time -->
-          <div class="section-panel mb-4">
-            <div class="section-panel-header">Changes Over Time</div>
-            <div class="section-panel-body">
-              <div class="chart-legend">
-                <span><span class="chart-legend-dot" :style="{ background: CHART_COLORS.success }" />Additions</span>
-                <span><span class="chart-legend-dot" :style="{ background: CHART_COLORS.danger }" />Deletions</span>
-              </div>
-              <div class="chart-container">
-                <ChartFrame
-                  v-if="timelineChart"
-                  class="code-timeline-chart"
-                  :chart-layout="chartLayout"
-                  :grid-lines="gridYPositions"
-                  :y-labels="timelineChart.yLabels"
-                  :x-labels="timelineChart.xLabels"
-                  view-box="0 0 700 220"
-                  ariaLabel="Area chart showing lines added and removed over the selected period"
-                  chart-id="timeline"
-                  :tooltip="tooltip"
-                  @mousemove="onChartMouseMove($event, timelineChart.addCoords, (i) => `${formatDateShort(timelineChart!.addCoords[i].date)} — +${formatNumberFull(timelineChart!.addCoords[i].additions)} / -${formatNumberFull(timelineChart!.addCoords[i].deletions)}`, 'timeline', '.chart-frame')"
-                  @click="onChartClick($event, timelineChart.addCoords, (i) => `${formatDateShort(timelineChart!.addCoords[i].date)} — +${formatNumberFull(timelineChart!.addCoords[i].additions)} / -${formatNumberFull(timelineChart!.addCoords[i].deletions)}`, 'timeline', '.chart-frame')"
-                  @dismiss-tooltip="dismissTooltip"
-                >
-                  <g data-reveal="wipe">
-                    <!-- Additions area -->
-                    <polygon :points="timelineChart.addArea" :fill="CHART_COLORS.success" fill-opacity="0.15" />
-                    <!-- Deletions area -->
-                    <polygon :points="timelineChart.delArea" :fill="CHART_COLORS.danger" fill-opacity="0.15" />
-                    <!-- Additions line -->
-                    <polyline
-                      :points="timelineChart.addLine"
-                      fill="none"
-                      :stroke="CHART_COLORS.success"
-                      stroke-width="2"
-                      stroke-linejoin="round"
-                      stroke-linecap="round"
-                    />
-                    <!-- Deletions line -->
-                    <polyline
-                      :points="timelineChart.delLine"
-                      fill="none"
-                      :stroke="CHART_COLORS.danger"
-                      stroke-width="2"
-                      stroke-linejoin="round"
-                      stroke-linecap="round"
-                    />
-                  </g>
-                  <!-- Highlight rings -->
-                  <circle
-                    v-if="tooltip.chartId === 'timeline' && tooltip.highlightIndex >= 0 && tooltip.highlightIndex < timelineChart.addCoords.length"
-                    :cx="timelineChart.addCoords[tooltip.highlightIndex].x"
-                    :cy="timelineChart.addCoords[tooltip.highlightIndex].y"
-                    r="6"
-                    fill="none"
-                    :stroke="CHART_COLORS.success"
-                    stroke-width="2"
-                    class="chart-highlight-ring"
-                  />
-                  <circle
-                    v-if="tooltip.chartId === 'timeline' && tooltip.highlightIndex >= 0 && tooltip.highlightIndex < timelineChart.delCoords.length"
-                    :cx="timelineChart.delCoords[tooltip.highlightIndex].x"
-                    :cy="timelineChart.delCoords[tooltip.highlightIndex].y"
-                    r="6"
-                    fill="none"
-                    :stroke="CHART_COLORS.danger"
-                    stroke-width="2"
-                    class="chart-highlight-ring"
-                  />
-                </ChartFrame>
-              </div>
-            </div>
-          </div>
+      <ErrorState
+        v-if="store.codeImpactError"
+        heading="Failed to load code impact data"
+        :message="store.codeImpactError"
+        @retry="store.fetchCodeImpact({ force: true })"
+      />
+      <div
+        v-else-if="data"
+        ref="contentRoot"
+        class="ad-page"
+        :class="{ 'chart-reveal': revealing }"
+        :data-refreshing="refreshing"
+        :aria-busy="refreshing"
+      >
+        <CodeKpis :data="data" :rows="rows" :one-repo="!!store.selectedRepo" />
+        <CodeChangesPanel :rows="rows" :range-text="rangeText" />
+        <div class="ad-pair">
+          <CodeFileTypesPanel :breakdown="data.fileTypeBreakdown" />
+          <CodeFilesPanel :files="data.mostModifiedFiles" :unique-files="data.filesModified" />
         </div>
-      </LoadingOverlay>
+      </div>
+    </LoadingOverlay>
   </PageShell>
 </template>
-
-<style scoped>
-.code-count-note {
-  margin: 0 0 16px;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
-.file-type-row .token-bar-label {
-  width: 4rem;
-}
-
-.file-type-row .token-bar-value {
-  width: auto;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.lines-added-value,
-:deep(.lines-added-value) {
-  background: linear-gradient(135deg, var(--chart-success), var(--chart-success-light));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* File churn rows */
-.file-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: 0.75rem;
-}
-.file-row:last-child { border-bottom: none; }
-.file-path {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
-}
-.file-adds {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--chart-success);
-  white-space: nowrap;
-}
-.file-dels {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--chart-danger);
-  white-space: nowrap;
-}
-.churn-bar {
-  width: 80px;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--neutral-muted);
-  overflow: hidden;
-  display: flex;
-  flex-shrink: 0;
-}
-.churn-bar-add {
-  height: 100%;
-  background: var(--chart-success);
-}
-.churn-bar-del {
-  height: 100%;
-  background: var(--chart-danger);
-}
-
-/* Chart — shared chart styles (tooltip, overlay, grid, axis, etc.)
-   are in styles/chart-shared.css — imported globally via main.ts. */
-.chart-legend {
-  display: flex;
-  gap: 16px;
-  justify-content: flex-end;
-  margin-bottom: 8px;
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-.chart-legend-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 4px;
-  vertical-align: middle;
-}
-
-.code-timeline-chart {
-  width: 100%;
-}
-</style>

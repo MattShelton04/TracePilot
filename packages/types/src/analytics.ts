@@ -161,6 +161,20 @@ export interface ToolAnalysisData {
   tools: Array<ToolUsageEntry>;
   /** Activity heatmap data (hour x day) */
   activityHeatmap: Array<{ day: number; hour: number; count: number }>;
+  /**
+   * Calls per UTC day of each session's last activity; days without calls
+   * are omitted. Absent from payloads that predate it.
+   */
+  callsByDay?: ToolDayCalls[];
+}
+
+/** One day of tool calls. */
+export interface ToolDayCalls {
+  date: string;
+  calls: number;
+  failures: number;
+  /** Summed duration of the day's timed calls. */
+  durationMs: number;
 }
 
 /** Individual tool usage statistics */
@@ -169,6 +183,11 @@ export interface ToolUsageEntry {
   name: string;
   /** Total number of calls */
   callCount: number;
+  /**
+   * Calls that reported failure; calls without an outcome count as neither.
+   * Absent from payloads that predate it.
+   */
+  failureCount?: number;
   /** Success rate (0-1) */
   successRate: number;
   /** Average duration in milliseconds */
@@ -206,7 +225,11 @@ export interface CodeImpactData {
   netChange: number;
   /** Breakdown by file extension */
   fileTypeBreakdown: Array<{ extension: string; count: number; percentage: number }>;
-  /** Most modified files */
+  /**
+   * Most modified files, by sessions. Nothing records lines per file:
+   * `additions` holds the number of sessions that modified the file and
+   * `deletions` is always 0.
+   */
   mostModifiedFiles: Array<{ path: string; additions: number; deletions: number }>;
   /** Changes over time (daily) */
   changesByDay: Array<{ date: string; additions: number; deletions: number }>;
