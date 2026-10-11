@@ -139,8 +139,9 @@ At compaction:
 - Nothing is selected on entry. Hovering previews a point; clicking locks its
   turn, total, phase, and source, and the locked tooltip takes precedence over
   later hover movement.
-- Mouse-wheel zoom, direct drag-panning, accessible zoom controls, and
-  turn/time axis modes support long sessions. Time mode uses balanced
+- Ctrl/⌘ + wheel (or trackpad pinch) zoom, direct drag-panning, accessible
+  zoom controls, and turn/time axis modes support long sessions. A plain wheel
+  keeps scrolling the page and briefly shows the zoom hint. Time mode uses balanced
   active-time coordinates: ordinary intervals retain their real duration, long
   shutdown/resume boundaries are capped at three typical active-turn
   intervals, and other extreme outliers at four. Short session boundaries are
