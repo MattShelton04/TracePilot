@@ -36,6 +36,7 @@ function createStore(): SessionDetailContext {
     sessionId: "session-1",
     detail: {
       id: "session-1",
+      folder: "/home/demo/.copilot/session-state/session-1",
       summary: "Explorer Layout Session",
       repository: "MattShelton04/TracePilot",
       branch: "main",
@@ -309,9 +310,12 @@ describe("SessionDetailPanel", () => {
     wrapper.unmount();
   });
 
+  const CLAUDE_PROJECT_FOLDER = "/home/demo/.claude/projects/-work-synthetic-orchard";
+
   function mountForSource(source?: "copilot" | "claudeCode") {
     const store = createStore();
     if (source) store.detail = { ...store.detail!, source, hostType: null };
+    if (source === "claudeCode") store.detail = { ...store.detail!, folder: CLAUDE_PROJECT_FOLDER };
     return mount(SessionDetailPanel, {
       global: { plugins: [pinia] },
       props: {
@@ -425,8 +429,24 @@ describe("SessionDetailPanel", () => {
     await copyButton.trigger("click");
     expect(mocks.copy).toHaveBeenCalledWith("claude --resume session-1");
     expect(text).toContain("Resume in Terminal");
-    expect(text).not.toContain("Open Folder");
     expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
+    wrapper.unmount();
+  });
+
+  it("opens the folder the provider reports, not the Copilot directory", async () => {
+    const prefs = usePreferencesStore(pinia);
+    await prefs.whenReady;
+    await flushPromises();
+    prefs.sessionStateDir = "/home/demo/.copilot/session-state";
+    const wrapper = mountForSource("claudeCode");
+    await flushPromises();
+    const openFolder = () => wrapper.findAll("button").find((b) => b.text() === "Open Folder");
+    await openFolder()!.trigger("click");
+    expect(mocks.openInExplorer).toHaveBeenCalledExactlyOnceWith(CLAUDE_PROJECT_FOLDER);
+    // Until the backend reports a folder there is nothing to open.
+    const store = wrapper.props("store");
+    await wrapper.setProps({ store: { ...store, detail: { ...store.detail!, folder: null } } });
+    expect(openFolder()).toBeUndefined();
     wrapper.unmount();
   });
 
@@ -474,7 +494,6 @@ describe("SessionDetailPanel", () => {
     expect(tabs).toHaveLength(7);
     expect(wrapper.find('[title="Copy: claude --resume session-1"]').exists()).toBe(true);
     expect(wrapper.text()).toContain("Resume in Terminal");
-    expect(wrapper.text()).not.toContain("Open Folder");
     expect(wrapper.get('[title="Session source"]').text()).toBe("Claude Code");
     wrapper.unmount();
   });

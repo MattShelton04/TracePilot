@@ -52,6 +52,12 @@ export interface SessionDetail {
   id: string;
   /** Which tool wrote the session. */
   source: SessionSource;
+  /**
+   * Absolute folder holding the session's files, located by its provider:
+   * the session directory (Copilot) or the project folder holding the
+   * transcript (Claude Code). Absent when the provider reports none.
+   */
+  folder?: string | null;
   summary?: string | null;
   repository?: string | null;
   branch?: string | null;

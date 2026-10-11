@@ -1,5 +1,5 @@
 import { sessionSearchFiles } from "@tracepilot/client";
-import type { SessionFileSearchResponse } from "@tracepilot/types";
+import { type SessionFileSearchResponse, toErrorMessage } from "@tracepilot/types";
 import { onScopeDispose, ref, watch } from "vue";
 
 interface ExplorerContentSearchOptions {
@@ -71,7 +71,7 @@ export function useExplorerContentSearch(
       if (!sameResponse(contentSearch.value, result)) contentSearch.value = result;
     } catch (error) {
       if (sequence !== requestSequence) return;
-      contentSearchError.value = error instanceof Error ? error.message : String(error);
+      contentSearchError.value = toErrorMessage(error);
       contentSearch.value = null;
     } finally {
       if (sequence === requestSequence) contentSearchLoading.value = false;

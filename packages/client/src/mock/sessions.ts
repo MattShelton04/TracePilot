@@ -77,6 +77,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetail {
     return {
       id: sessionId,
       source,
+      folder: "/home/user/.claude/projects/-home-user-project",
       summary: "Review indexing retries",
       repository: "tracepilot/app",
       branch: "fix/index-retry",
@@ -93,6 +94,7 @@ export function getMockSessionDetail(sessionId: string): SessionDetail {
   return {
     id: sessionId,
     source: "copilot",
+    folder: `/home/user/.copilot/session-state/${sessionId}`,
     summary: "Mock session detail",
     repository: "tracepilot/app",
     branch: "main",

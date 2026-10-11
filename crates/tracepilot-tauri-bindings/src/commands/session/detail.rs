@@ -1,5 +1,7 @@
 //! Per-session detail / incidents / shutdown-metrics commands.
 
+use std::path::Path;
+
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
 use crate::error::{BindingsError, CmdResult};
@@ -48,8 +50,23 @@ pub(super) fn session_detail(
     };
     Ok(SessionDetailResponse {
         source: session.locator.source,
+        folder: session_folder(&session.locator.primary_path)
+            .map(|folder| folder.to_string_lossy().into_owned()),
         summary,
     })
+}
+
+/// The folder to open for a session: its own directory when the source keeps
+/// one per session (Copilot), otherwise the folder holding its main file.
+/// For Claude Code that is the project folder, which holds the `<id>.jsonl`
+/// transcript and, when the session has one, its `<id>/` folder of subagent
+/// transcripts and tool results.
+fn session_folder(primary_path: &Path) -> Option<&Path> {
+    if primary_path.is_dir() {
+        Some(primary_path)
+    } else {
+        primary_path.parent()
+    }
 }
 
 #[tauri::command]
