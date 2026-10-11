@@ -2,7 +2,7 @@
   "unreleased": {
     "notes": {
       "added": [
-        "Claude Code sessions (experimental): View Claude Code sessions alongside Copilot CLI sessions. Turn it on in Settings → Claude Code",
+        "Claude Code sessions (experimental): View Claude Code sessions alongside Copilot CLI sessions. Turn it on in Settings → Claude Code, which also shows your transcript cleanup period",
         "Resume in Terminal: Reopen a Claude Code session in its working directory",
         "Update check: Click the version number to check for and install updates",
         "Background task results: Background agents and shells show how they finished on the card that started them; unreported agents show No final report"
