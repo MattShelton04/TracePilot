@@ -68,7 +68,9 @@ const emit = defineEmits<{
       </span>
       <span class="phase-stats">
         <Badge variant="neutral">{{ formatDuration(phaseDurationMs(phase)) }}</Badge>
-        <Badge variant="warning">{{ phaseToolCount(phase) }} tools</Badge>
+        <Badge variant="warning">
+          {{ phaseToolCount(phase) }} tool{{ phaseToolCount(phase) !== 1 ? "s" : "" }}
+        </Badge>
         <Badge v-if="phaseAgentCount(phase) > 0" variant="accent">
           {{ phaseAgentCount(phase) }} agent{{ phaseAgentCount(phase) !== 1 ? "s" : "" }}
         </Badge>

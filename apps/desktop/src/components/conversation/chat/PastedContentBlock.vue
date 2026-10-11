@@ -4,7 +4,7 @@
  * Long pastes start collapsed, as Claude Code shows them.
  */
 import { formatNumberFull } from "@tracepilot/types";
-import { ExpandChevron, MarkdownContent } from "@tracepilot/ui";
+import { ExpandChevron, MarkdownContent, useClipboard } from "@tracepilot/ui";
 import { ClipboardPaste } from "lucide-vue-next";
 import { computed, ref } from "vue";
 
@@ -17,6 +17,7 @@ const props = defineProps<{
 
 const lines = computed(() => props.content.split("\n").length);
 const expanded = ref(lines.value <= COLLAPSE_LINES);
+const { copy, copied } = useClipboard();
 const label = computed(
   () => `Pasted text · ${formatNumberFull(lines.value)} ${lines.value === 1 ? "line" : "lines"}`,
 );
@@ -24,16 +25,25 @@ const label = computed(
 
 <template>
   <div class="cv-pasted" data-testid="pasted-content">
-    <button
-      type="button"
-      class="cv-pasted-toggle"
-      :aria-expanded="expanded"
-      @click="expanded = !expanded"
-    >
-      <ClipboardPaste :size="14" aria-hidden="true" />
-      <span class="cv-pasted-label">{{ label }}</span>
-      <ExpandChevron :expanded="expanded" />
-    </button>
+    <div class="cv-pasted-header">
+      <button
+        type="button"
+        class="cv-pasted-toggle"
+        :aria-expanded="expanded"
+        @click="expanded = !expanded"
+      >
+        <ClipboardPaste :size="14" aria-hidden="true" />
+        <span class="cv-pasted-label">{{ label }}</span>
+        <ExpandChevron :expanded="expanded" />
+      </button>
+      <button
+        type="button"
+        class="cv-pasted-copy"
+        :title="copied ? 'Copied!' : 'Copy to clipboard'"
+        :aria-label="copied ? 'Copied!' : 'Copy pasted text to clipboard'"
+        @click="copy(content)"
+      >{{ copied ? "✓ Copied" : "Copy" }}</button>
+    </div>
     <div v-if="expanded" class="cv-pasted-body">
       <MarkdownContent :content="content" :render="renderMarkdown" />
     </div>
@@ -57,13 +67,20 @@ const label = computed(
   margin-bottom: 0;
 }
 
+.cv-pasted-header {
+  display: flex;
+  align-items: center;
+  background: var(--canvas-subtle);
+}
+
 .cv-pasted-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 4px 12px;
-  background: var(--canvas-subtle);
+  background: none;
   border: none;
   color: var(--text-secondary);
   font-size: 12px;
@@ -73,6 +90,22 @@ const label = computed(
 
 .cv-pasted-toggle:hover {
   color: var(--text-primary);
+}
+
+.cv-pasted-copy {
+  flex-shrink: 0;
+  margin-right: 6px;
+  padding: 2px 6px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--accent-fg);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.cv-pasted-copy:hover {
+  background: var(--canvas-inset);
 }
 
 .cv-pasted-label {

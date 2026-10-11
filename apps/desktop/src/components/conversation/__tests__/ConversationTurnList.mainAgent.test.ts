@@ -99,3 +99,40 @@ describe("ConversationTurnList model badge", () => {
     expect(badge("timeline")).toBe("claude-opus-5-5");
   });
 });
+
+describe("ConversationTurnList user prompt", () => {
+  beforeEach(() => setupPinia());
+
+  function mountWith(viewMode: "compact" | "timeline", overrides: Partial<ConversationTurn>) {
+    return shallowMount(ConversationTurnList, {
+      props: {
+        turns: [{ ...turn, ...overrides }],
+        viewMode,
+        getSections: () => [],
+        getArgsSummary: () => "",
+        findToolCallIndex: () => 0,
+        expandedToolDetails: noop,
+        expandedReasoning: noop,
+        fullResults: new Map(),
+        loadingResults: new Set(),
+        failedResults: new Set(),
+        richEnabledFor: () => false,
+      },
+    } as never);
+  }
+
+  it("shows pasted text without the wrapper tags in both views", () => {
+    const userMessage = '<pasted_content id="8">\nerror: boom\n</pasted_content id="8">\n\nFix it';
+    const compact = mountWith("compact", { userMessage }).get(".compact-turn-user-text");
+    expect(compact.text()).toBe("error: boom\n\nFix it");
+    const timeline = mountWith("timeline", { userMessage }).get(".timeline-block-text");
+    expect(timeline.text()).toBe("error: boom\n\nFix it");
+  });
+
+  it("counts a single tool in the timeline header as singular", () => {
+    const toolCalls = [{ toolName: "shell", isComplete: true }] as ConversationTurn["toolCalls"];
+    const meta = mountWith("timeline", { toolCalls }).get(".timeline-meta").text();
+    expect(meta).toContain("· 1 tool");
+    expect(meta).not.toContain("1 tools");
+  });
+});

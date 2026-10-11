@@ -1,6 +1,7 @@
 //! Conversation & turn rendering: user/assistant blocks, reasoning, tool
 //! calls (including subagent detail), and per-turn session events.
 
+use tracepilot_core::provider::claude_code::without_paste_tags;
 use tracepilot_core::utils::InfallibleWrite;
 
 use crate::document::{ConversationTurn, SessionEventSeverity};
@@ -42,7 +43,8 @@ fn write_turn(md: &mut String, turn: &ConversationTurn) {
         "Notification"
     };
     match turn.user_message.as_deref() {
-        Some(msg) if !msg.is_empty() => write_block(md, author, msg),
+        // Claude Code wraps pasted text in tags; the text reads fine without them.
+        Some(msg) if !msg.is_empty() => write_block(md, author, &without_paste_tags(msg)),
         _ => md.push_str("_No user message._\n\n"),
     }
 

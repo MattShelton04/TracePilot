@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitPastedContent } from "../pastedContent";
+import { promptPreviewText, splitPastedContent } from "../pastedContent";
 
 describe("splitPastedContent", () => {
   it("keeps a prompt without pasted text as one part", () => {
@@ -26,5 +26,17 @@ describe("splitPastedContent", () => {
     expect(splitPastedContent(unmatched)).toEqual([{ kind: "text", text: unmatched }]);
     const mismatched = '<pasted_content id="1">\nx\n</pasted_content id="2">';
     expect(splitPastedContent(mismatched)).toEqual([{ kind: "text", text: mismatched }]);
+  });
+});
+
+describe("promptPreviewText", () => {
+  it("keeps pasted text but drops the wrapper tags", () => {
+    expect(
+      promptPreviewText('<pasted_content id="2">\nlog line\n</pasted_content id="2">\n\nWhy?'),
+    ).toBe("log line\n\nWhy?");
+  });
+
+  it("returns a prompt without pasted text unchanged", () => {
+    expect(promptPreviewText("Run the tests.")).toBe("Run the tests.");
   });
 });

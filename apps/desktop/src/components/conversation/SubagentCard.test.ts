@@ -33,6 +33,29 @@ describe("subagent tool header", () => {
   });
 });
 
+describe("subagent footer", () => {
+  function hint(childToolCount: number, totalToolCalls: number) {
+    const toolCall: TurnToolCall = {
+      toolName: "task",
+      isSubagent: true,
+      isComplete: true,
+      totalTokens: 1500,
+      totalToolCalls,
+    };
+    return mount(SubagentCard, { props: { toolCall, childToolCount } })
+      .get(".cv-subagent-hint")
+      .text();
+  }
+
+  it("does not repeat the reported tool count when it matches the calls inside", () => {
+    expect(hint(3, 3)).toBe("3 tool calls inside · 1.5K tok");
+  });
+
+  it("lists the reported tool count when it differs", () => {
+    expect(hint(2, 5)).toBe("2 tool calls inside · 1.5K tok · 5 tool execs");
+  });
+});
+
 describe("subagent end state", () => {
   const unfinished: TurnToolCall = {
     toolName: "task",

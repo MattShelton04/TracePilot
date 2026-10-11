@@ -28,3 +28,13 @@ export function splitPastedContent(content: string): PromptPart[] {
   pushText(content.slice(last));
   return parts;
 }
+
+/**
+ * A prompt as plain text for previews and labels: pasted blocks keep their
+ * text but lose the wrapper tags.
+ */
+export function promptPreviewText(content: string): string {
+  return splitPastedContent(content)
+    .map((part) => part.text)
+    .join("\n\n");
+}

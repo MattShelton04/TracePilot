@@ -48,6 +48,7 @@ import { computed } from "vue";
 import CacheLiveDivider from "@/components/conversation/chat/CacheLiveDivider.vue";
 import CacheResumeDivider from "@/components/conversation/chat/CacheResumeDivider.vue";
 import { chunkTurns } from "@/components/conversation/chatViewUtils";
+import { promptPreviewText } from "@/utils/pastedContent";
 import { sessionEventSummary } from "@/utils/sessionEventSummary";
 import { effortLabel } from "@/utils/sessionModel";
 import { turnUsageTitle } from "@/utils/turnUsage";
@@ -168,7 +169,7 @@ function onRetryFullResult(toolCallId: string) {
       <div v-if="turn.userMessage" :data-event-idx="turn.eventIndex != null ? turn.eventIndex : undefined" :data-turn-idx="turn.eventIndex == null ? turn.turnIndex : undefined" class="compact-turn-user">
         <span v-if="turn.notifications?.length" class="compact-turn-label-prefix user"><Bell :size="14" aria-hidden="true" /> Notification</span>
         <span v-else class="compact-turn-label-prefix user"><User :size="14" aria-hidden="true" /> User</span>
-        <div class="compact-turn-user-text">{{ truncateText(turn.userMessage, 300) }}</div>
+        <div class="compact-turn-user-text">{{ truncateText(promptPreviewText(turn.userMessage), 300) }}</div>
       </div>
       <div class="compact-turn">
       <div class="compact-turn-header">
@@ -293,13 +294,13 @@ function onRetryFullResult(toolCallId: string) {
           <span v-if="turn.durationMs" class="turn-meta">{{ formatDuration(turn.durationMs) }}</span>
           <span v-if="turn.outputTokens" class="token-badge" :title="turnUsageTitle(turn)"><Coins :size="12" aria-hidden="true" /> {{ formatNumber(turn.outputTokens) }}</span>
           <span v-if="turn.timestamp" class="turn-meta">{{ formatTime(turn.timestamp) }}</span>
-          <span v-if="turn.toolCalls.length" class="turn-meta">· {{ turn.toolCalls.length }} tools</span>
+          <span v-if="turn.toolCalls.length" class="turn-meta">· {{ turn.toolCalls.length }} tool{{ turn.toolCalls.length !== 1 ? "s" : "" }}</span>
           <Badge v-if="!turn.isComplete" variant="warning">Incomplete</Badge>
         </div>
 
         <div v-if="turn.userMessage" class="timeline-block user">
           <div class="timeline-block-label user">{{ turn.notifications?.length ? "Notification" : "User" }}</div>
-          <div class="timeline-block-text">{{ truncateText(turn.userMessage, 500) }}</div>
+          <div class="timeline-block-text">{{ truncateText(promptPreviewText(turn.userMessage), 500) }}</div>
         </div>
 
         <!-- Agent-grouped content in timeline -->

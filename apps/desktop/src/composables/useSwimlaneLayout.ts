@@ -1,6 +1,7 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { formatArgsSummary, formatDuration } from "@tracepilot/ui";
 import { type ComputedRef, computed, type Ref } from "vue";
+import { promptPreviewText } from "@/utils/pastedContent";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -37,7 +38,8 @@ export function groupPhases(turns: ConversationTurn[]): Phase[] {
       turn.userMessage != null && !turn.systemInitiated && turn.userMessageDelivery !== "steering";
     if (startsPhase || !current) {
       // Turns before the first typed message form an implicit phase.
-      const label = startsPhase && turn.userMessage != null ? turn.userMessage : "(system)";
+      const label =
+        startsPhase && turn.userMessage != null ? promptPreviewText(turn.userMessage) : "(system)";
       current = { index: result.length, label, turns: [turn] };
       result.push(current);
     } else {

@@ -69,7 +69,7 @@ pub(super) fn echoed_command(text: &str, rest: &[Line]) -> Option<String> {
 
 /// Prompt text without its `<pasted_content id="N">` and
 /// `</pasted_content id="N">` wrappers, keeping the pasted text.
-pub(super) fn without_paste_tags(text: &str) -> String {
+pub fn without_paste_tags(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(start) = [rest.find("<pasted_content"), rest.find("</pasted_content")]

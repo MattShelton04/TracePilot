@@ -35,6 +35,15 @@ describe("groupPhases", () => {
     expect(phases.map((p) => p.label)).toEqual(["(system)", "a"]);
     expect(phases.map((p) => p.turns.length)).toEqual([2, 1]);
   });
+
+  it("labels a phase with pasted text, not the wrapper tags", () => {
+    const phases = groupPhases([
+      turn({
+        userMessage: 'Explain:\n\n<pasted_content id="1">\nstack trace\n</pasted_content id="1">',
+      }),
+    ]);
+    expect(phases[0].label).toBe("Explain:\n\nstack trace");
+  });
 });
 
 it("shows native tool names in swimlane tooltips and preserves canonical argument formatting", () => {
