@@ -9,6 +9,7 @@ import {
   LoadingSpinner,
   ProgressBar,
   SearchInput,
+  SegmentedControl,
   SessionCard,
   SkeletonLoader,
   useAutoRefresh,
@@ -26,8 +27,9 @@ import { useRenderBudget } from "@/composables/useRenderBudget";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSessionAnnotationsStore } from "@/stores/sessionAnnotations";
 import { useSessionDetailStore } from "@/stores/sessionDetail";
-import { type SortOption, useSessionsStore } from "@/stores/sessions";
+import { type SessionListScope, type SortOption, useSessionsStore } from "@/stores/sessions";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 import { prefetchRecentSessions } from "@/utils/sessionPrefetch";
 
@@ -37,6 +39,9 @@ usePerfMonitor("SessionListView");
 useRenderBudget({ key: "render.sessionListViewMs", budgetMs: 120, label: "SessionListView" });
 const detailStore = useSessionDetailStore();
 const prefs = usePreferencesStore();
+const annotations = useSessionAnnotationsStore();
+void annotations.load();
+void annotations.watchChanges();
 const tabStore = useSessionTabsStore();
 const { liveBadge } = useLiveSessionBadges(computed(() => store.filteredSessions));
 const { refreshing, refresh } = useAutoRefresh({
@@ -83,6 +88,27 @@ const sortOptions = [
   { label: "Most turns", value: "turns" },
 ];
 
+const scopeOptions = computed(() => [
+  { value: "all", label: "All" },
+  { value: "starred", label: "Starred", count: store.annotationCounts.starred },
+  { value: "archived", label: "Archived", count: store.annotationCounts.archived },
+]);
+
+const tagOptions = computed(() =>
+  annotations.allTags.map(({ tag, count }) => ({ value: tag, label: `${tag} (${count})` })),
+);
+
+// A tag that no session carries any more can't stay selected.
+watch(
+  () => annotations.allTags,
+  (tags) => {
+    const selected = store.filterTag?.toLowerCase();
+    if (selected && !tags.some(({ tag }) => tag.toLowerCase() === selected)) {
+      store.filterTag = null;
+    }
+  },
+);
+
 onMounted(async () => {
   await setupIndexingEvents();
   await prefs.whenReady;
@@ -128,6 +154,7 @@ function clearFilters() {
   store.searchQuery = "";
   store.filterRepo = null;
   store.filterSource = null;
+  store.filterTag = null;
   focusSearch();
 }
 
@@ -137,8 +164,13 @@ function showEmptySessions() {
 }
 
 const hasSessionFilters = computed(
-  () => !!store.searchQuery || !!store.filterRepo || !!store.filterSource,
+  () => !!store.searchQuery || !!store.filterRepo || !!store.filterSource || !!store.filterTag,
 );
+
+function showAllSessions() {
+  store.scope = "all";
+  clearFilters();
+}
 
 const emptyState = computed(() => {
   if (store.sessions.length === 0) {
@@ -155,7 +187,17 @@ const emptyState = computed(() => {
       },
     };
   }
-  if (prefs.hideEmptySessions && store.visibleSessionCount === 0) {
+  if (store.scope !== "all" && !hasSessionFilters.value) {
+    const starred = store.scope === "starred";
+    return {
+      title: starred ? "No starred sessions" : "No archived sessions",
+      description: starred
+        ? "Star a session from its card or its header to keep it one click away."
+        : "Archiving hides a session from the list without deleting anything. Archived sessions appear here.",
+      primaryAction: { label: "Show all sessions", onClick: showAllSessions },
+    };
+  }
+  if (store.scope === "all" && prefs.hideEmptySessions && store.visibleSessionCount === 0) {
     return {
       title: "Empty sessions are hidden",
       description:
@@ -215,7 +257,21 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           <SearchInput v-model="store.searchQuery" placeholder="Search sessions…" data-testid="session-search" />
         </div>
         <div class="toolbar-filters">
+          <SegmentedControl
+            :model-value="store.scope"
+            :options="scopeOptions"
+            aria-label="Show sessions"
+            data-testid="session-scope"
+            @update:model-value="store.scope = $event as SessionListScope"
+          />
           <FilterSelect v-model="store.filterRepo" :options="store.repositoryOptions" placeholder="All Repos" />
+          <FilterSelect
+            v-if="tagOptions.length > 0 || store.filterTag"
+            v-model="store.filterTag"
+            :options="tagOptions"
+            placeholder="All Tags"
+            data-testid="session-tag-filter"
+          />
           <SourceSwitch
             v-if="showSourceFilter"
             :model-value="store.filterSource"
@@ -303,6 +359,12 @@ function openSession(event: MouseEvent, sessionId: string, label: string) {
           data-testid="session-card"
           :session="session"
           :live="liveBadge(session.id)"
+          starrable
+          :starred="annotations.isStarred(session.id)"
+          :archived="annotations.isArchived(session.id)"
+          :tags="annotations.tagsOf(session.id)"
+          :has-note="!!annotations.get(session.id)?.note"
+          @toggle-star="annotations.toggleStar($event)"
           @select="openSession($event, session.id, session.summary || 'Untitled Session')"
         />
       </div>

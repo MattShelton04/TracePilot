@@ -217,4 +217,44 @@ describe("SessionCard", () => {
     expect(withRepo.find('[data-testid="session-project-chip"]').exists()).toBe(false);
     expect(withRepo.findAll(".badge").map((b) => b.text())).toEqual(["org/app", "cli"]);
   });
+
+  it("toggles the star without opening the session", async () => {
+    const wrapper = mount(SessionCard, {
+      props: { session: makeSession({ id: "test-id" }), starrable: true, starred: false },
+    });
+    const star = wrapper.get('[data-testid="session-star-toggle"]');
+    expect(star.attributes("aria-pressed")).toBe("false");
+    await star.trigger("click");
+    expect(wrapper.emitted("toggle-star")?.[0]).toEqual(["test-id"]);
+    expect(wrapper.emitted("select")).toBeFalsy();
+    await star.trigger("keydown", { key: "Enter" });
+    expect(wrapper.emitted("select")).toBeFalsy();
+  });
+
+  it("shows tags, the archived chip and a note marker", () => {
+    const wrapper = mount(SessionCard, {
+      props: {
+        session: makeSession({ id: "test-id" }),
+        starrable: true,
+        starred: true,
+        archived: true,
+        tags: ["auth", "needs review"],
+        hasNote: true,
+      },
+    });
+    expect(wrapper.findAll('[data-testid="session-tag"]').map((t) => t.text())).toEqual([
+      "auth",
+      "needs review",
+    ]);
+    expect(wrapper.find('[data-testid="session-archived-chip"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="session-note-indicator"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="session-star-toggle"]').attributes("aria-label")).toBe(
+      "Unstar session",
+    );
+  });
+
+  it("has no star toggle unless asked for", () => {
+    const wrapper = mount(SessionCard, { props: { session: makeSession({ id: "test-id" }) } });
+    expect(wrapper.find('[data-testid="session-star-toggle"]').exists()).toBe(false);
+  });
 });

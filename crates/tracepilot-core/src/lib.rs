@@ -60,6 +60,7 @@
 
 pub mod agent_runs;
 pub mod analytics;
+pub mod annotations;
 pub mod constants;
 pub mod context_capture;
 pub mod context_window;

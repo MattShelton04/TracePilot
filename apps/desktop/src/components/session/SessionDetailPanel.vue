@@ -45,6 +45,7 @@ import type { Router } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import RefreshToolbar from "@/components/RefreshToolbar.vue";
 import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
+import SessionAnnotationBar from "@/components/session/SessionAnnotationBar.vue";
 import { useLivePersistedSync } from "@/composables/useLivePersistedSync";
 import { useRunningSessionPoll } from "@/composables/useRunningSessionPoll";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
@@ -365,6 +366,8 @@ watch(isSessionActive, (active) => {
         <Badge v-if="currentEffort" variant="neutral" title="Main agent reasoning effort">{{ effortLabel(currentEffort) }}</Badge>
         <Badge v-if="store.detail.hostType || !isNonCopilotSource(source)" variant="neutral">{{ store.detail.hostType || 'cli' }}</Badge>
       </div>
+
+      <SessionAnnotationBar :session-id="resolvedSessionId" />
 
       <div class="detail-actions">
         <div class="detail-actions-left">

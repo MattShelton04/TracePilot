@@ -456,6 +456,30 @@ async fn relocation_includes_a_capture_completed_while_waiting_for_the_root() {
 }
 
 #[test]
+fn relocation_keeps_session_annotations() {
+    use tracepilot_core::annotations::{
+        AnnotationStore, SessionAnnotationPatch, list_annotations_if_exists,
+    };
+    use tracepilot_core::paths::TracePilotPaths;
+    let temp = tempfile::tempdir().unwrap();
+    let old = TracePilotPaths::from_root(temp.path().join("old"));
+    let new = TracePilotPaths::from_root(temp.path().join("new"));
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let star = SessionAnnotationPatch {
+        starred: Some(true),
+        ..Default::default()
+    };
+    AnnotationStore::open_or_create(&old.annotations_db())
+        .unwrap()
+        .update(&session_id, &star)
+        .unwrap();
+    copy_tracepilot_home_if_moved(old.root(), new.root()).unwrap();
+    let moved = list_annotations_if_exists(&new.annotations_db()).unwrap();
+    assert_eq!(moved.len(), 1);
+    assert!(moved[0].starred);
+}
+
+#[test]
 fn relocation_preserves_readable_session_and_benchmark_captures() {
     use tracepilot_core::paths::TracePilotPaths;
     use tracepilot_orchestrator::context_capture::{BENCHMARK_CAPTURE_COLLECTION_ID, get_capture};

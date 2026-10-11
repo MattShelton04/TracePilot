@@ -32,6 +32,8 @@ pub const COPILOT_MCP_CONFIG_FILE: &str = "mcp-config.json";
 
 pub const TRACEPILOT_CONFIG_FILE: &str = "config.toml";
 pub const TRACEPILOT_INDEX_DB_FILE: &str = "index.db";
+/// Stars, archive flags, tags and notes. Kept apart from the rebuildable index.
+pub const TRACEPILOT_ANNOTATIONS_DB_FILE: &str = "annotations.db";
 pub const TRACEPILOT_REPO_REGISTRY_FILE: &str = "repo-registry.json";
 pub const TRACEPILOT_TEMPLATES_DIR: &str = "templates";
 pub const TRACEPILOT_BACKUPS_DIR: &str = "backups";
@@ -186,6 +188,10 @@ impl TracePilotPaths {
 
     pub fn index_db(&self) -> PathBuf {
         self.root.join(TRACEPILOT_INDEX_DB_FILE)
+    }
+
+    pub fn annotations_db(&self) -> PathBuf {
+        self.root.join(TRACEPILOT_ANNOTATIONS_DB_FILE)
     }
 
     pub fn repo_registry_json(&self) -> PathBuf {

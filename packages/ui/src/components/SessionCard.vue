@@ -8,7 +8,7 @@ import {
   runStatusBadge,
   sourceLabel,
 } from "@tracepilot/types";
-import { Folder } from "lucide-vue-next";
+import { Archive, Folder, NotebookPen, Star, Tag } from "lucide-vue-next";
 import { computed } from "vue";
 import { projectLabelFromCwd } from "../utils/pathUtils";
 import Badge from "./Badge.vue";
@@ -20,10 +20,18 @@ const props = defineProps<{
    * `--ui-server` terminal TracePilot can stream, `watching` when attached.
    */
   live?: "attachable" | "watching" | null;
+  /** Show the star toggle, which emits `toggle-star`. */
+  starrable?: boolean;
+  /** User annotations, shown on the card. */
+  starred?: boolean;
+  archived?: boolean;
+  tags?: readonly string[];
+  hasNote?: boolean;
 }>();
 
 const emit = defineEmits<{
   select: [event: MouseEvent, sessionId: string];
+  "toggle-star": [sessionId: string];
 }>();
 
 // A session without a repository is still identified by its working directory.
@@ -101,6 +109,14 @@ function activeTitle(): string {
       <Badge v-if="session.branch" variant="success">{{ session.branch }}</Badge>
       <Badge v-if="session.currentModel" variant="done" :title="session.currentModel">{{ modelDisplayName(session.currentModel, session.source) }}</Badge>
       <Badge v-if="session.hostType || !isNonCopilotSource(session.source)" variant="neutral">{{ session.hostType || 'cli' }}</Badge>
+      <Badge v-if="archived" variant="neutral" data-testid="session-archived-chip"><Archive :size="12" aria-hidden="true" class="project-chip__icon" />Archived</Badge>
+      <Badge
+        v-for="tag in tags ?? []"
+        :key="tag"
+        variant="neutral"
+        class="session-tag"
+        data-testid="session-tag"
+      ><Tag :size="12" aria-hidden="true" class="project-chip__icon" />{{ tag }}</Badge>
     </div>
 
     <div class="card-footer-new">
@@ -117,12 +133,33 @@ function activeTitle(): string {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           {{ session.errorCount }}
         </span>
+        <span v-if="hasNote" class="stat-item-inline" title="Has a note" data-testid="session-note-indicator">
+          <NotebookPen :size="14" aria-hidden="true" />
+          <span class="sr-only">Has a note</span>
+        </span>
         <span v-if="session.compactionCount" class="stat-item-inline warning" :title="`${session.compactionCount} context compaction${session.compactionCount !== 1 ? 's' : ''} performed`">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
           {{ session.compactionCount }}
         </span>
       </div>
-      <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
+      <div class="card-footer-end">
+        <button
+          v-if="starrable"
+          type="button"
+          class="star-toggle"
+          :class="{ 'star-toggle--on': starred }"
+          :aria-pressed="starred"
+          :aria-label="starred ? 'Unstar session' : 'Star session'"
+          :title="starred ? 'Unstar' : 'Star'"
+          data-testid="session-star-toggle"
+          @click.stop="emit('toggle-star', session.id)"
+          @keydown.enter.stop
+          @keydown.space.stop
+        >
+          <Star :size="16" aria-hidden="true" :fill="starred ? 'currentColor' : 'none'" />
+        </button>
+        <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -211,6 +248,53 @@ function activeTitle(): string {
 }
 .stat-item-inline.warning svg {
   color: var(--warning-fg);
+}
+
+.card-footer-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.star-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+.star-toggle:hover {
+  color: var(--text-primary);
+  background: var(--state-hover-overlay);
+}
+.star-toggle--on,
+.star-toggle--on:hover {
+  color: var(--accent-fg);
+}
+
+.session-tag {
+  max-width: 100%;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .card-time-new {

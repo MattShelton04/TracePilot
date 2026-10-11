@@ -48,6 +48,8 @@ Browse your Copilot CLI session history as a searchable library, then open any s
 | **Explorer** | Files inside the session state directory, with viewers for Markdown, JSON/JSONL, CSV, SQLite, images, and more. |
 | **Timeline** | Swimlane, waterfall, and agent-tree views, plus a **Messages** view of how agents launched, messaged, and read back from each other. |
 
+Star, tag, and leave a note on any session from its header or card, then filter the list by star or tag. Archiving hides a session from the list without deleting anything. These live in TracePilot's own `annotations.db`, so session files are never modified and a reindex keeps them.
+
 The session header shows whether the prompt cache is warm, expiring, or expired, with a live countdown. Sessions can open in pop-out windows and auto-refresh while they run. Rich renderers cover common tool output such as diffs, patches, shell output, search and web-search results, SQL, file trees, `ask_user` prompts, and the agent-control tools (`read_agent`, `write_agent`, `list_agents`).
 
 | Conversation | Agent timeline |

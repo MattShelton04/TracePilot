@@ -3,6 +3,7 @@
 pub mod agents;
 pub mod analytics;
 pub mod analytics_executor;
+pub mod annotations;
 pub mod blocking_helper;
 pub mod claude_settings;
 pub mod config_cmds;

@@ -17,10 +17,16 @@ there but don't invest in redesigning them.
 - A card grid of `SessionCard`, with a Claude Code variant. Off-screen cards
   skip rendering with `content-visibility: auto`; there is no list
   virtualisation.
-- Toolbar: repository filter, a source switch (only when more than one source is
-  enabled), a sort select, search, and refresh. Indexing shows a progress bar.
-- Empty states distinguish "no sessions yet", "empty sessions are hidden" and
-  "no matching sessions", and the copy names the enabled sources.
+- Toolbar: an All / Starred / Archived switch, repository filter, a tag filter
+  (only when some session has a tag), a source switch (only when more than one
+  source is enabled), a sort select, search, and refresh. Indexing shows a
+  progress bar. Search also matches tags and notes.
+- Cards show the user's tags and a note marker, and a star toggle in the footer
+  that never opens the session. Archived sessions are hidden from All and
+  Starred; the Archived switch lists them with an Archived chip.
+- Empty states distinguish "no sessions yet", "empty sessions are hidden",
+  "no starred/archived sessions" and "no matching sessions", and the copy names
+  the enabled sources.
 - Ctrl/Cmd+click opens a session in a new tab.
 - Searching for `67` plays a short drift animation. It is intentional.
 - Gaps: the sticky toolbar uses `backdrop-filter`; the sort control is a native
@@ -34,7 +40,10 @@ routed view and session tabs or pop-out windows.
 - Tabs are defined in `apps/desktop/src/config/sessionTabs.ts`: Overview,
   Conversation, Events, Todos, Metrics, Context, Explorer, Timeline. A tab with
   `requires` only shows when the session's source has that capability.
-- Header: title, source and metadata badges, then the actions row: Copy Resume
+- Header: title, source and metadata badges, then the annotation row
+  (`SessionAnnotationBar.vue`: Star, Archive, Add note, and an inline tag
+  editor that suggests existing tags; a saved note shows below it), then the
+  actions row: Copy Resume
   Command, Resume in Terminal (when the source supports it), Open Folder,
   Export, Replay, and the refresh toolbar. Resuming a session that is active
   elsewhere asks for confirmation first.

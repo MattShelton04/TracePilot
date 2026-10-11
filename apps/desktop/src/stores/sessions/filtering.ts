@@ -8,6 +8,17 @@ import { projectLabelFromCwd } from "@tracepilot/ui";
 
 export type SortOption = "updated" | "created" | "oldest" | "events" | "turns";
 
+/** Which sessions the list shows: everything not archived, starred only, or archived only. */
+export type SessionListScope = "all" | "starred" | "archived";
+
+/** The parts of a session annotation the list filters on. */
+export interface SessionAnnotationFields {
+  starred: boolean;
+  archived: boolean;
+  tags: readonly string[];
+  note: string | null;
+}
+
 export interface SessionFilterPredicates {
   /** Lower-cased substring match across id/summary/repository/branch/cwd/model. */
   searchTerm: string | null;
@@ -16,6 +27,12 @@ export interface SessionFilterPredicates {
   /** Only sessions from this source; `null` or absent means every source. */
   source?: SessionSource | null;
   hideEmptySessions: boolean;
+  /** Defaults to `"all"`, which hides archived sessions. */
+  scope?: SessionListScope;
+  /** Only sessions carrying this tag (matched ignoring case). */
+  tag?: string | null;
+  /** Annotations by session id; a missing entry means not annotated. */
+  annotations?: ReadonlyMap<string, SessionAnnotationFields>;
 }
 
 export interface SessionSearchFields {
@@ -84,19 +101,28 @@ export function matchesSessionFilters(
   predicates: SessionFilterPredicates,
   cache: Map<string, SessionSearchFields>,
 ): boolean {
+  const annotation = predicates.annotations?.get(s.id);
+  if (!matchesScope(annotation, predicates.scope ?? "all")) return false;
+  if (predicates.tag) {
+    const wanted = predicates.tag.toLowerCase();
+    if (!annotation?.tags.some((t) => t.toLowerCase() === wanted)) return false;
+  }
+
   if (predicates.hideEmptySessions && (s.turnCount ?? 0) === 0) return false;
 
   if (predicates.searchTerm) {
     const fields = cache.get(s.id);
+    const term = predicates.searchTerm;
     if (
       !fields ||
       !(
-        fields.summary.includes(predicates.searchTerm) ||
-        fields.repository.includes(predicates.searchTerm) ||
-        fields.branch.includes(predicates.searchTerm) ||
-        fields.cwd.includes(predicates.searchTerm) ||
-        fields.model.includes(predicates.searchTerm) ||
-        fields.id.includes(predicates.searchTerm)
+        fields.summary.includes(term) ||
+        fields.repository.includes(term) ||
+        fields.branch.includes(term) ||
+        fields.cwd.includes(term) ||
+        fields.model.includes(term) ||
+        fields.id.includes(term) ||
+        annotationMatches(annotation, term)
       )
     ) {
       return false;
@@ -107,6 +133,25 @@ export function matchesSessionFilters(
   if (predicates.source && resolveSessionSource(s.source) !== predicates.source) return false;
 
   return true;
+}
+
+function matchesScope(
+  annotation: SessionAnnotationFields | undefined,
+  scope: SessionListScope,
+): boolean {
+  const archived = annotation?.archived === true;
+  if (scope === "archived") return archived;
+  if (archived) return false;
+  return scope === "starred" ? annotation?.starred === true : true;
+}
+
+/** Tags and notes are searched too; there are few enough to lower-case per keystroke. */
+function annotationMatches(annotation: SessionAnnotationFields | undefined, term: string): boolean {
+  if (!annotation) return false;
+  return (
+    annotation.tags.some((t) => t.toLowerCase().includes(term)) ||
+    (annotation.note?.toLowerCase().includes(term) ?? false)
+  );
 }
 
 /** In-place sort comparator for the session list. */

@@ -12,6 +12,7 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 - **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions in the session list, Conversation, Metrics, Analytics, Search and Export. Cost shows as an estimated API-equivalent USD. Turn it on in **Settings → Claude Code** or during first-run setup; that section also shows your Claude Code transcript cleanup period and warns when it is low.
 - **Claude Code live state and resume** — Running Claude Code sessions show **Busy** or **Waiting**, and **Resume in Terminal** reopens a session in its working directory.
 - **Update check in the version popup** — Clicking the version number checks for and installs updates.
+- **Star, archive, tag and note sessions** — Star a session from its card or header, add tags and a note while you review it, and filter the list by **Starred**, **Archived** or tag. Archiving only hides a session from the list; nothing is deleted. These are kept in TracePilot's own data folder, so session files are never changed and reindexing keeps them.
 - **Background task results** — Background agents and shells show how they finished on the card that started them, notifications that wake an idle Claude Code session read as short cards, and agents that never reported show **No final report**.
 
 ### Changed

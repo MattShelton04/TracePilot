@@ -20,6 +20,7 @@ export const IPC_EVENTS = {
   SDK_SESSION_STATE_CHANGED: "sdk-session-state-changed",
   SDK_CONNECTION_CHANGED: "sdk-connection-changed",
   CONTEXT_CAPTURE_PROGRESS: "context-capture-progress",
+  SESSION_ANNOTATION_CHANGED: "session-annotation-changed",
 } as const;
 
 export type IpcEventName = (typeof IPC_EVENTS)[keyof typeof IPC_EVENTS];

@@ -22,6 +22,10 @@ export const commands = {
 	 */
 	sdkBridgeMetrics: () => typedError<BridgeMetricsSnapshot, BindingsErrorIpc>(__TAURI_INVOKE("sdk_bridge_metrics")),
 	listSessions: (limit: number | null, repo: string | null, branch: string | null, hideEmpty: boolean | null) => typedError<SessionListItem[], BindingsErrorIpc>(__TAURI_INVOKE("list_sessions", { limit, repo, branch, hideEmpty })),
+	// Every annotated session. Sessions with no annotation are omitted.
+	listSessionAnnotations: () => typedError<SessionAnnotation[], BindingsErrorIpc>(__TAURI_INVOKE("list_session_annotations")),
+	// Apply a partial update to one session's annotation and return the result.
+	updateSessionAnnotation: (sessionId: string, patch: SessionAnnotationPatch) => typedError<SessionAnnotation, BindingsErrorIpc>(__TAURI_INVOKE("update_session_annotation", { sessionId, patch })),
 	/**
 	 *  Lightweight freshness probe: the session's `source_version` plus the
 	 *  legacy event-log size and mtime.
@@ -260,6 +264,29 @@ export type ProviderRunState = {
 
 // What a running session's process is doing, when the source records it.
 export type RunStatus = "busy" | "waiting";
+
+// Everything the user has recorded about one session.
+export type SessionAnnotation = {
+	sessionId: string,
+	starred: boolean,
+	// Hidden from the session list. The session's files are untouched.
+	archived: boolean,
+	// Sorted case-insensitively; unique ignoring case.
+	tags: string[],
+	note: string | null,
+	// RFC 3339 time of the last change; `None` when nothing is recorded.
+	updatedAt: string | null,
+};
+
+// A partial update. Absent fields keep their current value.
+export type SessionAnnotationPatch = {
+	starred?: boolean | null,
+	archived?: boolean | null,
+	// Replaces the whole tag set.
+	tags?: string[] | null,
+	// Replaces the note; an empty or blank note clears it.
+	note?: string | null,
+};
 
 //Validated session identifier (UUID format).
 export type SessionId = string;

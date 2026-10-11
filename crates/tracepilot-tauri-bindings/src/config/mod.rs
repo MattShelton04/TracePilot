@@ -401,6 +401,11 @@ impl TracePilotConfig {
         self.tracepilot_root_paths().index_db()
     }
 
+    /// Stars, archive flags, tags and notes. Survives index rebuilds.
+    pub fn annotations_db_path(&self) -> PathBuf {
+        self.tracepilot_root_paths().annotations_db()
+    }
+
     fn tracepilot_root_paths(&self) -> tracepilot_core::paths::TracePilotPaths {
         tracepilot_core::paths::TracePilotPaths::from_root(self.tracepilot_home())
     }

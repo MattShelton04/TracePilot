@@ -38,6 +38,8 @@ export type {
   FileVersionContent,
   FormatNameCountDto,
   GitInfo,
+  SessionAnnotation,
+  SessionAnnotationPatch,
   SourceFormatDiagnostics,
   UpdateCheckResult,
   ValidateSessionDirResult,

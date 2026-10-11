@@ -4,6 +4,7 @@ import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import { useScopedEventListener } from "@/composables/useScopedEventListener";
 import { usePreferencesStore } from "./preferences";
+import { useSessionAnnotationsStore } from "./sessionAnnotations";
 import {
   buildSearchFieldCache,
   filterAndSortSessions,
@@ -13,9 +14,9 @@ import {
 } from "./sessions/filtering";
 import { createIndexingLifecycle } from "./sessions/indexingLifecycle";
 
-export type { SortOption } from "./sessions/filtering";
+export type { SessionListScope, SortOption } from "./sessions/filtering";
 
-import type { SortOption } from "./sessions/filtering";
+import type { SessionListScope, SortOption } from "./sessions/filtering";
 
 export const useSessionsStore = defineStore("sessions", () => {
   // shallowRef: session list is always replaced wholesale (never index-mutated).
@@ -41,6 +42,9 @@ export const useSessionsStore = defineStore("sessions", () => {
   const filterRepo = ref<string | null>(null);
   const filterSource = ref<SessionSource | null>(null);
   const sortBy = ref<SortOption>("updated");
+  /** All (archived hidden), starred only, or archived only. */
+  const scope = ref<SessionListScope>("all");
+  const filterTag = ref<string | null>(null);
 
   // Pre-compute lowercased search fields — rebuilt only when session list changes,
   // avoiding repeated .toLowerCase() calls on every keystroke in filteredSessions.
@@ -48,6 +52,7 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   const filteredSessions = computed(() => {
     const prefs = usePreferencesStore();
+    const annotations = useSessionAnnotationsStore();
     const term = searchQuery.value ? searchQuery.value.toLowerCase() : null;
     return filterAndSortSessions(
       sessions.value,
@@ -56,6 +61,9 @@ export const useSessionsStore = defineStore("sessions", () => {
         repository: filterRepo.value,
         source: filterSource.value,
         hideEmptySessions: prefs.hideEmptySessions,
+        scope: scope.value,
+        tag: filterTag.value,
+        annotations: annotations.byId,
       },
       searchFieldCache.value,
       sortBy.value,
@@ -71,13 +79,29 @@ export const useSessionsStore = defineStore("sessions", () => {
     return sessions.value.filter((s) => (s.turnCount ?? 0) === 0).length;
   });
 
-  /** Session count respecting hideEmptySessions but not search/repo/source filters. */
+  /**
+   * Session count respecting hideEmptySessions and archiving, but not
+   * search/repo/source filters.
+   */
   const visibleSessionCount = computed(() => {
     const prefs = usePreferencesStore();
-    if (prefs.hideEmptySessions) {
-      return sessions.value.filter((s) => (s.turnCount ?? 0) !== 0).length;
+    const annotations = useSessionAnnotationsStore();
+    return sessions.value.filter(
+      (s) =>
+        !annotations.isArchived(s.id) && !(prefs.hideEmptySessions && (s.turnCount ?? 0) === 0),
+    ).length;
+  });
+
+  /** How many loaded sessions are starred (not archived) and archived. */
+  const annotationCounts = computed(() => {
+    const annotations = useSessionAnnotationsStore();
+    let starred = 0;
+    let archived = 0;
+    for (const s of sessions.value) {
+      if (annotations.isArchived(s.id)) archived += 1;
+      else if (annotations.isStarred(s.id)) starred += 1;
     }
-    return sessions.value.length;
+    return { starred, archived };
   });
 
   const lifecycle = createIndexingLifecycle({
@@ -107,12 +131,15 @@ export const useSessionsStore = defineStore("sessions", () => {
     filterRepo,
     filterSource,
     sortBy,
+    scope,
+    filterTag,
     filteredSessions,
     repositories,
     repositoryOptions,
     sources,
     emptySessionCount,
     visibleSessionCount,
+    annotationCounts,
     fetchSessions: lifecycle.fetchSessions,
     refreshSessions: lifecycle.refreshSessions,
     reindex: lifecycle.reindex,

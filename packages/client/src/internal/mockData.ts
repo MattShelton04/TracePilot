@@ -122,6 +122,8 @@ export async function getMockData<T>(cmd: string, args?: Record<string, unknown>
   if (claudeRoute) return claudeRoute.value as T;
   const searchRoute = mocks.searchMockRoute(cmd, args);
   if (searchRoute) return searchRoute.value as T;
+  const annotationsRoute = mocks.annotationsMockRoute(cmd, args);
+  if (annotationsRoute) return annotationsRoute.value as T;
   const mockSessionId = typeof args?.sessionId === "string" ? args.sessionId : "mock-id";
 
   const searchQuery = typeof args?.query === "string" ? args.query.toLowerCase() : "";

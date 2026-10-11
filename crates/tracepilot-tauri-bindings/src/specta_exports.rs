@@ -41,6 +41,8 @@ pub fn export(out_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         .commands(tauri_specta::collect_commands![
             crate::commands::sdk::sdk_bridge_metrics,
             crate::commands::session::list_sessions,
+            crate::commands::annotations::list_session_annotations,
+            crate::commands::annotations::update_session_annotation,
             crate::commands::session::check_session_freshness,
             crate::commands::session::get_session_file_history,
             crate::commands::session::get_session_file_version,

@@ -10,6 +10,7 @@ export {
   MOCK_CODE_IMPACT,
   MOCK_TOOL_ANALYSIS,
 } from "./analytics.js";
+export { annotationsMockRoute, resetMockAnnotations } from "./annotations.js";
 export { MOCK_CLAUDE_ANALYTICS, MOCK_CLAUDE_TOOL_ANALYSIS } from "./claudeAnalytics.js";
 export {
   MOCK_CLAUDE_FILE_HISTORY,

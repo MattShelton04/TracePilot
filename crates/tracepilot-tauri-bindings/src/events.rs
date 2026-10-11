@@ -22,3 +22,7 @@ pub const CONTEXT_CAPTURE_PROGRESS: &str = "context-capture-progress";
 pub const SEARCH_INDEXING_STARTED: &str = "search-indexing-started";
 pub const SEARCH_INDEXING_PROGRESS: &str = "search-indexing-progress";
 pub const SEARCH_INDEXING_FINISHED: &str = "search-indexing-finished";
+
+/// A session's stars, archive flag, tags or note changed. Payload: the
+/// updated `SessionAnnotation`, so every window can refresh without a reload.
+pub const SESSION_ANNOTATION_CHANGED: &str = "session-annotation-changed";

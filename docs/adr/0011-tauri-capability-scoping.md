@@ -43,7 +43,7 @@ Split the capabilities into two files, each scoped by window label:
 Audited by tracing the viewer mount path:
 `ChildApp.vue` → `SessionDetailTabView.vue` → `SessionDetailPanel.vue` + tab components (`OverviewTab`, `ConversationTab`, `EventsTab`, `TodosTab`, `MetricsTab`, `SessionTimelineView`).
 
-This table is the original audit. Later grants (Explorer `session_*` reads, the SDK steering and live-attach commands, `get_session_context_timeline`, `get_session_prompt_cache`) live in `viewer.json`, which a test now keeps in step with the code; see [Keeping the allow-list current](#keeping-the-allow-list-current).
+This table is the original audit. Later grants (Explorer `session_*` reads, the SDK steering and live-attach commands, `get_session_context_timeline`, `get_session_prompt_cache`, and the session annotation commands, which write only TracePilot's own `annotations.db`) live in `viewer.json`, which a test now keeps in step with the code; see [Keeping the allow-list current](#keeping-the-allow-list-current).
 
 | Command | Reached from | Read-only? |
 | --- | --- | --- |

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/windows-schema.json",
   "identifier": "viewer",
-  "description": "Permission set for viewer (pop-out session detail) windows. Originally read-only (Phase 1A.1 of tech-debt plan), now also allowlists SDK steering commands so popouts can drive their session — same single-Client backend, single-user app. Still excludes: dialog, opener, process, updater, notification, config writes, launchers, SDK bridge lifecycle, skills_* and mcp_* commands. apps/desktop/src/__tests__/config/viewerCapabilities.test.ts checks this list against the commands pop-out code can reach. See docs/adr/0011-tauri-capability-scoping.md.",
+  "description": "Permission set for viewer (pop-out session detail) windows. Originally read-only (Phase 1A.1 of tech-debt plan), now also allowlists SDK steering commands so popouts can drive their session, and session annotations (stars, archive, tags, notes in TracePilot's own store) so a popout can annotate its session — same single-Client backend, single-user app. Still excludes: dialog, opener, process, updater, notification, config writes, launchers, SDK bridge lifecycle, skills_* and mcp_* commands. apps/desktop/src/__tests__/config/viewerCapabilities.test.ts checks this list against the commands pop-out code can reach. See docs/adr/0011-tauri-capability-scoping.md.",
   "windows": ["viewer-*"],
   "permissions": [
     "core:default",
@@ -28,6 +28,8 @@
     "tracepilot:allow-check-session-freshness",
     "tracepilot:allow-get-session-liveness",
     "tracepilot:allow-get-tool-result",
+    "tracepilot:allow-list-session-annotations",
+    "tracepilot:allow-update-session-annotation",
     "tracepilot:allow-check-config-exists",
     "tracepilot:allow-get-config",
     "tracepilot:allow-close-session-window",

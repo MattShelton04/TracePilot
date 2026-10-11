@@ -90,6 +90,7 @@
   "list_branches",
   "list_config_backups",
   "list_registered_repos",
+  "list_session_annotations",
   "list_session_templates",
   "list_sessions",
   "list_worktrees",
@@ -186,6 +187,7 @@
   "toggle_repo_favourite",
   "unlock_worktree",
   "update_config",
+  "update_session_annotation",
   "validate_claude_config_dir",
   "validate_session_dir"
 ]

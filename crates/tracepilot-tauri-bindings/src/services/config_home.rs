@@ -15,6 +15,7 @@ pub(crate) fn copy_tracepilot_home_if_moved(
     std::fs::create_dir_all(new_paths.root())?;
 
     copy_sqlite_db_if_absent(&old_paths.index_db(), &new_paths.index_db())?;
+    copy_sqlite_db_if_absent(&old_paths.annotations_db(), &new_paths.annotations_db())?;
     copy_file_if_absent(
         &old_paths.repo_registry_json(),
         &new_paths.repo_registry_json(),

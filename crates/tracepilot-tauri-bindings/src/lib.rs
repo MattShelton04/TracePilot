@@ -219,6 +219,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             commands::session::context_benchmark_list,
             commands::session::context_benchmark_get,
             commands::session::context_benchmark_delete,
+            // Session annotation commands (2)
+            commands::annotations::list_session_annotations,
+            commands::annotations::update_session_annotation,
             // File browser commands (5)
             commands::file_browser::session_list_files,
             commands::file_browser::session_read_file,

@@ -21,6 +21,7 @@ const IPC_EVENTS = {
   SDK_SESSION_STATE_CHANGED: "sdk-session-state-changed",
   SDK_CONNECTION_CHANGED: "sdk-connection-changed",
   CONTEXT_CAPTURE_PROGRESS: "context-capture-progress",
+  SESSION_ANNOTATION_CHANGED: "session-annotation-changed",
 } as const;
 
 /**
@@ -50,6 +51,15 @@ export function createClientMock(overrides: ClientExports = {}): ClientExports {
     }),
     contextCaptureStorageStats: vi.fn().mockResolvedValue({ captureCount: 0, totalBytes: 0 }),
     contextCaptureDeleteAll: vi.fn().mockResolvedValue(0),
+    listSessionAnnotations: vi.fn().mockResolvedValue([]),
+    updateSessionAnnotation: vi.fn(async (sessionId: string) => ({
+      sessionId,
+      starred: false,
+      archived: false,
+      tags: [],
+      note: null,
+      updatedAt: null,
+    })),
     IPC_EVENTS,
   };
 

@@ -310,7 +310,7 @@ async function handleFactoryReset() {
   const confirmed = await confirmDataOperation({
     title: "Factory Reset",
     message:
-      "This removes settings and the active index, then reopens setup. Source sessions and saved request snapshots are kept. Your preferences cannot be recovered.",
+      "This removes settings and the active index, then reopens setup. Source sessions, saved request snapshots, and your session stars, tags and notes are kept. Your preferences cannot be recovered.",
     variant: "danger",
     confirmLabel: "Yes, Reset Everything",
   });

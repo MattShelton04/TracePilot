@@ -58,6 +58,8 @@ pub const IPC_COMMAND_NAMES: &[&str] = &[
     "context_benchmark_list",
     "context_benchmark_get",
     "context_benchmark_delete",
+    "list_session_annotations",
+    "update_session_annotation",
     "search_sessions",
     "search_content",
     "get_search_facets",
