@@ -65,6 +65,14 @@ impl<'a> Rec<'a> {
         self.ptr_str("/message/model")
     }
 
+    /// The reasoning effort an assistant record's call ran at: the session's
+    /// `effort`, or `perTurnEffort` when only that is recorded.
+    pub(super) fn effort(self) -> Option<&'a str> {
+        ["effort", "perTurnEffort"]
+            .into_iter()
+            .find_map(|key| self.str(key).filter(|effort| !effort.is_empty()))
+    }
+
     pub(super) fn origin_kind(self) -> Option<&'a str> {
         self.ptr_str("/origin/kind")
     }

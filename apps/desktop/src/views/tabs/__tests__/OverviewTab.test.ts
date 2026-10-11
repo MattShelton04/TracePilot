@@ -273,3 +273,26 @@ it("names a Claude Code model as cards do, with the recorded id as the tooltip",
     wrapper.unmount();
   }
 });
+
+it("shows the recorded effort, and says Claude Code's is not recorded rather than a default", () => {
+  for (const [source, effort, shown] of [
+    ["claudeCode", "high", "High"],
+    ["copilot", "xhigh", "Extra high"],
+    ["claudeCode", null, "Not recorded"],
+    ["copilot", null, "Model default"],
+  ] as const) {
+    store.detail = {
+      id: "s1",
+      source,
+      currentModel: "claude-opus-5-5",
+      currentReasoningEffort: effort,
+      hasPlan: false,
+      hasCheckpoints: false,
+    };
+    const { wrapper } = mountOverview();
+    const shownEffort = wrapper.get('[data-testid="session-effort"]');
+    expect(shownEffort.text()).toBe(shown);
+    expect(shownEffort.find(".effort__bars").exists()).toBe(shown !== "Not recorded");
+    wrapper.unmount();
+  }
+});

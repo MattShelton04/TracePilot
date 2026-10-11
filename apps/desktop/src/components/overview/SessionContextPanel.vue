@@ -33,6 +33,11 @@ const cwd = computed(() => props.detail.cwd?.trim() || null);
 const cwdParts = computed(() => splitLastPathSegment(cwd.value ?? ""));
 const project = computed(() => projectLabelFromCwd(cwd.value));
 const level = computed(() => (props.effort ? effortLevel(props.effort) : null));
+/**
+ * Copilot records no effort when the model's default applies. Claude Code
+ * versions before it recorded `effort` on each call leave it unknown.
+ */
+const unsetEffortLabel = computed(() => (props.isClaude ? "Not recorded" : "Model default"));
 
 const created = computed(() =>
   props.detail.createdAt ? Date.parse(props.detail.createdAt) : null,
@@ -120,14 +125,16 @@ const { copy: copyId, copied: idCopied } = useClipboard();
           <span v-else class="facet__muted">No model recorded</span>
           <span class="effort" title="Main agent reasoning effort" data-testid="session-effort">
             <span
-              v-if="level !== null || !effort"
+              v-if="level !== null || (!effort && !isClaude)"
               class="effort__bars"
               :class="{ 'effort__bars--default': !effort }"
               aria-hidden="true"
             >
               <i v-for="n in 4" :key="n" :class="{ on: level !== null && n <= level }" />
             </span>
-            <span class="effort__label">{{ effort ? effortName(effort) : "Model default" }}</span>
+            <span class="effort__label" :class="{ 'effort__label--unknown': !effort && isClaude }">{{
+              effort ? effortName(effort) : unsetEffortLabel
+            }}</span>
           </span>
           <span v-if="showHost && detail.hostType" class="host-chip" title="Host">
             <Monitor :size="12" aria-hidden="true" />{{ detail.hostType }}
@@ -384,6 +391,10 @@ const { copy: copyId, copied: idCopied } = useClipboard();
 
 .effort__label {
   color: var(--text-secondary);
+}
+
+.effort__label--unknown {
+  color: var(--text-tertiary);
 }
 
 .host-chip {

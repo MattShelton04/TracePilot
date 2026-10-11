@@ -96,7 +96,7 @@ pub(super) struct Stream<'s> {
     pub(super) open_call: Option<OpenCall>,
     pub(super) last_closed_end_turn: bool,
     pub(super) interaction: Option<String>,
-    pub(super) last_model: Option<String>,
+    pub(super) last_selection: super::translate_assistant::Selection,
     pub(super) pending_skill: Option<String>,
     pub(super) last_command: Option<String>,
     /// A typed slash command whose `<command-name>` record is still to come.
@@ -218,7 +218,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             open_call: None,
             last_closed_end_turn: false,
             interaction: None,
-            last_model: None,
+            last_selection: Default::default(),
             pending_skill: None,
             last_command: None,
             echoed_command: None,
