@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   failureRate,
   formatCallTime,
+  formatCellCount,
   formatToolTime,
   heatLevel,
   isFailing,
@@ -156,6 +157,19 @@ describe("heatmap", () => {
     );
     expect(summary.peak).toBeNull();
     expect(summary.peakHour).toBeNull();
+  });
+
+  it("labels cells in at most four characters", () => {
+    expect([0, 7, 940, 1_000, 2_840, 9_960, 12_300, 999_600].map(formatCellCount)).toEqual([
+      "",
+      "7",
+      "940",
+      "1k",
+      "2.8k",
+      "10k",
+      "12k",
+      "1M",
+    ]);
   });
 
   it("shades cells in five steps, empty cells apart", () => {

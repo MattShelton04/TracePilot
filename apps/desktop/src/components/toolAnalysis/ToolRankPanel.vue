@@ -4,7 +4,8 @@
  * The bar always shows what the list is sorted by and that column reads
  * brightest; the rest stay quiet. Subagents and `ask_user` are labelled,
  * since their time is a whole run or a wait for an answer. Rows expand to
- * the source-native tools behind a canonical name.
+ * the source-native tools behind a canonical name: click anywhere on one.
+ * Every tool is listed; the body scrolls under a fixed header.
  */
 import {
   formatNumber,
@@ -35,7 +36,6 @@ import { canonicalOnlyCalls, toolUsageLabel, toolUsageNames } from "@/utils/tool
 
 const props = defineProps<{ data: ToolAnalysisData }>();
 
-const SHOWN = 12;
 const SORTS = [
   { value: "calls", label: "Most used" },
   { value: "failures", label: "Failure rate" },
@@ -52,7 +52,6 @@ const sort = computed({
   },
 });
 
-const showAll = ref(false);
 const expanded = ref(new Set<string>());
 function toggle(name: string) {
   const next = new Set(expanded.value);
@@ -71,7 +70,6 @@ const labels = computed(() => {
 });
 const totalMs = computed(() => toolTimeSplit(props.data.tools).totalMs);
 const ranked = computed(() => rankTools(props.data.tools, sort.value));
-const shown = computed(() => (showAll.value ? ranked.value : ranked.value.slice(0, SHOWN)));
 
 /** Average time on a log axis from 10ms, so fast tools still draw. */
 const logWidth = (ms: number, max: number) => {
@@ -83,10 +81,10 @@ const logWidth = (ms: number, max: number) => {
 const rows = computed(() => {
   const tools = props.data.tools;
   const maxCalls = Math.max(1, ...tools.map((tool) => tool.callCount));
-  const maxRate = Math.max(0.0001, ...shown.value.map((tool) => failureRate(tool)));
+  const maxRate = Math.max(0.0001, ...ranked.value.map((tool) => failureRate(tool)));
   const maxAvg = Math.max(1, ...tools.map((tool) => tool.avgDurationMs));
   const maxTotal = Math.max(1, ...tools.map((tool) => tool.totalDurationMs));
-  return shown.value.map((tool) => {
+  return ranked.value.map((tool) => {
     const kind = toolKind(tool);
     const failed = toolFailures(tool);
     const rate = failureRate(tool);
@@ -155,7 +153,7 @@ const legend = computed(() => {
   }
   if (sort.value === "failures")
     return [{ key: "rate", label: "Failure rate", color: "var(--danger-fg)" }];
-  const kinds = new Set(shown.value.map((tool) => toolKind(tool)));
+  const kinds = new Set(ranked.value.map((tool) => toolKind(tool)));
   return (["tool", "agent", "wait"] as const)
     .filter((kind) => kinds.has(kind))
     .map((kind) => ({ key: kind, ...TOOL_KINDS[kind] }));
@@ -180,94 +178,95 @@ const column = (key: ToolSort) => (sort.value === key ? "ad-num" : "ad-num ad-nu
           <span role="columnheader" :class="column('slowest')">Avg</span>
           <span role="columnheader" :class="column('time')">Time</span>
         </div>
-        <template v-for="row in rows" :key="row.tool.name">
-          <Tooltip :text="row.tip">
-            <div class="ad-row tool-rank__grid" role="row" data-testid="tool-rank-row">
-              <span class="ad-row__name" role="cell">
-                <button
-                  v-if="row.tool.nativeTools?.length"
-                  type="button"
-                  class="tool-rank__toggle"
-                  :aria-expanded="expanded.has(row.tool.name)"
-                  :aria-label="`${expanded.has(row.tool.name) ? 'Hide' : 'Show'} native tools for ${row.label.name}`"
-                  @click="toggle(row.tool.name)"
-                >
-                  <ChevronRight
-                    :size="12"
-                    class="tool-rank__chevron"
-                    :class="{ 'tool-rank__chevron--open': expanded.has(row.tool.name) }"
-                    aria-hidden="true"
+        <div class="tool-rank__body" role="rowgroup">
+          <template v-for="row in rows" :key="row.tool.name">
+            <Tooltip :text="row.tip">
+              <div
+                class="ad-row tool-rank__grid"
+                :class="{ 'tool-rank__row--expandable': row.tool.nativeTools?.length }"
+                role="row"
+                data-testid="tool-rank-row"
+                @click="row.tool.nativeTools?.length && toggle(row.tool.name)"
+              >
+                <span class="ad-row__name" role="cell">
+                  <button
+                    v-if="row.tool.nativeTools?.length"
+                    type="button"
+                    class="tool-rank__toggle"
+                    :aria-expanded="expanded.has(row.tool.name)"
+                    :aria-label="`${expanded.has(row.tool.name) ? 'Hide' : 'Show'} native tools for ${row.label.name}`"
+                  >
+                    <ChevronRight
+                      :size="12"
+                      class="tool-rank__chevron"
+                      :class="{ 'tool-rank__chevron--open': expanded.has(row.tool.name) }"
+                      aria-hidden="true"
+                    />
+                  </button>
+                  <i v-else class="tool-rank__spacer" aria-hidden="true" />
+                  <span class="tool-rank__name">
+                    {{ row.label.name }}<small v-if="row.label.hint">{{ row.label.hint }}</small><small
+                      v-if="row.tag"
+                      class="tool-rank__tag"
+                    >{{ row.tag }}</small>
+                  </span>
+                </span>
+                <span class="ad-track" role="cell" aria-hidden="true">
+                  <i
+                    v-for="part in row.bar"
+                    :key="part.key"
+                    :style="{ width: `${part.width}%`, background: part.color }"
+                    data-reveal="grow-x"
                   />
-                </button>
-                <i v-else class="tool-rank__spacer" aria-hidden="true" />
-                <span class="tool-rank__name">
-                  {{ row.label.name }}<small v-if="row.label.hint">{{ row.label.hint }}</small><small
-                    v-if="row.tag"
-                    class="tool-rank__tag"
-                  >{{ row.tag }}</small>
                 </span>
-              </span>
-              <span class="ad-track" role="cell" aria-hidden="true">
-                <i
-                  v-for="part in row.bar"
-                  :key="part.key"
-                  :style="{ width: `${part.width}%`, background: part.color }"
-                  data-reveal="grow-x"
-                />
-              </span>
-              <span role="cell" :class="column('calls')">{{ row.calls }}</span>
-              <span
-                role="cell"
-                :class="[column('failures'), { 'ad-num--warning': row.failing }]"
-              >{{ row.failed }}</span>
-              <span role="cell" :class="column('slowest')">{{ row.avg }}</span>
-              <span role="cell" :class="column('time')">{{ row.time }}</span>
-            </div>
-          </Tooltip>
-          <template v-if="expanded.has(row.tool.name)">
-            <div
-              v-for="native in natives(row.tool)"
-              :key="native.key"
-              class="ad-row tool-rank__grid tool-rank__native"
-              role="row"
-            >
-              <span class="ad-row__name" role="cell">
-                <i class="tool-rank__spacer" aria-hidden="true" />
-                <span class="ad-source" :title="sourceLabel(native.source)">
-                  <SourceLogo :source="native.source" :size="12" />
+                <span role="cell" :class="column('calls')">{{ row.calls }}</span>
+                <span
+                  role="cell"
+                  :class="[column('failures'), { 'ad-num--warning': row.failing }]"
+                >{{ row.failed }}</span>
+                <span role="cell" :class="column('slowest')">{{ row.avg }}</span>
+                <span role="cell" :class="column('time')">{{ row.time }}</span>
+              </div>
+            </Tooltip>
+            <template v-if="expanded.has(row.tool.name)">
+              <div
+                v-for="native in natives(row.tool)"
+                :key="native.key"
+                class="ad-row tool-rank__grid tool-rank__native"
+                role="row"
+              >
+                <span class="ad-row__name" role="cell">
+                  <i class="tool-rank__spacer" aria-hidden="true" />
+                  <span class="ad-source" :title="sourceLabel(native.source)">
+                    <SourceLogo :source="native.source" :size="12" />
+                  </span>
+                  <span>{{ native.name }}</span>
                 </span>
-                <span>{{ native.name }}</span>
-              </span>
-              <span role="cell" />
-              <span role="cell" class="ad-num ad-num--muted">{{ native.calls }}</span>
-              <span role="cell" class="ad-num ad-num--muted">{{ native.failed }}</span>
-              <span role="cell" class="ad-num ad-num--muted">{{ native.avg }}</span>
-              <span role="cell" />
-            </div>
-            <div
-              v-if="canonicalOnlyCalls(row.tool) > 0"
-              class="ad-row tool-rank__grid tool-rank__native"
-              role="row"
-            >
-              <span class="ad-row__name ad-num--muted" role="cell">
-                <i class="tool-rank__spacer" aria-hidden="true" />
-                <span>No native name</span>
-              </span>
-              <span role="cell" />
-              <span role="cell" class="ad-num ad-num--muted">{{ formatNumber(canonicalOnlyCalls(row.tool)) }}</span>
-              <span role="cell" /><span role="cell" /><span role="cell" />
-            </div>
+                <span role="cell" />
+                <span role="cell" class="ad-num ad-num--muted">{{ native.calls }}</span>
+                <span role="cell" class="ad-num ad-num--muted">{{ native.failed }}</span>
+                <span role="cell" class="ad-num ad-num--muted">{{ native.avg }}</span>
+                <span role="cell" />
+              </div>
+              <div
+                v-if="canonicalOnlyCalls(row.tool) > 0"
+                class="ad-row tool-rank__grid tool-rank__native"
+                role="row"
+              >
+                <span class="ad-row__name ad-num--muted" role="cell">
+                  <i class="tool-rank__spacer" aria-hidden="true" />
+                  <span>No native name</span>
+                </span>
+                <span role="cell" />
+                <span role="cell" class="ad-num ad-num--muted">{{ formatNumber(canonicalOnlyCalls(row.tool)) }}</span>
+                <span role="cell" /><span role="cell" /><span role="cell" />
+              </div>
+            </template>
           </template>
-        </template>
+        </div>
       </div>
       <div class="ad-foot">
-        <span>
-          <template v-if="ranked.length > SHOWN && !showAll">Top <b>{{ SHOWN }}</b> of </template><b>{{ ranked.length }}</b>
-          tool{{ ranked.length === 1 ? "" : "s" }}
-        </span>
-        <button v-if="ranked.length > SHOWN" type="button" class="ad-link" @click="showAll = !showAll">
-          {{ showAll ? "Show fewer" : `Show all ${ranked.length}` }}
-        </button>
+        <span><b>{{ ranked.length }}</b> tool{{ ranked.length === 1 ? "" : "s" }}</span>
         <span class="ad-legend">
           <span v-for="item in legend" :key="item.key">
             <i class="ad-sw" :style="{ background: item.color }" />{{ item.label }}
@@ -287,12 +286,40 @@ const column = (key: ToolSort) => (sort.value === key ? "ad-num" : "ad-num ad-nu
   grid-template-columns: minmax(0, 1.7fr) minmax(48px, 1fr) 56px 52px 60px 52px;
 }
 
-.tool-rank .ad-num {
+.tool-rank .ad-row .ad-num {
   font-weight: 500;
 }
 
-.tool-rank .ad-num--muted {
+.tool-rank .ad-row .ad-num--muted {
   font-weight: 400;
+}
+
+/* The header reserves the body's scrollbar gutter so the columns line up. */
+.tool-rank > .ad-rowh {
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+}
+
+.tool-rank__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 432px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.tool-rank__body > span.tooltip {
+  display: flex;
+}
+
+.tool-rank__body > span.tooltip > .ad-row {
+  flex: 1;
+}
+
+.tool-rank__row--expandable {
+  cursor: pointer;
 }
 
 .tool-rank__name {

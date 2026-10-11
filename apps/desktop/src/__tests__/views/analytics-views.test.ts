@@ -253,6 +253,22 @@ describe("ToolAnalysisView", () => {
 
     await panel.get('[aria-label="Show native tools for Read"]').trigger("click");
     expect(panel.findAll(".tool-rank__native")).toHaveLength(1);
+
+    // A click anywhere on the row toggles it too.
+    const read = panel
+      .findAll('[data-testid="tool-rank-row"]')
+      .find((row) => row.text().startsWith("Read"));
+    await read?.get(".ad-track").trigger("click");
+    expect(panel.findAll(".tool-rank__native")).toHaveLength(0);
+  });
+
+  it("lists every tool in a scrolling body", async () => {
+    const wrapper = await mountTools();
+    const panel = wrapper.get('[data-testid="tool-rank"]');
+    expect(panel.findAll('.tool-rank__body [data-testid="tool-rank-row"]')).toHaveLength(
+      FIXTURE_TOOL_ANALYSIS.tools.length,
+    );
+    expect(panel.text()).not.toContain("Show all");
   });
 
   it("shows when tools run with weekday and hour totals", async () => {
@@ -262,6 +278,9 @@ describe("ToolAnalysisView", () => {
     expect(heat.text()).toContain("Mon");
     expect(heat.text()).toContain("Sun");
     expect(heat.findAll(".tool-heat .tool-heat__cell")).toHaveLength(168);
+    const counts = heat.findAll(".tool-heat .tool-heat__cell").map((cell) => cell.text());
+    expect(counts.filter(Boolean).length).toBeGreaterThan(0);
+    expect(counts).not.toContain("0");
     expect(heat.text()).toContain("Busiest");
   });
 

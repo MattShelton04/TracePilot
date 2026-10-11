@@ -189,6 +189,15 @@ export function heatLevel(value: number, max: number): number {
   return Math.max(1, Math.min(HEAT_LEVELS, Math.ceil((value / max) * HEAT_LEVELS)));
 }
 
+/** A heatmap cell's count in at most four characters: `7`, `940`, `2.8k`, `12k`, `1.2M`; empty for 0. */
+export function formatCellCount(n: number): string {
+  if (n <= 0) return "";
+  if (n < 1_000) return String(n);
+  if (n < 9_950) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
+  if (n < 999_500) return `${Math.round(n / 1_000)}k`;
+  return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+}
+
 /** One call's time, to a whole millisecond or a tenth of a second: `132ms`, `6.6s`, `2m 5s`. */
 export function formatCallTime(ms: number): string {
   if (ms <= 0) return "0ms";

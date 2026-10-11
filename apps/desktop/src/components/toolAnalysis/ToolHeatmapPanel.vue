@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * When tools run: calls by local weekday and hour, with each weekday's and
- * each hour's total on the edges. Hovering a cell or an edge reads it out in
+ * each hour's total on the edges. Each cell shows its count when there is
+ * room for it. Hovering a cell or an edge reads it out in
  * the footer; otherwise the footer names the busiest slot.
  */
 import { formatNumberFull } from "@tracepilot/types";
@@ -9,7 +10,7 @@ import { computed, ref } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { type HeatmapEntry, localizeHeatmap } from "@/utils/analytics";
 import { formatShare } from "@/utils/analyticsDashboard";
-import { HEAT_LEVELS, heatLevel, summarizeHeatmap } from "@/utils/toolAnalysis";
+import { formatCellCount, HEAT_LEVELS, heatLevel, summarizeHeatmap } from "@/utils/toolAnalysis";
 
 const props = defineProps<{ entries: readonly HeatmapEntry[] }>();
 
@@ -67,43 +68,45 @@ const ariaLabel = computed(() => {
     <template #aside><span>Local time</span></template>
 
     <template v-if="summary.total > 0">
-      <div class="tool-heat" role="img" :aria-label="ariaLabel" @mouseleave="hover = null">
-        <span />
-        <span v-for="hour in HOURS" :key="`h${hour}`" class="tool-heat__hour" aria-hidden="true">
-          {{ hour % 3 === 0 ? String(hour).padStart(2, "0") : "" }}
-        </span>
-        <span />
-
-        <template v-for="(row, day) in summary.grid" :key="DAYS[day]">
-          <span class="tool-heat__day" aria-hidden="true">{{ DAYS[day] }}</span>
-          <i
-            v-for="hour in HOURS"
-            :key="hour"
-            class="tool-heat__cell"
-            :class="{ 'tool-heat__cell--active': hover && 'hour' in hover && 'day' in hover && hover.day === day && hover.hour === hour }"
-            :data-level="heatLevel(row[hour], summary.max)"
-            @mouseenter="hover = { day, hour }"
-          />
-          <span class="tool-heat__total" @mouseenter="hover = { day }">
-            <span class="ad-track">
-              <i
-                :style="{ width: `${(summary.dayTotals[day] / maxDay) * 100}%`, background: 'var(--chart-primary)' }"
-                data-reveal="grow-x"
-              />
-            </span>
+      <div class="tool-heat-wrap">
+        <div class="tool-heat" role="img" :aria-label="ariaLabel" @mouseleave="hover = null">
+          <span />
+          <span v-for="hour in HOURS" :key="`h${hour}`" class="tool-heat__hour" aria-hidden="true">
+            {{ hour % 3 === 0 ? String(hour).padStart(2, "0") : "" }}
           </span>
-        </template>
+          <span />
 
-        <span />
-        <span
-          v-for="hour in HOURS"
-          :key="`t${hour}`"
-          class="tool-heat__col"
-          @mouseenter="hover = { hour }"
-        >
-          <i :style="{ height: `${(summary.hourTotals[hour] / maxHour) * 100}%` }" data-reveal="grow-y" />
-        </span>
-        <span />
+          <template v-for="(row, day) in summary.grid" :key="DAYS[day]">
+            <span class="tool-heat__day" aria-hidden="true">{{ DAYS[day] }}</span>
+            <i
+              v-for="hour in HOURS"
+              :key="hour"
+              class="tool-heat__cell"
+              :class="{ 'tool-heat__cell--active': hover && 'hour' in hover && 'day' in hover && hover.day === day && hover.hour === hour }"
+              :data-level="heatLevel(row[hour], summary.max)"
+              @mouseenter="hover = { day, hour }"
+            >{{ formatCellCount(row[hour]) }}</i>
+            <span class="tool-heat__total" @mouseenter="hover = { day }">
+              <span class="ad-track">
+                <i
+                  :style="{ width: `${(summary.dayTotals[day] / maxDay) * 100}%`, background: 'var(--chart-primary)' }"
+                  data-reveal="grow-x"
+                />
+              </span>
+            </span>
+          </template>
+
+          <span />
+          <span
+            v-for="hour in HOURS"
+            :key="`t${hour}`"
+            class="tool-heat__col"
+            @mouseenter="hover = { hour }"
+          >
+            <i :style="{ height: `${(summary.hourTotals[hour] / maxHour) * 100}%` }" data-reveal="grow-y" />
+          </span>
+          <span />
+        </div>
       </div>
 
       <div class="ad-foot">
@@ -132,6 +135,10 @@ const ariaLabel = computed(() => {
 </template>
 
 <style scoped>
+.tool-heat-wrap {
+  container-type: inline-size;
+}
+
 .tool-heat {
   display: grid;
   grid-template-columns: 32px repeat(24, minmax(0, 1fr)) minmax(40px, 64px);
@@ -152,10 +159,30 @@ const ariaLabel = computed(() => {
 }
 
 .tool-heat__cell {
-  display: block;
-  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  overflow: hidden;
   border-radius: 2px;
   background: var(--surface-secondary);
+  font: normal 500 10px / 1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tool-heat__cell[data-level="4"],
+.tool-heat__cell[data-level="5"] {
+  color: var(--text-on-emphasis);
+}
+
+/* Under about 28px a cell, counts would clip: the hover readout carries them. */
+@container (max-width: 760px) {
+  .tool-heat__cell {
+    font-size: 0;
+  }
 }
 
 .tool-heat__cell[data-level="0"] {
@@ -195,7 +222,7 @@ const ariaLabel = computed(() => {
 .tool-heat__total {
   display: flex;
   align-items: center;
-  height: 20px;
+  height: 22px;
   padding-left: 6px;
 }
 

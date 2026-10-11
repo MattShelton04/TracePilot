@@ -293,7 +293,8 @@
 .ad-rowh {
   height: 22px;
   font-size: 11px;
-  color: var(--text-tertiary);
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .ad-row {
