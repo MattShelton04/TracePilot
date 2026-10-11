@@ -25,8 +25,7 @@
     grid-template-columns: 1fr;
   }
   .page-content {
-    --page-content-padding: 16px;
-    padding: var(--page-content-padding);
+    padding: 16px;
     padding-bottom: 72px;
   }
 
