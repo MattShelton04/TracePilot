@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "fd25db9a81a285a7537ed85e9cbb88422bc3aeb6",
-  "headSha": "b581415a7c1e4d8897aab32bdb288a336e4fc4ab",
+  "baseSha": "77952a0df861a95df43cc27b18927d990187ed12",
+  "headSha": "3f2e4cec6cc3ac2fc4073d7b48d4d948e5637a7c",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -46,8 +46,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/8bbe2ee8695eab5b90541948089d0542c8e6f99c426949abe93162a038d6a1e2.png",
-        "after": "../../img/8bbe2ee8695eab5b90541948089d0542c8e6f99c426949abe93162a038d6a1e2.png",
+        "before": "../../img/f8c7796e511e698ac0382a616bdc9915ad78f7e8972130000ebc67ca6a6cb094.png",
+        "after": "../../img/f8c7796e511e698ac0382a616bdc9915ad78f7e8972130000ebc67ca6a6cb094.png",
         "difference": null,
         "closeUps": []
       },
@@ -190,8 +190,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/a385d85c92f756ea567ce6ef38dfa47f20d2739995fcc4e8979f5a0355452959.png",
-        "after": "../../img/a385d85c92f756ea567ce6ef38dfa47f20d2739995fcc4e8979f5a0355452959.png",
+        "before": "../../img/3acc9ac4b47ae7a053fb1dba8bd104ac5bfd0a13f41d89aff5450025562315fd.png",
+        "after": "../../img/3acc9ac4b47ae7a053fb1dba8bd104ac5bfd0a13f41d89aff5450025562315fd.png",
         "difference": null,
         "closeUps": []
       },
@@ -244,8 +244,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/5d2d7d689276d72b871fa4733a4f2ceb699806ddb10cc7ff00b2484df1a6b650.png",
-        "after": "../../img/5d2d7d689276d72b871fa4733a4f2ceb699806ddb10cc7ff00b2484df1a6b650.png",
+        "before": "../../img/936e1e23ffeb169c4e234a14a85cb724129f15990f0a51d8966cc61b4ee10cc4.png",
+        "after": "../../img/936e1e23ffeb169c4e234a14a85cb724129f15990f0a51d8966cc61b4ee10cc4.png",
         "difference": null,
         "closeUps": []
       },
@@ -310,15 +310,23 @@
       "group": "overview",
       "route": "/analytics",
       "state": "populated",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 826750,
+      "percent": 59.805410879629626,
+      "areas": [
+        {
+          "x": 268,
+          "y": 217,
+          "width": 1144,
+          "height": 743,
+          "pixels": 826750
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
-        "after": "../../img/829b749d2feb6112afc85351641bfbf076a542fd101c274e66680a322eb6cdf3.png",
-        "difference": null,
+        "after": "../../img/b62586deb39537b89cbf2d901edbf70ed1622ffe9645b6ebc9ddc314d8745785.png",
+        "difference": "../../img/2d3a542c10df08d40a43914099d3501f718d893487bd9dbfd1686151e4833608.png",
         "closeUps": []
       },
       "limitations": []
@@ -1390,35 +1398,16 @@
       "group": "rich-tools",
       "route": "/session/72510000-0000-4000-8000-000000000001/conversation",
       "state": "Synthetic view · fetched source · first page",
-      "change": "changed",
-      "changedPixels": 4607,
-      "percent": 0.33326099537037035,
-      "areas": [
-        {
-          "x": 1312,
-          "y": 884,
-          "width": 100,
-          "height": 64,
-          "pixels": 4607
-        }
-      ],
+      "change": "unchanged",
+      "changedPixels": 0,
+      "percent": 0,
+      "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/1f16d1f7e4c45513b02d50b92b5b0fd71c5b3d0ef1f10e02b6fc84e23c1179d6.png",
+        "before": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
         "after": "../../img/6925ce947d7fcbe48e825ace4668a593bb8b800508a9df99deea7cdb4083c9d1.png",
-        "difference": "../../img/ee48f5c993690f11c290c528a95bccc1c3417c78b4b428fb4bd2b8e225cb53a4.png",
-        "closeUps": [
-          {
-            "rect": {
-              "x": 960,
-              "y": 760,
-              "width": 480,
-              "height": 200
-            },
-            "before": "../../img/04315f7a399c78c54887ca7c659263637fcd95653b9a29c8558e76bebb9e5ec5.png",
-            "after": "../../img/554f09d28e95e28c9474776e3ad44428e4eb65d01b1a9e6bb061265f82a05ef5.png"
-          }
-        ]
+        "difference": null,
+        "closeUps": []
       },
       "limitations": []
     },
