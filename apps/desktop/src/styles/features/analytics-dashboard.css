@@ -87,7 +87,7 @@
 
 /* A word in place of a number reads as text, not a figure. */
 .ad-tile__value--text {
-  font: 500 14px/22px var(--font-family);
+  font: 500 14px / 22px var(--font-family);
 }
 
 .ad-tile__value small {
