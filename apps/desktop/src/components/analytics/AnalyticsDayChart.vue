@@ -5,10 +5,15 @@
  * share one coordinate space (percent of the plot), so a pin sits over the
  * column it belongs to. Column count, tick density and pin merging follow
  * the measured width; past one column per few pixels, days merge into bins.
+ *
+ * New results morph from the old ones: bars scale from their previous
+ * height (days not shown before grow from the baseline) and lines move to
+ * their new shape, matched by series. A resize redraws without motion.
  */
 import { Tooltip } from "@tracepilot/ui";
 import { OctagonX, TriangleAlert } from "lucide-vue-next";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onBeforeUpdate, onUpdated, ref, watch } from "vue";
+import { motionAllowed } from "@/composables/useFirstReveal";
 import {
   binRows,
   type DayRow,
@@ -16,6 +21,7 @@ import {
   errorPins,
   tickIndices,
 } from "@/utils/analyticsDashboard";
+import { columnCentre, easeOutCubic, resample, sampleAt } from "@/utils/chartMorph";
 import { niceTicks } from "@/utils/niceTicks";
 
 const props = withDefaults(
@@ -87,23 +93,154 @@ const narrow = computed(() => columns.value.length < 12);
 const pct = (value: number) => (axis.value.max > 0 ? (value / axis.value.max) * 100 : 0);
 const centre = (i: number) => ((i + 0.5) / columns.value.length) * 100;
 
-/** The top edge of each stacked series, as SVG points in a 100×100 box. */
-const lineBands = computed(() => {
-  if (shownMode.value !== "lines") return [];
+/** Each series' top edge per column, stacked, in percent of the plot height. */
+const levels = computed(() => {
+  if (shownMode.value !== "lines") return new Map<string, number[]>();
   const running = columns.value.map(() => 0);
-  return props.series.map((series, j) => {
-    const lower = running.map((value, i) => `${centre(i)},${100 - pct(value)}`);
-    columns.value.forEach((row, i) => {
-      running[i] += row.values[j];
-    });
-    const upper = running.map((value, i) => `${centre(i)},${100 - pct(value)}`);
-    return {
-      ...series,
-      line: upper.join(" "),
-      area: `${upper.join(" ")} ${[...lower].reverse().join(" ")}`,
-      tops: [...running],
+  return new Map(
+    props.series.map((series, j) => {
+      columns.value.forEach((row, i) => {
+        running[i] += row.values[j];
+      });
+      return [series.key, running.map(pct)] as const;
+    }),
+  );
+});
+
+// Lines are drawn from `shown`, which follows `levels`. New results tween
+// from what was on screen, read at each new column's position, so a change
+// of range morphs too; a resize re-bins the same rows and redraws at once.
+const MORPH_MS = 450;
+const shown = ref(new Map<string, number[]>());
+let lineFrame = 0;
+let drawnRows = props.rows;
+let drawnSeries = props.series;
+watch(
+  levels,
+  (next) => {
+    cancelAnimationFrame(lineFrame);
+    const changed = props.rows !== drawnRows || props.series !== drawnSeries;
+    drawnRows = props.rows;
+    drawnSeries = props.series;
+    const from = shown.value;
+    if (!changed || from.size === 0 || next.size === 0 || !motionAllowed()) {
+      shown.value = next;
+      return;
+    }
+    // A series still on the chart starts where it was. One new to it (a
+    // new metric or source) starts as its share of the old total.
+    const count = columns.value.length;
+    const zero = new Array<number>(count).fill(0);
+    const oldTotal = resample([...from.values()].at(-1) ?? [], count);
+    const newTotal = [...next.values()].at(-1) ?? zero;
+    const start = new Map<string, number[]>();
+    for (const [key, tops] of next) {
+      const old = from.get(key);
+      start.set(
+        key,
+        old
+          ? resample(old, count)
+          : tops.map((v, i) => (newTotal[i] > 0 ? (oldTotal[i] * v) / newTotal[i] : 0)),
+      );
+    }
+    const frameAt = (t: number) =>
+      new Map(
+        [...next].map(([key, tops]) => {
+          const a = start.get(key) ?? zero;
+          return [key, tops.map((v, i) => a[i] + (v - a[i]) * easeOutCubic(t))];
+        }),
+      );
+    shown.value = frameAt(0);
+    const began = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, Math.max(0, (now - began) / MORPH_MS));
+      shown.value = t < 1 ? frameAt(t) : next;
+      if (t < 1) lineFrame = requestAnimationFrame(tick);
     };
+    lineFrame = requestAnimationFrame(tick);
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => cancelAnimationFrame(lineFrame));
+
+/** Each stacked series as SVG points in a 100×100 box. */
+const lineBands = computed(() => {
+  let lower = columns.value.map(() => 0);
+  return props.series.flatMap((series) => {
+    const tops = shown.value.get(series.key);
+    if (!tops || tops.length !== columns.value.length) return [];
+    const upper = tops.map((value, i) => `${centre(i)},${100 - value}`);
+    const base = lower.map((value, i) => `${centre(i)},${100 - value}`);
+    lower = tops;
+    return [
+      {
+        ...series,
+        line: upper.join(" "),
+        area: `${upper.join(" ")} ${[...base].reverse().join(" ")}`,
+        tops: levels.value.get(series.key) ?? tops,
+      },
+    ];
   });
+});
+
+// Bars: before the DOM changes for new results, note the height drawn at
+// each column's position; after it, scale each bar from the height that was
+// at its own position (FLIP, transform only). Switching between bars and
+// lines grows the new chart from the baseline.
+let drawnBars: [number, number][] = [];
+let morphing = false;
+let modeBefore = shownMode.value;
+watch(
+  () => [props.rows, props.series, props.mode],
+  () => {
+    morphing = true;
+  },
+  { flush: "pre" },
+);
+onBeforeUpdate(() => {
+  const plot = plotEl.value;
+  if (!morphing || !plot) return;
+  const box = plot.getBoundingClientRect();
+  drawnBars = [...plot.querySelectorAll<HTMLElement>(".day-chart__col")].map((col) => {
+    const rect = col.getBoundingClientRect();
+    const bar = col.querySelector(".day-chart__stack")?.getBoundingClientRect();
+    return [((rect.left + rect.width / 2 - box.left) / box.width) * 100, bar?.height ?? 0];
+  });
+});
+onUpdated(() => {
+  const plot = plotEl.value;
+  if (!morphing || !plot) return;
+  morphing = false;
+  const regrow = modeBefore !== shownMode.value;
+  modeBefore = shownMode.value;
+  const before = regrow ? [] : drawnBars;
+  drawnBars = [];
+  if (!motionAllowed()) return;
+  const moves: [HTMLElement | SVGElement, number][] = [];
+  if (shownMode.value === "bars") {
+    const count = columns.value.length;
+    plot.querySelectorAll<HTMLElement>(".day-chart__col").forEach((col, i) => {
+      const bar = col.querySelector<HTMLElement>(".day-chart__stack");
+      const height = bar?.offsetHeight ?? 0;
+      const from = sampleAt(before, columnCentre(i, count));
+      if (bar && height > 0 && Math.abs(from - height) > 0.5) moves.push([bar, from / height]);
+    });
+  } else if (regrow) {
+    const svg = plot.querySelector<SVGElement>(".day-chart__lines");
+    if (svg) moves.push([svg, 0]);
+  }
+  for (const [el, scale] of moves) {
+    el.style.transition = "none";
+    el.style.transform = `scaleY(${scale})`;
+  }
+  void plot.offsetHeight;
+  for (const [el] of moves) {
+    el.style.transition = `transform ${MORPH_MS}ms var(--ease-out)`;
+    el.style.transform = "";
+    el.addEventListener("transitionend", () => el.style.removeProperty("transition"), {
+      once: true,
+    });
+  }
 });
 
 const yearSpan = computed(() => {
@@ -454,6 +591,7 @@ const readout = computed(() => {
 }
 
 .day-chart__stack {
+  transform-origin: 50% 100%;
   display: flex;
   flex-direction: column-reverse;
   gap: 1px;
@@ -487,6 +625,7 @@ const readout = computed(() => {
 }
 
 .day-chart__lines {
+  transform-origin: 50% 100%;
   position: absolute;
   inset: 0;
   width: 100%;
