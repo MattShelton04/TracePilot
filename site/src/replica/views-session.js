@@ -1,5 +1,7 @@
 import { D } from "../data.js";
-import { dateTime, fmtAic, lat } from "../lib/format.js";
+import { lat } from "../lib/format.js";
+import { overviewHTML } from "../lib/overview.js";
+import { isClaude, runLabel, sourceLogo, sourceSwitch } from "../lib/sources.js";
 import { ic } from "./icons.js";
 import {
   AG,
@@ -22,6 +24,8 @@ import {
 /* ============================================================ view HTML */
 export function sessionCard(s, extraCls) {
   const live = s.isRunning;
+  const waiting = live && s.runStatus === "waiting";
+  const claude = isClaude(s);
   let stats =
     '<span class="scard-stat">' +
     ic("activity", 14) +
@@ -38,6 +42,8 @@ export function sessionCard(s, extraCls) {
   return (
     '<button type="button" class="rp-card scard' +
     (live ? " is-live" : "") +
+    (waiting ? " is-waiting" : "") +
+    (claude ? " is-claude" : "") +
     (extraCls ? ` ${extraCls}` : "") +
     '" data-session="' +
     s.id +
@@ -49,15 +55,17 @@ export function sessionCard(s, extraCls) {
     '<span class="scard-title">' +
     esc(s.summary) +
     "</span></span>" +
-    (live ? '<span class="rp-badge rp-badge--success scard-active">Active</span>' : "") +
+    (live
+      ? `<span class="rp-badge ${waiting ? "rp-badge--warning" : "rp-badge--success"} scard-active">${runLabel(s)}</span>`
+      : "") +
     '<span class="rp-chips">' +
     chips(s) +
     "</span>" +
     '<span class="scard-foot"><span class="scard-stats">' +
     stats +
-    '</span><span class="scard-time">' +
+    '</span><span class="scard-end"><span class="scard-time">' +
     (s.timeLabel || relTime(s.updatedAt)) +
-    "</span></span>" +
+    `</span><span class="scard-src">${sourceLogo(s.source, 16)}</span></span></span>` +
     "</button>"
   );
 }
@@ -71,10 +79,8 @@ export function viewSessions() {
     '<div class="rp-select">All Repos ' +
     ic("chevD", 14) +
     "</div>" +
-    '<div class="rp-select">All Branches ' +
-    ic("chevD", 14) +
-    "</div>" +
-    '<div class="rp-select">Newest first ' +
+    sourceSwitch("rp-srcswitch") +
+    '<div class="rp-select rp-select--sort">Newest first ' +
     ic("chevD", 14) +
     "</div>" +
     '<span class="lib-count">' +
@@ -161,69 +167,7 @@ export function stat(v, l, cls, attrs) {
 }
 
 export function panelOverview() {
-  const s = D.heroDetail,
-    m = D.heroMetrics,
-    inc = D.heroIncidents[0];
-  const aic = D.costs.hero.aic;
-  return (
-    '<div class="rp-stats">' +
-    stat(String(s.eventCount), "Events", "c-accent", ` data-count="${s.eventCount}"`) +
-    stat(String(s.turnCount), "Turns", "c-accent", ` data-count="${s.turnCount}"`) +
-    stat(
-      String(s.checkpointCount),
-      "Checkpoints",
-      "c-success",
-      ` data-count="${s.checkpointCount}"`,
-    ) +
-    stat(
-      fmtAic(aic),
-      "AI Credits",
-      "c-done",
-      ` data-count="${aic}" data-dec="1" data-suffix=" AIC"`,
-    ) +
-    "</div>" +
-    '<div class="ov-grid">' +
-    '<div class="rp-card rp-panel"><div class="rp-panel-head"><span class="rp-section-title">Session info</span></div><div class="rp-panel-body"><dl class="kv">' +
-    "<dt>Session ID</dt><dd>" +
-    s.id +
-    "</dd><dt>Repository</dt><dd>" +
-    esc(s.repository) +
-    "</dd><dt>Branch</dt><dd>" +
-    esc(s.branch) +
-    "</dd><dt>Model</dt><dd>" +
-    s.currentModel +
-    "</dd><dt>Host</dt><dd>" +
-    esc(s.hostType) +
-    "</dd><dt>Duration</dt><dd>" +
-    fmtDur(m.totalApiDurationMs) +
-    "</dd><dt>Created</dt><dd>" +
-    dateTime(s.createdAt) +
-    "</dd><dt>Updated</dt><dd>" +
-    dateTime(s.updatedAt) +
-    "</dd></dl></div></div>" +
-    '<div class="rp-card rp-panel"><div class="rp-panel-head"><span class="rp-section-title">Session summary</span></div><div class="rp-panel-body"><p style="margin-bottom:14px">' +
-    esc(s.summary) +
-    '</p><dl class="kv">' +
-    "<dt>API Duration</dt><dd>" +
-    fmtDur(m.totalApiDurationMs) +
-    '</dd><dt>Current Model</dt><dd><span class="rp-badge rp-badge--done">' +
-    m.currentModel +
-    "</span></dd><dt>Shutdown Type</dt><dd>" +
-    esc(m.shutdownType) +
-    '</dd><dt>Code Changes</dt><dd><b class="c-success">+' +
-    m.codeChanges.linesAdded +
-    '</b> <span class="c-muted">/</span> <b class="c-danger">−' +
-    m.codeChanges.linesRemoved +
-    "</b></dd></dl></div></div>" +
-    "</div>" +
-    '<div class="rp-card ov-incident"><b>Incidents</b><span class="count">' +
-    D.heroIncidents.length +
-    '</span><span class="rp-badge rp-badge--warning">Compaction</span><span>' +
-    esc(inc.summary) +
-    '</span><span class="c-muted" style="margin-left:auto">' +
-    clock(inc.timestamp) +
-    "</span></div>"
-  );
+  return overviewHTML(true);
 }
 
 export function panelConversation() {

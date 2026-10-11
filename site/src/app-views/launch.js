@@ -34,6 +34,8 @@ export function buildLaunch(win) {
     branch: "feature/apple-pay",
     currentModel: "claude-opus-5.5",
     hostType: "cli",
+    source: "copilot",
+    runStatus: "busy",
     eventCount: 3,
     turnCount: 1,
     errorCount: 0,

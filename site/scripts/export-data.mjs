@@ -20,9 +20,38 @@ const { showcaseSearch, showcaseSkills, showcaseSkillUsage, SEARCH_QUERY } =
 const common = await showcase("common");
 
 const call = (v) => (typeof v === "function" ? v({}) : v);
-const sessions = sessionListItems();
+
+// The showcase fixtures are all Copilot CLI sessions. The library shows a few as Claude Code
+// sessions (no host, the source's own run state) so the page shows both sources; like
+// AGENT_RUNS in src/data.js this is illustrative and kept by hand.
+const CLAUDE_CODE = new Set([
+  "Fix flaky Playwright checkout tests",
+  "Audit dark-mode design tokens",
+  "Draft ADR for event sourcing",
+  "Triage Dependabot alerts",
+]);
+const RUN_STATUS = {
+  "Add Apple Pay to checkout": "busy",
+  "Fix flaky Playwright checkout tests": "waiting",
+};
+const sessions = sessionListItems().map((s) => {
+  const runStatus = RUN_STATUS[s.summary] ?? null;
+  if (!CLAUDE_CODE.has(s.summary)) return { ...s, source: "copilot", runStatus };
+  return {
+    ...s,
+    source: "claudeCode",
+    hostType: null,
+    copilotVersion: null,
+    isRunning: s.isRunning || runStatus != null,
+    runStatus,
+  };
+});
 const analytics = call(showcaseAnalytics);
-const heroDetail = sessionDetail(common.HERO_SESSION_ID, hero.heroShutdownMetrics);
+const heroDetail = {
+  ...sessionDetail(common.HERO_SESSION_ID, hero.heroShutdownMetrics),
+  source: "copilot",
+  runStatus: "busy",
+};
 
 const usdToCost = (aic) => ({ aic, usd: aic * AI_CREDIT_USD });
 function creditsFor(modelMetrics, at) {
@@ -66,6 +95,9 @@ const data = {
   sessions: sessions.slice(0, 24),
   heroDetail,
   heroTurns: { 8: storyTurn, 9: heroTurns[9] },
+  // turn start times for the Overview's Activity chart
+  heroTurnStarts: heroTurns.map((t) => t.timestamp),
+  heroCheckpoint: hero.heroCheckpoints.at(-1)?.title,
   agentTurn: storyTurn.turnIndex,
   agentTurnCount: agentTurns.length,
   heroTodos: hero.heroTodos,
@@ -108,7 +140,60 @@ const data = {
   search: pick(showcaseSearch, ["search_content", "get_search_facets", "get_search_stats"]),
   skills: showcaseSkills,
   skillUsage: showcaseSkillUsage,
+
+  // ---- Analytics, Tools, Code and Models replicas (src/replica/views-analytics.js, bento) ----
+  // Compact extras the redesigned pages chart; arrays run over analytics.activityPerDay's days.
+  analyticsMore: analyticsMore((await showcase("sessions")).showcaseSessions),
 };
+
+function analyticsMore(showcaseSessions) {
+  const days = analytics.activityPerDay.map((d) => d.date);
+  const round1 = (n) => Math.round(n * 10) / 10;
+  // AI Credits per day, priced like costs.all (current rates), for the Activity "Cost" metric.
+  const aicByDay = days.map((date) => {
+    const rows = analytics.modelUsageByDay.filter((r) => r.date === date);
+    if (!rows.length) return 0;
+    const metrics = Object.fromEntries(
+      rows.map((r) => [
+        r.model,
+        {
+          usage: {
+            inputTokens: r.inputTokens,
+            outputTokens: r.outputTokens,
+            cacheReadTokens: r.cacheReadTokens,
+            cacheWriteTokens: r.cacheWriteTokens,
+          },
+        },
+      ]),
+    );
+    return round1(creditsFor(metrics).aic);
+  });
+  const modelAic = analytics.modelDistribution.map((m) =>
+    round1(creditsFor({ [m.model]: byModel[m.model] }).aic),
+  );
+  // Tool calls per day, by each session's last day (as the app's callsByDay).
+  const callsByDay = days.map((date) =>
+    showcaseSessions
+      .filter((s) => s.updatedAt.slice(0, 10) === date)
+      .reduce((n, s) => n + s._usage.toolCalls, 0),
+  );
+  const inc = new Map(analytics.incidentsByDay.map((r) => [r.date, r]));
+  const tools = call(showcaseToolAnalysis);
+  return {
+    aicByDay,
+    modelAic,
+    callsByDay,
+    // [errors, rateLimits, compactions] per day
+    incidentsByDay: days.map((date) => {
+      const r = inc.get(date);
+      return r ? [r.errors, r.rateLimits, r.compactions] : 0;
+    }),
+    apiDurationStats: analytics.apiDurationStats,
+    productivityMetrics: analytics.productivityMetrics,
+    // weekday (Mon first) × hour counts, row-major
+    toolHeatmap: tools.activityHeatmap.map((c) => c.count),
+  };
+}
 
 validateShowcase(data);
 const out = join(here, "../src/data/showcase.json");

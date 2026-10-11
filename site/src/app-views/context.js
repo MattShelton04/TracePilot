@@ -119,7 +119,7 @@ export function buildContext(win) {
         <div class="stile panel"><span class="v v-indigo" data-count-to="${D.costs.hero.aic}" data-fmt="aic">${fmtAic(D.costs.hero.aic)}</span><span class="l">AI Credits (estimate)</span></div>
         <div class="stile panel"><span class="v v-indigo" data-count-to="${D.costs.hero.usd}" data-fmt="usd">${fmtUsd(D.costs.hero.usd)}</span><span class="l">AIC USD equivalent</span></div>
         <div class="stile panel"><span class="v v-violet" data-count-to="${CTX.totalTok}" data-fmt="k">${fmtK(CTX.totalTok)}</span><span class="l">Total Tokens</span></div>
-        <div class="stile panel"><span class="v v-violet" data-count-to="${D.heroMetrics.totalApiDurationMs / 1000}" data-fmt="dur">${dur(D.heroMetrics.totalApiDurationMs)}</span><span class="l">API Duration</span></div>
+        <div class="stile panel"><span class="v v-violet" data-count-to="${D.heroMetrics.totalApiDurationMs / 1000}" data-fmt="dur">${dur(D.heroMetrics.totalApiDurationMs)}</span><span class="l">API Time</span></div>
       </div>
       <div class="met-note">Estimated from GitHub token rates</div>
       <div class="met-toggle"><span class="on">By model</span><span>By agent</span></div>
@@ -150,7 +150,8 @@ export function buildContext(win) {
         </div>
         <div class="panel ctx-chart"><div class="panel-h">Context pressure by turn</div>
           <div class="legend2"><span class="lchip"><i style="background:#a78bfa"></i>System prompt</span><span class="lchip"><i style="background:#6366f1"></i>Tool definitions</span><span class="lchip"><i style="background:#fbbf24"></i>Conversation</span>
-            <span class="sm"><i style="width:5px;height:5px;border-radius:50%;background:#818cf8;display:inline-block"></i>User message</span><span class="sm"><i style="width:14px;border-top:2px dotted #fbbf24;display:inline-block"></i>Pressure level</span></div>
+            <span class="sm"><i style="width:5px;height:5px;border-radius:50%;background:#818cf8;display:inline-block"></i>User message</span><span class="sm"><i style="width:14px;border-top:2px dotted #fbbf24;display:inline-block"></i>Pressure level</span>
+            <span class="zctl"><span class="zseg"><b>Turn</b><span>Time</span></span><span class="zb">−</span><span class="zb">+</span><span class="zb">Reset</span></span></div>
           <div class="chart-wrap" style="position:relative;padding:6px 0 0 0">${svg}<span class="readout"><i>Turn</i> <span class="ro-t">0</span> · <span class="ro-v">42.7K</span><span class="ro-c">0 AIC</span></span>
             <span class="cliff-note" style="left:${cx + 14}px;top:${Y(120000)}px;opacity:0">${ic("rotate")}Compaction · ${fmtInt(D.compaction.before)} → ${fmtInt(D.compaction.after)} tokens</span></div>
         </div>

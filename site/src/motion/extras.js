@@ -1,6 +1,8 @@
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
 import { anchorY } from "./anchors.js";
+import { hashTarget, pinnedScene, playScene } from "./autoplay.js";
 import { $, $$, DESK, REDUCE } from "./env.js";
+import { Tour } from "./tour.js";
 
 export function initPrivacy() {
   if (REDUCE) return;
@@ -75,25 +77,33 @@ export function initNav() {
       onToggle: (st) => a.classList.toggle("is-current", st.isActive),
     });
   });
-  // in-page links to pinned scenes: jump to the pin start (see anchorY), not the scene's live position
-  const pinned = (hash) => {
-    const el = hash.length > 1 && document.getElementById(hash.slice(1));
-    return el && ScrollTrigger.getAll().some((t) => t.pin === el) ? el : null;
-  };
+  // in-page links to pinned scenes jump to where the scene begins (see anchorY; a native jump would
+  // land a whole scene late) and play it through (autoplay.js)
   document.addEventListener("click", (e) => {
     const a = e.target.closest?.('a[href^="#"]');
     if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
       return;
-    const el = pinned(a.getAttribute("href"));
+    const el = pinnedScene(a.getAttribute("href"));
     if (!el) return;
     e.preventDefault();
-    history.pushState(null, "", a.getAttribute("href"));
-    scrollTo(0, anchorY(el));
+    if (location.hash !== a.hash) history.pushState(null, "", a.hash);
+    playScene(el);
+  });
+  // Back and Forward between sections, and an edited hash; after the browser restores its own
+  // scroll position for the history entry, which would otherwise cut the glide short
+  addEventListener("hashchange", () => {
+    if (Tour.on) return;
+    const el = pinnedScene(location.hash);
+    if (el) setTimeout(() => playScene(el), 60);
   });
   // a deep link was resolved before the pins added their scroll length; resolve it again
   if (location.hash.length > 1) {
-    const el = document.getElementById(location.hash.slice(1));
-    if (el) scrollTo(0, anchorY(el));
+    const el = pinnedScene(location.hash);
+    if (el) playScene(el, { delay: 700 });
+    else {
+      const sec = hashTarget(location.hash);
+      if (sec) scrollTo(0, anchorY(sec));
+    }
   }
 }
 

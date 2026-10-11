@@ -1,41 +1,92 @@
 import { AGENT_RUNS, D } from "../data.js";
 import { fmtPct, fmtUsd } from "../lib/format.js";
-import { AGENTS, esc, fmtInt, fmtK, ic, seeded, smoothPath, sparkPath, tile } from "./helpers.js";
+import { AGENTS, esc, fmtInt, fmtK, ic, seeded, sparkPath, tile } from "./helpers.js";
 
 export function buildBento(el) {
   const A = D.analytics;
-  const raw = A.tokenUsageByDay.slice(-62).map((d) => d.tokens);
-  // 7-day rolling mean, drawn as a smooth curve: the trend, not daily noise
-  const days = raw.slice(6).map((_, i) => raw.slice(i, i + 7).reduce((a, b) => a + b, 0) / 7);
-  const tokSpark = smoothPath(days, 460, 120, 8);
+  const AM = D.analyticsMore;
   const all = D.costs.all;
+  const first = Math.max(
+    0,
+    A.activityPerDay.findIndex((d) => d.count > 0),
+  );
+  const dates = A.activityPerDay.slice(first).map((d) => d.date);
+  const shortDay = (iso) =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  // The dashboard's KPI strip: a figure, then the bar or meter that explains it.
+  const binned = (vals, max) => {
+    const size = Math.ceil(vals.length / max),
+      out = [];
+    for (let i = 0; i < vals.length; i += size)
+      out.push(vals.slice(i, i + size).reduce((a, b) => a + b, 0));
+    return out;
+  };
+  const strip = (vals, color) => {
+    const b = binned(vals, 30),
+      max = Math.max(1, ...b);
+    return (
+      '<div class="bk-strip">' +
+      b
+        .map((v) =>
+          v
+            ? `<i class="vb" style="height:${Math.max(14, (v / max) * 100).toFixed(1)}%;background:${color}"></i>`
+            : '<i class="z"></i>',
+        )
+        .join("") +
+      "</div>"
+    );
+  };
+  const meter = (parts) =>
+    `<div class="bk-meter">${parts.map(([w, c]) => `<i class="f" style="width:${w}%;background:${c}"></i>`).join("")}</div>`;
+  const kpi = (label, value, foot) =>
+    `<div class="bk"><span class="bk-l">${label}</span><b>${value}</b>${foot}</div>`;
+  const md = A.modelDistribution;
+  const sumOf = (k) => md.reduce((n, m) => n + m[k], 0);
+  const input = sumOf("inputTokens");
+  const tokParts = [
+    [sumOf("cacheReadTokens"), "#6366f1"],
+    [sumOf("cacheWriteTokens"), "#a78bfa"],
+    [input - sumOf("cacheReadTokens") - sumOf("cacheWriteTokens"), "#22d3ee"],
+    [sumOf("outputTokens"), "#34d399"],
+  ].map(([v, c]) => [((v / A.totalTokens) * 100).toFixed(1), c]);
+  // Activity: AI Credits per day, as the dashboard's default Cost bars.
+  const cost = AM.aicByDay.slice(first);
+  const top = Math.ceil(Math.max(...cost) / 2000) * 2000;
   const analytics =
-    '<div class="kpis"><div class="kpi"><b style="color:#818cf8" data-count="' +
-    A.totalSessions +
-    '">' +
-    A.totalSessions +
-    "</b><span>Total Sessions</span></div>" +
-    '<div class="kpi"><b style="color:#a78bfa">' +
-    (A.totalTokens / 1e6).toFixed(1) +
-    "M</b><span>Total Tokens</span></div>" +
-    '<div class="kpi"><b style="color:#a78bfa" data-count="' +
-    Math.round(all.aic) +
-    '" data-suffix=" AIC">' +
-    fmtInt(all.aic) +
-    " AIC</b><span>AI Credits</span></div>" +
-    '<div class="kpi"><b style="color:#34d399">' +
-    fmtUsd(all.usd) +
-    "</b><span>AIC USD Equivalent</span></div></div>" +
-    '<div class="mini-h"><span>Token usage over time</span><span>last 8 weeks</span></div>' +
-    '<svg class="spark-svg" viewBox="0 0 460 120" preserveAspectRatio="none" height="120"><defs><linearGradient id="tokfill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6366f1" stop-opacity=".28"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></linearGradient></defs>' +
-    [30, 60, 90]
-      .map((y) => `<line x1="0" x2="460" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.05)"/>`)
+    '<div class="bk-row">' +
+    kpi(
+      "Sessions",
+      `<span data-count="${A.totalSessions}">${A.totalSessions}</span>`,
+      strip(
+        A.activityPerDay.slice(first).map((d) => d.count),
+        "#6366f1",
+      ),
+    ) +
+    kpi(
+      "Tokens",
+      `${(A.totalTokens / 1e9).toFixed(1)}B`,
+      `${meter(tokParts)}<span class="bk-n">${Math.round(tokParts[0][0])}% cache reads</span>`,
+    ) +
+    kpi(
+      "AI Credits",
+      `<span data-count="${Math.round(all.aic)}">${fmtInt(all.aic)}</span><small>AIC</small>`,
+      `<span class="bk-n">≈ ${fmtUsd(all.usd)}</span>`,
+    ) +
+    "</div>" +
+    '<div class="mini-h"><span>Activity</span><span class="bk-seg"><em>Cost</em>Tokens · Runs</span></div>' +
+    `<div class="bk-chart"><div class="bk-grid" style="bottom:50%"><span>${fmtK(top / 2)}</span></div><div class="bk-grid" style="bottom:100%"><span>${fmtK(top)}</span></div><div class="bk-cols">` +
+    cost
+      .map((v) =>
+        v
+          ? `<i class="vb" style="height:${((v / top) * 100).toFixed(1)}%"></i>`
+          : '<i class="z"></i>',
+      )
       .join("") +
-    '<path data-fill d="' +
-    tokSpark +
-    ' L457 120 L3 120 Z" fill="url(#tokfill)"/><path data-draw d="' +
-    tokSpark +
-    '" fill="none" stroke="#6366f1" stroke-width="1.6" stroke-linejoin="round" pathLength="1" stroke-dasharray="1 1"/></svg>';
+    `</div></div><div class="bk-axis"><span>${shortDay(dates[0])}</span><span>${shortDay(dates[Math.floor(dates.length / 2)])}</span><span>${shortDay(dates.at(-1))}</span></div>`;
 
   const agentList = AGENT_RUNS.filter((a) => AGENTS[a.type]);
   const agents =
@@ -274,25 +325,44 @@ export function buildBento(el) {
       .join("");
 
   const TA = D.toolAnalysis;
+  // Tool analysis: calls with their day strip, the failed share, tools ranked by calls.
+  const failed = (t) => Math.round(t.callCount * (1 - t.successRate));
+  const failedAll = TA.tools.reduce((n, t) => n + failed(t), 0);
+  const failPct = (failedAll / TA.totalCalls) * 100;
+  const ranked = TA.tools.slice().sort((a, b) => b.callCount - a.callCount);
   const tools =
-    '<div class="code-kpis"><div class="kpi"><b style="color:#818cf8">' +
-    fmtInt(TA.totalCalls) +
-    '</b><span>Tool calls</span></div><div class="kpi"><b style="color:#34d399">' +
-    Math.round(TA.successRate * 100) +
-    "%</b><span>Success</span></div></div>" +
-    '<div class="mini-h"><span>Invocations</span><span>success</span></div>' +
-    TA.tools
-      .slice(0, 6)
-      .map(
-        (t) =>
-          '<div class="hbar" style="grid-template-columns:64px 1fr 40px"><span class="n">' +
+    '<div class="bk-row bk-row--2">' +
+    kpi(
+      "Tool calls",
+      `<span data-count="${TA.totalCalls}">${fmtInt(TA.totalCalls)}</span>`,
+      strip(AM.callsByDay.slice(first), "#818cf8"),
+    ) +
+    kpi(
+      "Failed",
+      `${Math.round(failPct)}%`,
+      meter([
+        [(100 - failPct).toFixed(1), "#34d399"],
+        [failPct.toFixed(1), "#fb7185"],
+      ]),
+    ) +
+    "</div>" +
+    '<div class="mini-h"><span>Tools</span><span>most used</span></div>' +
+    ranked
+      .slice(0, 8)
+      .map((t) => {
+        const f = failed(t);
+        return (
+          '<div class="hbar bk-tool"><span class="n">' +
           t.name +
-          '</span><span class="t"><span class="f" style="display:block;width:' +
-          ((t.callCount / TA.tools[0].callCount) * 100).toFixed(1) +
-          '%"></span></span><span class="v">' +
-          (t.successRate * 100).toFixed(t.successRate === 1 ? 0 : 1).replace(/\.0$/, "") +
-          "%</span></div>",
-      )
+          '</span><span class="t"><span class="f" style="width:' +
+          (((t.callCount - f) / ranked[0].callCount) * 100).toFixed(1) +
+          '%"></span><span class="f" style="width:' +
+          ((f / ranked[0].callCount) * 100).toFixed(1) +
+          '%;background:#fb7185"></span></span><span class="v">' +
+          fmtK(t.callCount) +
+          "</span></div>"
+        );
+      })
       .join("");
 
   const MD = A.modelDistribution;

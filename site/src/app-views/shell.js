@@ -1,5 +1,6 @@
 import { D, VERSION } from "../data.js";
 import { LOGO_ICON } from "../lib/assets.js";
+import { isClaude, runLabel, SOURCE_LABEL, sourceLogo, sourceSwitch } from "../lib/sources.js";
 import { ic } from "./icons.js";
 
 /* ---------- formatting ---------- */
@@ -38,10 +39,11 @@ export const clock = (iso) => {
 
 export const chipsFor = (s) =>
   [
+    `<span class="chip ${isClaude(s) ? "c-claude" : "c-copilot"}">${SOURCE_LABEL[s.source] ?? "Copilot"}</span>`,
     `<span class="chip c-repo">${esc(s.repository)}</span>`,
     `<span class="chip c-branch">${esc(s.branch)}</span>`,
     `<span class="chip c-model">${esc(s.currentModel)}</span>`,
-    `<span class="chip c-host">${esc(s.hostType)}</span>`,
+    s.hostType ? `<span class="chip c-host">${esc(s.hostType)}</span>` : "",
   ].join("");
 
 /* ---------- shell ---------- */
@@ -128,39 +130,30 @@ export function placeInk(root, key) {
 /* ---------- library ---------- */
 export function cardHTML(s, extra) {
   const active = s.isRunning;
+  const waiting = active && s.runStatus === "waiting";
+  const claude = isClaude(s);
   const foot = [
     `<span>${ic("activity")}<span class="num" data-k="events">${s.eventCount}</span></span>`,
     `<span>${ic("msg")}<span class="num" data-k="turns">${s.turnCount}</span></span>`,
     s.errorCount ? `<span class="err">${ic("alert")}${s.errorCount}</span>` : "",
     s.compactionCount ? `<span class="cmp">${ic("rotate")}${s.compactionCount}</span>` : "",
     `<span class="ago">${extra?.ago ? extra.ago : ago(s.updatedAt)}</span>`,
+    `<span class="src ${claude ? "src-claude" : "src-copilot"}">${sourceLogo(s.source, 15)}</span>`,
   ].join("");
-  return `<div class="card${active ? " is-active" : ""}${extra?.cls ? ` ${extra.cls}` : ""}" data-id="${s.id}">
+  const cls = `${active ? " is-active" : ""}${waiting ? " is-waiting" : ""}${claude ? " is-claude" : ""}`;
+  return `<div class="card${cls}${extra?.cls ? ` ${extra.cls}` : ""}" data-id="${s.id}">
     <div class="card-title">${active ? '<i class="dot-live"></i>' : ""}<span class="t">${esc(s.summary)}</span></div>
-    ${active ? '<span class="badge-active">Active</span>' : ""}
+    ${active ? `<span class="badge-active">${runLabel(s)}</span>` : ""}
     <div class="chips">${chipsFor(s)}</div>
     <div class="card-foot">${foot}</div></div>`;
 }
 export function libraryContent(sessions, count) {
   return `<div class="filterbar panel">
     <div class="fsearch">${ic("search")}Search sessions...</div>
-    <div class="fsel">All Repos${ic("chevD")}</div><div class="fsel">All Branches${ic("chevD")}</div><div class="fsel" style="min-width:120px">Newest first${ic("chevD")}</div>
+    <div class="fsel">All Repos${ic("chevD")}</div>${sourceSwitch("fsrc")}<div class="fsel" style="min-width:120px">Newest first${ic("chevD")}</div>
     <span class="fcount"><span data-count>${count}</span> sessions</span><span class="auto">${ic("refresh")}<span><i></i> Auto</span></span></div>
     <div class="grid">${sessions.map((s) => cardHTML(s, s.__extra)).join("")}</div>`;
 }
-
-export const planHTML = (md) =>
-  md
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .slice(0, 7)
-    .map((l) => {
-      const inl = (t) => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>");
-      if (l.startsWith("# ")) return `<h4>${inl(l.slice(2))}</h4>`;
-      if (l.startsWith("## ")) return `<h5>${inl(l.slice(3))}</h5>`;
-      return `<p>• ${inl(l.replace(/^- /, ""))}</p>`;
-    })
-    .join("");
 
 export const AG = {
   review: { color: "#f472b6", type: "code-review", icon: "eye", label: "Code-review" },

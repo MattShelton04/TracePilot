@@ -199,7 +199,10 @@ export function panelContext(uid) {
     stat(String(D.compaction.count), "Compactions", "c-warning cx-ncomp", "") +
     "</div>" +
     '<div class="rp-card rp-panel"><div class="rp-panel-head"><span class="rp-section-title">Context pressure by turn</span></div><div class="rp-panel-body">' +
-    '<div class="cx-legend"><span class="sw"><i style="background:#9d8cf2"></i>System prompt</span><span class="sw"><i style="background:#5b5bd6"></i>Tool definitions</span><span class="sw"><i style="background:#d9a521"></i>Conversation</span><span class="mini"><i style="width:6px;height:6px;border-radius:50%;background:#818cf8;display:inline-block"></i>User message</span><span class="mini"><i style="width:14px;border-top:2px dotted #fbbf24;display:inline-block"></i>Pressure level</span></div>' +
+    '<div class="cx-legend"><span class="sw"><i style="background:#9d8cf2"></i>System prompt</span><span class="sw"><i style="background:#5b5bd6"></i>Tool definitions</span><span class="sw"><i style="background:#d9a521"></i>Conversation</span><span class="mini"><i style="width:6px;height:6px;border-radius:50%;background:#818cf8;display:inline-block"></i>User message</span><span class="mini"><i style="width:14px;border-top:2px dotted #fbbf24;display:inline-block"></i>Pressure level</span>' +
+    // the app's axis and zoom controls (static here)
+    '<span class="cx-ctrls"><span class="cx-seg"><b>Turn</b><span>Time</span></span><span class="cx-zb">−</span><span class="cx-zb">+</span><span class="cx-zb">Reset</span></span></div>' +
+    '<div class="cx-view">Viewing all turns</div>' +
     '<div class="cx-chart">' +
     contextSVG(uid) +
     "</div></div></div>"

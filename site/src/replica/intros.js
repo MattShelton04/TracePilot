@@ -59,7 +59,7 @@ export const introMethods = {
       this.countUps(v, 1);
       this.track(
         gsap.fromTo(
-          v.querySelectorAll(".rp-panel, .mini-card, .an-charts > *"),
+          v.querySelectorAll(".rp-panel, .mini-card, .an-kpis, .an-stat, .an-mcard"),
           { opacity: 0, y: 12 },
           {
             opacity: 1,
@@ -94,10 +94,16 @@ export const introMethods = {
             delay: 0.25,
           }),
         );
-      const hb = v.querySelectorAll(".hb .bar span, .tbl .sbar span, .mini-card .mt-track span");
+      const hb = v.querySelectorAll(".an-gx, .mini-card .mt-track span");
       if (hb.length)
         this.track(
-          gsap.from(hb, { scaleX: 0, duration: 0.8, ease: "expo.out", stagger: 0.04, delay: 0.2 }),
+          gsap.from(hb, {
+            scaleX: 0,
+            duration: 0.8,
+            ease: "expo.out",
+            stagger: { amount: 0.6 },
+            delay: 0.2,
+          }),
         );
     }
   },
@@ -111,7 +117,7 @@ export const introMethods = {
       if (!RM)
         this.track(
           gsap.fromTo(
-            p.querySelectorAll(".rp-panel, .ov-incident"),
+            p.querySelectorAll(".ovw-panel"),
             { opacity: 0, y: 12 },
             {
               opacity: 1,
@@ -124,6 +130,29 @@ export const introMethods = {
             },
           ),
         );
+      // the app's chart reveal: meters and bars grow from their base
+      if (!RM) {
+        this.track(
+          gsap.from(p.querySelectorAll(".ovw-meter i, .ovw-bar i"), {
+            scaleX: 0,
+            transformOrigin: "0 50%",
+            duration: 0.8,
+            ease: "expo.out",
+            delay: 0.25,
+            clearProps: "transform",
+          }),
+        );
+        this.track(
+          gsap.from(p.querySelectorAll(".ovw-b:not(.empty)"), {
+            scaleY: 0,
+            duration: 0.6,
+            ease: "expo.out",
+            stagger: 0.025,
+            delay: 0.35,
+            clearProps: "transform",
+          }),
+        );
+      }
     } else if (name === "conversation") this.introConversation(p);
     else if (name === "todos") this.introTodos(p);
     else if (name === "metrics") this.introMetrics(p);

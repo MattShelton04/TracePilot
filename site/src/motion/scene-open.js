@@ -30,8 +30,13 @@ export function sceneOpen() {
   sc.forEach((c, i) => {
     pair(c, dc[i], 1);
   });
-  pair($('.num[data-k="events"]', card), $('[data-fly="events"]', app), 12 / 23);
-  pair($('.num[data-k="turns"]', card), $('[data-fly="turns"]', app), 12 / 23);
+  // the card's counts fly to the Overview's Turns figure and events note, scaled from their own size
+  const fs = (el) => parseFloat(getComputedStyle(el).fontSize);
+  for (const k of ["events", "turns"]) {
+    const src = $(`.num[data-k="${k}"]`, card),
+      dst = $(`[data-fly="${k}"]`, app);
+    pair(src, dst, fs(src) / fs(dst));
+  }
   flips.forEach((f) => {
     gsap.set(f.dst, { x: f.x, y: f.y, scale: f.scale, opacity: 0, transformOrigin: "0 0" });
   });
@@ -40,10 +45,11 @@ export function sceneOpen() {
   const tbar = $(".toolbar", dv),
     tabs = $$(".tab", dv),
     ink = $(".tab-ink", dv),
-    tiles = $$(".stile", dv),
-    labels = $$(".stile .l", dv),
-    panels = $$(".dv-panels, .dv-more", dv);
-  const otherTileVals = $$(".stile .v:not([data-fly])", dv);
+    tiles = $$(".ovw-kpis", dv),
+    // the events count flies in from the card, so its footer stays visible and only the rest fades
+    labels = $$(".ovw-k-l, .ovw-k-foot:not(:has([data-fly])), .ovw-k-foot .ovw-rest", dv),
+    panels = $$(".ovw-row > *, .ovw-activity", dv);
+  const otherTileVals = $$(".ovw-k-v:not(:has([data-fly]))", dv);
   gsap.set([tbar, panels], { opacity: 0, y: 14 });
   gsap.set(tabs, { opacity: 0, y: 8 });
   gsap.set(ink, { scaleX: 0 });

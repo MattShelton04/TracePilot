@@ -33,7 +33,7 @@ motion. It covers both pages for console/page errors, failed or cross-origin
 requests (other than the analytics beacon), HTTP errors and overflow; checks
 the beacon is present exactly when `CF_BEACON_TOKEN` is set; verifies five desktop pins and no mobile or
 reduced-motion pins; exercises bento and build-from-source dialog focus/Escape,
-the Search demo step and wheel cancellation of the tour. Reduced motion keeps the hero visible and
+the Search demo step, wheel cancellation of the tour and of a nav link's scene autoplay. Reduced motion keeps the hero visible and
 disables the tour. It saves 50 section screenshots in ignored `site/.check/`.
 Review these images when changing layout or choreography.
 
@@ -43,9 +43,12 @@ all five modes. CI runs each mode in a separate job against one shared build;
 every job checks the size budget, beacon markup and all platform download cases.
 
 The `site` thresholds in [`perf-budget.json`](../perf-budget.json) enforce
-gzipped JS, CSS and generated data sizes. They were set from the first build
-with about 10% headroom: 142, 37 and 14 KiB respectively. Keep budget changes
-supported by measured output.
+gzipped JS, CSS and generated data sizes, with about 10% headroom over a
+measured build: 160, 48 and 15 KiB. Following the redesigned Overview,
+Analytics, Tools, Code and Models pages took JS and CSS from 130.6 and 35.0 KiB
+to 145.7 and 43.5 KiB, with 13.5 KiB of data. CSS grows about twice as fast as
+its source, because `replica.css` and `overview.css` go into both the landing
+page and `demo/` bundles. Keep budget changes supported by measured output.
 
 For a manual production preview, run `pnpm --filter @tracepilot/site preview`
 (port 4180). Regenerate the committed 1200×630 social image after hero changes:
@@ -65,8 +68,8 @@ The browser scripts fail if their preview port is occupied.
 | Source | Responsibility |
 | --- | --- |
 | `index.html` boot script, `src/main.js`, `src/demo.js` | Page entry points. The inline boot script sets the layout-mode classes before first paint; the landing page wires after fonts are ready and reloads when the pinning breakpoint changes. |
-| `src/data.js`, `src/lib/` | Generated showcase/release imports, illustrative agent usage, formatting, asset URLs and shared GSAP plugins. |
-| `src/motion/` | Environment, stage sizing, one module per pinned scene, branch geometry, mobile frames, lazy demo, tour and ancillary motion. |
+| `src/data.js`, `src/lib/` | Generated showcase/release imports, illustrative agent usage, formatting, asset URLs and shared GSAP plugins; session sources (`sources.js`: badges, logos, the All · Copilot · Claude switch) and the Overview tab (`overview.js`, styled by `styles/overview.css`), which the scroll scene and the replica share. |
+| `src/motion/` | Environment, stage sizing, one module per pinned scene, branch geometry, mobile frames, lazy demo, tour, section autoplay and ancillary motion. |
 | `src/traces/` | Hero canvas, fixed signal rail, SVG branch layer and final eye convergence. |
 | `src/app-views/` | Window renderers tailored to the five scrubbed scroll scenes. |
 | `src/bento/` | Ten analytics tiles, entrance/replay choreography, explanations and accessible dialogs. |
@@ -79,7 +82,7 @@ these app views should update the matching site renderers and check screenshots:
 
 | Site modules (under `site/src/`) | App source (under `apps/desktop/src/`) |
 | --- | --- |
-| `app-views/open.js`, `shell.js`; `replica/views-session.js` | `views/SessionListView.vue`, `SessionDetailView.vue`, `views/tabs/OverviewTab.vue` |
+| `app-views/open.js`, `shell.js`; `replica/views-session.js`; `lib/overview.js`, `lib/sources.js` | `views/SessionListView.vue`, `SessionDetailView.vue`, `views/tabs/OverviewTab.vue`, `components/overview/`, `packages/ui/src/components/SessionCard.vue`, `SourceLogo.vue` |
 | `app-views/convo.js`; `replica/views-session.js` | `views/tabs/ConversationTab.vue`, `components/conversation/` |
 | `app-views/agents.js`; `replica/views-timeline.js`, `views-sequence.js` | `views/SessionTimelineView.vue`, `components/timeline/AgentTreeView.vue`, `AgentMessagesView.vue` |
 | `app-views/context.js`; `replica/views-context.js`, `views-todos.js` | `views/tabs/ContextTab.vue`, `MetricsTab.vue`, `components/context/ContextWindowChart.vue` |
@@ -111,7 +114,9 @@ when pinning or the rail is disabled and fade out when their scene ends.
 [`export-data.mjs`](../site/scripts/export-data.mjs) imports the README showcase
 fixtures in `scripts/visual/showcase/` and the app's pricing functions from
 `@tracepilot/types`. It writes ignored `site/src/data/showcase.json`, including
-derived AI Credits/USD, compaction values, todo counts and agent-turn data.
+derived AI Credits/USD, compaction values, todo counts, agent-turn data and the
+per-day analytics series (AI Credits, tool calls and incidents per day, the
+tool-time heatmap) the Analytics, Tools and Code replicas chart.
 [`validate-data.mjs`](../site/scripts/validate-data.mjs) fails with field names
 when the fixtures no longer match the renderers. The unit-test command exports
 fresh fixtures so validation tests also run on a clean checkout.
@@ -153,6 +158,11 @@ The Vite HTML plugin fills `__placeholders__` from those files and rejects
 unknown keys. `src/data.js` imports the same data for interactive views. Agent
 definition usage in `AGENT_RUNS` is illustrative because the showcase fixtures
 do not model cross-session agent statistics; those values require manual upkeep.
+Likewise the showcase sessions are all Copilot CLI sessions: `CLAUDE_CODE` and
+`RUN_STATUS` in `export-data.mjs` show four library sessions as Claude Code
+sessions (no host, the clay accent) and give the hero and one Claude Code
+session a run state (Busy, Waiting). Validation fails if the first twelve
+sessions lose every Claude Code session.
 
 Inter and JetBrains Mono are self-hosted via Fontsource; logos come from
 `assets/`; tokens are imported from `@tracepilot/ui/tokens.css`. Fonts stay
@@ -301,6 +311,15 @@ anchor jump would land a whole scene late. In-page links to pinned scenes use
 `anchor` label (the hero marks where the library is in view); deep links are
 re-resolved after pinning. `#top` relies on the browser's document-top
 behaviour, so no element may use that id.
+
+Following a link to a pinned scene (a nav link, a deep link, Back or Forward)
+also plays it (`motion/autoplay.js`): the page jumps to where the scene's
+timeline begins (for `#open`, its `anchor` label), settles every scrub so nothing
+visibly rewinds, then glides at the tour's pace to the scene's last frame. It
+moves focus to the scene heading without scrolling. Wheel, touch, keys, any
+press, the tour and any scroll it did not make itself (a scrollbar drag) stop
+it. Back and Forward wait for the browser's own scroll restoration first.
+Phones and reduced motion have no pins, so they keep the plain jump.
 
 The tour starts wherever the page is. Its bar shows progress through the whole
 page with a tick per chapter; previous/next jump between chapter starts

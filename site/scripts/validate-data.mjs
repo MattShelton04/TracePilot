@@ -46,6 +46,10 @@ export function validateShowcase(d) {
 
   need(isNum(d.sessionCount) && d.sessionCount > 0, "sessionCount");
   need(Array.isArray(d.sessions) && d.sessions.length >= 12, "sessions (need at least 12)");
+  need(
+    (d.sessions ?? []).slice(0, 12).some((s) => s.source === "claudeCode"),
+    "sessions (the first 12 need a Claude Code session; see CLAUDE_CODE in export-data.mjs)",
+  );
   for (const [i, s] of (d.sessions ?? []).entries()) {
     fields(s, `sessions[${i}]`, {
       id: isStr,
@@ -53,7 +57,9 @@ export function validateShowcase(d) {
       repository: isStr,
       branch: isStr,
       currentModel: isStr,
-      hostType: isStr,
+      source: (v) => v === "copilot" || v === "claudeCode",
+      // Claude Code sessions have no host
+      hostType: (v) => (s.source === "claudeCode" ? v == null : isStr(v)),
       updatedAt: isDate,
       eventCount: isNum,
       turnCount: isNum,
@@ -73,6 +79,12 @@ export function validateShowcase(d) {
     checkpointCount: isNum,
   });
   need(d.sessions?.[0]?.id === d.heroDetail?.id, "sessions[0] must be the hero session");
+  need(
+    Array.isArray(d.heroTurnStarts) &&
+      d.heroTurnStarts.length > 1 &&
+      d.heroTurnStarts.every(isDate),
+    "heroTurnStarts",
+  );
 
   const t8 = d.heroTurns?.[8];
   fields(t8, "heroTurns[8]", {

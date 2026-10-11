@@ -303,6 +303,16 @@
   background: rgba(113, 113, 122, 0.28);
   color: #d4d4d8;
 }
+/* session source: Copilot outlined so it reads apart from the indigo repository chip */
+.c-copilot {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  box-shadow: inset 0 0 0 1px var(--accent-muted);
+}
+.c-claude {
+  background: var(--claude-muted);
+  color: var(--claude-fg);
+}
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -496,7 +506,10 @@
   padding: 0 12px;
 }
 .fsearch {
-  width: 280px;
+  flex: 0 1 280px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
   height: 34px;
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 7px;
@@ -525,14 +538,45 @@
   font-size: 12.5px;
   font-weight: 600;
   min-width: 140px;
+  flex: none;
+  white-space: nowrap;
 }
 .fsel .mi {
   width: 13px;
   height: 13px;
   color: var(--text-tertiary);
 }
+/* All · Copilot · Claude */
+.fsrc {
+  flex: none;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+.fsrc > span {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 999px;
+}
+.fsrc > span.on {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  font-weight: 600;
+}
 .fcount {
   margin-left: auto;
+  white-space: nowrap;
   font-size: 12px;
   color: var(--text-tertiary);
   margin-right: 6px;
@@ -573,7 +617,7 @@
   font-weight: 650;
   letter-spacing: -0.01em;
   line-height: 1.38;
-  padding-right: 54px;
+  padding-right: 66px; /* the run badge: Busy, Waiting */
   min-height: 21px;
 }
 .card-title .t {
@@ -655,6 +699,37 @@
   font-weight: 500;
   color: var(--text-tertiary);
 }
+.card-foot .src {
+  margin-left: -5px;
+}
+.card-foot .src-copilot {
+  color: var(--accent-fg);
+}
+.card-foot .src-claude {
+  color: var(--claude-fg);
+}
+/* Claude Code sessions: the app's faint clay wash */
+.card.is-claude {
+  border-color: var(--claude-border);
+  background:
+    linear-gradient(135deg, var(--claude-subtle) 0%, transparent 55%),
+    linear-gradient(150deg, #131316, #0d0d10);
+}
+.card.is-active.is-claude {
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
+}
+.card.is-waiting {
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
+}
+.card.is-waiting .dot-live {
+  background: #fbbf24;
+  animation: none;
+}
+.card.is-waiting .badge-active {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.38);
+  color: #fbbf24;
+}
 .card .num {
   display: inline-block;
   transform-origin: 0 50%;
@@ -686,143 +761,6 @@
 .dv .tabs {
   margin-top: 14px;
 }
-.dv .tiles {
-  margin-top: 18px;
-}
-.dv-panels {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-.kv {
-  padding: 14px 18px;
-  display: grid;
-  grid-template-columns: 96px 1fr;
-  row-gap: 8px;
-  font-size: 12.5px;
-}
-.kv dt {
-  color: var(--text-tertiary);
-}
-.kv dd {
-  margin: 0;
-  color: var(--text-primary);
-}
-.kv .plus {
-  color: #34d399;
-  font-weight: 600;
-}
-.kv .minus {
-  color: #fb7185;
-  font-weight: 600;
-}
-
-.dv-more {
-  margin-top: 16px;
-  display: grid;
-  gap: 14px;
-}
-.inc {
-  padding: 14px 18px;
-}
-.inc-h {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-}
-.inc-n {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 4px;
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  font-size: 11px;
-  font-weight: 600;
-  display: grid;
-  place-items: center;
-}
-.inc-r {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-size: 13px;
-}
-.inc-b {
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 4px;
-  background: rgba(245, 158, 11, 0.14);
-  color: #fcd34d;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-}
-.inc-d {
-  margin-left: auto;
-  height: 22px;
-  padding: 0 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-.inc-d .mi {
-  width: 10px;
-  height: 10px;
-}
-.inc-r time {
-  font-size: 12px;
-  font-weight: 600;
-}
-.plan-hide {
-  margin-left: auto;
-  height: 22px;
-  padding: 0 9px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  letter-spacing: 0;
-  text-transform: none;
-  font-size: 11px;
-  color: var(--text-primary);
-}
-.plan-b {
-  padding: 14px 18px;
-}
-.plan-b h4 {
-  margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.plan-b h5 {
-  margin: 10px 0 6px;
-  font-size: 14px;
-  font-weight: 650;
-}
-.plan-b p {
-  margin: 0 0 4px;
-  font-size: 12.5px;
-  color: #d4d4d8;
-}
-.plan-b code {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: #c4b5fd;
-  background: rgba(139, 92, 246, 0.12);
-  padding: 1px 5px;
-  border-radius: 4px;
-}
-
-/* cursor: the element's (x, y) is the hotspot; each glyph is offset so its tip sits there */
 .cursor {
   position: absolute;
   left: 0;
@@ -1761,6 +1699,36 @@
   align-items: center;
   gap: 6px;
 }
+/* the app's axis and zoom controls, static */
+.zctl {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+}
+.zseg {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  color: var(--text-tertiary);
+}
+.zseg > * {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.zseg b {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+.zb {
+  padding: 3px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  color: var(--text-secondary);
+}
 .chart-svg {
   display: block;
 }
@@ -2382,4 +2350,13 @@
   padding-left: 6px;
   margin-left: 2px;
   border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* the session Overview inside the scroll scene (styles/overview.css) */
+.dv-ov {
+  margin-top: 16px;
+}
+/* the events count flies in from the card, so its line must not clip it */
+.dv-ov .ovw-note {
+  overflow: visible;
 }
