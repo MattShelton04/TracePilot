@@ -323,6 +323,7 @@ export type {
   SessionDbTable,
   SessionDetail,
   SessionFileEntry,
+  SessionFileListing,
   SessionFileSearchMatch,
   SessionFileSearchResponse,
   SessionFileType,

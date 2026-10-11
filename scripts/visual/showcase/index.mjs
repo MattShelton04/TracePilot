@@ -38,7 +38,10 @@ const heroOnly = {
   get_session_context_timeline: () => ({ timeline: heroContextTimeline, ...FILE_STAMP }),
   get_session_prompt_cache: () => ({ timeline: heroPromptCache, ...FILE_STAMP }),
   check_session_freshness: () => FILE_STAMP,
-  session_list_files: () => heroFiles,
+  session_list_files: (args) => ({
+    root: `/home/demo/.copilot/session-state/${args.sessionId}`,
+    entries: heroFiles,
+  }),
   session_read_file: () => heroPlan.content,
 };
 

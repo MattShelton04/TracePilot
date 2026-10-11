@@ -53,6 +53,15 @@ impl ExplorerScope {
         Ok(Self::Named { base, names })
     }
 
+    /// The directory entry paths are relative to: the single root, or the
+    /// base the named directories sit in.
+    pub(super) fn root(&self) -> &Path {
+        match self {
+            Self::Single(root) => root,
+            Self::Named { base, .. } => base,
+        }
+    }
+
     /// The directory `relative` lives in, and its path inside that
     /// directory. A named directory must be a real directory inside the
     /// base, never a link out of it. Callers still validate and contain the
@@ -144,6 +153,7 @@ mod tests {
         let root = PathBuf::from("session");
         let scope = ExplorerScope::from_roots(vec![root.clone()]).unwrap();
         assert_eq!(scope, ExplorerScope::Single(root.clone()));
+        assert_eq!(scope.root(), root);
         assert_eq!(scope.locate("a/b.md").unwrap(), (root, "a/b.md"));
     }
 
@@ -170,6 +180,9 @@ mod tests {
         std::fs::write(base.join("other").join("secret.txt"), "x").unwrap();
         std::fs::write(base.join("top.txt"), "x").unwrap();
         let scope = named(&base);
+        // Entry paths such as `subagents/agent-a.jsonl` are relative to the
+        // session's own directory, not to the named folders.
+        assert_eq!(scope.root(), base);
 
         let mut paths: Vec<_> = scope
             .list("id")
