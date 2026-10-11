@@ -524,3 +524,25 @@ async fn an_invalid_claude_code_command_is_refused_when_saved() {
     save_claude_cli(&state, " ").await.unwrap();
     assert_eq!(read_config(&state).sources.claude_code.cli_command, " ");
 }
+
+#[tokio::test]
+async fn reset_forgets_kept_export_previews() {
+    use crate::commands::export_import::preview_cache_test_support as previews;
+    let temp = tempfile::tempdir().unwrap();
+    let initial = configured(temp.path());
+    let path = temp.path().join("config.toml");
+    initial.save_to(&path).unwrap();
+    let state = Arc::new(RwLock::new(Some(initial)));
+    let session = "reset-forgets-kept-export-previews";
+    previews::seed(session);
+
+    factory_reset_at(
+        &state,
+        &IndexingSemaphores::new(),
+        &ConfigCoordinator::default(),
+        Some(path),
+    )
+    .await
+    .unwrap();
+    assert!(!previews::is_cached(session));
+}

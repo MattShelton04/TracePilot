@@ -218,3 +218,41 @@ fn unfiltered_facets_are_recognised_and_keys_follow_every_filter() {
         assert_ne!(facets_cache_key(&None, &filtered), base);
     }
 }
+
+/// A facets key whose hash always collides, as two distinct filter sets
+/// could under a hashed key. Equality still compares the filter values.
+#[derive(PartialEq, Eq)]
+struct CollidingKey(FacetsKey);
+
+impl Hash for CollidingKey {
+    fn hash<H: std::hash::Hasher>(&self, _: &mut H) {}
+}
+
+#[tokio::test]
+async fn filter_sets_whose_hashes_collide_keep_their_own_facets() {
+    let (_dir, path) = index();
+    index_tool_row(&path, "s1", "view");
+    index_tool_row(&path, "s2", "edit");
+    index_tool_row(&path, "s3", "edit");
+    let (cache, gates) = (GenerationCache::new(2), IndexingSemaphores::new());
+    let reads = Arc::new(AtomicUsize::new(0));
+    let matches = |tool: &str| {
+        let filters = SearchFilters {
+            tool_names: vec![tool.to_string()],
+            ..Default::default()
+        };
+        let key = CollidingKey(facets_cache_key(&None, &filters));
+        let reads = Arc::clone(&reads);
+        cached_index_read(&cache, &gates, path.clone(), key, move |db| {
+            reads.fetch_add(1, Ordering::SeqCst);
+            Ok(db.facets(None, &filters)?.total_matches)
+        })
+    };
+
+    assert_eq!(matches("view").await.unwrap(), 1);
+    assert_eq!(matches("edit").await.unwrap(), 2);
+    // Both are now served from their own entries.
+    assert_eq!(matches("view").await.unwrap(), 1);
+    assert_eq!(matches("edit").await.unwrap(), 2);
+    assert_eq!(reads.load(Ordering::SeqCst), 2);
+}

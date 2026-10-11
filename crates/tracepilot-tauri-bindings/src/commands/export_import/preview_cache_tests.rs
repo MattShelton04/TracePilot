@@ -82,10 +82,9 @@ fn a_preview_is_reused_until_a_live_session_grows() {
     let first = preview(&cache, copilot_session(&dir), conversation());
     assert!(first.contains("first message"));
     assert!(is_cached(&cache, &copilot_session(&dir), conversation()));
-    assert_eq!(
-        preview(&cache, copilot_session(&dir), conversation()),
-        first
-    );
+    // Served as rendered, bar the export time.
+    let reused = preview(&cache, copilot_session(&dir), conversation());
+    assert_eq!(split_exported_at(&reused).1, split_exported_at(&first).1);
 
     append(&dir.join("events.jsonl"), &event("second message"));
     assert!(!is_cached(&cache, &copilot_session(&dir), conversation()));
@@ -195,4 +194,76 @@ fn a_claude_preview_follows_its_transcript() {
     append(&transcript, &user("u2", "Another question."));
     assert!(!is_cached(&cache, &session(), conversation()));
     assert!(preview(&cache, session(), conversation()).contains("Another question."));
+}
+
+/// `content`'s archive header export time, and the content without it.
+fn split_exported_at(content: &str) -> (DateTime<Utc>, serde_json::Value) {
+    let mut archive: serde_json::Value = serde_json::from_str(content).unwrap();
+    let stamp = archive["header"]
+        .as_object_mut()
+        .unwrap()
+        .remove("exportedAt")
+        .unwrap();
+    (serde_json::from_value(stamp).unwrap(), archive)
+}
+
+#[test]
+fn a_reused_preview_shows_when_it_was_served() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = copilot_dir(root.path());
+    let cache = PreviewCache::new();
+    let conversation = || request("json", &["conversation"]);
+
+    let first = cached_preview(&cache, copilot_session(&dir), conversation()).unwrap();
+    assert!(is_cached(&cache, &copilot_session(&dir), conversation()));
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let reused = cached_preview(&cache, copilot_session(&dir), conversation()).unwrap();
+
+    let (rendered_at, rendered) = split_exported_at(&first.content);
+    let (served_at, served) = split_exported_at(&reused.content);
+    assert!(
+        served_at > rendered_at,
+        "a reused preview must not show its render time ({rendered_at})"
+    );
+    // Only the timestamp moved: sessions and content hash are as rendered.
+    assert_eq!(served, rendered);
+    assert_eq!(reused.estimated_size_bytes, reused.content.len());
+}
+
+#[test]
+fn a_markdown_preview_gets_the_new_export_time_and_a_truncated_one_is_left_alone() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = copilot_dir(root.path());
+    let cache = PreviewCache::new();
+    let rendered = cached_preview(
+        &cache,
+        copilot_session(&dir),
+        request("markdown", &["conversation"]),
+    )
+    .unwrap();
+    let now = DateTime::parse_from_rfc3339("2031-02-03T04:05:06.789Z")
+        .unwrap()
+        .with_timezone(&Utc);
+
+    let served = with_exported_at(rendered.clone(), now);
+    let line = |content: &str| {
+        let line = content
+            .lines()
+            .find(|l| l.starts_with("> Exported by ["))
+            .unwrap();
+        line.to_string()
+    };
+    assert!(line(&served.content).contains(") on 2031-02-03T04:05:06Z · Schema v"));
+    assert_eq!(
+        served.content.replace(&line(&served.content), ""),
+        rendered.content.replace(&line(&rendered.content), "")
+    );
+
+    let mut truncated = rendered.clone();
+    let cut = truncated.content.find(") on ").unwrap() + ") on 20".len();
+    truncated.content.truncate(cut);
+    assert_eq!(
+        with_exported_at(truncated.clone(), now).content,
+        truncated.content
+    );
 }
