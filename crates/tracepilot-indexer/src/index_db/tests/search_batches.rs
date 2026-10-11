@@ -127,6 +127,30 @@ fn batch_commits_valid_sessions_while_failed_session_keeps_its_content_and_finge
 }
 
 #[test]
+fn a_failed_last_session_rolls_back_to_a_restored_insert_trigger() {
+    let (_temp, db, ids) = fixture();
+    let mut rows = replacement_rows(&ids);
+    rows[2].1[0].content = "rejected sentinel".to_string();
+    db.conn.execute_batch(
+        "CREATE TRIGGER reject_test_row BEFORE INSERT ON search_content
+         WHEN new.content = 'rejected sentinel' BEGIN SELECT RAISE(ABORT, 'injected failure'); END;",
+    ).unwrap();
+    assert_eq!(
+        db.upsert_search_snapshots(
+            SessionSource::Copilot,
+            &rows,
+            &vec!["new".into(); 3],
+            &|| false
+        )
+        .unwrap(),
+        2
+    );
+    assert_eq!(fingerprints(&db), ["new", "new", "old"]);
+    assert_eq!(hits(&db, "original"), 1);
+    assert_fts_in_sync(&db);
+}
+
+#[test]
 fn sqlite_automatic_rollback_does_not_allow_later_sessions_to_commit_alone() {
     let (_temp, db, ids) = fixture();
     let mut rows = replacement_rows(&ids);
