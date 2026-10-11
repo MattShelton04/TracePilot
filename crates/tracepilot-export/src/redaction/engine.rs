@@ -153,6 +153,7 @@ fn redact_turn(
         redact_opt_string(&mut tc.result_content, patterns, stats);
         redact_opt_string(&mut tc.args_summary, patterns, stats);
         redact_opt_string(&mut tc.intention_summary, patterns, stats);
+        redact_opt_string(&mut tc.agent_description, patterns, stats);
         redact_opt_string(&mut tc.error, patterns, stats);
         if let Some(ref mut args) = tc.arguments {
             redact_json_value(args, patterns, stats);
