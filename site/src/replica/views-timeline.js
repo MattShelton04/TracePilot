@@ -253,7 +253,7 @@ export function panelTimeline(uid) {
     fmtInt(HERO.eventCount) +
     "</b></div>" +
     '<div class="tm-stage">' +
-    '<div class="tm-mode tm-tree" data-mode="tree"><div class="rp-card tm-nav"><span class="dis">' +
+    '<div class="tm-mode tm-tree" data-mode="tree"><div class="tm-navrow"><div class="rp-card tm-nav"><span class="dis">' +
     ic("chevsL", 13) +
     ' Earliest</span><span class="act">' +
     ic("chevL", 13) +
@@ -268,6 +268,7 @@ export function panelTimeline(uid) {
     '</span><span class="dis">Latest ' +
     ic("chevsR", 13) +
     "</span></div>" +
+    '<div class="rp-seg tm-pager"><button type="button" class="is-active">Paginated</button><button type="button">Unified</button></div></div>' +
     '<div style="padding:26px 0 8px">' +
     treeSVG(uid) +
     "</div></div>" +

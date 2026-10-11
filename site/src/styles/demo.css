@@ -5,6 +5,7 @@
 @import "@fontsource/jetbrains-mono/600.css";
 @import "@tracepilot/ui/tokens.css";
 @import "./replica.css";
+@import "./overview.css";
 
 :root {
   --font-family:

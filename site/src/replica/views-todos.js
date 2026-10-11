@@ -272,7 +272,7 @@ export function panelMetrics() {
     ) +
     stat(
       fmtDur(D.heroMetrics.totalApiDurationMs),
-      "API Duration",
+      "API Time",
       "c-accent",
       ` data-count="${D.heroMetrics.totalApiDurationMs / 1000}" data-fmt="dur"`,
     ) +

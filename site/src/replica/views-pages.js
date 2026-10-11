@@ -1,4 +1,5 @@
 import { D } from "../data.js";
+import { sourceSwitch } from "../lib/sources.js";
 import { ic } from "./icons.js";
 import { esc, HERO, relTime } from "./shared.js";
 import { panelContext, panelExplorer } from "./views-context.js";
@@ -155,9 +156,11 @@ export function viewSearch() {
     '<span class="sr-syn" style="color:var(--accent-fg)">' +
     ic("info", 12) +
     "More syntax</span></div>" +
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span class="rp-btn rp-btn--ghost-accent">' +
+    '<div style="display:flex;align-items:center;margin-bottom:14px"><span class="rp-btn rp-btn--ghost-accent">' +
     ic("filter", 14) +
-    'Filters</span><span class="rp-select" style="width:auto">Sort: Relevance ' +
+    'Filters</span><span style="flex:1"></span>' +
+    sourceSwitch("rp-srcswitch sr-src") +
+    '<span class="rp-select" style="width:auto;margin-left:10px">Sort: Relevance ' +
     ic("chevD", 14) +
     "</span></div>" +
     '<div class="sr-cols"><aside class="rp-card sr-facets"><h6>Content type <span>Select All</span></h6>' +

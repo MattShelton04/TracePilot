@@ -21,6 +21,15 @@ export function replay(tileEl, delay) {
       { scaleX: 1, duration: 0.9, ease: "expo.out", stagger: 0.05 },
       0.15,
     );
+  // day bars (Analytics, Tool analysis) grow from their baseline
+  const vbars = tileEl.querySelectorAll(".vb");
+  if (vbars.length)
+    tl.fromTo(
+      vbars,
+      { scaleY: 0 },
+      { scaleY: 1, duration: 0.6, ease: "expo.out", stagger: { amount: 0.6 } },
+      0.2,
+    );
   tileEl.querySelectorAll("[data-count]").forEach((el) => {
     const target = +el.dataset.count,
       suf = el.dataset.suffix || "";

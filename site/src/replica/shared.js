@@ -101,7 +101,9 @@ export const AG_LABEL = {
 export const TODO_COUNTS = D.todoCounts;
 
 export function chips(s) {
+  const claude = s.source === "claudeCode";
   return (
+    `<span class="rp-badge ${claude ? "rp-badge--claude" : "rp-badge--copilot"}">${claude ? "Claude Code" : "Copilot"}</span>` +
     '<span class="rp-badge rp-badge--accent">' +
     esc(s.repository) +
     "</span>" +
@@ -111,9 +113,8 @@ export function chips(s) {
     '<span class="rp-badge rp-badge--done">' +
     esc(s.currentModel) +
     "</span>" +
-    '<span class="rp-badge rp-badge--neutral">' +
-    esc(s.hostType || "cli") +
-    "</span>"
+    // Claude Code sessions have no host
+    (claude ? "" : `<span class="rp-badge rp-badge--neutral">${esc(s.hostType || "cli")}</span>`)
   );
 }
 

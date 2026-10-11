@@ -199,11 +199,12 @@ html[data-os="other"] .dl-other {
   background: rgba(129, 140, 248, 0.18);
   box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.45);
 }
+/* the triangle sits right of centre in its viewBox, which centres it optically: no nudge */
 .play-dot svg {
+  display: block;
   width: 11px;
   height: 11px;
   fill: #c7d2fe;
-  margin-left: 2px;
 }
 .btn-tour:hover .play-dot {
   background: rgba(129, 140, 248, 0.3);
@@ -525,6 +526,10 @@ html.has-rail .final-traces {
   display: grid;
   gap: 14px;
 }
+/* the reading position a section link moves to (motion/autoplay.js), not a control */
+.scene h2[tabindex="-1"]:focus {
+  outline: none;
+}
 .scene h2 {
   font-size: clamp(30px, 3.1vw, 50px);
   line-height: 1.06;
@@ -843,7 +848,8 @@ a.trust-pill:hover {
   font-size: 12px;
   color: var(--text-primary);
 }
-[data-count=""],
+/* counts below their show threshold (scripts/html-facts.mjs) */
+.trust-pill[data-count=""],
 .count:empty {
   display: none;
 }
@@ -1535,20 +1541,20 @@ html.pin.ready #open .stage {
     backdrop-filter: blur(0);
   }
 }
-.sd-panel {
+.src-dialog .sd-panel {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 30px 32px 26px;
 }
-.sd-head {
+.src-dialog .sd-head {
   position: relative;
   display: grid;
   gap: 10px;
   padding-right: 40px;
 }
-.sd-head h2 {
+.src-dialog .sd-head h2 {
   font-size: 30px;
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -2089,10 +2095,10 @@ html[data-os="mac"] .os-mac {
   .eb-file pre {
     font-size: 11px;
   }
-  .sd-panel {
+  .src-dialog .sd-panel {
     padding: 24px 20px 20px;
   }
-  .sd-head h2 {
+  .src-dialog .sd-head h2 {
     font-size: 26px;
   }
   .sd-steps > li {

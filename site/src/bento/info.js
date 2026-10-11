@@ -6,9 +6,9 @@ export const INFO = {
     title: "Analytics",
     lede: "Tokens, AI Credits, cache behaviour and incidents across every session, by day, repository and model.",
     points: [
-      "Totals for sessions, tokens, AI Credits and the USD equivalent, filtered by repository and date range",
-      "API duration percentiles, turns per session and tool calls per turn",
-      "Token usage and activity over time, so a heavy week stands out",
+      "Sessions, tokens, AI Credits, model time and errors, filtered by repository, date range and source",
+      "Activity by cost, tokens or runs, with errors and rate limits pinned to the day they happened",
+      "What the tokens were (cache reads, writes, fresh input and output) and which models did the work",
     ],
   },
   agents: {
@@ -58,9 +58,9 @@ export const INFO = {
     title: "Tool analysis",
     lede: "Which tools run, how often they fail, and how long they take.",
     points: [
-      "Call counts and success rates per tool",
-      "Failures by tool, so a flaky command stands out",
-      "Durations that show where a session spent its time",
+      "Calls per day, the share that failed, and tool time split between tools and subagents",
+      "Every tool ranked by calls, failure rate, average time or total time",
+      "When tools run, by weekday and hour",
     ],
   },
   models: {

@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>TracePilot: inspect, search and launch GitHub Copilot CLI sessions</title>
-<meta name="description" content="TracePilot is a local-first desktop app for inspecting, searching and launching GitHub Copilot CLI sessions: every turn, subagent, tool call and token, on your machine.">
+<title>TracePilot: inspect, search and launch GitHub Copilot CLI and Claude Code sessions</title>
+<meta name="description" content="TracePilot is a local-first desktop app for inspecting, searching and launching GitHub Copilot CLI sessions, with Claude Code sessions alongside: every turn, subagent, tool call and token, on your machine.">
 <meta name="theme-color" content="#09090b">
 <link rel="canonical" href="__siteUrl__">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TracePilot">
 <meta property="og:title" content="TracePilot: see everything your agents did">
-<meta property="og:description" content="Inspect, search and launch GitHub Copilot CLI sessions: every turn, subagent, tool call and token, on your machine.">
+<meta property="og:description" content="Inspect, search and launch GitHub Copilot CLI and Claude Code sessions: every turn, subagent, tool call and token, on your machine.">
 <meta property="og:url" content="__siteUrl__">
 <meta property="og:image" content="__siteUrl__og.png">
 <meta property="og:image:width" content="1200">
@@ -18,7 +18,7 @@
 <meta property="og:image:alt" content="TracePilot: see everything your agents did.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="TracePilot: see everything your agents did">
-<meta name="twitter:description" content="Inspect, search and launch GitHub Copilot CLI sessions, on your machine.">
+<meta name="twitter:description" content="Inspect, search and launch GitHub Copilot CLI and Claude Code sessions, on your machine.">
 <meta name="twitter:image" content="__siteUrl__og.png">
 <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
 <script type="module" src="./src/main.js"></script>
@@ -94,15 +94,15 @@
               </g>
             </g>
           </svg>
-          <div class="callout c1"><span class="k">Reads</span><span class="v">~/.copilot/session-state</span></div>
+          <div class="callout c1"><span class="k">Reads</span><span class="v">~/.copilot · ~/.claude</span></div>
           <div class="callout c2"><span class="k">Indexes</span><span class="v">Rust · SQLite FTS5</span></div>
         </div>
-        <p class="eyebrow hero-eyebrow">For GitHub Copilot CLI</p>
+        <p class="eyebrow hero-eyebrow">For GitHub Copilot CLI and Claude Code</p>
         <h1 id="hero-title" class="hero-title">
           <span class="line"><span>See everything</span></span>
           <span class="line"><span><em class="grad">your agents</em> did.</span></span>
         </h1>
-        <p class="hero-sub">TracePilot reads the session state Copilot CLI already writes to disk and turns it into something you can read, search, measure and act on. On your machine.</p>
+        <p class="hero-sub">TracePilot reads the sessions Copilot CLI and Claude Code already write to disk and turns them into something you can read, search, measure and act on. On your machine.</p>
         <div class="hero-ctas">
           <a class="btn btn-primary" href="__releaseUrl__" data-download>
             <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
@@ -138,12 +138,12 @@
           <h2>Open any session.</h2>
         </div>
         <div class="beats">
-          <p class="beat">Your whole Copilot CLI history, indexed: __sessionCount__ sessions across every repo, branch and model.</p>
+          <p class="beat">Your whole Copilot CLI and Claude Code history, indexed: __sessionCount__ sessions across every repo, branch, model and source.</p>
           <p class="beat">Open one and the full story is there: turns, events, todos, checkpoints, context and cost.</p>
         </div>
       </div>
       <div class="stage">
-        <p class="sr-only">Illustration: the TracePilot session library. A pointer opens the "Add Apple Pay to checkout" session and the card expands into its detail view with Overview, Conversation, Events, Todos, Metrics, Context, Explorer and Timeline tabs.</p>
+        <p class="sr-only">Illustration: the TracePilot session library, with Copilot and Claude Code sessions side by side. A pointer opens the "Add Apple Pay to checkout" session and the card expands into its detail view: the Overview tab with turns, duration, code changes and AI Credits, what happened, the session's context and its activity over time.</p>
         <div class="win" id="winOpen" aria-hidden="true"></div>
         <div class="m-frame" data-mstep="open" aria-hidden="true"></div>
       </div>
@@ -318,17 +318,17 @@
       <div class="section-head">
         <p class="eyebrow"><span class="mono">08</span> Private by design</p>
         <h2 id="privacy-title">Your sessions never leave your machine.</h2>
-        <p class="lede">TracePilot reads <code>~/.copilot/session-state</code> directly and keeps its index in a local SQLite file. Search runs against that file, not a server. Open source under GPL-3.0, so you can check.</p>
+        <p class="lede">TracePilot reads <code>~/.copilot/session-state</code> and Claude Code's <code>~/.claude/projects</code> directly and keeps its index in a local SQLite file. Search runs against that file, not a server. Open source under GPL-3.0, so you can check.</p>
       </div>
       <figure class="pipeline" id="pipeline">
-        <figcaption class="sr-only">Data flow: Copilot CLI session state on disk is parsed by a Rust backend into a SQLite and FTS5 index, which the Vue desktop app reads. All four stages sit inside your machine.</figcaption>
+        <figcaption class="sr-only">Data flow: Copilot CLI and Claude Code sessions on disk are parsed by a Rust backend into a SQLite and FTS5 index, which the Vue desktop app reads. All four stages sit inside your machine.</figcaption>
         <div class="pipe-boundary" aria-hidden="true">
           <span class="pipe-boundary-label mono">your machine</span>
           <svg class="pipe-rect" preserveAspectRatio="none" aria-hidden="true"><rect x="1" y="1" rx="16" ry="16"/></svg>
           <div class="pipe-row">
-            <div class="pipe-node"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><b>Session state</b><span class="mono">~/.copilot/session-state</span></div>
+            <div class="pipe-node"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><b>Session files</b><span class="mono">~/.copilot · ~/.claude</span></div>
             <div class="pipe-link"><i></i></div>
-            <div class="pipe-node"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg><b>Rust parser</b><span class="mono">events.jsonl → typed</span></div>
+            <div class="pipe-node"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg><b>Rust parser</b><span class="mono">JSONL → typed</span></div>
             <div class="pipe-link"><i></i></div>
             <div class="pipe-node"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg><b>Local index</b><span class="mono">SQLite + FTS5</span></div>
             <div class="pipe-link"><i></i></div>
@@ -359,7 +359,7 @@
         </svg>
       </div>
       <h2 id="final-title" class="final-title">Start tracing.</h2>
-      <p class="lede">Free and open source. Point it at your Copilot CLI history and open the first session.</p>
+      <p class="lede">Free and open source. Point it at your Copilot CLI and Claude Code history and open the first session.</p>
       <div class="hero-ctas">
         <a class="btn btn-primary" href="__releaseUrl__" data-download>
           <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>

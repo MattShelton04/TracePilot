@@ -328,6 +328,28 @@ async function checkTour(page, where) {
   else ok("tour auto-scrolls and stops on wheel input");
 }
 
+// a nav link to a pinned scene plays it through, and wheel input takes over
+async function checkAutoplay(page, where) {
+  await scrollTo(page, 0);
+  await settle(page, 600);
+  await page.locator('.nav-links a[href="#conversation"]').click();
+  await settle(page, 600);
+  const y0 = await page.evaluate(() => scrollY);
+  await settle(page, 1200);
+  const y1 = await page.evaluate(() => scrollY);
+  const focus = await page.evaluate(() => document.activeElement?.id);
+  if (y1 - y0 < 100) return fail(where, `nav link did not play its scene (scrollY ${y0} → ${y1})`);
+  if (focus !== "conv-title") fail(where, `nav link left focus on ${focus || "the page"}`);
+  await page.mouse.move(400, 400);
+  await page.mouse.wheel(0, 40);
+  await settle(page, 800);
+  const y2 = await page.evaluate(() => scrollY);
+  await settle(page, 700);
+  if (Math.abs((await page.evaluate(() => scrollY)) - y2) > 2)
+    fail(where, "scene autoplay did not stop on wheel input");
+  else ok("nav link plays its scene and stops on wheel input");
+}
+
 async function checkReduced(page, where) {
   const hero = await page.evaluate(() => {
     const h = document.getElementById("hero-title");
@@ -373,7 +395,10 @@ async function run() {
         await checkDialog(page, vp.name);
         await checkSourceDialog(page, vp.name);
         await checkDemo(page, vp.name);
-        if (!vp.mobile) await checkTour(page, vp.name);
+        if (!vp.mobile) {
+          await checkTour(page, vp.name);
+          await checkAutoplay(page, vp.name);
+        }
       }
       const demo = await context.newPage();
       await demo.goto(`${BASE}demo/`, { waitUntil: "networkidle" });

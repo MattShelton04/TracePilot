@@ -37,9 +37,9 @@
     "notes": "Advisory thresholds for Criterion mean point estimates from corrected non-empty fixtures. Reports retain the approximate 95% confidence interval around each mean; this interval is not a latency percentile."
   },
   "site": {
-    "jsGzipKb": 142,
-    "cssGzipKb": 37,
-    "dataGzipKb": 14,
-    "notes": "Landing page (site/), gzipped totals of dist/assets/*.js, dist/assets/*.css and the generated src/data/*.json. Enforced by `pnpm site:check`; set from the first build plus about 10%."
+    "jsGzipKb": 160,
+    "cssGzipKb": 48,
+    "dataGzipKb": 15,
+    "notes": "Landing page (site/), gzipped totals of dist/assets/*.js, dist/assets/*.css and the generated src/data/*.json. Enforced by `pnpm site:check`; set from the measured build plus about 10% (145.7, 43.5 and 13.5 KiB when the replicas followed the redesigned Overview and Analytics pages)."
   }
 }

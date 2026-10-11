@@ -234,6 +234,157 @@
   background: var(--bc, #6366f1);
   transform-origin: 0 50%;
 }
+/* Analytics and Tool analysis: the app's KPI strip (hairline tiles with a day
+   strip or meter) and day bars, as on the redesigned dashboard. */
+.bento .bk-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+}
+.bento .bk-row--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.bento .bk {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px 12px 11px;
+  background: #101013;
+}
+.bento .bk-l {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.bento .bk b {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font: 600 18px / 22px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bento .bk small {
+  font: 400 10.5px var(--font-family);
+  color: var(--text-tertiary);
+}
+/* three tiles to a phone-width row: smaller figures, no units */
+@media (max-width: 480px) {
+  .bento .bk b {
+    font-size: 15px;
+  }
+  .bento .bk b small {
+    display: none;
+  }
+}
+.bento .bk-n {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bento .bk-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 14px;
+  margin-top: auto;
+}
+.bento .bk-strip > * {
+  flex: 1;
+  min-width: 1px;
+  border-radius: 1px;
+  opacity: 0.85;
+  transform-origin: 50% 100%;
+}
+.bento .bk-strip .z {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.bento .bk-meter {
+  display: flex;
+  gap: 1px;
+  height: 4px;
+  margin-top: auto;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+.bento .bk-meter > * {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  transform-origin: 0 50%;
+}
+.bento .bk-seg {
+  display: inline-flex;
+  gap: 6px;
+}
+.bento .bk-seg em {
+  font-style: normal;
+  color: #c7d2fe;
+}
+.bento .bk-chart {
+  position: relative;
+  height: 112px;
+  margin: 12px 0 0 30px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.bento .bk-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
+}
+.bento .bk-grid span {
+  position: absolute;
+  right: 100%;
+  margin-right: 6px;
+  transform: translateY(-50%);
+  font: 9.5px var(--font-mono);
+  color: var(--text-placeholder);
+}
+.bento .bk-cols {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+}
+.bento .bk-cols > * {
+  flex: 1;
+  min-width: 1px;
+  border-radius: 1px 1px 0 0;
+  background: #818cf8;
+  opacity: 0.88;
+  transform-origin: 50% 100%;
+}
+.bento .bk-cols .z {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.bento .bk-axis {
+  display: flex;
+  justify-content: space-between;
+  margin: 5px 0 0 30px;
+  font: 9.5px var(--font-mono);
+  color: var(--text-placeholder);
+}
+.bento .bk-tool .t {
+  display: flex;
+}
+.bento .bk-tool .f {
+  display: block;
+  border-radius: 0;
+  background: #818cf8;
+}
 .bento .mrow {
   display: grid;
   grid-template-columns: 10px 116px 1fr 46px;

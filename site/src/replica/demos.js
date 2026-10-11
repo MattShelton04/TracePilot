@@ -326,6 +326,8 @@ export const demoMethods = {
       branch: "main",
       currentModel: "claude-opus-5.5",
       hostType: "cli",
+      source: "copilot",
+      runStatus: "busy",
       eventCount: 14,
       turnCount: 1,
       errorCount: 0,
