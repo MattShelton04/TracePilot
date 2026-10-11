@@ -26,7 +26,7 @@
    appears in an app run; chart parts opt in with `data-reveal`. Reveals run
    inside SVGs or on small bar fills only: animating opacity or transform on
    whole panels would lift them above the ambient background glow until the
-   animation ends (see design-system/pages/00-globals.md §G5). */
+   animation ends (see design-system/MASTER.md §4). */
 .chart-reveal {
   --reveal-duration: 500ms;
 }
@@ -117,7 +117,7 @@
    REDUCED MOTION
    ============================ */
 
-/* Honour the OS setting app-wide (design-system/pages/00-globals.md §G5):
+/* Honour the OS setting app-wide (design-system/MASTER.md §4):
    transitions finish immediately and infinite loops, including spinners, stop
    on a static frame. 1ms keeps transitionend/animationend firing. */
 /* biome-ignore-start lint/complexity/noImportantStyles: the OS preference must beat component-level motion. */

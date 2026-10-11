@@ -2,7 +2,7 @@
   Keyboard-accessible single-select. Thin wrapper around the native <select>,
   styled to match <FormInput>. For autocomplete / typed-search use
   <SearchableSelect>; for filter-style nullable strings use <FilterSelect>.
-  See design-system/pages/17-settings.md §Select.
+  See design-system/components.md.
 -->
 <script setup lang="ts" generic="T extends string">
 export interface SelectOption<V extends string = string> {

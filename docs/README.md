@@ -35,11 +35,8 @@ some older reports and plans, which remain recoverable from Git history.
 | Document | Description |
 |----------|-------------|
 | [Incremental Analytics](architecture/incremental-analytics.md) | Analytics pipeline and incremental computation strategy. |
-| [Design System Master](../design-system/MASTER.md) | Current design intent; production tokens live in `packages/ui/src/styles/tokens.css`. |
-| [Variant C Design Reference](design/design-system.md) | Historical design and component patterns used by retained prototypes. |
-| [Tool-Call Rendering](design/tool-call-rendering.md) | How tool calls/results are visualised in the session viewer. |
+| [Design System](../design-system/MASTER.md) | Design rules, tokens, components and surface notes for the desktop app. |
 | [Adding Tool Renderers](design/adding-tool-renderers.md) | Guide for adding new tool-specific renderers. |
-| [Timeline Redesign](design/timeline-redesign.md) | Historical session timeline redesign notes. |
 | [Loading Screen Design History](loading-screen-design.md) | Orbital concept selection, current implementation, and open design review item. |
 | [Logo](design/logo.md) | Logo and branding assets. |
 | [Multi-Window Architecture](multi-window-architecture.md) | Multi-window design notes; compare with current implementation. |
@@ -93,5 +90,3 @@ some older reports and plans, which remain recoverable from Git history.
 |------|----------|
 | [images/](images/) | Screenshots and image assets referenced by docs. |
 | [presentation/](presentation/) | Presentation/demo assets. |
-| [theme-prototypes/](theme-prototypes/) | Theme prototyping artefacts. |
-| [design/prototypes/](design/prototypes/) | Design prototype artefacts. |

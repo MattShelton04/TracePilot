@@ -7,7 +7,7 @@
   Card frame for analytics / orchestration charts. Hairline border, no shadow.
   Audited against ChartFrame.vue: ChartFrame is an SVG geometry helper
   (axes / grid / tooltip overlay) — different responsibility. Both are kept.
-  See design-system/pages/16-analytics-dashboard.md §ChartCard.
+  See design-system/components.md (Data display).
 -->
 <script setup lang="ts">
 import Heading from "./Heading.vue";

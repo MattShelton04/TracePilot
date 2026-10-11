@@ -2,7 +2,7 @@
 /**
  * Design-system guard-rail: z-index from tokens only.
  *
- * Closes 00-globals §G10: z-index must use one of the --z-* tokens
+ * See design-system/MASTER.md §5: z-index must use one of the --z-* tokens
  * (--z-sidebar, --z-header, --z-fab, --z-overlay, --z-modal, --z-tooltip)
  * defined in packages/ui/src/styles/tokens.css. The literal values
  * 0, auto, -1, and 1 are permitted because they only create a stacking
@@ -26,9 +26,8 @@ const SKIP_DIRS = new Set(["node_modules", "dist", "target", "__tests__", ".git"
 const ALLOWED_LITERALS = new Set(["0", "auto", "-1", "1"]);
 
 // Pre-existing numeric z-index values at the time this guard-rail was added
-// (00-globals §G10 migration backlog). Ratchet only — list must shrink.
+// (design-system/MASTER.md §6). Ratchet only — list must shrink.
 const ALLOW_FILES = new Set([
-  "apps/desktop/src/styles/chart-shared.css",
   "apps/desktop/src/components/conversation/ChatViewMode.vue",
   "apps/desktop/src/styles/layout.css",
   "apps/desktop/src/styles/features/export.css",
@@ -44,15 +43,11 @@ const ALLOW_FILES = new Set([
   "apps/desktop/src/components/layout/SessionTabContextMenu.vue",
   "apps/desktop/src/components/layout/SessionTab.vue",
   "apps/desktop/src/components/conversation/SubagentPanel.vue",
-  "apps/desktop/src/views/tabs/ConversationTab.vue",
-  "apps/desktop/src/components/SearchPalette.vue",
   "apps/desktop/src/components/SetupWizard.vue",
   "apps/desktop/src/components/session/SessionDetailPanel.vue",
   "apps/desktop/src/styles/features/skills-manager.css",
   "apps/desktop/src/views/SessionListView.vue",
-  "apps/desktop/src/components/WhatsNewModal.vue",
   "apps/desktop/src/components/search/SearchSyntaxHelpModal.vue",
-  "apps/desktop/src/components/UpdateInstructionsModal.vue",
 ]);
 
 const RE = /(^|[^a-z-])z-index\s*:\s*([^;]+);/gi;
@@ -96,10 +91,11 @@ function lineNumber(text, idx) {
 const staged = process.argv.includes("--staged");
 const files = collectFiles(staged);
 const violations = [];
+const allowListedHits = [];
 
 for (const abs of files) {
   const rel = relative(REPO_ROOT, abs).replaceAll(sep, "/");
-  if (ALLOW_FILES.has(rel)) continue;
+  const sink = ALLOW_FILES.has(rel) ? allowListedHits : violations;
   let text;
   try {
     text = await readFile(abs, "utf8");
@@ -111,7 +107,7 @@ for (const abs of files) {
     const value = m[2].trim();
     if (value.startsWith("var(")) continue;
     if (ALLOWED_LITERALS.has(value)) continue;
-    violations.push({
+    sink.push({
       file: rel,
       line: lineNumber(text, m.index),
       value,
@@ -119,7 +115,22 @@ for (const abs of files) {
   }
 }
 
+// Ratchet: an allow-listed file that is gone or now clean must leave the list,
+// so the list only shrinks. Skipped for --staged, which sees only some files.
+const staleAllowList = staged
+  ? []
+  : [...ALLOW_FILES].filter((f) => !allowListedHits.some((v) => v.file === f)).sort();
+
+if (staleAllowList.length > 0) {
+  console.error(
+    `✗ z-index-tokens: ${staleAllowList.length} stale allow-list entr${staleAllowList.length === 1 ? "y" : "ies"}`,
+  );
+  for (const f of staleAllowList) console.error(`  ${f}`);
+  console.error("Fix: remove these from ALLOW_FILES in scripts/check-z-index-tokens.mjs.\n");
+}
+
 if (violations.length === 0) {
+  if (staleAllowList.length > 0) process.exit(1);
   console.log(`✓ z-index-tokens: ${files.length} file(s) checked, no violations`);
   process.exit(0);
 }
@@ -128,7 +139,9 @@ console.error(`✗ z-index-tokens: ${violations.length} violation(s)`);
 for (const v of violations.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)) {
   console.error(`  ${v.file}:${v.line}: z-index: ${v.value};`);
 }
-console.error("\nFix: use a token from MASTER §7 (--z-sidebar | --z-header | --z-fab |");
+console.error(
+  "\nFix: use a token from design-system/MASTER.md §5 (--z-sidebar | --z-header | --z-fab |",
+);
 console.error("--z-overlay | --z-modal | --z-tooltip). Literal 0/auto/-1/1 are allowed");
 console.error("for stacking-context creation only.");
 process.exit(1);

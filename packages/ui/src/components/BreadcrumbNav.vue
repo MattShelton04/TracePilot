@@ -2,7 +2,7 @@
   Canonical breadcrumb. Renders the "where am I within this view" hierarchy
   inside <PageHeader>. Generic shell — route-meta wiring lives in app code
   (apps/desktop/src/composables/useBreadcrumbs.ts). See
-  design-system/pages/01-chrome.md §1.2.
+  design-system/components.md (Breadcrumb).
 
   - <nav aria-label="Breadcrumb"> with <ol>
   - last crumb is aria-current="page" and not a link

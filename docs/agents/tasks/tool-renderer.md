@@ -13,7 +13,7 @@ Read docs/agents/tasks/tool-renderer.md and follow it. Focus: the SQL result ren
 
 ## Know first
 
-- Read [adding tool renderers](../../design/adding-tool-renderers.md). It covers the component contract, payload and lifecycle rules, and the two kinds of expansion. `docs/design/tool-call-rendering.md` is optional history and includes approaches that have since been superseded.
+- Read [adding tool renderers](../../design/adding-tool-renderers.md). It covers the component contract, payload and lifecycle rules, and the two kinds of expansion.
 - The registry, `packages/ui/src/components/renderers/registry.ts`, is the source of truth for which renderer handles which tool.
 - Results longer than 1024 bytes of UTF-8 arrive as a preview (except `web_search`). A renderer has to handle the preview and then the full payload.
 - The fixture corpus in `scripts/fixtures/` feeds the native gallery and the browser harness. A registry coverage test fails when a renderer has no sample.

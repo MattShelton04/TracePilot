@@ -4,12 +4,8 @@
  * Maps tool names to their dedicated renderer components. The registry
  * is the single source of truth for which tools have rich renderers.
  *
- * To add a new renderer:
- *  1. Create your component in this directory (e.g. MyToolRenderer.vue)
- *  2. Add a `defineAsyncComponent(() => import('./MyToolRenderer.vue'))` entry
- *  3. That's it — the dispatcher auto-discovers from this registry
- *
- * @see docs/design/adding-tool-renderers.md for the full guide
+ * Adding a renderer also needs types, fixtures and tests; follow
+ * docs/design/adding-tool-renderers.md.
  */
 import { type Component, defineAsyncComponent } from "vue";
 

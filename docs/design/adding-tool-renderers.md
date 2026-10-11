@@ -177,7 +177,7 @@ ignored agent/output directories.
 
 ## Current registry
 
-There are 18 registered tool names and six argument-renderer registrations.
+There are 20 registered tool names and six argument-renderer registrations.
 
 | Tool | Result component | Argument component |
 | --- | --- | --- |
@@ -186,7 +186,7 @@ There are 18 registered tool names and six argument-renderer registrations.
 | `create` | CreateFileRenderer | CreateArgsRenderer |
 | `grep`, `rg` | GrepResultRenderer | — |
 | `glob` | GlobTreeRenderer | — |
-| `powershell`, `read_powershell`, `write_powershell` | ShellOutputRenderer | — |
+| `shell`, `powershell`, `read_powershell`, `write_powershell`, `stop_powershell` | ShellOutputRenderer | — |
 | `sql` | SqlResultRenderer | — |
 | `web_search` | WebSearchRenderer | — |
 | `store_memory` | StoreMemoryRenderer | — |
@@ -201,3 +201,12 @@ There are 18 registered tool names and six argument-renderer registrations.
 acknowledgment. `task`, calls marked `isSubagent` (including named task aliases)
 and `web_fetch` use the dispatcher's Markdown fallback when rich rendering is
 enabled. Other unregistered or disabled tools use `PlainTextRenderer`.
+
+Registry keys are canonical tool names. A source whose tools have other names
+(Claude Code's `Bash`, for example) maps each call to a canonical `toolName`
+and keeps the original in `TurnToolCall.nativeToolName`. The canonical name
+picks the renderer, icon and category; headers show the native name. See
+`packages/ui/src/__tests__/nativeToolNames.test.ts`.
+
+`shell` and `stop_powershell` are registered but not yet listed in
+`RichRenderableToolName`.

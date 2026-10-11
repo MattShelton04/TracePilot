@@ -1,7 +1,7 @@
 <!--
   Shared truncation footer for renderer bodies. Renders a single line of
   hairline-bordered chrome containing "Output was truncated." and an
-  inline accent-bordered "Load full output" button. See 13-tool-renderers.md.
+  inline accent-bordered "Load full output" button. See docs/design/adding-tool-renderers.md.
 -->
 <script setup lang="ts">
 defineProps<{ loading?: boolean; failed?: boolean }>();

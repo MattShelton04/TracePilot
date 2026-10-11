@@ -2,11 +2,9 @@
 /**
  * Design-system guard-rail: no backdrop-filter on data or chrome.
  *
- * Closes 00-globals §G2: backdrop-filter is banned everywhere except
- * the modal scrim. Per the spec there is no inline opt-out; the only
- * way to add a new use is to update this script's ALLOW_FILES set
- * (which currently captures the pre-existing migration backlog and
- * the modal scrim).
+ * See design-system/MASTER.md §5: no backdrop-filter on data or chrome.
+ * There is no inline opt-out. ALLOW_FILES holds the files that used it
+ * before this check existed (design-system/MASTER.md §6).
  *
  * Usage:
  *   node scripts/check-no-backdrop-filter.mjs
@@ -24,7 +22,7 @@ const EXTS = new Set([".vue", ".css", ".scss"]);
 const SKIP_DIRS = new Set(["node_modules", "dist", "target", "__tests__", ".git"]);
 
 // Pre-existing backdrop-filter sites at the time this guard-rail was added
-// (00-globals §G2 migration backlog). The list is the ratchet — it must
+// (design-system/MASTER.md §6). The list is the ratchet — it must
 // only shrink. New files using backdrop-filter will fail CI.
 const ALLOW_FILES = new Set([
   "apps/desktop/src/styles/overlays.css",
@@ -35,12 +33,8 @@ const ALLOW_FILES = new Set([
   "apps/desktop/src/styles/features/worktree-manager.css",
   "apps/desktop/src/views/SessionListView.vue",
   "apps/desktop/src/views/tabs/ConversationTab.vue",
-  "apps/desktop/src/components/WhatsNewModal.vue",
-  "apps/desktop/src/components/UpdateInstructionsModal.vue",
   "apps/desktop/src/components/session/SessionDetailPanel.vue",
-  "apps/desktop/src/components/SearchPalette.vue",
   "apps/desktop/src/components/mcp/addServer/add-server.css",
-  "apps/desktop/src/components/layout/AlertCenterDrawer.vue",
 ]);
 
 const RE = /(?:^|[^a-z-])(-webkit-)?backdrop-filter\s*:/i;
@@ -78,10 +72,11 @@ function collectFiles(staged) {
 const staged = process.argv.includes("--staged");
 const files = collectFiles(staged);
 const violations = [];
+const allowListedHits = [];
 
 for (const abs of files) {
   const rel = relative(REPO_ROOT, abs).replaceAll(sep, "/");
-  if (ALLOW_FILES.has(rel)) continue;
+  const sink = ALLOW_FILES.has(rel) ? allowListedHits : violations;
   let text;
   try {
     text = await readFile(abs, "utf8");
@@ -91,12 +86,27 @@ for (const abs of files) {
   const lines = text.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     if (RE.test(lines[i])) {
-      violations.push({ file: rel, line: i + 1, src: lines[i].trim() });
+      sink.push({ file: rel, line: i + 1, src: lines[i].trim() });
     }
   }
 }
 
+// Ratchet: an allow-listed file that is gone or now clean must leave the list,
+// so the list only shrinks. Skipped for --staged, which sees only some files.
+const staleAllowList = staged
+  ? []
+  : [...ALLOW_FILES].filter((f) => !allowListedHits.some((v) => v.file === f)).sort();
+
+if (staleAllowList.length > 0) {
+  console.error(
+    `✗ no-backdrop-filter: ${staleAllowList.length} stale allow-list entr${staleAllowList.length === 1 ? "y" : "ies"}`,
+  );
+  for (const f of staleAllowList) console.error(`  ${f}`);
+  console.error("Fix: remove these from ALLOW_FILES in scripts/check-no-backdrop-filter.mjs.\n");
+}
+
 if (violations.length === 0) {
+  if (staleAllowList.length > 0) process.exit(1);
   console.log(`✓ no-backdrop-filter: ${files.length} file(s) checked, no violations`);
   process.exit(0);
 }
@@ -106,7 +116,6 @@ for (const v of violations.sort((a, b) => a.file.localeCompare(b.file) || a.line
   console.error(`  ${v.file}:${v.line}: ${v.src.slice(0, 100)}`);
 }
 console.error(
-  "\nFix: use solid surfaces per 00-globals §G2 (canvas-overlay/raised + hairline + shadow).",
+  "\nFix: use solid surfaces per design-system/MASTER.md §5 (canvas-overlay/raised + hairline + shadow).",
 );
-console.error("Backdrop blur is reserved for the modal scrim only.");
 process.exit(1);

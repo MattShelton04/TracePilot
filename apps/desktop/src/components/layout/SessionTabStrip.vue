@@ -235,9 +235,9 @@ async function contextPopOut() {
     class="session-tab-strip"
     @click.self="hideContextMenu"
   >
-    <!-- Home pill — always visible, returns to session list. Icon-only per
-         design-system §1.3 (CC-5: avoid label collision with sidebar
-         "Sessions" item; the strip shows open work, not navigation). -->
+    <!-- Home pill — always visible, returns to session list. Icon-only so it
+         doesn't repeat the sidebar's "Sessions" item; the strip shows open
+         work, not navigation. -->
     <button
       ref="homeRef"
       type="button"

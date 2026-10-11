@@ -5,7 +5,7 @@
     actions — optional trailing buttons (Reset, Browse…)
   Standardised form-field row. Provides label / description / error chrome and
   a stable label-for association. Replaces bespoke .setting-row markup.
-  See design-system/pages/17-settings.md §Field.
+  See design-system/components.md.
 -->
 <script setup lang="ts">
 import { computed, provide } from "vue";

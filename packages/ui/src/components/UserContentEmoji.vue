@@ -2,7 +2,7 @@
   Wrapper that renders user-supplied text and quarantines any emoji
   codepoint inside <span class="ucem">…</span> so chrome typography keeps a
   consistent baseline.
-  See design-system/pages/00-globals.md §G1 (User-supplied emoji).
+  See design-system/MASTER.md §5 (emoji).
 -->
 <script setup lang="ts">
 import { computed } from "vue";

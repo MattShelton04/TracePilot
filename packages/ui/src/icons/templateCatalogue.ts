@@ -1,5 +1,5 @@
 // Curated 50-glyph dev-tool subset for <LucideIconPicker>.
-// See design-system/pages/19-session-launcher.md §LucideIconPicker (Catalogue).
+// Icon names a user can pick for a template; see design-system/MASTER.md §5.
 // Keep names in kebab-case (lucide canonical). Adding entries is a deliberate
 // design change reviewed alongside token additions.
 

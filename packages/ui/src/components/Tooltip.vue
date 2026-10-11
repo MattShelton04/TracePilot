@@ -2,7 +2,7 @@
   @slots default — single trigger element (the wrapper sets aria-describedby on it).
   The bubble is teleported to the document body and positioned against the viewport,
   so it is not clipped by cards, panels, or scroll containers.
-  See design-system/pages/02-primitives.md §Tooltip.
+  See design-system/components.md.
 -->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";

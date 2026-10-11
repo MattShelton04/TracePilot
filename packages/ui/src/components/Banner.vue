@@ -6,7 +6,7 @@
     actions — right-aligned action row (buttons / links)
   Inline notification surface. One canonical primitive that supersedes
   ObjectiveBanner / ModelSwitchBanner / StubBanner / UpdateBanner.
-  See design-system/pages/02-primitives.md §Banner.
+  See design-system/components.md.
 -->
 <script setup lang="ts">
 import { AlertTriangle, CheckCircle2, Info, Sparkles, X, XCircle } from "lucide-vue-next";
