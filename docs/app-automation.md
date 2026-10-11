@@ -153,7 +153,8 @@ pnpm app:stop -Instance qa1
 `-Fixtures` generates the synthetic rich-tool sessions into the data root before
 launch (see [testing](testing.md#rich-tool-fixtures)); the generator refuses roots
 it does not own. It also writes a completed-setup `config.toml` that points at
-those sessions, so the app opens on the session list. An existing config is kept,
+those sessions, with the Claude Code source turned on, so the app opens on the
+session list with both Copilot and Claude Code fixtures indexed. An existing config is kept,
 so settings changed in the app survive restarts. Add `-FirstRun` to skip the
 config and start on the setup wizard instead; it needs a fresh instance name.
 

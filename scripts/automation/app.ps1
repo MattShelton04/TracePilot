@@ -106,7 +106,8 @@ function Get-ResolvedPaths([string]$Root) {
     }
 }
 
-# Marks setup complete for a fixture data root so the app opens on its sessions.
+# Marks setup complete for a fixture data root so the app opens on its sessions,
+# with the Claude Code source on so its synthetic sessions are indexed too.
 # An existing config is kept, so settings changed in the app survive restarts.
 function Write-CompletedSetupConfig($Paths) {
     if (Test-Path -LiteralPath $Paths.config) { return }
@@ -121,6 +122,8 @@ function Write-CompletedSetupConfig($Paths) {
         "indexDbPath = $(& $quote $Paths.index)"
         '[general]'
         'setupComplete = true'
+        '[features]'
+        'claudeCodeSessions = true'
         ''
     ) -join "`n"
     [IO.File]::WriteAllText($Paths.config, $toml, [Text.UTF8Encoding]::new($false))
