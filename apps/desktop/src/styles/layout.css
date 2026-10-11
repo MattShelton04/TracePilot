@@ -493,11 +493,9 @@
   flex-shrink: 0;
 }
 .page-content {
-  /* Read by sticky children, which stick inside this padding. */
-  --page-content-padding: 28px;
   flex: 1;
   overflow-y: auto;
-  padding: var(--page-content-padding);
+  padding: 28px;
 }
 .page-content-inner {
   max-width: var(--content-max-width);

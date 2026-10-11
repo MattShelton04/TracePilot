@@ -576,8 +576,7 @@ watch(isSessionActive, (active) => {
   gap: 12px;
   margin-bottom: 24px;
   position: sticky;
-  /* Stick flush with the top of the scroll area, not inside its padding. */
-  top: calc(-1 * var(--page-content-padding, 0px));
+  top: 0;
   z-index: 60;
   background: rgba(24, 24, 27, 0.7);
   backdrop-filter: blur(12px);
