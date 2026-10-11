@@ -52,6 +52,10 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 18;
 /// rows (and their golden snapshot) are not re-derived for a Claude-only
 /// change. Never below [`CURRENT_ANALYTICS_VERSION`].
 ///
+/// v30: Claude Haiku 5.5 and Claude Mythos 5 / 5.1 calls are priced (Haiku 5.5
+/// by prompt length, above 100,000 input tokens at its higher rates), so their
+/// sessions' TracePilot-estimated USD cost is re-derived.
+///
 /// v29: a background agent launched before a `cost-state` snapshot and
 /// resumed by `SendMessage` after it no longer has its later calls counted
 /// as covered by the snapshot, so a resumed session's cost and tokens
@@ -96,7 +100,7 @@ pub(super) const CURRENT_ANALYTICS_VERSION: i64 = 18;
 /// cache windows timed by recorded calls.
 ///
 /// v18: summary and metrics from `cost-state` plus the de-duplicated tail (C5).
-pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 29;
+pub(super) const CLAUDE_CODE_ANALYTICS_VERSION: i64 = 30;
 
 /// Maximum incidents stored per session to prevent DB bloat.
 pub(super) const MAX_INCIDENTS_PER_SESSION: usize = 100;

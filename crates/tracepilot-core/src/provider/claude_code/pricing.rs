@@ -20,6 +20,10 @@ struct Rates {
     model: String,
     #[serde(default)]
     aliases: Vec<String>,
+    /// A prompt-length tier (Claude Haiku 5.5): it applies to a request whose
+    /// inclusive input, cache reads and writes included, reaches this count.
+    #[serde(default)]
+    minimum_input_tokens: u64,
     input_per_m: f64,
     cached_input_per_m: f64,
     cache_write_per_m: f64,
@@ -59,10 +63,19 @@ fn matches_model(model: &str, canonical: &str) -> bool {
 /// Thinking is already included in Claude's output, so never charge it twice.
 pub(crate) fn estimate_call(call: &ModelCallData) -> Option<f64> {
     let model = call.model.as_deref()?;
-    let rates = REGISTRY.as_ref()?.anthropic_usage.iter().find(|r| {
-        matches_model(model, &r.model) || r.aliases.iter().any(|alias| matches_model(model, alias))
-    })?;
     let input = call.input_tokens?;
+    let rates = REGISTRY
+        .as_ref()?
+        .anthropic_usage
+        .iter()
+        .filter(|r| {
+            r.minimum_input_tokens <= input
+                && (matches_model(model, &r.model)
+                    || r.aliases.iter().any(|alias| matches_model(model, alias)))
+        })
+        // The highest tier reached; `rev` keeps the first entry on a tie.
+        .rev()
+        .max_by_key(|r| r.minimum_input_tokens)?;
     let read = call.cache_read_tokens.unwrap_or(0);
     let write = call.cache_write_tokens.unwrap_or(0);
     let uncached = input.checked_sub(read.checked_add(write)?)?;
@@ -137,5 +150,24 @@ mod tests {
         ));
         assert!(matches_model("claude-opus-5-5", "claude-opus-5.5"));
         assert!(!matches_model("claude-opus-5-5-fast", "claude-opus-5.5"));
+    }
+
+    #[test]
+    fn haiku_5_5_switches_tier_above_100k_prompt_tokens() {
+        let call = |input| ModelCallData {
+            model: Some("claude-haiku-5-5-20261001".into()),
+            input_tokens: Some(input),
+            cache_read_tokens: Some(60_000),
+            cache_write_tokens: Some(1_000),
+            cache_write_by_ttl: Some(BTreeMap::from([("300".into(), 1_000)])),
+            output_tokens: Some(100),
+            ..ModelCallData::default()
+        };
+        let short = estimate_call(&call(100_000)).unwrap();
+        let expected = (39_000.0 * 0.1 + 60_000.0 * 0.01 + 1_000.0 * 0.125 + 100.0 * 0.5) / 1e6;
+        assert!((short - expected).abs() < 1e-12, "{short} vs {expected}");
+        let long = estimate_call(&call(100_001)).unwrap();
+        let expected = (39_001.0 * 0.5 + 60_000.0 * 0.05 + 1_000.0 * 0.625 + 100.0 * 2.5) / 1e6;
+        assert!((long - expected).abs() < 1e-12, "{long} vs {expected}");
     }
 }
