@@ -13,6 +13,13 @@ use super::translate::{OpenCall, RecCtx, Stream, Translator, base_id, strip_null
 use super::usage::{CallSite, CostSnapshot};
 use crate::error::Result;
 
+/// The model and reasoning effort a stream's latest call ran with.
+#[derive(Default)]
+pub(super) struct Selection {
+    model: Option<String>,
+    effort: Option<String>,
+}
+
 impl<F: Fn() -> bool> Translator<'_, F> {
     pub(super) fn observe_call(
         &mut self,
@@ -83,15 +90,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         let model = rec.model();
         if st.open_call.as_ref().map(|call| call.id.as_str()) != Some(id) {
             self.close_call(st, ctx);
-            if let (Some(previous), Some(model)) = (st.last_model.clone(), model)
-                && previous != model
-            {
-                let data = json!({"previousModel": previous, "newModel": model});
-                self.synth(st, ctx, "model_change", "session.model_change", data);
-            }
-            if model.is_some() {
-                st.last_model = model.map(str::to_string);
-            }
+            self.selection_change(st, ctx, model, rec.effort());
             st.last_command = None;
             let data = json!({
                 "turnId": id,
@@ -145,6 +144,39 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             self.native_only(st, ctx);
         }
         Ok(())
+    }
+
+    /// A `session.model_change` when a call runs on a different model or
+    /// reasoning effort than the stream's previous call, or records the
+    /// first effort after calls that had none (a session resumed on a newer
+    /// Claude Code). A call that does not record one keeps the previous
+    /// value: versions that did not write `effort` leave it unknown.
+    fn selection_change(
+        &mut self,
+        st: &mut Stream<'_>,
+        ctx: &RecCtx,
+        model: Option<&str>,
+        effort: Option<&str>,
+    ) {
+        let last = &st.last_selection;
+        let model_changed = switched(last.model.as_deref(), model);
+        let effort_changed = switched(last.effort.as_deref(), effort)
+            || (last.model.is_some() && last.effort.is_none() && effort.is_some());
+        if model_changed || effort_changed {
+            let data = json!({
+                "previousModel": last.model,
+                "newModel": model.or(last.model.as_deref()),
+                "previousReasoningEffort": effort.and(last.effort.as_deref()),
+                "reasoningEffort": effort,
+            });
+            self.synth(st, ctx, "model_change", "session.model_change", data);
+        }
+        if let Some(model) = model {
+            st.last_selection.model = Some(model.to_string());
+        }
+        if let Some(effort) = effort {
+            st.last_selection.effort = Some(effort.to_string());
+        }
     }
 
     /// A `tracepilot.model_call` for the call `id`, once per call. Its usage
@@ -282,9 +314,9 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         let records = || main.iter().map(|line| Rec(&line.value));
         let find = |pointer: &str| records().find_map(|rec| rec.ptr_str(pointer));
         let git = "/serverClassifierContext/context/git_state";
-        let model = records()
-            .find(|rec| rec.kind() == "assistant" && !rec.is_synthetic_error())
-            .and_then(|rec| rec.model());
+        let first_call =
+            records().find(|rec| rec.kind() == "assistant" && !rec.is_synthetic_error());
+        let model = first_call.and_then(|rec| rec.model());
         let ts = records().find_map(|rec| rec.timestamp());
         let data = json!({
             "sessionId": find("/sessionId"),
@@ -292,6 +324,7 @@ impl<F: Fn() -> bool> Translator<'_, F> {
             "version": find("/version"),
             "startTime": ts.map(|ts| ts.to_rfc3339()),
             "selectedModel": model,
+            "reasoningEffort": first_call.and_then(|rec| rec.effort()),
             "context": {
                 "cwd": find("/cwd"),
                 "gitRoot": find(&format!("{git}/root")),
@@ -303,6 +336,11 @@ impl<F: Fn() -> bool> Translator<'_, F> {
         let id = format!("{}:session.start", base_id(st, first));
         self.push(st, id, "session.start", strip_nulls(data), ts, None, None);
     }
+}
+
+/// Whether both values are known and differ.
+fn switched(previous: Option<&str>, next: Option<&str>) -> bool {
+    matches!((previous, next), (Some(previous), Some(next)) if previous != next)
 }
 
 fn assistant_text(rec: Rec<'_>) -> Option<String> {
