@@ -2,7 +2,7 @@
   "source": {
     "label": "Anthropic Claude API pricing",
     "url": "https://platform.claude.com/docs/en/about-claude/pricing",
-    "verifiedAt": "2026-10-08"
+    "verifiedAt": "2026-10-11"
   },
   "anthropicUsage": [
     {
@@ -141,6 +141,40 @@
       "cacheWritePerM": 12.5,
       "cacheWrite1hPerM": 20,
       "outputPerM": 50
+    },
+    {
+      "model": "claude-mythos-5.1",
+      "inputPerM": 10,
+      "cachedInputPerM": 0.25,
+      "cacheWritePerM": 12.5,
+      "cacheWrite1hPerM": 20,
+      "outputPerM": 50
+    },
+    {
+      "model": "claude-mythos-5",
+      "inputPerM": 10,
+      "cachedInputPerM": 1,
+      "cacheWritePerM": 12.5,
+      "cacheWrite1hPerM": 20,
+      "outputPerM": 50
+    },
+    {
+      "model": "claude-haiku-5.5",
+      "inputPerM": 0.1,
+      "cachedInputPerM": 0.01,
+      "cacheWritePerM": 0.125,
+      "cacheWrite1hPerM": 0.2,
+      "outputPerM": 0.5
+    },
+    {
+      "model": "claude-haiku-5.5",
+      "pricingTier": "long-context",
+      "minimumInputTokens": 100001,
+      "inputPerM": 0.5,
+      "cachedInputPerM": 0.05,
+      "cacheWritePerM": 0.625,
+      "cacheWrite1hPerM": 1,
+      "outputPerM": 2.5
     }
   ]
 }

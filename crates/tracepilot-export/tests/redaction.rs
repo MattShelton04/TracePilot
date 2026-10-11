@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 use std::fs;
 
+use serde_json::json;
 use tracepilot_export::document::{SectionId, SessionArchive};
 use tracepilot_export::options::*;
 use tracepilot_export::*;
@@ -73,4 +74,69 @@ fn redaction_covers_system_messages() {
         );
     }
     assert!(archive.export_options.redaction_applied);
+}
+
+#[test]
+fn redaction_covers_subagent_descriptions_in_exports() {
+    let (dir, _) = workspace_only_temp_dir(full_workspace_yaml());
+    let description = concat!(
+        r"Review C:\Users\synthetic\repo for synthetic-owner@example.com using ",
+        "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij"
+    );
+    let redacted_description = "Review <REDACTED_PATH> for <REDACTED_EMAIL> using <REDACTED_TOKEN>";
+    let records = [
+        json!({"type":"user.message","id":"user","timestamp":"2026-03-10T10:00:00Z","data":{"content":"Review the upload client"}}),
+        json!({"type":"tool.execution_start","id":"start","parentId":"user","timestamp":"2026-03-10T10:00:01Z","data":{"toolCallId":"agent-call","toolName":"task","arguments":{"description":description,"prompt":"Review the client","agent_type":"explore"}}}),
+        json!({"type":"subagent.started","id":"agent","parentId":"start","timestamp":"2026-03-10T10:00:01Z","data":{"toolCallId":"agent-call","agentName":"Explore","agentDisplayName":"Explore","agentDescription":description}}),
+        json!({"type":"tool.execution_complete","id":"complete","parentId":"agent","timestamp":"2026-03-10T10:00:02Z","data":{"toolCallId":"agent-call","success":true,"result":{"content":"Reviewed."}}}),
+        json!({"type":"assistant.message","id":"assistant","parentId":"complete","timestamp":"2026-03-10T10:00:03Z","data":{"content":"Review complete."}}),
+    ];
+    let events = records
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(dir.path().join("events.jsonl"), events).unwrap();
+
+    let mut leaks = Vec::new();
+    for redact in [false, true] {
+        let expected = if redact {
+            redacted_description
+        } else {
+            description
+        };
+        for format in [ExportFormat::Json, ExportFormat::Markdown] {
+            let mut options = ExportOptions::all(format);
+            options.redaction = RedactionOptions {
+                anonymize_paths: redact,
+                strip_secrets: redact,
+                strip_pii: redact,
+            };
+            let files = export_session(dir.path(), &options).unwrap();
+            let output = files[0].as_text().unwrap();
+            let description_matches = if format == ExportFormat::Json {
+                let archive: SessionArchive = serde_json::from_str(output).unwrap();
+                let tool = &archive.sessions[0].conversation.as_ref().unwrap()[0].tool_calls[0];
+                assert_eq!(tool.arguments.as_ref().unwrap()["description"], expected);
+                assert_eq!(archive.export_options.redaction_applied, redact);
+                tool.agent_description.as_deref() == Some(expected)
+            } else {
+                output.contains(&format!("\n{expected}\n"))
+            };
+            if redact {
+                if !description_matches
+                    || output.contains("synthetic-owner@example.com")
+                    || output.contains("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij")
+                {
+                    leaks.push(format);
+                }
+            } else {
+                assert!(description_matches, "{format:?}: description changed");
+            }
+        }
+    }
+    assert!(
+        leaks.is_empty(),
+        "Description redaction failed in {leaks:?}"
+    );
 }

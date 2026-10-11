@@ -9,22 +9,40 @@ import {
 import type { CostBasis } from "./session.js";
 import type { SessionSource } from "./sources.js";
 
+interface ClaudeRateRow {
+  model: string;
+  aliases?: string[];
+  /** A prompt-length tier (Claude Haiku 5.5): total input including cache. */
+  pricingTier?: string;
+  minimumInputTokens?: number;
+  inputPerM: number;
+  cachedInputPerM: number;
+  cacheWritePerM: number;
+  cacheWrite1hPerM: number;
+  outputPerM: number;
+}
+
 /** Claude Code API-equivalent rates, kept outside Copilot's registry,
- * persisted defaults and pricing controls. */
-export const CLAUDE_CODE_PRICING: readonly PricingRegistryEntry[] = data.anthropicUsage.map(
-  ({ model, aliases, ...rates }) => ({
-    model,
-    aliases: [model.replace(/\.(\d+)/, "-$1"), ...(aliases ?? [])],
-    billingProvider: "provider-wholesale",
-    pricingKind: "usage-token-rate",
-    rates,
-    currency: "USD",
-    unit: "per-1m-tokens",
-    sourceLabel: `${data.source.label} (verified ${data.source.verifiedAt})`,
-    sourceUrl: data.source.url,
-    status: "official",
+ * persisted defaults and pricing controls. `pnpm pricing:claude` refreshes the
+ * data from Anthropic's pricing page. */
+export const CLAUDE_CODE_PRICING: readonly PricingRegistryEntry[] = (
+  data.anthropicUsage as ClaudeRateRow[]
+).map(({ model, aliases, pricingTier, minimumInputTokens, ...rates }) => ({
+  model,
+  ...(minimumInputTokens != null && {
+    pricingTier: pricingTier === "long-context" ? "long-context" : "default",
+    minimumInputTokens,
   }),
-);
+  aliases: [model.replace(/\.(\d+)/, "-$1"), ...(aliases ?? [])],
+  billingProvider: "provider-wholesale",
+  pricingKind: "usage-token-rate",
+  rates,
+  currency: "USD",
+  unit: "per-1m-tokens",
+  sourceLabel: `${data.source.label} (verified ${data.source.verifiedAt})`,
+  sourceUrl: data.source.url,
+  status: "official",
+}));
 
 /**
  * The registry id of a Claude Code model (`claude-opus-4-5-20251101` →
