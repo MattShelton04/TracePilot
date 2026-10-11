@@ -27,7 +27,7 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Fixed
 
-- **macOS and Linux** — Detect & Connect and Launch UI Server work outside Windows, and a slow login shell no longer delays launching from the Dock.
+- **macOS and Linux** — Detect & Connect and Launch UI Server work outside Windows, a slow login shell no longer delays launching from the Dock, and launching a session with a prompt works on macOS 12.
 - **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, Analytics refreshes in place after a reindex, a reused export preview shows the current export time, and redacted exports also redact subagent descriptions.
 
 ### Removed
