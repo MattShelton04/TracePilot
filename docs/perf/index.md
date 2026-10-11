@@ -10,6 +10,7 @@ workflow, and the machine-readable performance contract.
 - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [CI Benchmark Workflow](#ci-benchmark-workflow)
 - [Latest Results](#latest-results)
+- [Indexing Baseline](#indexing-baseline)
 - [Comparing Runs](#comparing-runs)
 - [Related Docs](#related-docs)
 
@@ -100,6 +101,14 @@ the `criterion-suite-*` artifacts and unzip each into a separate directory under
 The [`results/`](./results/) directory is gitignored (artifacts are large and
 reproducible from CI), so committed snapshots live under `results/README.md`
 when we want to pin a reference baseline.
+
+## Indexing Baseline
+
+Whole-path indexing numbers (first index, incremental and live refresh, analytics
+bump, rebuilds, source toggle) on a heavy two-source corpus, the method behind
+them, and the Copilot-only comparison with v0.9.1 are in the playbook under
+[Measuring the whole indexing path](../performance-playbook.md#measuring-the-whole-indexing-path).
+Re-measure with the same method before claiming an indexing regression or gain.
 
 ## Comparing Runs
 
