@@ -272,6 +272,33 @@ describe("ContextWindowChart", () => {
     expect(wrapper.text()).toContain("Viewing");
   });
 
+  it("lets a plain wheel scroll the page and zooms only with Ctrl", async () => {
+    const wrapper = mount(ContextWindowChart, { props: { timeline } });
+    const svg = wrapper.find("svg");
+    Object.defineProperty(svg.element, "getBoundingClientRect", {
+      value: () => ({ left: 0, top: 0, width: 900, height: 390 }),
+    });
+
+    const scroll = new WheelEvent("wheel", { deltaY: -100, cancelable: true, bubbles: true });
+    svg.element.dispatchEvent(scroll);
+    await wrapper.vm.$nextTick();
+    expect(scroll.defaultPrevented).toBe(false);
+    expect(wrapper.text()).not.toContain("Viewing");
+    expect(wrapper.find(".context-chart__wheel-hint--visible").exists()).toBe(true);
+
+    const pinch = new WheelEvent("wheel", {
+      deltaY: -100,
+      ctrlKey: true,
+      cancelable: true,
+      bubbles: true,
+    });
+    svg.element.dispatchEvent(pinch);
+    await wrapper.vm.$nextTick();
+    expect(pinch.defaultPrevented).toBe(true);
+    expect(wrapper.text()).toContain("1.4×");
+    expect(wrapper.find(".context-chart__wheel-hint--visible").exists()).toBe(false);
+  });
+
   it("supports middle-button drag panning", async () => {
     const wrapper = mount(ContextWindowChart, { props: { timeline } });
     const svg = wrapper.find("svg");

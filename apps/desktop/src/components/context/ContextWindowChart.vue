@@ -6,6 +6,7 @@ import type {
   ContextWindowPoint,
 } from "@tracepilot/types";
 import { computed, ref, watch } from "vue";
+import { useModifierWheelZoom } from "@/composables/useModifierWheelZoom";
 import { niceTicks } from "@/utils/niceTicks";
 import { buildActiveTimeCoordinates } from "./contextChartScale";
 
@@ -410,11 +411,11 @@ function changeZoom(next: number, anchorRatio = 0.5) {
     Math.max(0, Math.round(anchor - anchorRatio * Math.max(visibleCount.value - 1, 0))),
   );
 }
-function handleWheel(event: WheelEvent) {
+const wheelZoom = useModifierWheelZoom((event) => {
   const rect = (event.currentTarget as SVGElement).getBoundingClientRect();
   const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
   changeZoom(event.deltaY < 0 ? zoom.value * 1.35 : zoom.value / 1.35, ratio);
-}
+});
 function startPan(event: PointerEvent) {
   if (event.button !== 0 && event.button !== 1) return;
   if (event.button === 1) event.preventDefault();
@@ -577,8 +578,8 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
           <button type="button" :class="{ active: axisMode === 'turn' }" @click="axisMode = 'turn'">Turn</button>
           <button type="button" :class="{ active: axisMode === 'time' }" @click="axisMode = 'time'">Time</button>
         </div>
-        <button type="button" class="context-chart__icon-button" aria-label="Zoom out" @click="changeZoom(zoom / 1.5)">−</button>
-        <button type="button" class="context-chart__icon-button" aria-label="Zoom in" @click="changeZoom(zoom * 1.5)">+</button>
+        <button type="button" class="context-chart__icon-button" aria-label="Zoom out" :title="`Zoom out (${wheelZoom.hintLabel})`" @click="changeZoom(zoom / 1.5)">−</button>
+        <button type="button" class="context-chart__icon-button" aria-label="Zoom in" :title="`Zoom in (${wheelZoom.hintLabel})`" @click="changeZoom(zoom * 1.5)">+</button>
         <button type="button" class="context-chart__button" @click="resetView">Reset</button>
       </div>
     </div>
@@ -612,7 +613,7 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
         @mousemove="handleMove"
         @mouseleave="clearHover"
         @click="lockPoint"
-        @wheel.prevent="handleWheel"
+        @wheel="wheelZoom.onWheel"
         @pointerdown="startPan"
         @pointermove="movePan"
         @pointerup="endPan"
@@ -732,6 +733,13 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
           <text x="8" y="31">{{ formatTick(tooltipPoint.totalTokens) }} tokens · {{ tooltipPoint.source }}</text>
         </g>
       </svg>
+      <div
+        class="context-chart__wheel-hint"
+        :class="{ 'context-chart__wheel-hint--visible': wheelZoom.hintVisible.value }"
+        aria-hidden="true"
+      >
+        {{ wheelZoom.hintLabel }}
+      </div>
     </div>
   </div>
 </template>
@@ -815,6 +823,7 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
   text-align: right;
 }
 .context-chart__frame {
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
@@ -822,6 +831,23 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
   cursor: grab;
 }
 .context-chart__frame--panning { cursor: grabbing; }
+.context-chart__wheel-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  padding: 4px 8px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-overlay, var(--canvas-default));
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.context-chart__wheel-hint--visible { opacity: 1; }
 .context-chart__frame svg { display: block; min-width: 680px; width: 100%; height: auto; touch-action: none; user-select: none; }
 .context-chart__grid line { stroke: var(--border-muted); stroke-width: 1; }
 .context-chart__axes text { fill: var(--text-tertiary); font-size: 10px; }
