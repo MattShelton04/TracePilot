@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { countUp, formatCountable, parseCountable } from "../countUp";
+import { countFrom, countUp, formatCountable, parseCountable } from "../countUp";
 
 describe("parseCountable / formatCountable", () => {
   it.each([
@@ -62,5 +62,41 @@ describe("countUp", () => {
     countUp([el], 600);
     expect(el.textContent).toBe("1h 17m");
     expect(frames).toHaveLength(0);
+  });
+});
+
+describe("countFrom", () => {
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", vi.fn());
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function shown(text: string) {
+    const el = document.createElement("div");
+    el.textContent = text;
+    document.body.append(el);
+    return el;
+  }
+
+  it("starts from the previous number and ends on the new text", () => {
+    const el = shown("$1,250.00");
+    const finish = countFrom(new Map([[el, "$900.00"]]), 450);
+    expect(el.textContent).toBe("$900.00");
+
+    finish();
+    expect(el.textContent).toBe("$1,250.00");
+  });
+
+  it.each([
+    ["512.3M", "1.2B"],
+    ["93.2%", "93%"],
+    ["12", "12"],
+  ])("shows the new text at once when %s becomes %s", (before, after) => {
+    const el = shown(after);
+    countFrom(new Map([[el, before]]), 450);
+    expect(el.textContent).toBe(after);
   });
 });

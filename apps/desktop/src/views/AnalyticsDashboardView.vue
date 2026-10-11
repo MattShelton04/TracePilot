@@ -23,6 +23,7 @@ import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
+import { useValueTween } from "@/composables/useValueTween";
 import type { AnalyticsDatasetName } from "@/stores/analytics";
 import { usePreferencesStore } from "@/stores/preferences";
 import { activityRows, dashboardDays } from "@/utils/analyticsDashboard";
@@ -57,6 +58,12 @@ const { revealing } = useFirstReveal({
   ready: () => !loading.value && !!data.value,
   root: contentRoot,
   countUpSelector: ".kpi__value-num, [data-count-up]",
+});
+// Later results (a new filter, a reindex) count from the old numbers.
+useValueTween({
+  root: contentRoot,
+  selector: ".kpi__value-num, [data-count-up], .agents-panel__value, .skills-panel__value",
+  source: () => [store.analytics, store.agentsSummary, store.skillsSummary],
 });
 
 const pageSubtitle = computed(() => {

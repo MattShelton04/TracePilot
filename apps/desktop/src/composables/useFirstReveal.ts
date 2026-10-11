@@ -22,7 +22,7 @@ const COUNT_UP_MS = 600;
 const revealed = new Set<string>();
 
 /** False with reduced motion, and where the preference cannot be read. */
-function motionAllowed(): boolean {
+export function motionAllowed(): boolean {
   return (
     typeof window.matchMedia === "function" &&
     !window.matchMedia("(prefers-reduced-motion: reduce)").matches

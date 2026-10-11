@@ -20,6 +20,7 @@ import { computed, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
+import { useValueTween } from "@/composables/useValueTween";
 import { CHART_COLORS } from "@/utils/chartColors";
 
 const { tooltip, dismissTooltip, onChartMouseMove, onChartClick, onBarMouseEnter } =
@@ -37,6 +38,7 @@ const { revealing } = useFirstReveal({
   root: contentRoot,
   countUpSelector: ".stat-card-value",
 });
+useValueTween({ root: contentRoot, selector: ".stat-card-value", source: data });
 
 const pageSubtitle = computed(() => {
   const allPrefix = store.selectedRepo || store.selectedSource ? "" : "all ";

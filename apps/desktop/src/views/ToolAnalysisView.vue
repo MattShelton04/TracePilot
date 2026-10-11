@@ -10,6 +10,7 @@ import ToolUsageHeatmap from "@/components/toolAnalysis/ToolUsageHeatmap.vue";
 import ToolUsageList from "@/components/toolAnalysis/ToolUsageList.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
+import { useValueTween } from "@/composables/useValueTween";
 
 const { store } = useAnalyticsPage("fetchToolAnalysis");
 
@@ -24,6 +25,7 @@ const { revealing } = useFirstReveal({
   root: contentRoot,
   countUpSelector: ".stat-card-value",
 });
+useValueTween({ root: contentRoot, selector: ".stat-card-value", source: data });
 
 const pageSubtitle = computed(() => {
   const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
