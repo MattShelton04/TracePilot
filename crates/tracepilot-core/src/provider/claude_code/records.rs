@@ -30,6 +30,19 @@ impl<'a> Rec<'a> {
         self.str("type").unwrap_or("")
     }
 
+    /// The native type: `type`, with the subtype for `system` and `attachment`.
+    pub(super) fn native_type(self) -> String {
+        match self.kind() {
+            "system" => format!("system:{}", self.str("subtype").unwrap_or("")),
+            "attachment" => format!(
+                "attachment:{}",
+                self.ptr_str("/attachment/type").unwrap_or("")
+            ),
+            "" => "unknown".to_string(),
+            kind => kind.to_string(),
+        }
+    }
+
     pub(super) fn uuid(self) -> Option<&'a str> {
         self.str("uuid")
     }

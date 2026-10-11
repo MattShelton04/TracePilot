@@ -59,6 +59,8 @@ pub(super) struct Translator<'a, F> {
     pub(super) tool_starts: HashMap<String, usize>,
     pub(super) inserted: HashSet<String>,
     pub(super) events: Vec<RawEvent>,
+    /// Each event's source record, attached as `raw.native` once the lines are dropped.
+    pub(super) natives: Vec<Option<Arc<Value>>>,
     pub(super) positions: Vec<Option<NativePosition>>,
     pub(super) calls: CallTable,
     /// `tracepilot.model_call` events by message id, filled in by `finish`.
@@ -137,17 +139,29 @@ pub(super) fn translate(
     is_cancelled: &impl Fn() -> bool,
     diagnostics: ClaudeDiagnostics,
 ) -> Result<ClaudeParse> {
-    let mut t = Translator::new(&children, is_cancelled, diagnostics, &main);
-    let mut stream = t.stream(None, None, None, &main);
-    t.session_start(&mut stream, &main);
-    t.run(&mut stream)?;
-    for (index, child) in children.iter().enumerate() {
-        if !t.inserted.contains(&child.agent_id) {
-            t.diagnostics.orphan_subagents += 1;
-            t.run_child(index, None, None, None)?;
+    let (mut parse, natives) = {
+        let mut t = Translator::new(&children, is_cancelled, diagnostics, &main);
+        let mut stream = t.stream(None, None, None, &main);
+        t.session_start(&mut stream, &main);
+        t.run(&mut stream)?;
+        for (index, child) in children.iter().enumerate() {
+            if !t.inserted.contains(&child.agent_id) {
+                t.diagnostics.orphan_subagents += 1;
+                t.run_child(index, None, None, None)?;
+            }
         }
+        t.finish()
+    };
+    // With the lines gone, a record's last event takes it without a copy.
+    drop((main, children));
+    for (event, record) in parse.events.iter_mut().zip(natives) {
+        event.raw.native = record.map(|record| NativeRecord {
+            source: SessionSource::ClaudeCode,
+            record_type: Rec(&record).native_type(),
+            data: Arc::unwrap_or_clone(record),
+        });
     }
-    Ok(t.finish())
+    Ok(parse)
 }
 
 impl<'a, F: Fn() -> bool> Translator<'a, F> {
@@ -167,6 +181,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             tool_starts: HashMap::new(),
             inserted: HashSet::new(),
             events: Vec::new(),
+            natives: Vec::new(),
             positions: Vec::new(),
             calls: CallTable::default(),
             model_calls: HashMap::new(),
@@ -335,7 +350,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
 
     /// The record as an `Unknown(<native type>)` event for the Events tab.
     pub(super) fn native_only(&mut self, st: &mut Stream<'_>, ctx: &mut RecCtx) {
-        let name = record_type(Rec(&ctx.record));
+        let name = Rec(&ctx.record).native_type();
         let data = (*ctx.record).clone();
         self.emit_inner(st, ctx, &name, data, None, None);
     }
@@ -373,12 +388,7 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
     ) -> String {
         let id = format!("{}:{}", ctx.base, ctx.n);
         ctx.n += 1;
-        let native = NativeRecord {
-            source: SessionSource::ClaudeCode,
-            record_type: record_type(Rec(&ctx.record)),
-            data: (*ctx.record).clone(),
-        };
-        let native = Some((native, ctx.position.clone()));
+        let native = Some((Arc::clone(&ctx.record), ctx.position.clone()));
         let event = self.push(st, id, kind, data, ctx.ts, native, parent);
         if let Some(agent) = agent_id
             && let Some(last) = self.events.last_mut()
@@ -408,10 +418,10 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
         kind: &str,
         data: Value,
         ts: Option<DateTime<Utc>>,
-        native: Option<(NativeRecord, NativePosition)>,
+        native: Option<(Arc<Value>, NativePosition)>,
         parent: Option<String>,
     ) -> String {
-        let (native, position) = native.unzip();
+        let (record, position) = native.unzip();
         self.events.push(RawEvent {
             event_type: kind.to_string(),
             data,
@@ -419,14 +429,15 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
             timestamp: ts,
             parent_id: parent.or_else(|| st.last_event.clone()),
             agent_id: st.agent_id.clone(),
-            native,
+            native: None,
         });
+        self.natives.push(record);
         self.positions.push(position);
         st.last_event = Some(id.clone());
         id
     }
 
-    fn finish(mut self) -> ClaudeParse {
+    fn finish(mut self) -> (ClaudeParse, Vec<Option<Arc<Value>>>) {
         super::usage::fill_model_calls(&mut self.events, &self.model_calls, &self.calls.calls);
         let mut diagnostics = self.diagnostics;
         let events = self
@@ -455,26 +466,14 @@ impl<'a, F: Fn() -> bool> Translator<'a, F> {
         // The shared counter is every skipped line, so `has_warnings` sees them.
         diagnostics.events.malformed_lines =
             diagnostics.malformed_lines + diagnostics.oversized_lines;
-        ClaudeParse {
+        let parse = ClaudeParse {
             events,
             positions: self.positions,
             calls: self.calls.calls,
             cost_snapshots: self.snapshots,
             diagnostics,
-        }
-    }
-}
-
-/// The native type: `type`, with the subtype for `system` and `attachment`.
-fn record_type(rec: Rec<'_>) -> String {
-    match rec.kind() {
-        "system" => format!("system:{}", rec.str("subtype").unwrap_or("")),
-        "attachment" => format!(
-            "attachment:{}",
-            rec.ptr_str("/attachment/type").unwrap_or("")
-        ),
-        "" => "unknown".to_string(),
-        kind => kind.to_string(),
+        };
+        (parse, self.natives)
     }
 }
 
