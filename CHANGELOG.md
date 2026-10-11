@@ -9,8 +9,8 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
-- **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions in the session list, Conversation, Metrics, Analytics, Search and Export. Cost shows as an estimated API-equivalent USD. Turn it on in **Settings → Claude Code** or during first-run setup; that section also shows your Claude Code transcript cleanup period and warns when it is low.
-- **Claude Code live state and resume** — Running Claude Code sessions show **Busy** or **Waiting**, and **Resume in Terminal** reopens a session in its working directory.
+- **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions in the session list, Conversation, Metrics, Analytics, Search and Export. Cost shows as an estimated API-equivalent USD, and sessions show their reasoning effort and an estimated context breakdown. First-run setup turns it on when Claude Code sessions are found, and **Settings → Claude Code** shows your transcript cleanup period and can raise it in one click.
+- **Live state and resume** — Running Claude Code and Copilot CLI sessions show **Busy** or **Waiting**, and **Resume in Terminal** reopens a Claude Code session in its working directory.
 - **Update check in the version popup** — Clicking the version number checks for and installs updates.
 - **Background task results** — Background agents and shells show how they finished on the card that started them, notifications that wake an idle Claude Code session read as short cards, and agents that never reported show **No final report**.
 
@@ -28,7 +28,7 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ### Fixed
 
 - **macOS and Linux** — Detect & Connect and Launch UI Server work outside Windows, a slow login shell no longer delays launching from the Dock, and launching a session with a prompt works on macOS 12.
-- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, Analytics refreshes in place after a reindex, a reused export preview shows the current export time, and redacted exports also redact subagent descriptions.
+- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, Analytics refreshes in place after a reindex, a reused export preview shows the current export time, redacted exports also redact subagent descriptions, and Open Folder works for Claude Code sessions.
 
 ### Removed
 
