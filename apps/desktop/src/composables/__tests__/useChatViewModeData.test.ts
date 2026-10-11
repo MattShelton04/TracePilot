@@ -126,6 +126,21 @@ describe("useChatViewModeData streaming derivations", () => {
     expect(target.classList.contains("cv-highlight")).toBe(false);
   });
 
+  it("jumps instantly to a target far off-screen (cold-open deep link)", async () => {
+    const root = document.createElement("div");
+    root.innerHTML = '<div data-turn-idx="150"><button data-event-idx="903"></button></div>';
+    const target = root.querySelector<HTMLElement>("[data-event-idx]")!;
+    target.scrollIntoView = vi.fn();
+    target.getBoundingClientRect = () => ({ top: -30_000, height: 40 }) as DOMRect;
+    const api = mountHarness(root);
+
+    api.revealEvent(150, 903);
+    await nextTick();
+
+    expect(target.scrollIntoView).toHaveBeenCalledWith({ behavior: "auto", block: "center" });
+    expect(target.classList.contains("cv-highlight")).toBe(true);
+  });
+
   it("reads motion changes after a missing turn is retried and before nextTick scrolling", async () => {
     vi.useFakeTimers();
     const root = document.createElement("div");

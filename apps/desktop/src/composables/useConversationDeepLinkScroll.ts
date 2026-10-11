@@ -22,6 +22,7 @@
  * concerns.
  */
 import { onScopeDispose, type Ref, readonly, ref } from "vue";
+import { revealScrollBehavior } from "@/utils/revealScroll";
 
 export interface UseConversationDeepLinkScrollReturn {
   /**
@@ -53,8 +54,7 @@ export function useConversationDeepLinkScroll(
   let activeObserver: IntersectionObserver | null = null;
 
   function scrollAndHighlight(el: HTMLElement) {
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
+    el.scrollIntoView({ behavior: revealScrollBehavior(el), block: "center" });
 
     activeObserver?.disconnect();
     const observer = new IntersectionObserver(
