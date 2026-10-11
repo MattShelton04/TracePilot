@@ -89,6 +89,8 @@ const sparkPoints = computed(() => {
   <div
     data-tp-component="KPI"
     class="kpi"
+    role="group"
+    :aria-label="label"
     :class="[`kpi--${density}`, `kpi--${state}`]"
   >
     <div class="kpi__label">

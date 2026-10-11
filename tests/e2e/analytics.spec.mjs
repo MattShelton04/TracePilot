@@ -14,8 +14,15 @@ test("bulk indexing feeds analytics, repository/date filters, tools, and code im
   const failures = sessions.reduce((sum, session) => sum + session.failedTools, 0);
   const metric = (name) => page.getByRole("group", { name, exact: true });
   const number = (value) => value.toLocaleString("en-US");
+  // Mirrors formatShare in apps/desktop/src/utils/analyticsDashboard.ts.
+  const share = (part, whole) => {
+    const percent = (part / whole) * 100;
+    if (percent <= 0) return "0%";
+    if (percent < 0.1) return "<0.1%";
+    return percent < 1 ? `${percent.toFixed(1)}%` : `${Math.round(percent)}%`;
+  };
   const expectMetric = async (name, value) => {
-    await expect(metric(name).getByText(String(value), { exact: true })).toBeVisible();
+    await expect(metric(name).locator(".kpi__value-num")).toHaveText(String(value));
   };
 
   await test.step("index the complete corpus from first-run setup", async () => {
@@ -26,8 +33,8 @@ test("bulk indexing feeds analytics, repository/date filters, tools, and code im
   await test.step("analytics aggregate all nonempty sessions and three models", async () => {
     await sidebar(page, "Analytics");
     await page.getByRole("button", { name: "All Time", exact: true }).click();
-    await expectMetric("Total Sessions", sessions.length);
-    await expectMetric("Total Tokens", `${Number((totalTokens / 1_000_000).toFixed(1))}M`);
+    await expectMetric("Sessions", number(sessions.length));
+    await expectMetric("Tokens", `${Number((totalTokens / 1_000_000).toFixed(1))}M`);
     for (const model of new Set(sessions.map((session) => session.model))) {
       await expect(page.getByText(model, { exact: true }).first()).toBeVisible();
     }
@@ -37,9 +44,9 @@ test("bulk indexing feeds analytics, repository/date filters, tools, and code im
     const repository = "github.com/example/bulk-1";
     const count = sessions.filter((session) => session.repository === repository).length;
     await page.getByRole("combobox", { name: "Filter by repository" }).selectOption(repository);
-    await expectMetric("Total Sessions", count);
+    await expectMetric("Sessions", count);
     await page.getByRole("combobox", { name: "Filter by repository" }).selectOption("");
-    await expectMetric("Total Sessions", sessions.length);
+    await expectMetric("Sessions", sessions.length);
   });
 
   await test.step("date bounds select a known subset, handle no data, and recover totals", async () => {
@@ -47,7 +54,7 @@ test("bulk indexing feeds analytics, repository/date filters, tools, and code im
     await page.getByLabel("From date", { exact: true }).fill("2025-04-01");
     await page.getByLabel("From date", { exact: true }).blur();
     await expectMetric(
-      "Total Sessions",
+      "Sessions",
       sessions.filter((session) => session.date >= "2025-04-01").length,
     );
     await page.getByLabel("To date", { exact: true }).fill("2025-06-30");
@@ -55,35 +62,32 @@ test("bulk indexing feeds analytics, repository/date filters, tools, and code im
     const quarter = sessions.filter(
       (session) => session.date >= "2025-04-01" && session.date <= "2025-06-30",
     );
-    await expectMetric("Total Sessions", quarter.length);
+    await expectMetric("Sessions", quarter.length);
     await page.getByLabel("To date", { exact: true }).fill("");
     await page.getByLabel("To date", { exact: true }).blur();
     await page.getByLabel("From date", { exact: true }).fill("2090-01-01");
     await page.getByLabel("From date", { exact: true }).blur();
-    await expectMetric("Total Sessions", 0);
+    await expectMetric("Sessions", 0);
     await page.getByRole("button", { name: "All Time", exact: true }).click();
-    await expectMetric("Total Sessions", sessions.length);
+    await expectMetric("Sessions", sessions.length);
   });
 
   await test.step("tool analysis reads tool events across the corpus", async () => {
     await sidebar(page, "Tools");
-    await expectMetric("Total Tool Calls", number(totalTools));
-    await expectMetric(
-      "Success Rate",
-      `${Number(((1 - failures / totalTools) * 100).toFixed(1))}%`,
-    );
+    await expectMetric("Tool calls", number(totalTools));
+    await expectMetric("Failed", share(failures, totalTools));
     await expect(page.getByRole("table")).toContainText("read_file");
     await page
       .getByRole("combobox", { name: "Filter by repository" })
       .selectOption("github.com/example/orchard");
-    await expectMetric("Total Tool Calls", 12);
+    await expectMetric("Tool calls", 12);
   });
 
   await test.step("code impact aggregates shutdown metrics and respects repository scope", async () => {
     await sidebar(page, "Code");
-    await expectMetric("Lines Added", "+60");
-    await expectMetric("Lines Removed", "-18");
+    await expectMetric("Lines added", "+60");
+    await expectMetric("Lines removed", "−18");
     await page.getByRole("combobox", { name: "Filter by repository" }).selectOption("");
-    await expectMetric("Lines Added", `+${number(completedTurns * 10)}`);
+    await expectMetric("Lines added", `+${number(completedTurns * 10)}`);
   });
 });

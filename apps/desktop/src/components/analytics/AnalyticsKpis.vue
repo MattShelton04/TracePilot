@@ -158,20 +158,20 @@ const pace = computed(() => {
 </script>
 
 <template>
-  <KPIRow class="analytics-kpis" data-testid="analytics-kpis">
+  <KPIRow class="ad-kpis" data-testid="analytics-kpis">
     <KPI label="Sessions" :value="formatNumberFull(data.totalSessions)">
       <template #icon><Layers :size="13" /></template>
       <template #footer>
-        <div v-if="strip.length" class="day-strip" aria-hidden="true">
+        <div v-if="strip.length" class="ad-day-strip" aria-hidden="true">
           <i
             v-for="bar in strip"
             :key="bar.key"
-            :class="{ 'day-strip__zero': !bar.height }"
+            :class="{ 'ad-day-strip__zero': !bar.height }"
             :style="bar.height ? { height: `${bar.height}%` } : undefined"
             data-reveal="grow-y"
           />
         </div>
-        <span class="kpi-note">
+        <span class="ad-kpi-note">
           <template v-if="has">
             <b>{{ formatNumberFull(runs) }}</b> runs · active <b>{{ activeDays }}</b> of {{ rows.length }}
             day{{ rows.length === 1 ? "" : "s" }}
@@ -193,7 +193,7 @@ const pace = computed(() => {
             data-reveal="grow-x"
           />
         </div>
-        <span class="kpi-note">
+        <span class="ad-kpi-note">
           <template v-if="tokens.cacheShare"><b>{{ tokens.cacheShare }}</b> cache reads · {{ tokens.fresh }} fresh</template>
           <template v-else>No model usage</template>
         </span>
@@ -212,7 +212,7 @@ const pace = computed(() => {
             data-reveal="grow-x"
           />
         </div>
-        <span class="kpi-note" :title="cost.note">
+        <span class="ad-kpi-note" :title="cost.note">
           {{ cost.note }}<template v-if="cost.partial"> · <span class="ad-partial">partial</span></template>
         </span>
       </template>
@@ -221,7 +221,7 @@ const pace = computed(() => {
     <KPI label="Model time / session" :value="pace?.median ?? '—'">
       <template #icon><Timer :size="13" /></template>
       <template #footer>
-        <span class="kpi-note">
+        <span class="ad-kpi-note">
           <template v-if="pace && pace.timed >= 5">median · p95 <b>{{ pace.p95 }}</b> · {{ formatNumberFull(pace.timed) }} timed</template>
           <template v-else-if="pace">median of {{ pace.timed }} timed session{{ pace.timed === 1 ? "" : "s" }}</template>
           <template v-else>No model timing recorded</template>
@@ -232,7 +232,7 @@ const pace = computed(() => {
     <KPI label="Errors" :value="formatNumberFull(errors + rateLimits)">
       <template #icon><OctagonAlert :size="13" /></template>
       <template #footer>
-        <span class="kpi-note">
+        <span class="ad-kpi-note">
           <template v-if="errors + rateLimits > 0">
             <b>{{ formatNumberFull(rateLimits) }}</b> rate limits · in {{ formatNumberFull(data.sessionsWithErrors) }}
             session{{ data.sessionsWithErrors === 1 ? "" : "s" }}
@@ -244,68 +244,3 @@ const pace = computed(() => {
     </KPI>
   </KPIRow>
 </template>
-
-<style scoped>
-.analytics-kpis {
-  border-color: var(--border-default);
-  background: var(--border-default);
-}
-
-.analytics-kpis.kpi-row.kpi-row--wrap {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.analytics-kpis :deep(.kpi) {
-  background: var(--canvas-subtle);
-  padding: 14px 16px;
-}
-
-.analytics-kpis :deep(.kpi__footer) {
-  gap: 6px;
-}
-
-/* Two columns, the last tile full width, when five footers no longer fit. */
-@container (max-width: 1000px) {
-  .analytics-kpis.kpi-row.kpi-row--wrap {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .analytics-kpis :deep(.kpi:last-child) {
-    grid-column: 1 / -1;
-  }
-}
-
-.kpi-note {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.kpi-note b {
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.day-strip {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 14px;
-}
-
-.day-strip i {
-  flex: 1;
-  min-width: 1px;
-  border-radius: 1px;
-  background: var(--chart-primary);
-  opacity: 0.85;
-}
-
-.day-strip i.day-strip__zero {
-  height: 2px;
-  background: var(--surface-tertiary);
-  opacity: 1;
-}
-</style>

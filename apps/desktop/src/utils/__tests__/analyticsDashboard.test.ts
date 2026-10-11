@@ -16,6 +16,8 @@ import {
   durationStrip,
   errorPins,
   formatShare,
+  rangeDays,
+  rangeText,
   tickIndices,
 } from "../analyticsDashboard";
 
@@ -55,6 +57,22 @@ describe("dashboard days", () => {
     };
     expect(dashboardDays(empty, { fromDate: "2026-01-01", toDate: "2026-01-03" })).toHaveLength(3);
     expect(dashboardDays(empty, {})).toEqual([]);
+  });
+
+  it("spans any dated series, unsorted, out to a later last day", () => {
+    const now = new Date("2026-03-02T12:00:00Z");
+    expect(rangeDays(["2026-03-03", "2026-03-01"], {}, now)).toEqual([
+      "2026-03-01",
+      "2026-03-02",
+      "2026-03-03",
+    ]);
+    expect(rangeDays([], { fromDate: "2026-03-01" }, now)).toEqual(["2026-03-01", "2026-03-02"]);
+  });
+
+  it("names the range for empty states", () => {
+    expect(rangeText("7d")).toBe("the past 7 days");
+    expect(rangeText("custom")).toBe("the selected period");
+    expect(rangeText("all")).toBe("any session");
   });
 });
 
@@ -200,6 +218,10 @@ describe("dashboard view choices", () => {
       costView: "sources",
       incidentsView: "tiles",
       incidentsScale: "count",
+      toolsMetric: "calls",
+      toolsStyle: "bars",
+      toolsSort: "calls",
+      codeStyle: "bars",
     });
   });
 

@@ -136,4 +136,10 @@ export const MOCK_CLAUDE_TOOL_ANALYSIS: ToolAnalysisData = {
       ],
     },
   ],
+  callsByDay: MOCK_TOOL_ANALYSIS.callsByDay?.map((day) => ({
+    ...day,
+    calls: Math.round(day.calls / 3),
+    failures: Math.min(day.failures, 1),
+    durationMs: Math.round(day.durationMs / 2),
+  })),
 };

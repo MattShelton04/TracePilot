@@ -3,7 +3,7 @@
 //! Contains [`compute_tool_analysis`] which produces tool usage breakdown
 //! with success rates, durations, and an activity heatmap.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::{Datelike, Timelike};
 
@@ -32,6 +32,7 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
     let mut tool_stats: HashMap<String, ToolAccumulator> = HashMap::new();
     // Heatmap: (day_of_week 0=Mon..6=Sun, hour 0..23) → count
     let mut heatmap: HashMap<(u32, u32), u32> = HashMap::new();
+    let mut by_day: BTreeMap<String, ToolDayCalls> = BTreeMap::new();
 
     let mut total_calls: u32 = 0;
     let mut total_success: u32 = 0;
@@ -44,6 +45,7 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
             Some(t) => t,
             None => continue,
         };
+        let date = input.summary.date_key();
 
         for turn in turns {
             for tc in &turn.tool_calls {
@@ -83,6 +85,18 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
                     total_with_duration += 1;
                 }
 
+                if let Some(date) = &date {
+                    let day = by_day.entry(date.clone()).or_insert_with(|| ToolDayCalls {
+                        date: date.clone(),
+                        calls: 0,
+                        failures: 0,
+                        duration_ms: 0.0,
+                    });
+                    day.calls += 1;
+                    day.failures += u32::from(tc.success == Some(false));
+                    day.duration_ms += tc.duration_ms.unwrap_or(0) as f64;
+                }
+
                 // Heatmap entry from tool call start time
                 if let Some(started) = tc.started_at {
                     let day = started.weekday().num_days_from_monday(); // 0=Mon
@@ -99,6 +113,7 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
         .map(|(name, acc)| ToolUsageEntry {
             name,
             call_count: acc.call_count,
+            failure_count: acc.failure_count,
             success_rate: compute_success_rate(acc.success_count, acc.failure_count),
             avg_duration_ms: safe_div(acc.total_duration_ms, acc.durations_counted),
             total_duration_ms: acc.total_duration_ms,
@@ -124,6 +139,7 @@ pub fn compute_tool_analysis(sessions: &[SessionAnalyticsInput]) -> ToolAnalysis
         most_used_tool,
         tools,
         activity_heatmap,
+        calls_by_day: by_day.into_values().collect(),
     }
 }
 

@@ -113,27 +113,72 @@ export const FIXTURE_TOOL_ANALYSIS: ToolAnalysisData = {
   avgDurationMs: 500,
   mostUsedTool: "edit",
   tools: [
-    { name: "edit", callCount: 30, successRate: 0.97, avgDurationMs: 400, totalDurationMs: 12_000 },
-    { name: "view", callCount: 20, successRate: 0.92, avgDurationMs: 650, totalDurationMs: 13_000 },
+    {
+      name: "edit",
+      callCount: 30,
+      failureCount: 1,
+      successRate: 0.97,
+      avgDurationMs: 400,
+      totalDurationMs: 12_000,
+    },
+    {
+      name: "view",
+      callCount: 16,
+      failureCount: 2,
+      successRate: 0.875,
+      avgDurationMs: 650,
+      totalDurationMs: 10_400,
+      nativeTools: [
+        {
+          name: "Read",
+          source: "claudeCode",
+          callCount: 16,
+          successRate: 0.875,
+          avgDurationMs: 650,
+        },
+      ],
+    },
+    {
+      name: "general-purpose",
+      callCount: 3,
+      failureCount: 0,
+      successRate: 1,
+      avgDurationMs: 120_000,
+      totalDurationMs: 360_000,
+    },
+    {
+      name: "ask_user",
+      callCount: 1,
+      failureCount: 0,
+      successRate: 1,
+      avgDurationMs: 60_000,
+      totalDurationMs: 60_000,
+    },
   ],
   activityHeatmap: [
     { day: 0, hour: 10, count: 5 },
     { day: 1, hour: 14, count: 3 },
   ],
+  callsByDay: [
+    { date: "2025-01-01", calls: 20, failures: 1, durationMs: 200_000 },
+    { date: "2025-01-03", calls: 30, failures: 2, durationMs: 242_400 },
+  ],
 };
 
+// Backend shape: bare extensions, and `additions` is the number of sessions
+// that modified the file (`deletions` is always 0).
 export const FIXTURE_CODE_IMPACT: CodeImpactData = {
   filesModified: 15,
   linesAdded: 1000,
   linesRemoved: 300,
   netChange: 700,
   fileTypeBreakdown: [
-    { extension: ".ts", count: 10, percentage: 66.7 },
-    { extension: ".vue", count: 5, percentage: 33.3 },
+    { extension: "ts", count: 10, percentage: 66.7 },
+    { extension: "vue", count: 5, percentage: 33.3 },
   ],
   mostModifiedFiles: [
-    { path: "src/index.ts", additions: 100, deletions: 30 },
-    { path: "src/App.vue", additions: 80, deletions: 20 },
+    { path: "C:\\repo\\apps\\desktop\\src\\index.ts", additions: 4, deletions: 0 },
+    { path: "src/App.vue", additions: 2, deletions: 0 },
   ],
   changesByDay: [
     { date: "2025-01-01", additions: 200, deletions: 60 },

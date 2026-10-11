@@ -3,7 +3,7 @@
  */
 
 export interface HeatmapEntry {
-  /** Day of week, 0=Sunday … 6=Saturday (matches backend convention). */
+  /** Day of week, 0=Monday … 6=Sunday (matches backend convention). */
   day: number;
   /** Hour of day in UTC, 0–23. */
   hour: number;

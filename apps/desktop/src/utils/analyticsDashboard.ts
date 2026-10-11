@@ -9,6 +9,7 @@
  */
 import type { AnalyticsData, ApiDurationStats, SessionSource } from "@tracepilot/types";
 import { sourceCapabilities } from "@tracepilot/types";
+import type { AnalyticsTimeRange } from "@/utils/analyticsFilters";
 
 const DAY_MS = 86_400_000;
 /** Ten years of days, a guard against corrupt dates rather than a real limit. */
@@ -51,9 +52,25 @@ export function daysBetween(from: string, to: string): string[] {
 }
 
 /**
- * The days the dashboard draws: the selected range, or for All time the first
- * to the last day with data. A range with no data still draws its own days.
+ * The days a day chart draws: the selected range, or for All time the first
+ * dated point to the last (or today, if later). A range with no data still
+ * draws its own days.
  */
+export function rangeDays(
+  dates: readonly string[],
+  range: { fromDate?: string; toDate?: string },
+  now: Date = new Date(),
+): string[] {
+  if (!range.fromDate && dates.length === 0) return [];
+  const sorted = [...dates].sort();
+  const from = range.fromDate ?? sorted[0];
+  const last = sorted.at(-1);
+  const today = todayUtc(now);
+  const to = range.toDate ?? (last && last > today ? last : today);
+  return daysBetween(from, to);
+}
+
+/** The days the dashboard draws, from every daily series it has. */
 export function dashboardDays(
   data: AnalyticsData,
   range: { fromDate?: string; toDate?: string },
@@ -64,13 +81,17 @@ export function dashboardDays(
     ...data.tokenUsageByDay,
     ...(data.incidentsByDay ?? []),
   ].map((point) => point.date);
-  if (!range.fromDate && dated.length === 0) return [];
-  const sorted = dated.sort();
-  const from = range.fromDate ?? sorted[0];
-  const last = sorted.at(-1);
-  const today = todayUtc(now);
-  const to = range.toDate ?? (last && last > today ? last : today);
-  return daysBetween(from, to);
+  return rangeDays(dated, range, now);
+}
+
+/** The range in words, for empty states: `No sessions ended in the past 7 days`. */
+export function rangeText(range: AnalyticsTimeRange): string {
+  if (range === "7d") return "the past 7 days";
+  if (range === "30d") return "the past 30 days";
+  if (range === "90d") return "the past 90 days";
+  if (range === "month-to-date") return "this month";
+  if (range === "custom") return "the selected period";
+  return "any session";
 }
 
 /**

@@ -1,16 +1,23 @@
 <script setup lang="ts">
-import type { ToolUsageEntry } from "@tracepilot/types";
-import { formatDuration, formatNumberFull, formatRate } from "@tracepilot/types";
-import { ErrorState, LoadingOverlay, PageShell, StatCard } from "@tracepilot/ui";
+/**
+ * The Tools page: headline numbers, calls per day, every tool ranked, and
+ * when tools run. Built from the Analytics dashboard's pieces; each panel
+ * empties on its own, and a filter change keeps the current results on
+ * screen until the new ones land.
+ */
+import { ErrorState, LoadingOverlay, PageShell } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
-import ToolFrequencyList from "@/components/toolAnalysis/ToolFrequencyList.vue";
-import ToolSuccessFailureChart from "@/components/toolAnalysis/ToolSuccessFailureChart.vue";
-import ToolUsageHeatmap from "@/components/toolAnalysis/ToolUsageHeatmap.vue";
-import ToolUsageList from "@/components/toolAnalysis/ToolUsageList.vue";
+import ToolCallsPanel from "@/components/toolAnalysis/ToolCallsPanel.vue";
+import ToolHeatmapPanel from "@/components/toolAnalysis/ToolHeatmapPanel.vue";
+import ToolKpis from "@/components/toolAnalysis/ToolKpis.vue";
+import ToolRankPanel from "@/components/toolAnalysis/ToolRankPanel.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { useValueTween } from "@/composables/useValueTween";
+import { rangeText as describeRange, rangeDays } from "@/utils/analyticsDashboard";
+import { toolDayRows } from "@/utils/toolAnalysis";
+import "@/styles/features/analytics-dashboard.css";
 
 const { store } = useAnalyticsPage("fetchToolAnalysis");
 
@@ -23,26 +30,28 @@ const { revealing } = useFirstReveal({
   key: "tools",
   ready: () => !loading.value && !!data.value,
   root: contentRoot,
-  countUpSelector: ".stat-card-value",
+  countUpSelector: ".kpi__value-num",
 });
-useValueTween({ root: contentRoot, selector: ".stat-card-value", source: data });
+useValueTween({ root: contentRoot, selector: ".kpi__value-num", source: data });
 
 const pageSubtitle = computed(() => {
   const repoSuffix = store.selectedRepo ? ` in ${store.selectedRepo}` : "";
   return `Performance and usage metrics across all ${store.sourcePrefix}tool invocations${repoSuffix}`;
 });
 
-const uniqueToolCount = computed(() => data.value?.tools.length ?? 0);
-
-const sortedTools = computed<ToolUsageEntry[]>(() => {
-  if (!data.value) return [];
-  return [...data.value.tools].sort((a, b) => b.callCount - a.callCount);
-});
-
-const maxInvocations = computed(() => {
-  if (!sortedTools.value.length) return 1;
-  return sortedTools.value[0].callCount;
-});
+const days = computed(() =>
+  data.value
+    ? rangeDays(
+        (data.value.callsByDay ?? []).map((day) => day.date),
+        store.dateRange,
+      )
+    : [],
+);
+/** Calls per day for the headline strip. */
+const dayRows = computed(() =>
+  data.value ? toolDayRows(data.value, days.value, "calls").rows : [],
+);
+const rangeText = computed(() => describeRange(store.selectedTimeRange));
 </script>
 
 <template>
@@ -58,25 +67,15 @@ const maxInvocations = computed(() => {
       <div
         v-else-if="data"
         ref="contentRoot"
+        class="ad-page"
         :class="{ 'chart-reveal': revealing }"
         :data-refreshing="refreshing"
         :aria-busy="refreshing"
       >
-        <div class="grid-4 mb-4">
-          <StatCard :value="formatNumberFull(data.totalCalls)" label="Total Tool Calls" />
-          <StatCard :value="uniqueToolCount" label="Unique Tools" color="done" />
-          <StatCard :value="formatRate(data.successRate)" label="Success Rate" color="success" />
-          <StatCard :value="formatDuration(data.avgDurationMs)" label="Avg Duration" color="warning" />
-        </div>
-
-        <ToolUsageList :tools="sortedTools" />
-
-        <div class="grid-2 mb-4">
-          <ToolSuccessFailureChart :tools="sortedTools" :max-invocations="maxInvocations" />
-          <ToolFrequencyList :tools="sortedTools" :max-invocations="maxInvocations" />
-        </div>
-
-        <ToolUsageHeatmap :entries="data.activityHeatmap" />
+        <ToolKpis :data="data" :rows="dayRows" />
+        <ToolCallsPanel :data="data" :days="days" :range-text="rangeText" />
+        <ToolRankPanel :data="data" />
+        <ToolHeatmapPanel :entries="data.activityHeatmap" />
       </div>
     </LoadingOverlay>
   </PageShell>

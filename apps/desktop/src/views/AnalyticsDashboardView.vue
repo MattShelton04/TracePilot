@@ -26,7 +26,11 @@ import { useRenderBudget } from "@/composables/useRenderBudget";
 import { useValueTween } from "@/composables/useValueTween";
 import type { AnalyticsDatasetName } from "@/stores/analytics";
 import { usePreferencesStore } from "@/stores/preferences";
-import { activityRows, dashboardDays } from "@/utils/analyticsDashboard";
+import {
+  activityRows,
+  dashboardDays,
+  rangeText as describeRange,
+} from "@/utils/analyticsDashboard";
 import { buildDashboardSummary } from "@/utils/analyticsSummary";
 import "@/styles/features/analytics-dashboard.css";
 
@@ -96,15 +100,7 @@ const dayRows = computed(() =>
     : [],
 );
 
-const rangeText = computed(() => {
-  const range = store.selectedTimeRange;
-  if (range === "7d") return "the past 7 days";
-  if (range === "30d") return "the past 30 days";
-  if (range === "90d") return "the past 90 days";
-  if (range === "month-to-date") return "this month";
-  if (range === "custom") return "the selected period";
-  return "any session";
-});
+const rangeText = computed(() => describeRange(store.selectedTimeRange));
 
 const billedInAic = computed(() =>
   (data.value?.costBySource ?? []).every((entry) => sourceCapabilities(entry.source).hasAic),
@@ -124,14 +120,14 @@ const billedInAic = computed(() =>
       <div
         v-else-if="data && summary"
         ref="contentRoot"
-        class="analytics-dashboard"
+        class="ad-page"
         :class="{ 'chart-reveal': revealing }"
         :data-refreshing="refreshing"
         :aria-busy="refreshing"
       >
         <AnalyticsKpis :data="data" :summary="summary" :rows="dayRows" />
         <AnalyticsActivityPanel :data="data" :summary="summary" :days="days" :range-text="rangeText" />
-        <div class="analytics-pair">
+        <div class="ad-pair">
           <AnalyticsModelMix :models="summary.models" />
           <AnalyticsTokenMix :composition="summary.composition" :models="summary.models" />
         </div>
@@ -143,7 +139,7 @@ const billedInAic = computed(() =>
           :cost-per-premium-request="prefs.costPerPremiumRequest"
         />
         <AnalyticsPacePanel :data="data" />
-        <div class="analytics-pair">
+        <div class="ad-pair">
           <AnalyticsIncidentsPanel
             :data="data"
             :days="days"
@@ -157,7 +153,7 @@ const billedInAic = computed(() =>
             :billed-in-aic="billedInAic"
           />
         </div>
-        <div v-if="showAgents || showSkills" class="analytics-pair">
+        <div v-if="showAgents || showSkills" class="ad-pair">
           <AnalyticsAgentsPanel v-if="showAgents" />
           <AnalyticsSkillsPanel v-if="showSkills" />
         </div>
@@ -165,29 +161,3 @@ const billedInAic = computed(() =>
     </LoadingOverlay>
   </PageShell>
 </template>
-
-<style scoped>
-.analytics-dashboard {
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.analytics-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  align-items: stretch;
-}
-
-.analytics-pair > :only-child {
-  grid-column: 1 / -1;
-}
-
-@container (max-width: 880px) {
-  .analytics-pair {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-</style>

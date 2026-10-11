@@ -1105,12 +1105,21 @@
       }
     ],
     "avgDurationMs": 5325.192307692308,
+    "callsByDay": [
+      {
+        "calls": 26,
+        "date": "2026-03-10",
+        "durationMs": 138455.0,
+        "failures": 3
+      }
+    ],
     "mostUsedTool": "read_agent",
     "successRate": 0.8846153846153846,
     "tools": [
       {
         "avgDurationMs": 4291.0,
         "callCount": 7,
+        "failureCount": 0,
         "name": "read_agent",
         "successRate": 1.0,
         "totalDurationMs": 30037.0
@@ -1118,6 +1127,7 @@
       {
         "avgDurationMs": 13000.0,
         "callCount": 5,
+        "failureCount": 1,
         "name": "general-purpose",
         "successRate": 0.8,
         "totalDurationMs": 65000.0
@@ -1125,6 +1135,7 @@
       {
         "avgDurationMs": 250.5,
         "callCount": 4,
+        "failureCount": 0,
         "name": "write_agent",
         "successRate": 1.0,
         "totalDurationMs": 1002.0
@@ -1132,6 +1143,7 @@
       {
         "avgDurationMs": 3.5,
         "callCount": 2,
+        "failureCount": 0,
         "name": "list_agents",
         "successRate": 1.0,
         "totalDurationMs": 7.0
@@ -1139,6 +1151,7 @@
       {
         "avgDurationMs": 3.0,
         "callCount": 2,
+        "failureCount": 0,
         "name": "skill",
         "successRate": 1.0,
         "totalDurationMs": 6.0
@@ -1146,6 +1159,7 @@
       {
         "avgDurationMs": 30000.0,
         "callCount": 1,
+        "failureCount": 1,
         "name": "code-review",
         "successRate": 0.0,
         "totalDurationMs": 30000.0
@@ -1153,6 +1167,7 @@
       {
         "avgDurationMs": 8000.0,
         "callCount": 1,
+        "failureCount": 0,
         "name": "explore",
         "successRate": 1.0,
         "totalDurationMs": 8000.0
@@ -1160,6 +1175,7 @@
       {
         "avgDurationMs": 3.0,
         "callCount": 1,
+        "failureCount": 1,
         "name": "fixture",
         "successRate": 0.0,
         "totalDurationMs": 3.0
@@ -1167,6 +1183,7 @@
       {
         "avgDurationMs": 400.0,
         "callCount": 1,
+        "failureCount": 0,
         "name": "read_file",
         "successRate": 1.0,
         "totalDurationMs": 400.0
@@ -1174,6 +1191,7 @@
       {
         "avgDurationMs": 3000.0,
         "callCount": 1,
+        "failureCount": 0,
         "name": "run_command",
         "successRate": 1.0,
         "totalDurationMs": 3000.0
@@ -1181,6 +1199,7 @@
       {
         "avgDurationMs": 1000.0,
         "callCount": 1,
+        "failureCount": 0,
         "name": "view",
         "successRate": 1.0,
         "totalDurationMs": 1000.0
