@@ -147,8 +147,19 @@ export interface SessionSegment {
 export type ContextPointPhase = "turn" | "preCompaction" | "postCompaction" | "shutdown";
 export type ContextPointSource = "observed" | "estimated";
 export interface ContextWindowPoint {
-  /** Inclusive input total with no recorded layer breakdown. */
+  /**
+   * Only the inclusive input total is recorded. Any layers are inferred:
+   * `systemTokens` then holds the system prompt and tool definitions together.
+   */
   totalOnly?: boolean;
+  /** Estimated messages share of `conversationTokens`, when inferred. */
+  messageTokens?: number;
+  /** Estimated tool call and result share of `conversationTokens`, when inferred. */
+  toolIoTokens?: number;
+  /** Input read from the prompt cache, when recorded. */
+  cacheReadTokens?: number;
+  /** Input written to the prompt cache, when recorded. */
+  cacheWriteTokens?: number;
   /** Zero-based turn index, aligned with ConversationTurn and Search deep links. */
   turn: number;
   phase: ContextPointPhase;
