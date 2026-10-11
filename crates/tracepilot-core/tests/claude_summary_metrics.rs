@@ -319,6 +319,62 @@ fn recorded_modified_files_are_distinct_and_failed_edits_are_excluded() {
     assert!(code.lines_removed.is_none());
 }
 
+/// A session still running has no `cost-state`; its line counts come from the
+/// patches of its successful edits, as Claude Code counts them on exit.
+#[test]
+fn line_counts_without_a_snapshot_come_from_edit_patches() {
+    use tracepilot_test_support::claude::tool_use;
+    let hunk = |lines: &[&str]| json!([{"oldStart":1,"oldLines":2,"newStart":1,"newLines":3,"lines":lines}]);
+    let mut t = Transcript::main();
+    t.prompt("Edit files.");
+    t.call(
+        "edit",
+        OPUS,
+        vec![
+            tool_use("edit", "Edit", json!({"file_path":"src/a.rs"})),
+            tool_use("create", "Write", json!({"file_path":"src/new.rs"})),
+            tool_use("failed", "Edit", json!({"file_path":"src/failed.rs"})),
+        ],
+        Usage::new(1, 0, 0, 1),
+        "tool_use",
+    );
+    t.tool_result(
+        "edit",
+        json!("Edited."),
+        json!({"filePath":"src/a.rs",
+            "structuredPatch": hunk(&[" fn a() {", "-    old();", "+    new();", "+    more();"])}),
+        false,
+    );
+    t.tool_result(
+        "create",
+        json!("Created."),
+        json!({"type":"create","filePath":"src/new.rs",
+            "content":"fn one() {}
+fn two() {}
+fn three() {}
+","structuredPatch":[]}),
+        false,
+    );
+    t.tool_result(
+        "failed",
+        json!("Failed."),
+        json!({"filePath":"src/failed.rs","structuredPatch": hunk(&["-gone", "+here"])}),
+        true,
+    );
+    let code = load(&write_session(&t, &[]))
+        .summary
+        .shutdown_metrics
+        .unwrap()
+        .code_changes
+        .unwrap();
+    assert_eq!(code.lines_added, Some(5));
+    assert_eq!(code.lines_removed, Some(1));
+    assert_eq!(
+        code.files_modified,
+        Some(vec!["src/a.rs".into(), "src/new.rs".into()])
+    );
+}
+
 #[test]
 fn modified_files_include_successful_edits_on_rewound_branches() {
     let loaded = load(&claude_metrics::rewound_edit());

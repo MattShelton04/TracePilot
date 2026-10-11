@@ -223,10 +223,17 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
         })
         .map(super::pricing::estimate)
     };
-    let files = modified_files(parsed);
+    let Edits { files, lines } = edits(parsed);
+    // Claude Code writes its own line totals into `cost-state` on exit. Until
+    // then (a running session), count the edit results' patches, which is how
+    // Claude Code counts them.
+    let (lines_added, lines_removed) = match snapshot {
+        Some(s) => (s.total_lines_added, s.total_lines_removed),
+        None => lines.unzip(),
+    };
     let code_changes = (snapshot.is_some() || !files.is_empty()).then(|| CodeChanges {
-        lines_added: snapshot.and_then(|s| s.total_lines_added),
-        lines_removed: snapshot.and_then(|s| s.total_lines_removed),
+        lines_added,
+        lines_removed,
         files_modified: (!files.is_empty()).then(|| files.into_iter().collect()),
     });
     // Without a snapshot, estimate durations from transcript timestamps.
@@ -271,8 +278,17 @@ fn metrics(parsed: &ClaudeParse, summary: &SessionSummary) -> Option<SessionMetr
     })
 }
 
-fn modified_files(parsed: &ClaudeParse) -> BTreeSet<String> {
+/// What the session's successful edits changed.
+struct Edits {
+    files: BTreeSet<String>,
+    /// Lines added and removed by the edit results that carry a patch, `None`
+    /// when none does.
+    lines: Option<(u64, u64)>,
+}
+
+fn edits(parsed: &ClaudeParse) -> Edits {
     let mut files = BTreeSet::new();
+    let mut lines: Option<(u64, u64)> = None;
     let mut edits = HashSet::new();
     let mut seen = HashSet::new();
     for (event, position) in parsed.events.iter().zip(&parsed.positions) {
@@ -321,8 +337,34 @@ fn modified_files(parsed: &ClaudeParse) -> BTreeSet<String> {
                 && let Some(path) = nonempty(&data["toolUseResult"]["filePath"])
             {
                 files.insert(path);
+                if let Some((added, removed)) = patch_lines(&data["toolUseResult"]) {
+                    let total = lines.get_or_insert((0, 0));
+                    total.0 += added;
+                    total.1 += removed;
+                }
             }
         }
     }
-    files
+    Edits { files, lines }
+}
+
+/// Lines an edit result added and removed: its `structuredPatch` hunks, or
+/// every line of a file `Write` created (whose patch is empty).
+fn patch_lines(result: &serde_json::Value) -> Option<(u64, u64)> {
+    let hunks = result["structuredPatch"].as_array()?;
+    if hunks.is_empty() {
+        let content = result["content"]
+            .as_str()
+            .filter(|_| result["type"] == "create")?;
+        return Some((content.lines().count() as u64, 0));
+    }
+    let mut counts = (0, 0);
+    for line in hunks.iter().filter_map(|h| h["lines"].as_array()).flatten() {
+        match line.as_str().and_then(|l| l.chars().next()) {
+            Some('+') => counts.0 += 1,
+            Some('-') => counts.1 += 1,
+            _ => {}
+        }
+    }
+    Some(counts)
 }

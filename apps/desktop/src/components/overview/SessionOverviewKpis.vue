@@ -58,7 +58,7 @@ const diffBlocks = computed(() => {
   );
 });
 const changedFiles = computed(() => props.codeChanges?.filesModified?.length ?? 0);
-// Claude Code lists the files it edited but records no line counts.
+// A session can list the files it edited without any line counts.
 const hasLineCounts = computed(
   () => (props.codeChanges?.linesAdded ?? 0) + (props.codeChanges?.linesRemoved ?? 0) > 0,
 );

@@ -3,7 +3,8 @@
  * file-type split, and short file labels.
  *
  * Line counts are per session (Copilot's shutdown totals, Claude Code's
- * cost-state totals) and land on the session's last day. Nothing records
+ * cost-state totals or, before one is written, its edit patches) and land on
+ * the session's last day. Nothing records
  * lines per file, so files rank by how many sessions modified them.
  */
 import type { CodeImpactData } from "@tracepilot/types";
