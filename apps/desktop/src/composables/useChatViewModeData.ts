@@ -23,6 +23,7 @@ import { useSubagentPanel } from "@/composables/useSubagentPanel";
 import { useToolResultLoader } from "@/composables/useToolResultLoader";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
+import { revealScrollBehavior } from "@/utils/revealScroll";
 import { mapByTurnIndex } from "@/utils/turnMaps";
 
 export interface TurnRenderData {
@@ -296,11 +297,11 @@ export function useChatViewModeData(rootEl: Ref<HTMLElement | null>) {
       }
     }
 
+    const target = el;
     nextTick(() => {
-      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      el?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
-      el?.classList.add("cv-highlight");
-      setTimeout(() => el?.classList.remove("cv-highlight"), 4000);
+      target.scrollIntoView({ behavior: revealScrollBehavior(target), block: "center" });
+      target.classList.add("cv-highlight");
+      setTimeout(() => target.classList.remove("cv-highlight"), 4000);
     });
   }
 

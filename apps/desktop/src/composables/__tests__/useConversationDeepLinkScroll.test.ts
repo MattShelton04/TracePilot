@@ -138,6 +138,19 @@ describe("useConversationDeepLinkScroll", () => {
     expect(scrollSpy).toHaveBeenLastCalledWith({ behavior: "smooth", block: "center" });
   });
 
+  it("jumps instantly to a target far off-screen (cold-open deep link)", () => {
+    // Unrendered `content-visibility` chunks would move a smooth scroll's
+    // destination mid-flight, so a long jump must not animate.
+    const turn = makeTurn(150, [903]);
+    const target = turn.querySelector<HTMLElement>("[data-event-idx]")!;
+    target.getBoundingClientRect = () => ({ top: 30_000, height: 40 }) as DOMRect;
+    const { scrollToTurn } = inScope(() => useConversationDeepLinkScroll(ref(root)));
+
+    scrollToTurn(150, 903);
+
+    expect(scrollSpy).toHaveBeenCalledWith({ behavior: "auto", block: "center" });
+  });
+
   it("falls back to the turn node when the event-id is not found", () => {
     makeTurn(3, [11]);
     const { scrollToTurn, currentDeepLinkTarget } = inScope(() =>
