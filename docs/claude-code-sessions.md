@@ -107,7 +107,11 @@ The Metrics tab labels each figure with its basis:
   cost snapshot.
 - **TracePilot estimate:** TracePilot priced calls made after the last snapshot,
   or calls in a session with no snapshot, at Anthropic's API rates. Cache
-  writes are priced at their recorded 5-minute or 1-hour rate.
+  writes are priced at their recorded 5-minute or 1-hour rate. A Claude Haiku
+  5.5 request whose prompt is over 100,000 tokens, cache included, is priced
+  at its higher long-context rates. See
+  [Claude Code API rates](pricing-model.md#claude-code-api-rates) for how the
+  rates are kept current.
 - **Partial:** the session has calls after its last snapshot, or no snapshot
   yet (usually because it is still running), so the total may grow.
 
