@@ -15,6 +15,7 @@ import type {
   SessionSectionsInfo,
   ShutdownMetrics,
   TodosResponse,
+  TurnActivityResponse,
   TurnsResponse,
 } from "@tracepilot/types";
 
@@ -51,6 +52,11 @@ export async function getSessionIncidents(sessionId: string): Promise<SessionInc
 
 export async function getSessionTurns(sessionId: string): Promise<TurnsResponse> {
   return invoke<TurnsResponse>("get_session_turns", { sessionId });
+}
+
+/** When each turn started, without the turns' content. */
+export async function getSessionTurnActivity(sessionId: string): Promise<TurnActivityResponse> {
+  return invoke<TurnActivityResponse>("get_session_turn_activity", { sessionId });
 }
 
 export async function getSessionContextTimeline(

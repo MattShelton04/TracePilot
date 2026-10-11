@@ -28,6 +28,7 @@ export interface CachedSession {
   incidents: SessionIncident[];
   todos: TodosResponse | null;
   promptCache?: PromptCacheTimeline | null;
+  turnActivity?: (number | null)[];
   loadedSections: Set<string>;
 }
 

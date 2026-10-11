@@ -48,6 +48,7 @@ import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vu
 import { useLivePersistedSync } from "@/composables/useLivePersistedSync";
 import { useRunningSessionPoll } from "@/composables/useRunningSessionPoll";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
+import { SESSION_LIVE_STATE_KEY } from "@/composables/useSessionLiveState";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { useWindowRole } from "@/composables/useWindowRole";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
@@ -101,6 +102,10 @@ const { source, capabilities } = useSessionSource(
 );
 const sourceName = computed(() => sourceLabel(source.value));
 provide(MAIN_AGENT_LABEL_KEY, sourceName);
+provide(
+  SESSION_LIVE_STATE_KEY,
+  computed(() => ({ running: isSessionActive.value, status: runStatus.value })),
+);
 // Every tool-detail surface (including compact, waterfall and swimlanes) can
 // display partial output for persisted in-flight calls in this session.
 provide(

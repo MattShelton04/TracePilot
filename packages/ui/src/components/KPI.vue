@@ -1,7 +1,10 @@
 <!--
   @slots
-    spark — custom sparkline override (otherwise rendered from `spark` array prop)
-    info  — custom info icon target (uses native title tooltip otherwise)
+    icon   — leading icon in the label row
+    value  — custom value markup (otherwise the formatted `value` prop)
+    spark  — custom sparkline override (otherwise rendered from `spark` array prop)
+    footer — supporting line under the value (context, meters)
+    info   — custom info icon target (uses native title tooltip otherwise)
   Single metric tile. Compose inside <KPIRow> for hairline framing.
   See design-system/components.md (Data display).
 -->
@@ -89,6 +92,7 @@ const sparkPoints = computed(() => {
     :class="[`kpi--${density}`, `kpi--${state}`]"
   >
     <div class="kpi__label">
+      <span v-if="$slots.icon" class="kpi__icon"><slot name="icon" /></span>
       <span>{{ label }}</span>
       <span
         v-if="description"
@@ -98,7 +102,9 @@ const sparkPoints = computed(() => {
       ><Info :size="12" :stroke-width="1.5" aria-hidden="true" /></span>
     </div>
     <div class="kpi__value">
-      <span class="kpi__value-num">{{ formattedValue }}</span>
+      <slot name="value">
+        <span class="kpi__value-num">{{ formattedValue }}</span>
+      </slot>
       <span v-if="unit" class="kpi__unit">{{ unit }}</span>
     </div>
     <div v-if="delta || spark || $slots.spark" class="kpi__row">
@@ -128,6 +134,9 @@ const sparkPoints = computed(() => {
         </svg>
       </slot>
     </div>
+    <div v-if="$slots.footer" class="kpi__footer">
+      <slot name="footer" />
+    </div>
   </div>
 </template>
 
@@ -152,6 +161,22 @@ const sparkPoints = computed(() => {
   display: flex;
   gap: 4px;
   align-items: center;
+}
+
+.kpi__icon {
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+}
+
+.kpi__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-tertiary);
+  min-width: 0;
 }
 
 .kpi__info {
