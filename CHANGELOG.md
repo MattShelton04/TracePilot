@@ -22,12 +22,12 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 - **Cost across sources** — With both sources, Analytics and Models add cost in USD, counting AI Credits at $0.01 each.
 - **Format diagnostics** — Copilot CLI and Claude Code format diagnostics live in **Settings → Logs & Diagnostics**.
 - **Faster indexing and search** — First-time indexing uses several cores and reads Claude Code sessions with less work, and Search filters and export previews load from cache until the index changes.
-- **Model pricing** — Refreshed Copilot rates for 10 October 2026, adding Claude Haiku 5.5.
+- **Model pricing** — Refreshed Copilot rates for 10 October 2026, adding Claude Haiku 5.5. Claude Code cost estimates also price Claude Haiku 5.5 (with its higher rate above 100,000 prompt tokens) and Claude Mythos 5 and 5.1.
 
 ### Fixed
 
 - **macOS and Linux** — Detect & Connect and Launch UI Server work outside Windows, and a slow login shell no longer delays launching from the Dock.
-- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, Analytics refreshes in place after a reindex, and a reused export preview shows the current export time.
+- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, Analytics refreshes in place after a reindex, a reused export preview shows the current export time, and redacted exports also redact subagent descriptions.
 
 ### Removed
 
