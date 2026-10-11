@@ -209,11 +209,25 @@ const runningPollActive = computed(
     !sessionMissing.value,
 );
 
+/** Set by the Refresh button so its refresh reloads everything. */
+let fullRefreshRequested = false;
+
+/**
+ * Auto-refresh skips an idle session's sections whose source is unchanged.
+ * A running session reloads everything: Copilot keeps its plan and
+ * checkpoints outside the source version, and writes them while it runs.
+ */
+function refreshSessionData() {
+  const full = fullRefreshRequested || isSessionActive.value;
+  fullRefreshRequested = false;
+  return full ? props.store.refreshAll() : props.store.refreshIfSourceChanged();
+}
+
 // While the running poll owns refreshing, auto-refresh waits, so the two
 // never both reload the session; it resumes once the session goes idle.
-const { refreshing, refresh } = useAutoRefresh({
+const { refreshing, refresh: refreshNow } = useAutoRefresh({
   onRefresh: async () => {
-    await Promise.all([props.store.refreshAll(), checkRunning()]);
+    await Promise.all([refreshSessionData(), checkRunning()]);
   },
   enabled: computed(
     () =>
@@ -229,6 +243,13 @@ useRunningSessionPoll({
   active: () => runningPollActive.value,
   refresh: () => Promise.all([props.store.refreshIfSourceChanged(), checkRunning()]),
 });
+
+/** A manual refresh: reloads every loaded section. */
+async function refresh() {
+  if (refreshing.value) return;
+  fullRefreshRequested = true;
+  await refreshNow();
+}
 
 defineExpose({ isSessionActive, refresh });
 
@@ -555,7 +576,8 @@ watch(isSessionActive, (active) => {
   gap: 12px;
   margin-bottom: 24px;
   position: sticky;
-  top: 0;
+  /* Stick flush with the top of the scroll area, not inside its padding. */
+  top: calc(-1 * var(--page-content-padding, 0px));
   z-index: 60;
   background: rgba(24, 24, 27, 0.7);
   backdrop-filter: blur(12px);
