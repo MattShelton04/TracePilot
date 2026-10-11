@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { ToolUsageEntry } from "@tracepilot/types";
 import { formatDuration, formatNumberFull, formatRate, sourceLabel } from "@tracepilot/types";
+import { SourceLogo } from "@tracepilot/ui";
 import { ChevronRight } from "lucide-vue-next";
 import { computed, ref } from "vue";
-import SourceLogo from "@/components/sources/SourceLogo.vue";
 import { canonicalOnlyCalls, toolUsageLabel, toolUsageNames } from "@/utils/toolDisplayName";
 
 const props = defineProps<{

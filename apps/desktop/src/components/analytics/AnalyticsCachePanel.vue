@@ -8,11 +8,10 @@
  */
 import type { PromptCacheAnalytics, SessionSource } from "@tracepilot/types";
 import { formatNumber, formatPercent, sourceLabel } from "@tracepilot/types";
-import { formatAiCredits } from "@tracepilot/ui";
+import { formatAiCredits, SourceLogo } from "@tracepilot/ui";
 import { Database, Timer } from "lucide-vue-next";
 import { computed } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
-import SourceLogo from "@/components/sources/SourceLogo.vue";
 import { usePromptCacheCost } from "@/composables/usePromptCacheCost";
 import { SOURCE_COLORS } from "@/utils/analyticsDashboard";
 import type { SourceCacheRow, TokenComposition } from "@/utils/analyticsSummary";

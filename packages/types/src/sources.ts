@@ -137,7 +137,7 @@ export function sourceLabel(source: SessionSource | null | undefined): string {
   return SOURCE_LABELS[resolveSessionSource(source)];
 }
 
-/** True for sessions that are not from Copilot, which get a source badge. */
+/** True for sessions that are not from Copilot. */
 export function isNonCopilotSource(source: SessionSource | null | undefined): boolean {
   return resolveSessionSource(source) !== "copilot";
 }

@@ -95,6 +95,12 @@
   background: var(--claude-muted);
   color: var(--claude-fg);
 }
+/* Outlined so it reads apart from the indigo repository badge. */
+.badge-copilot {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  box-shadow: inset 0 0 0 1px var(--accent-muted);
+}
 
 /* ============================
    STAT CARDS

@@ -111,6 +111,7 @@ export { default as Select } from "./components/Select.vue";
 export { default as SessionCard } from "./components/SessionCard.vue";
 export { default as SessionList } from "./components/SessionList.vue";
 export { default as SkeletonLoader } from "./components/SkeletonLoader.vue";
+export { default as SourceLogo } from "./components/SourceLogo.vue";
 export { default as SqliteTableView } from "./components/SqliteTableView.vue";
 export { default as StatCard } from "./components/StatCard.vue";
 export { default as StatusIcon } from "./components/StatusIcon.vue";

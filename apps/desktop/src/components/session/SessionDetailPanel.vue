@@ -362,7 +362,7 @@ watch(isSessionActive, (active) => {
         </Transition>
       </h1>
       <div class="detail-badges">
-        <Badge v-if="isNonCopilotSource(source)" variant="claude" title="Session source">{{ sourceName }}</Badge>
+        <Badge :variant="isNonCopilotSource(source) ? 'claude' : 'copilot'" title="Session source">{{ sourceName }}</Badge>
         <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
         <Badge
           v-else-if="projectLabel"

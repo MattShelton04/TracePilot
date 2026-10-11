@@ -12,6 +12,7 @@ import { Folder } from "lucide-vue-next";
 import { computed } from "vue";
 import { projectLabelFromCwd } from "../utils/pathUtils";
 import Badge from "./Badge.vue";
+import SourceLogo from "./SourceLogo.vue";
 
 const props = defineProps<{
   session: SessionListItem;
@@ -90,7 +91,7 @@ function activeTitle(): string {
     </div>
 
     <div class="card-badges-new">
-      <Badge v-if="isNonCopilotSource(session.source)" :variant="isClaude(session) ? 'claude' : 'neutral'" title="Session source">{{ sourceLabel(session.source) }}</Badge>
+      <Badge :variant="isClaude(session) ? 'claude' : 'copilot'" title="Session source">{{ sourceLabel(session.source) }}</Badge>
       <Badge v-if="session.repository" variant="accent">{{ session.repository }}</Badge>
       <Badge
         v-else-if="projectLabel"
@@ -122,7 +123,15 @@ function activeTitle(): string {
           {{ session.compactionCount }}
         </span>
       </div>
-      <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
+      <span class="card-footer-end">
+        <span class="card-time-new" :title="session.updatedAt ?? undefined">{{ formatRelativeTime(session.updatedAt) }}</span>
+        <span
+          class="card-source-logo"
+          :class="isClaude(session) ? 'card-source-logo--claude' : 'card-source-logo--copilot'"
+          :title="sourceLabel(session.source)"
+          data-testid="session-source-logo"
+        ><SourceLogo :source="resolveSessionSource(session.source)" :size="16" /></span>
+      </span>
     </div>
   </div>
 </template>
@@ -211,6 +220,23 @@ function activeTitle(): string {
 }
 .stat-item-inline.warning svg {
   color: var(--warning-fg);
+}
+
+.card-footer-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The source's mark, so Copilot and Claude Code cards differ beyond colour. */
+.card-source-logo {
+  display: inline-flex;
+}
+.card-source-logo--copilot {
+  color: var(--accent-fg);
+}
+.card-source-logo--claude {
+  color: var(--claude-fg);
 }
 
 .card-time-new {

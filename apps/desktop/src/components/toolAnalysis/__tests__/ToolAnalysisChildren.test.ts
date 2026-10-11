@@ -17,6 +17,7 @@ vi.mock("@tracepilot/ui", () => {
     ErrorState: passthrough("ErrorState"),
     StatCard: passthrough("StatCard"),
     ChartTooltip: passthrough("ChartTooltip"),
+    SourceLogo: passthrough("SourceLogo"),
     getChartColors: () => ({
       primary: "#000",
       secondary: "#000",
