@@ -525,7 +525,7 @@
         }
       ],
       "productivityMetrics": {
-        "avgTokensPerApiSecond": 1089.422357975787,
+        "avgTokensPerApiSecond": 48.75992300227493,
         "avgTokensPerTurn": 2536.296296296296,
         "avgToolCallsPerTurn": 1.037037037037037,
         "avgTurnsPerSession": 2.7

@@ -11,16 +11,11 @@
  */
 import { agentsUsageSummary } from "@tracepilot/client";
 import { type AgentUsageSummary, calculateObservedAiCredits } from "@tracepilot/types";
-import {
-  formatAiCredits,
-  formatDuration,
-  formatNumber,
-  SectionPanel,
-  toErrorMessage,
-} from "@tracepilot/ui";
+import { formatAiCredits, formatDuration, formatNumber, toErrorMessage } from "@tracepilot/ui";
+import { ArrowRight, Bot, Coins, Network, OctagonX } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import UsageStackedBar, { type StackedSegment } from "@/components/usage/UsageStackedBar.vue";
+import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -84,13 +79,11 @@ watch(
 );
 
 const percent = (value: number) =>
-  value >= 0.1 ? `${Math.round(value * 100)}%` : `${(value * 100).toFixed(1)}%`;
-
-const failureRate = computed(() => {
-  const value = summary.value;
-  if (!value || value.totalRuns === 0) return "—";
-  return percent((value.failedRuns + value.cancelledRuns) / value.totalRuns);
-});
+  value === 0
+    ? "0%"
+    : value >= 0.1
+      ? `${Math.round(value * 100)}%`
+      : `${(value * 100).toFixed(1)}%`;
 
 /** Credits exist only on newer CLI runs, so the denominator is always shown. */
 const credits = computed(() => {
@@ -102,18 +95,44 @@ const credits = computed(() => {
   };
 });
 
-const metrics = computed(() => {
+/** The same four-tile header as Skills, so the two panels line up. */
+const tiles = computed(() => {
   const value = summary.value;
   if (!value) return [];
+  const failed = value.failedRuns + value.cancelledRuns;
   return [
-    { key: "runs", value: formatNumber(value.totalRuns), label: "Agent Runs", accent: true },
-    { key: "sessions", value: formatNumber(value.totalSessions), label: "Sessions" },
-    { key: "failed", value: failureRate.value, label: "Failed or Cancelled" },
-    { key: "credits", value: credits.value?.total ?? "—", label: "Exclusive Credits" },
+    {
+      key: "runs",
+      icon: Bot,
+      label: "Runs",
+      value: formatNumber(value.totalRuns),
+      detail: `${formatNumber(value.totalSessions)} session${value.totalSessions === 1 ? "" : "s"}`,
+    },
+    {
+      key: "failed",
+      icon: OctagonX,
+      label: "Failed",
+      value: value.totalRuns ? percent(failed / value.totalRuns) : "—",
+      detail: `${formatNumber(failed)} of ${formatNumber(value.totalRuns)} runs`,
+    },
+    {
+      key: "depth",
+      icon: Network,
+      label: "Deepest",
+      value: formatNumber(value.maxDepth),
+      detail: `peak ${formatNumber(value.peakParallelism)} at once`,
+    },
+    {
+      key: "credits",
+      icon: Coins,
+      label: "Own credits",
+      value: credits.value?.total ?? "—",
+      detail: credits.value ? credits.value.coverage : "no metrics ledger",
+    },
   ];
 });
 
-const outcomes = computed<StackedSegment[]>(() => {
+const outcomes = computed(() => {
   const value = summary.value;
   if (!value) return [];
   const failed = value.failedRuns + value.cancelledRuns;
@@ -123,12 +142,24 @@ const outcomes = computed<StackedSegment[]>(() => {
       key: "completed",
       label: "Completed",
       value: value.totalRuns - failed - value.incompleteRuns - unreported,
-      tone: "success",
+      color: "var(--success-fg)",
     },
-    { key: "failed", label: "Failed or cancelled", value: failed, tone: "danger" },
-    { key: "incomplete", label: "Incomplete", value: value.incompleteRuns, tone: "neutral" },
-    { key: "unreported", label: NO_FINAL_REPORT, value: unreported, tone: "neutral" },
-  ];
+    { key: "failed", label: "Failed or cancelled", value: failed, color: "var(--danger-fg)" },
+    {
+      key: "incomplete",
+      label: "Incomplete",
+      value: value.incompleteRuns,
+      color: "var(--text-tertiary)",
+    },
+    {
+      key: "unreported",
+      label: NO_FINAL_REPORT,
+      value: unreported,
+      color: "var(--surface-tertiary)",
+    },
+  ]
+    .filter((segment) => segment.value > 0)
+    .map((segment) => ({ ...segment, width: (segment.value / value.totalRuns) * 100 }));
 });
 
 /** Ranked by runs, with the figures that say whether the runs went well. */
@@ -158,231 +189,93 @@ function openAgents(search?: string) {
 </script>
 
 <template>
-  <SectionPanel title="Agents">
-    <template #actions>
-      <button type="button" class="agents-panel__link" @click="openAgents()">Open Agents</button>
+  <OverviewPanel
+    title="Agents"
+    :flush="!!summary && summary.totalRuns > 0 && !loading && !error"
+    data-testid="analytics-agents"
+  >
+    <template #aside>
+      <button type="button" class="ad-link" @click="openAgents()">
+        Open Agents <ArrowRight :size="12" aria-hidden="true" />
+      </button>
     </template>
 
-    <p v-if="error" class="agents-panel__note" role="alert">{{ error }}</p>
-    <p v-else-if="loading" class="agents-panel__note" role="status">Loading agent runs…</p>
+    <p v-if="error" class="ad-empty" role="alert">{{ error }}</p>
+    <p v-else-if="loading" class="ad-empty" role="status">Loading agent runs…</p>
 
     <div
       v-else-if="summary && summary.totalRuns > 0"
       ref="panelRoot"
-      class="agents-panel"
+      class="ad-usage"
       :class="{ 'chart-reveal': revealing }"
     >
-      <div class="agents-panel__metrics">
-        <div v-for="metric in metrics" :key="metric.key" class="agents-panel__metric">
-          <span class="agents-panel__value" :class="{ 'agents-panel__value--accent': metric.accent }">
-            {{ metric.value }}
-          </span>
-          <span class="agents-panel__metric-label">{{ metric.label }}</span>
+      <div class="ad-tiles ad-usage__tiles">
+        <div v-for="tile in tiles" :key="tile.key" class="ad-tile">
+          <div class="ad-tile__label">
+            <component :is="tile.icon" :size="13" aria-hidden="true" />{{ tile.label }}
+          </div>
+          <div class="ad-tile__value agents-panel__value">{{ tile.value }}</div>
+          <div class="ad-tile__detail" :title="tile.detail">{{ tile.detail }}</div>
         </div>
       </div>
 
-      <UsageStackedBar :segments="outcomes" :total="summary.totalRuns" />
-
-      <div class="agents-panel__top">
-        <div class="agents-panel__head">
-          <h4 class="agents-panel__title">Busiest agents</h4>
-          <span class="agents-panel__legend">Runs</span>
-          <span class="agents-panel__legend">Median</span>
-          <span class="agents-panel__legend">Failed/cancelled</span>
+      <div class="ad-usage__body">
+        <div class="ad-usage__split">
+          <div class="ad-meter ad-meter--lg" aria-hidden="true">
+            <i
+              v-for="segment in outcomes"
+              :key="segment.key"
+              :title="`${segment.label}: ${segment.value}`"
+              :style="{ width: `${segment.width}%`, background: segment.color }"
+              data-reveal="grow-x"
+            />
+          </div>
+          <div class="ad-legend ad-legend--nowrap">
+            <span v-for="segment in outcomes" :key="segment.key" class="ad-usage__item">
+              <i class="ad-sw" :style="{ background: segment.color }" />{{ segment.label }}<b>{{ segment.value }}</b>
+            </span>
+          </div>
         </div>
-        <ul class="agents-panel__list">
-          <li v-for="agent in topAgents" :key="agent.name">
-            <button type="button" class="agents-panel__row" :aria-label="`Open agent ${agent.name}: ${agent.runs} runs, median ${agent.median}, ${agent.failure} failed or cancelled`" @click="openAgents(agent.name)">
+
+        <div class="ad-rows" role="list" aria-label="Busiest agents">
+          <div class="ad-rowh ad-usage__grid">
+            <span>Busiest agents</span><span /><span class="ad-num">Runs</span>
+            <span class="ad-num">Median</span><span class="ad-num">Failed</span>
+          </div>
+          <button
+            v-for="agent in topAgents"
+            :key="agent.name"
+            type="button"
+            role="listitem"
+            class="ad-row ad-usage__grid agents-panel__row"
+            :aria-label="`Open agent ${agent.name}: ${agent.runs} runs, median ${agent.median}, ${agent.failure} failed or cancelled`"
+            @click="openAgents(agent.name)"
+          >
+            <span class="ad-row__name">
               <span class="agents-panel__name" :title="agent.name">{{ agent.name }}</span>
-              <span class="agents-panel__track" aria-hidden="true">
-                <span
-                  class="agents-panel__fill"
-                  data-reveal="grow-x"
-                  :class="{ 'agents-panel__fill--warning': agent.failing }"
-                  :style="{ width: agent.width }"
-                />
-              </span>
-              <span class="agents-panel__figure">{{ agent.runs }}</span>
-              <span class="agents-panel__figure agents-panel__figure--muted">{{ agent.median }}</span>
-              <span
-                class="agents-panel__figure"
-                :class="agent.failing ? 'agents-panel__figure--warning' : 'agents-panel__figure--muted'"
-              >{{ agent.failure }}</span>
-            </button>
-          </li>
-        </ul>
+            </span>
+            <span class="ad-track" aria-hidden="true">
+              <i
+                data-reveal="grow-x"
+                :style="{
+                  width: agent.width,
+                  background: agent.failing ? 'var(--warning-fg)' : 'var(--accent-fg)',
+                }"
+              />
+            </span>
+            <span class="ad-num">{{ agent.runs }}</span>
+            <span class="ad-num ad-num--muted">{{ agent.median }}</span>
+            <span class="ad-num" :class="agent.failing ? 'ad-num--warning' : 'ad-num--muted'">
+              {{ agent.failure }}
+            </span>
+          </button>
+        </div>
       </div>
-
-      <p class="agents-panel__note">
-        Deepest nesting {{ summary.maxDepth }} · peak {{ summary.peakParallelism }} concurrent ·
-        <template v-if="credits">credits from {{ credits.coverage }}</template>
-        <template v-else>no run carried an agent metrics ledger, so credits are unavailable</template>
-      </p>
     </div>
 
-    <p v-else class="agents-panel__note">No agent runs were indexed for this range.</p>
-  </SectionPanel>
+    <p v-else class="ad-empty">
+      <b>No agent runs</b>
+      No subagents were indexed for this range.
+    </p>
+  </OverviewPanel>
 </template>
-
-<style scoped>
-.agents-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.agents-panel__metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
-  gap: 16px;
-}
-
-.agents-panel__metric {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.agents-panel__value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.agents-panel__value--accent {
-  color: var(--accent-fg);
-}
-
-.agents-panel__metric-label {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  text-align: center;
-}
-
-.agents-panel__top {
-  --agent-columns: minmax(7rem, 1fr) minmax(3rem, 1.2fr) 3rem 4.5rem 6.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.agents-panel__head {
-  display: grid;
-  grid-template-columns: var(--agent-columns);
-  align-items: baseline;
-  gap: 8px;
-  padding: 0 8px;
-}
-
-.agents-panel__title {
-  grid-column: span 2;
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.agents-panel__legend {
-  font-size: 0.625rem;
-  color: var(--text-tertiary);
-  text-align: right;
-}
-
-.agents-panel__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* Each row is the way into that agent, so the whole row is the target. */
-.agents-panel__row {
-  display: grid;
-  grid-template-columns: var(--agent-columns);
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.agents-panel__row:hover {
-  background: var(--neutral-subtle);
-}
-
-.agents-panel__name {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.agents-panel__row:hover .agents-panel__name {
-  color: var(--text-primary);
-}
-
-.agents-panel__track {
-  height: 4px;
-  border-radius: var(--radius-sm);
-  background: var(--canvas-inset, var(--canvas-subtle));
-  overflow: hidden;
-}
-
-.agents-panel__fill {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-sm);
-  background: var(--accent-emphasis);
-}
-
-.agents-panel__fill--warning {
-  background: var(--warning-emphasis);
-}
-
-.agents-panel__figure {
-  font-size: 0.6875rem;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  text-align: right;
-}
-
-.agents-panel__figure--muted {
-  color: var(--text-tertiary);
-}
-
-.agents-panel__figure--warning {
-  color: var(--warning-fg);
-}
-
-.agents-panel__link {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 0.6875rem;
-  color: var(--accent-fg);
-  cursor: pointer;
-}
-
-.agents-panel__link:hover {
-  text-decoration: underline;
-}
-
-.agents-panel__note {
-  margin: 0;
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-</style>

@@ -129,7 +129,7 @@ export interface ProductivityMetrics {
   avgTurnsPerSession: number;
   avgToolCallsPerTurn: number;
   avgTokensPerTurn: number;
-  /** Average tokens generated per second of API time (throughput indicator). */
+  /** Output tokens per second of model time; input and cache reads are not generated. */
   avgTokensPerApiSecond: number;
 }
 

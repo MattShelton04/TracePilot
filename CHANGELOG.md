@@ -17,6 +17,7 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ### Changed
 
 - **Session overview** — The Overview tab opens with four headline numbers, a chart of when the session's turns happened, tiles for how it ended, incidents, changes and saved state, and a grouped context panel in place of the label/value lists.
+- **Analytics dashboard** — Five headline numbers, then activity per day (cost, tokens or runs, as bars or lines), model mix and token kinds, cost by source or as a running total, model time and pace, incidents, cache, and agents and skills side by side. Your chart choices are remembered.
 - **Source switch** — Sessions, Analytics and Search switch between All, Copilot and Claude Code. Search also accepts `source:copilot` and `source:claude`, and shows Claude Code's own tool names.
 - **Project folders** — Sessions without a repository show and filter by their working folder, including in the session header, and session search also matches folders and models.
 - **Models page charts** — Four charts (Cost Efficiency, Token Share vs Spend Share, Model Profiles and Model Mix Over Time) replace the Capability Radar and Cost vs Token Volume charts.
@@ -28,7 +29,7 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 ### Fixed
 
 - **macOS and Linux** — Detect & Connect and Launch UI Server work outside Windows, a slow login shell no longer delays launching from the Dock, and launching a session with a prompt works on macOS 12.
-- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, Analytics refreshes in place after a reindex, a reused export preview shows the current export time, and redacted exports also redact subagent descriptions.
+- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, Analytics refreshes in place after a reindex, a reused export preview shows the current export time, redacted exports also redact subagent descriptions, and Analytics throughput counts generated tokens only, not cache reads.
 
 ### Removed
 

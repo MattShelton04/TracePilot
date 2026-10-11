@@ -1,6 +1,7 @@
 import { setupPinia } from "@tracepilot/test-utils";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetAnalyticsDashboardViews } from "../../composables/useAnalyticsDashboardViews";
 import AnalyticsDashboardView from "../../views/AnalyticsDashboardView.vue";
 import CodeImpactView from "../../views/CodeImpactView.vue";
 import ToolAnalysisView from "../../views/ToolAnalysisView.vue";
@@ -70,70 +71,77 @@ describe("AnalyticsDashboardView", () => {
   beforeEach(() => {
     setupPinia();
     vi.clearAllMocks();
+    localStorage.clear();
+    resetAnalyticsDashboardViews();
   });
 
-  it("renders stat cards with analytics data", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
+  async function mountDashboard(data: unknown = FIXTURE_ANALYTICS) {
+    mockGetAnalytics.mockResolvedValue(data);
     const Component = await loadAnalyticsDashboard();
     const wrapper = mount(Component, globalStubs);
-
     await flushPromises();
+    return wrapper;
+  }
 
-    expect(wrapper.text()).toContain("10"); // totalSessions
-    expect(wrapper.text()).toContain("2.5M"); // totalTokens
-    expect(wrapper.text()).toContain("160 AIC");
-    expect(wrapper.text()).toContain("$1.60");
-    expect(wrapper.text()).toContain("AIC USD Equivalent");
+  it("leads with sessions, tokens, AI Credits, model time and errors", async () => {
+    const wrapper = await mountDashboard();
+    const kpis = wrapper.get('[data-testid="analytics-kpis"]').text();
+    expect(kpis).toContain("Sessions");
+    expect(kpis).toContain("10 runs");
+    expect(kpis).toContain("2.5M");
+    // Payloads that predate sources are Copilot's, so cost reads in AI Credits.
+    expect(kpis).toContain("AI Credits");
+    expect(kpis).toContain("160");
+    expect(kpis).toContain("$1.60");
+    expect(kpis).toContain("Model time / session");
+    expect(kpis).toContain("20m");
+    expect(kpis).toContain("3 rate limits");
   }, 10_000);
 
-  it("renders duration stats section", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("API Time per Session");
-    expect(wrapper.text()).toContain("Average");
-    expect(wrapper.text()).toContain("Median");
-    expect(wrapper.text()).toContain("P95");
+  it("shows model time on a log strip with the pace figures", async () => {
+    const wrapper = await mountDashboard();
+    const pace = wrapper.get('[data-testid="analytics-pace"]').text();
+    expect(pace).toContain("8 of 10 sessions timed");
+    expect(pace).toContain("median");
+    expect(pace).toContain("p95");
+    expect(pace).toContain("8.5");
+    expect(pace).toContain("4.2");
+    expect(pace).toContain("Output speed");
   });
 
-  it("renders productivity metrics section", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("Productivity Metrics");
-    expect(wrapper.text()).toContain("8.5"); // avgTurnsPerSession
-    expect(wrapper.text()).toContain("4.2"); // avgToolCallsPerTurn
-    expect(wrapper.text()).toContain("Tokens / API Second");
+  it("lists models by share of tokens with their cost", async () => {
+    const wrapper = await mountDashboard();
+    const mix = wrapper.get('[data-testid="analytics-model-mix"]').text();
+    expect(mix).toContain("gpt-4");
+    expect(mix).toContain("claude-3");
+    expect(mix).toContain("60%");
+    expect(mix).toContain("40%");
+    expect(mix).toContain("96 AIC");
   });
 
-  it("renders cache efficiency section", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
+  it("charts cost per day by default and remembers another metric", async () => {
+    const wrapper = await mountDashboard();
+    const activity = wrapper.get('[data-testid="analytics-activity"]');
+    const radio = (label: string) =>
+      activity.findAll('[role="radio"]').find((b) => b.text() === label);
+    expect(radio("Cost")?.attributes("aria-checked")).toBe("true");
+    expect(activity.find('[aria-label="Cost per day"]').exists()).toBe(true);
 
+    await radio("Tokens")?.trigger("click");
+    await radio("Lines")?.trigger("click");
     await flushPromises();
-
-    expect(wrapper.text()).toContain("Cache Efficiency");
-    expect(wrapper.text()).toContain("Cache Hit Rate");
-    expect(wrapper.text()).toContain("24%");
-    expect(wrapper.text()).toContain("Cached Tokens");
+    expect(activity.find('[aria-label="Tokens per day"]').exists()).toBe(true);
+    expect(
+      JSON.parse(localStorage.getItem("tracepilot-analytics-dashboard-views") ?? "{}"),
+    ).toMatchObject({ activityMetric: "tokens", activityStyle: "lines" });
   });
 
-  it("renders request count in model distribution legend", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("180 req");
-    expect(wrapper.text()).toContain("120 req");
+  it("gives Copilot's cost card the legacy premium figure", async () => {
+    const wrapper = await mountDashboard();
+    const card = wrapper.get('[data-source="copilot"]').text();
+    expect(card).toContain("160 AIC");
+    expect(card).toContain("observed billing");
+    expect(card).toContain("40 req");
   });
 
   it("shows error state with retry button", async () => {
@@ -149,114 +157,17 @@ describe("AnalyticsDashboardView", () => {
   });
 
   it("does not render StubBanner", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
+    const wrapper = await mountDashboard();
     expect(wrapper.find('[class*="stub"]').exists()).toBe(false);
   });
 
-  it("does not show hardcoded trend percentages", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).not.toContain("↑ 12%");
-    expect(wrapper.text()).not.toContain("↑ 18%");
-    expect(wrapper.text()).not.toContain("↓ 3%");
-  });
-
-  it("renders SVG charts when data has multiple points", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    const svgs = wrapper.findAll("svg");
-    expect(svgs.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("renders model distribution donut chart", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("Model Distribution");
-    expect(wrapper.text()).toContain("gpt-4");
-    expect(wrapper.text()).toContain("claude-3");
-    expect(wrapper.text()).toContain("60%");
-    expect(wrapper.text()).toContain("40%");
-  });
-
   it("handles data without duration stats gracefully", async () => {
-    const dataWithoutDuration = {
+    const wrapper = await mountDashboard({
       ...FIXTURE_ANALYTICS,
       apiDurationStats: undefined,
-      productivityMetrics: undefined,
-    };
-    mockGetAnalytics.mockResolvedValue(dataWithoutDuration);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("10");
-    expect(wrapper.text()).not.toContain("API Time per Session");
-  });
-
-  it("renders the USD-first cost trend with an AI Credit compatibility toggle", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("Cost Trend");
-
-    const radios = wrapper.findAll('[role="radio"]');
-    const aiCreditsBtn = radios.find((b) => b.text().includes("AI Credits"));
-    const legacyBtn = radios.find((b) => b.text().includes("Legacy Premium"));
-    expect(aiCreditsBtn).toBeTruthy();
-    expect(legacyBtn).toBeTruthy();
-    expect(aiCreditsBtn!.attributes("aria-checked")).toBe("true");
-    expect(legacyBtn!.attributes("aria-checked")).toBe("false");
-    expect(wrapper.text()).not.toContain("Dollar equivalent:");
-
-    const chartSvg = wrapper
-      .findAll("svg")
-      .find((s) => /AI Credit cost in US dollars/i.test(s.attributes("aria-label") ?? ""));
-    expect(chartSvg).toBeTruthy();
-  });
-
-  it("switches the AIC graph to the legacy premium basis when requested", async () => {
-    mockGetAnalytics.mockResolvedValue(FIXTURE_ANALYTICS);
-    const Component = await loadAnalyticsDashboard();
-    const wrapper = mount(Component, globalStubs);
-
-    await flushPromises();
-
-    const legacyBtn = wrapper
-      .findAll('[role="radio"]')
-      .find((b) => b.text().includes("Legacy Premium"));
-    expect(legacyBtn).toBeTruthy();
-    await legacyBtn!.trigger("click");
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("Cost Trend");
-    expect(wrapper.text()).not.toContain("Dollar equivalent:");
-    expect(legacyBtn!.attributes("aria-checked")).toBe("true");
-
-    const chartSvg = wrapper
-      .findAll("svg")
-      .find((s) => /legacy premium cost/i.test(s.attributes("aria-label") ?? ""));
-    expect(chartSvg).toBeTruthy();
+    });
+    expect(wrapper.text()).toContain("No model timing recorded");
+    expect(wrapper.text()).toContain("No session in this range recorded model time.");
   });
 });
 

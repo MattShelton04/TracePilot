@@ -100,11 +100,22 @@ routed view and session tabs or pop-out windows.
 `apps/desktop/src/views/AnalyticsDashboardView.vue` and the Tools, Code and
 Models views, all headed by `AnalyticsPageHeader`.
 
-- Cost is shown in one USD scale across sources.
-- Chart colours follow MASTER §1; charts use the shared `useChartTooltip`.
-- Each card should load, empty and fail on its own, without blanking the page.
-- Gaps: stat tiles are `StatCard` with gradients rather than `KPI`; charts use a
-  fixed layout instead of resizing with their card.
+- The dashboard reads top to bottom: five `KPI`s, Activity, model mix and token
+  kinds, Cost, model time and pace, incidents and cache, then agents and skills.
+  Panels are `OverviewPanel`s; pairs sit side by side above an 880px container
+  and stack below it. Shared tile, meter and row styles live in
+  `styles/features/analytics-dashboard.css`.
+- Day charts use `AnalyticsDayChart`: zero-filled UTC days, bars or stacked
+  lines, errors pinned above their day, columns merged into bins when narrow.
+- Cost keeps each source's unit (AI Credits, API-equivalent USD) and meets on
+  one USD scale only where sources add up, AI Credits at $0.01.
+- View switches (activity metric and style, cost and incident views) persist
+  through `useAnalyticsDashboardViews`.
+- Agents and Skills share one shape (four tiles, a split bar, ranked rows) so
+  they line up side by side.
+- Each panel loads, empties and fails on its own, without blanking the page.
+- Gaps: the Tools, Code and Models views still use `StatCard` and fixed-size
+  charts.
 
 ## Settings
 

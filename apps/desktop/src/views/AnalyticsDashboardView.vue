@@ -1,30 +1,32 @@
 <script setup lang="ts">
-import { sourceCapabilities } from "@tracepilot/types";
-import {
-  computeGridLines,
-  createChartLayout,
-  ErrorState,
-  LoadingOverlay,
-  PageShell,
-  useChartTooltip,
-} from "@tracepilot/ui";
+/**
+ * The Analytics dashboard: headline numbers, then activity over the range,
+ * what the tokens and models were, what it cost, how long the model took,
+ * what went wrong, the cache, and agents and skills. Each panel loads,
+ * empties and fails on its own; pairs sit side by side when there is room.
+ */
+import { sourceCapabilities, sourceLabel } from "@tracepilot/types";
+import { ErrorState, LoadingOverlay, PageShell } from "@tracepilot/ui";
 import { computed, ref } from "vue";
 import AnalyticsPageHeader from "@/components/AnalyticsPageHeader.vue";
+import AnalyticsActivityPanel from "@/components/analytics/AnalyticsActivityPanel.vue";
 import AnalyticsAgentsPanel from "@/components/analytics/AnalyticsAgentsPanel.vue";
-import AnalyticsCacheHealthRow from "@/components/analytics/AnalyticsCacheHealthRow.vue";
-import AnalyticsDistributionRow from "@/components/analytics/AnalyticsDistributionRow.vue";
-import AnalyticsIncidentChart from "@/components/analytics/AnalyticsIncidentChart.vue";
-import AnalyticsMetricPanels from "@/components/analytics/AnalyticsMetricPanels.vue";
+import AnalyticsCachePanel from "@/components/analytics/AnalyticsCachePanel.vue";
+import AnalyticsCostPanel from "@/components/analytics/AnalyticsCostPanel.vue";
+import AnalyticsIncidentsPanel from "@/components/analytics/AnalyticsIncidentsPanel.vue";
+import AnalyticsKpis from "@/components/analytics/AnalyticsKpis.vue";
+import AnalyticsModelMix from "@/components/analytics/AnalyticsModelMix.vue";
+import AnalyticsPacePanel from "@/components/analytics/AnalyticsPacePanel.vue";
 import AnalyticsSkillsPanel from "@/components/analytics/AnalyticsSkillsPanel.vue";
-import AnalyticsSourceCostPanel from "@/components/analytics/AnalyticsSourceCostPanel.vue";
-import AnalyticsStatsGrids from "@/components/analytics/AnalyticsStatsGrids.vue";
-import AnalyticsTokenActivityRow from "@/components/analytics/AnalyticsTokenActivityRow.vue";
+import AnalyticsTokenMix from "@/components/analytics/AnalyticsTokenMix.vue";
 import { useAnalyticsPage } from "@/composables/useAnalyticsPage";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { usePerfMonitor } from "@/composables/usePerfMonitor";
 import { useRenderBudget } from "@/composables/useRenderBudget";
 import { usePreferencesStore } from "@/stores/preferences";
-import { buildAnalyticsAiCreditSummary, buildSourceCostRows } from "@/utils/analyticsCostSeries";
+import { activityRows, dashboardDays } from "@/utils/analyticsDashboard";
+import { buildDashboardSummary } from "@/utils/analyticsSummary";
+import "@/styles/features/analytics-dashboard.css";
 
 const prefs = usePreferencesStore();
 usePerfMonitor("AnalyticsDashboardView");
@@ -33,7 +35,6 @@ useRenderBudget({
   budgetMs: 180,
   label: "AnalyticsDashboardView",
 });
-const { tooltip, dismissTooltip, onChartMouseMove, onChartClick } = useChartTooltip();
 const { store } = useAnalyticsPage("fetchAnalytics");
 
 const loading = computed(() => store.analyticsLoading);
@@ -44,7 +45,7 @@ const { revealing } = useFirstReveal({
   key: "analytics",
   ready: () => !loading.value && !!data.value,
   root: contentRoot,
-  countUpSelector: ".stat-card-value, .metric-value, [data-count-up]",
+  countUpSelector: ".kpi__value-num, [data-count-up]",
 });
 
 const pageSubtitle = computed(() => {
@@ -53,93 +54,122 @@ const pageSubtitle = computed(() => {
   return `Aggregate metrics across ${allPrefix}${data.value?.totalSessions ?? 0} ${store.sourcePrefix}sessions${repoSuffix}`;
 });
 
-const aiCreditSummary = computed(() =>
+const summary = computed(() =>
   data.value
-    ? buildAnalyticsAiCreditSummary(
-        data.value,
-        prefs.computeUsageBasedCost,
-        prefs.computeWholesaleCost,
-      )
+    ? buildDashboardSummary(data.value, {
+        computeUsageBasedCost: prefs.computeUsageBasedCost,
+        computeWholesaleCost: prefs.computeWholesaleCost,
+      })
     : null,
 );
 
-// Shown only when more than one source has sessions, so Copilot-only
-// dashboards are unchanged.
-const sourceCostRows = computed(() =>
-  data.value && (data.value.costBySource?.length ?? 0) > 1
-    ? buildSourceCostRows(data.value, aiCreditSummary.value)
+const days = computed(() => (data.value ? dashboardDays(data.value, store.dateRange) : []));
+
+/** Runs and incidents per day, for the headline numbers. */
+const dayRows = computed(() =>
+  data.value && summary.value
+    ? activityRows({
+        data: data.value,
+        days: days.value,
+        metric: "runs",
+        aiCreditsByDay: summary.value.aiCreditsByDay,
+        label: sourceLabel,
+      }).rows
     : [],
 );
 
-const chartLayout = createChartLayout(55, 490, 20, 175);
-const GRID_ROWS = 4;
-const gridLines = computed(() => computeGridLines(chartLayout, GRID_ROWS));
-
-const timeRangeLabel = computed(() => {
-  const tr = store.selectedTimeRange;
-  if (tr === "7d") return "the past 7 days";
-  if (tr === "30d") return "the past 30 days";
-  if (tr === "90d") return "the past 90 days";
-  if (tr === "month-to-date") return "this month";
-  if (tr === "custom") {
-    const range = store.dateRange;
-    if (range?.fromDate && range?.toDate) {
-      const from = new Date(range.fromDate);
-      const to = new Date(range.toDate);
-      const days = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
-      return `${days} days`;
-    }
-    return "the selected period";
-  }
-  return "all time";
+const rangeText = computed(() => {
+  const range = store.selectedTimeRange;
+  if (range === "7d") return "the past 7 days";
+  if (range === "30d") return "the past 30 days";
+  if (range === "90d") return "the past 90 days";
+  if (range === "month-to-date") return "this month";
+  if (range === "custom") return "the selected period";
+  return "any session";
 });
+
+const billedInAic = computed(() =>
+  (data.value?.costBySource ?? []).every((entry) => sourceCapabilities(entry.source).hasAic),
+);
+const showAgents = computed(() => prefs.isFeatureEnabled("agents"));
+const showSkills = computed(() => prefs.isFeatureEnabled("skills"));
 </script>
 
 <template>
   <PageShell>
     <AnalyticsPageHeader title="Analytics Dashboard" :subtitle="pageSubtitle" />
     <LoadingOverlay :loading="loading" message="Loading analytics…">
-      <ErrorState v-if="store.analyticsError" heading="Failed to load analytics" :message="store.analyticsError" @retry="store.fetchAnalytics({ force: true })" />
-      <div v-else-if="data" ref="contentRoot" :class="{ 'chart-reveal': revealing }">
-        <AnalyticsStatsGrids
+      <ErrorState
+        v-if="store.analyticsError"
+        heading="Failed to load analytics"
+        :message="store.analyticsError"
+        @retry="store.fetchAnalytics({ force: true })"
+      />
+      <div
+        v-else-if="data && summary"
+        ref="contentRoot"
+        class="analytics-dashboard"
+        :class="{ 'chart-reveal': revealing }"
+      >
+        <AnalyticsKpis :data="data" :summary="summary" :rows="dayRows" />
+        <AnalyticsActivityPanel :data="data" :summary="summary" :days="days" :range-text="rangeText" />
+        <div class="analytics-pair">
+          <AnalyticsModelMix :models="summary.models" />
+          <AnalyticsTokenMix :composition="summary.composition" :models="summary.models" />
+        </div>
+        <AnalyticsCostPanel
           :data="data"
-          :ai-credit-summary="aiCreditSummary"
+          :summary="summary"
+          :days="days"
+          :range-text="rangeText"
+          :cost-per-premium-request="prefs.costPerPremiumRequest"
         />
-        <AnalyticsMetricPanels :data="data" />
-        <AnalyticsTokenActivityRow
-          :data="data"
-          :chart-layout="chartLayout"
-          :grid-lines="gridLines"
-          :time-range-label="timeRangeLabel"
-          :tooltip="tooltip"
-          :on-chart-mouse-move="onChartMouseMove"
-          :on-chart-click="onChartClick"
-          :dismiss-tooltip="dismissTooltip"
-        />
-        <AnalyticsDistributionRow
-          :data="data"
-          :billed-in-aic="sourceCapabilities(store.selectedSource ?? undefined).hasAic"
-          :chart-layout="chartLayout"
-          :grid-lines="gridLines"
-          :time-range-label="timeRangeLabel"
-          :tooltip="tooltip"
-          :on-chart-mouse-move="onChartMouseMove"
-          :on-chart-click="onChartClick"
-          :dismiss-tooltip="dismissTooltip"
-        />
-        <AnalyticsCacheHealthRow :data="data" />
-        <AnalyticsSourceCostPanel v-if="sourceCostRows.length" :rows="sourceCostRows" />
-        <AnalyticsAgentsPanel v-if="prefs.isFeatureEnabled('agents')" />
-        <AnalyticsSkillsPanel v-if="prefs.isFeatureEnabled('skills')" />
-        <AnalyticsIncidentChart
-          :data="data"
-          :chart-layout="chartLayout"
-          :tooltip="tooltip"
-          :on-chart-mouse-move="onChartMouseMove"
-          :on-chart-click="onChartClick"
-          :dismiss-tooltip="dismissTooltip"
-        />
+        <AnalyticsPacePanel :data="data" />
+        <div class="analytics-pair">
+          <AnalyticsIncidentsPanel
+            :data="data"
+            :days="days"
+            :sources="summary.sources"
+            :range-text="rangeText"
+          />
+          <AnalyticsCachePanel
+            :composition="summary.composition"
+            :by-source="summary.cacheBySource"
+            :timing="prefs.isFeatureEnabled('promptCacheInsights') ? data.promptCache : null"
+            :billed-in-aic="billedInAic"
+          />
+        </div>
+        <div v-if="showAgents || showSkills" class="analytics-pair">
+          <AnalyticsAgentsPanel v-if="showAgents" />
+          <AnalyticsSkillsPanel v-if="showSkills" />
+        </div>
       </div>
     </LoadingOverlay>
   </PageShell>
 </template>
+
+<style scoped>
+.analytics-dashboard {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.analytics-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.analytics-pair > :only-child {
+  grid-column: 1 / -1;
+}
+
+@container (max-width: 880px) {
+  .analytics-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

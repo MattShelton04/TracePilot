@@ -113,15 +113,16 @@ describe("AnalyticsSkillsPanel", () => {
     });
   });
 
-  it("leads with uses, distinct skills, sessions and the injected total", async () => {
+  it("leads with uses, distinct skills, the injected total and uses per session", async () => {
     const wrapper = mount(AnalyticsSkillsPanel);
     await flushPromises();
     expect(wrapper.findAll(".skills-panel__value").map((el) => el.text())).toEqual([
       "30",
       "2",
-      "9",
       "~24K",
+      "3.3",
     ]);
+    expect(wrapper.text()).toContain("9 sessions");
   });
 
   it("gives the injected total a denominator when some uses recorded no content", async () => {
