@@ -13,14 +13,14 @@ use std::sync::Arc;
 use super::liveness::{ProcessStart, StalePidFiles, liveness, liveness_many};
 use super::reader::{Line, read_jsonl};
 use super::summary::summarize;
-use super::{ClaudeDiagnostics, file_history, parse_claude_session, plans, resume};
+use super::{ClaudeDiagnostics, ClaudeParse, file_history, parse_claude_session, plans, resume};
 use crate::error::{Result, TracePilotError};
 use crate::ids::SessionId;
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled, ensure_unchanged};
 use crate::provider::{
-    FileHistory, Liveness, PlanArtifact, ProviderSnapshot, ResumeLaunch, SessionArtifacts,
-    SessionLocator, SessionProvider, SessionRole, SessionSource, SourceCapabilities,
-    SourceFingerprint,
+    FileHistory, Liveness, PlanArtifact, ProviderEvents, ProviderSnapshot, ResumeLaunch,
+    SessionArtifacts, SessionLocator, SessionProvider, SessionRole, SessionSource,
+    SourceCapabilities, SourceFingerprint,
 };
 
 /// Nothing Copilot-specific and no todos. Claude Code has no Copilot-style
@@ -59,6 +59,33 @@ pub struct ClaudeCodeProvider {
 }
 
 impl ClaudeCodeProvider {
+    /// Fingerprint, then parse a session. A `strict` parse refuses an
+    /// incomplete transcript; the caller checks the files are unchanged.
+    fn parse(
+        &self,
+        session: &SessionLocator,
+        strict: bool,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<(SourceFingerprint, ClaudeParse)> {
+        check_cancelled(&is_cancelled)?;
+        let main = &session.primary_path;
+        let fingerprint = self.fingerprint(session)?;
+        let parsed = parse_claude_session(main, &is_cancelled)?;
+        let diagnostics = &parsed.diagnostics;
+        if strict
+            && (diagnostics.malformed_lines > 0
+                || diagnostics.oversized_lines > 0
+                || diagnostics.partial_tails > 0
+                || !diagnostics.events.deserialization_failures.is_empty())
+        {
+            return Err(TracePilotError::ParseError {
+                context: format!("Incomplete Claude Code snapshot: {}", main.display()),
+                source: None,
+            });
+        }
+        Ok((fingerprint, parsed))
+    }
+
     pub fn new(config_dir: impl Into<PathBuf>) -> Self {
         let config_dir = config_dir.into();
         Self {
@@ -244,26 +271,15 @@ impl SessionProvider for ClaudeCodeProvider {
         strict: bool,
         is_cancelled: &dyn Fn() -> bool,
     ) -> Result<ProviderSnapshot> {
-        check_cancelled(&is_cancelled)?;
-        let main = &session.primary_path;
-        let fingerprint = self.fingerprint(session)?;
-        let parsed = parse_claude_session(main, &is_cancelled)?;
-        let diagnostics = &parsed.diagnostics;
-        if strict
-            && (diagnostics.malformed_lines > 0
-                || diagnostics.oversized_lines > 0
-                || diagnostics.partial_tails > 0
-                || !diagnostics.events.deserialization_failures.is_empty())
-        {
-            return Err(TracePilotError::ParseError {
-                context: format!("Incomplete Claude Code snapshot: {}", main.display()),
-                source: None,
-            });
-        }
+        let (fingerprint, parsed) = self.parse(session, strict, is_cancelled)?;
         let (summary, turns, metrics) = summarize(&session.id, &parsed);
         check_cancelled(&is_cancelled)?;
         if strict {
-            ensure_unchanged(&fingerprint, &self.fingerprint(session)?, main)?;
+            ensure_unchanged(
+                &fingerprint,
+                &self.fingerprint(session)?,
+                &session.primary_path,
+            )?;
         }
         Ok(ProviderSnapshot {
             summary,
@@ -272,6 +288,26 @@ impl SessionProvider for ClaudeCodeProvider {
             metrics,
             format: Some(parsed.diagnostics.format_observations()),
             diagnostics: Some(parsed.diagnostics.events),
+            fingerprint,
+        })
+    }
+
+    /// The events without the summary, turns and metrics, which search
+    /// never reads.
+    fn load_events_strict(
+        &self,
+        session: &SessionLocator,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<ProviderEvents> {
+        let (fingerprint, parsed) = self.parse(session, true, is_cancelled)?;
+        check_cancelled(&is_cancelled)?;
+        ensure_unchanged(
+            &fingerprint,
+            &self.fingerprint(session)?,
+            &session.primary_path,
+        )?;
+        Ok(ProviderEvents {
+            events: Some(parsed.events),
             fingerprint,
         })
     }
