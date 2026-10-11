@@ -261,17 +261,20 @@ const overrides = {
   sdk_get_session_state: null,
   sdk_list_servers: [],
   sdk_get_foreground_session: null,
-  session_list_files: [
-    {
-      name: "plan.md",
-      path: "plan.md",
-      fileType: "markdown",
-      isDirectory: false,
-      sizeBytes: 84,
-      modifiedAt: "2026-03-20T10:00:00Z",
-      children: [],
-    },
-  ],
+  session_list_files: {
+    root: "/home/demo/.copilot/session-state/visual-session",
+    entries: [
+      {
+        name: "plan.md",
+        path: "plan.md",
+        fileType: "markdown",
+        isDirectory: false,
+        sizeBytes: 84,
+        modifiedAt: "2026-03-20T10:00:00Z",
+        children: [],
+      },
+    ],
+  },
   session_read_file:
     "# Session plan\n\n- Extract the authentication plugin.\n- Add regression coverage.",
 };

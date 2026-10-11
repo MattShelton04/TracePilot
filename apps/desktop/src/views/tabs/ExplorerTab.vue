@@ -7,6 +7,7 @@ import {
   FileContentViewer,
   normalizePath,
   pathDirname,
+  toErrorMessage,
   useAutoRefresh,
   useClipboard,
   usePersistedRef,
@@ -209,11 +210,12 @@ const contextMenuPos = ref({ x: 0, y: 0 });
 const { success: toastSuccess, error: toastError } = useToast();
 const { copy: copyToClipboard } = useClipboard();
 
+// The backend reports where this session's tree lives; providers keep session
+// files in different places, so never rebuild it from a configured directory.
 function getAbsoluteFilePath(relativeFilePath: string) {
-  const base = prefs.sessionStateDir;
-  const session = store.sessionId;
-  if (!base || !session || !relativeFilePath) return "";
-  return normalizePath(`${base}/${session}/${relativeFilePath}`);
+  const base = sessionFiles.root;
+  if (!base || !relativeFilePath) return "";
+  return normalizePath(`${base}/${relativeFilePath}`);
 }
 
 const selectedAbsolutePath = computed(() => {
@@ -269,7 +271,7 @@ async function onCopyContents() {
       toastError("Failed to copy contents");
     }
   } catch (err) {
-    toastError(err instanceof Error ? err.message : String(err));
+    toastError(toErrorMessage(err));
   }
 }
 
@@ -300,7 +302,7 @@ async function onOpenContainingFolder() {
     const parentFolder = pathDirname(fullPath);
     await openInExplorer(parentFolder);
   } catch (err) {
-    toastError(err instanceof Error ? err.message : String(err));
+    toastError(toErrorMessage(err));
   }
 }
 
@@ -312,7 +314,7 @@ async function onOpenFolder() {
   try {
     await openInExplorer(fullPath);
   } catch (err) {
-    toastError(err instanceof Error ? err.message : String(err));
+    toastError(toErrorMessage(err));
   }
 }
 </script>

@@ -9,7 +9,11 @@ const mockSessionReadImagePreview = vi.fn();
 const mockSessionReadSqlite = vi.fn();
 
 vi.mock("@tracepilot/client", () => ({
-  sessionListFiles: (...args: unknown[]) => mockSessionListFiles(...args),
+  // Tests set the entries; the listing's root is fixed.
+  sessionListFiles: async (...args: unknown[]) => ({
+    root: "/sessions/test-session-id",
+    entries: await mockSessionListFiles(...args),
+  }),
   sessionReadFile: (...args: unknown[]) => mockSessionReadFile(...args),
   sessionReadImagePreview: (...args: unknown[]) => mockSessionReadImagePreview(...args),
   sessionReadSqlite: (...args: unknown[]) => mockSessionReadSqlite(...args),
@@ -80,6 +84,7 @@ describe("useSessionFiles", () => {
 
     expect(mockSessionListFiles).toHaveBeenCalledWith("test-session-id");
     expect(instance.files).toEqual(fakeEntries);
+    expect(instance.root).toBe("/sessions/test-session-id");
     expect(instance.filesLoading).toBe(false);
     expect(instance.filesError).toBeNull();
   });
@@ -92,6 +97,15 @@ describe("useSessionFiles", () => {
 
     expect(instance.files).toEqual([]);
     expect(instance.filesError).toBe("Session not found");
+  });
+
+  it("shows the message of a structured IPC error", async () => {
+    mockSessionListFiles.mockRejectedValue({ code: "VALIDATION", message: "Session gone" });
+
+    const { instance } = mountComposable("bad-session-id");
+    await flushPromises();
+
+    expect(instance.filesError).toBe("Session gone");
   });
 
   it("loads file content when selectFile is called with a text type", async () => {

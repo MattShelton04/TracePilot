@@ -6,7 +6,7 @@ import type {
   PromptCacheResponse,
   SessionDbTable,
   SessionDetail,
-  SessionFileEntry,
+  SessionFileListing,
   SessionFileSearchResponse,
   SessionImagePreview,
   SessionIncident,
@@ -165,9 +165,9 @@ export async function closeSessionWindow(label: string): Promise<void> {
 
 // ── Session file browser ───────────────────────────────────────────
 
-/** List all files and directories in the session's state directory. */
-export async function sessionListFiles(sessionId: string): Promise<SessionFileEntry[]> {
-  return invoke<SessionFileEntry[]>("session_list_files", { sessionId });
+/** List the session's browsable files and the directory their paths are relative to. */
+export async function sessionListFiles(sessionId: string): Promise<SessionFileListing> {
+  return invoke<SessionFileListing>("session_list_files", { sessionId });
 }
 
 /** Read the text content of a file at `relativePath` inside the session directory. */

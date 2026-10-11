@@ -9,7 +9,11 @@ const mockSessionReadImagePreview = vi.fn();
 const mockSessionReadSqlite = vi.fn();
 
 vi.mock("@tracepilot/client", () => ({
-  sessionListFiles: (...args: unknown[]) => mockSessionListFiles(...args),
+  // Tests set the entries; the listing's root is fixed.
+  sessionListFiles: async (...args: unknown[]) => ({
+    root: "/sessions/test-session-id",
+    entries: await mockSessionListFiles(...args),
+  }),
   sessionReadFile: (...args: unknown[]) => mockSessionReadFile(...args),
   sessionReadImagePreview: (...args: unknown[]) => mockSessionReadImagePreview(...args),
   sessionReadSqlite: (...args: unknown[]) => mockSessionReadSqlite(...args),

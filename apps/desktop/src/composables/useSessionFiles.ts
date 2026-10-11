@@ -4,17 +4,20 @@ import {
   sessionReadImagePreview,
   sessionReadSqlite,
 } from "@tracepilot/client";
-import type {
-  SessionDbTable,
-  SessionFileEntry,
-  SessionFileType,
-  SessionImagePreview,
+import {
+  type SessionDbTable,
+  type SessionFileEntry,
+  type SessionFileType,
+  type SessionImagePreview,
+  toErrorMessage,
 } from "@tracepilot/types";
 import { ref, watch } from "vue";
 import { estimateDbCost, SessionFileCache } from "./sessionFileCache";
 
 export interface SessionFilesState {
   files: Readonly<SessionFileEntry[]>;
+  /** Directory the entry paths are relative to, located by the session's provider. */
+  root: string | null;
   filesLoading: boolean;
   filesError: string | null;
   selectedPath: string | null;
@@ -60,6 +63,7 @@ export interface SessionFilesState {
  */
 export function useSessionFiles(getSessionId: () => string | null | undefined): SessionFilesState {
   const files = ref<SessionFileEntry[]>([]);
+  const root = ref<string | null>(null);
   const filesLoading = ref(false);
   const filesError = ref<string | null>(null);
 
@@ -119,9 +123,10 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     filesError.value = null;
 
     try {
-      const result = await sessionListFiles(sessionId);
+      const listing = await sessionListFiles(sessionId);
       // Discard if session changed while we were awaiting
       if (seq !== loadSeq) return;
+      const result = listing.entries;
 
       // Detect newly-appeared paths and size-changed paths for the bonus
       // highlight. Skip on the very first load so every file isn't flagged.
@@ -147,6 +152,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       hasInitialLoad = true;
 
       files.value = result;
+      root.value = listing.root;
 
       // Auto-open workspace.yaml if nothing is selected yet
       if (!selectedPath.value) {
@@ -166,7 +172,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       }
     } catch (err) {
       if (seq !== loadSeq) return;
-      filesError.value = err instanceof Error ? err.message : String(err);
+      filesError.value = toErrorMessage(err);
       if (!silent) files.value = [];
     } finally {
       if (seq === loadSeq) filesLoading.value = false;
@@ -235,11 +241,11 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       // Silent refresh failures should not clobber existing content — only
       // surface the error so the user sees a hint but keeps the stale view.
       if (fileType === "sqlite") {
-        dbDataError.value = err instanceof Error ? err.message : String(err);
+        dbDataError.value = toErrorMessage(err);
       } else if (fileType === "image") {
-        imageError.value = err instanceof Error ? err.message : String(err);
+        imageError.value = toErrorMessage(err);
       } else {
-        fileContentError.value = err instanceof Error ? err.message : String(err);
+        fileContentError.value = toErrorMessage(err);
       }
     }
   }
@@ -287,7 +293,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
         });
       } catch (err) {
         if (seq !== readSeq) return;
-        imageError.value = err instanceof Error ? err.message : String(err);
+        imageError.value = toErrorMessage(err);
         imagePreview.value = null;
       } finally {
         if (seq === readSeq) imageLoading.value = false;
@@ -315,7 +321,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
         });
       } catch (err) {
         if (seq !== readSeq) return;
-        dbDataError.value = err instanceof Error ? err.message : String(err);
+        dbDataError.value = toErrorMessage(err);
         dbData.value = null;
       } finally {
         if (seq === readSeq) dbDataLoading.value = false;
@@ -340,7 +346,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       cache.putText(path, result, false);
     } catch (err) {
       if (seq !== readSeq) return;
-      fileContentError.value = err instanceof Error ? err.message : String(err);
+      fileContentError.value = toErrorMessage(err);
       fileContent.value = null;
     } finally {
       if (seq === readSeq) {
@@ -375,7 +381,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       cache.putText(path, result, true);
     } catch (err) {
       if (seq !== readSeq || selectedPath.value !== path) return;
-      fileContentError.value = err instanceof Error ? err.message : String(err);
+      fileContentError.value = toErrorMessage(err);
     } finally {
       if (seq === readSeq) fileContentLoading.value = false;
     }
@@ -386,6 +392,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     getSessionId,
     (id) => {
       files.value = [];
+      root.value = null;
       filesError.value = null;
       selectedPath.value = null;
       selectedFileType.value = null;
@@ -421,6 +428,9 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
   return {
     get files() {
       return files.value;
+    },
+    get root() {
+      return root.value;
     },
     get filesLoading() {
       return filesLoading.value;

@@ -7,7 +7,7 @@ use super::security::{
 use super::types::{
     MAX_FULL_READ_BYTES, MAX_READ_BYTES, MAX_SQLITE_CELL_BYTES, MAX_SQLITE_COLUMNS_PER_TABLE,
     MAX_SQLITE_ROWS_PER_TABLE, MAX_SQLITE_TABLES, MAX_SQLITE_TEXT_BYTES_PER_TABLE,
-    SessionFileEntry, SessionFileType,
+    SessionFileListing, SessionFileType,
 };
 use crate::blocking_cmd;
 use crate::config::SharedConfig;
@@ -16,25 +16,29 @@ use crate::helpers::read_config;
 
 /// List all files in a session's directory tree.
 ///
-/// Returns a flat list of [`SessionFileEntry`] values (files and directories)
-/// with paths relative to the browsable tree's root (see [`ExplorerScope`]).
+/// Returns the browsable tree's root (see [`ExplorerScope`]) and a flat list
+/// of its files and directories, with paths relative to that root.
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(%session_id))]
 pub async fn session_list_files(
     state: tauri::State<'_, SharedConfig>,
     session_id: String,
-) -> CmdResult<Vec<SessionFileEntry>> {
+) -> CmdResult<SessionFileListing> {
     let sid = crate::validators::validate_session_id(&session_id)?;
     let config = read_config(&state);
 
     blocking_cmd!({
-        let mut entries = ExplorerScope::for_session(&config, &sid)?.list(&session_id)?;
+        let scope = ExplorerScope::for_session(&config, &sid)?;
+        let mut entries = scope.list(&session_id)?;
         entries.sort_by(|a, b| {
             b.is_directory
                 .cmp(&a.is_directory)
                 .then_with(|| a.path.cmp(&b.path))
         });
-        Ok::<_, BindingsError>(entries)
+        Ok::<_, BindingsError>(SessionFileListing {
+            root: scope.root().to_string_lossy().into_owned(),
+            entries,
+        })
     })
 }
 

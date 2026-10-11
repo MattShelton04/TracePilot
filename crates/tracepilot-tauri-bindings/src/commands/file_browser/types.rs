@@ -154,6 +154,17 @@ impl SessionFileType {
     }
 }
 
+/// A session's browsable files, returned by `session_list_files`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionFileListing {
+    /// The directory every entry's `path` is relative to, as the session's
+    /// provider locates it. The frontend joins it with an entry's path to
+    /// copy or open that entry; the OS opener re-validates what it is given.
+    pub root: String,
+    pub entries: Vec<SessionFileEntry>,
+}
+
 /// A single entry (file or directory) in the session file tree.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
