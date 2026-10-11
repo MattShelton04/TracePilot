@@ -16,9 +16,11 @@
  */
 import { skillsUsageSummary } from "@tracepilot/client";
 import type { SkillUsageSummary } from "@tracepilot/types";
-import { formatNumber, SectionPanel, toErrorMessage } from "@tracepilot/ui";
+import { formatNumber, toErrorMessage } from "@tracepilot/ui";
+import { ArrowRight, BookOpen, Database, Layers, Sparkles, TriangleAlert } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import OverviewPanel from "@/components/overview/OverviewPanel.vue";
 import { useFirstReveal } from "@/composables/useFirstReveal";
 import { ROUTE_NAMES } from "@/config/routes";
 import { pushRoute } from "@/router/navigation";
@@ -92,35 +94,6 @@ watch(
   { immediate: true },
 );
 
-const metrics = computed(() => {
-  const value = summary.value;
-  if (!value) return [];
-  return [
-    { key: "uses", value: formatNumber(value.totalUses), label: "Skill Uses", accent: true },
-    { key: "distinct", value: formatNumber(value.skills.length), label: "Distinct Skills" },
-    { key: "sessions", value: formatNumber(value.totalSessions), label: "Sessions" },
-    {
-      key: "injected",
-      value: value.usesWithContent > 0 ? `~${formatNumber(value.totalContentTokens)}` : "—",
-      label: "Tokens Injected",
-    },
-  ];
-});
-
-/** Ranked by uses, with what each use costs in injected context. */
-const topSkills = computed(() => {
-  const skills = summary.value?.skills ?? [];
-  const max = Math.max(1, ...skills.map((skill) => skill.uses));
-  return skills.slice(0, 6).map((skill) => ({
-    name: skill.name,
-    uses: formatNumber(skill.uses),
-    width: `${Math.max(2, (skill.uses / max) * 100)}%`,
-    sessions: formatNumber(skill.sessions),
-    injected:
-      skill.medianContentTokens != null ? `~${formatNumber(skill.medianContentTokens)}` : "—",
-  }));
-});
-
 /**
  * Enabled skills with no use in this range, and what they cost per turn.
  * Suppressed under a repository or source filter, where "unused" would be a
@@ -139,6 +112,87 @@ const unused = computed(() => {
   };
 });
 
+/** The same four-tile header as Agents, so the two panels line up. */
+const tiles = computed(() => {
+  const value = summary.value;
+  if (!value) return [];
+  const last = unused.value
+    ? {
+        key: "unused",
+        icon: TriangleAlert,
+        label: "Unused",
+        value: unused.value.count,
+        detail: `~${unused.value.tokens} tokens`,
+      }
+    : {
+        key: "per-session",
+        icon: Layers,
+        label: "Per session",
+        value: (value.totalUses / Math.max(1, value.totalSessions)).toFixed(1),
+        detail: "average uses",
+      };
+  return [
+    {
+      key: "uses",
+      icon: Sparkles,
+      label: "Uses",
+      value: formatNumber(value.totalUses),
+      detail: `${formatNumber(value.totalSessions)} session${value.totalSessions === 1 ? "" : "s"}`,
+    },
+    {
+      key: "distinct",
+      icon: BookOpen,
+      label: "Distinct",
+      value: formatNumber(value.skills.length),
+      detail: "skills used",
+    },
+    {
+      key: "injected",
+      icon: Database,
+      label: "Injected",
+      value: value.usesWithContent > 0 ? `~${formatNumber(value.totalContentTokens)}` : "—",
+      detail: `${formatNumber(value.usesWithContent)} of ${formatNumber(value.totalUses)} uses`,
+    },
+    last,
+  ];
+});
+
+/** Who asked for the skill: the user, the agent, or (before CLI 1.0.49) unknown. */
+const triggers = computed(() => {
+  const value = summary.value;
+  if (!value || value.totalUses === 0) return [];
+  const sum = (key: "userInvoked" | "agentInvoked") =>
+    value.skills.reduce((total, skill) => total + skill[key], 0);
+  const user = sum("userInvoked");
+  const agent = sum("agentInvoked");
+  return [
+    { key: "user", label: "Asked by you", value: user, color: "var(--accent-fg)" },
+    { key: "agent", label: "Chosen by the agent", value: agent, color: "var(--done-fg)" },
+    {
+      key: "unknown",
+      label: "Trigger not recorded",
+      value: Math.max(0, value.totalUses - user - agent),
+      color: "var(--text-tertiary)",
+    },
+  ]
+    .filter((segment) => segment.value > 0)
+    .map((segment) => ({ ...segment, width: (segment.value / value.totalUses) * 100 }));
+});
+
+/** Ranked by uses, with what each use costs in injected context. */
+const topSkills = computed(() => {
+  const skills = summary.value?.skills ?? [];
+  const max = Math.max(1, ...skills.map((skill) => skill.uses));
+  return skills.slice(0, 6).map((skill) => ({
+    name: skill.name,
+    uses: formatNumber(skill.uses),
+    width: `${Math.max(2, (skill.uses / max) * 100)}%`,
+    sessions: formatNumber(skill.sessions),
+    injected:
+      skill.medianContentTokens != null ? `~${formatNumber(skill.medianContentTokens)}` : "—",
+  }));
+});
+
 /** Denominator for the injected total, which not every use contributes to. */
 const coverage = computed(() => {
   const value = summary.value;
@@ -152,224 +206,94 @@ function openSkills(search?: string) {
 </script>
 
 <template>
-  <SectionPanel title="Skills">
-    <template #actions>
-      <button type="button" class="skills-panel__link" @click="openSkills()">Open Skills</button>
+  <OverviewPanel
+    title="Skills"
+    :flush="!!summary && summary.totalUses > 0 && !loading && !error"
+    data-testid="analytics-skills"
+  >
+    <template #aside>
+      <button type="button" class="ad-link" @click="openSkills()">
+        Open Skills <ArrowRight :size="12" aria-hidden="true" />
+      </button>
     </template>
 
-    <p v-if="error" class="skills-panel__note" role="alert">{{ error }}</p>
-    <p v-else-if="loading" class="skills-panel__note" role="status">Loading skill uses…</p>
+    <p v-if="error" class="ad-empty" role="alert">{{ error }}</p>
+    <p v-else-if="loading" class="ad-empty" role="status">Loading skill uses…</p>
 
     <div
       v-else-if="summary && summary.totalUses > 0"
       ref="panelRoot"
-      class="skills-panel"
+      class="ad-usage"
       :class="{ 'chart-reveal': revealing }"
     >
-      <div class="skills-panel__metrics">
-        <div v-for="metric in metrics" :key="metric.key" class="skills-panel__metric">
-          <span
-            class="skills-panel__value"
-            :class="{ 'skills-panel__value--accent': metric.accent }"
-          >{{ metric.value }}</span>
-          <span class="skills-panel__metric-label">{{ metric.label }}</span>
+      <div class="ad-tiles ad-usage__tiles">
+        <div v-for="tile in tiles" :key="tile.key" class="ad-tile">
+          <div class="ad-tile__label">
+            <component :is="tile.icon" :size="13" aria-hidden="true" />{{ tile.label }}
+          </div>
+          <div class="ad-tile__value skills-panel__value">{{ tile.value }}</div>
+          <div class="ad-tile__detail" :title="tile.detail">{{ tile.detail }}</div>
         </div>
       </div>
 
-      <div class="skills-panel__top">
-        <div class="skills-panel__head">
-          <h4 class="skills-panel__title">Most used skills</h4>
-          <span class="skills-panel__legend">Uses</span>
-          <span class="skills-panel__legend">Sessions</span>
-          <span class="skills-panel__legend">Injected</span>
+      <div class="ad-usage__body">
+        <div class="ad-usage__split">
+          <div class="ad-meter ad-meter--lg" aria-hidden="true">
+            <i
+              v-for="segment in triggers"
+              :key="segment.key"
+              :title="`${segment.label}: ${segment.value}`"
+              :style="{ width: `${segment.width}%`, background: segment.color }"
+              data-reveal="grow-x"
+            />
+          </div>
+          <div class="ad-legend ad-legend--nowrap">
+            <span v-for="segment in triggers" :key="segment.key" class="ad-usage__item">
+              <i class="ad-sw" :style="{ background: segment.color }" />{{ segment.label }}<b>{{ segment.value }}</b>
+            </span>
+          </div>
         </div>
-        <ul class="skills-panel__list">
-          <li v-for="skill in topSkills" :key="skill.name">
-            <button
-              type="button"
-              class="skills-panel__row"
-              :aria-label="`Find skill ${skill.name}: ${skill.uses} uses across ${skill.sessions} sessions, ${skill.injected} tokens injected per use`"
-              @click="openSkills(skill.name)"
-            >
+
+        <div class="ad-rows" role="list" aria-label="Most used skills">
+          <div class="ad-rowh ad-usage__grid">
+            <span>Most used</span><span /><span class="ad-num">Uses</span>
+            <span class="ad-num">Sessions</span><span class="ad-num">Each</span>
+          </div>
+          <button
+            v-for="skill in topSkills"
+            :key="skill.name"
+            type="button"
+            role="listitem"
+            class="ad-row ad-usage__grid skills-panel__row"
+            :aria-label="`Find skill ${skill.name}: ${skill.uses} uses across ${skill.sessions} sessions, ${skill.injected} tokens injected per use`"
+            @click="openSkills(skill.name)"
+          >
+            <span class="ad-row__name">
               <span class="skills-panel__name" :title="skill.name">{{ skill.name }}</span>
-              <span class="skills-panel__track" aria-hidden="true">
-                <span class="skills-panel__fill" data-reveal="grow-x" :style="{ width: skill.width }" />
-              </span>
-              <span class="skills-panel__figure">{{ skill.uses }}</span>
-              <span class="skills-panel__figure skills-panel__figure--muted">
-                {{ skill.sessions }}
-              </span>
-              <span class="skills-panel__figure skills-panel__figure--muted">
-                {{ skill.injected }}
-              </span>
-            </button>
-          </li>
-        </ul>
-      </div>
+            </span>
+            <span class="ad-track" aria-hidden="true">
+              <i data-reveal="grow-x" :style="{ width: skill.width, background: 'var(--done-fg)' }" />
+            </span>
+            <span class="ad-num">{{ skill.uses }}</span>
+            <span class="ad-num ad-num--muted">{{ skill.sessions }}</span>
+            <span class="ad-num ad-num--muted">{{ skill.injected }}</span>
+          </button>
+        </div>
 
-      <p v-if="unused" class="skills-panel__note">
-        {{ unused.count }} enabled {{ unused.plural }} went unused here, adding about
-        {{ unused.tokens }} listing tokens across all projects ·
-        <button type="button" class="skills-panel__link" @click="openSkills()">Review them</button>
-      </p>
-      <p v-if="coverage" class="skills-panel__note">{{ coverage }}</p>
+        <div v-if="unused || coverage" class="ad-usage__notes">
+          <p v-if="unused" class="ad-note">
+            {{ unused.count }} enabled {{ unused.plural }} went unused here, adding about
+            {{ unused.tokens }} listing tokens across all projects ·
+            <button type="button" class="ad-link" @click="openSkills()">Review them</button>
+          </p>
+          <p v-if="coverage" class="ad-note">{{ coverage }}</p>
+        </div>
+      </div>
     </div>
 
-    <p v-else class="skills-panel__note">No skill uses were indexed for this range.</p>
-  </SectionPanel>
+    <p v-else class="ad-empty">
+      <b>No skill uses</b>
+      No skill uses were indexed for this range.
+    </p>
+  </OverviewPanel>
 </template>
-
-<style scoped>
-.skills-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.skills-panel__metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
-  gap: 16px;
-}
-
-.skills-panel__metric {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.skills-panel__value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.skills-panel__value--accent {
-  color: var(--accent-fg);
-}
-
-.skills-panel__metric-label {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  text-align: center;
-}
-
-.skills-panel__top {
-  --skill-columns: minmax(7rem, 1fr) minmax(3rem, 1.2fr) 3rem 4.5rem 5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.skills-panel__head {
-  display: grid;
-  grid-template-columns: var(--skill-columns);
-  align-items: baseline;
-  gap: 8px;
-  padding: 0 8px;
-}
-
-.skills-panel__title {
-  grid-column: span 2;
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.skills-panel__legend {
-  font-size: 0.625rem;
-  color: var(--text-tertiary);
-  text-align: right;
-}
-
-.skills-panel__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* Each row is the way into that skill, so the whole row is the target. */
-.skills-panel__row {
-  display: grid;
-  grid-template-columns: var(--skill-columns);
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.skills-panel__row:hover {
-  background: var(--neutral-subtle);
-}
-
-.skills-panel__name {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.skills-panel__row:hover .skills-panel__name {
-  color: var(--text-primary);
-}
-
-.skills-panel__track {
-  height: 4px;
-  border-radius: var(--radius-sm);
-  background: var(--canvas-inset);
-  overflow: hidden;
-}
-
-.skills-panel__fill {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-sm);
-  background: var(--accent-emphasis);
-}
-
-.skills-panel__figure {
-  font-size: 0.6875rem;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  text-align: right;
-}
-
-.skills-panel__figure--muted {
-  color: var(--text-tertiary);
-}
-
-.skills-panel__link {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 0.6875rem;
-  color: var(--accent-fg);
-  cursor: pointer;
-}
-
-.skills-panel__link:hover {
-  text-decoration: underline;
-}
-
-.skills-panel__note {
-  margin: 0;
-  font-size: 0.6875rem;
-  color: var(--text-tertiary);
-}
-</style>

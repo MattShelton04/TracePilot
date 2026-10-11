@@ -1,0 +1,410 @@
+/*
+ * Shared pieces of the Analytics dashboard's panels: tile grids, meters,
+ * legends and ranked rows. Each panel lays itself out; these keep the
+ * vocabulary the same across them, matching the session Overview's tiles.
+ */
+
+/* ---------- compact view switches in panel headers ---------- */
+.ad-seg.segmented-control .segment-btn {
+  padding: 2px 10px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.ad-switches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ---------- tiles ---------- */
+.ad-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border-muted);
+}
+
+.ad-tiles--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ad-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--canvas-subtle);
+}
+
+.ad-tile__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.ad-tile__label > svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.ad-tile__aside {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.ad-tile__value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font: 600 17px / 22px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.ad-tile__value--lg {
+  font-size: 22px;
+  line-height: 28px;
+}
+
+.ad-tile__value--muted {
+  color: var(--text-tertiary);
+}
+
+/* A word in place of a number reads as text, not a figure. */
+.ad-tile__value--text {
+  font: 500 14px/22px var(--font-family);
+}
+
+.ad-tile__value small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 400 12px / 16px var(--font-family);
+  color: var(--text-tertiary);
+}
+
+.ad-tile__detail {
+  min-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-tertiary);
+}
+
+.ad-tile__detail b {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ---------- meters and legends ---------- */
+.ad-meter {
+  display: flex;
+  gap: 1px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--surface-tertiary);
+}
+
+.ad-meter > i,
+.ad-meter > span > i {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+}
+
+.ad-meter--lg {
+  gap: 2px;
+  height: 10px;
+  border-radius: 3px;
+  background: transparent;
+}
+
+.ad-meter--lg > i {
+  border-radius: 2px;
+}
+
+.ad-sw {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.ad-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-tertiary);
+}
+
+.ad-legend--nowrap {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.ad-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.ad-legend b {
+  font: 500 12px / 16px var(--font-mono);
+  color: var(--text-primary);
+}
+
+/* ---------- ranked rows ---------- */
+.ad-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ad-row,
+.ad-rowh {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.ad-rowh {
+  height: 22px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.ad-row {
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+button.ad-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ad-row:hover {
+  background: var(--state-hover-overlay);
+}
+
+button.ad-row:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: -2px;
+}
+
+.ad-row__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.ad-row__name > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ad-num {
+  text-align: right;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-num--muted {
+  color: var(--text-tertiary);
+}
+
+.ad-num--warning {
+  color: var(--warning-fg);
+}
+
+.ad-track {
+  display: flex;
+  height: 6px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--neutral-muted);
+}
+
+.ad-track > i {
+  display: block;
+  height: 100%;
+}
+
+.ad-track--tall {
+  height: 10px;
+  border-radius: 3px;
+}
+
+/* A row wrapped in the shared Tooltip still spans the list. */
+div.ad-rows > span.tooltip {
+  display: flex;
+}
+
+div.ad-rows > span.tooltip > .ad-row {
+  flex: 1;
+}
+
+/* ---------- notes, links, states ---------- */
+.ad-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-tertiary);
+}
+
+.ad-note b {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.ad-partial {
+  color: var(--warning-fg);
+}
+
+.ad-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-fg);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ad-link:hover {
+  text-decoration: underline;
+}
+
+.ad-link:focus-visible {
+  outline: 2px solid var(--accent-emphasis);
+  outline-offset: 2px;
+}
+
+.ad-empty {
+  margin: auto 0;
+  padding: 20px 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-tertiary);
+}
+
+.ad-empty b {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.ad-source {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.ad-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-secondary);
+}
+
+.ad-foot b {
+  font: 500 12px / 16px var(--font-mono);
+  color: var(--text-primary);
+}
+
+.ad-foot .ad-legend {
+  margin-left: auto;
+}
+
+/* ---------- agents and skills: one shape, so side-by-side panels align ---------- */
+.ad-usage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.ad-usage__tiles {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border-muted);
+}
+
+@container (max-width: 520px) {
+  .ad-usage__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ad-usage__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.ad-usage__split {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ad-usage__item b {
+  margin-left: 4px;
+}
+
+.ad-usage__grid {
+  grid-template-columns: minmax(0, 1.3fr) minmax(48px, 1fr) 44px 60px 56px;
+}
+
+.ad-usage__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}

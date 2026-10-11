@@ -332,3 +332,32 @@ fn test_incident_indexing_and_retrieval() {
     assert_eq!(analytics.total_compactions, 1);
     assert_eq!(analytics.total_truncations, 1);
 }
+
+#[test]
+fn test_query_analytics_throughput_counts_output_tokens_only() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = IndexDb::open_or_create(&tmp.path().join("index.db")).unwrap();
+    db.conn
+        .execute(
+            "INSERT INTO sessions (id, path, created_at, updated_at, indexed_at,
+                                   total_tokens, total_api_duration_ms, turn_count)
+             VALUES ('timed', 'C:\test\timed', '2026-03-10T07:00:00Z',
+                     '2026-03-10T08:00:00Z', datetime('now'), 9500, 10000, 2)",
+            [],
+        )
+        .unwrap();
+    // Mostly cache reads, as real agent sessions are: none of them are generated.
+    db.conn
+        .execute(
+            "INSERT INTO session_model_metrics
+             (session_id, model_name, input_tokens, output_tokens, cache_read_tokens)
+             VALUES ('timed', 'gpt-5.4', 9000, 500, 8000)",
+            [],
+        )
+        .unwrap();
+
+    let result = db.query_analytics(None, None, None, false, None).unwrap();
+
+    // 500 output tokens over 10 seconds of model time.
+    assert!((result.productivity_metrics.avg_tokens_per_api_second - 50.0).abs() < 0.01);
+}

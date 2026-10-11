@@ -172,9 +172,10 @@ const statusIconComponent = computed(() => {
   min-height: 28px;
 }
 
+/* Wide actions wrap below the title rather than squeezing it to nothing. */
 .page-title {
   flex: 1;
-  min-width: 0;
+  min-width: min(100%, 12rem);
 }
 
 .title-icon-tile {

@@ -42,7 +42,7 @@ beforeEach(() => {
 });
 
 describe("AnalyticsAgentsPanel", () => {
-  it("shows range metrics, credit coverage, outcomes and agents ranked by runs", async () => {
+  it("shows range tiles, credit coverage, outcomes and agents ranked by runs", async () => {
     const wrapper = mount(AnalyticsAgentsPanel);
     await flushPromises();
     expect(agentsUsageSummary).toHaveBeenCalledWith({
@@ -51,13 +51,15 @@ describe("AnalyticsAgentsPanel", () => {
       repo: null,
       source: null,
     });
+    // Runs, failed share, deepest nesting and own credits, as in Skills' header.
     expect(wrapper.findAll(".agents-panel__value").map((el) => el.text())).toEqual([
       "100",
-      "20",
       "10%",
+      "2",
       "—",
     ]);
-    expect(wrapper.text()).toContain("credits are unavailable");
+    expect(wrapper.text()).toContain("20 sessions");
+    expect(wrapper.text()).toContain("no metrics ledger");
     expect(wrapper.findAll(".agents-panel__name").map((el) => el.text())).toEqual([
       "explore",
       "reviewer",
@@ -73,7 +75,7 @@ describe("AnalyticsAgentsPanel", () => {
     vi.mocked(agentsUsageSummary).mockResolvedValue({ ...summary, unreportedRuns: 4 });
     const wrapper = mount(AnalyticsAgentsPanel);
     await flushPromises();
-    const legend = wrapper.findAll(".stacked__item").map((el) => el.text());
+    const legend = wrapper.findAll(".ad-usage__item").map((el) => el.text());
     expect(legend).toEqual([
       expect.stringContaining("Completed83"),
       expect.stringContaining("Failed or cancelled10"),
@@ -86,7 +88,7 @@ describe("AnalyticsAgentsPanel", () => {
     const wrapper = mount(AnalyticsAgentsPanel);
     await flushPromises();
     expect(wrapper.text()).not.toContain("No final report");
-    expect(wrapper.findAll(".stacked__item")[0].text()).toContain("Completed87");
+    expect(wrapper.findAll(".ad-usage__item")[0].text()).toContain("Completed87");
   });
 
   it("displays the ledger denominator when credits are available", async () => {
@@ -97,7 +99,7 @@ describe("AnalyticsAgentsPanel", () => {
     });
     const wrapper = mount(AnalyticsAgentsPanel);
     await flushPromises();
-    expect(wrapper.text()).toContain("credits from 25 of 100 runs");
+    expect(wrapper.text()).toContain("25 of 100 runs");
     expect(wrapper.findAll(".agents-panel__value")[3].text()).not.toBe("—");
   });
 
