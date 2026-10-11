@@ -26,6 +26,11 @@ models, varied lengths, interrupted turns, tool failures, plans, and todos.
 It writes a manifest but no app config/index, leaving first setup to the native
 app. See [native integration tests](../../tests/e2e/README.md).
 
+`examples/indexing_workloads.rs` times every indexing workload the app runs
+(first index, incremental, analytics bump, rebuilds, source toggle) over
+Copilot and Claude Code sources; see the
+[performance playbook](../../docs/performance-playbook.md#measuring-the-whole-indexing-path).
+
 ```bash
 cargo bench -p tracepilot-bench                          # run every bench
 cargo bench -p tracepilot-bench -- session_scan          # filter by name

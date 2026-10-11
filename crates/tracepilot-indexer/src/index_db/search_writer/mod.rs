@@ -45,6 +45,12 @@ pub const CURRENT_EXTRACTOR_VERSION: i64 = 4;
 /// v9: a notification wake's lines are a system message, not a user message.
 const CLAUDE_CODE_EXTRACTOR_VERSION: i64 = 9;
 
+/// The FTS insert trigger, as migration 9 defines it.
+const INSERT_TRIGGER: &str =
+    "CREATE TRIGGER IF NOT EXISTS search_content_ai AFTER INSERT ON search_content BEGIN
+        INSERT INTO search_fts(rowid, content) VALUES (new.id, new.content);
+     END;";
+
 fn extractor_version(source: SessionSource) -> i64 {
     match source {
         SessionSource::ClaudeCode => CLAUDE_CODE_EXTRACTOR_VERSION.max(CURRENT_EXTRACTOR_VERSION),
@@ -211,6 +217,21 @@ impl IndexDb {
 
         let non_empty: Vec<&SearchContentRow> =
             rows.iter().filter(|r| !r.content.is_empty()).collect();
+        if non_empty.is_empty() {
+            return self.mark_search_indexed(source, session_id, source_fingerprint, 0);
+        }
+        // FTS5 writes its pending terms out at every statement savepoint, so
+        // the insert trigger, firing inside each multi-row INSERT, leaves many
+        // small segments to merge later. Index the new rows in one statement
+        // instead. The trigger is dropped and recreated inside the caller's
+        // transaction, so a rollback restores it.
+        let previous_max: i64 = self.conn.query_row(
+            "SELECT COALESCE(MAX(id), 0) FROM search_content",
+            [],
+            |row| row.get(0),
+        )?;
+        self.conn
+            .execute_batch("DROP TRIGGER IF EXISTS search_content_ai;")?;
         for chunk in non_empty.chunks(256) {
             tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
             batched_insert(
@@ -233,7 +254,24 @@ impl IndexDb {
             )?;
         }
         tracepilot_core::parsing::snapshot::check_cancelled(is_cancelled)?;
+        // AUTOINCREMENT ids: this session's rows are exactly those above the
+        // previous maximum, and rowid order keeps FTS5 writes sequential.
+        self.conn.execute(
+            "INSERT INTO search_fts(rowid, content)
+             SELECT id, content FROM search_content WHERE id > ?1 ORDER BY id",
+            [previous_max],
+        )?;
+        self.conn.execute_batch(INSERT_TRIGGER)?;
+        self.mark_search_indexed(source, session_id, source_fingerprint, non_empty.len())
+    }
 
+    fn mark_search_indexed(
+        &self,
+        source: SessionSource,
+        session_id: &SessionId,
+        source_fingerprint: Option<&str>,
+        count: usize,
+    ) -> Result<usize> {
         let now = chrono::Utc::now().to_rfc3339();
         self.conn.execute(
             "UPDATE sessions SET search_indexed_at = ?1, search_extractor_version = ?2,
@@ -245,7 +283,7 @@ impl IndexDb {
                 source_fingerprint
             ],
         )?;
-        Ok(non_empty.len())
+        Ok(count)
     }
 
     /// Request a rebuild without deleting last-good content before source reads.

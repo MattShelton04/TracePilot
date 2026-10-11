@@ -81,6 +81,23 @@ fn assert_original(db: &IndexDb) {
     assert_eq!(hits(db, "original"), 3);
     assert_eq!(hits(db, "replacement"), 0);
     assert_eq!(db.search_content_row_count().unwrap(), 3);
+    assert_fts_in_sync(db);
+}
+
+/// The insert trigger is back and the FTS index matches `search_content`.
+fn assert_fts_in_sync(db: &IndexDb) {
+    let triggers: i64 = db
+        .conn
+        .query_row(
+            "SELECT count(*) FROM sqlite_master WHERE type = 'trigger' AND name = 'search_content_ai'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(triggers, 1);
+    db.conn
+        .execute_batch("INSERT INTO search_fts(search_fts, rank) VALUES('integrity-check', 1)")
+        .unwrap();
 }
 
 #[test]
@@ -107,6 +124,30 @@ fn batch_commits_valid_sessions_while_failed_session_keeps_its_content_and_finge
     assert_eq!(hits(&db, "replacement"), 2);
     assert_eq!(hits(&db, "original"), 1);
     assert_eq!(hits(&db, "rejected"), 0);
+}
+
+#[test]
+fn a_failed_last_session_rolls_back_to_a_restored_insert_trigger() {
+    let (_temp, db, ids) = fixture();
+    let mut rows = replacement_rows(&ids);
+    rows[2].1[0].content = "rejected sentinel".to_string();
+    db.conn.execute_batch(
+        "CREATE TRIGGER reject_test_row BEFORE INSERT ON search_content
+         WHEN new.content = 'rejected sentinel' BEGIN SELECT RAISE(ABORT, 'injected failure'); END;",
+    ).unwrap();
+    assert_eq!(
+        db.upsert_search_snapshots(
+            SessionSource::Copilot,
+            &rows,
+            &vec!["new".into(); 3],
+            &|| false
+        )
+        .unwrap(),
+        2
+    );
+    assert_eq!(fingerprints(&db), ["new", "new", "old"]);
+    assert_eq!(hits(&db, "original"), 1);
+    assert_fts_in_sync(&db);
 }
 
 #[test]
@@ -372,4 +413,33 @@ fn cancelled_indexing_reports_only_committed_batches_and_resumes_remaining_sessi
         (8, 32)
     );
     assert_eq!(hits(&db, "sentinel"), 40);
+}
+
+#[test]
+fn replaced_snapshot_indexes_new_rows_and_restores_the_insert_trigger() {
+    let (_temp, db, ids) = fixture();
+    let rows: Vec<_> = (0..300)
+        .map(|index| row(&ids[1], &format!("replacement sentinel number{index}")))
+        .collect();
+    assert_eq!(
+        db.upsert_search_snapshot(SessionSource::Copilot, &ids[1], &rows, Some("new"), &|| {
+            false
+        })
+        .unwrap(),
+        300
+    );
+    assert_eq!(hits(&db, "original"), 2);
+    assert_eq!(hits(&db, "replacement"), 300);
+    assert_eq!(hits(&db, "number299"), 1);
+    assert_fts_in_sync(&db);
+    // Rows written outside the search writer are still indexed by the trigger.
+    db.conn
+        .execute(
+            "INSERT INTO search_content (session_id, content_type, event_index, content)
+             VALUES (?1, 'user_message', 1, 'later sentinel')",
+            [ids[2].as_str()],
+        )
+        .unwrap();
+    assert_eq!(hits(&db, "later"), 1);
+    assert_fts_in_sync(&db);
 }

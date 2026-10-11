@@ -99,6 +99,66 @@ preparation happens before the transaction, so file reads do not hold the databa
 write lock. Compare fresh and incremental phases when changing this boundary:
 per-session commits can substantially increase transaction and WAL/checkpoint work.
 
+FTS5 writes its pending terms out at every statement savepoint, so an `AFTER
+INSERT` trigger firing inside each multi-row `INSERT` leaves thousands of small
+segments to merge. A session replacement therefore drops `search_content_ai`,
+inserts the rows, indexes them with one `INSERT INTO search_fts ... SELECT` in
+rowid order, and recreates the trigger, all inside the caller's transaction or
+savepoint (a rollback restores the trigger). Deletes still go through
+`search_content_ad`. Replaying 671k real rows, per-row trigger maintenance took
+16.3 s and the single statement 11.2 s, close to a full FTS `rebuild`; automerge
+settings (0 to 16) made no difference.
+
+### Measuring the whole indexing path
+
+[`indexing_workloads`](../crates/tracepilot-bench/examples/indexing_workloads.rs)
+runs each indexing workload the app runs, over Copilot and Claude Code sources
+together, and prints wall time per step plus the process peak:
+
+```powershell
+cargo build --release -p tracepilot-bench --example indexing_workloads
+$probe = '.\target\release\examples\indexing_workloads.exe'
+& $probe first <copilot-session-state> <claude-config-dir> .agent\perf\index.db   # empty DB
+# Copy that DB before each of: incr, analytics-bump claudeCode, search-rebuild,
+# rebuild, purge claudeCode, enable claudeCode (after a purge).
+```
+
+Pass `-` for a source to leave it out (Copilot only is the regression check).
+For a growing live session, null one session's `source_fingerprint` and
+`search_source_fingerprint` in the copy, then run `incr`. Read CPU time from
+outside (`(Get-Process -Id ...).TotalProcessorTime`, or a wrapper that starts the
+probe). For base/head comparisons on Copilot alone, `index_probe phase1`/`phase2`
+builds unchanged against older releases.
+
+Method that held up: release builds; a fresh process per workload; at least five
+runs per side, interleaved (ABBA); record the machine's CPU load before each run
+and discard runs that start under load, since a running desktop app or another
+agent's build shifts timings by 2x. For identical output, dump every table
+sorted with wall-clock columns masked, plus FTS `bm25` results for a fixed set of
+probe queries and FTS5 `integrity-check`, on a frozen corpus. FTS segment layout
+(`search_fts_data`, `search_fts_idx`) legitimately differs with write order.
+
+Baseline (2026-10, 12-thread desktop, median of 5 or more): a heavy real corpus of 618
+Copilot sessions (2.5 GB of events, largest 111 MiB) and 101 Claude Code sessions
+(0.8 GB) builds a 550 MiB index with 671k search rows.
+
+| Workload | Time | Notes |
+| --- | --- | --- |
+| First index | 46 s | sessions 12.5 s (the writer waits on parsing ~85% of it), search 33 s; peak 500 MiB |
+| Copilot only, first index | 9 s + 25 s | v0.9.1: 15.5 s + 43 s on the same corpus |
+| Search index rebuild | 50 s | deletes and re-inserts every row |
+| Settings full rebuild | 65 s | sessions 11 s, search 54 s |
+| Analytics bump (Claude / Copilot) | 4 s / 8.5 s | search is skipped |
+| Enable / disable Claude Code | 9.5 s / 1.3 s | |
+| One live 50 MiB Claude session | 1.2 s | about half sessions, half search |
+
+Where the first index's search phase goes (scoped timers): the writer is busy
+24 s, of which row inserts take 9 s, the per-session FTS statement 5 s and 532
+commits 7 s; it waits 4.5 s for preparation. Maintenance at the end of the pass
+adds FTS `optimize` and `ANALYZE`, about 2 s each on a fresh index and up to
+10 s each on a large, aged one, both under the write lock, so a concurrent
+session write can time out with `database is locked`.
+
 For base/head comparisons, run a separate head-only budget check. A historical
 base may legitimately exceed the new memory budget; use an explicitly recorded
 larger budget for the comparison itself so it can produce both measurements.
@@ -268,7 +328,9 @@ Requires `rustup component add llvm-tools`.
 ### "Reindexing is slow"
 
 1. `cargo bench -p tracepilot-bench --bench indexer` → synthetic Criterion benchmarks
-2. Run debug build → watch for "Slow SQL query" tracing warnings
+2. Watch for "Slow SQL query" tracing warnings (also in the app log); for a whole
+   pass, time each workload with `indexing_workloads` (see
+   [Measuring the whole indexing path](#measuring-the-whole-indexing-path))
 3. `cargo flamegraph --bench indexer` → find hot functions
 4. `cargo test -p tracepilot-core --features dhat-heap` → check allocation counts
 
