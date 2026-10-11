@@ -92,6 +92,64 @@ describe("ContextWindowChart", () => {
     expect(turnTicks.some((node) => node.text() === "1")).toBe(true);
   });
 
+  it("stacks estimated layers inside recorded totals", async () => {
+    const recorded: ContextTimeline = {
+      ...timeline,
+      compactions: [],
+      points: [
+        [100, 10, 40],
+        [100, 20, 80],
+      ].map(([system, messages, toolIo], turn) => ({
+        turn,
+        phase: "turn" as const,
+        timestamp: null,
+        systemTokens: system,
+        toolDefinitionTokens: 0,
+        conversationTokens: messages + toolIo,
+        totalTokens: system + messages + toolIo,
+        totalOnly: true,
+        messageTokens: messages,
+        toolIoTokens: toolIo,
+        source: "observed" as const,
+      })),
+    };
+    const wrapper = mount(ContextWindowChart, { props: { timeline: recorded } });
+    const legend = wrapper.findAll(".context-chart__legend .context-chart__button");
+    expect(legend.map((button) => button.text())).toEqual([
+      "System & tools",
+      "Messages",
+      "Tool calls & results",
+    ]);
+    expect(legend[0].attributes("aria-label")).toContain("Estimated");
+    const areas = wrapper.findAll(".context-chart__area");
+    expect(areas.map((area) => area.attributes("fill"))).toEqual([
+      "var(--chart-secondary)",
+      "var(--chart-warning)",
+      "var(--chart-info)",
+    ]);
+
+    // A hidden tool share collapses onto the top of the messages layer.
+    await legend[2].trigger("click");
+    expect(legend[2].attributes("aria-pressed")).toBe("false");
+    const corners = (index: number) =>
+      (wrapper.findAll(".context-chart__area")[index].attributes("points") ?? "").split(" ");
+    const messagesTop = corners(1).slice(0, 2);
+    expect(corners(2)).toEqual([...messagesTop, ...[...messagesTop].reverse()]);
+  });
+
+  it("falls back to one total layer when recorded totals carry no estimate", () => {
+    const recorded: ContextTimeline = {
+      ...timeline,
+      compactions: [],
+      points: timeline.points
+        .filter((point) => point.phase === "turn")
+        .map((point) => ({ ...point, totalOnly: true, source: "observed" as const })),
+    };
+    const wrapper = mount(ContextWindowChart, { props: { timeline: recorded } });
+    expect(wrapper.findAll(".context-chart__area")).toHaveLength(1);
+    expect(wrapper.text()).toContain("Total input");
+  });
+
   it("labels the token axis with round, evenly spaced ticks", async () => {
     const scale = 50;
     const scaled: ContextTimeline = {

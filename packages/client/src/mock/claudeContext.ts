@@ -4,7 +4,32 @@ const MINUTE_MS = 60_000;
 const mockIso = (offsetMinutes: number) =>
   new Date(Date.now() + offsetMinutes * MINUTE_MS).toISOString();
 
-/** Claude records inclusive input per model call: total-only context anchors. */
+/** One recorded request total with its estimated layers (system, messages, tool I/O). */
+const claudePoint = (
+  turn: number,
+  [system, messages, toolIo]: [number, number, number],
+  cacheWrite: number,
+) => {
+  const total = system + messages + toolIo;
+  return {
+    turn,
+    phase: "turn" as const,
+    timestamp: null,
+    systemTokens: system,
+    toolDefinitionTokens: 0,
+    conversationTokens: messages + toolIo,
+    contextChangeTokens: null,
+    totalTokens: total,
+    totalOnly: true,
+    messageTokens: messages,
+    toolIoTokens: toolIo,
+    cacheReadTokens: total - cacheWrite,
+    cacheWriteTokens: cacheWrite,
+    source: "observed" as const,
+  };
+};
+
+/** Claude records inclusive input per model call; the layers within each total are inferred. */
 export const MOCK_CLAUDE_CONTEXT_TIMELINE: ContextTimeline = {
   turnCount: 5,
   observedPointCount: 5,
@@ -14,7 +39,7 @@ export const MOCK_CLAUDE_CONTEXT_TIMELINE: ContextTimeline = {
   pairedCompactionCount: 0,
   reportedTokenLimit: null,
   methodology:
-    "Main-agent model calls record inclusive input tokens: uncached input plus cache reads and writes. These are observed total-only anchors; system, tool-definition and conversation layers are unknown. Output tokens and subagent calls are excluded. Expiry and cache reuse are separate from context size.",
+    "Main-agent model calls record inclusive input tokens: uncached input plus cache reads and writes. Each turn's last call is an observed total; its layers are estimates. System & tools is the first request's input beyond the conversation it sent (system prompt, tool definitions and persistent instructions), held for the session. The rest of each total is conversation, split into messages and tool calls & results by the share of each in the main-agent transcript text sent so far (ceil UTF-8 bytes / 4), reset to the summary at each compaction. Text the transcript does not record, such as injected reminders and re-attached files, is spread across the two conversation shares. Output tokens and subagent calls are excluded. Expiry and cache reuse are separate from context size.",
   events: [
     {
       turn: 0,
@@ -24,18 +49,15 @@ export const MOCK_CLAUDE_CONTEXT_TIMELINE: ContextTimeline = {
       preview: "Review indexing retries.",
     },
   ],
-  points: [18_400, 31_200, 44_900, 52_300, 61_800].map((total, turn) => ({
-    turn,
-    phase: "turn" as const,
-    timestamp: null,
-    systemTokens: 0,
-    toolDefinitionTokens: 0,
-    conversationTokens: 0,
-    contextChangeTokens: null,
-    totalTokens: total,
-    totalOnly: true,
-    source: "observed" as const,
-  })),
+  points: (
+    [
+      [14_200, 1_900, 2_300],
+      [14_200, 3_400, 13_600],
+      [14_200, 4_100, 26_600],
+      [14_200, 5_800, 32_300],
+      [14_200, 6_700, 40_900],
+    ] as const
+  ).map((layers, turn) => claudePoint(turn, [...layers], 1_200 + turn * 400)),
   compactions: [],
   topToolCalls: [],
   toolTypes: [],

@@ -22,7 +22,13 @@ const emit = defineEmits<{
   clearSelection: [];
 }>();
 
-type LayerKey = "systemTokens" | "toolDefinitionTokens" | "conversationTokens" | "totalTokens";
+type LayerKey =
+  | "systemTokens"
+  | "toolDefinitionTokens"
+  | "conversationTokens"
+  | "messageTokens"
+  | "toolIoTokens"
+  | "totalTokens";
 type AxisMode = "turn" | "time";
 type LayerDefinition = {
   key: LayerKey;
@@ -50,22 +56,48 @@ const breakdownLayers: LayerDefinition[] = [
     description: "Accumulated messages, reasoning, tool arguments, and returned tool results.",
   },
 ];
-const layers = computed<LayerDefinition[]>(() =>
-  props.timeline.points.some((point) => point.totalOnly)
-    ? [
+/** Layers estimated within each recorded total (sources without reported layers). */
+const inferredLayers: LayerDefinition[] = [
+  {
+    key: "systemTokens",
+    label: "System & tools",
+    color: "var(--chart-secondary)",
+    description:
+      "Estimated. The first request's input beyond its conversation: system prompt, tool definitions and persistent instructions.",
+  },
+  {
+    key: "messageTokens",
+    label: "Messages",
+    color: "var(--chart-warning)",
+    description: "Estimated share of the conversation: prompts, replies and visible reasoning.",
+  },
+  {
+    key: "toolIoTokens",
+    label: "Tool calls & results",
+    color: "var(--chart-info)",
+    description: "Estimated share of the conversation: tool arguments and returned results.",
+  },
+];
+const layers = computed<LayerDefinition[]>(() => {
+  const totalOnly = props.timeline.points.filter((point) => point.totalOnly);
+  if (!totalOnly.length) return breakdownLayers;
+  return totalOnly.every((point) => point.toolIoTokens != null)
+    ? inferredLayers
+    : [
         {
           key: "totalTokens",
           label: "Total input",
           color: "var(--chart-primary)",
           description: "Recorded inclusive input tokens. The layer breakdown is unknown.",
         },
-      ]
-    : breakdownLayers,
-);
+      ];
+});
 const enabled = ref<Record<LayerKey, boolean>>({
   systemTokens: true,
   toolDefinitionTokens: true,
   conversationTokens: true,
+  messageTokens: true,
+  toolIoTokens: true,
   totalTokens: true,
 });
 const axisMode = ref<AxisMode>("turn");
@@ -104,8 +136,10 @@ watch([zoom, () => props.timeline.points.length], () => {
   panStart.value = Math.min(panStart.value, maxPanStart.value);
 });
 
+const layerTokens = (point: ContextWindowPoint, key: LayerKey) =>
+  enabled.value[key] ? (point[key] ?? 0) : 0;
 const visibleTotal = (point: ContextWindowPoint) =>
-  layers.value.reduce((sum, layer) => sum + (enabled.value[layer.key] ? point[layer.key] : 0), 0);
+  layers.value.reduce((sum, layer) => sum + layerTokens(point, layer.key), 0);
 
 const observedCompactionLevel = computed(() => {
   const values = props.timeline.compactions
@@ -212,9 +246,7 @@ const y = (tokens: number) => margin.top + plotHeight - (tokens / maxTokens.valu
 const layerPolygons = computed(() => {
   let baseline = points.value.map(() => 0);
   return layers.value.map((layer) => {
-    const top = points.value.map(
-      (point, index) => baseline[index] + (enabled.value[layer.key] ? point[layer.key] : 0),
-    );
+    const top = points.value.map((point, index) => baseline[index] + layerTokens(point, layer.key));
     const upper = top.map((value, index) => `${x(index)},${y(value)}`);
     const lower = baseline.map((value, index) => `${x(index)},${y(value)}`).reverse();
     baseline = top;

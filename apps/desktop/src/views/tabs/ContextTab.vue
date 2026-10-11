@@ -213,6 +213,13 @@ const compactionsFullyPaired = computed(
 );
 /** Recorded request totals with no system/tool/conversation layers. */
 const totalOnly = computed(() => timeline.value?.points.some((point) => point.totalOnly) ?? false);
+/** Recorded totals whose layers were estimated rather than reported. */
+const inferredLayers = computed(
+  () =>
+    totalOnly.value &&
+    (timeline.value?.points.every((point) => !point.totalOnly || point.toolIoTokens != null) ??
+      false),
+);
 type InfoPopoverKey = "methodology" | "observed" | "estimated" | "paired";
 const activeInfo = ref<InfoPopoverKey | null>(null);
 const infoPinned = ref(false);
@@ -223,7 +230,11 @@ const confidenceItems = computed(() => [
     variant: "neutral" as const,
     class: "context-tab__confidence-badge--observed",
     explanation: totalOnly.value
-      ? "Inclusive input tokens recorded by each turn's last main-agent model call. The layer breakdown is unknown."
+      ? `Inclusive input tokens recorded by each turn's last main-agent model call. ${
+          inferredLayers.value
+            ? "The layers within each total are estimates."
+            : "The layer breakdown is unknown."
+        }`
       : "Exact context-layer snapshots reported by Copilot at compaction starts or session shutdowns.",
   },
   {
