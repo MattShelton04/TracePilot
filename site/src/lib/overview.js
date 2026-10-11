@@ -214,6 +214,19 @@ function whatHappened(o) {
   );
 }
 
+// reasoning effort as the app draws it: four rising bars, filled to the level (effortLevel)
+const EFFORT = { minimal: 1, low: 1, medium: 2, high: 3, xhigh: 4, max: 4 };
+function effort(e) {
+  const level = e ? (EFFORT[e.toLowerCase()] ?? 0) : 0;
+  const name = !e
+    ? "Model default"
+    : e === "xhigh"
+      ? "Extra high"
+      : e[0].toUpperCase() + e.slice(1);
+  const bars = [1, 2, 3, 4].map((n) => `<i${n <= level ? ' class="on"' : ""}></i>`).join("");
+  return `<span class="ovw-effort" title="Main agent reasoning effort"><span class="ovw-bars${e ? "" : " unset"}">${bars}</span>${name}</span>`;
+}
+
 function contextPanel(o) {
   const cwd = o.s.cwd || "";
   const cut = Math.max(cwd.lastIndexOf("\\"), cwd.lastIndexOf("/")) + 1;
@@ -232,7 +245,7 @@ function contextPanel(o) {
       ),
       facet(
         "Agent",
-        `<div class="ovw-line"><span class="ovw-model">${esc(o.s.currentModel)}</span><span class="ovw-effort"><span class="ovw-bars"><i></i><i></i><i></i><i></i></span>Model default</span>${o.s.hostType ? `<span class="ovw-host">${ic("monitor", 12)}${esc(o.s.hostType)}</span>` : ""}</div>`,
+        `<div class="ovw-line"><span class="ovw-model">${esc(o.s.currentModel)}</span>${effort(o.s.reasoningEffort)}${o.s.hostType ? `<span class="ovw-host">${ic("monitor", 12)}${esc(o.s.hostType)}</span>` : ""}</div>`,
       ),
       facet(
         "When",

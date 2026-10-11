@@ -4,7 +4,7 @@ import { $ } from "./env.js";
 
 /* =========================================================
    Section autoplay: following an in-page link to a pinned scene (the nav, a deep link, Back or
-   Forward) plays that scene. The page jumps to where the scene's animation begins and then
+   Forward) plays that scene. The page jumps to the scene's start (see anchorY) and then
    scrolls through it at the tour's pace, stopping on its final frame.
    Wheel, touch, keys, a press anywhere, scrolling by other means (a scrollbar drag) and the
    tour all take over at once. Only pinned scenes autoplay, so phones and reduced motion keep
@@ -48,10 +48,9 @@ function watch() {
 /** Jump to a pinned scene and play it through. `delay` holds on the first frame (ms). */
 export function playScene(el, { delay = 250 } = {}) {
   stopAutoplay();
-  const pin = pinOf(el);
-  // the scene's timeline may start before its pin (it rises into place as it begins)
-  const scrub = ScrollTrigger.getAll().find((t) => t.trigger === el && t.animation) ?? pin;
-  const from = Math.max(0, el.id === "open" ? anchorY(el) : Math.min(scrub.start, pin.start));
+  // land where the scene settles into place (its pin start, or #open's anchor label), as the
+  // plain jump did, rather than where its timeline begins while it is still rising into view
+  const from = Math.max(0, anchorY(el));
   scrollTo(0, from);
   // settle every scrubbed timeline at once, so nothing visibly rewinds or races from the old spot
   ScrollTrigger.update();

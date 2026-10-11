@@ -526,6 +526,10 @@ html.has-rail .final-traces {
   display: grid;
   gap: 14px;
 }
+/* the reading position a section link moves to (motion/autoplay.js), not a control */
+.scene h2[tabindex="-1"]:focus {
+  outline: none;
+}
 .scene h2 {
   font-size: clamp(30px, 3.1vw, 50px);
   line-height: 1.06;

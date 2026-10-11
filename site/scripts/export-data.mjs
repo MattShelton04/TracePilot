@@ -51,6 +51,8 @@ const heroDetail = {
   ...sessionDetail(common.HERO_SESSION_ID, hero.heroShutdownMetrics),
   source: "copilot",
   runStatus: "busy",
+  // the fixtures record no reasoning effort; the story's session ran at high, as the launcher shows
+  reasoningEffort: "high",
 };
 
 const usdToCost = (aic) => ({ aic, usd: aic * AI_CREDIT_USD });

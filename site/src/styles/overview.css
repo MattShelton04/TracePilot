@@ -396,6 +396,14 @@
 .ovw-bars i {
   width: 4px;
   border-radius: 1px;
+  background: var(--surface-tertiary);
+}
+.ovw-bars i.on {
+  background: var(--done-fg);
+}
+/* no effort recorded: dashed outlines, the model's own default */
+.ovw-bars.unset i {
+  background: transparent;
   border: 1px dashed var(--border-emphasis);
 }
 .ovw-bars i:nth-child(1) {

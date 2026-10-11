@@ -313,9 +313,9 @@ re-resolved after pinning. `#top` relies on the browser's document-top
 behaviour, so no element may use that id.
 
 Following a link to a pinned scene (a nav link, a deep link, Back or Forward)
-also plays it (`motion/autoplay.js`): the page jumps to where the scene's
-timeline begins (for `#open`, its `anchor` label), settles every scrub so nothing
-visibly rewinds, then glides at the tour's pace to the scene's last frame. It
+also plays it (`motion/autoplay.js`): the page jumps to `anchorY()` as before,
+settles every scrub so nothing visibly rewinds, then glides at the tour's pace
+to the scene's last frame. It
 moves focus to the scene heading without scrolling. Wheel, touch, keys, any
 press, the tour and any scroll it did not make itself (a scrollbar drag) stop
 it. Back and Forward wait for the browser's own scroll restoration first.
