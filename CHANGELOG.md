@@ -9,7 +9,7 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
-- **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions in the session list, Conversation, Metrics, Analytics, Search and Export. Cost shows as an estimated API-equivalent USD. Turn it on in **Settings → Claude Code** or during first-run setup; that section also explains Claude Code's 30-day transcript cleanup.
+- **Claude Code sessions (experimental)** — View Claude Code sessions alongside Copilot CLI sessions in the session list, Conversation, Metrics, Analytics, Search and Export. Cost shows as an estimated API-equivalent USD. Turn it on in **Settings → Claude Code** or during first-run setup; that section also shows your Claude Code transcript cleanup period and warns when it is low.
 - **Claude Code live state and resume** — Running Claude Code sessions show **Busy** or **Waiting**, and **Resume in Terminal** reopens a session in its working directory.
 - **Update check in the version popup** — Clicking the version number checks for and installs updates.
 - **Background task results** — Background agents and shells show how they finished on the card that started them, notifications that wake an idle Claude Code session read as short cards, and agents that never reported show **No final report**.
@@ -21,13 +21,13 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 - **Models page charts** — Four charts (Cost Efficiency, Token Share vs Spend Share, Model Profiles and Model Mix Over Time) replace the Capability Radar and Cost vs Token Volume charts.
 - **Cost across sources** — With both sources, Analytics and Models add cost in USD, counting AI Credits at $0.01 each.
 - **Format diagnostics** — Copilot CLI and Claude Code format diagnostics live in **Settings → Logs & Diagnostics**.
-- **Faster indexing and search** — First-time indexing uses several cores, and Search filters and export previews load from cache until the index changes.
+- **Faster indexing and search** — First-time indexing uses several cores and reads Claude Code sessions with less work, and Search filters and export previews load from cache until the index changes.
 - **Model pricing** — Refreshed Copilot rates for 10 October 2026, adding Claude Haiku 5.5.
 
 ### Fixed
 
 - **macOS and Linux** — Detect & Connect and Launch UI Server work outside Windows, and a slow login shell no longer delays launching from the Dock.
-- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, and Analytics refreshes in place after a reindex.
+- **Smaller fixes** — Token counts in the billions read as `12.6B`, old sessions no longer show a stale "Cache likely expired" chip, Code Impact counts a file once whichever slashes its path uses, Claude Code cost includes agents resumed after the last cost snapshot, pop-out windows load Metrics, Analytics refreshes in place after a reindex, and a reused export preview shows the current export time.
 
 ### Removed
 
