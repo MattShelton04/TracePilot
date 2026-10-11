@@ -599,9 +599,12 @@ function eventHoverLabel(event: ContextTimelineEvent): string {
       </div>
     </Teleport>
 
-    <div v-if="zoom > 1" class="context-chart__viewport-status">
-      Viewing turns {{ points[0]?.turn }}–{{ points[points.length - 1]?.turn }} ·
-      {{ zoom.toFixed(1) }}×
+    <div class="context-chart__viewport-status">
+      <template v-if="zoom > 1">
+        Viewing turns {{ points[0]?.turn }}–{{ points[points.length - 1]?.turn }} ·
+        {{ zoom.toFixed(1) }}×
+      </template>
+      <template v-else>Viewing all turns</template>
     </div>
 
     <div class="context-chart__frame" :class="{ 'context-chart__frame--panning': isPanning }">

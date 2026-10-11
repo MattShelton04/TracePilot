@@ -267,9 +267,10 @@ describe("ContextWindowChart", () => {
 
   it("exposes zoom and pan controls", async () => {
     const wrapper = mount(ContextWindowChart, { props: { timeline } });
+    const status = () => wrapper.find(".context-chart__viewport-status").text();
+    expect(status()).toBe("Viewing all turns");
     await wrapper.find('button[aria-label="Zoom in"]').trigger("click");
-    expect(wrapper.text()).toContain("1.5×");
-    expect(wrapper.text()).toContain("Viewing");
+    expect(status()).toMatch(/^Viewing turns \d+–\d+ · 1\.5×$/);
   });
 
   it("lets a plain wheel scroll the page and zooms only with Ctrl", async () => {
@@ -283,7 +284,7 @@ describe("ContextWindowChart", () => {
     svg.element.dispatchEvent(scroll);
     await wrapper.vm.$nextTick();
     expect(scroll.defaultPrevented).toBe(false);
-    expect(wrapper.text()).not.toContain("Viewing");
+    expect(wrapper.find(".context-chart__viewport-status").text()).toBe("Viewing all turns");
     expect(wrapper.find(".context-chart__wheel-hint--visible").exists()).toBe(true);
 
     const pinch = new WheelEvent("wheel", {
