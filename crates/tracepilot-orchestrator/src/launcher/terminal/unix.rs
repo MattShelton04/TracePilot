@@ -37,7 +37,7 @@ pub(super) fn spawn(plan: &SessionPlan<'_>) -> Result<u32> {
         .as_deref()
         .map(|p| {
             format!(
-                " --interactive \"$(echo '{}' | base64 -d)\"",
+                " --interactive \"$(echo '{}' | base64 --decode)\"",
                 crate::process::encode_prompt_utf8_base64(p)
             )
         })
