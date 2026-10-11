@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "baseSha": "3d060fbdee282edd1034fcd28a93989a34dd3e6f",
-  "headSha": "8e5f944c2afbadaa3ba3223018eb72a9906f4d65",
+  "baseSha": "77952a0df861a95df43cc27b18927d990187ed12",
+  "headSha": "b788669633eb15cdf99729acaa10571fe956c74a",
   "viewport": {
     "width": 1440,
     "height": 960,
@@ -9,8 +9,8 @@
     "scale": 1
   },
   "summary": {
-    "changed": 1,
-    "unchanged": 130,
+    "changed": 2,
+    "unchanged": 129,
     "subtle": 0,
     "incomplete": 0,
     "baseUnavailable": 0,
@@ -46,8 +46,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/8bbe2ee8695eab5b90541948089d0542c8e6f99c426949abe93162a038d6a1e2.png",
-        "after": "../../img/8bbe2ee8695eab5b90541948089d0542c8e6f99c426949abe93162a038d6a1e2.png",
+        "before": "../../img/f8c7796e511e698ac0382a616bdc9915ad78f7e8972130000ebc67ca6a6cb094.png",
+        "after": "../../img/f8c7796e511e698ac0382a616bdc9915ad78f7e8972130000ebc67ca6a6cb094.png",
         "difference": null,
         "closeUps": []
       },
@@ -190,8 +190,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/a385d85c92f756ea567ce6ef38dfa47f20d2739995fcc4e8979f5a0355452959.png",
-        "after": "../../img/a385d85c92f756ea567ce6ef38dfa47f20d2739995fcc4e8979f5a0355452959.png",
+        "before": "../../img/3acc9ac4b47ae7a053fb1dba8bd104ac5bfd0a13f41d89aff5450025562315fd.png",
+        "after": "../../img/3acc9ac4b47ae7a053fb1dba8bd104ac5bfd0a13f41d89aff5450025562315fd.png",
         "difference": null,
         "closeUps": []
       },
@@ -220,16 +220,52 @@
       "group": "overview",
       "route": "/session/sess-claude-code-review/context",
       "state": "populated Claude Code session",
-      "change": "unchanged",
-      "changedPixels": 0,
-      "percent": 0,
-      "areas": [],
+      "change": "changed",
+      "changedPixels": 200316,
+      "percent": 14.49045138888889,
+      "areas": [
+        {
+          "x": 368,
+          "y": 660,
+          "width": 993,
+          "height": 282,
+          "pixels": 191942
+        },
+        {
+          "x": 297,
+          "y": 507,
+          "width": 452,
+          "height": 28,
+          "pixels": 8374
+        }
+      ],
       "sameAreasAs": null,
       "images": {
         "before": "../../img/22bb32fa042947c458075d8d5087f0bf6613abdb8282680538cb9bb242fccbc4.png",
-        "after": "../../img/22bb32fa042947c458075d8d5087f0bf6613abdb8282680538cb9bb242fccbc4.png",
-        "difference": null,
-        "closeUps": []
+        "after": "../../img/0de3287c6cf035753ddcc4a89e43ac7c22998d394da379d5dd8a78ca9722a07c.png",
+        "difference": "../../img/0f668be8367ab821f23fa335cd427cbb2ff841fbdd1eb8650de9ee7059ee0a9e.png",
+        "closeUps": [
+          {
+            "rect": {
+              "x": 336,
+              "y": 614,
+              "width": 1057,
+              "height": 346
+            },
+            "before": "../../img/55d7b54ca71c592c280da3dacc8cc7754a546737794d49c5930a4a2941b6e671.png",
+            "after": "../../img/372a5c5951e5be2e3772300d0fd9b5348f50dc9fba41200cd5c842dc3cb56beb.png"
+          },
+          {
+            "rect": {
+              "x": 265,
+              "y": 421,
+              "width": 516,
+              "height": 200
+            },
+            "before": "../../img/db95e233d125bce4a461147837a2f2011623372f6f11624af77257332202b95d.png",
+            "after": "../../img/acfa3135324c148be0cf703cd2397d5bbb7474d729e9fc12bc1d1a05c0379cd2.png"
+          }
+        ]
       },
       "limitations": []
     },
@@ -244,8 +280,8 @@
       "areas": [],
       "sameAreasAs": null,
       "images": {
-        "before": "../../img/5d2d7d689276d72b871fa4733a4f2ceb699806ddb10cc7ff00b2484df1a6b650.png",
-        "after": "../../img/5d2d7d689276d72b871fa4733a4f2ceb699806ddb10cc7ff00b2484df1a6b650.png",
+        "before": "../../img/936e1e23ffeb169c4e234a14a85cb724129f15990f0a51d8966cc61b4ee10cc4.png",
+        "after": "../../img/936e1e23ffeb169c4e234a14a85cb724129f15990f0a51d8966cc61b4ee10cc4.png",
         "difference": null,
         "closeUps": []
       },
