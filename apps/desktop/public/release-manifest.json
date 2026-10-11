@@ -13,7 +13,7 @@
       "date": "2026-10-11",
       "notes": {
         "added": [
-          "Claude Code sessions (experimental): Browse, search, analyze and export Claude Code sessions alongside Copilot CLI sessions, with estimated costs and context",
+          "Claude Code sessions (experimental): Browse, search, analyze and export Claude Code sessions alongside Copilot CLI sessions. To turn it on, open Settings, scroll to the Claude Code section near the bottom and enable Claude Code sessions",
           "Live state and resume: Running sessions show Busy or Waiting, and Resume in Terminal reopens a Claude Code session",
           "Update check: Click the version number to check for and install updates",
           "Background task results: Background agents and shells show how they finished on the card that started them"
