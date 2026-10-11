@@ -16,6 +16,7 @@
  *   node scripts/check-file-sizes.mjs             # check (CI)
  *   node scripts/check-file-sizes.mjs --list      # print current violations
  *
+ * The landing page (site/) is exempt; see the skip list below.
  * Existing exceptions and their review notes are listed in ALLOWLIST below.
  */
 
@@ -95,6 +96,9 @@ for (const f of files) {
   if (f.startsWith("target/")) continue;
   if (f.startsWith("docs/")) continue;
   if (f.startsWith("assets/")) continue;
+  // The landing page renders static HTML replicas of app views; its modules are
+  // illustrative, not product code, so they are exempt from these budgets.
+  if (f.startsWith("site/")) continue;
 
   const budget = budgetFor(f);
   if (!budget) continue;

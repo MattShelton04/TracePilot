@@ -50,6 +50,10 @@ to 145.7 and 43.5 KiB, with 13.5 KiB of data. CSS grows about twice as fast as
 its source, because `replica.css` and `overview.css` go into both the landing
 page and `demo/` bundles. Keep budget changes supported by measured output.
 
+The per-file line budgets in `scripts/check-file-sizes.mjs` skip `site/`: its
+view modules are long HTML templates that mirror app pages, so the bundle
+budgets above are the limits that apply.
+
 For a manual production preview, run `pnpm --filter @tracepilot/site preview`
 (port 4180). Regenerate the committed 1200×630 social image after hero changes:
 
