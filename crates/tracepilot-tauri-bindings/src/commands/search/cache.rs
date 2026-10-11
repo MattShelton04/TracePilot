@@ -6,11 +6,11 @@
 //! while an indexing job holds a gate, since a running pass commits in
 //! batches and invalidates only when it ends.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
+use tracepilot_core::provider::SessionSource;
 use tracepilot_indexer::SearchFilters;
 use tracepilot_indexer::index_db::IndexDb;
 use tracepilot_indexer::index_db::SearchToolName;
@@ -28,7 +28,7 @@ pub(super) static UNFILTERED_FACETS_CACHE: LazyLock<IndexReadCache<(), SearchFac
     LazyLock::new(|| GenerationCache::new(1));
 
 /// Facets per filter set (see [`facets_cache_key`]).
-pub(super) static FACETS_CACHE: LazyLock<IndexReadCache<u64, SearchFacetsResponse>> =
+pub(super) static FACETS_CACHE: LazyLock<IndexReadCache<FacetsKey, SearchFacetsResponse>> =
     LazyLock::new(|| GenerationCache::new(32));
 
 pub(super) static TOOL_NAMES_CACHE: LazyLock<IndexReadCache<(), Vec<SearchToolName>>> =
@@ -40,19 +40,33 @@ pub(super) static FTS_HEALTH_CACHE: LazyLock<IndexReadCache<(), FtsHealthInfo>> 
 /// Values keyed by index path too, so a moved index never serves the old one.
 pub(super) type IndexReadCache<K, V> = GenerationCache<(PathBuf, K), V>;
 
-/// Key for one facets query. Only the filters `facets` reads are hashed.
-pub(super) fn facets_cache_key(query: &Option<String>, filters: &SearchFilters) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    query.hash(&mut hasher);
-    filters.content_types.hash(&mut hasher);
-    filters.exclude_content_types.hash(&mut hasher);
-    filters.repositories.hash(&mut hasher);
-    filters.tool_names.hash(&mut hasher);
-    filters.session_id.hash(&mut hasher);
-    filters.source.hash(&mut hasher);
-    filters.date_from_unix.hash(&mut hasher);
-    filters.date_to_unix.hash(&mut hasher);
-    hasher.finish()
+/// Key for one facets query: the query and the filters `facets` reads, held
+/// by value so two filter sets never share an entry.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(super) struct FacetsKey {
+    query: Option<String>,
+    content_types: Vec<String>,
+    exclude_content_types: Vec<String>,
+    repositories: Vec<String>,
+    tool_names: Vec<String>,
+    session_id: Option<String>,
+    source: Option<SessionSource>,
+    date_from_unix: Option<i64>,
+    date_to_unix: Option<i64>,
+}
+
+pub(super) fn facets_cache_key(query: &Option<String>, filters: &SearchFilters) -> FacetsKey {
+    FacetsKey {
+        query: query.clone(),
+        content_types: filters.content_types.clone(),
+        exclude_content_types: filters.exclude_content_types.clone(),
+        repositories: filters.repositories.clone(),
+        tool_names: filters.tool_names.clone(),
+        session_id: filters.session_id.clone(),
+        source: filters.source,
+        date_from_unix: filters.date_from_unix,
+        date_to_unix: filters.date_to_unix,
+    }
 }
 
 /// Whether a facets query covers the whole index.

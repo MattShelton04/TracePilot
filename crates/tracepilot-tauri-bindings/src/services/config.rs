@@ -256,6 +256,8 @@ async fn factory_reset_at(
         Ok::<(), BindingsError>(())
     })
     .await??;
+    // After the reset, so a preview rendered meanwhile is not kept either.
+    crate::commands::export_import::clear_preview_cache();
     Ok(())
 }
 

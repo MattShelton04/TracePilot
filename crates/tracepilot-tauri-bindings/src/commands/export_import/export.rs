@@ -255,7 +255,8 @@ pub async fn preview_export(
 }
 
 /// The preview for `request` (with its `primary_path` filled in here), from
-/// the cache when nothing it was rendered from has changed. Blocking.
+/// the cache when nothing it was rendered from has changed, stamped with the
+/// current export time. Blocking.
 pub(super) fn cached_preview(
     cache: &PreviewCache,
     session: ResolvedSession,
@@ -267,7 +268,7 @@ pub(super) fn cached_preview(
     if let Some(version) = &source_version
         && let Some(hit) = cache.get(&request, version)
     {
-        return Ok(hit);
+        return Ok(preview_cache::with_exported_at(hit, chrono::Utc::now()));
     }
     let session = ExportSession::load(session)?;
     let inputs = PreviewInputs::read(source_version, &session);
