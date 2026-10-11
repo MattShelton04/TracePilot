@@ -75,6 +75,8 @@ const readout = computed(() => {
         note: ". Claude Code may reject it.",
         warn: true,
       };
+    case "folderInvalid":
+      return { value: "unknown", note: ". The Claude Code folder isn't valid.", warn: true };
     case "fileInvalid":
       return {
         value: "unknown",
@@ -103,7 +105,7 @@ const readout = computed(() => {
       <code>CLAUDE_CONFIG_DIR</code>.
       <span v-if="readout" class="claude-retention-readout" data-testid="claude-cleanup-readout">
         Your current setting: <strong>{{ readout.value }}</strong>{{ readout.note }}
-        <template v-if="period && !failed">
+        <template v-if="period?.file && !failed">
           Checked <code class="claude-retention-file">{{ period.file }}</code>; project and
           managed settings can override it.
         </template>

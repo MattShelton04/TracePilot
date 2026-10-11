@@ -122,7 +122,10 @@ export type ClaudeCleanupPeriod = {
 	state: ClaudeCleanupPeriodState,
 	// The value when `state` is `set`.
 	days: number | null,
-	// The settings file that was read, or would be.
+	/**
+	 *  The settings file that was read, or would be; empty when no folder
+	 *  is configured.
+	 */
 	file: string,
 };
 
@@ -132,8 +135,13 @@ export type ClaudeCleanupPeriodState =
 "set" |
 // The file doesn't set it, so Claude Code's default applies.
 "notSet" |
-// There is no settings file (or no Claude Code folder).
+// The folder has no settings file.
 "noFile" |
+/**
+ *  The configured folder is missing, relative, a network share or blank,
+ *  so nothing was read.
+ */
+"folderInvalid" |
 // The file couldn't be read as a JSON object: unreadable, too large or malformed.
 "fileInvalid" |
 // It is set to something other than a non-negative whole number.

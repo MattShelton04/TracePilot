@@ -5,7 +5,7 @@
 //! or logged.
 
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -26,8 +26,11 @@ pub enum ClaudeCleanupPeriodState {
     Set,
     /// The file doesn't set it, so Claude Code's default applies.
     NotSet,
-    /// There is no settings file (or no Claude Code folder).
+    /// The folder has no settings file.
     NoFile,
+    /// The configured folder is missing, relative, a network share or blank,
+    /// so nothing was read.
+    FolderInvalid,
     /// The file couldn't be read as a JSON object: unreadable, too large or malformed.
     FileInvalid,
     /// It is set to something other than a non-negative whole number.
@@ -40,7 +43,8 @@ pub struct ClaudeCleanupPeriod {
     pub state: ClaudeCleanupPeriodState,
     /// The value when `state` is `set`.
     pub days: Option<u32>,
-    /// The settings file that was read, or would be.
+    /// The settings file that was read, or would be; empty when no folder
+    /// is configured.
     pub file: String,
 }
 
@@ -71,7 +75,12 @@ pub(crate) fn read_cleanup_period(config_dir: &Path) -> ClaudeCleanupPeriod {
     };
     // The same check as saving the folder (ADR 0012): local, existing, canonical.
     let Ok(dir) = canonical_claude_config_dir(&config_dir.to_string_lossy()) else {
-        return outcome(State::NoFile, None, &config_dir.join(SETTINGS_FILE));
+        let file = if config_dir.as_os_str().is_empty() {
+            PathBuf::new()
+        } else {
+            config_dir.join(SETTINGS_FILE)
+        };
+        return outcome(State::FolderInvalid, None, &file);
     };
     let path = dir.join(SETTINGS_FILE);
     let bytes = match read_bounded(&path) {
@@ -191,11 +200,26 @@ mod tests {
         let missing = read_with(None);
         assert_eq!((missing.state, missing.days), (State::NoFile, None));
         assert!(missing.file.ends_with(SETTINGS_FILE));
+    }
 
+    #[test]
+    fn an_unusable_folder_is_reported_as_such() {
         let temp = tempfile::tempdir().unwrap();
         let gone = read_cleanup_period(&temp.path().join("absent"));
-        assert_eq!(gone.state, State::NoFile);
-        assert_eq!(read_cleanup_period(Path::new("")).state, State::NoFile);
+        assert_eq!((gone.state, gone.days), (State::FolderInvalid, None));
+        assert!(gone.file.ends_with(SETTINGS_FILE));
+        let relative = read_cleanup_period(Path::new("claude"));
+        assert_eq!(relative.state, State::FolderInvalid);
+        let blank = read_cleanup_period(Path::new(""));
+        assert_eq!(
+            (blank.state, blank.file.as_str()),
+            (State::FolderInvalid, "")
+        );
+        #[cfg(windows)]
+        assert_eq!(
+            read_cleanup_period(Path::new(r"\\host\share\claude")).state,
+            State::FolderInvalid
+        );
     }
 
     #[test]

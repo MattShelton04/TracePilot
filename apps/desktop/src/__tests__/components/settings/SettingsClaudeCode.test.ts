@@ -1,4 +1,9 @@
-import { type ClaudeCleanupPeriod, getClaudeCleanupPeriod, IPC_EVENTS } from "@tracepilot/client";
+import {
+  type ClaudeCleanupPeriod,
+  getClaudeCleanupPeriod,
+  IPC_EVENTS,
+  validateClaudeConfigDir,
+} from "@tracepilot/client";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { createPinia, disposePinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -38,6 +43,7 @@ vi.mock("@tracepilot/client", async () => {
       days: null,
       file: "C:\\Users\\demo\\.claude\\settings.json",
     })),
+    validateClaudeConfigDir: vi.fn(),
   });
 });
 
@@ -161,6 +167,22 @@ describe("SettingsClaudeCode", () => {
       expect(wrapper.get(notice).classes()).toContain(warn ? "banner--warning" : "banner--info");
     });
 
+    it("flags a blank or unusable folder without naming a file", async () => {
+      vi.mocked(getClaudeCleanupPeriod).mockResolvedValueOnce({
+        state: "folderInvalid",
+        days: null,
+        file: "",
+      });
+      usePreferencesStore(pinia).toggleFeature("claudeCodeSessions");
+      const wrapper = await mountSection();
+
+      const readout = wrapper.get('[data-testid="claude-cleanup-readout"]');
+      expect(readout.text()).toBe(
+        "Your current setting: unknown. The Claude Code folder isn't valid.",
+      );
+      expect(wrapper.get(notice).classes()).toContain("banner--warning");
+    });
+
     it("says the setting is unknown when it can't be read", async () => {
       vi.mocked(getClaudeCleanupPeriod).mockRejectedValueOnce(new Error("ipc down"));
       usePreferencesStore(pinia).toggleFeature("claudeCodeSessions");
@@ -177,6 +199,35 @@ describe("SettingsClaudeCode", () => {
       await mountSection();
 
       expect(getClaudeCleanupPeriod).not.toHaveBeenCalled();
+    });
+
+    it("re-reads the setting after a new folder is applied", async () => {
+      vi.mocked(getClaudeCleanupPeriod).mockClear();
+      vi.mocked(getClaudeCleanupPeriod).mockResolvedValueOnce({ state: "set", days: 3650, file });
+      usePreferencesStore(pinia).toggleFeature("claudeCodeSessions");
+      const wrapper = await mountSection();
+      const readout = () => wrapper.get('[data-testid="claude-cleanup-readout"]').text();
+      expect(readout()).toContain("3650 days");
+
+      const newFile = "D:\\claude\\settings.json";
+      vi.mocked(validateClaudeConfigDir).mockResolvedValueOnce({
+        valid: true,
+        sessionCount: 1,
+        error: null,
+      });
+      vi.mocked(getClaudeCleanupPeriod).mockResolvedValueOnce({
+        state: "set",
+        days: 7,
+        file: newFile,
+      });
+      await wrapper.get("#settings-claude-code-folder").setValue("D:\\claude");
+      const apply = wrapper.findAll("button").find((button) => button.text() === "Apply");
+      await apply?.trigger("click");
+      await flushPromises();
+
+      expect(getClaudeCleanupPeriod).toHaveBeenCalledTimes(2);
+      expect(readout()).toContain("7 days");
+      expect(readout()).toContain(`Checked ${newFile}`);
     });
   });
 });
