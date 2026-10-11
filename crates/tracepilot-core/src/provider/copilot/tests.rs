@@ -10,6 +10,7 @@ use tracepilot_test_support::golden::canonical;
 use super::*;
 use crate::parsing::checkpoints::parse_checkpoints;
 use crate::parsing::events::TypedEvent;
+use crate::provider::RunStatus;
 use crate::session::discovery::discover_sessions;
 use crate::summary::{load_session_snapshot, load_session_summary};
 
@@ -152,7 +153,7 @@ fn liveness_follows_has_lock_file() {
         let expected = if has_lock_file(&locator.primary_path) {
             Liveness::Running {
                 pid: None,
-                status: None,
+                status: run_status::run_status(&locator.primary_path.join("events.jsonl")),
             }
         } else {
             Liveness::Idle
@@ -165,6 +166,42 @@ fn liveness_follows_has_lock_file() {
     ));
     assert_eq!(provider.liveness(&sessions[1]), Liveness::Idle);
     assert_eq!(provider.liveness(&sessions[2]), Liveness::Idle);
+}
+
+#[test]
+fn running_liveness_reports_what_the_events_show() {
+    let (_temp, provider) = corpus_provider();
+    let session = provider.discover(&|| false).unwrap().remove(0);
+    let dir = &session.primary_path;
+    std::fs::write(dir.join("inuse.123.lock"), "").unwrap();
+    let line = |kind: &str, data: Value| json!({ "type": kind, "data": data }).to_string();
+    let replied = [
+        line("session.start", json!({})),
+        line("user.message", json!({ "content": "synthetic" })),
+        line("assistant.turn_start", json!({ "turnId": "0" })),
+        line(
+            "assistant.message",
+            json!({ "content": "done", "toolRequests": [] }),
+        ),
+        line("assistant.turn_end", json!({ "turnId": "0" })),
+    ];
+    std::fs::write(dir.join("events.jsonl"), replied.join("\n") + "\n").unwrap();
+    assert_eq!(
+        provider.liveness(&session),
+        Liveness::Running {
+            pid: None,
+            status: Some(RunStatus::Waiting),
+        }
+    );
+    let working = replied[..3].join("\n") + "\n";
+    std::fs::write(dir.join("events.jsonl"), working).unwrap();
+    assert_eq!(
+        provider.liveness(&session),
+        Liveness::Running {
+            pid: None,
+            status: Some(RunStatus::Busy),
+        }
+    );
 }
 
 #[test]
