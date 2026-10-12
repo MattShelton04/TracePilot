@@ -7,6 +7,7 @@ workflow, and the machine-readable performance contract.
 ## Contents
 
 - [Performance Budgets](#performance-budgets)
+- [Application Performance Map](#application-performance-map)
 - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [CI Benchmark Workflow](#ci-benchmark-workflow)
 - [Latest Results](#latest-results)
@@ -31,6 +32,46 @@ a required result is missing, malformed, or unmapped. Timing threshold
 exceedances remain advisory on shared runners. The frontend workflow reports
 all three declared size metrics as advisory and fails only when required
 measurement inputs are missing or invalid.
+
+## Application Performance Map
+
+TracePilot's ordinary read flows cross Vue, the typed client, Tauri commands,
+provider adapters and SQLite. Measure the layer being changed, then exercise
+the complete native flow: a faster query does not imply an equally large change
+in route-to-paint time.
+
+| Facet | Runtime path | Main cost and existing bounds | Measurement |
+| --- | --- | --- | --- |
+| Startup and session list | Lazy routes → Pinia sessions store → `list_sessions` → SQLite session summaries; background source discovery/indexing | Indexed summaries avoid reparsing every log; the frontend precomputes filter text | Native first/warm navigation, IPC log, indexing probe |
+| Source ingestion | Copilot JSONL / Claude transcript → provider snapshot → typed events → turns and summary | JSON decoding, retained raw/typed payloads and reconstruction; fingerprint freshness and cancellation must survive optimizations | `parsing` Criterion suite; phase-one indexing; complete output equivalence |
+| Index writes | Bounded parallel preparation → ordered SQLite writer → normalized analytics and FTS5 rows | Parsing, row insertion and FTS maintenance; batch memory and cancellation budgets are in the playbook | `index_probe`, `indexing_workloads`, peak working set and cancellation latency |
+| Search | Search store → content results + exact count + self-excluding facets → SQLite B-tree / FTS5 queries | Broad result sets make aggregate scans costly; facet caches invalidate on database changes | Query plans and separate result/count/facet timings, then native Search |
+| Analytics and Metrics | Cached store request → SQL aggregates over normalized child tables → dashboard/charts | Aggregation and chart construction; respect source/date/repository filters and cache freshness | `analytics` and `ipc_hot_path` benches; native filtered dashboard |
+| Session detail and IPC | Section loaders → source-version event/turn caches → IPC preparation → serde/Tauri transport | Large response serialization and transfer; caches are bounded and source-sensitive | Native IPC timing with payload equality, cold and warm calls separately |
+| Conversation rendering | Turns → view-mode grouping / tool lookup → content-visibility chunks → turn/tool components | Repeated grouping, reactive traversals, Markdown, layout and DOM size | Deterministic work-count tests plus native route-to-paint, long tasks and heap |
+| Export | Source snapshot → section selection / redaction → Markdown or JSON renderer | Reconstruction, payload copies, JSON serialization and content hashing | Exact byte/hash comparison, build/render time and process peak memory |
+| Packaging and tooling | Vite lazy chunks + Rust release build; deterministic corpus builders | Startup assets and build cost are separate from steady-state app speed | Bundle report; native release build with recorded source and corpus identity |
+
+Experimental Replay, MCP servers, Config Injector and SDK steering are outside
+this map's optimization targets. The app's default workflows and common shared
+paths take priority, following the [agent focus policy](../agents/focus.md).
+
+### Parallel correctness work, serial measurements
+
+Use separate worktrees and `pnpm app:start -Instance <name> -Fixtures` for native
+verification. Each instance owns its data, WebView profile, lifecycle record and
+registry-allocated ports. Use the printed Playwright attach command and stop
+only instances started by the run. Isolation prevents state collisions; it does
+not isolate CPU, memory bandwidth, filesystem cache or the machine's processes.
+
+Build and run correctness tests in parallel within the machine's capacity.
+Before accepting performance numbers, finish competing builds/tests and run one
+timed workload at a time. Save separate baseline/head executables and alternate
+their run order. Record the revision, release/debug profile, corpus size,
+cache conditions, sample count, median and range. Keep raw data under ignored
+agent directories; publish only synthetic or aggregate evidence. Check the
+combined branch with the same workload before claiming integration preserved a
+gain. Do not add percentages from different layers or workloads together.
 
 ## Running Benchmarks Locally
 
