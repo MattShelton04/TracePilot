@@ -11,6 +11,7 @@ workflow, and the machine-readable performance contract.
 - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [CI Benchmark Workflow](#ci-benchmark-workflow)
 - [Latest Results](#latest-results)
+- [Optimization Comparisons](#optimization-comparisons)
 - [Indexing Baseline](#indexing-baseline)
 - [Comparing Runs](#comparing-runs)
 - [Related Docs](#related-docs)
@@ -142,6 +143,83 @@ the `criterion-suite-*` artifacts and unzip each into a separate directory under
 The [`results/`](./results/) directory is gitignored (artifacts are large and
 reproducible from CI), so committed snapshots live under `results/README.md`
 when we want to pin a reference baseline.
+
+## Optimization comparisons
+
+These comparisons use Windows release builds on a Ryzen 5 3600 with 16 GiB RAM,
+Rust 1.94.0 and WebView2 154.0.4258.62. The original product is `d95f6d81`.
+Baseline and candidate processes ran serially in alternating order, with no
+competing builds, tests or app instances. OS file caching was uncontrolled.
+Medians below describe separate workloads; their percentages must not be added.
+
+| Facet | Workload | Baseline median [range] | Individual change median [range] | Evidence |
+| --- | --- | --- | --- | --- |
+| Conversation | Warm native route, 4,000 turns / 12,000 tools / 800 agents | 3,686.1 [3,532.1–3,964.3] ms | 3,388.0 [3,276.7–3,540.4] ms | Six warm samples per side; [#1020](https://github.com/MattShelton04/TracePilot/pull/1020) |
+| Search database | Unfiltered browse facets, 600 sessions / 300,000 rows | 982.9 [965.7–988.7] ms | 132.5 [129.1–139.0] ms | Five fresh processes per side; [#1022](https://github.com/MattShelton04/TracePilot/pull/1022) |
+| Search database | Browse page plus exact count, same index | 28.03 [27.57–29.20] ms | 8.33 [8.01–8.75] ms | One operation warm-up in each process; complete output digests equal |
+| Export | Full JSON, 2,000 turns / 8,000 tools / 24,001 events | 502.1 [497.7–522.7] ms | 310.4 [304.1–313.2] ms | Six fresh processes per side; [#1021](https://github.com/MattShelton04/TracePilot/pull/1021) |
+| Export | Markdown sharing, same 36.8 MB source | 274.2 [271.4–279.4] ms | 188.3 [182.3–192.0] ms | Complete normalized output SHA-256 equal for every sample |
+| Source parsing | Frozen local sample, 116.9 MB / 31,666 events | 426.9 [415.9–446.1] ms | 338.3 [334.9–353.5] ms | Six fresh processes per side; [#1023](https://github.com/MattShelton04/TracePilot/pull/1023) |
+| Source parsing | Synthetic export workload, 36.8 MB / 24,001 events | 116.6 [112.6–119.6] ms | 90.7 [86.1–106.3] ms | Complete parsed-record and diagnostic hashes equal |
+| Initial indexing | 1,000 sessions / 136,930 events / 37,581 tools | 4,022 [3,925–4,252] ms | 3,512 [3,446–3,885] ms | Five fresh processes per side; [#1025](https://github.com/MattShelton04/TracePilot/pull/1025) |
+| Index refresh | Same corpus, unchanged metadata and search | 440 [433–471] ms | 291 [289–298] ms | Fresh backups of the completed original index; complete output parity |
+
+The conversation change separates tool lookup from unused agent grouping and
+computes disclosure metadata once per group. It retains every mounted row and
+its state. Native warm long-history navigation improved 8.1%; small and dense
+tool-only workloads overlapped and do not establish a speedup. The endpoint is
+the expected mounted turn count, first visible message and two animation
+frames, not full-scroll smoothness. Backend data was prewarmed before the first
+visit, so these are not cold-start measurements.
+
+Search aggregates omit the sessions join only when no source/repository filter
+requires it. Result rows and repository facets retain the join. This preserves
+exact counts, filtering, facet self-exclusion and ordering without a migration,
+new index or result cache. Browse facets improved 86.5%; common-term FTS facets
+improved 19.6%. These are SQLite library measurements, not native route latency.
+The separate [schema audit](https://github.com/MattShelton04/TracePilot/pull/1024)
+also checked eight join-removal query shapes on a frozen local database, with
+complete result parity. Its alternate SQLite runtime provides supporting SQL
+diagnostics; those timings are not combined with the release-build results here.
+
+Export reuses reconstructed data, moves selected raw events and streams hashing
+over borrowed sessions. Full JSON peak working set fell from 310.5 to 229.6 MiB;
+Markdown sharing fell from 234.2 to 166.8 MiB. Measurements cover archive
+construction/filtering/rendering, excluding desktop IPC, dialogs and final file
+writes. The archive and final output are still resident in memory.
+
+The parser uses a 256 KiB file buffer and the standard library's newline search,
+while preserving cancellation checks after at most 8 KiB scanned and between
+records. It adds 248 KiB per active reader. Seventy-two comparisons cover small
+records, large tool outputs and two frozen local sessions; all output hashes
+match. These parsing gains do not establish an equal reduction in total indexing
+time. Filesystem reads and each record's JSON decode remain non-preemptible.
+
+Startup discovery skips marker flags unused by the indexing provider, freshness
+checks avoid source I/O where stored state already proves staleness, and summary
+enrichment avoids discarded turn statistics. Strict source validation and public
+discovery flags remain intact. First indexing improved 12.7%, including metadata,
+search writes and final maintenance; unchanged refresh improved 33.9%. These
+are backend measurements with uncontrolled filesystem caching, not native
+first-launch timings. All 20 accepted runs match indexed data and ranked FTS
+results, with no deferred merge work. First-index peak memory is essentially
+unchanged. A separate 3.36 GB corpus passed compatibility checks; its smaller
+diagnostic timing difference does not establish a speed gain.
+
+Regression coverage includes work-count and attached-DOM tests, a legacy SQL
+oracle across filter combinations, and exact legacy export bytes/hashes.
+Independent reviewers checked both code and reported statistics. Interrupted
+and contended runs are excluded from accepted evidence. Raw results, preserved
+executables and corpus manifests remain in ignored local evidence directories;
+PR descriptions include revision identities and reproduction commands.
+
+Three additional indexing changes were screened on frozen 1,000-session and
+500-session corpora, with two fresh processes per side and complete final
+maintenance. Continuous statement reuse, changing the adaptive FTS rebuild
+selection, and bounded JSON text flattening preserved indexed output but did
+not demonstrate a meaningful whole-index or peak-memory benefit. They are
+excluded from the combined changes; these diagnostic samples do not establish
+that the rejected changes are regressions.
 
 ## Indexing Baseline
 
