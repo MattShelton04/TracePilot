@@ -41,6 +41,32 @@ cargo bench -p tracepilot-bench --features dhat-heap     # heap profile
 Profiling output (`dhat-heap.json`) can be loaded in the
 [dh_view](https://nnethercote.github.io/dh_view/dh_view.html) viewer.
 
+## Search aggregate probe
+
+`search_query_probe` creates a frozen synthetic SQLite search index and measures
+the library calls behind a search response (page plus exact count), counts, and
+facets. It covers browse, common and rare terms with content, exclusion, source,
+and repository filters. It uses the production schema and search writer, but
+does not exercise source parsing, desktop IPC, or frontend rendering.
+
+```powershell
+cargo build --release -p tracepilot-bench --example search_query_probe
+New-Item -ItemType Directory -Force .agent/search-perf
+& .\target\release\examples\search_query_probe.exe generate .agent/search-perf/index.db 600 500
+& .\target\release\examples\search_query_probe.exe measure .agent/search-perf/index.db 7
+```
+
+Generation refuses an existing database. The default size is 600 sessions and
+500 search rows per session; both are configurable. Measurement opens the index
+read-only, warms each operation once, and prints samples plus a stable digest
+of the complete output without printing session text. Hashing is outside timing.
+Use the same frozen database and identical probe source for base/head builds,
+copy each executable before rebuilding, then alternate runs while other builds
+and indexing are idle. Set `TRACEPILOT_PROBE_REVISION` when building to record
+the revision in results. Compare all output digests as well as timings; a digest
+is an equality diagnostic, not a cryptographic integrity check. These warm,
+synthetic library measurements do not represent cold disk or native UI latency.
+
 ## IPC hot-path harness (w121)
 
 The `ipc_hot_path` bench measures the Rust service-layer functions that back
