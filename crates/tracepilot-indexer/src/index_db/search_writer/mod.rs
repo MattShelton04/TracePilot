@@ -87,21 +87,26 @@ impl IndexDb {
         provider: &dyn SessionProvider,
         locator: &SessionLocator,
     ) -> bool {
+        let stored = self.conn.query_row(
+            "SELECT CASE WHEN search_indexed_at IS NULL THEN NULL ELSE search_source_fingerprint END,
+                    search_extractor_version FROM sessions WHERE id = ?1",
+            [locator.id.as_str()],
+            |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<i64>>(1)?)),
+        );
+        if stored.as_ref().is_ok_and(|(source, version)| {
+            source.is_none() || version.unwrap_or(0) < extractor_version(provider.source())
+        }) {
+            return true;
+        }
+        // Missing or unreadable rows historically return false after a successful
+        // fingerprint, but provider errors still mean stale. Keep that fallback.
         let Ok(current) = provider
             .fingerprint(locator)
             .and_then(|fingerprint| provider.stored_search_fingerprint(&fingerprint))
         else {
             return true;
         };
-        self.conn.query_row(
-            "SELECT CASE WHEN search_indexed_at IS NULL THEN NULL ELSE search_source_fingerprint END,
-                    search_extractor_version FROM sessions WHERE id = ?1",
-            [locator.id.as_str()],
-            |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<i64>>(1)?)),
-        ).is_ok_and(|(source, version)| {
-            source.as_deref() != Some(current.as_str())
-                || version.unwrap_or(0) < extractor_version(provider.source())
-        })
+        stored.is_ok_and(|(source, _)| source.as_deref() != Some(current.as_str()))
     }
 
     /// Index search content for a single Copilot session.
