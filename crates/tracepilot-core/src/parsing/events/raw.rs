@@ -10,6 +10,9 @@ use serde_json::Value;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
+const READ_BUFFER_BYTES: usize = 256 * 1024;
+const CANCELLATION_INTERVAL_BYTES: usize = 8 * 1024;
+
 /// Raw event envelope parsed from a single JSONL line.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RawEvent {
@@ -54,7 +57,7 @@ pub fn events_to_jsonl<T: Serialize>(events: &[T]) -> String {
     s
 }
 
-/// Visit envelopes one at a time, checking cancellation every 8 KiB read and
+/// Visit envelopes one at a time, checking cancellation every 8 KiB scanned and
 /// between JSON records. The parser never accumulates a second raw-event vector.
 pub(super) fn visit_events_jsonl(
     path: &Path,
@@ -63,19 +66,23 @@ pub(super) fn visit_events_jsonl(
 ) -> Result<usize> {
     let file = std::fs::File::open(path)
         .map_err(|e| TracePilotError::io_context("Failed to open", path.display(), e))?;
-    let mut reader = BufReader::new(file);
+    let mut reader = BufReader::with_capacity(READ_BUFFER_BYTES, file);
     let mut bytes = Vec::new();
     let mut malformed = 0;
     let mut line_number = 0;
     loop {
         crate::parsing::snapshot::check_cancelled(is_cancelled)?;
         let buffer = reader.fill_buf()?;
+        let buffer = &buffer[..buffer.len().min(CANCELLATION_INTERVAL_BYTES)];
         let at_end = buffer.is_empty();
-        let consumed = buffer.iter().position(|byte| *byte == b'\n').map(|i| i + 1);
-        let count = consumed.unwrap_or(buffer.len());
+        // The slice reader uses the standard library's optimized newline search.
+        // Limit scanning independently of file reads to preserve cancellation.
+        let mut rest = buffer;
+        let count = rest.skip_until(b'\n')?;
+        let complete = count > 0 && buffer[count - 1] == b'\n';
         bytes.extend_from_slice(&buffer[..count]);
         reader.consume(count);
-        if consumed.is_none() && !at_end {
+        if !complete && !at_end {
             continue;
         }
         line_number += 1;
@@ -194,6 +201,75 @@ pub(super) fn parse_events_jsonl(path: &Path) -> Result<(Vec<RawEvent>, usize)> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_records_across_scan_and_file_buffer_boundaries() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(EVENTS_JSONL);
+        let prefix = r#"{"type":"user.message","data":{"content":""#;
+        let suffix = r#""}}"#;
+        for boundary in [8usize * 1024, 256 * 1024] {
+            for offset in [-1isize, 0, 1] {
+                let target = boundary.wrapping_add_signed(offset);
+                for align_newline in [false, true] {
+                    // Include the initial blank line and serialized JSON overhead
+                    // so the marker really lands at the requested byte offset.
+                    let padding = if align_newline {
+                        target - 2 - prefix.len() - "🧪".len() - suffix.len()
+                    } else {
+                        target - 1 - prefix.len()
+                    };
+                    let content = format!("{}🧪", "x".repeat(padding));
+                    let record = format!("{prefix}{content}{suffix}");
+                    let first_line = format!("\n{record}\r\n");
+                    if align_newline {
+                        assert_eq!(first_line.as_bytes()[target], b'\n');
+                        assert_eq!(first_line.len(), target + 1);
+                    } else {
+                        assert_eq!(first_line.find('🧪'), Some(target));
+                    }
+                    for tail in ["", "\n"] {
+                        // Blank lines, CRLF, a malformed line and a valid tail must
+                        // retain the same ordering and diagnostic counts.
+                        std::fs::write(&path, format!("{first_line}{{broken\n{record}{tail}"))
+                            .unwrap();
+                        let (events, malformed) = parse_events_jsonl(&path).unwrap();
+                        assert_eq!(malformed, 1);
+                        assert_eq!(events.len(), 2);
+                        for event in events {
+                            assert_eq!(event.data["content"], content);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cancellation_still_interrupts_a_record_smaller_than_the_file_buffer() {
+        use std::cell::Cell;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(EVENTS_JSONL);
+        std::fs::write(
+            &path,
+            serde_json::json!({ "type": "user.message", "data": { "content": "x".repeat(32 * 1024) } }).to_string(),
+        )
+        .unwrap();
+        let checks = Cell::new(0);
+        let visited = Cell::new(0);
+        let result = visit_events_jsonl(
+            &path,
+            &|| {
+                checks.set(checks.get() + 1);
+                checks.get() == 3
+            },
+            |_| visited.set(visited.get() + 1),
+        );
+        assert!(
+            matches!(result, Err(TracePilotError::IoError(error)) if error.kind() == std::io::ErrorKind::Interrupted)
+        );
+        assert_eq!(visited.get(), 0);
+    }
 
     #[test]
     fn preserves_subagent_owner() {
