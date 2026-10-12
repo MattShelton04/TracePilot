@@ -3,10 +3,9 @@ import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
 import { getToolArgs, toolArgString } from "@tracepilot/types";
 import { ToolCallItem, type useToggleSet } from "@tracepilot/ui";
 import { Target } from "lucide-vue-next";
+import { computed } from "vue";
 import {
   COLLAPSE_THRESHOLD,
-  countRegularTools,
-  getCollapsedToolNames,
   MAX_VISIBLE_TOOLS,
   type ToolGroupItem,
 } from "@/components/conversation/chatViewUtils";
@@ -41,28 +40,30 @@ const emit = defineEmits<{
   "retry-full-result": [toolCallId: string];
 }>();
 
-function shouldCollapse(items: ToolGroupItem[]): boolean {
-  return countRegularTools(items) > MAX_VISIBLE_TOOLS + COLLAPSE_THRESHOLD;
-}
-
-function isItemVisible(item: ToolGroupItem, items: ToolGroupItem[], itemIndex: number): boolean {
-  // Pills (intent, ask-user) are always visible
-  if (item.type !== "tool") return true;
-  // If group is expanded, everything visible
-  if (props.expandedGroups.has(props.groupKey)) return true;
-  // If no collapse needed, everything visible
-  if (!shouldCollapse(items)) return true;
-  // Count regular tools up to this index
-  let toolIdx = 0;
-  for (let i = 0; i <= itemIndex; i++) {
-    if (items[i].type === "tool") toolIdx++;
+// Derive disclosure once per group update, instead of counting all tools and
+// scanning a prefix for every row. All rows stay mounted for deep links and
+// detail state; non-tool pills bypass this boundary and always remain visible.
+const disclosure = computed(() => {
+  let toolCount = 0;
+  let lastVisibleIndex = -1;
+  const names = new Set<string>();
+  for (let index = 0; index < props.items.length; index++) {
+    const item = props.items[index];
+    if (item.type !== "tool") continue;
+    toolCount++;
+    if (toolCount <= MAX_VISIBLE_TOOLS) lastVisibleIndex = index;
+    else if (names.size < 6) names.add(item.toolCall.nativeToolName ?? item.toolCall.toolName);
   }
-  return toolIdx <= MAX_VISIBLE_TOOLS;
-}
-
-function hiddenToolCount(items: ToolGroupItem[]): number {
-  return countRegularTools(items) - MAX_VISIBLE_TOOLS;
-}
+  return {
+    shouldCollapse: toolCount > MAX_VISIBLE_TOOLS + COLLAPSE_THRESHOLD,
+    hiddenToolCount: toolCount - MAX_VISIBLE_TOOLS,
+    lastVisibleIndex,
+    names: [...names],
+  };
+});
+const isCollapsed = computed(
+  () => disclosure.value.shouldCollapse && !props.expandedGroups.has(props.groupKey),
+);
 
 // Note: uses || (not ??) so empty strings also fall through to the "…"
 // placeholder — a blank display label is never desirable in the UI.
@@ -107,14 +108,14 @@ function intentLabel(tc: TurnToolCall): string {
       <!-- Regular tool row (with progressive disclosure) -->
       <SkillInvocationEventRow
         v-else-if="item.type === 'tool' && item.toolCall.toolName === 'skill' && item.toolCall.skillInvocation"
-        v-show="isItemVisible(item, items, iIdx)"
+        v-show="!isCollapsed || iIdx <= disclosure.lastVisibleIndex"
         :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
         :tool-call="item.toolCall"
       />
 
       <ToolCallItem
         v-else-if="item.type === 'tool'"
-        v-show="isItemVisible(item, items, iIdx)"
+        v-show="!isCollapsed || iIdx <= disclosure.lastVisibleIndex"
         :data-event-idx="item.toolCall.eventIndex != null ? item.toolCall.eventIndex : undefined"
         v-bind="tcProps(item.toolCall)"
         @toggle="toggleToolDetail(item.toolCall)"
@@ -125,17 +126,17 @@ function intentLabel(tc: TurnToolCall): string {
 
     <!-- Collapse toggle -->
     <button
-      v-if="shouldCollapse(items) && !expandedGroups.has(groupKey)"
+      v-if="isCollapsed"
       class="cv-collapsed-toggle"
       :aria-expanded="false"
       @click="expandedGroups.toggle(groupKey)"
     >
       <span class="cv-collapsed-toggle-label">
-        Show {{ hiddenToolCount(items) }} more tools
+        Show {{ disclosure.hiddenToolCount }} more tools
       </span>
       <span class="cv-collapsed-toggle-tags">
         <span
-          v-for="name in getCollapsedToolNames(items, MAX_VISIBLE_TOOLS)"
+          v-for="name in disclosure.names"
           :key="name"
           class="cv-collapsed-tag"
         >{{ name }}</span>
@@ -143,7 +144,7 @@ function intentLabel(tc: TurnToolCall): string {
     </button>
 
     <button
-      v-if="shouldCollapse(items) && expandedGroups.has(groupKey)"
+      v-if="disclosure.shouldCollapse && !isCollapsed"
       class="cv-collapsed-toggle"
       :aria-expanded="true"
       @click="expandedGroups.toggle(groupKey)"
