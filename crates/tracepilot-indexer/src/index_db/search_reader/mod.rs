@@ -9,6 +9,8 @@
 //! Decomposed into submodules: [`query_builder`], [`sanitize`], [`queries`],
 //! [`stats`]. Cross-module tests live in [`tests`].
 
+#[cfg(test)]
+mod aggregate_tests;
 mod queries;
 mod query_builder;
 mod sanitize;
