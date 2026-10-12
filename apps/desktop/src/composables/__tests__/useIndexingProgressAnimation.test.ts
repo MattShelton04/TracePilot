@@ -1,11 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectScope } from "vue";
 import {
-  COMPLETION_DECEL_MS,
-  COMPLETION_FADE_MS,
-  COMPLETION_HOLD_MS,
   DISCOVERING_INTERVAL_MS,
-  MIN_DISPLAY_MS,
   SAFETY_TIMEOUT_MS,
   useIndexingProgressAnimation,
 } from "../useIndexingProgressAnimation";
@@ -23,13 +19,16 @@ function makeActions() {
   };
 }
 
-function setup() {
+const FADE_MS = 180;
+
+function setup(fadeMs = FADE_MS) {
   const actions = makeActions();
   const onComplete = vi.fn();
   const scope = effectScope();
+  const options = { actions, onComplete, fadeDurationMs: () => fadeMs };
   let api!: ReturnType<typeof useIndexingProgressAnimation>;
   scope.run(() => {
-    api = useIndexingProgressAnimation({ actions, onComplete });
+    api = useIndexingProgressAnimation(options);
   });
   return { api, actions, onComplete, scope };
 }
@@ -38,10 +37,11 @@ describe("useIndexingProgressAnimation", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
-    // performance.now() under fake timers returns advanced ms.
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
   });
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("starts in idle phase with safe defaults", () => {
@@ -139,57 +139,100 @@ describe("useIndexingProgressAnimation", () => {
     scope.stop();
   });
 
-  it("handleCompletion runs decelerate → fade → onComplete", async () => {
-    const { api, actions, onComplete, scope } = setup();
+  it.each([
+    0, 2_000,
+  ])("hands off within one fade after indexing finishes at %i ms", async (elapsed) => {
+    const { api, onComplete, scope } = setup();
     api.start();
-    // Advance past min display so completion proceeds without an extra wait.
-    vi.advanceTimersByTime(MIN_DISPLAY_MS + 1);
+    vi.advanceTimersByTime(elapsed);
+    api.onIndexingFinished();
+    await vi.advanceTimersByTimeAsync(FADE_MS - 1);
+    expect(onComplete).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(api.dismissed.value).toBe(true);
+    scope.stop();
+  });
 
-    const completed = api.handleCompletion();
-    // Allow the awaited setTimeout(0)-or-skip path to flush.
-    await Promise.resolve();
-    await Promise.resolve();
-
+  it("begins the fade as soon as completion is requested", () => {
+    const { api, onComplete, scope } = setup();
+    api.start();
+    api.handleCompletion();
     expect(api.phase.value).toBe("complete");
     expect(api.completionFlashActive.value).toBe(true);
-    expect(actions.decelerate).toHaveBeenCalledWith(COMPLETION_DECEL_MS);
-
-    vi.advanceTimersByTime(COMPLETION_DECEL_MS + COMPLETION_HOLD_MS);
     expect(api.fadingOut.value).toBe(true);
     expect(onComplete).not.toHaveBeenCalled();
-
-    vi.advanceTimersByTime(COMPLETION_FADE_MS);
-    expect(api.dismissed.value).toBe(true);
-    expect(onComplete).toHaveBeenCalledTimes(1);
-
-    await completed;
     scope.stop();
   });
 
-  it("handleCompletion is idempotent", async () => {
-    const { api, actions, onComplete, scope } = setup();
+  it("uses the host's fade duration", () => {
+    const { api, onComplete, scope } = setup(75);
     api.start();
-    vi.advanceTimersByTime(MIN_DISPLAY_MS + 1);
     api.handleCompletion();
-    api.handleCompletion();
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(actions.decelerate).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(COMPLETION_DECEL_MS + COMPLETION_HOLD_MS + COMPLETION_FADE_MS);
+    vi.advanceTimersByTime(74);
+    expect(onComplete).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(onComplete).toHaveBeenCalledTimes(1);
     scope.stop();
   });
 
-  it("safety timeout triggers completion after SAFETY_TIMEOUT_MS", async () => {
+  it("does not wait for a fade when reduced motion is requested", async () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+    const { api, onComplete, scope } = setup();
+    api.start();
+    api.onIndexingFinished();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(api.prefersReducedMotion.value).toBe(true);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    scope.stop();
+  });
+
+  it("handleCompletion is idempotent across finish and recovery callbacks", () => {
+    const { api, onComplete, scope } = setup();
+    api.start();
+    api.onIndexingFinished();
+    api.handleCompletion();
+    vi.advanceTimersByTime(FADE_MS);
+    api.onIndexingFinished();
+    vi.advanceTimersByTime(FADE_MS);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    scope.stop();
+  });
+
+  it("safety timeout triggers completion after SAFETY_TIMEOUT_MS", () => {
     const { api, actions, onComplete, scope } = setup();
     api.start();
-    vi.advanceTimersByTime(SAFETY_TIMEOUT_MS);
-    await Promise.resolve();
-    await Promise.resolve();
+    vi.advanceTimersByTime(SAFETY_TIMEOUT_MS - 1);
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(api.phase.value).toBe("idle");
+    vi.advanceTimersByTime(1);
     expect(actions.logWarn).toHaveBeenCalled();
     expect(api.phase.value).toBe("complete");
-    vi.advanceTimersByTime(COMPLETION_DECEL_MS + COMPLETION_HOLD_MS + COMPLETION_FADE_MS);
+    vi.advanceTimersByTime(FADE_MS);
     expect(onComplete).toHaveBeenCalledTimes(1);
+    scope.stop();
+  });
+
+  it("waits for completion even after progress reaches 100%", () => {
+    const { api, onComplete, scope } = setup();
+    api.start();
+    api.onIndexingProgress({
+      current: 1,
+      total: 1,
+      sessionRepo: null,
+      sessionBranch: null,
+      sessionModel: null,
+      sessionTokens: 0,
+      sessionEvents: 0,
+      sessionTurns: 0,
+      totalTokens: 0,
+      totalEvents: 0,
+      totalRepos: 0,
+    });
+    vi.advanceTimersByTime(2_000);
+    expect(api.phase.value).toBe("finalizing");
+    expect(api.fadingOut.value).toBe(false);
+    expect(onComplete).not.toHaveBeenCalled();
     scope.stop();
   });
 
@@ -212,13 +255,30 @@ describe("useIndexingProgressAnimation", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("onIndexingFinished snaps progress to 100 and starts completion", async () => {
+  it("does not finish after unmount during the fade", async () => {
+    const { api, onComplete, scope } = setup();
+    api.start();
+    api.onIndexingFinished();
+    scope.stop();
+    await vi.advanceTimersByTimeAsync(SAFETY_TIMEOUT_MS);
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("ignores late recovery callbacks after unmount", async () => {
+    const { api, onComplete, scope } = setup();
+    api.start();
+    scope.stop();
+    api.handleCompletion();
+    await vi.advanceTimersByTimeAsync(SAFETY_TIMEOUT_MS);
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("onIndexingFinished snaps progress to 100 and starts completion", () => {
     const { api, scope } = setup();
     api.start();
-    vi.advanceTimersByTime(MIN_DISPLAY_MS + 1);
     api.onIndexingFinished();
-    await Promise.resolve();
-    await Promise.resolve();
     expect(api.progressPct.value).toBe(100);
     expect(api.phase.value).toBe("complete");
     scope.stop();

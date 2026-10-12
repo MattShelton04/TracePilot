@@ -3,12 +3,12 @@
  * indexing loading screen.
  *
  * Owns: phase ref, derived progress strings, the `discovering` rotating-message
- * interval, completion sequencing (decelerate → hold → fade → emit), the
+ * interval, completion sequencing (fade → emit), the
  * safety timeout, and bookkeeping of every active timer so cleanup on
  * scope dispose is leak-free.
  *
  * Does **not** touch the DOM. Orbital scene-side effects (createNode,
- * emitPulse, decelerate, lane-ellipse opacity, etc.) are injected as
+ * emitPulse, lane-ellipse opacity, etc.) are injected as
  * callbacks by the parent component, which sources them from the scene's
  * exposed `useOrbitalAnimation` instance.
  */
@@ -18,11 +18,7 @@ import { computed, onScopeDispose, type Ref, ref } from "vue";
 import { DISCOVERING_MESSAGES, PHASE_LABELS, type Phase } from "@/composables/useOrbitalAnimation";
 
 export const SAFETY_TIMEOUT_MS = 60_000;
-export const MIN_DISPLAY_MS = 800;
 export const DISCOVERING_INTERVAL_MS = 2_000;
-export const COMPLETION_DECEL_MS = 400;
-export const COMPLETION_HOLD_MS = 350;
-export const COMPLETION_FADE_MS = 400;
 
 export interface IndexingProgressActions {
   /** Show lane ellipses (scene-side DOM). */
@@ -31,8 +27,6 @@ export interface IndexingProgressActions {
   setLaneEllipseOpacity: (value: string) => void;
   /** Adjust the global orbital angular speed multiplier. */
   setGlobalSpeedMult: (value: number) => void;
-  /** Trigger the deceleration tween over `ms` milliseconds. */
-  decelerate: (ms: number) => void;
   /** Drop all decorative seed nodes once real progress arrives. */
   clearSeedNodes: () => void;
   /** Spawn an orbiting node for a real session. */
@@ -45,6 +39,8 @@ export interface IndexingProgressActions {
 
 export interface IndexingProgressAnimationOptions {
   actions: IndexingProgressActions;
+  /** Read the duration of the host's CSS fade, in milliseconds. */
+  fadeDurationMs: () => number;
   /** Called once after the fade-out completes (parent emits 'complete'). */
   onComplete: () => void;
 }
@@ -69,10 +65,10 @@ export function useIndexingProgressAnimation(opts: IndexingProgressAnimationOpti
   let discoveringIntervalId: ReturnType<typeof setInterval> | null = null;
 
   // ── Lifecycle bookkeeping ───────────────────────────────────────────────
-  let mountTime = 0;
   let sessionsProcessed = 0;
   let completionStarted = false;
   let seedsCleared = false;
+  let stopped = false;
 
   function safeTimeout(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
     const id = setTimeout(() => {
@@ -116,29 +112,21 @@ export function useIndexingProgressAnimation(opts: IndexingProgressAnimationOpti
   }
 
   // ── Completion sequence ─────────────────────────────────────────────────
-  async function handleCompletion() {
-    if (completionStarted) return;
+  function handleCompletion() {
+    if (completionStarted || stopped) return;
     completionStarted = true;
 
-    const elapsed = performance.now() - mountTime;
-    if (elapsed < MIN_DISPLAY_MS) {
-      await new Promise((r) => setTimeout(r, MIN_DISPLAY_MS - elapsed));
-    }
-
-    if (dismissed.value) return;
-
-    phase.value = "complete";
+    setPhase("complete");
     completionFlashActive.value = true;
+    fadingOut.value = true;
 
-    actions.decelerate(COMPLETION_DECEL_MS);
-
-    safeTimeout(() => {
-      fadingOut.value = true;
-      safeTimeout(() => {
+    safeTimeout(
+      () => {
         dismissed.value = true;
         onComplete();
-      }, COMPLETION_FADE_MS);
-    }, COMPLETION_DECEL_MS + COMPLETION_HOLD_MS);
+      },
+      prefersReducedMotion.value ? 0 : opts.fadeDurationMs(),
+    );
   }
 
   // ── Indexing event handlers ─────────────────────────────────────────────
@@ -184,7 +172,6 @@ export function useIndexingProgressAnimation(opts: IndexingProgressAnimationOpti
 
   // ── Mount/start orchestration ───────────────────────────────────────────
   function start() {
-    mountTime = performance.now();
     prefersReducedMotion.value =
       typeof window !== "undefined" && typeof window.matchMedia === "function"
         ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -198,6 +185,7 @@ export function useIndexingProgressAnimation(opts: IndexingProgressAnimationOpti
   }
 
   function stop() {
+    stopped = true;
     for (const id of pendingTimers) clearTimeout(id);
     pendingTimers.clear();
     if (safetyTimeoutId) {
