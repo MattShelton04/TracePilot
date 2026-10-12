@@ -29,16 +29,24 @@ export function useConversationSections(
   // Session-wide subagent index for cross-turn attribution
   const globalSubagentMap = computed(() => buildSubagentIndex(getTurns()));
 
-  // Agent-grouped sections per turn, with pre-computed original indices
+  // Agent-grouped sections are only needed by compact/timeline views. Chat
+  // looks up tool indexes too, but has its own rendering groups.
   const groupedSections = computed(() => {
     const subMap = globalSubagentMap.value;
     const turns = getTurns();
     const map = new Map<number, AgentSection[]>();
 
-    // Build a toolCallId → flat index lookup per turn
-    const indexMaps = new Map<number, Map<string | undefined, number>>();
     for (const turn of turns) {
-      const idxMap = new Map<string | undefined, number>();
+      map.set(turn.turnIndex, groupTurnByAgent(turn, subMap));
+    }
+    return map;
+  });
+
+  // Keep index lookup independent so it does not build unused agent sections.
+  const toolIndexMaps = computed(() => {
+    const indexMaps = new Map<number, Map<string, number>>();
+    for (const turn of getTurns()) {
+      const idxMap = new Map<string, number>();
       for (let i = 0; i < turn.toolCalls.length; i++) {
         const tc = turn.toolCalls[i];
         if (tc.toolCallId) {
@@ -46,12 +54,8 @@ export function useConversationSections(
         }
       }
       indexMaps.set(turn.turnIndex, idxMap);
-      map.set(turn.turnIndex, groupTurnByAgent(turn, subMap));
     }
-
-    // Store the index maps alongside for findToolCallIndex
-    (map as IndexedSectionsMap)._indexMaps = indexMaps;
-    return map;
+    return indexMaps;
   });
 
   // Cache formatArgsSummary per tool call — prefer server-computed argsSummary
@@ -77,9 +81,8 @@ export function useConversationSections(
 
   function findToolCallIndex(turn: ConversationTurn, tc: TurnToolCall): number {
     // Fast path: use pre-computed index map
-    const indexMaps = (groupedSections.value as IndexedSectionsMap)._indexMaps;
-    if (indexMaps && tc.toolCallId) {
-      const idx = indexMaps.get(turn.turnIndex)?.get(tc.toolCallId);
+    if (tc.toolCallId) {
+      const idx = toolIndexMaps.value.get(turn.turnIndex)?.get(tc.toolCallId);
       if (idx !== undefined) return idx;
     }
     // Fallback: linear scan by toolCallId then identity
@@ -103,9 +106,4 @@ export function useConversationSections(
     totalToolCalls,
     totalDurationMs,
   };
-}
-
-/** Internal type for attaching index maps to the grouped sections Map. */
-interface IndexedSectionsMap extends Map<number, AgentSection[]> {
-  _indexMaps?: Map<number, Map<string | undefined, number>>;
 }
