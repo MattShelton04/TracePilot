@@ -18,7 +18,7 @@ use crate::parsing::session_db::{read_todo_deps, read_todos};
 use crate::parsing::snapshot::{FileFingerprint, check_cancelled};
 use crate::paths::SessionPaths;
 use crate::session::discovery::{
-    discover_sessions_cancellable, has_lock_file, resolve_session_path_direct,
+    discover_session_directories, has_lock_file, resolve_session_path_direct,
 };
 use crate::summary::{
     SessionFingerprint, SessionLoadResult, load_session_snapshot, load_session_summary_from_events,
@@ -144,7 +144,7 @@ impl SessionProvider for CopilotProvider {
 
     fn discover(&self, is_cancelled: &dyn Fn() -> bool) -> Result<Vec<SessionLocator>> {
         Ok(
-            discover_sessions_cancellable(&self.session_state_dir, &is_cancelled)?
+            discover_session_directories(&self.session_state_dir, &is_cancelled)?
                 .into_iter()
                 .map(|session| Self::locator(session.id, session.path))
                 .collect(),
@@ -314,5 +314,7 @@ impl SessionProvider for CopilotProvider {
     }
 }
 
+#[cfg(test)]
+mod discovery_tests;
 #[cfg(test)]
 mod tests;

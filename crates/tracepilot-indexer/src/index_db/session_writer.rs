@@ -354,27 +354,25 @@ impl IndexDb {
         provider: &dyn SessionProvider,
         locator: &SessionLocator,
     ) -> bool {
-        let Ok(current) = provider
-            .fingerprint(locator)
-            .and_then(|fingerprint| provider.stored_fingerprint(&fingerprint))
-        else {
+        let Ok((Some(source), version)) = self.conn.query_row(
+            "SELECT source_fingerprint, analytics_version FROM sessions WHERE id = ?1",
+            [locator.id.as_str()],
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, Option<i64>>(1)?,
+                ))
+            },
+        ) else {
             return true;
         };
-        self.conn
-            .query_row(
-                "SELECT source_fingerprint, analytics_version FROM sessions WHERE id = ?1",
-                [locator.id.as_str()],
-                |row| {
-                    Ok((
-                        row.get::<_, Option<String>>(0)?,
-                        row.get::<_, Option<i64>>(1)?,
-                    ))
-                },
-            )
-            .map_or(true, |(source, version)| {
-                source.as_deref() != Some(current.as_str())
-                    || version.unwrap_or(0) < analytics_version(locator.source)
-            })
+        if version.unwrap_or(0) < analytics_version(locator.source) {
+            return true;
+        }
+        provider
+            .fingerprint(locator)
+            .and_then(|fingerprint| provider.stored_fingerprint(&fingerprint))
+            .map_or(true, |current| source != current)
     }
 }
 
