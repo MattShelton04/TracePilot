@@ -1,0 +1,1487 @@
+{
+  "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+  "policy": "Public synthetic bindings and source SQL shapes. Optional private_binding_selection_sql selects replacement values only in memory during an authorized read-only audit; never serialize or publish actual values. String selector replaces leading params; object uses zero-based parameter_indices. See docs/database/query-plans.md for observed diagnostic evidence and runtime limits. All 136 cases are SELECT-only and plan_only=false: collect EQP plus read-only execution diagnostics. reviewed_numeric_aggregate_output=true opts in only reviewed count/SUM projections containing no identifiers, epochs or text outputs; other scalar numeric rows must stay withheld.",
+  "cases": [
+    {
+      "id": "browse-all-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE 1=1 ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": [50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-all-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE 1=1",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-all-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE 1=1 GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-all-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE 1=1 AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": [20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-all-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE 1=1 AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": [20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-all-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE 1=1",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-type-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.content_type IN (?) ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["user_message", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-type-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.content_type IN (?)",
+      "synthetic_bindings": ["user_message"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-type-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE 1=1 GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-type-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.content_type IN (?) AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["user_message", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-type-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.content_type IN (?) AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["user_message", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-type-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.content_type IN (?)",
+      "synthetic_bindings": ["user_message"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-tool-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.tool_name IN (?) ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["read_file", 50, 0],
+      "private_binding_selection_sql": "SELECT tool_name FROM search_content WHERE tool_name IS NOT NULL GROUP BY tool_name ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-tool-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.tool_name IN (?)",
+      "synthetic_bindings": ["read_file"],
+      "private_binding_selection_sql": "SELECT tool_name FROM search_content WHERE tool_name IS NOT NULL GROUP BY tool_name ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-repo-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.repository IN (?) ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["example/project", 50, 0],
+      "private_binding_selection_sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-repo-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.repository IN (?)",
+      "synthetic_bindings": ["example/project"],
+      "private_binding_selection_sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-repo-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.repository IN (?) GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": ["example/project"],
+      "private_binding_selection_sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-repo-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE 1=1 AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": [20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-repo-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.repository IN (?) AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["example/project", 20],
+      "private_binding_selection_sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-repo-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.repository IN (?)",
+      "synthetic_bindings": ["example/project"],
+      "private_binding_selection_sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-session-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.session_id = ? ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["synthetic-session", 50, 0],
+      "private_binding_selection_sql": "SELECT session_id FROM search_content GROUP BY session_id ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-session-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.session_id = ?",
+      "synthetic_bindings": ["synthetic-session"],
+      "private_binding_selection_sql": "SELECT session_id FROM search_content GROUP BY session_id ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-session-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.session_id = ? GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": ["synthetic-session"],
+      "private_binding_selection_sql": "SELECT session_id FROM search_content GROUP BY session_id ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-session-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.session_id = ? AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["synthetic-session", 20],
+      "private_binding_selection_sql": "SELECT session_id FROM search_content GROUP BY session_id ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-session-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.session_id = ? AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["synthetic-session", 20],
+      "private_binding_selection_sql": "SELECT session_id FROM search_content GROUP BY session_id ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-session-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.session_id = ?",
+      "synthetic_bindings": ["synthetic-session"],
+      "private_binding_selection_sql": "SELECT session_id FROM search_content GROUP BY session_id ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-source-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.source = ? ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["claudeCode", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-source-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.source = ?",
+      "synthetic_bindings": ["claudeCode"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-source-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.source = ? GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": ["claudeCode"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-source-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.source = ? AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["claudeCode", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-source-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.source = ? AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["claudeCode", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "browse-source-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE s.source = ?",
+      "synthetic_bindings": ["claudeCode"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-date-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.timestamp_unix >= ? AND sc.timestamp_unix <= ? ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": [1767225600, 1798761599, 50, 0],
+      "private_binding_selection_sql": "SELECT MIN(timestamp_unix), MAX(timestamp_unix) FROM search_content WHERE timestamp_unix IS NOT NULL",
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-date-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.timestamp_unix >= ? AND sc.timestamp_unix <= ?",
+      "synthetic_bindings": [1767225600, 1798761599],
+      "private_binding_selection_sql": "SELECT MIN(timestamp_unix), MAX(timestamp_unix) FROM search_content WHERE timestamp_unix IS NOT NULL",
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-excluded-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.content_type NOT IN (?, ?) ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["tool_result", "tool_call", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-excluded-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.content_type NOT IN (?, ?)",
+      "synthetic_bindings": ["tool_result", "tool_call"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-combined-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.content_type IN (?) AND s.repository IN (?) AND sc.tool_name IN (?) AND s.source = ? AND sc.timestamp_unix >= ? AND sc.timestamp_unix <= ? ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": [
+        "tool_call",
+        "example/project",
+        "read_file",
+        "copilot",
+        1767225600,
+        1798761599,
+        50,
+        0
+      ],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-combined-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.content_type IN (?) AND s.repository IN (?) AND sc.tool_name IN (?) AND s.source = ? AND sc.timestamp_unix >= ? AND sc.timestamp_unix <= ?",
+      "synthetic_bindings": [
+        "tool_call",
+        "example/project",
+        "read_file",
+        "copilot",
+        1767225600,
+        1798761599
+      ],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-no-results-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.session_id = ? ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["synthetic-nonexistent-session", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "browse-no-results-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE sc.session_id = ?",
+      "synthetic_bindings": ["synthetic-nonexistent-session"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-common-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, snippet(search_fts, 0, '\u0001MARK_OPEN\u0001', '\u0001MARK_CLOSE\u0001', '\u2026', 48), sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? ORDER BY CASE sc.content_type WHEN 'user_message' THEN rank * 2.0 WHEN 'error' THEN rank * 2.0 WHEN 'tool_error' THEN rank * 1.8 WHEN 'assistant_message' THEN rank * 1.5 WHEN 'reasoning' THEN rank * 1.3 WHEN 'compaction_summary' THEN rank * 1.1 WHEN 'subagent' THEN rank * 1.1 WHEN 'system_message' THEN rank * 1.0 WHEN 'tool_call' THEN rank * 0.6 WHEN 'tool_result' THEN rank * 0.7 ELSE rank END LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["error", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "fts-common-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ?",
+      "synthetic_bindings": ["error"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-common-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": ["error"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-common-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["error", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-common-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["error", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-common-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ?",
+      "synthetic_bindings": ["error"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-selective-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, snippet(search_fts, 0, '\u0001MARK_OPEN\u0001', '\u0001MARK_CLOSE\u0001', '\u2026', 48), sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? ORDER BY CASE sc.content_type WHEN 'user_message' THEN rank * 2.0 WHEN 'error' THEN rank * 2.0 WHEN 'tool_error' THEN rank * 1.8 WHEN 'assistant_message' THEN rank * 1.5 WHEN 'reasoning' THEN rank * 1.3 WHEN 'compaction_summary' THEN rank * 1.1 WHEN 'subagent' THEN rank * 1.1 WHEN 'system_message' THEN rank * 1.0 WHEN 'tool_call' THEN rank * 0.6 WHEN 'tool_result' THEN rank * 0.7 ELSE rank END LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["\"database migration\"", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "fts-selective-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ?",
+      "synthetic_bindings": ["\"database migration\""],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-selective-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": ["\"database migration\""],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-selective-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["\"database migration\"", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-selective-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["\"database migration\"", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-selective-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ?",
+      "synthetic_bindings": ["\"database migration\""],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-no-results-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, snippet(search_fts, 0, '\u0001MARK_OPEN\u0001', '\u0001MARK_CLOSE\u0001', '\u2026', 48), sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? ORDER BY CASE sc.content_type WHEN 'user_message' THEN rank * 2.0 WHEN 'error' THEN rank * 2.0 WHEN 'tool_error' THEN rank * 1.8 WHEN 'assistant_message' THEN rank * 1.5 WHEN 'reasoning' THEN rank * 1.3 WHEN 'compaction_summary' THEN rank * 1.1 WHEN 'subagent' THEN rank * 1.1 WHEN 'system_message' THEN rank * 1.0 WHEN 'tool_call' THEN rank * 0.6 WHEN 'tool_result' THEN rank * 0.7 ELSE rank END LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["zzzxqsyntheticmissingterm", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "fts-no-results-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ?",
+      "synthetic_bindings": ["zzzxqsyntheticmissingterm"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-no-results-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": ["zzzxqsyntheticmissingterm"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-no-results-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["zzzxqsyntheticmissingterm", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-no-results-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["zzzxqsyntheticmissingterm", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-no-results-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ?",
+      "synthetic_bindings": ["zzzxqsyntheticmissingterm"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-prefix-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, snippet(search_fts, 0, '\u0001MARK_OPEN\u0001', '\u0001MARK_CLOSE\u0001', '\u2026', 48), sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? ORDER BY CASE sc.content_type WHEN 'user_message' THEN rank * 2.0 WHEN 'error' THEN rank * 2.0 WHEN 'tool_error' THEN rank * 1.8 WHEN 'assistant_message' THEN rank * 1.5 WHEN 'reasoning' THEN rank * 1.3 WHEN 'compaction_summary' THEN rank * 1.1 WHEN 'subagent' THEN rank * 1.1 WHEN 'system_message' THEN rank * 1.0 WHEN 'tool_call' THEN rank * 0.6 WHEN 'tool_result' THEN rank * 0.7 ELSE rank END LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["a*", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "fts-prefix-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ?",
+      "synthetic_bindings": ["a*"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-prefix-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": ["a*"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-prefix-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["a*", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-prefix-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["a*", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-prefix-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ?",
+      "synthetic_bindings": ["a*"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-repo-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, snippet(search_fts, 0, '\u0001MARK_OPEN\u0001', '\u0001MARK_CLOSE\u0001', '\u2026', 48), sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IN (?) ORDER BY CASE sc.content_type WHEN 'user_message' THEN rank * 2.0 WHEN 'error' THEN rank * 2.0 WHEN 'tool_error' THEN rank * 1.8 WHEN 'assistant_message' THEN rank * 1.5 WHEN 'reasoning' THEN rank * 1.3 WHEN 'compaction_summary' THEN rank * 1.1 WHEN 'subagent' THEN rank * 1.1 WHEN 'system_message' THEN rank * 1.0 WHEN 'tool_call' THEN rank * 0.6 WHEN 'tool_result' THEN rank * 0.7 ELSE rank END LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["error", "example/project", 50, 0],
+      "private_binding_selection_sql": {
+        "parameter_indices": [1],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "fts-repo-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IN (?)",
+      "synthetic_bindings": ["error", "example/project"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [1],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-repo-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IN (?) GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": ["error", "example/project"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [1],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-repo-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["error", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-repo-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IN (?) AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["error", "example/project", 20],
+      "private_binding_selection_sql": {
+        "parameter_indices": [1],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-repo-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.repository IN (?)",
+      "synthetic_bindings": ["error", "example/project"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [1],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-session-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, snippet(search_fts, 0, '\u0001MARK_OPEN\u0001', '\u0001MARK_CLOSE\u0001', '\u2026', 48), sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND sc.session_id = ? ORDER BY CASE sc.content_type WHEN 'user_message' THEN rank * 2.0 WHEN 'error' THEN rank * 2.0 WHEN 'tool_error' THEN rank * 1.8 WHEN 'assistant_message' THEN rank * 1.5 WHEN 'reasoning' THEN rank * 1.3 WHEN 'compaction_summary' THEN rank * 1.1 WHEN 'subagent' THEN rank * 1.1 WHEN 'system_message' THEN rank * 1.0 WHEN 'tool_call' THEN rank * 0.6 WHEN 'tool_result' THEN rank * 0.7 ELSE rank END LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["error", "synthetic-session", 50, 0],
+      "private_binding_selection_sql": {
+        "parameter_indices": [1],
+        "sql": "SELECT session_id FROM search_content GROUP BY session_id ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "fts-session-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND sc.session_id = ?",
+      "synthetic_bindings": ["error", "synthetic-session"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [1],
+        "sql": "SELECT session_id FROM search_content GROUP BY session_id ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-source-page",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, snippet(search_fts, 0, '\u0001MARK_OPEN\u0001', '\u0001MARK_CLOSE\u0001', '\u2026', 48), sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.source = ? ORDER BY CASE sc.content_type WHEN 'user_message' THEN rank * 2.0 WHEN 'error' THEN rank * 2.0 WHEN 'tool_error' THEN rank * 1.8 WHEN 'assistant_message' THEN rank * 1.5 WHEN 'reasoning' THEN rank * 1.3 WHEN 'compaction_summary' THEN rank * 1.1 WHEN 'subagent' THEN rank * 1.1 WHEN 'system_message' THEN rank * 1.0 WHEN 'tool_call' THEN rank * 0.6 WHEN 'tool_result' THEN rank * 0.7 ELSE rank END LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["error", "claudeCode", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Deep search/browse page",
+      "plan_only": false
+    },
+    {
+      "id": "fts-source-count",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.source = ?",
+      "synthetic_bindings": ["error", "claudeCode"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Separate exact count on every page",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "fts-source-facet-type",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.content_type, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.source = ? GROUP BY sc.content_type ORDER BY COUNT(*) DESC",
+      "synthetic_bindings": ["error", "claudeCode"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-source-facet-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.repository, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.source = ? AND s.repository IS NOT NULL GROUP BY s.repository ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["error", "claudeCode", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-source-facet-tool",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, COUNT(*) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.source = ? AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name ORDER BY COUNT(*) DESC LIMIT ?",
+      "synthetic_bindings": ["error", "claudeCode", 20],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet cache miss; own filter omitted",
+      "plan_only": false
+    },
+    {
+      "id": "fts-source-totals",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COUNT(DISTINCT sc.session_id) FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? AND s.source = ?",
+      "synthetic_bindings": ["error", "claudeCode"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Facet exact total/distinct sessions",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "browse-deep-offset",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, CASE WHEN LENGTH(sc.content) > 200 THEN SUBSTR(sc.content, 1, 200) || '\u2026' ELSE sc.content END, sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_content sc JOIN sessions s ON s.id = sc.session_id WHERE 1=1 ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": [50, 10000],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Later page worst shape; preserve actual OFFSET",
+      "plan_only": false
+    },
+    {
+      "id": "fts-common-newest",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.id, sc.session_id, sc.content_type, sc.turn_number, sc.event_index, sc.timestamp_unix, sc.tool_name, snippet(search_fts, 0, '\u0001MARK_OPEN\u0001', '\u0001MARK_CLOSE\u0001', '\u2026', 48), sc.metadata_json, s.summary, s.repository, s.branch, s.updated_at, s.source FROM search_fts JOIN search_content sc ON sc.id = search_fts.rowid JOIN sessions s ON s.id = sc.session_id WHERE search_fts MATCH ? ORDER BY sc.timestamp_unix DESC NULLS LAST LIMIT ? OFFSET ?",
+      "synthetic_bindings": ["error", 50, 0],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "FTS chronological sort",
+      "plan_only": false
+    },
+    {
+      "id": "list-all",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, copilot_version, error_count, rate_limit_count, compaction_count, truncation_count, source FROM sessions WHERE 1=1 ORDER BY updated_at DESC LIMIT ? ",
+      "synthetic_bindings": [100],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Session Explorer",
+      "plan_only": false
+    },
+    {
+      "id": "list-nonempty",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, copilot_version, error_count, rate_limit_count, compaction_count, truncation_count, source FROM sessions WHERE 1=1 AND turn_count IS NOT NULL AND turn_count > 0 ORDER BY updated_at DESC LIMIT ? ",
+      "synthetic_bindings": [100],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Session Explorer",
+      "plan_only": false
+    },
+    {
+      "id": "list-repo",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, copilot_version, error_count, rate_limit_count, compaction_count, truncation_count, source FROM sessions WHERE 1=1 AND repository = ? ORDER BY updated_at DESC LIMIT ? ",
+      "synthetic_bindings": ["example/project", 100],
+      "private_binding_selection_sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Session Explorer",
+      "plan_only": false
+    },
+    {
+      "id": "list-branch",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, copilot_version, error_count, rate_limit_count, compaction_count, truncation_count, source FROM sessions WHERE 1=1 AND branch = ? ORDER BY updated_at DESC LIMIT ? ",
+      "synthetic_bindings": ["feature/synthetic", 100],
+      "private_binding_selection_sql": "SELECT branch FROM sessions WHERE branch IS NOT NULL GROUP BY branch ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Session Explorer",
+      "plan_only": false
+    },
+    {
+      "id": "list-repo-nonempty",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT id, path, summary, repository, branch, cwd, host_type, created_at, updated_at, event_count, turn_count, current_model, copilot_version, error_count, rate_limit_count, compaction_count, truncation_count, source FROM sessions WHERE 1=1 AND turn_count IS NOT NULL AND turn_count > 0 AND repository = ? ORDER BY updated_at DESC LIMIT ? ",
+      "synthetic_bindings": ["example/project", 100],
+      "private_binding_selection_sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Session Explorer",
+      "plan_only": false
+    },
+    {
+      "id": "toolbar-metadata-fts",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.id, s.path, s.summary, s.repository, s.branch, s.cwd, s.host_type, s.created_at, s.updated_at, s.event_count, s.turn_count, s.current_model, s.copilot_version, s.error_count, s.rate_limit_count, s.compaction_count, s.truncation_count, s.source FROM sessions_fts f INNER JOIN sessions s ON s.rowid = f.rowid WHERE sessions_fts MATCH ? ORDER BY s.updated_at DESC, s.id ASC",
+      "synthetic_bindings": ["example"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Metadata toolbar",
+      "plan_only": false
+    },
+    {
+      "id": "context-before",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT id, content_type, turn_number, event_index, tool_name, CASE WHEN json_valid(metadata_json) THEN json_extract(metadata_json, '$.nativeToolName') END AS native_tool_name, substr(content, 1, 300) AS preview FROM search_content WHERE session_id = ?1 AND event_index < ?2 AND event_index IS NOT NULL ORDER BY event_index DESC LIMIT ?3",
+      "synthetic_bindings": ["synthetic-session", 100, 2],
+      "private_binding_selection_sql": "SELECT session_id, event_index FROM search_content WHERE event_index IS NOT NULL ORDER BY id DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Expanded result context",
+      "plan_only": false
+    },
+    {
+      "id": "context-after",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT id, content_type, turn_number, event_index, tool_name, CASE WHEN json_valid(metadata_json) THEN json_extract(metadata_json, '$.nativeToolName') END AS native_tool_name, substr(content, 1, 300) AS preview FROM search_content WHERE session_id = ?1 AND event_index > ?2 AND event_index IS NOT NULL ORDER BY event_index ASC LIMIT ?3",
+      "synthetic_bindings": ["synthetic-session", 100, 2],
+      "private_binding_selection_sql": "SELECT session_id, event_index FROM search_content WHERE event_index IS NOT NULL ORDER BY id DESC LIMIT 1",
+      "priority": 1,
+      "workflow": "Expanded result context",
+      "plan_only": false
+    },
+    {
+      "id": "native-tool-provenance",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT sc.tool_name, s.source, CASE WHEN json_valid(metadata_json) THEN json_extract(metadata_json, '$.nativeToolName') END AS native_tool_name, COUNT(*) FROM sessions s CROSS JOIN search_content sc ON sc.session_id = s.id WHERE s.source != ?1 AND sc.tool_name IS NOT NULL GROUP BY sc.tool_name, s.source, native_tool_name",
+      "synthetic_bindings": ["copilot"],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Source-aware tool picker",
+      "plan_only": false
+    },
+    {
+      "id": "source-reconciliation",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT id FROM sessions WHERE source = ?1",
+      "synthetic_bindings": ["copilot"],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Refresh prune discovery",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-load_runs-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT r.session_id, s.summary, s.repository, r.run_key, r.tool_call_id, r.agent_name,\n                r.agent_type, r.display_name, r.description, r.execution_mode, COALESCE(r.started_at, s.created_at),\n                r.outcome, r.error_text, r.model, r.configured_model, r.first_dispatched_model,\n                r.model_override_reason, r.configured_matches_actual, r.multi_turn,\n                r.total_tool_calls, r.total_tokens, r.duration_ms, r.own_nano_aiu,\n                r.follow_up_count, r.depth, r.peak_siblings, r.parent_agent_name,\n                r.turn_index, r.event_index, r.messages_sent, r.messages_received,\n                r.peer_messages, r.queued_messages\n         FROM session_agent_runs r\n         JOIN sessions s ON s.id = r.session_id WHERE 1=1\n         ORDER BY COALESCE(r.started_at, s.created_at) DESC, r.session_id, r.run_key",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/agents.rs:136",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-sessions_with_unfinished_runs-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.id, s.path, s.source, s.role, s.parent_session_id FROM sessions s\n         WHERE EXISTS (SELECT 1 FROM session_agent_runs r\n                       WHERE r.session_id = s.id AND r.outcome = 'incomplete')\n         ORDER BY s.id",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/agents.rs:226",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_selections-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT MAX(a.agent_name), MAX(a.display_name), COUNT(DISTINCT a.session_id),\n                MAX(COALESCE(a.timestamp, s.created_at))\n         FROM session_agent_selections a\n         JOIN sessions s ON s.id = a.session_id WHERE a.selected = 1 AND a.agent_name IS NOT NULL\n         GROUP BY LOWER(a.agent_name)\n         ORDER BY COUNT(DISTINCT a.session_id) DESC, LOWER(a.agent_name)",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/agents.rs:282",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_code_impact-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COALESCE(SUM(s.lines_added), 0), COALESCE(SUM(s.lines_removed), 0)\n             FROM sessions s WHERE 1=1",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs:27",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_code_impact-1-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COALESCE(SUM(s.lines_added), 0), COALESCE(SUM(s.lines_removed), 0)\n             FROM sessions s WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_code_impact-2",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COALESCE(f.extension, '(no ext)'), COUNT(DISTINCT f.session_id || '|' || REPLACE(f.file_path, '\\', '/'))\n             FROM session_modified_files f\n             JOIN sessions s ON s.id = f.session_id WHERE 1=1\n             GROUP BY f.extension ORDER BY 2 DESC",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs:39",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_code_impact-2-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COALESCE(f.extension, '(no ext)'), COUNT(DISTINCT f.session_id || '|' || REPLACE(f.file_path, '\\', '/'))\n             FROM session_modified_files f\n             JOIN sessions s ON s.id = f.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?\n             GROUP BY f.extension ORDER BY 2 DESC",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_code_impact-3",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT MAX(f.file_path), COUNT(DISTINCT f.session_id)\n             FROM session_modified_files f\n             JOIN sessions s ON s.id = f.session_id WHERE 1=1\n             GROUP BY REPLACE(f.file_path, '\\', '/') ORDER BY 2 DESC LIMIT 20",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs:75",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_code_impact-3-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT MAX(f.file_path), COUNT(DISTINCT f.session_id)\n             FROM session_modified_files f\n             JOIN sessions s ON s.id = f.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?\n             GROUP BY REPLACE(f.file_path, '\\', '/') ORDER BY 2 DESC LIMIT 20",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_code_impact-4",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(DISTINCT REPLACE(f.file_path, '\\', '/'))\n             FROM session_modified_files f\n             JOIN sessions s ON s.id = f.session_id WHERE 1=1",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs:97",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "analytics-query_code_impact-4-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(DISTINCT REPLACE(f.file_path, '\\', '/'))\n             FROM session_modified_files f\n             JOIN sessions s ON s.id = f.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "analytics-query_code_impact-5",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,\n                    COALESCE(SUM(s.lines_added), 0), COALESCE(SUM(s.lines_removed), 0)\n             FROM sessions s\n             WHERE 1=1 AND d IS NOT NULL\n             GROUP BY d ORDER BY d",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs:109",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_analytics-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),\n                    COALESCE(SUM(turn_count), 0), COALESCE(SUM(tool_call_count), 0),\n                    COUNT(CASE WHEN turn_count > 0 THEN 1 END),\n                    COALESCE(SUM(total_premium_requests), 0.0),\n                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_api_duration_ms END), 0),\n                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN\n                        (SELECT SUM(m.output_tokens) FROM session_model_metrics m WHERE m.session_id = s.id)\n                    END), 0),\n                    COUNT(CASE WHEN error_count > 0 THEN 1 END),\n                    COALESCE(SUM(rate_limit_count), 0),\n                    COALESCE(SUM(compaction_count), 0),\n                    COALESCE(SUM(truncation_count), 0),\n                    COALESCE(SUM(total_nano_aiu), 0),\n                    COUNT(CASE WHEN total_nano_aiu IS NOT NULL THEN 1 END)\n             FROM sessions s WHERE 1=1",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs:35",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "analytics-query_analytics-1-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(total_cost), 0.0),\n                    COALESCE(SUM(turn_count), 0), COALESCE(SUM(tool_call_count), 0),\n                    COUNT(CASE WHEN turn_count > 0 THEN 1 END),\n                    COALESCE(SUM(total_premium_requests), 0.0),\n                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN total_api_duration_ms END), 0),\n                    COALESCE(SUM(CASE WHEN total_api_duration_ms > 0 THEN\n                        (SELECT SUM(m.output_tokens) FROM session_model_metrics m WHERE m.session_id = s.id)\n                    END), 0),\n                    COUNT(CASE WHEN error_count > 0 THEN 1 END),\n                    COALESCE(SUM(rate_limit_count), 0),\n                    COALESCE(SUM(compaction_count), 0),\n                    COALESCE(SUM(truncation_count), 0),\n                    COALESCE(SUM(total_nano_aiu), 0),\n                    COUNT(CASE WHEN total_nano_aiu IS NOT NULL THEN 1 END)\n             FROM sessions s WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "analytics-query_analytics-2",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT m.model_name,\n                    SUM(m.input_tokens + m.output_tokens),\n                    SUM(m.input_tokens),\n                    SUM(m.output_tokens),\n                    SUM(m.cache_read_tokens),\n                    SUM(m.cache_write_tokens),\n                    SUM(m.cost),\n                    SUM(m.request_count),\n                    SUM(COALESCE(m.reasoning_tokens, 0)),\n                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),\n                    SUM(COALESCE(m.total_nano_aiu, 0)),\n                    MAX(CASE WHEN m.total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),\n                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.input_tokens ELSE 0 END),\n                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.output_tokens ELSE 0 END),\n                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_read_tokens ELSE 0 END),\n                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_write_tokens ELSE 0 END),\n                    s.source,\n                    SUM(m.cost_usd),\n                    COUNT(m.cost_usd) > 0 AND COUNT(m.cost_usd) < COUNT(*)\n             FROM session_model_metrics m\n             JOIN sessions s ON s.id = m.session_id WHERE 1=1\n             GROUP BY m.model_name, s.source ORDER BY 2 DESC",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs:174",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_analytics-2-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT m.model_name,\n                    SUM(m.input_tokens + m.output_tokens),\n                    SUM(m.input_tokens),\n                    SUM(m.output_tokens),\n                    SUM(m.cache_read_tokens),\n                    SUM(m.cache_write_tokens),\n                    SUM(m.cost),\n                    SUM(m.request_count),\n                    SUM(COALESCE(m.reasoning_tokens, 0)),\n                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),\n                    SUM(COALESCE(m.total_nano_aiu, 0)),\n                    MAX(CASE WHEN m.total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),\n                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.input_tokens ELSE 0 END),\n                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.output_tokens ELSE 0 END),\n                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_read_tokens ELSE 0 END),\n                    SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_write_tokens ELSE 0 END),\n                    s.source,\n                    SUM(m.cost_usd),\n                    COUNT(m.cost_usd) > 0 AND COUNT(m.cost_usd) < COUNT(*)\n             FROM session_model_metrics m\n             JOIN sessions s ON s.id = m.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?\n             GROUP BY m.model_name, s.source ORDER BY 2 DESC",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_analytics-3",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COALESCE(SUM(m.cache_read_tokens), 0), COALESCE(SUM(m.input_tokens), 0)\n             FROM session_model_metrics m\n             JOIN sessions s ON s.id = m.session_id WHERE 1=1",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs:202",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_analytics-3-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COALESCE(SUM(m.cache_read_tokens), 0), COALESCE(SUM(m.input_tokens), 0)\n             FROM session_model_metrics m\n             JOIN sessions s ON s.id = m.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_analytics-4",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.total_api_duration_ms FROM sessions s WHERE 1=1 AND s.total_api_duration_ms IS NOT NULL AND s.total_api_duration_ms > 0",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs:227",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_analytics-4-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.total_api_duration_ms FROM sessions s WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ? AND s.total_api_duration_ms IS NOT NULL AND s.total_api_duration_ms > 0",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_analytics-5",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,\n                    COALESCE(SUM(s.error_count), 0),\n                    COALESCE(SUM(s.rate_limit_count), 0),\n                    COALESCE(SUM(s.compaction_count), 0),\n                    COALESCE(SUM(s.truncation_count), 0)\n             FROM sessions s WHERE 1=1 AND d IS NOT NULL GROUP BY d ORDER BY d",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs:265",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_analytics-5-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,\n                    COALESCE(SUM(s.error_count), 0),\n                    COALESCE(SUM(s.rate_limit_count), 0),\n                    COALESCE(SUM(s.compaction_count), 0),\n                    COALESCE(SUM(s.truncation_count), 0)\n             FROM sessions s WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ? AND d IS NOT NULL GROUP BY d ORDER BY d",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_model_usage_by_day-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(m.end_timestamp) as d, m.model_metrics_json, s.source\n             FROM session_segments m\n             JOIN sessions s ON s.id = m.session_id\n              WHERE 1=1 AND d IS NOT NULL AND m.model_metrics_json IS NOT NULL\n             ORDER BY d",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/model_usage_by_day.rs:57",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_model_usage_by_day-1-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(m.end_timestamp) as d, m.model_metrics_json, s.source\n             FROM session_segments m\n             JOIN sessions s ON s.id = m.session_id\n              WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ? AND d IS NOT NULL AND m.model_metrics_json IS NOT NULL\n             ORDER BY d",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_model_usage_by_day-2",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,\n                    m.model_name,\n                    s.source,\n                    COALESCE(SUM(m.input_tokens), 0),\n                    COALESCE(SUM(m.output_tokens), 0),\n                    COALESCE(SUM(m.cache_read_tokens), 0),\n                    COALESCE(SUM(m.cache_write_tokens), 0),\n                    COALESCE(SUM(COALESCE(m.reasoning_tokens, 0)), 0),\n                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),\n                    COALESCE(SUM(COALESCE(m.total_nano_aiu, 0)), 0),\n                    MAX(CASE WHEN m.total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),\n                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.input_tokens ELSE 0 END), 0),\n                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.output_tokens ELSE 0 END), 0),\n                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_read_tokens ELSE 0 END), 0),\n                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_write_tokens ELSE 0 END), 0)\n             FROM session_model_metrics m\n             JOIN sessions s ON s.id = m.session_id WHERE 1=1\n             AND d IS NOT NULL\n             AND NOT EXISTS (\n                 SELECT 1 FROM session_segments seg WHERE seg.session_id = s.id\n             )\n             GROUP BY d, m.model_name, s.source\n             ORDER BY d, m.model_name, s.source",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/model_usage_by_day.rs:86",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_model_usage_by_day-2-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(COALESCE(s.updated_at, s.created_at)) as d,\n                    m.model_name,\n                    s.source,\n                    COALESCE(SUM(m.input_tokens), 0),\n                    COALESCE(SUM(m.output_tokens), 0),\n                    COALESCE(SUM(m.cache_read_tokens), 0),\n                    COALESCE(SUM(m.cache_write_tokens), 0),\n                    COALESCE(SUM(COALESCE(m.reasoning_tokens, 0)), 0),\n                    MAX(CASE WHEN m.reasoning_tokens IS NOT NULL THEN 1 ELSE 0 END),\n                    COALESCE(SUM(COALESCE(m.total_nano_aiu, 0)), 0),\n                    MAX(CASE WHEN m.total_nano_aiu IS NOT NULL THEN 1 ELSE 0 END),\n                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.input_tokens ELSE 0 END), 0),\n                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.output_tokens ELSE 0 END), 0),\n                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_read_tokens ELSE 0 END), 0),\n                    COALESCE(SUM(CASE WHEN m.total_nano_aiu IS NULL THEN m.cache_write_tokens ELSE 0 END), 0)\n             FROM session_model_metrics m\n             JOIN sessions s ON s.id = m.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?\n             AND d IS NOT NULL\n             AND NOT EXISTS (\n                 SELECT 1 FROM session_segments seg WHERE seg.session_id = s.id\n             )\n             GROUP BY d, m.model_name, s.source\n             ORDER BY d, m.model_name, s.source",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_prompt_cache-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT w.session_id, w.outcome, w.idle_seconds, w.prefix_tokens, w.change_kinds,\n                w.resume_source, w.model\n         FROM session_cache_windows w\n         JOIN sessions s ON s.id = w.session_id WHERE 1=1\n           AND w.resume_at IS NOT NULL",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/prompt_cache.rs:24",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_prompt_cache-1-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT w.session_id, w.outcome, w.idle_seconds, w.prefix_tokens, w.change_kinds,\n                w.resume_source, w.model\n         FROM session_cache_windows w\n         JOIN sessions s ON s.id = w.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?\n           AND w.resume_at IS NOT NULL",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_observed_ttls-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT t.model, t.ttl_seconds, SUM(t.observation_count)\n         FROM session_cache_ttls t WHERE 1=1\n         GROUP BY t.model, t.ttl_seconds",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/prompt_cache.rs:109",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-load_invocations-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT i.session_id, s.summary, s.repository, i.turn_index, i.event_index, COALESCE(i.timestamp, s.created_at),\n                i.skill_name, i.normalized_name, i.skill_path, i.normalized_directory,\n                i.description, i.source, i.trigger, i.agent_name, i.agent_id, i.model,\n                i.plugin_name, i.content_sha256,\n                COALESCE(i.frontmatter_tokens, 0) + COALESCE(i.instruction_tokens, 0),\n                i.frontmatter_tokens IS NULL AND i.instruction_tokens IS NULL, i.origin\n         FROM session_skill_invocations i\n         JOIN sessions s ON s.id = i.session_id WHERE 1=1\n         ORDER BY COALESCE(i.timestamp, s.created_at) DESC, i.session_id, i.event_index DESC",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/skills.rs:95",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_cost_by_source-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.source, COUNT(*), COALESCE(SUM(s.total_tokens), 0),\n                SUM(s.cost_usd), COUNT(s.cost_usd)\n         FROM sessions s WHERE 1=1\n         GROUP BY s.source",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/source_cost.rs:22",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_cost_by_source-1-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT s.source, COUNT(*), COALESCE(SUM(s.total_tokens), 0),\n                SUM(s.cost_usd), COUNT(s.cost_usd)\n         FROM sessions s WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?\n         GROUP BY s.source",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_tool_analysis-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT t.tool_name,\n                    SUM(t.call_count), SUM(t.success_count), SUM(t.failure_count),\n                    SUM(t.total_duration_ms), SUM(t.calls_with_duration)\n             FROM session_tool_calls t\n             JOIN sessions s ON s.id = t.session_id WHERE 1=1\n             GROUP BY t.tool_name ORDER BY SUM(t.call_count) DESC, t.tool_name ASC",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs:25",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_tool_analysis-1-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT t.tool_name,\n                    SUM(t.call_count), SUM(t.success_count), SUM(t.failure_count),\n                    SUM(t.total_duration_ms), SUM(t.calls_with_duration)\n             FROM session_tool_calls t\n             JOIN sessions s ON s.id = t.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?\n             GROUP BY t.tool_name ORDER BY SUM(t.call_count) DESC, t.tool_name ASC",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_tool_analysis-2",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT a.day_of_week, a.hour, SUM(a.tool_call_count)\n             FROM session_activity a\n             JOIN sessions s ON s.id = a.session_id WHERE 1=1\n             GROUP BY a.day_of_week, a.hour",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs:83",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_tool_analysis-2-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT a.day_of_week, a.hour, SUM(a.tool_call_count)\n             FROM session_activity a\n             JOIN sessions s ON s.id = a.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?\n             GROUP BY a.day_of_week, a.hour",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_calls_by_day-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(COALESCE(s.updated_at, s.created_at)) AS d,\n                SUM(t.call_count), SUM(t.failure_count), SUM(t.total_duration_ms)\n             FROM session_tool_calls t\n             JOIN sessions s ON s.id = t.session_id WHERE 1=1 AND d IS NOT NULL\n             GROUP BY d ORDER BY d",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs:126",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_calls_by_day-1-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(COALESCE(s.updated_at, s.created_at)) AS d,\n                SUM(t.call_count), SUM(t.failure_count), SUM(t.total_duration_ms)\n             FROM session_tool_calls t\n             JOIN sessions s ON s.id = t.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ? AND d IS NOT NULL\n             GROUP BY d ORDER BY d",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_native_tools-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT n.tool_name, n.native_tool_name, s.source,\n                SUM(n.call_count), SUM(n.success_count), SUM(n.failure_count),\n                SUM(n.total_duration_ms), SUM(n.calls_with_duration)\n             FROM session_native_tool_calls n\n             JOIN sessions s ON s.id = n.session_id WHERE 1=1\n             GROUP BY n.tool_name, n.native_tool_name, s.source\n             ORDER BY SUM(n.call_count) DESC, n.native_tool_name ASC, s.source ASC",
+      "synthetic_bindings": [],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs:163",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-query_native_tools-1-filtered",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT n.tool_name, n.native_tool_name, s.source,\n                SUM(n.call_count), SUM(n.success_count), SUM(n.failure_count),\n                SUM(n.total_duration_ms), SUM(n.calls_with_duration)\n             FROM session_native_tool_calls n\n             JOIN sessions s ON s.id = n.session_id WHERE 1=1 AND s.turn_count IS NOT NULL AND s.turn_count > 0 AND (date(COALESCE(s.updated_at, s.created_at)) >= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND (date(COALESCE(s.updated_at, s.created_at)) <= ? OR (s.updated_at IS NULL AND s.created_at IS NULL)) AND s.repository = ? AND s.source = ?\n             GROUP BY n.tool_name, n.native_tool_name, s.source\n             ORDER BY SUM(n.call_count) DESC, n.native_tool_name ASC, s.source ASC",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31", "example/project", "copilot"],
+      "private_binding_selection_sql": {
+        "parameter_indices": [2],
+        "sql": "SELECT repository FROM sessions WHERE repository IS NOT NULL GROUP BY repository ORDER BY COUNT(*) DESC LIMIT 1"
+      },
+      "priority": 2,
+      "workflow": "Actual shared date/repository/source/nonempty filter",
+      "plan_only": false
+    },
+    {
+      "id": "analytics-format_diagnostics-1",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT COUNT(*) FROM sessions WHERE source = ?1",
+      "synthetic_bindings": ["copilot"],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/format_diagnostics.rs:41",
+      "plan_only": false,
+      "reviewed_numeric_aggregate_output": true
+    },
+    {
+      "id": "analytics-format_diagnostics-2",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT o.kind, o.name, COUNT(DISTINCT o.session_id), SUM(o.record_count)\n             FROM session_format_observations o\n             JOIN sessions s ON s.id = o.session_id\n             WHERE s.source = ?1\n             GROUP BY o.kind, o.name\n             ORDER BY o.kind, o.name",
+      "synthetic_bindings": ["copilot"],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Full actual production projection; crates/tracepilot-indexer/src/index_db/format_diagnostics.rs:48",
+      "plan_only": false
+    },
+    {
+      "id": "daily-tokens",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(m.end_timestamp) AS d, COALESCE(SUM(m.total_tokens), 0) FROM session_segments m JOIN sessions s ON s.id = m.session_id WHERE 1=1 AND date(m.end_timestamp) >= ? AND date(m.end_timestamp) <= ? AND d IS NOT NULL GROUP BY d ORDER BY d",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Actual day-bucket builder; date() may inhibit standalone timestamp index",
+      "plan_only": false
+    },
+    {
+      "id": "daily-activity",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(m.end_timestamp) AS d, COUNT(*) FROM session_segments m JOIN sessions s ON s.id = m.session_id WHERE 1=1 AND date(m.end_timestamp) >= ? AND date(m.end_timestamp) <= ? AND d IS NOT NULL GROUP BY d ORDER BY d",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Actual day-bucket builder; date() may inhibit standalone timestamp index",
+      "plan_only": false
+    },
+    {
+      "id": "daily-credits",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT date(m.end_timestamp) AS d, COALESCE(SUM(m.total_premium_requests), 0.0) FROM session_segments m JOIN sessions s ON s.id = m.session_id WHERE 1=1 AND date(m.end_timestamp) >= ? AND date(m.end_timestamp) <= ? AND d IS NOT NULL GROUP BY d ORDER BY d",
+      "synthetic_bindings": ["2026-01-01", "2026-12-31"],
+      "private_binding_selection_sql": null,
+      "priority": 1,
+      "workflow": "Actual day-bucket builder; date() may inhibit standalone timestamp index",
+      "plan_only": false
+    },
+    {
+      "id": "segments-raw-range-diagnostic",
+      "revision": "d95f6d81d8a27f9ee3b18967f00b81d76c25e723",
+      "sql": "SELECT session_id, total_tokens FROM session_segments WHERE end_timestamp >= ?1 AND end_timestamp < ?2",
+      "synthetic_bindings": ["2026-01-01", "2027-01-01"],
+      "private_binding_selection_sql": null,
+      "priority": 2,
+      "workflow": "Migration test shape ONLY, compare plan to actual day buckets, not runtime performance",
+      "plan_only": false
+    }
+  ]
+}

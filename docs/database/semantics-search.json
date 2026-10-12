@@ -1,0 +1,1244 @@
+{
+  "tables": {
+    "search_content": {
+      "disposition": "KEEP",
+      "rationale": "Current deep-search content source, browse/facets, context navigation and tool/skill discovery; rebuildable from successful provider snapshots, but retained last-good rows preserve failed/cancelled refreshes. Frozen snapshot evidence: 679,345 rows, 336,801,792 physical b-tree bytes. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "id": {
+          "meaning": "AUTOINCREMENT chunk identity; INTEGER PRIMARY KEY aliases rowid, not the provider event identity.",
+          "lifecycle": "Allocated on insert; replacement deletes/reinserts a session, so IDs can change. Context caches refer to a current snapshot.",
+          "migration": "v6 creation, v9 destructive recreation; sqlite_sequence owns monotonic allocation.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 270,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/queries.rs",
+              "line": 33,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 229,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 261,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/stats.rs",
+              "line": 227,
+              "role": "filter"
+            },
+            {
+              "path": "apps/desktop/src/components/search/SearchResultCard.vue",
+              "line": 43,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "FTS rowid join, current result identity, context and incremental FTS insertion. Frozen snapshot: 0 NULL, 679,345 non-NULL, 679,345 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 679345,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_content"
+        },
+        "session_id": {
+          "meaning": "Validated provider session identifier; NOT NULL FK to sessions(id), ON DELETE CASCADE.",
+          "lifecycle": "Stamped by event extractor; deleted/replaced only with the owning session snapshot or parent cascade. Source guard blocks conflicting ownership.",
+          "migration": "v6 creation, v9 recreation; nonunique since many chunks belong to one session.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 271,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 214,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/query_builder.rs",
+              "line": 253,
+              "role": "join"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/queries.rs",
+              "line": 183,
+              "role": "group"
+            },
+            {
+              "path": "apps/desktop/src/components/search/SearchGroupedResults.vue",
+              "line": 112,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Parent join, source metadata hydration, session filter, context grouping and cascade scope. Frozen snapshot: 0 NULL, 679,345 non-NULL, 510 distinct non-NULL; logical text/BLOB bytes 24,456,420.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 510,
+            "distinct_method": "exact",
+            "logical_value_bytes": 24456420
+          },
+          "measurement_reference": "docs/database/statistics.md#search_content"
+        },
+        "content_type": {
+          "meaning": "Canonical searchable chunk kind; CHECK enum includes eleven message/reasoning/tool/error/compaction/system/subagent/checkpoint kinds.",
+          "lifecycle": "Extractor chooses kind from canonical typed events. One event can yield multiple kinds; checkpoint remains allowed even without a current emitted case.",
+          "migration": "v6 creation; v9 adds tool_result to CHECK. Current allowed checkpoint is compatibility schema, not removal evidence.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 272,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 64,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/query_builder.rs",
+              "line": 106,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/query_builder.rs",
+              "line": 160,
+              "role": "sort"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/queries.rs",
+              "line": 89,
+              "role": "group"
+            },
+            {
+              "path": "apps/desktop/src/components/search/SearchGroupedResults.vue",
+              "line": 96,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Display badges/grouping, include/exclude filters, facet totals and relevance weights. Frozen snapshot: 0 NULL, 679,345 non-NULL, 10 distinct non-NULL; logical text/BLOB bytes 7,181,721.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 10,
+            "distinct_method": "exact",
+            "logical_value_bytes": 7181721
+          },
+          "measurement_reference": "docs/database/statistics.md#search_content"
+        },
+        "turn_number": {
+          "meaning": "Nullable zero-based reconstructed conversation turn index used to reveal a search hit in the conversation.",
+          "lifecycle": "TurnReconstructor provides source-normalized ownership; pre-turn pending rows acquire an active turn when one opens, otherwise retain NULL.",
+          "migration": "v6 nullable creation, retained v9; NULL is a real no-turn state.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 277,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 48,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 51,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/sanitize.rs",
+              "line": 13,
+              "role": "decode"
+            },
+            {
+              "path": "apps/desktop/src/composables/useSearchPaletteController.ts",
+              "line": 165,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Conversation navigation and user-visible turn labels; NULL cannot safely become zero. Frozen snapshot: 50 NULL, 679,295 non-NULL, 3,095 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 50,
+            "nonnull_count": 679295,
+            "distinct_nonnull": 3095,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_content"
+        },
+        "event_index": {
+          "meaning": "Nullable schema column containing the zero-based canonical event-array position for current extracted rows; multiple chunks can share a position.",
+          "lifecycle": "enumerate() stamps each emitted chunk. Context uses strictly lower/higher indexes, so sibling chunks at exactly the same event are omitted.",
+          "migration": "v6 nullable creation, retained v9 with session-event index; current Rust writer emits i64, schema remains nullable for compatibility.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 278,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 41,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 46,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/sanitize.rs",
+              "line": 14,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/stats.rs",
+              "line": 239,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/stats.rs",
+              "line": 240,
+              "role": "sort"
+            },
+            {
+              "path": "apps/desktop/src/composables/useSearchPaletteController.ts",
+              "line": 166,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Precise conversation deep links and efficient context inequalities/order. Frozen snapshot: 0 NULL, 679,345 non-NULL, 30,009 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 30009,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_content"
+        },
+        "timestamp_unix": {
+          "meaning": "Nullable UTC Unix seconds from the canonical event timestamp; NULL means missing timestamp.",
+          "lifecycle": "Event timestamp converted with timestamp(); bound inclusive search date ranges and sort default/newest/oldest with NULLS LAST.",
+          "migration": "v6 creation, retained v9; not a migration/index clock.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 279,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 45,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/query_builder.rs",
+              "line": 125,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/query_builder.rs",
+              "line": 151,
+              "role": "sort"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/sanitize.rs",
+              "line": 15,
+              "role": "decode"
+            },
+            {
+              "path": "apps/desktop/src/components/search/SearchResultCard.vue",
+              "line": 73,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Search date filters, chronology and displayed relative/event time. Frozen snapshot: 0 NULL, 679,345 non-NULL, 229,675 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 229675,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_content"
+        },
+        "tool_name": {
+          "meaning": "Nullable canonical tool name; native provider spelling is stored in metadata_json.",
+          "lifecycle": "Tool-start name retained by call ID to stamp result/error; unknown fallback and missing completion-name are supported. Tool skip rules can omit rows.",
+          "migration": "v6 creation, retained v9; nativeToolName metadata semantics introduced through extractor versioning rather than new DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 280,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 114,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 147,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/query_builder.rs",
+              "line": 109,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/stats.rs",
+              "line": 78,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/stats.rs",
+              "line": 133,
+              "role": "filter"
+            },
+            {
+              "path": "apps/desktop/src/utils/toolDisplayName.ts",
+              "line": 47,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Canonical tool filters, indexed picker counts, native label fallback and skill-call discovery. Frozen snapshot: 115,254 NULL, 564,091 non-NULL, 81 distinct non-NULL; logical text/BLOB bytes 3,376,254.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 115254,
+            "nonnull_count": 564091,
+            "distinct_nonnull": 81,
+            "distinct_method": "exact",
+            "logical_value_bytes": 3376254
+          },
+          "measurement_reference": "docs/database/statistics.md#search_content"
+        },
+        "content": {
+          "meaning": "Readable searchable chunk text; NOT NULL and non-whitespace CHECK. Source-derived text is intentionally bounded for most kinds.",
+          "lifecycle": "Extracts canonical messages/visible reasoning/tool flattened arguments or results; inserts current snapshot. Prompt attachments/native-only bookkeeping are excluded; user messages are not truncated by the shown limits.",
+          "migration": "v6 creation; v9 recreates with trim-length guard and tool-result support. Successful replacement retains atomic FTS agreement.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 269,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 69,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 240,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/queries.rs",
+              "line": 27,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/stats.rs",
+              "line": 237,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 303,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "FTS term source, browse/context previews and normalized recent skill-name discovery. Frozen snapshot: 0 NULL, 679,345 non-NULL, 499,074 distinct non-NULL; logical text/BLOB bytes 245,907,291.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 499074,
+            "distinct_method": "exact",
+            "logical_value_bytes": 245907291
+          },
+          "measurement_reference": "docs/database/statistics.md#search_content"
+        },
+        "metadata_json": {
+          "meaning": "Nullable per-chunk JSON metadata; tool rows carry nativeToolName, compaction rows checkpoint number, system rows role.",
+          "lifecycle": "Extractor writes only metadata applicable to emitted row; decoded search result passes JSON to client, context/picker SQL guards json_valid before json_extract.",
+          "migration": "v6 creation, retained v9. Source-specific native-name additions force re-extraction with source extractor version.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 282,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 137,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/content_extraction/extractor.rs",
+              "line": 291,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/mod.rs",
+              "line": 110,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/sanitize.rs",
+              "line": 18,
+              "role": "decode"
+            },
+            {
+              "path": "apps/desktop/src/utils/toolDisplayName.ts",
+              "line": 49,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Native provider tool labels and source-compatible annotations; NULL is valid for simple text. Frozen snapshot: 613,555 NULL, 65,790 non-NULL, 84 distinct non-NULL; logical text/BLOB bytes 1,672,254.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 613555,
+            "nonnull_count": 65790,
+            "distinct_nonnull": 84,
+            "distinct_method": "exact",
+            "logical_value_bytes": 1672254
+          },
+          "measurement_reference": "docs/database/statistics.md#search_content"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#search_content",
+      "snapshot_row_count": 679345,
+      "physical_btree_bytes": 336801792
+    },
+    "search_fts": {
+      "disposition": "KEEP",
+      "rationale": "FTS5 external-content index over search_content; generated terms and engine state are maintained by triggers/rebuild paths. Not duplicate removable application storage. Frozen snapshot evidence: 679,345 rows; virtual external-content rows have no independently attributed table b-tree. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "content": {
+          "meaning": "External chunk text column; SQLite reads it from search_content.content for snippet/content fallback.",
+          "lifecycle": "Updated by parent INSERT/UPDATE/DELETE triggers; rebuild recreates postings. No independent business writer.",
+          "migration": "Created v6, recreated v9 with content_rowid=id and unicode61 tokenizer.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 303,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 51,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/queries.rs",
+              "line": 25,
+              "role": "read"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "MATCH metadata/content access is an implicit reader even when projection does not mention this column. Frozen snapshot: 0 NULL, 679,345 non-NULL, 499,074 distinct non-NULL; logical text/BLOB bytes 245,907,291. Virtual values are computed/external-content observations, not extra physical column allocations.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 499074,
+            "distinct_method": "exact",
+            "logical_value_bytes": 245907291
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts"
+        },
+        "search_fts": {
+          "meaning": "Hidden FTS table handle: MATCH and special command target.",
+          "lifecycle": "Computed virtual interface; not stored per-document application text. Commands maintain engine state.",
+          "migration": "FTS5 generated hidden column with virtual-table creation.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/stats.rs",
+              "line": 164,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 402,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/query_builder.rs",
+              "line": 54,
+              "role": "filter"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required engine handle for full-text matching and synchronization/maintenance. Frozen snapshot: 0 NULL, 679,345 non-NULL, 1 distinct non-NULL; logical text/BLOB bytes 0. Virtual values are computed/external-content observations, not extra physical column allocations.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 1,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts"
+        },
+        "rank": {
+          "meaning": "Hidden ranking interface; search_fts uses type-weighted rank; command writes may instead supply command parameters.",
+          "lifecycle": "Computed during MATCH; not a durable business column. sessions_fts ranks are currently not selected.",
+          "migration": "Generated by FTS5; v9 supplies automerge parameter 8 through search_fts.rank.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/query_builder.rs",
+              "line": 160,
+              "role": "sort"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 319,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-managed hidden interface; absence of direct sessions rank sorting does not justify dropping an FTS column. Frozen snapshot: 679,345 NULL, 0 non-NULL, 0 distinct non-NULL; logical text/BLOB bytes 0. NULL outside MATCH is not evidence that ranking is unused. Virtual values are computed/external-content observations, not extra physical column allocations.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 679345,
+            "nonnull_count": 0,
+            "distinct_nonnull": 0,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#search_fts",
+      "snapshot_row_count": 679345
+    },
+    "search_fts_config": {
+      "disposition": "KEEP",
+      "rationale": "SQLite FTS5 config shadow storage for search_fts; ownership and hidden use follow virtual table definition, not direct application references. Frozen snapshot evidence: 2 rows, 4,096 physical b-tree bytes. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "k": {
+          "meaning": "Engine configuration key.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required config engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 2 non-NULL, 2 distinct non-NULL; logical text/BLOB bytes 16.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 2,
+            "distinct_nonnull": 2,
+            "distinct_method": "exact",
+            "logical_value_bytes": 16
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts_config"
+        },
+        "v": {
+          "meaning": "Engine configuration value.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required config engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 2 non-NULL, 2 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 2,
+            "distinct_nonnull": 2,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts_config"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#search_fts_config",
+      "snapshot_row_count": 2,
+      "physical_btree_bytes": 4096
+    },
+    "search_fts_data": {
+      "disposition": "KEEP",
+      "rationale": "SQLite FTS5 data shadow storage for search_fts; ownership and hidden use follow virtual table definition, not direct application references. Frozen snapshot evidence: 21,946 rows, 87,355,392 physical b-tree bytes. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "id": {
+          "meaning": "Engine record/page key; rowid alias.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required data engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 21,946 non-NULL, 21,946 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 21946,
+            "distinct_nonnull": 21946,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts_data"
+        },
+        "block": {
+          "meaning": "Encoded segment/structure payload.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required data engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 21,946 non-NULL, 21,946 distinct non-NULL; logical text/BLOB bytes 85,973,255.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 21946,
+            "distinct_nonnull": 21946,
+            "distinct_method": "exact",
+            "logical_value_bytes": 85973255
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts_data"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#search_fts_data",
+      "snapshot_row_count": 21946,
+      "physical_btree_bytes": 87355392
+    },
+    "search_fts_docsize": {
+      "disposition": "KEEP",
+      "rationale": "SQLite FTS5 docsize shadow storage for search_fts; ownership and hidden use follow virtual table definition, not direct application references. Frozen snapshot evidence: 679,345 rows, 6,864,896 physical b-tree bytes. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "id": {
+          "meaning": "Indexed document rowid; rowid alias.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required docsize engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 679,345 non-NULL, 679,345 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 679345,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts_docsize"
+        },
+        "sz": {
+          "meaning": "Encoded per-column token sizes.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required docsize engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 679,345 non-NULL, 896 distinct non-NULL; logical text/BLOB bytes 723,650.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 679345,
+            "distinct_nonnull": 896,
+            "distinct_method": "exact",
+            "logical_value_bytes": 723650
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts_docsize"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#search_fts_docsize",
+      "snapshot_row_count": 679345,
+      "physical_btree_bytes": 6864896
+    },
+    "search_fts_idx": {
+      "disposition": "KEEP",
+      "rationale": "SQLite FTS5 idx shadow storage for search_fts; ownership and hidden use follow virtual table definition, not direct application references. Frozen snapshot evidence: 7,767 rows, 172,032 physical b-tree bytes. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "segid": {
+          "meaning": "Segment identity.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required idx engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 7,767 non-NULL, 7 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 7767,
+            "distinct_nonnull": 7,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts_idx"
+        },
+        "term": {
+          "meaning": "Segment separator term.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required idx engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 7,767 non-NULL, 7,032 distinct non-NULL; logical text/BLOB bytes 59,087.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 7767,
+            "distinct_nonnull": 7032,
+            "distinct_method": "exact",
+            "logical_value_bytes": 59087
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts_idx"
+        },
+        "pgno": {
+          "meaning": "Segment page locator.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 294,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required idx engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 7,767 non-NULL, 6,396 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 7767,
+            "distinct_nonnull": 6396,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#search_fts_idx"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#search_fts_idx",
+      "snapshot_row_count": 7767,
+      "physical_btree_bytes": 172032
+    },
+    "sessions_fts": {
+      "disposition": "KEEP",
+      "rationale": "FTS5 external-content index over sessions; generated terms and engine state are maintained by triggers/rebuild paths. Not duplicate removable application storage. Frozen snapshot evidence: 729 rows; virtual external-content rows have no independently attributed table b-tree. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "id": {
+          "meaning": "Indexed metadata id, fetched from sessions.id; FTS rowid maps sessions.rowid, distinct from TEXT id.",
+          "lifecycle": "Updated by parent INSERT/UPDATE/DELETE triggers; rebuild recreates postings. No independent business writer.",
+          "migration": "Initial v1; v6 rebuild/repopulation after dropping older FTS; unicode61 tokenizer.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 216,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 168,
+              "role": "filter"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "MATCH metadata/content access is an implicit reader even when projection does not mention this column. Frozen snapshot: 0 NULL, 729 non-NULL, 729 distinct non-NULL; logical text/BLOB bytes 26,244. Virtual values are computed/external-content observations, not extra physical column allocations.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 729,
+            "distinct_nonnull": 729,
+            "distinct_method": "exact",
+            "logical_value_bytes": 26244
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts"
+        },
+        "summary": {
+          "meaning": "Indexed metadata summary, fetched from sessions.summary; FTS rowid maps sessions.rowid, distinct from TEXT id.",
+          "lifecycle": "Updated by parent INSERT/UPDATE/DELETE triggers; rebuild recreates postings. No independent business writer.",
+          "migration": "Initial v1; v6 rebuild/repopulation after dropping older FTS; unicode61 tokenizer.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 216,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 168,
+              "role": "filter"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "MATCH metadata/content access is an implicit reader even when projection does not mention this column. Frozen snapshot: 219 NULL, 510 non-NULL, 445 distinct non-NULL; logical text/BLOB bytes 22,112. Virtual values are computed/external-content observations, not extra physical column allocations.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 219,
+            "nonnull_count": 510,
+            "distinct_nonnull": 445,
+            "distinct_method": "exact",
+            "logical_value_bytes": 22112
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts"
+        },
+        "repository": {
+          "meaning": "Indexed metadata repository, fetched from sessions.repository; FTS rowid maps sessions.rowid, distinct from TEXT id.",
+          "lifecycle": "Updated by parent INSERT/UPDATE/DELETE triggers; rebuild recreates postings. No independent business writer.",
+          "migration": "Initial v1; v6 rebuild/repopulation after dropping older FTS; unicode61 tokenizer.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 216,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 168,
+              "role": "filter"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "MATCH metadata/content access is an implicit reader even when projection does not mention this column. Frozen snapshot: 110 NULL, 619 non-NULL, 11 distinct non-NULL; logical text/BLOB bytes 14,826. Virtual values are computed/external-content observations, not extra physical column allocations.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 110,
+            "nonnull_count": 619,
+            "distinct_nonnull": 11,
+            "distinct_method": "exact",
+            "logical_value_bytes": 14826
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts"
+        },
+        "branch": {
+          "meaning": "Indexed metadata branch, fetched from sessions.branch; FTS rowid maps sessions.rowid, distinct from TEXT id.",
+          "lifecycle": "Updated by parent INSERT/UPDATE/DELETE triggers; rebuild recreates postings. No independent business writer.",
+          "migration": "Initial v1; v6 rebuild/repopulation after dropping older FTS; unicode61 tokenizer.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 216,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 168,
+              "role": "filter"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "MATCH metadata/content access is an implicit reader even when projection does not mention this column. Frozen snapshot: 98 NULL, 631 non-NULL, 252 distinct non-NULL; logical text/BLOB bytes 10,956. Virtual values are computed/external-content observations, not extra physical column allocations.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 98,
+            "nonnull_count": 631,
+            "distinct_nonnull": 252,
+            "distinct_method": "exact",
+            "logical_value_bytes": 10956
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts"
+        },
+        "sessions_fts": {
+          "meaning": "Hidden FTS table handle: MATCH and special command target.",
+          "lifecycle": "Computed virtual interface; not stored per-document application text. Commands maintain engine state.",
+          "migration": "FTS5 generated hidden column with virtual-table creation.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 168,
+              "role": "filter"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required engine handle for full-text matching and synchronization/maintenance. Frozen snapshot: 0 NULL, 729 non-NULL, 1 distinct non-NULL; logical text/BLOB bytes 0. Virtual values are computed/external-content observations, not extra physical column allocations.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 729,
+            "distinct_nonnull": 1,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts"
+        },
+        "rank": {
+          "meaning": "Hidden ranking interface; search_fts uses type-weighted rank; command writes may instead supply command parameters.",
+          "lifecycle": "Computed during MATCH; not a durable business column. sessions_fts ranks are currently not selected.",
+          "migration": "Generated by FTS5; v9 supplies automerge parameter 8 through search_fts.rank.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-managed hidden interface; absence of direct sessions rank sorting does not justify dropping an FTS column. Frozen snapshot: 729 NULL, 0 non-NULL, 0 distinct non-NULL; logical text/BLOB bytes 0. NULL outside MATCH is not evidence that ranking is unused. Virtual values are computed/external-content observations, not extra physical column allocations.",
+          "confidence": "high",
+          "measurements": {
+            "null_count": 729,
+            "nonnull_count": 0,
+            "distinct_nonnull": 0,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#sessions_fts",
+      "snapshot_row_count": 729
+    },
+    "sessions_fts_config": {
+      "disposition": "KEEP",
+      "rationale": "SQLite FTS5 config shadow storage for sessions_fts; ownership and hidden use follow virtual table definition, not direct application references. Frozen snapshot evidence: 1 rows, 4,096 physical b-tree bytes. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "k": {
+          "meaning": "Engine configuration key.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required config engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 1 non-NULL, 1 distinct non-NULL; logical text/BLOB bytes 7.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 1,
+            "distinct_nonnull": 1,
+            "distinct_method": "exact",
+            "logical_value_bytes": 7
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts_config"
+        },
+        "v": {
+          "meaning": "Engine configuration value.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required config engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 1 non-NULL, 1 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 1,
+            "distinct_nonnull": 1,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts_config"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#sessions_fts_config",
+      "snapshot_row_count": 1,
+      "physical_btree_bytes": 4096
+    },
+    "sessions_fts_data": {
+      "disposition": "KEEP",
+      "rationale": "SQLite FTS5 data shadow storage for sessions_fts; ownership and hidden use follow virtual table definition, not direct application references. Frozen snapshot evidence: 61 rows, 245,760 physical b-tree bytes. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "id": {
+          "meaning": "Engine record/page key; rowid alias.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required data engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 61 non-NULL, 61 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 61,
+            "distinct_nonnull": 61,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts_data"
+        },
+        "block": {
+          "meaning": "Encoded segment/structure payload.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required data engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 61 non-NULL, 61 distinct non-NULL; logical text/BLOB bytes 224,611.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 61,
+            "distinct_nonnull": 61,
+            "distinct_method": "exact",
+            "logical_value_bytes": 224611
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts_data"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#sessions_fts_data",
+      "snapshot_row_count": 61,
+      "physical_btree_bytes": 245760
+    },
+    "sessions_fts_docsize": {
+      "disposition": "KEEP",
+      "rationale": "SQLite FTS5 docsize shadow storage for sessions_fts; ownership and hidden use follow virtual table definition, not direct application references. Frozen snapshot evidence: 729 rows, 16,384 physical b-tree bytes. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "id": {
+          "meaning": "Indexed document rowid; rowid alias.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required docsize engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 729 non-NULL, 729 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 729,
+            "distinct_nonnull": 729,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts_docsize"
+        },
+        "sz": {
+          "meaning": "Encoded per-column token sizes.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required docsize engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 729 non-NULL, 72 distinct non-NULL; logical text/BLOB bytes 2,917.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 729,
+            "distinct_nonnull": 72,
+            "distinct_method": "exact",
+            "logical_value_bytes": 2917
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts_docsize"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#sessions_fts_docsize",
+      "snapshot_row_count": 729,
+      "physical_btree_bytes": 16384
+    },
+    "sessions_fts_idx": {
+      "disposition": "KEEP",
+      "rationale": "SQLite FTS5 idx shadow storage for sessions_fts; ownership and hidden use follow virtual table definition, not direct application references. Frozen snapshot evidence: 59 rows, 4,096 physical b-tree bytes. Occupancy does not replace the source/engine-use rationale.",
+      "columns": {
+        "segid": {
+          "meaning": "Segment identity.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required idx engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 59 non-NULL, 7 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 59,
+            "distinct_nonnull": 7,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts_idx"
+        },
+        "term": {
+          "meaning": "Segment separator term.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required idx engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 59 non-NULL, 49 distinct non-NULL; logical text/BLOB bytes 243.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 59,
+            "distinct_nonnull": 49,
+            "distinct_method": "exact",
+            "logical_value_bytes": 243
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts_idx"
+        },
+        "pgno": {
+          "meaning": "Segment page locator.",
+          "lifecycle": "Engine managed through parent FTS triggers, MATCH and maintenance. Never independently edited by TracePilot.",
+          "migration": "Generated by FTS5 creation/recreation; not separately declared in migration DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 208,
+              "role": "definition"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required idx engine storage; no direct SQL reference is expected. Frozen snapshot: 0 NULL, 59 non-NULL, 16 distinct non-NULL; logical text/BLOB bytes 0.",
+          "confidence": "medium",
+          "measurements": {
+            "null_count": 0,
+            "nonnull_count": 59,
+            "distinct_nonnull": 16,
+            "distinct_method": "exact",
+            "logical_value_bytes": 0
+          },
+          "measurement_reference": "docs/database/statistics.md#sessions_fts_idx"
+        }
+      },
+      "measurement_reference": "docs/database/statistics.md#sessions_fts_idx",
+      "snapshot_row_count": 59,
+      "physical_btree_bytes": 4096
+    }
+  }
+}

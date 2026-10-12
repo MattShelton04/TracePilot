@@ -1,0 +1,2694 @@
+{
+  "tables": {
+    "sessions": {
+      "disposition": "KEEP",
+      "rationale": "Canonical provider-owned session identity plus replaceable metadata/analytics cache, joined by every analytics/search surface and used to resolve IPC/export input. Retain table; individual compatibility/candidate fields are reviewed below. Measured snapshot: 729 rows; see [statistics](statistics.md#sessions) and [physical storage](storage.md). Table B-tree alone allocates 786,432 bytes (102,400 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "id": {
+          "meaning": "Native validated session UUID text; shared primary key across providers, not a source-qualified composite ID. SourceConflict prevents two providers overwriting one ID.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 TEXT PRIMARY KEY; v22 adds independent source ownership.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 5,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 21,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Primary identity for IPC, joins, FK cascades and export selection. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 729 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "path": {
+          "meaning": "Provider locator primary path text: Copilot session directory or Claude Code primary transcript file. Private filesystem data; not a portable session identifier.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 TEXT NOT NULL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 6,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 22,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 137,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/locator.rs",
+              "line": 41,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/export_import/export.rs",
+              "line": 173,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Required to reopen source, check provider liveness, resolve detail/actions/export; providers validate stored path against current configured root. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 729 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "summary": {
+          "meaning": "Optional provider-derived session title/summary text; Claude custom title takes precedence over generated title in current translator. Not full conversation text.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 nullable TEXT; metadata FTS external-content projection maintained by triggers.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 7,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 23,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Session list display and quick FTS search need this projection. Measured snapshot: 729 rows, 510 non-NULL and 219 NULL; distinct non-NULL 445 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "repository": {
+          "meaning": "Optional repository label supplied by provider summary; not globally unique identity or canonicalized repository root.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 nullable TEXT; v3 repo indexes; v14 drops redundant repository-only index.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 8,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 24,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/helpers/filters.rs",
+              "line": 40,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Session filters, repo discovery/analytics grouping and metadata FTS use this label. Measured snapshot: 729 rows, 619 non-NULL and 110 NULL; distinct non-NULL 11 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "branch": {
+          "meaning": "Optional branch label from provider summary; may be missing for non-git sessions.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 nullable TEXT.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 9,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 25,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "List branch filter and metadata FTS/read contract use it. Measured snapshot: 729 rows, 631 non-NULL and 98 NULL; distinct non-NULL 252 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "cwd": {
+          "meaning": "Optional source-recorded working directory string. Private filesystem data, distinct from provider transcript path.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 nullable TEXT.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 10,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 26,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "IPC list payload and distinct_session_cwds support repository discovery. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 81 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "created_at": {
+          "meaning": "Optional source session creation timestamp, serialized RFC3339 by writer. Distinct from index write time; analytics date fallback uses it if updated_at absent.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 nullable TEXT.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 11,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 28,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/helpers/filters.rs",
+              "line": 29,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "List sorting context and analytics temporal fallback are active readers. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 725 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "updated_at": {
+          "meaning": "Optional source last-activity/update timestamp in RFC3339. Analytics date(COALESCE(updated_at,created_at)) uses UTC day; textual list ordering assumes consistent representation.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 nullable TEXT; v3 updated/repo-updated indexes; v14 nonempty partial index.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 12,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 29,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/helpers/filters.rs",
+              "line": 29,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Core newest-first list sorting, time filters and day grouping. Add stable id tie-break as separate improvement if needed. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 725 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "event_count": {
+          "meaning": "Optional number of source summary events/records, integer count; source-specific translation means not comparable to searchable chunk count.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 nullable INTEGER.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 13,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 30,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "List IPC statistics and indexing progress contract consume it. Snapshot has 211 NULLs, all within 619 Copilot rows; every one of 110 Claude rows is populated. Copilot metadata-only/absent-event inputs can explain the distinction; retain unavailable-vs-empty semantics and investigate source availability before assigning data-loss blame. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "indexed_at": {
+          "meaning": "Metadata cache successful upsert time from SQLite datetime('now'), UTC text in SQLite format (second resolution), not source activity time.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v1 TEXT NOT NULL default datetime(now); each metadata upsert overwrites explicitly.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 14,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "INSUFFICIENT_EVIDENCE",
+          "rationale": "No production field-level reader located after tracing list projection, analytics builders, freshness and export loading; generic backup/golden introspection still carries it. Diagnostic meaning is distinct, so removal needs support-tool inventory rather than assuming unused. Snapshot has 729 populated 19-character values totaling 13,851 logical bytes. Diagnostic chronology is populated; lack of a current production field reader is insufficient retirement evidence. Population does not prove a UI consumer. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "medium"
+        },
+        "host_type": {
+          "meaning": "Optional source host/environment label from provider summary, e.g. CLI vs another integration; text, not provider source identity.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v2 nullable TEXT.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 42,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 27,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Exposed in IndexedSession -> SessionListItem, preserved for existing UI/filter contracts. Measured snapshot: 729 rows, 469 non-NULL and 260 NULL; distinct non-NULL 1 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "turn_count": {
+          "meaning": "Optional reconstructed conversation turn count. NULL means unavailable; 0 known empty. Main-turn reconstruction, provider command-only sessions and subagent ownership determine count.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v2 nullable INTEGER; v14 partial newest-first index for turn_count>0.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 43,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 31,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/helpers/filters.rs",
+              "line": 23,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "hide_empty SQL filters and list/progress consumers depend on NULL/zero distinction. Snapshot has 211 NULLs (Copilot) and four known zero values overall. hide_empty depends on both states; population is not a reason to replace NULL with zero. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "current_model": {
+          "meaning": "Optional latest observed model name derived from summary/event log; falls back to shutdown metrics, not necessarily historical most-used model.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v2 nullable TEXT; analytics v14 corrects running/crashed/resumed model selection.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 48,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 32,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "List/model display and indexed analytics use it; source event reconstruction remains authority. Measured snapshot: 729 rows, 497 non-NULL and 232 NULL; distinct non-NULL 15 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "total_premium_requests": {
+          "meaning": "Optional floating Copilot premium-request total reported by summary shutdown ledger; fractional billed request units, not USD or integer API call count. Cleared for providers without premium requests.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v2 nullable REAL; billing capability gating preserves source-specific NULL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 49,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs",
+              "line": 38,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 124,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Dashboard premium-request KPI retains source-specific unit. Measured snapshot: 729 rows, 387 non-NULL and 342 NULL; distinct non-NULL 45 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "total_api_duration_ms": {
+          "meaning": "Optional aggregate provider/shutdown API duration in milliseconds; excludes unknown durations, not wall-clock session age. May cover partial snapshot for providers without exit metrics.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v2 nullable INTEGER.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 50,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs",
+              "line": 39,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 128,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Dashboard duration distribution and output-token throughput read positive values. Measured snapshot: 729 rows, 497 non-NULL and 232 NULL; distinct non-NULL 462 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "workspace_mtime": {
+          "meaning": "Optional RFC3339 UTC workspace.yaml mtime copied from the parsed snapshot fingerprint. Copilot-only legacy projection; NULL when absent. Not independently sampled after parsing.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v2 nullable TEXT; v21 source_fingerprint supersedes freshness use.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 51,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/types.rs",
+              "line": 342,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 365,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "CONSOLIDATE",
+          "rationale": "Complete metadata freshness path now compares source_fingerprint plus analytics_version; no production reader after tracing consumers. Consolidation candidate, retain through a deprecate-read release and support-tool inventory; do not change fingerprints. Snapshot has 619 text values (all Copilot), 110 NULLs and 21,455 logical value bytes. Redundancy with complete fingerprints, not the provider NULL population, supports consolidation. At most 729 one-byte serial entries if present; page reclamation is unmeasured. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "medium"
+        },
+        "total_tokens": {
+          "meaning": "Integer sum of input_tokens plus output_tokens from provider summary model totals; missing components default 0. Cache/read/write/reasoning counters are separate and not additionally summed here. Partial providers cannot prove complete lifetime usage.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v3 nullable INTEGER, normal writer emits derived integer.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 61,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs",
+              "line": 35,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 111,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Dashboard/repository/source token totals are active; do not double-count child model rows or segments. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 462 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "total_cost": {
+          "meaning": "Legacy floating premium-request cost summed from per-model requests.cost; not USD and not observed AI Credits. NULL for provider coverage or provider without premium requests; otherwise absent model cost contributes zero.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v3 nullable REAL; v24 adds separate USD column instead of reinterpreting this one.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 62,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs",
+              "line": 35,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 112,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "CHANGE",
+          "rationale": "Dashboard still sums total_cost; retain existing unit contract pending explicit consumer migration. Name is ambiguous and should be clarified in API/docs before any retirement. Snapshot has 619 populated Copilot values and 110 Claude NULLs. This supports source-specific legacy premium-cost handling, not interpreting the scalar as universal USD. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "tool_call_count": {
+          "meaning": "Optional reconstructed tool invocation count, including pending invocations; reconstructed conversation owns deduplication and authoritative subagent outcomes. NULL without turns, 0 known none.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v3 nullable INTEGER; analytics v17 refreshed conversation-derived counting.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 63,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs",
+              "line": 36,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 91,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Dashboard total calls and activity analytics read it; different from SUM(success+failure) when pending calls exist. Snapshot has 211 NULLs (Copilot), matching unavailable reconstructed-turn coverage; pending calls and timestamp-less calls still distinguish total calls from success/failure and activity rows. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "lines_added": {
+          "meaning": "Optional provider code-change additions count in lines; pass-through aggregate from summary shutdown/provider metrics, not calculated from file table.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v3 nullable INTEGER.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 64,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 27,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Code Impact sums it and day-buckets session totals. Measured snapshot: 729 rows, 497 non-NULL and 232 NULL; distinct non-NULL 333 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "lines_removed": {
+          "meaning": "Optional provider code-change deletions count in lines; pass-through aggregate, not file row count.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v3 nullable INTEGER.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 65,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 27,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Code Impact sums it and computes net_change. Measured snapshot: 729 rows, 497 non-NULL and 232 NULL; distinct non-NULL 221 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "events_mtime": {
+          "meaning": "Optional RFC3339 UTC mtime copied from successful snapshot for events.jsonl or single-file provider primary transcript; legacy metadata projection.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v3 nullable TEXT; v21 independently successful source fingerprint supersedes freshness use.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 67,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/types.rs",
+              "line": 343,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 365,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "CONSOLIDATE",
+          "rationale": "Analytics and search freshness now use independent full fingerprint tokens; field not read in production consumer paths. Candidate consolidation requires deprecate-read compatibility rollout, not immediate drop. Snapshot has 518 text values, 211 NULLs and 17,974 logical value bytes. Missing event inputs can legitimately leave metadata-only sessions; do not interpret NULL as corruption. The complete fingerprint stale path supports consolidation, with at most 729 serial-entry bytes if present and no proven physical savings. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "medium"
+        },
+        "events_size": {
+          "meaning": "Optional bytes of events.jsonl or primary transcript copied from successful snapshot fingerprint; cast from u64 to i64. Does not sum all auxiliary provider files.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v3 nullable INTEGER; v21 full source fingerprint controls stale detection.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 68,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/types.rs",
+              "line": 344,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 365,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-bench/examples/index_probe.rs",
+              "line": 88,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Bench index_probe uses it to select sessions by size; retain diagnostic/probe role while documenting that it is primary-file bytes, not whole-session corpus bytes. Snapshot has 518 non-NULL primary-file sizes and 211 NULLs, with all Claude rows populated. Retain size-selection probe consumption; this is not a measurement of auxiliary source-file bytes. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "analytics_version": {
+          "meaning": "Optional integer successful analytics extraction version; NULL treated 0 for staleness. Current source versions Copilot 18 and Claude Code 30, Claude at least global version; separate from schema migration number.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v3 INTEGER DEFAULT 1; version bumps request re-derivation without DDL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 69,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 365,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "session_is_stale compares provider-specific current version; essential derived-data invalidation. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 2 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "error_count": {
+          "meaning": "Integer count of normalized SessionError events, including rate-limit errors; all events counted even after bounded detailed incident log fills.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v5 INTEGER DEFAULT 0.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 130,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 34,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Session badges and dashboard totals consume it; cannot reconstruct full count from capped incidents. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 9 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "rate_limit_count": {
+          "meaning": "Integer subset of error_count whose normalized error_type is rate_limit. Count, not retry delay.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v5 INTEGER DEFAULT 0.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 131,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 35,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Session badges/dashboard drill-down summaries consume independent subset. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 8 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "compaction_count": {
+          "meaning": "Integer count of normalized CompactionComplete events, including unsuccessful completion; all counted regardless of detail cap.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v5 INTEGER DEFAULT 0.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 133,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 36,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "List badges and dashboard incident totals consume it. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 18 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "truncation_count": {
+          "meaning": "Integer count of normalized SessionTruncation events; count, not tokens truncated.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v5 INTEGER DEFAULT 0.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 134,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 37,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "List badges and dashboard incident totals consume it. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 2 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "total_compaction_input_tokens": {
+          "meaning": "Integer sum of compaction_tokens_used.input_tokens or input from every CompactionComplete; missing usage contributes 0; token count, not pre-compaction context size.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v5 INTEGER DEFAULT 0.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 137,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/tests/analytics.rs",
+              "line": 297,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "DEPRECATE_REMOVE_CANDIDATE",
+          "rationale": "Extraction and test queries prove distinct total, but complete production dashboard/list/export paths do not expose it. Candidate only: preserve until support/extension consumers checked and deprecate-read release completed; detail cap prevents exact reconstruction from incidents. Snapshot has 729 integers, 549 zero and 180 positive, maximum 5,126,649. Positive value payload is at most 540 bytes (180 times three bytes), plus at most 729 serial-entry bytes if present; zero has no value payload. This is a very small candidate whose main rationale is the absent production total consumer, not storage savings; capped incident details cannot reproduce it. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "medium"
+        },
+        "total_compaction_output_tokens": {
+          "meaning": "Integer sum of compaction_tokens_used.output_tokens or output from every CompactionComplete; missing usage contributes 0; token count.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v5 INTEGER DEFAULT 0.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 138,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/tests/analytics.rs",
+              "line": 297,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "DEPRECATE_REMOVE_CANDIDATE",
+          "rationale": "Production consumer trace finds no exposed total; test protects writer accounting. Candidate only with support-tool inventory/two-phase rollout, since capped incident detail cannot reproduce exact total. Snapshot has 729 integers, 549 zero and 180 positive, maximum 239,615. Positive value payload is at most 540 bytes, plus at most 729 serial-entry bytes if present; zero has no value payload. Keep two-phase/support-consumer requirements and do not promise physical savings or reconstruction from capped incident details. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "medium"
+        },
+        "search_indexed_at": {
+          "meaning": "Optional UTC RFC3339 successful search replacement time; NULL means not successfully indexed and masks even a stored search fingerprint. Empty successful extraction still stamps it.",
+          "lifecycle": "Updated only after successful search replacement in its search transaction; metadata upsert leaves it unchanged. NULL/reset on clear/invalidate according to field. Deleted with parent row.",
+          "migration": "Pre-v9 idempotent add-column hook and every-open post-fixup; v9 reset; clear resets NULL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/columns.rs",
+              "line": 9,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 277,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 97,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_reader/stats.rs",
+              "line": 28,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Search completeness statistics and search_is_stale sentinel use it independently of metadata indexed_at. All 729 rows have a successful marker; 219 have no search_content rows. Empty successful extraction intentionally stamps a marker, so this diagnostic is not itself a broken-index invariant. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "search_extractor_version": {
+          "meaning": "Optional successful search extractor integer version; NULL treated 0. Copilot 4, Claude Code 9; independent of analytics/schema versions.",
+          "lifecycle": "Updated only after successful search replacement in its search transaction; metadata upsert leaves it unchanged. NULL/reset on clear/invalidate according to field. Deleted with parent row.",
+          "migration": "Pre-v9 hook/post-fixup INTEGER DEFAULT 0; v9 reset; clear resets 0.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/columns.rs",
+              "line": 13,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 277,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 97,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Search staleness forces re-extraction on provider-specific algorithm changes. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 2 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "copilot_version": {
+          "meaning": "Optional latest nonempty Copilot CLI version from session.start/resume in event order; specific producer version, not universal source version.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v14 nullable TEXT; introduced while removing retired write-only fields.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 364,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 33,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "IndexedSession/list item display reads it. Keep distinct from reserved generic source_format_version until an explicit consumer migration. Measured snapshot: 729 rows, 408 non-NULL and 321 NULL; distinct non-NULL 50 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "total_nano_aiu": {
+          "meaning": "Optional observed Copilot billing in integer nano-AI units (1e9 nano-AIU per AI Credit in the pricing contract). NULL missing/unavailable vs 0 observed zero; cleared for source lacking AIC.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v16 nullable INTEGER; existing rows require analytics re-derivation.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 357,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/dashboard.rs",
+              "line": 47,
+              "role": "read"
+            },
+            {
+              "path": "packages/types/src/pricing.ts",
+              "line": 6,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Observed-credit analytics/model provenance need exact integer telemetry; preserve NULL and source capability semantics. Only 40 rows have observed telemetry; all are Copilot. NULL in 579 other Copilot rows and every Claude row is compatible with older telemetry/source billing capabilities; keep observed-vs-estimated and unknown-vs-zero distinctions. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "source_fingerprint": {
+          "meaning": "Optional serialized provider fingerprint of last successfully committed metadata/analytics snapshot. Copilot preserves workspace/events metadata JSON; generic provider identity includes all tracked files/version token. Equality token, not content hash.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v21 nullable TEXT backfills NULL, forcing metadata refresh.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/plan.rs",
+              "line": 129,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 365,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Metadata staleness and stable snapshot certification; never consolidate with search_source_fingerprint because phases succeed independently. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 729 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions). Measured metadata/search token inequality in all 619 Copilot rows is intentional full-snapshot-versus-events serialization, while all 110 Claude rows match. No current source-file comparison was performed, so this is not a freshness check.",
+          "confidence": "high"
+        },
+        "search_source_fingerprint": {
+          "meaning": "Optional serialized source identity of last successful search replacement. Copilot only events fingerprint; generic source uses its search fingerprint. Equality token, not text content digest; invalidation sets NULL retaining old content.",
+          "lifecycle": "Updated only after successful search replacement in its search transaction; metadata upsert leaves it unchanged. NULL/reset on clear/invalidate according to field. Deleted with parent row.",
+          "migration": "v21 nullable TEXT; existing rows refresh separately; clear sets NULL.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/plan.rs",
+              "line": 130,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 277,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/search_writer/mod.rs",
+              "line": 97,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Independent search correctness/last-good content retention requires this field even if often equal to metadata token. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 519 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions). Measured token equality for 110 Claude rows and inequality for 619 Copilot rows reflects provider serialization, not a reason to merge phase markers; current source-file freshness was not checked.",
+          "confidence": "high"
+        },
+        "source": {
+          "meaning": "Non-null provider ownership name: copilot or claudeCode in this build. Unknown names are rejected by list decoder, locator returns None, source aggregates skip; source conflict refuses overwrite.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v22 TEXT NOT NULL DEFAULT 'copilot'; backfills pre-provider rows; source index added.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 466,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 14,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 47,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/cache.rs",
+              "line": 116,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/helpers/filters.rs",
+              "line": 57,
+              "role": "filter"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 137,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/locator.rs",
+              "line": 41,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/export_import/export.rs",
+              "line": 173,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Ownership checks, source-scoped pruning/purge, provider resolution, billing/filter/liveness/IPC; not replaceable with path inference. Measured snapshot: 729 rows, 729 non-NULL and 0 NULL; distinct non-NULL 2 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "parent_session_id": {
+          "meaning": "Optional native parent session ID from provider locator; family reference, no self-FK, may point to an unindexed parent.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v22 nullable TEXT.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/plan.rs",
+              "line": 138,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 137,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/locator.rs",
+              "line": 41,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/export_import/export.rs",
+              "line": 173,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Stored locator reads it for provider-aware detail/action/export resolution; not join-enforced ancestry. Snapshot is NULL in all 729 rows; absence of child families in this installation does not remove stored-locator/provider consumer compatibility. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "role": {
+          "meaning": "Non-null source family role name (primary/subagent/guardian). Decoder validates enum for stored locator. Parent role differs from reconstructed invocation hierarchy.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v22 TEXT NOT NULL DEFAULT 'primary'.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/plan.rs",
+              "line": 139,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 137,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/helpers/locator.rs",
+              "line": 41,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/export_import/export.rs",
+              "line": 173,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Stored locator reads role; preserve extensibility and unknown-role fallback rather than collapse all to primary. Snapshot has one distinct role across 729 rows. Existing locator decoder still validates the role contract; one observed role is not evidence that the field is unused. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        },
+        "hidden": {
+          "meaning": "Non-null integer boolean derived on every upsert from role.hidden_by_default (guardian true). Intended default visibility; no source currently advertises hidden roles and standard list/analytics/search filters do not read it.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v22 INTEGER NOT NULL DEFAULT 0; backfilled false.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/plan.rs",
+              "line": 140,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 304,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 60,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "INSUFFICIENT_EVIDENCE",
+          "rationale": "Trace of role assignment, provider capability flags and real list/query-builder consumers shows latent visibility contract, not proof of dead storage. Keep pending source-role design or wire consistent filters before supporting hidden roles. Snapshot has 729 integer zero values and no positive values. SQLite zero has no value payload and a one-byte serial code if physically present; at most 729 serial-entry bytes, possibly fewer for historical rows with absent added fields. This tiny scale and reserved role contract do not justify dropping it. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "medium"
+        },
+        "source_format_version": {
+          "meaning": "Optional generic source producer/format version text. SessionIdentity::from_locator currently always initializes None; normal prepare_snapshot never fills it. Format observation table and copilot_version separately contain version evidence.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v22 nullable TEXT.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/plan.rs",
+              "line": 141,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 61,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 61,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "INSUFFICIENT_EVIDENCE",
+          "rationale": "No production assignment/read path beyond upsert; synthetic source test manually sets it. Decide reserved provider contract vs format-observation consolidation explicitly before two-phase retirement; no grep-only drop recommendation. Snapshot is NULL in all 729 rows with zero value payload. A physically present NULL serial code is one byte, but old added/trailing columns can be absent from records; serial-entry contribution is therefore 0..729 bytes, not 729 allocated field bytes. Reserved producer-version contract remains undecided. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "medium"
+        },
+        "cost_usd": {
+          "meaning": "Optional provider/TracePilot-estimated USD total; NULL unpriced/unknown, Some(0) no recorded usage for sources without exit metrics. Copilot normally NULL; coverage can remain partial. Basis/coverage is not persisted in this scalar.",
+          "lifecycle": "Derived from the successful provider snapshot; replaced on metadata reindex in the session savepoint, retained on failed preparation/write, deleted on source-scoped prune/purge with child cascades.",
+          "migration": "v24 nullable REAL; no reinterpretation of legacy total_cost.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/plan.rs",
+              "line": 166,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer.rs",
+              "line": 222,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/source_cost.rs",
+              "line": 23,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/tests/copilot_golden.rs",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Source Cost aggregates SUM and COUNT to distinguish pricing coverage; retain USD unit separately from premium requests/AIC. Snapshot has 110 non-NULL values (all Claude), including six zero, and 619 Copilot NULLs. The provider capability and unknown-versus-known-zero semantics explain the split, so no cross-currency consolidation follows. See [per-column statistics](statistics.md#sessions).",
+          "confidence": "high"
+        }
+      }
+    },
+    "session_activity": {
+      "disposition": "KEEP",
+      "rationale": "Sparse per-session weekday/hour tool invocation buckets feed Tool Analysis 7x24 heatmap; reconstructable cache whose date scope filters sessions, not individual historical calls. Measured snapshot: 1,254 rows; see [statistics](statistics.md#session_activity) and [physical storage](storage.md). Table B-tree alone allocates 73,728 bytes (0 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "session_id": {
+          "meaning": "Parent sessions.id text FK and first composite key part; joins apply repository/date/source/hide-empty filters to the owning session.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative.",
+          "migration": "v3 composite PRIMARY KEY(session_id,day_of_week,hour), FK CASCADE; no DDL check bounds.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 108,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 120,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 81,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 83,
+              "role": "read"
+            },
+            {
+              "path": "apps/desktop/src/components/toolAnalysis/ToolHeatmapPanel.vue",
+              "line": 15,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 85,
+              "role": "join"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Active heatmap join/group/positional decode; retain sparse materialization. Exact event-day date filtering would need different granularity. Measured snapshot: 1,254 rows, 1,254 non-NULL and 0 NULL; distinct non-NULL 442 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_activity).",
+          "confidence": "high"
+        },
+        "day_of_week": {
+          "meaning": "UTC call.started_at weekday integer: Monday=0 through Sunday=6; second composite key part. Calls without start timestamp omitted.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative.",
+          "migration": "v3 composite PRIMARY KEY(session_id,day_of_week,hour), FK CASCADE; no DDL check bounds.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 108,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 120,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 81,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 83,
+              "role": "read"
+            },
+            {
+              "path": "apps/desktop/src/components/toolAnalysis/ToolHeatmapPanel.vue",
+              "line": 15,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 86,
+              "role": "group"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 93,
+              "role": "decode"
+            },
+            {
+              "path": "apps/desktop/src/utils/analytics.ts",
+              "line": 26,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Active heatmap join/group/positional decode; retain sparse materialization. Exact event-day date filtering would need different granularity. Measured snapshot: 1,254 rows, 1,254 non-NULL and 0 NULL; distinct non-NULL 7 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_activity).",
+          "confidence": "high"
+        },
+        "hour": {
+          "meaning": "UTC call.started_at hour integer 0..23, third composite key part; not user-local display time.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative.",
+          "migration": "v3 composite PRIMARY KEY(session_id,day_of_week,hour), FK CASCADE; no DDL check bounds.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 108,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 120,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 81,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 83,
+              "role": "read"
+            },
+            {
+              "path": "apps/desktop/src/components/toolAnalysis/ToolHeatmapPanel.vue",
+              "line": 15,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 86,
+              "role": "group"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 94,
+              "role": "decode"
+            },
+            {
+              "path": "apps/desktop/src/utils/analytics.ts",
+              "line": 26,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Active heatmap join/group/positional decode; retain sparse materialization. Exact event-day date filtering would need different granularity. Measured snapshot: 1,254 rows, 1,254 non-NULL and 0 NULL; distinct non-NULL 21 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_activity).",
+          "confidence": "high"
+        },
+        "tool_call_count": {
+          "meaning": "Count of reconstructed tool invocations with known started_at in this bucket; includes pending calls, deduplicated by reconstruction; can be less than sessions.tool_call_count.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative.",
+          "migration": "v3 composite PRIMARY KEY(session_id,day_of_week,hour), FK CASCADE; no DDL check bounds.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 108,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 120,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 81,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 83,
+              "role": "read"
+            },
+            {
+              "path": "apps/desktop/src/components/toolAnalysis/ToolHeatmapPanel.vue",
+              "line": 15,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 86,
+              "role": "group"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/tool_analysis.rs",
+              "line": 95,
+              "role": "decode"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Active heatmap join/group/positional decode; retain sparse materialization. Exact event-day date filtering would need different granularity. Measured snapshot: 1,254 rows, 1,254 non-NULL and 0 NULL; distinct non-NULL 525 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_activity).",
+          "confidence": "high"
+        }
+      }
+    },
+    "session_modified_files": {
+      "disposition": "KEEP",
+      "rationale": "Source-reported modified file membership per session, not line-level history. Code Impact consumes path/extension aggregates; reconstructed after reindex. Measured snapshot: 5,719 rows; see [statistics](statistics.md#session_modified_files) and [physical storage](storage.md). Table B-tree alone allocates 724,992 bytes (0 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "session_id": {
+          "meaning": "Parent sessions.id text FK; composite identity and analytics join/filter key.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative.",
+          "migration": "v3 composite PRIMARY KEY(session_id,file_path), nullable extension, FK CASCADE.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 99,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 107,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 371,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 40,
+              "role": "read"
+            },
+            {
+              "path": "apps/desktop/src/views/CodeImpactView.vue",
+              "line": 25,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 41,
+              "role": "join"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Active Code Impact grouping/distinct/sorting and positional decode. Same relative path across different repositories currently collapses in aggregate; scope-aware file identity is a possible separate semantic change. Measured snapshot: 5,719 rows, 5,719 non-NULL and 0 NULL; distinct non-NULL 344 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_modified_files).",
+          "confidence": "high"
+        },
+        "file_path": {
+          "meaning": "Source code_changes.files_modified path string; private data. Exact spelling deduplicated per session by INSERT OR IGNORE; query normalizes slash direction for counts, not case/repository identity.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative.",
+          "migration": "v3 composite PRIMARY KEY(session_id,file_path), nullable extension, FK CASCADE.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 99,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 107,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 371,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 40,
+              "role": "read"
+            },
+            {
+              "path": "apps/desktop/src/views/CodeImpactView.vue",
+              "line": 25,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 78,
+              "role": "group"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 83,
+              "role": "decode"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Active Code Impact grouping/distinct/sorting and positional decode. Same relative path across different repositories currently collapses in aggregate; scope-aware file identity is a possible separate semantic change. Measured snapshot: 5,719 rows, 5,719 non-NULL and 0 NULL; distinct non-NULL 3,992 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_modified_files).",
+          "confidence": "high"
+        },
+        "extension": {
+          "meaning": "Optional final suffix from Path::extension (without dot); NULL no extension/non-UTF8 suffix. Source casing retained; no lowercasing.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative.",
+          "migration": "v3 composite PRIMARY KEY(session_id,file_path), nullable extension, FK CASCADE.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 99,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 107,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 371,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 40,
+              "role": "read"
+            },
+            {
+              "path": "apps/desktop/src/views/CodeImpactView.vue",
+              "line": 25,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 42,
+              "role": "group"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/analytics_queries/code_impact.rs",
+              "line": 47,
+              "role": "decode"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Active Code Impact grouping/distinct/sorting and positional decode. Same relative path across different repositories currently collapses in aggregate; scope-aware file identity is a possible separate semantic change. Measured snapshot: 5,719 rows, 5,707 non-NULL and 12 NULL; distinct non-NULL 34 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_modified_files).",
+          "confidence": "high"
+        }
+      }
+    },
+    "session_incidents": {
+      "disposition": "KEEP",
+      "rationale": "Bounded normalized per-incident detail cache for session drill-down; all-event parent counters deliberately differ from capped detail row count. Measured snapshot: 1,003 rows; see [statistics](statistics.md#session_incidents) and [physical storage](storage.md). Table B-tree alone allocates 12,148,736 bytes (10,108,928 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "id": {
+          "meaning": "SQLite-generated integer rowid alias allocated on insertion; not source event ID or stable navigation identity. No AUTOINCREMENT; reindex may reuse values.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative. At most the first 100 qualifying incidents in event iteration order; parent counters still count all matching events. IDs have no stability across replacement.",
+          "migration": "v5; id INTEGER PRIMARY KEY alias, session_id/source_event_type/event_type NOT NULL; timestamp/severity/summary/detail nullable; FK CASCADE and session/timestamp + category indexes.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 141,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 157,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 287,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Internal row identity; do not expose as stable event index or remove merely because current drill-down projects other fields. Measured snapshot: 1,003 rows, 1,003 non-NULL and 0 NULL; distinct non-NULL 1,003 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_incidents).",
+          "confidence": "high"
+        },
+        "session_id": {
+          "meaning": "Parent sessions.id FK text; lookup/filter key for incident drill-down.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative. At most the first 100 qualifying incidents in event iteration order; parent counters still count all matching events. IDs have no stability across replacement.",
+          "migration": "v5; id INTEGER PRIMARY KEY alias, session_id/source_event_type/event_type NOT NULL; timestamp/severity/summary/detail nullable; FK CASCADE and session/timestamp + category indexes.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 141,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 157,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 287,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 308,
+              "role": "filter"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Indexed session/timestamp lookup and FK cascade require ownership. Measured snapshot: 1,003 rows, 1,003 non-NULL and 0 NULL; distinct non-NULL 263 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_incidents).",
+          "confidence": "high"
+        },
+        "event_type": {
+          "meaning": "Normalized incident category text: error, rate_limit, compaction or truncation in extractor. Claude translator can normalize interruption/denial into error events.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative. At most the first 100 qualifying incidents in event iteration order; parent counters still count all matching events. IDs have no stability across replacement.",
+          "migration": "v5; id INTEGER PRIMARY KEY alias, session_id/source_event_type/event_type NOT NULL; timestamp/severity/summary/detail nullable; FK CASCADE and session/timestamp + category indexes.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 141,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 157,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 287,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 307,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 64,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/session/detail.rs",
+              "line": 90,
+              "role": "consumer"
+            },
+            {
+              "path": "apps/desktop/src/composables/session/useSessionSections.ts",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "IPC/UI category and indexed category remain useful distinct from native record type. Measured snapshot: 1,003 rows, 1,003 non-NULL and 0 NULL; distinct non-NULL 4 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_incidents).",
+          "confidence": "high"
+        },
+        "source_event_type": {
+          "meaning": "Normalized event type identifier of source event used by extraction (e.g. session.error), not necessarily raw producer record type for translated providers.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative. At most the first 100 qualifying incidents in event iteration order; parent counters still count all matching events. IDs have no stability across replacement.",
+          "migration": "v5; id INTEGER PRIMARY KEY alias, session_id/source_event_type/event_type NOT NULL; timestamp/severity/summary/detail nullable; FK CASCADE and session/timestamp + category indexes.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 141,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 157,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 287,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 307,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 65,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/session/detail.rs",
+              "line": 91,
+              "role": "consumer"
+            },
+            {
+              "path": "apps/desktop/src/composables/session/useSessionSections.ts",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "IPC preserves event provenance; clarify native-vs-normalized distinction before replacing. Measured snapshot: 1,003 rows, 1,003 non-NULL and 0 NULL; distinct non-NULL 4 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_incidents).",
+          "confidence": "high"
+        },
+        "timestamp": {
+          "meaning": "Optional source event timestamp, writer RFC3339; query orders text ASC. NULL sorts before dated rows; same timestamp has no explicit tie-break.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative. At most the first 100 qualifying incidents in event iteration order; parent counters still count all matching events. IDs have no stability across replacement.",
+          "migration": "v5; id INTEGER PRIMARY KEY alias, session_id/source_event_type/event_type NOT NULL; timestamp/severity/summary/detail nullable; FK CASCADE and session/timestamp + category indexes.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 141,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 157,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 287,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 307,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 66,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/session/detail.rs",
+              "line": 92,
+              "role": "consumer"
+            },
+            {
+              "path": "apps/desktop/src/composables/session/useSessionSections.ts",
+              "line": 134,
+              "role": "consumer"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 308,
+              "role": "sort"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Incident chronological ordering and UI payload need optional date. Measured snapshot: 1,003 rows, 1,003 non-NULL and 0 NULL; distinct non-NULL 992 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_incidents).",
+          "confidence": "high"
+        },
+        "severity": {
+          "meaning": "Extractor severity string (error, warning, info); DDL nullable but normal writer/IndexedIncident decoder require a string.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative. At most the first 100 qualifying incidents in event iteration order; parent counters still count all matching events. IDs have no stability across replacement.",
+          "migration": "v5; id INTEGER PRIMARY KEY alias, session_id/source_event_type/event_type NOT NULL; timestamp/severity/summary/detail nullable; FK CASCADE and session/timestamp + category indexes.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 141,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 157,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 287,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 307,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 67,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/session/detail.rs",
+              "line": 93,
+              "role": "consumer"
+            },
+            {
+              "path": "apps/desktop/src/composables/session/useSessionSections.ts",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "IPC drill-down severity; preserve producer policy and non-null normal path. Measured snapshot: 1,003 rows, 1,003 non-NULL and 0 NULL; distinct non-NULL 3 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_incidents).",
+          "confidence": "high"
+        },
+        "summary": {
+          "meaning": "Human-readable extractor summary; DDL nullable but normal writer/decoder require string. Can include source error text; private session content.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative. At most the first 100 qualifying incidents in event iteration order; parent counters still count all matching events. IDs have no stability across replacement.",
+          "migration": "v5; id INTEGER PRIMARY KEY alias, session_id/source_event_type/event_type NOT NULL; timestamp/severity/summary/detail nullable; FK CASCADE and session/timestamp + category indexes.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 141,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 157,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 287,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 307,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 23,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/session/detail.rs",
+              "line": 94,
+              "role": "consumer"
+            },
+            {
+              "path": "apps/desktop/src/composables/session/useSessionSections.ts",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Drill-down readable summary is active even without raw JSON. Measured snapshot: 1,003 rows, 1,003 non-NULL and 0 NULL; distinct non-NULL 775 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_incidents).",
+          "confidence": "high"
+        },
+        "detail_json": {
+          "meaning": "Optional JSON serialized event.raw.data; serialization failure drops detail. Private raw payload, not structured SQL columns. Tauri parses to JSON and drops invalid JSON.",
+          "lifecycle": "Deleted and regenerated with the parent metadata snapshot in the same savepoint; parent deletion cascades. Not independently authoritative. At most the first 100 qualifying incidents in event iteration order; parent counters still count all matching events. IDs have no stability across replacement.",
+          "migration": "v5; id INTEGER PRIMARY KEY alias, session_id/source_event_type/event_type NOT NULL; timestamp/severity/summary/detail nullable; FK CASCADE and session/timestamp + category indexes.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 141,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/child_rows.rs",
+              "line": 157,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_writer/analytics.rs",
+              "line": 287,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/session_reader.rs",
+              "line": 307,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/row_helpers.rs",
+              "line": 69,
+              "role": "decode"
+            },
+            {
+              "path": "crates/tracepilot-tauri-bindings/src/commands/session/detail.rs",
+              "line": 95,
+              "role": "consumer"
+            },
+            {
+              "path": "apps/desktop/src/composables/session/useSessionSections.ts",
+              "line": 134,
+              "role": "consumer"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "IPC retains diagnostic drill-down payload; no field-level index or typed schema assumption. Measured snapshot: 1,003 rows, 1,003 non-NULL and 0 NULL; distinct non-NULL 883 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#session_incidents).",
+          "confidence": "high"
+        }
+      }
+    },
+    "schema_version": {
+      "disposition": "KEEP",
+      "rationale": "Append-only applied migration ledger, not a singleton version cell or PRAGMA user_version. MAX(version) is authoritative; missing v12 is an intentional plan gap. Measured snapshot: 24 rows; see [statistics](statistics.md#schema_version) and [physical storage](storage.md). Table B-tree alone allocates 4,096 bytes (0 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "version": {
+          "meaning": "Non-null integer applied migration number; current MAX=25, plan 1..11,13..25. No PK/unique/check constraint; runner inserts one successful version per migration.",
+          "lifecycle": "Created/adopted on writer open; each DDL body and its version insertion commit in the same transaction, with online backup before on-disk migration; retained for database lifetime.",
+          "migration": "Canonical shared bootstrap; adopts bare legacy table.",
+          "references": [
+            {
+              "path": "crates/tracepilot-core/src/utils/migrator/schema.rs",
+              "line": 11,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-core/src/utils/migrator/mod.rs",
+              "line": 99,
+              "role": "read"
+            },
+            {
+              "path": "crates/tracepilot-core/src/utils/migrator/mod.rs",
+              "line": 135,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Migration gate requires ledger; never reset without rebuilding/restoring schema. Measured snapshot: 24 rows, 24 non-NULL and 0 NULL; distinct non-NULL 24 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#schema_version).",
+          "confidence": "high"
+        },
+        "applied_at": {
+          "meaning": "Optional UTC SQLite datetime('now') migration application time text at insertion; not source timestamp or migrator monotonic duration.",
+          "lifecycle": "Default-created for successful migration inserts if supported; normal production gate does not read it. Generic golden introspection excludes unstable times.",
+          "migration": "Default on new canonical table; additive ALTER attempted for old bare table. Nonconstant default ALTER can fail on old populated variants and is logged/ignored; version-only ledger remains supported.",
+          "references": [
+            {
+              "path": "crates/tracepilot-core/src/utils/migrator/schema.rs",
+              "line": 12,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-core/src/utils/migrator/schema.rs",
+              "line": 36,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-core/src/utils/migrator/mod.rs",
+              "line": 135,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Diagnostic chronology; migration decision reads MAX(version), not this timestamp. Keep compatibility with databases lacking field rather than infer an exact migration history. Measured snapshot: 24 rows, 24 non-NULL and 0 NULL; distinct non-NULL 6 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#schema_version).",
+          "confidence": "high"
+        }
+      }
+    },
+    "maintenance_state": {
+      "disposition": "KEEP",
+      "rationale": "Small key/value throttle cache for database maintenance; independent from migration and extraction versions. Measured snapshot: 1 rows; see [statistics](statistics.md#maintenance_state) and [physical storage](storage.md). Table B-tree alone allocates 4,096 bytes (0 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "key": {
+          "meaning": "TEXT primary key; current only application key last_run_epoch names the general maintenance throttle.",
+          "lifecycle": "Replaced after maintenance reports at least one successful operation; failures are nonfatal. Normal gate four hours, force bypasses; rebuild/new DB starts unthrottled.",
+          "migration": "v10 table; key TEXT PRIMARY KEY and value TEXT nullable.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 327,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 185,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 176,
+              "role": "read"
+            }
+          ],
+          "disposition": "CHANGE",
+          "rationale": "Keep cheap four-hour gate. Rename/document timestamp as maintenance attempt with some success: any successful merge, vacuum or checkpoint can advance it, even if others failed; no correctness-critical freshness meaning. Measured snapshot: 1 rows, 1 non-NULL and 0 NULL; distinct non-NULL 1 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#maintenance_state).",
+          "confidence": "high"
+        },
+        "value": {
+          "meaning": "Nullable TEXT affinity holding bound integer epoch seconds since Unix epoch UTC. CAST(value AS INTEGER) read; missing/error ->0. No per-operation completion record.",
+          "lifecycle": "Replaced after maintenance reports at least one successful operation; failures are nonfatal. Normal gate four hours, force bypasses; rebuild/new DB starts unthrottled.",
+          "migration": "v10 table; key TEXT PRIMARY KEY and value TEXT nullable.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 327,
+              "role": "definition"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 185,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 176,
+              "role": "read"
+            }
+          ],
+          "disposition": "CHANGE",
+          "rationale": "Keep cheap four-hour gate. Rename/document timestamp as maintenance attempt with some success: any successful merge, vacuum or checkpoint can advance it, even if others failed; no correctness-critical freshness meaning. Measured snapshot: 1 rows, 1 non-NULL and 0 NULL; distinct non-NULL 1 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#maintenance_state).",
+          "confidence": "high"
+        }
+      }
+    },
+    "sqlite_schema": {
+      "disposition": "KEEP",
+      "rationale": "SQLite-owned metadata; retain under engine ownership. Presence of statistics depends on compile features and maintenance history; sqlite_schema has sqlite_master alias. Measured snapshot: 66 rows; see [statistics](statistics.md#sqlite_schema) and [physical storage](storage.md). Table B-tree alone allocates 24,576 bytes (0 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "type": {
+          "meaning": "Schema object kind text: table/index/view/trigger.",
+          "lifecycle": "Engine creates/updates schema on DDL.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 4,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-core/src/utils/sqlite/schema.rs",
+              "line": 28,
+              "role": "read"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 66 rows, 66 non-NULL and 0 NULL; distinct non-NULL 3 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_schema).",
+          "confidence": "high"
+        },
+        "name": {
+          "meaning": "Schema object name text; autoindexes included.",
+          "lifecycle": "Engine creates/updates schema on DDL.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 4,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-core/src/utils/sqlite/schema.rs",
+              "line": 28,
+              "role": "read"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 66 rows, 66 non-NULL and 0 NULL; distinct non-NULL 66 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_schema).",
+          "confidence": "high"
+        },
+        "tbl_name": {
+          "meaning": "Owning table/view name text.",
+          "lifecycle": "Engine creates/updates schema on DDL.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 4,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-core/src/utils/sqlite/schema.rs",
+              "line": 28,
+              "role": "read"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 66 rows, 66 non-NULL and 0 NULL; distinct non-NULL 30 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_schema).",
+          "confidence": "high"
+        },
+        "rootpage": {
+          "meaning": "B-tree root page number; 0/NULL for objects without their own tree.",
+          "lifecycle": "Engine creates/updates schema on DDL.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 4,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-core/src/utils/sqlite/schema.rs",
+              "line": 28,
+              "role": "read"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 66 rows, 66 non-NULL and 0 NULL; distinct non-NULL 59 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_schema).",
+          "confidence": "high"
+        },
+        "sql": {
+          "meaning": "Normalized CREATE SQL text with later ALTER changes; NULL for implicit autoindexes.",
+          "lifecycle": "Engine creates/updates schema on DDL.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 4,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-core/src/utils/sqlite/schema.rs",
+              "line": 28,
+              "role": "read"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 66 rows, 52 non-NULL and 14 NULL; distinct non-NULL 52 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_schema).",
+          "confidence": "high"
+        }
+      }
+    },
+    "sqlite_sequence": {
+      "disposition": "KEEP",
+      "rationale": "SQLite-owned metadata; retain under engine ownership. Presence of statistics depends on compile features and maintenance history; sqlite_schema has sqlite_master alias. Measured snapshot: 1 rows; see [statistics](statistics.md#sqlite_sequence) and [physical storage](storage.md). Table B-tree alone allocates 4,096 bytes (0 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "name": {
+          "meaning": "AUTOINCREMENT table name text, here search_content.",
+          "lifecycle": "Engine creates on AUTOINCREMENT table DDL and updates high-water mark during inserts; survives deletes.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 166,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 1 rows, 1 non-NULL and 0 NULL; distinct non-NULL 1 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_sequence).",
+          "confidence": "high"
+        },
+        "seq": {
+          "meaning": "Largest committed AUTOINCREMENT integer key; high-water mark, not current row count or safe manual reset target.",
+          "lifecycle": "Engine creates on AUTOINCREMENT table DDL and updates high-water mark during inserts; survives deletes.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/migrations/sql.rs",
+              "line": 166,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 1 rows, 1 non-NULL and 0 NULL; distinct non-NULL 1 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_sequence).",
+          "confidence": "high"
+        }
+      }
+    },
+    "sqlite_stat1": {
+      "disposition": "KEEP",
+      "rationale": "SQLite-owned metadata; retain under engine ownership. Presence of statistics depends on compile features and maintenance history; sqlite_schema has sqlite_master alias. Measured snapshot: 35 rows; see [statistics](statistics.md#sqlite_stat1) and [physical storage](storage.md). Table B-tree alone allocates 4,096 bytes (0 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "tbl": {
+          "meaning": "Analyzed table name text.",
+          "lifecycle": "Optional engine-generated planner statistics refreshed by ANALYZE/PRAGMA optimize, read by planner; discard/recompute only through supported maintenance and measured plan checks.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 67,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 35 rows, 35 non-NULL and 0 NULL; distinct non-NULL 22 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_stat1).",
+          "confidence": "high"
+        },
+        "idx": {
+          "meaning": "Analyzed index name, or NULL for table-wide statistics.",
+          "lifecycle": "Optional engine-generated planner statistics refreshed by ANALYZE/PRAGMA optimize, read by planner; discard/recompute only through supported maintenance and measured plan checks.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 67,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 35 rows, 30 non-NULL and 5 NULL; distinct non-NULL 30 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_stat1).",
+          "confidence": "high"
+        },
+        "stat": {
+          "meaning": "Space-separated planner cardinality/selectivity integers and optional flags text; not application metrics.",
+          "lifecycle": "Optional engine-generated planner statistics refreshed by ANALYZE/PRAGMA optimize, read by planner; discard/recompute only through supported maintenance and measured plan checks.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 67,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 35 rows, 35 non-NULL and 0 NULL; distinct non-NULL 33 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_stat1).",
+          "confidence": "high"
+        }
+      }
+    },
+    "sqlite_stat4": {
+      "disposition": "KEEP",
+      "rationale": "SQLite-owned metadata; retain under engine ownership. Presence of statistics depends on compile features and maintenance history; sqlite_schema has sqlite_master alias. Measured snapshot: 612 rows; see [statistics](statistics.md#sqlite_stat4) and [physical storage](storage.md). Table B-tree alone allocates 90,112 bytes (0 included overflow bytes); this excludes separate indexes and is not per-column savings.",
+      "columns": {
+        "tbl": {
+          "meaning": "Analyzed table name text.",
+          "lifecycle": "Optional engine-generated planner statistics refreshed by ANALYZE/PRAGMA optimize, read by planner; discard/recompute only through supported maintenance and measured plan checks.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 67,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 612 rows, 612 non-NULL and 0 NULL; distinct non-NULL 17 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_stat4).",
+          "confidence": "high"
+        },
+        "idx": {
+          "meaning": "Analyzed index name text.",
+          "lifecycle": "Optional engine-generated planner statistics refreshed by ANALYZE/PRAGMA optimize, read by planner; discard/recompute only through supported maintenance and measured plan checks.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 67,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 612 rows, 612 non-NULL and 0 NULL; distinct non-NULL 30 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_stat4).",
+          "confidence": "high"
+        },
+        "neq": {
+          "meaning": "Text integer vector giving equal-prefix sample cardinalities.",
+          "lifecycle": "Optional engine-generated planner statistics refreshed by ANALYZE/PRAGMA optimize, read by planner; discard/recompute only through supported maintenance and measured plan checks.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 67,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 612 rows, 612 non-NULL and 0 NULL; distinct non-NULL 232 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_stat4).",
+          "confidence": "high"
+        },
+        "nlt": {
+          "meaning": "Text integer vector giving smaller-prefix sample cardinalities.",
+          "lifecycle": "Optional engine-generated planner statistics refreshed by ANALYZE/PRAGMA optimize, read by planner; discard/recompute only through supported maintenance and measured plan checks.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 67,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 612 rows, 612 non-NULL and 0 NULL; distinct non-NULL 575 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_stat4).",
+          "confidence": "high"
+        },
+        "ndlt": {
+          "meaning": "Text integer vector giving distinct smaller-prefix sample counts.",
+          "lifecycle": "Optional engine-generated planner statistics refreshed by ANALYZE/PRAGMA optimize, read by planner; discard/recompute only through supported maintenance and measured plan checks.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 67,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 612 rows, 612 non-NULL and 0 NULL; distinct non-NULL 599 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_stat4).",
+          "confidence": "high"
+        },
+        "sample": {
+          "meaning": "SQLite record-format BLOB sample of an index key; can encode private indexed values. Never publish raw samples.",
+          "lifecycle": "Optional engine-generated planner statistics refreshed by ANALYZE/PRAGMA optimize, read by planner; discard/recompute only through supported maintenance and measured plan checks.",
+          "migration": "Engine file-format contract; no TracePilot migration alters these columns.",
+          "references": [
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 34,
+              "role": "write"
+            },
+            {
+              "path": "crates/tracepilot-indexer/src/index_db/maintenance.rs",
+              "line": 67,
+              "role": "write"
+            }
+          ],
+          "disposition": "KEEP",
+          "rationale": "Engine-internal DDL/planner/allocator consumer; absence of application field reads is not evidence of unused storage. Measured snapshot: 612 rows, 612 non-NULL and 0 NULL; distinct non-NULL 609 (exact). Population corroborates only this installation, not product-wide feature use or retirement eligibility. See [per-column statistics](statistics.md#sqlite_stat4).",
+          "confidence": "high"
+        }
+      }
+    }
+  }
+}
