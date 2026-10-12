@@ -11,6 +11,7 @@ from pathlib import Path
 from schema import ROOT, inventory, quote, write_json
 from snapshot import gate, ignored, readonly, sha256, utc
 from budget import Budget
+from report import resolve_source_revision
 
 ACTIVE_BUDGET = None
 
@@ -169,6 +170,7 @@ def measure(snapshot, output, coordinator):
     gate(coordinator)
     snapshot, output = ignored(snapshot), ignored(output)
     provenance = json.loads(snapshot.with_suffix('.provenance.json').read_text(encoding='utf-8'))
+    source_revision = resolve_source_revision(provenance)
     if sha256(snapshot) != provenance['snapshot_sha256']:
         raise ValueError('Snapshot no longer matches validated provenance')
     temporary = ignored(output.parent / 'sqlite-temp')
@@ -182,6 +184,7 @@ def measure(snapshot, output, coordinator):
     conn.execute('PRAGMA hard_heap_limit=268435456')
     schema = inventory(conn)
     result = {'started_utc': utc(), 'sqlite_version': sqlite3.sqlite_version,
+              'source_revision': source_revision,
               'snapshot_sha256': provenance['snapshot_sha256'], 'schema': schema, 'tables': {}}
     try:
         try:

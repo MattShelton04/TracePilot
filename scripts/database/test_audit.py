@@ -10,7 +10,7 @@ from pathlib import Path
 
 from measure import correctness, table_stats
 from plans import digest_query
-from report import validate_measurements
+from report import resolve_source_revision, validate_measurements
 from schema import ROOT, inventory, source_schema
 from snapshot import gate, sha256, snapshot
 
@@ -149,6 +149,24 @@ class AuditTests(unittest.TestCase):
             text = digest_query(conn, "SELECT COUNT(*), 'private-secret' FROM sample", [],
                                 reviewed_numeric_aggregate_output=True)
             self.assertIsNone(text['scalar_counts'])
+
+    def test_revision_provenance_requires_valid_unambiguous_source(self):
+        revision = 'a1' * 20
+        self.assertEqual(resolve_source_revision({'source_revision': revision}), revision)
+        self.assertEqual(resolve_source_revision({}, revision), revision)
+        self.assertEqual(resolve_source_revision({'source_revision': revision}, revision.upper()), revision)
+        with self.assertRaisesRegex(ValueError, 'Missing source revision'):
+            resolve_source_revision({})
+        with self.assertRaisesRegex(ValueError, 'Conflicting source revisions'):
+            resolve_source_revision({'source_revision': revision}, 'b2' * 20)
+        for malformed in (None, '', 'a1', 'g' * 40, 19):
+            with self.subTest(recorded=malformed):
+                with self.assertRaisesRegex(ValueError, 'Malformed source revision'):
+                    resolve_source_revision({'source_revision': malformed}, revision)
+        for malformed in ('a1', 'g' * 40, 19):
+            with self.subTest(fallback=malformed):
+                with self.assertRaisesRegex(ValueError, 'Malformed source revision'):
+                    resolve_source_revision({}, malformed)
 
 
 if __name__ == '__main__':

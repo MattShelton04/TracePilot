@@ -1,6 +1,7 @@
 """Render aggregate evidence and a strict schema/semantic coverage manifest."""
 import argparse
 import json
+import re
 from pathlib import Path
 
 from schema import ROOT, inventory, source_schema, write_json
@@ -141,8 +142,22 @@ def render_storage(data):
     return '\n'.join(lines)
 
 
-def render(evidence):
+def resolve_source_revision(provenance, fallback=None):
+    """Require an unambiguous full Git revision; legacy evidence needs an explicit fallback."""
+    recorded = provenance.get('source_revision')
+    for value in ([recorded] if 'source_revision' in provenance else []) + ([fallback] if fallback is not None else []):
+        if not isinstance(value, str) or not re.fullmatch(r'[0-9a-fA-F]{40}', value):
+            raise ValueError('Malformed source revision; expected a full 40-character Git SHA')
+    if recorded is None and fallback is None:
+        raise ValueError('Missing source revision; legacy measurements require --source-revision')
+    if recorded is not None and fallback is not None and recorded.lower() != fallback.lower():
+        raise ValueError('Conflicting source revisions in evidence and --source-revision')
+    return (recorded if recorded is not None else fallback).lower()
+
+
+def render(evidence, source_revision=None):
     data = json.loads(Path(evidence).read_text(encoding='utf-8'))
+    audited_revision = resolve_source_revision(data, source_revision)
     validate_measurements(data)
     conn, versions = source_schema()
     current = inventory(conn)
@@ -166,7 +181,7 @@ def render(evidence):
         assert name in semantics, f'Missing table semantics: {name}'
         missing = columns - semantics[name]['columns'].keys()
         assert not missing, f'Missing column semantics: {name}: {missing}'
-    manifest = {'audited_revision': 'd95f6d81d8a27f9ee3b18967f00b81d76c25e723',
+    manifest = {'audited_revision': audited_revision,
                 'snapshot_sha256': data['snapshot_sha256'], 'migration_versions_current': versions,
                 'snapshot': snapshot, 'current': current, 'coverage': {}}
     manifest['object_coverage'] = {}
@@ -293,4 +308,6 @@ def validate_measurements(data):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--evidence', required=True)
-    render(parser.parse_args().evidence)
+    parser.add_argument('--source-revision', help='Explicit full Git SHA for legacy measurements without source_revision')
+    args = parser.parse_args()
+    render(args.evidence, args.source_revision)
