@@ -35,15 +35,15 @@ node scripts/check-doc-links.mjs
 
 The coverage verifier reconstructs the current schema in memory, compares definitions against the manifest, verifies every discovered object/column has an owner, validates repository path/line references and checks that every column appears in both statistics tables. It verifies reference locations, not the semantic truth of each reference; source review supplies that additional evidence. It detects future schema drift instead of silently treating this audit as current.
 
-Synthetic contracts cover committed WAL backup with an unchanged source, refusal before source access when coordination denies work, mixed SQLite types/NULL/empty values, sensitive-value withholding, current migration/FTS coverage and rejection of incomplete publication inputs. They also exercise explicit aggregate-output authorization so a COUNT projection cannot accidentally disclose an identifier from another numeric expression. Scratch databases and raw review notes remain ignored.
+Synthetic contracts cover committed WAL backup with an unchanged source, refusal before source access when coordination denies work, mixed SQLite types/NULL/empty values, sensitive-value withholding, current migration/FTS coverage and rejection of incomplete publication inputs. They also exercise explicit aggregate-output authorization so a COUNT projection cannot accidentally disclose an identifier from another numeric expression. A provenance contract rejects missing, malformed or conflicting source revisions so future audits cannot inherit this report's baseline. Scratch databases and raw review notes remain ignored.
 
 Local checks against the publication files on the audited source base:
 
 | Command/check | Outcome |
 | --- | --- |
-| `python -B scripts/database/report.py --evidence <ignored-measurements.json>` | Passed stricter completeness/storage reconciliation checks and regenerated schema, statistics, storage and coverage from completed evidence. No database opened. |
+| `python -B scripts/database/report.py --evidence <ignored-measurements.json> --source-revision <audited-SHA>` | Passed stricter completeness/storage reconciliation checks and regenerated schema, statistics, storage and coverage from completed evidence. No database opened. The explicit revision comes from matching snapshot provenance for this legacy measurement file. |
 | `python -B scripts/database/verify.py` | Passed: 31 tables, 238 columns, 70 object paths, 1,362 repository reference locations. |
-| `python -B -m unittest discover -s scripts/database -p test_audit.py -v` | All seven tests passed. New missing-evidence/privacy regressions failed for the expected behavioral reasons before safeguards were added. |
+| `python -B -m unittest discover -s scripts/database -p test_audit.py -v` | All eight tests passed. New missing-evidence/privacy regressions failed for the expected behavioral reasons before safeguards were added. |
 | `pnpm lint` | Passed; two informational notices remain in unchanged source files. No new warnings/errors. |
 | `node scripts/check-file-sizes.mjs` | Passed, zero allow-listed violations. The restricted Windows attempt could not spawn Git; the same unmodified check passed with normal subprocess access. |
 | `node scripts/check-doc-links.mjs` | Passed across 184 Markdown files. |

@@ -114,12 +114,13 @@ After reviewing the complete aggregate evidence, generate public schema/statisti
 
 ```powershell
 python -B scripts/database/report.py --evidence "$evidence"
+pnpm exec biome format --write docs/database/coverage.json
 python -B scripts/database/verify.py
 python -B -m unittest discover -s scripts/database -p "test_audit.py"
 node scripts/check-doc-links.mjs docs/database/methodology.md docs/README.md scripts/README.md
 ```
 
-The synthetic unittest command creates only its own ignored scratch databases and exercises schema/hidden columns, NULL/type/cardinality/privacy contracts, committed-WAL backup, false-gate refusal and incomplete-report rejection. `verify.py` requires generated coverage/statistics/storage documents and checks every semantic reference location. `report.py` emits schema.md, statistics.md, storage.md and coverage.json; it does not automatically publish private plan JSON or its digests. Review unknown object names and sanitized correctness/plan evidence before adding them to public docs.
+The synthetic unittest command creates only its own ignored scratch databases and exercises schema/hidden columns, NULL/type/cardinality/privacy contracts, committed-WAL backup, false-gate refusal, incomplete-report rejection and source-revision provenance. `verify.py` requires generated coverage/statistics/storage documents and checks every semantic reference location. New measurements carry `source_revision` from snapshot provenance; `report.py` uses that revision. Legacy measurement JSON without it requires `--source-revision <full-audited-SHA>` copied from the matching snapshot provenance. Conflicting or malformed revisions are rejected. `report.py` emits schema.md, statistics.md, storage.md and coverage.json; it does not automatically publish private plan JSON or its digests. Review unknown object names and sanitized correctness/plan evidence before adding them to public docs.
 
 ## Measurement provenance
 
