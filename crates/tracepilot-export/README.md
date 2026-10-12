@@ -68,6 +68,29 @@ for f in files { std::fs::write(&f.path, &f.bytes)?; }
 
 - `tracepilot-core` — session parsing.
 
+## Performance probe
+
+Build the release example with `cargo build --release -p tracepilot-export
+--example export_probe`. Set `TRACEPILOT_PROBE_REVISION` to the measured Git SHA
+before building; `export_probe --revision` prints the embedded value. Generate a
+new synthetic session directory, then measure each workload in a fresh process:
+
+```powershell
+$probe = '.\target\release\examples\export_probe.exe'
+& $probe generate .agent/export-corpus 2000 4096
+& $probe measure .agent/export-corpus all-json
+& $probe measure .agent/export-corpus sharing-md
+```
+
+Each turn has four tools. The last argument controls result text bytes per tool.
+Generation refuses an existing directory. The measurement reports archive build,
+render and combined times, output bytes and SHA-256, and peak process working set
+on Windows or peak RSS on Linux. Normalize only volatile archive header fields
+and requested-section ordering before hashing, so base/head digests must match.
+Use separately retained base/head executables, interleave at least five runs of
+each with no competing builds, and report medians and ranges. These are export
+pipeline measurements with an uncontrolled OS file cache, not desktop IPC times.
+
 ## Layout
 
 - `src/lib.rs` — public API + pipeline helper.

@@ -45,10 +45,22 @@ pub(super) fn build_provider_session(
     let summary = &snapshot.summary;
     let events = snapshot.events.as_deref();
 
+    let turns = if options.includes(SectionId::Conversation) {
+        events.map(|events| {
+            snapshot
+                .turns
+                .clone()
+                .unwrap_or_else(|| reconstruct_turns(events))
+        })
+    } else {
+        None
+    };
+
     let turn_count = snapshot
         .turns
         .as_ref()
         .map(Vec::len)
+        .or_else(|| turns.as_ref().map(Vec::len))
         .or_else(|| events.map(|events| reconstruct_turns(events).len()));
     let metadata = PortableSessionMetadata {
         id: summary.id.clone(),
@@ -78,7 +90,7 @@ pub(super) fn build_provider_session(
 
     PortableSession {
         metadata,
-        conversation: build_conversation(options, events, available),
+        conversation: build_conversation(options, events, turns, available),
         events: build_events(options, raw_events, available),
         todos: build_todos(options, artifacts, available),
         plan: build_plan(options, artifacts.plan.as_ref(), available),
