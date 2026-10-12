@@ -35,12 +35,11 @@ pub(super) fn build_portable_session(
         || options.includes(SectionId::ParseDiagnostics);
 
     let events_path = session_paths.events_jsonl();
-    let (typed_events, raw_events, diagnostics) = if needs_events && events_path.exists() {
+    let (typed_events, diagnostics) = if needs_events && events_path.exists() {
         let parsed = parse_typed_events(&events_path).map_err(ExportError::session_data)?;
-        let raw = parsed.events.iter().map(|te| te.raw.clone()).collect();
-        (Some(parsed.events), Some(raw), Some(parsed.diagnostics))
+        (Some(parsed.events), Some(parsed.diagnostics))
     } else {
-        (None, None, None)
+        (None, None)
     };
 
     // 3. Build metadata
@@ -48,10 +47,11 @@ pub(super) fn build_portable_session(
         .as_ref()
         .map(|e| e.len())
         .or_else(|| if events_path.exists() { None } else { Some(0) });
-    let turn_count = typed_events.as_ref().map(|events| {
-        let turns = reconstruct_turns(events);
-        turns.len()
-    });
+    // Keep the reconstruction used for metadata for the conversation section.
+    let turns = typed_events
+        .as_ref()
+        .map(|events| reconstruct_turns(events));
+    let turn_count = turns.as_ref().map(Vec::len);
 
     let display_summary = ws.display_summary();
     let metadata = PortableSessionMetadata {
@@ -74,9 +74,12 @@ pub(super) fn build_portable_session(
     // 4. Build each optional section
     let mut available_sections = Vec::new();
 
-    let conversation =
-        build_conversation(options, typed_events.as_deref(), &mut available_sections);
-    let events = build_events(options, raw_events, &mut available_sections);
+    let conversation = build_conversation(
+        options,
+        typed_events.as_deref(),
+        turns,
+        &mut available_sections,
+    );
     let todos = build_todos(options, session_dir, &mut available_sections);
     let plan = build_plan(options, session_dir, &mut available_sections);
     let checkpoints = build_checkpoints(options, session_dir, &mut available_sections);
@@ -90,6 +93,21 @@ pub(super) fn build_portable_session(
         typed_events.as_ref().map(|e| e.len()).unwrap_or(0),
         &mut available_sections,
     );
+
+    // All typed-event consumers have finished. Move raw envelopes into the
+    // export instead of retaining a second copy of every event's JSON tree.
+    let raw_events = if options.includes(SectionId::Events) {
+        typed_events.map(|events| events.into_iter().map(|event| event.raw).collect())
+    } else {
+        None
+    };
+    let events = build_events(options, raw_events, &mut available_sections);
+    // Events is now built last; preserve the established manifest wire order.
+    available_sections.sort_by_key(|section| {
+        SectionId::ALL
+            .iter()
+            .position(|candidate| candidate == section)
+    });
 
     Ok(PortableSession {
         metadata,
