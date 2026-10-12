@@ -37,6 +37,7 @@
  */
 
 import { reindexSessions } from "@tracepilot/client";
+import { getDesignToken } from "@tracepilot/ui";
 import { computed, nextTick, onMounted, ref } from "vue";
 import IndexingOrbitalScene from "@/components/indexing/IndexingOrbitalScene.vue";
 import { useIndexingEvents } from "@/composables/useIndexingEvents";
@@ -58,11 +59,14 @@ const progress = useIndexingProgressAnimation({
     showLaneEllipses: () => sceneRef.value?.showLaneEllipses(),
     setLaneEllipseOpacity: (v) => sceneRef.value?.setLaneEllipseOpacity(v),
     setGlobalSpeedMult: (v) => sceneRef.value?.setGlobalSpeedMult(v),
-    decelerate: (ms) => sceneRef.value?.decelerate(ms),
     clearSeedNodes: () => sceneRef.value?.clearSeedNodes(),
     createNode: (repo, branch, tokens) => sceneRef.value?.createNode(repo, branch, tokens),
     emitPulse: () => sceneRef.value?.emitPulse(),
     logWarn: (...args: unknown[]) => logWarn(String(args[0] ?? ""), ...args.slice(1)),
+  },
+  fadeDurationMs: () => {
+    const duration = getDesignToken("--duration-normal");
+    return Number.parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1_000) || 0;
   },
   onComplete: () => emit("complete"),
 });
@@ -72,7 +76,9 @@ const sceneScaleFactor = computed(() => sceneRef.value?.scaleFactor ?? 1);
 const indexingEvents = useIndexingEvents({
   onStarted: progress.onIndexingStarted,
   onProgress: progress.onIndexingProgress,
-  onFinished: progress.onIndexingFinished,
+  onFinished: () => {
+    // Source-only passes emit this too; only our full request can finish setup.
+  },
 });
 
 /** Seed decorative dot-only nodes across all lanes for immediate visual activity. */
@@ -103,10 +109,12 @@ onMounted(async () => {
   sceneRef.value?.showLaneEllipses();
 
   // Trigger indexing
-  reindexSessions().catch((err) => {
-    logError("[indexing] Indexing failed (non-fatal):", err);
-    progress.handleCompletion();
-  });
+  reindexSessions()
+    .then(progress.onIndexingFinished)
+    .catch((err) => {
+      logError("[indexing] Indexing failed (non-fatal):", err);
+      progress.handleCompletion();
+    });
 });
 </script>
 
@@ -117,7 +125,7 @@ onMounted(async () => {
   inset: 0;
   background: var(--canvas-inset);
   z-index: 9999;
-  transition: opacity 0.4s ease;
+  transition: opacity var(--duration-normal) var(--ease-out);
 }
 
 .indexing-loading-screen.fade-out {
