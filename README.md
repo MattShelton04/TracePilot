@@ -5,14 +5,14 @@
 </p>
 
 <p align="center">
-  <strong>A desktop app for inspecting, searching, and launching GitHub Copilot CLI sessions.</strong>
+  <strong>A desktop app for inspecting, searching, and launching GitHub Copilot CLI and Claude Code sessions.</strong>
 </p>
 
-TracePilot is built for developers who use GitHub Copilot CLI heavily and want a clearer view of what happened across their sessions: prompts, assistant turns, subagents and the messages they exchange, tool calls, todos, checkpoints, context growth, prompt-cache state, token usage, AI Credits, search, and orchestration.
+TracePilot is built for developers who lean on coding agents and want a clearer view of what happened across their sessions: prompts, assistant turns, subagents and the messages they exchange, tool calls, todos, checkpoints, context growth, prompt-cache state, token usage, cost, search, and orchestration.
 
-It reads the session data Copilot CLI writes under `~/.copilot/session-state/` by default, indexes it locally, and presents it in a Tauri desktop app backed by Rust, SQLite, and Vue.
+It reads the sessions Copilot CLI writes under `~/.copilot/session-state/` and Claude Code writes under `~/.claude/projects/`, indexes them locally, and shows them side by side in a Tauri desktop app backed by Rust, SQLite, and Vue. Your session data stays on your machine.
 
-![TracePilot session library](docs/images/readme-session-list.png)
+![TracePilot session library with Copilot CLI and Claude Code sessions](docs/images/readme-session-list.png)
 
 > **Project status:** TracePilot is early-stage software. It is useful today, but the UI and internal data model still change quickly.
 >
@@ -33,22 +33,22 @@ It reads the session data Copilot CLI writes under `~/.copilot/session-state/` b
 
 ## What you can do
 
-### Inspect Copilot CLI sessions
+### Inspect sessions
 
-Browse your Copilot CLI session history as a searchable library, then open any session for a tabbed deep-dive:
+Browse your session history as a searchable library, filter it by source, repository, or folder, and see which sessions are **Busy** or **Waiting** right now. Open any session for a tabbed deep-dive:
 
 | Area | What it helps with |
 | --- | --- |
-| **Overview** | Session metadata, plan and checkpoint summaries, incidents, AI Credits, and high-level stats. |
+| **Overview** | Headline numbers, how the session ended, incidents, changes, plan and checkpoints, and turn activity over time. |
 | **Conversation** | User/assistant turns, reasoning, model switches, parallel subagents, skill invocations, tool calls, and rich tool-result renderers. |
 | **Events** | Raw session events with filtering and pagination for debugging parser or CLI behavior. |
 | **Todos** | Copilot's task state as a list or dependency graph. |
-| **Metrics** | AI Credits, token and cache usage per model or per agent, duration, code changes, and prompt-cache timing. |
+| **Metrics** | Cost, token and cache usage per model or per agent, duration, code changes, and prompt-cache timing. |
 | **Context** | How the context window grows by turn or over time (system prompt, tool definitions, conversation), where compactions happened, and which tools contribute most. |
 | **Explorer** | Files inside the session state directory, with viewers for Markdown, JSON/JSONL, CSV, SQLite, images, and more. |
 | **Timeline** | Swimlane, waterfall, and agent-tree views, plus a **Messages** view of how agents launched, messaged, and read back from each other. |
 
-The session header shows whether the prompt cache is warm, expiring, or expired, with a live countdown. Sessions can open in pop-out windows and auto-refresh while they run. Rich renderers cover common tool output such as diffs, patches, shell output, search and web-search results, SQL, file trees, `ask_user` prompts, and the agent-control tools (`read_agent`, `write_agent`, `list_agents`).
+The session header shows the model, reasoning effort, and whether the prompt cache is warm, expiring, or expired, with a live countdown. **Resume in Terminal** reopens a session in its folder. Sessions can open in pop-out windows and auto-refresh while they run. Rich renderers cover common tool output such as diffs, patches, shell output, search and web-search results, SQL, file trees, `ask_user` prompts, and the agent-control tools (`read_agent`, `write_agent`, `list_agents`).
 
 | Conversation | Agent timeline |
 | --- | --- |
@@ -58,17 +58,27 @@ The session header shows whether the prompt cache is warm, expiring, or expired,
 | --- | --- |
 | ![Sequence diagram of messages between agents](docs/images/readme-agent-messages.png) | ![Todo dependency graph](docs/images/readme-todos.png) |
 
-| Context | Metrics |
+| Overview | Context |
 | --- | --- |
-| ![Context window growth with a compaction](docs/images/readme-context.png) | ![Session metrics with cache breakdown](docs/images/readme-metrics.png) |
+| ![Session overview with headline numbers and turn activity](docs/images/readme-session-overview.png) | ![Context window growth with a compaction](docs/images/readme-context.png) |
+
+### Copilot CLI and Claude Code
+
+Claude Code sessions sit next to Copilot CLI sessions in the library, Conversation, Timeline, Metrics, Context, Search, Analytics, and Export. First-run setup turns them on when it finds Claude Code's folder (`CLAUDE_CONFIG_DIR`, else `~/.claude`); **Settings → Claude Code** changes the folder or turns them off.
+
+- Sessions, Search, and the analytics pages switch between **All**, **Copilot**, and **Claude Code**. Search also takes `source:copilot` and `source:claude`.
+- Copilot usage is priced in AI Credits and Claude Code usage in API-equivalent US dollars. With both sources, Analytics and Models total them in USD.
+- Launching, the SDK bridge, the config injector, todos, and the skills and agents editors stay Copilot-only.
+
+TracePilot only reads Claude Code's files. Claude Code deletes transcripts older than its `cleanupPeriodDays` setting (30 days by default), and **Settings → Claude Code** can raise it in one click. See [Claude Code sessions](docs/claude-code-sessions.md) for details.
 
 ### Search and analyze session history
 
 TracePilot maintains a local SQLite/FTS5 index so you can search across session metadata and conversation content without sending data to a remote service.
 
-The analytics views help answer questions such as:
+Analytics, Tools, and Code share a dashboard of per-day charts, split by source. They help answer questions such as:
 
-- Which repositories, models, and tools are consuming the most time, tokens, or AI Credits?
+- Which repositories, models, and tools are consuming the most time, tokens, or cost?
 - How well is the prompt cache working, and how often do sessions resume after it expired?
 - How often do tool calls fail, and which tools dominate a session?
 - Which files and file types are touched most often?
@@ -80,7 +90,7 @@ Available top-level analysis pages include Search, Analytics, Tools, Code Impact
 | --- | --- | --- |
 | ![Full-text search across sessions](docs/images/readme-search.png) | ![Analytics dashboard](docs/images/readme-analytics.png) | ![Tool analysis dashboard](docs/images/readme-tool-analysis.png) |
 
-### Understand agents and skills
+### Understand Copilot CLI agents and skills
 
 - **Agents** lists built-in, personal, and project Copilot CLI agents, plus agents seen only in sessions. Each has run counts, durations, and failure rates, a definition editor, its effective configuration, and `/subagents` model overrides.
 - **Skills** creates, edits, and imports Copilot CLI skills (including from GitHub through the `gh` CLI) and shows how often each skill is invoked, by whom, and how many tokens it injects. Unused, dormant, drifted, and shadowed skills are flagged.
@@ -97,8 +107,6 @@ The orchestration pages are for starting and organizing Copilot CLI work from th
 - **Session Launcher** builds Copilot CLI launch commands with repository, branch, model, reasoning effort, prompt, environment, and optional worktree settings.
 - **Worktree Manager** discovers registered repositories, creates/removes/prunes worktrees, fetches remotes, opens folders, and launches sessions from worktrees.
 
-TracePilot understands the newer Copilot CLI settings layout: user-editable settings belong in `~/.copilot/settings.json`, while CLI-managed internal state can remain in `~/.copilot/config.json`.
-
 | Session Launcher | Worktrees |
 | --- | --- |
 | ![Session launcher with a prepared launch](docs/images/readme-launcher.png) | ![Worktree manager](docs/images/readme-worktrees.png) |
@@ -107,8 +115,8 @@ TracePilot understands the newer Copilot CLI settings layout: user-editable sett
 
 Settings → Additional Features groups optional surfaces:
 
-- **Recommended:** Skills, Agents, Export, and Prompt Cache Insights are on by default. **Exact Context Capture** is opt-in and adds a CLI Context page that records and compares the exact context a session sends to the model.
-- **Experimental** (off by default):
+- **Recommended:** Skills, Agents, Export, and Prompt Cache Insights are on by default. **Exact Context Capture** is opt-in and adds a CLI Context page that records and compares the exact context a Copilot session sends to the model.
+- **Experimental** (off by default, Copilot CLI only):
   - **Copilot SDK Bridge**: steer sessions from TracePilot through the official Copilot SDK, and follow terminal sessions live when they run with `copilot --ui-server` (sessions TracePilot launches get this flag by default).
   - **MCP Servers**: add, import, configure, toggle, and health-check MCP servers compatible with Copilot CLI configuration.
   - **Session Replay**: step through session event timelines using indexed session data.
@@ -116,7 +124,7 @@ Settings → Additional Features groups optional surfaces:
 
 ### Export and share sessions
 
-TracePilot can export sessions as Markdown, TracePilot JSON, or raw session archives, with configurable sections and redaction options. Session-level export is available from session detail; the top-level Export page provides a broader export/import workflow.
+Export sessions as Markdown, TracePilot JSON, or raw session archives, with configurable sections and redaction. Claude Code sessions export as Markdown or JSON, always without account details. Export from a session's header, or use the Export page for bulk export and import.
 
 ---
 
@@ -125,15 +133,15 @@ TracePilot can export sessions as Markdown, TracePilot JSON, or raw session arch
 The README screenshots are generated rather than captured by hand. The
 [visual harness](docs/visual-regression.md#readme-screenshots) renders the real
 frontend at 1440×960 against a synthetic showcase workspace of fictional
-`acme/*` repositories, so the images contain no personal session data and can be
-refreshed after any UI change:
+`acme/*` repositories with both Copilot CLI and Claude Code sessions, so the
+images contain no personal session data and can be refreshed after any UI change:
 
 ```powershell
 node scripts/visual/capture.mjs --suite=readme --channel=msedge --docs
 ```
 
-More views are captured than this page embeds, including the
-[session overview](docs/images/readme-session-overview.png),
+More views are captured than this page embeds, including
+[session metrics](docs/images/readme-metrics.png),
 [session files](docs/images/readme-session-explorer.png),
 [code impact](docs/images/readme-code-impact.png),
 [model comparison](docs/images/readme-model-comparison.png),
@@ -152,7 +160,7 @@ wipe, overlay, and highlighted pixel differences. See
 ### Prerequisites
 
 - Windows with the WebView2 runtime, or macOS 12+ on Apple Silicon.
-- GitHub Copilot CLI with session history.
+- Session history from GitHub Copilot CLI, Claude Code, or both.
 - For source builds: Rust, Node.js 22, pnpm 10, and the Tauri 2 prerequisites.
   The exact known-good versions are recorded in `.node-version` and the root
   `packageManager` field.
@@ -202,7 +210,7 @@ TracePilot/
 │   ├── desktop/                    # Tauri 2 desktop app, Vue 3 frontend
 │   └── cli/                        # Experimental TypeScript CLI utilities
 ├── crates/
-│   ├── tracepilot-core/            # Session parsing, models, analytics
+│   ├── tracepilot-core/            # Copilot CLI and Claude Code parsing, analytics
 │   ├── tracepilot-indexer/         # SQLite + FTS5 indexing and queries
 │   ├── tracepilot-export/          # Markdown/JSON/raw exports and imports
 │   ├── tracepilot-orchestrator/    # Worktrees, launcher, config injection
@@ -222,8 +230,8 @@ TracePilot/
 The main data flow is:
 
 ```text
-Copilot session files
-  -> tracepilot-core parses JSONL/YAML/SQLite session data
+Copilot CLI and Claude Code session files
+  -> tracepilot-core parses each source's JSONL/YAML/SQLite session data
   -> tracepilot-indexer stores searchable metadata/content in SQLite FTS5
   -> tracepilot-tauri-bindings exposes typed Tauri commands
   -> @tracepilot/client calls those commands from Vue/Pinia views
@@ -233,6 +241,7 @@ Useful deeper docs:
 
 - [Architecture overview](docs/architecture/overview.md)
 - [Data integration guide](docs/data-integration-guide.md)
+- [Claude Code sessions](docs/claude-code-sessions.md)
 - [Testing guide](docs/testing.md)
 - [On-disk paths](docs/on-disk-paths.md)
 - [Performance playbook](docs/performance-playbook.md)
@@ -275,15 +284,7 @@ cover the remaining guides and supported developer commands.
 
 ### Versioning and releases
 
-The workspace version is centralized in the root `Cargo.toml` and mirrored into package metadata by the release tooling.
-
-```powershell
-.\scripts\bump-version.ps1 -Version <version>
-```
-
-The script updates only the root and pnpm workspace package manifests, leaving third-party test fixtures and local Copilot packages at their own versions. It requires pnpm and `cargo-edit` (`cargo install cargo-edit`).
-
-After a version bump, update `CHANGELOG.md` and `apps/desktop/public/release-manifest.json`, run the validation gates, and open a PR to `main`. Once the PR is merged, tag the merged commit with `v<version>` and push that tag to trigger the repository release workflow. The [release guide](docs/releasing.md) has the full checklist and note-writing conventions.
+The workspace version lives in the root `Cargo.toml`, and `.\scripts\bump-version.ps1 -Version <version>` mirrors it into the package manifests. A release is tagged `v<version>` after its PR merges; the [release guide](docs/releasing.md) has the full checklist.
 
 ---
 
@@ -293,7 +294,8 @@ Current near-term areas:
 
 - Make the Copilot SDK bridge reliable enough to graduate from experimental.
 - Improve live-session monitoring and alerting.
-- Continue hardening parser coverage as Copilot CLI evolves.
+- Continue hardening parser coverage as Copilot CLI and Claude Code evolve.
+- Bring more Copilot-only tools to Claude Code, and make room for other agent CLIs.
 - Polish export/import workflows and team-shareable reports.
 - Expand platform validation beyond Windows.
 

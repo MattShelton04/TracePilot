@@ -21,9 +21,51 @@ const common = await showcase("common");
 
 const call = (v) => (typeof v === "function" ? v({}) : v);
 
-// The showcase fixtures are all Copilot CLI sessions. The library shows a few as Claude Code
-// sessions (no host, the source's own run state) so the page shows both sources; like
-// AGENT_RUNS in src/data.js this is illustrative and kept by hand.
+// The showcase splits its sessions and model usage between Copilot CLI and Claude Code.
+// The page prices all usage in AI Credits and keeps its own illustrative split (like
+// AGENT_RUNS in src/data.js, kept by hand): a few library sessions show as Claude Code
+// sessions (no host, the source's own run state). So fold the sources back first.
+const copilotModel = (model) => model.replace(/^(claude-[a-z]+-\d+)-(\d+)$/, "$1.$2");
+const asCopilot = (s) => ({
+  ...s,
+  source: "copilot",
+  hostType: "cli",
+  copilotVersion: common.CLI_VERSION,
+  currentModel: copilotModel(s.currentModel),
+  isRunning: s.id === common.HERO_SESSION_ID,
+  runStatus: null,
+});
+function mergeByModel(rows, key) {
+  const merged = new Map();
+  for (const { source, costUsd, costUsdPartial, ...row } of rows) {
+    const model = copilotModel(row.model);
+    const id = key(row, model);
+    const into = merged.get(id);
+    if (!into) {
+      merged.set(id, { ...row, model });
+      continue;
+    }
+    for (const [field, value] of Object.entries(row)) {
+      if (typeof value === "number") into[field] += value;
+    }
+  }
+  return [...merged.values()];
+}
+function foldSources(analytics) {
+  const models = mergeByModel(analytics.modelDistribution, (_row, model) => model);
+  const total = models.reduce((n, m) => n + m.tokens, 0);
+  return {
+    ...analytics,
+    modelDistribution: models
+      .map((m) => ({ ...m, percentage: Number(((m.tokens / total) * 100).toFixed(1)) }))
+      .sort((a, b) => b.tokens - a.tokens),
+    modelUsageByDay: mergeByModel(
+      analytics.modelUsageByDay,
+      (row, model) => `${row.date}:${model}`,
+    ),
+  };
+}
+
 const CLAUDE_CODE = new Set([
   "Fix flaky Playwright checkout tests",
   "Audit dark-mode design tokens",
@@ -34,7 +76,8 @@ const RUN_STATUS = {
   "Add Apple Pay to checkout": "busy",
   "Fix flaky Playwright checkout tests": "waiting",
 };
-const sessions = sessionListItems().map((s) => {
+const sessions = sessionListItems().map((item) => {
+  const s = asCopilot(item);
   const runStatus = RUN_STATUS[s.summary] ?? null;
   if (!CLAUDE_CODE.has(s.summary)) return { ...s, source: "copilot", runStatus };
   return {
@@ -46,7 +89,7 @@ const sessions = sessionListItems().map((s) => {
     runStatus,
   };
 });
-const analytics = call(showcaseAnalytics);
+const analytics = foldSources(call(showcaseAnalytics));
 const heroDetail = {
   ...sessionDetail(common.HERO_SESSION_ID, hero.heroShutdownMetrics),
   source: "copilot",

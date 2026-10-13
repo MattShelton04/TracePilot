@@ -48,7 +48,20 @@ export const readmeCases = [
     command: "session_read_file",
   }),
   readme("search", `/search?q=${SEARCH_QUERY}`, ".result-card", { command: "search_content" }),
-  readme("analytics", "/analytics", "svg", { command: "get_analytics" }),
+  readme("analytics", "/analytics", "svg", {
+    command: "get_analytics",
+    start: '[data-testid="analytics-activity"]',
+    prepare: "actions",
+    // Copilot and Claude Code as two lines.
+    actions: [
+      {
+        type: "button",
+        role: "radio",
+        name: "Lines",
+        within: '[data-testid="analytics-activity"]',
+      },
+    ],
+  }),
   readme("tool-analysis", "/tools", "h1", { command: "get_tool_analysis" }),
   readme("code-impact", "/code", "h1", { command: "get_code_impact" }),
   readme("model-comparison", "/models", "h1"),
