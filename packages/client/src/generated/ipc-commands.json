@@ -58,6 +58,7 @@
   "get_install_type",
   "get_log_path",
   "get_migration_diffs",
+  "get_prompt_image",
   "get_result_context",
   "get_search_facets",
   "get_search_repositories",

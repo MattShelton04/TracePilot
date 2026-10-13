@@ -134,6 +134,22 @@ export async function getToolResult(
   return invoke<unknown | null>("get_tool_result", { sessionId, toolCallId });
 }
 
+/**
+ * The picture behind a prompt's image attachment, as a sanitized preview:
+ * `attachmentIndex` of the `user.message` event at `eventIndex`.
+ */
+export async function getPromptImage(
+  sessionId: string,
+  eventIndex: number,
+  attachmentIndex: number,
+): Promise<SessionImagePreview> {
+  return invoke<SessionImagePreview>("get_prompt_image", {
+    sessionId,
+    eventIndex,
+    attachmentIndex,
+  });
+}
+
 /** Open a new terminal window running the configured CLI resume command. */
 export async function resumeSessionInTerminal(
   sessionId: string,

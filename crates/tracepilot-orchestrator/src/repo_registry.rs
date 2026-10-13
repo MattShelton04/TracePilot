@@ -40,25 +40,12 @@ impl Default for RegistryFile {
     }
 }
 
-/// Get the path to the registry JSON file.
-fn registry_path() -> Result<PathBuf> {
-    let home = tracepilot_core::paths::default_copilot_home_opt()
-        .ok_or_else(|| OrchestratorError::Registry("Cannot determine home directory".into()))?;
-    Ok(tracepilot_core::paths::CopilotPaths::from_home(home)
-        .tracepilot()
-        .repo_registry_json())
-}
-
+/// The registry JSON file under the configured TracePilot data folder.
 fn registry_path_in(tracepilot_home: &Path) -> PathBuf {
     tracepilot_core::paths::TracePilotPaths::from_root(tracepilot_home).repo_registry_json()
 }
 
 /// Read the registry from disk. Returns empty registry if file doesn't exist.
-fn read_registry() -> Result<RegistryFile> {
-    let path = registry_path()?;
-    read_registry_from_path(&path)
-}
-
 fn read_registry_from_path(path: &Path) -> Result<RegistryFile> {
     crate::json_io::atomic_json_read(path)
 }
@@ -93,12 +80,6 @@ fn repo_name_from_path(path: &str) -> String {
 // ─── Public API ───────────────────────────────────────────────────
 
 /// List all registered repos.
-pub fn list_registered_repos() -> Result<Vec<RegisteredRepo>> {
-    let _guard = registry_lock();
-    let registry = read_registry()?;
-    Ok(registry.repos)
-}
-
 pub fn list_registered_repos_in(tracepilot_home: &Path) -> Result<Vec<RegisteredRepo>> {
     let _guard = registry_lock();
     let registry = read_registry_from_path(&registry_path_in(tracepilot_home))?;
@@ -107,11 +88,6 @@ pub fn list_registered_repos_in(tracepilot_home: &Path) -> Result<Vec<Registered
 
 /// Add a repo to the registry. Returns the registered entry.
 /// Deduplicates by normalized path.
-pub fn add_repo(path: &str, source: RepoSource) -> Result<RegisteredRepo> {
-    let registry_path = registry_path()?;
-    add_repo_at_path(&registry_path, path, source)
-}
-
 pub fn add_repo_in(
     tracepilot_home: &Path,
     path: &str,
@@ -171,11 +147,6 @@ fn add_repo_at_path(
 }
 
 /// Remove a repo from the registry by path.
-pub fn remove_repo(path: &str) -> Result<()> {
-    let registry_path = registry_path()?;
-    remove_repo_at_path(&registry_path, path)
-}
-
 pub fn remove_repo_in(tracepilot_home: &Path, path: &str) -> Result<()> {
     remove_repo_at_path(&registry_path_in(tracepilot_home), path)
 }
@@ -198,11 +169,6 @@ fn remove_repo_at_path(registry_path: &Path, path: &str) -> Result<()> {
 }
 
 /// Update the last_used_at timestamp for a repo.
-pub fn update_last_used(path: &str) -> Result<()> {
-    let registry_path = registry_path()?;
-    update_last_used_at_path(&registry_path, path)
-}
-
 pub fn update_last_used_in(tracepilot_home: &Path, path: &str) -> Result<()> {
     update_last_used_at_path(&registry_path_in(tracepilot_home), path)
 }
@@ -223,11 +189,6 @@ fn update_last_used_at_path(registry_path: &Path, path: &str) -> Result<()> {
 }
 
 /// Toggle the favourite status of a registered repo.
-pub fn toggle_repo_favourite(path: &str) -> Result<bool> {
-    let registry_path = registry_path()?;
-    toggle_repo_favourite_at_path(&registry_path, path)
-}
-
 pub fn toggle_repo_favourite_in(tracepilot_home: &Path, path: &str) -> Result<bool> {
     toggle_repo_favourite_at_path(&registry_path_in(tracepilot_home), path)
 }
@@ -255,11 +216,6 @@ fn toggle_repo_favourite_at_path(registry_path: &Path, path: &str) -> Result<boo
 /// Discover repos from a list of session CWD paths.
 /// Resolves each CWD to its git root, deduplicates, and registers new repos.
 /// Returns only the newly added repos.
-pub fn discover_repos_from_sessions(session_cwds: &[String]) -> Result<Vec<RegisteredRepo>> {
-    let registry_path = registry_path()?;
-    discover_repos_from_sessions_at_path(&registry_path, session_cwds)
-}
-
 pub fn discover_repos_from_sessions_in(
     tracepilot_home: &Path,
     session_cwds: &[String],

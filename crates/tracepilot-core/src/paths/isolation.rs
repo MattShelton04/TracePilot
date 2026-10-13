@@ -239,7 +239,7 @@ mod tests {
     }
 
     #[test]
-    fn env_unset_preserves_legacy_user_home_defaults() {
+    fn env_unset_uses_user_home_defaults() {
         if std::env::var_os(TRACEPILOT_DATA_ROOT_ENV).is_some()
             || crate::paths::cli_install::copilot_home_override().is_some()
         {
@@ -247,7 +247,13 @@ mod tests {
         }
         let user_home = crate::utils::home_dir();
         let copilot = CopilotPaths::from_user_home(&user_home);
-        let tracepilot = copilot.tracepilot();
+        // Only checks for config files; never writes to the real home.
+        let tracepilot = crate::paths::resolve_tracepilot_root(
+            Some(&user_home),
+            Some(copilot.home()),
+            Path::exists,
+        )
+        .unwrap();
 
         assert_eq!(default_copilot_home(), copilot.home());
         assert_eq!(default_copilot_home_opt().as_deref(), Some(copilot.home()));

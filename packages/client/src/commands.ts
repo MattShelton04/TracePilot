@@ -61,6 +61,7 @@ export const IPC_COMMANDS = [
   "get_session_liveness",
   "factory_reset",
   "get_tool_result",
+  "get_prompt_image",
   "resume_session_in_terminal",
   "check_for_updates",
   "get_install_type",

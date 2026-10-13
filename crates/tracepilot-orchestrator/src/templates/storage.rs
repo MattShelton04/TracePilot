@@ -1,4 +1,3 @@
-use super::default_tracepilot_home;
 use super::defaults::default_templates;
 use super::dismissed::dismiss_default_template_in;
 use super::validation::{
@@ -8,11 +7,7 @@ use crate::error::{OrchestratorError, Result};
 use crate::types::SessionTemplate;
 use std::path::{Path, PathBuf};
 
-/// Default templates storage path.
-pub fn templates_dir() -> Result<PathBuf> {
-    templates_dir_in(&default_tracepilot_home()?)
-}
-
+/// Templates storage path under the configured TracePilot data folder.
 pub fn templates_dir_in(tracepilot_home: &Path) -> Result<PathBuf> {
     let dir = tracepilot_core::paths::TracePilotPaths::from_root(tracepilot_home).templates_dir();
     std::fs::create_dir_all(&dir)?;
@@ -20,11 +15,6 @@ pub fn templates_dir_in(tracepilot_home: &Path) -> Result<PathBuf> {
 }
 
 /// List all saved templates.
-pub fn list_templates() -> Result<Vec<SessionTemplate>> {
-    let dir = templates_dir()?;
-    list_templates_from_dir(&dir)
-}
-
 pub fn list_templates_in(tracepilot_home: &Path) -> Result<Vec<SessionTemplate>> {
     let dir = templates_dir_in(tracepilot_home)?;
     list_templates_from_dir(&dir)
@@ -83,10 +73,6 @@ fn list_templates_from_dir(dir: &Path) -> Result<Vec<SessionTemplate>> {
 }
 
 /// Save a new template.
-pub fn save_template(template: &SessionTemplate) -> Result<()> {
-    save_template_in(&default_tracepilot_home()?, template)
-}
-
 pub fn save_template_in(tracepilot_home: &Path, template: &SessionTemplate) -> Result<()> {
     validate_template_id(&template.id)?;
     reject_reserved_template_id(&template.id)?;
@@ -98,10 +84,6 @@ pub fn save_template_in(tracepilot_home: &Path, template: &SessionTemplate) -> R
 }
 
 /// Delete a template by ID. For default templates, this dismisses them instead.
-pub fn delete_template(id: &str) -> Result<()> {
-    delete_template_in(&default_tracepilot_home()?, id)
-}
-
 pub fn delete_template_in(tracepilot_home: &Path, id: &str) -> Result<()> {
     validate_template_id(id)?;
     reject_reserved_template_id(id)?;

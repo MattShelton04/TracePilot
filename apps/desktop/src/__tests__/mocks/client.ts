@@ -32,7 +32,7 @@ export function createClientMock(overrides: ClientExports = {}): ClientExports {
   const defaultConfig = createDefaultConfig({
     paths: {
       sessionStateDir: "~/.copilot/session-state",
-      indexDbPath: "~/.copilot/tracepilot/index.db",
+      indexDbPath: "~/.tracepilot/index.db",
     },
     general: { setupComplete: true },
   });
