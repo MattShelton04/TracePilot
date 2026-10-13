@@ -10,6 +10,8 @@ import {
   Archive,
   ArrowRight,
   CircleCheck,
+  CircleDashed,
+  CircleHelp,
   Clock,
   FileDiff,
   Flag,
@@ -25,6 +27,18 @@ import { countIncidents, groupByFolder, splitSessionTime } from "@/utils/session
 import OverviewPanel from "./OverviewPanel.vue";
 
 export type OverviewSection = "incidents" | "checkpoints" | "fileHistory" | "plan";
+
+/**
+ * Whether the data behind a tile has loaded. An absent value only means
+ * "none recorded" once its section is `ready`; before that it is unknown.
+ */
+export type SectionStatus = "pending" | "error" | "ready";
+export interface OutcomeStatus {
+  metrics: SectionStatus;
+  incidents: SectionStatus;
+  changes: SectionStatus;
+  saved: SectionStatus;
+}
 
 const props = defineProps<{
   live: SessionLiveState;
@@ -44,6 +58,7 @@ const props = defineProps<{
   spanMs: number | null;
   apiMs: number | null | undefined;
   toolMs: number | null | undefined;
+  status: OutcomeStatus;
 }>();
 
 const emit = defineEmits<{ jump: [section: OverviewSection] }>();
@@ -55,6 +70,7 @@ const exit = computed<{
   title: string;
   detail: string;
   live?: boolean;
+  muted?: boolean;
   icon?: typeof Flag;
 }>(() => {
   const lastActivity = props.updatedAt
@@ -76,6 +92,19 @@ const exit = computed<{
   if (!props.hasExitMetrics) {
     return { tone: "neutral", title: "Not running", detail: lastActivity, icon: Clock };
   }
+  if (props.status.metrics === "pending") {
+    const title = "Checking exit record…";
+    return { tone: "neutral", title, detail: lastActivity, icon: CircleDashed, muted: true };
+  }
+  if (props.status.metrics === "error") {
+    return {
+      tone: "neutral",
+      title: "Exit record unavailable",
+      detail: "Session metrics couldn't be loaded",
+      icon: CircleHelp,
+      muted: true,
+    };
+  }
   if (!props.shutdownType) {
     return {
       tone: "neutral",
@@ -91,6 +120,10 @@ const exit = computed<{
 });
 
 const incidentCounts = computed(() => countIncidents(props.incidents));
+// Recorded incidents always show; "No incidents" waits for a completed load.
+const incidentStatus = computed<SectionStatus>(() =>
+  incidentCounts.value.total ? "ready" : props.status.incidents,
+);
 const incidentTone = computed<Tone>(() =>
   incidentCounts.value.errors ? "danger" : incidentCounts.value.total ? "attention" : "success",
 );
@@ -107,7 +140,10 @@ const incidentBreakdown = computed(() => {
   )
     .filter(([n]) => n > 0)
     .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`);
-  return parts.length ? parts.join(" · ") : "No errors, rate limits, compactions or truncations";
+  if (parts.length) return parts.join(" · ");
+  if (incidentStatus.value === "error") return "Incidents couldn't be loaded";
+  if (incidentStatus.value === "pending") return "";
+  return "No errors, rate limits, compactions or truncations";
 });
 
 // Without listed edits, fall back to the files Claude Code backed up.
@@ -189,6 +225,13 @@ const saved = computed(() => {
   return { parts, latest, section };
 });
 
+/** The empty copy for a loaded section, or why the value isn't known yet. */
+function unknownOr(status: SectionStatus, empty: string): string {
+  if (status === "pending") return "Loading…";
+  if (status === "error") return "Unavailable";
+  return empty;
+}
+
 const split = computed(() => splitSessionTime(props.spanMs, props.apiMs, props.toolMs));
 const hasToolTime = computed(() => (props.toolMs ?? 0) > 0);
 const otherMs = computed(() =>
@@ -201,7 +244,7 @@ const otherMs = computed(() =>
     <div class="tiles">
       <div class="tile" data-testid="outcome-exit">
         <div class="tile__label"><Flag :size="13" aria-hidden="true" />Exit</div>
-        <div class="tile__value">
+        <div class="tile__value" :class="{ 'tile__value--muted': exit.muted }">
           <span class="tile__badge" :class="`tone-${exit.tone}`">
             <span v-if="exit.live" class="live-dot" aria-hidden="true" />
             <component :is="exit.icon" v-else :size="13" aria-hidden="true" />
@@ -218,7 +261,14 @@ const otherMs = computed(() =>
             View <ArrowRight :size="12" aria-hidden="true" />
           </button>
         </div>
-        <div class="tile__value">
+        <div v-if="incidentStatus !== 'ready'" class="tile__value tile__value--muted">
+          <span class="tile__badge tone-neutral">
+            <CircleDashed v-if="incidentStatus === 'pending'" :size="13" aria-hidden="true" />
+            <CircleHelp v-else :size="13" aria-hidden="true" />
+          </span>
+          {{ incidentStatus === "pending" ? "Checking incidents…" : "Incidents unavailable" }}
+        </div>
+        <div v-else class="tile__value">
           <span class="tile__badge" :class="`tone-${incidentTone}`">
             <CircleCheck v-if="!incidentCounts.total" :size="13" aria-hidden="true" />
             <TriangleAlert v-else :size="13" aria-hidden="true" />
@@ -268,7 +318,7 @@ const otherMs = computed(() =>
             <template v-else>No file list recorded</template>
           </div>
         </template>
-        <div v-else class="tile__value tile__value--muted">None recorded</div>
+        <div v-else class="tile__value tile__value--muted">{{ unknownOr(status.changes, "None recorded") }}</div>
       </div>
 
       <div class="tile" data-testid="outcome-saved">
@@ -279,7 +329,7 @@ const otherMs = computed(() =>
           </button>
         </div>
         <div class="tile__value" :class="{ 'tile__value--muted': !saved.parts.length }">
-          {{ saved.parts.length ? saved.parts.join(" · ") : "Nothing saved" }}
+          {{ saved.parts.length ? saved.parts.join(" · ") : unknownOr(status.saved, "Nothing saved") }}
         </div>
         <div class="tile__detail" :title="saved.latest || undefined">
           <template v-if="saved.latest">Latest: “{{ saved.latest }}”</template>
@@ -309,7 +359,15 @@ const otherMs = computed(() =>
             </span>
           </div>
         </template>
-        <div v-else class="tile__detail">No model timing recorded for this session.</div>
+        <div v-else class="tile__detail">
+          {{
+            status.metrics === "pending"
+              ? "Loading model timing…"
+              : status.metrics === "error"
+                ? "Model timing unavailable."
+                : "No model timing recorded for this session."
+          }}
+        </div>
       </div>
     </div>
   </OverviewPanel>

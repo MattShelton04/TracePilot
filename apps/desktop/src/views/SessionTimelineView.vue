@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { BtnGroup, EmptyState, formatNumberFull, LoadingOverlay, PageHeader } from "@tracepilot/ui";
+import {
+  BtnGroup,
+  EmptyState,
+  ErrorAlert,
+  formatNumberFull,
+  LoadingOverlay,
+  PageHeader,
+} from "@tracepilot/ui";
 import { BarChart3 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
@@ -25,6 +32,16 @@ watch(
   { immediate: true },
 );
 
+function retryLoadTurns() {
+  store.loaded.delete("turns");
+  store.loadTurns();
+}
+
+// No turns is only "no timeline data" once the turns load has finished.
+const turnsPending = computed(
+  () => !store.turns.length && !store.loaded.has("turns") && !store.turnsError,
+);
+
 // ── View mode toggle ─────────────────────────────────────────
 const activeView = ref("agent-tree");
 
@@ -45,10 +62,22 @@ watch(hasSubagents, (has) => {
 
 <template>
   <div>
-    <LoadingOverlay :loading="store.loading" message="Loading session…">
+    <LoadingOverlay
+      :loading="store.loading || turnsPending"
+      :message="store.loading ? 'Loading session…' : 'Loading timeline…'"
+    >
 
-    <!-- Empty state -->
-    <EmptyState v-if="!store.loading && !store.turns.length" title="No Timeline Data" description="This session has no conversation turns to visualize.">
+    <ErrorAlert
+      v-if="store.turnsError"
+      :message="store.turnsError"
+      variant="inline"
+      :retryable="true"
+      class="mb-4"
+      @retry="retryLoadTurns"
+    />
+
+    <!-- Empty state: only once the turns load has completed -->
+    <EmptyState v-if="!store.turns.length && store.loaded.has('turns')" title="No Timeline Data" description="This session has no conversation turns to visualize.">
       <template #icon><BarChart3 :size="36" aria-hidden="true" /></template>
     </EmptyState>
 
