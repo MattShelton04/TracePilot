@@ -419,9 +419,10 @@ under `--out` (default `.tracepilot/visual/`) for review. README cases are not
 part of PR visual CI and do not change its 101-view inventory.
 
 Their data comes from [`showcase/`](../scripts/visual/showcase/index.mjs): about
-370 sessions across fictional `acme/*` repositories, with analytics, tools,
-code-impact and model totals derived from those same sessions so every page
-agrees. One running session ("Add Apple Pay to checkout") supplies the
+370 sessions across fictional `acme/*` repositories, about a third of them
+recorded by Claude Code, with analytics, tools, code-impact and model totals
+(split by source, Claude Code priced in USD) derived from those same sessions so
+every page agrees. One running session ("Add Apple Pay to checkout") supplies the
 conversation, parallel agents and inter-agent messages, todo dependencies,
 context compaction, prompt-cache window, metrics, plan and files. Repositories
 and worktrees are returned per repository, as the backend does. Commands the
@@ -430,7 +431,8 @@ mocks. README cases pin the clock to the showcase's own date, use the app's
 default features (plus any listed per case), show the workspace version in the
 sidebar, and mark it as already seen so the release-notes dialog stays closed.
 
-Cases can prepare a view with `actions`: `button` (click by accessible name),
+Cases can prepare a view with `actions`: `button` (click by accessible name;
+`role` reaches other roles such as a segmented control's `radio`),
 `select` (choose an option by label or value), `fill` (type into a labelled
 field) and `scroll` (bring a selector to a fixed offset below the top of the
 page's scroll container). After regenerating, inspect every image: each one

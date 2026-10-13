@@ -1,6 +1,7 @@
 // Session library for the README showcase: a hand-written recent week on top
 // of three months of generated history, so list counts, analytics totals and
-// per-day charts all describe the same sessions.
+// per-day charts all describe the same sessions. Copilot CLI and Claude Code
+// sessions sit side by side; the hero session is Copilot's.
 
 import {
   ago,
@@ -197,6 +198,22 @@ const historyModels = [
   "claude-haiku-4.5",
 ];
 
+// Recent sessions recorded by Claude Code. Older Claude-model sessions are
+// split between the two sources below.
+const claudeCodeRecent = new Set([
+  "Fix flaky Playwright checkout tests",
+  "Audit dark-mode design tokens",
+  "Draft ADR for event sourcing",
+  "Triage Dependabot alerts",
+]);
+// What a running session's process is doing.
+const runStatus = {
+  "Add Apple Pay to checkout": "busy",
+  "Fix flaky Playwright checkout tests": "waiting",
+};
+// Claude Code records Anthropic's model ids; the app shows them by family.
+const claudeCodeModel = (model) => model.replace(/\.(\d+)$/, "-$1");
+
 function historySessions() {
   const random = rng(20260930);
   const sessions = [];
@@ -259,8 +276,14 @@ function buildSessions() {
     ),
     ...historySessions(),
   ];
+  const sourceRandom = rng(1105);
   return rows.map((row, index) => {
     const id = index === 0 ? HERO_SESSION_ID : uuid(random);
+    const claudeCode =
+      index < recent.length
+        ? claudeCodeRecent.has(row.summary)
+        : row.model.startsWith("claude") && sourceRandom() < 0.6;
+    const status = runStatus[row.summary] ?? null;
     // The hero's authored turns span 46 minutes and it is still running.
     const durationHours =
       index === 0 ? 47 / 60 : Math.max(0.3, row.turns * (0.04 + random() * 0.06));
@@ -275,14 +298,16 @@ function buildSessions() {
       repository: row.repository,
       branch: row.branch,
       cwd: `C:\\code\\${row.repository.replace("/", "\\")}`,
-      hostType: "cli",
+      source: claudeCode ? "claudeCode" : "copilot",
+      hostType: claudeCode ? null : "cli",
       createdAt: new Date(updatedMs - durationHours * HOUR).toISOString(),
       updatedAt: new Date(updatedMs).toISOString(),
       eventCount: row.events,
       turnCount: row.turns,
-      currentModel: row.model,
-      copilotVersion: CLI_VERSION,
-      isRunning: index === 0,
+      currentModel: claudeCode ? claudeCodeModel(row.model) : row.model,
+      copilotVersion: claudeCode ? null : CLI_VERSION,
+      isRunning: status != null,
+      runStatus: status,
       errorCount: row.errors,
       rateLimitCount: row.rateLimits,
       compactionCount: row.compactions,
@@ -332,6 +357,7 @@ export function sessionDetail(id, shutdownMetrics) {
     hasPlan: hero,
     hasCheckpoints: hero || session.compactionCount > 0,
     checkpointCount: hero ? 1 : session.compactionCount,
+    currentReasoningEffort: hero ? "high" : null,
     shutdownMetrics: hero ? shutdownMetrics : null,
   };
 }

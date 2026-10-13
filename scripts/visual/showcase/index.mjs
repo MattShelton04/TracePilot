@@ -30,6 +30,9 @@ const FILE_STAMP = {
 
 const heroOnly = {
   get_session_turns: () => ({ turns: heroTurns, ...FILE_STAMP }),
+  get_session_turn_activity: () => ({
+    turnStarts: heroTurns.map((turn) => (turn.timestamp ? Date.parse(turn.timestamp) : null)),
+  }),
   get_session_todos: () => heroTodos,
   get_session_plan: () => heroPlan,
   get_session_checkpoints: () => heroCheckpoints,
@@ -53,10 +56,12 @@ const global = {
   get_tool_analysis: showcaseToolAnalysis,
   get_code_impact: showcaseCodeImpact,
   get_session_count: () => sessionListItems().length,
-  get_session_liveness: (args) =>
-    findSession(args.sessionId).isRunning
-      ? { state: "running", pid: null, status: null }
-      : { state: "idle" },
+  get_session_liveness: (args) => {
+    const session = findSession(args.sessionId);
+    return session.isRunning
+      ? { state: "running", pid: null, status: session.runStatus }
+      : { state: "idle" };
+  },
   get_tool_result: (args) => heroToolResult(args.toolCallId),
   skills_list_all: () => ({ skills: showcaseSkills, diagnostics: [] }),
   skills_usage_summary: () => showcaseSkillUsage,

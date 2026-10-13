@@ -403,7 +403,8 @@ async function runAction(page, action) {
       }, action.offset ?? 0);
   } else if (action.type === "button") {
     const scope = action.within ? page.locator(action.within) : page;
-    const button = scope.getByRole("button", { name: action.name, exact: true });
+    // `role` reaches buttons with another role, such as a segmented control's radios.
+    const button = scope.getByRole(action.role ?? "button", { name: action.name, exact: true });
     const element = await button.elementHandle();
     await button.click();
     if (action.name.startsWith("Show ") && (await element.getAttribute("aria-expanded")) !== "true")
