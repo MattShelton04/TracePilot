@@ -10,7 +10,6 @@ import {
   sourceCapabilities,
 } from "@tracepilot/types";
 import {
-  formatAiCredits,
   formatCost,
   formatDuration,
   formatNumber,
@@ -319,28 +318,14 @@ export function useSessionComparison() {
       };
     }
 
-    /**
-     * Cost in the pair's shared unit. A cross-source pair (AI Credits against
-     * USD) compares in USD, AI Credits at $0.01 each.
-     */
+    /** Cost in USD, AI Credits at $0.01 each, so any pair compares directly. */
     function costRow(): MetricRow {
-      if (costA.unit === costB.unit) {
-        const a = costA.value == null ? null : costA.value / divA;
-        const b = costB.value == null ? null : costB.value / divB;
-        const label = costA.unit === "aic" ? "AI Credits" : "Estimated Cost";
-        return row(
-          `${label}${suffix}`,
-          a,
-          b,
-          costA.unit === "aic" ? formatAiCredits : formatCost,
-          false,
-        );
-      }
       const usd = (cost: typeof costA, div: number) =>
         cost.value == null
           ? null
           : (cost.unit === "aic" ? cost.value * AI_CREDIT_USD : cost.value) / div;
-      return row(`Cost (USD)${suffix}`, usd(costA, divA), usd(costB, divB), formatCost, false);
+      const label = costA.unit === "usd" && costB.unit === "usd" ? "Estimated Cost" : "Cost";
+      return row(`${label}${suffix}`, usd(costA, divA), usd(costB, divB), formatCost, false);
     }
 
     const fmtN = (v: number) => (isNorm ? v.toFixed(1) : formatNumber(v));

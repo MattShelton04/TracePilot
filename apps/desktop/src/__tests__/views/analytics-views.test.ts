@@ -83,16 +83,16 @@ describe("AnalyticsDashboardView", () => {
     return wrapper;
   }
 
-  it("leads with sessions, tokens, AI Credits, model time and errors", async () => {
+  it("leads with sessions, tokens, cost, model time and errors", async () => {
     const wrapper = await mountDashboard();
     const kpis = wrapper.get('[data-testid="analytics-kpis"]').text();
     expect(kpis).toContain("Sessions");
     expect(kpis).toContain("10 runs");
     expect(kpis).toContain("2.5M");
-    // Payloads that predate sources are Copilot's, so cost reads in AI Credits.
-    expect(kpis).toContain("AI Credits");
-    expect(kpis).toContain("160");
+    // Payloads that predate sources are Copilot's: 160 AI Credits at $0.01 each.
+    expect(kpis).toContain("Cost");
     expect(kpis).toContain("$1.60");
+    expect(kpis).not.toContain("AI Credits");
     expect(kpis).toContain("Model time / session");
     expect(kpis).toContain("20m");
     expect(kpis).toContain("3 rate limits");
@@ -116,7 +116,7 @@ describe("AnalyticsDashboardView", () => {
     expect(mix).toContain("claude-3");
     expect(mix).toContain("60%");
     expect(mix).toContain("40%");
-    expect(mix).toContain("96 AIC");
+    expect(mix).toContain("$0.96");
   });
 
   it("charts cost per day by default and remembers another metric", async () => {

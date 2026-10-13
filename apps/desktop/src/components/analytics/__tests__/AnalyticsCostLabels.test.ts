@@ -71,17 +71,19 @@ describe("analytics cost labels", () => {
         })),
       }),
     );
-    expect(kpi.label).toBe("AI Credits");
+    expect(kpi.label).toBe("Cost");
     expect(kpi.value).toBe("—");
     expect(kpi.text).not.toContain("$0.00");
+    expect(kpi.tooltip).not.toContain("at $0.01 each");
   });
 
-  it("reads Copilot alone in AI Credits with the dollar value beside", () => {
+  it("reads Copilot alone in USD with its AI Credits in the tooltip", () => {
     const kpi = costKpi(withSources([copilotEntry], { sessionsWithObservedAiCredits: 3 }));
-    expect(kpi.label).toBe("AI Credits");
-    expect(kpi.value).toBe("160");
-    expect(kpi.text).toContain("$1.60");
+    expect(kpi.label).toBe("Cost");
+    expect(kpi.value).toBe("$1.60");
     expect(kpi.text).toContain("3 of 4 observed");
+    expect(kpi.text).not.toContain("AIC");
+    expect(kpi.tooltip).toContain("160 AIC at $0.01 each");
   });
 
   it("shows a USD-priced source's estimate, not AI Credits", () => {
@@ -118,7 +120,7 @@ describe("analytics cost panel", () => {
     });
   }
 
-  it("gives each source a card in its own unit, and a USD total", () => {
+  it("gives each source a card in USD, AI Credits beside Copilot's, and a USD total", () => {
     const wrapper = panel(
       withSources([copilotEntry, claudeEntry], { totalNanoAiu: 12_500_000_000 }),
     );
@@ -146,7 +148,9 @@ describe("analytics cost panel", () => {
     const wrapper = panel(withSources([copilotEntry]));
     const models = wrapper.get('[data-source="models"]').text();
     expect(models).toContain("gpt-4");
-    expect(models).toContain("96 AIC");
+    // 96 AI Credits at $0.01 each.
+    expect(models).toContain("$0.96");
+    expect(models).not.toContain("AIC");
     expect(wrapper.find('[data-source="total"]').exists()).toBe(false);
   });
 

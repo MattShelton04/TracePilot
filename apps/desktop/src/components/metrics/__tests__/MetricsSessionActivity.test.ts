@@ -181,9 +181,11 @@ describe("MetricsSessionActivity", () => {
       },
     });
     expect(wrapper.get(".hero-val").text()).toBe("0");
-    expect(wrapper.get(".model-row .cost-pill").text()).toBe("1 AIC");
+    expect(wrapper.get(".model-row .cost-pill").text()).toBe("$0.01");
+    expect(wrapper.get(".model-row .cost-equivalent").text()).toBe("1 AIC");
     expect(wrapper.get(".model-row .cost-pill").attributes("title")).toBe("Observed AI Credits");
     expect(wrapper.get(".activity-tile-costs .cost-pill").text()).toBe("—");
+    expect(wrapper.find(".activity-tile-costs .cost-equivalent").exists()).toBe(false);
   });
 
   it.each([
@@ -206,8 +208,9 @@ describe("MetricsSessionActivity", () => {
     });
     expect(wrapper.get(".hero-val").text()).toBe(usage ? "0" : "—");
     expect(wrapper.get(".model-tokens").text()).toBe(usage ? "0 tokens" : "— tokens");
-    expect(wrapper.get(".model-row .cost-pill").text()).toBe("0 AIC");
-    expect(wrapper.get(".activity-tile-costs .cost-pill").text()).toBe("0 AIC");
+    expect(wrapper.get(".model-row .cost-pill").text()).toBe("$0.00");
+    expect(wrapper.get(".activity-tile-costs .cost-pill").text()).toBe("$0.00");
+    expect(wrapper.get(".activity-tile-costs .cost-equivalent").text()).toBe("0 AIC");
     expect(wrapper.get(".activity-tile-costs .cost-pill").attributes("title")).toBe(
       "Observed AI Credits",
     );

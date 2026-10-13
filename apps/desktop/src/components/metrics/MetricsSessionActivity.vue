@@ -8,7 +8,7 @@ import {
 import {
   Badge,
   formatAiCredits,
-  formatCost,
+  formatAiCreditsUsd,
   formatDuration,
   formatNumber,
   formatShortDate,
@@ -130,13 +130,13 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
                 class="cost-pill blue-text"
                 :title="sourceLabel(modelCredits.source)"
               >
-                {{ formatAiCredits(modelCredits.credits) }}
+                {{ formatAiCreditsUsd(modelCredits.credits) }}
               </span>
               <span
-                v-if="modelCredits.usdEquivalent != null"
+                v-if="modelCredits.credits != null"
                 class="cost-equivalent"
               >
-                {{ formatCost(modelCredits.usdEquivalent) }}
+                {{ formatAiCredits(modelCredits.credits) }}
               </span>
             </div>
           </div>
@@ -144,10 +144,10 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
 
         <div class="activity-tile-costs">
           <span class="cost-pill blue-text" :title="sourceLabel(credits.source)">
-            {{ formatAiCredits(credits.credits) }}
+            {{ formatAiCreditsUsd(credits.credits) }}
           </span>
-          <span v-if="credits.usdEquivalent != null" class="cost-equivalent">
-            {{ formatCost(credits.usdEquivalent) }}
+          <span v-if="credits.credits != null" class="cost-equivalent">
+            {{ formatAiCredits(credits.credits) }}
           </span>
         </div>
         <div class="activity-tile-footer">
@@ -162,7 +162,7 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
           <div
             v-if="credits.source === 'unavailable' && seg.premiumRequests > 0"
             class="footer-metric"
-            title="Legacy sessions only; premium requests are not converted to AIC"
+            title="Legacy sessions only; premium requests are not converted to cost"
           >
             <span class="label">Legacy Premium</span>
             <span class="val premium-val">{{ seg.premiumRequests.toFixed(1) }}</span>

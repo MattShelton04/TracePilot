@@ -152,7 +152,7 @@ describe("useSessionComparison", () => {
     expect(labels).toContain("Session Span");
     expect(comp.metricsRows.find((r) => r.label === "Session Span")?.hint).toMatch(/Wall-clock/);
     expect(labels).toContain("Turns");
-    expect(labels).toContain("AI Credits");
+    expect(labels).toContain("Cost");
     expect(labels).toContain("Success Rate");
     expect(comp.metricsRows.length).toBe(8);
   });
@@ -172,7 +172,7 @@ describe("useSessionComparison", () => {
       deltaClass: "delta-neutral",
       arrow: "",
     });
-    expect(comp.metricsRows.find((row) => row.label === "AI Credits")).toMatchObject({
+    expect(comp.metricsRows.find((row) => row.label === "Cost")).toMatchObject({
       valueA: "—",
       valueB: "—",
       rawA: null,
@@ -204,8 +204,8 @@ describe("useSessionComparison", () => {
       rawB: null,
       delta: "—",
     });
-    expect(comp.metricsRows.find((row) => row.label === "AI Credits")).toMatchObject({
-      valueA: "0 AIC",
+    expect(comp.metricsRows.find((row) => row.label === "Cost")).toMatchObject({
+      valueA: "$0.00",
       valueB: "—",
       rawA: 0,
       rawB: null,
@@ -233,7 +233,7 @@ describe("useSessionComparison", () => {
       rawB: 0,
       delta: "—",
     });
-    expect(comp.metricsRows.find((row) => row.label === "AI Credits")).toMatchObject({
+    expect(comp.metricsRows.find((row) => row.label === "Cost")).toMatchObject({
       valueA: "—",
       valueB: "—",
       rawA: null,
@@ -288,9 +288,12 @@ describe("useSessionComparison", () => {
       rawB: 240,
       delta: "↑ 100%",
     });
-    expect(comp.metricsRows.find((row) => row.label === "AI Credits")).toMatchObject({
-      rawA: 2,
-      rawB: 4,
+    // AI Credits compare in USD, at $0.01 each.
+    expect(comp.metricsRows.find((row) => row.label === "Cost")).toMatchObject({
+      valueA: "$0.02",
+      valueB: "$0.04",
+      rawA: 0.02,
+      rawB: 0.04,
       delta: "↑ 100%",
     });
     expect(comp.donutA[0]).toMatchObject({ tokens: 120, percentage: 1 });
@@ -301,9 +304,9 @@ describe("useSessionComparison", () => {
         rawB: 60,
         delta: "—",
       });
-      expect(comp.metricsRows.find((row) => row.label.startsWith("AI Credits"))).toMatchObject({
-        rawA: 1,
-        rawB: 1,
+      expect(comp.metricsRows.find((row) => row.label.startsWith("Cost"))).toMatchObject({
+        rawA: 0.01,
+        rawB: 0.01,
         delta: "—",
       });
     }
@@ -334,7 +337,7 @@ describe("session comparison across billing units", () => {
 
   it("compares AI Credits and USD in USD, at $0.01 per credit", () => {
     const rows = compare(["copilot", copilot], ["claudeCode", claude(4.2)]);
-    const cost = rows.find((row) => row.label === "Cost (USD)");
+    const cost = rows.find((row) => row.label === "Cost");
     expect(cost).toMatchObject({ valueA: "$0.02", valueB: "$4.20", rawA: 0.02, rawB: 4.2 });
     expect(cost?.delta).not.toBe("—");
     expect(rows.some((row) => row.label === "AI Credits")).toBe(false);

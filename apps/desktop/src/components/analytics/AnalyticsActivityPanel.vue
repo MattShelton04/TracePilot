@@ -67,16 +67,15 @@ const chart = computed(() =>
 /** The columns the chart draws: days, or bins of days on a long range. */
 const columns = ref<DayRow[]>([]);
 
-const inCredits = computed(() => props.summary.inAiCredits);
 /** Whole runs per day; an average keeps one decimal. */
 const formatRuns = (v: number) => (Number.isInteger(v) ? formatNumberFull(v) : v.toFixed(1));
 const format = computed(() => {
-  if (metric.value === "cost") return (v: number) => formatDashboardCost(v, inCredits.value);
+  if (metric.value === "cost") return formatDashboardCost;
   if (metric.value === "tokens") return (v: number) => formatNumber(Math.round(v));
   return formatRuns;
 });
 const axisFormat = computed(() => {
-  if (metric.value === "cost") return (v: number) => formatAxisCost(v, inCredits.value);
+  if (metric.value === "cost") return formatAxisCost;
   if (metric.value === "tokens") return (v: number) => formatNumber(Math.round(v));
   return formatRuns;
 });

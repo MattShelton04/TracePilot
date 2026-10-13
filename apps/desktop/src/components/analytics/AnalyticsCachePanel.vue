@@ -8,7 +8,7 @@
  */
 import type { PromptCacheAnalytics, SessionSource } from "@tracepilot/types";
 import { formatNumber, formatPercent, sourceLabel } from "@tracepilot/types";
-import { formatAiCredits, SourceLogo } from "@tracepilot/ui";
+import { formatAiCreditsUsd, SourceLogo } from "@tracepilot/ui";
 import { Database, Timer } from "lucide-vue-next";
 import { computed } from "vue";
 import OverviewPanel from "@/components/overview/OverviewPanel.vue";
@@ -152,7 +152,7 @@ const sessionsText = computed(() => {
             <span><i class="ad-sw" :style="{ background: 'var(--warning-fg)' }" />Expired <b>{{ timing.resumesAfterExpiry }}</b></span>
             <span>Median idle <b>{{ formatIdle(timing.medianIdleSeconds) }}</b></span>
             <span>Re-sent <b>{{ formatNumber(timing.resentPrefixTokens) }}</b></span>
-            <span v-if="extraCredits != null">Est. extra cost <b>{{ formatAiCredits(extraCredits) }}</b></span>
+            <span v-if="extraCredits != null">Est. extra cost <b>{{ formatAiCreditsUsd(extraCredits) }}</b></span>
           </div>
           <div v-if="causes.length" class="ad-rows cache__causes" role="list" aria-label="Likely cache-break causes">
             <div class="ad-rowh cache__cause">

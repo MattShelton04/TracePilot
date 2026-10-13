@@ -4,6 +4,7 @@ import {
   Badge,
   ErrorAlert,
   formatAiCredits,
+  formatAiCreditsUsd,
   formatTime,
   MarkdownContent,
   SectionPanel,
@@ -130,8 +131,8 @@ const cost = computed<OverviewCost>(() => {
   }
   const { credits, source: creditSource } = aiCreditUsage.value;
   return {
-    label: "AI credits",
-    value: formatAiCredits(credits),
+    label: creditSource === "observed" || credits == null ? "Cost" : "Est. cost",
+    value: formatAiCreditsUsd(credits),
     basis:
       credits == null
         ? "Not recorded"
@@ -139,11 +140,12 @@ const cost = computed<OverviewCost>(() => {
           ? "Observed billing"
           : "Estimated",
     partial: false,
-    perTurn: credits != null && turns > 0 ? formatAiCredits(credits / turns) : null,
-    tooltip:
+    perTurn: credits != null && turns > 0 ? formatAiCreditsUsd(credits / turns) : null,
+    tooltip: `${
       creditSource === "observed"
         ? "Observed Copilot billing telemetry"
-        : "Estimated for historical session data",
+        : "Estimated for historical session data"
+    }${credits == null ? "" : `: ${formatAiCredits(credits)} at $0.01 each`}.`,
   };
 });
 

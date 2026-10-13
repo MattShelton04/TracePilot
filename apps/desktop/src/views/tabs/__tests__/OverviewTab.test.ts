@@ -68,13 +68,13 @@ it("shows a Claude Code session's labelled USD estimate and recorded calls", () 
   expect(kpi("Model calls")?.props("value")).toBe("4");
   expect(kpi("Model calls")?.text()).toContain("2.0 per turn");
   expect(kpi("Checkpoints")).toBeUndefined();
-  expect(kpi("AI credits")).toBeUndefined();
+  expect(kpi("Cost")).toBeUndefined();
   expect(wrapper.get('[data-testid="outcome-exit"]').text()).toContain("Not running");
   expect(wrapper.find(".host-chip").exists()).toBe(false);
   wrapper.unmount();
 });
 
-it("keeps Copilot's checkpoints, credits, exit record and host", () => {
+it("keeps Copilot's checkpoints, cost, exit record and host", () => {
   store.detail = {
     id: "s1",
     source: "copilot",
@@ -86,7 +86,7 @@ it("keeps Copilot's checkpoints, credits, exit record and host", () => {
   store.shutdownMetrics = { shutdownType: "routine" };
   const { wrapper, kpi } = mountOverview();
   expect(kpi("Checkpoints")?.props("value")).toBe("2");
-  expect(kpi("AI credits")).toBeDefined();
+  expect(kpi("Cost")?.props("value")).toBe("—");
   expect(kpi("Est. cost")).toBeUndefined();
   expect(wrapper.get('[data-testid="outcome-exit"]').text()).toContain("Ended normally");
   expect(wrapper.get(".host-chip").text()).toBe("github");
@@ -96,6 +96,16 @@ it("keeps Copilot's checkpoints, credits, exit record and host", () => {
   const bare = mountOverview().wrapper;
   expect(bare.get('[data-testid="outcome-exit"]').text()).toContain("No exit record");
   bare.unmount();
+});
+
+it("shows Copilot's observed AI Credits in USD, at $0.01 each", () => {
+  store.detail = { id: "s1", source: "copilot", hasPlan: false, hasCheckpoints: false };
+  store.shutdownMetrics = { totalNanoAiu: 150_000_000_000 };
+  const { wrapper, kpi } = mountOverview();
+  const cost = kpi("Cost");
+  expect(cost?.props("value")).toBe("$1.50");
+  expect(cost?.props("description")).toContain("150 AIC at $0.01 each");
+  wrapper.unmount();
 });
 
 it("shows lines changed in place of checkpoints when the session recorded them", () => {

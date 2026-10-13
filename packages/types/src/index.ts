@@ -405,6 +405,7 @@ export { DEFAULT_TOOL_RENDERING_PREFS } from "./tool-rendering.js";
 // ── utils/formatters.js ────────────────────────────────────────────
 export {
   formatAiCredits,
+  formatAiCreditsUsd,
   formatBytes,
   formatCleanFloat,
   formatClockTime,

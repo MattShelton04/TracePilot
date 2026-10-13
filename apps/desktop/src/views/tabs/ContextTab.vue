@@ -12,7 +12,7 @@ import {
   Badge,
   EmptyState,
   ErrorAlert,
-  formatAiCredits,
+  formatAiCreditsUsd,
   formatNumber,
   LoadingSpinner,
   SectionPanel,
@@ -275,7 +275,7 @@ const selectedCachedInputCost = computed(() => {
     return usd == null ? null : formatUsd(usd);
   }
   const credits = preferences.computeUsageBasedCostBreakdown(model, tokens, tokens, 0).aiCredits;
-  return credits == null ? null : formatAiCredits(credits);
+  return credits == null ? null : formatAiCreditsUsd(credits);
 });
 const selectedTurnToolCalls = computed(
   () => selectedTurn.value?.toolCalls.filter((toolCall) => !toolCall.parentToolCallId) ?? [],
