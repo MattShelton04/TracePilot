@@ -1,7 +1,14 @@
-import { sourceCapabilities } from "@tracepilot/types";
+import { type SessionDetail, sourceCapabilities } from "@tracepilot/types";
 import { describe, expect, it } from "vitest";
+import router from "@/router";
 import { ROUTE_NAMES } from "../routes";
-import { isSessionTabHidden, mapSessionTabs, type SessionTab } from "../sessionTabs";
+import {
+  isSessionTabHidden,
+  mapSessionTabs,
+  SESSION_TABS,
+  type SessionTab,
+  sessionTabRoutes,
+} from "../sessionTabs";
 
 const EXPECTED_ORDER = [
   "overview",
@@ -73,6 +80,54 @@ describe("mapSessionTabs", () => {
       "explorer",
       "timeline",
     ]);
+  });
+});
+
+describe("tab counts", () => {
+  const detail = { id: "s1", turnCount: 3, eventCount: 40 } as SessionDetail;
+
+  it("counts conversation turns and events once the detail loads", () => {
+    const counts = Object.fromEntries(
+      mapSessionTabs("local", undefined, detail).map((t) => [t.name, t.count]),
+    );
+    expect(counts).toEqual({
+      overview: undefined,
+      conversation: 3,
+      events: 40,
+      todos: undefined,
+      metrics: undefined,
+      context: undefined,
+      explorer: undefined,
+      timeline: undefined,
+    });
+  });
+
+  it("shows no count before the detail loads or when it is not recorded", () => {
+    expect(mapSessionTabs("local").some((t) => "count" in t)).toBe(false);
+    const unrecorded = mapSessionTabs("local", undefined, { id: "s1" } as SessionDetail);
+    expect(unrecorded.find((t) => t.name === "conversation")?.count).toBeUndefined();
+  });
+});
+
+describe("sessionTabRoutes", () => {
+  it("declares one child route per tab, matching the session routes", () => {
+    const routes = sessionTabRoutes();
+    expect(routes.map((r) => r.name)).toEqual(SESSION_TABS.map((t) => t.routeName));
+    for (const [i, route] of routes.entries()) {
+      expect(route.path).toBe(EXPECTED_ORDER[i]);
+      expect(route.meta).toEqual({ title: SESSION_TABS[i].label, sidebarId: "sessions" });
+      expect(route.component).toBe(SESSION_TABS[i].component);
+    }
+
+    const session = router.options.routes.find((r) => r.path === "/session/:id");
+    const children = (session?.children ?? []).filter((r) => r.name);
+    expect(children.map(({ path, name, meta }) => ({ path, name, meta }))).toEqual(
+      routes.map(({ path, name, meta }) => ({ path, name, meta })),
+    );
+  });
+
+  it("gives every tab a lazily loaded component", () => {
+    for (const tab of SESSION_TABS) expect(typeof tab.component).toBe("function");
   });
 });
 
