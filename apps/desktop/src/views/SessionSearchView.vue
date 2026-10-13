@@ -38,7 +38,6 @@ const {
   pageEnd,
   visiblePages,
   filtersOpen,
-  activeDatePreset,
   showSyntaxHelp,
   handleCopyResult,
   handleCopyAllResults,
@@ -81,6 +80,8 @@ const {
       :tool-name="store.toolName"
       :session-id="store.sessionId"
       :source="store.source"
+      :date-from="store.dateFrom"
+      :date-to="store.dateTo"
       :session-display-name="sessionDisplayName"
       :active-filter-count="activeFilterCount"
       :content-type-config="contentTypeConfig"
@@ -89,6 +90,7 @@ const {
       @clear-tool-name="store.toolName = null"
       @clear-source="store.source = null"
       @clear-session-id="store.sessionId = null; filteredSessionNameOverride = null"
+      @clear-date-range="store.setDateRange(null, null)"
       @clear-all="handleClearFilters"
     />
 
@@ -105,7 +107,6 @@ const {
       <SearchFilterSidebar
         :id="filtersId"
         :collapsed="!filtersOpen"
-        v-model:active-date-preset="activeDatePreset"
         @clear-filters="handleClearFilters"
         @restore-focus="heroRef?.focusFilterToggle()"
       />

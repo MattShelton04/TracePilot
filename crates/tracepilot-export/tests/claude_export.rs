@@ -13,7 +13,7 @@ use tracepilot_export::import::{ImportOptions, import_sessions, preview_import};
 use tracepilot_export::options::{ExportFormat, ExportOptions, RedactionOptions};
 use tracepilot_export::{ExportInput, ProviderSession, export_inputs, preview_export_input};
 use tracepilot_test_support::claude::{
-    OPUS, SESSION_ID, SessionFiles, Transcript, Usage, text, tool_use, write_session,
+    HAIKU, OPUS, SESSION_ID, SessionFiles, Transcript, Usage, text, tool_use, write_session,
 };
 use tracepilot_test_support::fixtures::full_session_temp_dir;
 
@@ -203,6 +203,67 @@ fn markdown_export_names_the_source() {
     assert!(output.contains("Add a retry to the upload client."));
     assert!(!output.contains(PRIVATE));
     assert!(!output.contains(EMAIL));
+    // The provider's USD cost reaches the Metrics table with its basis, as on
+    // Overview; Copilot's AI Credits column has nothing to show.
+    assert!(
+        output.contains("| Est. cost | $0.25 (provider estimate) |"),
+        "{output}"
+    );
+    assert!(!output.contains("AI Credits"), "{output}");
+}
+
+/// Export a session without private records to Markdown.
+fn export_markdown(files: &SessionFiles) -> String {
+    let provider = ClaudeCodeProvider::new(files.root.path());
+    let locator = provider
+        .resolve(&SessionId::from_validated(SESSION_ID))
+        .unwrap()
+        .unwrap();
+    let snapshot = provider.load_snapshot(&locator, false, &|| false).unwrap();
+    let artifacts = provider.artifacts(&locator).unwrap();
+    let input = ExportInput::Provider(ProviderSession {
+        source: SessionSource::ClaudeCode,
+        snapshot: &snapshot,
+        artifacts: &artifacts,
+    });
+    let files = export_inputs(&[input], &ExportOptions::all(ExportFormat::Markdown)).unwrap();
+    files[0].as_text().unwrap().to_string()
+}
+
+/// A call after the last cost snapshot that cannot be priced leaves the
+/// snapshot's cost as a lower bound, and a model seen only in the snapshot
+/// has no request count.
+#[test]
+fn markdown_metrics_keep_unknown_values_unknown() {
+    let mut t = Transcript::main();
+    t.prompt("Add a retry.");
+    let usage = Usage::new(10, 1000, 200, 50);
+    t.call("msg_01", OPUS, vec![text("Added.")], usage, "end_turn");
+    t.cost_state(&[(OPUS, usage, 0.25), (HAIKU, Usage::new(1, 1, 1, 1), 0.01)]);
+    t.prompt("Add a test.");
+    t.call(
+        "msg_02",
+        "claude-unpriced-test",
+        vec![text("Added.")],
+        usage,
+        "end_turn",
+    );
+    let output = export_markdown(&write_session(&t, &[]));
+
+    assert!(
+        output.contains("| Est. cost | ≥ $0.26 (provider estimate, partial) |"),
+        "{output}"
+    );
+    let row = |model: &str| {
+        output
+            .lines()
+            .find(|line| line.starts_with(&format!("| {model} |")))
+            .unwrap_or_else(|| panic!("{model} row in {output}"))
+            .to_string()
+    };
+    assert!(row(HAIKU).starts_with(&format!("| {HAIKU} | — |")));
+    assert!(row(OPUS).starts_with(&format!("| {OPUS} | 1 |")));
+    assert!(!output.contains("AI Credits"), "{output}");
 }
 
 #[test]

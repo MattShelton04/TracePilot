@@ -87,6 +87,32 @@ describe("SearchActiveFilters", () => {
     expect(wrapper.emitted("clear-source")).toHaveLength(1);
   });
 
+  it("renders a date chip on its own that clears the date range", async () => {
+    const from = new Date(2026, 9, 6, 14, 30).toISOString();
+    const wrapper = mountFilters({ dateFrom: from, activeFilterCount: 1 });
+    const chip = wrapper.find('[data-testid="search-date-chip"]');
+    expect(wrapper.find(".active-filters-bar").exists()).toBe(true);
+    expect(chip.text()).toContain("Date: Since Oct 6, 2026");
+    await chip.find(".filter-chip-remove").trigger("click");
+    expect(wrapper.emitted("clear-date-range")).toHaveLength(1);
+  });
+
+  it("labels until-only and bounded date ranges", () => {
+    const until = mountFilters({ dateTo: "2026-10-10" });
+    expect(until.find('[data-testid="search-date-chip"]').text()).toContain(
+      "Date: Until Oct 10, 2026",
+    );
+    const bounded = mountFilters({ dateFrom: "2026-10-01", dateTo: "2026-10-10" });
+    expect(bounded.find('[data-testid="search-date-chip"]').text()).toContain(
+      "Date: Oct 1, 2026 – Oct 10, 2026",
+    );
+  });
+
+  it("hides the date chip for blank dates", () => {
+    const wrapper = mountFilters({ dateFrom: "  ", dateTo: null });
+    expect(wrapper.find(".active-filters-bar").exists()).toBe(false);
+  });
+
   it("shows clear-all button when multiple filters active", () => {
     const wrapper = mountFilters({
       activeContentTypeChips: [{ type: "user_message", mode: "include" }],

@@ -1,6 +1,7 @@
 //! Post-conversation sections: todos, checkpoints, metrics, incidents,
 //! custom tables, events summary, diagnostics, and rewind snapshots.
 
+use tracepilot_core::provider::{CostBasis, CostUnit};
 use tracepilot_core::utils::InfallibleWrite;
 
 use crate::document::{
@@ -89,6 +90,8 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
             "| Legacy Premium Requests | {} (AIC unavailable) |",
             reqs
         ));
+    } else if reports_provider_cost(metrics) {
+        md.push_line(format_args!("| Est. cost | {} |", provider_cost(metrics)));
     }
     if let Some(api_ms) = metrics.total_api_duration_ms {
         md.push_line(format_args!("| API Duration | {}ms |", api_ms));
@@ -104,19 +107,39 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
     md.push('\n');
 
     if !metrics.model_metrics.is_empty() {
+        // Sources costed in USD have no AI Credits to show.
+        let show_aic = !reports_provider_cost(metrics)
+            || metrics
+                .model_metrics
+                .values()
+                .any(|detail| detail.total_nano_aiu.is_some());
         md.push_line(format_args!("### Model Usage\n"));
-        md.push_line(format_args!(
-            "| Model | Requests | AI Credits | Input Tokens | Output Tokens | Cache Read | Cache Write |"
-        ));
-        md.push_line(format_args!(
-            "|-------|----------|------------|--------------|---------------|------------|-------------|"
-        ));
+        if show_aic {
+            md.push_line(format_args!(
+                "| Model | Requests | AI Credits | Input Tokens | Output Tokens | Cache Read | Cache Write |"
+            ));
+            md.push_line(format_args!(
+                "|-------|----------|------------|--------------|---------------|------------|-------------|"
+            ));
+        } else {
+            md.push_line(format_args!(
+                "| Model | Requests | Input Tokens | Output Tokens | Cache Read | Cache Write |"
+            ));
+            md.push_line(format_args!(
+                "|-------|----------|--------------|---------------|------------|-------------|"
+            ));
+        }
 
         let mut sorted: Vec<_> = metrics.model_metrics.iter().collect();
         sorted.sort_by_key(|(k, _)| k.as_str());
 
         for (model, detail) in sorted {
-            let reqs = detail.requests.as_ref().and_then(|r| r.count).unwrap_or(0);
+            // A model seen only in a provider snapshot has no request count.
+            let reqs = detail
+                .requests
+                .as_ref()
+                .and_then(|r| r.count)
+                .map_or_else(|| "—".to_string(), |count| count.to_string());
             let input = detail
                 .usage
                 .as_ref()
@@ -137,17 +160,78 @@ pub(super) fn write_metrics(md: &mut String, metrics: &ShutdownMetrics) {
                 .as_ref()
                 .and_then(|u| u.cache_write_tokens)
                 .unwrap_or(0);
-            let ai_credits = detail
-                .total_nano_aiu
-                .map(|value| format!("{:.3}", value as f64 / 1_000_000_000.0))
-                .unwrap_or_else(|| "—".to_string());
-
+            md.push_fmt(format_args!("| {} | {} |", model, reqs));
+            if show_aic {
+                let ai_credits = detail
+                    .total_nano_aiu
+                    .map(|value| format!("{:.3}", value as f64 / 1_000_000_000.0))
+                    .unwrap_or_else(|| "—".to_string());
+                md.push_fmt(format_args!(" {} |", ai_credits));
+            }
             md.push_line(format_args!(
-                "| {} | {} | {} | {} | {} | {} | {} |",
-                model, reqs, ai_credits, input, output, cache_r, cache_w
+                " {} | {} | {} | {} |",
+                input, output, cache_r, cache_w
             ));
         }
         md.push('\n');
+    }
+}
+
+/// Only providers without AI Credits (Claude Code) report a cost figure or
+/// its coverage; Copilot sessions keep their AI Credits presentation.
+fn reports_provider_cost(metrics: &ShutdownMetrics) -> bool {
+    metrics.cost_amount.is_some() || metrics.coverage.is_some()
+}
+
+/// The provider's cost as Overview shows it: the amount with its basis, the
+/// last snapshot's cost as a lower bound when later calls are unpriced, and
+/// whether it covers only part of the session.
+fn provider_cost(metrics: &ShutdownMetrics) -> String {
+    let coverage = metrics.coverage.as_ref();
+    let partial = coverage.is_some_and(|c| c.snapshot_line.is_none() || c.tail_calls > 0);
+    let current = match (metrics.cost_amount, metrics.cost_unit, metrics.cost_basis) {
+        (Some(amount), Some(unit), Some(basis)) => Some((format_cost(amount, unit), basis)),
+        _ => None,
+    };
+    let lower_bound = || {
+        coverage
+            .and_then(|c| c.snapshot_cost)
+            .map(|s| (format!("≥ {}", format_cost(s.amount, s.unit)), s.basis))
+    };
+    let Some((value, basis)) = current.or_else(lower_bound) else {
+        return "—".to_string();
+    };
+    let basis = match basis {
+        CostBasis::Billed => "billed",
+        CostBasis::ProviderEstimate => "provider estimate",
+        CostBasis::TracepilotEstimate => "TracePilot estimate",
+    };
+    if partial {
+        format!("{value} ({basis}, partial)")
+    } else {
+        format!("{value} ({basis})")
+    }
+}
+
+/// USD to the cent with thousands separators, as the app formats it.
+fn format_cost(amount: f64, unit: CostUnit) -> String {
+    match unit {
+        CostUnit::Aic => format!("{amount:.3} AI Credits"),
+        // A nonzero amount below half a cent never reads as $0.00.
+        CostUnit::Usd if amount > 0.0 && amount < 0.005 => "< $0.01".to_string(),
+        CostUnit::Usd => {
+            let cents = format!("{:.2}", amount.abs());
+            let (whole, fraction) = cents.split_once('.').unwrap_or((&cents, "00"));
+            let mut grouped = String::with_capacity(whole.len() + whole.len() / 3);
+            for (i, digit) in whole.chars().enumerate() {
+                if i > 0 && (whole.len() - i) % 3 == 0 {
+                    grouped.push(',');
+                }
+                grouped.push(digit);
+            }
+            let sign = if amount < 0.0 { "-" } else { "" };
+            format!("{sign}${grouped}.{fraction}")
+        }
     }
 }
 
@@ -279,5 +363,19 @@ pub(super) fn write_custom_tables(md: &mut String, tables: &[CustomTableExport])
             md.push_line(format_args!(""));
         }
         md.push('\n');
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn usd_costs_read_as_the_app_shows_them() {
+        assert_eq!(format_cost(0.0, CostUnit::Usd), "$0.00");
+        assert_eq!(format_cost(0.004, CostUnit::Usd), "< $0.01");
+        assert_eq!(format_cost(0.25, CostUnit::Usd), "$0.25");
+        assert_eq!(format_cost(1234.5, CostUnit::Usd), "$1,234.50");
+        assert_eq!(format_cost(1_000_000.0, CostUnit::Usd), "$1,000,000.00");
     }
 }

@@ -202,18 +202,72 @@ describe("axis ticks and pins", () => {
 });
 
 describe("model time strip", () => {
-  it("staggers labels too close for one row", () => {
-    const marks = durationStrip({
-      minMs: 2_000,
-      medianMs: 1_000_000,
-      avgMs: 1_200_000,
-      p95Ms: 7_000_000,
-      maxMs: 7_200_000,
-      totalSessionsWithDuration: 9,
+  const stats = (minMs: number, medianMs: number, avgMs: number, p95Ms: number, maxMs: number) => ({
+    minMs,
+    medianMs,
+    avgMs,
+    p95Ms,
+    maxMs,
+    totalSessionsWithDuration: 9,
+  });
+
+  /** Labels that share a row never overlap, using the strip's 6px mono advance. */
+  function expectNoOverlap(marks: ReturnType<typeof durationStrip>, widthPx: number) {
+    const spans = marks.map((m) => {
+      const w = `${m.label} ${m.text}`.length * 6;
+      const x = (m.pct / 100) * widthPx;
+      const start = m.align === "start" ? x : m.align === "end" ? x - w : x - w / 2;
+      return { row: m.row, start, end: start + w };
     });
+    for (const a of spans)
+      for (const b of spans)
+        if (a !== b && a.row === b.row) expect(a.end <= b.start || b.end <= a.start).toBe(true);
+  }
+
+  it("staggers labels too close for one row", () => {
+    const marks = durationStrip(stats(2_000, 1_000_000, 1_200_000, 7_000_000, 7_200_000), 800);
     expect(marks.map((m) => m.row)).toEqual([0, 0, 1, 0, 1]);
     expect(marks[0].pct).toBe(0);
     expect(marks[4].pct).toBe(100);
+    expectNoOverlap(marks, 800);
+  });
+
+  it("merges one timed session's equal statistics into a single centred label", () => {
+    const marks = durationStrip(stats(12_000, 12_000, 12_000, 12_000, 12_000), 800);
+    expect(marks).toHaveLength(1);
+    expect(marks[0]).toMatchObject({
+      keys: ["min", "median", "avg", "p95", "max"],
+      label: "min · median · mean · p95 · max",
+      text: "12s",
+      pct: 50,
+      row: 0,
+    });
+  });
+
+  it("merges only the statistics that share a value", () => {
+    const marks = durationStrip(stats(140, 410, 410, 920, 1_400), 800);
+    expect(marks.map((m) => m.label)).toEqual(["min", "median · mean", "p95", "max"]);
+    expect(marks[1].text).toBe("410ms");
+  });
+
+  it("spreads sub-second statistics instead of pinning them to the start", () => {
+    const marks = durationStrip(stats(140, 410, 480, 920, 1_400), 800);
+    const pct = marks.map((m) => Math.round(m.pct));
+    expect(pct).toEqual([0, 47, 54, 82, 100]);
+    expectNoOverlap(marks, 800);
+  });
+
+  it("gives every clustered label a row of its own when they would overlap", () => {
+    const marks = durationStrip(stats(2_000, 10_000, 11_000, 12_000, 7_200_000), 800);
+    expect(marks.map((m) => m.label)).toEqual(["min", "median", "mean", "p95", "max"]);
+    expect(marks.map((m) => m.row)).toEqual([0, 0, 1, 2, 0]);
+    expectNoOverlap(marks, 800);
+  });
+
+  it("keeps labels inside the strip at both ends", () => {
+    const marks = durationStrip(stats(2_000, 60_000, 90_000, 600_000, 7_200_000), 800);
+    expect(marks[0].align).toBe("start");
+    expect(marks[4].align).toBe("end");
   });
 });
 

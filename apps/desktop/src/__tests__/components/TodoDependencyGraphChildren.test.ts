@@ -61,6 +61,22 @@ describe("TodoDependencyGraph children", () => {
     expect(wrapper.text()).toContain("Hello World");
   });
 
+  it("TodoDepGraphNode keeps the full text of a truncated title in a native tooltip", () => {
+    const long = { ...t("a", "pending", "Add GitHub auth provider"), description: "Wire OAuth" };
+    const short = t("b", "pending", "Short");
+    const Provider = makeProvider([long, short], []);
+    const wrapper = mount(Provider, {
+      slots: {
+        default: () =>
+          h("svg", {}, [h(TodoDepGraphNode, { todo: long }), h(TodoDepGraphNode, { todo: short })]),
+      },
+    });
+    const [first, second] = wrapper.findAll("g.dag-node");
+    expect(first.find(".node-title").text()).toBe("Add GitHub auth pr…");
+    expect(first.find("title").text()).toBe("Add GitHub auth provider\nWire OAuth");
+    expect(second.find("title").exists()).toBe(false);
+  });
+
   it("TodoDepGraphEdge renders a path with the provided stroke", () => {
     const Provider = makeProvider([t("a", "pending"), t("b", "pending")], []);
     const edge = {

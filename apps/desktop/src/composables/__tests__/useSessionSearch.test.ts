@@ -184,13 +184,15 @@ describe("useSessionSearch", () => {
     wrapper.unmount();
   });
 
-  it("handleClearFilters resets store filters and the date preset", async () => {
+  // The date preset highlight is derived from the store's dates in the sidebar
+  // (see SearchDateFilter.test.ts), so clearing the store clears it too.
+  it("handleClearFilters resets store filters and the session name override", async () => {
     const { api, wrapper } = runComposable();
-    api.activeDatePreset.value = "last-7-days";
+    api.filteredSessionNameOverride.value = "Synthetic session";
     storeState.contentTypes.push("user_message");
     api.handleClearFilters();
     expect(storeState.clearFilters).toHaveBeenCalled();
-    expect(api.activeDatePreset.value).toBe("all");
+    expect(api.filteredSessionNameOverride.value).toBeNull();
     wrapper.unmount();
   });
 });
