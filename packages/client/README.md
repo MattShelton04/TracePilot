@@ -53,8 +53,9 @@ backend.
   `optional.ts` (Rust `Option<T>` mapping helpers).
 - `src/generated/bindings.ts` — DO NOT EDIT. Regenerated from
   `tracepilot-tauri-bindings` via specta.
-- `src/generated/ipc-commands.json` — canonical command-name list; drift-checked
-  against `commands.ts` in `__tests__/generated.drift.test.ts`.
+- `src/generated/ipc-commands.{ts,json}` — generated command-name list
+  (`IPC_COMMANDS`, re-exported by `src/commands.ts`); regenerate with
+  `pnpm gen:bindings`.
 - `src/mock/` — mock-mode payloads used when running outside Tauri.
 
 ## Scripts

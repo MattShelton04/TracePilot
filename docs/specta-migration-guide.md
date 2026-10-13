@@ -41,7 +41,7 @@ Three Rust surfaces are emitted to `bindings.ts`:
 | Rust symbol | Location | Annotation |
 | --- | --- | --- |
 | `ErrorCode` enum | `crates/tracepilot-tauri-bindings/src/error.rs` | `#[derive(serde::Serialize, specta::Type)]` + `#[serde(rename_all = "SCREAMING_SNAKE_CASE")]` |
-| `BridgeMetricsSnapshot` struct | `crates/tracepilot-orchestrator/src/bridge/manager.rs` | `#[derive(..., specta::Type)]` (keeps existing `#[serde(rename_all = "camelCase")]`) |
+| `BridgeMetricsSnapshot` struct | `crates/tracepilot-orchestrator/src/bridge/manager/` | `#[derive(..., specta::Type)]` (keeps existing `#[serde(rename_all = "camelCase")]`) |
 | `sdk_bridge_metrics` command | `crates/tracepilot-tauri-bindings/src/commands/sdk.rs` | `#[tauri::command]` + `#[specta::specta]` |
 
 ### Generated as of wave 21 (session-listing batch)
@@ -53,8 +53,8 @@ registry. These DTOs + commands now round-trip through specta:
 | --- | --- | --- |
 | `SessionListItem` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]`; hand-written mirror in `packages/types/src/session.ts` was fixed to include `cwd?: string \| null` (the Rust wire format always emitted it) |
 | `FreshnessResponse` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]`; mirror at `packages/types/src/conversation.ts` |
-| `list_sessions` command | `crates/tracepilot-tauri-bindings/src/commands/session.rs` | `#[specta::specta]` |
-| `check_session_freshness` command | `crates/tracepilot-tauri-bindings/src/commands/session.rs` | `#[specta::specta]` |
+| `list_sessions` command | `crates/tracepilot-tauri-bindings/src/commands/session/` | `#[specta::specta]` |
+| `check_session_freshness` command | `crates/tracepilot-tauri-bindings/src/commands/session/` | `#[specta::specta]` |
 
 Drift between generated + hand-written is caught at compile-time by
 `packages/client/src/__tests__/generated.drift.test.ts`.

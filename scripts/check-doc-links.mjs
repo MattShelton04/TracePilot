@@ -63,14 +63,6 @@ const isHistoricalDoc = (rel) =>
 // TODO: stale code-span paths in docs owned by other workstreams; fix the doc,
 // then drop its entry.
 const KNOWN_STALE_CODE_PATHS = new Map([
-  [
-    "docs/specta-migration-guide.md",
-    new Set([
-      "crates/tracepilot-orchestrator/src/bridge/manager.rs",
-      "crates/tracepilot-tauri-bindings/src/commands/session.rs",
-      "apps/desktop/src/__tests__/commandContract.test.ts",
-    ]),
-  ],
   ["docs/testing.md", new Set(["packages/test-utils/fixtures/"])],
 ]);
 
