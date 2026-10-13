@@ -4,15 +4,40 @@
 //! as pretty-printed JSON with a SHA-256 content hash for integrity verification.
 //! Files produced here can be imported back with no data loss.
 
+use std::io::{BufWriter, Write};
+
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use crate::document::SessionArchive;
+use crate::document::{ArchiveHeader, ArchiveOptionsRecord, PortableSession, SessionArchive};
 use crate::error::{ExportError, Result};
 use crate::options::ExportFormat;
 use crate::render::{ExportFile, ExportRenderer};
 
 /// Renderer that produces `.tpx.json` files.
 pub struct JsonRenderer;
+
+/// Only the header changes during rendering; session content stays borrowed.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ArchiveOutput<'a> {
+    header: ArchiveHeader,
+    sessions: &'a [PortableSession],
+    export_options: &'a ArchiveOptionsRecord,
+}
+
+struct HashWriter(Sha256);
+
+impl Write for HashWriter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.update(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
 
 impl JsonRenderer {
     /// Generate a filename for a session archive.
@@ -29,10 +54,16 @@ impl JsonRenderer {
     }
 
     /// Compute SHA-256 hash of the sessions portion for integrity checking.
-    fn compute_content_hash(sessions_json: &[u8]) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(sessions_json);
-        format!("{:x}", hasher.finalize())
+    fn compute_content_hash(sessions: &[PortableSession]) -> serde_json::Result<String> {
+        let mut hasher = HashWriter(Sha256::new());
+        {
+            // serde emits many tiny writes. Buffer them without retaining a
+            // second serialized copy of the entire sessions array.
+            let mut writer = BufWriter::with_capacity(64 * 1024, &mut hasher);
+            serde_json::to_writer_pretty(&mut writer, sessions)?;
+            writer.flush().map_err(serde_json::Error::io)?;
+        }
+        Ok(format!("{:x}", hasher.0.finalize()))
     }
 }
 
@@ -42,16 +73,20 @@ impl ExportRenderer for JsonRenderer {
     }
 
     fn render(&self, archive: &SessionArchive) -> Result<Vec<ExportFile>> {
-        // 1. Serialize sessions to compute content hash
-        let sessions_json =
-            serde_json::to_vec_pretty(&archive.sessions).map_err(|e| ExportError::Render {
+        // Hash the exact v1 pretty-JSON representation, without materializing it.
+        let content_hash =
+            Self::compute_content_hash(&archive.sessions).map_err(|e| ExportError::Render {
                 format: "JSON".to_string(),
                 message: format!("failed to serialize sessions: {e}"),
             })?;
 
-        // 2. Clone archive and set the content hash
-        let mut output = archive.clone();
-        output.header.content_hash = Some(Self::compute_content_hash(&sessions_json));
+        let mut header = archive.header.clone();
+        header.content_hash = Some(content_hash);
+        let output = ArchiveOutput {
+            header,
+            sessions: &archive.sessions,
+            export_options: &archive.export_options,
+        };
 
         // 3. Serialize the complete archive
         let content = serde_json::to_vec_pretty(&output).map_err(|e| ExportError::Render {
@@ -210,9 +245,8 @@ mod tests {
     #[test]
     fn content_hash_is_deterministic() {
         let archive = minimal_archive();
-        let sessions_json = serde_json::to_vec_pretty(&archive.sessions).unwrap();
-        let hash1 = JsonRenderer::compute_content_hash(&sessions_json);
-        let hash2 = JsonRenderer::compute_content_hash(&sessions_json);
+        let hash1 = JsonRenderer::compute_content_hash(&archive.sessions).unwrap();
+        let hash2 = JsonRenderer::compute_content_hash(&archive.sessions).unwrap();
         assert_eq!(hash1, hash2);
     }
 

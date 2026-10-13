@@ -6,7 +6,7 @@ use crate::parsing::events::{
     TypedEvent, current_session_effort, current_session_model, extract_combined_shutdown_data,
     extract_session_start,
 };
-use crate::turns::{reconstruct_turns, turn_stats};
+use crate::turns::reconstruct_turns;
 
 use super::model_calls::metrics_from_model_calls;
 
@@ -63,8 +63,7 @@ pub(crate) fn apply_event_enrichment(
     summary.current_reasoning_effort = current_session_effort(typed_events);
 
     let turns = reconstruct_turns(typed_events);
-    let stats = turn_stats(&turns);
-    summary.turn_count = Some(stats.total_turns);
+    summary.turn_count = Some(turns.len());
 
     if let Some(start_data) = extract_session_start(typed_events) {
         if let Some(ctx) = &start_data.context {

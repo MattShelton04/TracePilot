@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use crate::error::{Result, TracePilotError};
+use crate::parsing::snapshot::check_cancelled;
 
 /// Maximum age of session activity before a lock file is considered stale.
 const STALE_LOCK_THRESHOLD: Duration = Duration::from_secs(24 * 60 * 60); // 24 hours
@@ -33,8 +34,35 @@ pub fn discover_sessions_cancellable(
     base_dir: &Path,
     is_cancelled: &impl Fn() -> bool,
 ) -> Result<Vec<DiscoveredSession>> {
-    use crate::parsing::snapshot::check_cancelled;
+    let directories = discover_session_directories(base_dir, is_cancelled)?;
+    let mut sessions = Vec::with_capacity(directories.len());
+    for SessionDirectory { id, path } in directories {
+        check_cancelled(is_cancelled)?;
+        let session_paths = crate::paths::SessionPaths::from_root(&path);
+        sessions.push(DiscoveredSession {
+            id,
+            has_workspace_yaml: session_paths.workspace_yaml().exists(),
+            has_events_jsonl: session_paths.events_jsonl().exists(),
+            has_session_db: session_paths.session_db().exists(),
+            path,
+        });
+    }
+    if !sessions.is_empty() {
+        check_cancelled(is_cancelled)?;
+    }
+    Ok(sessions)
+}
 
+pub(crate) struct SessionDirectory {
+    pub id: crate::ids::SessionId,
+    pub path: PathBuf,
+}
+
+/// Inventory alone, for providers that do not use the optional marker flags.
+pub(crate) fn discover_session_directories(
+    base_dir: &Path,
+    is_cancelled: &impl Fn() -> bool,
+) -> Result<Vec<SessionDirectory>> {
     check_cancelled(is_cancelled)?;
     let mut sessions = Vec::new();
 
@@ -66,14 +94,7 @@ pub fn discover_sessions_cancellable(
             Err(_) => continue,
         };
 
-        let session_paths = crate::paths::SessionPaths::from_root(&path);
-        sessions.push(DiscoveredSession {
-            id,
-            has_workspace_yaml: session_paths.workspace_yaml().exists(),
-            has_events_jsonl: session_paths.events_jsonl().exists(),
-            has_session_db: session_paths.session_db().exists(),
-            path,
-        });
+        sessions.push(SessionDirectory { id, path });
     }
 
     sessions.sort_by(|a, b| a.id.cmp(&b.id));

@@ -1,7 +1,10 @@
 import type { ConversationTurn, TurnToolCall } from "@tracepilot/types";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 import { useConversationSections } from "../composables/useConversationSections";
+import * as agentGrouping from "../utils/agentGrouping";
+
+afterEach(() => vi.restoreAllMocks());
 
 function makeToolCall(overrides: Partial<TurnToolCall> = {}): TurnToolCall {
   return {
@@ -101,6 +104,42 @@ describe("useConversationSections", () => {
   });
 
   describe("findToolCallIndex", () => {
+    it("does not group agent sections until a view asks for them", () => {
+      const group = vi.spyOn(agentGrouping, "groupTurnByAgent");
+      const buildSubagentIndex = vi.spyOn(agentGrouping, "buildSubagentIndex");
+      const turn = makeTurn({ toolCalls: [makeToolCall({ toolCallId: "tc-a" })] });
+      const { findToolCallIndex, getSections } = useConversationSections(() => [turn]);
+
+      expect(findToolCallIndex(turn, turn.toolCalls[0])).toBe(0);
+      expect(group).not.toHaveBeenCalled();
+      expect(buildSubagentIndex).not.toHaveBeenCalled();
+      expect(getSections(0)[0].toolCalls).toEqual(turn.toolCalls);
+      expect(group).toHaveBeenCalledOnce();
+    });
+
+    it("refreshes indexes after a turn replacement without changing cross-turn attribution", () => {
+      const launch = makeToolCall({ toolCallId: "sub-1", isSubagent: true, toolName: "task" });
+      const child = makeToolCall({ toolCallId: "child-1", parentToolCallId: "sub-1" });
+      const turns = ref([
+        makeTurn({ turnIndex: 0, toolCalls: [launch] }),
+        makeTurn({ turnIndex: 1, toolCalls: [child] }),
+      ]);
+      const { findToolCallIndex, getSections } = useConversationSections(() => turns.value);
+      expect(findToolCallIndex(turns.value[1], child)).toBe(0);
+      expect(getSections(1).find((section) => section.agentId === "sub-1")?.toolCalls).toEqual([
+        child,
+      ]);
+
+      turns.value = [
+        turns.value[0],
+        makeTurn({ turnIndex: 1, toolCalls: [makeToolCall({ toolCallId: "new" }), child] }),
+      ];
+      expect(findToolCallIndex(turns.value[1], child)).toBe(1);
+      expect(getSections(1).find((section) => section.agentId === "sub-1")?.toolCalls).toEqual([
+        child,
+      ]);
+    });
+
     it("finds index by toolCallId via pre-computed map", () => {
       const tc1 = makeToolCall({ toolCallId: "tc-a", toolName: "grep" });
       const tc2 = makeToolCall({ toolCallId: "tc-b", toolName: "edit" });

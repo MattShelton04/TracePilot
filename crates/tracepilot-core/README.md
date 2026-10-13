@@ -58,6 +58,26 @@ a dependency of `tracepilot-indexer`, `tracepilot-export`,
 cargo test -p tracepilot-core --features dhat-heap
 ```
 
+## Parser performance probe
+
+`cargo build --release -p tracepilot-core --example parse_probe` builds a
+read-only probe for a frozen `events.jsonl`. Set `TRACEPILOT_PROBE_REVISION`
+to the measured Git SHA before building and retain a separate executable
+for each revision. Run `target/release/examples/parse_probe <events.jsonl>`
+(with `.exe` on Windows) in a fresh process for each sample.
+
+The JSON result includes the embedded revision, source byte size, event and
+diagnostic counts, elapsed parse time, and a SHA-256 of parsed raw records
+and canonicalized diagnostics. It emits no record content, diagnostic strings,
+or source path. Hashing runs outside the timed region. Compare identical output
+hashes and at least five interleaved base/head samples, with no competing builds;
+report medians and ranges and treat the OS file cache as uncontrolled.
+
+For repeatable synthetic large-line coverage, run `cargo bench -p
+tracepilot-bench --bench parsing -- parse_large_tool_output`. Its 128 tool
+results contain 8 KiB or 256 KiB of output each; the existing event-count
+benchmarks cover smaller records.
+
 ## Related ADRs
 
 - [0001 — Tauri + Vue + Rust workspace](../../docs/adr/0001-tauri-vue-rust-workspace.md)

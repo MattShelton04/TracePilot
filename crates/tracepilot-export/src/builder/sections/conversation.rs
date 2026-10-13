@@ -8,13 +8,14 @@ use tracepilot_core::turns::reconstruct_turns;
 pub(in crate::builder) fn build_conversation(
     options: &ExportOptions,
     typed_events: Option<&[TypedEvent]>,
+    reconstructed_turns: Option<Vec<ConversationTurn>>,
     available: &mut Vec<SectionId>,
 ) -> Option<Vec<ConversationTurn>> {
     if !options.includes(SectionId::Conversation) {
         return None;
     }
     let events = typed_events?;
-    let mut turns = reconstruct_turns(events);
+    let mut turns = reconstructed_turns.unwrap_or_else(|| reconstruct_turns(events));
 
     // Optionally replace truncated result_content with full content from events
     if options.content_detail.include_full_tool_results && !turns.is_empty() {

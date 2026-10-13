@@ -8,6 +8,12 @@ use super::{SearchFacets, SearchFilters, SearchResult};
 use crate::Result;
 use crate::index_db::IndexDb;
 
+enum FacetDimension {
+    ContentType,
+    Repository,
+    ToolName,
+}
+
 impl IndexDb {
     // ── Unified query methods ───────────────────────────────────────
 
@@ -63,7 +69,7 @@ impl IndexDb {
         let sanitized = query.map(sanitize_fts_query).filter(|s| !s.is_empty());
         let is_fts = sanitized.is_some();
 
-        let (sql, params) = SearchQueryBuilder::new("SELECT COUNT(*)", is_fts)
+        let (sql, params) = SearchQueryBuilder::content_aggregate("SELECT COUNT(*)", is_fts)
             .with_optional_fts_match(sanitized.as_deref())
             .with_filters(filters)
             .build();
@@ -86,7 +92,7 @@ impl IndexDb {
                 content_types: Vec::new(),
                 ..filters.clone()
             };
-            self.facet_dimension("sc.content_type", None, None, sanitized.as_deref(), &excl)?
+            self.facet_dimension(FacetDimension::ContentType, sanitized.as_deref(), &excl)?
         };
 
         let by_repository = {
@@ -94,13 +100,7 @@ impl IndexDb {
                 repositories: Vec::new(),
                 ..filters.clone()
             };
-            self.facet_dimension(
-                "s.repository",
-                Some("s.repository IS NOT NULL"),
-                Some(20),
-                sanitized.as_deref(),
-                &excl,
-            )?
+            self.facet_dimension(FacetDimension::Repository, sanitized.as_deref(), &excl)?
         };
 
         let by_tool_name = {
@@ -108,13 +108,7 @@ impl IndexDb {
                 tool_names: Vec::new(),
                 ..filters.clone()
             };
-            self.facet_dimension(
-                "sc.tool_name",
-                Some("sc.tool_name IS NOT NULL"),
-                Some(20),
-                sanitized.as_deref(),
-                &excl,
-            )?
+            self.facet_dimension(FacetDimension::ToolName, sanitized.as_deref(), &excl)?
         };
 
         // Total matches and distinct sessions
@@ -134,17 +128,27 @@ impl IndexDb {
     /// Run a single facet-dimension query (content_type, repository, or tool_name).
     fn facet_dimension(
         &self,
-        column: &str,
-        extra_where: Option<&str>,
-        limit: Option<usize>,
+        dimension: FacetDimension,
         sanitized_query: Option<&str>,
         filters: &SearchFilters,
     ) -> Result<Vec<(String, i64)>> {
         let is_fts = sanitized_query.is_some();
+        let (column, extra_where, limit) = match dimension {
+            FacetDimension::ContentType => ("sc.content_type", None, None),
+            FacetDimension::Repository => {
+                ("s.repository", Some("s.repository IS NOT NULL"), Some(20))
+            }
+            FacetDimension::ToolName => {
+                ("sc.tool_name", Some("sc.tool_name IS NOT NULL"), Some(20))
+            }
+        };
         let base_select = format!("SELECT {column}, COUNT(*)");
 
-        let mut builder =
-            SearchQueryBuilder::new(&base_select, is_fts).with_optional_fts_match(sanitized_query);
+        let mut builder = match dimension {
+            FacetDimension::Repository => SearchQueryBuilder::new(&base_select, is_fts),
+            _ => SearchQueryBuilder::content_aggregate(&base_select, is_fts),
+        }
+        .with_optional_fts_match(sanitized_query);
 
         if let Some(extra) = extra_where {
             builder = builder.with_extra_where(extra);
@@ -179,11 +183,13 @@ impl IndexDb {
     ) -> Result<(i64, i64)> {
         let is_fts = sanitized_query.is_some();
 
-        let (sql, params) =
-            SearchQueryBuilder::new("SELECT COUNT(*), COUNT(DISTINCT sc.session_id)", is_fts)
-                .with_optional_fts_match(sanitized_query)
-                .with_filters(filters)
-                .build();
+        let (sql, params) = SearchQueryBuilder::content_aggregate(
+            "SELECT COUNT(*), COUNT(DISTINCT sc.session_id)",
+            is_fts,
+        )
+        .with_optional_fts_match(sanitized_query)
+        .with_filters(filters)
+        .build();
 
         Ok(self.conn.query_row(
             &sql,

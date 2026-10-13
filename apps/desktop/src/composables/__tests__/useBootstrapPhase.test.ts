@@ -222,6 +222,25 @@ describe("bootstrap alert ownership", () => {
     expect(mocks.checkSdkSessionStateAlerts).not.toHaveBeenCalled();
   });
 
+  it("keeps the indexing phase until the setup-complete save settles", async () => {
+    mocks.checkConfigExists.mockResolvedValue(false);
+    mountBootstrap();
+    await flushPromises();
+    bootstrap.onSetupSaved(10);
+    const save = deferred<void>();
+    mocks.updateConfigFields.mockReturnValue(save.promise);
+    const completing = bootstrap.onIndexingComplete();
+
+    expect(mocks.updateConfigFields).toHaveBeenCalledWith({ general: { setupComplete: true } });
+    expect(bootstrap.phase.value).toBe("indexing");
+    expect(mocks.fetchSessions).not.toHaveBeenCalled();
+    save.resolve();
+    await completing;
+
+    expect(bootstrap.phase.value).toBe("app");
+    expect(mocks.fetchSessions).toHaveBeenCalledTimes(1);
+  });
+
   it("does not start the main window alerts in a viewer window", async () => {
     mocks.isMain.mockReturnValue(false);
     preferencesReady.resolve();

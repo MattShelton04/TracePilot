@@ -21,7 +21,7 @@ use super::SearchFilters;
 /// ```
 pub(super) struct SearchQueryBuilder {
     base_query: String,
-    from_clause: &'static str,
+    join_sessions: bool,
     is_fts: bool,
     where_clauses: Vec<String>,
     params: Vec<Box<dyn ToSql>>,
@@ -39,13 +39,24 @@ impl SearchQueryBuilder {
     pub(super) fn new(base_select: &str, is_fts: bool) -> Self {
         Self {
             base_query: base_select.to_string(),
-            from_clause: build_from_clause(is_fts),
+            join_sessions: true,
             is_fts,
             where_clauses: Vec::new(),
             params: Vec::new(),
             order_by: None,
             limit: None,
             offset: None,
+        }
+    }
+
+    /// Aggregate only search-content columns. The enforced foreign key to
+    /// sessions guarantees a parent for every row, so joining it adds no
+    /// information. Session filters still request the join in `with_filters`.
+    /// Result projections and repository facets must use `new` instead.
+    pub(super) fn content_aggregate(base_select: &str, is_fts: bool) -> Self {
+        Self {
+            join_sessions: false,
+            ..Self::new(base_select, is_fts)
         }
     }
 
@@ -99,9 +110,10 @@ impl SearchQueryBuilder {
     }
 
     /// Add standard search filters (content types, repositories, tools, dates,
-    /// session ID and source). An unset source adds no clause, so unfiltered
-    /// queries keep their exact SQL.
+    /// session ID and source). Repository and source filters require the
+    /// session join even for content-only aggregates.
     pub(super) fn with_filters(mut self, filters: &SearchFilters) -> Self {
+        self.join_sessions |= !filters.repositories.is_empty() || filters.source.is_some();
         // Use helper methods for IN-filters
         self = self.add_in_filter("sc.content_type", &filters.content_types);
         self = self.add_not_in_filter("sc.content_type", &filters.exclude_content_types);
@@ -205,7 +217,10 @@ impl SearchQueryBuilder {
     ///
     /// Returns `(sql_string, params)` ready for execution.
     pub(super) fn build(mut self) -> (String, Vec<Box<dyn ToSql>>) {
-        let mut sql = format!("{} {}", self.base_query, self.from_clause);
+        let mut sql = format!("{} {}", self.base_query, build_from_clause(self.is_fts));
+        if self.join_sessions {
+            sql.push_str(" JOIN sessions s ON s.id = sc.session_id");
+        }
 
         // Build WHERE clause
         if !self.where_clauses.is_empty() {
@@ -249,11 +264,9 @@ impl SearchQueryBuilder {
 fn build_from_clause(is_fts: bool) -> &'static str {
     if is_fts {
         "FROM search_fts \
-         JOIN search_content sc ON sc.id = search_fts.rowid \
-         JOIN sessions s ON s.id = sc.session_id"
+         JOIN search_content sc ON sc.id = search_fts.rowid"
     } else {
-        "FROM search_content sc \
-         JOIN sessions s ON s.id = sc.session_id"
+        "FROM search_content sc"
     }
 }
 
