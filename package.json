@@ -49,6 +49,7 @@
     "check:zindex": "node scripts/check-z-index-tokens.mjs",
     "check:spacing": "node scripts/check-spacing-grid.mjs",
     "check:design-system": "node scripts/check-no-hex-colors.mjs && node scripts/check-no-emoji-in-templates.mjs && node scripts/check-no-backdrop-filter.mjs && node scripts/check-z-index-tokens.mjs",
+    "check:changed": "node scripts/check-changed.mjs",
     "gen:bindings": "cargo run -p tracepilot-tauri-bindings --bin gen-bindings",
     "clean": "pnpm -r clean",
     "hooks:install": "lefthook install"
