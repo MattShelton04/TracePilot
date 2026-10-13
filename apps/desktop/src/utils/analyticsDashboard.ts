@@ -11,6 +11,7 @@ import {
   AI_CREDIT_USD,
   type AnalyticsData,
   type ApiDurationStats,
+  formatDuration,
   type SessionSource,
 } from "@tracepilot/types";
 import type { AnalyticsTimeRange } from "@/utils/analyticsFilters";
@@ -331,35 +332,79 @@ export function errorPins(rows: readonly DayRow[], gapPct: number): ErrorPin[] {
   return pins.map(({ last: _last, ...pin }) => pin);
 }
 
+export type StripKey = "min" | "median" | "avg" | "p95" | "max";
+
 export interface StripMark {
-  key: "min" | "median" | "avg" | "p95" | "max";
+  /** Statistics at this point; equal values share one mark and label. */
+  keys: StripKey[];
+  /** Their names, joined: "median · mean". */
   label: string;
+  /** The shared value, formatted. */
+  text: string;
   ms: number;
   /** Position on a log axis, in percent. */
   pct: number;
-  /** Label row, 0 or 1: neighbours too close for one row alternate. */
+  /** Label anchor: centred on the tick unless that would leave the strip. */
+  align: "start" | "center" | "end";
+  /** Label row: the first row where it overlaps no label already placed. */
   row: number;
 }
 
-/** The five recorded statistics on one log axis, labels staggered when close. */
-export function durationStrip(stats: ApiDurationStats, minGapPct = 11): StripMark[] {
-  const floor = 1_000;
-  const lo = Math.log10(Math.max(floor, stats.minMs));
-  const hi = Math.log10(Math.max(floor, stats.maxMs));
-  const span = hi - lo || 1;
-  const pct = (ms: number) => ((Math.log10(Math.max(floor, ms)) - lo) / span) * 100;
-  const marks: Omit<StripMark, "row">[] = [
-    { key: "min", label: "min", ms: stats.minMs, pct: pct(stats.minMs) },
-    { key: "median", label: "median", ms: stats.medianMs, pct: pct(stats.medianMs) },
-    { key: "avg", label: "mean", ms: stats.avgMs, pct: pct(stats.avgMs) },
-    { key: "p95", label: "p95", ms: stats.p95Ms, pct: pct(stats.p95Ms) },
-    { key: "max", label: "max", ms: stats.maxMs, pct: pct(stats.maxMs) },
-  ];
-  let lastOnTop = Number.NEGATIVE_INFINITY;
-  return marks.map((mark) => {
-    const row = mark.pct - lastOnTop < minGapPct ? 1 : 0;
-    if (row === 0) lastOnTop = mark.pct;
-    return { ...mark, row };
+/** Below this, model time is noise; it only keeps the log axis finite. */
+const STRIP_FLOOR_MS = 10;
+/** Advance of the strip's 10px monospace label font, and the space kept between labels. */
+const STRIP_CHAR_PX = 6;
+const STRIP_LABEL_GAP_PX = 8;
+
+/**
+ * The five recorded statistics on one log axis. Statistics with the same
+ * value merge into one mark (one timed session gives a single centred mark),
+ * and each label takes the first row where it overlaps nothing.
+ */
+export function durationStrip(stats: ApiDurationStats, widthPx = 800): StripMark[] {
+  const log = (ms: number) => Math.log10(Math.max(STRIP_FLOOR_MS, ms));
+  const lo = log(stats.minMs);
+  const span = log(stats.maxMs) - lo;
+  const pct = (ms: number) =>
+    span > 0 ? Math.min(100, Math.max(0, ((log(ms) - lo) / span) * 100)) : 50;
+  const ordered = (
+    [
+      ["min", "min", stats.minMs],
+      ["median", "median", stats.medianMs],
+      ["avg", "mean", stats.avgMs],
+      ["p95", "p95", stats.p95Ms],
+      ["max", "max", stats.maxMs],
+    ] as const
+  )
+    .map(([key, name, ms]) => ({ key, name, ms, pct: pct(ms), text: formatDuration(ms) || "0s" }))
+    .sort((a, b) => a.pct - b.pct); // by position; ties keep the order above
+
+  const groups: { keys: StripKey[]; names: string[]; ms: number; text: string; pct: number }[] = [];
+  for (const { key, name, ms, pct: at, text } of ordered) {
+    const previous = groups.at(-1);
+    if (previous?.text === text) {
+      previous.keys.push(key);
+      previous.names.push(name);
+    } else {
+      groups.push({ keys: [key], names: [name], ms, text, pct: at });
+    }
+  }
+
+  const rows: [number, number][][] = [];
+  return groups.map(({ keys, names, ms, text, pct: at }) => {
+    const label = names.join(" · ");
+    const w = (label.length + 1 + text.length) * STRIP_CHAR_PX;
+    const x = (at / 100) * widthPx;
+    const align: StripMark["align"] =
+      x - w / 2 < 0 ? "start" : x + w / 2 > widthPx ? "end" : "center";
+    const start = align === "start" ? x : align === "end" ? x - w : x - w / 2;
+    const end = start + w;
+    const free = (row: [number, number][]) =>
+      row.every(([s, e]) => e + STRIP_LABEL_GAP_PX <= start || end + STRIP_LABEL_GAP_PX <= s);
+    let row = rows.findIndex(free);
+    if (row < 0) row = rows.push([]) - 1;
+    rows[row].push([start, end]);
+    return { keys, label, text, ms, pct: at, align, row };
   });
 }
 
