@@ -10,7 +10,7 @@ Tauri. Direct script invocations generally expect dependencies to be present.
 | Purpose | Command | Platform and status | Prerequisites / effects |
 | --- | --- | --- | --- |
 | Install workspace dependencies | `pnpm install` or `just install` | All; manual | Node 22, pnpm 10; changes local dependency installation. |
-| Install repository Git hooks | `pnpm hooks:install` | All; explicit opt-in | Uses the pinned local Lefthook. Dependency installation does not install or replace Git hooks. |
+| Install repository Git hooks | `pnpm hooks:install` | All; explicit opt-in | Points `core.hooksPath` at the tracked shims in `scripts/git-hooks/`, so every worktree runs Lefthook from its own `node_modules` and prints a SKIPPED warning when it isn't installed. Dependency installation does not install or replace Git hooks. |
 | Develop the landing page | `pnpm site:dev` | All; manual | Generates showcase/release data and starts Vite on port 5180. See [landing-page guide](../docs/landing-page.md). |
 | Build the landing page | `pnpm site:build` | All; local/CI | Generates data and writes `site/dist/`; fetches release information at build time. |
 | Check the landing page | `pnpm site:check` | All; local/CI | Requires a built site and Playwright Chromium; runs all viewport/interaction/CSP and size checks, saving ignored `site/.check/` screenshots. Add `--viewport 1440x960` (repeatable) for focused checks; CI shards the five modes against one shared build. |
@@ -50,17 +50,18 @@ README of its folder or of a parent folder; `pnpm check:changed` runs it.
 
 | Entry point | Purpose | Status / effects |
 | --- | --- | --- |
-| `node scripts/check-doc-links.mjs` | Check relative Markdown file targets across repository docs; accepts explicit paths for staged checks. Contracts: `node --test scripts/check-doc-links.test.mjs`. | Local `just check-docs` and lefthook; CI policy. Read-only. It does not validate anchors or paths written only in code spans. |
+| `node scripts/check-doc-links.mjs` | Check relative Markdown file targets across repository docs; accepts explicit paths for staged checks. Contracts: `node --test scripts/check-doc-links.test.mjs`. | Local `just check-docs` and lefthook; CI policy. Read-only. Also checks backticked repository paths in current docs (archive, dated reports and CHANGELOG are skipped); it does not validate anchors. |
 | `node scripts/check-adr.mjs` | Check ADR headings, dates, status, and index membership. | Local `just check-docs` and lefthook; CI policy. Read-only. |
 | `node scripts/check-workflow-actions.mjs` | Check pinned action SHAs and comments. | CI policy; `--verify-remote` uses GitHub API in CI. Read-only without that flag. |
-| `node scripts/ci/classify-changes.mjs`, `node scripts/ci/classify-changes.mjs --verify-required` | Select application checks from the complete PR merge diff and strictly verify the required job results. | CI only; consumes GitHub event/output or `CI_NEEDS` environment data. Contracts: `node --test scripts/ci/classify-changes.test.mjs`. |
-| `node scripts/check-file-sizes.mjs` | Enforce source line budgets. | CI and lefthook. Read-only. |
+| `node scripts/ci/classify-changes.mjs`, `node scripts/ci/classify-changes.mjs --verify-required` | Select application checks (`frontend`, `desktop`, `rust`, `dependencies`) from the complete PR merge diff and strictly verify the required job results. | CI only; consumes GitHub event/output or `CI_NEEDS` environment data. Contracts: `node --test scripts/ci/classify-changes.test.mjs`. |
+| `node scripts/check-file-sizes.mjs [--staged \| --since <ref> \| <paths...>]` | Enforce source line budgets, on the whole tree or only the given files. | CI and lefthook (`--staged` on commit, `--since` on push). Read-only. |
 | `node scripts/check-catalog-drift.mjs` | Check pnpm catalogue references. | `just ci`; read-only. |
 | `node scripts/check-csp.mjs` | Guard Tauri CSP. | `just ci` and lefthook; read-only. |
 | `node scripts/check-public-api.mjs` | Compare orchestrator exports with its checked-in API baseline. | `just ci` and lefthook; read-only unless explicitly passed `--update`. |
 | `node scripts/check-no-hex-colors.mjs`, `check-no-emoji-in-templates.mjs`, `check-no-backdrop-filter.mjs`, `check-z-index-tokens.mjs` | Guard desktop design tokens and component rules (`pnpm check:design-system`). A full run also fails on allow-list entries that are no longer needed. | CI, lefthook and package scripts; read-only. Each supports `--staged`. |
-| `node scripts/check-spacing-grid.mjs` | Report off-grid spacing. | Advisory pre-push check; exits successfully while issues are reported. |
+| `node scripts/check-spacing-grid.mjs` | Report off-grid spacing. | Advisory (`pnpm check:spacing`); exits successfully while issues are reported. |
 | `node scripts/check-scripts-index.mjs` | Check that every script under `scripts/` is listed in a README (see [listing a new script](#listing-a-new-script)). Contracts: `node --test scripts/check-scripts-index.test.mjs`. | `pnpm check:changed` when `scripts/` changes; read-only. |
+| `pnpm test:checks` | Contract tests for the check scripts, `scripts/lib/`, the Git hook, release and worktree scripts. | CI policy; read-only. |
 | `node scripts/check-commit-msg.mjs <message-file>` | Validate Conventional Commit subject. | Lefthook `commit-msg`; read-only. The hook skips this validator while a merge is in progress so Git's default merge messages are accepted. |
 
 ## Manual build and analysis helpers
@@ -94,6 +95,8 @@ wrapper paths when changing these folders.
 | `scripts/dependencies/` | Locked resolver inputs, complete dependency graphs and graph invariants. Writes ignored output under `.agent/dependency-audit/`. | [README](dependencies/README.md), [dependency reference](../docs/dependencies/README.md) |
 | `scripts/e2e/` | Native integration suite (`pnpm test:e2e`), compatibility wrappers and opt-in diagnostics. | [README](e2e/README.md) |
 | `scripts/fixtures/` | Synthetic Copilot and Claude Code session fixtures and parser contracts. | [README](fixtures/README.md) |
+| `scripts/git-hooks/` | Tracked Git hook shims (`pre-commit`, `pre-push`, `commit-msg`) and `scripts/git-hooks/run-lefthook.sh`, installed by `pnpm hooks:install`; `node scripts/git-hooks/pre-push-checks.mjs [--base <ref>] [--dry-run]` runs file sizes, rustfmt and typecheck scoped to the branch's changes. Tests: `pnpm test:checks`. | This row, [contributing](../CONTRIBUTING.md) |
+| `scripts/lib/` | Shared helpers for scripts; `scripts/lib/list-tracked-files.mjs` lists tracked, staged or changed files and falls back to a filesystem walk when Git can't be spawned. | This row |
 | `scripts/macos/` | `bash scripts/macos/bundle-smoke.sh [bundle-dir]` verifies a built app and disk image, installs from the image and launches it (CI macOS job and release workflow). macOS only; needs `pnpm tauri build --bundles app,dmg`; writes ignored `.tracepilot/macos-smoke/`. | This row, [testing guide](../docs/testing.md) |
 | `scripts/perf/` | Performance and bundle probes and their comparison contracts. | [README](perf/README.md) |
 | `scripts/pricing/` | Pricing parsers, importer and freshness comparator behind `pnpm pricing:*`. | [README](pricing/README.md) |

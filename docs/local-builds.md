@@ -60,6 +60,9 @@ cd .agent/worktrees/<slug>
 pnpm install --frozen-lockfile --prefer-offline
 ```
 
+Or run `pnpm worktree:new <slug>`, which creates the worktree, installs and prints
+the instance command; `pnpm worktree:clean --merged` lists what to remove.
+
 pnpm hard-links packages from its global store, so `node_modules` costs little
 disk per worktree as long as the store and the checkout are on the same volume.
 The first Rust build compiles every dependency; sccache (below) turns most of

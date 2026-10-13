@@ -102,6 +102,7 @@ ci:
 check-docs:
     node scripts/check-doc-links.mjs
     node scripts/check-adr.mjs
+    node scripts/check-scripts-index.mjs
 
 # CSP static regression guard (FU-02) — fails if tauri.conf.json weakens CSP.
 check-csp:

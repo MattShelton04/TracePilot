@@ -30,7 +30,7 @@
     "pricing:freshness": "node scripts/pricing/cli.mjs freshness",
     "pricing:claude": "node scripts/pricing/claude-cli.mjs",
     "test:pricing": "node --test scripts/pricing/*.test.mjs scripts/ci/report-comment.test.mjs",
-    "test:checks": "node --test scripts/check-*.test.mjs scripts/lib/*.test.mjs scripts/git-hooks/*.test.mjs",
+    "test:checks": "node --test scripts/check-*.test.mjs scripts/lib/*.test.mjs scripts/git-hooks/*.test.mjs scripts/release/*.test.mjs scripts/worktree/*.test.mjs",
     "test:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/e2e/test.ps1",
     "build": "pnpm --filter @tracepilot/desktop build",
     "build:cli": "pnpm --filter @tracepilot/cli build",

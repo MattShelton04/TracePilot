@@ -381,7 +381,10 @@ jobs:
           node scripts/check-adr.mjs
 
       - name: Repository script contracts
-        run: node --test scripts/check-*.test.mjs scripts/lib/*.test.mjs scripts/git-hooks/*.test.mjs
+        run: |
+          node --test scripts/check-*.test.mjs scripts/lib/*.test.mjs scripts/git-hooks/*.test.mjs scripts/release/*.test.mjs scripts/worktree/*.test.mjs
+          node scripts/check-scripts-index.mjs
+          node scripts/release/collect-changelog.mjs --check
 
       - name: Performance reporting contracts
         run: |
