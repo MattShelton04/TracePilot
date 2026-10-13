@@ -152,8 +152,9 @@ releases require this review even if their wrapper action has not changed.
 - Calling any Pinia store action makes that store's pinia the active one, so a timer or watcher left by an earlier test (such as the sdk store's auto-connect) can re-activate that test's pinia mid-test. A component test that sets store state and then mounts should name its pinia in both places: `useXStore(pinia)` and `mount(..., { global: { plugins: [pinia] } })`.
 - **Watch mode:** `pnpm --filter @tracepilot/desktop test -- --watch`.
 - Tests live next to the code they cover (`*.spec.ts` / `*.test.ts`) or
-  under `__tests__/` folders. Fixtures live in
-  `packages/test-utils/fixtures/`.
+  under `__tests__/` folders. Shared builders (`makeTurn` and friends) come from
+  `@tracepilot/test-utils` (`packages/test-utils/src/`); synthetic session
+  generators live in `scripts/fixtures/`.
 
 Use this layer for everything that does **not** require a running webview:
 pure functions, composables with mocked IPC, Vue components rendered into
@@ -190,32 +191,30 @@ logs, and traces. The [automation guide](app-automation.md) explains the choice,
 lifecycle, frontend-only mode, optional MCP connection, and platform limits.
 
 ```powershell
-pnpm app:start
-# Use the endpoint printed by startup:
-pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=http://127.0.0.1:9222
-pnpm exec playwright-cli -s=tracepilot-desktop snapshot
+pnpm app:start -Instance qa1 -Fixtures   # or -RealData for the real sessions
+pnpm pw qa1 snapshot --filename=.playwright-cli/current.yml
 # Finish:
-pnpm exec playwright-cli -s=tracepilot-desktop detach
-pnpm app:stop
+pnpm pw qa1 detach
+pnpm app:stop -Instance qa1
 ```
 
-The launcher verifies real Rust IPC and uses the configured sessions and SQLite
-index. A separate WebView profile avoids normal-profile locking; application data
-is shared. Inspect settings and session content within the task's scope.
-`pnpm app:ui` starts a separate Vite server with the existing client mocks for
-frontend exploration. It cannot validate Rust behavior.
+The launcher verifies real Rust IPC. A named instance has its own ports, data root,
+config, index and WebView profile; `-RealData` mirrors the real session folders into
+it read-only ([parallel instances](app-automation.md#parallel-instances)). Agents
+must use a named instance; a human's bare `pnpm app:start` uses the configured
+sessions and database. `pnpm app:ui -Instance qa1` starts a separate Vite server
+with the existing client mocks for frontend exploration. It cannot validate Rust behavior.
 
 ### Repeatable smoke, performance, and media flows
 
 The existing `scripts/e2e` utilities remain available for repeatable diagnostics:
 
 ```powershell
-pnpm app:start
-node scripts/e2e/smoke-test.mjs
+pnpm app:start -Instance qa1 -Fixtures
+node scripts/e2e/smoke-test.mjs --instance qa1
 # Optional:
-node scripts/e2e/perf-profile.mjs
-node scripts/e2e/capture-readme-media.mjs
-pnpm app:stop
+node scripts/e2e/perf-profile.mjs --instance qa1
+pnpm app:stop -Instance qa1
 ```
 
 `connect.mjs` discovers only this checkout's recorded desktop endpoint (or a named
@@ -233,8 +232,9 @@ Tracked README images come from the synthetic showcase described in
 [visual regression](visual-regression.md#readme-screenshots).
 
 `pnpm test:automation` verifies lifecycle reuse, process-tree cleanup, stale PID
-protection, startup timeouts, and occupied ports using isolated local fixtures
-(Windows; skipped elsewhere). Readiness tests use installed Edge to reject mock
+protection, untracked-process cleanup, agent-environment refusal, the `-RealData`
+mirror, the `pnpm pw` wrapper, startup timeouts, and occupied ports using isolated
+local fixtures (Windows; skipped elsewhere). Readiness tests use installed Edge to reject mock
 pages and failed IPC, and accept setup without a database. These tests do not read
 the user's sessions or build Rust.
 
@@ -256,7 +256,7 @@ regressions, extend existing component/store tests, `smoke-test.mjs`, or
 wait for visible results or assertions. The older performance flows retain
 sampling windows and are diagnostic, not a substitute for user-flow assertions.
 Clear IPC timing buffers before measuring. Disconnect Playwright in `finally`
-and stop owned processes with `pnpm app:stop` when finished.
+and stop owned processes with `pnpm app:stop -Instance <name>` when finished.
 
 Local desktop E2E is opt-in; the Windows installer job runs `pnpm test:e2e -Install`
 on PRs and main in CI. The suite requires Windows, WebView2, the Rust toolchain,
@@ -277,15 +277,14 @@ Generate deterministic files for the real backend, then start the native app
 against that isolated root:
 
 ```powershell
-node scripts/fixtures/session-fixtures.mjs
-pnpm app:start -DataRoot "$PWD/.tracepilot/rich-tool-fixtures"
-# Attach with the command printed by startup, finish setup, then Refresh data.
+pnpm app:start -Instance <name> -Fixtures
 ```
 
-`pnpm app:start -Instance <name> -Fixtures` does both steps for a named,
-isolated instance and marks setup complete, so it opens on the fixtures (add
-`-FirstRun` to start on the setup wizard); see
-[parallel instances](app-automation.md#parallel-instances).
+This generates the fixtures into the named instance's isolated data root and marks
+setup complete, so it opens on them (add `-FirstRun` to start on the setup wizard);
+see [parallel instances](app-automation.md#parallel-instances). For another root,
+run `node scripts/fixtures/session-fixtures.mjs --root=<dir>` and start with
+`pnpm app:start -DataRoot <dir>`.
 
 The library contains **SYNTHETIC · Rich tool renderer gallery** with 63 scenarios
 and **SYNTHETIC · Report intent renderer** with the remaining `report_intent` case.

@@ -266,8 +266,8 @@ Common commands:
 | --- | --- |
 | Launch desktop dev app | `pnpm --filter @tracepilot/desktop tauri dev` |
 | Launch via convenience script | `pnpm start` |
-| Launch real app for agent inspection | `pnpm app:start` (then the printed Playwright CLI attach command) |
-| Launch frontend-only automation server | `pnpm app:ui` |
+| Launch real app for agent inspection | `pnpm app:start -Instance <slug> -Fixtures` (or `-RealData`), then `pnpm pw <slug> snapshot` |
+| Launch frontend-only automation server | `pnpm app:ui -Instance <slug>` |
 | Frontend build/typecheck | `pnpm build` |
 | Workspace typecheck | `pnpm typecheck` |
 | JS/TS tests | `pnpm test` |

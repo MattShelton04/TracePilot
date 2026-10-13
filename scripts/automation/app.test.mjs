@@ -1,91 +1,18 @@
 import assert from "node:assert/strict";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  utimesSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import test from "node:test";
-import { fixtureRunner } from "./test-process.mjs";
+import { isAlive, launcherFixture } from "./test-process.mjs";
 
 test("Windows lifecycle owns only its recorded process trees", {
   skip: process.platform !== "win32",
 }, async (t) => {
-  // A path with spaces exercises real Windows argument handling. No Rust build or
-  // user data is involved: the fixture is an HTTP server with one child process.
-  const root = mkdtempSync(join(tmpdir(), "tracepilot automation test "));
-  const execute = fixtureRunner(root);
-  const launcher = join(root, "scripts/automation/app.ps1");
-  const runtime = join(root, ".tracepilot/automation");
-  const statePath = join(runtime, "ui.json");
-  const registry = join(root, "registry");
-  const claims = join(registry, "claims");
-  const testEnv = { ...process.env, TRACEPILOT_AUTOMATION_REGISTRY: registry };
-  const vite = join(root, "apps/desktop/node_modules/vite/bin/vite.js");
-  for (const path of [launcher, vite]) mkdirSync(dirname(path), { recursive: true });
-  copyFileSync(new URL("./app.ps1", import.meta.url), launcher);
-  copyFileSync(new URL("./registry.ps1", import.meta.url), join(dirname(launcher), "registry.ps1"));
-  writeFileSync(
-    vite,
-    `
-    const { createServer } = require('node:http');
-    const { spawn } = require('node:child_process');
-    const { writeFileSync } = require('node:fs');
-    const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { windowsHide: true });
-    writeFileSync('../../.tracepilot/automation/fixture-pids.json', JSON.stringify([process.pid, child.pid]));
-    if (process.env.TRACEPILOT_TEST_STALL) setInterval(() => {}, 1000);
-    else createServer((req, res) => res.end('fixture')).listen(Number(process.argv[process.argv.indexOf('--port') + 1]), '127.0.0.1');
-  `,
-  );
-  const run = (action, mode = "ui", extra = [], env = testEnv) =>
-    execute(
-      "powershell.exe",
-      [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        launcher,
-        action,
-        "-Mode",
-        mode,
-        ...extra,
-      ],
-      { env },
-    );
-  const state = () => JSON.parse(readFileSync(statePath, "utf8"));
-  const instanceState = (name, mode = "ui") =>
-    JSON.parse(readFileSync(join(root, ".tracepilot/instances", name, `${mode}.json`), "utf8"));
-  const claimIds = () =>
-    existsSync(claims)
-      ? readdirSync(claims)
-          .filter((file) => file.endsWith(".json"))
-          .map((file) => file.slice(0, -5))
-          .sort()
-      : [];
-  const alive = (pid) => {
-    try {
-      process.kill(pid, 0);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  t.after(async () => {
-    await run("stop");
-    // Only delete the exact directory created for this test.
-    assert.equal(dirname(resolve(root)), resolve(tmpdir()));
-    assert.ok(root.startsWith(join(tmpdir(), "tracepilot automation test ")));
-    rmSync(root, { recursive: true, force: true });
-  });
+  const fixture = launcherFixture();
+  const { root, runtime, statePath, claims, testEnv, run, state, instanceState, claimIds } =
+    fixture;
+  const alive = isAlive;
+  t.after(() => fixture.cleanup());
 
   await t.test("reuses a healthy server, then stops both parent and child", async () => {
     await run("start");
