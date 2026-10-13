@@ -426,7 +426,7 @@ function runStep(step) {
     let output = "";
     const child = spawn(cmd, args, {
       cwd: ROOT,
-      env: { ...process.env, FORCE_COLOR: "0", CI: process.env.CI ?? "" },
+      env: { ...process.env, FORCE_COLOR: "0" },
       shell: cmd.endsWith(".cmd"),
       windowsHide: true,
     });
