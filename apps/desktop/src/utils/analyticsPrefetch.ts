@@ -26,11 +26,15 @@ export interface AnalyticsPrefetchOptions {
   onWarm: () => void;
 }
 
-/** Wait for the renderer to go idle, so prefetching never delays a frame. */
+/**
+ * Wait for the renderer to go idle, so prefetching never delays a frame.
+ * Prefetching runs unawaited, so this can resume after `window` is gone (a
+ * test environment torn down mid-run); it must not touch `window` directly.
+ */
 function idle(): Promise<void> {
   return new Promise((resolve) => {
-    if (typeof window.requestIdleCallback === "function") {
-      window.requestIdleCallback(() => resolve(), { timeout: 1000 });
+    if (typeof globalThis.requestIdleCallback === "function") {
+      globalThis.requestIdleCallback(() => resolve(), { timeout: 1000 });
     } else {
       setTimeout(resolve, 50);
     }
@@ -39,6 +43,8 @@ function idle(): Promise<void> {
 
 export function createAnalyticsPrefetch(options: AnalyticsPrefetchOptions) {
   let run = 0;
+  // Bumped by `reset`, which also stops a warm still in progress.
+  let epoch = 0;
   // Datasets warmed at launch, re-warmed after each reindex so a page opened
   // later never shows numbers from before it.
   let warmed: AnalyticsDatasetName[] = [];
@@ -83,11 +89,13 @@ export function createAnalyticsPrefetch(options: AnalyticsPrefetchOptions) {
    * time while the app is idle, without touching what is on screen.
    */
   async function warm(names: AnalyticsDatasetName[]) {
+    const current = epoch;
     warmed = names;
     options.onWarm();
     const params = options.build(options.dateRange());
     for (const name of names) {
       await idle();
+      if (current !== epoch) return;
       await options.prefetch(name, params);
     }
   }
@@ -99,6 +107,7 @@ export function createAnalyticsPrefetch(options: AnalyticsPrefetchOptions) {
 
   function reset() {
     cancel();
+    epoch += 1;
     warmed = [];
   }
 
