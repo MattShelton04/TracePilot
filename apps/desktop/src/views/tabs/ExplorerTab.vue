@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import "@/styles/features/session-explorer.css";
 import { openInExplorer, sessionReadFile } from "@tracepilot/client";
-import type { FileEntry, SessionFileSearchMatch, SessionFileType } from "@tracepilot/types";
+import type {
+  FileEntry,
+  SessionFileArea,
+  SessionFileSearchMatch,
+  SessionFileType,
+} from "@tracepilot/types";
 import {
   FileBrowserTree,
   FileContentViewer,
@@ -28,7 +33,31 @@ const prefs = usePreferencesStore();
 // Pop-out windows cannot launch the system file explorer (ADR 0011).
 const canOpenFolders = !useWindowRole().isViewer();
 
-const sessionFiles = useSessionFiles(() => store.sessionId);
+// A Claude Code session also has the agent's scratchpad. It opens there by
+// default; the last area chosen is remembered.
+const preferredArea = usePersistedRef<SessionFileArea>(
+  STORAGE_KEYS.sessionExplorerArea,
+  "scratchpad",
+);
+const sessionFiles = useSessionFiles(
+  () => store.sessionId,
+  () => preferredArea.value,
+);
+const listedArea = computed(() => sessionFiles.layout?.area ?? "session");
+const hasScratchpad = computed(() => sessionFiles.layout?.areas.includes("scratchpad") ?? false);
+const AREA_OPTIONS: { area: SessionFileArea; label: string; title: string }[] = [
+  {
+    area: "scratchpad",
+    label: "Scratchpad",
+    title:
+      "Files the agent made in Claude Code's temporary folder. Claude Code clears them about a week after the session's last activity.",
+  },
+  {
+    area: "session",
+    label: "Session data",
+    title: "Subagent transcripts and large tool outputs kept beside the session's transcript.",
+  },
+];
 
 // ── Name/path and bounded content search ───────────────────────────────────
 interface ExplorerViewModes {
@@ -49,7 +78,7 @@ const {
   contentSearchLoading,
   contentSearchError,
   runContentSearch,
-} = useExplorerContentSearch(() => store.sessionId);
+} = useExplorerContentSearch(() => store.sessionId, { getArea: () => listedArea.value });
 const viewerSearchRequest = ref({ id: 0, query: "", line: 0 });
 
 const isSearchOpen = ref(false);
@@ -213,7 +242,7 @@ const { copy: copyToClipboard } = useClipboard();
 // The backend reports where this session's tree lives; providers keep session
 // files in different places, so never rebuild it from a configured directory.
 function getAbsoluteFilePath(relativeFilePath: string) {
-  const base = sessionFiles.root;
+  const base = sessionFiles.layout?.root;
   if (!base || !relativeFilePath) return "";
   return normalizePath(`${base}/${relativeFilePath}`);
 }
@@ -371,6 +400,32 @@ async function onOpenFolder() {
         </template>
 
         <template #after-header>
+          <div
+            v-if="hasScratchpad"
+            class="explorer-search__modes explorer-areas"
+            role="radiogroup"
+            aria-label="Session file area"
+          >
+            <button
+              v-for="option in AREA_OPTIONS"
+              :key="option.area"
+              type="button"
+              :class="{ active: listedArea === option.area }"
+              role="radio"
+              :aria-checked="listedArea === option.area"
+              :title="option.title"
+              @click="preferredArea = option.area"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+          <p
+            v-if="sessionFiles.layout?.truncated"
+            class="explorer-truncated"
+            title="Very large or deeply nested folders show only their first entries. Open the folder on disk to see everything."
+          >
+            Some large folders are partly listed.
+          </p>
           <div v-if="showSearchPanel" class="explorer-search">
             <div class="explorer-search__row">
               <div class="explorer-search__input-wrap">
@@ -700,6 +755,16 @@ async function onOpenFolder() {
 .explorer-search__modes button.active {
   background: var(--accent-muted);
   color: var(--accent-fg);
+}
+
+.explorer-areas {
+  margin: 6px 8px 0;
+}
+
+.explorer-truncated {
+  margin: 6px 8px 0;
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
 }
 
 .explorer-search__error {

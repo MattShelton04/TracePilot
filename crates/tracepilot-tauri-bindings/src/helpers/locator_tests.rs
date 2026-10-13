@@ -172,6 +172,85 @@ fn an_unreadable_index_falls_back_to_the_providers() {
     assert_eq!(fixture.resolve().unwrap().locator.primary_path, dir);
 }
 
+#[test]
+fn claude_code_finds_the_scratchpad_in_its_temp_folder() {
+    let temp = tempfile::tempdir().unwrap();
+    let config_dir = temp.path().join("claude");
+    let temp_dir = temp.path().join("tmp").join("claude");
+    let mut session = claude_session(&config_dir);
+    session.provider =
+        Arc::new(ClaudeCodeProvider::new(&config_dir).with_temp_dir(Some(temp_dir.clone())));
+    std::fs::create_dir_all(session.locator.primary_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &session.locator.primary_path,
+        "{}
+",
+    )
+    .unwrap();
+    let scratchpad = temp_dir.join("p").join(ID).join("scratchpad");
+
+    // Not created yet, so the session has no scratchpad to browse.
+    assert_eq!(explorer_scratchpad(&session).unwrap(), None);
+    std::fs::create_dir_all(&scratchpad).unwrap();
+    assert_eq!(
+        explorer_scratchpad(&session).unwrap(),
+        Some(scratchpad.clone())
+    );
+    // Its own files are unchanged.
+    let session_dir = session.locator.primary_path.with_extension("");
+    assert_eq!(
+        explorer_roots(&session).unwrap(),
+        vec![
+            session_dir.join("subagents"),
+            session_dir.join("tool-results")
+        ]
+    );
+
+    // Without a temp folder there is no scratchpad, and a file in place of
+    // the folder is not one.
+    session.provider = Arc::new(ClaudeCodeProvider::new(&config_dir));
+    assert_eq!(explorer_scratchpad(&session).unwrap(), None);
+    std::fs::remove_dir(&scratchpad).unwrap();
+    std::fs::write(&scratchpad, "x").unwrap();
+    session.provider = Arc::new(ClaudeCodeProvider::new(&config_dir).with_temp_dir(Some(temp_dir)));
+    assert_eq!(explorer_scratchpad(&session).unwrap(), None);
+}
+
+/// An agent can replace its own scratchpad with a link; it is never followed.
+#[test]
+#[cfg(unix)]
+fn a_linked_scratchpad_is_not_browsed() {
+    let temp = tempfile::tempdir().unwrap();
+    let config_dir = temp.path().join("claude");
+    let temp_dir = temp.path().join("tmp").join("claude");
+    let mut session = claude_session(&config_dir);
+    session.provider =
+        Arc::new(ClaudeCodeProvider::new(&config_dir).with_temp_dir(Some(temp_dir.clone())));
+    std::fs::create_dir_all(session.locator.primary_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &session.locator.primary_path,
+        "{}
+",
+    )
+    .unwrap();
+    let outside = temp.path().join("secrets");
+    std::fs::create_dir_all(&outside).unwrap();
+    let session_tmp = temp_dir.join("p").join(ID);
+    std::fs::create_dir_all(&session_tmp).unwrap();
+    std::os::unix::fs::symlink(&outside, session_tmp.join("scratchpad")).unwrap();
+    assert_eq!(explorer_scratchpad(&session).unwrap(), None);
+
+    // A linked session folder leading outside the temp folder is refused.
+    std::fs::remove_file(session_tmp.join("scratchpad")).unwrap();
+    std::fs::remove_dir(&session_tmp).unwrap();
+    std::fs::create_dir_all(outside.join("scratchpad")).unwrap();
+    std::os::unix::fs::symlink(&outside, &session_tmp).unwrap();
+    assert!(matches!(
+        explorer_scratchpad(&session),
+        Err(BindingsError::Validation(_))
+    ));
+}
+
 fn claude_session(root: &Path) -> ResolvedSession {
     ResolvedSession {
         provider: Arc::new(ClaudeCodeProvider::new(root)),

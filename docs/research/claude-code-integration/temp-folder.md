@@ -1,6 +1,8 @@
 # Claude Code's temp folder: contents, lifetime, and what TracePilot could show
 
-> **Status:** Research only. Nothing here is implemented.
+> **Status:** Research. §5.3 is implemented: the Explorer tab's **Scratchpad** view
+> ([Claude Code sessions](../../claude-code-sessions.md), [on-disk paths](../../on-disk-paths.md)).
+> The rest is not.
 > **Date:** 2026-10-13
 > **Builds on:** [README](README.md), [mapping.md](mapping.md) and the path table in
 > [on-disk-paths.md](../../on-disk-paths.md). Today that table lists the system temp folder as
@@ -208,7 +210,14 @@ week here. Today the Conversation shows only "Background · Completed · exit 0"
   the Conversation would be a separate, larger feature. It is independent of the temp folder and
   bounded by `reader.rs`'s line cap.
 
-### 5.3 Scratchpad in the Explorer tab
+### 5.3 Scratchpad in the Explorer tab (implemented)
+
+Shipped as a separate **Scratchpad** area beside **Session data** (`subagents/`,
+`tool-results/`), switched in the Explorer header rather than mixed into one tree, since
+the two live in unrelated folders. It opens by default when the scratchpad has files and
+falls back to Session data when it is missing or empty. Listing is breadth-first and
+capped (2,000 entries, 500 per folder, 8 levels); reads keep the existing capped
+previews. The original proposal follows.
 
 - **Today.** `EXPLORER_DIRS` (`claude_code/provider.rs`) is `subagents` and `tool-results`. A
   third root, **Scratchpad (temporary)**, would expose the agent's working files: screenshots

@@ -196,6 +196,18 @@ function orchardSession() {
       // The pid now belongs to a process with another start time.
       stalePidFile(claudeReusedPid, t.sessionId, cwd, "1"),
     ],
+    // The agent's scratchpad, in Claude Code's temp folder (relative to it).
+    tempFiles: [
+      {
+        path: `C--synthetic-orchard/${t.sessionId}/scratchpad/retry-plan.md`,
+        content: "# Retry plan\n\n- Wrap `send` in `retry`\n- Three attempts, then rethrow\n",
+      },
+      {
+        path: `C--synthetic-orchard/${t.sessionId}/scratchpad/logs/test-run.log`,
+        content:
+          "upload\n  passed: retries a failed send (12 ms)\n  passed: rethrows after three attempts\n",
+      },
+    ],
   };
 }
 

@@ -6,7 +6,9 @@ import {
 } from "@tracepilot/client";
 import {
   type SessionDbTable,
+  type SessionFileArea,
   type SessionFileEntry,
+  type SessionFileListing,
   type SessionFileType,
   type SessionImagePreview,
   toErrorMessage,
@@ -16,8 +18,8 @@ import { estimateDbCost, SessionFileCache } from "./sessionFileCache";
 
 export interface SessionFilesState {
   files: Readonly<SessionFileEntry[]>;
-  /** Directory the entry paths are relative to, located by the session's provider. */
-  root: string | null;
+  /** Where entry paths are rooted, which area was listed, and whether the listing was capped. */
+  layout: Readonly<Omit<SessionFileListing, "entries">> | null;
   filesLoading: boolean;
   filesError: string | null;
   selectedPath: string | null;
@@ -60,10 +62,14 @@ export interface SessionFilesState {
  * Manages file listing and content loading for a session's file explorer.
  *
  * @param getSessionId - reactive getter for the current session ID
+ * @param getArea - reactive getter for the file area to list (the session's own files by default)
  */
-export function useSessionFiles(getSessionId: () => string | null | undefined): SessionFilesState {
+export function useSessionFiles(
+  getSessionId: () => string | null | undefined,
+  getArea: () => SessionFileArea = () => "session",
+): SessionFilesState {
   const files = ref<SessionFileEntry[]>([]);
-  const root = ref<string | null>(null);
+  const layout = ref<Omit<SessionFileListing, "entries"> | null>(null);
   const filesLoading = ref(false);
   const filesError = ref<string | null>(null);
 
@@ -109,6 +115,8 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
   let silentSeq = 0;
   let loadSeq = 0;
 
+  const listedArea = () => layout.value?.area ?? getArea(); // entry paths belong to it
+
   async function loadFiles(opts: { silent?: boolean } = {}) {
     const sessionId = getSessionId();
     if (!sessionId) {
@@ -123,7 +131,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     filesError.value = null;
 
     try {
-      const listing = await sessionListFiles(sessionId);
+      const listing = await sessionListFiles(sessionId, getArea());
       // Discard if session changed while we were awaiting
       if (seq !== loadSeq) return;
       const result = listing.entries;
@@ -152,7 +160,8 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       hasInitialLoad = true;
 
       files.value = result;
-      root.value = listing.root;
+      const { root, area = "session", areas = [area], truncated = false } = listing;
+      layout.value = { root, area, areas, truncated };
 
       // Auto-open workspace.yaml if nothing is selected yet
       if (!selectedPath.value) {
@@ -193,7 +202,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     const seq = ++silentSeq;
     try {
       if (fileType === "sqlite") {
-        const result = await sessionReadSqlite(sessionId, path);
+        const result = await sessionReadSqlite(sessionId, path, listedArea());
         if (seq !== silentSeq || selectedPath.value !== path) return;
         if (JSON.stringify(result) !== JSON.stringify(dbData.value)) {
           dbData.value = result;
@@ -210,7 +219,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
         return;
       }
       if (fileType === "image") {
-        const result = await sessionReadImagePreview(sessionId, path);
+        const result = await sessionReadImagePreview(sessionId, path, listedArea());
         if (seq !== silentSeq || selectedPath.value !== path) return;
         if (result.base64Data !== imagePreview.value?.base64Data) {
           imagePreview.value = result;
@@ -227,8 +236,8 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
         return;
       }
       const result = fullContentRequested.value
-        ? await sessionReadFile(sessionId, path, true)
-        : await sessionReadFile(sessionId, path);
+        ? await sessionReadFile(sessionId, path, true, listedArea())
+        : await sessionReadFile(sessionId, path, false, listedArea());
       if (seq !== silentSeq || selectedPath.value !== path) return;
       if (result !== fileContent.value) {
         fileContent.value = result;
@@ -281,7 +290,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       }
       imageLoading.value = true;
       try {
-        const result = await sessionReadImagePreview(sessionId, path);
+        const result = await sessionReadImagePreview(sessionId, path, listedArea());
         if (seq !== readSeq) return;
         imagePreview.value = result;
         cache.putAsset(path, {
@@ -309,7 +318,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
       }
       dbDataLoading.value = true;
       try {
-        const result = await sessionReadSqlite(sessionId, path);
+        const result = await sessionReadSqlite(sessionId, path, listedArea());
         if (seq !== readSeq) return;
         dbData.value = result;
         cache.putAsset(path, {
@@ -339,7 +348,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     fileContentLoading.value = true;
 
     try {
-      const result = await sessionReadFile(sessionId, path);
+      const result = await sessionReadFile(sessionId, path, false, listedArea());
       // Discard if a newer request has since been started
       if (seq !== readSeq) return;
       fileContent.value = result;
@@ -374,7 +383,7 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     fileContentError.value = null;
     const seq = ++readSeq;
     try {
-      const result = await sessionReadFile(sessionId, path, true);
+      const result = await sessionReadFile(sessionId, path, true, listedArea());
       if (seq !== readSeq || selectedPath.value !== path) return;
       fileContent.value = result;
       fullContentRequested.value = true;
@@ -387,12 +396,12 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     }
   }
 
-  // Reload when session changes
+  // Reload when the session or the requested area changes
   watch(
-    getSessionId,
-    (id) => {
+    () => [getSessionId(), getArea()] as const,
+    ([id]) => {
       files.value = [];
-      root.value = null;
+      layout.value = null;
       filesError.value = null;
       selectedPath.value = null;
       selectedFileType.value = null;
@@ -429,8 +438,8 @@ export function useSessionFiles(getSessionId: () => string | null | undefined): 
     get files() {
       return files.value;
     },
-    get root() {
-      return root.value;
+    get layout() {
+      return layout.value;
     },
     get filesLoading() {
       return filesLoading.value;

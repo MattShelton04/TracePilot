@@ -4,7 +4,7 @@ use crate::blocking_cmd;
 use crate::config::{ConfigCoordinator, SharedConfig};
 use crate::error::{BindingsError, CmdResult};
 use crate::helpers::{read_config, validate_path_within_any};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::time::Duration;
 use tracepilot_core::utils::cache::TtlCache;
@@ -296,8 +296,8 @@ pub async fn open_in_terminal(
 /// validate that `path` resolves to a location within one of them.
 ///
 /// Allowed roots:
-/// - Each enabled session source's root, `tracepilot_home`, `copilot_home`
-///   (config-derived)
+/// - Each enabled session source's file root bases (its root, plus Claude
+///   Code's temp folder), `tracepilot_home`, `copilot_home` (config-derived)
 /// - The Tauri app log directory (e.g. `getLogPath()` callers)
 /// - Each registered repository path **and** its parent directory — the parent
 ///   covers worktrees that `git worktree add` places as siblings of the repo
@@ -316,7 +316,7 @@ fn resolve_opener_path(
     let mut roots: Vec<PathBuf> = crate::providers::registry_for(&cfg)
         .providers()
         .iter()
-        .filter_map(|provider| provider.root().map(Path::to_path_buf))
+        .flat_map(|provider| provider.file_root_bases())
         .collect();
     roots.extend([cfg.tracepilot_home(), cfg.copilot_home()]);
 

@@ -50,7 +50,10 @@ const entries: SessionFileEntry[] = [
 const TreeStub = defineComponent({
   name: "FileBrowserTree",
   emits: ["contextmenu-entry", "view-file"],
-  setup: () => () => h("div"),
+  setup:
+    (_, { slots }) =>
+    () =>
+      h("div", slots["after-header"]?.()),
 });
 
 async function mountTab() {
@@ -81,6 +84,7 @@ describe("ExplorerTab folder actions", () => {
   beforeEach(() => {
     setupPinia();
     vi.clearAllMocks();
+    localStorage.clear();
     mocks.sessionListFiles.mockResolvedValue({ root: CLAUDE_ROOT, entries });
     mocks.openInExplorer.mockResolvedValue(undefined);
   });
@@ -114,5 +118,78 @@ describe("ExplorerTab folder actions", () => {
     await flushPromises();
 
     expect(mocks.toastError).toHaveBeenCalledWith("Refusing to open path");
+  });
+});
+
+describe("ExplorerTab scratchpad area", () => {
+  // Its scratchpad lives in Claude Code's temp folder, browsed on its own.
+  const SCRATCHPAD = "/tmp/claude-1000/-work-app/claude-session/scratchpad";
+  const shot: SessionFileEntry = {
+    path: "shots/home.png",
+    name: "home.png",
+    sizeBytes: 2048,
+    isDirectory: false,
+    fileType: "image",
+  };
+
+  beforeEach(() => {
+    setupPinia();
+    vi.clearAllMocks();
+    localStorage.clear();
+    mocks.sessionListFiles.mockImplementation(async (_id: string, area: string) =>
+      area === "scratchpad"
+        ? {
+            root: SCRATCHPAD,
+            area,
+            areas: ["session", "scratchpad"],
+            entries: [shot],
+            truncated: false,
+          }
+        : { root: CLAUDE_ROOT, area, areas: ["session", "scratchpad"], entries, truncated: false },
+    );
+    mocks.openInExplorer.mockResolvedValue(undefined);
+  });
+
+  function areaButtons(wrapper: Awaited<ReturnType<typeof mountTab>>) {
+    return wrapper.findAll(".explorer-areas button");
+  }
+
+  it("opens on the scratchpad and resolves its files under its own folder", async () => {
+    const wrapper = await mountTab();
+    expect(mocks.sessionListFiles).toHaveBeenLastCalledWith("claude-session", "scratchpad");
+    const [scratchpad, session] = areaButtons(wrapper);
+    expect(scratchpad.text()).toBe("Scratchpad");
+    expect(scratchpad.attributes("aria-checked")).toBe("true");
+    expect(session.attributes("aria-checked")).toBe("false");
+
+    await openMenu(wrapper, shot);
+    menuItem("Open Containing Folder").click();
+    await flushPromises();
+    expect(mocks.openInExplorer).toHaveBeenCalledWith(`${SCRATCHPAD}/shots`);
+  });
+
+  it("switches to the session's own files and remembers the choice", async () => {
+    let wrapper = await mountTab();
+    await areaButtons(wrapper)[1].trigger("click");
+    await flushPromises();
+    expect(mocks.sessionListFiles).toHaveBeenLastCalledWith("claude-session", "session");
+    expect(areaButtons(wrapper)[1].attributes("aria-checked")).toBe("true");
+
+    wrapper.unmount();
+    wrapper = await mountTab();
+    expect(mocks.sessionListFiles).toHaveBeenLastCalledWith("claude-session", "session");
+  });
+
+  it("shows no switch for a session without a scratchpad", async () => {
+    mocks.sessionListFiles.mockResolvedValue({
+      root: CLAUDE_ROOT,
+      area: "session",
+      areas: ["session"],
+      entries,
+      truncated: true,
+    });
+    const wrapper = await mountTab();
+    expect(areaButtons(wrapper)).toHaveLength(0);
+    expect(wrapper.find(".explorer-truncated").exists()).toBe(true);
   });
 });

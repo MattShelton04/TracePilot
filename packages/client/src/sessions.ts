@@ -6,6 +6,7 @@ import type {
   PromptCacheResponse,
   SessionDbTable,
   SessionDetail,
+  SessionFileArea,
   SessionFileListing,
   SessionFileSearchResponse,
   SessionImagePreview,
@@ -182,8 +183,11 @@ export async function closeSessionWindow(label: string): Promise<void> {
 // ── Session file browser ───────────────────────────────────────────
 
 /** List the session's browsable files and the directory their paths are relative to. */
-export async function sessionListFiles(sessionId: string): Promise<SessionFileListing> {
-  return invoke<SessionFileListing>("session_list_files", { sessionId });
+export async function sessionListFiles(
+  sessionId: string,
+  area: SessionFileArea = "session",
+): Promise<SessionFileListing> {
+  return invoke<SessionFileListing>("session_list_files", { sessionId, area });
 }
 
 /** Read the text content of a file at `relativePath` inside the session directory. */
@@ -191,30 +195,38 @@ export async function sessionReadFile(
   sessionId: string,
   relativePath: string,
   full = false,
+  area: SessionFileArea = "session",
 ): Promise<string> {
-  return invoke<string>("session_read_file", { sessionId, relativePath, full });
+  return invoke<string>("session_read_file", { sessionId, relativePath, full, area });
 }
 
 /** Read a bounded, sanitized raster preview from the session directory. */
 export async function sessionReadImagePreview(
   sessionId: string,
   relativePath: string,
+  area: SessionFileArea = "session",
 ): Promise<SessionImagePreview> {
-  return invoke<SessionImagePreview>("session_read_image_preview", { sessionId, relativePath });
+  return invoke<SessionImagePreview>("session_read_image_preview", {
+    sessionId,
+    relativePath,
+    area,
+  });
 }
 
 /** Read all user tables from a SQLite database inside the session directory. */
 export async function sessionReadSqlite(
   sessionId: string,
   relativePath: string,
+  area: SessionFileArea = "session",
 ): Promise<SessionDbTable[]> {
-  return invoke<SessionDbTable[]>("session_read_sqlite", { sessionId, relativePath });
+  return invoke<SessionDbTable[]>("session_read_sqlite", { sessionId, relativePath, area });
 }
 
 /** Search readable files in one session using a bounded literal search. */
 export async function sessionSearchFiles(
   sessionId: string,
   query: string,
+  area: SessionFileArea = "session",
 ): Promise<SessionFileSearchResponse> {
-  return invoke<SessionFileSearchResponse>("session_search_files", { sessionId, query });
+  return invoke<SessionFileSearchResponse>("session_search_files", { sessionId, query, area });
 }

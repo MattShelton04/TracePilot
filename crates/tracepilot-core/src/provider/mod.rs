@@ -141,7 +141,22 @@ pub trait SessionProvider: Send + Sync {
                 .is_some_and(|root| names_session_under(root, &session.primary_path, &session.id))
     }
 
-    /// Directories the file browser and image preview may read.
+    /// The directories [`Self::file_roots`] and [`Self::scratchpad_root`]
+    /// may lie under, which the OS opener also trusts: the source's root,
+    /// plus any folder the source keeps other per-session files in.
+    fn file_root_bases(&self) -> Vec<PathBuf> {
+        self.root().map(Path::to_path_buf).into_iter().collect()
+    }
+
+    /// The session's scratch folder, kept apart from its own files (Claude
+    /// Code's `scratchpad/` in its temp folder), whether or not it exists.
+    /// The source clears it on its own schedule.
+    fn scratchpad_root(&self, _session: &SessionLocator) -> Option<PathBuf> {
+        None
+    }
+
+    /// Directories the file browser and image preview may read, each under
+    /// one of [`Self::file_root_bases`].
     fn file_roots(&self, session: &SessionLocator) -> Result<Vec<PathBuf>> {
         Ok(self.artifacts(session)?.file_roots)
     }

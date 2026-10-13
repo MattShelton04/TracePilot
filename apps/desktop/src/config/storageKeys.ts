@@ -49,6 +49,8 @@ export const STORAGE_KEYS = Object.freeze({
   sidebarCollapsed: "tracepilot-sidebar-collapsed",
   /** Preferred structured/raw mode for Session Explorer file types. */
   sessionExplorerViewModes: "tracepilot-session-explorer-view-modes",
+  /** File area last chosen in the Session Explorer (scratchpad or session files). */
+  sessionExplorerArea: "tracepilot-session-explorer-area",
   /** Usage range last chosen in the Skills manager. */
   agentsUsageRange: "tracepilot-agents-usage-range",
   skillsUsageRange: "tracepilot-skills-usage-range",

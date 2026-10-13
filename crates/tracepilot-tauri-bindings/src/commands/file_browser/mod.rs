@@ -10,6 +10,7 @@ mod scope;
 mod search;
 mod security;
 mod types;
+mod walk;
 
 #[cfg(test)]
 #[path = "security_revalidate_tests.rs"]
