@@ -66,6 +66,7 @@ if ($smartClean) {
     Write-Host "Smart clean complete! ~$totalReclaimed MB reclaimed." -ForegroundColor Green
     Write-Host "Compiled dependencies preserved — next build will be fast." -ForegroundColor DarkGray
     Write-Host "Tip: Cargo never deletes superseded builds; use -Full periodically (with sccache the rebuild is mostly cache hits)." -ForegroundColor DarkGray
+    Write-Host "Tip: pnpm worktree:clean lists leftover and merged agent worktrees and the disk they hold." -ForegroundColor DarkGray
     exit 0
 }
 
@@ -123,3 +124,4 @@ Write-Host "Cleanup complete! ~$totalReclaimed MB reclaimed." -ForegroundColor G
 if (-not $Deep) {
     Write-Host "Tip: Run with -Deep to also remove node_modules/" -ForegroundColor DarkGray
 }
+Write-Host "Tip: pnpm worktree:clean lists leftover and merged agent worktrees and the disk they hold." -ForegroundColor DarkGray
