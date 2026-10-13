@@ -340,3 +340,25 @@ not a code PR.
 
 Re-measure the same signals about a month after Tier 1–2 land: red-job causes,
 same-day file overlap, fix-within-3-days rate, and CI polls per session.
+
+## Implementation status
+
+Everything except item 5 landed together in October 2026. Where to find each piece:
+
+| Items | What changed | Where |
+| --- | --- | --- |
+| 1, 12, 16, 20, 28, 31 | Local `.claude/` state ignored. Short agent rules in `AGENTS.md`, with `CLAUDE.md` importing it. The protocol now covers fragments, the default ending, one waiting recipe, sandbox notes, small slices and QA before large redesigns. A tracked `.claude/settings.json` allowlist, card launchers and a skill pointer. | [AGENTS.md](../../AGENTS.md), [protocol](../agents/protocol.md), [agent README](../agents/README.md) (includes a Codex rules snippet to copy locally) |
+| 2 | Changelog fragments in `changelog.d/`, merged at release by `pnpm changelog:collect` | [changelog.d](../../changelog.d/README.md), [releasing](../releasing.md) |
+| 3, 4, 7, 11, 29 | Main CI runs are no longer cancelled. Audits run on PRs only when manifests change, plus on main and daily. Toolchain pinned in `rust-toolchain.toml`. Pricing report runs only for pricing changes. New `rust` change group. One E2E retry, limited to startup/CDP timeouts. | [testing](../testing.md) CI sections, `.github/workflows/` |
+| 6 | Dependabot runs monthly, ignores majors, and groups minor/patch updates and Tauri packages within each ecosystem | `.github/dependabot.yml` |
+| 8, 15, 19, 21 | Hook shims that work in every worktree (`pnpm hooks:install` sets `core.hooksPath`) and warn when skipped. Pre-commit checks only staged files; pre-push checks only what the branch changed. `just ci` mirrors CI. Check scripts fall back to a filesystem walk when they can't spawn Git. | [contributing](../../CONTRIBUTING.md), [local builds](../local-builds.md), `scripts/git-hooks/`, `scripts/lib/` |
+| 9, 22, 27 | One `with_ipc_commands!` list drives the handler, the manifest and the generated TS `IPC_COMMANDS`. Tests cover specta exports and capabilities. Generated files are marked `linguist-generated`. The migration-uniqueness test already existed; the plan now explains renumbering. | [command registration](../tauri-command-registration.md) |
+| 10, 23, 25 | `analyticsPrefetch` teardown guard. Star-export barrels and UI sub-barrels. Mock routes split per client module. | `packages/types`, `packages/ui`, `packages/client/src/mock/routes/` |
+| 13, 17 | Agents must start a named instance (`-Fixtures` or `-RealData`). `pnpm pw` wraps the Playwright CLI. `app:stop` also ends stray desktop processes. | [automation skill](../../.github/skills/tracepilot-app-automation/SKILL.md), [app automation](../app-automation.md) |
+| 14, 18 | `pnpm check:changed`, `pnpm worktree:new`, `pnpm worktree:clean` | [script index](../../scripts/README.md) |
+| 24 | Session tabs, their routes and Overview sections render from registries; the panel's header and actions are separate components | `apps/desktop/src/config/sessionTabs.ts`, `apps/desktop/src/views/tabs/overview/` |
+| 26 | Per-group script READMEs, checked by `check-scripts-index.mjs` | [script index](../../scripts/README.md) |
+| 30 | 31 historical docs moved to `docs/archive/`. The architecture overview has a Providers section. The worktree guide is renamed. `check-doc-links` now checks backticked repository paths. | [archive](../archive/README.md), [overview](../architecture/overview.md) |
+
+The shared `.git/hooks` still point at a deleted worktree until someone runs
+`pnpm hooks:install` once in any checkout.

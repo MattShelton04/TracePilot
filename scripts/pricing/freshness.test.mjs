@@ -143,7 +143,12 @@ test("freshness workflow is advisory and the publisher executes trusted code onl
     parse(readFileSync(new URL(`../../.github/workflows/${name}.yml`, import.meta.url), "utf8"));
   const check = workflow("pricing-freshness");
   assert.deepEqual(check.permissions, { contents: "read" });
-  assert.equal(check.jobs.freshness["continue-on-error"], true);
+  // Advisory on PRs; the weekly scheduled run fails visibly when pricing needs review.
+  assert.equal(
+    check.jobs.freshness["continue-on-error"],
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: literal GitHub Actions expression
+    "${{ github.event_name == 'pull_request' }}",
+  );
   const publish = workflow("pricing-report");
   const checkout = publish.jobs.report.steps.find((step) =>
     step.uses?.startsWith("actions/checkout@"),
