@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-router";
 import { ROUTE_NAMES } from "@/config/routes";
+import { sessionTabRoutes } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
 import { logError } from "@/utils/logger";
 import { sessionTabGuard } from "./sessionTabGuard";
@@ -9,15 +10,6 @@ import type {} from "./types";
 const SessionListView = () => import("@/views/SessionListView.vue");
 const SessionDetailView = () => import("@/views/SessionDetailView.vue");
 const NotFoundView = () => import("@/views/NotFoundView.vue");
-
-// Detail tab components
-const OverviewTab = () => import("@/views/tabs/OverviewTab.vue");
-const ConversationTab = () => import("@/views/tabs/ConversationTab.vue");
-const EventsTab = () => import("@/views/tabs/EventsTab.vue");
-const TodosTab = () => import("@/views/tabs/TodosTab.vue");
-const MetricsTab = () => import("@/views/tabs/MetricsTab.vue");
-const ContextTab = () => import("@/views/tabs/ContextTab.vue");
-const ExplorerTab = () => import("@/views/tabs/ExplorerTab.vue");
 
 const routes: RouteRecordRaw[] = [
   {
@@ -42,57 +34,7 @@ const routes: RouteRecordRaw[] = [
         path: "",
         redirect: (to) => ({ name: ROUTE_NAMES.sessionOverview, params: to.params }),
       },
-      {
-        path: "overview",
-        name: "session-overview",
-        component: OverviewTab,
-        meta: { title: "Overview", sidebarId: "sessions" },
-      },
-      {
-        path: "conversation",
-        name: "session-conversation",
-        component: ConversationTab,
-        meta: { title: "Conversation", sidebarId: "sessions" },
-      },
-      {
-        path: "events",
-        name: "session-events",
-        component: EventsTab,
-        meta: { title: "Events", sidebarId: "sessions" },
-      },
-      {
-        path: "todos",
-        name: "session-todos",
-        component: TodosTab,
-        meta: { title: "Todos", sidebarId: "sessions" },
-      },
-      {
-        path: "metrics",
-        name: "session-metrics",
-        component: MetricsTab,
-        meta: { title: "Metrics", sidebarId: "sessions" },
-      },
-      {
-        path: "context",
-        name: "session-context",
-        component: ContextTab,
-        meta: { title: "Context", sidebarId: "sessions" },
-      },
-      {
-        path: "explorer",
-        name: "session-explorer",
-        component: ExplorerTab,
-        meta: { title: "Explorer", sidebarId: "sessions" },
-      },
-      {
-        path: "timeline",
-        name: "session-timeline",
-        component: () => import("@/views/SessionTimelineView.vue"),
-        meta: {
-          title: "Timeline",
-          sidebarId: "sessions",
-        },
-      },
+      ...sessionTabRoutes(),
     ],
   },
   // === New top-level routes (all stubs initially) ===
