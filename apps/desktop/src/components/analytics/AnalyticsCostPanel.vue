@@ -1,13 +1,14 @@
 <script setup lang="ts">
 /**
- * What the range cost. "By source" gives each source a card in its own unit
- * (AI Credits for Copilot, API-equivalent USD for Claude Code) with how much
- * of it is observed or priced; "Running total" draws the spend accumulating
+ * What the range cost. "By source" gives each source a card in USD (Copilot's
+ * AI Credits at $0.01 each, Claude Code's API-equivalent estimate) with how
+ * much of it is observed or priced; "Running total" draws the spend accumulating
  * across the range. The choice is remembered between visits.
  */
 import {
   type AnalyticsData,
   formatAiCredits,
+  formatAiCreditsUsd,
   formatCost,
   formatNumberFull,
   sourceLabel,
@@ -68,8 +69,8 @@ const copilot = computed(() => {
   const observedShare = total > 0 ? credits.observedCredits / total : 0;
   return {
     row,
-    credits: formatAiCredits(credits.credits),
-    usd: credits.usdEquivalent == null ? null : formatCost(credits.usdEquivalent),
+    usd: formatAiCreditsUsd(credits.credits),
+    credits: credits.credits == null ? null : formatAiCredits(credits.credits),
     observedShare,
     basis:
       credits.source === "unavailable"
@@ -79,9 +80,10 @@ const copilot = computed(() => {
           : credits.observedCredits === 0
             ? "estimated from tokens"
             : `${observedShare < 0.01 ? "<1" : Math.round(observedShare * 100)}% observed · rest estimated`,
-    meterTitle: `${formatAiCredits(credits.observedCredits)} observed, ${formatAiCredits(credits.estimatedCredits)} estimated from token rates`,
+    meterTitle: `${formatAiCreditsUsd(credits.observedCredits)} observed, ${formatAiCreditsUsd(credits.estimatedCredits)} estimated from token rates`,
     observed: `${formatNumberFull(props.data.sessionsWithObservedAiCredits ?? 0)} of ${formatNumberFull(row.sessions)} sessions`,
-    perSession: credits.credits == null ? "—" : formatAiCredits(total / Math.max(1, row.sessions)),
+    perSession:
+      credits.credits == null ? "—" : formatAiCreditsUsd(total / Math.max(1, row.sessions)),
     // Copilot's older billing unit, kept for comparison when it was recorded.
     legacy:
       props.data.totalPremiumRequests > 0
@@ -155,9 +157,8 @@ const daily = computed(() =>
   }),
 );
 const running = computed(() => cumulativeRows(daily.value.rows));
-const inCredits = computed(() => props.summary.inAiCredits);
-const format = (value: number) => formatDashboardCost(value, inCredits.value);
-const axisFormat = (value: number) => formatAxisCost(value, inCredits.value);
+const format = formatDashboardCost;
+const axisFormat = formatAxisCost;
 
 /** What a column added: the running total at its end less the one before it. */
 const indexByDay = computed(() => new Map(running.value.map((row, i) => [row.from, i])));
@@ -187,11 +188,7 @@ const runningFoot = computed(() => {
 });
 
 const unitNote = computed(() =>
-  inCredits.value
-    ? "AI Credits"
-    : props.summary.sources.length > 1
-      ? "USD · AI Credits at $0.01"
-      : "USD",
+  props.summary.sources.includes("copilot") ? "USD · AI Credits at $0.01" : "USD",
 );
 
 function openModels() {
@@ -215,10 +212,10 @@ function openModels() {
       <section v-if="copilot" class="cost-card" data-source="copilot">
         <header class="cost-card__head">
           <span class="ad-source" :style="{ color: SOURCE_COLORS.copilot }"><SourceLogo source="copilot" /></span>
-          Copilot<span class="cost-card__aside">AI Credits</span>
+          Copilot<span class="cost-card__aside">USD · AI Credits at $0.01</span>
         </header>
         <div class="ad-tile__value ad-tile__value--lg" data-count-up>
-          {{ copilot.credits }}<small v-if="copilot.usd">≈ {{ copilot.usd }}</small>
+          {{ copilot.usd }}<small v-if="copilot.credits">{{ copilot.credits }}</small>
         </div>
         <div class="ad-meter" :title="copilot.meterTitle">
           <i :style="{ width: `${copilot.observedShare * 100}%`, background: SOURCE_COLORS.copilot }" data-reveal="grow-x" />

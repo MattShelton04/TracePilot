@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { formatAiCredits, formatLiveDuration, formatTime } from "../src/utils/formatters.js";
+import {
+  formatAiCredits,
+  formatAiCreditsUsd,
+  formatLiveDuration,
+  formatTime,
+} from "../src/utils/formatters.js";
 
 const TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   hour: "2-digit",
@@ -61,6 +66,19 @@ describe("formatAiCredits", () => {
     expect(formatAiCredits(1_234.56)).toBe("1,235 AIC");
     expect(formatAiCredits(123_456.78)).toBe("123,457 AIC");
     expect(formatAiCredits(null)).toBe("—");
+  });
+});
+
+describe("formatAiCreditsUsd", () => {
+  it("reads AI Credits in USD at $0.01 each, never a sub-cent cost as $0.00", () => {
+    expect(formatAiCreditsUsd(111_123_141.341)).toBe("$1,111,231.41");
+    expect(formatAiCreditsUsd(160)).toBe("$1.60");
+    expect(formatAiCreditsUsd(0.5)).toBe("$0.01");
+    expect(formatAiCreditsUsd(0.4)).toBe("< $0.01");
+    expect(formatAiCreditsUsd(0)).toBe("$0.00");
+    expect(formatAiCreditsUsd(null)).toBe("—");
+    expect(formatAiCreditsUsd(undefined)).toBe("—");
+    expect(formatAiCreditsUsd(Number.NaN)).toBe("—");
   });
 });
 

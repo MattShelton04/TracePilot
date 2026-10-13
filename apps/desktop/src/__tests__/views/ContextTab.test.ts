@@ -327,7 +327,8 @@ describe("ContextTab", () => {
     expect(tool.attributes("data-rich")).toBe("true");
     expect(wrapper.find(".context-tab__bounded-tool").exists()).toBe(true);
     expect(wrapper.text()).toContain("Cached-input equivalent");
-    expect(wrapper.text()).toContain("0.123 AIC");
+    // 0.123 AI Credits at $0.01 each is under a cent.
+    expect(wrapper.text()).toContain("< $0.01");
     const statHelp = wrapper.findAll(".context-tab__stat-help");
     expect(statHelp).toHaveLength(3);
     expect(statHelp[0]?.attributes("title")).toContain("main-agent system snapshot");

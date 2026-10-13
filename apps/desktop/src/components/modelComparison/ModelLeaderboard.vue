@@ -13,16 +13,16 @@ const sortColumns = computed<{ key: SortKey; label: string; title?: string }[]>(
   { key: "outputTokens", label: "Output" },
   { key: "cacheReadTokens", label: "Cache" },
   { key: "percentage", label: "Share" },
-  // With AI Credit and USD models side by side, every cost shows in USD.
+  // Every cost shows in USD; AI Credits count at $0.01 each.
   ctx.mixedUnits
     ? {
         key: "aiCredits",
-        label: "Cost (USD)",
-        title: "AI Credits at $0.01 each; other sources at API-equivalent rates.",
+        label: "Cost",
+        title: "USD: AI Credits at $0.01 each; other sources at API-equivalent rates.",
       }
     : ctx.usdRows.length > 0
       ? { key: "aiCredits", label: "Est. Cost", title: "API-equivalent USD." }
-      : { key: "aiCredits", label: "AI Credits" },
+      : { key: "aiCredits", label: "Cost", title: "USD: AI Credits at $0.01 each." },
 ]);
 </script>
 
@@ -124,7 +124,7 @@ const sortColumns = computed<{ key: SortKey; label: string; title?: string }[]>(
             </td>
             <td class="num-cell matrix-cost-cell">
               <span class="matrix-cost-value">
-                {{ formatRowCostNorm(row, ctx.normMode, ctx.mixedUnits) }}
+                {{ formatRowCostNorm(row, ctx.normMode) }}
               </span>
             </td>
           </tr>

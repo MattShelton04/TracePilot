@@ -66,7 +66,7 @@ function openModels() {
         <Tooltip
           v-for="model in top"
           :key="model.key"
-          :text="`${model.label}: ${formatNumber(model.requests)} requests · ${cacheHit(model)}`"
+          :text="`${model.label}: ${formatNumber(model.requests)} requests · ${cacheHit(model)}${model.partial ? ' · cost partly priced' : ''}`"
         >
           <div class="ad-row model-mix__grid" role="row">
             <span class="ad-row__name" role="cell">
@@ -86,8 +86,8 @@ function openModels() {
             </span>
             <span class="ad-num" role="cell">{{ formatShare(model.share) }}</span>
             <span class="ad-num ad-num--muted" role="cell">{{ formatNumber(model.tokens) }}</span>
-            <span class="ad-num ad-num--muted" role="cell">
-              {{ model.costText }}<span v-if="model.partial" class="ad-partial" title="Partly priced">*</span>
+            <span class="ad-num ad-num--muted model-mix__cost" role="cell">
+              {{ model.costText }}<span v-if="model.partial" class="ad-partial model-mix__partial" title="Partly priced: some usage could not be priced">*</span>
             </span>
           </div>
         </Tooltip>
@@ -119,5 +119,16 @@ function openModels() {
 
 .model-mix__grid {
   grid-template-columns: minmax(0, 1.6fr) minmax(48px, 1.1fr) 44px 52px 76px;
+}
+
+/* The partial marker hangs past the figure so costs stay right-aligned. */
+.model-mix__cost {
+  position: relative;
+}
+
+.model-mix__partial {
+  position: absolute;
+  left: 100%;
+  margin-left: 1px;
 }
 </style>

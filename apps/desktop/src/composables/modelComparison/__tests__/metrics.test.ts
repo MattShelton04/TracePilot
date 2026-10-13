@@ -158,7 +158,7 @@ describe("models priced per source", () => {
     });
     // AI Credits convert at $0.01 each, so the pair shares one scale.
     expect(copilot.usdEquivalent).toBeCloseTo((copilot.aiCredits ?? 0) * 0.01);
-    expect(crossSource.find((m) => m.label === "Cost (USD)")).toMatchObject({
+    expect(crossSource.find((m) => m.label === "Cost")).toMatchObject({
       valueA: formatNorm(copilot.usdEquivalent, true, "raw"),
       valueB: "$1.00",
       better: (copilot.usdEquivalent ?? 0) < 1 ? "a" : "b",
@@ -335,18 +335,7 @@ describe("formatNorm", () => {
 });
 
 describe("formatRowCostNorm", () => {
-  it("keeps each row's unit in every mode", () => {
-    const aic = row({ aiCredits: 27.94 });
-    const usd = row({ aiCredits: null, billedInAiCredits: false, costUsd: 0.92 });
-    expect(formatRowCostNorm(aic, "raw")).toBe("27.94 AIC");
-    expect(formatRowCostNorm(usd, "raw")).toBe("$0.92");
-    expect(formatRowCostNorm(aic, "per-10m-tokens")).toBe("27.94 AIC");
-    expect(formatRowCostNorm(usd, "per-10m-tokens")).toBe("$0.92");
-    expect(formatRowCostNorm(aic, "share")).toBe("27.9%");
-    expect(formatRowCostNorm({ ...row(), aiCredits: null }, "per-10m-tokens")).toBe("—");
-  });
-
-  it("shows every row in USD when the table mixes units", () => {
+  it("shows every row in USD in every mode, AI Credits at $0.01 each", () => {
     const aic = row({ aiCredits: 300, usdEquivalent: 3 });
     const usd = row({
       aiCredits: null,
@@ -354,10 +343,24 @@ describe("formatRowCostNorm", () => {
       costUsd: 0.92,
       usdEquivalent: 0.92,
     });
-    expect(formatRowCostNorm(aic, "raw", true)).toBe("$3.00");
-    expect(formatRowCostNorm(usd, "raw", true)).toBe("$0.92");
-    expect(formatRowCostNorm({ ...aic, usdEquivalent: 76.5 }, "share", true)).toBe("76.5%");
-    expect(formatRowCostNorm({ ...aic, usdEquivalent: null }, "raw", true)).toBe("—");
+    expect(formatRowCostNorm(aic, "raw")).toBe("$3.00");
+    expect(formatRowCostNorm(usd, "raw")).toBe("$0.92");
+    expect(formatRowCostNorm(aic, "per-10m-tokens")).toBe("$3.00");
+    expect(formatRowCostNorm(usd, "per-10m-tokens")).toBe("$0.92");
+    expect(formatRowCostNorm({ ...aic, usdEquivalent: 76.5 }, "share")).toBe("76.5%");
+  });
+
+  it("never reads a sub-cent AI Credit cost as $0.00", () => {
+    expect(formatRowCostNorm(row({ aiCredits: 0.2, usdEquivalent: 0.002 }), "raw")).toBe("< $0.01");
+  });
+
+  it("shows unpriced rows as a dash", () => {
+    const noCredits = { ...row(), aiCredits: null };
+    expect(formatRowCostNorm(noCredits, "raw")).toBe("—");
+    expect(formatRowCostNorm(noCredits, "per-10m-tokens")).toBe("—");
+    const unpriced = row({ aiCredits: null, billedInAiCredits: false, costUsd: null });
+    expect(formatRowCostNorm(unpriced, "raw")).toBe("—");
+    expect(formatRowCostNorm(unpriced, "share")).toBe("—");
   });
 });
 
@@ -428,7 +431,7 @@ describe("buildModelRows colours and cost", () => {
 });
 
 describe("buildCompareMetrics", () => {
-  it("returns AIC-first rows with delta/direction/better fields populated", () => {
+  it("returns USD cost rows with delta/direction/better fields populated", () => {
     const a = row({ model: "a", tokens: 1000, percentage: 40, cost: 1, copilotCost: 0.2 });
     const b = row({ model: "b", tokens: 2000, percentage: 60, cost: 2, copilotCost: 0.4 });
     const metrics = buildCompareMetrics(a, b, (v) => (v == null ? "—" : String(v)));
@@ -439,7 +442,7 @@ describe("buildCompareMetrics", () => {
       "Output Tokens",
       "Cache Read",
       "Token Share",
-      "AI Credits",
+      "Cost",
       "Cache Hit Rate",
       "Legacy Premium Cost",
     ]);

@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import type { AiCreditUsage, ShutdownMetrics } from "@tracepilot/types";
-import { Badge, formatAiCredits, formatCost, formatNumber, StatCard } from "@tracepilot/ui";
+import {
+  Badge,
+  formatAiCredits,
+  formatAiCreditsUsd,
+  formatCost,
+  formatNumber,
+  StatCard,
+} from "@tracepilot/ui";
 import { DURATION_HINTS, formatRecordedDuration } from "@/utils/sessionDurations";
 import { formatSessionCost, type SessionCostEstimate } from "@/utils/sourceCost";
 
@@ -46,12 +53,12 @@ function sourceLabel(source: AiCreditUsage["source"]): string {
   <template v-else>
     <div class="grid-4 mb-6">
       <StatCard
-        :value="formatAiCredits(aiCreditUsage.credits)"
-        :label="aiCreditUsage.source === 'observed' || aiCreditUsage.source === 'unavailable' ? 'AI Credits' : 'AI Credits (estimate)'"
+        :value="formatAiCreditsUsd(aiCreditUsage.credits)"
+        :label="aiCreditUsage.source === 'observed' || aiCreditUsage.source === 'unavailable' ? 'Cost' : 'Cost (estimate)'"
         color="accent"
-        :tooltip="sourceLabel(aiCreditUsage.source)"
+        :tooltip="`${sourceLabel(aiCreditUsage.source)}. AI Credits count at $0.01 each.`"
       />
-      <StatCard :value="aiCreditUsage.usdEquivalent != null ? formatCost(aiCreditUsage.usdEquivalent) : '—'" label="AIC USD equivalent" :tooltip="sourceLabel(aiCreditUsage.source)" />
+      <StatCard :value="formatAiCredits(aiCreditUsage.credits)" label="AI Credits" :tooltip="sourceLabel(aiCreditUsage.source)" />
       <StatCard :value="totalTokens == null ? '—' : formatNumber(totalTokens)" label="Total Tokens" :gradient="true" tooltip="Input + output, including cache and reasoning tokens" />
       <StatCard :value="formatRecordedDuration(metrics.totalApiDurationMs)" label="API Time" color="done" :tooltip="DURATION_HINTS.apiTime" />
     </div>
