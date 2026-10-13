@@ -7,6 +7,14 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Changed
+
+- **Costs in dollars everywhere** — Copilot costs show in USD (AI Credits at $0.01 each) like Claude Code, with AI Credits kept as secondary detail.
+
+### Fixed
+
+- **Line chart hover** — The Analytics Activity chart's hover dot sits on the line again, and partly priced model costs stay aligned.
+
 ## [0.9.2] - 2026-10-11
 
 ### Added
