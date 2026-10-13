@@ -10,7 +10,7 @@ function setup() {
   const prefetch = vi.fn(async (_name: string, _params: AnalyticsFetchParams) => {});
   const background = createAnalyticsPrefetch({
     prefetch,
-    build: (filters) => ({ ...filters }),
+    build: ({ source, ...range }) => ({ ...range, source: source ?? undefined }),
     dateRange: () => ({}),
     sources: () => [],
     onWarm: () => {},
