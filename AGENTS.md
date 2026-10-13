@@ -2,9 +2,10 @@
 
 When a task needs to observe or verify the running app, read
 [the app automation skill](.github/skills/tracepilot-app-automation/SKILL.md).
-It uses the pinned Playwright agent CLI; start the real Windows Tauri app with
-`pnpm app:start` and attach using the printed command. Frontend-only mocks are
-available with `pnpm app:ui`, but do not prove backend behavior.
+It uses the pinned Playwright agent CLI; agents start the real Windows Tauri app
+with `pnpm app:start -Instance <slug> -Fixtures` (synthetic data) and attach using
+the printed command. Frontend-only mocks are available with `pnpm app:ui`, but do
+not prove backend behavior.
 
 Prioritize the default 1440×960 desktop viewport, then the 960×640 minimum and a
 larger 2560×1440 viewport. See [automation](docs/app-automation.md) and
@@ -19,10 +20,32 @@ current when adding rich tools; keep one-off stress data and captures untracked.
 Reusable task cards for autonomous agents live in [docs/agents](docs/agents/README.md).
 Launch one with `Read docs/agents/tasks/<card>.md and follow it.` The shared rules
 (isolated named app instances, proportionate verification, PR format) are in
-[docs/agents/protocol.md](docs/agents/protocol.md). When several agents share this
-machine, start the app with `pnpm app:start -Instance <name> -Fixtures`.
-When choosing what to improve, skip the experimental areas listed in
+[docs/agents/protocol.md](docs/agents/protocol.md). When choosing what to improve, skip the experimental areas listed in
 [focus.md](docs/agents/focus.md) unless you're asked to work on them.
+
+# Working here as an agent
+
+- **Validate** with `pnpm check:changed`; it runs the
+  [protocol's table](docs/agents/protocol.md#verify-proportionately) rows that match
+  your diff. Run `just ci` only in the cases the protocol names.
+- **Finish** (unless told otherwise) by committing, pushing, opening the PR,
+  reporting its link, and stopping. Workers don't watch CI; an orchestrator waits with
+  `gh pr checks <n> --watch --fail-fast`. Never sleep-then-check.
+- **Changelog:** add a `changelog.d/<slug>.md` fragment for user-facing changes;
+  never edit `CHANGELOG.md`.
+- **App:** `pnpm app:start -Instance <slug> -Fixtures`, or `-RealData` when the
+  maintainer asks you to check their own sessions. That's pre-authorized for local
+  verification only; real data never goes into commits, PRs or screenshots.
+- **Editing:** prefer the Edit tool. Put scripted edits in a script file, not an
+  inline heredoc. Set `PYTHONUTF8=1` for Python. `jq` isn't installed; use `node -e`.
+- **Windows shells:** PowerShell doesn't expand globs, so use `rg -g '<glob>'`.
+  Single-quote patterns. Use `pwsh -NoProfile`, and check `$LASTEXITCODE` after
+  native commands.
+- **Worktrees:** stay inside yours and don't `cd` to other absolute paths. Create
+  one with `pnpm worktree:new <slug>`, remove finished ones with
+  `pnpm worktree:clean`. Build setup and sccache: [local builds](docs/local-builds.md).
+- **Generated-file conflicts** (`bindings.ts`, `ipc-commands.json`): re-run
+  `pnpm gen:bindings` instead of resolving by hand.
 
 # Releases
 

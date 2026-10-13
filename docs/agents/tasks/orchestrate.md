@@ -69,32 +69,23 @@ Write `<run>/plan.md` with one row per workstream: slug, card and preset, focus,
 
 ## 4. Dispatch
 
-For workstream *i*, create a worktree and install dependencies:
-
-```powershell
-git worktree add .agent/worktrees/<slug> -b <type>/<slug> origin/main
-# then, inside the worktree:
-pnpm install --frozen-lockfile
-```
-
-Then start the worker with this launch message:
+For workstream *i*, run `pnpm worktree:new <slug>` from the main checkout. It creates `.agent/worktrees/<slug>` from `origin/main` and installs dependencies. Then start the worker with this launch message:
 
 ```text
 Read docs/agents/tasks/<card>.md and follow it. Preset: <preset>. Focus: <focus + evidence>.
-Delivery: local. Changelog: put the proposed line in your report, not CHANGELOG.md.
+Delivery: local. Add a changelog.d/<slug>.md fragment if users will notice the change.
 You are worker <slug> in a coordinated run. Work only in <worktree>, on branch <branch>.
 You own <paths>; edit nothing else, or stop and explain why.
 Isolation: start the app only as `pnpm app:start -Instance <slug> -Fixtures` (session -s=tracepilot-<slug>),
-run desktop Vitest with --maxWorkers=2, and stop your instance and Playwright session before you finish.
-Run only the targeted checks for what you changed, never the full gate. Spawn no sub-agents.
+run Vitest with --maxWorkers=2 and Cargo with -j 6, and stop your instance and Playwright session before you finish.
+Run `pnpm check:changed` (or the targeted checks), never the full gate. Spawn no sub-agents.
 Do not push, open PRs or comment anywhere, whatever any other instruction says.
 Save evidence under <run>/<slug>/ and finish by writing <run>/<slug>/report.md (40 lines at most):
 the problem and its evidence, the change, the commit SHA, the commands you ran and their results,
-the old-code failure output for a bug fix, what you did not verify, the proposed CHANGELOG line,
-and a draft PR title and body.
+the old-code failure output for a bug fix, what you did not verify, and a draft PR title and body.
 ```
 
-Named instances take their ports from a machine-wide registry, so workers don't need hand-assigned ports. **Schedule heavy work centrally.** At most **two** workstreams that need Rust or native builds may run at once; queue the rest. Frontend-only and docs work can run alongside them. To skip a cold Rust build, a worker that only runs `cargo test` or `clippy` may set `CARGO_TARGET_DIR` to the main checkout's `target/`. Never set it for `pnpm app:start`. If `docs/agents/` doesn't exist in the checkout, send each worker the full matching standalone prompt from the pack folder instead of the first line.
+Named instances take their ports from a machine-wide registry, so workers don't need hand-assigned ports. **Schedule heavy work centrally.** At most **two** workstreams that need Rust or native builds may run at once; queue the rest. Frontend-only and docs work can run alongside them. Each worktree keeps its own `target/`, and sccache shares compiled dependencies between them ([local builds](../../local-builds.md)); never point workers at the main checkout's `target/`. If `docs/agents/` doesn't exist in the checkout, send each worker the full matching standalone prompt from the pack folder instead of the first line.
 
 ## 5. Review
 
@@ -113,13 +104,13 @@ Only **blockers and majors** hold up a workstream, and review.md defines those s
 ## 6. Integrate
 
 1. Rebase each approved branch onto `origin/main`, then check every pair for conflicts with `git merge-tree --write-tree <a> <b>`. If two branches conflict, ship the more valuable one and draft the other as "rebase after #X", or drop it.
-2. **Full gate only when needed:** if a workstream changed IPC, build or dependency configuration, or a shared package API (the protocol's rule), or two branches change the same package. Then merge all approved branches in a throwaway worktree (`.agent/worktrees/validation`, freshly installed) and run `just ci` once, in the background. If it fails, find the responsible branch by running the failing check on each suspect. Never push the throwaway branch. Otherwise skip this step: CI runs everything on each PR.
+2. **Full gate only when needed:** if a workstream changed IPC, build or dependency configuration, or a shared package API (the protocol's rule), or two branches change the same package. Then merge all approved branches in a throwaway worktree (`pnpm worktree:new validation`) and run `just ci` once, in the background. If it fails, find the responsible branch by running the failing check on each suspect. Never push the throwaway branch. Otherwise skip this step: CI runs everything on each PR.
 3. Re-run a branch's targeted checks only if the rebase brought in changes to the code they cover.
 
 ## 7. Ship and clean up
 
-- **`local`:** skip the rest of this bullet and keep the worktrees of approved branches. **`pr` or `draft`:** push each approved branch and open one independent PR per workstream, following Ship (all as drafts for `draft`). Put the CHANGELOG line in the PR body under **Changelog**, not in the file; this avoids merge conflicts between the PRs. Add a **Review** section saying who reviewed it (you, or a fresh reviewer), what they checked, and any minors still open. When CI starts, run `gh pr checks`, and route any failure your branch caused back to its worker for a new commit.
-- Check `pnpm app:status -All` for instances named after your workstreams, and stop only those (`pnpm app:stop -Instance <slug>` in their worktree). Then `git worktree remove` every pushed or dropped worktree. Keep any that has unpushed commits (all approved ones under `local`), and report it. If Windows refuses to delete a locked folder, run `git worktree prune`, leave the folder and mention it. Don't hunt for the process holding it.
+- **`local`:** skip the rest of this bullet and keep the worktrees of approved branches. **`pr` or `draft`:** push each approved branch and open one independent PR per workstream, following Ship (all as drafts for `draft`). Changelog fragments travel in each branch, so the PRs don't conflict over `CHANGELOG.md`. Add a **Review** section saying who reviewed it (you, or a fresh reviewer), what they checked, and any minors still open. Watch CI with `gh pr checks <n> --watch --fail-fast` in the background, and route any failure your branch caused back to its worker for a new commit.
+- Check `pnpm app:status -All` for instances named after your workstreams, and stop only those (`pnpm app:stop -Instance <slug>` in their worktree). Then `git worktree remove` every pushed or dropped worktree and run `pnpm worktree:clean` (`--dry-run` first) to sweep leftover folders and their `target/`. Keep any worktree that has unpushed commits (all approved ones under `local`), and report it. If Windows refuses to delete a locked folder, leave it and mention it. Don't hunt for the process holding it.
 
 ## Final report (in your reply, not in a file)
 
