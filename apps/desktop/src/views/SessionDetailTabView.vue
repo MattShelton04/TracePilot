@@ -23,21 +23,14 @@ import {
 } from "@/composables/useSessionDetail";
 import { useSessionSource } from "@/composables/useSessionSource";
 import { useWindowRole } from "@/composables/useWindowRole";
-import { DEFAULT_SESSION_TAB, isSessionTabHidden } from "@/config/sessionTabs";
+import { DEFAULT_SESSION_TAB, isSessionTabHidden, SESSION_TABS } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSessionTabsStore } from "@/stores/sessionTabs";
 
-// ── Lazy-loaded inner tab components ──────────────────────────────────
-const innerTabComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
-  overview: defineAsyncComponent(() => import("@/views/tabs/OverviewTab.vue")),
-  conversation: defineAsyncComponent(() => import("@/views/tabs/ConversationTab.vue")),
-  events: defineAsyncComponent(() => import("@/views/tabs/EventsTab.vue")),
-  todos: defineAsyncComponent(() => import("@/views/tabs/TodosTab.vue")),
-  metrics: defineAsyncComponent(() => import("@/views/tabs/MetricsTab.vue")),
-  context: defineAsyncComponent(() => import("@/views/tabs/ContextTab.vue")),
-  explorer: defineAsyncComponent(() => import("@/views/tabs/ExplorerTab.vue")),
-  timeline: defineAsyncComponent(() => import("@/views/SessionTimelineView.vue")),
-};
+// ── Lazy-loaded inner tab components, from the tab registry ───────────
+const innerTabComponents = Object.fromEntries(
+  SESSION_TABS.map((t) => [t.name, defineAsyncComponent(t.component)]),
+);
 
 const props = defineProps<{
   sessionId: string;

@@ -6,58 +6,40 @@
  *  - SessionDetailView (route-driven, uses Pinia singleton)
  *  - SessionDetailTabView (tab/child-window, uses per-instance composable)
  *
- * The inner content area is provided via the default slot.
+ * The panel owns the session's running state and refreshing; the header
+ * ({@link SessionDetailHeader}) and action bar ({@link SessionDetailActions})
+ * render from it, and the tab nav renders from the tab registry
+ * (`@/config/sessionTabs`). The inner content area is provided via the
+ * default slot.
  */
-import { getSessionLiveness, openInExplorer, resumeSessionInTerminal } from "@tracepilot/client";
+import { getSessionLiveness } from "@tracepilot/client";
+import { isNonCopilotSource, type RunStatus, runStatusBadge, sourceLabel } from "@tracepilot/types";
 import {
-  resumeCommand as buildResumeCommand,
-  isNonCopilotSource,
-  modelDisplayName,
-  type RunStatus,
-  runStatusBadge,
-  sourceLabel,
-} from "@tracepilot/types";
-import {
-  Badge,
   ErrorAlert,
   LIVE_TOOL_PARTIAL_OUTPUT_KEY,
   MAIN_AGENT_LABEL_KEY,
   PageShell,
-  projectLabelFromCwd,
   SkeletonLoader,
   TabNav,
   useAsyncGuard,
   useAutoRefresh,
-  useClipboard,
 } from "@tracepilot/ui";
-import {
-  AlertTriangle,
-  Check,
-  Clapperboard,
-  Clipboard,
-  Folder,
-  FolderOpen,
-  Play,
-  Share,
-} from "lucide-vue-next";
 import { computed, onMounted, provide, ref, watch } from "vue";
 import type { Router } from "vue-router";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
-import RefreshToolbar from "@/components/RefreshToolbar.vue";
-import PromptCacheHeaderChip from "@/components/session/PromptCacheHeaderChip.vue";
+import SessionDetailActions from "@/components/session/SessionDetailActions.vue";
+import SessionDetailHeader from "@/components/session/SessionDetailHeader.vue";
 import { useLivePersistedSync } from "@/composables/useLivePersistedSync";
 import { useRunningSessionPoll } from "@/composables/useRunningSessionPoll";
 import type { SessionDetailContext } from "@/composables/useSessionDetail";
 import { SESSION_LIVE_STATE_KEY } from "@/composables/useSessionLiveState";
 import { useSessionSource } from "@/composables/useSessionSource";
-import { useWindowRole } from "@/composables/useWindowRole";
 import { mapSessionTabs, type SessionTabMode } from "@/config/sessionTabs";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSdkStore } from "@/stores/sdk";
 import { isSessionNotFoundError } from "@/utils/backendErrors";
 import { logError, logWarn } from "@/utils/logger";
 import { normalizeToolPartialOutput } from "@/utils/normalizeToolPartialOutput";
-import { effortLabel, sessionEffort, sessionModel } from "@/utils/sessionModel";
 
 const props = defineProps<{
   store: SessionDetailContext;
@@ -88,9 +70,7 @@ const emit = defineEmits<{
 }>();
 
 const prefs = usePreferencesStore();
-const { isViewer } = useWindowRole();
 const resolvedSessionId = computed(() => props.store.detail?.id ?? props.sessionId);
-const { copy, copied } = useClipboard();
 
 const isSessionActive = ref(false);
 /** What the running process is doing, for sources that record it. */
@@ -144,22 +124,10 @@ const liveBadge = computed(() => {
 });
 /** Waiting for input reads apart from working; streaming wins over both. */
 const isWaiting = computed(() => runStatus.value === "waiting" && liveBadge.value.label !== "Live");
-const confirmingCopy = ref(false);
-const confirmingResume = ref(false);
 
 // The backend locates the folder through the session's provider; sources keep
 // their files in different places, so never rebuild it from a configured path.
 const sessionFolder = computed(() => props.store.detail?.folder ?? null);
-
-async function openSessionFolder() {
-  const path = sessionFolder.value;
-  if (!path) return;
-  try {
-    await openInExplorer(path);
-  } catch (e) {
-    logError("[sessionDetail] Failed to open folder:", e);
-  }
-}
 
 /**
  * The open session's files were removed (for example, a temporary session was
@@ -253,62 +221,7 @@ async function refresh() {
 
 defineExpose({ isSessionActive, refresh });
 
-/** The command the user copies to resume in their own terminal, if the source has one. */
-const resumeCommand = computed(() =>
-  buildResumeCommand(source.value, resolvedSessionId.value, {
-    copilot: prefs.cliCommand,
-    claudeCode: prefs.claudeCliCommand,
-  }),
-);
-
-async function copyResumeCommand() {
-  if (!resumeCommand.value) return;
-  if (isSessionActive.value && !confirmingCopy.value) {
-    confirmingCopy.value = true;
-    return;
-  }
-  confirmingCopy.value = false;
-  await copy(resumeCommand.value);
-}
-
-function cancelCopy() {
-  confirmingCopy.value = false;
-}
-
-async function resumeInTerminal() {
-  if (isSessionActive.value && !confirmingResume.value) {
-    confirmingResume.value = true;
-    return;
-  }
-  confirmingResume.value = false;
-  try {
-    // The backend resumes other sources through their own configured CLI.
-    const copilotCli = source.value === "copilot" ? prefs.cliCommand : undefined;
-    await resumeSessionInTerminal(resolvedSessionId.value, copilotCli);
-  } catch (e) {
-    logError("[sessionDetail] Failed to open terminal:", e);
-  }
-}
-
-function cancelResume() {
-  confirmingResume.value = false;
-}
-
-const tabs = computed(() => {
-  return mapSessionTabs(props.tabMode, capabilities.value).map((t) => {
-    if (t.name === "conversation")
-      return { ...t, count: props.store.detail?.turnCount ?? undefined };
-    if (t.name === "events") return { ...t, count: props.store.detail?.eventCount ?? undefined };
-    return t;
-  });
-});
-
-const currentModel = computed(() => sessionModel(props.store.detail) ?? "");
-const currentEffort = computed(() => sessionEffort(props.store.detail));
-// A session without a repository is identified by its working directory, as on its list card.
-const projectLabel = computed(() =>
-  props.store.detail?.repository ? null : projectLabelFromCwd(props.store.detail?.cwd),
-);
+const tabs = computed(() => mapSessionTabs(props.tabMode, capabilities.value, props.store.detail));
 
 function onSubTabChange(tab: string) {
   emit("update:activeSubTab", tab);
@@ -345,13 +258,6 @@ watch(
   },
   { immediate: true },
 );
-
-watch(isSessionActive, (active) => {
-  if (!active) {
-    confirmingCopy.value = false;
-    confirmingResume.value = false;
-  }
-});
 </script>
 
 <template>
@@ -367,122 +273,28 @@ watch(isSessionActive, (active) => {
 
     <!-- Session header + tabs + content -->
     <template v-if="store.detail">
-      <h1 class="detail-title">
-        <Transition name="active-indicator">
-          <span v-if="isSessionActive" class="active-indicator-group">
-            <span class="active-dot" :class="{ 'active-dot--waiting': isWaiting }" :title="liveBadge.title" />
-          </span>
-        </Transition>
-        {{ store.detail.summary || 'Untitled Session' }}
-        <Transition name="active-indicator">
-          <span v-if="isSessionActive" class="active-indicator-group">
-            <Badge :variant="isWaiting ? 'warning' : 'success'" class="active-badge-inline" :title="liveBadge.title">
-              ● {{ liveBadge.label }}
-            </Badge>
-          </span>
-        </Transition>
-      </h1>
-      <div class="detail-badges">
-        <Badge :variant="isNonCopilotSource(source) ? 'claude' : 'copilot'" title="Session source">{{ sourceName }}</Badge>
-        <Badge v-if="store.detail.repository" variant="accent">{{ store.detail.repository }}</Badge>
-        <Badge
-          v-else-if="projectLabel"
-          variant="neutral"
-          :title="store.detail.cwd ?? undefined"
-          data-testid="session-project-chip"
-        ><Folder :size="12" aria-hidden="true" class="project-chip__icon" />{{ projectLabel }}</Badge>
-        <Badge v-if="store.detail.branch" variant="success">{{ store.detail.branch }}</Badge>
-        <Badge v-if="currentModel" variant="done" :title="currentModel">{{ modelDisplayName(currentModel, source) }}</Badge>
-        <Badge v-if="currentEffort" variant="neutral" title="Main agent reasoning effort">{{ effortLabel(currentEffort) }}</Badge>
-        <Badge v-if="store.detail.hostType || !isNonCopilotSource(source)" variant="neutral">{{ store.detail.hostType || 'cli' }}</Badge>
-      </div>
+      <SessionDetailHeader
+        :detail="store.detail"
+        :source="source"
+        :source-name="sourceName"
+        :active="isSessionActive"
+        :waiting="isWaiting"
+        :live-badge="liveBadge"
+      />
 
-      <div class="detail-actions">
-        <div class="detail-actions-left">
-          <template v-if="resumeCommand">
-            <template v-if="confirmingCopy">
-              <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
-              <button class="resume-btn resume-btn--confirm" @click="copyResumeCommand">
-                Copy Anyway
-              </button>
-              <button class="resume-btn resume-btn--cancel" @click="cancelCopy">Cancel</button>
-            </template>
-            <button
-              v-else
-              class="resume-btn"
-              @click="copyResumeCommand"
-              :title="`Copy: ${resumeCommand}`"
-            >
-              <component :is="copied ? Check : Clipboard" :size="14" aria-hidden="true" />
-              {{ copied ? 'Copied!' : 'Copy Resume Command' }}
-            </button>
-
-            <template v-if="!isViewer() && capabilities.canResumeInTerminal">
-              <template v-if="confirmingResume">
-                <span class="resume-warning"><AlertTriangle :size="14" aria-hidden="true" /> Session is active elsewhere</span>
-                <button class="resume-btn resume-btn--confirm" @click="resumeInTerminal">
-                  Resume Anyway
-                </button>
-                <button class="resume-btn resume-btn--cancel" @click="cancelResume">Cancel</button>
-              </template>
-              <button
-                v-else
-                class="resume-btn"
-                @click="resumeInTerminal"
-                :title="`Resume session ${sessionId} in a new terminal`"
-              >
-                <Play :size="14" aria-hidden="true" />
-                Resume in Terminal
-              </button>
-            </template>
-          </template>
-
-          <button
-            v-if="!isViewer() && sessionFolder"
-            class="resume-btn"
-            @click="openSessionFolder"
-            title="Open the session's folder in the file explorer"
-          >
-            <FolderOpen :size="14" aria-hidden="true" />
-            Open Folder
-          </button>
-
-          <button
-            v-if="!isViewer() && prefs.isFeatureEnabled('exportView') && router"
-            class="resume-btn"
-            :title="`Export session ${sessionId}`"
-            @click="router!.push({ name: 'export', query: { sessionId: resolvedSessionId } })"
-          >
-            <Share :size="14" aria-hidden="true" />
-            Export
-          </button>
-
-          <button
-            v-if="prefs.isFeatureEnabled('sessionReplay') && router"
-            class="resume-btn"
-            @click="router!.push({ name: 'replay', params: { id: sessionId } })"
-            title="Open session in step-by-step replay view"
-          >
-            <Clapperboard :size="14" aria-hidden="true" />
-            Replay
-          </button>
-        </div>
-
-        <div class="detail-actions-right">
-          <PromptCacheHeaderChip
-            v-if="showPromptCache"
-            :timeline="store.promptCache"
-          />
-          <RefreshToolbar
-            :refreshing="refreshing"
-            :auto-refresh-enabled="prefs.autoRefreshEnabled"
-            :interval-seconds="prefs.autoRefreshIntervalSeconds"
-            @refresh="refresh"
-            @update:auto-refresh-enabled="prefs.autoRefreshEnabled = $event"
-            @update:interval-seconds="prefs.autoRefreshIntervalSeconds = $event"
-          />
-        </div>
-      </div>
+      <SessionDetailActions
+        :session-id="sessionId"
+        :resolved-session-id="resolvedSessionId"
+        :router="router"
+        :source="source"
+        :capabilities="capabilities"
+        :folder="sessionFolder"
+        :active="isSessionActive"
+        :refreshing="refreshing"
+        :show-prompt-cache="showPromptCache"
+        :prompt-cache="store.promptCache"
+        @refresh="refresh"
+      />
 
       <!-- Inner tab nav -->
       <TabNav
@@ -503,71 +315,7 @@ watch(isSessionActive, (active) => {
 </template>
 
 <style scoped>
-.detail-title {
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.3;
-  margin: 0 0 8px 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.active-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--success-fg);
-  flex-shrink: 0;
-  margin-left: 2px;
-  animation: pulse-active 2s ease-in-out infinite;
-  overflow: visible;
-  position: relative;
-}
-
-.active-dot--waiting {
-  background: var(--warning-fg);
-}
-
-@keyframes pulse-active {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(0.85); }
-}
-
-.active-badge-inline {
-  font-size: 0.6875rem;
-  flex-shrink: 0;
-}
-
-.active-indicator-group {
-  display: inline-flex;
-  align-items: center;
-}
-.active-indicator-enter-active,
-.active-indicator-leave-active {
-  transition: opacity 0.4s ease, transform 0.4s ease;
-}
-.active-indicator-enter-from {
-  opacity: 0;
-  transform: scale(0);
-}
-.active-indicator-leave-to {
-  opacity: 0;
-  transform: scale(0);
-}
-
-.detail-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-  min-width: 0;
-}
-
-.project-chip__icon {
-  flex-shrink: 0;
-}
+/* The action bar's root: pinned under the breadcrumb as the page scrolls. */
 .detail-actions {
   display: flex;
   justify-content: space-between;
@@ -590,60 +338,6 @@ watch(isSessionActive, (active) => {
 :root[data-theme="light"] .detail-actions {
   background: rgba(255, 255, 255, 0.75);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
-}
-.detail-actions-left {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.detail-actions-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
-}
-.resume-warning {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  color: var(--warning-fg);
-  font-weight: 500;
-}
-.resume-warning svg {
-  flex-shrink: 0;
-}
-.resume-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  background: var(--canvas-subtle);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-.resume-btn svg {
-  flex-shrink: 0;
-}
-.resume-btn:hover {
-  background: var(--neutral-subtle);
-  border-color: var(--border-accent);
-}
-.resume-btn--confirm {
-  color: var(--warning-fg);
-  border-color: var(--warning-fg);
-}
-.resume-btn--confirm:hover {
-  background: rgba(210, 153, 34, 0.1);
-}
-.resume-btn--cancel {
-  color: var(--text-secondary);
 }
 .detail-tab-content {
   padding-top: 4px;
