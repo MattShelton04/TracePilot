@@ -105,20 +105,17 @@ describe("useTodoDependencyGraph", () => {
     expect(ctx.layout.value.b).toBeDefined();
   });
 
-  it("fit-to-view never magnifies a small graph past 100%, and centres it", () => {
+  it("fit-to-view zooms a small graph in to fill the viewport, centred", () => {
     const { getCtx } = mountHost([t("a", "in_progress"), t("b", "done")], []);
     const ctx = getCtx();
     ctx.viewportRef.value = viewport(1100, 440);
     ctx.fitToView();
-    expect(ctx.zoomLevel.value).toBe(1);
-    expect(ctx.zoomPercent.value).toBe(100);
     const vb = ctx.viewBox.value;
-    expect(ctx.panX.value).toBe((1100 - vb.width) / 2);
-    expect(ctx.panY.value).toBe((440 - vb.height) / 2);
-
-    // Manual zoom may still go past 100%.
-    ctx.zoomIn();
-    expect(ctx.zoomLevel.value).toBeCloseTo(1.2);
+    const fit = Math.min(1100 / vb.width, 440 / vb.height) * 0.9;
+    expect(fit).toBeGreaterThan(1);
+    expect(ctx.zoomLevel.value).toBeCloseTo(fit);
+    expect(ctx.panX.value).toBeCloseTo((1100 - vb.width * fit) / 2);
+    expect(ctx.panY.value).toBeCloseTo((440 - vb.height * fit) / 2);
   });
 
   it("fit-to-view still shrinks a graph larger than the viewport", () => {

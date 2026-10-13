@@ -23,8 +23,6 @@ import { buildTodoRelations } from "@/utils/todoStats";
 
 const ZOOM_MIN = 0.05;
 const ZOOM_MAX = 5.0;
-/** Fitting only ever shrinks: a small graph shows at 100%, centred, not magnified. */
-const FIT_MAX = 1;
 const FIT_PADDING = 0.9;
 
 export interface UseTodoDependencyGraphOptions {
@@ -350,7 +348,7 @@ export function useTodoDependencyGraph(options: UseTodoDependencyGraphOptions) {
     if (vb.width <= 0 || vb.height <= 0) return;
 
     const fit = Math.min(vpW / vb.width, vpH / vb.height) * FIT_PADDING;
-    const clamped = Math.max(ZOOM_MIN, Math.min(FIT_MAX, fit));
+    const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fit));
     zoomLevel.value = clamped;
     panX.value = (vpW - vb.width * clamped) / 2;
     panY.value = (vpH - vb.height * clamped) / 2;
