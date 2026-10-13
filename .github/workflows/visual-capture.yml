@@ -13,9 +13,11 @@ on:
 permissions:
   contents: read
 
+# Only PR runs supersede each other. Each main push compares against its own
+# predecessor, so a cancelled main capture would hide that commit's changes.
 concurrency:
-  group: visual-capture-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: visual-capture-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   capture:

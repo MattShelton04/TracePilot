@@ -1,0 +1,3 @@
+#!/bin/sh
+# Tracked hook shim; see run-lefthook.sh.
+exec sh "$(dirname "$0")/run-lefthook.sh" commit-msg "$@"

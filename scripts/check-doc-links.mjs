@@ -6,6 +6,12 @@
  * relative markdown links (inline `[text](target)` and reference-style
  * `[id]: target`), and verifies that every target resolves on disk.
  *
+ * In current docs it also checks repo paths written as code spans, such as
+ * `crates/tracepilot-core/src/lib.rs`: spans that start with a known
+ * top-level directory and contain no spaces, globs or placeholders. A path
+ * must exist from the repo root or the doc's folder, or be Git-ignored (a
+ * build output). Archived docs, dated reports and CHANGELOG.md are skipped.
+ *
  * Skips:
  *   - `http(s)://` / `mailto:` / `#anchor-only` links
  *   - links under `node_modules/` / `target/`
@@ -14,7 +20,7 @@
  *   node scripts/check-doc-links.mjs                 # full repo
  *   node scripts/check-doc-links.mjs path/to/a.md    # only given files
  *
- * Exits 1 on any broken link.
+ * Exits 1 on any broken link or missing code-span path.
  */
 
 import { execFileSync } from "node:child_process";
@@ -44,6 +50,19 @@ const GENERATED_DIRS = new Set([
   "playwright-report",
 ]);
 const IGNORED_SOURCE_DIRS = new Set(["scripts/e2e/screenshots"]);
+
+// Code spans that look like repo paths: a known top-level directory, then no
+// whitespace, globs, placeholders or ellipses.
+const CODE_PATH_RE =
+  /^(?:\.\/)?(?:apps|assets|crates|design-system|docs|packages|scripts|site|tests|\.cargo|\.config|\.github)\/[^\s*?<>{}$[\]|()…]*$/;
+// Point-in-time docs whose paths describe the code as it was.
+const isHistoricalDoc = (rel) =>
+  rel === "CHANGELOG.md" ||
+  rel.startsWith("docs/archive/") ||
+  (rel.startsWith("docs/reports/") && !rel.endsWith("/README.md"));
+// TODO: stale code-span paths in docs owned by other workstreams; fix the doc,
+// then drop its entry.
+const KNOWN_STALE_CODE_PATHS = new Map([]);
 
 function sourceTreeDocsFallback() {
   const found = [];
@@ -84,6 +103,30 @@ function repoDocs() {
   }
 }
 
+/** The subset of repo-relative `paths` that Git ignores (build outputs). */
+function gitIgnored(paths) {
+  const generated = (p) =>
+    p.split("/").some((part) => GENERATED_DIRS.has(part)) ||
+    [...IGNORED_SOURCE_DIRS].some((dir) => p === dir || p.startsWith(`${dir}/`));
+  const ignored = new Set(paths.filter(generated));
+  const rest = paths.filter((p) => !ignored.has(p));
+  if (!rest.length) return ignored;
+  let out = "";
+  try {
+    out = execFileSync("git", ["check-ignore", "--no-index", "-z", "--stdin"], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+      input: rest.join("\0"),
+    });
+  } catch (error) {
+    // Exit 1 means none of the paths is ignored; a blocked spawn leaves only
+    // the generated-directory check above.
+    out = typeof error.stdout === "string" ? error.stdout : "";
+  }
+  for (const p of out.split("\0").filter(Boolean)) ignored.add(p);
+  return ignored;
+}
+
 const argFiles = process.argv.slice(2).filter((a) => !a.startsWith("-"));
 const files = (argFiles.length ? argFiles : repoDocs()).map((f) =>
   f.replaceAll("\\", "/").replace(/^\.\//, ""),
@@ -93,8 +136,10 @@ const files = (argFiles.length ? argFiles : repoDocs()).map((f) =>
 const INLINE_RE = /\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 // Reference-style: `[id]: target "title"`. Excludes footnote defs (`[^...]:`).
 const REF_RE = /^\s{0,3}\[([^^\]][^\]]*)\]:\s+(\S+)(?:\s+.*)?$/gm;
+const CODE_SPAN_RE = /`([^`]+)`/g;
 
 const broken = [];
+const missingPaths = [];
 
 for (const rel of files) {
   const abs = resolve(REPO_ROOT, rel.replaceAll("/", sep));
@@ -128,13 +173,34 @@ for (const rel of files) {
     }
   };
 
-  // Walk inline links with line numbers.
+  const checkCodePath = (span, source) => {
+    const raw = span.trim();
+    if (!CODE_PATH_RE.test(raw) || raw.includes("...")) return;
+    const path = raw
+      .replace(/^\.\//, "")
+      .replace(/#.*$/, "")
+      .replace(/::.*$/, "")
+      .replace(/(?::\d+(?:[-–]\d+)?)+$/, "");
+    if (KNOWN_STALE_CODE_PATHS.get(rel)?.has(path)) return;
+    const local = path.replaceAll("/", sep);
+    if (existsSync(resolve(REPO_ROOT, local)) || existsSync(resolve(dirname(abs), local))) return;
+    missingPaths.push({ file: rel, target: path, line: source });
+  };
+
+  // Walk inline links and code spans with line numbers.
+  const checkSpans = !isHistoricalDoc(rel);
   const lines = stripped.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     for (const m of line.matchAll(INLINE_RE)) {
       const target = m[2];
       check(target, `${rel}:${i + 1}`);
+    }
+    if (!checkSpans) continue;
+    // Linked spans are covered by the link check above.
+    const unlinked = line.replace(INLINE_RE, (m) => " ".repeat(m.length));
+    for (const m of unlinked.matchAll(CODE_SPAN_RE)) {
+      checkCodePath(m[1], `${rel}:${i + 1}`);
     }
   }
   // Reference-style can span — regex over whole text, then locate line.
@@ -146,12 +212,19 @@ for (const rel of files) {
   }
 }
 
+if (missingPaths.length) {
+  const ignored = gitIgnored([...new Set(missingPaths.map((m) => m.target))]);
+  for (const m of missingPaths) {
+    if (!ignored.has(m.target)) broken.push({ ...m, target: `\`${m.target}\`` });
+  }
+}
+
 if (broken.length === 0) {
   console.log(`✓ doc-link check passed (${files.length} file(s))`);
   process.exit(0);
 }
 
-console.error(`✗ doc-link check: ${broken.length} broken link(s):\n`);
+console.error(`✗ doc-link check: ${broken.length} broken link(s) or code-span path(s):\n`);
 for (const b of broken) {
   console.error(`  ${b.line}  →  ${b.target}`);
 }

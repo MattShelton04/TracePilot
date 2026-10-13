@@ -1,10 +1,9 @@
 // Assertions in tests should fail immediately on invalid fixtures.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-// Pull the IPC command list from the single source of truth maintained in the
-// `tracepilot-tauri-bindings` crate. Keeps the Tauri allowlist, the JSON
-// manifest consumed by `commandContract.test.ts`, and the runtime
-// `generate_handler![]` all aligned (see that file's module doc for the
-// full contract).
+// Pull `IPC_COMMAND_NAMES` from the single source of truth in the
+// `tracepilot-tauri-bindings` crate, which also builds the runtime
+// `generate_handler![]` and the generated client lists. See
+// docs/tauri-command-registration.md.
 include!("../../../crates/tracepilot-tauri-bindings/src/ipc_command_names.rs");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

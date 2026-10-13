@@ -244,7 +244,6 @@ Copilot CLI and Claude Code session files
 Useful deeper docs:
 
 - [Architecture overview](docs/architecture/overview.md)
-- [Data integration guide](docs/data-integration-guide.md)
 - [Claude Code sessions](docs/claude-code-sessions.md)
 - [Testing guide](docs/testing.md)
 - [On-disk paths](docs/on-disk-paths.md)
@@ -267,8 +266,8 @@ Common commands:
 | --- | --- |
 | Launch desktop dev app | `pnpm --filter @tracepilot/desktop tauri dev` |
 | Launch via convenience script | `pnpm start` |
-| Launch real app for agent inspection | `pnpm app:start` (then the printed Playwright CLI attach command) |
-| Launch frontend-only automation server | `pnpm app:ui` |
+| Launch real app for agent inspection | `pnpm app:start -Instance <slug> -Fixtures` (or `-RealData`), then `pnpm pw <slug> snapshot` |
+| Launch frontend-only automation server | `pnpm app:ui -Instance <slug>` |
 | Frontend build/typecheck | `pnpm build` |
 | Workspace typecheck | `pnpm typecheck` |
 | JS/TS tests | `pnpm test` |

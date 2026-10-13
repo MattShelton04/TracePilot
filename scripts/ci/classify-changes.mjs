@@ -13,24 +13,64 @@ const DOC_ROOTS = new Set([
 ]);
 const JOB_GROUPS = {
   frontend: ["frontend_build", "frontend_test"],
-  desktop: ["desktop_test", "automation_contracts", "desktop_e2e", "rust"],
+  // Anything that ships in the app: desktop tests and the installed-app journeys.
+  desktop: ["desktop_test", "automation_contracts", "desktop_e2e"],
+  rust: ["rust"],
+  dependencies: ["security"],
 };
+// Paths the Rust workspace never reads. Anything else (crates, workflows,
+// scripts, unknown files) keeps the three-OS Rust matrix.
+const RUST_FREE_PREFIXES = ["site/", "apps/desktop/", "apps/cli/", "packages/", "tests/e2e/"];
+const RUST_FREE_FILES = new Set(["pnpm-lock.yaml", "pnpm-workspace.yaml", "package.json"]);
+// Crates embed or verify these frontend files (include_str!, generated bindings).
+const RUST_INPUT_PREFIXES = [
+  "apps/desktop/src-tauri/",
+  "packages/types/data/",
+  "packages/types/src/generated/",
+  "packages/client/src/generated/",
+];
+const RUST_INPUT_FILES = new Set([
+  "packages/types/src/pricing-data.json",
+  "packages/types/src/claude-code-pricing-data.json",
+  "packages/types/src/known-events.ts",
+]);
+// Lockfiles and manifests the dependency audits read, plus the audit job itself.
+const DEPENDENCY_INPUT =
+  /(?:^|\/)(?:Cargo\.toml|Cargo\.lock|package\.json|package-lock\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|deny\.toml|\.npmrc)$|^\.cargo\/audit\.toml$|^\.github\/workflows\/ci\.yml$/;
 
 function isDocumentation(path) {
   return DOC_ROOTS.has(path) || /^docs\/.*\.(?:md|png|jpe?g|svg|gif|webp)$/i.test(path);
 }
 
+function isRustFree(path) {
+  if (isDocumentation(path)) return true;
+  if (RUST_INPUT_FILES.has(path) || RUST_INPUT_PREFIXES.some((prefix) => path.startsWith(prefix)))
+    return false;
+  return RUST_FREE_FILES.has(path) || RUST_FREE_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
 export function classifyChanges(paths, eventName) {
+  // The daily schedule exists to catch new advisories; only the audits run.
+  if (eventName === "schedule") {
+    return { frontend: false, desktop: false, rust: false, dependencies: true };
+  }
   // Main always exercises the full application. Empty/unknown diffs fail open.
-  if (eventName !== "pull_request" || paths.length === 0) return { frontend: true, desktop: true };
+  if (eventName !== "pull_request" || paths.length === 0) {
+    return { frontend: true, desktop: true, rust: true, dependencies: true };
+  }
   const docsOnly = paths.every(isDocumentation);
   const siteOrDocsOnly = paths.every((path) => isDocumentation(path) || path.startsWith("site/"));
-  return { frontend: !docsOnly, desktop: !siteOrDocsOnly };
+  return {
+    frontend: !docsOnly,
+    desktop: !siteOrDocsOnly,
+    rust: !paths.every(isRustFree),
+    dependencies: paths.some((path) => DEPENDENCY_INPUT.test(path)),
+  };
 }
 
 export function verifyRequired(needs) {
   const errors = [];
-  for (const job of ["changes", "policy", "security"]) {
+  for (const job of ["changes", "policy"]) {
     if (needs[job]?.result !== "success")
       errors.push(`${job}: expected success, got ${needs[job]?.result ?? "missing"}`);
   }

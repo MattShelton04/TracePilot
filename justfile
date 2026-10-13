@@ -45,10 +45,10 @@ test-ui:
 test-rust:
     cargo test --workspace --exclude tracepilot-desktop
 
-# Lint: Clippy and Biome remain advisory while their baselines are being cleared.
+# Lint: Biome and Clippy, both required by CI.
 lint:
-    -pnpm lint
-    -cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
+    pnpm lint
+    cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
 
 # Format / auto-fix: rustfmt + Biome write.
 fmt:
@@ -63,27 +63,46 @@ gen-bindings:
 check-sizes:
     node scripts/check-file-sizes.mjs
 
-# Run the required CI work locally. Hosted CI parallelizes these commands.
+# Run CI's required checks (.github/workflows/ci.yml) in sequence; hosted CI
+# parallelizes them. Slow (tens of minutes); prefer the targeted checks.
+# Needs cargo-hakari (docs/local-builds.md). Not covered: native installer
+# e2e, macOS bundle, automation contracts (`pnpm test:automation`), version
+# consistency, actionlint, security audits and remote action-pin checks.
+# `pnpm test:checks` (check-script and hook tests) runs here but not in CI.
 ci:
     pnpm typecheck
     pnpm build
-    cargo test --workspace --exclude tracepilot-desktop
+    pnpm lint
+    pnpm build:cli
+    node --test scripts/cli/cli-smoke.test.mjs
     pnpm test
-    -cargo fmt --all -- --check
-    -cargo clippy --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
-    -pnpm biome check --error-on-warnings .
-    node scripts/check-file-sizes.mjs
-    node scripts/check-workflow-actions.mjs
-    node scripts/check-doc-links.mjs
-    node scripts/check-adr.mjs
+    pnpm pricing:check
+    pnpm test:pricing
+    cargo test --locked --workspace --exclude tracepilot-desktop --no-fail-fast
+    cargo test --locked --workspace --exclude tracepilot-desktop --examples
+    cargo clippy --locked --workspace --exclude tracepilot-desktop --all-targets -- -D warnings
+    cargo run --locked -p tracepilot-tauri-bindings --bin gen-bindings
+    git diff --exit-code -- packages/client/src/generated packages/types/src/generated
+    cargo fmt --all -- --check
+    cargo hakari generate --diff
+    cargo hakari manage-deps --dry-run
     node scripts/check-catalog-drift.mjs
     node scripts/check-csp.mjs
     node scripts/check-public-api.mjs
+    node scripts/check-file-sizes.mjs
+    pnpm check:design-system
+    node scripts/check-doc-links.mjs
+    node scripts/check-adr.mjs
+    node --test scripts/site/workflow-contract.test.mjs scripts/perf/*.test.mjs scripts/ci/*.test.mjs
+    node --check scripts/perf/indexing.mjs
+    pnpm test:checks
+    node scripts/check-workflow-actions.mjs
 
 # Docs-only lints (fast, no deps).
 check-docs:
     node scripts/check-doc-links.mjs
     node scripts/check-adr.mjs
+    node scripts/check-scripts-index.mjs
 
 # CSP static regression guard (FU-02) — fails if tauri.conf.json weakens CSP.
 check-csp:

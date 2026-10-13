@@ -11,7 +11,7 @@ tooling, scripts, and CI status for each.
 | Unit / integration (JS/TS) | Vitest | `apps/**`, `packages/**` (`*.spec.ts`, `*.test.ts`) | ✅ `pnpm test` |
 | Unit / integration (Rust) | `cargo test` | `crates/**` | ✅ `cargo test --workspace --exclude tracepilot-desktop` |
 | Copilot pricing sources and importer | Node test runner + offline drift check | `scripts/pricing/` | ✅ CI workspace test job; locally `pnpm pricing:check` and `pnpm test:pricing` |
-| Copilot live pricing freshness | Network source comparison + trusted PR report | `scripts/pricing/`, `pricing-freshness.yml`, `pricing-report.yml` | ✅ Advisory on every PR; locally `pnpm pricing:freshness`. Never blocks merging; see [pricing CI behavior](pricing-model.md#ci-consistency-and-live-freshness-checks). |
+| Copilot live pricing freshness | Network source comparison + trusted PR report | `scripts/pricing/`, `pricing-freshness.yml`, `pricing-report.yml` | ✅ Advisory on PRs that touch pricing files, weekly on main; locally `pnpm pricing:freshness`. Never blocks merging; see [pricing CI behavior](pricing-model.md#ci-consistency-and-live-freshness-checks). |
 | Component visual regression | Playwright CT | `packages/ui/src/__vrt__/*.vrt.spec.ts` | ❌ on-demand only |
 | Desktop frontend visual comparison | Chromium + synthetic backend fixtures | `scripts/visual/`, `visual-*.yml` workflows | ✅ relevant PRs and main pushes |
 | Desktop integration (installed Tauri app) | Playwright Test + native WebView2/CDP | `tests/e2e/`, `scripts/e2e/test.ps1` | ✅ Windows installer job on PRs and main |
@@ -42,15 +42,45 @@ See the [dependency security reference](dependencies/security.md) for scanner
 scopes, remaining notices, and the separate cargo-deny policy findings.
 
 CI runs its full application coverage on every main push. PRs use the complete
-base-to-merge diff: documentation-only changes skip application builds/tests;
-changes confined to `site/` and documentation retain frontend builds and
-workspace tests but skip desktop tests, Rust, Windows automation/installer and
-the macOS bundle. Shared package, lockfile, workflow, script and unknown-path
-changes run all jobs. Repository policy and live dependency audits always run.
+base-to-merge diff:
+
+- Documentation-only changes skip application builds and tests.
+- Changes confined to `site/` and documentation keep frontend builds and
+  workspace tests but skip desktop tests, Rust, Windows automation/installer and
+  the macOS bundle.
+- Changes that no crate reads (desktop Vue/TS, other packages, `tests/e2e/`,
+  pnpm manifests) skip the three-OS Rust matrix but keep the installer E2E. Crates,
+  `apps/desktop/src-tauri/`, generated bindings, the pricing/model data the crates
+  embed, workflows, scripts and unknown paths run it. A test fails if a crate
+  starts reading a frontend file the classifier treats as Rust-free.
+- Dependency audits run on PRs only when a manifest or lockfile (or `ci.yml`)
+  changes, and always on main pushes and the daily scheduled run. A scheduled
+  run executes only `changes`, `policy`, `security` and `required`, so a new
+  advisory turns main's schedule red instead of every open PR.
+- Repository policy always runs.
+
 The single `required` check verifies that selected jobs succeeded and that
 only unselected jobs were skipped; missing classification, cancellation or
 an unexpected skip fails it. Selection and gate contracts live in
 `scripts/ci/classify-changes.mjs` and its Node test suite.
+
+A new push cancels a PR's in-progress run. Main pushes and scheduled runs each
+get their own concurrency group, so every merge's run finishes; Desktop Visual
+Capture does the same.
+
+The Windows installer job retries once, reusing the built installer, only when
+the first attempt's log shows an app startup timeout (`Startup timed out after`)
+or a CDP attach timeout (`connectOverCDP: Timeout`). Any other failure fails
+immediately, and the retry must pass every journey. Both attempts' logs are in
+the `desktop-e2e-*` artifact, and a retry leaves a workflow warning.
+
+Rust uses the release pinned in `rust-toolchain.toml` locally and in CI (the
+setup action reads it). Bump it in its own PR and fix new Clippy lints there.
+
+Dependabot opens monthly grouped minor/patch PRs and ignores semver-major
+updates, which are planned upgrades. Tauri's npm packages and crates each have
+a `tauri` group on the same schedule; they arrive as two PRs that must merge
+together.
 
 Linux, Windows and macOS each have one main-branch pnpm cache writer. PRs
 restore main caches without saving branch-local entries. Filtered dependency
@@ -68,8 +98,9 @@ the unit suites to avoid recompiling core dependencies between steps.
 
 The security job verifies the checksum of RustSec's pinned cargo-audit binary
 before installation and still refreshes the advisory database on every run.
-The existing audit reporter preserves vulnerability failures and visible
-informational notices, including its log fallback on fork PRs.
+It runs the CLI directly rather than `rustsec/audit-check`, which needed to
+publish a check run and failed on read-only (Dependabot and fork) tokens.
+Vulnerabilities fail the job; informational notices stay in its log.
 
 The policy job checks workflow syntax, expressions and embedded Bash with
 checksum-pinned actionlint 1.7.12 and the runner's ShellCheck, in addition to
@@ -82,7 +113,7 @@ ignored. Remove the narrow exception when updating to a supporting release.
 Dependabot updates action references and package lockfiles, but cannot update
 the cargo-audit, actionlint and cargo-hakari release archives downloaded in
 [`ci.yml`](../.github/workflows/ci.yml). Maintainers should review these
-pins alongside the weekly Dependabot updates and promptly when the advisory
+pins alongside the monthly Dependabot updates and promptly when the advisory
 database reports a scanner-format incompatibility. Keep the version and
 checksum pinned; fetching a floating latest binary would execute an
 unreviewed tool in CI.
@@ -103,8 +134,8 @@ unreviewed tool in CI.
    Verify `cargo audit --version` or `actionlint --version`. Scanner
    installation must still pass checksum validation before execution.
 4. Run the policy lint and remote action-pin checks, then confirm the PR's
-   live security job can read the current advisory database and still uses
-   the RustSec reporting wrapper. Check notices as well as the exit status.
+   live security job can read the current advisory database (the job runs on
+   PRs that change `ci.yml`). Check notices as well as the exit status.
    For actionlint, test whether the new release accepts `concurrency.queue`
    and remove its narrow diagnostic exception only when supported.
 
@@ -121,8 +152,9 @@ releases require this review even if their wrapper action has not changed.
 - Calling any Pinia store action makes that store's pinia the active one, so a timer or watcher left by an earlier test (such as the sdk store's auto-connect) can re-activate that test's pinia mid-test. A component test that sets store state and then mounts should name its pinia in both places: `useXStore(pinia)` and `mount(..., { global: { plugins: [pinia] } })`.
 - **Watch mode:** `pnpm --filter @tracepilot/desktop test -- --watch`.
 - Tests live next to the code they cover (`*.spec.ts` / `*.test.ts`) or
-  under `__tests__/` folders. Fixtures live in
-  `packages/test-utils/fixtures/`.
+  under `__tests__/` folders. Shared builders (`makeTurn` and friends) come from
+  `@tracepilot/test-utils` (`packages/test-utils/src/`); synthetic session
+  generators live in `scripts/fixtures/`.
 
 Use this layer for everything that does **not** require a running webview:
 pure functions, composables with mocked IPC, Vue components rendered into
@@ -159,32 +191,30 @@ logs, and traces. The [automation guide](app-automation.md) explains the choice,
 lifecycle, frontend-only mode, optional MCP connection, and platform limits.
 
 ```powershell
-pnpm app:start
-# Use the endpoint printed by startup:
-pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=http://127.0.0.1:9222
-pnpm exec playwright-cli -s=tracepilot-desktop snapshot
+pnpm app:start -Instance qa1 -Fixtures   # or -RealData for the real sessions
+pnpm pw qa1 snapshot --filename=.playwright-cli/current.yml
 # Finish:
-pnpm exec playwright-cli -s=tracepilot-desktop detach
-pnpm app:stop
+pnpm pw qa1 detach
+pnpm app:stop -Instance qa1
 ```
 
-The launcher verifies real Rust IPC and uses the configured sessions and SQLite
-index. A separate WebView profile avoids normal-profile locking; application data
-is shared. Inspect settings and session content within the task's scope.
-`pnpm app:ui` starts a separate Vite server with the existing client mocks for
-frontend exploration. It cannot validate Rust behavior.
+The launcher verifies real Rust IPC. A named instance has its own ports, data root,
+config, index and WebView profile; `-RealData` mirrors the real session folders into
+it read-only ([parallel instances](app-automation.md#parallel-instances)). Agents
+must use a named instance; a human's bare `pnpm app:start` uses the configured
+sessions and database. `pnpm app:ui -Instance qa1` starts a separate Vite server
+with the existing client mocks for frontend exploration. It cannot validate Rust behavior.
 
 ### Repeatable smoke, performance, and media flows
 
 The existing `scripts/e2e` utilities remain available for repeatable diagnostics:
 
 ```powershell
-pnpm app:start
-node scripts/e2e/smoke-test.mjs
+pnpm app:start -Instance qa1 -Fixtures
+node scripts/e2e/smoke-test.mjs --instance qa1
 # Optional:
-node scripts/e2e/perf-profile.mjs
-node scripts/e2e/capture-readme-media.mjs
-pnpm app:stop
+node scripts/e2e/perf-profile.mjs --instance qa1
+pnpm app:stop -Instance qa1
 ```
 
 `connect.mjs` discovers only this checkout's recorded desktop endpoint (or a named
@@ -202,8 +232,9 @@ Tracked README images come from the synthetic showcase described in
 [visual regression](visual-regression.md#readme-screenshots).
 
 `pnpm test:automation` verifies lifecycle reuse, process-tree cleanup, stale PID
-protection, startup timeouts, and occupied ports using isolated local fixtures
-(Windows; skipped elsewhere). Readiness tests use installed Edge to reject mock
+protection, untracked-process cleanup, agent-environment refusal, the `-RealData`
+mirror, the `pnpm pw` wrapper, startup timeouts, and occupied ports using isolated
+local fixtures (Windows; skipped elsewhere). Readiness tests use installed Edge to reject mock
 pages and failed IPC, and accept setup without a database. These tests do not read
 the user's sessions or build Rust.
 
@@ -225,7 +256,7 @@ regressions, extend existing component/store tests, `smoke-test.mjs`, or
 wait for visible results or assertions. The older performance flows retain
 sampling windows and are diagnostic, not a substitute for user-flow assertions.
 Clear IPC timing buffers before measuring. Disconnect Playwright in `finally`
-and stop owned processes with `pnpm app:stop` when finished.
+and stop owned processes with `pnpm app:stop -Instance <name>` when finished.
 
 Local desktop E2E is opt-in; the Windows installer job runs `pnpm test:e2e -Install`
 on PRs and main in CI. The suite requires Windows, WebView2, the Rust toolchain,
@@ -246,15 +277,14 @@ Generate deterministic files for the real backend, then start the native app
 against that isolated root:
 
 ```powershell
-node scripts/fixtures/session-fixtures.mjs
-pnpm app:start -DataRoot "$PWD/.tracepilot/rich-tool-fixtures"
-# Attach with the command printed by startup, finish setup, then Refresh data.
+pnpm app:start -Instance <name> -Fixtures
 ```
 
-`pnpm app:start -Instance <name> -Fixtures` does both steps for a named,
-isolated instance and marks setup complete, so it opens on the fixtures (add
-`-FirstRun` to start on the setup wizard); see
-[parallel instances](app-automation.md#parallel-instances).
+This generates the fixtures into the named instance's isolated data root and marks
+setup complete, so it opens on them (add `-FirstRun` to start on the setup wizard);
+see [parallel instances](app-automation.md#parallel-instances). For another root,
+run `node scripts/fixtures/session-fixtures.mjs --root=<dir>` and start with
+`pnpm app:start -DataRoot <dir>`.
 
 The library contains **SYNTHETIC · Rich tool renderer gallery** with 63 scenarios
 and **SYNTHETIC · Report intent renderer** with the remaining `report_intent` case.

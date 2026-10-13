@@ -1,8 +1,21 @@
 name: Copilot Pricing Freshness
 
+# PRs check (and the report workflow comments) only when they touch the pricing
+# snapshot or its tooling; upstream price changes are not an unrelated PR's
+# problem. The weekly run fails visibly on main when GitHub's prices moved.
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'packages/types/data/copilot-pricing/**'
+      - 'packages/types/data/model-registry.json'
+      - 'packages/types/src/pricing-data.json'
+      - 'scripts/pricing/**'
+      - 'scripts/ci/report-comment.mjs'
+      - 'docs/pricing-model.md'
+      - '.github/workflows/pricing-*.yml'
+  schedule:
+    - cron: "41 6 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -17,8 +30,8 @@ jobs:
     name: Copilot pricing freshness (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Network/upstream failures and stale prices do not block unrelated PRs.
-    continue-on-error: true
+    # Network/upstream failures and stale prices do not block PRs.
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,3 +54,9 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
+      # Unverifiable (network) results stay advisory; changed prices do not.
+      - name: Fail the scheduled check when pricing needs review
+        if: github.event_name != 'pull_request'
+        run: |
+          node -e "const r = require('./.tracepilot/pricing-freshness.json');
+            if (r.status === 'outdated') { console.log('::error::Copilot pricing changed upstream; run pnpm pricing:fetch and review.'); process.exit(1); }"

@@ -28,7 +28,7 @@ TracePilot integrates the official [GitHub Copilot SDK for Rust](https://github.
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 
-> 📖 **For a deep dive** on how data flows between TracePilot, the SDK, and the CLI — including why "corruption" errors happen and when steering is safe — see **[Data Flow & Architecture](copilot-sdk-data-flow.md)**.
+> 📖 **For a deep dive** on how data flows between TracePilot, the SDK, and the CLI — including why "corruption" errors happen and when steering is safe — see **[Data Flow & Architecture](archive/copilot-sdk-data-flow.md)**.
 
 ---
 
@@ -459,12 +459,11 @@ Use the [running-app automation workflow](app-automation.md) to inspect the real
 Tauri webview with the upstream Playwright agent CLI:
 
 ```powershell
-pnpm app:start
-# Use the attach command printed by startup; the port may differ.
-pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=http://127.0.0.1:9222
-pnpm exec playwright-cli -s=tracepilot-desktop snapshot --filename=.playwright-cli/current.yml
-pnpm exec playwright-cli -s=tracepilot-desktop detach
-pnpm app:stop
+pnpm app:start -Instance sdk-check -Fixtures
+# pnpm pw attaches to the instance automatically.
+pnpm pw sdk-check snapshot --filename=.playwright-cli/current.yml
+pnpm pw sdk-check detach
+pnpm app:stop -Instance sdk-check
 ```
 
 ## Troubleshooting
@@ -480,7 +479,7 @@ pnpm app:stop
 | Models list empty | Ensure connected and authenticated |
 | Quota unavailable | Quota comes from `account.getQuota`; some CLI versions or accounts return an error, which the UI ignores. |
 | "Session not found" | The session auto-resumes when you open it. If it fails, the session may not exist in `~/.copilot/session-state/`. |
-| "Session data is corrupted" | **Not actual corruption.** The CLI subprocess's schema validation rejected the session data. This happens when the session was written by a different CLI version. TracePilot can still *observe* the session normally — only steering is affected. Update your CLI or start a new session. See [Data Flow doc](copilot-sdk-data-flow.md#the-corruption-problem) for details. |
+| "Session data is corrupted" | **Not actual corruption.** The CLI subprocess's schema validation rejected the session data. This happens when the session was written by a different CLI version. TracePilot can still *observe* the session normally — only steering is affected. Update your CLI or start a new session. See [Data Flow doc](archive/copilot-sdk-data-flow.md#the-corruption-problem) for details. |
 | Steering sends but no response | The resumed SDK session ID may differ from the input ID. TracePilot tracks this automatically via `resolvedSessionId`. |
 | 0 active sessions | Sessions start as inactive. They become active when you open a session in conversation view (auto-resume). |
 | Can't send messages | Ensure (1) SDK connected (green dot in sidebar), (2) session is in Conversation view, (3) steering panel is visible. |

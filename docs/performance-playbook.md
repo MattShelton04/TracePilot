@@ -376,7 +376,6 @@ Requires `rustup component add llvm-tools`.
 
 1. `cargo bench -p tracepilot-bench --bench indexer -- search` → benchmark search queries
 2. Check SQLite query profiling output in debug mode
-3. For Tantivy deep search: check `crates/tracepilot-indexer/examples/bench_tantivy.rs`
 
 ### "The bundle is too big"
 

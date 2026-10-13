@@ -12,6 +12,7 @@ A release PR (`chore: release vX.Y.Z`) changes only:
   `Cargo.lock`, and the root and pnpm workspace `package.json` files.
 - `CHANGELOG.md`: a new `## [X.Y.Z] - YYYY-MM-DD` section. The release
   workflow publishes this section as the GitHub release body.
+- `changelog.d/`: the fragments merged into that section, now deleted.
 - `apps/desktop/public/release-manifest.json`: a new entry at the top of
   `versions`, shown in the app's What's New and update dialogs.
 
@@ -24,8 +25,9 @@ Feature work or fixes found along the way belong in their own PRs.
 2. **Collect the changes.** Find the previous release tag
    (`git tag --sort=-creatordate`, ignoring rehearsal tags such as
    `v0.9.1-1`) and read `git log <prev-tag>..HEAD`, including commit bodies.
-   Read the existing `[Unreleased]` notes in both files; PRs often stage
-   entries there already.
+   Read the existing `[Unreleased]` notes in both files and the
+   [changelog fragments](../changelog.d/README.md) in `changelog.d/`; PRs stage
+   entries there.
 3. **Branch and bump.**
 
    ```powershell
@@ -35,14 +37,18 @@ Feature work or fixes found along the way belong in their own PRs.
 
    Requires pnpm and `cargo-edit` (`cargo install cargo-edit`). The script
    prints a short reminder of the remaining steps in this guide.
-4. **Write `CHANGELOG.md`.** Insert `## [X.Y.Z] - <today>` directly below
+4. **Collect the fragments.** `pnpm changelog:collect` merges every
+   `changelog.d/*.md` into `## [Unreleased]`, keeping existing lines, and
+   deletes the fragments. `--dry-run` previews the result.
+5. **Write `CHANGELOG.md`.** Edit the collected notes as described below,
+   merging related entries. Insert `## [X.Y.Z] - <today>` directly below
    `## [Unreleased]`, leaving `[Unreleased]` empty. Group entries under
    `### Added`, `### Changed` and `### Fixed` (omit empty groups).
-5. **Write the release manifest.** Add a `versions[0]` entry with `version`,
+6. **Write the release manifest.** Add a `versions[0]` entry with `version`,
    `date`, `notes.added/changed/fixed` and `requiresReindex`, then reset
    `unreleased` to empty arrays with `requiresReindex: false`. Preserve the
    file's formatting and every older entry.
-6. **Validate** (see below), then commit, push and open the PR.
+7. **Validate** (see below), then commit, push and open the PR.
 
 ## Writing the notes
 
@@ -77,8 +83,8 @@ cargo check --workspace --quiet
 just check-docs                   # when docs changed
 ```
 
-Also confirm every `version` field in the bumped manifests reads `X.Y.Z`, and
-that the CHANGELOG section extracts cleanly (the workflow uses the same awk):
+Also confirm every `version` field in the bumped manifests reads `X.Y.Z`, that
+`changelog.d/` holds only its README, and that the CHANGELOG section extracts cleanly (the workflow uses the same awk):
 
 ```bash
 awk '/^## \[X.Y.Z\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md

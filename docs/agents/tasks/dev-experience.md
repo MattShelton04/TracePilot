@@ -19,7 +19,7 @@ Read docs/agents/tasks/dev-experience.md and follow it. Preset: doc.
 
 ## `doc`
 
-`scripts/check-doc-links.mjs` doesn't check anchors, or paths written inside code spans, so backticked paths and commands drift more than anything else. Docs that get the most use:
+`scripts/check-doc-links.mjs` checks link targets and backticked repository paths, but not anchors or commands, so commands drift more than anything else. Docs that get the most use:
 - `README.md` (the Development section);
 - `AGENTS.md`;
 - the testing guide (`docs/testing.md`);

@@ -51,11 +51,11 @@ Focused presets produce small PRs. Larger presets (`hotspot`, `surface`, `subsys
    3. Runs workers in isolated worktrees under `.agent/worktrees/`, each with a named app instance (`-Instance`) that has its own ports and synthetic data.
    4. Reviews every diff itself, and adds one fresh reviewer only for risky changes (concurrency, deletion, trust boundaries, migrations, IPC, widely shared code). Only demonstrated failures block a workstream.
    5. Runs the full gate on the merged work only when a workstream needs it; otherwise CI covers it.
-   6. Opens one PR per workstream, each with a **Review** and a **Changelog** section.
+   6. Opens one PR per workstream, each with a **Review** section and, for user-facing changes, a `changelog.d/` fragment.
 3. Afterwards, you:
    - Read the final report.
    - Optionally run `review` with a *different* model on each PR (`Target: #N`, default `report` mode).
-   - Merge in any order. Then add the CHANGELOG lines from the PR bodies, or ask an agent to.
+   - Merge in any order. Fragments are merged into `CHANGELOG.md` at release (`pnpm changelog:collect`).
 4. If a run is interrupted, launch the same message again. The lead resumes from its ledger in `.agent/orchestration/`.
 
 The orchestrator can't merge, release or touch your real Copilot data, and every PR it opens is independent of the others.
@@ -93,8 +93,41 @@ Run `Read docs/agents/tasks/review.md and follow it. Target: #N.` It reports in 
 ## Harness notes
 
 - **Any harness:** the one-line launch message above works wherever the agent can read files. Nothing else is required.
-- **Claude Code:** O1-style parallel runs map onto its subagents and worktree isolation. If you want slash commands, a thin `.claude/commands/<card>.md` containing only the launch line is enough.
-- **Codex:** it reads `AGENTS.md`. Codex cloud runs on Linux, so native app automation is unavailable there. The cards fall back to the visual harness and crate-scoped tests, and say so in the PR. Prefer non-UI cards in the cloud.
+- **Claude Code:** `CLAUDE.md` imports `AGENTS.md`. Each card has a slash command (`/orchestrate Workstreams: 3.`) in `.claude/commands/`, and `.claude/skills/` points at the app automation skill. `.claude/settings.json` allows safe, high-volume commands (tests, lint, typecheck, `check:*`, `app:*`, cargo builds and checks, read-only git and gh, commit) without prompting; push, merge and anything destructive still prompt. Parallel runs map onto its subagents and worktree isolation. Machine-specific settings go in the ignored `.claude/settings.local.json`.
+- **Codex:** it reads `AGENTS.md`. Codex cloud runs on Linux, so native app automation is unavailable there. The cards fall back to the visual harness and crate-scoped tests, and say so in the PR. Prefer non-UI cards in the cloud. Locally, rules let common commands run outside the sandbox, which also avoids `spawn EPERM` and read-only `.git`. Copy what you want into `~/.codex/rules/default.rules`:
+
+  ```python
+  prefix_rule(pattern=["pnpm", "test"], decision="allow")
+  prefix_rule(pattern=["pnpm", "typecheck"], decision="allow")
+  prefix_rule(pattern=["pnpm", "lint"], decision="allow")
+  prefix_rule(pattern=["pnpm", "check:changed"], decision="allow")
+  prefix_rule(pattern=["pnpm", "check:design-system"], decision="allow")
+  prefix_rule(pattern=["pnpm", "--filter", "@tracepilot/desktop", "exec", "vitest"], decision="allow")
+  prefix_rule(pattern=["pnpm", "app:start"], decision="allow")
+  prefix_rule(pattern=["pnpm", "app:stop"], decision="allow")
+  prefix_rule(pattern=["pnpm", "app:status"], decision="allow")
+  prefix_rule(pattern=["pnpm", "exec", "playwright-cli"], decision="allow")
+  prefix_rule(pattern=["pnpm", "exec", "biome", "check"], decision="allow")
+  prefix_rule(pattern=["pnpm", "install", "--frozen-lockfile"], decision="allow")
+  prefix_rule(pattern=["pnpm", "worktree:new"], decision="allow")
+  prefix_rule(pattern=["cargo", "test"], decision="allow")
+  prefix_rule(pattern=["cargo", "clippy"], decision="allow")
+  prefix_rule(pattern=["cargo", "fmt"], decision="allow")
+  prefix_rule(pattern=["cargo", "check"], decision="allow")
+  prefix_rule(pattern=["node", "--test"], decision="allow")
+  prefix_rule(pattern=["git", "status"], decision="allow")
+  prefix_rule(pattern=["git", "diff"], decision="allow")
+  prefix_rule(pattern=["git", "log"], decision="allow")
+  prefix_rule(pattern=["git", "add"], decision="allow")
+  prefix_rule(pattern=["git", "commit"], decision="allow")
+  prefix_rule(pattern=["git", "fetch"], decision="allow")
+  prefix_rule(pattern=["gh", "pr", "view"], decision="allow")
+  prefix_rule(pattern=["gh", "pr", "checks"], decision="allow")
+  prefix_rule(pattern=["gh", "pr", "list"], decision="allow")
+  prefix_rule(pattern=["gh", "run", "view"], decision="allow")
+  ```
+
+  `node scripts/<check>.mjs` needs one rule per script, for example `["node", "scripts/check-file-sizes.mjs"]`.
 - **Antigravity:** you can run `orchestrate` as a lead agent, or dispatch individual cards to separate agents, each in its own worktree. Its default workspace folder `.agent/` is already ignored here as scratch space, so don't keep agent configuration there.
 
 ## Maintaining the cards

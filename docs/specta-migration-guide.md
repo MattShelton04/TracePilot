@@ -41,7 +41,7 @@ Three Rust surfaces are emitted to `bindings.ts`:
 | Rust symbol | Location | Annotation |
 | --- | --- | --- |
 | `ErrorCode` enum | `crates/tracepilot-tauri-bindings/src/error.rs` | `#[derive(serde::Serialize, specta::Type)]` + `#[serde(rename_all = "SCREAMING_SNAKE_CASE")]` |
-| `BridgeMetricsSnapshot` struct | `crates/tracepilot-orchestrator/src/bridge/manager.rs` | `#[derive(..., specta::Type)]` (keeps existing `#[serde(rename_all = "camelCase")]`) |
+| `BridgeMetricsSnapshot` struct | `crates/tracepilot-orchestrator/src/bridge/manager/` | `#[derive(..., specta::Type)]` (keeps existing `#[serde(rename_all = "camelCase")]`) |
 | `sdk_bridge_metrics` command | `crates/tracepilot-tauri-bindings/src/commands/sdk.rs` | `#[tauri::command]` + `#[specta::specta]` |
 
 ### Generated as of wave 21 (session-listing batch)
@@ -53,8 +53,8 @@ registry. These DTOs + commands now round-trip through specta:
 | --- | --- | --- |
 | `SessionListItem` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]`; hand-written mirror in `packages/types/src/session.ts` was fixed to include `cwd?: string \| null` (the Rust wire format always emitted it) |
 | `FreshnessResponse` struct | `crates/tracepilot-tauri-bindings/src/types.rs` | `#[derive(..., specta::Type)]`; mirror at `packages/types/src/conversation.ts` |
-| `list_sessions` command | `crates/tracepilot-tauri-bindings/src/commands/session.rs` | `#[specta::specta]` |
-| `check_session_freshness` command | `crates/tracepilot-tauri-bindings/src/commands/session.rs` | `#[specta::specta]` |
+| `list_sessions` command | `crates/tracepilot-tauri-bindings/src/commands/session/` | `#[specta::specta]` |
+| `check_session_freshness` command | `crates/tracepilot-tauri-bindings/src/commands/session/` | `#[specta::specta]` |
 
 Drift between generated + hand-written is caught at compile-time by
 `packages/client/src/__tests__/generated.drift.test.ts`.
@@ -106,8 +106,8 @@ string match.
   command registry. The `tauri_specta::Builder` is **only** used to drive
   codegen; it is not wired into plugin init.
 - Every hand-maintained mirror in `packages/types/src/*.ts` stays as-is.
-- Every hand-maintained entry in `packages/client/src/commands.ts` stays
-  as-is.
+- The command-name list `IPC_COMMANDS` stays separate (now generated from
+  `ipc_command_names.rs`; see [command registration](tauri-command-registration.md)).
 - No other commands or DTOs have been annotated. The pilot is a
   foothold, not a sweep.
 
@@ -195,13 +195,13 @@ and matches the JSON envelope produced by the manual `Serialize` impl.
 
 4. **Regenerate** and **verify** as above.
 
-5. **Delete the hand-mirrored TS wrapper** in
-   `packages/client/src/commands.ts` and the hand-mirrored input/output
+5. **Delete the hand-written TS wrapper** in its
+   `packages/client/src/<domain>.ts` module and the hand-mirrored input/output
    types in `packages/types/`. Switch callers to the generated
    `commands.myCmd(...)` API.
 
-6. **Leave `tauri::generate_handler![...]` alone** until the final
-   cutover — see next section.
+6. **Leave the command in `with_ipc_commands!`** (`ipc_command_names.rs`,
+   which drives `generate_handler!`) until the final cutover — see next section.
 
 ## Plan: replacing `tauri::generate_handler!` with `Builder::invoke_handler()`
 
@@ -221,11 +221,13 @@ Once **every** IPC command is `#[specta::specta]`-annotated:
    (API shape per `tauri-specta` 2.0.0-rc.24 —
    `Builder::invoke_handler()` + `Builder::mount_events()`; double-check
    the exact names at cutover time because specta is still in rc.)
-2. Drop the `commands` list in `apps/desktop/src-tauri/build.rs` that
-   feeds `InlinedPlugin::commands(&[…])`, or derive it from the same
-   specta registry if the API permits.
-3. Delete `packages/client/src/commands.ts` and
-   `apps/desktop/src/__tests__/commandContract.test.ts`.
+2. Replace `with_ipc_commands!` in
+   `crates/tracepilot-tauri-bindings/src/ipc_command_names.rs` (which feeds
+   `generate_handler!`, `IPC_COMMAND_NAMES` and `build.rs`'s
+   `InlinedPlugin::commands(…)`) with the specta registry, if the API permits.
+3. Delete `packages/client/src/commands.ts`,
+   `packages/client/src/generated/ipc-commands.{ts,json}` and
+   `packages/client/src/__tests__/commandContract.test.ts`.
 
 **Do this in one atomic PR** once all commands are migrated — a partial
 switchover is worse than either end state because it duplicates the
@@ -252,14 +254,14 @@ from Rust. In rough order of payoff (widest fan-out first):
 | `ipc-events.ts`, `known-events.ts` | Event name registries — migrate via `tauri_specta::collect_events!` in a separate sub-wave |
 | `models.ts`, `defaults.ts` | Small constants — best done alongside `tauri_specta::Builder::constant(…)` or left as-is |
 
-`packages/client/src/commands.ts` is **one** giant hand-maintained
-command-name registry; it's the natural "last thing to delete" once
-every command has been migrated.
+`packages/client/src/commands.ts` re-exports `IPC_COMMANDS`, which
+`pnpm gen:bindings` writes to `packages/client/src/generated/ipc-commands.ts`
+from the Rust list. It's the natural "last thing to delete" once every
+command has been migrated.
 
-`apps/desktop/src/__tests__/commandContract.test.ts` is a regex-based
-safety net that cross-checks Rust vs TS command names. Keep it running
-until codegen is authoritative, then delete it in the same PR that
-removes `commands.ts`.
+`packages/client/src/__tests__/commandContract.test.ts` checks that the
+generated `ipc-commands.ts` and `ipc-commands.json` agree. Delete it in the
+same PR that removes `commands.ts`.
 
 ## Shared settings and event contracts
 

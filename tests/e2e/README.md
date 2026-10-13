@@ -72,7 +72,8 @@ Large corpus performance and pixel appearance remain with their existing harness
 ## Maintenance and diagnostics
 
 The Windows installer job runs on PRs and main pushes as part of CI's `required`
-gate. It has one worker, bounded waits, and no automatic retries. Three independent
+gate. It has one worker, bounded waits, and no test retries; CI retries the whole suite once only on app
+startup or CDP attach timeouts (see [testing](../../docs/testing.md)). Three independent
 journeys each start fresh; named `test.step` sections identify the failing flow.
 Use accessible roles/names and fixture outcomes when extending coverage. Use a
 stable test ID only where the existing UI provides one. Avoid CSS structure,

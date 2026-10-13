@@ -37,7 +37,7 @@ every valid repo path.
 
 We introduce a single helper, `canonicalize_user_path`, that all
 user-supplied path inputs **must** flow through before touching the OS.
-It lives in `crates/tracepilot-orchestrator/src/launcher.rs`. Its
+It lives in `crates/tracepilot-orchestrator/src/launcher/paths.rs`. Its
 contract:
 
 1. Reject paths containing a NUL byte (defence in depth — most OS APIs
@@ -159,7 +159,7 @@ Negative / accepted:
 
 ## References
 
-- `crates/tracepilot-orchestrator/src/launcher.rs`
+- `crates/tracepilot-orchestrator/src/launcher/`
   (`canonicalize_user_path`, `launch_session`, `open_in_explorer`,
   `open_in_terminal`).
 - ADR 0002 — Tauri capability scoping (main vs viewer).

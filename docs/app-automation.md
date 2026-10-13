@@ -9,14 +9,25 @@ The same CLI opens the Vite frontend in a browser with the client's mock data.
 Install workspace dependencies with `pnpm install`, then from the repo root:
 
 ```powershell
-pnpm app:start
-# Use the attach command printed by startup:
-pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=http://127.0.0.1:9222
-pnpm exec playwright-cli -s=tracepilot-desktop snapshot
+pnpm app:start -Instance qa1 -Fixtures     # or -RealData for the real sessions
+pnpm pw qa1 snapshot --filename=.playwright-cli/current.yml
+pnpm app:stop -Instance qa1
 ```
+
+Agents must start a named instance: when `CLAUDECODE`, `CODEX_*` or `AI_AGENT` is
+set, a start without `-Instance` (or an explicit `-DataRoot`) refuses. A human's
+bare `pnpm app:start` runs on their configured sessions and database, as before,
+and its raw attach command is `pnpm exec playwright-cli -s=tracepilot-desktop attach --cdp=<printed endpoint>`.
 
 Read the returned snapshot file, click an observed element reference, and inspect
 the resulting snapshot or screenshot. Connections persist between commands.
+
+[pw.mjs](../scripts/automation/pw.mjs) (`pnpm pw <instance>[:ui] <command>`) is a thin
+front end for the pinned CLI. It reads the instance's lifecycle state for its session
+and endpoint, attaches when the session is not open yet, and starts the CLI through
+`node` with an argument array, so no cmd or pnpm shim re-parses quotes. It adds
+`eval-file <path>` and `run-file <path>` (JavaScript read from a file) and accepts
+`resize 1440x960`. Every other command passes through unchanged.
 The [agent skill](../.github/skills/tracepilot-app-automation/SKILL.md) documents
 the complete short workflow. No handwritten script is needed for ordinary use.
 The [validation report](reports/automation-skill-validation.md) records the
@@ -24,18 +35,18 @@ real-app proof of concept and before/after UI captures.
 
 | Task | Command |
 | --- | --- |
-| Capture evidence | `pnpm exec playwright-cli -s=tracepilot-desktop screenshot --filename=.playwright-cli/before.png` |
-| Inspect console errors | `pnpm exec playwright-cli -s=tracepilot-desktop console error` |
-| Record a trace | `pnpm exec playwright-cli -s=tracepilot-desktop tracing-start` / `tracing-stop` |
-| Check runtime/endpoint | `pnpm app:status` |
-| Disconnect agent | `pnpm exec playwright-cli -s=tracepilot-desktop detach` |
-| Stop desktop and its Vite server | `pnpm app:stop` |
-| Start a built release runtime | `pnpm app:start -Runtime production` |
-| Start frontend-only server | `pnpm app:ui` |
-| Stop frontend-only server | `pnpm app:stop -Mode ui` |
+| Capture evidence | `pnpm pw qa1 screenshot --filename=.playwright-cli/before.png` |
+| Inspect console errors | `pnpm pw qa1 console error` |
+| Record a trace | `pnpm pw qa1 tracing-start` / `tracing-stop` |
+| Check runtime/endpoint | `pnpm app:status -Instance qa1`, or `pnpm app:status -All` |
+| Disconnect agent | `pnpm pw qa1 detach` |
+| Stop desktop and its Vite server | `pnpm app:stop -Instance qa1` |
+| Start a built release runtime | `pnpm app:start -Instance qa1 -Fixtures -Runtime production` |
+| Start frontend-only server | `pnpm app:ui -Instance qa1` |
+| Stop frontend-only server | `pnpm app:stop -Instance qa1 -Mode ui` |
 
-`app:ui` prints an `open URL --browser=msedge` command for a separate
-`tracepilot-ui` session. UI mode uses mocks and cannot prove Rust behavior.
+Drive a frontend-only server with `pnpm pw qa1:ui …`; it opens the printed URL in
+Edge on first use. UI mode uses mocks and cannot prove Rust behavior.
 On macOS/Linux use `pnpm dev` and open the printed URL with an installed browser.
 The managed launcher is Windows-only, matching the desktop CDP target.
 
@@ -137,8 +148,7 @@ session, so each agent needs one command:
 
 ```powershell
 pnpm app:start -Instance qa1 -Fixtures
-# Attach with the printed command, e.g.:
-pnpm exec playwright-cli -s=tracepilot-qa1 attach --cdp=http://127.0.0.1:9240
+pnpm pw qa1 snapshot            # attaches to this instance's endpoint on first use
 pnpm app:status -All            # every live instance on this machine
 pnpm app:stop -Instance qa1
 ```
@@ -157,6 +167,34 @@ those sessions, with the Claude Code source turned on, so the app opens on the
 session list with both Copilot and Claude Code fixtures indexed. An existing config is kept,
 so settings changed in the app survive restarts. Add `-FirstRun` to skip the
 config and start on the setup wizard instead; it needs a fresh instance name.
+
+`-RealData` (desktop, named instance only) runs on the maintainer's real sessions
+without touching the real TracePilot data root. At each start,
+[real-data.mjs](../scripts/automation/real-data.mjs) mirrors `<COPILOT_HOME or
+~/.copilot>/session-state` and the `projects`, `plans` and `file-history` folders of
+`<CLAUDE_CONFIG_DIR or ~/.claude>` into the instance's data root. The launcher then
+writes the same completed-setup config as for fixtures. Config, index, WebView profile,
+logs and ports belong to the instance.
+
+- The app cannot read sessions outside `TRACEPILOT_DATA_ROOT`: config paths outside it
+  and redirected paths (junctions, symlinks) are refused. A full copy is several GB,
+  so files are hard-linked instead: no extra space, and appends by a running CLI show
+  up. SQLite `-wal`/`-shm`/`-journal` sidecars, lock files and files that can't be
+  linked (another volume, locked) are copied.
+- The app opens session databases read-only and writes imports to a staging folder
+  that it then renames, so it isn't expected to modify a linked file. A normal install
+  has the same access to these folders. The mirror only adds and removes links in the
+  data root, and deleting the instance folder never touches the sources.
+- Claude Code `settings.json`, credentials and `sessions/` are not mirrored, so
+  Claude Code running status isn't shown. A root with fixtures can't take
+  `-RealData`, and a real-data root can't take `-Fixtures`.
+- Use it for local verification only. Never commit, publish or paste its content,
+  captures or logs.
+
+`pnpm app:stop` also ends desktop processes the lifecycle no longer tracks (an
+interrupted start, a broken process tree, or state already removed). It finds them
+through their WebView2 children, whose `--user-data-dir` is this instance's own
+profile, and stops the parent `tracepilot-desktop.exe` tree. Nothing else is matched.
 
 Every start records a claim in a machine-wide registry
 (`%LOCALAPPDATA%\TracePilot\automation-registry`, or `TRACEPILOT_AUTOMATION_REGISTRY`).

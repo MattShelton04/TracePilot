@@ -60,15 +60,26 @@ cd .agent/worktrees/<slug>
 pnpm install --frozen-lockfile --prefer-offline
 ```
 
+Or run `pnpm worktree:new <slug>`, which creates the worktree, installs and prints
+the instance command; `pnpm worktree:clean --merged` lists what to remove.
+
 pnpm hard-links packages from its global store, so `node_modules` costs little
 disk per worktree as long as the store and the checkout are on the same volume.
 The first Rust build compiles every dependency; sccache (below) turns most of
 that into cache hits. Stop app instances and Playwright sessions you started
 before `git worktree remove`, which deletes the worktree's `target/` with it.
 
-Do not point several checkouts at one shared `CARGO_TARGET_DIR`: builds would
-queue on its lock, a rebuild cannot replace a running `target/debug` executable
-on Windows, and the automation launcher expects a `target/` per checkout.
+Git hooks (`pnpm hooks:install`, see [CONTRIBUTING.md](../CONTRIBUTING.md#git-hooks))
+use the worktree's own `node_modules`. Until `pnpm install` has run there, every
+hook prints `WARNING: git <hook> checks SKIPPED` instead of running.
+
+Do not point several checkouts at one shared `CARGO_TARGET_DIR`, even for a
+worker that only runs `cargo test` or `clippy`: builds queue on its lock, a
+rebuild cannot replace a running `target/debug` executable on Windows (so it can
+break the main checkout's running app), the executables in `target/debug` come
+from whichever checkout built last, and the automation launcher expects a
+`target/` per checkout. sccache (below) is the supported way to skip most of a
+cold build.
 
 ## Machine setup (recommended)
 

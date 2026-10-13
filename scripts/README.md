@@ -10,15 +10,20 @@ Tauri. Direct script invocations generally expect dependencies to be present.
 | Purpose | Command | Platform and status | Prerequisites / effects |
 | --- | --- | --- | --- |
 | Install workspace dependencies | `pnpm install` or `just install` | All; manual | Node 22, pnpm 10; changes local dependency installation. |
-| Install repository Git hooks | `pnpm hooks:install` | All; explicit opt-in | Uses the pinned local Lefthook. Dependency installation does not install or replace Git hooks. |
+| Install repository Git hooks | `pnpm hooks:install` | All; explicit opt-in | Points `core.hooksPath` at the tracked shims in `scripts/git-hooks/`, so every worktree runs Lefthook from its own `node_modules` and prints a SKIPPED warning when it isn't installed. Dependency installation does not install or replace Git hooks. |
 | Develop the landing page | `pnpm site:dev` | All; manual | Generates showcase/release data and starts Vite on port 5180. See [landing-page guide](../docs/landing-page.md). |
 | Build the landing page | `pnpm site:build` | All; local/CI | Generates data and writes `site/dist/`; fetches release information at build time. |
 | Check the landing page | `pnpm site:check` | All; local/CI | Requires a built site and Playwright Chromium; runs all viewport/interaction/CSP and size checks, saving ignored `site/.check/` screenshots. Add `--viewport 1440x960` (repeatable) for focused checks; CI shards the five modes against one shared build. |
 | Launch the real desktop app | `pnpm app:start` | Windows; manual diagnostic | Rust, Tauri/WebView2, pnpm dependencies; starts owned processes and uses the configured session/index data unless an isolated data root is supplied. See [automation](../docs/app-automation.md). |
+| Drive an app instance with Playwright | `pnpm pw <instance>[:ui] <cmd…>` | Windows; manual | Quoting-safe wrapper around the pinned Playwright CLI that attaches to the named instance automatically. See [scripts/automation](automation/README.md). |
 | Launch frontend mock UI | `pnpm app:ui` | Windows launcher; manual diagnostic | Starts Vite with mock IPC; cannot verify native behavior. |
 | Stop or inspect owned app process | `pnpm app:stop`, `pnpm app:status` | Windows; manual | Uses the automation launcher's recorded process identity. |
-| Run parallel or isolated app instances | `pnpm app:start -Instance <name> [-Fixtures [-FirstRun]]`, `pnpm app:status -All`, `pnpm app:stop -Instance <name>` | Windows; manual diagnostic | Named instances keep state, data and Playwright session under `.tracepilot/instances/<name>/`; ports come from a machine-wide registry in `%LOCALAPPDATA%`. See [parallel instances](../docs/app-automation.md#parallel-instances). |
+| Run parallel or isolated app instances | `pnpm app:start -Instance <name> [-Fixtures [-FirstRun] \| -RealData]`, `pnpm app:status -All`, `pnpm app:stop -Instance <name>` | Windows; manual diagnostic | Named instances keep state, data and Playwright session under `.tracepilot/instances/<name>/`; ports come from a machine-wide registry in `%LOCALAPPDATA%`. See [parallel instances](../docs/app-automation.md#parallel-instances). |
 | Run workspace checks | `just ci`, `just check-docs`, `pnpm typecheck`, `pnpm test` | All; manual/CI | `just ci` mirrors local gates; see [testing](../docs/testing.md) for hosted differences. |
+| Run the checks for your change | `pnpm check:changed [--base <ref>] [--dry-run] [--max-workers <n>]` | All; manual | Maps files changed since the merge-base with `origin/main` (plus uncommitted and untracked files) to the [protocol's checks](../docs/agents/protocol.md#verify-proportionately) and prints one PASS/FAIL line per step, with the failing output's tail. Vitest runs with 2 workers by default. The mapping is `RULES` in `check-changed.mjs`; tests: `node --test scripts/check-changed.test.mjs`. |
+| Create an agent worktree | `pnpm worktree:new <slug> [--base origin/main] [--branch <type>/<slug>]` | All; manual | Creates `.agent/worktrees/<slug>` in the main checkout on a new branch (default `agent/<slug>`), runs `pnpm install --frozen-lockfile --prefer-offline` and prints the matching `pnpm app:start -Instance <slug> -Fixtures` command. |
+| Clean up agent worktrees | `pnpm worktree:clean [--merged] [--yes] [--force]` | All; dry run unless `--yes` | Lists leftover folders git no longer tracks under `.agent/worktrees/` and `.claude/worktrees/`, stale registrations and, with `--merged`, merged agent worktrees, with the disk each frees. `--yes` stops their recorded app instances and removes them. Never removes uncommitted changes or unpushed commits without `--force`; branches are kept. |
+| Collect changelog fragments | `pnpm changelog:collect [--dry-run \| --check]` | All; release prep | Merges [`changelog.d/`](../changelog.d/README.md) fragments into `CHANGELOG.md` `[Unreleased]` and deletes them; `--check` only validates them. See the [release guide](../docs/releasing.md). |
 | Run native integration | `pnpm test:e2e` locally; `pnpm test:e2e -Install` in CI | Windows; manual and installer CI | Builds and tests against synthetic isolated data; `-Install` also exercises the installer. See [E2E README](../tests/e2e/README.md). |
 | Refresh Copilot pricing | `pnpm pricing:fetch`, `pnpm pricing:update`, `pnpm pricing:update --write` | All; manual | Fetch resolves/pins the latest source SHA and UTC date automatically (`--revision`/`--date` remain replay overrides); update previews changes, `--write` updates runtime prices/shared defaults. See the [pricing update workflow](../docs/pricing-model.md#reproducible-update-workflow). |
 | Validate Copilot pricing | `pnpm pricing:check`, `pnpm test:pricing` | All; local/CI, offline | Verifies frozen sources, deterministic updates, history and shared defaults; no network or writes. |
@@ -28,20 +33,36 @@ Tauri. Direct script invocations generally expect dependencies to be present.
 `just --list` shows the maintained recipes. It wraps existing pnpm, cargo, and
 Node commands; it is not a second implementation of those tasks.
 
+## Listing a new script
+
+- **In a group folder** (`scripts/<group>/`): add one line to that folder's
+  `README.md`, in alphabetical order. If the group has no README yet, add the
+  line to its row in [script groups](#script-groups) instead.
+- **A new group:** add a row to [script groups](#script-groups); give it a
+  `README.md` once it has more than two entry points.
+- **At the top level** (`scripts/<name>.*`): add a row to the matching table below.
+- **A new `pnpm` command:** also add a row to [common commands](#common-commands).
+- Helpers imported or dot-sourced by another script, and tests, need no entry.
+
+`node scripts/check-scripts-index.mjs` fails when a script isn't named in the
+README of its folder or of a parent folder; `pnpm check:changed` runs it.
+
 ## Repository policy checks
 
 | Entry point | Purpose | Status / effects |
 | --- | --- | --- |
-| `node scripts/check-doc-links.mjs` | Check relative Markdown file targets across repository docs; accepts explicit paths for staged checks. Contracts: `node --test scripts/check-doc-links.test.mjs`. | Local `just check-docs` and lefthook; CI policy. Read-only. It does not validate anchors or paths written only in code spans. |
+| `node scripts/check-doc-links.mjs` | Check relative Markdown file targets across repository docs; accepts explicit paths for staged checks. Contracts: `node --test scripts/check-doc-links.test.mjs`. | Local `just check-docs` and lefthook; CI policy. Read-only. Also checks backticked repository paths in current docs (archive, dated reports and CHANGELOG are skipped); it does not validate anchors. |
 | `node scripts/check-adr.mjs` | Check ADR headings, dates, status, and index membership. | Local `just check-docs` and lefthook; CI policy. Read-only. |
 | `node scripts/check-workflow-actions.mjs` | Check pinned action SHAs and comments. | CI policy; `--verify-remote` uses GitHub API in CI. Read-only without that flag. |
-| `node scripts/ci/classify-changes.mjs`, `node scripts/ci/classify-changes.mjs --verify-required` | Select application checks from the complete PR merge diff and strictly verify the required job results. | CI only; consumes GitHub event/output or `CI_NEEDS` environment data. Contracts: `node --test scripts/ci/classify-changes.test.mjs`. |
-| `node scripts/check-file-sizes.mjs` | Enforce source line budgets. | CI and lefthook. Read-only. |
+| `node scripts/ci/classify-changes.mjs`, `node scripts/ci/classify-changes.mjs --verify-required` | Select application checks (`frontend`, `desktop`, `rust`, `dependencies`) from the complete PR merge diff and strictly verify the required job results. | CI only; consumes GitHub event/output or `CI_NEEDS` environment data. Contracts: `node --test scripts/ci/classify-changes.test.mjs`. |
+| `node scripts/check-file-sizes.mjs [--staged \| --since <ref> \| <paths...>]` | Enforce source line budgets, on the whole tree or only the given files. | CI and lefthook (`--staged` on commit, `--since` on push). Read-only. |
 | `node scripts/check-catalog-drift.mjs` | Check pnpm catalogue references. | `just ci`; read-only. |
 | `node scripts/check-csp.mjs` | Guard Tauri CSP. | `just ci` and lefthook; read-only. |
 | `node scripts/check-public-api.mjs` | Compare orchestrator exports with its checked-in API baseline. | `just ci` and lefthook; read-only unless explicitly passed `--update`. |
 | `node scripts/check-no-hex-colors.mjs`, `check-no-emoji-in-templates.mjs`, `check-no-backdrop-filter.mjs`, `check-z-index-tokens.mjs` | Guard desktop design tokens and component rules (`pnpm check:design-system`). A full run also fails on allow-list entries that are no longer needed. | CI, lefthook and package scripts; read-only. Each supports `--staged`. |
-| `node scripts/check-spacing-grid.mjs` | Report off-grid spacing. | Advisory pre-push check; exits successfully while issues are reported. |
+| `node scripts/check-spacing-grid.mjs` | Report off-grid spacing. | Advisory (`pnpm check:spacing`); exits successfully while issues are reported. |
+| `node scripts/check-scripts-index.mjs` | Check that every script under `scripts/` is listed in a README (see [listing a new script](#listing-a-new-script)). Contracts: `node --test scripts/check-scripts-index.test.mjs`. | `pnpm check:changed` when `scripts/` changes; read-only. |
+| `pnpm test:checks` | Contract tests for the check scripts, `scripts/lib/`, the Git hook, release and worktree scripts. | CI policy; read-only. |
 | `node scripts/check-commit-msg.mjs <message-file>` | Validate Conventional Commit subject. | Lefthook `commit-msg`; read-only. The hook skips this validator while a merge is in progress so Git's default merge messages are accepted. |
 
 ## Manual build and analysis helpers
@@ -57,32 +78,34 @@ Node commands; it is not a second implementation of those tasks.
 | `pwsh -File scripts/pgo-build.ps1` or `bash scripts/pgo-build.sh` | Profile-guided Rust build. | PowerShell/POSIX; Rust LLVM tools; runs benchmarks and writes profiles/build outputs. |
 | `node scripts/claude-census.mjs [claude-config-dir]` | Claude Code format census: unmapped record and attachment types and the Claude Code versions seen, with session and record counts, as Markdown that is safe to paste into an issue (counts, type names and versions only; no paths, ids or content). Contract: `cargo test -p tracepilot-core --test claude_census`. | Rust toolchain; runs `cargo run -p tracepilot-core --example claude_census`. Read-only. The folder defaults to `CLAUDE_CONFIG_DIR`, else `~/.claude`; it reads only `projects/**/*.jsonl` and their `subagents/`, never `sessions/`. |
 | `python scripts/validate-session-versions.py --session-dir <isolated-dir>` | Heuristic report of event fields/anomalies in session JSONL by Copilot version. | Manual; defaults to the user's live Copilot session directory when `--session-dir` is omitted. It is distinct from `pnpm cli versions ...` schema analysis, and does not enforce a fixture support manifest. |
-
-## Grouped tooling and tests
-
-| Group | Role / invocation | Effects and output |
-| --- | --- | --- |
-| `scripts/automation/` | Native lifecycle, machine-wide instance registry and readiness behind `pnpm app:*`; `pnpm test:automation` runs isolated contract files sequentially. `test-process.mjs` supplies their bounded subprocess runner and failure snapshots. | Launch state and owned processes; synthetic test diagnostics under ignored `.tracepilot/automation-test-results/`. See [automation guide](../docs/app-automation.md) and [testing guide](../docs/testing.md). |
-| `scripts/dependencies/` | Capture locked resolver inputs, generate complete dependency graphs, and test graph invariants. | Read-only package-manager queries; writes ignored inputs and generated graphs under `.agent/dependency-audit/`. See [rerun commands](dependencies/README.md) and [dependency reference](../docs/dependencies/README.md). |
-| `scripts/pricing/` | Source parser, importer, live freshness comparator and CLI behind `pnpm pricing:*`; `claude.mjs`/`claude-cli.mjs` parse and apply Anthropic's page for `pnpm pricing:claude`. `pnpm test:pricing` runs update/freshness/reporting and Claude parser contracts. `publish.mjs` is the trusted CI comment entry point. | Versioned evidence under `packages/types/data/copilot-pricing/`; runtime JSON changes only with `--write`. Freshness writes only its optional report/CI summary; the report workflow maintains one advisory comment. |
-| `scripts/macos/` | `bash scripts/macos/bundle-smoke.sh [bundle-dir]` verifies a built app and disk image, installs from the image and launches it. Run by the CI macOS job and the release workflow. | macOS only; needs a prior `pnpm tauri build --bundles app,dmg`. Writes ignored `.tracepilot/macos-smoke/`. See [testing guide](../docs/testing.md). |
-| `scripts/e2e/` | `test.ps1` is the native integration entry point; `launch.ps1`/`stop.ps1` are compatibility wrappers; `connect.mjs`, smoke/perf diagnostics, README capture, and fixture helpers are internal or opt-in. | Diagnostics/screenshots under ignored `scripts/e2e/screenshots/`; README capture deliberately updates selected `docs/images/`. See [testing guide](../docs/testing.md). |
-| `node scripts/fixtures/session-fixtures.mjs [--root=PATH]` | Generate a 63-case Copilot rich-tool gallery, a separate `report_intent` session, and six native Claude sessions including the C4 renderer gallery and resumed/live cost examples. `claude-transcript.mjs` builds the native records; `claude-tool-samples.mjs` supplies renderer contracts exported by `rich-tools.mjs`. Tests: `node --test scripts/fixtures/*.test.mjs`. | Defaults to ignored `.tracepilot/rich-tool-fixtures`; preserves app config/index and refuses modified/unowned sessions. See [testing](../docs/testing.md#rich-tool-fixtures). |
-| `node scripts/fixtures/copilot-schema-fixture.mjs <version> <output.jsonl> [timestamp]` | Generate a synthetic parser contract with every persistable event of an installed Copilot CLI schema, optional fields populated. | Reads `~/.copilot/pkg/<platform>/<version>/schemas` (or `TRACEPILOT_COPILOT_PKG_DIR`); writes only the named file. See [version reports](../docs/reports/versions/README.md). |
-| `pnpm build:cli` then `node --test scripts/cli/cli-smoke.test.mjs` | Build the standalone CLI and exercise help, list, show, search and unsupported index behavior against the shared Rust/TypeScript turn fixture. | Required frontend build job; creates and removes an isolated temporary session directory. |
-| `scripts/visual/` | Synthetic frontend capture, report, policy tests, and trusted publisher. CI: 41 App views + 84 Rich tools, including Claude-native samples, explicit preview/full and local expansion/page interactions. README screenshots: `node scripts/visual/capture.mjs --suite=readme --docs` (synthetic `showcase/` workspace, not run in CI). Tests: `node --test scripts/visual/*.test.mjs` and `python scripts/visual/extract_test.py`. | Own npm lockfile/dependencies via `npm ci --prefix scripts/visual --ignore-scripts`; generated captures stay under ignored `.tracepilot/visual/`. Publishing is a CI workflow action, not a local diagnostic. See [visual regression](../docs/visual-regression.md). |
-| `site/scripts/` | Data export/validation, release/HTML facts, browser checks and shared preview lifecycle. Tests: `pnpm --filter @tracepilot/site test`; social image: `pnpm --filter @tracepilot/site og` after a build. | Generated data and screenshots are ignored; OG generation updates committed `site/public/og.png`. See [landing-page guide](../docs/landing-page.md). |
-| `node scripts/site/publish.mjs --dist site/dist` | Trusted Site workflow publisher; CI only. Tests: `node --test scripts/site/*.test.mjs` use a scratch Git remote. | Writes only manifest-owned paths in the shared gh-pages root, preserving visual history and benchmarks. `--no-api` is for scratch-remote testing. |
-| `scripts/perf/` | Performance/bundle probes and comparison contracts. Focused tests: `node --test scripts/perf/*.test.mjs`. | Some probes launch a native app or read selected data and write ignored `.tracepilot/perf/`; review the particular command first. See [performance playbook](../docs/performance-playbook.md). |
 | `cargo run --release -p tracepilot-export --example export_probe -- measure <synthetic-session-dir> all-json` | Measure export build/render time, peak memory and output SHA-256. Also supports `sharing-md` and generating a fresh synthetic session. | Build separately before comparisons; see the [export probe guide](../crates/tracepilot-export/README.md#performance-probe). Generation writes a new directory; measurement reads it and emits only timings, counts and hashes. |
 | `cargo run --release -p tracepilot-bench --example indexing_workloads -- <mode> <copilot-dir\|-> <claude-dir\|-> <index-db>` | Library-level timing of each indexing workload (first index, incremental, analytics bump, search/full rebuild, source purge/enable) over both sources. Method and baseline: [performance playbook](../docs/performance-playbook.md#measuring-the-whole-indexing-path). | Reads the given session folders; writes only the given scratch index DB. Prints one JSON line. |
 | `cargo run --release -p tracepilot-bench --example search_query_probe -- generate <new-db> [sessions] [rows-per-session]` or `measure <db> [repeats]` | Frozen synthetic search corpus and repeatable result-page/count/facet timings, with output parity digests. See [search probe usage](../crates/tracepilot-bench/README.md#search-aggregate-probe). | Generation requires a new scratch DB; measurement is read-only and prints no session text. Library timing, without desktop IPC. |
-| `node scripts/perf/summarize-benchmarks.mjs --criterion=target/criterion --budget=perf-budget.json` | Nightly CI aggregation: requires `BENCHMARK_SUITES` (JSON from Cargo targets), `BENCHMARK_RESULT`, `BENCHMARK_DOWNLOAD_RESULT` and `BENCHMARK_CONTRACT_RESULT`. | Preserves strict budget validation; verifies every suite outcome/compiler and writes `benchmark-output.json`, `benchmark-summary.md` and `benchmark-contract.log` even for incomplete runs, which exit nonzero. |
-| `scripts/ci/` | CI job selection/required-gate verification and imported PR reference/comment helpers, with `*.test.mjs` contracts. | `node --test scripts/ci/*.test.mjs` uses isolated scratch repositories; workflow publishers may post comments. The CI policy job also runs checksum-pinned actionlint with the runner's ShellCheck to validate workflows, expressions, action inputs and embedded Bash. |
 
-The tests and imported helpers in these groups are not standalone user commands.
-Keep externally documented wrapper paths and the visual publisher's isolated
-dependency/trust boundary when changing this directory.
+## Script groups
+
+Each group's README lists its entry points, effects and tests. Tests and
+imported helpers are not standalone user commands. Keep externally documented
+wrapper paths when changing these folders.
+
+| Folder | What it holds | Details |
+| --- | --- | --- |
+| `scripts/automation/` | Native app lifecycle, instance registry and readiness behind `pnpm app:*`. | [README](automation/README.md) |
+| `scripts/ci/` | CI job selection, required-gate verification and PR comparison/comment helpers. | [README](ci/README.md) |
+| `scripts/cli/` | `pnpm build:cli`, then `node --test scripts/cli/cli-smoke.test.mjs` exercises the standalone CLI against the shared turn fixture. Required frontend build job; uses a temporary session directory. | This row |
+| `scripts/dependencies/` | Locked resolver inputs, complete dependency graphs and graph invariants. Writes ignored output under `.agent/dependency-audit/`. | [README](dependencies/README.md), [dependency reference](../docs/dependencies/README.md) |
+| `scripts/e2e/` | Native integration suite (`pnpm test:e2e`), compatibility wrappers and opt-in diagnostics. | [README](e2e/README.md) |
+| `scripts/fixtures/` | Synthetic Copilot and Claude Code session fixtures and parser contracts. | [README](fixtures/README.md) |
+| `scripts/git-hooks/` | Tracked Git hook shims (`pre-commit`, `pre-push`, `commit-msg`) and `scripts/git-hooks/run-lefthook.sh`, installed by `pnpm hooks:install`; `node scripts/git-hooks/pre-push-checks.mjs [--base <ref>] [--dry-run]` runs file sizes, rustfmt and typecheck scoped to the branch's changes. Tests: `pnpm test:checks`. | This row, [contributing](../CONTRIBUTING.md) |
+| `scripts/lib/` | Shared helpers for scripts; `scripts/lib/list-tracked-files.mjs` lists tracked, staged or changed files and falls back to a filesystem walk when Git can't be spawned. | This row |
+| `scripts/macos/` | `bash scripts/macos/bundle-smoke.sh [bundle-dir]` verifies a built app and disk image, installs from the image and launches it (CI macOS job and release workflow). macOS only; needs `pnpm tauri build --bundles app,dmg`; writes ignored `.tracepilot/macos-smoke/`. | This row, [testing guide](../docs/testing.md) |
+| `scripts/perf/` | Performance and bundle probes and their comparison contracts. | [README](perf/README.md) |
+| `scripts/pricing/` | Pricing parsers, importer and freshness comparator behind `pnpm pricing:*`. | [README](pricing/README.md) |
+| `scripts/release/` | `scripts/release/collect-changelog.mjs` behind `pnpm changelog:collect`. Tests: `node --test scripts/release/*.test.mjs`. | This row, [release guide](../docs/releasing.md) |
+| `scripts/site/` | `node scripts/site/publish.mjs --dist site/dist`: trusted Site workflow publisher, CI only. Writes only manifest-owned paths in the shared gh-pages root; `--no-api` is for scratch-remote testing. Tests: `node --test scripts/site/*.test.mjs`. | This row |
+| `scripts/visual/` | Synthetic frontend capture, reports, policy tests and the trusted publisher. | [README](visual/README.md) |
+| `scripts/worktree/` | `scripts/worktree/new.mjs` and `scripts/worktree/clean.mjs` behind `pnpm worktree:new` and `pnpm worktree:clean`. Tests: `node --test scripts/worktree/*.test.mjs`. | This row, [common commands](#common-commands) |
+| `site/scripts/` | Landing-page data export and validation, release and HTML facts, browser checks. Tests: `pnpm --filter @tracepilot/site test`; social image: `pnpm --filter @tracepilot/site og` after a build (updates committed `site/public/og.png`). | [Landing-page guide](../docs/landing-page.md) |
 
 ## Audit-only helpers
 
@@ -92,5 +115,5 @@ invokes them automatically:
 | Helper | Evidence and current status |
 | --- | --- |
 | `scripts/e2e/native-dialog-gateway.mjs` | Used for picker-result substitution in the dated [usability audit](../docs/reports/usability-audit-2026-09-12/validation.md); it does not exercise the OS dialog. Its focused contract suite is `node --test scripts/e2e/native-dialog-gateway.test.mjs`. |
-| `scripts/e2e/copilot-compat.mjs` and `usability-fixtures.mjs` | The former is cited as an isolated-session example; the latter generated the dated usability audit's synthetic corpus. Neither is a routine CI gate. The fixture generator has imported helpers and tests. |
+| `scripts/e2e/copilot-compat.mjs` and `scripts/e2e/usability-fixtures.mjs` | The former is cited as an isolated-session example; the latter generated the dated usability audit's synthetic corpus. Neither is a routine CI gate. The fixture generator has imported helpers and tests. |
 | `scripts/perf/private-snapshot.mjs` | Used to select the private corpus described in the [performance mission](../docs/reports/performance-mission.md). It has no current workflow caller, writes ignored private copies, and does not itself create the fixture manifest required by `scripts/perf/indexing.mjs`. |

@@ -13,6 +13,7 @@ param(
     [ValidateRange(1, 3600)][int]$TimeoutSeconds = 600,
     [string]$Instance = '',
     [switch]$Fixtures,
+    [switch]$RealData,
     [switch]$FirstRun,
     [switch]$All,
     [string]$ExpectedInstanceId = ''
@@ -21,6 +22,11 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $PSScriptRoot 'registry.ps1')
 $runtimeDir = Join-Path $repoRoot '.tracepilot/automation'
+$explicitDataRoot = [bool]$DataRoot
+if ($Action -eq 'start' -and $RealData) {
+    if (-not $Instance -or $Mode -ne 'desktop') { throw '-RealData requires desktop mode and a named instance: pnpm app:start -Instance <slug> -RealData' }
+    if ($Fixtures -or $explicitDataRoot -or $StateDirectory) { throw '-RealData uses the instance''s own data root; do not combine it with -Fixtures, -DataRoot or -StateDirectory.' }
+}
 if ($Instance) {
     # A named instance owns its lifecycle state, default data root and CLI session,
     # so several agents can run side by side without hand-picked paths.
@@ -36,6 +42,14 @@ if ($StateDirectory) {
     $runtimeDir = [IO.Path]::GetFullPath($StateDirectory)
 }
 $statePath = Join-Path $runtimeDir "$Mode.json"
+# Agents must not run on the maintainer's real TracePilot data or take the
+# human's default ports: outside a named or explicitly isolated instance, refuse.
+$agentEnvironment = $env:CLAUDECODE -or $env:AI_AGENT -or @(Get-ChildItem Env: | Where-Object { $_.Name -like 'CODEX_*' }).Count -gt 0
+if ($Action -eq 'start' -and $agentEnvironment -and -not $Instance -and
+    (($Mode -eq 'desktop' -and -not $DataRoot) -or ($Mode -eq 'ui' -and -not $StateDirectory))) {
+    $hint = if ($Mode -eq 'ui') { '  pnpm app:ui -Instance <slug>' } else { "  pnpm app:start -Instance <slug> -Fixtures   # synthetic sessions`n  pnpm app:start -Instance <slug> -RealData   # read-only snapshot of your real sessions" }
+    throw "Agent environment detected (CLAUDECODE, CODEX_* or AI_AGENT): the default instance uses the real TracePilot data and ports. Start a named instance:`n$hint"
+}
 $session = if (-not $Instance) { "tracepilot-$Mode" } elseif ($Mode -eq 'ui') { "tracepilot-$Instance-ui" } else { "tracepilot-$Instance" }
 if ($Action -eq 'start' -and $Fixtures -and ($Mode -ne 'desktop' -or -not $DataRoot)) {
     throw '-Fixtures requires desktop mode with -Instance or an isolated -DataRoot.'
@@ -154,19 +168,64 @@ function Get-OwnedProcess($Record) {
     return $null
 }
 
+# taskkill reports children that are already exiting on stderr. Under
+# ErrorActionPreference=Stop, Windows PowerShell turns that into a terminating error
+# that would abandon the rest of the cleanup, so callers check the result instead.
+function Invoke-TaskKill([int]$Id) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & taskkill.exe /PID $Id /T /F 2>&1 | Out-Null; return $LASTEXITCODE -eq 0 }
+    finally { $ErrorActionPreference = $previous }
+}
+
 function Stop-OwnedProcesses($State) {
     $records = @($State.processes)
     [array]::Reverse($records)
     foreach ($record in $records) {
-        $owned = Get-OwnedProcess $record
-        if ($owned) {
-            # PID + creation time + executable must match before stopping its tree.
-            & taskkill.exe /PID $owned.Id /T /F 2>&1 | Out-Null
-            if ($LASTEXITCODE -ne 0 -and (Get-OwnedProcess $record)) {
-                throw "Could not stop owned PID $($owned.Id). State was retained for retry."
-            }
+        # PID + creation time + executable must match before stopping its tree.
+        for ($attempt = 0; $attempt -lt 3 -and ($owned = Get-OwnedProcess $record); $attempt++) {
+            if ($attempt) { Start-Sleep -Milliseconds 500 }
+            [void](Invoke-TaskKill $owned.Id)
+        }
+        if (Get-OwnedProcess $record) {
+            throw "Could not stop owned PID $($record.pid). State was retained for retry."
         }
     }
+}
+
+# Finds desktop processes this launcher no longer tracks (a broken process tree, an
+# interrupted start, or a state file already removed) through their WebView2 children,
+# whose --user-data-dir is this instance's own profile. Nothing else is matched.
+function Stop-StrayDesktop([string]$WebviewProfile) {
+    if (-not $WebviewProfile -or $Mode -ne 'desktop') { return }
+    $needle = [IO.Path]::GetFullPath($WebviewProfile).TrimEnd('\', '/')
+    $processes = @(Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe' OR Name='tracepilot-desktop.exe'" -ErrorAction SilentlyContinue)
+    $webviews = @($processes | Where-Object {
+        $_.Name -eq 'msedgewebview2.exe' -and $_.CommandLine -and $_.CommandLine.Contains('--user-data-dir=') -and
+        $_.CommandLine.IndexOf($needle, [StringComparison]::OrdinalIgnoreCase) -ge 0
+    })
+    if ($webviews.Count -eq 0) { return }
+    $matched = @($webviews | ForEach-Object { $_.ProcessId })
+    $targets = @()
+    foreach ($webview in $webviews) {
+        # The parent must still be the app that started this webview, not a reused PID.
+        $parent = $processes | Where-Object {
+            $_.ProcessId -eq $webview.ParentProcessId -and $_.Name -eq 'tracepilot-desktop.exe' -and $_.CreationDate -le $webview.CreationDate
+        } | Select-Object -First 1
+        if ($parent) { $targets += $parent.ProcessId }
+        elseif ($matched -notcontains $webview.ParentProcessId) { $targets += $webview.ProcessId }
+    }
+    $stopped = 0
+    foreach ($target in @($targets | Select-Object -Unique)) {
+        if ((Invoke-TaskKill $target) -or -not (Get-Process -Id $target -ErrorAction SilentlyContinue)) { $stopped++ }
+    }
+    if ($stopped) { Write-Host "Stopped $stopped untracked desktop process tree(s) using this instance's WebView profile." }
+}
+
+function Get-WebviewProfile($State) {
+    if ($State -and $State.paths -and $State.paths.webviewProfile) { return $State.paths.webviewProfile }
+    if ($DataRoot) { return Join-Path ([IO.Path]::GetFullPath($DataRoot)) 'webview-profile' }
+    return Join-Path $runtimeDir 'webview-profile'
 }
 
 function Get-FreePort([int]$First, [int]$Last, [int]$Exclude = 0, [int[]]$Reserved = @()) {
@@ -245,7 +304,11 @@ function Show-Connection($State) {
     if ($State.instanceName) { Write-Host "Instance: $($State.instanceName) | stop with: pnpm app:stop -Instance $($State.instanceName)$(if ($Mode -eq 'ui') { ' -Mode ui' })" }
     if ($Mode -eq 'desktop') {
         if ($State.dataRoot) {
-            Write-Host "Real Tauri backend with isolated application data."
+            if ($State.realData) {
+                Write-Host "Real Tauri backend on a read-only snapshot of your real sessions (refreshed at each start), with isolated config, index and app state. Never commit or publish what it shows."
+            } else {
+                Write-Host "Real Tauri backend with isolated application data."
+            }
             Write-Host "Data root: $($State.dataRoot)"
             Write-Host "Config: $($State.paths.config)"
             Write-Host "Sessions: $($State.paths.sessionState)"
@@ -254,12 +317,13 @@ function Show-Connection($State) {
             Write-Host "Real Tauri backend; uses your configured sessions and database."
         }
         Write-Host "Build: frontend=$($State.build.frontend), Rust=$($State.build.rustProfile), automationDevtools=$($State.build.automationDevtools)"
-        Write-Host "pnpm exec playwright-cli -s=$session attach --cdp=$($State.endpoint)"
+        Write-Host "Raw CLI: pnpm exec playwright-cli -s=$session attach --cdp=$($State.endpoint)"
     } else {
         Write-Host "Frontend only; client mock data, no Rust IPC."
-        Write-Host "pnpm exec playwright-cli -s=$session open $($State.url) --browser=msedge"
+        Write-Host "Raw CLI: pnpm exec playwright-cli -s=$session open $($State.url) --browser=msedge"
     }
-    Write-Host "pnpm exec playwright-cli -s=$session snapshot --filename=.playwright-cli/current.yml"
+    $target = "$(if ($Instance) { $Instance } else { 'default' })$(if ($Mode -eq 'ui') { ':ui' })"
+    Write-Host "Drive it (attaches on first use): pnpm pw $target snapshot --filename=.playwright-cli/current.yml"
 }
 
 if ($Action -eq 'status' -and $All) { Show-AllInstances; exit 0 }
@@ -278,6 +342,7 @@ try {
             Remove-Claim $state.instanceId
             Remove-Item -LiteralPath $statePath -Force
         }
+        Stop-StrayDesktop (Get-WebviewProfile $state)
         Write-Host "Stopped tracked $Mode processes. Browser sessions can be detached/closed separately."
         exit 0
     }
@@ -296,6 +361,9 @@ try {
                     $endpointPort = ([Uri]$state.endpoint).Port
                     if ($state.dataRoot -ne $requestedDataRoot -or ($Port -and $endpointPort -ne $Port)) {
                         throw "A healthy desktop instance is tracked with different launch options (runtime=$($state.runtime), dataRoot=$($state.dataRoot), port=$endpointPort). Stop it before changing runtime, data root, or port."
+                    }
+                    if ([bool]$state.realData -ne [bool]$RealData) {
+                        throw "A healthy desktop instance is tracked with different launch options (realData=$([bool]$state.realData)). Stop it before changing -RealData."
                     }
                     if ($Executable -and $state.build.executable -ne $Executable) {
                         throw 'A healthy desktop instance uses a different executable. Stop it before changing executable.'
@@ -316,6 +384,7 @@ try {
         Remove-Item -LiteralPath $statePath -Force
     }
     if ($Action -eq 'status') { Write-Host "No tracked $Mode instance."; exit 0 }
+    Stop-StrayDesktop (Get-WebviewProfile $state)
 
     if ($Mode -eq 'ui' -and $Runtime -ne 'development') {
         throw "Frontend-only UI mode supports only -Runtime development."
@@ -359,6 +428,7 @@ try {
             uiPort = $uiPort
             cdpPort = $cdpPort
             dataRoot = $resolvedDataRoot
+            realData = [bool]$RealData
             launcher = Get-LauncherRecord
             processes = @()
         }
@@ -391,6 +461,7 @@ try {
         endpoint = "http://127.0.0.1:$cdpPort"
         instanceId = $instanceId
         instanceName = $Instance
+        realData = [bool]$RealData
         processes = @()
     }
     $savedArgs = $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
@@ -401,6 +472,18 @@ try {
     $savedInstance = $env:TRACEPILOT_AUTOMATION_INSTANCE
     Write-Host "Starting $Mode. Logs: $runtimeDir"
     try {
+        if ($Fixtures -and (Test-Path -LiteralPath (Join-Path $resolvedDataRoot 'real-data.json'))) {
+            throw "$resolvedDataRoot holds a real-data snapshot. Use a fresh -Instance name for -Fixtures."
+        }
+        if ($RealData) {
+            # Hard links (or copies) of the real session folders; TracePilot's own
+            # config, index and app state stay in this data root.
+            $snapshotOutput = & node (Join-Path $repoRoot 'scripts/automation/real-data.mjs') "--root=$resolvedDataRoot"
+            if ($LASTEXITCODE -ne 0) { throw "Real-data snapshot failed for $resolvedDataRoot." }
+            $snapshot = $snapshotOutput -join "`n" | ConvertFrom-Json
+            Write-Host "Real sessions, read-only snapshot: $($snapshot.copilotSessions) Copilot sessions and $($snapshot.claudeProjects) Claude Code projects ($($snapshot.linked) linked, $($snapshot.copied) copied, $($snapshot.kept) unchanged, $($snapshot.removed) removed)."
+            Write-CompletedSetupConfig $resolvedPaths
+        }
         if ($Fixtures) {
             if ($FirstRun -and (Test-Path -LiteralPath $resolvedPaths.config)) {
                 throw "-FirstRun needs a data root that has not completed setup, but $($resolvedPaths.config) exists. Use a fresh -Instance name."
@@ -475,6 +558,7 @@ try {
         Show-Connection $state
     } catch {
         Stop-OwnedProcesses $state
+        Stop-StrayDesktop (Get-WebviewProfile $state)
         Remove-Claim $instanceId
         Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
         throw

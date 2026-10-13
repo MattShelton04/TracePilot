@@ -4,9 +4,9 @@ Status: **Phases 1–3 implemented** (2026-09-19). Phase 4 (enrichments) and the
 Timeline band and alert are not started. See [§13](#13-implementation-notes) for where the
 implementation differs from this plan.
 Related:
-[Copilot session store research](../research/copilot-session-store-db.md),
+[Copilot session store research](../archive/research/copilot-session-store-db.md),
 [1.0.83 alignment](../reports/versions/2026-09-12-v1.0.83-alignment.md),
-[subagent analysis](subagent-analysis-plan.md).
+[subagent analysis](../archive/features/subagent-analysis-plan.md).
 
 ## 1. Summary
 
@@ -257,7 +257,7 @@ event type.
 2. **Chronicle per-request rows.** `assistant_usage_events` gives an exact `cache_read_tokens`
    for the request that resumed the session, which upgrades windows to **Observed**. Use the
    read-only adapter proposed in the
-   [session store research](../research/copilot-session-store-db.md), with capability detection,
+   [session store research](../archive/research/copilot-session-store-db.md), with capability detection,
    and never make it required.
 
 ## 9. Fallback matrix

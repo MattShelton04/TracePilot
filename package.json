@@ -23,6 +23,7 @@
     "app:ui": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 start -Mode ui",
     "app:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 stop",
     "app:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/automation/app.ps1 status",
+    "pw": "node scripts/automation/pw.mjs",
     "test:automation": "node --test --test-concurrency=1 scripts/automation/*.test.mjs",
     "pricing:fetch": "node scripts/pricing/cli.mjs fetch",
     "pricing:update": "node scripts/pricing/cli.mjs update",
@@ -30,6 +31,7 @@
     "pricing:freshness": "node scripts/pricing/cli.mjs freshness",
     "pricing:claude": "node scripts/pricing/claude-cli.mjs",
     "test:pricing": "node --test scripts/pricing/*.test.mjs scripts/ci/report-comment.test.mjs",
+    "test:checks": "node --test scripts/check-*.test.mjs scripts/lib/*.test.mjs scripts/git-hooks/*.test.mjs scripts/release/*.test.mjs scripts/worktree/*.test.mjs",
     "test:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/e2e/test.ps1",
     "build": "pnpm --filter @tracepilot/desktop build",
     "build:cli": "pnpm --filter @tracepilot/cli build",
@@ -49,9 +51,13 @@
     "check:zindex": "node scripts/check-z-index-tokens.mjs",
     "check:spacing": "node scripts/check-spacing-grid.mjs",
     "check:design-system": "node scripts/check-no-hex-colors.mjs && node scripts/check-no-emoji-in-templates.mjs && node scripts/check-no-backdrop-filter.mjs && node scripts/check-z-index-tokens.mjs",
+    "check:changed": "node scripts/check-changed.mjs",
+    "worktree:new": "node scripts/worktree/new.mjs",
+    "worktree:clean": "node scripts/worktree/clean.mjs",
+    "changelog:collect": "node scripts/release/collect-changelog.mjs",
     "gen:bindings": "cargo run -p tracepilot-tauri-bindings --bin gen-bindings",
     "clean": "pnpm -r clean",
-    "hooks:install": "lefthook install"
+    "hooks:install": "git config core.hooksPath scripts/git-hooks"
   },
   "engines": {
     "node": ">=22.12 <23",
