@@ -238,6 +238,8 @@ pub struct ValidateSessionDirResult {
     pub valid: bool,
     pub session_count: usize,
     pub error: Option<String>,
+    /// Nothing exists at the path, as when the source's tool is not installed.
+    pub missing: bool,
 }
 
 #[derive(Debug, Serialize, Clone, specta::Type)]

@@ -128,6 +128,30 @@ describe("SettingsDataStorage paths and maintenance", () => {
     expect(mocks.toast.success).toHaveBeenCalledWith("Path settings saved");
   });
 
+  it("saves other path changes without Copilot CLI but rejects a new missing Copilot home", async () => {
+    const missing = {
+      valid: false,
+      sessionCount: 0,
+      error: "Directory does not exist",
+      missing: true,
+    };
+    mocks.validateSessionDir.mockResolvedValue(missing);
+    const wrapper = mountSettingsDataStorage();
+    await flushPromises();
+
+    await wrapper.findAll("input")[1].setValue("D:\\TracePilotData");
+    await action(wrapper, "Apply path changes").trigger("click");
+    await flushPromises();
+    expect(mocks.updateConfig).toHaveBeenCalledOnce();
+    expect(mocks.toast.success).toHaveBeenCalledWith("Path settings saved");
+
+    await wrapper.findAll("input")[0].setValue("D:\\Typo");
+    await action(wrapper, "Apply path changes").trigger("click");
+    await flushPromises();
+    expect(mocks.updateConfig).toHaveBeenCalledOnce();
+    expect(mocks.toast.error).toHaveBeenCalledWith("Directory does not exist");
+  });
+
   it("locks maintenance through delayed path validation and save, using the validated snapshot", async () => {
     const wrapper = mountSettingsDataStorage();
     await flushPromises();

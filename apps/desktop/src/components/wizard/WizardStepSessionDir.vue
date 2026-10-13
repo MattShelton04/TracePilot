@@ -2,7 +2,7 @@
 import type { ValidateSessionDirResult } from "@tracepilot/client";
 import { COPILOT_HOME_PLACEHOLDER } from "@tracepilot/types";
 import { FormSwitch } from "@tracepilot/ui";
-import { AlertTriangle, FolderOpen } from "lucide-vue-next";
+import { AlertTriangle, FolderOpen, Info } from "lucide-vue-next";
 
 defineProps<{
   copilotHome: string;
@@ -12,6 +12,8 @@ defineProps<{
   validating: boolean;
   validationResult: ValidateSessionDirResult | null;
   validationError: string;
+  /** The default Copilot home has no sessions folder: Copilot CLI is not set up. */
+  copilotMissing: boolean;
   canContinue: boolean;
   /** The default Claude Code folder, when it holds sessions; else null. The switch defaults on. */
   claudeCode: { dir: string; sessionCount: number } | null;
@@ -71,6 +73,10 @@ const emit = defineEmits<{
         </div>
         <div v-else-if="validationError" class="validation-msg error">
           ✗ {{ validationError }}
+        </div>
+        <div v-else-if="copilotMissing" class="validation-msg info">
+          <Info :size="14" :stroke-width="1.5" aria-hidden="true" />
+          Copilot CLI not found. You can continue; its sessions will appear once you use it.
         </div>
         <div
           v-else-if="validationResult?.valid && validationResult.sessionCount > 0"
@@ -139,6 +145,7 @@ const emit = defineEmits<{
 .validation-msg.success { color: var(--success-fg); }
 .validation-msg.warning { color: var(--warning-fg); }
 .validation-msg.error { color: var(--danger-fg); }
+.validation-msg.info { color: var(--text-secondary); }
 .validation-msg.validating { color: var(--text-tertiary); }
 
 .derived-path {

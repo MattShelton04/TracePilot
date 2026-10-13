@@ -97,32 +97,31 @@ pub async fn update_config(
 pub async fn validate_session_dir(path: String) -> CmdResult<ValidateSessionDirResult> {
     blocking_cmd!({
         let dir = std::path::PathBuf::from(path);
+        let invalid = |error: String, missing: bool| ValidateSessionDirResult {
+            valid: false,
+            session_count: 0,
+            error: Some(error),
+            missing,
+        };
         if !dir.exists() {
-            return Ok(ValidateSessionDirResult {
-                valid: false,
-                session_count: 0,
-                error: Some(format!("Directory does not exist: {}", dir.display())),
-            });
+            let error = format!("Directory does not exist: {}", dir.display());
+            return Ok(invalid(error, true));
         }
         if !dir.is_dir() {
-            return Ok(ValidateSessionDirResult {
-                valid: false,
-                session_count: 0,
-                error: Some(format!("Path is not a directory: {}", dir.display())),
-            });
+            let error = format!("Path is not a directory: {}", dir.display());
+            return Ok(invalid(error, false));
         }
-        match tracepilot_core::session::discovery::discover_sessions(&dir) {
-            Ok(sessions) => Ok(ValidateSessionDirResult {
-                valid: true,
-                session_count: sessions.len(),
-                error: None,
-            }),
-            Err(e) => Ok::<_, BindingsError>(ValidateSessionDirResult {
-                valid: false,
-                session_count: 0,
-                error: Some(e.to_string()),
-            }),
-        }
+        Ok::<_, BindingsError>(
+            match tracepilot_core::session::discovery::discover_sessions(&dir) {
+                Ok(sessions) => ValidateSessionDirResult {
+                    valid: true,
+                    session_count: sessions.len(),
+                    error: None,
+                    missing: false,
+                },
+                Err(e) => invalid(e.to_string(), false),
+            },
+        )
     })
 }
 
@@ -491,3 +490,7 @@ pub async fn increment_template_usage(
         tracepilot_orchestrator::templates::increment_usage_in(&cfg.tracepilot_home(), &id)
     })
 }
+
+#[cfg(test)]
+#[path = "config_cmds_tests.rs"]
+mod tests;

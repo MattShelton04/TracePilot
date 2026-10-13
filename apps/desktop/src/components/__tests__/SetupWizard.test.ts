@@ -2,18 +2,26 @@ import {
   getConfig,
   saveConfig,
   type ValidateSessionDirResult,
-  validateClaudeConfigDir,
   validateSessionDir,
 } from "@tracepilot/client";
-import { createDeferred, setupPinia } from "@tracepilot/test-utils";
+import { createDeferred } from "@tracepilot/test-utils";
 import { createDefaultConfig } from "@tracepilot/types";
-import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
+import { describe, expect, it, vi } from "vitest";
 import { browseForDirectory } from "@/composables/useBrowseDirectory";
-import SetupWizard from "../SetupWizard.vue";
 import WizardStepDatabase from "../wizard/WizardStepDatabase.vue";
 import WizardStepReady from "../wizard/WizardStepReady.vue";
 import WizardStepSessionDir from "../wizard/WizardStepSessionDir.vue";
+import {
+  finishTransition,
+  invalidDirectory,
+  mountWizard,
+  notADirectory,
+  openDirectoryStep,
+  useSetupWizardHooks,
+  validDirectory,
+  wrapper,
+} from "./setupWizardHarness";
 
 vi.mock("@tracepilot/client", async () => {
   const { createClientMock } = await import("../../__tests__/mocks/client");
@@ -21,56 +29,8 @@ vi.mock("@tracepilot/client", async () => {
 });
 vi.mock("@/composables/useBrowseDirectory", () => ({ browseForDirectory: vi.fn() }));
 
-const validDirectory: ValidateSessionDirResult = { valid: true, sessionCount: 12, error: null };
-const invalidDirectory: ValidateSessionDirResult = {
-  valid: false,
-  sessionCount: 0,
-  error: "Directory does not exist: /missing/session-state",
-};
-
 describe("SetupWizard", () => {
-  let wrapper: VueWrapper;
-
-  beforeEach(() => {
-    setupPinia();
-    vi.useFakeTimers();
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn(() => ({ matches: false })),
-    );
-    vi.mocked(getConfig).mockResolvedValue(
-      createDefaultConfig({ paths: { copilotHome: "/copilot", tracepilotHome: "/tracepilot" } }),
-    );
-    vi.mocked(validateSessionDir).mockReset().mockResolvedValue(validDirectory);
-    vi.mocked(validateClaudeConfigDir)
-      .mockReset()
-      .mockResolvedValue({ valid: true, sessionCount: 0, error: null });
-    vi.mocked(saveConfig).mockReset().mockResolvedValue(undefined);
-    vi.mocked(browseForDirectory).mockReset();
-  });
-
-  afterEach(() => {
-    wrapper?.unmount();
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
-  });
-
-  async function mountWizard() {
-    wrapper = mount(SetupWizard, { attachTo: document.body });
-    await flushPromises();
-    return wrapper;
-  }
-
-  async function finishTransition() {
-    await vi.advanceTimersByTimeAsync(420);
-    await flushPromises();
-  }
-
-  async function openDirectoryStep() {
-    await mountWizard();
-    await wrapper.get('[aria-label="Step 3"]').trigger("click");
-    await finishTransition();
-  }
+  useSetupWizardHooks();
 
   it("keeps inactive slides inert while exposing and focusing each new step", async () => {
     await mountWizard();
@@ -246,13 +206,13 @@ describe("SetupWizard", () => {
     await mountWizard();
     await wrapper.get('[aria-label="Step 5"]').trigger("click");
     await finishTransition();
-    vi.mocked(validateSessionDir).mockResolvedValueOnce(invalidDirectory);
+    vi.mocked(validateSessionDir).mockResolvedValueOnce(notADirectory);
     await wrapper.get(".slide:not([inert]) .btn-accent").trigger("click");
     await flushPromises();
     await finishTransition();
     expect(saveConfig).not.toHaveBeenCalled();
     expect(wrapper.get('[aria-selected="true"]').attributes("aria-label")).toBe("Step 3");
-    expect(wrapper.get('[role="status"]').text()).toContain("Directory does not exist");
+    expect(wrapper.get('[role="status"]').text()).toContain("Path is not a directory");
   });
 
   it("locks paths and navigation during fresh validation and saves only once", async () => {
@@ -358,92 +318,5 @@ describe("SetupWizard", () => {
     await flushPromises();
     expect(saveConfig).toHaveBeenCalledTimes(2);
     expect(wrapper.emitted("setup-saved")).toEqual([[0]]);
-  });
-
-  describe("Claude Code option", () => {
-    const claudeSwitch = 'button[role="switch"][aria-labelledby="setup-claude-code-label"]';
-
-    function withClaudeFolder(sessionCount: number) {
-      const config = createDefaultConfig({
-        paths: { copilotHome: "/copilot", tracepilotHome: "/tracepilot" },
-      });
-      config.sources.claudeCode.configDir = "/claude";
-      vi.mocked(getConfig).mockResolvedValue(config);
-      vi.mocked(validateClaudeConfigDir).mockResolvedValue({
-        valid: true,
-        sessionCount,
-        error: null,
-      });
-    }
-
-    async function launch() {
-      await wrapper.get('[aria-label="Step 5"]').trigger("click");
-      await finishTransition();
-      await wrapper.get(".slide:not([inert]) .btn-accent").trigger("click");
-      await flushPromises();
-      return vi.mocked(saveConfig).mock.lastCall?.[0];
-    }
-
-    it("is hidden without a default Claude Code folder", async () => {
-      await openDirectoryStep();
-      expect(validateClaudeConfigDir).not.toHaveBeenCalled();
-      expect(wrapper.find(claudeSwitch).exists()).toBe(false);
-    });
-
-    it.each([
-      { valid: true, sessionCount: 0, error: null },
-      { valid: false, sessionCount: 0, error: "Directory does not exist" },
-    ])("is hidden when the folder check returns $sessionCount sessions, valid $valid", async (result) => {
-      withClaudeFolder(0);
-      vi.mocked(validateClaudeConfigDir).mockResolvedValue(result);
-      await openDirectoryStep();
-      expect(validateClaudeConfigDir).toHaveBeenCalledWith("/claude");
-      expect(wrapper.find(claudeSwitch).exists()).toBe(false);
-      expect((await launch())?.features.claudeCodeSessions).toBe(false);
-    });
-
-    it("is offered on by default and turns Claude Code on when setup completes", async () => {
-      withClaudeFolder(8);
-      await openDirectoryStep();
-      const option = wrapper.get(".slide:not([inert]) .claude-option");
-      expect(option.text()).toContain("Also index Claude Code sessions (experimental)");
-      expect(option.text()).toContain("Found 8 Claude Code sessions in /claude");
-      expect(option.text()).toContain("Settings → Claude Code");
-      expect(option.text()).toContain("Claude Code deletes transcripts after 30 days by default");
-      expect(wrapper.get(claudeSwitch).attributes("aria-checked")).toBe("true");
-      await wrapper.get('[aria-label="Step 5"]').trigger("click");
-      await finishTransition();
-      expect(wrapper.getComponent(WizardStepReady).text()).toContain("Claude Code sessions (8)");
-      expect(saveConfig).not.toHaveBeenCalled();
-      await wrapper.get(".slide:not([inert]) .btn-accent").trigger("click");
-      await flushPromises();
-      expect(vi.mocked(saveConfig).mock.lastCall?.[0].features.claudeCodeSessions).toBe(true);
-      expect(wrapper.emitted("setup-saved")).toEqual([[12]]);
-    });
-
-    it("leaves Claude Code off when the option is turned off", async () => {
-      withClaudeFolder(8);
-      await openDirectoryStep();
-      await wrapper.get(claudeSwitch).trigger("click");
-      expect(wrapper.get(claudeSwitch).attributes("aria-checked")).toBe("false");
-      expect((await launch())?.features.claudeCodeSessions).toBe(false);
-      expect(wrapper.getComponent(WizardStepReady).text()).not.toContain("Claude Code");
-    });
-
-    it("keeps Skip on the defaults, which turn Claude Code on when found", async () => {
-      withClaudeFolder(8);
-      await openDirectoryStep();
-      await wrapper.get(claudeSwitch).trigger("click");
-      await wrapper.get(".skip-link").trigger("click");
-      await flushPromises();
-      expect(vi.mocked(saveConfig).mock.lastCall?.[0].features.claudeCodeSessions).toBe(true);
-    });
-
-    it("keeps Claude Code off on Skip when no folder was found", async () => {
-      await mountWizard();
-      await wrapper.get(".skip-link").trigger("click");
-      await flushPromises();
-      expect(vi.mocked(saveConfig).mock.lastCall?.[0].features.claudeCodeSessions).toBe(false);
-    });
   });
 });

@@ -216,6 +216,7 @@ describe("SettingsClaudeCode", () => {
         valid: true,
         sessionCount: 1,
         error: null,
+        missing: false,
       });
       vi.mocked(getClaudeCleanupPeriod).mockResolvedValueOnce({
         state: "set",

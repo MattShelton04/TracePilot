@@ -37,6 +37,7 @@ pub async fn validate_claude_config_dir(path: String) -> CmdResult<ValidateSessi
             valid: false,
             session_count: 0,
             error: Some(error),
+            missing: !std::path::Path::new(&path).exists(),
         };
         let dir = match canonical_claude_config_dir(&path) {
             Ok(dir) => dir,
@@ -47,6 +48,7 @@ pub async fn validate_claude_config_dir(path: String) -> CmdResult<ValidateSessi
                 valid: true,
                 session_count: sessions.len(),
                 error: None,
+                missing: false,
             },
             Err(error) => invalid(error.to_string()),
         })
