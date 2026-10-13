@@ -27,6 +27,7 @@
 | [architecture.md](architecture.md) | Integration styles considered, the provider abstraction, analytics mixing, the Codex stress test |
 | [implementation-plan.md](implementation-plan.md) | Implementation levels, task breakdown, dependencies and parallel lanes, estimates, acceptance criteria, **kickoff** |
 | [record-shapes.md](record-shapes.md) | Synthetic reference of every Claude Code record and file shape, for parser and fixture work |
+| [temp-folder.md](temp-folder.md) | What Claude Code keeps in its temp folder (background output, scratchpad, images, desktop request config), its ~7-day cleanup, and what TracePilot could show from it |
 
 ---
 
