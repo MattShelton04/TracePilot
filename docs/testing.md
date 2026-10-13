@@ -11,7 +11,7 @@ tooling, scripts, and CI status for each.
 | Unit / integration (JS/TS) | Vitest | `apps/**`, `packages/**` (`*.spec.ts`, `*.test.ts`) | ✅ `pnpm test` |
 | Unit / integration (Rust) | `cargo test` | `crates/**` | ✅ `cargo test --workspace --exclude tracepilot-desktop` |
 | Copilot pricing sources and importer | Node test runner + offline drift check | `scripts/pricing/` | ✅ CI workspace test job; locally `pnpm pricing:check` and `pnpm test:pricing` |
-| Copilot live pricing freshness | Network source comparison + trusted PR report | `scripts/pricing/`, `pricing-freshness.yml`, `pricing-report.yml` | ✅ Advisory on every PR; locally `pnpm pricing:freshness`. Never blocks merging; see [pricing CI behavior](pricing-model.md#ci-consistency-and-live-freshness-checks). |
+| Copilot live pricing freshness | Network source comparison + trusted PR report | `scripts/pricing/`, `pricing-freshness.yml`, `pricing-report.yml` | ✅ Advisory on PRs that touch pricing files, weekly on main; locally `pnpm pricing:freshness`. Never blocks merging; see [pricing CI behavior](pricing-model.md#ci-consistency-and-live-freshness-checks). |
 | Component visual regression | Playwright CT | `packages/ui/src/__vrt__/*.vrt.spec.ts` | ❌ on-demand only |
 | Desktop frontend visual comparison | Chromium + synthetic backend fixtures | `scripts/visual/`, `visual-*.yml` workflows | ✅ relevant PRs and main pushes |
 | Desktop integration (installed Tauri app) | Playwright Test + native WebView2/CDP | `tests/e2e/`, `scripts/e2e/test.ps1` | ✅ Windows installer job on PRs and main |
@@ -42,15 +42,45 @@ See the [dependency security reference](dependencies/security.md) for scanner
 scopes, remaining notices, and the separate cargo-deny policy findings.
 
 CI runs its full application coverage on every main push. PRs use the complete
-base-to-merge diff: documentation-only changes skip application builds/tests;
-changes confined to `site/` and documentation retain frontend builds and
-workspace tests but skip desktop tests, Rust, Windows automation/installer and
-the macOS bundle. Shared package, lockfile, workflow, script and unknown-path
-changes run all jobs. Repository policy and live dependency audits always run.
+base-to-merge diff:
+
+- Documentation-only changes skip application builds and tests.
+- Changes confined to `site/` and documentation keep frontend builds and
+  workspace tests but skip desktop tests, Rust, Windows automation/installer and
+  the macOS bundle.
+- Changes that no crate reads (desktop Vue/TS, other packages, `tests/e2e/`,
+  pnpm manifests) skip the three-OS Rust matrix but keep the installer E2E. Crates,
+  `apps/desktop/src-tauri/`, generated bindings, the pricing/model data the crates
+  embed, workflows, scripts and unknown paths run it. A test fails if a crate
+  starts reading a frontend file the classifier treats as Rust-free.
+- Dependency audits run on PRs only when a manifest or lockfile (or `ci.yml`)
+  changes, and always on main pushes and the daily scheduled run. A scheduled
+  run executes only `changes`, `policy`, `security` and `required`, so a new
+  advisory turns main's schedule red instead of every open PR.
+- Repository policy always runs.
+
 The single `required` check verifies that selected jobs succeeded and that
 only unselected jobs were skipped; missing classification, cancellation or
 an unexpected skip fails it. Selection and gate contracts live in
 `scripts/ci/classify-changes.mjs` and its Node test suite.
+
+A new push cancels a PR's in-progress run. Main pushes and scheduled runs each
+get their own concurrency group, so every merge's run finishes; Desktop Visual
+Capture does the same.
+
+The Windows installer job retries once, reusing the built installer, only when
+the first attempt's log shows an app startup timeout (`Startup timed out after`)
+or a CDP attach timeout (`connectOverCDP: Timeout`). Any other failure fails
+immediately, and the retry must pass every journey. Both attempts' logs are in
+the `desktop-e2e-*` artifact, and a retry leaves a workflow warning.
+
+Rust uses the release pinned in `rust-toolchain.toml` locally and in CI (the
+setup action reads it). Bump it in its own PR and fix new Clippy lints there.
+
+Dependabot opens monthly grouped minor/patch PRs and ignores semver-major
+updates, which are planned upgrades. Tauri's npm packages and crates each have
+a `tauri` group on the same schedule; they arrive as two PRs that must merge
+together.
 
 Linux, Windows and macOS each have one main-branch pnpm cache writer. PRs
 restore main caches without saving branch-local entries. Filtered dependency
@@ -68,8 +98,9 @@ the unit suites to avoid recompiling core dependencies between steps.
 
 The security job verifies the checksum of RustSec's pinned cargo-audit binary
 before installation and still refreshes the advisory database on every run.
-The existing audit reporter preserves vulnerability failures and visible
-informational notices, including its log fallback on fork PRs.
+It runs the CLI directly rather than `rustsec/audit-check`, which needed to
+publish a check run and failed on read-only (Dependabot and fork) tokens.
+Vulnerabilities fail the job; informational notices stay in its log.
 
 The policy job checks workflow syntax, expressions and embedded Bash with
 checksum-pinned actionlint 1.7.12 and the runner's ShellCheck, in addition to
@@ -82,7 +113,7 @@ ignored. Remove the narrow exception when updating to a supporting release.
 Dependabot updates action references and package lockfiles, but cannot update
 the cargo-audit, actionlint and cargo-hakari release archives downloaded in
 [`ci.yml`](../.github/workflows/ci.yml). Maintainers should review these
-pins alongside the weekly Dependabot updates and promptly when the advisory
+pins alongside the monthly Dependabot updates and promptly when the advisory
 database reports a scanner-format incompatibility. Keep the version and
 checksum pinned; fetching a floating latest binary would execute an
 unreviewed tool in CI.
@@ -103,8 +134,8 @@ unreviewed tool in CI.
    Verify `cargo audit --version` or `actionlint --version`. Scanner
    installation must still pass checksum validation before execution.
 4. Run the policy lint and remote action-pin checks, then confirm the PR's
-   live security job can read the current advisory database and still uses
-   the RustSec reporting wrapper. Check notices as well as the exit status.
+   live security job can read the current advisory database (the job runs on
+   PRs that change `ci.yml`). Check notices as well as the exit status.
    For actionlint, test whether the new release accepts `concurrency.queue`
    and remove its narrow diagnostic exception only when supported.
 
