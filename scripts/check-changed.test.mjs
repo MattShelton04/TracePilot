@@ -123,6 +123,10 @@ test("script groups run their own node tests with group options", () => {
   assert.ok(steps.some((s) => s.name === "check-scripts-index"));
 });
 
+test("a group README change checks links and the script index, not the group tests", () => {
+  assert.deepEqual(names(["scripts/perf/README.md"]), ["doc links", "check-scripts-index"]);
+});
+
 test("renderer and fixture changes run the fixture and visual contracts", () => {
   const steps = plan(["packages/ui/src/components/renderers/Shell.vue"], {
     deleted: ["scripts/visual/node_modules"],

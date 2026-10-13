@@ -155,7 +155,8 @@ export const RULES = [
   {
     id: "node-tests",
     match: (f) =>
-      /^scripts\//.test(f.path) || /^packages\/ui\/src\/components\/renderers\//.test(f.path),
+      NOT_DOCS(f.path) &&
+      (/^scripts\//.test(f.path) || /^packages\/ui\/src\/components\/renderers\//.test(f.path)),
     steps: (files, ctx) => nodeTestSteps(files, ctx),
   },
   {
