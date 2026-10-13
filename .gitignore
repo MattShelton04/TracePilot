@@ -52,6 +52,13 @@ packages/ui/src/__vrt__/__screenshots__/**/*-diff.png
 
 # Agent planning artifacts
 .agent/
+# Local Claude Code / Codex state (worktrees, settings.local.json, locks).
+# Shared project setup in .claude/ stays tracked.
+**/.claude/*
+!/.claude/settings.json
+!/.claude/commands/
+!/.claude/skills/
+.codex/
 # Generated dependency audit evidence belongs under .agent/dependency-audit/.
 /docs/dependencies/*-graph.json
 /docs/dependencies/measurements.json
