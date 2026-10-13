@@ -3,6 +3,9 @@
 mod catalog;
 pub mod usage;
 
+// Glob re-export so `with_ipc_commands!` can name these as `skills::…`.
+pub use usage::*;
+
 use std::path::Path;
 
 use crate::blocking_cmd;

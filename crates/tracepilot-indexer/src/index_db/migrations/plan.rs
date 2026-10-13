@@ -1,4 +1,10 @@
 //! Index database migration plan and version order.
+//!
+//! Add a migration by appending the next `version` (gaps are allowed, e.g. 12
+//! was retired). Parallel PRs can claim the same number; the
+//! `index_db_plan_is_strictly_monotonic` test fails on duplicates. If yours
+//! clashes after merging main, renumber yours to the next free version: never
+//! renumber one already on main, because installed databases have applied it.
 
 use super::columns::ensure_search_columns;
 use super::sql::{
