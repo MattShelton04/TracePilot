@@ -19,16 +19,11 @@
  * Scope: walks `package.json` under `apps/`, `packages/`, plus the root.
  */
 
-import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { listTrackedFiles } from "./lib/list-tracked-files.mjs";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
-
-function gitFiles() {
-  const out = execSync("git ls-files", { encoding: "utf8", cwd: REPO_ROOT });
-  return out.split(/\r?\n/).filter(Boolean);
-}
 
 // Tiny YAML subset parser for the `catalog:` block in pnpm-workspace.yaml.
 function parseCatalog(yamlPath) {
@@ -56,7 +51,7 @@ function parseCatalog(yamlPath) {
 
 const catalog = parseCatalog(join(REPO_ROOT, "pnpm-workspace.yaml"));
 
-const pkgFiles = gitFiles()
+const pkgFiles = listTrackedFiles(REPO_ROOT)
   .filter((f) => f.endsWith("/package.json") || f === "package.json")
   .filter(
     (f) =>

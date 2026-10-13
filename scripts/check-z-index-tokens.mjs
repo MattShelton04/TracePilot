@@ -13,10 +13,10 @@
  *   node scripts/check-z-index-tokens.mjs --staged
  */
 
-import { execSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
+import { listStagedFiles } from "./lib/list-tracked-files.mjs";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
 const ROOT = `apps${sep}desktop${sep}src`;
@@ -52,14 +52,6 @@ const ALLOW_FILES = new Set([
 
 const RE = /(^|[^a-z-])z-index\s*:\s*([^;]+);/gi;
 
-function gitStaged() {
-  const out = execSync("git diff --cached --name-only --diff-filter=ACMR", {
-    encoding: "utf8",
-    cwd: REPO_ROOT,
-  });
-  return out.split(/\r?\n/).filter(Boolean);
-}
-
 function walk(dir, out) {
   for (const name of readdirSync(dir)) {
     if (SKIP_DIRS.has(name)) continue;
@@ -71,8 +63,10 @@ function walk(dir, out) {
 }
 
 function collectFiles(staged) {
-  if (staged) {
-    return gitStaged()
+  // Without Git (sandboxed spawn), fall back to the full tree.
+  const stagedFiles = staged ? listStagedFiles(REPO_ROOT) : null;
+  if (stagedFiles) {
+    return stagedFiles
       .filter((f) => f.startsWith("apps/desktop/src/"))
       .filter((f) => EXTS.has(f.slice(f.lastIndexOf("."))))
       .map((f) => join(REPO_ROOT, f.replaceAll("/", sep)));
