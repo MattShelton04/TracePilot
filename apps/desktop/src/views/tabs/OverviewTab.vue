@@ -390,6 +390,7 @@ function retryLoadSection(section: string) {
       :checkpoints="capabilities.hasCheckpoints ? (detail.checkpointCount ?? 0) : null"
       :file-snapshots="store.fileHistory.length"
       :cost="cost"
+      :metrics-status="outcomeStatus.metrics"
     />
 
 

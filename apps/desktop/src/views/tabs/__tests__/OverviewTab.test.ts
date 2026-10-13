@@ -346,6 +346,10 @@ it("doesn't report an empty outcome before the overview's sections have loaded",
   expect(shown.card).toContain("Loading incidents");
   expect(shown.card).not.toContain("No incidents recorded");
   expect(shown.card).not.toMatch(/\d/);
+  const kpis = () => wrapper.get('[data-testid="overview-kpis"]').text();
+  expect(kpis()).toContain("Loading model timing…");
+  expect(kpis()).not.toContain("No model timing recorded");
+  expect(kpis()).not.toContain("No code changes recorded");
 
   store.loaded = new Set(ALL_SECTIONS);
   await wrapper.vm.$nextTick();
@@ -357,6 +361,8 @@ it("doesn't report an empty outcome before the overview's sections have loaded",
   expect(shown.time).toContain("No model timing recorded");
   expect(shown.card).toContain("No incidents recorded for this session.");
   expect(shown.card).toContain("0");
+  expect(kpis()).toContain("No model timing recorded");
+  expect(kpis()).toContain("No code changes recorded");
   wrapper.unmount();
 });
 
